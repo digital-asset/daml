@@ -77,7 +77,8 @@ private[events] object EventsTable {
     SharedRow ~ Boolean ~ String ~ InputStream ~ Option[Int] ~ Option[InputStream] ~ Option[Int] ~
       Array[String] ~ Array[String]
 
-  val exercisedEventRow: RowParser[ExercisedEventRow] =
+  val exercisedEventRow: RowParser[ExercisedEventRow] = {
+    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
     sharedRow ~
       bool("exercise_consuming") ~
       str("exercise_choice") ~
@@ -87,7 +88,7 @@ private[events] object EventsTable {
       int("exercise_result_compression").? ~
       array[String]("exercise_actors") ~
       array[String]("exercise_child_event_ids")
-
+  }
   type ArchiveEventRow = SharedRow
 
   val archivedEventRow: RowParser[ArchiveEventRow] = sharedRow
@@ -100,6 +101,7 @@ private[events] object EventsTable {
     dbType match {
       case DbType.Postgres => EventsTablePostgresql(idempotentInserts)
       case DbType.H2Database => EventsTableH2Database
+      case DbType.Oracle => EventsTableOracle
     }
 
   final case class Entry[+E](

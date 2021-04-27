@@ -41,7 +41,6 @@ def install_java_deps():
             "com.auth0:jwks-rsa:0.11.0",
             "com.chuusai:shapeless_{}:2.3.3".format(scala_major_version),
             "com.github.ben-manes.caffeine:caffeine:2.8.0",
-            "com.github.ghik:silencer-lib_{}:1.7.1".format(scala_version),
             "com.github.ghik:silencer-plugin_{}:1.7.1".format(scala_version),
             "com.github.pureconfig:pureconfig_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-core_{}:0.14.0".format(scala_major_version),

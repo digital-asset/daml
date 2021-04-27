@@ -46,8 +46,8 @@ da_scala_library(
     name = "daml-lf-codegen-sample-app",
     srcs = [":MyMain.srcjar"] + glob(["src/main/**/*.scala"]),
     plugins = [
-        silencer_plugin,
         "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        silencer_plugin,
     ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",

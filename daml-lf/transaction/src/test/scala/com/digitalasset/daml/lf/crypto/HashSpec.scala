@@ -14,11 +14,12 @@ import shapeless.record.{Record => HRecord}
 import shapeless.syntax.singleton._
 import shapeless.{Coproduct => HSum}
 
+import scala.annotation.nowarn
 import scala.language.implicitConversions
 
 class HashSpec extends AnyWordSpec with Matchers {
 
-  @com.github.ghik.silencer.silent("dead code following this construct")
+  @nowarn("msg=dead code following this construct")
   private implicit val ordNo: scalaz.Order[Nothing] = (a, _) => a // principle of explosion
 
   private val packageId0 = Ref.PackageId.assertFromString("package")

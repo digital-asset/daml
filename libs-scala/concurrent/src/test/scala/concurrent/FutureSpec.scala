@@ -3,15 +3,15 @@
 
 package com.daml.concurrent
 
-import scala.{concurrent => sc}
-
-import com.github.ghik.silencer.silent
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import shapeless.test.illTyped
 
+import scala.annotation.nowarn
+import scala.{concurrent => sc}
+
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-@silent("local method example")
+@nowarn("msg=local method example .* is never used")
 class FutureSpec extends AnyWordSpec with Matchers {
   import ExecutionContextSpec._
 

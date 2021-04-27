@@ -5,16 +5,16 @@ package com.daml.ledger.client.binding
 
 import java.time.{Instant, LocalDate}
 
-import com.github.ghik.silencer.silent
+import com.daml.ledger.client.binding.{Primitive => P}
 import org.scalacheck.Gen
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import scala.collection.compat._
-import scala.collection.immutable.Map
 import shapeless.test.illTyped
 
-import com.daml.ledger.client.binding.{Primitive => P}
+import scala.annotation.nowarn
+import scala.collection.compat._
+import scala.collection.immutable.Map
 
 class PrimitiveSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
   import PrimitiveSpec._
@@ -59,7 +59,7 @@ class PrimitiveSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPrope
     }
 
     "prove MIN, MAX are valid" in {
-      import P.Date.{MIN, MAX}
+      import P.Date.{MAX, MIN}
       P.Date.fromLocalDate(MIN: LocalDate) shouldBe Some(MIN)
       P.Date.fromLocalDate(MAX: LocalDate) shouldBe Some(MAX)
     }
@@ -78,7 +78,7 @@ class PrimitiveSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPrope
     }
 
     "prove MIN, MAX are valid" in {
-      import P.Timestamp.{MIN, MAX}
+      import P.Timestamp.{MAX, MIN}
       P.Timestamp.discardNanos(MIN: Instant) shouldBe Some(MIN)
       P.Timestamp.discardNanos(MAX: Instant) shouldBe Some(MAX)
     }
@@ -129,6 +129,7 @@ class PrimitiveSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPrope
 
     ".map" should {
       import org.scalatest.matchers.dsl.ResultOfATypeInvocation
+
       import scala.collection.immutable.{HashMap, ListMap}
       Seq[(ResultOfATypeInvocation[_ <: Map[_, _]], GenMap[Int, Int])](
         a[HashMap[_, _]] -> HashMap(1 -> 2),
@@ -163,6 +164,6 @@ object PrimitiveSpec {
   private def ofType[T]: Proxy[T] = new Proxy(())
   // as a rule, the *singleton* type ac.type will not be ~ Ex; we are interested
   // in what expression `ac` infers to *absent context*.
-  @silent("parameter value (ex|ac|ev) .* is never used")
+  @nowarn("msg=parameter value (ex|ac|ev) .* is never used")
   private def isExactly[Ac, Ex](ac: Ac, ex: Proxy[Ex])(implicit ev: Ac =:= Ex): Unit = ()
 }

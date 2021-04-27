@@ -22,6 +22,7 @@ private[appendonlydao] object SqlFunctions {
   def apply(dbType: DbType): SqlFunctions = dbType match {
     case DbType.Postgres => PostgresSqlFunctions
     case DbType.H2Database => H2SqlFunctions
+    case DbType.Oracle => throw new NotImplementedError("not yet supported")
   }
 
   object PostgresSqlFunctions extends SqlFunctions {

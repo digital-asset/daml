@@ -22,7 +22,9 @@ import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
-@com.github.ghik.silencer.silent(" config .* is never used") // possibly used in overrides
+import scala.annotation.nowarn
+
+@nowarn("msg=parameter value config .* is never used") // possibly used in overrides
 trait ConfigProvider[ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
 

@@ -24,6 +24,9 @@ load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
 da_scala_library(
     name = "kvutils",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
@@ -34,7 +37,6 @@ da_scala_library(
     scalacopts = [
         "-P:silencer:lineContentFilters=import scala.collection.compat",
     ],
-    silent_annotations = True,
     tags = ["maven_coordinates=com.daml:participant-state-kvutils:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -77,7 +79,9 @@ da_scala_library(
         "src/test/lib/scala/**/*.scala",
         "src/test/lib/{}/**/*.scala".format(scala_major_version),
     ]),
-    plugins = [silencer_plugin],
+    plugins = [
+        silencer_plugin,
+    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
@@ -135,6 +139,9 @@ da_scala_test_suite(
     data = [
         "//ledger/test-common:model-tests-stable.dar",
     ],
+    plugins = [
+        silencer_plugin,
+    ],
     resources = glob(["src/test/resources/*"]),
     scala_deps = [
         "@maven//:org_scala_lang_modules_scala_collection_compat",
@@ -148,7 +155,6 @@ da_scala_test_suite(
     scalacopts = [
         "-P:silencer:lineContentFilters=import scala.collection.compat",
     ],
-    silent_annotations = True,
     deps = [
         ":daml_kvutils_proto_java",
         ":kvutils",

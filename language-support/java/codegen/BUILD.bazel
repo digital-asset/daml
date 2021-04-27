@@ -42,7 +42,9 @@ da_scala_binary(
 da_scala_library(
     name = "lib",
     srcs = glob(["src/main/**/*.scala"]),
-    plugins = [silencer_plugin],
+    plugins = [
+        silencer_plugin,
+    ],
     resources = [
         "src/main/resources/logback.xml",
     ],

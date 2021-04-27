@@ -17,7 +17,6 @@ import com.daml.lf.transaction.Node.{
   NodeRollback,
 }
 import com.daml.lf.transaction.{
-  BlindingInfo,
   GenTransaction,
   NodeId,
   TransactionVersion,
@@ -552,20 +551,6 @@ object ValueGenerators {
       }
     } yield VersionedTransaction(txVer, nodes, tx.roots)
 
-  }
-
-  val genBlindingInfo: Gen[BlindingInfo] = {
-    val nodePartiesGen = Gen.mapOf(
-      arbitrary[Int]
-        .map(NodeId(_))
-        .flatMap(n => genMaybeEmptyParties.map(ps => (n, ps)))
-    )
-    for {
-      disclosed <- nodePartiesGen
-      divulged <- Gen.mapOf(
-        cidV0Gen.flatMap(c => genMaybeEmptyParties.map(ps => (c: ContractId) -> ps))
-      )
-    } yield BlindingInfo(disclosed, divulged)
   }
 
   def stringVersionGen: Gen[String] = {

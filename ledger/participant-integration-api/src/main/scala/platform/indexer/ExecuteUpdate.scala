@@ -61,7 +61,7 @@ object ExecuteUpdate {
       loggingContext: LoggingContext,
   ): ResourceOwner[ExecuteUpdate] =
     dbType match {
-      case DbType.Postgres =>
+      case DbType.Postgres | DbType.Oracle =>
         PipelinedExecuteUpdate.owner(
           ledgerDao,
           metrics,

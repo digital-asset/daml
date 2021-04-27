@@ -241,7 +241,8 @@ jobs:
         bazel test --//:oracle_testing=yes \
           --test_env ORACLE_USERNAME=system --test_env ORACLE_PORT --test_env ORACLE_PWD \
           //ledger-service/http-json-oracle/... \
-          //triggers/service:test-oracle
+          //triggers/service:test-oracle \
+          //ledger/participant-integration-api:participant-integration-api-tests-oracle
       env:
         DOCKER_LOGIN: $(DOCKER_LOGIN)
         DOCKER_PASSWORD: $(DOCKER_PASSWORD)

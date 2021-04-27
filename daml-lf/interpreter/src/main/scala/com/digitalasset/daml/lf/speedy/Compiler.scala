@@ -16,10 +16,9 @@ import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
-import com.github.ghik.silencer.silent
 import org.slf4j.LoggerFactory
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.reflect.ClassTag
 
 /** Compiles LF expressions into Speedy expressions.
@@ -1421,7 +1420,7 @@ private[lf] final class Compiler(
     expr0
   }
 
-  @silent("parameter value tokenPos in method compileFetchBody is never used")
+  @nowarn("msg=parameter value tokenPos in method compileFetchBody is never used")
   private[this] def compileFetchBody(tmplId: Identifier, tmpl: Template)(
       cidPos: Position,
       mbKey: Option[Position], //defined for byKey operation

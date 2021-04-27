@@ -40,7 +40,6 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = scalacopts,
-    silent_annotations = True,
     deps = [
         ":concurrent",
     ],

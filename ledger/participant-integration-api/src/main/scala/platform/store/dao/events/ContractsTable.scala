@@ -34,7 +34,7 @@ private[events] abstract class ContractsTable extends PostCommitValidationData {
     batch(deleteContractQuery, deletes)
   }
 
-  override final def lookupContractKeyGlobally(
+  override def lookupContractKeyGlobally(
       key: Key
   )(implicit connection: Connection): Option[ContractId] =
     SQL"select participant_contracts.contract_id from participant_contracts where create_key_hash = ${key.hash}"
@@ -74,6 +74,7 @@ private[events] object ContractsTable {
     dbType match {
       case DbType.Postgres => ContractsTablePostgres
       case DbType.H2Database => ContractsTableH2
+      case DbType.Oracle => ContractsTableOracle
     }
 
   private def emptyContractIds: Throwable =

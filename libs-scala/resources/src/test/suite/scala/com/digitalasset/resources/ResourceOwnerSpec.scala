@@ -13,10 +13,10 @@ import com.daml.resources.FailingResourceOwner.{
 }
 import com.daml.resources.{Resource => AbstractResource}
 import com.daml.timer.Delayed
-import com.github.ghik.silencer.silent
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future, Promise}
@@ -204,7 +204,9 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       val ownerA = TestResourceOwner(99)
       val ownerB = TestResourceOwner(100)
 
-      @silent(" resourceA .* is never used") // stray reference inserted by withFilter
+      @nowarn(
+        "msg=parameter value resourceA .* is never used"
+      ) // stray reference inserted by withFilter
       val resource = for {
         resourceA <- ownerA.acquire()
         if false

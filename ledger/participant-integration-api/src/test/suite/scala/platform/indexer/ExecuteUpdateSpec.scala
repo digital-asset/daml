@@ -183,6 +183,15 @@ final class ExecuteUpdateSpec
         }
       }
     }
+
+    "called with Oracle type" should {
+      s"return a ${classOf[PipelinedExecuteUpdate]}" in {
+        executeUpdateOwner(DbType.Oracle).use {
+          case _: PipelinedExecuteUpdate => succeed
+          case other => fail(s"Unexpected ${other.getClass.getSimpleName}")
+        }
+      }
+    }
   }
 
   "prepareUpdate" when {

@@ -7,7 +7,6 @@ load(
     "da_scala_test_suite",
     "lf_scalacopts",
 )
-load("//bazel_tools:scala.bzl", "silencer_plugin")
 
 da_scala_library(
     name = "kv-transaction-support",

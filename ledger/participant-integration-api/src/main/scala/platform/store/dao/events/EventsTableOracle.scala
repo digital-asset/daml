@@ -10,9 +10,9 @@ import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.{EventId, TransactionId}
 import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo, WorkflowId}
 import com.daml.platform.store.Conversions._
-import com.daml.platform.store.JdbcArrayConversions.StringArrayParameterMetadata
+import com.daml.platform.store.OracleArrayConversions._
 
-object EventsTableH2Database extends EventsTable {
+object EventsTableOracle extends EventsTable {
 
   final class Batches(insertEvents: Option[BatchSql], updateArchives: Option[BatchSql])
       extends EventsTable.Batches {
@@ -54,7 +54,11 @@ object EventsTableH2Database extends EventsTable {
       "exercise_actors" -> "{exercise_actors}",
       "exercise_child_event_ids" -> "{exercise_child_event_ids}",
     ).unzip
-    s"insert into participant_events(${columns.mkString(", ")}) values (${values.mkString(", ")})"
+    s"""insert
+       |/*+ ignore_row_on_dupkey_index(participant_events(event_id)) */
+       |into participant_events(${columns.mkString(", ")}) values (${values.mkString(
+      ", "
+    )})""".stripMargin
   }
 
   private def transaction(

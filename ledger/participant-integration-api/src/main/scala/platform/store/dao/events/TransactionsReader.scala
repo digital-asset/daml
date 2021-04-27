@@ -327,7 +327,7 @@ private[dao] final class TransactionsReader(
     dispatcher
       .executeSql(dbMetrics.getAcsEventSeqIdRange)(implicit connection =>
         QueryNonPruned.executeSql(
-          EventsRange.readEventSeqIdRange(activeAt)(connection),
+          EventsRange.readEventSeqIdRange(activeAt, dbType)(connection),
           activeAt,
           pruned =>
             s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",
@@ -348,7 +348,9 @@ private[dao] final class TransactionsReader(
     dispatcher
       .executeSql(dbMetrics.getEventSeqIdRange)(implicit connection =>
         QueryNonPruned.executeSql(
-          EventsRange.readEventSeqIdRange(EventsRange(startExclusive, endInclusive))(connection),
+          EventsRange.readEventSeqIdRange(EventsRange(startExclusive, endInclusive), dbType)(
+            connection
+          ),
           startExclusive,
           pruned =>
             s"Transactions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
