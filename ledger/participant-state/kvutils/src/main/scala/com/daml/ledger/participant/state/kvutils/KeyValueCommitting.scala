@@ -225,8 +225,12 @@ object KeyValueCommitting {
       node.getNodeTypeCase match {
 
         case TransactionOuterClass.Node.NodeTypeCase.ROLLBACK =>
-          // TODO https://github.com/digital-asset/daml/issues/8020
-          sys.error("rollback nodes are not supported")
+        // Rollback nodes itself do not produce any outputs. However, children
+        // of rollback nodes potentially will, e.g., divulgence.
+        // At the moment, we overapproximate and treat
+        // a node the same regardless of whether it was under a rollback node.
+        // This matches the treatment of transient contracts which could also
+        // be trimmed from the output.
 
         case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
           val protoCreate = node.getCreate
