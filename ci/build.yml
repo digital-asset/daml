@@ -212,8 +212,6 @@ jobs:
     - bash: |
         set -euo pipefail
         eval "$(./dev-env/bin/dade-assist)"
-        export ORACLE_PORT=1521
-        export ORACLE_PWD=hunter2
         docker login --username "$DOCKER_LOGIN" --password "$DOCKER_PASSWORD"
         IMAGE=digitalasset/oracle:enterprise-19.3.0-preloaded-20210325-22-be14fb7
         docker pull $IMAGE
@@ -230,7 +228,7 @@ jobs:
         }
         trap cleanup EXIT
         testConnection() {
-            docker exec oracle bash -c 'sqlplus -L system/'"$ORACLE_PWD"'@//localhost:1521/ORCLPDB1 <<< "select * from dba_users;"; exit $?' >/dev/null
+            docker exec oracle bash -c 'sqlplus -L system/'"$ORACLE_PWD"'@//localhost:'"$ORACLE_PORT"'/ORCLPDB1 <<< "select * from dba_users;"; exit $?' >/dev/null
         }
         until testConnection
         do
@@ -238,8 +236,8 @@ jobs:
           sleep 1
         done
         # Actually run some tests
-        DAML_ORACLE_TESTING=true bazel test \
-          --test_env ORACLE_USERNAME=system --test_env ORACLE_PORT --test_env ORACLE_PWD \
+        bazel test \
+          --config=oracle \
           //ledger-service/http-json-oracle/... \
           //triggers/service:test-oracle \
           //ledger/participant-integration-api:participant-integration-api-tests-oracle
