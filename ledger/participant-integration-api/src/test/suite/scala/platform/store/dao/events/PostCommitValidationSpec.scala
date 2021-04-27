@@ -208,6 +208,86 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
       }
 
+      "accept a create in a rollback node" in {
+        val createContract = genTestCreate()
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(createContract, rollback)
+
+        val error = store.validate(
+          transaction = builder.buildCommitted(),
+          transactionLedgerEffectiveTime = Instant.now(),
+          divulged = Set.empty,
+        )
+
+        error shouldBe None
+      }
+
+      "accept a create after a rolled back create with the same key" in {
+        val createContract = genTestCreate()
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(createContract, rollback)
+        builder.add(createContract)
+
+        val error = store.validate(
+          transaction = builder.buildCommitted(),
+          transactionLedgerEffectiveTime = Instant.now(),
+          divulged = Set.empty,
+        )
+
+        error shouldBe None
+      }
+
+      "reject a create in a rollback after a create with the same key" in {
+        val createContract = genTestCreate()
+        val builder = TxBuilder()
+        builder.add(createContract)
+        val rollback = builder.add(builder.rollback())
+        builder.add(createContract, rollback)
+
+        val error = store.validate(
+          transaction = builder.buildCommitted(),
+          transactionLedgerEffectiveTime = Instant.now(),
+          divulged = Set.empty,
+        )
+
+        error shouldBe Some(DuplicateKey)
+      }
+
+      "reject a create after a rolled back archive of a contract with the same key" in {
+        val createContract = genTestCreate()
+        val builder = TxBuilder()
+        builder.add(createContract)
+        val rollback = builder.add(builder.rollback())
+        builder.add(genTestExercise(createContract), rollback)
+        builder.add(createContract)
+
+        val error = store.validate(
+          transaction = builder.buildCommitted(),
+          transactionLedgerEffectiveTime = Instant.now(),
+          divulged = Set.empty,
+        )
+
+        error shouldBe Some(DuplicateKey)
+      }
+
+      "accept a failed lookup in a rollback" in {
+        val createContract = genTestCreate()
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(builder.lookupByKey(createContract, found = false), rollback)
+
+        val error =
+          store.validate(
+            transaction = builder.buildCommitted(),
+            transactionLedgerEffectiveTime = Instant.now(),
+            divulged = Set.empty,
+          )
+
+        error shouldBe None
+      }
+
     }
 
     "run with one committed contract with a key" should {
@@ -338,6 +418,73 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
       }
 
+      "reject a create in a rollback" in {
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(committedContract, rollback)
+
+        val error =
+          store.validate(
+            transaction = builder.buildCommitted(),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            divulged = Set.empty,
+          )
+
+        error shouldBe Some(DuplicateKey)
+      }
+
+      "reject a failed lookup in a rollback" in {
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(builder.lookupByKey(committedContract, found = false), rollback)
+
+        val error =
+          store.validate(
+            transaction = builder.buildCommitted(),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            divulged = Set.empty,
+          )
+
+        error shouldBe Some(
+          MismatchingLookup(
+            result = Some(committedContract.coid),
+            expectation = None,
+          )
+        )
+
+      }
+
+      "accept a successful lookup in a rollback" in {
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(builder.lookupByKey(committedContract, found = true), rollback)
+
+        val error =
+          store.validate(
+            transaction = builder.buildCommitted(),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            divulged = Set.empty,
+          )
+
+        error shouldBe None
+
+      }
+
+      "reject a create after a rolled back archive" in {
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(genTestExercise(committedContract), rollback)
+        builder.add(committedContract)
+
+        val error =
+          store.validate(
+            transaction = builder.buildCommitted(),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            divulged = Set.empty,
+          )
+        error shouldBe Some(DuplicateKey)
+
+      }
     }
 
     "run with one divulged contract" should {
@@ -392,6 +539,20 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         val error =
           store.validate(
             transaction = TxBuilder.justCommitted(createWithKey),
+            transactionLedgerEffectiveTime = Instant.now(),
+            divulged = Set.empty,
+          )
+
+        error shouldBe Some(RejectionReason.PartyNotKnownOnLedger("Some parties are unallocated"))
+      }
+      "reject if party is used in rollback" in {
+        val createWithKey = genTestCreate()
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(createWithKey, rollback)
+        val error =
+          store.validate(
+            transaction = builder.buildCommitted(),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
