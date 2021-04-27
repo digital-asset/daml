@@ -10,7 +10,11 @@ import com.daml.ledger.participant.state.v1.{
   CommandId,
   TransactionMeta,
 }
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlCommandDedupKey}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlStateKey,
+  DamlSubmission,
+  DamlCommandDedupKey,
+}
 import com.daml.lf.crypto
 import com.daml.lf.data.Time
 import com.daml.lf.data.Ref.{Party, Identifier}
@@ -30,7 +34,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
   private val alice = Party.assertFromString("Alice")
   private val commandId = CommandId.assertFromString("cmdid")
 
-  private def toSubmission(tx: SubmittedTransaction) = {
+  private def toSubmission(tx: SubmittedTransaction): DamlSubmission = {
     val timestamp = Time.Timestamp.assertFromInstant(Instant.EPOCH)
     val meta = TransactionMeta(
       ledgerEffectiveTime = timestamp,
@@ -54,8 +58,8 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
     )
   }
 
-  def getOutputs(builder: TransactionBuilder) =
-    KeyValueCommitting.submissionOutputs(toSubmission(builder.buildSubmitted()))
+  def toSubmission(builder: TransactionBuilder): DamlSubmission =
+    this.toSubmission(builder.buildSubmitted())
 
   val dedupKey = DamlStateKey.newBuilder
     .setCommandDedup(
@@ -106,7 +110,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
       val createNode = create(builder, "#1")
       builder.add(createNode)
       val key = contractIdToStateKey(createNode.coid)
-      getOutputs(builder) shouldBe Set(
+      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(
         dedupKey,
         key,
       )
@@ -118,7 +122,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
       builder.add(createNode)
       val contractIdKey = contractIdToStateKey(createNode.coid)
       val contractKeyKey = contractKeyToStateKey(templateId, keyValue)
-      getOutputs(builder) shouldBe Set(
+      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(
         dedupKey,
         contractIdKey,
         contractKeyKey,
@@ -132,7 +136,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
       builder.add(exercise(builder, "#1"))
       val contractIdKey = contractIdToStateKey(createNode.coid)
       val contractKeyKey = contractKeyToStateKey(templateId, keyValue)
-      getOutputs(builder) shouldBe Set(
+      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(
         dedupKey,
         contractIdKey,
         contractKeyKey,
@@ -144,7 +148,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
       val exerciseNode = exercise(builder, "#1")
       builder.add(exerciseNode)
       val contractIdKey = contractIdToStateKey(exerciseNode.targetCoid)
-      getOutputs(builder) shouldBe Set(
+      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(
         dedupKey,
         contractIdKey,
       )
@@ -156,7 +160,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
       builder.add(exerciseNode)
       val contractIdKey = contractIdToStateKey(exerciseNode.targetCoid)
       val contractKeyKey = contractKeyToStateKey(templateId, keyValue)
-      getOutputs(builder) shouldBe Set(
+      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(
         dedupKey,
         contractIdKey,
         contractKeyKey,
@@ -169,7 +173,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
       val fetchNode2 = fetch(builder, "#2", byKey = false)
       builder.add(fetchNode1)
       builder.add(fetchNode2)
-      getOutputs(builder) shouldBe Set(
+      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(
         dedupKey,
         contractIdToStateKey(fetchNode1.coid),
         contractIdToStateKey(fetchNode2.coid),
@@ -179,14 +183,14 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
     "return no output for a failing lookup-by-key" in {
       val builder = TransactionBuilder()
       builder.add(lookup(builder, "#1", found = false))
-      getOutputs(builder) shouldBe Set(dedupKey)
+      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(dedupKey)
 
     }
 
     "return no output for a successful lookup-by-key" in {
       val builder = TransactionBuilder()
       builder.add(lookup(builder, "#1", found = true))
-      getOutputs(builder) shouldBe Set(dedupKey)
+      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(dedupKey)
     }
 
     "return outputs for nodes under a rollback node" in {
@@ -198,7 +202,7 @@ class KeyValueCommitingSpec extends AnyWordSpec with Matchers {
       builder.add(exerciseNode, rollback)
       val fetchNode = fetch(builder, "#3", byKey = true)
       builder.add(fetchNode, rollback)
-      getOutputs(builder) shouldBe Set(
+      KeyValueCommitting.submissionOutputs(toSubmission(builder)) shouldBe Set(
         dedupKey,
         contractIdToStateKey(createNode.coid),
         contractKeyToStateKey(templateId, keyValue),
