@@ -120,6 +120,29 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       }
   }
 
+  /** TODO (MK) Temporary for snapshot & restore PoC. Remove or test & document before merging.
+    */
+  def submitFetch(
+      submitters: Set[Party],
+      templateId: Ref.Identifier,
+      cid: Value.ContractId,
+      ledgerTime: Time.Timestamp,
+      participantId: ParticipantId,
+      submissionSeed: crypto.Hash,
+  ): Result[NodeFetch[Value.ContractId]] = {
+    interpretCommands(
+      validating = false,
+      submitters = submitters,
+      commands = ImmArray(speedy.Command.Fetch(templateId, speedy.SValue.SContractId(cid))),
+      ledgerTime = ledgerTime,
+      submissionTime = ledgerTime,
+      seeding = Engine.initialSeeding(submissionSeed, participantId, ledgerTime),
+      Set(cid),
+    ).map { case (tx, _) =>
+      tx.nodes(tx.roots(0)).asInstanceOf[NodeFetch[Value.ContractId]]
+    }
+  }
+
   /** Behaves like `submit`, but it takes a GenNode argument instead of a Commands argument.
     * That is, it can be used to reinterpret partially an already interpreted transaction (since it consists of GenNodes).
     *

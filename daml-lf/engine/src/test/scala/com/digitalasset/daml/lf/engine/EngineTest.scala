@@ -2290,6 +2290,68 @@ class EngineTest
     }
   }
 
+  "submitFetch" should {
+    import com.daml.lf.language.LanguageVersion
+    val engine = new Engine(EngineConfig(LanguageVersion.StableVersions))
+    val withKeyId =
+      Identifier(basicTestsPkgId, QualifiedName.assertFromString("BasicTests:WithKey"))
+    val cid = ContractId.assertFromString("#1")
+    // Version is irrelevant
+    val dummyVersion: TxVersions = null
+    val contractInst = ContractInst(
+      template = withKeyId,
+      arg = Value.VersionedValue(
+        version = dummyVersion,
+        Value.ValueRecord(
+          None,
+          ImmArray((None, Value.ValueParty(alice)), (None, Value.ValueInt64(0))),
+        ),
+      ),
+      // Engine does not care about silly agreement texts
+      agreementText = "",
+    )
+    "do something (tm)" in {
+      val r = engine
+        .submitFetch(
+          submitters = Set(alice),
+          templateId = withKeyId,
+          cid = cid,
+          ledgerTime = Time.Timestamp.Epoch,
+          participantId = participant,
+          submissionSeed = hash("lol"),
+        )
+        .consume(_ => Some(contractInst), lookupPackage, _ => None, allKeysVisible)
+      r shouldBe Right(
+        Node.NodeFetch(
+          coid = cid,
+          templateId = withKeyId,
+          optLocation = None,
+          actingParties = Set(alice),
+          signatories = Set(alice),
+          stakeholders = Set(alice),
+          byKey = false,
+          version = TxVersions.V12,
+          key = Some(
+            Node.KeyWithMaintainers(
+              key = Value.ValueRecord(
+                Some(
+                  Identifier.assertFromString(
+                    "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7:DA.Types:Tuple2"
+                  )
+                ),
+                ImmArray(
+                  (Some(Name.assertFromString("_1")), Value.ValueParty(alice)),
+                  (Some(Name.assertFromString("_2")), Value.ValueInt64(0)),
+                ),
+              ),
+              maintainers = Set(alice),
+            )
+          ),
+        )
+      )
+    }
+  }
+
   "Engine.preloadPackage" should {
 
     import com.daml.lf.language.{LanguageVersion => LV}
