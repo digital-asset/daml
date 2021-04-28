@@ -84,6 +84,11 @@ class DarReaderTest
         "GHC.Err",
         "GHC.Base",
         "LibraryModules",
+        "DA.Internal.Exception.Types",
+          // TODO: https://github.com/digital-asset/daml/issues/8020
+          //   The module DA.Internal.Exception.Types should only be here for
+          //   pre-exception LF versions. After exception are released, this
+          //   module becomes a stable package, so it can removed from this list.
       )
     }
   }
