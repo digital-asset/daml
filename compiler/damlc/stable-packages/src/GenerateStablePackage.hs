@@ -586,6 +586,8 @@ daInternalPromotedText = package version1_6 $ NM.singleton Module
 daInternalError :: Package
 daInternalError = Package
     { packageLfVersion = versionDev
+        -- TODO https://github.com/digital-asset/daml/issues/8020
+        --  Update to first version with exceptions.
     , packageModules = NM.singleton Module
         { moduleName = modName
         , moduleSource = Nothing
