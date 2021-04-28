@@ -2832,20 +2832,15 @@ as described by the ledger model::
     act
       ::= 'create' Contract
        |  'exercise' v Contract ChKind tr  -- v must be of type 'List' 'Party'
-       |  'rollback' @τ v itr   -- v must be a value of exception type τ
+
+  Ledger transaction nodes
+    trnode
+      ::= act
+       | 'rollback' tr
 
   Ledger transactions
     tr
-      ::= act₁ · … · actₙ
-
-  Incomplete ledger actions
-    iact
-      ::= 'iexercise' v Contract ChKind itr  -- v must be of type 'List' 'Party'
-
-  Incomplete ledger transactions
-    itr
-      ::= tr
-       |  tr · iact
+      ::= trnode₁ · … · trnodeₙ
 
   Contract states
     ContractState
@@ -2863,7 +2858,7 @@ as described by the ledger model::
 
   Update result
     ur ::= (Ok v, tr) ‖ S
-        |  (Err @τ v, itr)     -- v must be a value of exception type τ
+        |  (Err @τ v, tr)     -- v must be a value of exception type τ
 
                                     ┌──────────────┐
   Big-step update interpretation    │ u ‖ S₀ ⇓ᵤ ur │  (u is an update value)
@@ -2872,9 +2867,9 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdPure
      'pure' v ‖ (st, keys)  ⇓ᵤ  (Ok v, ε) ‖ (st, keys)
 
-     u₁ ‖ S₀  ⇓ᵤ  (Err @τ' v, itr)
+     u₁ ‖ S₀  ⇓ᵤ  (Err @τ' v, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdBindErr1
-     'bind' x : τ ← u₁ ; e₂ ‖ S₀  ⇓ᵤ  (Err @τ' v, itr)
+     'bind' x : τ ← u₁ ; e₂ ‖ S₀  ⇓ᵤ  (Err @τ' v, tr)
 
      u₁ ‖ S₀  ⇓ᵤ  (Ok v₁, tr₁) ‖ S₁
      e₂[x ↦ v₁]  ⇓  Err @τ' v₂
@@ -2883,9 +2878,9 @@ as described by the ledger model::
 
      u₁ ‖ S₀  ⇓ᵤ  (Ok v₁, tr₁) ‖ S₁
      e₂[x ↦ v₁]  ⇓  Ok u₂
-     u₂ ‖ S₁  ⇓ᵤ  (Err @τ' v₂, itr₂)
+     u₂ ‖ S₁  ⇓ᵤ  (Err @τ' v₂, tr₂)
    —————————————————————————————————————————————————————————————————————— EvUpdBindErr3
-     'bind' x : τ ← u₁ ; e₂ ‖ S₀  ⇓ᵤ  (Err @τ' v₂, tr₁ ⋅ itr₂)
+     'bind' x : τ ← u₁ ; e₂ ‖ S₀  ⇓ᵤ  (Err @τ' v₂, tr₁ ⋅ tr₂)
 
      u₁ ‖ S₀  ⇓ᵤ  Ok (v₁, tr₁) ‖ S₁
      e₂[x ↦ v₁]  ⇓  Ok u₂
@@ -3059,7 +3054,7 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdExercBodyEvalErr
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
-     (Err @τ v, 'iexercise' v₁ (cid, Mod:T, vₜ) ChKind ε)
+     (Err @τ v, 'exercise' v₁ (cid, Mod:T, vₜ) ChKind ε)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
@@ -3071,11 +3066,11 @@ as described by the ledger model::
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
      keys₁ = keys₀ - keys₀⁻¹(cid)
      st₁ = st₀[cid ↦ (Mod:T, vₜ, 'inactive')]
-     uₐ ‖ (st₁, keys₁)  ⇓ᵤ  (Err @τ v, itr)
+     uₐ ‖ (st₁, keys₁)  ⇓ᵤ  (Err @τ v, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdExercConsumErr
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
-     (Err @τ v, 'iexercise' v₁ (cid, Mod:T, vₜ) 'consuming' itr)
+     (Err @τ v, 'exercise' v₁ (cid, Mod:T, vₜ) 'consuming' tr)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' 'consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
@@ -3101,11 +3096,11 @@ as described by the ledger model::
      v₁ =ₛ vₚ
      eₒ[x ↦ vₜ, z ↦ v₂]  ⇓  Ok vₒ
      eₐ[x ↦ vₜ, y ↦ cid, z ↦ v₂]  ⇓  Ok uₐ
-     uₐ ‖ (st₀; keys₀)  ⇓ᵤ  (Err @τ v, itr)
+     uₐ ‖ (st₀; keys₀)  ⇓ᵤ  (Err @τ v, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdExercNonConsumErr
      'exercise' Mod:T.Ch cid v₁ v₂ ‖ (st₀, keys₀)
        ⇓ᵤ
-     (Err @τ v, 'iexercise' v₁ (cid, Mod:T, vₜ) 'non-consuming' itr)
+     (Err @τ v, 'exercise' v₁ (cid, Mod:T, vₜ) 'non-consuming' tr)
 
      'tpl' (x : T)
          ↦ { 'choices' { …, 'choice' 'non-consuming' Ch (y : 'ContractId' Mod:T) (z : τ) : σ 'by' eₚ 'observers' eₒ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
@@ -3227,9 +3222,9 @@ as described by the ledger model::
      (Ok ('Some' @('ContractId' Mod:T) cid), ε) ‖ (st; keys)
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈ 〚Ξ〛Mod
-     'fetch_by_key' @Mod:T vₖ ‖ (st; keys)  ⇓ᵤ  (Err @τ v, itr)
+     'fetch_by_key' @Mod:T vₖ ‖ (st; keys)  ⇓ᵤ  (Err @τ v, tr)
    —————————————————————————————————————————————————————————————————————— EvUpdExercByKeyFetchErr
-     'exercise_by_key' Mod:T.Ch vₖ v₁ ‖ (st; keys)  ⇓ᵤ  (Err @τ v, itr)
+     'exercise_by_key' Mod:T.Ch vₖ v₁ ‖ (st; keys)  ⇓ᵤ  (Err @τ v, tr)
 
      'tpl' (x : T) ↦ { …, 'key' @σ eₖ eₘ }  ∈ 〚Ξ〛Mod
      'fetch_by_key' @Mod:T vₖ ‖ (st; keys)  ⇓ᵤ  (Ok ⟨'contractId': cid, 'contract': vₜ⟩, ε) ‖ (st'; keys')
@@ -3265,10 +3260,10 @@ as described by the ledger model::
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀  ⇓ᵤ  (Err @τ₁ v₁, ε)
 
      e₁  ⇓  Ok u₁
-     u₁ ‖ S₀  ⇓ᵤ  (Err @τ₁ v₁, itr₁)
+     u₁ ‖ S₀  ⇓ᵤ  (Err @τ₁ v₁, tr₁)
      e₂[x ↦ 'to_any_exception' @τ₁ v₁]  ⇓  Ok ('None' @σ)
    —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr2_NoHandle
-     'try' @τ e₁ 'catch' x. e₂ ‖ S₀  ⇓ᵤ  (Err @τ₁ v₁, itr₁)
+     'try' @τ e₁ 'catch' x. e₂ ‖ S₀  ⇓ᵤ  (Err @τ₁ v₁, tr₁)
 
      e₁  ⇓  Err @τ₁ v₁
      e₂[x ↦ 'to_any_exception' @τ₁ v₁]  ⇓  Ok ('Some' @σ u₂)
@@ -3276,48 +3271,48 @@ as described by the ledger model::
    —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr1_OkHandle_Ok
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀
        ⇓ᵤ
-     (Ok v₂, ('rollback' @τ₁ v₁ ε) ⋅ tr₂) ‖ S₂
+     (Ok v₂, ('rollback' ε) ⋅ tr₂) ‖ S₂
 
      e₁  ⇓  Ok u₁
-     u₁ ‖ S₀  ⇓ᵤ  (Err @τ₁ v₁, itr₁)
+     u₁ ‖ S₀  ⇓ᵤ  (Err @τ₁ v₁, tr₁)
      e₂[x ↦ 'to_any_exception' @τ₁ v₁]  ⇓  Ok ('Some' @σ u₂)
      u2 ‖ S₀  ⇓ᵤ  (Ok v₂, tr₂) ‖ S₂
    —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr2_OkHandle_Ok
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀
        ⇓ᵤ
-     (Ok v₂, ('rollback' @τ₁ v₁ itr₁) ⋅ tr₂) ‖ S₂
+     (Ok v₂, ('rollback' tr₁) ⋅ tr₂) ‖ S₂
 
      e₁  ⇓  Err @τ₁ v₁
      e₂[x ↦ 'to_any_exception' @τ₁ v₁]  ⇓  Ok ('Some' @σ u₂)
-     u2 ‖ S₀  ⇓ᵤ  (Err @τ₂ v₂, itr₂)
+     u2 ‖ S₀  ⇓ᵤ  (Err @τ₂ v₂, tr₂)
    —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr1_OkHandle_Err
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀
        ⇓ᵤ
-     (Err @τ₂ v₂, ('rollback' @τ₁ v₁ ε) ⋅ itr₂)
+     (Err @τ₂ v₂, ('rollback' ε) ⋅ tr₂)
 
      e₁  ⇓  Ok u₁
-     u₁ ‖ S₀  ⇓ᵤ  (Err @τ₁ v₁, itr₁)
+     u₁ ‖ S₀  ⇓ᵤ  (Err @τ₁ v₁, tr₁)
      e₂[x ↦ 'to_any_exception' @τ₁ v₁]  ⇓  Ok ('Some' @σ u₂)
-     u2 ‖ S₀  ⇓ᵤ  (Err @τ₂ v₂, itr₂)
+     u2 ‖ S₀  ⇓ᵤ  (Err @τ₂ v₂, tr₂)
    —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr2_OkHandle_Err
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀
        ⇓ᵤ
-     (Err @τ₂ v₂, ('rollback' v₁ itr₁) ⋅ itr₂)
+     (Err @τ₂ v₂, ('rollback' tr₁) ⋅ tr₂)
 
      e₁  ⇓  Err @τ₁ v₁
      e₂[x ↦ 'to_any_exception' @τ₁ v₁]  ⇓  Err @τ₂ v₂
    —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr1_ErrHandle
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀
        ⇓ᵤ
-     (Err @τ₂ v₂, ('rollback' @τ₁ v₁ ε))
+     (Err @τ₂ v₂, ('rollback' ε))
 
      e₁  ⇓  Ok u₁
-     u₁ ‖ S₀  ⇓ᵤ  (Err @τ₁ v₁, itr₁)
+     u₁ ‖ S₀  ⇓ᵤ  (Err @τ₁ v₁, tr₁)
      e₂[x ↦ 'to_any_exception' @τ₁ v₁]  ⇓  Err @τ₂ v₂
    —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr2_ErrHandle
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀
        ⇓ᵤ
-     (Err @τ₂ v₂, ('rollback' @τ₁ v₁ itr₁))
+     (Err @τ₂ v₂, ('rollback' tr₁))
 
 
 About scenario interpretation
