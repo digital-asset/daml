@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Err}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time.Timestamp
-import org.slf4j.LoggerFactory
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.collection.compat._
 import scala.collection.mutable
@@ -26,7 +26,7 @@ private[kvutils] case class CommitContext(
     recordTime: Option[Timestamp],
     participantId: ParticipantId,
 ) {
-  private[this] val logger = LoggerFactory.getLogger(this.getClass)
+  private[this] val logger = ContextualizedLogger.get(getClass)
 
   // NOTE(JM): The outputs must be iterable in deterministic order, hence we
   // keep track of insertion order.
@@ -92,12 +92,14 @@ private[kvutils] case class CommitContext(
   }
 
   /** Get the final output state, in insertion order. */
-  def getOutputs: Iterable[(DamlStateKey, DamlStateValue)] =
+  def getOutputs(implicit
+      loggingContext: LoggingContext
+  ): Iterable[(DamlStateKey, DamlStateValue)] =
     outputOrder
       .map(key => key -> outputs(key))
       .filterNot {
         case (key, value) if inputAlreadyContains(key, value) =>
-          logger.trace("Identical output found for key {}", key)
+          logger.trace(s"Identical output found for key $key")
           true
         case _ => false
       }

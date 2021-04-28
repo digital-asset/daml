@@ -9,13 +9,17 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
+
   import KVTest._
   import TestHelpers._
+
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   "configuration" should {
 

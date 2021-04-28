@@ -9,6 +9,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlPackageUploadRejectionEntry,
 }
 import com.daml.ledger.test.{ModelTestDar, SimplePackagePartyTestDar}
+import com.daml.logging.LoggingContext
 import com.daml.platform.testing.TestDarReader
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -19,6 +20,8 @@ class KVUtilsPackageSpec extends AnyWordSpec with Matchers with BazelRunfiles {
 
   import KVTest._
   import TestHelpers._
+
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private[this] val Success(testStablePackages) = TestDarReader.readCommonTestDar(ModelTestDar)
   private val simplePackage = new SimplePackage(SimplePackagePartyTestDar)

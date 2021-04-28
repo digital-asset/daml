@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.Transacti
 import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.DamlTransactionEntrySummary
 import com.daml.ledger.participant.state.v1.RejectionReason
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext
 
 private[keys] object KeyMonotonicityValidation {
 
@@ -25,7 +26,7 @@ private[keys] object KeyMonotonicityValidation {
       keys: Set[DamlStateKey],
       damlState: Map[DamlStateKey, DamlStateValue],
       transactionEntry: DamlTransactionEntrySummary,
-  ): StepResult[DamlTransactionEntrySummary] = {
+  )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
     val causalKeyMonotonicity = keys.forall { key =>
       val state = damlState(key)
       val keyActiveAt =

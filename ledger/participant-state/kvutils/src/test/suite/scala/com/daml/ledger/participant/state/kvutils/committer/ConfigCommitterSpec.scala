@@ -10,11 +10,14 @@ import com.daml.ledger.participant.state.kvutils.TestHelpers
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class ConfigCommitterSpec extends AnyWordSpec with Matchers {
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   private val metrics = new Metrics(new MetricRegistry)
   private val aRecordTime = Timestamp(100)
   private val aConfigurationSubmission = DamlConfigurationSubmission.newBuilder
@@ -30,7 +33,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val instance = createConfigCommitter(aRecordTime)
       val context = createCommitContext(recordTime = Some(aRecordTime.addMicros(1)))
 
-      val actual = instance.checkTtl(context, anEmptyResult)
+      val actual = instance.checkTtl(context, anEmptyResult)(loggingContext)
 
       actual match {
         case StepContinue(_) => fail()
@@ -48,7 +51,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
         val instance = createConfigCommitter(maximumRecordTime)
         val context = createCommitContext(recordTime = Some(aRecordTime))
 
-        val actual = instance.checkTtl(context, anEmptyResult)
+        val actual = instance.checkTtl(context, anEmptyResult)(loggingContext)
 
         actual match {
           case StepContinue(_) => succeed
@@ -61,7 +64,9 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val instance = createConfigCommitter(aRecordTime)
       val context = createCommitContext(recordTime = None)
 
-      instance.checkTtl(context, anEmptyResult) match {
+      val actual = instance.checkTtl(context, anEmptyResult)(loggingContext)
+
+      actual match {
         case StepContinue(_) => succeed
         case StepStop(_) => fail()
       }
@@ -71,7 +76,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val instance = createConfigCommitter(aRecordTime)
       val context = createCommitContext(recordTime = None)
 
-      instance.checkTtl(context, anEmptyResult)
+      instance.checkTtl(context, anEmptyResult)(loggingContext)
 
       context.maximumRecordTime shouldEqual Some(aRecordTime.toInstant)
       context.outOfTimeBoundsLogEntry should not be empty
@@ -89,7 +94,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val instance = createConfigCommitter(theRecordTime)
       val context = createCommitContext(recordTime = Some(aRecordTime))
 
-      instance.checkTtl(context, anEmptyResult)
+      instance.checkTtl(context, anEmptyResult)(loggingContext)
 
       context.preExecute shouldBe false
       context.outOfTimeBoundsLogEntry shouldBe empty
@@ -101,7 +106,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val instance = createConfigCommitter(theRecordTime.addMicros(1000))
       val context = createCommitContext(recordTime = Some(theRecordTime))
 
-      val actual = instance.buildLogEntry(context, anEmptyResult)
+      val actual = instance.buildLogEntry(context, anEmptyResult)(loggingContext)
 
       actual match {
         case StepContinue(_) => fail()
@@ -115,7 +120,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val instance = createConfigCommitter(theRecordTime)
       val context = createCommitContext(recordTime = None)
 
-      val actual = instance.buildLogEntry(context, anEmptyResult)
+      val actual = instance.buildLogEntry(context, anEmptyResult)(loggingContext)
 
       actual match {
         case StepContinue(_) => fail()
@@ -129,7 +134,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
         val instance = createConfigCommitter(theRecordTime)
         val context = createCommitContext(recordTime = recordTimeMaybe)
 
-        val actual = instance.buildLogEntry(context, anEmptyResult)
+        val actual = instance.buildLogEntry(context, anEmptyResult)(loggingContext)
 
         actual match {
           case StepContinue(_) => fail()

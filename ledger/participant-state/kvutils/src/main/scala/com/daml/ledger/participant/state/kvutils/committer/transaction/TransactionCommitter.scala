@@ -34,6 +34,8 @@ import com.daml.lf.transaction.{
 }
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
@@ -56,17 +58,26 @@ private[kvutils] class TransactionCommitter(
     override protected val metrics: Metrics,
     inStaticTimeMode: Boolean,
 ) extends Committer[DamlTransactionEntrySummary] {
+
   import TransactionCommitter._
 
+  private final val logger = ContextualizedLogger.get(getClass)
+
   override protected val committerName = "transaction"
+
+  override protected def extraLoggingContext(
+      transactionEntry: DamlTransactionEntrySummary
+  ): Map[String, String] = Map(
+    "submitters" -> transactionEntry.submitters.mkString("[", ", ", "]")
+  )
 
   override protected def init(
       commitContext: CommitContext,
       submission: DamlSubmission,
-  ): DamlTransactionEntrySummary =
+  )(implicit loggingContext: LoggingContext): DamlTransactionEntrySummary =
     DamlTransactionEntrySummary(submission.getTransactionEntry)
 
-  override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
+  override protected val steps: Steps[DamlTransactionEntrySummary] = Iterable(
     "authorize_submitter" -> authorizeSubmitters,
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
     "deduplicate" -> deduplicateCommand,
@@ -88,8 +99,8 @@ private[kvutils] class TransactionCommitter(
 
   /** Reject duplicate commands
     */
-  private[committer] def deduplicateCommand: Step =
-    (commitContext, transactionEntry) => {
+  private[committer] def deduplicateCommand: Step = {
+    (commitContext, transactionEntry) => implicit loggingContext =>
       commitContext.recordTime
         .map { recordTime =>
           val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
@@ -99,9 +110,7 @@ private[kvutils] class TransactionCommitter(
           if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
             StepContinue(transactionEntry)
           } else {
-            logger.trace(
-              s"Transaction rejected, duplicate command, correlationId=${transactionEntry.commandId}"
-            )
+            logger.trace("Transaction rejected because the command is a duplicate.")
             reject(
               commitContext.recordTime,
               DamlTransactionRejectionEntry.newBuilder
@@ -111,7 +120,7 @@ private[kvutils] class TransactionCommitter(
           }
         }
         .getOrElse(StepContinue(transactionEntry))
-    }
+  }
 
   // Checks that the submission time of the command is after the
   // deduplicationTime represented by stateValue
@@ -131,8 +140,8 @@ private[kvutils] class TransactionCommitter(
   /** Authorize the submission by looking up the party allocation and verifying
     * that all of the submitting parties are indeed hosted by the submitting participant.
     */
-  private[committer] def authorizeSubmitters: Step =
-    (commitContext, transactionEntry) => {
+  private[committer] def authorizeSubmitters: Step = {
+    (commitContext, transactionEntry) => implicit loggingContext =>
       def rejection(reason: RejectionReason) =
         reject[DamlTransactionEntrySummary](
           commitContext.recordTime,
@@ -175,13 +184,12 @@ private[kvutils] class TransactionCommitter(
         }
 
       authorizeAll(transactionEntry.submitters)
-    }
+  }
 
   /** Validate ledger effective time and the command's time-to-live. */
-  private[committer] def validateLedgerTime: Step =
-    (commitContext, transactionEntry) => {
-      val (_, config) =
-        getCurrentConfiguration(defaultConfig, commitContext, logger)
+  private[committer] def validateLedgerTime: Step = {
+    (commitContext, transactionEntry) => implicit loggingContext =>
+      val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
       val timeModel = config.timeModel
 
       commitContext.recordTime match {
@@ -231,11 +239,11 @@ private[kvutils] class TransactionCommitter(
           commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
           StepContinue(transactionEntry)
       }
-    }
+  }
 
   /** Validate the submission's conformance to the DAML model */
-  private def validateModelConformance: Step =
-    (commitContext, transactionEntry) =>
+  private def validateModelConformance: Step = (commitContext, transactionEntry) =>
+    implicit loggingContext =>
       metrics.daml.kvutils.committer.transaction.interpretTimer.time(() => {
         // Pull all keys from referenced contracts. We require this for 'fetchByKey' calls
         // which are not evidenced in the transaction itself and hence the contract key state is
@@ -261,7 +269,7 @@ private[kvutils] class TransactionCommitter(
             )
             .consume(
               lookupContract(transactionEntry, commitContext),
-              lookupPackage(transactionEntry, commitContext),
+              lookupPackage(commitContext),
               lookupKey(commitContext, knownKeys),
               // No check for key visibility during validation
               _ => VisibleByKey.Visible,
@@ -277,7 +285,7 @@ private[kvutils] class TransactionCommitter(
         } catch {
           case err: Err.MissingInputState =>
             logger.warn(
-              s"Model conformance validation failed due to a missing input state (most likely due to invalid state on the partcipant), correlationId=${transactionEntry.commandId}"
+              "Model conformance validation failed due to a missing input state (most likely due to invalid state on the participant)."
             )
             reject(
               commitContext.recordTime,
@@ -339,8 +347,8 @@ private[kvutils] class TransactionCommitter(
   }
 
   /** Validate the submission's conformance to the DAML model */
-  private[committer] def blind: Step =
-    (commitContext, transactionEntry) => {
+  private[committer] def blind: Step = {
+    (commitContext, transactionEntry) => implicit loggingContext =>
       val blindingInfo = Blinding.blind(transactionEntry.transaction)
       setDedupEntryAndUpdateContractState(
         commitContext,
@@ -351,11 +359,11 @@ private[kvutils] class TransactionCommitter(
         ),
         blindingInfo,
       )
-    }
+  }
 
   /** Removes `Fetch` and `LookupByKey` nodes from the transactionEntry.
     */
-  private[committer] def trimUnnecessaryNodes: Step = (_, transactionEntry) => {
+  private[committer] def trimUnnecessaryNodes: Step = { (_, transactionEntry) => _ =>
     val transaction = transactionEntry.submission.getTransaction
     val nodes = transaction.getNodesList.asScala
     val nodesToKeep = nodes.iterator.collect {
@@ -402,12 +410,12 @@ private[kvutils] class TransactionCommitter(
 
   /** Builds the log entry as the final step.
     */
-  private def buildFinalLogEntry: Step =
-    (commitContext, transactionEntry) => StepStop(buildLogEntry(transactionEntry, commitContext))
+  private def buildFinalLogEntry: Step = (commitContext, transactionEntry) =>
+    _ => StepStop(buildLogEntry(transactionEntry, commitContext))
 
   /** Check that all informee parties mentioned of a transaction are allocated. */
-  private def checkInformeePartiesAllocation: Step =
-    (commitContext, transactionEntry) => {
+  private def checkInformeePartiesAllocation: Step = {
+    (commitContext, transactionEntry) => implicit loggingContext =>
       val parties = transactionEntry.transaction.informees
       if (parties.forall(party => commitContext.get(partyStateKey(party)).isDefined))
         StepContinue(transactionEntry)
@@ -419,14 +427,14 @@ private[kvutils] class TransactionCommitter(
             RejectionReason.PartyNotKnownOnLedger("Not all parties known"),
           ),
         )
-    }
+  }
 
   /** Produce the log entry and contract state updates. */
   private def setDedupEntryAndUpdateContractState(
       commitContext: CommitContext,
       transactionEntry: DamlTransactionEntrySummary,
       blindingInfo: BlindingInfo,
-  ): StepResult[DamlTransactionEntrySummary] = {
+  )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
     // Set a deduplication entry.
     commitContext.set(
       commandDedupKey(transactionEntry.submitterInfo),
@@ -442,7 +450,7 @@ private[kvutils] class TransactionCommitter(
     updateContractState(transactionEntry, blindingInfo, commitContext)
 
     metrics.daml.kvutils.committer.transaction.accepts.inc()
-    logger.trace(s"Transaction accepted, correlationId=${transactionEntry.commandId}")
+    logger.trace("Transaction accepted.")
     StepContinue(transactionEntry)
   }
 
@@ -450,7 +458,7 @@ private[kvutils] class TransactionCommitter(
       transactionEntry: DamlTransactionEntrySummary,
       blindingInfo: BlindingInfo,
       commitContext: CommitContext,
-  ): Unit = {
+  )(implicit loggingContext: LoggingContext): Unit = {
     val localContracts = transactionEntry.transaction.localContracts
     val consumedContracts = transactionEntry.transaction.consumedContracts
     val contractKeys = transactionEntry.transaction.updatedContractKeys
@@ -532,8 +540,8 @@ private[kvutils] class TransactionCommitter(
       ledgerEffectiveTime: ProtoTimestamp,
       key: DamlStateKey,
       contractKeyState: Option[ContractId],
-  ): (DamlStateKey, DamlStateValue) = {
-    logger.trace(s"updating contract key $key to $contractKeyState")
+  )(implicit loggingContext: LoggingContext): (DamlStateKey, DamlStateValue) = {
+    logger.trace(s"Updating contract key $key to $contractKeyState.")
     key ->
       DamlStateValue.newBuilder
         .setContractKeyState(
@@ -576,43 +584,36 @@ private[kvutils] class TransactionCommitter(
   // are stored in the [[DamlLogEntry]], which we find by looking up
   // the DAML state entry at `DamlStateKey(packageId = pkgId)`.
   private def lookupPackage(
-      transactionEntry: DamlTransactionEntrySummary,
-      commitContext: CommitContext,
-  )(pkgId: PackageId): Option[Ast.Package] = {
-    val stateKey = packageStateKey(pkgId)
-    for {
-      value <- commitContext
-        .read(stateKey)
-        .orElse {
-          logger.warn(
-            s"Lookup package failed, package not found, packageId=$pkgId correlationId=${transactionEntry.commandId}"
-          )
-          throw Err.MissingInputState(stateKey)
-        }
-      pkg <- value.getValueCase match {
-        case DamlStateValue.ValueCase.ARCHIVE =>
-          // NOTE(JM): Engine only looks up packages once, compiles and caches,
-          // provided that the engine instance is persisted.
-          try {
-            Some(Decode.decodeArchive(value.getArchive)._2)
-          } catch {
-            case ParseError(err) =>
-              logger.warn(
-                s"Decode archive failed, packageId=$pkgId correlationId=${transactionEntry.commandId}"
-              )
-              throw Err.DecodeError("Archive", err)
+      commitContext: CommitContext
+  )(pkgId: PackageId)(implicit loggingContext: LoggingContext): Option[Ast.Package] =
+    withEnrichedLoggingContext("packageId" -> pkgId) { implicit loggingContext =>
+      val stateKey = packageStateKey(pkgId)
+      for {
+        value <- commitContext
+          .read(stateKey)
+          .orElse {
+            logger.warn("Package lookup failed, package not found.")
+            throw Err.MissingInputState(stateKey)
           }
+        pkg <- value.getValueCase match {
+          case DamlStateValue.ValueCase.ARCHIVE =>
+            // NOTE(JM): Engine only looks up packages once, compiles and caches,
+            // provided that the engine instance is persisted.
+            try {
+              Some(Decode.decodeArchive(value.getArchive)._2)
+            } catch {
+              case ParseError(err) =>
+                logger.warn("Decoding the archive failed.")
+                throw Err.DecodeError("Archive", err)
+            }
 
-        case _ =>
-          val msg = s"value not a DAML-LF archive"
-          logger.warn(
-            s"Lookup package failed, $msg, packageId=$pkgId correlationId=${transactionEntry.commandId}"
-          )
-          throw Err.DecodeError("Archive", msg)
-      }
-
-    } yield pkg
-  }
+          case _ =>
+            val msg = "value is not a DAML-LF archive"
+            logger.warn(s"Package lookup failed, $msg.")
+            throw Err.DecodeError("Archive", msg)
+        }
+      } yield pkg
+    }
 
   private def lookupKey(
       commitContext: CommitContext,
@@ -646,10 +647,8 @@ private[kvutils] class TransactionCommitter(
   private[transaction] def buildRejectionLogEntry(
       transactionEntry: DamlTransactionEntrySummary,
       reason: RejectionReason,
-  ): DamlTransactionRejectionEntry.Builder = {
-    logger.trace(
-      s"Transaction rejected, ${reason.description}, correlationId=${transactionEntry.commandId}"
-    )
+  )(implicit loggingContext: LoggingContext): DamlTransactionRejectionEntry.Builder = {
+    logger.trace(s"Transaction rejected, ${reason.description}.")
     val builder = DamlTransactionRejectionEntry.newBuilder
     builder
       .setSubmitterInfo(transactionEntry.submitterInfo)

@@ -10,22 +10,25 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, co
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, theDefaultConfig}
 import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
+import com.daml.ledger.participant.state.kvutils.committer.CommitterSpec._
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Err}
 import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
 import com.daml.ledger.participant.state.v1.{Configuration, TimeModel}
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.mockito.MockitoSugar
-import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-import org.slf4j.{Logger, LoggerFactory}
 
 class CommitterSpec
     extends AnyWordSpec
     with TableDrivenPropertyChecks
     with Matchers
     with MockitoSugar {
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   "preExecute" should {
     "set pre-execution results from context" in {
       val mockContext = mock[CommitContext]
@@ -154,16 +157,20 @@ class CommitterSpec
     "stop at first StepStop" in {
       val expectedLogEntry = aLogEntry
       val instance = new Committer[Int] {
-
-        override protected def steps: Iterable[(StepInfo, Step)] = Iterable[(StepInfo, Step)](
-          ("first", (_, _) => StepContinue(1)),
-          ("second", (_, _) => StepStop(expectedLogEntry)),
-          ("third", (_, _) => StepStop(DamlLogEntry.getDefaultInstance)),
-        )
-
         override protected val committerName: String = "test"
 
-        override protected def init(ctx: CommitContext, submission: DamlSubmission): Int = 0
+        override protected def extraLoggingContext(result: Int): Map[String, String] = Map.empty
+
+        override protected def init(
+            ctx: CommitContext,
+            submission: DamlSubmission,
+        )(implicit loggingContext: LoggingContext): Int = 0
+
+        override protected def steps: Iterable[(StepInfo, Step)] = Iterable[(StepInfo, Step)](
+          ("first", (_, _) => _ => StepContinue(1)),
+          ("second", (_, _) => _ => StepStop(expectedLogEntry)),
+          ("third", (_, _) => _ => StepStop(DamlLogEntry.getDefaultInstance)),
+        )
 
         override protected val metrics: Metrics = newMetrics()
       }
@@ -173,14 +180,19 @@ class CommitterSpec
 
     "throw in case there was no StepStop yielded" in {
       val instance = new Committer[Int] {
-        override protected def steps: Iterable[(StepInfo, Step)] = Iterable(
-          ("first", (_, _) => StepContinue(1)),
-          ("second", (_, _) => StepContinue(2)),
-        )
-
         override protected val committerName: String = "test"
 
-        override protected def init(ctx: CommitContext, submission: DamlSubmission): Int = 0
+        override protected def extraLoggingContext(result: Int): Map[String, String] = Map.empty
+
+        override protected def init(
+            ctx: CommitContext,
+            submission: DamlSubmission,
+        )(implicit loggingContext: LoggingContext): Int = 0
+
+        override protected def steps: Iterable[(StepInfo, Step)] = Iterable(
+          ("first", (_, _) => _ => StepContinue(1)),
+          ("second", (_, _) => _ => StepContinue(2)),
+        )
 
         override protected val metrics: Metrics = newMetrics()
       }
@@ -195,7 +207,7 @@ class CommitterSpec
       val commitContext = createCommitContext(recordTime = None, inputState)
 
       val (Some(actualConfigurationEntry), actualConfiguration) =
-        Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
+        Committer.getCurrentConfiguration(theDefaultConfig, commitContext)
 
       actualConfigurationEntry should be(aConfigurationStateValue.getConfigurationEntry)
       actualConfiguration should be(aConfig)
@@ -206,7 +218,7 @@ class CommitterSpec
       val commitContext = createCommitContext(recordTime = None, inputState)
 
       val (actualConfigurationEntry, actualConfiguration) =
-        Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
+        Committer.getCurrentConfiguration(theDefaultConfig, commitContext)
 
       actualConfigurationEntry should not be defined
       actualConfiguration should be(theDefaultConfig)
@@ -216,7 +228,7 @@ class CommitterSpec
       val commitContext = createCommitContext(recordTime = None, Map.empty)
 
       assertThrows[Err.MissingInputState] {
-        Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
+        Committer.getCurrentConfiguration(theDefaultConfig, commitContext)
       }
     }
 
@@ -234,13 +246,15 @@ class CommitterSpec
       )
 
       val (actualConfigurationEntry, actualConfiguration) =
-        Committer.getCurrentConfiguration(theDefaultConfig, commitContext, createLogger())
+        Committer.getCurrentConfiguration(theDefaultConfig, commitContext)
 
       actualConfigurationEntry should not be defined
       actualConfiguration should be(theDefaultConfig)
     }
   }
+}
 
+object CommitterSpec {
   private val aRecordTime = Timestamp(100)
   private val aDamlSubmission = DamlSubmission.getDefaultInstance
   private val aLogEntry = DamlLogEntry.newBuilder
@@ -268,10 +282,15 @@ class CommitterSpec
   private def createCommitter(): Committer[Int] = new Committer[Int] {
     override protected val committerName: String = "test"
 
-    override protected def steps: Iterable[(StepInfo, Step)] =
-      Iterable(("result", (_, _) => StepStop(aLogEntry)))
+    override protected def extraLoggingContext(result: Int): Map[String, String] = Map.empty
 
-    override protected def init(ctx: CommitContext, submission: DamlKvutils.DamlSubmission): Int = 0
+    override protected def init(
+        ctx: CommitContext,
+        submission: DamlKvutils.DamlSubmission,
+    )(implicit loggingContext: LoggingContext): Int = 0
+
+    override protected def steps: Iterable[(StepInfo, Step)] =
+      Iterable(("result", (_, _) => _ => StepStop(aLogEntry)))
 
     override protected val metrics: Metrics = newMetrics()
   }
@@ -283,8 +302,6 @@ class CommitterSpec
           .setConfiguration(Configuration.encode(aConfig))
       )
       .build
-
-  private def createLogger(): Logger = LoggerFactory.getLogger(this.getClass)
 
   private type Step = Committer.Step[Int]
 }
