@@ -21,12 +21,13 @@ import com.daml.ledger.participant.state.index.v2.{
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.engine.Engine
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.apiserver.services.logging
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPackageManagementService._
+import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
@@ -112,7 +113,11 @@ private[apiserver] final class ApiPackageManagementService private (
             err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
             Future.successful,
           )
-          _ <- synchronousResponse.submitAndWait(submissionId, dar)(executionContext, materializer)
+          _ <- synchronousResponse.submitAndWait(submissionId, dar)(
+            NoOpTelemetryContext,
+            executionContext,
+            materializer,
+          )
         } yield {
           for (archive <- dar.all) {
             logger.info(s"Package ${archive.getHash} successfully uploaded")
@@ -160,7 +165,9 @@ private[apiserver] object ApiPackageManagementService {
     override def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]] =
       ledgerEndService.currentLedgerEnd().map(Some(_))
 
-    override def submit(submissionId: SubmissionId, dar: Dar[Archive]): Future[SubmissionResult] =
+    override def submit(submissionId: SubmissionId, dar: Dar[Archive])(implicit
+        telemetryContext: TelemetryContext
+    ): Future[SubmissionResult] =
       packagesWrite.uploadPackages(submissionId, dar.all, None).toScala
 
     override def entries(offset: Option[LedgerOffset.Absolute]): Source[PackageEntry, _] =

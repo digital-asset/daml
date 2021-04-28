@@ -5,6 +5,8 @@ package com.daml.ledger.participant.state.v1
 
 import java.util.concurrent.CompletionStage
 
+import com.daml.telemetry.TelemetryContext
+
 /** An interface for on-boarding parties via a participant. */
 trait WritePartyService {
 
@@ -22,11 +24,10 @@ trait WritePartyService {
     * message. See the comments on [[ReadService.stateUpdates]] and [[Update]] for
     * further details.
     *
-    * @param hint         : A party identifier suggestion
-    *
-    * @param displayName  : A human readable name of the new party
-    *
-    * @param submissionId: Client picked submission identifier for matching the responses with the request.
+    * @param hint             A party identifier suggestion
+    * @param displayName      A human readable name of the new party
+    * @param submissionId     Client picked submission identifier for matching the responses with the request.
+    * @param telemetryContext An implicit context for tracing.
     *
     * @return an async result of a SubmissionResult
     */
@@ -34,5 +35,5 @@ trait WritePartyService {
       hint: Option[Party],
       displayName: Option[String],
       submissionId: SubmissionId,
-  ): CompletionStage[SubmissionResult]
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
 }

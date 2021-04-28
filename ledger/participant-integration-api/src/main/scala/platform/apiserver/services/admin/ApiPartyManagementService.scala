@@ -19,12 +19,13 @@ import com.daml.ledger.participant.state.index.v2.{
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePartyService}
 import com.daml.lf.data.Ref
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.apiserver.services.logging
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
+import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.compat.java8.FutureConverters._
@@ -93,6 +94,8 @@ private[apiserver] final class ApiPartyManagementService private (
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
     withEnrichedLoggingContext(logging.party(request.partyIdHint)) { implicit loggingContext =>
       logger.info("Allocating party")
+      implicit val telemetryContext: TelemetryContext =
+        DefaultTelemetry.contextFromGrpcThreadLocalContext()
       val validatedPartyIdentifier =
         if (request.partyIdHint.isEmpty) {
           Future.successful(None)
@@ -175,7 +178,7 @@ private[apiserver] object ApiPartyManagementService {
     override def submit(
         submissionId: SubmissionId,
         input: (Option[Ref.Party], Option[String]),
-    ): Future[SubmissionResult] = {
+    )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] = {
       val (party, displayName) = input
       writeService.allocateParty(party, displayName, submissionId).toScala
     }
