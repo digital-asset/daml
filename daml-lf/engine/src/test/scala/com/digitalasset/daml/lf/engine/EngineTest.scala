@@ -2394,6 +2394,96 @@ class EngineTest
         run(command) shouldBe a[Right[_, _]]
       }
     }
+
+    "global key lookups" should {
+      val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
+      val lookupPackage = allExceptionsPkgs.get(_)
+      val kId = Identifier(exceptionsPkgId, "Exceptions:K")
+      val tId = Identifier(exceptionsPkgId, "Exceptions:GlobalLookups")
+      val let = Time.Timestamp.now()
+      val submissionSeed = hash("global-keys")
+      val seeding = Engine.initialSeeding(submissionSeed, participant, let)
+      val cid = toContractId("#1")
+      val contracts = Map(
+        cid -> ContractInst(
+          TypeConName(exceptionsPkgId, "Exceptions:K"),
+          assertAsVersionedValue(
+            ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0))))
+          ),
+          "",
+        )
+      )
+      val lookupContract = contracts.get(_)
+      def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
+        (key.globalKey.templateId, key.globalKey.key) match {
+          case (
+                `kId`,
+                ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
+              ) =>
+            Some(cid)
+          case _ =>
+            None
+        }
+      def run(cmd: Command): Int = {
+        val submitters = Set(party)
+        var keyLookups = 0
+        def mockedKeyLookup(key: GlobalKeyWithMaintainers) = {
+          keyLookups += 1
+          lookupKey(key)
+        }
+        val Right((cmds, globalCids)) = preprocessor
+          .preprocessCommands(ImmArray(cmd))
+          .consume(
+            lookupContract,
+            lookupPackage,
+            mockedKeyLookup,
+            VisibleByKey.fromSubmitters(submitters),
+          )
+        val result = engine
+          .interpretCommands(
+            validating = false,
+            submitters = submitters,
+            commands = cmds,
+            ledgerTime = let,
+            submissionTime = let,
+            seeding = seeding,
+            globalCids = globalCids,
+          )
+          .consume(
+            lookupContract,
+            lookupPackage,
+            mockedKeyLookup,
+            VisibleByKey.fromSubmitters(submitters),
+          )
+        inside(result) { case Right(_) =>
+          keyLookups
+        }
+      }
+      val cidArg = ValueRecord(None, ImmArray((None, ValueContractId(cid))))
+      val emptyArg = ValueRecord(None, ImmArray.empty)
+      "Lookup a global key at most once" in {
+        val cases = Table(
+          ("choice", "argument", "lookups"),
+          ("LookupTwice", emptyArg, 1),
+          ("LookupAfterCreate", emptyArg, 0),
+          ("LookupAfterCreateArchive", emptyArg, 0),
+          ("LookupAfterFetch", cidArg, 1),
+          // TODO (MK) An archive should not bring a key in scope.
+          ("LookupAfterArchive", cidArg, 0),
+          ("LookupAfterRollbackCreate", emptyArg, 0),
+          ("LookupAfterRollbackLookup", emptyArg, 1),
+        )
+        forAll(cases) { case (choice, argument, lookups) =>
+          val command = CreateAndExerciseCommand(
+            tId,
+            ValueRecord(None, ImmArray((None, ValueParty(party)))),
+            choice,
+            argument,
+          )
+          run(command) shouldBe lookups
+        }
+      }
+    }
   }
 
   "Engine.preloadPackage" should {

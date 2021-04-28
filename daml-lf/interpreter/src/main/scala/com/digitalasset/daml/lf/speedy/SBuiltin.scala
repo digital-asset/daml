@@ -1286,28 +1286,46 @@ private[lf] object SBuiltin {
         case Some(None) =>
           operation.handleKeyArchived(machine, gkey)
         case None =>
-          // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
-          // that.
-          throw SpeedyHungry(
-            SResultNeedKey(
-              GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
-              onLedger.committers,
-              {
-                case SKeyLookupResult.Found(cid) =>
-                  onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> Some(cid)))
-                  // We have to check that the discriminator of cid does not conflict with a local ones
-                  // however we cannot raise an exception in case of failure here.
-                  // We delegate to CtrlImportValue the task to check cid.
-                  machine.ctrl = operation.cidToSExpr(cid)
-                  true
-                case SKeyLookupResult.NotFound =>
-                  onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> None))
-                  operation.handleKeyNotFound(machine)
-                case SKeyLookupResult.NotVisible =>
-                  machine.tryHandleSubmitMustFail()
-              },
-            )
-          )
+          // Check if we have a cached global key result.
+          onLedger.ptx.globalKeyInputs.get(gkey) match {
+            case Some(optCid) =>
+              onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> optCid))
+              optCid match {
+                case Some(cid) =>
+                  machine.returnValue = operation.cidToSValue(cid)
+                case None =>
+                  operation.handleKeyArchived(machine, gkey)
+              }
+            case None =>
+              // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
+              // that.
+              throw SpeedyHungry(
+                SResultNeedKey(
+                  GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
+                  onLedger.committers,
+                  {
+                    case SKeyLookupResult.Found(cid) =>
+                      onLedger.ptx = onLedger.ptx.copy(
+                        keys = onLedger.ptx.keys + (gkey -> Some(cid)),
+                        globalKeyInputs = onLedger.ptx.globalKeyInputs + (gkey -> Some(cid)),
+                      )
+                      // We have to check that the discriminator of cid does not conflict with a local ones
+                      // however we cannot raise an exception in case of failure here.
+                      // We delegate to CtrlImportValue the task to check cid.
+                      machine.ctrl = operation.cidToSExpr(cid)
+                      true
+                    case SKeyLookupResult.NotFound =>
+                      onLedger.ptx = onLedger.ptx.copy(
+                        keys = onLedger.ptx.keys + (gkey -> None),
+                        globalKeyInputs = onLedger.ptx.globalKeyInputs + (gkey -> None),
+                      )
+                      operation.handleKeyNotFound(machine)
+                    case SKeyLookupResult.NotVisible =>
+                      machine.tryHandleSubmitMustFail()
+                  },
+                )
+              )
+          }
       }
     }
   }
