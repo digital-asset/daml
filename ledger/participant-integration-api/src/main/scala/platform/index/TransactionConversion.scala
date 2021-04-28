@@ -38,11 +38,20 @@ private[platform] object TransactionConversion {
   private type Create = NodeCreate[ContractId]
   private type Exercise = NodeExercises[NodeId, ContractId]
 
-  private def collect[A](tx: Transaction)(pf: PartialFunction[(NodeId, Node), A]): Seq[A] =
-    tx.fold(Vector.empty[A]) {
-      case (nodes, node) if pf.isDefinedAt(node) => nodes :+ pf(node)
-      case (nodes, _) => nodes
-    }
+  private def collect[A](tx: Transaction)(pf: PartialFunction[(NodeId, Node), A]): Seq[A] = {
+    def handle(acc: Vector[A], nodeId: NodeId, node: Node): Vector[A] =
+      pf.lift((nodeId, node)) match {
+        case None => acc
+        case Some(a) => acc :+ a
+      }
+    tx.foldInExecutionOrder(Vector.empty[A])(
+      exerciseBegin = (acc, nodeId, node) => (handle(acc, nodeId, node), true),
+      rollbackBegin = (acc, _, _) => (acc, false),
+      leaf = handle,
+      exerciseEnd = (acc, _, _) => acc,
+      rollbackEnd = (acc, _, _) => acc,
+    )
+  }
 
   private def maskCommandId(
       commandId: Option[CommandId],
