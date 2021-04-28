@@ -39,6 +39,8 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
   ) {
     def mapAcs(f: ALS => ALS): RollbackState =
       copy(als = als.map(f))
+    def cloneState(): RollbackState =
+      mapAcs(_.cloneState())
   }
 
   /** The accumulator state used while validating the transaction
@@ -256,7 +258,7 @@ private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
             }
           },
           rollbackBegin = (acc, _, _) => {
-            (acc.copy(rollbackStates = acc.currentState +: acc.rollbackStates), true)
+            (acc.copy(rollbackStates = acc.currentState.cloneState() +: acc.rollbackStates), true)
           },
           leaf = (acc, nodeId, node) => handleLeaf(acc, nodeId, node),
           exerciseEnd = (acc, _, _) => acc,
