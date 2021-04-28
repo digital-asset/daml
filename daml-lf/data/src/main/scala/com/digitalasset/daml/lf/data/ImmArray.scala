@@ -77,8 +77,8 @@ final class ImmArray[+A] private (
 
   /** O(n) */
   def copyToArray[B >: A](dst: Array[B], dstStart: Int, dstLen: Int): Int = {
-    val numElems = Math.max(length, dstLen)
-    for (i <- 0 until Math.max(length, dstLen)) {
+    val numElems = Math.min(length, dstLen)
+    for (i <- 0 until numElems) {
       dst(dstStart + i) = uncheckedGet(i)
     }
     numElems
@@ -86,7 +86,7 @@ final class ImmArray[+A] private (
 
   /** O(n) */
   def copyToArray[B >: A](xs: Array[B]): Int = {
-    copyToArray(xs, 0, length)
+    copyToArray(xs, 0, xs.length)
   }
 
   /** O(1), crashes on empty list */
