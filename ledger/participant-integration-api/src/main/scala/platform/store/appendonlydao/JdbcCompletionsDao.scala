@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.completions
+package com.daml.platform.store.appendonlydao
+
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.participant.state.v1.Offset
@@ -10,8 +11,8 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
-import com.daml.platform.store.dao.events.{QueryNonPruned, SqlFunctions}
-import com.daml.platform.store.dao.{CommandCompletionsTable, DbDispatcher}
+import com.daml.platform.store.completions.{CompletionsDao, Range}
+import com.daml.platform.store.appendonlydao.events.{QueryNonPruned, SqlFunctions}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -54,7 +55,7 @@ class JdbcCompletionsDao(
 
   override def getAllCompletions(range: Range)(implicit
       loggingContext: LoggingContext
-  ): Future[List[(Offset, CommandCompletionsTable.CompletionStreamResponseWithParties)]] = {
+  ): Future[List[(Offset, CompletionsDao.CompletionStreamResponseWithParties)]] = {
     val query = CommandCompletionsTable.getStmtForAllParties(
       startExclusive = range.startExclusive,
       endInclusive = range.endInclusive,
@@ -62,7 +63,7 @@ class JdbcCompletionsDao(
     dispatcher
       .executeSql(metrics.daml.index.db.getCompletionsForAllParties) { implicit connection =>
         QueryNonPruned
-          .executeSql[List[CommandCompletionsTable.CompletionStreamResponseWithParties]](
+          .executeSql[List[CommandCompletionsTable.CompletionStreamResponseWithPartiesDTO]](
             query.as(CommandCompletionsTable.parserWithParties.*),
             range.startExclusive,
             pruned =>
@@ -70,8 +71,21 @@ class JdbcCompletionsDao(
           )
       }
       .flatMap(eitherToFuture)(executionContext)
-      .map(_.map(response => offsetFor(response.completion) -> response))(executionContext)
+      .map(
+        _.map(response =>
+          offsetFor(response.completion) -> completionStreamResponseFromDTO(response)
+        )
+      )(executionContext)
   }
+
+  private def completionStreamResponseFromDTO(
+      dto: CommandCompletionsTable.CompletionStreamResponseWithPartiesDTO
+  ) =
+    CompletionsDao.CompletionStreamResponseWithParties(
+      dto.completion,
+      dto.parties,
+      dto.applicationId,
+    )
 
   private def eitherToFuture[T](dbQueryResult: Either[Throwable, T]): Future[T] =
     Future.fromTry(dbQueryResult.toTry)

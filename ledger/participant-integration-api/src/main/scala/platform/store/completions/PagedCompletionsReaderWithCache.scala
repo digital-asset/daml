@@ -10,7 +10,6 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.dao.CommandCompletionsTable.CompletionStreamResponseWithParties
 
 import scala.collection.SortedMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -25,6 +24,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class PagedCompletionsReaderWithCache(completionsDao: CompletionsDao, maxItems: Int)(implicit
     executionContext: ExecutionContext
 ) extends PagedCompletionsReader {
+
+  import CompletionsDao.CompletionStreamResponseWithParties
 
   protected val cacheRef: AtomicReference[RangeCache[CompletionStreamResponseWithParties]] =
     new AtomicReference(RangeCache.empty[CompletionStreamResponseWithParties](maxItems))

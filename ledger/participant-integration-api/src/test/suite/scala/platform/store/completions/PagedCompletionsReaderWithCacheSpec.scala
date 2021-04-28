@@ -17,8 +17,6 @@ import com.daml.platform.store.completions.CompletionsDaoMock.{
   Request,
 }
 import com.daml.platform.store.completions.RangeGenerator._
-import com.daml.platform.store.dao.CommandCompletionsTable
-import com.daml.platform.store.dao.CommandCompletionsTable.CompletionStreamResponseWithParties
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -232,7 +230,7 @@ private class TestablePagedCompletionsReaderWithCache(
 )(implicit executionContext: ExecutionContext)
     extends PagedCompletionsReaderWithCache(completionsDao, maxItems)(executionContext) {
 
-  def getCache: RangeCache[CompletionStreamResponseWithParties] = cacheRef.get()
+  def getCache: RangeCache[CompletionsDao.CompletionStreamResponseWithParties] = cacheRef.get()
 }
 
 object CompletionsDaoMock {
@@ -240,9 +238,9 @@ object CompletionsDaoMock {
   def genCompletions(
       startOffset: Int,
       endOffset: Int,
-  ): ListBuffer[(Offset, CompletionStreamResponseWithParties)] =
+  ): ListBuffer[(Offset, CompletionsDao.CompletionStreamResponseWithParties)] =
     ListBuffer((startOffset until endOffset).map { i =>
-      val resp = CompletionStreamResponseWithParties(
+      val resp = CompletionsDao.CompletionStreamResponseWithParties(
         completion = CompletionStreamResponse(
           checkpoint = None,
           completions = Seq(
@@ -260,13 +258,15 @@ object CompletionsDaoMock {
       (genOffset(i), resp)
     }: _*)
 
-  def genCompletions(endOffset: Int): ListBuffer[(Offset, CompletionStreamResponseWithParties)] =
+  def genCompletions(
+      endOffset: Int
+  ): ListBuffer[(Offset, CompletionsDao.CompletionStreamResponseWithParties)] =
     genCompletions(0, endOffset)
 
   def genCompletionsMap(
       startOffset: Int,
       endOffset: Int,
-  ): SortedMap[Offset, CompletionStreamResponseWithParties] = SortedMap(
+  ): SortedMap[Offset, CompletionsDao.CompletionStreamResponseWithParties] = SortedMap(
     genCompletions(startOffset, endOffset): _*
   )
 
@@ -282,7 +282,9 @@ object CompletionsDaoMock {
 }
 
 class CompletionsDaoMock(
-    val completions: collection.mutable.ListBuffer[(Offset, CompletionStreamResponseWithParties)]
+    val completions: collection.mutable.ListBuffer[
+      (Offset, CompletionsDao.CompletionStreamResponseWithParties)
+    ]
 )(implicit ec: ExecutionContext)
     extends CompletionsDao {
   import CompletionsDaoMock._
@@ -314,7 +316,7 @@ class CompletionsDaoMock(
 
   override def getAllCompletions(range: Range)(implicit
       loggingContext: LoggingContext
-  ): Future[List[(Offset, CommandCompletionsTable.CompletionStreamResponseWithParties)]] = {
+  ): Future[List[(Offset, CompletionsDao.CompletionStreamResponseWithParties)]] = {
     runQueriesJournal.add(GetAllCompletionsRequest(range))
     Future(
       sortedCompletions().filter { case (offset, _) =>
@@ -323,6 +325,7 @@ class CompletionsDaoMock(
     )
   }
 
-  private def sortedCompletions(): List[(Offset, CompletionStreamResponseWithParties)] =
+  private def sortedCompletions()
+      : List[(Offset, CompletionsDao.CompletionStreamResponseWithParties)] =
     completions.sortBy(_._1).toList
 }

@@ -8,7 +8,6 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.dao.CommandCompletionsTable.CompletionStreamResponseWithParties
 
 import scala.concurrent.Future
 
@@ -31,5 +30,13 @@ trait CompletionsDao {
     */
   def getAllCompletions(range: Range)(implicit
       loggingContext: LoggingContext
-  ): Future[List[(Offset, CompletionStreamResponseWithParties)]]
+  ): Future[List[(Offset, CompletionsDao.CompletionStreamResponseWithParties)]]
+}
+
+object CompletionsDao {
+  case class CompletionStreamResponseWithParties(
+      completion: CompletionStreamResponse,
+      parties: Set[Ref.Party],
+      applicationId: ApplicationId,
+  )
 }

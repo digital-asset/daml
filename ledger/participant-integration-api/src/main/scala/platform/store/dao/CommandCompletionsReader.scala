@@ -14,7 +14,7 @@ import com.daml.platform.store.completions.Range
 import scala.concurrent.Future
 
 private[dao] final class CommandCompletionsReader(
-    completionsDao: CompletionsDao,
+    completionsDao: CompletionsDao
 ) extends PagedCompletionsReader {
 
   override def getCompletionsPage(

@@ -41,7 +41,36 @@ private[platform] object CommandCompletionsTable {
         )
     }
 
+  private val acceptedCommandWithPartiesParser: RowParser[CompletionStreamResponseWithPartiesDTO] =
+    acceptedCommandParser ~ SqlParser.list[String]("submitters") ~ str("application_id") map {
+      case completionStreamResponse ~ submitters ~ applicationId =>
+        CompletionStreamResponseWithPartiesDTO(
+          completion = completionStreamResponse,
+          parties = submitters.map(Ref.Party.assertFromString).toSet,
+          applicationId = ApplicationId.assertFromString(applicationId),
+        )
+    }
+
+  private val rejectedCommandWithPartiesParser: RowParser[CompletionStreamResponseWithPartiesDTO] =
+    rejectedCommandParser ~ SqlParser.list[String]("submitters") ~ str("application_id") map {
+      case completionStreamResponse ~ submitters ~ applicationId =>
+        CompletionStreamResponseWithPartiesDTO(
+          completion = completionStreamResponse,
+          parties = submitters.map(Ref.Party.assertFromString).toSet,
+          applicationId = ApplicationId.assertFromString(applicationId),
+        )
+    }
+
+  case class CompletionStreamResponseWithPartiesDTO(
+      completion: CompletionStreamResponse,
+      parties: Set[Ref.Party],
+      applicationId: ApplicationId,
+  )
+
   val parser: RowParser[CompletionStreamResponse] = acceptedCommandParser | rejectedCommandParser
+
+  val parserWithParties: RowParser[CompletionStreamResponseWithPartiesDTO] =
+    acceptedCommandWithPartiesParser | rejectedCommandWithPartiesParser
 
   def prepareGet(
       startExclusive: Offset,
@@ -57,5 +86,18 @@ private[platform] object CommandCompletionsTable {
 
   def prepareCompletionsDelete(endInclusive: Offset): SimpleSql[Row] =
     SQL"delete from participant_command_completions where completion_offset <= $endInclusive"
+
+  private val getForAllPartiesQuery =
+    SQL"""select completion_offset, record_time, command_id, transaction_id, status_code, status_message,
+           submitters, application_id
+         from participant_command_completions
+         where completion_offset > {startExclusive} and completion_offset <= {endInclusive}
+         order by completion_offset asc"""
+
+  def getStmtForAllParties(
+      startExclusive: Offset,
+      endInclusive: Offset,
+  ): SimpleSql[Row] =
+    getForAllPartiesQuery.on("startExclusive" -> startExclusive, "endInclusive" -> endInclusive)
 
 }

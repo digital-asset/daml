@@ -48,11 +48,7 @@ import com.daml.platform.indexer.{CurrentOffset, OffsetStep}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
-import com.daml.platform.store.completions.{
-  JdbcCompletionsDao,
-  PagedCompletionsReader,
-  PagedCompletionsReaderWithCache,
-}
+import com.daml.platform.store.completions.{PagedCompletionsReader, PagedCompletionsReaderWithCache}
 import com.daml.platform.store.dao.CommandCompletionsTable.prepareCompletionsDelete
 import com.daml.platform.store.dao.PersistenceResponse.Ok
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert

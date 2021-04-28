@@ -43,27 +43,27 @@ private[platform] object CommandCompletionsTable {
         )
     }
 
-  private val acceptedCommandWithPartiesParser: RowParser[CompletionStreamResponseWithParties] =
+  private val acceptedCommandWithPartiesParser: RowParser[CompletionStreamResponseWithPartiesDTO] =
     acceptedCommandParser ~ SqlParser.list[String]("submitters") ~ str("application_id") map {
       case completionStreamResponse ~ submitters ~ applicationId =>
-        CompletionStreamResponseWithParties(
+        CompletionStreamResponseWithPartiesDTO(
           completion = completionStreamResponse,
           parties = submitters.map(Ref.Party.assertFromString).toSet,
           applicationId = ApplicationId.assertFromString(applicationId),
         )
     }
 
-  private val rejectedCommandWithPartiesParser: RowParser[CompletionStreamResponseWithParties] =
+  private val rejectedCommandWithPartiesParser: RowParser[CompletionStreamResponseWithPartiesDTO] =
     rejectedCommandParser ~ SqlParser.list[String]("submitters") ~ str("application_id") map {
       case completionStreamResponse ~ submitters ~ applicationId =>
-        CompletionStreamResponseWithParties(
+        CompletionStreamResponseWithPartiesDTO(
           completion = completionStreamResponse,
           parties = submitters.map(Ref.Party.assertFromString).toSet,
           applicationId = ApplicationId.assertFromString(applicationId),
         )
     }
 
-  case class CompletionStreamResponseWithParties(
+  case class CompletionStreamResponseWithPartiesDTO(
       completion: CompletionStreamResponse,
       parties: Set[Ref.Party],
       applicationId: ApplicationId,
@@ -71,7 +71,7 @@ private[platform] object CommandCompletionsTable {
 
   val parser: RowParser[CompletionStreamResponse] = acceptedCommandParser | rejectedCommandParser
 
-  val parserWithParties: RowParser[CompletionStreamResponseWithParties] =
+  val parserWithParties: RowParser[CompletionStreamResponseWithPartiesDTO] =
     acceptedCommandWithPartiesParser | rejectedCommandWithPartiesParser
 
   def prepareGet(

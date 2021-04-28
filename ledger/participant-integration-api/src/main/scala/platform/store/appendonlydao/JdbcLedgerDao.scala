@@ -13,8 +13,12 @@ import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationDuplicate, CommandDeduplicationNew, CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.index.v2.{
+  CommandDeduplicationDuplicate,
+  CommandDeduplicationNew,
+  CommandDeduplicationResult,
+  PackageDetails,
+}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.{TransactionId, WorkflowId}
@@ -32,11 +36,29 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.CommandCompletionsTable.prepareCompletionsDelete
-import com.daml.platform.store.appendonlydao.events.{ContractsReader, EventsTableDelete, LfValueTranslation, PostCommitValidation, TransactionsReader}
-import com.daml.platform.store.completions.PagedCompletionsReader
+import com.daml.platform.store.appendonlydao.events.{
+  ContractsReader,
+  EventsTableDelete,
+  LfValueTranslation,
+  PostCommitValidation,
+  TransactionsReader,
+}
+import com.daml.platform.store.completions.{PagedCompletionsReader, PagedCompletionsReaderWithCache}
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
-import com.daml.platform.store.dao.{DeduplicationKeyMaker, LedgerDao, LedgerReadDao, MeteredLedgerDao, MeteredLedgerReadDao, PersistenceResponse}
-import com.daml.platform.store.entries.{ConfigurationEntry, LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.platform.store.dao.{
+  DeduplicationKeyMaker,
+  LedgerDao,
+  LedgerReadDao,
+  MeteredLedgerDao,
+  MeteredLedgerReadDao,
+  PersistenceResponse,
+}
+import com.daml.platform.store.entries.{
+  ConfigurationEntry,
+  LedgerEntry,
+  PackageLedgerEntry,
+  PartyLedgerEntry,
+}
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
@@ -69,6 +91,7 @@ private class JdbcLedgerDao(
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     validatePartyAllocation: Boolean,
     enricher: Option[ValueEnricher],
+    useCompletionsCache: Boolean,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -622,13 +645,17 @@ private class JdbcLedgerDao(
       servicesExecutionContext
     )
 
-  override val completions: PagedCompletionsReader =
-    new PagedCompletionsReader {
-      /** Returns completions stream filtered based on parameters.
-       * Newest completions read from database are added to cache
-       */
-      override def getCompletionsPage(range: com.daml.platform.store.completions.Range, applicationId: ApplicationId, parties: Set[Party])(implicit loggingContext: LoggingContext): Future[Seq[(Offset, CompletionStreamResponse)]] = ???
+  override val completions: PagedCompletionsReader = {
+    val completionsDao =
+      new JdbcCompletionsDao(dbDispatcher, dbType, metrics, servicesExecutionContext)
+    if (useCompletionsCache) {
+      new PagedCompletionsReaderWithCache(completionsDao, maxItems = 400)(
+        servicesExecutionContext
+      ) //KTODO: magic number
+    } else {
+      new CommandCompletionsReader(completionsDao)
     }
+  }
 
   private val postCommitValidation =
     if (performPostCommitValidation)
@@ -657,6 +684,7 @@ private[platform] object JdbcLedgerDao {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: Option[ValueEnricher],
+      useCompletionsCache: Boolean,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
     owner(
       serverRole,
@@ -668,6 +696,7 @@ private[platform] object JdbcLedgerDao {
       metrics,
       lfValueTranslationCache,
       enricher = enricher,
+      useCompletionsCache = useCompletionsCache,
     ).map(new MeteredLedgerReadDao(_, metrics))
   }
 
@@ -695,6 +724,7 @@ private[platform] object JdbcLedgerDao {
       jdbcAsyncCommitMode =
         if (dbType.supportsAsynchronousCommits) jdbcAsyncCommitMode else DbType.SynchronousCommit,
       enricher = enricher,
+      useCompletionsCache = false, //KTODO
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -721,6 +751,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       validatePartyAllocation,
       enricher = enricher,
+      useCompletionsCache = false, //KTODO
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -760,6 +791,7 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation: Boolean = false,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
       enricher: Option[ValueEnricher],
+      useCompletionsCache: Boolean,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(
@@ -780,6 +812,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       validatePartyAllocation,
       enricher,
+      useCompletionsCache,
     )
 
   sealed trait Queries {
