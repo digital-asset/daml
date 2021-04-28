@@ -48,7 +48,7 @@ import com.daml.platform.indexer.{CurrentOffset, OffsetStep}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
-import com.daml.platform.store.completions.{PagedCompletionsReader, PagedCompletionsReaderWithCache}
+import com.daml.platform.store.completions.PagedCompletionsReader
 import com.daml.platform.store.dao.CommandCompletionsTable.prepareCompletionsDelete
 import com.daml.platform.store.dao.PersistenceResponse.Ok
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
@@ -94,7 +94,6 @@ private class JdbcLedgerDao(
     validatePartyAllocation: Boolean,
     idempotentEntryInserts: Boolean,
     enricher: Option[ValueEnricher],
-    useCompletionsCache: Boolean,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -947,17 +946,10 @@ private class JdbcLedgerDao(
       servicesExecutionContext
     )
 
-  override val completions: PagedCompletionsReader = {
-    val completionsDao =
+  override val completions: PagedCompletionsReader =
+    new CommandCompletionsReader(
       new JdbcCompletionsDao(dbDispatcher, dbType, metrics, servicesExecutionContext)
-    if (useCompletionsCache) {
-      new PagedCompletionsReaderWithCache(completionsDao, 400)(
-        servicesExecutionContext
-      ) // TODO export max items into variable
-    } else {
-      new CommandCompletionsReader(completionsDao)
-    }
-  }
+    )
 
   private val postCommitValidation =
     if (performPostCommitValidation)
@@ -993,7 +985,6 @@ private[platform] object JdbcLedgerDao {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: Option[ValueEnricher],
-      useCompletionsCache: Boolean,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
     owner(
       serverRole,
@@ -1006,7 +997,6 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       idempotentEventInserts = false,
       enricher = enricher,
-      useCompletionsCache = useCompletionsCache,
     ).map(new MeteredLedgerReadDao(_, metrics))
   }
 
@@ -1020,7 +1010,6 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode,
       enricher: Option[ValueEnricher],
-      useCompletionsCache: Boolean,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     owner(
@@ -1036,7 +1025,6 @@ private[platform] object JdbcLedgerDao {
         if (dbType.supportsAsynchronousCommits) jdbcAsyncCommitMode else DbType.SynchronousCommit,
       idempotentEventInserts = dbType == DbType.Postgres,
       enricher = enricher,
-      useCompletionsCache = useCompletionsCache,
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1050,7 +1038,6 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       validatePartyAllocation: Boolean = false,
       enricher: Option[ValueEnricher],
-      useCompletionsCache: Boolean,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     owner(
@@ -1065,7 +1052,6 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation,
       idempotentEventInserts = false,
       enricher = enricher,
-      useCompletionsCache = useCompletionsCache,
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1106,7 +1092,6 @@ private[platform] object JdbcLedgerDao {
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
       idempotentEventInserts: Boolean,
       enricher: Option[ValueEnricher],
-      useCompletionsCache: Boolean,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(
@@ -1128,7 +1113,6 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation,
       idempotentEventInserts,
       enricher,
-      useCompletionsCache,
     )
 
   sealed trait Queries {

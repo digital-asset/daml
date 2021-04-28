@@ -79,6 +79,5 @@ class AppendOnlySchemaMigrationSpec extends AsyncWordSpec with AkkaBeforeAndAfte
       lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       jdbcAsyncCommitMode = DbType.AsynchronousCommit,
       enricher = Some(new ValueEnricher(new Engine())),
-      useCompletionsCache = false,
     )
 }

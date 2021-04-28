@@ -82,7 +82,6 @@ private[sandbox] object SqlLedger {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Engine,
       validatePartyAllocation: Boolean = false,
-      useCompletionsCache: Boolean = true,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[Ledger] {
 
@@ -244,7 +243,6 @@ private[sandbox] object SqlLedger {
         lfValueTranslationCache,
         validatePartyAllocation,
         Some(new ValueEnricher(engine)),
-        useCompletionsCache,
       )
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =

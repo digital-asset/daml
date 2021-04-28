@@ -37,7 +37,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
 
   protected def jdbcUrl: String
 
-  protected def daoOwner(eventsPageSize: Int, useCompletionsCache: Boolean)(implicit
+  protected def daoOwner(eventsPageSize: Int)(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] =
     JdbcLedgerDao.writeOwner(
@@ -52,7 +52,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
       lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       jdbcAsyncCommitMode = DbType.AsynchronousCommit,
       enricher = Some(new ValueEnricher(new Engine())),
-      useCompletionsCache = useCompletionsCache,
     )
 
   protected final var ledgerDao: LedgerDao = _
@@ -67,7 +66,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
     resource = newLoggingContext { implicit loggingContext =>
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
-        dao <- daoOwner(100, useCompletionsCache = true).acquire()
+        dao <- daoOwner(100).acquire()
         _ <- Resource.fromFuture(dao.initializeLedger(TestLedgerId))
         _ <- Resource.fromFuture(dao.initializeParticipantId(TestParticipantId))
       } yield dao

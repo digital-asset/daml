@@ -194,7 +194,6 @@ final class JdbcIndexerSpec
       LfValueTranslationCache.Cache.none,
       jdbcAsyncCommitMode = jdbcAsyncCommitMode,
       enricher = None,
-      useCompletionsCache = false, // KTODO
     )
     new indexer.JdbcIndexer.Factory(
       config = config,

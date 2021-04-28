@@ -141,7 +141,6 @@ private[platform] object ReadOnlySqlLedger {
           metrics,
           lfValueTranslationCache,
           Some(enricher),
-          useCompletionsCache,
         )
   }
 }
