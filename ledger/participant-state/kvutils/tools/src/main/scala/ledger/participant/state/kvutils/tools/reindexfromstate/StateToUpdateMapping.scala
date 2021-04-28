@@ -102,16 +102,6 @@ class StateToUpdateMapping(state: MutableState) {
           None
         } else {
           val contractInstance = Conversions.decodeContractInstance(contract.getContractInstance)
-          //          // Look up contract key.
-          //          val contractKey = contract.getContractKey
-          //          val damlContractKey = DamlKvutils.DamlStateKey.newBuilder
-          //            .setContractKey(contractKey)
-          //            .build
-          //          val contractKeyValueMaybe = state.get(Raw.StateKey(damlContractKey)).flatMap { value =>
-          //            kvutils.Envelope.openStateValue(value).toOption
-          //          }
-          //          val contractKeyValue: DamlStateValue = contractKeyValueMaybe
-          //            .getOrElse(throw new IllegalArgumentException("Invalid contract key value"))
           val ledgerEffectiveTime = Timestamp.assertFromInstant(
             Instant.ofEpochSecond(
               contract.getActiveAt.getSeconds,
