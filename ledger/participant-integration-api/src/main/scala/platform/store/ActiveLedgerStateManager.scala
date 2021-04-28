@@ -20,6 +20,10 @@ import com.daml.platform.store.Contract.ActiveContract
 /** A helper for updating an [[ActiveLedgerState]] with new transactions:
   * - Validates the transaction against the [[ActiveLedgerState]].
   * - Updates the [[ActiveLedgerState]].
+  *
+  *  This class is only used in two places:
+  *  1. Sandbox Classic in-memory backend.
+  *  2. A very old migration for the index database.
   */
 private[platform] class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](
     initialState: => ALS
