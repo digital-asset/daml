@@ -24,7 +24,7 @@ class PartyAllocationCommitterSpec extends AnyWordSpec with Matchers {
       val instance = new PartyAllocationCommitter(metrics)
       val context = createCommitContext(recordTime = None)
 
-      instance.buildLogEntry(context, aPartyAllocationEntry)(loggingContext)
+      instance.buildLogEntry(context, aPartyAllocationEntry)
 
       context.preExecute shouldBe true
       context.outOfTimeBoundsLogEntry should not be empty
@@ -40,7 +40,7 @@ class PartyAllocationCommitterSpec extends AnyWordSpec with Matchers {
       val instance = new PartyAllocationCommitter(metrics)
       val context = createCommitContext(recordTime = Some(theRecordTime))
 
-      instance.buildLogEntry(context, aPartyAllocationEntry)(loggingContext)
+      instance.buildLogEntry(context, aPartyAllocationEntry)
 
       context.preExecute shouldBe false
       context.outOfTimeBoundsLogEntry shouldBe empty

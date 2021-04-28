@@ -8,8 +8,10 @@ import java.time.{Instant, ZoneOffset, ZonedDateTime}
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.StepContinue
-import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter
-import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.DamlTransactionEntrySummary
+import com.daml.ledger.participant.state.kvutils.committer.transaction.{
+  DamlTransactionEntrySummary,
+  TransactionCommitter,
+}
 import com.daml.ledger.participant.state.v1.RejectionReason
 import com.daml.logging.LoggingContext
 import com.google.protobuf.ByteString
@@ -29,11 +31,10 @@ class KeyMonotonicityValidationSpec
   private val ledgerEffectiveTime =
     ZonedDateTime.of(2021, 1, 1, 12, 0, 0, 0, ZoneOffset.UTC).toInstant
   private val testTransactionEntry = DamlTransactionEntrySummary(
-    DamlTransactionEntry
-      .newBuilder()
+    DamlTransactionEntry.newBuilder
       .setSubmissionSeed(testSubmissionSeed)
       .setLedgerEffectiveTime(Conversions.buildTimestamp(ledgerEffectiveTime))
-      .build()
+      .build
   )
 
   "checkContractKeysCausalMonotonicity" should {
@@ -71,12 +72,10 @@ class KeyMonotonicityValidationSpec
     }
   }
 
-  private def aStateValueActiveAt(activeAt: Instant) = DamlStateValue
-    .newBuilder()
-    .setContractKeyState(
-      DamlContractKeyState
-        .newBuilder()
-        .setActiveAt(Conversions.buildTimestamp(activeAt))
-    )
-    .build()
+  private def aStateValueActiveAt(activeAt: Instant) =
+    DamlStateValue.newBuilder
+      .setContractKeyState(
+        DamlContractKeyState.newBuilder.setActiveAt(Conversions.buildTimestamp(activeAt))
+      )
+      .build
 }

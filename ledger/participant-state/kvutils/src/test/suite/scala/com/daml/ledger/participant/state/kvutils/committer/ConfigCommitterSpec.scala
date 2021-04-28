@@ -33,7 +33,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val instance = createConfigCommitter(aRecordTime)
       val context = createCommitContext(recordTime = Some(aRecordTime.addMicros(1)))
 
-      val actual = instance.checkTtl(context, anEmptyResult)(loggingContext)
+      val actual = instance.checkTtl(context, anEmptyResult)
 
       actual match {
         case StepContinue(_) => fail()
@@ -51,7 +51,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
         val instance = createConfigCommitter(maximumRecordTime)
         val context = createCommitContext(recordTime = Some(aRecordTime))
 
-        val actual = instance.checkTtl(context, anEmptyResult)(loggingContext)
+        val actual = instance.checkTtl(context, anEmptyResult)
 
         actual match {
           case StepContinue(_) => succeed
@@ -64,7 +64,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val instance = createConfigCommitter(aRecordTime)
       val context = createCommitContext(recordTime = None)
 
-      val actual = instance.checkTtl(context, anEmptyResult)(loggingContext)
+      val actual = instance.checkTtl(context, anEmptyResult)
 
       actual match {
         case StepContinue(_) => succeed
@@ -76,7 +76,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val instance = createConfigCommitter(aRecordTime)
       val context = createCommitContext(recordTime = None)
 
-      instance.checkTtl(context, anEmptyResult)(loggingContext)
+      instance.checkTtl(context, anEmptyResult)
 
       context.maximumRecordTime shouldEqual Some(aRecordTime.toInstant)
       context.outOfTimeBoundsLogEntry should not be empty
@@ -94,7 +94,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val instance = createConfigCommitter(theRecordTime)
       val context = createCommitContext(recordTime = Some(aRecordTime))
 
-      instance.checkTtl(context, anEmptyResult)(loggingContext)
+      instance.checkTtl(context, anEmptyResult)
 
       context.preExecute shouldBe false
       context.outOfTimeBoundsLogEntry shouldBe empty
@@ -106,7 +106,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val instance = createConfigCommitter(theRecordTime.addMicros(1000))
       val context = createCommitContext(recordTime = Some(theRecordTime))
 
-      val actual = instance.buildLogEntry(context, anEmptyResult)(loggingContext)
+      val actual = instance.buildLogEntry(context, anEmptyResult)
 
       actual match {
         case StepContinue(_) => fail()
@@ -120,7 +120,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val instance = createConfigCommitter(theRecordTime)
       val context = createCommitContext(recordTime = None)
 
-      val actual = instance.buildLogEntry(context, anEmptyResult)(loggingContext)
+      val actual = instance.buildLogEntry(context, anEmptyResult)
 
       actual match {
         case StepContinue(_) => fail()
@@ -134,7 +134,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
         val instance = createConfigCommitter(theRecordTime)
         val context = createCommitContext(recordTime = recordTimeMaybe)
 
-        val actual = instance.buildLogEntry(context, anEmptyResult)(loggingContext)
+        val actual = instance.buildLogEntry(context, anEmptyResult)
 
         actual match {
           case StepContinue(_) => fail()

@@ -9,7 +9,6 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, configurationStateKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.TestHelpers.{createCommitContext, theDefaultConfig}
-import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
 import com.daml.ledger.participant.state.kvutils.committer.CommitterSpec._
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Err}
 import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
@@ -166,11 +165,12 @@ class CommitterSpec
             submission: DamlSubmission,
         )(implicit loggingContext: LoggingContext): Int = 0
 
-        override protected def steps: Iterable[(StepInfo, Step)] = Iterable[(StepInfo, Step)](
-          ("first", (_, _) => _ => StepContinue(1)),
-          ("second", (_, _) => _ => StepStop(expectedLogEntry)),
-          ("third", (_, _) => _ => StepStop(DamlLogEntry.getDefaultInstance)),
-        )
+        override protected def steps: Iterable[(StepInfo, Step)] =
+          Iterable(
+            "first" -> stepReturning(StepContinue(1)),
+            "second" -> stepReturning(StepStop(expectedLogEntry)),
+            "third" -> stepReturning(StepStop(DamlLogEntry.getDefaultInstance)),
+          )
 
         override protected val metrics: Metrics = newMetrics()
       }
@@ -189,10 +189,11 @@ class CommitterSpec
             submission: DamlSubmission,
         )(implicit loggingContext: LoggingContext): Int = 0
 
-        override protected def steps: Iterable[(StepInfo, Step)] = Iterable(
-          ("first", (_, _) => _ => StepContinue(1)),
-          ("second", (_, _) => _ => StepContinue(2)),
-        )
+        override protected def steps: Iterable[(StepInfo, Step)] =
+          Iterable(
+            "first" -> stepReturning(StepContinue(1)),
+            "second" -> stepReturning(StepContinue(2)),
+          )
 
         override protected val metrics: Metrics = newMetrics()
       }
@@ -290,7 +291,9 @@ object CommitterSpec {
     )(implicit loggingContext: LoggingContext): Int = 0
 
     override protected def steps: Iterable[(StepInfo, Step)] =
-      Iterable(("result", (_, _) => _ => StepStop(aLogEntry)))
+      Iterable(
+        "result" -> stepReturning(StepStop(aLogEntry))
+      )
 
     override protected val metrics: Metrics = newMetrics()
   }
@@ -303,5 +306,13 @@ object CommitterSpec {
       )
       .build
 
-  private type Step = Committer.Step[Int]
+  private type Step = CommitStep[Int]
+
+  def stepReturning[PartialResult](result: StepResult[PartialResult]): CommitStep[PartialResult] =
+    new CommitStep[PartialResult] {
+      override def apply(
+          context: CommitContext,
+          input: PartialResult,
+      )(implicit loggingContext: LoggingContext): StepResult[PartialResult] = result
+    }
 }

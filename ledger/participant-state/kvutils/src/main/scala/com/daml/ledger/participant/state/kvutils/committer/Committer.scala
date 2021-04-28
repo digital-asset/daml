@@ -15,7 +15,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.kvutils._
-import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
@@ -75,7 +74,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       submission: DamlSubmission,
   )(implicit loggingContext: LoggingContext): PartialResult
 
-  protected def steps: Iterable[(StepInfo, Step[PartialResult])]
+  protected def steps: Iterable[(StepInfo, CommitStep[PartialResult])]
 
   protected val metrics: Metrics
 
@@ -159,7 +158,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
         state match {
           case StepContinue(state) =>
             withEnrichedLoggingContext(extraLoggingContext(state)) { implicit loggingContext =>
-              stepTimers(info).time(() => step(commitContext, state)(loggingContext))
+              stepTimers(info).time(() => step(commitContext, state))
             }
           case result @ StepStop(_) => result
         }
@@ -170,14 +169,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 }
 
 object Committer {
-  type StepInfo = String
-
   private final val logger = ContextualizedLogger.get(getClass)
-
-  private[committer] type Step[PartialResult] =
-    (CommitContext, PartialResult) => LoggingContext => StepResult[PartialResult]
-
-  private[committer] type Steps[PartialResult] = Iterable[(StepInfo, Step[PartialResult])]
 
   def getCurrentConfiguration(
       defaultConfig: Configuration,

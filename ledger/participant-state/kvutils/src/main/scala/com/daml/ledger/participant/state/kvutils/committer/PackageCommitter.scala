@@ -9,11 +9,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.Conversions.packageUploadDedupKey
 import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.committer.Committer.{
-  StepInfo,
-  Steps,
-  buildLogEntryWithOptionalRecordTime,
-}
+import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
 import com.daml.lf
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
@@ -27,9 +23,13 @@ import com.google.protobuf.ByteString
 import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 
-object PackageCommitter {
-  private[committer] type Result = (DamlPackageUploadEntry.Builder, Map[Ref.PackageId, Ast.Package])
-  private[committer] type Step = Committer.Step[Result]
+private[committer] object PackageCommitter {
+  final case class Result(
+      uploadEntry: DamlPackageUploadEntry.Builder,
+      packagesCache: Map[Ref.PackageId, Ast.Package],
+  )
+
+  type Step = CommitStep[Result]
 }
 
 final private[kvutils] class PackageCommitter(
@@ -46,17 +46,15 @@ final private[kvutils] class PackageCommitter(
   override protected val committerName: String = "package_upload"
 
   override protected def extraLoggingContext(result: Result): Map[String, String] = Map(
-    "packages" -> result._1.getArchivesList.asScala.map(_.getHash).mkString("[", ", ", "]")
+    "packages" -> result.uploadEntry.getArchivesList.asScala.map(_.getHash).mkString("[", ", ", "]")
   )
 
   /** The initial internal state passed to first step. */
   override protected def init(
       ctx: CommitContext,
       submission: DamlSubmission,
-  )(implicit
-      loggingContext: LoggingContext
-  ): (DamlPackageUploadEntry.Builder, Map[Ref.PackageId, Ast.Package]) =
-    (submission.getPackageUploadEntry.toBuilder, Map.empty)
+  )(implicit loggingContext: LoggingContext): Result =
+    Result(submission.getPackageUploadEntry.toBuilder, Map.empty)
 
   private def rejectionTraceLog(message: String)(implicit loggingContext: LoggingContext): Unit =
     logger.trace(s"Package upload rejected: $message.")
@@ -101,8 +99,12 @@ final private[kvutils] class PackageCommitter(
       )
     )
 
-  private def authorizeSubmission: Step = { case (ctx, partialResult @ (uploadEntry, _)) =>
-    implicit loggingContext =>
+  private def authorizeSubmission: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        partialResult: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      val uploadEntry = partialResult.uploadEntry
       if (ctx.participantId == uploadEntry.getParticipantId) {
         StepContinue(partialResult)
       } else {
@@ -116,10 +118,15 @@ final private[kvutils] class PackageCommitter(
           _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder.setDetails(message)),
         )
       }
+    }
   }
 
-  private def deduplicateSubmission: Step = { case (ctx, partialResult @ (uploadEntry, _)) =>
-    implicit loggingContext =>
+  private def deduplicateSubmission: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        partialResult: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      val uploadEntry = partialResult.uploadEntry
       val submissionKey = packageUploadDedupKey(ctx.participantId, uploadEntry.getSubmissionId)
       if (ctx.get(submissionKey).isEmpty) {
         StepContinue(partialResult)
@@ -133,11 +140,16 @@ final private[kvutils] class PackageCommitter(
           _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(message)),
         )
       }
+    }
   }
 
   // Checks that packages are not repeated in the submission.
-  private def checkForDuplicates: Step = { case (ctx, partialResult @ (uploadEntry, _)) =>
-    implicit loggingContext =>
+  private def checkForDuplicates: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        partialResult: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      val uploadEntry = partialResult.uploadEntry
       val (seenOnce, duplicates) = uploadEntry.getArchivesList
         .iterator()
         .asScala
@@ -168,6 +180,7 @@ final private[kvutils] class PackageCommitter(
       } else {
         StepContinue(partialResult)
       }
+    }
   }
 
   private def decodePackages(
@@ -222,12 +235,16 @@ final private[kvutils] class PackageCommitter(
     }
 
   // Strict validation
-  private def strictlyValidatePackages: Step = { case (ctx, (uploadEntry, pkgsCache)) =>
-    implicit loggingContext =>
+  private def strictlyValidatePackages: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        partialResult: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      val Result(uploadEntry, packagesCache) = partialResult
       val result = for {
-        pkgs <- decodePackagesIfNeeded(pkgsCache, uploadEntry.getArchivesList.asScala)
-        _ <- validatePackages(uploadEntry, pkgs)
-      } yield StepContinue((uploadEntry, pkgs))
+        packages <- decodePackagesIfNeeded(packagesCache, uploadEntry.getArchivesList.asScala)
+        _ <- validatePackages(uploadEntry, packages)
+      } yield StepContinue(Result(uploadEntry, packages))
 
       result match {
         case Right(result) => result
@@ -240,12 +257,17 @@ final private[kvutils] class PackageCommitter(
             _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(message)),
           )
       }
+    }
   }
 
   // Minimal validation.
   // Checks that package IDs are valid and package payloads are non-empty.
-  private def looselyValidatePackages: Step = { case (ctx, partialResult @ (uploadEntry, _)) =>
-    implicit loggingContext =>
+  private def looselyValidatePackages: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        partialResult: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      val uploadEntry = partialResult.uploadEntry
       val archives = uploadEntry.getArchivesList.asScala
       val errors =
         archives.foldLeft(List.empty[String]) { (errors, archive) =>
@@ -269,14 +291,15 @@ final private[kvutils] class PackageCommitter(
           _.setInvalidPackage(Invalid.newBuilder.setDetails(message)),
         )
       }
+    }
   }
 
-  private def uploadPackages(pkgs: Map[Ref.PackageId, Ast.Package]): Either[String, Unit] =
+  private def uploadPackages(packages: Map[Ref.PackageId, Ast.Package]): Either[String, Unit] =
     metrics.daml.kvutils.committer.packageUpload.preloadTimer.time { () =>
-      val errors = pkgs.flatMap { case (pkgId, pkg) =>
+      val errors = packages.flatMap { case (pkgId, pkg) =>
         engine
           .preloadPackage(pkgId, pkg)
-          .consume(_ => None, pkgs.get, _ => None, _ => VisibleByKey.Visible)
+          .consume(_ => None, packages.get, _ => None, _ => VisibleByKey.Visible)
           .fold(err => List(err.detailMsg), _ => List.empty)
       }.toList
       metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>
@@ -289,12 +312,16 @@ final private[kvutils] class PackageCommitter(
       )
     }
 
-  private def preloadSynchronously: Step = { case (ctx, (uploadEntry, pkgsCache)) =>
-    implicit loggingContext =>
+  private def preloadSynchronously: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        partialResult: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      val Result(uploadEntry, packagesCache) = partialResult
       val result = for {
-        pkgs <- decodePackagesIfNeeded(pkgsCache, uploadEntry.getArchivesList.asScala)
-        _ <- uploadPackages(pkgs)
-      } yield StepContinue((uploadEntry, pkgs))
+        packages <- decodePackagesIfNeeded(packagesCache, uploadEntry.getArchivesList.asScala)
+        _ <- uploadPackages(packages)
+      } yield StepContinue(Result(uploadEntry, packages))
 
       result match {
         case Right(partialResult) =>
@@ -308,6 +335,7 @@ final private[kvutils] class PackageCommitter(
             _.setInvalidPackage(DamlKvutils.Invalid.newBuilder.setDetails(message)),
           )
       }
+    }
   }
 
   private lazy val preloadExecutor =
@@ -325,15 +353,19 @@ final private[kvutils] class PackageCommitter(
     *
     * This assumes the engine validates the archive it receives.
     */
-  private def preloadAsynchronously: Step = { case (_, partialResult @ (uploadEntry, pkgsCache)) =>
-    implicit loggingContext =>
+  private def preloadAsynchronously: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        partialResult: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      val Result(uploadEntry, packagesCache) = partialResult
       // we need to extract the archives synchronously as other steps may modify uploadEntry
       val archives = uploadEntry.getArchivesList.iterator().asScala.toList
       preloadExecutor.execute { () =>
         logger.trace(s"Uploading ${uploadEntry.getArchivesCount} archive(s).")
         val result = for {
-          pkgs <- decodePackagesIfNeeded(pkgsCache, archives)
-          _ <- uploadPackages(pkgs)
+          packages <- decodePackagesIfNeeded(packagesCache, archives)
+          _ <- uploadPackages(packages)
         } yield ()
 
         result.fold(
@@ -342,27 +374,39 @@ final private[kvutils] class PackageCommitter(
         )
       }
       StepContinue(partialResult)
+    }
   }
 
   // Filter out packages already on the ledger.
   // Should be done after decoding, validation or preloading, as those step may
   // require packages on the ledger by not loaded by the engine.
-  private def filterKnownPackages: Step = { case (ctx, (uploadEntry, pkgs)) =>
-    _ =>
+  private def filterKnownPackages: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        partialResult: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      val Result(uploadEntry, packagesCache) = partialResult
       val archives = uploadEntry.getArchivesList.asScala.filter { archive =>
         val stateKey = DamlStateKey.newBuilder
           .setPackageId(archive.getHash)
           .build
         ctx.get(stateKey).isEmpty
       }
-      StepContinue(uploadEntry.clearArchives().addAllArchives(archives.asJava) -> pkgs)
+      StepContinue(
+        Result(uploadEntry.clearArchives().addAllArchives(archives.asJava), packagesCache)
+      )
+    }
   }
 
-  private[committer] def buildLogEntry: Step = { case (ctx, (uploadEntry, _)) =>
-    implicit loggingContext =>
+  private[committer] def buildLogEntry: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        partialResult: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
       metrics.daml.kvutils.committer.packageUpload.accepts.inc()
       logger.trace("Packages committed.")
 
+      val uploadEntry = partialResult.uploadEntry
       uploadEntry.getArchivesList.forEach { archive =>
         ctx.set(
           DamlStateKey.newBuilder.setPackageId(archive.getHash).build,
@@ -381,8 +425,8 @@ final private[kvutils] class PackageCommitter(
         setOutOfTimeBoundsLogEntry(uploadEntry, ctx)
       }
       StepStop(successLogEntry)
+    }
   }
-
   override protected val steps: Steps[Result] = {
     val builder = List.newBuilder[(StepInfo, Step)]
 
