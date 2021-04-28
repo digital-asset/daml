@@ -30,18 +30,16 @@ private[export] object Encode {
     val partyMap = partyMapping(parties)
 
     val sortedAcs = topoSortAcs(acs)
-    val acsCidRefs = acs.values.foldMap(createdReferencedCids)
     val actions = Action.fromACS(sortedAcs, acsBatchSize) ++ Action.fromTrees(trees, setTime)
     val submits: Seq[Submit] = actions.collect { case submit: Submit => submit }
-    val submitCidRefs = submits.foldMap(_.commands.foldMap(cmdReferencedCids))
-    val cidRefs = acsCidRefs ++ submitCidRefs
+    val cidRefs = submits.foldMap(_.commands.foldMap(cmdReferencedCids))
 
     val acsCids =
       sortedAcs.map(ev => CreatedContract(ContractId(ev.contractId), ev.getTemplateId, Nil))
     val treeCids = trees.map(treeCreatedCids(_))
     val cidMap = cidMapping(acsCids +: treeCids, cidRefs)
 
-    val unknownCidRefs = acsCidRefs -- acs.keySet
+    val unknownCidRefs = cidRefs -- cidMap.keySet
     if (unknownCidRefs.nonEmpty) {
       // TODO[AH] Support this once the ledger has better support for exposing such "hidden" contracts.
       //   Be it archived or divulged contracts.
