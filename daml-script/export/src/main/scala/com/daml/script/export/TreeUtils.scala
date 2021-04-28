@@ -362,6 +362,12 @@ object TreeUtils {
       with SubmitMulti
 
   object Action {
+    def fromACS(acs: Seq[CreatedEvent], batchSize: Int): Seq[Action] = {
+      acs
+        .grouped(batchSize)
+        .map(SubmitSimple.fromCreatedEvents)
+        .toSeq
+    }
     def fromTrees(trees: Seq[TransactionTree], setTime: Boolean): Seq[Action] = {
       if (setTime) {
         var currentTime = Timestamp.MinValue

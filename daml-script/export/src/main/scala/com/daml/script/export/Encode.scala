@@ -29,11 +29,17 @@ private[export] object Encode {
     val parties = partiesInContracts(acs.values) ++ trees.foldMap(partiesInTree(_))
     val partyMap = partyMapping(parties)
 
+    val sortedAcs = topoSortAcs(acs)
     val acsCidRefs = acs.values.foldMap(createdReferencedCids)
-    val actions = Action.fromTrees(trees, setTime)
+    val actions = Action.fromACS(sortedAcs, acsBatchSize) ++ Action.fromTrees(trees, setTime)
     val submits: Seq[Submit] = actions.collect { case submit: Submit => submit }
     val submitCidRefs = submits.foldMap(_.commands.foldMap(cmdReferencedCids))
     val cidRefs = acsCidRefs ++ submitCidRefs
+
+    val acsCids =
+      sortedAcs.map(ev => CreatedContract(ContractId(ev.contractId), ev.getTemplateId, Nil))
+    val treeCids = trees.map(treeCreatedCids(_))
+    val cidMap = cidMapping(acsCids +: treeCids, cidRefs)
 
     val unknownCidRefs = acsCidRefs -- acs.keySet
     if (unknownCidRefs.nonEmpty) {
@@ -43,12 +49,6 @@ private[export] object Encode {
         s"Encountered archived contracts referenced by active contracts: ${unknownCidRefs.mkString(", ")}"
       )
     }
-
-    val sortedAcs = topoSortAcs(acs)
-    val acsCids =
-      sortedAcs.map(ev => CreatedContract(ContractId(ev.contractId), ev.getTemplateId, Nil))
-    val treeCids = trees.map(treeCreatedCids(_))
-    val cidMap = cidMapping(acsCids +: treeCids, cidRefs)
 
     val refs =
       acs.values.foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments))) ++ trees.foldMap(
@@ -75,8 +75,7 @@ private[export] object Encode {
       Doc.text("export : Parties -> Script ()") /
       (Doc.text("export Parties{..} = do") /
         stackNonEmpty(
-          encodeACS(partyMap, cidMap, cidRefs, sortedAcs, batchSize = acsBatchSize)
-            +: actions.map(encodeAction(partyMap, cidMap, cidRefs, _))
+          actions.map(encodeAction(partyMap, cidMap, cidRefs, _))
             :+ Doc.text("pure ()")
         )).hang(2)
   }
@@ -272,20 +271,6 @@ private[export] object Encode {
     )).nested(4)
   }
 
-  private[export] def encodeSubmitCreatedEvents(
-      partyMap: Map[Party, String],
-      cidMap: Map[ContractId, String],
-      cidRefs: Set[ContractId],
-      evs: Seq[CreatedEvent],
-  ): Doc = {
-    encodeSubmitSimple(
-      partyMap,
-      cidMap,
-      cidRefs,
-      SubmitSimple.fromCreatedEvents(evs),
-    )
-  }
-
   private def encodeSubmitSimple(
       partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
@@ -327,21 +312,6 @@ private[export] object Encode {
 
   private[export] def encodeSetTime(timestamp: Timestamp): Doc = {
     "setTime" &: encodeTimestamp(timestamp.toInstant.atZone(ZoneId.of("UTC")))
-  }
-
-  private[export] def encodeACS(
-      partyMap: Map[Party, String],
-      cidMap: Map[ContractId, String],
-      cidRefs: Set[ContractId],
-      acs: Seq[CreatedEvent],
-      batchSize: Int,
-  ): Doc = {
-    Doc.stack(
-      acs
-        .grouped(batchSize)
-        .map(encodeSubmitCreatedEvents(partyMap, cidMap, cidRefs, _))
-        .toSeq
-    )
   }
 
   private[export] def encodeSubmit(
