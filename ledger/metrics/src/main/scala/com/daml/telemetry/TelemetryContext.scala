@@ -6,7 +6,7 @@ package com.daml.telemetry
 import java.util.{HashMap => jHashMap, Map => jMap}
 
 import com.daml.dec.DirectExecutionContext
-import io.opentelemetry.api.trace.Span
+import io.opentelemetry.api.trace.{Span, Tracer}
 import io.opentelemetry.context.Context
 
 import scala.concurrent.Future
@@ -81,7 +81,8 @@ trait TelemetryContext {
 
 /** Default implementation of TelemetryContext. Uses OpenTelemetry to generate and gather traces.
   */
-protected class DefaultTelemetryContext(protected val span: Span) extends TelemetryContext {
+protected class DefaultTelemetryContext(protected val tracer: Tracer, protected val span: Span)
+    extends TelemetryContext {
 
   def setAttribute(attribute: SpanAttribute, value: String): TelemetryContext = {
     span.setAttribute(attribute.key, value)
@@ -97,15 +98,14 @@ protected class DefaultTelemetryContext(protected val span: Span) extends Teleme
   ): Future[T] = {
     val subSpan = createSubSpan(spanName, kind, attributes: _*)
 
-    val result = body(DefaultTelemetryContext(subSpan))
-    result.onComplete {
+    val result = body(DefaultTelemetryContext(tracer, subSpan))
+    result.andThen {
       case Failure(t) =>
         subSpan.recordException(t)
         subSpan.end()
       case Success(_) =>
         subSpan.end()
     }(DirectExecutionContext)
-    result
   }
 
   override def runInNewSpan[T](
@@ -118,7 +118,7 @@ protected class DefaultTelemetryContext(protected val span: Span) extends Teleme
     val subSpan = createSubSpan(spanName, kind, attributes: _*)
 
     try {
-      body(DefaultTelemetryContext(subSpan))
+      body(DefaultTelemetryContext(tracer, subSpan))
     } finally {
       subSpan.end()
     }
@@ -130,7 +130,7 @@ protected class DefaultTelemetryContext(protected val span: Span) extends Teleme
       attributes: (SpanAttribute, String)*
   ): Span = {
     val subSpan =
-      OpenTelemetryTracer
+      tracer
         .spanBuilder(spanName)
         .setParent(Context.current.`with`(span))
         .setSpanKind(kind.kind)
@@ -159,18 +159,19 @@ protected class DefaultTelemetryContext(protected val span: Span) extends Teleme
 }
 
 object DefaultTelemetryContext {
-  def apply(span: Span): DefaultTelemetryContext =
-    new DefaultTelemetryContext(span)
+  def apply(tracer: Tracer, span: Span): DefaultTelemetryContext =
+    new DefaultTelemetryContext(tracer, span)
 }
 
-protected object RootDefaultTelemetryContext extends DefaultTelemetryContext(Span.getInvalid) {
+protected class RootDefaultTelemetryContext(override protected val tracer: Tracer)
+    extends DefaultTelemetryContext(tracer, Span.getInvalid) {
   override protected def createSubSpan(
       spanName: String,
       kind: SpanKind,
       attributes: (SpanAttribute, String)*
   ): Span = {
     val subSpan =
-      OpenTelemetryTracer.spanBuilder(spanName).setNoParent().setSpanKind(kind.kind).startSpan()
+      tracer.spanBuilder(spanName).setNoParent().setSpanKind(kind.kind).startSpan()
     for {
       (attribute, value) <- attributes
     } {
@@ -178,6 +179,11 @@ protected object RootDefaultTelemetryContext extends DefaultTelemetryContext(Spa
     }
     subSpan
   }
+}
+
+object RootDefaultTelemetryContext {
+  def apply(tracer: Tracer): RootDefaultTelemetryContext =
+    new RootDefaultTelemetryContext(tracer)
 }
 
 /** Implementation of Telemetry that does nothing.

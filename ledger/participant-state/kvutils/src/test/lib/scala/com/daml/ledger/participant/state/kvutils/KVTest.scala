@@ -18,6 +18,7 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.{Engine, VisibleByKey}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Transaction
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import scalaz.std.list._
 import scalaz.syntax.traverse._
@@ -81,17 +82,24 @@ object KVTest {
   def runTest[A](test: KVTest[A]): A =
     test.eval(initialTestState)
 
-  def runTestWithPackage[A](simplePackage: SimplePackage, parties: Party*)(test: KVTest[A]): A =
+  def runTestWithPackage[A](
+      simplePackage: SimplePackage,
+      parties: Party*
+  )(test: KVTest[A])(implicit loggingContext: LoggingContext): A =
     (for {
       _ <- uploadArchive(simplePackage)
       _ <- parties.toList.traverse(p => allocateParty(p, p))
       r <- test
     } yield r).eval(initialTestState)
 
-  def runTestWithSimplePackage[A](parties: Party*)(test: SimplePackage => KVTest[A]): A =
+  def runTestWithSimplePackage[A](
+      parties: Party*
+  )(test: SimplePackage => KVTest[A])(implicit loggingContext: LoggingContext): A =
     runTestWithPackage(DefaultSimplePackage, parties: _*)(test(DefaultSimplePackage))
 
-  private def uploadArchive(simplePackage: SimplePackage): KVTest[Unit] =
+  private def uploadArchive(
+      simplePackage: SimplePackage
+  )(implicit loggingContext: LoggingContext): KVTest[Unit] =
     for {
       archiveLogEntry <- submitArchives(
         "simple-archive-submission",
@@ -152,7 +160,7 @@ object KVTest {
   def submitArchives(
       submissionId: String,
       archives: DamlLf.Archive*
-  ): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     get.flatMap { testState =>
       submit(
         createArchiveSubmission(submissionId, testState, archives: _*)
@@ -162,7 +170,7 @@ object KVTest {
   def preExecuteArchives(
       submissionId: String,
       archives: DamlLf.Archive*
-  ): KVTest[(DamlLogEntryId, PreExecutionResult)] =
+  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, PreExecutionResult)] =
     get.flatMap { testState =>
       preExecute(
         createArchiveSubmission(submissionId, testState, archives: _*)
@@ -217,7 +225,7 @@ object KVTest {
       letDelta: Duration = Duration.ZERO,
       commandId: CommandId = randomLedgerString,
       deduplicationTime: Duration = Duration.ofDays(1),
-  ): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     prepareTransactionSubmission(
       submitter,
       transaction,
@@ -234,7 +242,7 @@ object KVTest {
       letDelta: Duration = Duration.ZERO,
       commandId: CommandId = randomLedgerString,
       deduplicationTime: Duration = Duration.ofDays(1),
-  ): KVTest[(DamlLogEntryId, PreExecutionResult)] =
+  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, PreExecutionResult)] =
     prepareTransactionSubmission(
       submitter,
       transaction,
@@ -278,7 +286,7 @@ object KVTest {
       configModify: Configuration => Configuration,
       submissionId: SubmissionId = randomLedgerString,
       minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta,
-  ): KVTest[DamlLogEntry] =
+  )(implicit loggingContext: LoggingContext): KVTest[DamlLogEntry] =
     for {
       testState <- get[KVTestState]
       oldConf <- getConfiguration
@@ -297,7 +305,7 @@ object KVTest {
       configModify: Configuration => Configuration,
       submissionId: SubmissionId = randomLedgerString,
       minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta,
-  ): KVTest[PreExecutionResult] =
+  )(implicit loggingContext: LoggingContext): KVTest[PreExecutionResult] =
     for {
       testState <- get[KVTestState]
       oldConf <- getConfiguration
@@ -316,7 +324,7 @@ object KVTest {
       subId: String,
       hint: String,
       participantId: ParticipantId,
-  ): KVTest[DamlLogEntry] =
+  )(implicit loggingContext: LoggingContext): KVTest[DamlLogEntry] =
     get[KVTestState]
       .flatMap(testState => submit(createPartySubmission(subId, hint, participantId, testState)))
       .map(_._2)
@@ -325,14 +333,17 @@ object KVTest {
       subId: String,
       hint: String,
       participantId: ParticipantId,
-  ): KVTest[PreExecutionResult] =
+  )(implicit loggingContext: LoggingContext): KVTest[PreExecutionResult] =
     get[KVTestState]
       .flatMap(testState =>
         preExecute(createPartySubmission(subId, hint, participantId, testState))
       )
       .map(_._2)
 
-  def allocateParty(subId: String, hint: String): KVTest[Party] =
+  def allocateParty(
+      subId: String,
+      hint: String,
+  )(implicit loggingContext: LoggingContext): KVTest[Party] =
     for {
       testState <- get[KVTestState]
       result <- submitPartyAllocation(subId, hint, testState.participantId).map { logEntry =>
@@ -341,7 +352,9 @@ object KVTest {
       }
     } yield result
 
-  private def submit(submission: DamlSubmission): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+  private def submit(
+      submission: DamlSubmission
+  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     for {
       testState <- get[KVTestState]
       entryId <- freshEntryId
@@ -367,7 +380,9 @@ object KVTest {
       entryId -> logEntry
     }
 
-  def preExecute(damlSubmission: DamlSubmission): KVTest[(DamlLogEntryId, PreExecutionResult)] =
+  def preExecute(
+      damlSubmission: DamlSubmission
+  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, PreExecutionResult)] =
     for {
       testState <- get[KVTestState]
       entryId <- freshEntryId

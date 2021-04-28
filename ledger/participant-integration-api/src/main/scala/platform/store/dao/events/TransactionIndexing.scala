@@ -202,16 +202,27 @@ object TransactionIndexing {
         ledgerEffectiveTime: Instant,
         offset: Offset,
         divulgedContracts: Iterable[DivulgedContract],
+        inactiveContracts: Set[ContractId],
     ): TransactionIndexing = {
+      // Creates outside of rollback nodes.
       val created = creates.result()
+      // Archives outside of rollback nodes.
       val archived = archives.result()
       val allCreatedContractIds = created.map(_.coid)
+      // All contracts referenced outside of rollback nodes
+      // either in creates or in archives.
       val allContractIds = allCreatedContractIds.union(archived)
+      // Local contracts that have not been archived
       val netCreates = created.filterNot(c => archived(c.coid))
+      // Global contracts that have been archived.
       val netArchives = archived.filterNot(allCreatedContractIds)
+      // Divulged global contracts that have not been archived. This only
+      // includes contracts divulged before the current transaction.
       val netDivulgedContracts = divulgedContracts.filterNot(c => allContractIds(c.contractId))
+      // Local and global contracts divulged in this transaction that have not been archived.
       val netTransactionVisibility =
-        Relation.from(visibility.result()).view.filterKeys(!archived(_)).toMap
+        Relation.from(visibility.result()).view.filterKeys(!inactiveContracts(_)).toMap
+      // All active, divulged contracts at the end of the transaction.
       val netVisibility = Relation.union(netTransactionVisibility, visibility(netDivulgedContracts))
       TransactionIndexing(
         transaction = TransactionInfo(
@@ -322,9 +333,16 @@ object TransactionIndexing {
       offset: Offset,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
-  ): TransactionIndexing =
+  ): TransactionIndexing = {
     transaction
-      .fold(new Builder(blindingInfo))(_ add _)
+      .foldInExecutionOrder(new Builder(blindingInfo))(
+        exerciseBegin = (acc, nid, node) => (acc.add((nid, node)), true),
+        // Rollback nodes are not included in the indexer
+        rollbackBegin = (acc, _, _) => (acc, false),
+        leaf = (acc, nid, node) => acc.add((nid, node)),
+        exerciseEnd = (acc, _, _) => acc,
+        rollbackEnd = (acc, _, _) => acc,
+      )
       .build(
         submitterInfo = submitterInfo,
         workflowId = workflowId,
@@ -332,6 +350,8 @@ object TransactionIndexing {
         ledgerEffectiveTime = ledgerEffectiveTime,
         offset = offset,
         divulgedContracts = divulgedContracts,
+        inactiveContracts = transaction.inactiveContracts,
       )
+  }
 
 }

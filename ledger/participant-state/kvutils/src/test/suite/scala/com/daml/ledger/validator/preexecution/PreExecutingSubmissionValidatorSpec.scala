@@ -187,7 +187,7 @@ object PreExecutingSubmissionValidatorSpec {
         any[DamlSubmission],
         any[ParticipantId],
         any[DamlStateMap],
-      )
+      )(any[LoggingContext])
     )
       .thenReturn(result)
 

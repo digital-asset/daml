@@ -248,6 +248,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
   ): Future[Unit] =
     indexedSubmissions
       // Fetch the submission inputs in parallel.
@@ -339,7 +340,10 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
       correlatedSubmission: CorrelatedSubmission,
       inputState: DamlInputState,
       exporterWriteSet: SubmissionAggregator.WriteSetBuilder,
-  )(implicit executionContext: ExecutionContext): Future[ValidatedSubmission] =
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[ValidatedSubmission] =
     withSubmissionLoggingContext(correlatedSubmission) { _ =>
       Timed.timedAndTrackedFuture(
         metrics.validate,

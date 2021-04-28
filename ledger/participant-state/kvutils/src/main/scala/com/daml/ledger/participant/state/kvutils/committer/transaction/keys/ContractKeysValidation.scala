@@ -19,13 +19,14 @@ import com.daml.ledger.participant.state.v1.RejectionReason
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{Node, NodeId}
 import com.daml.lf.value.Value.ContractId
+import com.daml.logging.LoggingContext
 
 private[transaction] object ContractKeysValidation {
 
   def validateKeys(
       transactionCommitter: TransactionCommitter
-  ): Step[DamlTransactionEntrySummary] =
-    (commitContext, transactionEntry) => {
+  ): Step[DamlTransactionEntrySummary] = {
+    (commitContext, transactionEntry) => implicit loggingContext =>
       val damlState = commitContext
         .collectInputs[(DamlStateKey, DamlStateValue), Map[DamlStateKey, DamlStateValue]] {
           case (key, Some(value)) if key.hasContractKey => key -> value
@@ -57,7 +58,7 @@ private[transaction] object ContractKeysValidation {
           stateAfterMonotonicityCheck,
         )
       } yield finalState
-    }
+  }
 
   private def performTraversalContractKeysChecks(
       transactionCommitter: TransactionCommitter,
@@ -65,7 +66,7 @@ private[transaction] object ContractKeysValidation {
       contractKeyDamlStateKeys: Set[DamlStateKey],
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       transactionEntry: DamlTransactionEntrySummary,
-  ): StepResult[DamlTransactionEntrySummary] = {
+  )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
     type KeyValidationStackStatus = Either[KeyValidationError, List[KeyValidationState]]
 
     val keysValidationOutcome = transactionEntry.transaction

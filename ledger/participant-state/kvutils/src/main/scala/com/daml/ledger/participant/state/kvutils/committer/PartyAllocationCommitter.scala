@@ -6,108 +6,109 @@ package com.daml.ledger.participant.state.kvutils.committer
 import com.daml.ledger.participant.state.kvutils.Conversions.partyAllocationDedupKey
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.{
-  StepInfo,
+  Steps,
   buildLogEntryWithOptionalRecordTime,
 }
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 
 private[kvutils] object PartyAllocationCommitter {
-  type Step = Committer.Step[DamlPartyAllocationEntry.Builder]
+  type Result = DamlPartyAllocationEntry.Builder
+  type Step = Committer.Step[Result]
 }
 
 private[kvutils] class PartyAllocationCommitter(
     override protected val metrics: Metrics
-) extends Committer[DamlPartyAllocationEntry.Builder] {
+) extends Committer[PartyAllocationCommitter.Result] {
+
   import PartyAllocationCommitter._
+
+  private final val logger = ContextualizedLogger.get(getClass)
 
   override protected val committerName = "party_allocation"
 
-  private def rejectionTraceLog(
-      msg: String,
-      partyAllocationEntry: DamlPartyAllocationEntry.Builder,
-  ): Unit =
-    logger.trace(
-      s"Party allocation rejected, $msg, correlationId=${partyAllocationEntry.getSubmissionId}"
-    )
+  override protected def extraLoggingContext(result: Result): Map[String, String] = Map(
+    "party" -> result.getParty
+  )
 
-  private val authorizeSubmission: Step = (ctx, partyAllocationEntry) => {
-    if (ctx.participantId == partyAllocationEntry.getParticipantId) {
-      StepContinue(partyAllocationEntry)
+  override protected def init(
+      ctx: CommitContext,
+      submission: DamlSubmission,
+  )(implicit loggingContext: LoggingContext): Result =
+    submission.getPartyAllocationEntry.toBuilder
+
+  private def rejectionTraceLog(msg: String)(implicit loggingContext: LoggingContext): Unit =
+    logger.trace(s"Party allocation rejected: $msg.")
+
+  private val authorizeSubmission: Step = { (ctx, result) => implicit loggingContext =>
+    if (ctx.participantId == result.getParticipantId) {
+      StepContinue(result)
     } else {
-      val msg =
-        s"participant id ${partyAllocationEntry.getParticipantId} did not match authenticated participant id ${ctx.participantId}"
-      rejectionTraceLog(msg, partyAllocationEntry)
+      val message =
+        s"participant id ${result.getParticipantId} did not match authenticated participant id ${ctx.participantId}"
+      rejectionTraceLog(message)
       reject(
         ctx.recordTime,
-        partyAllocationEntry,
-        _.setParticipantNotAuthorized(
-          ParticipantNotAuthorized.newBuilder
-            .setDetails(msg)
-        ),
+        result,
+        _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder.setDetails(message)),
       )
     }
   }
 
-  private val validateParty: Step = (ctx, partyAllocationEntry) => {
-    val party = partyAllocationEntry.getParty
+  private val validateParty: Step = { (ctx, result) => implicit loggingContext =>
+    val party = result.getParty
     if (Ref.Party.fromString(party).isRight) {
-      StepContinue(partyAllocationEntry)
+      StepContinue(result)
     } else {
-      val msg = s"party string '$party' invalid"
-      rejectionTraceLog(msg, partyAllocationEntry)
+      val message = s"party string '$party' invalid"
+      rejectionTraceLog(message)
       reject(
         ctx.recordTime,
-        partyAllocationEntry,
-        _.setInvalidName(
-          Invalid.newBuilder
-            .setDetails(msg)
-        ),
+        result,
+        _.setInvalidName(Invalid.newBuilder.setDetails(message)),
       )
     }
   }
 
-  private val deduplicateParty: Step = (ctx, partyAllocationEntry) => {
-    val party = partyAllocationEntry.getParty
+  private val deduplicateParty: Step = { (ctx, result) => implicit loggingContext =>
+    val party = result.getParty
     val partyKey = DamlStateKey.newBuilder.setParty(party).build
     if (ctx.get(partyKey).isEmpty) {
-      StepContinue(partyAllocationEntry)
+      StepContinue(result)
     } else {
-      val msg = s"party already exists party='$party'"
-      rejectionTraceLog(msg, partyAllocationEntry)
+      val message = s"party already exists party='$party'"
+      rejectionTraceLog(message)
       reject(
         ctx.recordTime,
-        partyAllocationEntry,
-        _.setAlreadyExists(AlreadyExists.newBuilder.setDetails(msg)),
+        result,
+        _.setAlreadyExists(AlreadyExists.newBuilder.setDetails(message)),
       )
     }
   }
 
-  private val deduplicateSubmission: Step = (ctx, partyAllocationEntry) => {
-    val submissionKey =
-      partyAllocationDedupKey(ctx.participantId, partyAllocationEntry.getSubmissionId)
+  private val deduplicateSubmission: Step = { (ctx, result) => implicit loggingContext =>
+    val submissionKey = partyAllocationDedupKey(ctx.participantId, result.getSubmissionId)
     if (ctx.get(submissionKey).isEmpty) {
-      StepContinue(partyAllocationEntry)
+      StepContinue(result)
     } else {
-      val msg = s"duplicate submission='${partyAllocationEntry.getSubmissionId}'"
-      rejectionTraceLog(msg, partyAllocationEntry)
+      val message = s"duplicate submission='${result.getSubmissionId}'"
+      rejectionTraceLog(message)
       reject(
         ctx.recordTime,
-        partyAllocationEntry,
-        _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(msg)),
+        result,
+        _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(message)),
       )
     }
   }
 
-  private[committer] val buildLogEntry: Step = (ctx, partyAllocationEntry) => {
-    val party = partyAllocationEntry.getParty
+  private[committer] val buildLogEntry: Step = { (ctx, result) => implicit loggingContext =>
+    val party = result.getParty
     val partyKey = DamlStateKey.newBuilder.setParty(party).build
 
     metrics.daml.kvutils.committer.partyAllocation.accepts.inc()
-    logger.trace(
-      s"Party allocated, party=$party correlationId=${partyAllocationEntry.getSubmissionId}"
-    )
+    logger.trace("Party allocated.")
 
     ctx.set(
       partyKey,
@@ -120,7 +121,7 @@ private[kvutils] class PartyAllocationCommitter(
     )
 
     ctx.set(
-      partyAllocationDedupKey(ctx.participantId, partyAllocationEntry.getSubmissionId),
+      partyAllocationDedupKey(ctx.participantId, result.getSubmissionId),
       DamlStateValue.newBuilder
         .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
         .build,
@@ -128,26 +129,26 @@ private[kvutils] class PartyAllocationCommitter(
 
     val successLogEntry = buildLogEntryWithOptionalRecordTime(
       ctx.recordTime,
-      _.setPartyAllocationEntry(partyAllocationEntry),
+      _.setPartyAllocationEntry(result),
     )
     if (ctx.preExecute) {
-      setOutOfTimeBoundsLogEntry(partyAllocationEntry, ctx)
+      setOutOfTimeBoundsLogEntry(result, ctx)
     }
     StepStop(successLogEntry)
   }
 
   private def reject[PartialResult](
       recordTime: Option[Timestamp],
-      partyAllocationEntry: DamlPartyAllocationEntry.Builder,
+      result: Result,
       addErrorDetails: DamlPartyAllocationRejectionEntry.Builder => DamlPartyAllocationRejectionEntry.Builder,
   ): StepResult[PartialResult] = {
     metrics.daml.kvutils.committer.partyAllocation.rejections.inc()
-    StepStop(buildRejectionLogEntry(recordTime, partyAllocationEntry, addErrorDetails))
+    StepStop(buildRejectionLogEntry(recordTime, result, addErrorDetails))
   }
 
   private def buildRejectionLogEntry(
       recordTime: Option[Timestamp],
-      partyAllocationEntry: DamlPartyAllocationEntry.Builder,
+      result: Result,
       addErrorDetails: DamlPartyAllocationRejectionEntry.Builder => DamlPartyAllocationRejectionEntry.Builder,
   ): DamlLogEntry = {
     buildLogEntryWithOptionalRecordTime(
@@ -155,29 +156,20 @@ private[kvutils] class PartyAllocationCommitter(
       _.setPartyAllocationRejectionEntry(
         addErrorDetails(
           DamlPartyAllocationRejectionEntry.newBuilder
-            .setSubmissionId(partyAllocationEntry.getSubmissionId)
-            .setParticipantId(partyAllocationEntry.getParticipantId)
+            .setSubmissionId(result.getSubmissionId)
+            .setParticipantId(result.getParticipantId)
         )
       ),
     )
   }
 
-  private def setOutOfTimeBoundsLogEntry(
-      partyAllocationEntry: DamlPartyAllocationEntry.Builder,
-      commitContext: CommitContext,
-  ): Unit = {
+  private def setOutOfTimeBoundsLogEntry(result: Result, commitContext: CommitContext): Unit = {
     commitContext.outOfTimeBoundsLogEntry = Some(
-      buildRejectionLogEntry(recordTime = None, partyAllocationEntry, identity)
+      buildRejectionLogEntry(recordTime = None, result, identity)
     )
   }
 
-  override protected def init(
-      ctx: CommitContext,
-      submission: DamlSubmission,
-  ): DamlPartyAllocationEntry.Builder =
-    submission.getPartyAllocationEntry.toBuilder
-
-  override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
+  override protected val steps: Steps[Result] = Iterable(
     "authorize_submission" -> authorizeSubmission,
     "validate_party" -> validateParty,
     "deduplicate_submission" -> deduplicateSubmission,

@@ -271,22 +271,3 @@ da_haskell_repl(
         "//language-support/ts/codegen:daml2js",
     ],
 )
-
-string_flag(
-    name = "oracle_testing",
-    build_setting_default = "no",
-)
-
-config_setting(
-    name = "oracle_available",
-    flag_values = {
-        ":oracle_testing": "yes",
-    },
-)
-
-config_setting(
-    name = "oracle_unavailable",
-    flag_values = {
-        ":oracle_testing": "no",
-    },
-)

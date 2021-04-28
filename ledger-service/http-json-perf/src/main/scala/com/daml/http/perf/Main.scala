@@ -24,9 +24,11 @@ import scalaz.std.string._
 import scalaz.syntax.tag._
 import scalaz.{-\/, EitherT, \/, \/-}
 
+import Config.QueryStoreIndex
+
 import scala.concurrent.duration.{Duration, _}
 import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object Main extends StrictLogging {
 
@@ -137,24 +139,69 @@ object Main extends StrictLogging {
       }
     }
 
-  private def withJsonApiJdbcConfig[A](jsonApiQueryStoreEnabled: Boolean)(
+  private def withJsonApiJdbcConfig[A](jsonApiQueryStoreEnabled: QueryStoreIndex)(
       fn: Option[JdbcConfig] => Future[A]
   )(implicit
       ec: ExecutionContext
-  ): Future[A] =
-    if (jsonApiQueryStoreEnabled) {
+  ): Future[A] = QueryStoreBracket lookup jsonApiQueryStoreEnabled match {
+    case Some(b: QueryStoreBracket[s, d]) =>
+      import b._
       for {
-        dbInstance <- Future.successful(new PostgresRunner())
-        dbConfig <- toFuture(dbInstance.start())
-        jsonApiDbConfig <- Future.successful(jsonApiJdbcConfig(dbConfig))
+        dbInstance <- Future.successful(state())
+        dbConfig <- toFuture(start(dbInstance))
+        jsonApiDbConfig <- Future.successful(config(dbInstance, dbConfig))
         a <- fn(Some(jsonApiDbConfig))
         _ <- Future.successful(
-          dbInstance.stop()
+          stop(dbInstance, dbConfig) // XXX ignores resulting Try
         ) // TODO: use something like `lf.data.TryOps.Bracket.bracket`
       } yield a
-    } else {
-      fn(None)
+
+    case None => fn(None)
+  }
+
+  private[this] final case class QueryStoreBracket[S, D](
+      state: () => S,
+      start: S => Try[D],
+      config: (S, D) => JdbcConfig,
+      stop: (S, D) => Try[Unit],
+  )
+  private[this] object QueryStoreBracket {
+    type T = QueryStoreBracket[_, _]
+    val Postgres: T = QueryStoreBracket[PostgresRunner, PostgresDatabase](
+      () => new PostgresRunner(),
+      _.start(),
+      (_, d) => jsonApiJdbcConfig(d),
+      (r, _) => r.stop(),
+    )
+
+    import com.daml.testing.oracle, oracle.OracleAround
+    val Oracle: T = QueryStoreBracket[OracleRunner, oracle.User](
+      () => new OracleRunner,
+      _.start(),
+      _ jdbcConfig _,
+      _.stop(_),
+    )
+
+    private[this] final class OracleRunner extends OracleAround {
+      type St = oracle.User
+
+      def start() = Try {
+        connectToOracle()
+        createNewRandomUser(): St
+      }
+
+      def jdbcConfig(user: St) =
+        JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, user.name, user.pwd)
+
+      def stop(user: St) = Try(dropUser(user.name))
     }
+
+    def lookup(q: QueryStoreIndex): Option[T] = q match {
+      case QueryStoreIndex.No => None
+      case QueryStoreIndex.Postgres => Some(Postgres)
+      case QueryStoreIndex.Oracle => Some(Oracle)
+    }
+  }
 
   private def jsonApiJdbcConfig(c: PostgresDatabase): JdbcConfig =
     JdbcConfig(

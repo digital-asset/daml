@@ -15,6 +15,8 @@ import com.daml.lf.archive.testing.Encode
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.scalatest.ParallelTestExecution
@@ -24,8 +26,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.jdk.CollectionConverters._
 
 class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestExecution {
-
-  import com.daml.lf.testing.parser.Implicits._
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private[this] def encodePackage[P](pkg: Ast.Package) =
     Encode.encodeArchive(
@@ -72,7 +73,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         metadata ( 'Quantum' : '0.0.1' )
 
         module Chromodynamics {
-          record Charge = { value: '${libraryPackageId}':Color:Primary } ;
+          record Charge = { value: '$libraryPackageId':Color:Primary } ;
         }
       """
   )
@@ -91,7 +92,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     restart()
 
     // simulate restart of the participant node
-    def restart() = this.synchronized {
+    def restart(): Unit = this.synchronized {
       engine = new Engine(
         EngineConfig(
           allowedLanguageVersions = LanguageVersion.DevVersions,
@@ -101,7 +102,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       packageCommitter = new PackageCommitter(engine, metrics, validationMode, preloadingMode)
     }
 
-    def submit(submission: DamlSubmission) = {
+    def submit(submission: DamlSubmission): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
       val result @ (log2, output1) =
         packageCommitter.run(
           Some(com.daml.lf.data.Time.Timestamp.now()),
@@ -204,7 +205,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     }
   }
 
-  private[this] def lenientValidationTests(newCommitter: => CommitterWrapper) = {
+  private[this] def lenientValidationTests(newCommitter: => CommitterWrapper): Unit = {
 
     import DamlPackageUploadRejectionEntry.ReasonCase._
 
@@ -261,7 +262,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       shouldFailWith(
         committer.submit(submission1),
         INVALID_PACKAGE,
-        s"${pkgId1} appears more than once",
+        s"$pkgId1 appears more than once",
       )
     }
 
@@ -274,7 +275,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       shouldFailWith(
         committer.submit(submission1),
         INVALID_PACKAGE,
-        s"${pkgId1} appears more than once",
+        s"$pkgId1 appears more than once",
       )
 
       // when archive1 and archive2 are known
@@ -282,7 +283,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       shouldFailWith(
         committer.submit(submission1),
         INVALID_PACKAGE,
-        s"${pkgId1} appears more than once",
+        s"$pkgId1 appears more than once",
       )
     }
 
@@ -321,7 +322,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
 
   }
 
-  private[this] def strictValidationTests(newCommitter: => CommitterWrapper) = {
+  private[this] def strictValidationTests(newCommitter: => CommitterWrapper): Unit = {
 
     import DamlPackageUploadRejectionEntry.ReasonCase._
 
@@ -414,7 +415,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     def newCommitter =
       new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.Asynchronous)
 
-    def waitWhile(cond: => Boolean) =
+    def waitWhile(cond: => Boolean): Unit =
       // wait up to 16s
       Iterator.iterate(16L)(_ * 2).takeWhile(_ <= 8192 && cond).foreach(Thread.sleep)
 
@@ -505,7 +506,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
       val context = createCommitContext(recordTime = None)
 
-      newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)
+      newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)(loggingContext)
 
       context.preExecute shouldBe true
       context.outOfTimeBoundsLogEntry should not be empty
@@ -520,7 +521,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
       val context = createCommitContext(recordTime = Some(theRecordTime))
 
-      newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)
+      newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)(loggingContext)
 
       context.preExecute shouldBe false
       context.outOfTimeBoundsLogEntry shouldBe empty

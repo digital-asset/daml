@@ -7,6 +7,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlPartyAllocationRejectionEntry,
 }
+import com.daml.logging.LoggingContext
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -18,6 +19,8 @@ class KVUtilsPartySpec extends AnyWordSpec with Matchers {
 
   import KVTest._
   import TestHelpers._
+
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   "party allocation" should {
     val p0 = mkParticipantId(0)

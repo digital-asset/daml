@@ -16,12 +16,11 @@ import com.daml.ledger.participant.state.kvutils.committer.{
 }
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time.Timestamp
-
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.{GlobalKey, TransactionCoder, TransactionOuterClass}
 import com.daml.lf.value.ValueCoder
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import org.slf4j.LoggerFactory
 
 import scala.jdk.CollectionConverters._
 
@@ -38,7 +37,7 @@ class KeyValueCommitting private[daml] (
 ) {
   import KeyValueCommitting.submissionOutputs
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = ContextualizedLogger.get(getClass)
 
   def this(engine: Engine, metrics: Metrics) = this(engine, metrics, false)
 
@@ -76,7 +75,7 @@ class KeyValueCommitting private[daml] (
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMap,
-  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
+  )(implicit loggingContext: LoggingContext): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
     metrics.daml.kvutils.committer.processing.inc()
     metrics.daml.kvutils.committer.last.lastRecordTimeGauge.updateValue(recordTime.toString)
     metrics.daml.kvutils.committer.last.lastEntryIdGauge.updateValue(Pretty.prettyEntryId(entryId))
@@ -93,13 +92,12 @@ class KeyValueCommitting private[daml] (
       verifyStateUpdatesAgainstPreDeclaredOutputs(outputState, submission)
       (logEntry, outputState)
     } catch {
-      case scala.util.control.NonFatal(e) =>
-        logger.warn(s"Exception while processing submission, error='$e'")
+      case scala.util.control.NonFatal(exception) =>
+        logger.warn("Exception while processing submission.", exception)
         metrics.daml.kvutils.committer.last.lastExceptionGauge.updateValue(
-          Pretty
-            .prettyEntryId(entryId) + s"[${submission.getPayloadCase}]: " + e.toString
+          s"${Pretty.prettyEntryId(entryId)}[${submission.getPayloadCase}]: $exception"
         )
-        throw e
+        throw exception
     } finally {
       val _ = ctx.stop()
       metrics.daml.kvutils.committer.processing.dec()
@@ -112,7 +110,7 @@ class KeyValueCommitting private[daml] (
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMap,
-  ): PreExecutionResult =
+  )(implicit loggingContext: LoggingContext): PreExecutionResult =
     createCommitter(engine, defaultConfig, submission).runWithPreExecution(
       submission,
       participantId,
@@ -225,8 +223,13 @@ object KeyValueCommitting {
       node.getNodeTypeCase match {
 
         case TransactionOuterClass.Node.NodeTypeCase.ROLLBACK =>
-          // TODO https://github.com/digital-asset/daml/issues/8020
-          sys.error("rollback nodes are not supported")
+        // Nodes under rollback will potentially produce outputs such as divulgence.
+        // Actual outputs must be a subset of, or the same as, computed outputs and
+        // we currently relax this check by widening the latter set, treating a node the
+        // same regardless of whether it was under a rollback node or not.
+        // Computed outputs that are not actual outputs can be safely trimmed: examples
+        // are transient contracts and, now, potentially also outputs from nodes under
+        // rollback.
 
         case TransactionOuterClass.Node.NodeTypeCase.CREATE =>
           val protoCreate = node.getCreate

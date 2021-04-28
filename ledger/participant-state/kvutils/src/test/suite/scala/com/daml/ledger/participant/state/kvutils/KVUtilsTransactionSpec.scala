@@ -35,6 +35,7 @@ import com.daml.lf.value.Value.{
   ValueUnit,
   ValueVariant,
 }
+import com.daml.logging.LoggingContext
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -45,6 +46,8 @@ import scala.jdk.CollectionConverters._
 class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   import KVTest._
+
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private val alice = party("Alice")
   private val bob = party("Bob")

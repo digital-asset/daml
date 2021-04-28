@@ -210,7 +210,7 @@ class SubmissionValidator[LogResult] private[validator] (
                       submission,
                       participantId,
                       readInputs,
-                    )
+                    )(loggingContext)
                   )
                 ),
               )
@@ -316,7 +316,7 @@ object SubmissionValidator {
       DamlSubmission,
       ParticipantId,
       InputState,
-  ) => LogEntryAndState
+  ) => LoggingContext => LogEntryAndState
 
   def create[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],
@@ -367,7 +367,7 @@ object SubmissionValidator {
       damlSubmission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMap,
-  ): LogEntryAndState =
+  )(loggingContext: LoggingContext): LogEntryAndState =
     keyValueCommitting.processSubmission(
       damlLogEntryId,
       recordTime,
@@ -375,7 +375,7 @@ object SubmissionValidator {
       damlSubmission,
       participantId,
       inputState,
-    )
+    )(loggingContext)
 
   private[validator] def serializeProcessedSubmission(
       logEntryAndState: LogEntryAndState
