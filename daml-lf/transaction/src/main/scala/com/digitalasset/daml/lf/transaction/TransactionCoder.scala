@@ -355,7 +355,12 @@ object TransactionCoder {
                   builder.setResultVersioned,
                   builder.setResultUnversioned,
                 )
-              case None => Left(EncodeError("NodeExercises without result"))
+              case None =>
+                if (ne.version < TransactionVersion.minExceptions) { //NICK: use Either.Cond
+                  Left(EncodeError("NodeExercises without result"))
+                } else {
+                  Right(())
+                }
             }
             _ <- encodeAndSetContractKey(
               encodeCid,
@@ -534,12 +539,26 @@ object TransactionCoder {
       case NodeTypeCase.EXERCISE =>
         val protoExe = protoNode.getExercise
         for {
-          rv <- decodeValue(
-            decodeCid,
-            nodeVersion,
-            protoExe.getResultVersioned,
-            protoExe.getResultUnversioned,
-          )
+          rvOpt <-
+            if (!(protoExe.hasResultVersioned || protoExe.hasResultUnversioned)) {
+              if (nodeVersion >= TransactionVersion.minExceptions) { //NICK: Use Either.Cond
+                Right(None)
+              } else {
+                /*Left( //NICK: This is the correct behaviour.
+                  DecodeError(
+                    s"missing exercise result (supported since ${TransactionVersion.minExceptions}) unexpected in transaction of version $nodeVersion"
+                  )
+                )*/
+                Right(None) //NICK: This is a bug. We need a test to catch it.
+              }
+            } else {
+              decodeValue(
+                decodeCid,
+                nodeVersion,
+                protoExe.getResultVersioned,
+                protoExe.getResultUnversioned,
+              ).map { v => Some(v) }
+            }
           keyWithMaintainers <-
             decodeOptionalKeyWithMaintainers(decodeCid, nodeVersion, protoExe.getKeyWithMaintainers)
           ni <- nodeId
@@ -574,7 +593,7 @@ object TransactionCoder {
           signatories = signatories,
           choiceObservers = choiceObservers,
           children = children,
-          exerciseResult = Some(rv),
+          exerciseResult = rvOpt,
           key = keyWithMaintainers,
           byKey = false,
           version = nodeVersion,

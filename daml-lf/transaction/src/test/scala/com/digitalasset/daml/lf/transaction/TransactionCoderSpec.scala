@@ -271,7 +271,10 @@ class TransactionCoderSpec
 
         val normalized = normalizeNode(node) match {
           case exe: NodeExercises[NodeId, ContractId] =>
-            exe.copy(choiceObservers = node.choiceObservers)
+            exe.copy(
+              choiceObservers = node.choiceObservers,
+              exerciseResult = Some(Value.ValueText("not-missing")),
+            )
           case otherwise => otherwise
         }
 
@@ -294,6 +297,26 @@ class TransactionCoderSpec
       forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder()) {
         case (node, (nodeVersion, txVersion)) =>
           val normalizedNode = normalizeNode(node.updateVersion(nodeVersion))
+          val result = TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              txVersion,
+              NodeId(0),
+              normalizedNode,
+            )
+
+          result.isLeft shouldBe (nodeVersion < minExceptions)
+      }
+    }
+
+    "fail if try encode missing exerciseResult in version < minExceptions" in {
+      forAll(danglingRefExerciseNodeGen, versionInIncreasingOrder()) {
+        case (node, (nodeVersion, txVersion)) =>
+          val normalizedNode =
+            normalizeExe(node.updateVersion(nodeVersion)).copy(
+              exerciseResult = None
+            )
           val result = TransactionCoder
             .encodeNode(
               TransactionCoder.NidEncoder,
@@ -789,7 +812,16 @@ class TransactionCoderSpec
   private[this] def normalizeExe[Nid](exe: Node.NodeExercises[Nid, ContractId]) =
     exe.copy(
       chosenValue = normalize(exe.chosenValue, exe.version),
-      exerciseResult = exe.exerciseResult.map(normalize(_, exe.version)),
+      exerciseResult = exe.exerciseResult match {
+        case None =>
+          if (exe.version >= minExceptions) {
+            None
+          } else {
+            Some(Value.ValueText("not-missing"))
+          }
+        case Some(v) =>
+          Some(normalize(v, exe.version))
+      },
       choiceObservers =
         exe.choiceObservers.filter(_ => exe.version >= TransactionVersion.minChoiceObservers),
       key = exe.key.map(normalizeKey(_, exe.version)),

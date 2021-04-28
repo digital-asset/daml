@@ -35,6 +35,8 @@ import scalaz.scalacheck.ScalaCheckBinding._
 
 object ValueGenerators {
 
+  import TransactionVersion.minExceptions
+
   //generate decimal values
   def numGen(scale: Numeric.Scale): Gen[Numeric] = {
     val num = for {
@@ -394,7 +396,7 @@ object ValueGenerators {
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
         .map(ImmArray(_))
-      exerciseResultValue <- valueGen
+      exerciseResult <- if (version < minExceptions) valueGen.map(Some(_)) else Gen.option(valueGen)
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
     } yield NodeExercises(
@@ -409,7 +411,7 @@ object ValueGenerators {
       signatories,
       choiceObservers = choiceObservers,
       children,
-      Some(exerciseResultValue),
+      exerciseResult,
       key,
       byKey,
       version,
@@ -565,9 +567,9 @@ object ValueGenerators {
 
   def transactionVersionGen(
       minVersion: TransactionVersion = TransactionVersion.minVersion, // inclusive
-      maxVersion: TransactionVersion = TransactionVersion.maxVersion, // exclusive
+      maxVersion: TransactionVersion = TransactionVersion.maxVersion, // inclusive
   ): Gen[TransactionVersion] =
-    Gen.oneOf(TransactionVersion.All.filter(v => minVersion <= v && v < maxVersion))
+    Gen.oneOf(TransactionVersion.All.filter(v => minVersion <= v && v <= maxVersion))
 
   object Implicits {
     implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)
