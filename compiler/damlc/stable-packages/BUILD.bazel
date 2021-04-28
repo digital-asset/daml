@@ -50,7 +50,7 @@ genrule(
       $(location :generate-stable-package) --module GHC.Prim -o $(location daml-prim/GHC-Prim.dalf)
       $(location :generate-stable-package) --module GHC.Tuple -o $(location daml-prim/GHC-Tuple.dalf)
       $(location :generate-stable-package) --module DA.Internal.Erased -o $(location daml-prim/DA-Internal-Erased.dalf)
-      $(location :generate-stable-package) --module DA.Internal.Error -o $(location daml-prim/DA-Internal-Exception-Types.dalf)
+      $(location :generate-stable-package) --module DA.Internal.Exception.Types -o $(location daml-prim/DA-Internal-Exception-Types.dalf)
       $(location :generate-stable-package) --module DA.Internal.PromotedText -o $(location daml-prim/DA-Internal-PromotedText.dalf)
       $(location :generate-stable-package) --module DA.Types -o $(location daml-prim/DA-Types.dalf)
       $(location :generate-stable-package) --module DA.Time.Types -o $(location daml-stdlib/DA-Time-Types.dalf)
