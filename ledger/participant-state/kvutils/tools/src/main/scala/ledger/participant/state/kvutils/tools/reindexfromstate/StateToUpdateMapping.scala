@@ -101,43 +101,7 @@ class StateToUpdateMapping(state: MutableState) {
           println(s"Skipping archived contract ${contract.getContractKey}")
           None
         } else {
-          val contractInstance = Conversions.decodeContractInstance(contract.getContractInstance)
-          val ledgerEffectiveTime = Timestamp.assertFromInstant(
-            Instant.ofEpochSecond(
-              contract.getActiveAt.getSeconds,
-              contract.getActiveAt.getNanos.toLong,
-            )
-          )
-          val submissionSeed = crypto.Hash.assertHashContractInstance(
-            contractInstance.template,
-            contractInstance.arg.value,
-          )
-
-          val createTransaction = TransactionAccepted(
-            optSubmitterInfo = None,
-            transactionMeta = TransactionMeta(
-              ledgerEffectiveTime = ledgerEffectiveTime,
-              workflowId = None,
-              submissionTime = ledgerEffectiveTime,
-              submissionSeed = submissionSeed,
-              optUsedPackages = None,
-              optNodeSeeds = None,
-              optByKeyNodes = None,
-            ),
-            transaction = transactionFromContractState(
-              damlStateKey.getContractId,
-              contract,
-              contractInstance,
-              submissionSeed,
-            ),
-            transactionId = TransactionId.assertFromString(
-              UUID.randomUUID().toString
-            ), // TODO: Can be determined from state?
-            recordTime = recordTime(),
-            divulgedContracts = List.empty, // No divulged contracts at creation.
-            blindingInfo = Some(blindingInfoFromContractState(contract, damlStateKey.getContractId)),
-          )
-          Some(createTransaction)
+          Some(createTransactionAcceptedForContract(damlStateKey.getContractId, contract))
         }
 
       case DamlStateKey.KeyCase.COMMAND_DEDUP | DamlStateKey.KeyCase.SUBMISSION_DEDUP =>
@@ -149,6 +113,48 @@ class StateToUpdateMapping(state: MutableState) {
   }
 
   private val engine = new Engine()
+
+  private def createTransactionAcceptedForContract(
+      contractId: String,
+      contract: DamlContractState,
+  ): TransactionAccepted = {
+    val contractInstance = Conversions.decodeContractInstance(contract.getContractInstance)
+    val ledgerEffectiveTime = Timestamp.assertFromInstant(
+      Instant.ofEpochSecond(
+        contract.getActiveAt.getSeconds,
+        contract.getActiveAt.getNanos.toLong,
+      )
+    )
+    val submissionSeed = crypto.Hash.assertHashContractInstance(
+      contractInstance.template,
+      contractInstance.arg.value,
+    )
+
+    TransactionAccepted(
+      optSubmitterInfo = None,
+      transactionMeta = TransactionMeta(
+        ledgerEffectiveTime = ledgerEffectiveTime,
+        workflowId = None,
+        submissionTime = ledgerEffectiveTime,
+        submissionSeed = submissionSeed,
+        optUsedPackages = None,
+        optNodeSeeds = None,
+        optByKeyNodes = None,
+      ),
+      transaction = transactionFromContractState(
+        contractId,
+        contract,
+        contractInstance,
+        submissionSeed,
+      ),
+      transactionId = TransactionId.assertFromString(
+        UUID.randomUUID().toString
+      ), // TODO: Can be determined from state?
+      recordTime = recordTime(),
+      divulgedContracts = List.empty, // No divulged contracts at creation.
+      blindingInfo = Some(blindingInfoFromContractState(contract, contractId)),
+    )
+  }
 
   private def transactionFromContractState(
       contractId: String,
