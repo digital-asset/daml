@@ -80,8 +80,8 @@ main = do
       writePackage daInternalDown optOutputPath
     ModuleName ["DA", "Internal", "Erased"] ->
       writePackage daInternalErased optOutputPath
-    ModuleName ["DA", "Internal", "Error"] ->
-      writePackage daInternalError optOutputPath
+    ModuleName ["DA", "Internal", "Exception", "Types"] ->
+      writePackage daInternalExceptionTypes optOutputPath
     ModuleName ["DA", "Internal", "PromotedText"] ->
       writePackage daInternalPromotedText optOutputPath
     ModuleName ["DA", "Set", "Types"] ->
@@ -583,11 +583,9 @@ daInternalPromotedText = package version1_6 $ NM.singleton Module
       [ DefDataType Nothing ptextTyCon (IsSerializable False) [(mkTypeVar "t", KStar)] $ DataVariant []
       ]
 
-daInternalError :: Package
-daInternalError = Package
-    { packageLfVersion = versionDev
-        -- TODO https://github.com/digital-asset/daml/issues/8020
-        --  Update to first version with exceptions.
+daInternalExceptionTypes :: Package
+daInternalExceptionTypes = Package
+    { packageLfVersion = featureMinVersion featureExceptions
     , packageModules = NM.singleton Module
         { moduleName = modName
         , moduleSource = Nothing
@@ -599,12 +597,12 @@ daInternalError = Package
         , moduleExceptions = exceptions
         }
     , packageMetadata = Just PackageMetadata
-        { packageName = PackageName "daml-prim-DA-Internal-Error"
+        { packageName = PackageName "daml-prim-DA-Internal-Exception-Types"
         , packageVersion = PackageVersion "1.0.0"
         }
     }
   where
-    modName = mkModName ["DA", "Internal", "Error"]
+    modName = mkModName ["DA", "Internal", "Exception", "Types"]
     tyCons = map mkTypeCon [ ["GeneralError"], ["ArithmeticError"], ["ContractError"] ]
     tyVars = []
     fieldName = mkField "message"

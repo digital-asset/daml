@@ -21,8 +21,8 @@ module DA.Internal.Exception
     ) where
 
 import GHC.Types
+import DA.Internal.Exception.Types
 import DA.Internal.LF
-import DA.Internal.Error
 import DA.Internal.Prelude
 import DA.Internal.Record
 
@@ -94,6 +94,8 @@ instance HasToAnyException GeneralError where
 
 instance HasFromAnyException GeneralError where
     fromAnyException = handleBuiltinException "GeneralError" GeneralError (primitive @"EFromAnyException")
+        -- TODO https://github.com/digital-asset/daml/issues/8020
+        --   Remove the "handleBuiltinException" part if we decide we never want to throw a GeneralError in LF.
 
 --------------------------------------------------------------
 
@@ -154,5 +156,8 @@ instance ActionCatch Update where
 -- | HIDE
 handleBuiltinException : Text -> (Text -> e) -> (AnyException -> Optional e) -> (AnyException -> Optional e)
 handleBuiltinException _ _ f = f -- magic @"handleBuiltinException"
+    -- TODO https://github.com/digital-asset/daml/issues/8020
+    --    Placeholder for handling built-in exceptions during LF conversion.
+{-# NOINLINE handleBuiltinException #-}
 
 #endif

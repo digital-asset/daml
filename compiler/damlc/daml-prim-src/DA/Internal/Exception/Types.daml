@@ -7,14 +7,14 @@
 #ifndef DAML_EXCEPTIONS
 
 -- | HIDE
-module DA.Internal.Error where
+module DA.Internal.Exception.Types where
 
 import GHC.Types ()
 
 #else
 
 -- | MOVE DA.Exception
-module DA.Internal.Error where
+module DA.Internal.Exception.Types where
 
 import GHC.Types (Text)
 
