@@ -7,7 +7,15 @@ load(
     "da_scala_library",
     "lf_scalacopts",
 )
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_version_configuration",
+)
 
 scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -72,6 +80,12 @@ perf_runtime_deps = {
         "ee",
     ]
 ] if scala_major_version == "2.12" else None
+
+daml_compile(
+    name = "LargeAcs",
+    srcs = ["daml/LargeAcs.daml"],
+    target = lf_version_configuration.get("latest"),
+)
 
 [
     da_scala_binary(
