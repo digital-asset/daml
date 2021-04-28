@@ -359,6 +359,7 @@ object KeyValueConsumption {
           DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY |
           DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY |
           DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY |
+          DamlLogEntry.PayloadCase.TIME_UPDATE_ENTRY | DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET |
           DamlLogEntry.PayloadCase.OUT_OF_TIME_BOUNDS_ENTRY =>
         throw Err.InternalError(
           s"Out-of-time-bounds log entry does not contain a rejection entry: ${wrappedLogEntry.getPayloadCase}"

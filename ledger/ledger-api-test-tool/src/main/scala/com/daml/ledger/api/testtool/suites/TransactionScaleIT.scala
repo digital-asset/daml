@@ -16,12 +16,12 @@ final class TransactionScaleIT extends LedgerTestSuite {
     "TXLargeCommand",
     "Accept huge submissions with a large number of commands",
     allocate(NoParties),
-  )(_ => _ => Future.failed(Retired))
+  )(_ => { case _ => Future.failed(Retired) })
 
   test(
     "TXManyCommands",
     "Accept many, large commands at once",
     allocate(NoParties),
-  )(_ => _ => Future.failed(Retired))
+  )(_ => { case _ => Future.failed(Retired) })
 
 }

@@ -153,7 +153,7 @@ final class AuthSpec
       }
       .onComplete {
         case Success(tx) => val _ = expectedTxs += tx
-        case Failure(NonFatal(_)) => () // do nothing, the test will fail
+        case Failure(_) => () // do nothing, the test will fail
       }
     Delayed.by(15.seconds)(setToken(toHeader(operatorPayload)))
     Delayed.Future
@@ -167,7 +167,7 @@ final class AuthSpec
       }
       .onComplete {
         case Success(tx) => val _ = expectedTxs += tx
-        case Failure(NonFatal(_)) => () // do nothing, the test will fail
+        case Failure(_) => () // do nothing, the test will fail
       }
     Delayed.Future.by(25.seconds)(process.shutdown().map { _ =>
       writtenTxs should contain theSameElementsAs expectedTxs

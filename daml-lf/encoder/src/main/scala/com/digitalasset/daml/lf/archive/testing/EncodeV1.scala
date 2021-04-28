@@ -156,7 +156,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     })
 
     private implicit def encodeKind(k: Kind): PLF.Kind =
-      k match {
+      // KArrows breaks the exhaustiveness checker.
+      (k: @unchecked) match {
         case KArrows(params, result) =>
           expect(result == KStar)
           PLF.Kind
@@ -230,7 +231,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       // Be warned: Both the use of the unapply pattern TForalls and the pattern
       //    case TBuiltin(BTArrow) if versionIsOlderThan(LV.Features.arrowType) =>
       // cause scala's exhaustivty checking to be disabled in the following match.
-      typ match {
+      (typ: @unchecked) match {
         case TVar(varName) =>
           val b = PLF.Type.Var.newBuilder()
           setString(varName, b.setVarStr, b.setVarInternedStr)
@@ -506,7 +507,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     private def encodeExprBuilder(expr0: Expr): PLF.Expr.Builder = {
       val builder = PLF.Expr.newBuilder()
 
-      expr0 match {
+      // EAbss breaks the exhaustiveness checker.
+      (expr0: @unchecked) match {
         case EVar(value) =>
           setString(value, builder.setVarStr, builder.setVarInternedStr)
         case EVal(value) =>

@@ -9,6 +9,7 @@ import com.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
 import com.daml.lf.engine.script.{RunnerConfig, ScriptF, StackTrace}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
+import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import spray.json.{JsNumber, JsObject, JsString}
@@ -17,6 +18,7 @@ abstract class AbstractFuncIT
     extends AsyncWordSpec
     with SandboxParticipantFixture
     with Matchers
+    with Inside
     with SuiteResourceManagementAroundAll {
   val (stableDar, stableEnvIface) = readDar(stableDarFile)
   val (devDar, devDarEnvIface) = readDar(devDarFile)
@@ -192,13 +194,12 @@ abstract class AbstractFuncIT
           )
         } yield {
           assert(vals.size == 2)
-          vals.get(0) match {
-            case SList(FrontStackCons(SRecord(_, _, details), FrontStack())) =>
-              details should contain theSameElementsInOrderAs (Seq(
-                vals.get(1),
-                SOptional(Some(SText("myparty"))),
-                SBool(true),
-              ))
+          inside(vals.get(0)) { case SList(FrontStackCons(SRecord(_, _, details), FrontStack())) =>
+            details should contain theSameElementsInOrderAs (Seq(
+              vals.get(1),
+              SOptional(Some(SText("myparty"))),
+              SBool(true),
+            ))
           }
         }
       }

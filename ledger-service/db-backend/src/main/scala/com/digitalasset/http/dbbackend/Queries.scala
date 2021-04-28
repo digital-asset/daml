@@ -10,6 +10,7 @@ import nonempty.NonEmptyReturningOps._
 
 import doobie._
 import doobie.implicits._
+import scala.annotation.nowarn
 import scala.collection.immutable.{Iterable, Seq => ISeq}
 import scalaz.{@@, Cord, Foldable, Functor, OneAnd, Tag, \/, -\/, \/-}
 import scalaz.Digit._0
@@ -645,6 +646,7 @@ private object OracleQueries extends Queries {
 
     // we effectively shadow Mark because Scala 2.12 doesn't quite get
     // that it should use the GADT type equality otherwise
+    @nowarn("msg=parameter value evidence.* is never used")
     def queryByCondition[Mark0: Get](
         tpid: Fragment,
         queryConditions: NonEmpty[ISeq[(SurrogateTpId, Fragment)]],
@@ -742,7 +744,7 @@ private object OracleQueries extends Queries {
     val predExtension = literal match {
       case JsNumber(n) => Some(existsForm(n))
       case JsString(s) => Some(existsForm(s))
-      case JsBoolean(_) | JsNull => Some((s"?(@ == $literal)", sql""))
+      case JsTrue | JsFalse | JsNull => Some((s"?(@ == $literal)", sql""))
       case JsObject(_) | JsArray(_) => None
     }
     predExtension.cata(
@@ -765,7 +767,7 @@ private object OracleQueries extends Queries {
       sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ oracleShortPathEscape(pred) ++ sql")"
     }
     literal match {
-      case JsBoolean(_) | JsNull | JsNumber(_) | JsString(_) =>
+      case JsTrue | JsFalse | JsNull | JsNumber(_) | JsString(_) =>
         equalAtContractPath(path, literal)
 
       case JsObject(fields) =>
@@ -802,7 +804,7 @@ private object OracleQueries extends Queries {
     val literalRendered = literalScalar match {
       case JsNumber(n) => sql"$n"
       case JsString(s) => sql"$s"
-      case JsNull | JsBoolean(_) | JsArray(_) | JsObject(_) =>
+      case JsNull | JsTrue | JsFalse | JsArray(_) | JsObject(_) =>
         throw new IllegalArgumentException(
           s"${literalScalar.compactPrint} is not comparable in JSON queries"
         )

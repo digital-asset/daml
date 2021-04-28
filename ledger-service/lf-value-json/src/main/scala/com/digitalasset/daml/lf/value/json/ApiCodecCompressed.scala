@@ -278,7 +278,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       }
       case Model.DamlLfEnum(cons) => { case JsString(c) =>
         cons
-          .collectFirst { case kc @ `c` => kc }
+          .collectFirst { case kc if kc == c => kc }
           .map(
             V.ValueEnum(
               Some(id),

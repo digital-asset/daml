@@ -236,7 +236,7 @@ private[lf] final class Compiler(
       ref: SDefRef,
       arity: Int,
   )(
-      body: List[Position] => SExpr
+      body: PartialFunction[List[Position], SExpr]
   ): (SDefRef, SDefinition) =
     ref ->
       SDefinition(

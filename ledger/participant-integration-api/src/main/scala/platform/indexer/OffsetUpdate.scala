@@ -13,7 +13,7 @@ sealed trait OffsetUpdate extends Product with Serializable {
 }
 
 object OffsetUpdate {
-  def unapply(offsetUpdate: OffsetUpdate): Option[(OffsetStep, Update)] =
+  def unapply(offsetUpdate: OffsetUpdate): Some[(OffsetStep, Update)] =
     Some((offsetUpdate.offsetStep, offsetUpdate.update))
 
   def apply(offsetStep: OffsetStep, update: Update): OffsetUpdate =

@@ -89,6 +89,7 @@ class TypeSpec extends AnyWordSpec with Matchers {
       case Pkg.TNat(_) => sys.error("cannot use nat type in interface type")
       case _: Pkg.TStruct => sys.error("cannot use structs in interface type")
       case _: Pkg.TForall => sys.error("cannot use forall in interface type")
+      case _: Pkg.TSynApp => sys.error("cannot use type synonym in interface type")
     }
 
     go(pkgTyp00, BackStack.empty)

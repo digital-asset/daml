@@ -45,6 +45,9 @@ final case class PropertyCursor(
 
   override def toString: String =
     (reversedBefore.reverse ++ (("[" + current + "]") +: after)).mkString(".")
+
+  def ensureLast[A](target: String)(r: => A): Either[DotNotFailure, A] =
+    if (isLast) Right(r) else Left(MustBeLastPart(target, this, current))
 }
 
 object PropertyCursor {
