@@ -15,14 +15,16 @@ module DA.Internal.Exception where
 module DA.Internal.Exception
     ( module DA.Internal.Exception
     , AnyException
-    , GeneralError
-    , ArithmeticError
-    , ContractError
+    , GeneralError (..)
+    , ArithmeticError (..)
+    , ContractError (..)
     ) where
 
 import GHC.Types
 import DA.Internal.LF
+import DA.Internal.Error
 import DA.Internal.Prelude
+import DA.Internal.Record
 
 --------------------------------------------------------------
 
@@ -77,45 +79,57 @@ instance HasFromAnyException AnyException where
 
 --------------------------------------------------------------
 
+instance HasField "message" GeneralError Text where
+    getField (GeneralError m) = m
+    setField m (GeneralError _) = GeneralError m
+
 instance HasThrow GeneralError where
     throwPure = primitive @"EThrow"
 
 instance HasMessage GeneralError where
-    message = primitive @"BEGeneralErrorMessage"
+    message (GeneralError m) = m
 
 instance HasToAnyException GeneralError where
     toAnyException = primitive @"EToAnyException"
 
 instance HasFromAnyException GeneralError where
-    fromAnyException = primitive @"EFromAnyException"
+    fromAnyException = handleBuiltinException "GeneralError" GeneralError (primitive @"EFromAnyException")
 
 --------------------------------------------------------------
+
+instance HasField "message" ArithmeticError Text where
+    getField (ArithmeticError m) = m
+    setField m (ArithmeticError _) = ArithmeticError m
 
 instance HasThrow ArithmeticError where
     throwPure = primitive @"EThrow"
 
 instance HasMessage ArithmeticError where
-    message = primitive @"BEArithmeticErrorMessage"
+    message (ArithmeticError m) = m
 
 instance HasToAnyException ArithmeticError where
     toAnyException = primitive @"EToAnyException"
 
 instance HasFromAnyException ArithmeticError where
-    fromAnyException = primitive @"EFromAnyException"
+    fromAnyException = handleBuiltinException "ArithmeticError" ArithmeticError (primitive @"EFromAnyException")
 
 --------------------------------------------------------------
+
+instance HasField "message" ContractError Text where
+    getField (ContractError m) = m
+    setField m (ContractError _) = ContractError m
 
 instance HasThrow ContractError where
     throwPure = primitive @"EThrow"
 
 instance HasMessage ContractError where
-    message = primitive @"BEContractErrorMessage"
+    message (ContractError m) = m
 
 instance HasToAnyException ContractError where
     toAnyException = primitive @"EToAnyException"
 
 instance HasFromAnyException ContractError where
-    fromAnyException = primitive @"EFromAnyException"
+    fromAnyException = handleBuiltinException "ContractError" ContractError (primitive @"EFromAnyException")
 
 --------------------------------------------------------------
 
@@ -136,5 +150,9 @@ instance ActionCatch Update where
     _tryCatch = primitive @"UTryCatch"
 
 --------------------------------------------------------------
+
+-- | HIDE
+handleBuiltinException : Text -> (Text -> e) -> (AnyException -> Optional e) -> (AnyException -> Optional e)
+handleBuiltinException _ _ f = f -- magic @"handleBuiltinException"
 
 #endif

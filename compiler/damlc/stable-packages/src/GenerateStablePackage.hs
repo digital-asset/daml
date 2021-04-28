@@ -80,6 +80,8 @@ main = do
       writePackage daInternalDown optOutputPath
     ModuleName ["DA", "Internal", "Erased"] ->
       writePackage daInternalErased optOutputPath
+    ModuleName ["DA", "Internal", "Error"] ->
+      writePackage daInternalError optOutputPath
     ModuleName ["DA", "Internal", "PromotedText"] ->
       writePackage daInternalPromotedText optOutputPath
     ModuleName ["DA", "Set", "Types"] ->
@@ -580,6 +582,52 @@ daInternalPromotedText = package version1_6 $ NM.singleton Module
     types = NM.fromList
       [ DefDataType Nothing ptextTyCon (IsSerializable False) [(mkTypeVar "t", KStar)] $ DataVariant []
       ]
+
+daInternalError :: Package
+daInternalError = Package
+    { packageLfVersion = versionDev
+    , packageModules = NM.singleton Module
+        { moduleName = modName
+        , moduleSource = Nothing
+        , moduleFeatureFlags = daml12FeatureFlags
+        , moduleSynonyms = NM.empty
+        , moduleDataTypes = types
+        , moduleValues = values
+        , moduleTemplates = NM.empty
+        , moduleExceptions = exceptions
+        }
+    , packageMetadata = Just PackageMetadata
+        { packageName = PackageName "daml-prim-DA-Internal-Error"
+        , packageVersion = PackageVersion "1.0.0"
+        }
+    }
+  where
+    modName = mkModName ["DA", "Internal", "Error"]
+    tyCons = map mkTypeCon [ ["GeneralError"], ["ArithmeticError"], ["ContractError"] ]
+    tyVars = []
+    fieldName = mkField "message"
+    fieldType = TText
+    types = NM.fromList
+      [ DefDataType Nothing tyCon (IsSerializable True) tyVars $ DataRecord [(fieldName, fieldType)]
+      | tyCon <- tyCons
+      ]
+    values = NM.fromList
+      [ mkWorkerDef modName tyCon tyVars [(fieldName, fieldType)]
+      | tyCon <- tyCons
+      ]
+    var = mkVar "x"
+    qualify = Qualified PRSelf modName
+    exceptions = NM.fromList
+      [ DefException
+          { exnLocation = Nothing
+          , exnName = tyCon
+          , exnMessage =
+              ETmLam (var, TCon (qualify tyCon))
+                  (ERecProj (TypeConApp (qualify tyCon) []) fieldName (EVar var))
+          }
+      | tyCon <- tyCons
+      ]
+
 
 mkSelectorDef :: ModuleName -> TypeConName -> [(TypeVarName, Kind)] -> FieldName -> Type -> DefValue
 mkSelectorDef modName tyCon tyVars fieldName fieldTy =

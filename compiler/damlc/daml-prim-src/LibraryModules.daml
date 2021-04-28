@@ -9,6 +9,7 @@
 module LibraryModules where
 
 import DA.Internal.Erased
+import DA.Internal.Error
 import DA.Internal.PromotedText
 import Data.String
 import Control.Exception.Base
