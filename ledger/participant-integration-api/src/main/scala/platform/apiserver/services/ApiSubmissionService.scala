@@ -203,7 +203,10 @@ private[apiserver] final class ApiSubmissionService private[services] (
   // Takes the whole transaction to ensure to traverse it only if necessary
   private[services] def allocateMissingInformees(
       transaction: SubmittedTransaction
-  )(implicit loggingContext: LoggingContext): Future[Seq[SubmissionResult]] =
+  )(implicit
+      loggingContext: LoggingContext,
+      telemetryContext: TelemetryContext,
+  ): Future[Seq[SubmissionResult]] =
     if (configuration.implicitPartyAllocation) {
       val partiesInTransaction = transaction.informees.toSeq
       for {
@@ -214,7 +217,9 @@ private[apiserver] final class ApiSubmissionService private[services] (
       } yield submissionResults
     } else Future.successful(Seq.empty)
 
-  private def allocateParty(name: Party) = {
+  private def allocateParty(
+      name: Party
+  )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] = {
     val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
     withEnrichedLoggingContext(logging.party(name), logging.submissionId(submissionId)) {
       implicit loggingContext =>

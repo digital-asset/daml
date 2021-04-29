@@ -71,7 +71,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       hint: Option[Party],
       displayName: Option[String],
       submissionId: SubmissionId,
-  ): CompletionStage[SubmissionResult] = {
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(generateRandomParty())
     val submission =
       keyValueSubmission.partyToSubmission(
@@ -80,7 +80,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
         displayName,
         writer.participantId,
       )
-    commit(submissionId, submission)(NoOpTelemetryContext)
+    commit(submissionId, submission)
   }
 
   override def currentHealth(): HealthStatus = writer.currentHealth()

@@ -23,8 +23,8 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.telemetry.TelemetryContext
 import com.daml.platform.sandbox.stores.ledger.{Ledger, PartyIdGenerator}
+import com.daml.telemetry.TelemetryContext
 import io.grpc.Status
 
 import scala.compat.java8.FutureConverters
@@ -59,7 +59,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       hint: Option[Party],
       displayName: Option[String],
       submissionId: SubmissionId,
-  ): CompletionStage[SubmissionResult] = {
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(PartyIdGenerator.generateRandomId())
     withEnrichedLoggingContext(
       "party" -> party,

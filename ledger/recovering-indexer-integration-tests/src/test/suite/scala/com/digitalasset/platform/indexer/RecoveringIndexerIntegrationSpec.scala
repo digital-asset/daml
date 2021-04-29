@@ -29,6 +29,7 @@ import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.testing.LogCollector
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._
@@ -47,6 +48,8 @@ class RecoveringIndexerIntegrationSpec
     with TestResourceContext
     with BeforeAndAfterEach {
   private[this] var testId: UUID = _
+
+  private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
 
   override def beforeEach(): Unit = {
     super.beforeEach()

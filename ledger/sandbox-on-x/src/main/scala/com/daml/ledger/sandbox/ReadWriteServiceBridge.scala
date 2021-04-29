@@ -65,7 +65,7 @@ case class ReadWriteServiceBridge(
       hint: Option[Party],
       displayName: Option[String],
       submissionId: SubmissionId,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     submit(
       Submission.AllocateParty(
         hint = hint,

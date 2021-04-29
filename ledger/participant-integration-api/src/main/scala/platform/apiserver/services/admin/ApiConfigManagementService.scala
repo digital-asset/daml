@@ -21,14 +21,15 @@ import com.daml.ledger.participant.state.v1.{
   WriteConfigService,
 }
 import com.daml.lf.data.Time
-import com.daml.platform.apiserver.services.logging
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiConfigManagementService._
+import com.daml.platform.apiserver.services.logging
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.server.api.validation
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.compat.java8.FutureConverters._
@@ -128,7 +129,7 @@ private[apiserver] final class ApiConfigManagementService private (
           entry <- synchronousResponse.submitAndWait(
             submissionId,
             (params.maximumRecordTime, newConfig),
-          )(executionContext, materializer)
+          )(NoOpTelemetryContext, executionContext, materializer)
         } yield SetTimeModelResponse(entry.configuration.generation)
 
         response.andThen(logger.logErrorsOnCall[SetTimeModelResponse])
@@ -212,7 +213,7 @@ private[apiserver] object ApiConfigManagementService {
     override def submit(
         submissionId: SubmissionId,
         input: (Time.Timestamp, Configuration),
-    ): Future[SubmissionResult] = {
+    )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] = {
       val (maximumRecordTime, newConfiguration) = input
       writeConfigService
         .submitConfiguration(maximumRecordTime, submissionId, newConfiguration)
