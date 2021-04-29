@@ -15,9 +15,6 @@ import com.daml.lf.data.Time.{Date, Timestamp}
 import com.daml.script.export.TreeUtils._
 import org.apache.commons.text.StringEscapeUtils
 import org.typelevel.paiges.Doc
-import scalaz.std.iterable._
-import scalaz.std.set._
-import scalaz.syntax.foldable._
 
 private[export] object Encode {
   def encodeTransactionTreeStream(
@@ -26,44 +23,28 @@ private[export] object Encode {
       acsBatchSize: Int,
       setTime: Boolean,
   ): Doc = {
-    val parties = partiesInContracts(acs.values) ++ trees.foldMap(partiesInTree(_))
-    val partyMap = partyMapping(parties)
+    val export = Export.fromTransactionTrees(acs, trees, acsBatchSize, setTime)
 
-    val sortedAcs = topoSortAcs(acs)
-    val actions = Action.fromACS(sortedAcs, acsBatchSize) ++ Action.fromTrees(trees, setTime)
-    val submits: Seq[Submit] = actions.collect { case submit: Submit => submit }
-    val cidRefs = submits.foldMap(_.commands.foldMap(cmdReferencedCids))
-
-    val acsCids =
-      sortedAcs.map(ev => CreatedContract(ContractId(ev.contractId), ev.getTemplateId, Nil))
-    val treeCids = trees.map(treeCreatedCids(_))
-    val cidMap = cidMapping(acsCids +: treeCids, cidRefs)
-
-    val unknownCidRefs = cidRefs -- cidMap.keySet
-    if (unknownCidRefs.nonEmpty) {
+    if (export.unknownCids.nonEmpty) {
       // TODO[AH] Support this once the ledger has better support for exposing such "hidden" contracts.
       //   Be it archived or divulged contracts.
       throw new RuntimeException(
-        s"Encountered archived contracts referenced by active contracts: ${unknownCidRefs.mkString(", ")}"
+        s"Encountered archived contracts referenced by active contracts: ${export.unknownCids.mkString(", ")}"
       )
     }
 
-    val refs =
-      acs.values.foldMap(ev => valueRefs(Sum.Record(ev.getCreateArguments))) ++ trees.foldMap(
-        treeRefs(_)
-      )
-    val usesSetTime = actions.any(_.isInstanceOf[SetTime])
-    val timeRefs: Set[String] = if (usesSetTime) { Set("DA.Date", "DA.Time") }
-    else { Set.empty }
-    val moduleRefs = refs.map(_.moduleName).toSet ++ timeRefs
+    encodeExport(export)
+  }
+
+  private def encodeExport(export: Export): Doc = {
     Doc.text("{-# LANGUAGE ApplicativeDo #-}") /
       Doc.text("module Export where") /
       Doc.text("import Daml.Script") /
-      Doc.stack(moduleRefs.map(encodeImport(_))) /
+      Doc.stack(export.moduleRefs.map(encodeImport(_))) /
       Doc.hardLine +
-      encodePartyType(partyMap) /
+      encodePartyType(export.partyMap) /
       Doc.hardLine +
-      encodeAllocateParties(partyMap) /
+      encodeAllocateParties(export.partyMap) /
       Doc.hardLine +
       Doc.text("testExport : Script ()") /
       (Doc.text("testExport = do") /
@@ -73,7 +54,7 @@ private[export] object Encode {
       Doc.text("export : Parties -> Script ()") /
       (Doc.text("export Parties{..} = do") /
         stackNonEmpty(
-          actions.map(encodeAction(partyMap, cidMap, cidRefs, _))
+          export.actions.map(encodeAction(export.partyMap, export.cidMap, export.cidRefs, _))
             :+ Doc.text("pure ()")
         )).hang(2)
   }
@@ -391,44 +372,4 @@ private[export] object Encode {
 
   private def encodeImport(moduleName: String) =
     Doc.text("import qualified ") + Doc.text(moduleName)
-
-  private def partyMapping(parties: Set[Party]): Map[Party, String] = {
-    // - PartyIdStrings are strings that match the regexp ``[A-Za-z0-9:\-_ ]+``.
-    def safeParty(p: String) =
-      Seq(":", "-", "_", " ").foldLeft(p) { case (p, x) => p.replace(x, "") }.toLowerCase
-    // Map from original party id to Daml identifier
-    var partyMap: Map[Party, String] = Map.empty
-    // Number of times we’ve gotten the same result from safeParty, we resolve collisions with a suffix.
-    var usedParties: Map[String, Int] = Map.empty
-    parties.foreach { p =>
-      val r = safeParty(Party.unwrap(p))
-      usedParties.get(r) match {
-        case None =>
-          partyMap += p -> s"${r}_0"
-          usedParties += r -> 0
-        case Some(value) =>
-          partyMap += p -> s"${r}_${value + 1}"
-          usedParties += r -> (value + 1)
-      }
-    }
-    partyMap
-  }
-
-  private def cidMapping(
-      cids: Seq[Seq[CreatedContract]],
-      cidRefs: Set[ContractId],
-  ): Map[ContractId, String] = {
-    def lowerFirst(s: String) =
-      if (s.isEmpty) {
-        s
-      } else {
-        s.head.toLower.toString + s.tail
-      }
-    cids.view.zipWithIndex.flatMap { case (cs, treeIndex) =>
-      cs.view.zipWithIndex.collect {
-        case (c, i) if cidRefs.contains(c.cid) =>
-          c.cid -> s"${lowerFirst(c.tplId.entityName)}_${treeIndex}_$i"
-      }
-    }.toMap
-  }
 }
