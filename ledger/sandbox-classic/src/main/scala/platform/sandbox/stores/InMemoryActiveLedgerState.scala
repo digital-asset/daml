@@ -140,6 +140,10 @@ private[sandbox] case class InMemoryActiveLedgerState(
       )
     } else this
 
+  override def cloneState(): InMemoryActiveLedgerState =
+    // This is an immutable value so no need to copy anything.
+    this
+
   private val acManager =
     new ActiveLedgerStateManager(this)
 
