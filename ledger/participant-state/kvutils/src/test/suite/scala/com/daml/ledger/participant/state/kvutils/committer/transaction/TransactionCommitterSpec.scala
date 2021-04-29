@@ -138,7 +138,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     TransactionOuterClass.NodeLookupByKey.newBuilder()
 
   "trimUnnecessaryNodes" should {
-    "remove `Fetch` `LookupByKey` and `Rollback` nodes from transaction tree" in {
+    "remove `Fetch`, `LookupByKey`, and `Rollback` nodes from the transaction tree" in {
       val context = createCommitContext(recordTime = None)
 
       val actual = transactionCommitter.trimUnnecessaryNodes(
