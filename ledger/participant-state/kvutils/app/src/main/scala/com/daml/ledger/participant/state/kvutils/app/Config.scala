@@ -202,6 +202,10 @@ object Config {
               .get("indexer-input-mapping-parallelism")
               .map(_.toInt)
               .getOrElse(ParticipantIndexerConfig.DefaultInputMappingParallelism)
+            val indexerBatchingParallelism = kv
+              .get("indexer-batching-parallelism")
+              .map(_.toInt)
+              .getOrElse(ParticipantIndexerConfig.DefaultBatchingParallelism)
             val indexerIngestionParallelism = kv
               .get("indexer-ingestion-parallelism")
               .map(_.toInt)
@@ -250,6 +254,7 @@ object Config {
                 databaseConnectionPoolSize = indexerConnectionPoolSize,
                 allowExistingSchema = false,
                 inputMappingParallelism = indexerInputMappingParallelism,
+                batchingParallelism = indexerBatchingParallelism,
                 ingestionParallelism = indexerIngestionParallelism,
                 submissionBatchSize = indexerSubmissionBatchSize,
                 tailingRateLimitPerSecond = indexerTailingRateLimitPerSecond,

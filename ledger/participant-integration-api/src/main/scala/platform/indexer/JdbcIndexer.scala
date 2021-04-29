@@ -19,7 +19,7 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.parallel.ParallelIndexerFactory
+import com.daml.platform.indexer.parallel.{ParallelIndexerFactory, PostgresStorageBackend}
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
@@ -138,6 +138,7 @@ object JdbcIndexer {
         )
         indexer <- ParallelIndexerFactory(
           jdbcUrl = config.jdbcUrl,
+          storageBackend = PostgresStorageBackend, // TODO append-only: factory mechanism
           participantId = config.participantId,
           translation = new LfValueTranslation(
             cache = lfValueTranslationCache,
@@ -150,6 +151,7 @@ object JdbcIndexer {
             else CompressionStrategy.none(metrics),
           mat = materializer,
           inputMappingParallelism = config.inputMappingParallelism,
+          batchingParallelism = config.batchingParallelism,
           ingestionParallelism = config.ingestionParallelism,
           submissionBatchSize = config.submissionBatchSize,
           tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,

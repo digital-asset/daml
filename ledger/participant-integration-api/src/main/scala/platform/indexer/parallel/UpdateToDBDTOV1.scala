@@ -181,6 +181,7 @@ object UpdateToDBDTOV1 {
                   compressionStrategy.createKeyValueCompression.id.filter(_ =>
                     createKeyValue.isDefined
                   ),
+                event_sequential_id = 0, // this is filled later
               )
 
             case (nodeId, exercise: Exercise) =>
@@ -220,6 +221,7 @@ object UpdateToDBDTOV1 {
                 create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
                 exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
                 exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
+                event_sequential_id = 0, // this is filled later
               )
           }
 
@@ -242,6 +244,7 @@ object UpdateToDBDTOV1 {
               .map(translation.serialize(contractId, _))
               .map(compressionStrategy.createArgumentCompression.compress),
             create_argument_compression = compressionStrategy.createArgumentCompression.id,
+            event_sequential_id = 0, // this is filled later
           )
         }
 
