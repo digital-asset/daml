@@ -115,7 +115,7 @@ private[oauth2] class RequestTemplates(
         "claims" -> ujson.Obj(
           "admin" -> claims.admin,
           "applicationId" -> (claims.applicationId match {
-            case Some(ApplicationId(appId)) => appId
+            case Some(appId) => ApplicationId.unwrap(appId)
             case None => ujson.Null
           }),
           "actAs" -> Party.unsubst(claims.actAs),

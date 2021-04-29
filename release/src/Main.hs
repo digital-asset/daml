@@ -38,7 +38,7 @@ import qualified SdkVersion
 
 -- Keep in sync with /bazel_tools/scala_version.bzl and /nix/nixpkgs.nix
 scalaVersions :: [T.Text]
-scalaVersions = ["2.12.13", "2.13.3"]
+scalaVersions = ["2.12.13", "2.13.5"]
 
 -- Hack: the logic that looks for missing transitive dependencies is broken, as it checks all build-time dependencies with `bazel query`
 depsToExclude :: T.Text

@@ -23,7 +23,7 @@ private[testtool] abstract class LedgerTestSuite {
       timeoutScale: Double = 1.0,
       runConcurrently: Boolean = true,
       repeated: Int = 1,
-  )(testCase: ExecutionContext => Participants => Future[Unit]): Unit = {
+  )(testCase: ExecutionContext => PartialFunction[Participants, Future[Unit]]): Unit = {
     val shortIdentifierRef = Ref.LedgerString.assertFromString(shortIdentifier)
     testCaseBuffer.append(
       new LedgerTestCase(

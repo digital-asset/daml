@@ -93,9 +93,10 @@ private class ContractsFetch(
               newAbsEndTarget match {
                 case LedgerBegin =>
                   fconn.pure(AbsoluteBookmark(absEnd))
-                case AbsoluteBookmark(domain.Offset.tag(feedback)) =>
+                case AbsoluteBookmark(feedback) =>
                   val feedbackTerminator =
-                    Terminates.AtAbsolute(lav1.ledger_offset.LedgerOffset.Value.Absolute(feedback))
+                    Terminates
+                      .AtAbsolute(lav1.ledger_offset.LedgerOffset.Value.Absolute(feedback.unwrap))
                   // contractsFromOffsetIo can go _past_ absEnd, because the ACS ignores
                   // this argument; see https://github.com/digital-asset/daml/pull/8226#issuecomment-756446537
                   // for an example of this happening.  We deal with this race condition

@@ -16,24 +16,24 @@ final class LotsOfPartiesIT extends LedgerTestSuite {
     "LOPseeTransactionsInMultipleSinglePartySubscriptions",
     "Observers should see transactions in multiple single-party subscriptions",
     allocate(NoParties),
-  )(_ => _ => Future.failed(Retired))
+  )(_ => { case _ => Future.failed(Retired) })
 
   test(
     "LOPseeTransactionsInSingleMultiPartySubscription",
     "Observers should see transactions in a single multi-party subscription",
     allocate(NoParties),
-  )(_ => _ => Future.failed(Retired))
+  )(_ => { case _ => Future.failed(Retired) })
 
   test(
     "LOPseeActiveContractsInMultipleSinglePartySubscriptions",
     "Observers should see active contracts in multiple single-party subscriptions",
     allocate(NoParties),
-  )(_ => _ => Future.failed(Retired))
+  )(_ => { case _ => Future.failed(Retired) })
 
   test(
     "LOPseeActiveContractsInSingleMultiPartySubscription",
     "Observers should see active contracts in a single multi-party subscription",
     allocate(NoParties),
-  )(_ => _ => Future.failed(Retired))
+  )(_ => { case _ => Future.failed(Retired) })
 
 }
