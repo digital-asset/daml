@@ -17,9 +17,10 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.indexer.parallel.PerfSupport._
 import com.daml.platform.indexer.{IndexFeedHandle, Indexer}
-import com.daml.platform.store.DbType
+import com.daml.platform.store.{DbType, backend}
 import com.daml.platform.store.appendonlydao.{DbDispatcher, JdbcLedgerDao}
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
+import com.daml.platform.store.backend.{DBDTOV1, StorageBackend}
 import com.daml.resources
 
 import scala.concurrent.Future
@@ -65,7 +66,7 @@ object ParallelIndexerFactory {
           metrics = metrics,
           connectionAsyncCommitMode = DbType.AsynchronousCommit,
         )
-      toDbDto = UpdateToDBDTOV1(
+      toDbDto = backend.UpdateToDBDTOV1(
         participantId = participantId,
         translation = translation,
         compressionStrategy = compressionStrategy,
