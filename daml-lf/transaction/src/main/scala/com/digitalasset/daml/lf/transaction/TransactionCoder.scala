@@ -356,11 +356,11 @@ object TransactionCoder {
                   builder.setResultUnversioned,
                 )
               case None =>
-                if (ne.version < TransactionVersion.minExceptions) { //NICK: use Either.Cond
-                  Left(EncodeError("NodeExercises without result"))
-                } else {
-                  Right(())
-                }
+                Either.cond(
+                  test = ne.version >= TransactionVersion.minExceptions || disableVersionCheck,
+                  right = (),
+                  left = EncodeError(node.version, isTooOldFor = "NodeExercises without result"),
+                )
             }
             _ <- encodeAndSetContractKey(
               encodeCid,
@@ -541,16 +541,13 @@ object TransactionCoder {
         for {
           rvOpt <-
             if (!(protoExe.hasResultVersioned || protoExe.hasResultUnversioned)) {
-              if (nodeVersion >= TransactionVersion.minExceptions) { //NICK: Use Either.Cond
-                Right(None)
-              } else {
-                /*Left( //NICK: This is the correct behaviour.
-                  DecodeError(
-                    s"missing exercise result (supported since ${TransactionVersion.minExceptions}) unexpected in transaction of version $nodeVersion"
-                  )
-                )*/
-                Right(None) //NICK: This is a bug. We need a test to catch it.
-              }
+              Either.cond(
+                test = nodeVersion >= TransactionVersion.minExceptions,
+                right = None,
+                left = DecodeError(
+                  s"NodeExercises without result (supported since ${TransactionVersion.minExceptions}) unexpected in transaction of version $nodeVersion"
+                ),
+              )
             } else {
               decodeValue(
                 decodeCid,
