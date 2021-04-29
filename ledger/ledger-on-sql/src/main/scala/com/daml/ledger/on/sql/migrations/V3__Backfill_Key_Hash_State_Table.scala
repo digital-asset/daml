@@ -4,9 +4,10 @@
 package com.daml.ledger.on.sql.migrations
 
 import anorm.{BatchSql, NamedParameter}
-import com.daml.ledger.on.sql.queries.StateKeyHashing
+import com.daml.ledger.participant.state.kvutils.Raw
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
+import java.security.MessageDigest
 import java.sql.{Connection, ResultSet}
 import scala.collection.compat.immutable.LazyList
 import scala.jdk.CollectionConverters._
@@ -67,5 +68,15 @@ private[migrations] abstract class V3__Backfill_Key_Hash_State_Table extends Bas
       .getPlaceholders()
       .asScala
       .getOrElse(TablePrefixPlaceholderName, throw new RuntimeException("Table prefix missing."))
+
+  object StateKeyHashing {
+    def hash(key: Raw.StateKey): Array[Byte] =
+      hash(key.bytes.toByteArray)
+
+    def hash(bytes: Array[Byte]): Array[Byte] =
+      MessageDigest
+        .getInstance("SHA-256")
+        .digest(bytes)
+  }
 
 }
