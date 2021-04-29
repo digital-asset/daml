@@ -50,7 +50,8 @@ darPackageIds fp = do
     Right dalfPkgIds  <- pure $ mapM (LFArchive.decodeArchivePackageId . BSL.toStrict) $ mainDalf : dalfDeps
     pure dalfPkgIds
 
-
+-- TODO https://github.com/digital-asset/daml/issues/8020
+--   Update stable package count when shipping exceptions.
 numStablePackages :: LF.Version -> Int
 numStablePackages ver
   | ver == LF.version1_6 = 15
@@ -59,8 +60,8 @@ numStablePackages ver
   | ver == LF.version1_11 = 17
   | ver == LF.version1_12 = 17
   | ver == LF.version1_13 = 17
-  | ver == LF.versionDev = 17
-  | otherwise = error $ "Unsupported LF version: " <> show ver
+  | ver == LF.versionDev = 18
+  | otherwise = error $ "numStablePackages: Unknown LF version: " <> show ver
 
 -- | Sequential LF version pairs, with an additional (1.dev, 1.dev) pair at the end.
 sequentialVersionPairs :: [(LF.Version, LF.Version)]

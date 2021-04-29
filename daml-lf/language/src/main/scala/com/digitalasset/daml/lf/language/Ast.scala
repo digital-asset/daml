@@ -578,8 +578,8 @@ object Ast {
     def apply(typ: Type, noPartyLiterals: Boolean, body: E, isTest: Boolean): GenDValue[E] =
       new GenDValue(typ, noPartyLiterals, body, isTest)
 
-    def unapply(arg: GenDValue[E]): Option[(Type, Boolean, E, Boolean)] =
-      GenDValue.unapply(arg)
+    def unapply(arg: GenDValue[E]): Some[(Type, Boolean, E, Boolean)] =
+      Some((arg.typ, arg.noPartyLiterals, arg.body, arg.isTest))
   }
 
   type DValue = GenDValue[Expr]
@@ -611,8 +611,8 @@ object Ast {
     def apply(typ: Type, body: E, maintainers: E): GenTemplateKey[E] =
       new GenTemplateKey(typ, body, maintainers)
 
-    def unapply(arg: GenTemplateKey[E]): Option[(Type, E, E)] =
-      GenTemplateKey.unapply(arg)
+    def unapply(arg: GenTemplateKey[E]): Some[(Type, E, E)] =
+      Some((arg.typ, arg.body, arg.maintainers))
   }
 
   type TemplateKey = GenTemplateKey[Expr]
@@ -672,7 +672,7 @@ object Ast {
       )
     ] = GenTemplate.unapply(arg)
 
-    def unapply(arg: GenTemplate[E]): Option[
+    def unapply(arg: GenTemplate[E]): Some[
       (
           ExprVarName,
           E,
@@ -682,8 +682,17 @@ object Ast {
           E,
           Option[GenTemplateKey[E]],
       )
-    ] =
-      GenTemplate.unapply(arg)
+    ] = Some(
+      (
+        arg.param,
+        arg.precond,
+        arg.signatories,
+        arg.agreementText,
+        arg.choices,
+        arg.observers,
+        arg.key,
+      )
+    )
   }
 
   type Template = GenTemplate[Expr]
@@ -727,8 +736,19 @@ object Ast {
 
     def unapply(
         arg: GenTemplateChoice[E]
-    ): Option[(ChoiceName, Boolean, E, Option[E], ExprVarName, (ExprVarName, Type), Type, E)] =
-      GenTemplateChoice.unapply(arg)
+    ): Some[(ChoiceName, Boolean, E, Option[E], ExprVarName, (ExprVarName, Type), Type, E)] =
+      Some(
+        (
+          arg.name,
+          arg.consuming,
+          arg.controllers,
+          arg.choiceObservers,
+          arg.selfBinder,
+          arg.argBinder,
+          arg.returnType,
+          arg.update,
+        )
+      )
   }
 
   type TemplateChoice = GenTemplateChoice[Expr]
@@ -743,8 +763,8 @@ object Ast {
     def apply(message: E): GenDefException[E] =
       GenDefException(message)
 
-    def unapply(arg: GenDefException[E]): Option[E] =
-      GenDefException.unapply(arg)
+    def unapply(arg: GenDefException[E]): Some[E] =
+      Some((arg.message))
   }
 
   type DefException = GenDefException[Expr]
@@ -833,7 +853,7 @@ object Ast {
       GenModule(name, definitionMap, templateMap, exceptionMap, featureFlags)
     }
 
-    def unapply(arg: GenModule[E]): Option[
+    def unapply(arg: GenModule[E]): Some[
       (
           ModuleName,
           Map[DottedName, GenDefinition[E]],
@@ -841,8 +861,7 @@ object Ast {
           Map[DottedName, GenDefException[E]],
           FeatureFlags,
       )
-    ] =
-      GenModule.unapply(arg)
+    ] = Some((arg.name, arg.definitions, arg.templates, arg.exceptions, arg.featureFlags))
   }
 
   type Module = GenModule[Expr]
@@ -966,15 +985,14 @@ object Ast {
         metadata: Option[PackageMetadata],
       )
 
-    def unapply(arg: GenPackage[E]): Option[
+    def unapply(arg: GenPackage[E]): Some[
       (
           Map[ModuleName, GenModule[E]],
           Set[PackageId],
           LanguageVersion,
           Option[PackageMetadata],
       )
-    ] =
-      GenPackage.unapply(arg)
+    ] = Some((arg.modules, arg.directDeps, arg.languageVersion, arg.metadata))
   }
 
   type Package = GenPackage[Expr]

@@ -28,7 +28,8 @@ object JsonConverters {
     s match {
       case sj.JsString(v) => Json fromString v
       case sj.JsNumber(v) => Json fromBigDecimal v
-      case sj.JsBoolean(v) => Json fromBoolean v
+      case sj.JsTrue => Json fromBoolean true
+      case sj.JsFalse => Json fromBoolean false
       case sj.JsObject(v) => Json fromFields (v transform ((_, e) => sprayToCirce(e)))
       case sj.JsArray(v) => Json fromValues (v map sprayToCirce)
       case sj.JsNull => Json.Null

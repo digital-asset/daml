@@ -355,7 +355,12 @@ object TransactionCoder {
                   builder.setResultVersioned,
                   builder.setResultUnversioned,
                 )
-              case None => Left(EncodeError("NodeExercises without result"))
+              case None =>
+                Either.cond(
+                  test = ne.version >= TransactionVersion.minExceptions || disableVersionCheck,
+                  right = (),
+                  left = EncodeError(node.version, isTooOldFor = "NodeExercises without result"),
+                )
             }
             _ <- encodeAndSetContractKey(
               encodeCid,
@@ -534,12 +539,23 @@ object TransactionCoder {
       case NodeTypeCase.EXERCISE =>
         val protoExe = protoNode.getExercise
         for {
-          rv <- decodeValue(
-            decodeCid,
-            nodeVersion,
-            protoExe.getResultVersioned,
-            protoExe.getResultUnversioned,
-          )
+          rvOpt <-
+            if (!(protoExe.hasResultVersioned || protoExe.hasResultUnversioned)) {
+              Either.cond(
+                test = nodeVersion >= TransactionVersion.minExceptions,
+                right = None,
+                left = DecodeError(
+                  s"NodeExercises without result (supported since ${TransactionVersion.minExceptions}) unexpected in transaction of version $nodeVersion"
+                ),
+              )
+            } else {
+              decodeValue(
+                decodeCid,
+                nodeVersion,
+                protoExe.getResultVersioned,
+                protoExe.getResultUnversioned,
+              ).map { v => Some(v) }
+            }
           keyWithMaintainers <-
             decodeOptionalKeyWithMaintainers(decodeCid, nodeVersion, protoExe.getKeyWithMaintainers)
           ni <- nodeId
@@ -574,7 +590,7 @@ object TransactionCoder {
           signatories = signatories,
           choiceObservers = choiceObservers,
           children = children,
-          exerciseResult = Some(rv),
+          exerciseResult = rvOpt,
           key = keyWithMaintainers,
           byKey = false,
           version = nodeVersion,

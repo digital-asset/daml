@@ -5,4 +5,6 @@ package com.daml.ledger.participant.state.kvutils.committer
 
 package object transaction {
   private[transaction] type RawContractId = String
+
+  private[transaction] type Step = CommitStep[DamlTransactionEntrySummary]
 }

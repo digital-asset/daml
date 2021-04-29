@@ -12,6 +12,7 @@ import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ResourceO
 import com.zaxxer.hikari.HikariDataSource
 import doobie.hikari.HikariTransactor
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
 object HikariTransactorResourceOwner {
@@ -54,6 +55,7 @@ object HikariTransactorResourceOwner {
 
 }
 
+@nowarn("msg=parameter value evidence.* is never used")
 final class HikariTransactorResourceOwner[Context: HasExecutionContext] private (
     resourceOwner: ResourceOwnerFactories[Context]
 ) {

@@ -16,10 +16,10 @@ build:darwin --repository_cache=.bazel-cache/repo
 fetch:darwin --repository_cache=.bazel-cache/repo
 sync:darwin --repository_cache=.bazel-cache/repo
 
-build:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.3
-fetch:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.3
-query:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.3
-sync:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.3
+build:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.5
+fetch:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.5
+query:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.5
+sync:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.5
 
 test:oracle --repo_env DAML_ORACLE_TESTING=true --test_env ORACLE_USERNAME --test_env ORACLE_PORT --test_env ORACLE_PWD
 

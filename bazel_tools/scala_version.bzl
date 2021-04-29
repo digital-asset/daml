@@ -19,18 +19,18 @@ scala_artifacts = {
             "sha256": "2bd46318d87945e72eb186a7b5ea496c43cf8f0aabc6ff11b3e7962f8635e669",
         },
     },
-    "2.13.3": {
+    "2.13.5": {
         "io_bazel_rules_scala_scala_library": {
-            "artifact": "org.scala-lang:scala-library:2.13.3",
-            "sha256": "cb0eb1a33a6056b2e652f26923bfa361348ae72a2119da7b78dc1f673d1a93b1",
+            "artifact": "org.scala-lang:scala-library:2.13.5",
+            "sha256": "52aafeef8e0d104433329b1bc31463d1b4a9e2b8f24f85432c8cfaed9fad2587",
         },
         "io_bazel_rules_scala_scala_compiler": {
-            "artifact": "org.scala-lang:scala-compiler:2.13.3",
-            "sha256": "e86e4f70d30cb3fd78e82aa6e6d82b2b3d1b46bd209a31f833a03b370ae0f32a",
+            "artifact": "org.scala-lang:scala-compiler:2.13.5",
+            "sha256": "ea7423f3bc3673845d6d1c64335a4645abba0b0478ae00e15979915826ff6116",
         },
         "io_bazel_rules_scala_scala_reflect": {
-            "artifact": "org.scala-lang:scala-reflect:2.13.3",
-            "sha256": "959dc9ab8aad84e2fc7adacfb84f2ed908caee22c4c2d291dd818f0c40c6ed5b",
+            "artifact": "org.scala-lang:scala-reflect:2.13.5",
+            "sha256": "808c44b8adb3205e91d417bf57406715ca2508ad6952f6e2132ff8099b78bd73",
         },
     },
 }

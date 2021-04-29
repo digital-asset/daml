@@ -353,15 +353,6 @@ object RawDBBatchPostgreSQLV1 {
     private[this] var commandCompletionsBatchBuilder: CommandCompletionsBatchBuilder = _
     private[this] var commandDeduplicationBatchBuilder: CommandDeduplicationBatchBuilder = _
 
-    // Sequential ID within this batch. These local sequential IDs are converted to global IDs at a later stage.
-    // See RawDBBatch.offsetSequentialEventIds()
-    private[this] var eventSequentialId: Long = 0
-    private[this] def nextEventSequentialId() = {
-      val result = eventSequentialId
-      eventSequentialId = eventSequentialId + 1
-      result
-    }
-
     def add(entry: DBDTOV1): Unit = {
       entry match {
         case e: EventDivulgence =>
@@ -381,7 +372,7 @@ object RawDBBatchPostgreSQLV1 {
           eventsBatchBuilder.template_id += e.template_id.orNull
           eventsBatchBuilder.tree_event_witnesses += encodeTextArray(e.tree_event_witnesses)
           eventsBatchBuilder.create_argument += e.create_argument.orNull
-          eventsBatchBuilder.event_sequential_id += nextEventSequentialId()
+          eventsBatchBuilder.event_sequential_id += e.event_sequential_id
           eventsBatchBuilder.create_argument_compression += e.create_argument_compression
             .map(x => x: java.lang.Integer)
             .orNull
@@ -415,7 +406,7 @@ object RawDBBatchPostgreSQLV1 {
           eventsBatchBuilder.create_agreement_text += e.create_agreement_text.orNull
           eventsBatchBuilder.create_key_value += e.create_key_value.orNull
           eventsBatchBuilder.create_key_hash += e.create_key_hash.orNull
-          eventsBatchBuilder.event_sequential_id += nextEventSequentialId()
+          eventsBatchBuilder.event_sequential_id += e.event_sequential_id
           eventsBatchBuilder.create_argument_compression += e.create_argument_compression
             .map(x => x: java.lang.Integer)
             .orNull
@@ -463,7 +454,7 @@ object RawDBBatchPostgreSQLV1 {
           eventsBatchBuilder.exercise_child_event_ids += e.exercise_child_event_ids
             .map(encodeTextArray)
             .orNull
-          eventsBatchBuilder.event_sequential_id += nextEventSequentialId()
+          eventsBatchBuilder.event_sequential_id += e.event_sequential_id
           eventsBatchBuilder.exercise_argument_compression += e.exercise_argument_compression
             .map(x => x: java.lang.Integer)
             .orNull
@@ -554,7 +545,7 @@ object RawDBBatchPostgreSQLV1 {
           template_id = b.template_id.result(),
           tree_event_witnesses = b.tree_event_witnesses.result(),
           create_argument = b.create_argument.result(),
-          event_sequential_id = b.event_sequential_id.result(), // will be populated later
+          event_sequential_id = b.event_sequential_id.result(),
           create_argument_compression = b.create_argument_compression.result(),
         )
       ),
@@ -579,7 +570,7 @@ object RawDBBatchPostgreSQLV1 {
           create_agreement_text = b.create_agreement_text.result(),
           create_key_value = b.create_key_value.result(),
           create_key_hash = b.create_key_hash.result(),
-          event_sequential_id = b.event_sequential_id.result(), // will be populated later
+          event_sequential_id = b.event_sequential_id.result(),
           create_argument_compression = b.create_argument_compression.result(),
           create_key_value_compression = b.create_key_value_compression.result(),
         )
@@ -605,7 +596,7 @@ object RawDBBatchPostgreSQLV1 {
           exercise_result = b.exercise_result.result(),
           exercise_actors = b.exercise_actors.result(),
           exercise_child_event_ids = b.exercise_child_event_ids.result(),
-          event_sequential_id = b.event_sequential_id.result(), // will be populated later
+          event_sequential_id = b.event_sequential_id.result(),
           create_key_value_compression = b.create_key_value_compression.result(),
           exercise_argument_compression = b.exercise_argument_compression.result(),
           exercise_result_compression = b.exercise_result_compression.result(),
@@ -632,7 +623,7 @@ object RawDBBatchPostgreSQLV1 {
           exercise_result = b.exercise_result.result(),
           exercise_actors = b.exercise_actors.result(),
           exercise_child_event_ids = b.exercise_child_event_ids.result(),
-          event_sequential_id = b.event_sequential_id.result(), // will be populated later
+          event_sequential_id = b.event_sequential_id.result(),
           create_key_value_compression = b.create_key_value_compression.result(),
           exercise_argument_compression = b.exercise_argument_compression.result(),
           exercise_result_compression = b.exercise_result_compression.result(),

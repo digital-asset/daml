@@ -12,6 +12,7 @@ import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult}
 import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted, Rejected}
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.telemetry.TelemetryContext
 import io.grpc.StatusRuntimeException
 
 import scala.concurrent.duration.FiniteDuration
@@ -28,6 +29,7 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
 ) {
 
   def submitAndWait(submissionId: SubmissionId, input: Input)(implicit
+      telemetryContext: TelemetryContext,
       executionContext: ExecutionContext,
       materializer: Materializer,
   ): Future[AcceptedEntry] = {
@@ -70,7 +72,9 @@ object SynchronousResponse {
     def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]]
 
     /** Submits a request to the ledger. */
-    def submit(submissionId: SubmissionId, input: Input): Future[SubmissionResult]
+    def submit(submissionId: SubmissionId, input: Input)(implicit
+        telemetryContext: TelemetryContext
+    ): Future[SubmissionResult]
 
     /** Opens a stream of entries from before the submission. */
     def entries(offset: Option[LedgerOffset.Absolute]): Source[Entry, _]

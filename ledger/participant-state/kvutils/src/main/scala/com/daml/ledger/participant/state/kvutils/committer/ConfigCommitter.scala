@@ -16,12 +16,13 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 
 private[kvutils] object ConfigCommitter {
-  private type Step = Committer.Step[ConfigCommitter.Result]
 
-  case class Result(
+  final case class Result(
       submission: DamlConfigurationSubmission,
       currentConfig: (Option[DamlConfigurationEntry], Configuration),
   )
+
+  type Step = CommitStep[Result]
 }
 
 private[kvutils] class ConfigCommitter(
@@ -52,135 +53,152 @@ private[kvutils] class ConfigCommitter(
   private def rejectionTraceLog(message: String)(implicit loggingContext: LoggingContext): Unit =
     logger.trace(s"Configuration rejected: $message.")
 
-  private[committer] val checkTtl: Step = { (ctx, result) => implicit loggingContext =>
-    // Check the maximum record time against the record time of the commit.
-    // This mechanism allows the submitter to detect lost submissions and retry
-    // with a submitter controlled rate.
-    if (ctx.recordTime.exists(_ > maximumRecordTime)) {
-      rejectionTraceLog(s"submission timed out (${ctx.recordTime} > $maximumRecordTime)")
-      reject(
-        ctx.recordTime,
-        result.submission,
-        _.setTimedOut(
-          TimedOut.newBuilder
-            .setMaximumRecordTime(buildTimestamp(maximumRecordTime))
-        ),
-      )
-    } else {
-      if (ctx.preExecute) {
-        // Propagate the time bounds and defer the checks to post-execution.
-        ctx.maximumRecordTime = Some(maximumRecordTime.toInstant)
-        setOutOfTimeBoundsLogEntry(result.submission, ctx)
+  private[committer] val checkTtl: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        result: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] =
+      // Check the maximum record time against the record time of the commit.
+      // This mechanism allows the submitter to detect lost submissions and retry
+      // with a submitter controlled rate.
+      if (ctx.recordTime.exists(_ > maximumRecordTime)) {
+        rejectionTraceLog(s"submission timed out (${ctx.recordTime} > $maximumRecordTime)")
+        reject(
+          ctx.recordTime,
+          result.submission,
+          _.setTimedOut(TimedOut.newBuilder.setMaximumRecordTime(buildTimestamp(maximumRecordTime))),
+        )
+      } else {
+        if (ctx.preExecute) {
+          // Propagate the time bounds and defer the checks to post-execution.
+          ctx.maximumRecordTime = Some(maximumRecordTime.toInstant)
+          setOutOfTimeBoundsLogEntry(result.submission, ctx)
+        }
+        StepContinue(result)
       }
-      StepContinue(result)
+  }
+
+  private val authorizeSubmission: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        result: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      // Submission is authorized when:
+      //      the provided participant id matches source participant id
+      //  AND (
+      //      there exists no current configuration
+      //   OR the current configuration's participant matches the submitting participant.
+      //  )
+      val authorized = result.submission.getParticipantId == ctx.participantId
+
+      val wellFormed =
+        result.currentConfig._1.forall(_.getParticipantId == ctx.participantId)
+
+      if (!authorized) {
+        val message =
+          s"participant id ${result.submission.getParticipantId} did not match authenticated participant id ${ctx.participantId}"
+        rejectionTraceLog(message)
+        reject(
+          ctx.recordTime,
+          result.submission,
+          _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder.setDetails(message)),
+        )
+      } else if (!wellFormed) {
+        val message = s"${ctx.participantId} is not authorized to change configuration."
+        rejectionTraceLog(message)
+        reject(
+          ctx.recordTime,
+          result.submission,
+          _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder.setDetails(message)),
+        )
+      } else {
+        StepContinue(result)
+      }
     }
   }
 
-  private val authorizeSubmission: Step = { (ctx, result) => implicit loggingContext =>
-    // Submission is authorized when:
-    //      the provided participant id matches source participant id
-    //  AND (
-    //      there exists no current configuration
-    //   OR the current configuration's participant matches the submitting participant.
-    //  )
-    val authorized = result.submission.getParticipantId == ctx.participantId
-
-    val wellFormed =
-      result.currentConfig._1.forall(_.getParticipantId == ctx.participantId)
-
-    if (!authorized) {
-      val message =
-        s"participant id ${result.submission.getParticipantId} did not match authenticated participant id ${ctx.participantId}"
-      rejectionTraceLog(message)
-      reject(
-        ctx.recordTime,
-        result.submission,
-        _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder.setDetails(message)),
-      )
-    } else if (!wellFormed) {
-      val message = s"${ctx.participantId} is not authorized to change configuration."
-      rejectionTraceLog(message)
-      reject(
-        ctx.recordTime,
-        result.submission,
-        _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder.setDetails(message)),
-      )
-    } else {
-      StepContinue(result)
-    }
-  }
-
-  private val validateSubmission: Step = { (ctx, result) => _ =>
-    Configuration
-      .decode(result.submission.getConfiguration)
-      .fold(
-        err =>
-          reject(
-            ctx.recordTime,
-            result.submission,
-            _.setInvalidConfiguration(
-              Invalid.newBuilder
-                .setDetails(err)
-            ),
-          ),
-        config =>
-          if (config.generation != (1 + result.currentConfig._2.generation))
+  private val validateSubmission: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        result: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] =
+      Configuration
+        .decode(result.submission.getConfiguration)
+        .fold(
+          err =>
             reject(
               ctx.recordTime,
               result.submission,
-              _.setGenerationMismatch(
-                GenerationMismatch.newBuilder
-                  .setExpectedGeneration(1 + result.currentConfig._2.generation)
-              ),
-            )
-          else
-            StepContinue(result),
-      )
+              _.setInvalidConfiguration(Invalid.newBuilder.setDetails(err)),
+            ),
+          config =>
+            if (config.generation != (1 + result.currentConfig._2.generation))
+              reject(
+                ctx.recordTime,
+                result.submission,
+                _.setGenerationMismatch(
+                  GenerationMismatch.newBuilder
+                    .setExpectedGeneration(1 + result.currentConfig._2.generation)
+                ),
+              )
+            else
+              StepContinue(result),
+        )
   }
 
-  private val deduplicateSubmission: Step = { (ctx, result) => implicit loggingContext =>
-    val submissionKey = configDedupKey(ctx.participantId, result.submission.getSubmissionId)
-    if (ctx.get(submissionKey).isEmpty) {
-      StepContinue(result)
-    } else {
-      val message = s"duplicate submission='${result.submission.getSubmissionId}'"
-      rejectionTraceLog(message)
-      reject(
-        ctx.recordTime,
-        result.submission,
-        _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(message)),
-      )
+  private val deduplicateSubmission: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        result: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      val submissionKey = configDedupKey(ctx.participantId, result.submission.getSubmissionId)
+      if (ctx.get(submissionKey).isEmpty) {
+        StepContinue(result)
+      } else {
+        val message = s"duplicate submission='${result.submission.getSubmissionId}'"
+        rejectionTraceLog(message)
+        reject(
+          ctx.recordTime,
+          result.submission,
+          _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(message)),
+        )
+      }
     }
   }
 
-  private[committer] def buildLogEntry: Step = { (ctx, result) => implicit loggingContext =>
-    metrics.daml.kvutils.committer.config.accepts.inc()
-    logger.trace("Configuration accepted.")
+  private[committer] def buildLogEntry: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        result: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      metrics.daml.kvutils.committer.config.accepts.inc()
+      logger.trace("Configuration accepted.")
 
-    val configurationEntry = DamlConfigurationEntry.newBuilder
-      .setSubmissionId(result.submission.getSubmissionId)
-      .setParticipantId(result.submission.getParticipantId)
-      .setConfiguration(result.submission.getConfiguration)
-      .build
-    ctx.set(
-      configurationStateKey,
-      DamlStateValue.newBuilder
-        .setConfigurationEntry(configurationEntry)
-        .build,
-    )
+      val configurationEntry = DamlConfigurationEntry.newBuilder
+        .setSubmissionId(result.submission.getSubmissionId)
+        .setParticipantId(result.submission.getParticipantId)
+        .setConfiguration(result.submission.getConfiguration)
+        .build
+      ctx.set(
+        configurationStateKey,
+        DamlStateValue.newBuilder
+          .setConfigurationEntry(configurationEntry)
+          .build,
+      )
 
-    ctx.set(
-      configDedupKey(ctx.participantId, result.submission.getSubmissionId),
-      DamlStateValue.newBuilder
-        .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
-        .build,
-    )
+      ctx.set(
+        configDedupKey(ctx.participantId, result.submission.getSubmissionId),
+        DamlStateValue.newBuilder
+          .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
+          .build,
+      )
 
-    val successLogEntry = buildLogEntryWithOptionalRecordTime(
-      ctx.recordTime,
-      _.setConfigurationEntry(configurationEntry),
-    )
-    StepStop(successLogEntry)
+      val successLogEntry = buildLogEntryWithOptionalRecordTime(
+        ctx.recordTime,
+        _.setConfigurationEntry(configurationEntry),
+      )
+      StepStop(successLogEntry)
+    }
   }
 
   private def reject[PartialResult](

@@ -23,9 +23,10 @@ trait LedgerWriter extends ReportsHealth {
 
   /** Sends a submission to be committed to the ledger.
     *
-    * @param correlationId correlation ID to be used for logging purposes
-    * @param envelope      opaque submission; may be compressed
-    * @param metadata      metadata associated to this particular commit
+    * @param correlationId    correlation ID to be used for logging purposes
+    * @param envelope         opaque submission; may be compressed
+    * @param metadata         metadata associated to this particular commit
+    * @param telemetryContext an implicit context for tracing
     * @return future for sending the submission; for possible results see
     *         [[com.daml.ledger.participant.state.v1.SubmissionResult]]
     */

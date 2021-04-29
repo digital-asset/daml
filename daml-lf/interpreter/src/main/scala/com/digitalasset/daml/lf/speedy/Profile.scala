@@ -9,6 +9,7 @@ import com.daml.lf.language.Ast
 import java.lang.System
 import java.nio.file.{Files, Path}
 import java.util.ArrayList
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 
 /** Class for profiling information collected by Speedy.
@@ -224,6 +225,7 @@ object Profile {
 
     // assumes -Xsource:2.13 in clients, which we should just do always,
     // this is in scope wherever the expected type is `Label`
+    @nowarn("msg=parameter value evidence.* is never used")
     implicit def fromAllowed[T: Allowed](t: T with AnyRef): Label = Module(t)
 
     final class Allowed[-T] private ()

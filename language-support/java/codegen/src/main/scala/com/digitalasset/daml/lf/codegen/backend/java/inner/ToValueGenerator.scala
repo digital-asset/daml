@@ -169,6 +169,7 @@ object ToValueGenerator {
           accessor,
           CodeBlock.join(extractorParams.asJava, ","),
         )
+      case ty => throw new IllegalArgumentException(s"Invalid Daml datatype: $ty")
     }
   }
 

@@ -335,7 +335,7 @@ object PerformanceEnvelope {
       envelope.name.replace(".", ""),
       s"Verify that ledger passes the ${envelope.name} throughput envelope",
       allocate(SingleParty, SingleParty),
-    )(implicit ec => { participants =>
+    )(implicit ec => { case participants =>
       waitForParties(participants.participants)
 
       def runTest(num: Int, description: String): Future[(Duration, List[Duration])] =
@@ -383,7 +383,7 @@ object PerformanceEnvelope {
       envelope.name.replace(".", ""),
       s"Verify that ledger passes the ${envelope.name} latency envelope",
       allocate(SingleParty, SingleParty),
-    )(implicit ec => { participants =>
+    )(implicit ec => { case participants =>
       waitForParties(participants.participants)
 
       sendPings(
@@ -428,7 +428,7 @@ object PerformanceEnvelope {
       envelope.name.replace(".", ""),
       s"Verify that ledger passes the ${envelope.name} transaction size envelope",
       allocate(SingleParty, SingleParty),
-    )(implicit ec => { participants =>
+    )(implicit ec => { case participants =>
       waitForParties(participants.participants)
 
       sendPings(

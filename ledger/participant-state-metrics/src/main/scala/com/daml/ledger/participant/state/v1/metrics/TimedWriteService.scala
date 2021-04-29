@@ -45,7 +45,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       hint: Option[Party],
       displayName: Option[String],
       submissionId: SubmissionId,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.daml.services.write.allocateParty,
       delegate.allocateParty(hint, displayName, submissionId),
