@@ -585,6 +585,7 @@ generateStablePackages lfVersion fp = do
         let dalfs = map (fp </>) $ concat
                 [ map ("daml-prim" </>)
                     [ "DA-Internal-Erased.dalf"
+                    , "DA-Internal-Exception-Types.dalf"
                     , "DA-Internal-PromotedText.dalf"
                     , "DA-Types.dalf"
                     , "GHC-Prim.dalf"
