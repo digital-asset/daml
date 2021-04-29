@@ -36,6 +36,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
+import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 
 // The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
@@ -387,9 +388,29 @@ private[kvutils] class TransactionCommitter(
     )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
       val transaction = transactionEntry.submission.getTransaction
       val nodes = transaction.getNodesList.asScala
-      val nodesToKeep = nodes.iterator.collect {
-        case node if node.hasCreate || node.hasExercise => node.getNodeId
-      }.toSet
+      val nodeMap: Map[String, TransactionOuterClass.Node] =
+        nodes.view.map(n => n.getNodeId -> n).toMap
+
+      @tailrec
+      def goNodesToKeep(todo: List[String], result: Set[String]): Set[String] = todo match {
+        case Nil => result
+        case head :: tail =>
+          import TransactionOuterClass.Node.NodeTypeCase
+          val node = nodeMap
+            .get(head)
+            .getOrElse(throw Err.InvalidSubmission(s"Invalid transaction node id $head"))
+          node.getNodeTypeCase match {
+            case NodeTypeCase.CREATE =>
+              goNodesToKeep(tail, result + head)
+            case NodeTypeCase.EXERCISE =>
+              goNodesToKeep(node.getExercise.getChildrenList.asScala.toList ++ tail, result + head)
+            case NodeTypeCase.ROLLBACK | NodeTypeCase.FETCH | NodeTypeCase.LOOKUP_BY_KEY |
+                NodeTypeCase.NODETYPE_NOT_SET =>
+              goNodesToKeep(tail, result)
+          }
+      }
+
+      val nodesToKeep = goNodesToKeep(transaction.getRootsList.asScala.toList, Set.empty)
 
       val filteredRoots = transaction.getRootsList.asScala.filter(nodesToKeep)
 

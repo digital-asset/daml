@@ -99,6 +99,13 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
           )
         )
       ),
+      createNode("Rollback-1")(
+        _.setRollback(
+          rollbackNodeBuilder.addAllChildren(Seq("RollbackChild-1", "RollbackChild-2").asJava)
+        )
+      ),
+      createNode("RollbackChild-1")(_.setCreate(createNodeBuilder)),
+      createNode("RollbackChild-2")(_.setFetch(fetchNodeBuilder)),
     )
     val tx = TransactionOuterClass.Transaction
       .newBuilder()
@@ -122,13 +129,16 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
   private def exerciseNodeBuilder =
     TransactionOuterClass.NodeExercise.newBuilder()
 
+  private def rollbackNodeBuilder =
+    TransactionOuterClass.NodeRollback.newBuilder()
+
   private def createNodeBuilder = TransactionOuterClass.NodeCreate.newBuilder()
 
   private def lookupByKeyNodeBuilder =
     TransactionOuterClass.NodeLookupByKey.newBuilder()
 
   "trimUnnecessaryNodes" should {
-    "remove `Fetch` and `LookupByKey` nodes from transaction tree" in {
+    "remove `Fetch` `LookupByKey` and `Rollback` nodes from transaction tree" in {
       val context = createCommitContext(recordTime = None)
 
       val actual = transactionCommitter.trimUnnecessaryNodes(
