@@ -13,6 +13,8 @@
 
 *Daml Driver for PostgreSQL* is a PostgreSQL-based Daml ledger implementation.
 
+The Community Edition, distributed as a JAR file called `daml-on-sql-<version>.jar`, can be obtained from the `Daml GitHub Releases Page <https://github.com/digital-asset/daml/releases>`__.
+
 Setup PostgreSQL and run
 ************************
 
