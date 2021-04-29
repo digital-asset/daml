@@ -6,6 +6,7 @@ package com.daml.platform.indexer.parallel
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 
+// TODO append-only: add unit tests + consider moving out to some library project
 object PerfSupport {
 
   // adds a buffer to the output of the original source, and adds a Counter metric for buffer size

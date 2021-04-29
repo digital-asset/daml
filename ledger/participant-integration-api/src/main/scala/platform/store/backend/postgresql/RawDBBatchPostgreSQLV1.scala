@@ -10,6 +10,7 @@ import com.daml.platform.store.backend.DBDTOV1
 
 import scala.collection.mutable
 
+// TODO append-only: consider removing the builder logic and switch to much easier multi-pass collecting, if memory pressure is not significantly bigger
 // TODO append-only: hurts one to look around here, the whole file is a boilerplate, including related PostgreDAO artifacts (prepared statements and execution of them)
 // TODO append-only: ideas:
 //   - switch to weakly/runtime-typed: probably slower, verification problematic, ugly in a strongly typed context

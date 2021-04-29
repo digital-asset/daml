@@ -75,7 +75,10 @@ object DBDTOV1 {
       event_sequential_id: Long,
   ) extends DBDTOV1
 
-  // TODO wartremover complained about having Array-s in case classes. I would prefer case classes. can we work that somehow around? Similarly in other DTO cases...
+  // TODO append-only: wartremover complained about having Array-s in case classes. I would prefer case classes. can we work that somehow around? Similarly in other DTO cases...
+  // TODO append-only: there are some options:
+  //   - mixing in SomeArrayEquals if we need array equality for some reason: would be proper if we move SomeArrayEquals out from speedy codebase to scalalib first.
+  //   - spawning somewhere something like trait NeverEqualsOverride { override equals(o: Object): Boolean = false }, and mixing in these classes
   class ConfigurationEntry(
       val ledger_offset: String,
       val recorded_at: Instant,
