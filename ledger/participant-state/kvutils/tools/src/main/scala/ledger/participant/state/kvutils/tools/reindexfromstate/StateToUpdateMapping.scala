@@ -165,8 +165,11 @@ class StateToUpdateMapping(state: MutableState) {
     // Submitters must be stakeholders.
     val locallyDisclosedTo = contract.getLocallyDisclosedToList.asScala
     val templateId = contractInstance.template.toString
-    val fetchedContract =
+    // Fetch contract first to get correct signatories.
+    val fetchedContract1 =
       fetchContractViaEngine(locallyDisclosedTo, contractId, templateId, submissionSeed).get
+    val fetchedContract =
+      fetchContractViaEngine(fetchedContract1.signatories, contractId, templateId, submissionSeed).get
     val signatories = fetchedContract.signatories
     val observers = fetchedContract.stakeholders
 
