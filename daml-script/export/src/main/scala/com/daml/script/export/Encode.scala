@@ -8,7 +8,6 @@ import java.time.{LocalDate, ZoneId, ZonedDateTime}
 
 import com.daml.ledger.api.refinements.ApiTypes.{Choice, ContractId, Party, TemplateId}
 import com.daml.ledger.api.v1.event.CreatedEvent
-import com.daml.ledger.api.v1.transaction.TransactionTree
 import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.daml.lf.data.Time.{Date, Timestamp}
@@ -17,26 +16,8 @@ import org.apache.commons.text.StringEscapeUtils
 import org.typelevel.paiges.Doc
 
 private[export] object Encode {
-  def encodeTransactionTreeStream(
-      acs: Map[ContractId, CreatedEvent],
-      trees: Seq[TransactionTree],
-      acsBatchSize: Int,
-      setTime: Boolean,
-  ): Doc = {
-    val export = Export.fromTransactionTrees(acs, trees, acsBatchSize, setTime)
 
-    if (export.unknownCids.nonEmpty) {
-      // TODO[AH] Support this once the ledger has better support for exposing such "hidden" contracts.
-      //   Be it archived or divulged contracts.
-      throw new RuntimeException(
-        s"Encountered archived contracts referenced by active contracts: ${export.unknownCids.mkString(", ")}"
-      )
-    }
-
-    encodeExport(export)
-  }
-
-  private def encodeExport(export: Export): Doc = {
+  def encodeExport(export: Export): Doc = {
     Doc.text("{-# LANGUAGE ApplicativeDo #-}") /
       Doc.text("module Export where") /
       Doc.text("import Daml.Script") /
