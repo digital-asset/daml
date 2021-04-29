@@ -392,7 +392,7 @@ private final class SqlLedger(
             // so it doesn't need to pre-compute blinding information.
             val blindingInfo = None
 
-            val preparedInsert = ledgerDao.prepareTransactionInsert(
+            ledgerDao.storeTransaction(
               submitterInfo = Some(submitterInfo),
               workflowId = transactionMeta.workflowId,
               transactionId = transactionId,
@@ -401,16 +401,7 @@ private final class SqlLedger(
               transaction = transactionCommitter.commitTransaction(transactionId, transaction),
               divulgedContracts = divulgedContracts,
               blindingInfo = blindingInfo,
-            )
-            ledgerDao.storeTransaction(
-              preparedInsert,
-              Some(submitterInfo),
-              transactionId,
-              recordTime,
-              transactionMeta.ledgerEffectiveTime.toInstant,
-              CurrentOffset(offset),
-              transactionCommitter.commitTransaction(transactionId, transaction),
-              divulgedContracts,
+              recordTime = recordTime,
             )
           },
         )
