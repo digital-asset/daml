@@ -51,7 +51,11 @@ private[export] object Encode {
         Doc.text("parties <- allocateParties") /
         Doc.text("export parties")).hang(2) /
       Doc.hardLine +
-      Doc.text("export : Parties -> Script ()") /
+      encodeExportActions(export)
+  }
+
+  private def encodeExportActions(export: Export): Doc = {
+    Doc.text("export : Parties -> Script ()") /
       (Doc.text("export Parties{..} = do") /
         stackNonEmpty(
           export.actions.map(encodeAction(export.partyMap, export.cidMap, export.cidRefs, _))
