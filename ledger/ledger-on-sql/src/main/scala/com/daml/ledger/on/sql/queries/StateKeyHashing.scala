@@ -16,6 +16,4 @@ object StateKeyHashing {
       .getInstance("SHA-256")
       .digest(bytes)
 
-//  final case class HashedStateKey(bytes: Array[Byte])
-
 }
