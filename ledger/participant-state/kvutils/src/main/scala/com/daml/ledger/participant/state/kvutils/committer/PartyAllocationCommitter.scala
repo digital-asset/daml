@@ -5,10 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committer
 
 import com.daml.ledger.participant.state.kvutils.Conversions.partyAllocationDedupKey
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.committer.Committer.{
-  Steps,
-  buildLogEntryWithOptionalRecordTime,
-}
+import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEntryWithOptionalRecordTime
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -16,7 +13,8 @@ import com.daml.metrics.Metrics
 
 private[kvutils] object PartyAllocationCommitter {
   type Result = DamlPartyAllocationEntry.Builder
-  type Step = Committer.Step[Result]
+
+  type Step = CommitStep[Result]
 }
 
 private[kvutils] class PartyAllocationCommitter(
@@ -42,99 +40,123 @@ private[kvutils] class PartyAllocationCommitter(
   private def rejectionTraceLog(msg: String)(implicit loggingContext: LoggingContext): Unit =
     logger.trace(s"Party allocation rejected: $msg.")
 
-  private val authorizeSubmission: Step = { (ctx, result) => implicit loggingContext =>
-    if (ctx.participantId == result.getParticipantId) {
-      StepContinue(result)
-    } else {
-      val message =
-        s"participant id ${result.getParticipantId} did not match authenticated participant id ${ctx.participantId}"
-      rejectionTraceLog(message)
-      reject(
-        ctx.recordTime,
-        result,
-        _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder.setDetails(message)),
-      )
-    }
-  }
-
-  private val validateParty: Step = { (ctx, result) => implicit loggingContext =>
-    val party = result.getParty
-    if (Ref.Party.fromString(party).isRight) {
-      StepContinue(result)
-    } else {
-      val message = s"party string '$party' invalid"
-      rejectionTraceLog(message)
-      reject(
-        ctx.recordTime,
-        result,
-        _.setInvalidName(Invalid.newBuilder.setDetails(message)),
-      )
-    }
-  }
-
-  private val deduplicateParty: Step = { (ctx, result) => implicit loggingContext =>
-    val party = result.getParty
-    val partyKey = DamlStateKey.newBuilder.setParty(party).build
-    if (ctx.get(partyKey).isEmpty) {
-      StepContinue(result)
-    } else {
-      val message = s"party already exists party='$party'"
-      rejectionTraceLog(message)
-      reject(
-        ctx.recordTime,
-        result,
-        _.setAlreadyExists(AlreadyExists.newBuilder.setDetails(message)),
-      )
-    }
-  }
-
-  private val deduplicateSubmission: Step = { (ctx, result) => implicit loggingContext =>
-    val submissionKey = partyAllocationDedupKey(ctx.participantId, result.getSubmissionId)
-    if (ctx.get(submissionKey).isEmpty) {
-      StepContinue(result)
-    } else {
-      val message = s"duplicate submission='${result.getSubmissionId}'"
-      rejectionTraceLog(message)
-      reject(
-        ctx.recordTime,
-        result,
-        _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(message)),
-      )
-    }
-  }
-
-  private[committer] val buildLogEntry: Step = { (ctx, result) => implicit loggingContext =>
-    val party = result.getParty
-    val partyKey = DamlStateKey.newBuilder.setParty(party).build
-
-    metrics.daml.kvutils.committer.partyAllocation.accepts.inc()
-    logger.trace("Party allocated.")
-
-    ctx.set(
-      partyKey,
-      DamlStateValue.newBuilder
-        .setParty(
-          DamlPartyAllocation.newBuilder
-            .setParticipantId(ctx.participantId)
+  private val authorizeSubmission: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        result: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] =
+      if (ctx.participantId == result.getParticipantId) {
+        StepContinue(result)
+      } else {
+        val message =
+          s"participant id ${result.getParticipantId} did not match authenticated participant id ${ctx.participantId}"
+        rejectionTraceLog(message)
+        reject(
+          ctx.recordTime,
+          result,
+          _.setParticipantNotAuthorized(ParticipantNotAuthorized.newBuilder.setDetails(message)),
         )
-        .build,
-    )
+      }
+  }
 
-    ctx.set(
-      partyAllocationDedupKey(ctx.participantId, result.getSubmissionId),
-      DamlStateValue.newBuilder
-        .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
-        .build,
-    )
-
-    val successLogEntry = buildLogEntryWithOptionalRecordTime(
-      ctx.recordTime,
-      _.setPartyAllocationEntry(result),
-    )
-    if (ctx.preExecute) {
-      setOutOfTimeBoundsLogEntry(result, ctx)
+  private val validateParty: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        result: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      val party = result.getParty
+      if (Ref.Party.fromString(party).isRight) {
+        StepContinue(result)
+      } else {
+        val message = s"party string '$party' invalid"
+        rejectionTraceLog(message)
+        reject(
+          ctx.recordTime,
+          result,
+          _.setInvalidName(Invalid.newBuilder.setDetails(message)),
+        )
+      }
     }
-    StepStop(successLogEntry)
+  }
+
+  private val deduplicateParty: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        result: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      val party = result.getParty
+      val partyKey = DamlStateKey.newBuilder.setParty(party).build
+      if (ctx.get(partyKey).isEmpty) {
+        StepContinue(result)
+      } else {
+        val message = s"party already exists party='$party'"
+        rejectionTraceLog(message)
+        reject(
+          ctx.recordTime,
+          result,
+          _.setAlreadyExists(AlreadyExists.newBuilder.setDetails(message)),
+        )
+      }
+    }
+  }
+
+  private val deduplicateSubmission: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        result: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      val submissionKey = partyAllocationDedupKey(ctx.participantId, result.getSubmissionId)
+      if (ctx.get(submissionKey).isEmpty) {
+        StepContinue(result)
+      } else {
+        val message = s"duplicate submission='${result.getSubmissionId}'"
+        rejectionTraceLog(message)
+        reject(
+          ctx.recordTime,
+          result,
+          _.setDuplicateSubmission(Duplicate.newBuilder.setDetails(message)),
+        )
+      }
+    }
+  }
+
+  private[committer] val buildLogEntry: Step = new Step {
+    def apply(
+        ctx: CommitContext,
+        result: Result,
+    )(implicit loggingContext: LoggingContext): StepResult[Result] = {
+      val party = result.getParty
+      val partyKey = DamlStateKey.newBuilder.setParty(party).build
+
+      metrics.daml.kvutils.committer.partyAllocation.accepts.inc()
+      logger.trace("Party allocated.")
+
+      ctx.set(
+        partyKey,
+        DamlStateValue.newBuilder
+          .setParty(
+            DamlPartyAllocation.newBuilder
+              .setParticipantId(ctx.participantId)
+          )
+          .build,
+      )
+
+      ctx.set(
+        partyAllocationDedupKey(ctx.participantId, result.getSubmissionId),
+        DamlStateValue.newBuilder
+          .setSubmissionDedup(DamlSubmissionDedupValue.newBuilder)
+          .build,
+      )
+
+      val successLogEntry = buildLogEntryWithOptionalRecordTime(
+        ctx.recordTime,
+        _.setPartyAllocationEntry(result),
+      )
+      if (ctx.preExecute) {
+        setOutOfTimeBoundsLogEntry(result, ctx)
+      }
+      StepStop(successLogEntry)
+    }
   }
 
   private def reject[PartialResult](
