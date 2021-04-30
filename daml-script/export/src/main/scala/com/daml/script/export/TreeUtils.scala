@@ -58,7 +58,7 @@ object TreeUtils {
     Graphs.topoSort(graph) match {
       case Left(cycle) =>
         throw new IllegalArgumentException(s"Encountered cyclic contract dependencies: $cycle")
-      case Right(sorted) => sorted.map(cid => acs.get(cid).get)
+      case Right(sorted) => sorted.collect(Function.unlift(cid => acs.get(cid)))
     }
   }
 

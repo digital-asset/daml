@@ -85,4 +85,35 @@ class ExportCidRefsSpec extends AnyFreeSpec with Matchers {
       export.unknownCids shouldBe empty
     }
   }
+  "unknown" in {
+    val acs = TestData
+      .ACS(
+        Seq(
+          TestData.Created(
+            ContractId("acs1"),
+            createArguments = Seq(
+              v.RecordField()
+                .withLabel("_1")
+                .withValue(v.Value().withContractId("un1"))
+            ),
+          )
+        )
+      )
+      .toACS
+    val trees = Seq(
+      TestData
+        .Tree(
+          Seq(
+            TestData.Exercised(
+              ContractId("un2"),
+              Seq(TestData.Created(ContractId("tree1"))),
+            )
+          )
+        )
+    ).map(_.toTransactionTree)
+    val export = Export.fromTransactionTrees(acs, trees, acsBatchSize = 10, setTime = false)
+    export.cidRefs should contain only (ContractId("un1"), ContractId("un2"))
+    export.cidMap shouldBe empty
+    export.unknownCids should contain only (ContractId("un1"), ContractId("un2"))
+  }
 }
