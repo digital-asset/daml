@@ -46,6 +46,7 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.ports.Port
 import com.daml.resources.ResettableResourceOwner
+import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
@@ -289,16 +290,17 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
 
   private def uploadDar(from: File, to: WritePackagesService)(implicit
       executionContext: ExecutionContext
-  ): Future[Unit] = {
-    val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
-    for {
-      dar <- Future(
-        DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
-          .readArchiveFromFile(from)
-          .get
-      )
-      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
-    } yield ()
+  ): Future[Unit] = DefaultTelemetry.runFutureInSpan(SpanName.RunnerUploadDar, SpanKind.Internal) {
+    implicit telemetryContext =>
+      val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
+      for {
+        dar <- Future(
+          DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
+            .readArchiveFromFile(from)
+            .get
+        )
+        _ <- to.uploadPackages(submissionId, dar.all, None).toScala
+      } yield ()
   }
 }
 

@@ -25,6 +25,7 @@ import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.StandaloneApiServer
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
+import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
@@ -178,15 +179,16 @@ final class Runner[T <: ReadWriteService, Extra](
 
   private def uploadDar(from: Path, to: WritePackagesService)(implicit
       executionContext: ExecutionContext
-  ): Future[Unit] = {
-    val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
-    for {
-      dar <- Future(
-        DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
-          .readArchiveFromFile(from.toFile)
-          .get
-      )
-      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
-    } yield ()
+  ): Future[Unit] = DefaultTelemetry.runFutureInSpan(SpanName.RunnerUploadDar, SpanKind.Internal) {
+    implicit telemetryContext =>
+      val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
+      for {
+        dar <- Future(
+          DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
+            .readArchiveFromFile(from.toFile)
+            .get
+        )
+        _ <- to.uploadPackages(submissionId, dar.all, None).toScala
+      } yield ()
   }
 }

@@ -74,7 +74,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       submissionId: SubmissionId,
       payload: List[Archive],
       sourceDescription: Option[String],
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
       "submissionId" -> submissionId,
       "description" -> sourceDescription.getOrElse(""),

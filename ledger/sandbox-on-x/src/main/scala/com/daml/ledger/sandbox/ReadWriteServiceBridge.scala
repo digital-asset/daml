@@ -78,7 +78,7 @@ case class ReadWriteServiceBridge(
       submissionId: SubmissionId,
       archives: List[Archive],
       sourceDescription: Option[String],
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     submit(
       Submission.UploadPackages(
         submissionId = submissionId,

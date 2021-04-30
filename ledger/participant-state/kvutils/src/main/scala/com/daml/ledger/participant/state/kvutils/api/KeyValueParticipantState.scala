@@ -66,7 +66,7 @@ class KeyValueParticipantState(
       submissionId: SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     writerAdapter.uploadPackages(submissionId, archives, sourceDescription)
 
   override def allocateParty(

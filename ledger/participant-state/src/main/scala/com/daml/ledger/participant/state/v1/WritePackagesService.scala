@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v1
 import java.util.concurrent.CompletionStage
 
 import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.telemetry.TelemetryContext
 
 /** An interface for uploading packages via a participant. */
 trait WritePackagesService {
@@ -28,11 +29,12 @@ trait WritePackagesService {
     * provide the size, and the size might potentially be different from the
     * original size, which would be quite confusing.
     *
-    * @param submissionId      : Submitter chosen submission identifier.
-    * @param sourceDescription : Description provided by the backing participant
+    * @param submissionId       Submitter chosen submission identifier.
+    * @param sourceDescription  Description provided by the backing participant
     *   describing where it got the package from, e.g., when, where, or by whom
     *   the packages were uploaded.
-    * @param archives           : DAML-LF archives to be uploaded to the ledger.
+    * @param archives           DAML-LF archives to be uploaded to the ledger.
+    * @param telemetryContext   An implicit context for tracing.
     *
     * @return an async result of a [[SubmissionResult]]
     */
@@ -40,5 +42,5 @@ trait WritePackagesService {
       submissionId: SubmissionId,
       archives: List[Archive],
       sourceDescription: Option[String],
-  ): CompletionStage[SubmissionResult]
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
 }

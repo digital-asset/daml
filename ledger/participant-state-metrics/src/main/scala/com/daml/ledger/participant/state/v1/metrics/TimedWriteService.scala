@@ -35,7 +35,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       submissionId: SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.daml.services.write.uploadPackages,
       delegate.uploadPackages(submissionId, archives, sourceDescription),
