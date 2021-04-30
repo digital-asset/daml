@@ -60,7 +60,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
       config: Configuration,
-  ): CompletionStage[SubmissionResult] = {
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val submission =
       keyValueSubmission
         .configurationToSubmission(maxRecordTime, submissionId, writer.participantId, config)

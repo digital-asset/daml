@@ -50,7 +50,7 @@ case class ReadWriteServiceBridge(
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
       config: Configuration,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     submit(
       Submission.Config(
         maxRecordTime = maxRecordTime,

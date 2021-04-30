@@ -23,6 +23,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.LedgerConfiguration
+import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.{DurationInt, DurationLong}
@@ -145,27 +146,32 @@ private[apiserver] final class LedgerConfigProvider private (
     // This method therefore does not try to re-submit the initial configuration in case of failure.
     val submissionId = SubmissionId.assertFromString(UUID.randomUUID.toString)
     logger.info(s"No ledger configuration found, submitting an initial configuration $submissionId")
-    FutureConverters
-      .toScala(
-        writeService.submitConfiguration(
-          Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
-          submissionId,
-          config.initialConfiguration,
-        )
-      )
-      .map {
-        case SubmissionResult.Acknowledged =>
-          logger.info(s"Initial configuration submission $submissionId was successful")
-          ()
-        case SubmissionResult.NotSupported =>
-          logger.info("Setting an initial ledger configuration is not supported")
-          ()
-        case result =>
-          logger.warn(
-            s"Initial configuration submission $submissionId failed. Reason: ${result.description}"
+    DefaultTelemetry.runFutureInSpan(
+      SpanName.LedgerConfigProviderInitialConfig,
+      SpanKind.Internal,
+    ) { implicit telemetryContext =>
+      FutureConverters
+        .toScala(
+          writeService.submitConfiguration(
+            Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
+            submissionId,
+            config.initialConfiguration,
           )
-          ()
-      }
+        )
+        .map {
+          case SubmissionResult.Acknowledged =>
+            logger.info(s"Initial configuration submission $submissionId was successful")
+            ()
+          case SubmissionResult.NotSupported =>
+            logger.info("Setting an initial ledger configuration is not supported")
+            ()
+          case result =>
+            logger.warn(
+              s"Initial configuration submission $submissionId failed. Reason: ${result.description}"
+            )
+            ()
+        }
+    }
   }
 
   /** The latest configuration found so far.
