@@ -27,7 +27,7 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPackageManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
+import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
@@ -100,6 +100,10 @@ private[apiserver] final class ApiPackageManagementService private (
     withEnrichedLoggingContext(logging.submissionId(request.submissionId)) {
       implicit loggingContext =>
         logger.info("Uploading DAR file")
+
+        implicit val telemetryContext: TelemetryContext =
+          DefaultTelemetry.contextFromGrpcThreadLocalContext()
+
         val submissionId =
           if (request.submissionId.isEmpty)
             SubmissionId.assertFromString(UUID.randomUUID().toString)
@@ -113,11 +117,7 @@ private[apiserver] final class ApiPackageManagementService private (
             err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
             Future.successful,
           )
-          _ <- synchronousResponse.submitAndWait(submissionId, dar)(
-            NoOpTelemetryContext,
-            executionContext,
-            materializer,
-          )
+          _ <- synchronousResponse.submitAndWait(submissionId, dar)
         } yield {
           for (archive <- dar.all) {
             logger.info(s"Package ${archive.getHash} successfully uploaded")
