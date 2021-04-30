@@ -31,7 +31,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, VisibleByKey}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, Node, NodeId}
+import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, Node, NodeId, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
@@ -173,7 +173,7 @@ class StateToUpdateMapping(state: MutableState) {
     val signatories = fetchedContract.signatories
     val observers = fetchedContract.stakeholders
 
-    val transactionBuilder = TransactionBuilder()
+    val transactionBuilder = new TransactionBuilder(_ => TransactionVersion.V11)
     val createNode = transactionBuilder.create(
       id = contractId,
       template = templateId,
