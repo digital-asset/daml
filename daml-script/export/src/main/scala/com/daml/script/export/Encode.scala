@@ -27,17 +27,24 @@ private[export] object Encode {
       Doc.hardLine +
       encodeAllocateParties(export.partyMap) /
       Doc.hardLine +
-      Doc.text("testExport : Script ()") /
-      (Doc.text("testExport = do") /
-        Doc.text("parties <- allocateParties") /
-        Doc.text("export parties")).hang(2) /
+      Doc.text("type Contracts = DA.TextMap.TextMap (ContractId ())") /
+      Doc.hardLine +
+      Doc.text("getContract : DA.Stack.HasCallStack => Text -> Contracts -> ContractId a") /
+      (Doc.text("getContract old contracts =") /
+        (Doc.text("case DA.TextMap.lookup old contracts of") /
+          Doc.text("None -> error (\"Missing contract id \" <> old)") /
+          Doc.text("Some new -> coerceContractId new")).nested(2)).nested(2) /
+      Doc.hardLine +
+      (Doc.text("data Args = Args with") /
+        Doc.text("parties : Parties") /
+        Doc.text("contracts : Contracts")).nested(2) /
       Doc.hardLine +
       encodeExportActions(export)
   }
 
   private def encodeExportActions(export: Export): Doc = {
-    Doc.text("export : Parties -> Script ()") /
-      (Doc.text("export Parties{..} = do") /
+    Doc.text("export : Args -> Script ()") /
+      (Doc.text("export Args{parties = Parties{..}, contracts} = do") /
         stackNonEmpty(
           export.actions.map(encodeAction(export.partyMap, export.cidMap, export.cidRefs, _))
             :+ Doc.text("pure ()")
@@ -180,7 +187,10 @@ private[export] object Encode {
 
   private def encodeCid(cidMap: Map[ContractId, String], cid: ContractId): Doc = {
     // LedgerStrings are strings that match the regexp ``[A-Za-z0-9#:\-_/ ]+
-    Doc.text(cidMap(cid))
+    cidMap.get(cid) match {
+      case Some(value) => Doc.text(value)
+      case None => parens("getContract" &: quotes(Doc.text(cid.toString)) :& "contracts")
+    }
   }
 
   private def qualifyId(id: Identifier): Doc =

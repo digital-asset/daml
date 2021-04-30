@@ -64,13 +64,14 @@ object Export {
     val usesSetTime = actions.any(_.isInstanceOf[SetTime])
     val timeRefs: Set[String] = if (usesSetTime) { Set("DA.Date", "DA.Time") }
     else { Set.empty }
+    val unknownContractModuleRefs = Set[String]("DA.Stack", "DA.TextMap")
 
     Export(
       partyMap = partyMapping(partiesInContracts(acs.values) ++ trees.foldMap(partiesInTree(_))),
       cidMap = cidMap,
       unknownCids = cidRefs -- cidMap.keySet,
       cidRefs = cidRefs,
-      moduleRefs = refs.map(_.moduleName).toSet ++ timeRefs,
+      moduleRefs = refs.map(_.moduleName).toSet ++ timeRefs ++ unknownContractModuleRefs,
       actions = actions,
     )
   }
