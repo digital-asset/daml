@@ -129,14 +129,6 @@ object Export {
   ) = {
     val export = Export.fromTransactionTrees(acs, trees, acsBatchSize, setTime)
 
-    if (export.unknownCids.nonEmpty) {
-      // TODO[AH] Support this once the ledger has better support for exposing such "hidden" contracts.
-      //   Be it archived or divulged contracts.
-      throw new RuntimeException(
-        s"Encountered archived contracts referenced by active contracts: ${export.unknownCids.mkString(", ")}"
-      )
-    }
-
     val dir = Files.createDirectories(targetDir)
     Files.write(
       dir.resolve("Export.daml"),
