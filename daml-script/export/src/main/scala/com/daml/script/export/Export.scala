@@ -137,6 +137,13 @@ object Export {
         .render(80)
         .getBytes(StandardCharsets.UTF_8),
     )
+    Files.write(
+      dir.resolve("args.json"),
+      Encode
+        .encodeArgs(export)
+        .prettyPrint
+        .getBytes(StandardCharsets.UTF_8),
+    )
     val exposedPackages: Seq[String] =
       pkgRefs.view.collect(Function.unlift(Dependencies.toPackages(_, pkgs))).toSeq
     val deps = Files.createDirectory(dir.resolve("deps"))

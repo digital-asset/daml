@@ -15,7 +15,20 @@ import com.daml.script.export.TreeUtils._
 import org.apache.commons.text.StringEscapeUtils
 import org.typelevel.paiges.Doc
 
+import spray.json._
+
 private[export] object Encode {
+
+  def encodeArgs(export: Export): JsObject = {
+    JsObject(
+      "parties" -> JsObject(export.partyMap.map { case (Party(party), binding) =>
+        binding -> JsString(party)
+      }.toMap),
+      "contracts" -> JsObject(export.unknownCids.map { case ContractId(c) =>
+        c -> JsString(c)
+      }.toMap),
+    )
+  }
 
   def encodeExport(export: Export): Doc = {
     Doc.text("{-# LANGUAGE ApplicativeDo #-}") /
