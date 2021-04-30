@@ -1174,7 +1174,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
-    ): Unit = lookupKey(args, machine, onLedger)
+    ): Unit = handleKey(args, machine, onLedger, Lookup)
   }
 
   /** $insertLookup[T]
@@ -1250,21 +1250,7 @@ private[lf] object SBuiltin {
         SBSome(SEImportValue(typ, V.ValueContractId(cid)))
     }
 
-    protected final def lookupKey(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-        onLedger: OnLedger,
-    ) =
-      handleKey(args, machine, onLedger, Lookup)
-
-    protected final def fetchKey(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-        onLedger: OnLedger,
-    ) =
-      handleKey(args, machine, onLedger, Fetch)
-
-    private def handleKey(
+    protected final def handleKey(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1335,7 +1321,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
-    ): Unit = fetchKey(args, machine, onLedger)
+    ): Unit = handleKey(args, machine, onLedger, Fetch)
   }
 
   /** $getTime :: Token -> Timestamp */
