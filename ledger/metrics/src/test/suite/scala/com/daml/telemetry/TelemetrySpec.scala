@@ -4,17 +4,21 @@
 package com.daml.telemetry
 
 import io.opentelemetry.api.trace.Span
-import org.scalatest.BeforeAndAfterEach
+import io.opentelemetry.semconv.trace.attributes.SemanticAttributes
+import org.scalatest.{Assertion, BeforeAndAfterEach}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpecLike
 
 import scala.concurrent.Future
+import scala.util.Try
 
 class TelemetrySpec
     extends TelemetrySpecBase
     with AsyncWordSpecLike
     with BeforeAndAfterEach
     with Matchers {
+
+  import TelemetrySpec._
 
   override protected def afterEach(): Unit = spanExporter.reset()
 
@@ -77,6 +81,23 @@ class TelemetrySpec
       attributes should contain(anApplicationIdSpanAttribute)
       attributes should contain(aCommandIdSpanAttribute)
     }
+
+    "record an exception" in {
+      Try(
+        TestTelemetry
+          .runInSpan(
+            aSpanName,
+            SpanKind.Internal,
+            anApplicationIdSpanAttribute,
+          ) { _ =>
+            throw anException
+          }
+      )
+      val spanAttributes = spanExporter.finishedSpanAttributes
+      spanAttributes should contain(anApplicationIdSpanAttribute)
+
+      assertThrown
+    }
   }
 
   "runFutureInSpan" should {
@@ -96,5 +117,38 @@ class TelemetrySpec
           attributes should contain(aCommandIdSpanAttribute)
         }
     }
+
+    "record an exception" in {
+      TestTelemetry
+        .runFutureInSpan(
+          aSpanName,
+          SpanKind.Internal,
+          anApplicationIdSpanAttribute,
+        ) { _ =>
+          Future.failed(anException)
+        }
+        .recover { case _ =>
+          val spanAttributes = spanExporter.finishedSpanAttributes
+          spanAttributes should contain(anApplicationIdSpanAttribute)
+
+          assertThrown
+        }
+    }
   }
+
+  private def assertThrown: Assertion = {
+    val evenAttributes = spanExporter.finishedEventAttributes
+    evenAttributes should contain(
+      SpanAttribute(SemanticAttributes.EXCEPTION_TYPE) -> anExceptionName
+    )
+    evenAttributes should contain(
+      SpanAttribute(SemanticAttributes.EXCEPTION_MESSAGE) -> anExceptionMessage
+    )
+  }
+}
+
+object TelemetrySpec {
+  private val anExceptionMessage = "anException"
+  private val anException = new IllegalStateException(anExceptionMessage)
+  private val anExceptionName = anException.getClass.getCanonicalName
 }

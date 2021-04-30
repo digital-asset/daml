@@ -85,6 +85,7 @@ def install_java_deps():
             "io.opentelemetry:opentelemetry-context:0.16.0",
             "io.opentelemetry:opentelemetry-sdk-testing:0.16.0",
             "io.opentelemetry:opentelemetry-sdk-trace:0.16.0",
+            "io.opentelemetry:opentelemetry-semconv:0.16.0-alpha",
             "io.prometheus:simpleclient:0.8.1",
             "io.prometheus:simpleclient_dropwizard:0.8.1",
             "io.prometheus:simpleclient_httpserver:0.8.1",
