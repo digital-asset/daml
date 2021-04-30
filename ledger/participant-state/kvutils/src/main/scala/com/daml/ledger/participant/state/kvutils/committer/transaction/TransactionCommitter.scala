@@ -398,7 +398,7 @@ private[kvutils] class TransactionCommitter(
           import TransactionOuterClass.Node.NodeTypeCase
           val node = nodeMap
             .get(head)
-            .getOrElse(throw Err.InvalidSubmission(s"Invalid transaction node id $head"))
+            .getOrElse(throw Err.InternalError(s"Invalid transaction node id $head"))
           node.getNodeTypeCase match {
             case NodeTypeCase.CREATE =>
               goNodesToKeep(tail, result + head)
