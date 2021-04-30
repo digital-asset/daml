@@ -285,4 +285,33 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       offsetStep: OffsetStep,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     ledgerDao.completeTransaction(submitterInfo, transactionId, recordTime, offsetStep)
+
+  /** This is a combined store transaction method to support sandbox-classic and tests
+    * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
+    */
+  override def storeTransaction(
+      submitterInfo: Option[SubmitterInfo],
+      workflowId: Option[WorkflowId],
+      transactionId: TransactionId,
+      ledgerEffectiveTime: Instant,
+      offset: Offset,
+      transaction: CommittedTransaction,
+      divulgedContracts: Iterable[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
+      recordTime: Instant,
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
+    Timed.future(
+      metrics.daml.index.db.storeTransactionCombined,
+      ledgerDao.storeTransaction(
+        submitterInfo,
+        workflowId,
+        transactionId,
+        ledgerEffectiveTime,
+        offset,
+        transaction,
+        divulgedContracts,
+        blindingInfo,
+        recordTime,
+      ),
+    )
 }

@@ -322,6 +322,21 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset()(implicit loggingContext: LoggingContext): Future[Unit]
 
+  /** This is a combined store transaction method to support sandbox-classic and tests
+    * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
+    */
+  def storeTransaction(
+      submitterInfo: Option[SubmitterInfo],
+      workflowId: Option[WorkflowId],
+      transactionId: TransactionId,
+      ledgerEffectiveTime: Instant,
+      offset: Offset,
+      transaction: CommittedTransaction,
+      divulgedContracts: Iterable[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
+      recordTime: Instant,
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
+
 }
 
 private[platform] trait LedgerDao extends LedgerReadDao with LedgerWriteDao
