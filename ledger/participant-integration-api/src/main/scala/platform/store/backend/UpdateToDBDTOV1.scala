@@ -1,16 +1,17 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.indexer.parallel
+package com.daml.platform.store.backend
 
 import java.util.UUID
+
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId, Update}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions
-import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
+import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.dao.DeduplicationKeyMaker
 
 // TODO append-only: target to separation per update-type to it's own function + unit tests
@@ -138,6 +139,11 @@ object UpdateToDBDTOV1 {
         )
 
       case u: Update.TransactionAccepted =>
+        // TODO add support for Daml Exceptions / Rollback nodes
+        //   Covering this functionality with unit test is important, since at the time of writing kvutils ledgers purge RollBack nodes already on WriteService, so conformance testing is impossible
+        //   Unit tests also need to cover the full semantic contract regarding fetch and lookup node removal as well
+        //   Hint for implementation: https://github.com/digital-asset/daml/pull/9506
+        //   Hint for conformance testing: if sandbox-classic append only integration uses this code, then ExceptionIT of the respective conformance test suit (append only + sandbox-classic) will cover the indexDB population cases.
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
         val preorderTraversal = u.transaction
           .fold(List.empty[(NodeId, Node)]) { case (xs, x) =>

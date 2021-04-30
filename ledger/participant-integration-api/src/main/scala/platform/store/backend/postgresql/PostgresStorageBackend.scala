@@ -1,12 +1,13 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.indexer.parallel
+package com.daml.platform.store.backend.postgresql
 
 import java.sql.{Connection, PreparedStatement, ResultSet}
 
-import com.daml.lf.data.Ref
 import com.daml.ledger.participant.state.v1.Offset
+import com.daml.lf.data.Ref
+import com.daml.platform.store.backend.{DBDTOV1, StorageBackend}
 
 import scala.collection.mutable
 

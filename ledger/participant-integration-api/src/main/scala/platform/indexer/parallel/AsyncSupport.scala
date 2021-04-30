@@ -11,6 +11,7 @@ import com.daml.metrics.MetricName
 
 import scala.concurrent.{ExecutionContext, Future}
 
+// TODO append-only: add unit tests and move to some scala/concurrent library project for convenience
 object AsyncSupport {
 
   trait Executor {

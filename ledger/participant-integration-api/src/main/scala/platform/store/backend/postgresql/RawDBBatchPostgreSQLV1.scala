@@ -1,23 +1,16 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.indexer.parallel
+package com.daml.platform.store.backend.postgresql
 
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneOffset}
 
+import com.daml.platform.store.backend.DBDTOV1
+
 import scala.collection.mutable
 
-trait RawDBBatch {
-
-  /** Adds the given offset to all event IDs in this batch, and returns the number of events affected.
-    *
-    * Note: Batches are expected to assign sequential event IDs within the batch, these "local" IDs are converted
-    * to "global" IDs in a separate stage that sequences the batches.
-    */
-  def offsetSequentialEventIds(offset: Long): Long
-}
-
+// TODO append-only: consider removing the builder logic and switch to much easier multi-pass collecting, if memory pressure is not significantly bigger
 // TODO append-only: hurts one to look around here, the whole file is a boilerplate, including related PostgreDAO artifacts (prepared statements and execution of them)
 // TODO append-only: ideas:
 //   - switch to weakly/runtime-typed: probably slower, verification problematic, ugly in a strongly typed context
@@ -36,28 +29,7 @@ case class RawDBBatchPostgreSQLV1(
     partyEntriesBatch: Option[PartyEntriesBatch],
     commandCompletionsBatch: Option[CommandCompletionsBatch],
     commandDeduplicationBatch: Option[CommandDeduplicationBatch],
-) extends RawDBBatch {
-  override def offsetSequentialEventIds(offset: Long): Long = {
-    var idsUsed: Long = 0
-    eventsBatchDivulgence.foreach(batch => {
-      batch.event_sequential_id.indices.foreach(i => batch.event_sequential_id(i) += offset)
-      idsUsed += batch.event_sequential_id.length
-    })
-    eventsBatchCreate.foreach(batch => {
-      batch.event_sequential_id.indices.foreach(i => batch.event_sequential_id(i) += offset)
-      idsUsed += batch.event_sequential_id.length
-    })
-    eventsBatchConsumingExercise.foreach(batch => {
-      batch.event_sequential_id.indices.foreach(i => batch.event_sequential_id(i) += offset)
-      idsUsed += batch.event_sequential_id.length
-    })
-    eventsBatchNonConsumingExercise.foreach(batch => {
-      batch.event_sequential_id.indices.foreach(i => batch.event_sequential_id(i) += offset)
-      idsUsed += batch.event_sequential_id.length
-    })
-    idsUsed
-  }
-}
+)
 
 class EventsBatchDivulgence(
     val event_offset: Array[String],

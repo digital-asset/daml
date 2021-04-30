@@ -362,6 +362,8 @@ final class Metrics(val registry: MetricRegistry) {
         val storePackageEntry: Timer = registry.timer(Prefix :+ "store_package_entry")
 
         val storeTransaction: Timer = registry.timer(Prefix :+ "store_ledger_entry")
+        val storeTransactionCombined: Timer =
+          registry.timer(Prefix :+ "store_ledger_entry_combined")
         val storeTransactionEvents: Timer = registry.timer(Prefix :+ "store_ledger_entry_events")
         val storeTransactionState: Timer = registry.timer(Prefix :+ "store_ledger_entry_state")
         val storeTransactionCompletion: Timer =

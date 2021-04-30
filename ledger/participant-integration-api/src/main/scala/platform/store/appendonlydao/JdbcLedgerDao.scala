@@ -651,6 +651,22 @@ private class JdbcLedgerDao(
       new PostCommitValidation.BackedBy(contractsReader.committedContracts, validatePartyAllocation)
     else
       PostCommitValidation.Skip
+
+  /** This is a combined store transaction method to support sandbox-classic and tests
+    * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
+    */
+  override def storeTransaction(
+      submitterInfo: Option[SubmitterInfo],
+      workflowId: Option[WorkflowId],
+      transactionId: TransactionId,
+      ledgerEffectiveTime: Instant,
+      offset: Offset,
+      transaction: CommittedTransaction,
+      divulgedContracts: Iterable[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
+      recordTime: Instant,
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
+    throw new UnsupportedOperationException("not supported")
 }
 
 private[platform] object JdbcLedgerDao {

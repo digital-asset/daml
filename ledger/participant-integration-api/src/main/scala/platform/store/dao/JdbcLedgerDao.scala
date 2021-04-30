@@ -960,6 +960,42 @@ private class JdbcLedgerDao(
     require(params.nonEmpty, "batch sql statement must have at least one set of name parameters")
     BatchSql(query, params.head, params.drop(1).toSeq: _*).execute()
   }
+
+  /** This is a combined store transaction method to support sandbox-classic and tests
+    * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
+    */
+  override def storeTransaction(
+      submitterInfo: Option[SubmitterInfo],
+      workflowId: Option[WorkflowId],
+      transactionId: TransactionId,
+      ledgerEffectiveTime: Instant,
+      offset: Offset,
+      transaction: CommittedTransaction,
+      divulgedContracts: Iterable[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
+      recordTime: Instant,
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
+    val preparedInsert = prepareTransactionInsert(
+      submitterInfo = submitterInfo,
+      workflowId = workflowId,
+      transactionId = transactionId,
+      ledgerEffectiveTime = ledgerEffectiveTime,
+      offset = offset,
+      transaction = transaction,
+      divulgedContracts = divulgedContracts,
+      blindingInfo = blindingInfo,
+    )
+    storeTransaction(
+      preparedInsert,
+      submitterInfo,
+      transactionId,
+      recordTime,
+      ledgerEffectiveTime,
+      CurrentOffset(offset),
+      transaction,
+      divulgedContracts,
+    )
+  }
 }
 
 private[platform] object JdbcLedgerDao {
