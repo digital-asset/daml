@@ -2468,10 +2468,10 @@ class EngineTest
           ("LookupAfterCreate", emptyArg, 0),
           ("LookupAfterCreateArchive", emptyArg, 0),
           ("LookupAfterFetch", cidArg, 1),
-          // TODO (MK) An archive should not bring a key in scope.
-          ("LookupAfterArchive", cidArg, 0),
+          ("LookupAfterArchive", cidArg, 1),
           ("LookupAfterRollbackCreate", emptyArg, 0),
           ("LookupAfterRollbackLookup", emptyArg, 1),
+          ("LookupAfterArchiveAfterRollbackLookup", cidArg, 1),
         )
         forAll(cases) { case (choice, argument, lookups) =>
           val command = CreateAndExerciseCommand(
