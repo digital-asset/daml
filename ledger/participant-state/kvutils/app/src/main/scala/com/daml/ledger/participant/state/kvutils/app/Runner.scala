@@ -25,7 +25,7 @@ import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.StandaloneApiServer
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
-import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName, Spans, TelemetryContext}
+import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
