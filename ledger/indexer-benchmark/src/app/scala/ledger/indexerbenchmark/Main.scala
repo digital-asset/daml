@@ -4,6 +4,7 @@
 package com.daml.ledger.indexerbenchmark
 
 import java.nio.file.Paths
+import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -22,25 +23,28 @@ import com.daml.ledger.participant.state.kvutils.api.{
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, Update}
 import com.daml.metrics.Metrics
 
-import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 
 object Main {
   def main(args: Array[String]): Unit =
     IndexerBenchmark.runAndExit(args, name => loadLedgerExport(name))
 
-  private[this] def loadLedgerExport(name: String): Future[Iterator[(Offset, Update)]] = {
+  private[this] def loadLedgerExport(name: String): Future[() => Iterator[(Offset, Update)]] = {
     val importer = ProtobufBasedLedgerDataImporter(Paths.get(name))
-    val data = importer.read()
 
-    val recordedBlocks = ListBuffer.empty[LedgerRecord]
-    data.foreach { case (_, writeSet) =>
-      writeSet.foreach { case (key, value) =>
-        val offset = OffsetBuilder.fromLong(recordedBlocks.length.toLong)
-        val logEntryId = Raw.LogEntryId(key.bytes) // `key` is of an unknown type.
-        recordedBlocks.append(LedgerRecord(offset, logEntryId, value))
+    val dataSource: Source[LedgerRecord, NotUsed] = Source
+      .fromIterator(() => importer.read().iterator)
+      .statefulMapConcat { () =>
+        val nextOffset = new AtomicLong(0)
+
+        { case (_, writeSet) =>
+          writeSet.map { case (key, value) =>
+            val offset = OffsetBuilder.fromLong(nextOffset.getAndIncrement())
+            val logEntryId = Raw.LogEntryId(key.bytes) // `key` is of an unknown type.
+            LedgerRecord(offset, logEntryId, value)
+          }
+        }
       }
-    }
 
     val keyValueSource = new LedgerReader {
       override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
@@ -51,7 +55,7 @@ object Main {
             )
           )
         } else {
-          Source.fromIterator(() => recordedBlocks.iterator)
+          dataSource
         }
 
       override def currentHealth(): HealthStatus = HealthStatus.healthy
@@ -77,6 +81,7 @@ object Main {
     keyValueStateReader
       .stateUpdates(None)
       .runWith(Sink.seq[(Offset, Update)])
-      .map(_.toArray.iterator)(DirectExecutionContext)
+      .map(seq => () => seq.iterator)(DirectExecutionContext)
+      .andThen { case _ => system.terminate() }(DirectExecutionContext)
   }
 }

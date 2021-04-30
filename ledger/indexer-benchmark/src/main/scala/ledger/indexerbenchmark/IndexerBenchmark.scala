@@ -41,39 +41,35 @@ class IndexerBenchmark() {
     * and functional tests.
     */
   def runWithEphemeralPostgres(
-      createUpdates: String => Future[Iterator[(Offset, Update)]],
+      createUpdates: String => Future[() => Iterator[(Offset, Update)]],
       config: Config,
-  ): Unit = {
-    implicit val context: ExecutionContext = DirectExecutionContext
+  ): Future[Unit] = {
     PostgresResource
       .owner()
       .use(db => {
         println(s"Running the indexer benchmark against the ephemeral Postgres database ${db.url}")
         run(createUpdates, config.copy(indexerConfig = config.indexerConfig.copy(jdbcUrl = db.url)))
-        println(s"Run finished")
-        Future.unit
-      })
-    ()
+      })(DirectExecutionContext)
   }
 
   def run(
-      createUpdates: String => Future[Iterator[(Offset, Update)]],
+      createUpdates: String => Future[() => Iterator[(Offset, Update)]],
       config: Config,
-  ): Unit = {
-    val metricRegistry = new MetricRegistry
-    val metrics = new Metrics(metricRegistry)
-    metrics.registry.registerAll(new JvmMetricSet)
-
-    val system = ActorSystem("IndexerBenchmark")
-    implicit val materializer: Materializer = Materializer(system)
-    implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-
-    val indexerE = Executors.newWorkStealingPool()
-    val indexerEC = ExecutionContext.fromExecutor(indexerE)
-
+  ): Future[Unit] = {
     newLoggingContext { implicit loggingContext =>
+      val metricRegistry = new MetricRegistry
+      val metrics = new Metrics(metricRegistry)
+      metrics.registry.registerAll(new JvmMetricSet)
+
+      val system = ActorSystem("IndexerBenchmark")
+      implicit val materializer: Materializer = Materializer(system)
+      implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
+
+      val indexerE = Executors.newWorkStealingPool()
+      val indexerEC = ExecutionContext.fromExecutor(indexerE)
+
       println("Generating state updates...")
-      val updates = Await.result(createUpdates(config.updateSource), Duration(5, "minute"))
+      val updates = Await.result(createUpdates(config.updateSource), Duration(10, "minute"))
 
       println("Creating read service and indexer...")
       val readService = createReadService(updates, config)
@@ -96,7 +92,7 @@ class IndexerBenchmark() {
 
         _ = println("Setting up the index database...")
         indexer <- Await
-          .result(indexerFactory.migrateSchema(false), Duration(100, "hour"))
+          .result(indexerFactory.migrateSchema(false), Duration(5, "minute"))
           .acquire()
 
         _ = println("Starting the indexing...")
@@ -106,6 +102,9 @@ class IndexerBenchmark() {
         _ <- Resource.fromFuture(handle.completed())
         stopTime = System.nanoTime()
         _ = println("Indexing done.")
+
+        _ = system.terminate()
+        _ = indexerE.shutdown()
       } yield {
         val duration: Double = (stopTime - startTime).toDouble / 1000000000.0
         val updates: Long = metrics.daml.parallelIndexer.updates.getCount
@@ -121,11 +120,13 @@ class IndexerBenchmark() {
              |  jdbcUrl:  ${config.indexerConfig.jdbcUrl}
              |
              |Indexer parameters:
+             |  enableAppendOnlySchema:    ${config.indexerConfig.enableAppendOnlySchema}
              |  inputMappingParallelism:   ${config.indexerConfig.inputMappingParallelism}
              |  ingestionParallelism:      ${config.indexerConfig.ingestionParallelism}
              |  submissionBatchSize:       ${config.indexerConfig.submissionBatchSize}
              |  batchWithinMillis:         ${config.indexerConfig.batchWithinMillis}
              |  tailingRateLimitPerSecond: ${config.indexerConfig.tailingRateLimitPerSecond}
+             |  full indexer config:       ${config.indexerConfig}
              |
              |Result:
              |  duration:    $duration
@@ -145,6 +146,12 @@ class IndexerBenchmark() {
           )}
              |  ingestion.duration.rate:    ${metrics.daml.parallelIndexer.ingestion.duration.getMeanRate}
              |
+             |Notes:
+             |  The above numbers include all ingested updates, including package uploads.
+             |  Inspect the metrics using a metrics reporter to better investigate how
+             |  the indexer performs.
+             |
+             |--------------------------------------------------------------------------------
              |""".stripMargin
         )
 
@@ -153,15 +160,14 @@ class IndexerBenchmark() {
           println(s"Index database is still running at ${config.indexerConfig.jdbcUrl}.")
           StdIn.readLine("Press <enter> to terminate this process.")
         }
+        ()
       }
-      Await.result(resource.asFuture, Duration(100, "hour"))
-      system.terminate()
-      ()
+      resource.asFuture
     }
   }
 
   private[this] def createReadService(
-      updates: Iterator[(Offset, Update)],
+      updates: () => Iterator[(Offset, Update)],
       config: Config,
   ): ReadService = {
     val initialConditions = LedgerInitialConditions(
@@ -182,12 +188,12 @@ class IndexerBenchmark() {
         assert(beginAfter.isEmpty)
         config.updateCount match {
           case None =>
-            Source.fromIterator(() => updates)
+            Source.fromIterator(updates)
           case Some(updateCount) =>
             Source
               .cycle(() => {
                 println("(Re)starting the stream of updates")
-                updates
+                updates()
               }) // TODO append-only: cycling the exact same updates is probably not a good idea
               .take(updateCount)
         }
@@ -206,7 +212,7 @@ object IndexerBenchmark {
 
   def runAndExit(
       args: Array[String],
-      updates: String => Future[Iterator[(Offset, Update)]],
+      updates: String => Future[() => Iterator[(Offset, Update)]],
   ): Unit = {
     val config: Config = Config.parse(args).getOrElse {
       sys.exit(1)
@@ -216,12 +222,16 @@ object IndexerBenchmark {
 
   def runAndExit(
       config: Config,
-      updates: String => Future[Iterator[(Offset, Update)]],
+      updates: String => Future[() => Iterator[(Offset, Update)]],
   ): Unit = {
-    if (config.indexerConfig.jdbcUrl.isEmpty) {
+    val result = if (config.indexerConfig.jdbcUrl.isEmpty) {
       new IndexerBenchmark().runWithEphemeralPostgres(updates, config)
     } else {
       new IndexerBenchmark().run(updates, config)
     }
+    Await.result(result, Duration(100, "hour"))
+    println("Done.")
+    // TODO: some actor system or thread pool is still running, preventing a shutdown
+    System.exit(0)
   }
 }
