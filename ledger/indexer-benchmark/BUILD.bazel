@@ -22,7 +22,6 @@ da_scala_library(
         "@maven//:com_github_scopt_scopt",
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     tags = ["maven_coordinates=com.daml:ledger-indexer-benchmark:__VERSION__"],
     visibility = [
