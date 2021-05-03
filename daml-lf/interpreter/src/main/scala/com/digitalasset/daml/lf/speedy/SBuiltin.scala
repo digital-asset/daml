@@ -1311,7 +1311,7 @@ private[lf] object SBuiltin {
                       )
                       // We have to check that the discriminator of cid does not conflict with a local ones
                       // however we cannot raise an exception in case of failure here.
-                      // We delegate to CtrlImportValue the task to check cid.
+                      // We delegate to SEImportValue the task to check cid.
                       machine.ctrl = operation.cidToSExpr(cid)
                       true
                     case SKeyLookupResult.NotFound =>
