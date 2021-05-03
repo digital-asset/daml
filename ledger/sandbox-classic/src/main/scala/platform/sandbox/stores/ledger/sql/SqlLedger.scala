@@ -37,7 +37,7 @@ import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
 import com.daml.platform.store.cache.TranslationCacheBackedContractStore
-import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao, LedgerWriteDao}
+import com.daml.platform.store.dao.{LedgerDao, LedgerWriteDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{BaseLedger, FlywayMigrations, LfValueTranslationCache}
 import com.daml.resources.ProgramResource.StartupException
@@ -82,6 +82,7 @@ private[sandbox] object SqlLedger {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Engine,
       validatePartyAllocation: Boolean = false,
+      enableAppendOnlySchema: Boolean = false,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[Ledger] {
 
@@ -89,7 +90,9 @@ private[sandbox] object SqlLedger {
 
     override def acquire()(implicit context: ResourceContext): Resource[Ledger] =
       for {
-        _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
+        _ <- Resource.fromFuture(
+          new FlywayMigrations(jdbcUrl).migrate(enableAppendOnlySchema = enableAppendOnlySchema)
+        )
         dao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         _ <- startMode match {
           case SqlStartMode.ResetAndStart =>
@@ -233,17 +236,31 @@ private[sandbox] object SqlLedger {
     private def ledgerDaoOwner(
         servicesExecutionContext: ExecutionContext
     ): ResourceOwner[LedgerDao] =
-      JdbcLedgerDao.validatingWriteOwner(
-        serverRole,
-        jdbcUrl,
-        databaseConnectionPoolSize,
-        eventsPageSize,
-        servicesExecutionContext,
-        metrics,
-        lfValueTranslationCache,
-        validatePartyAllocation,
-        Some(new ValueEnricher(engine)),
-      )
+      if (enableAppendOnlySchema)
+        com.daml.platform.store.appendonlydao.JdbcLedgerDao.validatingWriteOwner(
+          serverRole,
+          jdbcUrl,
+          databaseConnectionPoolSize,
+          eventsPageSize,
+          servicesExecutionContext,
+          metrics,
+          lfValueTranslationCache,
+          validatePartyAllocation,
+          Some(new ValueEnricher(engine)),
+          participantId.asInstanceOf[com.daml.ledger.participant.state.v1.ParticipantId],
+        )
+      else
+        com.daml.platform.store.dao.JdbcLedgerDao.validatingWriteOwner(
+          serverRole,
+          jdbcUrl,
+          databaseConnectionPoolSize,
+          eventsPageSize,
+          servicesExecutionContext,
+          metrics,
+          lfValueTranslationCache,
+          validatePartyAllocation,
+          Some(new ValueEnricher(engine)),
+        )
 
     private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
       Dispatcher.owner(

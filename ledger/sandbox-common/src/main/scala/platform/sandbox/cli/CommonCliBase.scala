@@ -291,6 +291,16 @@ class CommonCliBase(name: LedgerName) {
           s"The timeout used for requests by management services of the Ledger API. The default is set to ${SandboxConfig.DefaultManagementServiceTimeout.getSeconds} seconds."
         )
 
+      opt[Unit](
+        "enable-append-only-schema"
+      ) // TODO append-only: is this the right place to add this? Maybe too broad?
+        .hidden()
+        .optional()
+        .action((_, config) => config.copy(enableAppendOnlySchema = true))
+        .text(
+          s"Turns on append-only schema support."
+        )
+
       help("help").text("Print the usage text")
 
       checkConfig(c => {

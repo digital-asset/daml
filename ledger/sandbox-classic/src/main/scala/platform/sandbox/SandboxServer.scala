@@ -332,6 +332,7 @@ final class SandboxServer(
             lfValueTranslationCache = lfValueTranslationCache,
             engine = engine,
             validatePartyAllocation = !config.implicitPartyAllocation,
+            enableAppendOnlySchema = config.enableAppendOnlySchema,
           )
         case None =>
           SandboxIndexAndWriteService.inMemory(
