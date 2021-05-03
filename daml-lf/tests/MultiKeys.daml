@@ -30,7 +30,7 @@ template Keyed
 -- a subset of unique key errors.
 -- Note: At the moment, we do not provide any stability guarantees for
 -- non-uck at this point so these tests serve only as an indication of the
--- current behaviro and can be changed freely.
+-- current behavior and can be changed freely.
 template KeyOperations
   with
     p : Party
