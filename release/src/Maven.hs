@@ -30,14 +30,14 @@ validateMavenArtifacts releaseDir artifacts =
             $logError $ T.pack $ show file <> " is required for publishing to Maven"
             liftIO exitFailure
 
-generateAggregatePom :: (MonadFail m, E.MonadThrow m) => Path Abs Dir -> [Artifact PomData] -> m Text
-generateAggregatePom releaseDir artifacts = do
+generateAggregatePom :: (MonadFail m, E.MonadThrow m) => IncludeDocs -> Path Abs Dir -> [Artifact PomData] -> m Text
+generateAggregatePom includeDocs releaseDir artifacts = do
     executions <- T.concat <$> mapM execution artifacts
     return (aggregatePomStart <> executions <> aggregatePomEnd)
     where
     execution :: (MonadFail m, E.MonadThrow m) => Artifact PomData -> m Text
     execution artifact = do
-        ArtifactFiles{..} <- fmap snd <$> artifactFiles artifact
+        ArtifactFiles{..} <- fmap snd <$> artifactFiles includeDocs artifact
         let configuration =
                 map (\(name, value) -> (name, pathToText (releaseDir </> value))) $
                     Maybe.catMaybes

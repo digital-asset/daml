@@ -40,6 +40,7 @@ module Util (
 import Control.Applicative
 import qualified Control.Concurrent.Async.Lifted.Safe as Async
 import qualified Control.Exception.Safe as E
+import Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import Data.Aeson
@@ -132,8 +133,8 @@ instance FromJSON ArtifactLocation where
 
 -- | This maps a target declared in artifacts.yaml to the individual Bazel targets
 -- that need to be built for a release.
-buildTargets :: Artifact (Maybe ArtifactLocation) -> [BazelTarget]
-buildTargets art@Artifact{..} =
+buildTargets :: IncludeDocs -> Artifact (Maybe ArtifactLocation) -> [BazelTarget]
+buildTargets (IncludeDocs includeDocs) art@Artifact{..} =
     case artReleaseType of
         Jar jarTy ->
             let pomTar = BazelTarget (getBazelTarget artTarget <> "_pom")
@@ -142,7 +143,7 @@ buildTargets art@Artifact{..} =
                 (directory, _) = splitBazelTarget artTarget
             in [jarTarget, pomTar] <>
                map (\t -> BazelTarget ("//" <> directory <> ":" <> t))
-               (catMaybes
+               (catMaybes $
                     [ sourceJarName art
                     , scalaSourceJarName art
                     , deploySourceJarName art
@@ -150,11 +151,15 @@ buildTargets art@Artifact{..} =
                     -- therefore we cannot add it here as a "required target" to build as with the others
                     -- , protoSourceJarName art
                     , T.pack . toFilePath <$> artSourceJar
-                    , javadocJarName art
-                    , scaladocJarName art
                     , javadocDeployJarName art
                     , javadocProtoJarName art
-                    , T.pack . toFilePath <$> artJavadocJar
+                    ] <>
+                    concat [
+                       [ javadocJarName art
+                       , scaladocJarName art
+                       , T.pack . toFilePath <$> artJavadocJar
+                       ]
+                       | includeDocs
                     ])
 
 data PomData = PomData
@@ -274,8 +279,8 @@ data ArtifactFiles f = ArtifactFiles
   } deriving (Functor, Foldable)
 
 -- | Given an artifact, produce a list of pairs of an input file and the corresponding output file.
-artifactFiles :: E.MonadThrow m => Artifact PomData -> m (ArtifactFiles (Path Rel File, Path Rel File))
-artifactFiles artifact@Artifact{..} = do
+artifactFiles :: E.MonadThrow m => IncludeDocs -> Artifact PomData -> m (ArtifactFiles (Path Rel File, Path Rel File))
+artifactFiles (IncludeDocs includeDocs) artifact@Artifact{..} = do
     let PomData{..} = artMetadata
     outDir <- parseRelDir $ unpack $
         T.intercalate "/" pomGroupId #"/"# pomArtifactId #"/"# SemVer.toText pomVersion #"/"
@@ -298,7 +303,7 @@ artifactFiles artifact@Artifact{..} = do
       { artifactMain = (directory </> mainArtifactIn, outDir </> mainArtifactOut)
       , artifactPom = (directory </> pomFileIn, outDir </> pomFileOut)
       , artifactSources = fmap (\sourceJarIn -> (directory </> sourceJarIn, outDir </> sourceJarOut)) mbSourceJarIn
-      , artifactJavadoc = fmap (\javadocJarIn -> (directory </> javadocJarIn, outDir </> javadocJarOut)) mbJavadocJarIn
+      , artifactJavadoc = guard includeDocs *> fmap (\javadocJarIn -> (directory </> javadocJarIn, outDir </> javadocJarOut)) mbJavadocJarIn
       }
         -- ^ Note that the Scaladoc is specified with the "javadoc" classifier.
 
@@ -337,8 +342,8 @@ releasePomPath PomData{..} =
 
 -- | Given an artifact, produce a list of pairs of an input file and the Maven coordinates.
 -- This corresponds to the files uploaded to Maven Central.
-mavenArtifactCoords :: E.MonadThrow m => Artifact PomData -> m [(MavenCoords, Path Rel File)]
-mavenArtifactCoords Artifact{..} = do
+mavenArtifactCoords :: E.MonadThrow m => IncludeDocs -> Artifact PomData -> m [(MavenCoords, Path Rel File)]
+mavenArtifactCoords (IncludeDocs includeDocs) Artifact{..} = do
     let PomData{..} = artMetadata
     outDir <- parseRelDir $ unpack $
         T.intercalate "/" pomGroupId #"/"# pomArtifactId #"/"# SemVer.toText pomVersion #"/"
@@ -350,10 +355,12 @@ mavenArtifactCoords Artifact{..} = do
 
     let mavenCoords classifier artifactType =
            MavenCoords { groupId = pomGroupId, artifactId = pomArtifactId, version = pomVersion, classifier, artifactType }
-    pure [ (mavenCoords Nothing $ mainExt artReleaseType, outDir </> mainArtifactFile)
+    pure $
+         [ (mavenCoords Nothing $ mainExt artReleaseType, outDir </> mainArtifactFile)
          , (mavenCoords Nothing "pom",  outDir </> pomFile)
          , (mavenCoords (Just "sources") "jar", outDir </> sourcesFile)
-         , (mavenCoords (Just "javadoc") "jar", outDir </> javadocFile)
+         ] <>
+         [ (mavenCoords (Just "javadoc") "jar", outDir </> javadocFile) | includeDocs
          ]
 
 copyToReleaseDir :: (MonadLogger m, MonadIO m) => BazelLocations -> Path Abs Dir -> Path Rel File -> Path Rel File -> m ()
