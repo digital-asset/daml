@@ -355,8 +355,8 @@ class TransactionCoderSpec
 
     "fail if try to encode a create node containing value with version different from node" in {
       forAll(
-        transactionVersionGen(maxVersion = V11),
-        transactionVersionGen(maxVersion = V12),
+        transactionVersionGen(maxVersion = Some(V11)),
+        transactionVersionGen(maxVersion = Some(V12)),
         minSuccessful(5),
       ) { (nodeVersion, version) =>
         whenever(nodeVersion != version) {
@@ -472,7 +472,7 @@ class TransactionCoderSpec
 
       forAll(
         danglingRefExerciseNodeGen,
-        transactionVersionGen(maxVersion = TransactionVersion.minNoVersionValue),
+        transactionVersionGen(maxVersion = Some(TransactionVersion.minNoVersionValue)),
         minSuccessful(5),
       ) { (exeNode, version) =>
         whenever(exeNode.version != version) {
@@ -666,8 +666,7 @@ class TransactionCoderSpec
               ValueCoder.CidEncoder,
               v1,
               NodeId(0),
-              normalizedNode,
-              disableVersionCheck = true, //so the bad proto can be created
+              normalizedNode.updateVersion(v1 min TransactionVersion.minExceptions),
             )
         val result =
           TransactionCoder
@@ -675,7 +674,7 @@ class TransactionCoderSpec
               TransactionCoder.NidDecoder,
               ValueCoder.CidDecoder,
               v2,
-              encodedNode,
+              encodedNode.toBuilder.setVersion(v1.protoValue).build,
             )
         result.isLeft shouldBe (v1 < minExceptions)
       }
