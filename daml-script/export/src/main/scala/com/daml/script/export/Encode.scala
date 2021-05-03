@@ -15,7 +15,20 @@ import com.daml.script.export.TreeUtils._
 import org.apache.commons.text.StringEscapeUtils
 import org.typelevel.paiges.Doc
 
+import spray.json._
+
 private[export] object Encode {
+
+  def encodeArgs(export: Export): JsObject = {
+    JsObject(
+      "parties" -> JsObject(export.partyMap.map { case (Party(party), binding) =>
+        binding -> JsString(party)
+      }.toMap),
+      "contracts" -> JsObject(export.unknownCids.map { case ContractId(c) =>
+        c -> JsString(c)
+      }.toMap),
+    )
+  }
 
   def encodeExport(export: Export): Doc = {
     Doc.text("{-# LANGUAGE ApplicativeDo #-}") /
@@ -27,17 +40,46 @@ private[export] object Encode {
       Doc.hardLine +
       encodeAllocateParties(export.partyMap) /
       Doc.hardLine +
+      Doc.text("-- | Mapping from missing contract ids to replacement contract ids.") /
+      Doc.text("--") /
+      Doc.text("-- You can provide replacement contract ids in an input file to") /
+      Doc.text("-- the @--input-file@ argument of @daml script@, or you can provide") /
+      Doc.text("-- replacements from within Daml script.") /
+      Doc.text("--") /
+      Doc.text("-- >>> (replacement, _):_ <- query @T alice_0") /
+      Doc.text("-- >>> let args = Args with") /
+      Doc.text("-- >>>   parties = Parties with alice_0") /
+      Doc.text("-- >>>   contracts = DA.TextMap.fromList [(\"00737...\", replacement)]") /
+      Doc.text("-- >>> export args") /
+      Doc.text("type Contracts = DA.TextMap.TextMap (ContractId ())") /
+      Doc.hardLine +
+      Doc.text("-- | Look-up a replacement for a missing contract id. Fails if none is found.") /
+      Doc.text("getContract : DA.Stack.HasCallStack => Text -> Contracts -> ContractId a") /
+      (Doc.text("getContract old contracts =") /
+        (Doc.text("case DA.TextMap.lookup old contracts of") /
+          Doc.text("None -> error (\"Missing contract id \" <> old)") /
+          Doc.text("Some new -> coerceContractId new")).nested(2)).nested(2) /
+      Doc.hardLine +
+      Doc.text("-- | Arguments to 'export'. See 'Parties' and 'Contracts' for details.") /
+      (Doc.text("data Args = Args with") /
+        Doc.text("parties : Parties") /
+        Doc.text("contracts : Contracts")).nested(2) /
+      Doc.hardLine +
+      Doc.text("-- | Test 'export' with freshly allocated parties and") /
+      Doc.text("-- no replacements for missing contract ids.") /
       Doc.text("testExport : Script ()") /
       (Doc.text("testExport = do") /
         Doc.text("parties <- allocateParties") /
-        Doc.text("export parties")).hang(2) /
+        Doc.text("let contracts = DA.TextMap.empty") /
+        Doc.text("export Args with ..")).nested(2) /
       Doc.hardLine +
       encodeExportActions(export)
   }
 
   private def encodeExportActions(export: Export): Doc = {
-    Doc.text("export : Parties -> Script ()") /
-      (Doc.text("export Parties{..} = do") /
+    Doc.text("-- | The Daml ledger export.") /
+      Doc.text("export : Args -> Script ()") /
+      (Doc.text("export Args{parties = Parties{..}, contracts} = do") /
         stackNonEmpty(
           export.actions.map(encodeAction(export.partyMap, export.cidMap, export.cidRefs, _))
             :+ Doc.text("pure ()")
@@ -45,7 +87,8 @@ private[export] object Encode {
   }
 
   private def encodeAllocateParties(partyMap: Map[Party, String]): Doc =
-    Doc.text("allocateParties : Script Parties") /
+    Doc.text("-- | Allocates fresh parties from the party management service.") /
+      Doc.text("allocateParties : Script Parties") /
       (Doc.text("allocateParties = do") /
         Doc.stack(partyMap.map { case (k, v) =>
           Doc.text(v) + Doc.text(" <- allocateParty \"") + Doc.text(Party.unwrap(k)) + Doc.text(
@@ -55,8 +98,9 @@ private[export] object Encode {
         Doc.text("pure Parties{..}")).hang(2)
 
   private def encodePartyType(partyMap: Map[Party, String]): Doc =
-    (Doc.text("data Parties = Parties with") /
-      Doc.stack(partyMap.values.map(p => Doc.text(p) + Doc.text(" : Party")))).hang(2)
+    Doc.text("-- | Captures the parties required by this Daml ledger export.") /
+      (Doc.text("data Parties = Parties with") /
+        Doc.stack(partyMap.values.map(p => Doc.text(p) + Doc.text(" : Party")))).hang(2)
 
   private def encodeLocalDate(d: LocalDate): Doc = {
     val formatter = DateTimeFormatter.ofPattern("uuuu 'DA.Date.'MMM d")
@@ -180,7 +224,10 @@ private[export] object Encode {
 
   private def encodeCid(cidMap: Map[ContractId, String], cid: ContractId): Doc = {
     // LedgerStrings are strings that match the regexp ``[A-Za-z0-9#:\-_/ ]+
-    Doc.text(cidMap(cid))
+    cidMap.get(cid) match {
+      case Some(value) => Doc.text(value)
+      case None => parens("getContract" &: quotes(Doc.text(cid.toString)) :& "contracts")
+    }
   }
 
   private def qualifyId(id: Identifier): Doc =

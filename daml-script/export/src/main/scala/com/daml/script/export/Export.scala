@@ -64,13 +64,14 @@ object Export {
     val usesSetTime = actions.any(_.isInstanceOf[SetTime])
     val timeRefs: Set[String] = if (usesSetTime) { Set("DA.Date", "DA.Time") }
     else { Set.empty }
+    val unknownContractModuleRefs = Set[String]("DA.Stack", "DA.TextMap")
 
     Export(
       partyMap = partyMapping(partiesInContracts(acs.values) ++ trees.foldMap(partiesInTree(_))),
       cidMap = cidMap,
       unknownCids = cidRefs -- cidMap.keySet,
       cidRefs = cidRefs,
-      moduleRefs = refs.map(_.moduleName).toSet ++ timeRefs,
+      moduleRefs = refs.map(_.moduleName).toSet ++ timeRefs ++ unknownContractModuleRefs,
       actions = actions,
     )
   }
@@ -128,20 +129,19 @@ object Export {
   ) = {
     val export = Export.fromTransactionTrees(acs, trees, acsBatchSize, setTime)
 
-    if (export.unknownCids.nonEmpty) {
-      // TODO[AH] Support this once the ledger has better support for exposing such "hidden" contracts.
-      //   Be it archived or divulged contracts.
-      throw new RuntimeException(
-        s"Encountered archived contracts referenced by active contracts: ${export.unknownCids.mkString(", ")}"
-      )
-    }
-
     val dir = Files.createDirectories(targetDir)
     Files.write(
       dir.resolve("Export.daml"),
       Encode
         .encodeExport(export)
         .render(80)
+        .getBytes(StandardCharsets.UTF_8),
+    )
+    Files.write(
+      dir.resolve("args.json"),
+      Encode
+        .encodeArgs(export)
+        .prettyPrint
         .getBytes(StandardCharsets.UTF_8),
     )
     val exposedPackages: Seq[String] =
@@ -164,6 +164,9 @@ object Export {
          |name: export
          |version: 1.0.0
          |source: .
+         |init-script: Export:export
+         |script-options: [--input-file, args.json]
+         |parties: [${export.partyMap.keys.mkString(",")}]
          |dependencies: [daml-stdlib, daml-prim, $damlScriptLib]
          |data-dependencies: [${dalfFiles.mkString(",")}]
          |build-options: [${buildOptions.mkString(",")}]
