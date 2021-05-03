@@ -305,6 +305,9 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
       |""".stripMargin
     )
 
+  // TODO append-only: second pass of verification of conflict checking is needed.
+  //   current assumption is that both offset conflict and submission_id conflict can be safely ignored
+  //   pls consult original logic present in dao/JdbcLedgerDao/storeConfigurationEntry and new implementation in appendonlydao
   private val preparedInsertConfigurationEntryBatch: Connection => PreparedStatement =
     _.prepareStatement(
       """
@@ -332,7 +335,8 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
       |   typ_in,
       |   configuration_in,
       |   rejection_reason_in
-      | );
+      | )
+      | ON CONFLICT DO NOTHING;
       |
       |""".stripMargin
     )
