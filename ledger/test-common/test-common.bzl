@@ -36,12 +36,15 @@ def da_scala_dar_resources_library(
 cat > $@ <<EOF
 package com.daml.ledger.test
 
-sealed trait TestDar { val path: String }
+import com.daml.lf.language.LanguageVersion
 
-object TestDar {
+sealed trait TestDar {{ val path: String }}
+
+object TestDar {{
+  val lfVersion: LanguageVersion = LanguageVersion.v{lf_version}
   val paths: List[String] = List(
 EOF
-""" + "\n".join(["""
+""".format(lf_version = mangle_for_java(lf_version)) + "\n".join(["""
 echo "    \\"%s/%s-tests-%s.dar\\"," >> $@
 """ % (native.package_name(), test_name, lf_version) for test_name in daml_dir_names]) + """
 echo "  )\n}\n" >> $@
@@ -69,6 +72,7 @@ echo "case object %sTestDar extends TestDar { val path = \\"%s/%s-tests-%s.dar\\
             "srcs": [":test-dar-lookup-%s" % lf_version],
             "generated_srcs": [":test-dar-files-%s.scala" % lf_version],  # required for scaladoc
             "resources": ["dar-files-%s" % lf_version],
+            "deps": ["//daml-lf/language"],
         }
         if add_maven_tag:
             da_scala_library_kwargs.update({"tags": ["maven_coordinates=com.daml:%s-dar-files-%s-lib:__VERSION__" % (maven_name_prefix, lf_version)]})
