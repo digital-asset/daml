@@ -12,13 +12,26 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
     http("CreateCommand")
       .post("/v1/create")
       .body(StringBody("""{
-  "templateId": "Iou:Iou",
+  "templateId": "LargeAcs:Genesis",
   "payload": {
     "issuer": "Alice",
     "owner": "Alice",
     "currency": "USD",
-    "amount": "${amount}",
     "observers": []
+  }
+}"""))
+
+  private val createManyRequest =
+    http("ExerciseCommand")
+      .post("/v1/exercise")
+      .body(StringBody("""{
+  "templateId": "LargeAcs:Genesis",
+  "key": "Alice",
+  "choice": "Genesis_MakeIouRange",
+  "argument": {
+    "totalSteps": 100,
+    "amountCycle": [${amount}],
+    "observersCycle": [[]],
   }
 }"""))
 
@@ -26,15 +39,16 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
     http("SyncQueryRequest")
       .post("/v1/query")
       .body(StringBody("""{
-    "templateIds": ["Iou:Iou"],
+    "templateIds": ["LargeAcs:Iou"],
     "query": {"amount": ${amount}}
 }"""))
 
-  private val scn = scenario("SyncQueryScenario")
-    .repeat(5000) {
+  private val scn = scenario("SyncQueryMegaScenario")
+    .exec(createRequest.silent)
+    .repeat(50, "n") {
       // populate the ACS
-      feed(Iterator.continually(Map("amount" -> randomAmount())))
-        .exec(createRequest.silent)
+      feed(Iterator.continually(Map("amount" -> "${n}")))
+        .exec(createManyRequest.silent)
     }
     .repeat(500) {
       // run queries

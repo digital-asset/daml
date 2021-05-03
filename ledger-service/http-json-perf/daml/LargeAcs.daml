@@ -11,12 +11,14 @@ template Genesis with
     observers : [Party]
   where
     signatory issuer, owner
-    controller owner can
-      Genesis_MakeIouRange : ()
+    key owner : Party
+    maintainer key
+    nonconsuming choice Genesis_MakeIouRange : ()
         with
           totalSteps : Int
           amountCycle : [Decimal]
           observersCycle : [[Party]]
+        controller owner
         do
           assert (totalSteps >= 0)
           amounts <- infCycle amountCycle
