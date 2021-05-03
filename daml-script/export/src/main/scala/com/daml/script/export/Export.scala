@@ -164,6 +164,9 @@ object Export {
          |name: export
          |version: 1.0.0
          |source: .
+         |init-script: Export:export
+         |script-options: [--input-file, args.json]
+         |parties: [${export.partyMap.keys.mkString(",")}]
          |dependencies: [daml-stdlib, daml-prim, $damlScriptLib]
          |data-dependencies: [${dalfFiles.mkString(",")}]
          |build-options: [${buildOptions.mkString(",")}]
