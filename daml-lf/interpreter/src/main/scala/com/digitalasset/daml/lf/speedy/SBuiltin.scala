@@ -1289,7 +1289,7 @@ private[lf] object SBuiltin {
           // Check if we have a cached global key result.
           onLedger.ptx.globalKeyInputs.get(gkey) match {
             case Some(optCid) =>
-              onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> optCid))
+              onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys.updated(gkey, optCid))
               optCid match {
                 case Some(cid) =>
                   machine.returnValue = operation.cidToSValue(cid)
