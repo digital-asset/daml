@@ -25,8 +25,6 @@ private[export] object Encode {
       Doc.hardLine +
       encodePartyType(export.partyMap) /
       Doc.hardLine +
-      encodeAllocateParties(export.partyMap) /
-      Doc.hardLine +
       Doc.text("type Contracts = DA.TextMap.TextMap (ContractId ())") /
       Doc.hardLine +
       Doc.text("getContract : DA.Stack.HasCallStack => Text -> Contracts -> ContractId a") /
@@ -50,16 +48,6 @@ private[export] object Encode {
             :+ Doc.text("pure ()")
         )).hang(2)
   }
-
-  private def encodeAllocateParties(partyMap: Map[Party, String]): Doc =
-    Doc.text("allocateParties : Script Parties") /
-      (Doc.text("allocateParties = do") /
-        Doc.stack(partyMap.map { case (k, v) =>
-          Doc.text(v) + Doc.text(" <- allocateParty \"") + Doc.text(Party.unwrap(k)) + Doc.text(
-            "\""
-          )
-        }) /
-        Doc.text("pure Parties{..}")).hang(2)
 
   private def encodePartyType(partyMap: Map[Party, String]): Doc =
     (Doc.text("data Parties = Parties with") /
