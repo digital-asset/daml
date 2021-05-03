@@ -530,6 +530,7 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
         preparedStatement.setObject(zeroBasedIndex + 1, param)
       }
       preparedStatement.execute()
+      preparedStatement.close()
       ()
     }
 
@@ -749,13 +750,14 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
         preparedStatement.setLong(2, params.eventSeqId)
         preparedStatement.setBytes(3, configBytes)
         preparedStatement.execute()
+        preparedStatement.close()
 
       case None =>
         val preparedStatement = preparedUpdateLedgerEnd(connection)
         preparedStatement.setString(1, params.ledgerEnd.toHexString)
         preparedStatement.setLong(2, params.eventSeqId)
         preparedStatement.execute()
-
+        preparedStatement.close()
     }
     ()
   }
@@ -771,6 +773,7 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
         preparedStatement.setString(_, existingOffset.toHexString)
       )
       preparedStatement.execute()
+      preparedStatement.close()
     }
 
     result
