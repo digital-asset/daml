@@ -2178,7 +2178,7 @@ class EngineTest
     }
 
     // Note that we provide no stability for multi key semantics so
-    // these tests serve only as an indication of the curren tbehavior
+    // these tests serve only as an indication of the current behavior
     // but can be changed freely.
     "multi keys" should {
       val (multiKeysPkgId, _, allMultiKeysPkgs) = loadPackage("daml-lf/tests/MultiKeys.dar")
