@@ -98,10 +98,10 @@ def _cmp_lf_version(a, b):
         return _cmp(aVer, bVer)
 
 def _gte(a, b):
-    return _cmp(a, b) >= 0
+    return _cmp_lf_version(a, b) >= 0
 
 def _lte(a, b):
-    return _cmp(a, b) <= 0
+    return _cmp_lf_version(a, b) <= 0
 
 versions = struct(
     lte = _lte,
