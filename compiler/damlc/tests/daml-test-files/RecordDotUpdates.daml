@@ -48,3 +48,5 @@ x' = let text = "world" in x {text}
 
 y = Outer {inner = x, text = "world", int = 21}
 y' = let text = "world" in let int = 12 in y {text, inner.text = text, int, inner.int = int}
+
+z = let Outer {..} = y in Outer {..}
