@@ -45,6 +45,7 @@ da_scala_test_suite(
     data = [
         "//daml-lf/tests:BasicTests.dar",
         "//daml-lf/tests:Exceptions.dar",
+        "//daml-lf/tests:MultiKeys.dar",
         "//daml-lf/tests:Optional.dar",
     ],
     scala_deps = [
