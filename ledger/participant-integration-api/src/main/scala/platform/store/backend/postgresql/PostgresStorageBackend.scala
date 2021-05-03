@@ -760,8 +760,8 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
     ()
   }
 
-  override def initialize(connection: Connection): StorageBackend.Initialized = {
-    val (offset, eventSeqId) = queryLedgerEndAndEventSeqId(connection)
+  override def initialize(connection: Connection): StorageBackend.LedgerEnd = {
+    val result @ StorageBackend.LedgerEnd(offset, _) = ledgerEnd(connection)
 
     // TODO append-only: verify default isolation level is enough to maintain consistency here (eg the fact of selecting these values at the beginning ensures data changes to the params are postponed until purging finishes). Alternatively: if single indexer instance to db access otherwise ensured, atomicity here is not an issue.
 
@@ -773,15 +773,10 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
       preparedStatement.execute()
     }
 
-    StorageBackend.Initialized(
-      lastOffset = offset,
-      lastEventSeqId = eventSeqId,
-    )
+    result
   }
 
-  private def queryLedgerEndAndEventSeqId(
-      connection: Connection
-  ): (Option[Offset], Option[Long]) = {
+  override def ledgerEnd(connection: Connection): StorageBackend.LedgerEnd = {
     val queryStatement = connection.createStatement()
     val params = fetch(
       queryStatement.executeQuery(
@@ -795,10 +790,11 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
         |""".stripMargin
       )
     )(rs =>
-      (
-        if (rs.getString(1) == null) None
-        else Some(Offset.fromHexString(Ref.HexString.assertFromString(rs.getString(1)))),
-        Option(rs.getLong(2)),
+      StorageBackend.LedgerEnd(
+        lastOffset =
+          if (rs.getString(1) == null) None
+          else Some(Offset.fromHexString(Ref.HexString.assertFromString(rs.getString(1)))),
+        lastEventSeqId = Option(rs.getLong(2)),
       )
     )
     queryStatement.close()
