@@ -504,9 +504,9 @@ def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scala_deps = [], v
         scaladoc_jar(
             name = name + "_scaladoc",
             deps = deps,
-            plugins = plugins,
             srcs = srcs,
-            scalacopts = scalacopts,
+            scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
+            plugins = common_plugins + plugins,
             generated_srcs = generated_srcs,
             tags = ["scaladoc"],
         )
