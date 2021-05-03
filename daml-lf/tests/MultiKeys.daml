@@ -21,7 +21,7 @@ template Keyed
 
 -- All these tests operate under the assumption that there
 -- exists two global contracts with the same key `p` and one
--- of those will always be returned by fetch/lookp-by-key at
+-- of those will always be returned by fetch/lookup-by-key at
 -- the beginning of the choice.
 -- All choices here are accepted in non-uck (unique contract key) mode.
 -- Behavior in uck-mode is documented in comments.
