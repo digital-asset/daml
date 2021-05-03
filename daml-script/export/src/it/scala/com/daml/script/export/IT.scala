@@ -184,7 +184,12 @@ final class IT
     _ <- Runner.run(
       dar,
       Ref.Identifier(dar.main._1, Ref.QualifiedName.assertFromString("Export:export")),
-      inputValue = Some(JsArray(parties.map(JsString(_)).toVector)),
+      inputValue = Some(
+        JsObject(
+          "parties" -> JsArray(parties.map(JsString(_)).toVector),
+          "contracts" -> JsObject(),
+        )
+      ),
       timeMode = ScriptTimeMode.Static,
       initialClients = Participants(
         default_participant = Some(new GrpcLedgerClient(client, ApplicationId("script"))),
