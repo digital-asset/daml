@@ -666,7 +666,8 @@ class TransactionCoderSpec
               ValueCoder.CidEncoder,
               v1,
               NodeId(0),
-              normalizedNode.updateVersion(v1 min TransactionVersion.minExceptions),
+              normalizedNode,
+              disableVersionCheck = true, //so the bad proto can be created
             )
         val result =
           TransactionCoder
@@ -674,7 +675,7 @@ class TransactionCoderSpec
               TransactionCoder.NidDecoder,
               ValueCoder.CidDecoder,
               v2,
-              encodedNode.toBuilder.setVersion(v1.protoValue).build,
+              encodedNode,
             )
         result.isLeft shouldBe (v1 < minExceptions)
       }
