@@ -45,16 +45,30 @@ in the updated EBNF grammar for the transaction structure:
 Note that `Action` and `Kind` have the same definition as before, but
 since `Transaction` may now contain rollback nodes, this means that an
 `Exercise` action may have a rollback node as one of its consequences.
-For example, ...
 
-..
-   TODO: Add example of an exercise containing a rollback node
-   with diagram. 'Alice orders her bank to "withdraw 1000 USD,
-   or, if it fails, to withdraw 500 USD instead".'
+For example, the following transaction contains a rollback node inside
+an exercise. It represents a paint offer involving multiple banks.
+The painter P is offering to paint A's house as long as they receive
+an Iou from Bank1 or, failing that, from Bank2. When A accepts, they
+confirm that transfer of an Iou via Bank1 has failed for some reason,
+so they roll it back and proceed with a transfer via Bank2:
 
-In addition, rollback nodes may be nested. This corresponds to a possible
-case where multiple exceptions are raised and caught within the same
-transaction.
+.. https://lucid.app/lucidchart/fb34c83b-8db7-4063-83f1-38e796225fe4/edit
+.. image:: ./images/exception-structure-example.svg
+   :align: center
+   :width: 80%
+
+Note also that rollback nodes may be nested, which represents a situation
+where multiple exceptions are raised and caught within the same transaction.
+
+For example, the following transaction contains the previous one under a
+rollback node. It represents a case where the "accept" has failed at the last
+moment, for some reason, and a "cancel" exercise has been issued in response.
+
+.. https://lucid.app/lucidchart/8f18f7be-89b8-42f9-93a2-b995a5030a9e/edit
+.. image:: ./images/exception-structure-example-nested.svg
+   :align: center
+   :width: 80%
 
 Integrity
 +++++++++
@@ -86,8 +100,27 @@ neither consuming exercise comes "after" the other. They are part of
 separate continuities, one of which was rolled back, and so they don't
 break the ledger integrity.
 
-..
-   TODO: Add diagrams to demonstrate the "forking".
+In the deeply nested example above, there are three continuities implied
+by the "after" relation. The first:
+
+.. image:: ./images/exception-integrity-continuity-1.svg
+   :align: center
+   :width: 80%
+
+The second:
+
+.. https://lucid.app/lucidchart/f1f92199-ae41-4de2-b1bf-0925d3ab89c9/edit
+.. image:: ./images/exception-integrity-continuity-2.svg
+   :align: center
+   :width: 80%
+
+And the third:
+
+.. https://lucid.app/lucidchart/77d97798-8651-41dc-bb8b-abecf05f81bb/edit
+.. image:: ./images/exception-integrity-continuity-3.svg
+   :align: center
+   :width: 80%
+
 
 Authorization
 +++++++++++++
