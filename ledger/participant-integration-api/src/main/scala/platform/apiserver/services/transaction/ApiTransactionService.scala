@@ -69,7 +69,7 @@ private[apiserver] final class ApiTransactionService private (
       logging.parties(request.filter.filtersByParty.keys),
     ) { implicit loggingContext =>
       val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
-      logger.debug(s"Received request for transaction subscription $subscriptionId: $request")
+      logger.info(s"Received request for transaction subscription $subscriptionId: $request")
       transactionsService
         .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
         .via(logger.debugStream(transactionsLoggable))

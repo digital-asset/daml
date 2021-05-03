@@ -34,14 +34,17 @@ private[apiserver] final class ApiPackageService private (
 
   override def close(): Unit = ()
 
-  override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
+  override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] = {
+    logger.info(s"Received request to list packages: $request")
     backend
       .listLfPackages()
       .map(p => ListPackagesResponse(p.keys.toSeq))
       .andThen(logger.logErrorsOnCall[ListPackagesResponse])
+  }
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
     withEnrichedLoggingContext("packageId" -> request.packageId) { implicit loggingContext =>
+      logger.info(s"Received request for a package: $request")
       withValidatedPackageId(request.packageId) { packageId =>
         backend
           .getLfArchive(packageId)
@@ -58,6 +61,7 @@ private[apiserver] final class ApiPackageService private (
       request: GetPackageStatusRequest
   ): Future[GetPackageStatusResponse] =
     withEnrichedLoggingContext("packageId" -> request.packageId) { implicit loggingContext =>
+      logger.info(s"Received request for a package status: $request")
       withValidatedPackageId(request.packageId) { packageId =>
         backend
           .listLfPackages()
