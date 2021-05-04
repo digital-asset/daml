@@ -6,6 +6,7 @@ package com.daml.telemetry
 import java.util.{Map => jMap}
 
 import io.opentelemetry.api.trace.{Span, Tracer}
+import io.opentelemetry.context.Context
 
 import scala.concurrent.Future
 
@@ -29,6 +30,11 @@ abstract class Telemetry(protected val tracer: Tracer) {
     * @see [[com.daml.telemetry.TelemetryContext.encodeMetadata()]]
     */
   def contextFromMetadata(metadata: Option[jMap[String, String]]): TelemetryContext
+
+  /** TODO
+    * @param context
+    */
+  def contextFromOpenTelemetryContext(context: Context): TelemetryContext
 
   /** Creates the first span of a new trace, and runs the computation inside it.
     *
@@ -85,6 +91,11 @@ abstract class DefaultTelemetry(override protected val tracer: Tracer) extends T
     }
   }
 
+  override def contextFromOpenTelemetryContext(context: Context): TelemetryContext =
+    Option(Span.fromContextOrNull(context))
+      .map(span => DefaultTelemetryContext(tracer, span))
+      .getOrElse(rootContext)
+
   override protected def rootContext: TelemetryContext = RootDefaultTelemetryContext(tracer)
 }
 
@@ -103,4 +114,7 @@ object NoOpTelemetry extends Telemetry(Tracer.getDefault) {
     NoOpTelemetryContext
 
   override protected def rootContext: TelemetryContext = NoOpTelemetryContext
+
+  override def contextFromOpenTelemetryContext(context: Context): TelemetryContext =
+    NoOpTelemetryContext
 }
