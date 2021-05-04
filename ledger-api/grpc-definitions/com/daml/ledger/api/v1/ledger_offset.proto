@@ -34,7 +34,7 @@ message LedgerOffset {
   }
 
   enum LedgerBoundary {
-    // Refers to the first transaction.
+    // Refers to the first transaction or completion that has not yet been pruned.
     LEDGER_BEGIN = 0;
 
     // Refers to the currently last transaction, which is a moving target.

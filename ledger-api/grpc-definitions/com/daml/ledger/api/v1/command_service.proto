@@ -24,12 +24,17 @@ service CommandService {
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id
+  // - ``NOT_FOUND``: if the request does not include a valid ledger id or the submission rank or
+  //   deduplication period are too old.
   // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
   // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
-  // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources
-  rpc SubmitAndWait (SubmitAndWaitRequest) returns (google.protobuf.Empty);
+  // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources or
+  //   if there is another submission in flight for the same change ID.
+  // - ``FAILED_PRECONDITION`` if there is another submission with a higher submission rank.
+  // - ``ALREADY_EXISTS`` if there is a definite completion for the same deduplication key with at least the same submission rank
+  //   or an earlier accepting completion that falls into the submission’s deduplication period.
+  rpc SubmitAndWait (SubmitAndWaitRequest) returns (SubmitAndWaitResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction id.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
@@ -41,6 +46,7 @@ service CommandService {
   // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
   // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
   // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources
+  // TODO update errors like for `SubmitAndWait`
   rpc SubmitAndWaitForTransactionId (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionIdResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction.
@@ -53,6 +59,7 @@ service CommandService {
   // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
   // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
   // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources
+  // TODO update errors like for `SubmitAndWait`
   rpc SubmitAndWaitForTransaction (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction tree.
@@ -65,6 +72,7 @@ service CommandService {
   // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
   // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
   // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources
+  // TODO update errors like for `SubmitAndWait`
   rpc SubmitAndWaitForTransactionTree (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionTreeResponse);
 }
 
@@ -72,6 +80,8 @@ service CommandService {
 message SubmitAndWaitRequest {
 
   // The commands to be submitted.
+  // The field `submission_id` should not be set.
+  // The `CommandService` sets or modifies it.
   // Required
   Commands commands = 1;
 
@@ -82,21 +92,67 @@ message SubmitAndWaitRequest {
 
 }
 
+message SubmitAndWaitResponse {
+  // The completion offset for the submission that triggered this response.
+  // This offset can be used as the submission rank for subsequent command submissions.
+  // Optional
+  // TODO Make it required for responses with status code `OK` once all Daml ledgers support it.
+  string completion_offset = 1;
+
+  // Whether this response is a definite answer for the deduplication and rank guarantees,
+  // as defined in ``commands.proto``.
+  // Always true if the status code is `OK`.
+  bool definite_answer = 2;
+}
+
 message SubmitAndWaitForTransactionIdResponse {
   // The id of the transaction that resulted from the submitted command.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
+  // TODO Why is this field required? In ``completion.proto``, the `transaction_id` is optional.
   string transaction_id = 1;
+
+  // The completion offset for the submission that triggered this response
+  // This offset can be used as the submission rank for subsequent command submissions.
+  // Optional
+  // TODO Make it required for responses with status code `OK` once all Daml ledgers support it.
+  string completion_offset = 2;
+
+  // Whether this response is a definite answer for the deduplication and rank guarantees,
+  // as defined in ``commands.proto``.
+  // Always true if the status code is `OK`.
+  bool definite_answer = 3;
 }
 
 message SubmitAndWaitForTransactionResponse {
-    // The flat transaction that resulted from the submitted command.
-    // Required
-    Transaction transaction = 1;
+  // The flat transaction that resulted from the submitted command.
+  // Required
+  // TODO Why is this field required? We should only require this field if the status code is `OK`.
+  Transaction transaction = 1;
+
+  // The completion offset for the submission that triggered this response
+  // This offset can be used as the submission rank for subsequent command submissions.
+  // Optional
+  // TODO Make it required for responses with status code `OK` once all Daml ledgers support it.
+  string completion_offset = 2;
+
+  // Whether this response is a definite answer for the deduplication and rank guarantees,
+  // as defined in ``commands.proto``.
+  // Always true if the status code is `OK`.
+  bool definite_answer = 3;
 }
 
 message SubmitAndWaitForTransactionTreeResponse {
-    // The transaction tree that resulted from the submitted command.
-    // Required
-    TransactionTree transaction = 1;
+  // The transaction tree that resulted from the submitted command.
+  // Required
+  // TODO Why is this field required? We should only require this field if the status code is `OK`.
+  TransactionTree transaction = 1;
+
+  // This offset can be used as the submission rank for subsequent command submissions.
+  string completion_offset = 2;
+
+  // Whether this response is a definite answer for the deduplication and rank guarantees,
+  // as defined in ``commands.proto``.
+  // Always true if the status code is `OK`.
+  bool definite_answer = 3;
 }
