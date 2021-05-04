@@ -130,7 +130,7 @@ private[lf] object PartialTransaction {
 
   final case class ActiveLedgerState(
       consumedBy: Map[Value.ContractId, NodeId],
-      keys: Map[GlobalKey, Option[Value.ContractId]],
+      keys: Map[GlobalKey, KeyMapping],
   )
 
   final case class TryContextInfo(
@@ -157,6 +157,7 @@ private[lf] object PartialTransaction {
     context = Context(initialSeeds),
     aborted = None,
     keys = Map.empty,
+    globalKeyInputs = Map.empty,
     localContracts = Set.empty,
   )
 
@@ -164,6 +165,11 @@ private[lf] object PartialTransaction {
   final case class CompleteTransaction(tx: SubmittedTransaction) extends Result
   final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
 
+  sealed trait KeyMapping
+  // There is no active contract with the given key.
+  final case object KeyInactive extends KeyMapping
+  // The contract with the given cid is active and has the given key.
+  final case class KeyActive(cid: Value.ContractId) extends KeyMapping
 }
 
 /** A transaction under construction
@@ -189,18 +195,23 @@ private[lf] object PartialTransaction {
   *              1. fetch-by-key/lookup-by-key/exercise-by-key will insert an
   *                 an entry in the map if there wasn’t already one (i.e., if they queried the ledger).
   *              2. ACS mutating operations if the corresponding contract has a key. Specifically,
-  *                 2.1. A create will set the corresponding map entry to Some(cid) if the contract has a key.
-  *                 2.2. A consuming choice will set the corresponding map entry to None if the contract has a key.
+  *                 2.1. A create will set the corresponding map entry to KeyActive(cid) if the contract has a key.
+  *                 2.2. A consuming choice will set the corresponding map entry to KeyInactive if the contract has a key.
   *
-  *              On a rollback, we restore the state at the beginning of the rollback. Note that
-  *              This means that at the moment, we will query (by-key) for a global contract again even if
-  *              we queried it in a rollback node already.
-  *              TODO (MK) This should be fixed for performance and to ensure that the engine
-  *              never queries a key more than once thereby giving us consistency within a transaction.
+  *              On a rollback, we restore the state at the beginning of the rollback. However,
+  *              we preserve globalKeyInputs so we will not ask the ledger again for a key lookup
+  *              that we saw in a rollback.
   *
   *              Note that the engine is also used in Canton’s non-uck (unique contract key) mode.
   *              In that mode, duplicate keys should not be an error. We provide no stability
   *              guarantees for this mode at this point so tests can be changed freely.
+  *  @param globalKeyInputs A store of fetches and lookups of global keys.
+  *   Note that this represents the required state at the beginning of the transaction, i.e., the
+  *   transaction inputs.
+  *   The contract might no longer be active or a new local contract with the
+  *   same key might have been created since. This is updated on creates with keys with KeyInactive
+  *   (implying that no key must have been active at the beginning of the transaction)
+  *   and on failing and successful lookup and fetch by key.
   */
 private[lf] case class PartialTransaction(
     packageToTransactionVersion: Ref.PackageId => TxVersion,
@@ -211,7 +222,8 @@ private[lf] case class PartialTransaction(
     consumedBy: Map[Value.ContractId, NodeId],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
-    keys: Map[GlobalKey, Option[Value.ContractId]],
+    keys: Map[GlobalKey, PartialTransaction.KeyMapping],
+    globalKeyInputs: Map[GlobalKey, PartialTransaction.KeyMapping],
     localContracts: Set[Value.ContractId],
 ) {
 
@@ -338,7 +350,26 @@ private[lf] case class PartialTransaction(
         case None => Right((cid, ptx))
         case Some(kWithM) =>
           val ck = GlobalKey(templateId, kWithM.key)
-          Right((cid, ptx.copy(keys = ptx.keys.updated(ck, Some(cid)))))
+          val globalKeyInputs = keys.get(ck) match {
+            // We saw an archive or negative lookup, no constraint on global key inputs.
+            case Some(KeyInactive) => ptx.globalKeyInputs
+            // We saw a create or successful lookup, no constraint
+            // on global key inputs.
+            // TODO (MK) In uck-mode this should be an error if there is no archive in between.
+            case Some(KeyActive(_)) => ptx.globalKeyInputs
+            // No entry or archive => key must not be active
+            // at the beginning of the transaction.
+            case None => ptx.globalKeyInputs.updated(ck, KeyInactive)
+          }
+          Right(
+            (
+              cid,
+              ptx.copy(
+                keys = ptx.keys.updated(ck, KeyActive(cid)),
+                globalKeyInputs = globalKeyInputs,
+              ),
+            )
+          )
       }
     }
   }
@@ -450,7 +481,7 @@ private[lf] case class PartialTransaction(
             consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
             keys = mbKey match {
               case Some(kWithM) if consuming =>
-                keys.updated(GlobalKey(templateId, kWithM.key), None)
+                keys.updated(GlobalKey(templateId, kWithM.key), KeyInactive)
               case _ => keys
             },
           ),
