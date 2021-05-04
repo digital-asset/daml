@@ -70,15 +70,14 @@ moment, for some reason, and a "cancel" exercise has been issued in response.
    :align: center
    :width: 80%
 
-Integrity
-+++++++++
+Consistency
++++++++++++
 
-In a previous section on :ref:`consistency <da-model-consistency>`,
-we defined a before-after relation on ledger actions. This notion needs
+In the previous section on :ref:`consistency <da-model-consistency>`,
+we defined a "before-after" relation on ledger actions. This notion needs
 to be revised in the presence of rollback nodes. It is no longer enough to
 traverse the transaction tree in prefix order, because the actions under a
-rollback were rolled back, and cannot affect actions that appear later in
-the transaction tree.
+rollback cannot affect actions that appear later in the transaction tree.
 
 For example, a contract may be consumed by an exercise under a rollback node,
 and immediately again after the rollback node. This is allowed because the
@@ -121,12 +120,17 @@ And the third:
    :align: center
    :width: 80%
 
+As you can see, in each of these continuities, no contract was consumed twice.
 
 Authorization
 +++++++++++++
 
 Since they are not ledger actions, rollback nodes do not have authorizers
-directly. Instead, rollback nodes share the authorization of their children.
+directly. Instead, a ledger is well-authorized exactly when the same ledger
+with rollback nodes removed (that is, replacing the rollback nodes with
+their children) is well-authorized, according to
+:ref:`the old definition <_da-ledgers-authorization-rules>`.
+
 This is captured in the following rules:
 
 - When a rollback node is authorized by `p`, then all of its children are
