@@ -26,6 +26,16 @@ import GHC.Types (primitive)
 --
 -- The scale ranges between 2^15 and -2^15 + 1.
 -- The scale of `0` is `0` by convention.
+--
+-- ```
+-- >>> scale 1.1
+-- 1
+-- ```
+--
+-- ```
+-- >>> scale (shift (-2^14) 1.0)
+-- -2^14
+-- ```
 scale : BigNumeric -> Int
 scale = primitive @"BEScaleBigNumeric"
 
@@ -36,6 +46,11 @@ scale = primitive @"BEScaleBigNumeric"
 -- Thus, the precision represents the number of significant digits in the `BigNumeric`.
 --
 -- The precision ranges between 0 and 2^16 - 1.
+--
+-- ```
+-- >>> precision 1.1.0
+-- 2
+-- ```
 precision : BigNumeric -> Int
 precision = primitive @"BEPrecisionBigNumeric"
 
@@ -59,9 +74,14 @@ round : Int -> RoundingMode -> BigNumeric -> BigNumeric
 round scale rounding x = div scale rounding x 1.0
 
 -- | Shift a `BigNumeric` number up or down by a power of 10. The value
--- `shift n a` is the value of `a` times `10^n`.
+-- `shift n a` is the value of `a` times `10^(-n)`.
 --
 -- This will fail if the resulting `BigNumeric` is out of bounds.
+--
+-- ```
+-- >>> shift 2 32.0
+-- 0.32
+-- ```
 shift : Int -> BigNumeric -> BigNumeric
 shift = primitive @"BEShiftBigNumeric"
 
