@@ -119,6 +119,10 @@ protected class DefaultTelemetryContext(protected val tracer: Tracer, protected 
 
     try {
       body(DefaultTelemetryContext(tracer, subSpan))
+    } catch {
+      case exception: Exception =>
+        subSpan.recordException(exception)
+        throw exception
     } finally {
       subSpan.end()
     }
