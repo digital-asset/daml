@@ -10,7 +10,7 @@ import io.opentelemetry.api.trace.{Span, Tracer}
 import io.opentelemetry.context.Context
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 trait TelemetryContext {
 
@@ -117,14 +117,15 @@ protected class DefaultTelemetryContext(protected val tracer: Tracer, protected 
   ): T = {
     val subSpan = createSubSpan(spanName, kind, attributes: _*)
 
-    val result = Try { body(DefaultTelemetryContext(tracer, subSpan)) }
-    result match {
-      case Failure(exception) => subSpan.recordException(exception)
-      case Success(_) =>
+    try {
+      body(DefaultTelemetryContext(tracer, subSpan))
+    } catch {
+      case exception: Exception =>
+        subSpan.recordException(exception)
+        throw exception
+    } finally {
+      subSpan.end()
     }
-
-    subSpan.end()
-    result.get
   }
 
   protected def createSubSpan(
