@@ -31,47 +31,19 @@ private[export] object Encode {
   }
 
   def encodeExport(export: Export): Doc = {
-    Doc.text("{-# LANGUAGE ApplicativeDo #-}") /
-      Doc.text("module Export where") /
-      Doc.text("import Daml.Script") /
-      Doc.stack(export.moduleRefs.map(encodeImport(_))) /
+    encodeModuleHeader(export.moduleRefs) /
       Doc.hardLine +
       encodePartyType(export.partyMap) /
       Doc.hardLine +
       encodeAllocateParties(export.partyMap) /
       Doc.hardLine +
-      Doc.text("-- | Mapping from missing contract ids to replacement contract ids.") /
-      Doc.text("--") /
-      Doc.text("-- You can provide replacement contract ids in an input file to") /
-      Doc.text("-- the @--input-file@ argument of @daml script@, or you can provide") /
-      Doc.text("-- replacements from within Daml script.") /
-      Doc.text("--") /
-      Doc.text("-- >>> (replacement, _):_ <- query @T alice_0") /
-      Doc.text("-- >>> let args = Args with") /
-      Doc.text("-- >>>   parties = Parties with alice_0") /
-      Doc.text("-- >>>   contracts = DA.TextMap.fromList [(\"00737...\", replacement)]") /
-      Doc.text("-- >>> export args") /
-      Doc.text("type Contracts = DA.TextMap.TextMap (ContractId ())") /
+      encodeContractsType() /
       Doc.hardLine +
-      Doc.text("-- | Look-up a replacement for a missing contract id. Fails if none is found.") /
-      Doc.text("getContract : DA.Stack.HasCallStack => Text -> Contracts -> ContractId a") /
-      (Doc.text("getContract old contracts =") /
-        (Doc.text("case DA.TextMap.lookup old contracts of") /
-          Doc.text("None -> error (\"Missing contract id \" <> old)") /
-          Doc.text("Some new -> coerceContractId new")).nested(2)).nested(2) /
+      encodeGetContract() /
       Doc.hardLine +
-      Doc.text("-- | Arguments to 'export'. See 'Parties' and 'Contracts' for details.") /
-      (Doc.text("data Args = Args with") /
-        Doc.text("parties : Parties") /
-        Doc.text("contracts : Contracts")).nested(2) /
+      encodeArgsType() /
       Doc.hardLine +
-      Doc.text("-- | Test 'export' with freshly allocated parties and") /
-      Doc.text("-- no replacements for missing contract ids.") /
-      Doc.text("testExport : Script ()") /
-      (Doc.text("testExport = do") /
-        Doc.text("parties <- allocateParties") /
-        Doc.text("let contracts = DA.TextMap.empty") /
-        Doc.text("export Args with ..")).nested(2) /
+      encodeTestExport() /
       Doc.hardLine +
       encodeExportActions(export)
   }
@@ -85,6 +57,43 @@ private[export] object Encode {
             :+ Doc.text("pure ()")
         )).hang(2)
   }
+
+  private def encodeTestExport(): Doc =
+    Doc.text("-- | Test 'export' with freshly allocated parties and") /
+      Doc.text("-- no replacements for missing contract ids.") /
+      Doc.text("testExport : Script ()") /
+      (Doc.text("testExport = do") /
+        Doc.text("parties <- allocateParties") /
+        Doc.text("let contracts = DA.TextMap.empty") /
+        Doc.text("export Args with ..")).nested(2)
+
+  private def encodeArgsType(): Doc =
+    Doc.text("-- | Arguments to 'export'. See 'Parties' and 'Contracts' for details.") /
+      (Doc.text("data Args = Args with") /
+        Doc.text("parties : Parties") /
+        Doc.text("contracts : Contracts")).nested(2)
+
+  private def encodeGetContract(): Doc =
+    Doc.text("-- | Look-up a replacement for a missing contract id. Fails if none is found.") /
+      Doc.text("getContract : DA.Stack.HasCallStack => Text -> Contracts -> ContractId a") /
+      (Doc.text("getContract old contracts =") /
+        (Doc.text("case DA.TextMap.lookup old contracts of") /
+          Doc.text("None -> error (\"Missing contract id \" <> old)") /
+          Doc.text("Some new -> coerceContractId new")).nested(2)).nested(2)
+
+  private def encodeContractsType(): Doc =
+    Doc.text("-- | Mapping from missing contract ids to replacement contract ids.") /
+      Doc.text("--") /
+      Doc.text("-- You can provide replacement contract ids in an input file to") /
+      Doc.text("-- the @--input-file@ argument of @daml script@, or you can provide") /
+      Doc.text("-- replacements from within Daml script.") /
+      Doc.text("--") /
+      Doc.text("-- >>> (replacement, _):_ <- query @T alice_0") /
+      Doc.text("-- >>> let args = Args with") /
+      Doc.text("-- >>>   parties = Parties with alice_0") /
+      Doc.text("-- >>>   contracts = DA.TextMap.fromList [(\"00737...\", replacement)]") /
+      Doc.text("-- >>> export args") /
+      Doc.text("type Contracts = DA.TextMap.TextMap (ContractId ())")
 
   private def encodeAllocateParties(partyMap: Map[Party, String]): Doc =
     Doc.text("-- | Allocates fresh parties from the party management service.") /
@@ -101,6 +110,12 @@ private[export] object Encode {
     Doc.text("-- | Captures the parties required by this Daml ledger export.") /
       (Doc.text("data Parties = Parties with") /
         Doc.stack(partyMap.values.map(p => Doc.text(p) + Doc.text(" : Party")))).hang(2)
+
+  private def encodeModuleHeader(moduleRefs: Set[String]): Doc =
+    Doc.text("{-# LANGUAGE ApplicativeDo #-}") /
+      Doc.text("module Export where") /
+      Doc.text("import Daml.Script") /
+      Doc.stack(moduleRefs.map(encodeImport(_)))
 
   private def encodeLocalDate(d: LocalDate): Doc = {
     val formatter = DateTimeFormatter.ofPattern("uuuu 'DA.Date.'MMM d")
