@@ -165,6 +165,10 @@ private[lf] object PartialTransaction {
   final case class CompleteTransaction(tx: SubmittedTransaction) extends Result
   final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
 
+  sealed trait KeyMapping
+  object KeyMapping {
+  }
+
 }
 
 /** A transaction under construction
