@@ -76,6 +76,9 @@
 module DA.Daml.LFConversion
     ( convertModule
     , sourceLocToRange
+    , convertRationalBigNumeric -- exposed for festing
+    , runConvertM -- exposed for testing
+    , ConversionEnv(..) -- exposed for testing
     ) where
 
 import           DA.Daml.LFConversion.Primitives
@@ -330,8 +333,10 @@ convertRationalNumericMono env scale num denom
 
 -- | Convert a rational into a BigNumeric expression. Currently only supports
 -- values that will fit in a Numeric.
-convertRationalBigNumeric :: Env -> Integer -> Integer -> ConvertM LF.Expr
-convertRationalBigNumeric env num denom =
+convertRationalBigNumeric :: Integer -> Integer -> ConvertM LF.Expr
+convertRationalBigNumeric num denom
+  | Nothing <- mbScale = invalid
+  | Just scale <- mbScale =
     if (denom <= 0)
         || (scale > fromIntegral numericMaxScale)
         || (abs (rational * 10 ^ scale) >= 10 ^ numericMaxPrecision)
@@ -341,8 +346,8 @@ convertRationalBigNumeric env num denom =
             --      (denom <= 0)
             -- and
             --      ((num * 10^scale) `mod` denom /= 0)))
-      then
-        unsupported "Large BigNumeric literals are not currently supported. Please construct the number from smaller literals." ()
+      then invalid
+
       else
         pure (EBuiltin BEFromNumericBigNumeric
             `ETyApp` TNat (typeLevelNat scale)
@@ -352,9 +357,16 @@ convertRationalBigNumeric env num denom =
 
     where
         rational = num % denom
+        invalid = unsupported "Large BigNumeric literals are not currently supported. Please construct the number from smaller literals." ()
 
-        scale :: Integer
-        scale = ceiling (log @Double (fromInteger denom) / log 10.0)
+        mbScale :: Maybe Integer
+        mbScale = go 0
+          -- Find the smallest power of 10 that the denominator is a multiple of.
+          where go n | n > fromIntegral numericMaxScale = Nothing
+                     | 10^n `mod` denom == 0 = Just n
+                     | otherwise = go (n + 1)
+
+
 
 data TemplateBinds = TemplateBinds
     { tbTyCon :: Maybe GHC.TyCon
@@ -978,7 +990,7 @@ convertExpr env0 e = do
     go env (VarIn GHC_Real "fromRational") (LType (TypeCon (NameIn GHC_Types "Numeric") [isNumLitTy -> Just n]) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ convertRationalNumericMono env n top bot
     go env (VarIn GHC_Real "fromRational") (LType (TypeCon (NameIn GHC_Types "BigNumeric") []) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
-        = fmap (, args) $ convertRationalBigNumeric env top bot
+        = fmap (, args) $ convertRationalBigNumeric top bot
     go env (VarIn GHC_Real "fromRational") (LType scaleTyCoRep : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = unsupported ("Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (" ++ show (fromRational (top % bot) :: Decimal.Decimal) ++ " : Numeric 10)") ()
     go env (VarIn GHC_Num "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
