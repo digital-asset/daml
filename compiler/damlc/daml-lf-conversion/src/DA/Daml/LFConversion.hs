@@ -334,22 +334,11 @@ convertRationalNumericMono env scale num denom
 -- | Convert a rational into a BigNumeric expression. Currently only supports
 -- values that will fit in a Numeric.
 convertRationalBigNumeric :: Integer -> Integer -> ConvertM LF.Expr
-convertRationalBigNumeric num denom
-  | Nothing <- mbScale = invalid
-  | Just scale <- mbScale =
-    if (denom <= 0)
-        || (scale > fromIntegral numericMaxScale)
-        || (abs (rational * 10 ^ scale) >= 10 ^ numericMaxPrecision)
-        || ((num * 10^scale) `mod` denom /= 0)
-            -- This includes checks against using this function incorrectly
-            -- that should never come up in practice, like
-            --      (denom <= 0)
-            -- and
-            --      ((num * 10^scale) `mod` denom /= 0)))
-      then invalid
-
-      else
-        pure (EBuiltin BEFromNumericBigNumeric
+convertRationalBigNumeric num denom = case numericFromRational rational of
+    Left error -> invalid
+    Right n ->
+        let scale = numericScale n
+        in pure (EBuiltin BEFromNumericBigNumeric
             `ETyApp` TNat (typeLevelNat scale)
             `ETmApp` EBuiltin (BENumeric $ numeric
                 (fromIntegral scale)
@@ -357,16 +346,7 @@ convertRationalBigNumeric num denom
 
     where
         rational = num % denom
-        invalid = unsupported "Large BigNumeric literals are not currently supported. Please construct the number from smaller literals." ()
-
-        mbScale :: Maybe Integer
-        mbScale = go 0
-          -- Find the smallest power of 10 that the denominator is a multiple of.
-          where go n | n > fromIntegral numericMaxScale = Nothing
-                     | 10^n `mod` denom == 0 = Just n
-                     | otherwise = go (n + 1)
-
-
+        invalid = unsupported "Large BigNumeric (larger than Numeric) literals are not currently supported. Please construct the number from smaller literals." ()
 
 data TemplateBinds = TemplateBinds
     { tbTyCon :: Maybe GHC.TyCon
