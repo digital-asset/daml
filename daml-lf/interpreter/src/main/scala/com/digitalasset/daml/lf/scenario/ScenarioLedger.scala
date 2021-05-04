@@ -639,10 +639,6 @@ case class ScenarioLedger(
       case None => LookupContractNotFound(coid)
       case Some(info) =>
         info.node match {
-          case _: NodeRollback[_] =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
-            sys.error("rollback nodes are not supported")
-
           case create: NodeCreate[ContractId] =>
             if (info.effectiveAt.compareTo(effectiveAt) > 0)
               LookupContractNotEffective(coid, create.coinst.template, info.effectiveAt)
@@ -662,7 +658,8 @@ case class ScenarioLedger(
             else
               LookupOk(coid, create.versionedCoinst, create.stakeholders)
 
-          case _: NodeExercises[_, _] | _: NodeFetch[_] | _: NodeLookupByKey[_] =>
+          case _: NodeExercises[_, _] | _: NodeFetch[_] | _: NodeLookupByKey[_] |
+              _: NodeRollback[_] =>
             LookupContractNotFound(coid)
         }
     }
