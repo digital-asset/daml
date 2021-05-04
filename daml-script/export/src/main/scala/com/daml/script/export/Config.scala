@@ -53,8 +53,11 @@ object Config {
     opt[String]("party")
       .required()
       .unbounded()
-      .action((x, c) => c.copy(parties = x :: c.parties))
-      .text("Export ledger state as seen by these parties.")
+      .action((x, c) => c.copy(parties = x.split(",").toList ++ c.parties))
+      .text(
+        "Export ledger state as seen by these parties. " +
+          "Pass --party multiple times or use a comma-separated list of party names to specify multiple parties."
+      )
     opt[String]("start")
       .optional()
       .action((x, c) => c.copy(start = parseLedgerOffset(x)))

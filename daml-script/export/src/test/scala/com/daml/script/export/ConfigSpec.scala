@@ -59,5 +59,23 @@ class ConfigSpec extends AnyFreeSpec with Matchers with OptionValues {
         optConfig.value.end shouldBe LedgerOffset().withAbsolute("00100")
       }
     }
+    "--party" - {
+      val defaultRequiredArgs = outputTypeArgs ++ outputArgs ++ sdkVersionArgs ++ ledgerArgs
+      "--party Alice" in {
+        val args = defaultRequiredArgs ++ Array("--party", "Alice")
+        val optConfig = Config.parse(args)
+        optConfig.value.parties should contain only ("Alice")
+      }
+      "--party Alice --party Bob" in {
+        val args = defaultRequiredArgs ++ Array("--party", "Alice", "--party", "Bob")
+        val optConfig = Config.parse(args)
+        optConfig.value.parties should contain only ("Alice", "Bob")
+      }
+      "--party Alice,Bob" in {
+        val args = defaultRequiredArgs ++ Array("--party", "Alice,Bob")
+        val optConfig = Config.parse(args)
+        optConfig.value.parties should contain only ("Alice", "Bob")
+      }
+    }
   }
 }
