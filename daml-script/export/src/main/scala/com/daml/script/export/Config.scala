@@ -11,7 +11,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 final case class Config(
     ledgerHost: String,
     ledgerPort: Int,
-    parties: List[String],
+    parties: Seq[String],
     start: LedgerOffset,
     end: LedgerOffset,
     exportType: Option[ExportType],
@@ -50,11 +50,14 @@ object Config {
       .required()
       .action((x, c) => c.copy(ledgerPort = x))
       .text("Daml ledger port to connect to.")
-    opt[String]("party")
+    opt[Seq[String]]("party")
       .required()
       .unbounded()
-      .action((x, c) => c.copy(parties = x :: c.parties))
-      .text("Export ledger state as seen by these parties.")
+      .action((x, c) => c.copy(parties = c.parties ++ x.toList))
+      .text(
+        "Export ledger state as seen by these parties. " +
+          "Pass --party multiple times or use a comma-separated list of party names to specify multiple parties."
+      )
     opt[String]("start")
       .optional()
       .action((x, c) => c.copy(start = parseLedgerOffset(x)))
@@ -63,7 +66,7 @@ object Config {
       )
     opt[String]("end")
       .optional()
-      .action((x, c) => c.copy(start = parseLedgerOffset(x)))
+      .action((x, c) => c.copy(end = parseLedgerOffset(x)))
       .text(
         "The transaction offset (inclusive) for the end position of the export. Optional, by default the export includes the current end of the ledger."
       )

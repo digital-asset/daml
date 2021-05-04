@@ -24,7 +24,7 @@ object LedgerUtils {
     */
   def getACS(
       client: LedgerClient,
-      parties: List[String],
+      parties: Seq[String],
       offset: LedgerOffset,
   )(implicit
       mat: Materializer
@@ -57,7 +57,7 @@ object LedgerUtils {
     */
   def getTransactionTrees(
       client: LedgerClient,
-      parties: List[String],
+      parties: Seq[String],
       start: LedgerOffset,
       end: LedgerOffset,
   )(implicit
@@ -72,6 +72,6 @@ object LedgerUtils {
     }
   }
 
-  private def filter(parties: List[String]): TransactionFilter =
+  private def filter(parties: Seq[String]): TransactionFilter =
     TransactionFilter(parties.map(p => p -> Filters()).toMap)
 }
