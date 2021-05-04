@@ -11,6 +11,8 @@ import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
+import com.daml.lf.scenario.ScenarioLedger
+import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.{Node => N, NodeId, Transaction => Tx}
 import com.daml.lf.value.Value
@@ -25,6 +27,53 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.language.implicitConversions
 
 class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles {
+
+  /** Tiny wrapper around ScenarioLedger that provides
+    * a mutable API for eas of use in tests.
+    */
+  class MutableLedger {
+    import ScenarioLedger.{initialLedger => _, _}
+    private var ledger: ScenarioLedger = initialLedger()
+
+    private def initialLedger(): ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.now())
+
+    def commit(
+        submitter: Party,
+        effectiveAt: Time.Timestamp,
+        tx: SubmittedTransaction,
+    ): Transaction =
+      ScenarioLedger
+        .commitTransaction(
+          actAs = Set(submitter),
+          readAs = Set.empty,
+          effectiveAt = effectiveAt,
+          optLocation = None,
+          tx = tx,
+          l = ledger,
+        )
+        .fold(
+          err => throw new RuntimeException(err.toString),
+          result => {
+            ledger = result.newLedger
+            result.richTransaction.transaction
+          },
+        )
+
+    def get(submitter: Party, effectiveAt: Time.Timestamp)(
+        id: ContractId
+    ): Option[ContractInst[VersionedValue[ContractId]]] = {
+      ledger.lookupGlobalContract(
+        ParticipantView(Set(submitter), Set.empty),
+        effectiveAt,
+        id,
+      ) match {
+        case LookupOk(_, coinst, _) => Some(coinst)
+        case _: LookupContractNotEffective | _: LookupContractNotActive |
+            _: LookupContractNotVisible | _: LookupContractNotFound =>
+          None
+      }
+    }
+  }
 
   private def hash(s: String, i: Int) =
     crypto.Hash.hashPrivateKey(s + ":" + i.toString)
@@ -64,7 +113,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       testName in {
         report(
           testName,
-          testLargeTransactionOneContract(InMemoryPrivateLedgerData(), engine)(txSize),
+          testLargeTransactionOneContract(engine)(txSize),
         )
       }
     }
@@ -75,7 +124,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       testName in {
         report(
           testName,
-          testLargeTransactionManySmallContracts(InMemoryPrivateLedgerData(), engine)(txSize),
+          testLargeTransactionManySmallContracts(engine)(txSize),
         )
       }
     }
@@ -84,17 +133,18 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     .foreach { txSize =>
       val testName = s"execute choice with a List of $txSize Ints"
       testName in {
-        report(testName, testLargeChoiceArgument(InMemoryPrivateLedgerData(), engine)(txSize))
+        report(testName, testLargeChoiceArgument(engine)(txSize))
       }
     }
 
-  private def testLargeTransactionOneContract(pcs: PrivateLedgerData, engine: Engine)(
+  private def testLargeTransactionOneContract(engine: Engine)(
       txSize: Int
   ): Quantity[Double] = {
+    val ledger = new MutableLedger()
     val rangeOfIntsTemplateId = Identifier(largeTx._1, qn("LargeTransaction:RangeOfInts"))
     val createCmd = rangeOfIntsCreateCmd(rangeOfIntsTemplateId, 0, 1, txSize)
-    val createCmdTx: Transaction =
-      submitCommand(pcs, engine)(
+    val createCmdTx =
+      submitCommand(ledger, engine)(
         submitter = party,
         cmd = createCmd,
         cmdReference = "create RangeOfInts",
@@ -106,7 +156,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     }
     val exerciseCmd = toListContainerExerciseCmd(rangeOfIntsTemplateId, contractId)
     val (exerciseCmdTx, quanity) = measureWithResult(
-      submitCommand(pcs, engine)(
+      submitCommand(ledger, engine)(
         submitter = party,
         cmd = exerciseCmd,
         cmdReference = "exercise RangeOfInts.ToListContainer",
@@ -118,13 +168,14 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     quanity
   }
 
-  private def testLargeTransactionManySmallContracts(pcs: PrivateLedgerData, engine: Engine)(
+  private def testLargeTransactionManySmallContracts(engine: Engine)(
       num: Int
   ): Quantity[Double] = {
+    val ledger = new MutableLedger()
     val rangeOfIntsTemplateId = Identifier(largeTx._1, qn("LargeTransaction:RangeOfInts"))
     val createCmd = rangeOfIntsCreateCmd(rangeOfIntsTemplateId, 0, 1, num)
     val createCmdTx: Transaction =
-      submitCommand(pcs, engine)(
+      submitCommand(ledger, engine)(
         submitter = party,
         cmd = createCmd,
         cmdReference = "create RangeOfInts",
@@ -136,7 +187,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     }
     val exerciseCmd = toListOfIntContainers(rangeOfIntsTemplateId, contractId)
     val (exerciseCmdTx, quanity) = measureWithResult(
-      submitCommand(pcs, engine)(
+      submitCommand(ledger, engine)(
         submitter = party,
         cmd = exerciseCmd,
         cmdReference = "exercise RangeOfInts.ToListContainer",
@@ -148,13 +199,14 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     quanity
   }
 
-  private def testLargeChoiceArgument(pcs: PrivateLedgerData, engine: Engine)(
+  private def testLargeChoiceArgument(engine: Engine)(
       size: Int
   ): Quantity[Double] = {
+    val ledger = new MutableLedger()
     val listUtilTemplateId = Identifier(largeTx._1, qn("LargeTransaction:ListUtil"))
     val createCmd = listUtilCreateCmd(listUtilTemplateId)
     val createCmdTx: Transaction =
-      submitCommand(pcs, engine)(
+      submitCommand(ledger, engine)(
         submitter = party,
         cmd = createCmd,
         cmdReference = "create ListUtil",
@@ -166,7 +218,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     }
     val exerciseCmd = sizeExerciseCmd(listUtilTemplateId, contractId)(size)
     val (exerciseCmdTx, quantity) = measureWithResult(
-      submitCommand(pcs, engine)(
+      submitCommand(ledger, engine)(
         submitter = party,
         cmd = exerciseCmd,
         cmdReference = "exercise ListUtil.Size",
@@ -213,21 +265,22 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     } shouldBe expectedNumberOfContracts
   }
 
-  private def submitCommand(pcs: PrivateLedgerData, engine: Engine)(
+  private def submitCommand(ledger: MutableLedger, engine: Engine)(
       submitter: Party,
       cmd: Command,
       cmdReference: String,
       seed: crypto.Hash,
-  ): Tx.Transaction = {
+  ): Transaction = {
+    val effectiveAt = Time.Timestamp.now()
     engine
       .submit(
         submitters = Set(submitter),
-        Commands(ImmArray(cmd), Time.Timestamp.now(), cmdReference),
+        Commands(ImmArray(cmd), effectiveAt, cmdReference),
         participant,
         seed,
       )
       .consume(
-        pcs.get,
+        ledger.get(submitter, effectiveAt),
         lookupPackage,
         { _ =>
           sys.error("TODO keys for LargeTransactionTest")
@@ -239,8 +292,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       case Left(err) =>
         fail(s"Unexpected error: $err")
       case Right((tx, _)) =>
-        pcs.update(tx)
-        tx
+        ledger.commit(submitter, effectiveAt, tx)
     }
   }
 
