@@ -96,7 +96,7 @@ class TelemetrySpec
       val spanAttributes = spanExporter.finishedSpanAttributes
       spanAttributes should contain(anApplicationIdSpanAttribute)
 
-      assertThrown
+      assertExceptionRecorded
     }
   }
 
@@ -131,12 +131,12 @@ class TelemetrySpec
           val spanAttributes = spanExporter.finishedSpanAttributes
           spanAttributes should contain(anApplicationIdSpanAttribute)
 
-          assertThrown
+          assertExceptionRecorded
         }
     }
   }
 
-  private def assertThrown: Assertion = {
+  private def assertExceptionRecorded: Assertion = {
     val evenAttributes = spanExporter.finishedEventAttributes
     evenAttributes should contain(
       SpanAttribute(SemanticAttributes.EXCEPTION_TYPE) -> anExceptionName
