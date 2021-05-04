@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @SINCE-LF 1.13
--- @ERROR Large BigNumeric literals are not currently supported.
+-- @ERROR Large BigNumeric (larger than Numeric) literals are not currently supported.
 
 module BigNumericTooBig where
 
