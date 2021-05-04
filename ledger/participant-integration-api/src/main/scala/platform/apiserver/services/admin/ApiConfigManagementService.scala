@@ -29,7 +29,7 @@ import com.daml.platform.apiserver.services.logging
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.server.api.validation
 import com.daml.platform.server.api.validation.ErrorFactories
-import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
+import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.compat.java8.FutureConverters._
@@ -86,6 +86,10 @@ private[apiserver] final class ApiConfigManagementService private (
     withEnrichedLoggingContext(logging.submissionId(request.submissionId)) {
       implicit loggingContext =>
         logger.info("Setting time model")
+
+        implicit val telemetryContext: TelemetryContext =
+          DefaultTelemetry.contextFromGrpcThreadLocalContext()
+
         val response = for {
           // Validate and convert the request parameters
           params <- validateParameters(request).fold(Future.failed(_), Future.successful)
@@ -129,7 +133,7 @@ private[apiserver] final class ApiConfigManagementService private (
           entry <- synchronousResponse.submitAndWait(
             submissionId,
             (params.maximumRecordTime, newConfig),
-          )(NoOpTelemetryContext, executionContext, materializer)
+          )
         } yield SetTimeModelResponse(entry.configuration.generation)
 
         response.andThen(logger.logErrorsOnCall[SetTimeModelResponse])

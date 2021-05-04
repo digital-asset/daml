@@ -4,5 +4,6 @@
 package com.daml.telemetry
 
 object SpanName {
-  val RunnerUploadDar: String = "daml.runner.upload-dar"
+  val LedgerConfigProviderInitialConfig = "daml.ledger.config-provider.initial-config"
+  val RunnerUploadDar = "daml.runner.upload-dar"
 }

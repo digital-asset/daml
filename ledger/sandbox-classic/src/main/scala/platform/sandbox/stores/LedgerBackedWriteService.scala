@@ -91,7 +91,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
       config: Configuration,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
       "maxRecordTime" -> maxRecordTime.toInstant.toString,
       "submissionId" -> submissionId,

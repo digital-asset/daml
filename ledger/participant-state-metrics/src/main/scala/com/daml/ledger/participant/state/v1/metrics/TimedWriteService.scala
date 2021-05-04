@@ -55,7 +55,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
       config: Configuration,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.daml.services.write.submitConfiguration,
       delegate.submitConfiguration(maxRecordTime, submissionId, config),
