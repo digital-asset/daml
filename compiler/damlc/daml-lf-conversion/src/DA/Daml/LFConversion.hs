@@ -335,18 +335,16 @@ convertRationalNumericMono env scale num denom
 -- values that will fit in a Numeric.
 convertRationalBigNumeric :: Integer -> Integer -> ConvertM LF.Expr
 convertRationalBigNumeric num denom = case numericFromRational rational of
-    Left error -> invalid
+    Left _ -> invalid
     Right n ->
         let scale = numericScale n
         in pure (EBuiltin BEFromNumericBigNumeric
             `ETyApp` TNat (typeLevelNat scale)
-            `ETmApp` EBuiltin (BENumeric $ numeric
-                (fromIntegral scale)
-                ((num * 10^scale) `div` denom)))
+            `ETmApp` EBuiltin (BENumeric n))
 
     where
         rational = num % denom
-        invalid = unsupported "Large BigNumeric (larger than Numeric) literals are not currently supported. Please construct the number from smaller literals." ()
+        invalid = unsupported "Large BigNumeric (larger than Numeric) literals are not currently supported. Please construct the number from smaller literals" ()
 
 data TemplateBinds = TemplateBinds
     { tbTyCon :: Maybe GHC.TyCon
