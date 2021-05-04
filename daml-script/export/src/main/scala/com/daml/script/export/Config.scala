@@ -11,7 +11,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 final case class Config(
     ledgerHost: String,
     ledgerPort: Int,
-    parties: List[String],
+    parties: Seq[String],
     start: LedgerOffset,
     end: LedgerOffset,
     exportType: Option[ExportType],
@@ -50,10 +50,10 @@ object Config {
       .required()
       .action((x, c) => c.copy(ledgerPort = x))
       .text("Daml ledger port to connect to.")
-    opt[String]("party")
+    opt[Seq[String]]("party")
       .required()
       .unbounded()
-      .action((x, c) => c.copy(parties = x.split(",").toList ++ c.parties))
+      .action((x, c) => c.copy(parties = c.parties ++ x.toList))
       .text(
         "Export ledger state as seen by these parties. " +
           "Pass --party multiple times or use a comma-separated list of party names to specify multiple parties."
