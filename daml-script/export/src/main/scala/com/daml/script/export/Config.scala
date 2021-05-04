@@ -63,7 +63,7 @@ object Config {
       )
     opt[String]("end")
       .optional()
-      .action((x, c) => c.copy(start = parseLedgerOffset(x)))
+      .action((x, c) => c.copy(end = parseLedgerOffset(x)))
       .text(
         "The transaction offset (inclusive) for the end position of the export. Optional, by default the export includes the current end of the ledger."
       )
