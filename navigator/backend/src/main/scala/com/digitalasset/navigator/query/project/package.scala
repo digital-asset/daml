@@ -223,9 +223,6 @@ object project {
                   Left(TypeCoercionFailure("GenMap index", "int", cursor, cursor.current))
               }
           }
-        case V.ValueBuiltinException(_, _) =>
-          // TODO https://github.com/digital-asset/daml/issues/8020
-          sys.error("exceptions not supported")
       }
     loop(rootArgument, cursor.prev.get)
   }

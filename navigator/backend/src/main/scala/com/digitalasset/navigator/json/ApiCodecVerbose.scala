@@ -50,10 +50,6 @@ object ApiCodecVerbose {
   def apiValueToJsValue(value: Model.ApiValue): JsValue = value match {
     case v: Model.ApiRecord => apiRecordToJsValue(v)
     case v: Model.ApiVariant => apiVariantToJsValue(v)
-    case _: Model.ApiBuiltinException =>
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      //apiBuiltinExceptionToJsValue(v)
-      sys.error("exceptions not supported")
     case v: V.ValueEnum => apiEnumToJsValue(v)
     case v: Model.ApiList => apiListToJsValue(v)
     case V.ValueText(v) => JsObject(propType -> JsString(tagText), propValue -> JsString(v))

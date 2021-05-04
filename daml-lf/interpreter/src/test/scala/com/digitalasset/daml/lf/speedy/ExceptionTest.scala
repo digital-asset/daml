@@ -153,10 +153,10 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
        module M {
 
          val unhandled1 : Update Int64 =
-            upure @Int64 (ADD_INT64 10 (throw @Int64 @GeneralError (MAKE_GENERAL_ERROR "oops1")));
+            upure @Int64 (ADD_INT64 10 (throw @Int64 @M:E1 (M:E1 {})));
 
          val unhandled2 : Update Int64 =
-            try @Int64 (upure @Int64 (ADD_INT64 10 (throw @Int64 @GeneralError (MAKE_GENERAL_ERROR "oops2"))))
+            try @Int64 (upure @Int64 (ADD_INT64 10 (throw @Int64 @M:E1 (M:E1 {}))))
             catch e -> None @(Update Int64);
 
          record @serializable E1 = { } ;
@@ -180,18 +180,15 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       (
         "M:unhandled1",
         SResultError(
-          DamlEUnhandledException(
-            TBuiltin(BTGeneralError),
-            ValueBuiltinException("GeneralError", ValueText("oops1")),
-          )
+          DamlEUnhandledException(TTyCon(e1), ValueRecord(Some(e1), data.ImmArray.empty))
         ),
       ),
       (
         "M:unhandled2",
         SResultError(
           DamlEUnhandledException(
-            TBuiltin(BTGeneralError),
-            ValueBuiltinException("GeneralError", ValueText("oops2")),
+            TTyCon(e1),
+            ValueRecord(Some(e1), data.ImmArray.empty),
           )
         ),
       ),
@@ -211,31 +208,6 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
     forEvery(testCases) { (exp: String, expected: SResult) =>
       s"eval[$exp] --> $expected" in {
-        runUpdateExpr(pkgs)(e"$exp") shouldBe expected
-      }
-    }
-  }
-
-  "throw/catch (GeneralError)" should {
-
-    // Basic throw/catch example for a builtin (GeneralError) exception
-
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
-       module M {
-         val throwAndCatch : Update Int64 =
-           try @Int64 (upure @Int64 (ADD_INT64 10 (throw @Int64 @GeneralError (MAKE_GENERAL_ERROR "oops"))))
-           catch e -> Some @(Update Int64) (upure @Int64 77);
-       }
-      """)
-
-    val testCases = Table[String, Long](
-      ("expression", "expected"),
-      ("M:throwAndCatch", 77),
-    )
-
-    forEvery(testCases) { (exp: String, num: Long) =>
-      s"eval[$exp] --> $num" in {
-        val expected: SResult = SResultFinalValue(SValue.SInt64(num))
         runUpdateExpr(pkgs)(e"$exp") shouldBe expected
       }
     }
@@ -470,13 +442,18 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     val pkgs: PureCompiledPackages = typeAndCompile(p"""
       module M {
 
+         record @serializable E = { message: Text } ;
+         exception E = {
+           message \(e: M:E) -> M:E {message} e
+         };
+
         val myThrow : forall (a: *). (Text -> a) =
           /\ (a: *). \(mes : Text) ->
-            throw @a @GeneralError (MAKE_GENERAL_ERROR mes);
+            throw @a @M:E (M:E { message = mes });
 
         val isPayLoad : AnyException -> Text -> Bool =
           \(e: AnyException) (mes: Text) ->
-            EQUAL @AnyException e (to_any_exception @GeneralError (MAKE_GENERAL_ERROR mes)) ;
+            EQUAL @AnyException e (to_any_exception @M:E (M:E { message = mes })) ;
 
         val extractPayload : AnyException -> Int64 =
           \(e: AnyException) ->

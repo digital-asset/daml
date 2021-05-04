@@ -62,8 +62,8 @@ sealed trait SValue {
         V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
       case SContractId(coid) =>
         V.ValueContractId(coid)
-      case SBuiltinException(tag, value) =>
-        V.ValueBuiltinException(tag, value.toValue)
+      case SBuiltinException(_, _) =>
+        throw SErrorCrash("SValue.toValue: unexpected SBuiltinException")
       case SStruct(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SStruct")
       case SAny(_, _) =>

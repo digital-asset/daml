@@ -217,9 +217,6 @@ package object filter {
               }
 
           }
-        case V.ValueBuiltinException(_, _) =>
-          // TODO https://github.com/digital-asset/daml/issues/8020
-          sys.error("exceptions not supported")
       }
 
     loop(rootArgument, cursor.prev.get)
