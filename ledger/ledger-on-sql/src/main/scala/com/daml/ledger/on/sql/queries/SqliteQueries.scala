@@ -32,7 +32,7 @@ final class SqliteQueries(override protected implicit val connection: Connection
     }.flatMap(_ => lastInsertId())
 
   override protected val updateStateQuery: String =
-    s"INSERT INTO $StateTable VALUES ({key}, {value}) ON CONFLICT(key) DO UPDATE SET value = {value}"
+    s"INSERT INTO $StateTable (key, key_hash, value) VALUES ({key}, {key_hash}, {value}) ON CONFLICT(key_hash) DO UPDATE SET value = {value}"
 
   private def lastInsertId(): Try[Index] = Try {
     SQL"SELECT LAST_INSERT_ROWID() AS row_id"

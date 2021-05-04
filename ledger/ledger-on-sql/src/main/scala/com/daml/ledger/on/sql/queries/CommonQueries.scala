@@ -40,8 +40,9 @@ trait CommonQueries extends Queries {
       keys: Iterable[Raw.StateKey]
   ): Try[immutable.Seq[Option[Raw.Envelope]]] =
     Try {
+      val keyHashes = keys.toSeq.map(StateKeyHashing.hash)
       val results =
-        SQL"SELECT key, value FROM #$StateTable WHERE key IN (${keys.toSeq})"
+        SQL"SELECT key, value FROM #$StateTable WHERE key_hash IN ($keyHashes)"
           .fold(Map.newBuilder[Raw.StateKey, Raw.Envelope], ColumnAliaser.empty) { (builder, row) =>
             builder += row("key")(columnToRawStateKey) -> row("value")(columnToRawEnvelope)
           }
@@ -53,7 +54,11 @@ trait CommonQueries extends Queries {
     executeBatchSql(
       updateStateQuery,
       stateUpdates.map { case (key, value) =>
-        Seq[NamedParameter]("key" -> key, "value" -> value)
+        Seq[NamedParameter](
+          "key" -> key,
+          "key_hash" -> StateKeyHashing.hash(key),
+          "value" -> value,
+        )
       },
     )
   }

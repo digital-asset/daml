@@ -42,6 +42,7 @@ object Tests {
       new RaceConditionIT,
       new SemanticTests,
       new TransactionServiceIT,
+      new ValueLimitsIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
     ) ++ (if (supportsExceptions) Vector(new ExceptionsIT) else Vector.empty)

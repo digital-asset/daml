@@ -54,6 +54,6 @@ object BridgeLedgerFactory extends LedgerFactory[ReadWriteServiceBridge, BridgeC
 
   override val defaultExtraConfig: BridgeConfig = BridgeConfig(
     maxDedupSeconds = 30,
-    submissionBufferSize = 200,
+    submissionBufferSize = 500,
   )
 }

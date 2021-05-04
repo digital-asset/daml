@@ -473,4 +473,4 @@ CREATE VIEW participant_events
 
 -- completions table
 --------------------
-CREATE INDEX participant_command_completion_offset_application_idx ON participant_command_completions USING btree (completion_offset, application_id, submitters);
+CREATE INDEX participant_command_completion_offset_application_idx ON participant_command_completions USING btree (completion_offset, application_id);
