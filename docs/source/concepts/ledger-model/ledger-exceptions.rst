@@ -73,35 +73,35 @@ moment, for some reason, and a "cancel" exercise has been issued in response.
 Integrity
 +++++++++
 
-The notion of a ledger action coming "after" another ledger action must
-be revised in the presence of rollback nodes. It is not enough to traverse
-the transaction tree in prefix order, because the actions under a rollback
-were rolled back.
+In a previous section on :ref:`consistency <da-model-consistency>`,
+we defined a before-after relation on ledger actions. This notion needs
+to be revised in the presence of rollback nodes. It is no longer enough to
+traverse the transaction tree in prefix order, because the actions under a
+rollback were rolled back, and cannot affect actions that appear later in
+the transaction tree.
 
 For example, a contract may be consumed by an exercise under a rollback node,
 and immediately again after the rollback node. This is allowed because the
 exercise was rolled back, and this does not represent a "double spend" of
-the same contract.
+the same contract. You can see this in the nested example above, where
+the PaintOffer contract is consumed by an "agree" exercise, which is rolled
+back, and then by a "cancel" exercise.
 
-We define the "after" relation as a partial order, rather than a total order,
-on all the actions of a transaction. This relation is defined as follows:
-`act2` comes after `act1` if and only if `act2` appears after `act1` in a
-pre-order traversal of the transaction tree, and any rollback nodes that
-are ancestors of `act1` are also ancestors of `act2`.
+So, we now define the "before-after" relation as a partial order, rather than a
+total order, on all the actions of a transaction. This relation is defined
+as follows: `act1` comes before `act2` (equivalently, `act2` comes after `act1`)
+if and only if `act1` appears before `act2` in a prefix traversal of the
+transaction tree, and any rollback nodes that are ancestors of `act1` are
+also ancestors of `act2`.
 
-With this modified "after" relation, the notion of internal consistency
-remains the same. Meaning that, for any contract `c`, we still forbid the
-create of `c` coming after any action on `c`, and we forbid any action on
-`c` coming after a consuming exercise on `c`.
+With this modified "before-after" relation, the notion of internal consistency
+remains the same. Meaning that, for example, for any contract `c`, we still
+forbid the creation of `c` coming after any action on `c`, and we forbid any
+action on `c` coming after a consuming exercise on `c`.
 
-In the example of a consuming exercise in a rollback node, followed by a
-consuming exercise on the same contract outside of the rollback node,
-neither consuming exercise comes "after" the other. They are part of
-separate continuities, one of which was rolled back, and so they don't
-break the ledger integrity.
-
-In the deeply nested example above, there are three continuities implied
-by the "after" relation. The first:
+In the example above,  neither consuming exercise comes "after" the other.
+They are part of separate "continuities", so they don't introduce inconsistency.
+Here are three continuities implied by the "before-after" relation. The first:
 
 .. image:: ./images/exception-integrity-continuity-1.svg
    :align: center
