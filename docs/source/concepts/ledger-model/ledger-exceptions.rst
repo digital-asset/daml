@@ -256,6 +256,18 @@ variation that may occur in a projected rollback node. Thus, our privacy
 requirement is satisfied, as well as our requirements to preserve the
 "after" relation and the set of rolled back actions.
 
+Consider the deeply nested example from before. To calculate the projection
+for Bank1, we note that the only visible action is the bottom left exercise.
+Removing the actions that Bank1 isn't an informee of, this results in a
+transaction containing a rollback node containing a rollback node containing
+an exercise. After normalization, this becomes a simple rollback node
+containing an exercise. See below:
+
+.. https://lucid.app/lucidchart/1714e8d2-0c2d-4bbf-9b48-2266b2cd6c9d/edit
+.. image:: ./images/exception-projection-example.svg
+   :align: center
+   :width: 80%
+
 The privacy section of the ledger model makes a point of saying that a
 contract model should be **subaction-closed** to support projections. But
 this requirement is not necessarily true once we introduce rollbacks.
@@ -293,15 +305,10 @@ at the start of the "try" block. The rollback node contains the create and
 exercise nodes. After the rollback node, another contract is created.
 Thus the final transaction looks like this:
 
-.. code-block:: none
-
-   [
-     'Rollback' [ 'Create' cid 'MyContract', 'Exercise' cid 'MyChoice' ],
-     'Create' cid2 'MyOtherContract'
-   ]
-
-..
-   TODO: Add diagram here instead.
+.. https://lucid.app/lucidchart/2d48d3db-bfcd-4936-b3f2-efe29470b2b6/edit
+.. image:: ./images/exception-daml-example.svg
+   :align: center
+   :width: 80%
 
 Note that rollback nodes are only created if an exception is *caught*. An
 uncaught exception will result in an error, not a transaction.
