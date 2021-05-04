@@ -1256,13 +1256,14 @@ private[lf] object SBuiltin {
         onLedger: OnLedger,
         operation: KeyOperation,
     ): Unit = {
+      import PartialTransaction.{KeyActive, KeyInactive}
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       if (keyWithMaintainers.maintainers.isEmpty)
         throw DamlEFetchEmptyContractKeyMaintainers(templateId, keyWithMaintainers.key)
       val gkey = GlobalKey(templateId, keyWithMaintainers.key)
       // check if we find it locally
       onLedger.ptx.keys.get(gkey) match {
-        case Some(Some(coid)) if onLedger.ptx.localContracts.contains(coid) =>
+        case Some(KeyActive(coid)) if onLedger.ptx.localContracts.contains(coid) =>
           val cachedContract = onLedger.cachedContracts
             .get(coid)
             .getOrElse(crash(s"Local contract $coid not in cachedContracts"))
@@ -1281,9 +1282,9 @@ private[lf] object SBuiltin {
               },
             )
           )
-        case Some(Some(coid)) =>
+        case Some(KeyActive(coid)) =>
           machine.returnValue = operation.cidToSValue(coid)
-        case Some(None) =>
+        case Some(KeyInactive) =>
           operation.handleKeyArchived(machine, gkey)
         case None =>
           // Check if we have a cached global key result.
@@ -1291,9 +1292,9 @@ private[lf] object SBuiltin {
             case Some(optCid) =>
               onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys.updated(gkey, optCid))
               optCid match {
-                case Some(cid) =>
+                case KeyActive(cid) =>
                   machine.returnValue = operation.cidToSValue(cid)
-                case None =>
+                case KeyInactive =>
                   operation.handleKeyArchived(machine, gkey)
               }
             case None =>
@@ -1306,8 +1307,8 @@ private[lf] object SBuiltin {
                   {
                     case SKeyLookupResult.Found(cid) =>
                       onLedger.ptx = onLedger.ptx.copy(
-                        keys = onLedger.ptx.keys + (gkey -> Some(cid)),
-                        globalKeyInputs = onLedger.ptx.globalKeyInputs + (gkey -> Some(cid)),
+                        keys = onLedger.ptx.keys + (gkey -> KeyActive(cid)),
+                        globalKeyInputs = onLedger.ptx.globalKeyInputs + (gkey -> KeyActive(cid)),
                       )
                       // We have to check that the discriminator of cid does not conflict with a local ones
                       // however we cannot raise an exception in case of failure here.
@@ -1316,8 +1317,8 @@ private[lf] object SBuiltin {
                       true
                     case SKeyLookupResult.NotFound =>
                       onLedger.ptx = onLedger.ptx.copy(
-                        keys = onLedger.ptx.keys + (gkey -> None),
-                        globalKeyInputs = onLedger.ptx.globalKeyInputs + (gkey -> None),
+                        keys = onLedger.ptx.keys + (gkey -> KeyInactive),
+                        globalKeyInputs = onLedger.ptx.globalKeyInputs + (gkey -> KeyInactive),
                       )
                       operation.handleKeyNotFound(machine)
                     case SKeyLookupResult.NotVisible =>
