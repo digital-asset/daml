@@ -3,12 +3,12 @@
 
 package com.daml.resources
 
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{Executors, TimeUnit}
 
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.resources.ProgramResource._
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -21,11 +21,12 @@ final class ProgramResource[Context: HasExecutionContext, T](
 ) {
   private val logger = ContextualizedLogger.get(getClass)
 
-  private val executorService = Executors.newCachedThreadPool(
-    new ThreadFactoryBuilder()
-      .setNameFormat("program-resource-pool-%d")
-      .build()
-  )
+  private val executorService = {
+    val counter = new AtomicLong(0L)
+    Executors.newCachedThreadPool((runnable: Runnable) =>
+      new Thread(runnable, s"program-resource-pool-${counter.incrementAndGet()}")
+    )
+  }
 
   def run(newContext: ExecutionContext => Context): Unit = {
     newLoggingContext { implicit loggingContext =>
