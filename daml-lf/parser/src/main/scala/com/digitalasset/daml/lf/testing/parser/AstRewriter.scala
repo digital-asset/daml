@@ -25,7 +25,7 @@ private[daml] class AstRewriter(
       name = module.name,
       definitions = module.definitions.transform((_, x) => apply(x)),
       templates = module.templates.transform((_, x) => apply(x)),
-      exceptions = module.exceptions,
+      exceptions = module.exceptions.transform((_, x) => apply(x)),
       featureFlags = module.featureFlags,
     )
 
@@ -258,6 +258,10 @@ private[daml] class AstRewriter(
         TemplateKey(apply(typ), apply(body), apply(maintainers))
     }
 
+  def apply(x: DefException): DefException =
+    x match {
+      case DefException(message) => DefException(apply(message))
+    }
 }
 
 object AstRewriter {

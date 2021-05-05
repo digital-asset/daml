@@ -135,6 +135,18 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
            val isZero: Int64 -> Bool = EQUAL @Int64 0;
            val isOne: BigNumeric -> Bool = EQUAL @BigNumeric (TO_BIGNUMERIC_NUMERIC @10 1.0000000000);
            val defaultRounding: RoundingMode = ROUNDING_UP;
+
+           record @serializable MyException = { message: Text } ;
+           exception MyException = {
+             message \(e: Mod:MyException) -> Mod:MyException {message} e
+           };
+
+           val testException: Update Unit = ubind
+              u1: Unit <-
+                try @Unit
+                  throw @(Update Unit) @Mod:MyException (Mod:MyException {message = "oops"})
+                catch e -> Some @(Update Unit) (upure @Unit ())
+            in upure @Unit ();
          }
         
       """
