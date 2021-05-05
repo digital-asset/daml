@@ -351,7 +351,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
             SELet1General(
               SEVal(LfDefRef(qualify("M:origin"))),
               SEAppAtomicSaturatedBuiltin(
-                SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                SBRecUpdMulti(qualify("M:Point"), ImmArray(0, 1)),
                 Array(
                   SELocS(1),
                   SEValue(SInt64(1)),
@@ -392,7 +392,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
               SELocation(
                 mkLocation(0),
                 SEAppAtomicSaturatedBuiltin(
-                  SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                  SBRecUpdMulti(qualify("M:Point"), ImmArray(0, 1)),
                   Array(
                     SELocS(1),
                     SEValue(SInt64(3)),
@@ -431,7 +431,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
                     SELet1General(
                       SEAppAtomicGeneral(SELocS(1), Array(SEValue(SInt64(4)))),
                       SEAppAtomicSaturatedBuiltin(
-                        SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                        SBRecUpdMulti(qualify("M:Point"), ImmArray(0, 1)),
                         Array(
                           SELocS(5),
                           SELocS(3),
@@ -465,7 +465,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
             SELet1General(
               SEVal(LfDefRef(qualify("M:origin"))),
               SEAppAtomicSaturatedBuiltin(
-                SBRecUpdMulti(qualify("M:Point"), Array(0, 1, 0)),
+                SBRecUpdMulti(qualify("M:Point"), ImmArray(0, 1, 0)),
                 Array(
                   SELocS(1),
                   SEValue(SInt64(1)),

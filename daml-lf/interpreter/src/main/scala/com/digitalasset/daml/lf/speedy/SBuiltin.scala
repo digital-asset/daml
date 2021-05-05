@@ -753,8 +753,7 @@ private[lf] object SBuiltin {
 
   /** $rcon[R, fields] :: a -> b -> ... -> R */
   final case class SBRecCon(id: Identifier, fields: ImmArray[Name])
-      extends SBuiltinPure(fields.length)
-      with SomeArrayEquals {
+      extends SBuiltinPure(fields.length) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       SRecord(id, fields, args)
     }
@@ -774,9 +773,8 @@ private[lf] object SBuiltin {
   }
 
   /** $rupdmulti[R, [field_1, ..., field_n]] :: R -> a_1 -> ... -> a_n -> R */
-  final case class SBRecUpdMulti(id: Identifier, updateFields: Array[Int])
-      extends SBuiltinPure(1 + updateFields.length)
-      with SomeArrayEquals {
+  final case class SBRecUpdMulti(id: Identifier, updateFields: ImmArray[Int])
+      extends SBuiltinPure(1 + updateFields.length) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       val record = getSRecord(args, 0)
       if (record.id != id) {
