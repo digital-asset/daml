@@ -68,12 +68,6 @@ object ValueValidator {
     case Sum.Int64(value) => Right(Lf.ValueInt64(value))
     case Sum.Record(rec) =>
       validateRecord(rec)
-    // TODO https://github.com/digital-asset/daml/issues/8020
-    /*case Sum.BuiltinException(api.BuiltinException(tag, value)) =>
-      for {
-        v <- requirePresence(value, "value")
-        validatedValue <- validateValue(v)
-      } yield Lf.ValueBuiltinException(tag, validatedValue)*/
     case Sum.Variant(api.Variant(variantId, constructor, value)) =>
       for {
         validatedVariantId <- validateOptionalIdentifier(variantId)
