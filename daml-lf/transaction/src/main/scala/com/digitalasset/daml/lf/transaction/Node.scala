@@ -49,7 +49,7 @@ object Node {
   /** action nodes parametrized over identifier type */
   sealed abstract class GenActionNode[+Nid, +Cid]
       extends GenNode[Nid, Cid]
-      with NodeInfo
+      with ActionNodeInfo
       with CidContainer[GenActionNode[Nid, Cid]] {
 
     def templateId: TypeConName
@@ -231,7 +231,7 @@ object Node {
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyActionNode[Cid]
-      with NodeInfo.Create {
+      with ActionNodeInfo.Create {
 
     override def byKey: Boolean = false
 
@@ -261,7 +261,7 @@ object Node {
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyActionNode[Cid]
-      with NodeInfo.Fetch {
+      with ActionNodeInfo.Fetch {
 
     override private[lf] def updateVersion(version: TransactionVersion): NodeFetch[Cid] =
       copy(version = version)
@@ -293,7 +293,7 @@ object Node {
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends GenActionNode[Nid, Cid]
-      with NodeInfo.Exercise {
+      with ActionNodeInfo.Exercise {
     @deprecated("use actingParties instead", since = "1.1.2")
     private[daml] def controllers: actingParties.type = actingParties
 
@@ -320,7 +320,7 @@ object Node {
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyActionNode[Cid]
-      with NodeInfo.LookupByKey {
+      with ActionNodeInfo.LookupByKey {
 
     override def keyMaintainers: Set[Party] = key.maintainers
     override def hasResult: Boolean = result.isDefined
