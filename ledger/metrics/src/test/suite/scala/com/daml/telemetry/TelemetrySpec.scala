@@ -6,9 +6,9 @@ package com.daml.telemetry
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.context.Context
 import io.opentelemetry.semconv.trace.attributes.SemanticAttributes
-import org.scalatest.{Assertion, BeforeAndAfterEach}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpecLike
+import org.scalatest.{Assertion, BeforeAndAfterEach}
 
 import scala.concurrent.Future
 import scala.util.Try
