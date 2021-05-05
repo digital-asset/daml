@@ -35,7 +35,7 @@ private[export] object Encode {
       Doc.hardLine +
       encodePartyType() /
       Doc.hardLine +
-      encodeGetParty() /
+      encodeLookupParty() /
       Doc.hardLine +
       encodeAllocateParties(export.partyMap) /
       Doc.hardLine +
@@ -62,7 +62,7 @@ private[export] object Encode {
   }
 
   private def encodePartyBinding(party: Party, binding: String): Doc =
-    s"let $binding = getParty" &: quotes(Doc.text(Party.unwrap(party))) :& "parties"
+    s"let $binding = lookupParty" &: quotes(Doc.text(Party.unwrap(party))) :& "parties"
 
   private def encodeTestExport(): Doc =
     Doc.text("-- | Test 'export' with freshly allocated parties and") /
@@ -113,10 +113,10 @@ private[export] object Encode {
         },
       ) :& "])").indent(2)
 
-  private def encodeGetParty(): Doc =
+  private def encodeLookupParty(): Doc =
     Doc.text("-- | Look-up a party based on the party name in the original ledger state.") /
-      Doc.text("getParty : DA.Stack.HasCallStack => Text -> Parties -> Party") /
-      (Doc.text("getParty old parties =") /
+      Doc.text("lookupParty : DA.Stack.HasCallStack => Text -> Parties -> Party") /
+      (Doc.text("lookupParty old parties =") /
         (Doc.text("case DA.TextMap.lookup old parties of") /
           Doc.text("None -> error (\"Missing party \" <> old)") /
           Doc.text("Some new -> new")).nested(2)).nested(2)
