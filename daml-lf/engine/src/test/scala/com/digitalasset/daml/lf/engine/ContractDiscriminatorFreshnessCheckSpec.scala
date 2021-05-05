@@ -185,7 +185,7 @@ class ContractDiscriminatorFreshnessCheckSpec
         .toMap
         .lift
 
-      def run(cmd: command.Command) =
+      def run(cmd: command.ApiCommand) =
         submit(
           ImmArray(
             command.CreateCommand(tmplId, contractRecord(alice, 0, List.empty)),
@@ -256,7 +256,7 @@ class ContractDiscriminatorFreshnessCheckSpec
         .toMap
         .lift
 
-      def run(cmd: command.Command) =
+      def run(cmd: command.ApiCommand) =
         submit(
           ImmArray(
             cmd,

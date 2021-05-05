@@ -71,17 +71,17 @@ final case class CreateAndExerciseCommand(
     choiceArgument: Value[Value.ContractId],
 ) extends ApiCommand
 
-final case class Fetch(
+final case class FetchCommand(
     templateId: Identifier,
     coid: Value.ContractId,
 ) extends Command
 
-final case class FetchByKey(
+final case class FetchByKeyCommand(
     templateId: Identifier,
     key: Value[Value.ContractId],
 ) extends Command
 
-final case class LookupByKey(
+final case class LookupByKeyCommand(
     templateId: Identifier,
     contractKey: Value[Value.ContractId],
 ) extends Command

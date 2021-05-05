@@ -1532,7 +1532,7 @@ class EngineTest
           engine
             .reinterpret(
               n.requiredAuthorizers,
-              n,
+              FetchCommand(n.templateId, n.coid),
               txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
               txMeta.submissionTime,
               let,
@@ -1583,16 +1583,9 @@ class EngineTest
     "succeed with a fresh engine, correctly compiling packages" in {
       val engine = Engine.DevEngine()
 
-      val fetchNode = Node.NodeFetch(
-        coid = fetchedCid,
+      val fetchNode = FetchCommand(
         templateId = fetchedTid,
-        optLocation = None,
-        actingParties = Set.empty,
-        signatories = Set.empty,
-        stakeholders = Set.empty,
-        key = None,
-        byKey = false,
-        version = TxVersions.minVersion,
+        coid = fetchedCid,
       )
 
       val let = Time.Timestamp.now()
@@ -1707,7 +1700,7 @@ class EngineTest
           .DevEngine()
           .reinterpret(
             submitters,
-            lookupNode,
+            LookupByKeyCommand(lookupNode.templateId, lookupNode.key.key),
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
             now,
@@ -1748,7 +1741,13 @@ class EngineTest
       val Right((reinterpreted, _)) =
         Engine
           .DevEngine()
-          .reinterpret(submitters, lookupNode, nodeSeedMap.get(nid), txMeta.submissionTime, now)
+          .reinterpret(
+            submitters,
+            LookupByKeyCommand(lookupNode.templateId, lookupNode.key.key),
+            nodeSeedMap.get(nid),
+            txMeta.submissionTime,
+            now,
+          )
           .consume(
             lookupContract,
             lookupPackage,
@@ -1971,7 +1970,7 @@ class EngineTest
 
     val now = Time.Timestamp.now()
     val submissionSeed = hash("wrongly-typed cid")
-    def run(cmds: ImmArray[Command]) =
+    def run(cmds: ImmArray[ApiCommand]) =
       engine
         .submit(Set(alice), Commands(cmds, now, ""), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(Set(alice)))
@@ -2312,7 +2311,7 @@ class EngineTest
           case _ =>
             None
         }
-      def run(cmd: Command) = {
+      def run(cmd: ApiCommand) = {
         val submitters = Set(party)
         val Right((cmds, globalCids)) = preprocessor
           .preprocessCommands(ImmArray(cmd))
@@ -2424,7 +2423,7 @@ class EngineTest
           case _ =>
             None
         }
-      def run(cmd: Command): Int = {
+      def run(cmd: ApiCommand): Int = {
         val submitters = Set(party)
         var keyLookups = 0
         def mockedKeyLookup(key: GlobalKeyWithMaintainers) = {
@@ -2594,10 +2593,22 @@ object EngineTest {
         for {
           previousStep <- acc
           (nodes, roots, dependsOnTime, nodeSeeds, contracts0, keys0) = previousStep
+          cmd = tx.transaction.nodes(nodeId) match {
+            case create: Node.NodeCreate[ContractId] =>
+              CreateCommand(create.templateId, create.arg)
+            case fetch: Node.NodeFetch[ContractId] =>
+              FetchCommand(fetch.templateId, fetch.coid)
+            case lookup: Node.NodeLookupByKey[ContractId] =>
+              LookupByKeyCommand(lookup.templateId, lookup.key.key)
+            case exe: Node.NodeExercises[NodeId, ContractId] =>
+              ExerciseCommand(exe.templateId, exe.targetCoid, exe.choiceId, exe.chosenValue)
+            case _: Node.NodeRollback[NodeId] =>
+              sys.error("unexpected rollback node")
+          }
           currentStep <- engine
             .reinterpret(
               submitters,
-              tx.transaction.nodes(nodeId).asInstanceOf[GenActionNode[NodeId, ContractId]],
+              cmd,
               nodeSeedMap.get(nodeId),
               txMeta.submissionTime,
               ledgerEffectiveTime,

@@ -151,14 +151,14 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
           choiceId,
           choiceArgument,
         )
-      case command.Fetch(templateId, coid) =>
+      case command.FetchCommand(templateId, coid) =>
         (speedy.Command.Fetch(templateId, SValue.SContractId(coid)), Set(coid))
-      case command.FetchByKey(templateId, key) =>
+      case command.FetchByKeyCommand(templateId, key) =>
         val ckTtype = unsafeGetContractKeyType(templateId, unsafeGetTemplate(templateId))
         val (sKey, cids) = valueTranslator.unsafeTranslateValue(ckTtype, key)
         assert(cids.isEmpty)
         (speedy.Command.FetchByKey(templateId, sKey), Set.empty)
-      case command.LookupByKey(templateId, key) =>
+      case command.LookupByKeyCommand(templateId, key) =>
         val ckTtype = unsafeGetContractKeyType(templateId, unsafeGetTemplate(templateId))
         val (sKey, cids) = valueTranslator.unsafeTranslateValue(ckTtype, key)
         assert(cids.isEmpty)
