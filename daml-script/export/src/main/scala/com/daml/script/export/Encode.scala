@@ -55,10 +55,14 @@ private[export] object Encode {
       Doc.text("export : Args -> Script ()") /
       (Doc.text("export Args{parties, contracts} = do") /
         stackNonEmpty(
-          export.actions.map(encodeAction(export.cidMap, export.cidRefs, _))
-            :+ Doc.text("pure ()")
+          export.partyMap.map(Function.tupled(encodePartyBinding)).toSeq ++ export.actions.map(
+            encodeAction(export.partyMap, export.cidMap, export.cidRefs, _)
+          ) :+ Doc.text("pure ()")
         )).hang(2)
   }
+
+  private def encodePartyBinding(party: Party, binding: String): Doc =
+    s"let $binding = getParty" &: quotes(Doc.text(Party.unwrap(party))) :& "parties"
 
   private def encodeTestExport(): Doc =
     Doc.text("-- | Test 'export' with freshly allocated parties and") /
@@ -134,13 +138,14 @@ private[export] object Encode {
   }
 
   private[export] def encodeValue(
+      partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       v: Value.Sum,
   ): Doc = {
     def go(v: Value.Sum): Doc =
       v match {
         case Sum.Empty => throw new IllegalArgumentException("Empty value")
-        case Sum.Record(value) => encodeRecord(cidMap, value)
+        case Sum.Record(value) => encodeRecord(partyMap, cidMap, value)
         // TODO Handle sums of products properly
         case Sum.Variant(value) =>
           parens(
@@ -155,7 +160,7 @@ private[export] object Encode {
         case Sum.Text(t) =>
           // Java-escaping rules should at least be reasonably close to Daml/Haskell.
           Doc.text("\"") + Doc.text(StringEscapeUtils.escapeJava(t)) + Doc.text("\"")
-        case Sum.Party(p) => encodeParty(Party(p))
+        case Sum.Party(p) => encodeParty(partyMap, Party(p))
         case Sum.Bool(b) =>
           Doc.text(if (b) {
             "True"
@@ -221,6 +226,7 @@ private[export] object Encode {
     Doc.stack(docs.filter(_.nonEmpty))
 
   private def encodeRecord(
+      partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       r: Record,
   ): Doc = {
@@ -228,22 +234,22 @@ private[export] object Encode {
       qualifyId(r.getRecordId)
     } else {
       (qualifyId(r.getRecordId) + Doc.text(" with") /
-        Doc.stack(r.fields.map(f => encodeField(cidMap, f)))).nested(2)
+        Doc.stack(r.fields.map(f => encodeField(partyMap, cidMap, f)))).nested(2)
     }
   }
 
   private def encodeField(
+      partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       field: RecordField,
   ): Doc =
-    Doc.text(field.label) + Doc.text(" = ") + encodeValue(cidMap, field.getValue.sum)
+    Doc.text(field.label) + Doc.text(" = ") + encodeValue(partyMap, cidMap, field.getValue.sum)
 
-  private def encodeParty(p: Party): Doc =
-    parens("getParty" &: quotes(Doc.text(Party.unwrap(p))) :& "parties")
+  private def encodeParty(partyMap: Map[Party, String], s: Party): Doc = Doc.text(partyMap(s))
 
-  private def encodeParties(ps: Iterable[Party]): Doc =
+  private def encodeParties(partyMap: Map[Party, String], ps: Iterable[Party]): Doc =
     Doc.text("[") +
-      Doc.intercalate(Doc.text(", "), ps.map(encodeParty(_))) +
+      Doc.intercalate(Doc.text(", "), ps.map(encodeParty(partyMap, _))) +
       Doc.text("]")
 
   private def encodeCid(cidMap: Map[ContractId, String], cid: ContractId): Doc = {
@@ -264,38 +270,40 @@ private[export] object Encode {
     quotes(Doc.text(Choice.unwrap(choice)))
 
   private def encodeCmd(
+      partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cmd: Command,
   ): Doc = cmd match {
     case CreateCommand(createdEvent) =>
-      encodeCreatedEvent(cidMap, createdEvent)
+      encodeCreatedEvent(partyMap, cidMap, createdEvent)
     case ExerciseCommand(exercisedEvent) =>
       val command = Doc.text("exerciseCmd")
       val cid = encodeCid(cidMap, ContractId(exercisedEvent.contractId))
-      val choice = encodeValue(cidMap, exercisedEvent.getChoiceArgument.sum)
+      val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
       command & cid & choice
     case ExerciseByKeyCommand(exercisedEvent, templateId, contractKey) =>
       val command = "exerciseByKeyCmd @" +: qualifyId(templateId)
-      val key = encodeValue(cidMap, contractKey.sum)
-      val choice = encodeValue(cidMap, exercisedEvent.getChoiceArgument.sum)
+      val key = encodeValue(partyMap, cidMap, contractKey.sum)
+      val choice = encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum)
       command.lineOrSpace(key).lineOrSpace(choice).nested(2)
     case CreateAndExerciseCommand(createdEvent, exercisedEvent) =>
       Doc
         .stack(
           Seq(
             Doc.text("createAndExerciseCmd"),
-            encodeRecord(cidMap, createdEvent.getCreateArguments),
-            encodeValue(cidMap, exercisedEvent.getChoiceArgument.sum),
+            encodeRecord(partyMap, cidMap, createdEvent.getCreateArguments),
+            encodeValue(partyMap, cidMap, exercisedEvent.getChoiceArgument.sum),
           )
         )
         .nested(2)
   }
 
   private def encodeCreatedEvent(
+      partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       created: CreatedEvent,
   ): Doc =
-    Doc.text("createCmd ") + encodeRecord(cidMap, created.getCreateArguments)
+    Doc.text("createCmd ") + encodeRecord(partyMap, cidMap, created.getCreateArguments)
 
   private def bindCid(cidMap: Map[ContractId, String], c: CreatedContract): Doc = {
     (Doc.text("let") & encodeCid(cidMap, c.cid) & Doc.text("=") & encodePath(
@@ -305,6 +313,7 @@ private[export] object Encode {
   }
 
   private def encodeSubmitSimple(
+      partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
       submit: SubmitSimple,
@@ -336,10 +345,10 @@ private[export] object Encode {
       } else {
         Doc.empty
       }
-      bind + encodeCmd(cidMap, cmd)
+      bind + encodeCmd(partyMap, cidMap, cmd)
     })
     val body = Doc.stack(Seq(actions, returnStmt).filter(d => d.nonEmpty))
-    ((bind + encodeSubmitCall(submit) :& "do") / body).hang(2)
+    ((bind + encodeSubmitCall(partyMap, submit) :& "do") / body).hang(2)
   }
 
   private[export] def encodeSetTime(timestamp: Timestamp): Doc = {
@@ -347,17 +356,19 @@ private[export] object Encode {
   }
 
   private[export] def encodeSubmit(
+      partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
       submit: Submit,
   ): Doc = {
     submit match {
-      case simple: SubmitSimple => encodeSubmitSimple(cidMap, cidRefs, simple)
-      case tree: SubmitTree => encodeSubmitTree(cidMap, cidRefs, tree)
+      case simple: SubmitSimple => encodeSubmitSimple(partyMap, cidMap, cidRefs, simple)
+      case tree: SubmitTree => encodeSubmitTree(partyMap, cidMap, cidRefs, tree)
     }
   }
 
   private def encodeSubmitTree(
+      partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
       submit: SubmitTree,
@@ -366,8 +377,8 @@ private[export] object Encode {
     val referencedCids = cids.filter(c => cidRefs.contains(c.cid))
     val treeBind = Doc
       .stack(
-        ("tree <-" &: encodeSubmitCall(submit) :& "do") +:
-          submit.commands.map(encodeCmd(cidMap, _))
+        ("tree <-" &: encodeSubmitCall(partyMap, submit) :& "do") +:
+          submit.commands.map(encodeCmd(partyMap, cidMap, _))
       )
       .hang(2)
     val cidBinds = referencedCids.map(bindCid(cidMap, _))
@@ -375,13 +386,14 @@ private[export] object Encode {
   }
 
   def encodeAction(
+      partyMap: Map[Party, String],
       cidMap: Map[ContractId, String],
       cidRefs: Set[ContractId],
       action: Action,
   ): Doc = {
     action match {
       case SetTime(timestamp) => encodeSetTime(timestamp)
-      case submit: Submit => encodeSubmit(cidMap, cidRefs, submit)
+      case submit: Submit => encodeSubmit(partyMap, cidMap, cidRefs, submit)
     }
   }
 
@@ -407,10 +419,10 @@ private[export] object Encode {
     }
   }
 
-  private def encodeSubmitCall(submit: Submit): Doc = {
+  private def encodeSubmitCall(partyMap: Map[Party, String], submit: Submit): Doc = {
     val parties = submit match {
-      case single: SubmitSingle => encodeParty(single.submitter)
-      case multi: SubmitMulti => encodeParties(multi.submitters)
+      case single: SubmitSingle => encodeParty(partyMap, single.submitter)
+      case multi: SubmitMulti => encodeParties(partyMap, multi.submitters)
     }
     submit match {
       case _: SubmitSimpleSingle => "submit" &: parties
