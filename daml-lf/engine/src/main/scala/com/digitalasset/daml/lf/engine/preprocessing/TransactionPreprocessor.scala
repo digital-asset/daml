@@ -18,40 +18,6 @@ private[preprocessing] final class TransactionPreprocessor(
 
   val commandPreprocessor = new CommandPreprocessor(compiledPackages)
 
-  @throws[PreprocessorException]
-  private def unsafeAsValueWithNoContractIds(v: Value[Value.ContractId]): Value[Nothing] =
-    v.ensureNoCid.fold(
-      coid => fail(s"engine: found a contract ID $coid in the given value"),
-      identity,
-    )
-
-  // Translate a GenNode into an expression re-interpretable by the interpreter
-  @throws[PreprocessorException]
-  def unsafeTranslateActionNode[Cid <: Value.ContractId](
-      node: Node.GenActionNode[NodeId, Cid]
-  ): (speedy.Command, Set[Value.ContractId]) = {
-
-    node match {
-      case create: Node.NodeCreate[Cid] =>
-        commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
-
-      case exe: Node.NodeExercises[_, Cid] =>
-        commandPreprocessor.unsafePreprocessExercise(
-          exe.templateId,
-          exe.targetCoid,
-          exe.choiceId,
-          exe.chosenValue,
-        )
-      case fetch: Node.NodeFetch[Cid] =>
-        val cmd = commandPreprocessor.unsafePreprocessFetch(fetch.templateId, fetch.coid)
-        (cmd, Set.empty)
-      case lookup: Node.NodeLookupByKey[Cid] =>
-        val keyValue = unsafeAsValueWithNoContractIds(lookup.key.key)
-        val cmd = commandPreprocessor.unsafePreprocessLookupByKey(lookup.templateId, keyValue)
-        (cmd, Set.empty)
-    }
-  }
-
   // Accumulator used by unsafeTranslateTransactionRoots method.
   private[this] case class Acc(
       globalCids: Set[ContractId],

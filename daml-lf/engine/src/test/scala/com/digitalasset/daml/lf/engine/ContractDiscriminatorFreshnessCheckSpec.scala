@@ -128,7 +128,7 @@ class ContractDiscriminatorFreshnessCheckSpec
   )
 
   private def submit(
-      cmds: ImmArray[command.Command],
+      cmds: ImmArray[command.ApiCommand],
       pcs: Value.ContractId => Option[Value.ContractInst[Value.VersionedValue[ContractId]]],
       keys: GlobalKey => Option[ContractId],
   ) =
