@@ -6,6 +6,7 @@ package com.daml.platform.store
 import com.codahale.metrics.MetricRegistry
 import com.daml.buildinfo.BuildInfo
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
+import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.LoggingContext
@@ -51,6 +52,8 @@ object IndexMetadata {
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         enricher = None,
+        participantId =
+          "".asInstanceOf[v1.ParticipantId], // TODO fix ugly type cast // no participant id is available for the dump index meta path, also this property is not needed for the used the ReadDao
       )
     else
       com.daml.platform.store.dao.JdbcLedgerDao.readOwner(

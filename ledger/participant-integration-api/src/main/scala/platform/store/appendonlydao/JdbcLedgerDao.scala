@@ -20,6 +20,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
+import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.{TransactionId, WorkflowId}
@@ -101,7 +102,7 @@ private class JdbcLedgerDao(
     validatePartyAllocation: Boolean,
     enricher: Option[ValueEnricher],
     sequentialIndexer: SequentialIndexer,
-    participantId: com.daml.ledger.participant.state.v1.ParticipantId,
+    participantId: v1.ParticipantId,
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -262,7 +263,7 @@ private class JdbcLedgerDao(
               submissionId =
                 submissionId.asInstanceOf[SubmissionId], // TODO append-only: FIXME type cast
               participantId = null.asInstanceOf[
-                com.daml.ledger.participant.state.v1.ParticipantId
+                v1.ParticipantId
               ], // TODO append-only: FIXME type cast // not used for DBDTO generation
               newConfiguration = configuration,
             )
@@ -273,7 +274,7 @@ private class JdbcLedgerDao(
               submissionId =
                 submissionId.asInstanceOf[SubmissionId], // TODO append-only: FIXME type cast
               participantId = null.asInstanceOf[
-                com.daml.ledger.participant.state.v1.ParticipantId
+                v1.ParticipantId
               ], // TODO append-only: FIXME type cast // not used for DBDTO generation
               proposedConfiguration = configuration,
               rejectionReason = reason,
@@ -928,6 +929,7 @@ private[platform] object JdbcLedgerDao {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: Option[ValueEnricher],
+      participantId: v1.ParticipantId,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
     owner(
       serverRole,
@@ -939,6 +941,7 @@ private[platform] object JdbcLedgerDao {
       metrics,
       lfValueTranslationCache,
       enricher = enricher,
+      participantId = participantId,
     ).map(new MeteredLedgerReadDao(_, metrics))
   }
 
@@ -952,7 +955,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode,
       enricher: Option[ValueEnricher],
-      participantId: com.daml.ledger.participant.state.v1.ParticipantId,
+      participantId: v1.ParticipantId,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     owner(
@@ -982,7 +985,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       validatePartyAllocation: Boolean = false,
       enricher: Option[ValueEnricher],
-      participantId: com.daml.ledger.participant.state.v1.ParticipantId,
+      participantId: v1.ParticipantId,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     owner(
@@ -1003,7 +1006,7 @@ private[platform] object JdbcLedgerDao {
 
   private def sequentialIndexer(
       dbType: DbType,
-      participantId: com.daml.ledger.participant.state.v1.ParticipantId,
+      participantId: v1.ParticipantId,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       metrics: Metrics,
   ): SequentialIndexer =
@@ -1059,10 +1062,8 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation: Boolean = false,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
       enricher: Option[ValueEnricher],
+      participantId: v1.ParticipantId,
       sequentialIndexer: SequentialIndexer = NoopSequentialIndexer,
-      participantId: com.daml.ledger.participant.state.v1.ParticipantId = "".asInstanceOf[
-        com.daml.ledger.participant.state.v1.ParticipantId
-      ], // TODO append-only: FIXME type cast
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(

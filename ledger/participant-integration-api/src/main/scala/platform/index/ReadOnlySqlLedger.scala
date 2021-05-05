@@ -13,6 +13,7 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.ValueEnricher
@@ -49,6 +50,7 @@ private[platform] object ReadOnlySqlLedger {
       maxContractStateCacheSize: Long,
       maxContractKeyStateCacheSize: Long,
       enableMutableContractStateCache: Boolean,
+      participantId: v1.ParticipantId,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedger] {
 
@@ -128,6 +130,7 @@ private[platform] object ReadOnlySqlLedger {
           metrics,
           lfValueTranslationCache,
           Some(enricher),
+          participantId,
         )
       else
         dao.JdbcLedgerDao.readOwner(
