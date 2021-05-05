@@ -47,6 +47,8 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
 
+import ch.qos.logback.classic.{Level => LogLevel}
+
 object HttpService extends StrictLogging {
 
   val DefaultPackageReloadInterval: FiniteDuration = FiniteDuration(5, "s")
@@ -78,6 +80,7 @@ object HttpService extends StrictLogging {
     val packageMaxInboundMessageSize: Option[Int]
     val maxInboundMessageSize: Int
     val healthTimeoutSeconds: Int
+    val logLevel: Option[LogLevel]
   }
 
   trait DefaultStartSettings extends StartSettings {

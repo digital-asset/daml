@@ -145,6 +145,7 @@ trait JsonApiFixture
                 override val wsConfig = None
                 override val accessTokenFile = Some(jsonAccessTokenFile)
                 override val allowNonHttps = true
+                override val logLevel = None
               }
               HttpService
                 .start(config)(
