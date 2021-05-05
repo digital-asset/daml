@@ -1169,18 +1169,8 @@ private[lf] object SBuiltin {
     *   :: { key: key, maintainers: List Party }
     *   -> Maybe (ContractId T)
     */
-  final case class SBULookupKey(templateId: TypeConName) extends SBUKeyBuiltin(templateId) {
-    override protected def handleNewKeyNotFound(machine: Machine): Boolean = {
-      machine.returnValue = SValue.SValue.None
-      true
-    }
-    override protected def handleInactiveKey(machine: Machine, key: GlobalKey) =
-      machine.returnValue = SValue.SValue.None
-    override protected def handleActiveKey(machine: Machine, cid: V.ContractId) =
-      machine.returnValue = SOptional(Some(SContractId(cid)))
-    override protected def handleNewKeyFound(machine: Machine, cid: V.ContractId): Unit =
-      machine.ctrl = SBSome(importCid(cid))
-  }
+  final case class SBULookupKey(templateId: TypeConName)
+      extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId))
 
   /** $insertLookup[T]
     *    :: { key : key, maintainers: List Party}
@@ -1218,41 +1208,71 @@ private[lf] object SBuiltin {
     }
   }
 
-  private[speedy] sealed abstract class SBUKeyBuiltin(templateId: TypeConName)
-      extends OnLedgerBuiltin(1) {
-    import PartialTransaction.{KeyActive, KeyInactive, KeyMapping}
-
+  private[this] abstract class KeyOperation {
+    val templateId: TypeConName
     private[this] val typ = AstUtil.TContractId(Ast.TTyCon(templateId))
+
     final protected def importCid(cid: V.ContractId): SEImportValue =
       SEImportValue(typ, V.ValueContractId(cid))
-
     // Callback from the engine returned NotFound
-    protected def handleNewKeyNotFound(machine: Machine): Boolean
-    // We already saw this key, but it was archived
-    protected def handleInactiveKey(machine: Machine, gkey: GlobalKey): Unit
-    // We already saw this key and is still active
-    protected def handleActiveKey(machine: Machine, cid: V.ContractId): Unit
+    def handleNewKeyNotFound(machine: Machine): Boolean
+    // We already saw this key, but it was not defined or archived
+    def handleInactiveKey(machine: Machine, gkey: GlobalKey): Unit
+    // We already saw this key and it is still active
+    def handleActiveKey(machine: Machine, cid: V.ContractId): Unit
     // CallBack from the engine returned a new Cid
-    protected def handleNewKeyFound(machine: Machine, cid: V.ContractId): Unit
+    def handleNewKeyFound(machine: Machine, cid: V.ContractId): Unit
 
-    private[this] def handleKnownKey(
+    final def handleKnownInputKey(
         machine: Machine,
         gkey: GlobalKey,
-        keyMapping: KeyMapping,
-    ) =
+        keyMapping: PartialTransaction.KeyMapping,
+    ): Unit =
       keyMapping match {
-        case KeyActive(cid) => handleActiveKey(machine, cid)
-        case KeyInactive => handleInactiveKey(machine, gkey)
+        case PartialTransaction.KeyActive(cid) => handleActiveKey(machine, cid)
+        case PartialTransaction.KeyInactive => handleInactiveKey(machine, gkey)
       }
+  }
+
+  private[this] object KeyOperation {
+    final class Fetch(override val templateId: TypeConName) extends KeyOperation {
+      override def handleNewKeyNotFound(machine: Machine): Boolean =
+        machine.tryHandleSubmitMustFail()
+      override def handleInactiveKey(machine: Machine, gkey: GlobalKey): Unit =
+        // TODO (MK) Produce a proper error here.
+        crash(s"Could not find key $gkey")
+      override def handleActiveKey(machine: Machine, cid: V.ContractId): Unit =
+        machine.returnValue = SContractId(cid)
+      override def handleNewKeyFound(machine: Machine, cid: V.ContractId): Unit =
+        machine.ctrl = importCid(cid)
+    }
+
+    final class Lookup(override val templateId: TypeConName) extends KeyOperation {
+      override def handleNewKeyNotFound(machine: Machine): Boolean = {
+        machine.returnValue = SValue.SValue.None
+        true
+      }
+      override def handleInactiveKey(machine: Machine, key: GlobalKey): Unit =
+        machine.returnValue = SValue.SValue.None
+      override def handleActiveKey(machine: Machine, cid: V.ContractId): Unit =
+        machine.returnValue = SOptional(Some(SContractId(cid)))
+      override def handleNewKeyFound(machine: Machine, cid: V.ContractId): Unit =
+        machine.ctrl = SBSome(importCid(cid))
+    }
+  }
+
+  private[speedy] sealed abstract class SBUKeyBuiltin(operation: KeyOperation)
+      extends OnLedgerBuiltin(1) {
 
     final def execute(args: util.ArrayList[SValue], machine: Machine, onLedger: OnLedger): Unit = {
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       if (keyWithMaintainers.maintainers.isEmpty)
-        throw DamlEFetchEmptyContractKeyMaintainers(templateId, keyWithMaintainers.key)
-      val gkey = GlobalKey(templateId, keyWithMaintainers.key)
+        throw DamlEFetchEmptyContractKeyMaintainers(operation.templateId, keyWithMaintainers.key)
+      val gkey = GlobalKey(operation.templateId, keyWithMaintainers.key)
       // check if we find it locally
       onLedger.ptx.keys.get(gkey) match {
-        case Some(KeyActive(coid)) if onLedger.ptx.localContracts.contains(coid) =>
+        case Some(PartialTransaction.KeyActive(coid))
+            if onLedger.ptx.localContracts.contains(coid) =>
           val cachedContract = onLedger.cachedContracts
             .getOrElse(coid, crash(s"Local contract $coid not in cachedContracts"))
           val stakeholders = cachedContract.signatories union cachedContract.observers
@@ -1262,7 +1282,7 @@ private[lf] object SBuiltin {
               onLedger.committers,
               {
                 case SVisibleByKey.Visible =>
-                  handleActiveKey(machine, coid)
+                  operation.handleActiveKey(machine, coid)
                 case SVisibleByKey.NotVisible(actAs, readAs) =>
                   machine.ctrl = SEDamlException(
                     DamlELocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
@@ -1271,13 +1291,13 @@ private[lf] object SBuiltin {
             )
           )
         case Some(keyMapping) =>
-          handleKnownKey(machine, gkey, keyMapping)
+          operation.handleKnownInputKey(machine, gkey, keyMapping)
         case None =>
           // Check if we have a cached global key result.
           onLedger.ptx.globalKeyInputs.get(gkey) match {
             case Some(keyMapping) =>
               onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys.updated(gkey, keyMapping))
-              handleKnownKey(machine, gkey, keyMapping)
+              operation.handleKnownInputKey(machine, gkey, keyMapping)
             case None =>
               // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
               // that.
@@ -1287,21 +1307,23 @@ private[lf] object SBuiltin {
                   onLedger.committers,
                   {
                     case SKeyLookupResult.Found(cid) =>
+                      val keyMapping = PartialTransaction.KeyActive(cid)
                       onLedger.ptx = onLedger.ptx.copy(
-                        keys = onLedger.ptx.keys.updated(gkey, KeyActive(cid)),
-                        globalKeyInputs = onLedger.ptx.globalKeyInputs.updated(gkey, KeyActive(cid)),
+                        keys = onLedger.ptx.keys.updated(gkey, keyMapping),
+                        globalKeyInputs = onLedger.ptx.globalKeyInputs.updated(gkey, keyMapping),
                       )
                       // We have to check that the discriminator of cid does not conflict with a local ones
                       // however we cannot raise an exception in case of failure here.
                       // We delegate to SEImportValue the task to check cid.
-                      handleNewKeyFound(machine, cid)
+                      operation.handleNewKeyFound(machine, cid)
                       true
                     case SKeyLookupResult.NotFound =>
+                      val keyMapping = PartialTransaction.KeyInactive
                       onLedger.ptx = onLedger.ptx.copy(
-                        keys = onLedger.ptx.keys.updated(gkey, KeyInactive),
-                        globalKeyInputs = onLedger.ptx.globalKeyInputs.updated(gkey, KeyInactive),
+                        keys = onLedger.ptx.keys.updated(gkey, keyMapping),
+                        globalKeyInputs = onLedger.ptx.globalKeyInputs.updated(gkey, keyMapping),
                       )
-                      handleNewKeyNotFound(machine)
+                      operation.handleNewKeyNotFound(machine)
                     case SKeyLookupResult.NotVisible =>
                       machine.tryHandleSubmitMustFail()
                   },
@@ -1316,17 +1338,8 @@ private[lf] object SBuiltin {
     *   :: { key: key, maintainers: List Party }
     *   -> ContractId T
     */
-  final case class SBUFetchKey(templateId: TypeConName) extends SBUKeyBuiltin(templateId) {
-    override protected def handleNewKeyNotFound(machine: Machine): Boolean =
-      machine.tryHandleSubmitMustFail()
-    override protected def handleInactiveKey(machine: Machine, gkey: GlobalKey): Unit =
-      // TODO (MK) Produce a proper error here.
-      crash(s"Could not find key $gkey")
-    override protected def handleActiveKey(machine: Machine, cid: V.ContractId): Unit =
-      machine.returnValue = SContractId(cid)
-    override protected def handleNewKeyFound(machine: Machine, cid: V.ContractId): Unit =
-      machine.ctrl = importCid(cid)
-  }
+  final case class SBUFetchKey(templateId: TypeConName)
+      extends SBUKeyBuiltin(new KeyOperation.Fetch(templateId))
 
   /** $getTime :: Token -> Timestamp */
   final case object SBGetTime extends SBuiltin(1) {
