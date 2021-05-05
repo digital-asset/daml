@@ -128,6 +128,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     speedy.Command.LookupByKey(templateId, key)
   }
 
+  // returns the speedy translation of an LF command together with all the contract IDs contains inside.
   private[preprocessing] def unsafePreprocessCommand(
       cmd: command.Command
   ): (speedy.Command, Set[Value.ContractId]) = {
@@ -151,7 +152,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
           choiceArgument,
         )
       case command.Fetch(templateId, coid) =>
-        (speedy.Command.Fetch(templateId, SValue.SContractId(coid)), Set.empty)
+        (speedy.Command.Fetch(templateId, SValue.SContractId(coid)), Set(coid))
       case command.FetchByKey(templateId, key) =>
         val ckTtype = unsafeGetContractKeyType(templateId, unsafeGetTemplate(templateId))
         val (sKey, cids) = valueTranslator.unsafeTranslateValue(ckTtype, key)
