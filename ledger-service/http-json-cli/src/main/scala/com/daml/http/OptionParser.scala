@@ -12,6 +12,8 @@ import scopt.{Read, RenderingMode}
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Try
 
+import ch.qos.logback.classic.{Level => LogLevel}
+
 class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames: Set[String])
     extends scopt.OptionParser[Config]("http-json-binary")
     with StrictLogging {
@@ -46,6 +48,9 @@ class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames
     } yield conf
 
   override def renderingMode: RenderingMode = RenderingMode.OneColumn
+
+  // TODO: Refactor out as this is duplicated from the sandbox code
+  private val KnownLogLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
 
   head("HTTP JSON API daemon")
 
@@ -165,4 +170,16 @@ class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames
     .optional()
     .valueName(WebsocketConfig.usage)
     .text(s"Optional websocket configuration string. ${WebsocketConfig.help}")
+
+  // TODO: Refactor out as this is duplicated from the sandbox code
+  opt[String]("log-level")
+    .optional()
+    .validate(l =>
+      Either
+        .cond(KnownLogLevels.contains(l.toUpperCase), (), s"Unrecognized logging level $l")
+    )
+    .action((level, c) => c.copy(logLevel = Some(LogLevel.toLevel(level.toUpperCase))))
+    .text(
+      "Default logging level to use. Available values are INFO, TRACE, DEBUG, WARN, and ERROR. Defaults to INFO."
+    )
 }

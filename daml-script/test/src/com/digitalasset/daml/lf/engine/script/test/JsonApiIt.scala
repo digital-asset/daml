@@ -152,6 +152,7 @@ trait JsonApiFixture
                 override val accessTokenFile = Some(jsonAccessTokenFile)
                 override val allowNonHttps = true
                 override val nonRepudiation = nonrepudiation.Configuration.Cli.Empty
+                override val logLevel = None
               }
               HttpService
                 .start(config)(
