@@ -340,9 +340,8 @@ final private[kvutils] class PackageCommitter(
 
   private lazy val preloadExecutor =
     Executors.newSingleThreadExecutor { (runnable: Runnable) =>
-      val t = new Thread(runnable)
+      val t = new Thread(runnable, "package-preload-executor")
       t.setDaemon(true)
-      t.setName("package-preload-executor")
       t
     }
 
