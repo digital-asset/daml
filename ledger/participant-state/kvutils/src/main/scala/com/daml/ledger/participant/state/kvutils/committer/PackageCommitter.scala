@@ -342,6 +342,7 @@ final private[kvutils] class PackageCommitter(
     Executors.newSingleThreadExecutor { (runnable: Runnable) =>
       val t = new Thread(runnable)
       t.setDaemon(true)
+      t.setName("package-preload-executor")
       t
     }
 
