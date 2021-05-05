@@ -1165,13 +1165,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $lookupKey[T]
-    *   :: { key: key, maintainers: List Party }
-    *   -> Maybe (ContractId T)
-    */
-  final case class SBULookupKey(templateId: TypeConName)
-      extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId))
-
   /** $insertLookup[T]
     *    :: { key : key, maintainers: List Party}
     *    -> Maybe (ContractId T)
@@ -1340,6 +1333,13 @@ private[lf] object SBuiltin {
     */
   final case class SBUFetchKey(templateId: TypeConName)
       extends SBUKeyBuiltin(new KeyOperation.Fetch(templateId))
+
+  /** $lookupKey[T]
+    *   :: { key: key, maintainers: List Party }
+    *   -> Maybe (ContractId T)
+    */
+  final case class SBULookupKey(templateId: TypeConName)
+      extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId))
 
   /** $getTime :: Token -> Timestamp */
   final case object SBGetTime extends SBuiltin(1) {
