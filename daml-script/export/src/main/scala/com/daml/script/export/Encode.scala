@@ -104,7 +104,7 @@ private[export] object Encode {
   private def encodeAllocateParties(partyMap: Map[Party, String]): Doc =
     Doc.text("-- | Allocates fresh parties from the party management service.") /
       Doc.text("allocateParties : Script Parties") /
-      Doc.text("allocateParties = mapA allocateParty (DA.TextMap.fromList") /
+      Doc.text("allocateParties = DA.Traversable.mapA allocateParty (DA.TextMap.fromList") /
       ("[" &: Doc.intercalate(
         Doc.hardLine :+ ", ",
         partyMap.keys.map { case Party(p) =>
