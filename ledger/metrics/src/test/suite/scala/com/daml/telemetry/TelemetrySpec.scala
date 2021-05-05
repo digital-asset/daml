@@ -4,6 +4,7 @@
 package com.daml.telemetry
 
 import io.opentelemetry.api.trace.Span
+import io.opentelemetry.context.Context
 import io.opentelemetry.semconv.trace.attributes.SemanticAttributes
 import org.scalatest.{Assertion, BeforeAndAfterEach}
 import org.scalatest.matchers.should.Matchers
@@ -63,6 +64,30 @@ class TelemetrySpec
 
     "return a no-op context" in {
       NoOpTelemetry.contextFromMetadata(None) shouldBe NoOpTelemetryContext
+    }
+  }
+
+  "contextFromOpenTelemetryContext" should {
+    "return a raw Open Telemetry Context" in {
+      val tracer = tracerProvider.get(anInstrumentationName)
+      val span = tracer.spanBuilder(aSpanName).startSpan()
+      val openTelemetryContext = Context.current.`with`(span)
+
+      val context = DefaultTelemetry.contextFromOpenTelemetryContext(openTelemetryContext)
+
+      Span.fromContextOrNull(context.openTelemetryContext) shouldBe span
+    }
+
+    "return a root context" in {
+      val openTelemetryContext = Context.root
+
+      val context = DefaultTelemetry.contextFromOpenTelemetryContext(openTelemetryContext)
+
+      Span.fromContextOrNull(context.openTelemetryContext) shouldBe Span.getInvalid
+    }
+
+    "return a no-op context" in {
+      NoOpTelemetry.contextFromOpenTelemetryContext(Context.current) shouldBe NoOpTelemetryContext
     }
   }
 

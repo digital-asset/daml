@@ -34,6 +34,17 @@ class TelemetryContextSpec
       val attributes = spanExporter.finishedSpanAttributes
       attributes should contain(anApplicationIdSpanAttribute)
     }
+
+    "return a raw Open Telemetry context" in {
+      val tracer = tracerProvider.get(anInstrumentationName)
+      val span = tracer
+        .spanBuilder(aSpanName)
+        .startSpan()
+
+      val openTelemetryContext = DefaultTelemetryContext(tracer, span).openTelemetryContext
+
+      Span.fromContext(openTelemetryContext) shouldBe span
+    }
   }
 
   "RootDefaultTelemetryContext.runInOpenTelemetryScope" should {

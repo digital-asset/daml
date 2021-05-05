@@ -77,8 +77,10 @@ trait TelemetryContext {
     */
   def encodeMetadata(): jMap[String, String]
 
-  /** TODO
-    * @return
+  /** Returns a raw Open Telemetry context.
+    * Should only be used by consumers that are using the Open Telemetry API directly.
+    *
+    * @return Open Telemetry context
     */
   def openTelemetryContext: Context
 

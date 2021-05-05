@@ -31,8 +31,11 @@ abstract class Telemetry(protected val tracer: Tracer) {
     */
   def contextFromMetadata(metadata: Option[jMap[String, String]]): TelemetryContext
 
-  /** TODO
-    * @param context
+  /** Allows to transform an Open Telemetry context into a telemetry context.
+    * Makes integration easier for consumers that are using the Open Telemetry API directly.
+    * Consider using other factory methods.
+    *
+    * @param context raw Open Telemetry context
     */
   def contextFromOpenTelemetryContext(context: Context): TelemetryContext
 
