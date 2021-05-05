@@ -17,6 +17,8 @@ import scalaz.{Show, \/}
 import scala.concurrent.duration._
 import scala.util.Try
 
+import ch.qos.logback.classic.{Level => LogLevel}
+
 // The internal transient scopt structure *and* StartSettings; external `start`
 // users should extend StartSettings or DefaultStartSettings themselves
 private[http] final case class Config(
@@ -36,6 +38,7 @@ private[http] final case class Config(
     accessTokenFile: Option[Path] = None,
     wsConfig: Option[WebsocketConfig] = None,
     nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
+    logLevel: Option[LogLevel] = None, // the default is in logback.xml
 ) extends StartSettings
 
 private[http] object Config {

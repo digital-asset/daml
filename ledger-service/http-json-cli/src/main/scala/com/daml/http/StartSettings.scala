@@ -9,6 +9,8 @@ import com.daml.ledger.api.tls.TlsConfiguration
 
 import scala.concurrent.duration.FiniteDuration
 
+import ch.qos.logback.classic.{Level => LogLevel}
+
 // defined separately from Config so
 //  1. it is absolutely lexically apparent what `import startSettings._` means
 //  2. avoid incorporating other Config'd things into "the shared args to start"
@@ -28,6 +30,7 @@ trait StartSettings {
   val maxInboundMessageSize: Int
   val healthTimeoutSeconds: Int
   val nonRepudiation: nonrepudiation.Configuration.Cli
+  val logLevel: Option[LogLevel]
 }
 
 object StartSettings {
