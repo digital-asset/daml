@@ -3,7 +3,7 @@
 
 package com.daml.ledger.indexerbenchmark
 
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths}
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
@@ -15,11 +15,7 @@ import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
 import com.daml.ledger.participant.state.kvutils.`export`.ProtobufBasedLedgerDataImporter
-import com.daml.ledger.participant.state.kvutils.api.{
-  KeyValueParticipantStateReader,
-  LedgerReader,
-  LedgerRecord,
-}
+import com.daml.ledger.participant.state.kvutils.api.{KeyValueParticipantStateReader, LedgerReader, LedgerRecord}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, Update}
 import com.daml.metrics.Metrics
 
@@ -29,8 +25,12 @@ object Main {
   def main(args: Array[String]): Unit =
     IndexerBenchmark.runAndExit(args, name => loadLedgerExport(name))
 
-  private[this] def loadLedgerExport(name: String): Future[() => Iterator[(Offset, Update)]] = {
-    val importer = ProtobufBasedLedgerDataImporter(Paths.get(name))
+  private[this] def loadLedgerExport(config: Config): Future[Iterator[(Offset, Update)]] = {
+    val path = Paths.get(config.updateSource)
+    if (!Files.exists(path)) {
+      throw new RuntimeException(s"Input file $path does not exist")
+    }
+    val importer = ProtobufBasedLedgerDataImporter(path)
 
     val dataSource: Source[LedgerRecord, NotUsed] = Source
       .fromIterator(() => importer.read().iterator)
@@ -80,8 +80,14 @@ object Main {
     implicit val materializer: Materializer = Materializer(system)
     keyValueStateReader
       .stateUpdates(None)
+      .take(config.updateCount.getOrElse(Long.MaxValue))
+      .zipWithIndex
+      .map { case (data, index) =>
+        if (index % 1000 == 0) println(s"Generated update $index")
+        data
+      }
       .runWith(Sink.seq[(Offset, Update)])
-      .map(seq => () => seq.iterator)(DirectExecutionContext)
+      .map(seq => seq.iterator)(DirectExecutionContext)
       .andThen { case _ => system.terminate() }(DirectExecutionContext)
   }
 }

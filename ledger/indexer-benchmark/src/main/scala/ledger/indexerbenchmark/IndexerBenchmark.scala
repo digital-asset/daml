@@ -41,7 +41,7 @@ class IndexerBenchmark() {
     * and functional tests.
     */
   def runWithEphemeralPostgres(
-      createUpdates: String => Future[() => Iterator[(Offset, Update)]],
+      createUpdates: Config => Future[Iterator[(Offset, Update)]],
       config: Config,
   ): Future[Unit] = {
     PostgresResource
@@ -53,7 +53,7 @@ class IndexerBenchmark() {
   }
 
   def run(
-      createUpdates: String => Future[() => Iterator[(Offset, Update)]],
+      createUpdates: Config => Future[Iterator[(Offset, Update)]],
       config: Config,
   ): Future[Unit] = {
     newLoggingContext { implicit loggingContext =>
@@ -69,10 +69,10 @@ class IndexerBenchmark() {
       val indexerEC = ExecutionContext.fromExecutor(indexerE)
 
       println("Generating state updates...")
-      val updates = Await.result(createUpdates(config.updateSource), Duration(10, "minute"))
+      val updates = Await.result(createUpdates(config), Duration(10, "minute"))
 
       println("Creating read service and indexer...")
-      val readService = createReadService(updates, config)
+      val readService = createReadService(updates)
       val indexerFactory = new JdbcIndexer.Factory(
         ServerRole.Indexer,
         config.indexerConfig,
@@ -167,8 +167,7 @@ class IndexerBenchmark() {
   }
 
   private[this] def createReadService(
-      updates: () => Iterator[(Offset, Update)],
-      config: Config,
+      updates: Iterator[(Offset, Update)],
   ): ReadService = {
     val initialConditions = LedgerInitialConditions(
       IndexerBenchmark.LedgerId,
@@ -185,18 +184,8 @@ class IndexerBenchmark() {
         Source.single(initialConditions)
       }
       override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
-        assert(beginAfter.isEmpty)
-        config.updateCount match {
-          case None =>
-            Source.fromIterator(updates)
-          case Some(updateCount) =>
-            Source
-              .cycle(() => {
-                println("(Re)starting the stream of updates")
-                updates()
-              }) // TODO append-only: cycling the exact same updates is probably not a good idea
-              .take(updateCount)
-        }
+        assert(beginAfter.isEmpty, s"beginAfter is $beginAfter")
+        Source.fromIterator(() => updates)
       }
       override def currentHealth(): HealthStatus = HealthStatus.healthy
     }
@@ -212,7 +201,7 @@ object IndexerBenchmark {
 
   def runAndExit(
       args: Array[String],
-      updates: String => Future[() => Iterator[(Offset, Update)]],
+      updates: Config => Future[Iterator[(Offset, Update)]],
   ): Unit = {
     val config: Config = Config.parse(args).getOrElse {
       sys.exit(1)
@@ -222,7 +211,7 @@ object IndexerBenchmark {
 
   def runAndExit(
       config: Config,
-      updates: String => Future[() => Iterator[(Offset, Update)]],
+      updates: Config => Future[Iterator[(Offset, Update)]],
   ): Unit = {
     val result = if (config.indexerConfig.jdbcUrl.isEmpty) {
       new IndexerBenchmark().runWithEphemeralPostgres(updates, config)

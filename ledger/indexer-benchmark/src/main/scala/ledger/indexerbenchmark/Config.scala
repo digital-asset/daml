@@ -92,7 +92,7 @@ object Config {
 
       opt[Long]("update-count")
         .text(
-          "The number of updates to process. Default: consume the entire input stream once (the app will not terminate if the input stream is endless)."
+          "The maximum number of updates to process. Default: consume the entire input stream once (the app will not terminate if the input stream is endless)."
         )
         .action((value, config) => config.copy(updateCount = Some(value)))
 
