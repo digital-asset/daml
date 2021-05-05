@@ -69,7 +69,6 @@ trait NavigatorModelAliases[Cid] {
   type ApiValue = OfCid[V]
   type ApiRecordField = (Option[DamlLfRef.Name], ApiValue)
   type ApiRecord = OfCid[V.ValueRecord]
-  type ApiBuiltinException = OfCid[V.ValueBuiltinException]
   type ApiVariant = OfCid[V.ValueVariant]
   type ApiList = OfCid[V.ValueList]
   type ApiOptional = OfCid[V.ValueOptional]

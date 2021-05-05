@@ -286,9 +286,6 @@ object Queries {
           Fragment.const(if (value) "TRUE" else "FALSE")
         case r @ V.ValueRecord(_, _) =>
           fr0"${toJsonString(r)}::jsonb"
-        case _ @V.ValueBuiltinException(_, _) =>
-          // TODO https://github.com/digital-asset/daml/issues/8020
-          sys.error("exceptions not supported")
         case v @ V.ValueVariant(_, _, _) =>
           fr0"${toJsonString(v)}::jsonb"
         case V.ValueEnum(_, constructor) =>
