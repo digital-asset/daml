@@ -1215,13 +1215,13 @@ private[lf] object SBuiltin {
     final protected def importCid(cid: V.ContractId): SEImportValue =
       SEImportValue(typ, V.ValueContractId(cid))
     // Callback from the engine returned NotFound
-    def handleNewKeyNotFound(machine: Machine): Boolean
-    // We already saw this key, but it was not defined or archived
+    def handleInputKeyNotFound(machine: Machine): Boolean
+    // CallBack from the engine returned a new Cid
+    def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit
+    // We already saw this key, but it was undefined or was archived
     def handleInactiveKey(machine: Machine, gkey: GlobalKey): Unit
     // We already saw this key and it is still active
     def handleActiveKey(machine: Machine, cid: V.ContractId): Unit
-    // CallBack from the engine returned a new Cid
-    def handleNewKeyFound(machine: Machine, cid: V.ContractId): Unit
 
     final def handleKnownInputKey(
         machine: Machine,
@@ -1236,28 +1236,28 @@ private[lf] object SBuiltin {
 
   private[this] object KeyOperation {
     final class Fetch(override val templateId: TypeConName) extends KeyOperation {
-      override def handleNewKeyNotFound(machine: Machine): Boolean =
+      override def handleInputKeyNotFound(machine: Machine): Boolean =
         machine.tryHandleSubmitMustFail()
+      override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
+        machine.ctrl = importCid(cid)
       override def handleInactiveKey(machine: Machine, gkey: GlobalKey): Unit =
         // TODO (MK) Produce a proper error here.
         crash(s"Could not find key $gkey")
       override def handleActiveKey(machine: Machine, cid: V.ContractId): Unit =
         machine.returnValue = SContractId(cid)
-      override def handleNewKeyFound(machine: Machine, cid: V.ContractId): Unit =
-        machine.ctrl = importCid(cid)
     }
 
     final class Lookup(override val templateId: TypeConName) extends KeyOperation {
-      override def handleNewKeyNotFound(machine: Machine): Boolean = {
+      override def handleInputKeyNotFound(machine: Machine): Boolean = {
         machine.returnValue = SValue.SValue.None
         true
       }
+      override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
+        machine.ctrl = SBSome(importCid(cid))
       override def handleInactiveKey(machine: Machine, key: GlobalKey): Unit =
         machine.returnValue = SValue.SValue.None
       override def handleActiveKey(machine: Machine, cid: V.ContractId): Unit =
         machine.returnValue = SOptional(Some(SContractId(cid)))
-      override def handleNewKeyFound(machine: Machine, cid: V.ContractId): Unit =
-        machine.ctrl = SBSome(importCid(cid))
     }
   }
 
@@ -1315,7 +1315,7 @@ private[lf] object SBuiltin {
                       // We have to check that the discriminator of cid does not conflict with a local ones
                       // however we cannot raise an exception in case of failure here.
                       // We delegate to SEImportValue the task to check cid.
-                      operation.handleNewKeyFound(machine, cid)
+                      operation.handleInputKeyFound(machine, cid)
                       true
                     case SKeyLookupResult.NotFound =>
                       val keyMapping = PartialTransaction.KeyInactive
@@ -1323,7 +1323,7 @@ private[lf] object SBuiltin {
                         keys = onLedger.ptx.keys.updated(gkey, keyMapping),
                         globalKeyInputs = onLedger.ptx.globalKeyInputs.updated(gkey, keyMapping),
                       )
-                      operation.handleNewKeyNotFound(machine)
+                      operation.handleInputKeyNotFound(machine)
                     case SKeyLookupResult.NotVisible =>
                       machine.tryHandleSubmitMustFail()
                   },
