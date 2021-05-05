@@ -660,7 +660,7 @@ private[lf] final class Compiler(
         compile(updates.head),
       )
     } else {
-      SBRecUpdMulti(tapp.tycon, fields.map(lookupRecordIndex(tapp, _)).toArray)(
+      SBRecUpdMulti(tapp.tycon, fields.map(lookupRecordIndex(tapp, _)).to(ImmArray))(
         (record :: updates).map(compile): _*
       )
     }
