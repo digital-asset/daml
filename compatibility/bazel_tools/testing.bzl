@@ -239,7 +239,7 @@ excluded_test_tool_tests = [
         "start": "1.13.0-snapshot.20210419.6730.1.8c3a8c04",
         "platform_ranges": [
             {
-                "end": "1.13.0-snapshot.20210419.6730.0.8c3a8c04",
+                "end": "1.13.0-snapshot.20210504.6833.0.9ae787d0",
                 "exclusions": ["ValueLimitsIT:VLLargeSubmittersNumberCreateContract"],
             },
         ],
