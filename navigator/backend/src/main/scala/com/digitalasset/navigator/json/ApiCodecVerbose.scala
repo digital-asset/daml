@@ -96,15 +96,6 @@ object ApiCodecVerbose {
       }),
     )
 
-  // TODO https://github.com/digital-asset/daml/issues/8020
-  /*def apiBuiltinExceptionToJsValue(value: Model.ApiBuilt
-    inException): JsValue =
-    JsObject(
-      propType -> JsString(tagBuiltinException), //needs tagBuiltinException
-      propConstructor -> JsString(value.tag),
-      propValue -> apiValueToJsValue(value.value),
-    )*/
-
   def apiVariantToJsValue(value: Model.ApiVariant): JsValue =
     JsObject(
       propType -> JsString(tagVariant),
@@ -146,8 +137,6 @@ object ApiCodecVerbose {
     strField(value, propType, "ApiValue") match {
       case `tagRecord` => jsValueToApiRecord(value)
       case `tagVariant` => jsValueToApiVariant(value)
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      //   case `tagBuiltinException` => ...
       case `tagEnum` => jsValueToApiEnum(value)
       case `tagList` =>
         V.ValueList(arrayField(value, propValue, "ApiList").map(jsValueToApiValue).to(FrontStack))

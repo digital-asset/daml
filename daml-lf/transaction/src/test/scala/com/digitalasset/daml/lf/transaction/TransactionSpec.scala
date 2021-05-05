@@ -217,9 +217,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
     "ignores location" in forAll(genEmptyNode) { n =>
       val withoutLocation = {
         val nodeWithoutLocation = n match {
-          case _: Node.NodeRollback[_] =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
-            sys.error("rollback nodes are not supported")
+          case nr: Node.NodeRollback[Nothing] => nr
           case nc: Node.NodeCreate[V.ContractId] => nc copy (optLocation = None)
           case nf: Node.NodeFetch[V.ContractId] => nf copy (optLocation = None)
           case ne: Node.NodeExercises[Nothing, V.ContractId] =>
@@ -275,9 +273,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
 
   "contractKeys" - {
     "return all the contract keys" in {
-      // TODO: https://github.com/digital-asset/daml/issues/8020
-      // change VDev to  TransactionVersion.StableVersions.max once exception are released
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder(TransactionVersion.minExceptions)
       val parties = List("Alice")
 
       def create(s: String) = builder
