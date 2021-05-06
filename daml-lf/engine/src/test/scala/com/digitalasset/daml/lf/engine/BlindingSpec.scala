@@ -81,13 +81,13 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
   }
   "fetch" in {
     val builder = TransactionBuilder()
-    val (cid, createNode) = create(builder)
+    val (_, createNode) = create(builder)
     val fetch = builder.fetch(createNode)
     val nodeId = builder.add(fetch)
     val blindingInfo = Blinding.blind(builder.build())
     blindingInfo shouldBe BlindingInfo(
       disclosure = Map(nodeId -> Set("Bob", "Alice")),
-      divulgence = Map(cid -> Set()),
+      divulgence = Map.empty,
     )
   }
   "lookupByKey found" in {
@@ -188,8 +188,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
         c4Id -> Set("A", "B", "D"),
       ),
       divulgence = Map(
-        create1.coid -> Set(),
-        create2.coid -> Set("A"),
+        create2.coid -> Set("A")
       ),
     )
   }
@@ -232,8 +231,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
         ex2 -> Set("A", "B", "C", "D", "F"),
       ),
       divulgence = Map(
-        cid1 -> Set(),
-        cid2 -> Set("A", "B", "C"),
+        cid2 -> Set("A", "B", "C")
       ),
     )
   }
