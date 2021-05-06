@@ -247,7 +247,8 @@ private[sandbox] object SqlLedger {
           lfValueTranslationCache,
           validatePartyAllocation,
           Some(new ValueEnricher(engine)),
-          participantId.asInstanceOf[com.daml.ledger.participant.state.v1.ParticipantId],
+          com.daml.ledger.participant.state.v1.ParticipantId
+            .assertFromString(participantId.toString),
         )
       else
         com.daml.platform.store.dao.JdbcLedgerDao.validatingWriteOwner(

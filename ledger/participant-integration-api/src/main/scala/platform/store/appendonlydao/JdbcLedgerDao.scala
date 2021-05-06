@@ -34,11 +34,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.OffsetStep
-import com.daml.platform.indexer.sequential.{
-  NoopSequentialIndexer,
-  SequentialIndexer,
-  SequentialIndexerImpl,
-}
+import com.daml.platform.indexer.sequential.{SequentialIndexer, SequentialIndexerImpl}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
@@ -260,22 +256,18 @@ private class JdbcLedgerDao(
           case None =>
             Update.ConfigurationChanged(
               recordTime = Time.Timestamp.assertFromInstant(recordedAt),
-              submissionId =
-                submissionId.asInstanceOf[SubmissionId], // TODO append-only: FIXME type cast
-              participantId = null.asInstanceOf[
-                v1.ParticipantId
-              ], // TODO append-only: FIXME type cast // not used for DBDTO generation
+              submissionId = SubmissionId.assertFromString(submissionId),
+              participantId =
+                v1.ParticipantId.assertFromString("1"), // not used for DBDTO generation
               newConfiguration = configuration,
             )
 
           case Some(reason) =>
             Update.ConfigurationChangeRejected(
               recordTime = Time.Timestamp.assertFromInstant(recordedAt),
-              submissionId =
-                submissionId.asInstanceOf[SubmissionId], // TODO append-only: FIXME type cast
-              participantId = null.asInstanceOf[
-                v1.ParticipantId
-              ], // TODO append-only: FIXME type cast // not used for DBDTO generation
+              submissionId = SubmissionId.assertFromString(submissionId),
+              participantId =
+                v1.ParticipantId.assertFromString("1"), // not used for DBDTO generation
               proposedConfiguration = configuration,
               rejectionReason = reason,
             )
@@ -971,7 +963,6 @@ private[platform] object JdbcLedgerDao {
         if (dbType.supportsAsynchronousCommits) jdbcAsyncCommitMode else DbType.SynchronousCommit,
       enricher = enricher,
       participantId = participantId,
-      sequentialIndexer = sequentialIndexer(dbType, participantId, lfValueTranslationCache, metrics),
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1000,7 +991,6 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation,
       enricher = enricher,
       participantId = participantId,
-      sequentialIndexer = sequentialIndexer(dbType, participantId, lfValueTranslationCache, metrics),
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1063,7 +1053,6 @@ private[platform] object JdbcLedgerDao {
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
       enricher: Option[ValueEnricher],
       participantId: v1.ParticipantId,
-      sequentialIndexer: SequentialIndexer = NoopSequentialIndexer,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(
@@ -1074,9 +1063,10 @@ private[platform] object JdbcLedgerDao {
         metrics,
         jdbcAsyncCommitMode,
       )
+      dbType = DbType.jdbcType(jdbcUrl)
     } yield new JdbcLedgerDao(
       dbDispatcher,
-      DbType.jdbcType(jdbcUrl),
+      dbType,
       servicesExecutionContext,
       eventsPageSize,
       validate,
@@ -1084,7 +1074,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       validatePartyAllocation,
       enricher,
-      sequentialIndexer,
+      sequentialIndexer(dbType, participantId, lfValueTranslationCache, metrics),
       participantId,
     )
 

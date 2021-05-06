@@ -52,8 +52,9 @@ object IndexMetadata {
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         enricher = None,
-        participantId =
-          "".asInstanceOf[v1.ParticipantId], // TODO fix ugly type cast // no participant id is available for the dump index meta path, also this property is not needed for the used the ReadDao
+        participantId = v1.ParticipantId.assertFromString(
+          "1"
+        ), // no participant id is available for the dump index meta path, also this property is not needed for the used the ReadDao
       )
     else
       com.daml.platform.store.dao.JdbcLedgerDao.readOwner(

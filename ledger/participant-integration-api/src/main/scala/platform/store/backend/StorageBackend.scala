@@ -9,6 +9,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.platform.store.DbType
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackend
 
+// TODO append-only: add detailed scaladoc
 trait StorageBackend[DB_BATCH] {
   def batch(dbDtos: Vector[DBDTOV1]): DB_BATCH
   def insertBatch(connection: Connection, batch: DB_BATCH): Unit

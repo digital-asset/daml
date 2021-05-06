@@ -15,11 +15,6 @@ trait SequentialIndexer {
   def store(connection: Connection, offset: Offset, update: Option[Update]): Unit
 }
 
-object NoopSequentialIndexer extends SequentialIndexer {
-  override def store(connection: Connection, offset: Offset, update: Option[Update]): Unit =
-    throw new UnsupportedOperationException("NoopSequentialIndexer/store called. Not supported.")
-}
-
 case class SequentialIndexerImpl[DB_BATCH](
     storageBackend: StorageBackend[DB_BATCH],
     updateToDbDtos: Offset => Update => Iterator[DBDTOV1],

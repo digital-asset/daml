@@ -302,7 +302,6 @@ server_conformance_test(
     name = "conformance-test-static-time",
     lf_versions = [
         "stable",
-        "stable",  # TODO append-only: why two stable?
         "preview",
     ],
     server_args = [
