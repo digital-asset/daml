@@ -192,6 +192,21 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
               x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
             in upure @Unit ();
 
+        val emptyRollback : Party -> Update Unit = \(party: Party) ->
+            ubind
+              x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
+              u1: Unit <-
+                try @Unit
+                  ubind
+                    u2: Unit <- upure @Unit ()
+                    //x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
+                  in throw @(Update Unit) @M:MyException (M:MyException {message = "oops"})
+                catch e -> Some @(Update Unit) (upure @Unit ())
+              ;
+              x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
+            in upure @Unit ();
+
+
        }
       """)
 
@@ -207,6 +222,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     ("create3throwAndOuterCatch", List[Tree](R(List(C(100), C(200))), C(300))),
     ("exer1", List[Tree](C(100), X(List(C(400), C(500))), C(200), C(300))),
     ("exer2", List[Tree](C(100), R(List(X(List(C(400))))), C(300))),
+    ("emptyRollback", List[Tree](C(100), R(List()), C(300))),
   )
 
   forEvery(testCases) { (exp: String, expected: List[Tree]) =>
