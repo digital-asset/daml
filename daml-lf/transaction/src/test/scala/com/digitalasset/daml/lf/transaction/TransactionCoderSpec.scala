@@ -71,7 +71,7 @@ class TransactionCoderSpec
 
           Right(createNode.informeesOfNode) shouldEqual
             TransactionCoder
-              .protoNodeInfo(txVersion, encodedNode)
+              .protoActionNodeInfo(txVersion, encodedNode)
               .map(_.informeesOfNode)
       }
     }
@@ -100,7 +100,7 @@ class TransactionCoderSpec
             ) shouldBe Right((NodeId(0), normalizeFetch(versionedNode)))
           Right(fetchNode.informeesOfNode) shouldEqual
             TransactionCoder
-              .protoNodeInfo(txVersion, encodedNode)
+              .protoActionNodeInfo(txVersion, encodedNode)
               .map(_.informeesOfNode)
       }
     }
@@ -128,7 +128,7 @@ class TransactionCoderSpec
 
           Right(normalizedNode.informeesOfNode) shouldEqual
             TransactionCoder
-              .protoNodeInfo(txVersion, encodedNode)
+              .protoActionNodeInfo(txVersion, encodedNode)
               .map(_.informeesOfNode)
       }
     }
