@@ -166,3 +166,22 @@ template GlobalLookups
            E -> pure ()
          Some _ <- lookupByKey @K k
          pure ()
+
+    choice LookupAfterArchiveAfterRollbackLookup : ()
+      with
+        cid : ContractId K
+      controller p
+      do try do
+           -- this updates globalKeyInputs
+           Some cid' <- lookupByKey @K k
+           cid === cid'
+           throw E
+         catch
+           E -> pure ()
+         c <- fetch cid
+         key c === k
+         -- keys is empty here so archive does not drop it.
+         archive cid
+         -- this one needs to check activeness for an entry in globalKeyInputs
+         None <- lookupByKey @K k
+         pure ()

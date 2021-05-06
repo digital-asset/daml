@@ -130,7 +130,9 @@ template KeyOperations
          (keyCid, _) <- fetchByKey @Keyed p
          assert (keyCid `elem` [cid1, cid2])
          archive (fromSome (find (/= keyCid) [cid1, cid2]))
-         None <- lookupByKey @Keyed p
+         -- archive can only influence result for a contract fetched by key before.
+         Some keyCid' <- lookupByKey @Keyed p
+         keyCid' === keyCid
          pure ()
 
     -- should be accepted in uck

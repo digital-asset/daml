@@ -165,7 +165,7 @@ private[lf] object PartialTransaction {
   final case class CompleteTransaction(tx: SubmittedTransaction) extends Result
   final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
 
-  sealed abstract class KeyMapping
+  sealed abstract class KeyMapping extends Product with Serializable
   // There is no active contract with the given key.
   final case object KeyInactive extends KeyMapping
   // The contract with the given cid is active and has the given key.
@@ -196,7 +196,11 @@ private[lf] object PartialTransaction {
   *                 an entry in the map if there wasn’t already one (i.e., if they queried the ledger).
   *              2. ACS mutating operations if the corresponding contract has a key. Specifically,
   *                 2.1. A create will set the corresponding map entry to KeyActive(cid) if the contract has a key.
-  *                 2.2. A consuming choice will set the corresponding map entry to KeyInactive if the contract has a key.
+  *                 2.2. A consuming choice on cid will set the corresponding map entry to KeyInactive
+  *                      iff we had a KeyActive(cid) entry for the same key before. If not, keys
+  *                      will not be modified. Later lookups have an activeness check
+  *                      that can then set this to KeyInactive if the result of the
+  *                      lookup was already archived.
   *
   *              On a rollback, we restore the state at the beginning of the rollback. However,
   *              we preserve globalKeyInputs so we will not ask the ledger again for a key lookup
@@ -481,7 +485,15 @@ private[lf] case class PartialTransaction(
             consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
             keys = mbKey match {
               case Some(kWithM) if consuming =>
-                keys.updated(GlobalKey(templateId, kWithM.key), KeyInactive)
+                val gkey = GlobalKey(templateId, kWithM.key)
+                keys.get(gkey) match {
+                  // An archive can only mark a key as inactive
+                  // if it was brought into scope before.
+                  case Some(KeyActive(cid)) if cid == targetId => keys.updated(gkey, KeyInactive)
+                  // If the key was not in scope or mapped to a different cid, we don’t change keys. Instead we will do
+                  // an activeness check when looking it up later.
+                  case _ => keys
+                }
               case _ => keys
             },
           ),
