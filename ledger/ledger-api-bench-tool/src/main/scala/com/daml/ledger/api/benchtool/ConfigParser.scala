@@ -39,6 +39,7 @@ object ConfigParser {
   private val defaultConfig: Config =
     Config(
       streamType = Config.StreamType.Transactions,
+      party = "TXServeUntilCancellation-alpha-7b2db7cb5ab5-party-0", //TODO
       ledger = Config.Ledger(
         hostname = "localhost",
         port = 6865,

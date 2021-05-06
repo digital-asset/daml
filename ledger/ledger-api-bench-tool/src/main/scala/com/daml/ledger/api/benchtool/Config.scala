@@ -5,6 +5,7 @@ package com.daml.ledger.api.benchtool
 
 case class Config(
     streamType: Config.StreamType,
+    party: String,
     ledger: Config.Ledger,
     concurrency: Config.Concurrency,
 )

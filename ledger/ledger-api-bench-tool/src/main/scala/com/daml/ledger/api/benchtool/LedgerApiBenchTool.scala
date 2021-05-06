@@ -40,12 +40,18 @@ object LedgerApiBenchTool {
     } yield channel
 
     channel.use { channel =>
-      val ledgerIdentityService: LedgerIdentityService = new LedgerIdentityService(channel)
-      val ledgerId: String = ledgerIdentityService.fetchLedgerId()
       Future {
-
-        println(s"USING CHANNEL $channel")
-        println(s"LEDGERID: ${ledgerId}")
+        val ledgerIdentityService: LedgerIdentityService = new LedgerIdentityService(channel)
+        val ledgerId: String = ledgerIdentityService.fetchLedgerId()
+        val transactionService = new TransactionService(channel, ledgerId)
+        config.streamType match {
+          case Config.StreamType.Transactions =>
+            transactionService.transactions(config.party)
+            ()
+          case Config.StreamType.TransactionTrees =>
+            transactionService.transactionTrees(config.party)
+            ()
+        }
       }
     }
   }
