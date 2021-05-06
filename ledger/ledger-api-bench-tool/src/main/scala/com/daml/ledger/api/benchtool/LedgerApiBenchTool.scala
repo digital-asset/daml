@@ -25,7 +25,8 @@ object LedgerApiBenchTool {
       case Some(config) =>
         val benchmark = runBenchmark(config)(ExecutionContext.Implicits.global)
         Await.result(benchmark, atMost = Duration.Inf)
-      case _ => ()
+      case _ =>
+        logger.error("Invalid configuration arguments.")
     }
   }
 
