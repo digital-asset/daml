@@ -70,7 +70,7 @@ The generated Daml code in ``Export.daml`` contains the following top-level defi
 ``type Contracts``
   A mapping from unknown contract ids to replacement contract ids,
   see :ref:`unknown contract ids <export-unknown-cids>`.
-``getContract : Text -> Contracts -> ContractId a``
+``lookupContract : Text -> Contracts -> ContractId a``
   A helper function to look up unknown contract ids in the ``Contracts`` mapping.
 ``data Args``
   A record that holds all arguments to the export script.

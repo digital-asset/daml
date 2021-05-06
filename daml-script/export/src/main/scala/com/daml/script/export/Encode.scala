@@ -41,7 +41,7 @@ private[export] object Encode {
       Doc.hardLine +
       encodeContractsType() /
       Doc.hardLine +
-      encodeGetContract() /
+      encodeLookupContract() /
       Doc.hardLine +
       encodeArgsType() /
       Doc.hardLine +
@@ -79,10 +79,10 @@ private[export] object Encode {
         Doc.text("parties : Parties") /
         Doc.text("contracts : Contracts")).nested(2)
 
-  private def encodeGetContract(): Doc =
+  private def encodeLookupContract(): Doc =
     Doc.text("-- | Look-up a replacement for a missing contract id. Fails if none is found.") /
-      Doc.text("getContract : DA.Stack.HasCallStack => Text -> Contracts -> ContractId a") /
-      (Doc.text("getContract old contracts =") /
+      Doc.text("lookupContract : DA.Stack.HasCallStack => Text -> Contracts -> ContractId a") /
+      (Doc.text("lookupContract old contracts =") /
         (Doc.text("case DA.TextMap.lookup old contracts of") /
           Doc.text("None -> error (\"Missing contract id \" <> old)") /
           Doc.text("Some new -> coerceContractId new")).nested(2)).nested(2)
@@ -256,7 +256,7 @@ private[export] object Encode {
     // LedgerStrings are strings that match the regexp ``[A-Za-z0-9#:\-_/ ]+
     cidMap.get(cid) match {
       case Some(value) => Doc.text(value)
-      case None => parens("getContract" &: quotes(Doc.text(cid.toString)) :& "contracts")
+      case None => parens("lookupContract" &: quotes(Doc.text(cid.toString)) :& "contracts")
     }
   }
 
