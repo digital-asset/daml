@@ -212,7 +212,12 @@ if [[ "$SKIP_JARS" -eq 0 ]]; then
     if [[ "$SKIP_JAR_DOCS" -eq 1 ]]; then
         RELEASE_ARGS+=(--no-docs)
     fi
-    for version in ${SCALA_VERSIONS[@]}; do
+    # Note (MK) You might be wondering what this horrendous
+    # expansion is doing here. This is to guard against set -u
+    # behavior on bash < 4.4 which treat empty arrays as unbound variables.
+    # This expansion is shamelessly stolen from
+    # https://stackoverflow.com/questions/7577052/bash-empty-array-expansion-with-set-u
+    for version in ${SCALA_VERSIONS[@]+"${SCALA_VERSIONS[@]}"}; do
         RELEASE_ARGS+=("--scala-version=$version")
     done
 
