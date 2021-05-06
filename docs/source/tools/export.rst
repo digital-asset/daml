@@ -59,8 +59,14 @@ Daml Script
 
 The generated Daml code in ``Export.daml`` contains the following top-level definitions:
 
-``data Parties``
-  A record that holds the relevant Daml parties.
+``type Parties``
+  A mapping from parties in the original ledger state to parties to be used in
+  the new reconstructed ledger state.
+``lookupParty : Text -> Parties -> Party``
+  A helper function to look up parties in the ``Parties`` mapping.
+``allocateParties : Script Parties``
+  A Daml script that allocates fresh parties on the ledger and returns them in
+  a ``Parties`` mapping.
 ``type Contracts``
   A mapping from unknown contract ids to replacement contract ids,
   see :ref:`unknown contract ids <export-unknown-cids>`.
@@ -73,6 +79,11 @@ The generated Daml code in ``Export.daml`` contains the following top-level defi
   this script will reproduce the ledger state when executed. You can read this
   script to understand the exported ledger state or history, and you can modify
   this script for debugging or testing purposes.
+``testExport : Script ()``
+  A Daml script that will first invoke ``allocateParties`` and then ``export``.
+  It will use an empty ``Contracts`` mapping. This can be useful to test the
+  export in Daml studio. If your export references unknown contract ids then
+  you may need to manually extend the ``Contracts`` mapping.
 
 In most simple cases the generated Daml script will use the functions
 ``submit`` or ``submitMulti`` to issue ledger commands that reproduce a
@@ -115,8 +126,8 @@ state and to map unknown contract ids to themselves. For example:
       "001335..": "001335..."
     },
     "parties": {
-      "alice_0": "Alice",
-      "bob_0": "Bob"
+      "Alice": "Alice",
+      "Bob": "Bob"
     }
   }
 
