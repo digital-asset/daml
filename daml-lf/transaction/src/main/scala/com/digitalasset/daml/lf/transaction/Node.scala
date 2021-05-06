@@ -372,6 +372,9 @@ object Node {
       children: ImmArray[Nid],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
+      // Invariants.
+      // -- There must be at least one child node.
+      // -- The version must equal the maximum of the versions of the children.
   ) extends GenNode[Nid, Nothing] {
 
     override private[lf] def updateVersion(version: TransactionVersion): NodeRollback[Nid] =

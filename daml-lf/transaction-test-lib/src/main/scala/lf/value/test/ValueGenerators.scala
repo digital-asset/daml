@@ -371,9 +371,9 @@ object ValueGenerators {
   /** Makes rollback node with some random child IDs. */
   val danglingRefRollbackNodeGen: Gen[NodeRollback[NodeId]] = {
     for {
-      version <- transactionVersionGen()
+      version <- transactionVersionGen() //NICK: picks any version; normalize in tests which care!
       children <- Gen
-        .listOf(Arbitrary.arbInt.arbitrary)
+        .nonEmptyListOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
         .map(ImmArray(_))
     } yield NodeRollback(children, version)
@@ -484,6 +484,7 @@ object ValueGenerators {
   val noDanglingRefGenTransaction: Gen[GenTransaction[NodeId, ContractId]] = {
 
     def nonDanglingRefNodeGen(
+        allowEmpty: Boolean,
         maxDepth: Int,
         nodeId: NodeId,
     ): Gen[(ImmArray[NodeId], HashMap[NodeId, Tx.Node])] = {
@@ -503,13 +504,13 @@ object ValueGenerators {
             case node: NodeExercises[NodeId, Value.ContractId] =>
               for {
                 depth <- Gen.choose(0, maxDepth - 1)
-                nodeWithChildren <- nonDanglingRefNodeGen(depth, nodeId)
+                nodeWithChildren <- nonDanglingRefNodeGen(true, depth, nodeId)
                 (children, nodes) = nodeWithChildren
               } yield node.copy(children = children) -> nodes
             case node: NodeRollback[NodeId] =>
               for {
                 depth <- Gen.choose(0, maxDepth - 1)
-                nodeWithChildren <- nonDanglingRefNodeGen(depth, nodeId)
+                nodeWithChildren <- nonDanglingRefNodeGen(false, depth, nodeId)
                 (children, nodes) = nodeWithChildren
               } yield node.copy(children = children) -> nodes
             case node =>
@@ -531,10 +532,12 @@ object ValueGenerators {
             nodesGen(parentNodeId, size - 1, nodeIds :+ nodeId, nodes ++ children)
           }
 
-      Gen.choose(0, 6).flatMap(nodesGen(nodeId, _))
+      val minChildren = if (allowEmpty) 0 else 1
+      val maxChildren = 6
+      Gen.choose(minChildren, maxChildren).flatMap(nodesGen(nodeId, _))
     }
 
-    nonDanglingRefNodeGen(3, NodeId(0)).map { case (nodeIds, nodes) =>
+    nonDanglingRefNodeGen(true, 3, NodeId(0)).map { case (nodeIds, nodes) =>
       GenTransaction(nodes, nodeIds)
     }
   }

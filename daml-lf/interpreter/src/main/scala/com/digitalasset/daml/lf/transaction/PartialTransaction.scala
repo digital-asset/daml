@@ -574,7 +574,11 @@ private[lf] case class PartialTransaction(
         // TODO https://github.com/digital-asset/daml/issues/8020
         //  the version of a rollback node should be determined from its children.
         //  in the case of there being no children we can simple drop the entire rollback node.
-        val rollbackNode = Node.NodeRollback(context.children.toImmArray, TxVersion.VDev)
+        // NICK - drop node when no there are no children
+        val rollbackNode = Node.NodeRollback(
+          context.children.toImmArray,
+          TxVersion.VDev, // NICK: determine version as max of non-empty child version.
+        )
         copy(
           context = info.parent.addRollbackChild(info.nodeId, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),

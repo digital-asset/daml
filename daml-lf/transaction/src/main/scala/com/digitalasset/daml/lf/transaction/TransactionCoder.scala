@@ -268,6 +268,11 @@ object TransactionCoder {
           nr.children.foreach { id => builder.addChildren(encodeNid.asString(id)); () }
           for {
             _ <- Either.cond(
+              test = nr.children.nonEmpty,
+              right = (),
+              left = EncodeError("rollback node with no children"), //NICK, test this check
+            )
+            _ <- Either.cond(
               test = nr.version >= TransactionVersion.minExceptions || disableVersionCheck,
               right = (),
               left = EncodeError(node.version, isTooOldFor = "rollback nodes"),
@@ -470,6 +475,7 @@ object TransactionCoder {
         for {
           _ <- Either.cond(
             test = nodeVersion >= TransactionVersion.minExceptions,
+            // NICK, check version matches max of children & test
             right = (),
             left = DecodeError(
               s"rollback node (supported since ${TransactionVersion.minExceptions}) unexpected in transaction of version $nodeVersion"
