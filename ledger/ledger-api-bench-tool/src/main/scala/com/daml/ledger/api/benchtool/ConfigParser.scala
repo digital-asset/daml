@@ -16,10 +16,22 @@ object ConfigParser {
     OParser.sequence(
       programName("ledger-api-bench-tool"),
       head("A tool for measuring transaction streaming performance of a ledger."),
+      opt[String]("hostname")
+        .abbr("h")
+        .text("Ledger API hostname")
+        .optional()
+        .action((host, config) => config.copy(ledger = config.ledger.copy(hostname = host))),
+      opt[Int]("port")
+        .abbr("p")
+        .text("Ledger API port")
+        .optional()
+        .action((port, config) => config.copy(ledger = config.ledger.copy(port = port))),
       opt[Config.StreamConfig]("consume-stream")
+        .abbr("s")
         .text(
-          s"Stream configuration. Format: streamType=<transactions|transactionTrees>,name=<streamName>,party=<party>"
+          s"Stream configuration."
         )
+        .valueName("streamType=<transactions|transactionTrees>,name=<streamName>,party=<party>")
         .action { case (streamConfig, config) => config.copy(streamConfig = Some(streamConfig)) },
       help("help").text("Prints this information"),
     )
