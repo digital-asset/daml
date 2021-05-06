@@ -242,6 +242,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         // ExpFromAnyException
         E"λ (e : AnyException) → (( from_any_exception @Mod:E e ))" ->
           T"AnyException → (( Option Mod:E ))",
+        // AnyException built-ins
+        E"ANY_EXCEPTION_MESSAGE" -> T"AnyException → Text",
+        E"ANY_EXCEPTION_IS_ARITHMETIC_ERROR" -> T"AnyException → Bool",
+        E"ANY_EXCEPTION_IS_CONTRACT_ERROR" -> T"AnyException → Bool",
         // UpdTryCatch
         E"Λ (σ : ⋆). λ (e₁ : Update σ) (e₂: AnyException → Option (Update σ)) → (( try @σ e₁ catch x → e₂ x ))" ->
           T"∀ (σ : ⋆). Update σ → (AnyException → Option (Update σ)) → Update σ",
