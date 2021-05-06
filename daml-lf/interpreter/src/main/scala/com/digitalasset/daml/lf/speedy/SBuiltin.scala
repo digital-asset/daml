@@ -1260,7 +1260,6 @@ private[lf] object SBuiltin {
       val keyMapping = result match {
         case SKeyLookupResult.Found(cid) => KeyActive(cid)
         case SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible => KeyInactive
-
       }
       onLedger.ptx = onLedger.ptx.copy(
         globalKeyInputs = onLedger.ptx.globalKeyInputs.updated(gkey, keyMapping)
@@ -1313,17 +1312,15 @@ private[lf] object SBuiltin {
                 SResultNeedKey(
                   GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
                   onLedger.committers,
-                  result => {
+                  { result =>
                     cacheGlobalLookup(onLedger, gkey, result)
                     // We need to check if the contract was consumed since we only
                     // modify keys if the archive was for a key
                     // already brought into scope.
-                    val activeResult: SKeyLookupResult = result match {
-                      case SKeyLookupResult.Found(cid) =>
-                        if (onLedger.ptx.consumedBy.contains(cid))
+                    val activeResult = result match {
+                      case SKeyLookupResult.Found(cid) if onLedger.ptx.consumedBy.contains(cid) =>
                           SKeyLookupResult.NotFound
-                        else result
-                      case SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible =>
+                      case SKeyLookupResult.Found(_) | SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible =>
                         result
                     }
                     activeResult match {
@@ -1338,7 +1335,7 @@ private[lf] object SBuiltin {
                         true
                       case SKeyLookupResult.NotFound =>
                         onLedger.ptx = onLedger.ptx.copy(
-                          keys = onLedger.ptx.keys + (gkey -> KeyInactive)
+                          keys = onLedger.ptx.keys.updated(gkey, KeyInactive)
                         )
                         operation.handleInputKeyNotFound(machine)
                       case SKeyLookupResult.NotVisible =>
