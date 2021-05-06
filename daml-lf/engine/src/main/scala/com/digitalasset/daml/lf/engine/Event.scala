@@ -6,12 +6,8 @@ package engine
 
 import com.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
 import com.daml.lf.transaction.Node._
-import com.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
-import com.daml.lf.transaction.GenTransaction
-import com.daml.lf.data.Relation.Relation
+import com.daml.lf.data.ImmArray
 import com.daml.lf.value.Value
-
-import scala.annotation.tailrec
 
 // --------------------------
 // Emitted events for the API
@@ -72,7 +68,7 @@ final case class CreateEvent[Cid](
   *  @param actingParties parties acting in the exercise
   *  @param isConsuming marks if this exercise archived the target contract
   *  @param children consequence events. note that they're paired with the NodeId of the transaction that originated the event.
-  *  @param stakeholders the stakeholders of the target contract -- must be a subset of witnesses. see comment for `collectEvents`
+  *  @param stakeholders the stakeholders of the target contract -- must be a subset of witnesses.
   *  @param witnesses additional witnesses induced by parent exercises
   *  @param exerciseResult result of exercise of the choice. Optional since this feature was introduced in transaction version 6.
   */
@@ -206,83 +202,6 @@ object Event extends value.CidContainer2[Event] {
     /** The function must be injective */
     def mapNodeId[Nid2](f: Nid => Nid2): Events[Nid2, Cid] =
       Events(roots.map(f), events.map { case (nid, evt) => (f(nid), evt.mapNodeId(f)) })
-  }
-
-  /** Use Blinding to get the blinding which will contain the disclosure
-    */
-  def collectEvents[Nid, Cid](
-      tx: GenTransaction[Nid, Cid],
-      disclosure: Relation[Nid, Party],
-  ): Events[Nid, Cid] = {
-    val evts =
-      scala.collection.mutable.Map[Nid, Event[Nid, Cid]]()
-
-    def isIrrelevantNode(nid: Nid): Boolean = tx.nodes(nid) match {
-      case _: NodeFetch[_] => true
-      case _: NodeLookupByKey[_] => true
-      case _ => false
-
-    }
-
-    @tailrec
-    def go(remaining: FrontStack[Nid]): Unit = {
-      remaining match {
-        case FrontStack() => ()
-        case FrontStackCons(nodeId, remaining) =>
-          val node = tx.nodes(nodeId)
-          node match {
-            case _: NodeRollback[_] =>
-              // TODO https://github.com/digital-asset/daml/issues/8020
-              sys.error("rollback nodes are not supported")
-            case nc: NodeCreate[Cid] =>
-              val evt =
-                CreateEvent(
-                  contractId = nc.coid,
-                  templateId = nc.coinst.template,
-                  contractKey = nc.key,
-                  argument = nc.coinst.arg,
-                  agreementText = nc.coinst.agreementText,
-                  signatories = nc.signatories,
-                  observers = nc.stakeholders diff nc.signatories,
-                  witnesses = disclosure(nodeId),
-                )
-              evts += (nodeId -> evt)
-              go(remaining)
-            case ne: NodeExercises[Nid, Cid] =>
-              val templateId = ne.templateId
-              // purge fetch children -- we do not have fetch events
-              val relevantChildren =
-                ne.children.filter(!isIrrelevantNode(_))
-              val evt = ExerciseEvent(
-                ne.targetCoid,
-                templateId,
-                ne.choiceId,
-                ne.chosenValue,
-                ne.actingParties,
-                ne.consuming,
-                relevantChildren,
-                ne.stakeholders,
-                disclosure(nodeId),
-                ne.exerciseResult,
-              )
-              evts += (nodeId -> evt)
-              go(relevantChildren ++: remaining)
-            case nf: NodeFetch[Cid] =>
-              throw new RuntimeException(
-                s"Unexpected fetch node $nf, we purge them before we get here!"
-              )
-            case nlbk: NodeLookupByKey[Cid] =>
-              throw new RuntimeException(
-                s"Unexpected lookup by key node $nlbk, we purge them before we get here!"
-              )
-          }
-      }
-    }
-
-    // purge fetch children -- we do not have fetch events
-    val relevantRoots = tx.roots.filter(!isIrrelevantNode(_))
-    go(FrontStack(relevantRoots))
-    Events(relevantRoots, Map() ++ evts)
   }
 
   object Events extends value.CidContainer2[Events] {
