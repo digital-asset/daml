@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.benchtool
 
+import com.daml.ledger.api.benchtool.services.{LedgerIdentityService, TransactionService}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder

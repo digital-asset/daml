@@ -1,18 +1,18 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.benchtool
+package com.daml.ledger.api.benchtool.services
 
-import io.grpc.Channel
+import com.daml.ledger.api.benchtool.metrics.LogOnlyObserver
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.transaction_filter.Filters
-import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
-import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
+  GetTransactionTreesResponse,
   GetTransactionsRequest,
   GetTransactionsResponse,
-  GetTransactionTreesResponse,
+  TransactionServiceGrpc,
 }
+import io.grpc.Channel
 import org.slf4j.LoggerFactory
 
 final class TransactionService(channel: Channel, ledgerId: String) {
