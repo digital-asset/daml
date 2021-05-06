@@ -69,9 +69,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "BigNumeric" -> BTBigNumeric,
         "RoundingMode" -> BTRoundingMode,
         "AnyException" -> BTAnyException,
-        "GeneralError" -> BTGeneralError,
-        "ArithmeticError" -> BTArithmeticError,
-        "ContractError" -> BTContractError,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltinType) =>
@@ -234,13 +231,9 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "GREATER" -> BGreater,
         "GREATER_EQ" -> BGreaterEq,
         "COERCE_CONTRACT_ID" -> BCoerceContractId,
-        "MAKE_GENERAL_ERROR" -> BMakeGeneralError,
-        "MAKE_ARITHMETIC_ERROR" -> BMakeArithmeticError,
-        "MAKE_CONTRACT_ERROR" -> BMakeContractError,
         "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
-        "GENERAL_ERROR_MESSAGE" -> BGeneralErrorMessage,
-        "ARITHMETIC_ERROR_MESSAGE" -> BArithmeticErrorMessage,
-        "CONTRACT_ERROR_MESSAGE" -> BContractErrorMessage,
+        "ANY_EXCEPTION_IS_ARITHMETIC_ERROR" -> BAnyExceptionIsArithmeticError,
+        "ANY_EXCEPTION_IS_CONTRACT_ERROR" -> BAnyExceptionIsContractError,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltin) =>

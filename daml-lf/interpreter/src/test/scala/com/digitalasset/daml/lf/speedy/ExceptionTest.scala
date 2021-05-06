@@ -19,77 +19,56 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-  "builtin exception types: constructors & destructors" should {
+  // TODO https://github.com/digital-asset/daml/issues/8020
+  //   Turn this into a test for to-any-exception / from-any-exception
+  //   using only user-defined types, since builtin exception types are going away.
 
-    // Construction/Deconstruction of builtin-exception types are inverses.
+  // "builtin exceptions: to/from-any-exception" should {
 
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
-       module M {
-         val text : Text = "Hello!";
-         val t2 : Text = GENERAL_ERROR_MESSAGE (MAKE_GENERAL_ERROR M:text);
-         val t3 : Text = ARITHMETIC_ERROR_MESSAGE (MAKE_ARITHMETIC_ERROR M:text);
-         val t4 : Text = CONTRACT_ERROR_MESSAGE (MAKE_CONTRACT_ERROR M:text);
-       }
-      """)
+  //   // Convertion to/from AnyException works as expected:
+  //   // specifically: we can only extract the inner value if the
+  //   // expected-type (on: from_any_exception) matches the actual-type (on: to_any_exception)
 
-    val testCases = Table[String, String](
-      ("expression", "string-result"),
-      ("M:text", "Hello!"),
-      ("M:t2", "Hello!"),
-      ("M:t3", "Hello!"),
-      ("M:t4", "Hello!"),
-    )
+  //   val pkgs: PureCompiledPackages = typeAndCompile(p"""
+  //      module M {
+  //        val G : AnyException = to_any_exception @GeneralError (MAKE_GENERAL_ERROR "G");
+  //        val A : AnyException = to_any_exception @ArithmeticError (MAKE_ARITHMETIC_ERROR "A");
+  //        val C : AnyException = to_any_exception @ContractError (MAKE_CONTRACT_ERROR "C");
+  //        val fromG : AnyException -> Text = \(e:AnyException) -> case from_any_exception @GeneralError e of None -> "NONE" | Some x -> GENERAL_ERROR_MESSAGE x;
+  //        val fromA : AnyException -> Text = \(e:AnyException) -> case from_any_exception @ArithmeticError e of None -> "NONE" | Some x -> ARITHMETIC_ERROR_MESSAGE x;
+  //        val fromC : AnyException -> Text = \(e:AnyException) -> case from_any_exception @ContractError e of None -> "NONE" | Some x -> CONTRACT_ERROR_MESSAGE x;
+  //      }
+  //     """)
 
-    forEvery(testCases) { (exp: String, res: String) =>
-      s"""eval[$exp] --> "$res"""" in {
-        val expected: SResult = SResultFinalValue(SValue.SText(res))
-        runExpr(pkgs)(e"$exp") shouldBe expected
-      }
-    }
-  }
+  //   val testCases = Table[String, String](
+  //     ("expression", "string-result"),
+  //     ("M:fromG M:G", "G"),
+  //     ("M:fromA M:A", "A"),
+  //     ("M:fromC M:C", "C"),
+  //     ("M:fromG M:A", "NONE"),
+  //     ("M:fromG M:C", "NONE"),
+  //     ("M:fromA M:G", "NONE"),
+  //     ("M:fromA M:C", "NONE"),
+  //     ("M:fromC M:G", "NONE"),
+  //     ("M:fromC M:A", "NONE"),
+  //   )
 
-  "builtin exceptions: to/from-any-exception" should {
+  //   forEvery(testCases) { (exp: String, res: String) =>
+  //     s"""eval[$exp] --> "$res"""" in {
+  //       val expected: SResult = SResultFinalValue(SValue.SText(res))
+  //       runExpr(pkgs)(e"$exp") shouldBe expected
+  //     }
+  //   }
+  // }
 
-    // Convertion to/from AnyException works as expected:
-    // specifically: we can only extract the inner value if the
-    // expected-type (on: from_any_exception) matches the actual-type (on: to_any_exception)
-
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
-       module M {
-         val G : AnyException = to_any_exception @GeneralError (MAKE_GENERAL_ERROR "G");
-         val A : AnyException = to_any_exception @ArithmeticError (MAKE_ARITHMETIC_ERROR "A");
-         val C : AnyException = to_any_exception @ContractError (MAKE_CONTRACT_ERROR "C");
-         val fromG : AnyException -> Text = \(e:AnyException) -> case from_any_exception @GeneralError e of None -> "NONE" | Some x -> GENERAL_ERROR_MESSAGE x;
-         val fromA : AnyException -> Text = \(e:AnyException) -> case from_any_exception @ArithmeticError e of None -> "NONE" | Some x -> ARITHMETIC_ERROR_MESSAGE x;
-         val fromC : AnyException -> Text = \(e:AnyException) -> case from_any_exception @ContractError e of None -> "NONE" | Some x -> CONTRACT_ERROR_MESSAGE x;
-       }
-      """)
-
-    val testCases = Table[String, String](
-      ("expression", "string-result"),
-      ("M:fromG M:G", "G"),
-      ("M:fromA M:A", "A"),
-      ("M:fromC M:C", "C"),
-      ("M:fromG M:A", "NONE"),
-      ("M:fromG M:C", "NONE"),
-      ("M:fromA M:G", "NONE"),
-      ("M:fromA M:C", "NONE"),
-      ("M:fromC M:G", "NONE"),
-      ("M:fromC M:A", "NONE"),
-    )
-
-    forEvery(testCases) { (exp: String, res: String) =>
-      s"""eval[$exp] --> "$res"""" in {
-        val expected: SResult = SResultFinalValue(SValue.SText(res))
-        runExpr(pkgs)(e"$exp") shouldBe expected
-      }
-    }
-  }
+  // TODO https://github.com/digital-asset/daml/issues/8020
+  //   Add builtin errors back into this test (ArithmeticError and ContractError).
+  //   In these cases the message should probably just be "ArithmeticError" and "ContractError".
 
   "ANY_EXCEPTION_MESSAGE" should {
 
     // Application of ANY_EXCEPTION_MESSAGE for various cases:
-    // all 3 builtin exception types & 2 user-defined exceptions.
+    // 2 user-defined exceptions.
     // MyException1 contains the message text directly
     // MyException2 composes the message string from two text contained in the payload
 
@@ -112,15 +91,6 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
         val e2 : AnyException = to_any_exception @M:MyException2 (M:MyException2 { front = "Mess", back = "age2" });
         val t2 : Text = ANY_EXCEPTION_MESSAGE M:e2;
-
-        val e3 : AnyException = to_any_exception @GeneralError (MAKE_GENERAL_ERROR "MessageG");
-        val t3 : Text = ANY_EXCEPTION_MESSAGE M:e3;
-
-        val e4 : AnyException = to_any_exception @ArithmeticError (MAKE_ARITHMETIC_ERROR "MessageA");
-        val t4 : Text = ANY_EXCEPTION_MESSAGE M:e4;
-
-        val e5 : AnyException = to_any_exception @ContractError (MAKE_CONTRACT_ERROR "MessageC");
-        val t5 : Text = ANY_EXCEPTION_MESSAGE M:e5;
        }
       """)
 
@@ -128,9 +98,6 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       ("expression", "expected-string"),
       ("M:t1", "Message1"),
       ("M:t2", "Message2"),
-      ("M:t3", "MessageG"),
-      ("M:t4", "MessageA"),
-      ("M:t5", "MessageC"),
     )
 
     forEvery(testCases) { (exp: String, res: String) =>
@@ -143,9 +110,12 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
   "unhandled throw" should {
 
+    // TODO https://github.com/digital-asset/daml/issues/8020
+    //   Add some builtin errors to this test.
+
     // Behaviour when no handler catches a throw:
-    // 1: GeneralError thrown; no try-catch in scope
-    // 2. GeneralError thrown; try catch in scope, but handler does not catch
+    // 1: User Exception thrown; no try-catch in scope
+    // 2. User Exception thrown; try catch in scope, but handler does not catch
     // 3. User Exception thrown; no handler in scope
     // 4. User Exception thrown; no handler in scope; secondary throw from the message function of the 1st exception
 

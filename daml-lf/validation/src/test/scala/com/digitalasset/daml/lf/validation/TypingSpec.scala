@@ -65,9 +65,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         BTRoundingMode -> k"*",
         BTBigNumeric -> k"*",
         BTAnyException -> k"*",
-        BTGeneralError -> k"*",
-        BTArithmeticError -> k"*",
-        BTContractError -> k"*",
       )
 
       forEvery(testCases) { (bType: BuiltinType, expectedKind: Kind) =>
@@ -237,32 +234,18 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         E"""ROUNDING_UP""" ->
           T"RoundingMode",
         // ExpThrow
-        E"Λ (σ : ⋆). λ (e : ArithmeticError) →  (( throw @σ @ArithmeticError e ))" ->
-          T"∀ (σ : ⋆). ArithmeticError → (( σ ))",
-        E"Λ (σ : ⋆). λ (e : ContractError) →  (( throw @σ @ContractError e ))" ->
-          T"∀ (σ : ⋆). ContractError → (( σ ))",
-        E"Λ (σ : ⋆). λ (e : GeneralError) →  (( throw @σ @GeneralError e ))" ->
-          T"∀ (σ : ⋆). GeneralError → (( σ ))",
         E"Λ (σ : ⋆). λ (e : Mod:E) →  (( throw @σ @Mod:E e ))" ->
           T"∀ (σ : ⋆). Mod:E → (( σ ))",
         // ExpToAnyException
-        E"λ (e : ArithmeticError ) → (( to_any_exception @ArithmeticError e ))" ->
-          T"ArithmeticError → (( AnyException ))",
-        E"λ (e : ContractError ) → (( to_any_exception @ContractError e ))" ->
-          T"ContractError → (( AnyException ))",
-        E"λ (e : GeneralError ) → (( to_any_exception @GeneralError e ))" ->
-          T"GeneralError → (( AnyException ))",
         E"λ (e : Mod:E) → (( to_any_exception @Mod:E e ))" ->
           T"Mod:E → (( AnyException ))",
         // ExpFromAnyException
-        E"λ (e : AnyException) → (( from_any_exception @ArithmeticError e ))" ->
-          T"AnyException → (( Option ArithmeticError ))",
-        E"λ (e : AnyException) → (( from_any_exception @ContractError e ))" ->
-          T"AnyException → (( Option ContractError ))",
-        E"λ (e : AnyException) → (( from_any_exception @GeneralError e ))" ->
-          T"AnyException → (( Option GeneralError ))",
         E"λ (e : AnyException) → (( from_any_exception @Mod:E e ))" ->
           T"AnyException → (( Option Mod:E ))",
+        // AnyException built-ins
+        E"ANY_EXCEPTION_MESSAGE" -> T"AnyException → Text",
+        E"ANY_EXCEPTION_IS_ARITHMETIC_ERROR" -> T"AnyException → Bool",
+        E"ANY_EXCEPTION_IS_CONTRACT_ERROR" -> T"AnyException → Bool",
         // UpdTryCatch
         E"Λ (σ : ⋆). λ (e₁ : Update σ) (e₂: AnyException → Option (Update σ)) → (( try @σ e₁ catch x → e₂ x ))" ->
           T"∀ (σ : ⋆). Update σ → (AnyException → Option (Update σ)) → Update σ",
@@ -613,7 +596,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: EExpectedExceptionType => },
         E"λ (e: |Mod:S|) → ⸨ to_any_exception  @|Mod:S| e ⸩" -> //
           { case _: EExpectedExceptionType => },
-        E"λ (e: ArithmeticError) → ⸨ to_any_exception @GeneralError e ⸩" -> //
+        E"λ (e: Mod:T) → ⸨ to_any_exception @(Mod:E) e ⸩" -> //
           { case _: ETypeMismatch => },
         // ExpFromAnyException
         E"λ (t: AnyException) → ⸨ from_any_exception @Mod:T t ⸩" -> //
@@ -969,7 +952,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           choices { }
         } ;
       }
-      
+
       module PositiveTestCase10{
          // template without data type
          template (this : T) =  {
@@ -1037,7 +1020,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
           module PositiveTestCase1 {
             record @serializable Exception (a: *) = { message: Text } ; // should not have parameter
-            
+
             exception Exception = {
               message \(e: PositiveTestCase1:Exception) -> PositiveTestCase1:Exception {message} e
             } ;
@@ -1045,22 +1028,22 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
          module PositiveTestCase2 {
             variant @serializable Exception = Message : Text  ; // should be a record
-            
+
             exception Exception = {
               message \(e: PositiveTestCase2:Exception) -> PositiveTestCase2:Exception {message} e
             } ;
           }
-          
-         module PositiveTestCase3 {    
+
+         module PositiveTestCase3 {
            exception Exception = {         // should match a existing record in the same module
              message \(e: Mod:Exception) -> PositiveTestCase3:Exception {message} e
            } ;
          }
-         
-         module PositiveTestCase4 {    
+
+         module PositiveTestCase4 {
            record @serializable Exception = { message: Text } ;
-                   
-           exception Exception = {         
+
+           exception Exception = {
              message "some error message"   // should be of type PositiveTestCase4:Exception -> Text
            } ;
          }
@@ -1256,9 +1239,9 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
          synonym SynPair (a: *) (b: *) = <one: a, two: b>;
          synonym SynHigh (f: * -> *) = f Int64 ;
          synonym SynHigh2 (f: * -> * -> *) (a: *) = f a a ;
-           
+
          synonym S = Mod:U;
-         
+
          record @serializable T = { person: Party, name: Text };
          template (this : T) =  {
            precondition True,
@@ -1274,10 +1257,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
          record @serializable U = { person: Party, name: Text };
 
          val f : Int64 -> Bool = ERROR @(Bool -> Int64) "not implemented";
-         
+
          record @serializable E = { message: Text };
          exception E = { message \(e: Mod:E) -> Mod:E {message} e };
-           
+
        }
      """
 
