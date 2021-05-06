@@ -27,9 +27,7 @@ da_scala_library(
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = scalacopts + [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
+    scalacopts = scalacopts,
     tags = ["maven_coordinates=com.daml:gatling-utils:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [

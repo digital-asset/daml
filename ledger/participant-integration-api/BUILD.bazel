@@ -102,9 +102,6 @@ da_scala_library(
     scala_deps = scala_compile_deps + [
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
     tags = ["maven_coordinates=com.daml:participant-integration-api:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -127,9 +124,6 @@ da_scala_library(
             exclude = ["src/main/resources/logback.xml"],
         ),
     scala_deps = scala_compile_deps,
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
     tags = ["maven_coordinates=com.daml:ledger-api-server:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -153,9 +147,6 @@ da_scala_library(
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",
-    ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat._",
     ],
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -354,7 +345,6 @@ scaladoc_jar(
     root_content = "rootdoc.txt",
     scalacopts = [
         "-P:silencer:checkUnused",
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
     ],
     visibility = [
         "//visibility:public",

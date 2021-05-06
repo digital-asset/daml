@@ -42,9 +42,7 @@ hj_scalacopts = lf_scalacopts + [
             "@maven//:org_typelevel_cats_free",
             "@maven//:org_typelevel_cats_kernel",
         ],
-        scalacopts = hj_scalacopts + [
-            "-P:silencer:lineContentFilters=import scala.collection.compat",
-        ],
+        scalacopts = hj_scalacopts,
         tags = ["maven_coordinates=com.daml:http-json:__VERSION__"],
         visibility = ["//visibility:public"],
         runtime_deps = [
@@ -197,9 +195,7 @@ daml_compile(
             "@maven//:org_typelevel_cats_free",
             "@maven//:org_typelevel_cats_kernel",
         ],
-        scalacopts = hj_scalacopts + [
-            "-P:silencer:lineContentFilters=import scala.collection.compat",
-        ],
+        scalacopts = hj_scalacopts,
         deps = [
             ":http-json-{}".format(edition),
             "//daml-lf/data",

@@ -88,9 +88,6 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",

@@ -74,9 +74,7 @@ da_scala_library(
         "@maven//:io_spray_spray_json",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = scalacopts + [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
+    scalacopts = scalacopts,
     visibility = ["//visibility:public"],
     deps = [
         ":middleware-api",

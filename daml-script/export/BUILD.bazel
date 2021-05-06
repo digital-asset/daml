@@ -26,9 +26,6 @@ da_scala_binary(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
     ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat.",
-    ],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",

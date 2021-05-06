@@ -20,9 +20,6 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_stream",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
     visibility = [
         "//visibility:public",
     ],

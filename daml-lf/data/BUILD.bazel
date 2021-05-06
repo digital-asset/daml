@@ -25,7 +25,6 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts + [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
         "-P:silencer:lineContentFilters=import ImmArraySeq.Implicits._",
     ],
     tags = ["maven_coordinates=com.daml:daml-lf-data:__VERSION__"],
@@ -54,7 +53,6 @@ da_scala_test(
     ],
     scalacopts = lf_scalacopts + [
         "-P:silencer:lineContentFilters=import ImmArraySeq.Implicits._",
-        "-P:silencer:lineContentFilters=import scala.collection.compat._",
         "-P:silencer:lineContentFilters=signum",
     ],
     deps = [
