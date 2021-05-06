@@ -585,7 +585,7 @@ enum BuiltinFunction {
   TO_BIGNUMERIC_NUMERIC = 145; // *Available in versions >= 1.13*
   TO_TEXT_BIGNUMERIC = 146; // *Available in versions >= 1.13*
 
-  // Next id is 154. 153 is CONTRACT_ERROR_MESSAGE.
+  // Next id is 150. 149 is ANY_EXCEPTION_IS_CONTRACT_ERROR.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
