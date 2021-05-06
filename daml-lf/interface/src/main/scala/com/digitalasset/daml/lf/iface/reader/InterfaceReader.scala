@@ -247,8 +247,6 @@ object InterfaceReader {
         case Ast.BTTextMap => \/-((1, PrimType.TextMap))
         case Ast.BTGenMap => \/-((2, PrimType.GenMap))
         case Ast.BTAnyException | Ast.BTBigNumeric | Ast.BTRoundingMode =>
-          // TODO https://github.com/digital-asset/daml/issues/8020
-          // Add exception types to the interface reader
           unserializableDataType(
             ctx,
             "Exception types are still under implementation, see issue #8020",
