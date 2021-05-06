@@ -8,6 +8,7 @@ import java.util.concurrent.Executors
 import com.codahale.metrics.{InstrumentedExecutorService, MetricRegistry}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.MetricName
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -20,10 +21,14 @@ object AsyncSupport {
 
   def asyncPool(
       size: Int,
+      namePrefix: String,
       withMetric: Option[(MetricName, MetricRegistry)] = None,
   ): ResourceOwner[Executor] =
     ResourceOwner.forCloseable { () =>
-      val executor = Executors.newFixedThreadPool(size)
+      val executor = Executors.newFixedThreadPool(
+        size,
+        new ThreadFactoryBuilder().setNameFormat(s"$namePrefix-%d").build,
+      )
       val workerE = withMetric match {
         case Some((metricName, metricRegistry)) =>
           new InstrumentedExecutorService(
