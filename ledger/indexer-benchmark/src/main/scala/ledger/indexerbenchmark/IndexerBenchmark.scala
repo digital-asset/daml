@@ -167,7 +167,7 @@ class IndexerBenchmark() {
   }
 
   private[this] def createReadService(
-      updates: Iterator[(Offset, Update)],
+      updates: Iterator[(Offset, Update)]
   ): ReadService = {
     val initialConditions = LedgerInitialConditions(
       IndexerBenchmark.LedgerId,
