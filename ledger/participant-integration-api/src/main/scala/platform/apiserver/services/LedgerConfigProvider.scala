@@ -41,7 +41,7 @@ private[apiserver] final class LedgerConfigProvider private (
     timeProvider: TimeProvider,
     config: LedgerConfiguration,
     materializer: Materializer,
-)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
+)(implicit loggingContext: LoggingContext)
     extends AutoCloseable {
 
   private[this] val logger = ContextualizedLogger.get(this.getClass)
@@ -50,9 +50,8 @@ private[apiserver] final class LedgerConfigProvider private (
   private[this] type StateType = (Option[LedgerOffset.Absolute], Option[Configuration])
   private[this] val state: AtomicReference[StateType] = new AtomicReference(None -> None)
   private[this] val closed: AtomicBoolean = new AtomicBoolean(false)
-  private[this] val killSwitch: AtomicReference[Option[UniqueKillSwitch]] = new AtomicReference(
-    None
-  )
+  private[this] val killSwitch: AtomicReference[Option[UniqueKillSwitch]] =
+    new AtomicReference(None)
   private[this] val readyPromise: Promise[Unit] = Promise()
 
   // At startup, do the following:
@@ -85,7 +84,8 @@ private[apiserver] final class LedgerConfigProvider private (
   // stream of configuration changes.
   // If the source of configuration changes proves to be a performance bottleneck,
   // it could be replaced by regular polling.
-  private[this] def startLoading(): Future[Unit] =
+  private[this] def startLoading(): Future[Unit] = {
+    implicit val executionContext: ExecutionContext = materializer.executionContext
     index
       .lookupConfiguration()
       .map {
@@ -101,6 +101,7 @@ private[apiserver] final class LedgerConfigProvider private (
           state.set(None -> None)
       }
       .map(_ => startStreamingUpdates())
+  }
 
   private[this] def configFound(offset: LedgerOffset.Absolute, config: Configuration): Unit = {
     state.set(Some(offset) -> Some(config))
@@ -140,6 +141,7 @@ private[apiserver] final class LedgerConfigProvider private (
   }
 
   private[this] def submitInitialConfig(writeService: WriteConfigService): Future[Unit] = {
+    implicit val executionContext: ExecutionContext = materializer.executionContext
     // There are several reasons why the change could be rejected:
     // - The participant is not authorized to set the configuration
     // - There already is a configuration, it just didn't appear in the index yet
@@ -161,15 +163,12 @@ private[apiserver] final class LedgerConfigProvider private (
         .map {
           case SubmissionResult.Acknowledged =>
             logger.info(s"Initial configuration submission $submissionId was successful")
-            ()
           case SubmissionResult.NotSupported =>
             logger.info("Setting an initial ledger configuration is not supported")
-            ()
           case result =>
             logger.warn(
               s"Initial configuration submission $submissionId failed. Reason: ${result.description}"
             )
-            ()
         }
     }
   }
@@ -200,13 +199,14 @@ private[apiserver] object LedgerConfigProvider {
       config: LedgerConfiguration,
   )(implicit
       materializer: Materializer,
-      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ResourceOwner[LedgerConfigProvider] =
     for {
       provider <- ResourceOwner.forCloseable(() =>
         new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer)
       )
-      _ <- ResourceOwner.forFuture(() => provider.ready.map(_ => provider))
+      _ <- ResourceOwner.forFuture(() =>
+        provider.ready.map(_ => provider)(materializer.executionContext)
+      )
     } yield provider
 }
