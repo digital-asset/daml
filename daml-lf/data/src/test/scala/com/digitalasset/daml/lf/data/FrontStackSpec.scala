@@ -10,8 +10,6 @@ import org.scalatest.wordspec.AnyWordSpec
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._
 
-import scala.collection.compat._
-
 class FrontStackSpec
     extends AnyWordSpec
     with Matchers
