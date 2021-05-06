@@ -41,14 +41,14 @@ class SimplePackage(testDar: TestDar) {
     Ref.Identifier(packageId, qualifiedName)
   }
 
-  def createCmd(templateId: Ref.Identifier, templateArg: Value[Value.ContractId]): CreateCommand =
+  def createCmd(templateId: Ref.Identifier, templateArg: Value[Value.ContractId]): Command =
     CreateCommand(templateId, templateArg)
 
   def exerciseCmd(
       contractId: Value.ContractId,
       templateId: Ref.Identifier,
       choiceName: Ref.ChoiceName,
-  ): ExerciseCommand =
+  ): Command =
     ExerciseCommand(
       templateId,
       contractId,
@@ -60,7 +60,7 @@ class SimplePackage(testDar: TestDar) {
       partyKey: Ref.Party,
       templateId: Ref.Identifier,
       choiceName: Ref.ChoiceName,
-  ): ExerciseByKeyCommand =
+  ): Command =
     ExerciseByKeyCommand(
       templateId,
       ValueParty(partyKey),
@@ -72,7 +72,7 @@ class SimplePackage(testDar: TestDar) {
       templateId: Ref.Identifier,
       templateArg: Value[Value.ContractId],
       choiceName: Ref.ChoiceName,
-  ): CreateAndExerciseCommand =
+  ): Command =
     CreateAndExerciseCommand(
       templateId,
       templateArg,
@@ -106,18 +106,16 @@ class SimplePackage(testDar: TestDar) {
   private val simpleReplaceChoiceName: Ref.ChoiceName =
     Ref.ChoiceName.assertFromString("Replace")
 
-  def simpleCreateCmd(templateArg: Value[Value.ContractId]): CreateCommand =
+  def simpleCreateCmd(templateArg: Value[Value.ContractId]): Command =
     createCmd(simpleTemplateId, templateArg)
 
-  def simpleExerciseArchiveCmd(contractId: Value.ContractId): ExerciseCommand =
+  def simpleExerciseArchiveCmd(contractId: Value.ContractId): Command =
     exerciseCmd(contractId, simpleTemplateId, simpleArchiveChoiceName)
 
-  def simpleCreateAndExerciseArchiveCmd(
-      templateArg: Value[Value.ContractId]
-  ): CreateAndExerciseCommand =
+  def simpleCreateAndExerciseArchiveCmd(templateArg: Value[Value.ContractId]): Command =
     createAndExerciseCmd(simpleTemplateId, templateArg, simpleArchiveChoiceName)
 
-  def simpleExerciseReplaceByKeyCmd(partyKey: Ref.Party): ExerciseByKeyCommand =
+  def simpleExerciseReplaceByKeyCmd(partyKey: Ref.Party): Command =
     exerciseByKeyCmd(partyKey, simpleTemplateId, simpleReplaceChoiceName)
 
   def mkSimpleTemplateArg(
@@ -141,10 +139,10 @@ class SimplePackage(testDar: TestDar) {
   private val simpleHolderReplaceHeldByKeyChoiceName: Ref.ChoiceName =
     Ref.ChoiceName.assertFromString("ReplaceHeldByKey")
 
-  def simpleHolderCreateCmd(arg: Value[Value.ContractId]): CreateCommand =
+  def simpleHolderCreateCmd(arg: Value[Value.ContractId]): Command =
     createCmd(simpleHolderTemplateId, arg)
 
-  def simpleHolderExerciseReplaceHeldByKeyCmd(contractId: Value.ContractId): ExerciseCommand =
+  def simpleHolderExerciseReplaceHeldByKeyCmd(contractId: Value.ContractId): Command =
     exerciseCmd(contractId, simpleHolderTemplateId, simpleHolderReplaceHeldByKeyChoiceName)
 
   def mkSimpleHolderTemplateArg(owner: Ref.Party): Value[Value.ContractId] =

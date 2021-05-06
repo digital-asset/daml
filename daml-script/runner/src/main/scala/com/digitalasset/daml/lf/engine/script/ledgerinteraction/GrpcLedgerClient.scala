@@ -144,7 +144,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.ApiCommand],
+      commands: List[command.Command],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
     import scalaz.syntax.traverse._
@@ -189,7 +189,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   override def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.ApiCommand],
+      commands: List[command.Command],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
     submit(actAs, readAs, commands, optLocation).map({
@@ -201,7 +201,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
   override def submitTree(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.ApiCommand],
+      commands: List[command.Command],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
@@ -274,7 +274,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     } yield ()
   }
 
-  private def toCommand(cmd: command.ApiCommand): Either[String, Command] =
+  private def toCommand(cmd: command.Command): Either[String, Command] =
     cmd match {
       case command.CreateCommand(templateId, argument) =>
         for {

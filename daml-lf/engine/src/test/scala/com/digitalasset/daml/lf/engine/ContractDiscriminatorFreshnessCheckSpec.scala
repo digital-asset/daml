@@ -128,7 +128,7 @@ class ContractDiscriminatorFreshnessCheckSpec
   )
 
   private def submit(
-      cmds: ImmArray[command.ApiCommand],
+      cmds: ImmArray[command.Command],
       pcs: Value.ContractId => Option[Value.ContractInst[Value.VersionedValue[ContractId]]],
       keys: GlobalKey => Option[ContractId],
   ) =
@@ -185,7 +185,7 @@ class ContractDiscriminatorFreshnessCheckSpec
         .toMap
         .lift
 
-      def run(cmd: command.ApiCommand) =
+      def run(cmd: command.Command) =
         submit(
           ImmArray(
             command.CreateCommand(tmplId, contractRecord(alice, 0, List.empty)),
@@ -256,7 +256,7 @@ class ContractDiscriminatorFreshnessCheckSpec
         .toMap
         .lift
 
-      def run(cmd: command.ApiCommand) =
+      def run(cmd: command.Command) =
         submit(
           ImmArray(
             cmd,

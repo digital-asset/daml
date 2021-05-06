@@ -197,7 +197,7 @@ class JsonLedgerClient(
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.ApiCommand],
+      commands: List[command.Command],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
@@ -231,7 +231,7 @@ class JsonLedgerClient(
   override def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.ApiCommand],
+      commands: List[command.Command],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
     submit(actAs, readAs, commands, optLocation).map({
@@ -243,7 +243,7 @@ class JsonLedgerClient(
   override def submitTree(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.ApiCommand],
+      commands: List[command.Command],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,

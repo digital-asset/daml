@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.test.SimplePackagePartyTestDar
-import com.daml.lf.command.{ApiCommand, Commands}
+import com.daml.lf.command.{Command, Commands}
 import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
@@ -180,7 +180,7 @@ object KVTest {
   def runCommand(
       submitter: Party,
       submissionSeed: crypto.Hash,
-      command: ApiCommand,
+      command: Command,
   ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
     KVReader { state =>
       state.engine
@@ -214,7 +214,7 @@ object KVTest {
   def runSimpleCommand(
       submitter: Party,
       submissionSeed: crypto.Hash,
-      command: ApiCommand,
+      command: Command,
   ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
     runCommand(submitter, submissionSeed, command)
 

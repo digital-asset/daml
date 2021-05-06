@@ -102,9 +102,9 @@ final class CommandsValidator(ledgerId: LedgerId) {
 
   private def validateInnerCommands(
       commands: Seq[ProtoCommand]
-  ): Either[StatusRuntimeException, immutable.Seq[ApiCommand]] =
-    commands.foldLeft[Either[StatusRuntimeException, Vector[ApiCommand]]](
-      Right(Vector.empty[ApiCommand])
+  ): Either[StatusRuntimeException, immutable.Seq[Command]] =
+    commands.foldLeft[Either[StatusRuntimeException, Vector[Command]]](
+      Right(Vector.empty[Command])
     )((commandz, command) => {
       for {
         validatedInnerCommands <- commandz
@@ -114,7 +114,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
 
   private def validateInnerCommand(
       command: ProtoCommand.Command
-  ): Either[StatusRuntimeException, ApiCommand] =
+  ): Either[StatusRuntimeException, Command] =
     command match {
       case c: ProtoCreate =>
         for {

@@ -1532,7 +1532,7 @@ class EngineTest
           engine
             .reinterpret(
               n.requiredAuthorizers,
-              FetchCommand(n.templateId, n.coid),
+              Action.Fetch(n.templateId, n.coid),
               txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
               txMeta.submissionTime,
               let,
@@ -1583,7 +1583,7 @@ class EngineTest
     "succeed with a fresh engine, correctly compiling packages" in {
       val engine = Engine.DevEngine()
 
-      val fetchNode = FetchCommand(
+      val action = Action.Fetch(
         templateId = fetchedTid,
         coid = fetchedCid,
       )
@@ -1594,7 +1594,7 @@ class EngineTest
 
       val reinterpreted =
         engine
-          .reinterpret(submitters, fetchNode, None, let, let)
+          .reinterpret(submitters, action, None, let, let)
           .consume(
             lookupContract,
             lookupPackage,
@@ -1700,7 +1700,7 @@ class EngineTest
           .DevEngine()
           .reinterpret(
             submitters,
-            LookupByKeyCommand(lookupNode.templateId, lookupNode.key.key),
+            Action.LookupByKey(lookupNode.templateId, lookupNode.key.key),
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
             now,
@@ -1743,7 +1743,7 @@ class EngineTest
           .DevEngine()
           .reinterpret(
             submitters,
-            LookupByKeyCommand(lookupNode.templateId, lookupNode.key.key),
+            Action.LookupByKey(lookupNode.templateId, lookupNode.key.key),
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
             now,
@@ -1970,7 +1970,7 @@ class EngineTest
 
     val now = Time.Timestamp.now()
     val submissionSeed = hash("wrongly-typed cid")
-    def run(cmds: ImmArray[ApiCommand]) =
+    def run(cmds: ImmArray[Command]) =
       engine
         .submit(Set(alice), Commands(cmds, now, ""), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(Set(alice)))
@@ -2311,7 +2311,7 @@ class EngineTest
           case _ =>
             None
         }
-      def run(cmd: ApiCommand) = {
+      def run(cmd: Command) = {
         val submitters = Set(party)
         val Right((cmds, globalCids)) = preprocessor
           .preprocessCommands(ImmArray(cmd))
@@ -2423,7 +2423,7 @@ class EngineTest
           case _ =>
             None
         }
-      def run(cmd: ApiCommand): Int = {
+      def run(cmd: Command): Int = {
         val submitters = Set(party)
         var keyLookups = 0
         def mockedKeyLookup(key: GlobalKeyWithMaintainers) = {
@@ -2595,13 +2595,13 @@ object EngineTest {
           (nodes, roots, dependsOnTime, nodeSeeds, contracts0, keys0) = previousStep
           cmd = tx.transaction.nodes(nodeId) match {
             case create: Node.NodeCreate[ContractId] =>
-              CreateCommand(create.templateId, create.arg)
+              Action.Create(create.templateId, create.arg)
             case fetch: Node.NodeFetch[ContractId] =>
-              FetchCommand(fetch.templateId, fetch.coid)
+              Action.Fetch(fetch.templateId, fetch.coid)
             case lookup: Node.NodeLookupByKey[ContractId] =>
-              LookupByKeyCommand(lookup.templateId, lookup.key.key)
+              Action.LookupByKey(lookup.templateId, lookup.key.key)
             case exe: Node.NodeExercises[NodeId, ContractId] =>
-              ExerciseCommand(exe.templateId, exe.targetCoid, exe.choiceId, exe.chosenValue)
+              Action.Exercise(exe.templateId, exe.targetCoid, exe.choiceId, exe.chosenValue)
             case _: Node.NodeRollback[NodeId] =>
               sys.error("unexpected rollback node")
           }

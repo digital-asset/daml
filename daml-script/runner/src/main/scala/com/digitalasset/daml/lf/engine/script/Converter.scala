@@ -216,7 +216,7 @@ object Converter {
     }
   }
 
-  def toCreateCommand(v: SValue): Either[String, command.ApiCommand] =
+  def toCreateCommand(v: SValue): Either[String, command.Command] =
     v match {
       // template argument, continuation
       case SRecord(_, _, vals) if vals.size == 2 => {
@@ -230,7 +230,7 @@ object Converter {
       case _ => Left(s"Expected Create but got $v")
     }
 
-  def toExerciseCommand(v: SValue): Either[String, command.ApiCommand] =
+  def toExerciseCommand(v: SValue): Either[String, command.Command] =
     v match {
       // typerep, contract id, choice argument and continuation
       case SRecord(_, _, vals) if vals.size == 4 => {
@@ -248,7 +248,7 @@ object Converter {
       case _ => Left(s"Expected Exercise but got $v")
     }
 
-  def toExerciseByKeyCommand(v: SValue): Either[String, command.ApiCommand] =
+  def toExerciseByKeyCommand(v: SValue): Either[String, command.Command] =
     v match {
       // typerep, contract id, choice argument and continuation
       case SRecord(_, _, vals) if vals.size == 4 => {
@@ -266,7 +266,7 @@ object Converter {
       case _ => Left(s"Expected ExerciseByKey but got $v")
     }
 
-  def toCreateAndExerciseCommand(v: SValue): Either[String, command.CreateAndExerciseCommand] =
+  def toCreateAndExerciseCommand(v: SValue): Either[String, command.Command] =
     v match {
       case SRecord(_, _, vals) if vals.size == 3 => {
         for {
@@ -318,12 +318,9 @@ object Converter {
   def toCommands(
       compiledPackages: CompiledPackages,
       freeAp: SValue,
-  ): Either[String, List[command.ApiCommand]] = {
+  ): Either[String, List[command.Command]] = {
     @tailrec
-    def iter(
-        v: SValue,
-        commands: List[command.ApiCommand],
-    ): Either[String, List[command.ApiCommand]] = {
+    def iter(v: SValue, commands: List[command.Command]): Either[String, List[command.Command]] = {
       v match {
         case SVariant(_, "PureA", _, _) => Right(commands.reverse)
         case SVariant(_, "Ap", _, v) =>

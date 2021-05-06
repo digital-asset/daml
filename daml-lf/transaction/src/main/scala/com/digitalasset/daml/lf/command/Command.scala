@@ -8,17 +8,12 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.value.Value
 import com.daml.lf.data.{ImmArray, Time}
 
-// ---------------------------
-// commands accepted by engine
-// ---------------------------
-sealed abstract class Command extends Product with Serializable {
-  val templateId: Identifier
-}
-
 // ---------------------------------
 // Accepted commands coming from API
 // ---------------------------------
-sealed abstract class ApiCommand extends Command
+sealed trait Command extends Product with Serializable {
+  val templateId: Identifier
+}
 
 /** Command for creating a contract
   *
@@ -26,7 +21,7 @@ sealed abstract class ApiCommand extends Command
   *  @param argument value passed to the template
   */
 final case class CreateCommand(templateId: Identifier, argument: Value[Value.ContractId])
-    extends ApiCommand
+    extends Command
 
 /** Command for exercising a choice on an existing contract
   *
@@ -40,7 +35,7 @@ final case class ExerciseCommand(
     contractId: Value.ContractId,
     choiceId: ChoiceName,
     argument: Value[Value.ContractId],
-) extends ApiCommand
+) extends Command
 
 /** Command for exercising a choice on an existing contract specified by its key
   *
@@ -54,7 +49,7 @@ final case class ExerciseByKeyCommand(
     contractKey: Value[Value.ContractId],
     choiceId: ChoiceName,
     argument: Value[Value.ContractId],
-) extends ApiCommand
+) extends Command
 
 /** Command for creating a contract and exercising a choice
   * on that existing contract within the same transaction
@@ -69,21 +64,6 @@ final case class CreateAndExerciseCommand(
     createArgument: Value[Value.ContractId],
     choiceId: ChoiceName,
     choiceArgument: Value[Value.ContractId],
-) extends ApiCommand
-
-final case class FetchCommand(
-    templateId: Identifier,
-    coid: Value.ContractId,
-) extends Command
-
-final case class FetchByKeyCommand(
-    templateId: Identifier,
-    key: Value[Value.ContractId],
-) extends Command
-
-final case class LookupByKeyCommand(
-    templateId: Identifier,
-    contractKey: Value[Value.ContractId],
 ) extends Command
 
 /** Commands input adapted from ledger-api
@@ -94,7 +74,7 @@ final case class LookupByKeyCommand(
   *  @param commandsReference id passed only for error reporting
   */
 case class Commands(
-    commands: ImmArray[ApiCommand],
+    commands: ImmArray[Command],
     ledgerEffectiveTime: Time.Timestamp,
     commandsReference: String,
 )

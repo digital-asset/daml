@@ -132,13 +132,13 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     */
   def reinterpret(
       submitters: Set[Party],
-      command: Command,
+      action: Action,
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
-      commandWithCids <- preprocessor.preprocessCommand(command)
+      commandWithCids <- preprocessor.preprocessAction(action)
       (speedyCommand, globalCids) = commandWithCids
       // reinterpret is never used for submission, only for validation.
       result <- interpretCommands(
