@@ -1319,8 +1319,9 @@ private[lf] object SBuiltin {
                     // already brought into scope.
                     val activeResult = result match {
                       case SKeyLookupResult.Found(cid) if onLedger.ptx.consumedBy.contains(cid) =>
-                          SKeyLookupResult.NotFound
-                      case SKeyLookupResult.Found(_) | SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible =>
+                        SKeyLookupResult.NotFound
+                      case SKeyLookupResult.Found(_) | SKeyLookupResult.NotFound |
+                          SKeyLookupResult.NotVisible =>
                         result
                     }
                     activeResult match {
