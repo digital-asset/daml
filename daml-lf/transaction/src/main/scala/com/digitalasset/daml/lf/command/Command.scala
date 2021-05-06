@@ -93,7 +93,7 @@ final case class LookupByKeyCommand(
   *    interpretation will take this instant
   *  @param commandsReference id passed only for error reporting
   */
-final case class Commands(
+case class Commands(
     commands: ImmArray[ApiCommand],
     ledgerEffectiveTime: Time.Timestamp,
     commandsReference: String,
