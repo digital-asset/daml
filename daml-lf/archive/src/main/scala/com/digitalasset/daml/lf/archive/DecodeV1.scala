@@ -1843,8 +1843,16 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(TO_BIGNUMERIC_NUMERIC, BToBigNumericNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(TO_TEXT_BIGNUMERIC, BToTextBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),
-      BuiltinFunctionInfo(ANY_EXCEPTION_IS_ARITHMETIC_ERROR, BAnyExceptionIsArithmeticError, minVersion = exceptions),
-      BuiltinFunctionInfo(ANY_EXCEPTION_IS_CONTRACT_ERROR, BAnyExceptionIsContractError, minVersion = exceptions),
+      BuiltinFunctionInfo(
+        ANY_EXCEPTION_IS_ARITHMETIC_ERROR,
+        BAnyExceptionIsArithmeticError,
+        minVersion = exceptions,
+      ),
+      BuiltinFunctionInfo(
+        ANY_EXCEPTION_IS_CONTRACT_ERROR,
+        BAnyExceptionIsContractError,
+        minVersion = exceptions,
+      ),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),
