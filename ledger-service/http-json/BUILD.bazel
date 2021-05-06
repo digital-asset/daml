@@ -57,6 +57,7 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger-api/rs-grpc-bridge",
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-ledger-client:{}".format(edition),
+            "//ledger-service/cli-opts",
             "//ledger-service/db-backend",
             "//ledger-service/jwt",
             "//ledger-service/lf-value-json",

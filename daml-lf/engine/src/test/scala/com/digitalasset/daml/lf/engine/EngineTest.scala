@@ -715,17 +715,6 @@ class EngineTest
         case Right(()) => ()
       }
     }
-
-    "events are collected" in {
-      val blindingInfo = Blinding.blind(tx)
-      val events = Event.collectEvents(tx.transaction, blindingInfo.disclosure)
-      val partyEvents = events.events.values.toList.filter(_.witnesses contains party)
-      partyEvents.size shouldBe 1
-      partyEvents(0) match {
-        case _: ExerciseEvent[NodeId, ContractId] => succeed
-        case _ => fail("expected exercise")
-      }
-    }
   }
 
   "exercise-by-key command with missing key" should {
@@ -831,17 +820,6 @@ class EngineTest
         case Left(e) =>
           fail(e.msg)
         case Right(()) => ()
-      }
-    }
-
-    "events are collected" in {
-      val blindingInfo = Blinding.blind(tx)
-      val events = Event.collectEvents(tx.transaction, blindingInfo.disclosure)
-      val partyEvents = events.events.values.toList.filter(_.witnesses contains alice)
-      partyEvents.size shouldBe 1
-      partyEvents.head match {
-        case ExerciseEvent(_, _, _, _, _, _, _, _, _, _) => succeed
-        case _ => fail("expected exercise")
       }
     }
 
@@ -1335,76 +1313,6 @@ class EngineTest
           create.stakeholders shouldBe Set(alice, clara)
         case _ => fail("create event is expected")
       }
-    }
-
-    "events generated correctly" in {
-      // we reinterpret with a static submission time to check precisely hashing of cid
-      val submissionTime = let.addMicros(-1000)
-      val transactionSeed =
-        crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
-
-      val submitters = Set(bob)
-      val Right((tx, _)) =
-        engine
-          .interpretCommands(
-            validating = false,
-            submitters = submitters,
-            commands = cmds,
-            ledgerTime = let,
-            submissionTime = submissionTime,
-            seeding = InitialSeeding.TransactionSeed(transactionSeed),
-            globalCids,
-          )
-          .consume(
-            lookupContract,
-            lookupPackage,
-            lookupKey,
-            VisibleByKey.fromSubmitters(submitters),
-          )
-      val Seq(_, noid1) = tx.transaction.nodes.keys.toSeq.sortBy(_.index)
-      val blindingInfo = Blinding.blind(tx)
-      val events = Event.collectEvents(tx.transaction, blindingInfo.disclosure)
-      val partyEvents = events.filter(_.witnesses contains bob)
-      partyEvents.roots.length shouldBe 1
-      val bobExercise = partyEvents.events(partyEvents.roots(0))
-      val cid =
-        toContractId("00b39433a649bebecd3b01d651be38a75923efdb92f34592b5600aee3fec8a8cc3")
-      bobExercise shouldBe
-        ExerciseEvent(
-          contractId = originalCoid,
-          templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
-          choice = "Transfer",
-          choiceArgument = ValueRecord(
-            Some(Identifier(basicTestsPkgId, "BasicTests:Transfer")),
-            ImmArray((Some[Name]("newReceiver"), ValueParty(clara))),
-          ),
-          actingParties = Set(bob),
-          isConsuming = true,
-          children = ImmArray(noid1),
-          stakeholders = Set(bob, alice),
-          witnesses = Set(bob, alice),
-          exerciseResult = Some(ValueContractId(cid)),
-        )
-
-      val bobVisibleCreate = partyEvents.events(noid1)
-      bobVisibleCreate shouldBe
-        CreateEvent(
-          cid,
-          Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
-          None,
-          ValueRecord(
-            Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-            ImmArray(
-              (Some[Name]("giver"), ValueParty(alice)),
-              (Some[Name]("receiver"), ValueParty(clara)),
-            ),
-          ),
-          "",
-          signatories = Set(alice),
-          observers = Set(clara), // Clara is implicitly an observer because she controls a choice
-          witnesses = Set(bob, clara, alice),
-        )
-      bobVisibleCreate.asInstanceOf[CreateEvent[_]].stakeholders == Set("Alice", "Clara")
     }
   }
 

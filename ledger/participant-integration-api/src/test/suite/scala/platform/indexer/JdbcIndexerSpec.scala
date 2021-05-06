@@ -28,7 +28,7 @@ import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer
 import com.daml.platform.store.{DbType, FlywayMigrations, IndexMetadata, LfValueTranslationCache}
-import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.store.dao.LedgerDao
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -182,19 +182,9 @@ final class JdbcIndexerSpec
       participantId = v1.ParticipantId.assertFromString(participantId),
       jdbcUrl = postgresDatabase.url,
       startupMode = IndexerStartupMode.MigrateAndStart,
+      asyncCommitMode = jdbcAsyncCommitMode,
     )
     val metrics = new Metrics(new MetricRegistry)
-    val ledgerDaoOwner = JdbcLedgerDao.writeOwner(
-      ServerRole.Indexer,
-      config.jdbcUrl,
-      config.databaseConnectionPoolSize,
-      config.eventsPageSize,
-      materializer.executionContext,
-      metrics,
-      LfValueTranslationCache.Cache.none,
-      jdbcAsyncCommitMode = jdbcAsyncCommitMode,
-      enricher = None,
-    )
     new indexer.JdbcIndexer.Factory(
       config = config,
       readService = mockedReadService(),
@@ -202,7 +192,7 @@ final class JdbcIndexerSpec
       metrics = metrics,
       updateFlowOwnerBuilder =
         mockedUpdateFlowOwnerBuilder(metrics, config.participantId, mockFlow),
-      ledgerDaoOwner = ledgerDaoOwner,
+      serverRole = ServerRole.Indexer,
       flywayMigrations = new FlywayMigrations(config.jdbcUrl),
       LfValueTranslationCache.Cache.none,
     ).migrateSchema(allowExistingSchema = true)

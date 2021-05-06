@@ -75,7 +75,7 @@ object UpdateToDBDTOV1 {
             recorded_at = u.recordTime.toInstant,
             submission_id = u.submissionId,
             party = Some(u.party),
-            display_name = Some(u.displayName),
+            display_name = Option(u.displayName),
             typ = JdbcLedgerDao.acceptType,
             rejection_reason = None,
             is_local = Some(u.participantId == participantId),
@@ -139,7 +139,7 @@ object UpdateToDBDTOV1 {
         )
 
       case u: Update.TransactionAccepted =>
-        // TODO add support for Daml Exceptions / Rollback nodes
+        // TODO append-only: add support for Daml Exceptions / Rollback nodes (Story for this: https://digitalasset.atlassian.net/browse/DPP-374)
         //   Covering this functionality with unit test is important, since at the time of writing kvutils ledgers purge RollBack nodes already on WriteService, so conformance testing is impossible
         //   Unit tests also need to cover the full semantic contract regarding fetch and lookup node removal as well
         //   Hint for implementation: https://github.com/digital-asset/daml/pull/9506

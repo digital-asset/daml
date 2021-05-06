@@ -32,16 +32,21 @@ object BlindingTransaction {
     ): BlindState = {
       if (disclosures.contains(nid))
         crash(s"discloseNode: nodeId already processed '$nid'.")
+      // Each node should be visible to someone
       copy(
         disclosures = disclosures.updated(nid, witnesses)
       )
     }
 
     def divulgeCoidTo(witnesses: Set[Party], acoid: ContractId): BlindState = {
-      copy(
-        divulgences = divulgences
-          .updated(acoid, witnesses union divulgences.getOrElse(acoid, Set.empty))
-      )
+      if (witnesses.nonEmpty) {
+        copy(
+          divulgences = divulgences
+            .updated(acoid, witnesses union divulgences.getOrElse(acoid, Set.empty))
+        )
+      } else {
+        this
+      }
     }
 
   }
