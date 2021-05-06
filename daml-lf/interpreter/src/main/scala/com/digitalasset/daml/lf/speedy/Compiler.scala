@@ -1323,7 +1323,7 @@ private[lf] final class Compiler(
         case SEnum(_, _, _) => ()
         case SAny(_, v) => goV(v)
         case SAnyException(_, v) => goV(v)
-        case SBuiltinException(_, v) => goV(v)
+        case SBuiltinException(ContractError | ArithmeticError) => ()
         case _: SPAP | SToken | SStruct(_, _) =>
           throw CompilationError("validate: unexpected SEValue")
       }

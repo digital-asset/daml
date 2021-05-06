@@ -62,7 +62,7 @@ sealed trait SValue {
         V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
       case SContractId(coid) =>
         V.ValueContractId(coid)
-      case SBuiltinException(_, _) =>
+      case SBuiltinException(_) =>
         throw SErrorCrash("SValue.toValue: unexpected SBuiltinException")
       case SStruct(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SStruct")
@@ -113,8 +113,8 @@ sealed trait SValue {
         SAny(ty, value.mapContractId(f))
       case SAnyException(ty, value) =>
         SAnyException(ty, value.mapContractId(f))
-      case SBuiltinException(tag, value) =>
-        SBuiltinException(tag, value.mapContractId(f))
+      case excep @ SBuiltinException(ContractError | ArithmeticError) =>
+        excep
     }
 }
 
@@ -207,12 +207,14 @@ object SValue {
   }
 
   final case class SAny(ty: Type, value: SValue) extends SValue
-  final case class SAnyException(ty: Type, value: SValue) extends SValue
+  sealed abstract class SException extends SValue
+  final case class SAnyException(ty: Type, value: SValue) extends SException
 
-  // TODO https://github.com/digital-asset/daml/issues/8020
-  //    Incorporate into AnyException, or separate by tag/payload.
-  // A value of one of the builtin exception types: GeneralError, ArithmeticError, ContractError
-  final case class SBuiltinException(tag: String, value: SValue) extends SValue
+  sealed abstract class BuiltinError extends Product with Serializable
+  case object ArithmeticError extends BuiltinError
+  case object ContractError extends BuiltinError
+  // A value of one of the builtin exception types: ArithmeticError, ContractError
+  final case class SBuiltinException(error: BuiltinError) extends SException
 
   // Corresponds to a DAML-LF Nat type reified as a Speedy value.
   // It is currently used to track at runtime the scale of the
