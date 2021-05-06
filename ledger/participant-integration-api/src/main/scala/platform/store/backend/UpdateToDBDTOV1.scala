@@ -234,24 +234,26 @@ object UpdateToDBDTOV1 {
         val divulgedContractIndex = u.divulgedContracts
           .map(divulgedContract => divulgedContract.contractId -> divulgedContract)
           .toMap
-        val divulgences = blinding.divulgence.iterator.map { case (contractId, visibleToParties) =>
-          val contractInst = divulgedContractIndex.get(contractId).map(_.contractInst)
-          DBDTOV1.EventDivulgence(
-            event_offset = Some(offset.toHexString),
-            command_id = u.optSubmitterInfo.map(_.commandId),
-            workflow_id = u.transactionMeta.workflowId,
-            application_id = u.optSubmitterInfo.map(_.applicationId),
-            submitters = u.optSubmitterInfo.map(_.actAs.toSet),
-            contract_id = contractId.coid,
-            template_id = contractInst.map(_.template.toString),
-            tree_event_witnesses = visibleToParties.map(_.toString),
-            create_argument = contractInst
-              .map(_.arg)
-              .map(translation.serialize(contractId, _))
-              .map(compressionStrategy.createArgumentCompression.compress),
-            create_argument_compression = compressionStrategy.createArgumentCompression.id,
-            event_sequential_id = 0, // this is filled later
-          )
+        val divulgences = blinding.divulgence.iterator.collect {
+          // only store divulgence events, which are divulging to parties
+          case (contractId, visibleToParties) if visibleToParties.nonEmpty =>
+            val contractInst = divulgedContractIndex.get(contractId).map(_.contractInst)
+            DBDTOV1.EventDivulgence(
+              event_offset = Some(offset.toHexString),
+              command_id = u.optSubmitterInfo.map(_.commandId),
+              workflow_id = u.transactionMeta.workflowId,
+              application_id = u.optSubmitterInfo.map(_.applicationId),
+              submitters = u.optSubmitterInfo.map(_.actAs.toSet),
+              contract_id = contractId.coid,
+              template_id = contractInst.map(_.template.toString),
+              tree_event_witnesses = visibleToParties.map(_.toString),
+              create_argument = contractInst
+                .map(_.arg)
+                .map(translation.serialize(contractId, _))
+                .map(compressionStrategy.createArgumentCompression.compress),
+              create_argument_compression = compressionStrategy.createArgumentCompression.id,
+              event_sequential_id = 0, // this is filled later
+            )
         }
 
         val completions = u.optSubmitterInfo.iterator.map { submitterInfo =>
