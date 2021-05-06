@@ -5,8 +5,8 @@ package com.daml.ledger.api.benchtool
 
 import scopt.{OParser, Read}
 
-object ConfigParser {
-  def parse(args: Array[String]): Option[Config] =
+object Cli {
+  def config(args: Array[String]): Option[Config] =
     OParser.parse(parser, args, defaultConfig)
 
   private val parser = {
@@ -37,8 +37,6 @@ object ConfigParser {
     )
   }
 
-  //TXServeUntilCancellation-alpha-7b2db7cb5ab5-party-0
-  // TODO: remove dummy values when multi-stream is implemented
   private val defaultConfig: Config =
     Config(
       ledger = Config.Ledger(
@@ -54,7 +52,7 @@ object ConfigParser {
       streamConfig = None,
     )
 
-  object Reads {
+  private object Reads {
     implicit val streamConfigRead: Read[Config.StreamConfig] =
       implicitly[Read[Map[String, String]]].map { m =>
         def stringField(fieldName: String): Either[String, String] =

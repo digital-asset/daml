@@ -20,7 +20,7 @@ import scala.concurrent.duration._
 
 object LedgerApiBenchTool {
   def main(args: Array[String]): Unit = {
-    ConfigParser.parse(args) match {
+    Cli.config(args) match {
       case Some(config) =>
         val benchmark = runBenchmark(config)(ExecutionContext.Implicits.global)
         Await.result(benchmark, atMost = Duration.Inf)
