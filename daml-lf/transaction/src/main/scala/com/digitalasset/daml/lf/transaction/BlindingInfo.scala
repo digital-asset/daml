@@ -24,7 +24,11 @@ import com.daml.lf.value.Value.ContractId
   * See also https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#divulgence-when-non-stakeholders-see-contracts
   *
   * @param disclosure Disclosure, specified in terms of local transaction node IDs
-  *  Each node in the transaction will be mapped to a non-empty set of witnesses.
+  *  Each node in the transaction will be mapped to a non-empty set of witnesses
+  *  for ledger API transactions.
+  *  Scenarios unfortunately break this invariant and we can have rollback nodes
+  *  at the top with an empty set of witnesses. We still include those
+  *  in the map here.
   * @param divulgence
   *     Divulgence, specified in terms of contract IDs.
   *     Note that if this info was produced by blinding a transaction

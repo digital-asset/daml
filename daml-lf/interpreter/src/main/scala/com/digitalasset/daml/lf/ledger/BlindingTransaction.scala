@@ -33,7 +33,6 @@ object BlindingTransaction {
       if (disclosures.contains(nid))
         crash(s"discloseNode: nodeId already processed '$nid'.")
       // Each node should be visible to someone
-      assert(witnesses.nonEmpty, s"No witnesses for $nid")
       copy(
         disclosures = disclosures.updated(nid, witnesses)
       )
