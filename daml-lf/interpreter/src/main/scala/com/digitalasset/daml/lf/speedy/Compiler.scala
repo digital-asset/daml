@@ -588,18 +588,13 @@ private[lf] final class Compiler(
               BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
 
-          case BMakeGeneralError =>
-            SBMakeBuiltinError("GeneralError")
-          case BMakeArithmeticError =>
-            SBMakeBuiltinError("ArithmeticError")
-          case BMakeContractError =>
-            SBMakeBuiltinError("ContractError")
-
-          case BGeneralErrorMessage | BArithmeticErrorMessage | BContractErrorMessage =>
-            SBBuiltinErrorMessage
-
           case BAnyExceptionMessage =>
             SBAnyExceptionMessage
+          case BAnyExceptionIsArithmeticError =>
+            throw CompilationError(s"SBAnyExceptionIsArithmeticError not implemented")
+          case BAnyExceptionIsContractError =>
+            throw CompilationError(s"SBAnyExceptionIsContractError not implemented")
+
         })
     }
 

@@ -1468,9 +1468,6 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = bigNumeric),
       BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = bigNumeric),
       BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = exceptions),
-      BuiltinTypeInfo(GENERAL_ERROR, BTGeneralError, minVersion = exceptions),
-      BuiltinTypeInfo(ARITHMETIC_ERROR, BTArithmeticError, minVersion = exceptions),
-      BuiltinTypeInfo(CONTRACT_ERROR, BTContractError, minVersion = exceptions),
     )
   }
 
@@ -1845,17 +1842,9 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(TO_NUMERIC_BIGNUMERIC, BToNumericBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(TO_BIGNUMERIC_NUMERIC, BToBigNumericNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(TO_TEXT_BIGNUMERIC, BToTextBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(MAKE_GENERAL_ERROR, BMakeGeneralError, minVersion = exceptions),
-      BuiltinFunctionInfo(MAKE_ARITHMETIC_ERROR, BMakeArithmeticError, minVersion = exceptions),
-      BuiltinFunctionInfo(MAKE_CONTRACT_ERROR, BMakeContractError, minVersion = exceptions),
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),
-      BuiltinFunctionInfo(GENERAL_ERROR_MESSAGE, BGeneralErrorMessage, minVersion = exceptions),
-      BuiltinFunctionInfo(
-        ARITHMETIC_ERROR_MESSAGE,
-        BArithmeticErrorMessage,
-        minVersion = exceptions,
-      ),
-      BuiltinFunctionInfo(CONTRACT_ERROR_MESSAGE, BContractErrorMessage, minVersion = exceptions),
+      BuiltinFunctionInfo(ANY_EXCEPTION_IS_ARITHMETIC_ERROR, BAnyExceptionIsArithmeticError, minVersion = exceptions),
+      BuiltinFunctionInfo(ANY_EXCEPTION_IS_CONTRACT_ERROR, BAnyExceptionIsContractError, minVersion = exceptions),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),

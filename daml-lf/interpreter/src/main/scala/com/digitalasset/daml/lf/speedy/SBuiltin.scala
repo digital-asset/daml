@@ -1614,8 +1614,6 @@ private[lf] object SBuiltin {
 
   private def exceptionMessage(ty: Ast.Type): SExpr =
     ty match {
-      case AstUtil.TGeneralError | AstUtil.TArithmeticError | AstUtil.TContractError =>
-        SEBuiltin(SBBuiltinErrorMessage)
       case Ast.TTyCon(tyCon) =>
         SEVal(ExceptionMessageDefRef(tyCon))
       case _ => crash(s"$ty is not a valid exception type")

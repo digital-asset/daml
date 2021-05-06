@@ -105,9 +105,6 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
         BTTypeRep -> Left URTypeRep
         BTRoundingMode -> Left URRoundingMode
         BTBigNumeric -> Left URBigNumeric
-        BTGeneralError -> noConditions
-        BTArithmeticError -> noConditions
-        BTContractError -> noConditions
       TForall{} -> Left URForall
       TStruct{} -> Left URStruct
 

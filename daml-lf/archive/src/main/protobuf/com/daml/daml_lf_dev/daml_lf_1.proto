@@ -324,18 +324,6 @@ enum PrimType {
   // Builtin type 'TAnyException'
   // *Available in versions >= 1.dev*
   ANY_EXCEPTION = 23;
-
-  // Builtin type 'TGeneralError'
-  // *Available in versions >= 1.dev*
-  GENERAL_ERROR = 24;
-
-  // Builtin type 'TArithmeticError'
-  // *Available in versions >= 1.dev*
-  ARITHMETIC_ERROR = 25;
-
-  // Builtin type 'TContractError'
-  // *Available in versions >= 1.dev*
-  CONTRACT_ERROR = 26;
 }
 
 // Types
@@ -496,13 +484,9 @@ enum BuiltinFunction {
   APPEND_TEXT = 24;
 
   ERROR = 25;
-  ANY_EXCEPTION_MESSAGE = 147;      // *Available in versions >= 1.dev*
-  MAKE_GENERAL_ERROR = 148;         // *Available in versions >= 1.dev*
-  GENERAL_ERROR_MESSAGE = 149;      // *Available in versions >= 1.dev*
-  MAKE_ARITHMETIC_ERROR = 150;      // *Available in versions >= 1.dev*
-  ARITHMETIC_ERROR_MESSAGE = 151;   // *Available in versions >= 1.dev*
-  MAKE_CONTRACT_ERROR = 152;        // *Available in versions >= 1.dev*
-  CONTRACT_ERROR_MESSAGE = 153;     // *Available in versions >= 1.dev*
+  ANY_EXCEPTION_MESSAGE = 147;              // *Available in versions >= 1.dev*
+  ANY_EXCEPTION_IS_ARITHMETIC_ERROR = 148;  // *Available in versions >= 1.dev*
+  ANY_EXCEPTION_IS_CONTRACT_ERROR = 149;    // *Available in versions >= 1.dev*
 
   LEQ_INT64 = 33;         // *Available in versions < 1.11*
   LEQ_DECIMAL = 34;       // *Available in versions < 1.7*

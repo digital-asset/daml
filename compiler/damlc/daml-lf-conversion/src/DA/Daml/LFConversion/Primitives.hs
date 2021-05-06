@@ -408,12 +408,10 @@ convertPrim version "EToAnyContractKey"
 -- Exceptions
 convertPrim _ "BEAnyExceptionMessage" (TBuiltin BTAnyException :-> TText) =
     EBuiltin BEAnyExceptionMessage
-convertPrim _ "BEGeneralErrorMessage" (TBuiltin BTGeneralError :-> TText) =
-    EBuiltin BEGeneralErrorMessage
-convertPrim _ "BEArithmeticErrorMessage" (TBuiltin BTArithmeticError :-> TText) =
-    EBuiltin BEArithmeticErrorMessage
-convertPrim _ "BEContractErrorMessage" (TBuiltin BTContractError :-> TText) =
-    EBuiltin BEContractErrorMessage
+convertPrim _ "BEAnyExceptionIsArithmeticError" (TBuiltin BTAnyException :-> TBool) =
+    EBuiltin BEAnyExceptionIsArithmeticError
+convertPrim _ "BEAnyExceptionIsContractError" (TBuiltin BTAnyException :-> TBool) =
+    EBuiltin BEAnyExceptionIsContractError
 
 -- TODO #8020 https://github.com/digital-asset/daml/issues/8020
 -- Handle these three in LFConversion.hs and check that ty1 is an exception type.

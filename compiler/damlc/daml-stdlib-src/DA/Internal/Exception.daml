@@ -93,9 +93,7 @@ instance HasToAnyException GeneralError where
     toAnyException = primitive @"EToAnyException"
 
 instance HasFromAnyException GeneralError where
-    fromAnyException = handleBuiltinException "GeneralError" GeneralError (primitive @"EFromAnyException")
-        -- TODO https://github.com/digital-asset/daml/issues/8020
-        --   Remove the "handleBuiltinException" part if we decide we never want to throw a GeneralError in LF.
+    fromAnyException = primitive @"EFromAnyException"
 
 --------------------------------------------------------------
 
@@ -113,7 +111,13 @@ instance HasToAnyException ArithmeticError where
     toAnyException = primitive @"EToAnyException"
 
 instance HasFromAnyException ArithmeticError where
-    fromAnyException = handleBuiltinException "ArithmeticError" ArithmeticError (primitive @"EFromAnyException")
+    fromAnyException e =
+        -- TODO https://github.com/digital-asset/daml/issues/8020
+        -- Uncomment once BEAnyExceptionIsArithmeticError is implemented:
+        --      | primitive @"BEAnyExceptionIsArithmeticError" e =
+        --          Just (ArithmeticError (message e))
+        --      | otherwise =
+            primitive @"EFromAnyException" e
 
 --------------------------------------------------------------
 
@@ -131,7 +135,13 @@ instance HasToAnyException ContractError where
     toAnyException = primitive @"EToAnyException"
 
 instance HasFromAnyException ContractError where
-    fromAnyException = handleBuiltinException "ContractError" ContractError (primitive @"EFromAnyException")
+    fromAnyException =
+        -- TODO https://github.com/digital-asset/daml/issues/8020
+        -- Uncomment once BEAnyExceptionIsContractError is implemented:
+        --      | primitive @"BEAnyExceptionIsContractError" e =
+        --          Just (ContractError (message e))
+        --      | otherwise =
+            primitive @"EFromAnyException" e
 
 --------------------------------------------------------------
 
@@ -152,12 +162,5 @@ instance ActionCatch Update where
     _tryCatch = primitive @"UTryCatch"
 
 --------------------------------------------------------------
-
--- | HIDE
-handleBuiltinException : Text -> (Text -> e) -> (AnyException -> Optional e) -> (AnyException -> Optional e)
-handleBuiltinException _ _ f = f -- magic @"handleBuiltinException"
-    -- TODO https://github.com/digital-asset/daml/issues/8020
-    --    Placeholder for handling built-in exceptions during LF conversion.
-{-# NOINLINE handleBuiltinException #-}
 
 #endif

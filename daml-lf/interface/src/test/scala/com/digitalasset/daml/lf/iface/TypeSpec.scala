@@ -80,8 +80,7 @@ class TypeSpec extends AnyWordSpec with Matchers {
           case Pkg.BTTypeRep => sys.error("cannot use type representation in interface type")
           case Pkg.BTRoundingMode => sys.error("cannot use rounding mode in interface type")
           case Pkg.BTBigNumeric => sys.error("cannot use big numeric in interface type")
-          case Pkg.BTAnyException | Pkg.BTArithmeticError | Pkg.BTContractError |
-              Pkg.BTGeneralError =>
+          case Pkg.BTAnyException =>
             // TODO https://github.com/digital-asset/daml/issues/8020
             sys.error("exception not supported")
         }

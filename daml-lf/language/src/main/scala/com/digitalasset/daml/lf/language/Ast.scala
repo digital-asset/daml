@@ -304,9 +304,6 @@ object Ast {
   case object BTAny extends BuiltinType
   case object BTTypeRep extends BuiltinType
   case object BTAnyException extends BuiltinType
-  case object BTGeneralError extends BuiltinType
-  case object BTArithmeticError extends BuiltinType
-  case object BTContractError extends BuiltinType
   case object BTRoundingMode extends BuiltinType
   case object BTBigNumeric extends BuiltinType
 
@@ -443,13 +440,9 @@ object Ast {
       extends BuiltinFunction // : ∀a b. ContractId a -> ContractId b
 
   // Exceptions
-  final case object BMakeGeneralError extends BuiltinFunction // Text → GeneralError
-  final case object BMakeArithmeticError extends BuiltinFunction // Text → ArithmeticError
-  final case object BMakeContractError extends BuiltinFunction // Text → ContractError
   final case object BAnyExceptionMessage extends BuiltinFunction // AnyException → Text
-  final case object BGeneralErrorMessage extends BuiltinFunction // GeneralError → Text
-  final case object BArithmeticErrorMessage extends BuiltinFunction // ArithmeticError → Text
-  final case object BContractErrorMessage extends BuiltinFunction // ContractError → Text
+  final case object BAnyExceptionIsArithmeticError extends BuiltinFunction // AnyException → Bool
+  final case object BAnyExceptionIsContractError extends BuiltinFunction // AnyException → Bool
 
   // Numeric arithmetic
   final case object BScaleBigNumeric extends BuiltinFunction // : BigNumeric → Int64

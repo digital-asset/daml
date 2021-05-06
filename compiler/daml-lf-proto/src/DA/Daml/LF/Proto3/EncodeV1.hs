@@ -311,9 +311,6 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTRoundingMode -> P.PrimTypeROUNDING_MODE
     BTBigNumeric -> P.PrimTypeBIGNUMERIC
     BTAnyException -> P.PrimTypeANY_EXCEPTION
-    BTGeneralError -> P.PrimTypeGENERAL_ERROR
-    BTArithmeticError -> P.PrimTypeARITHMETIC_ERROR
-    BTContractError -> P.PrimTypeCONTRACT_ERROR
 
 encodeType' :: Type -> Encode P.Type
 encodeType' typ = do
@@ -507,14 +504,14 @@ encodeBuiltinExpr = \case
     BECastNumeric -> builtin P.BuiltinFunctionCAST_NUMERIC
     BEShiftNumeric -> builtin P.BuiltinFunctionSHIFT_NUMERIC
 
-    BEScaleBigNumeric -> builtin P.BuiltinFunctionSCALE_BIGNUMERIC 
-    BEPrecisionBigNumeric -> builtin P.BuiltinFunctionPRECISION_BIGNUMERIC 
-    BEAddBigNumeric -> builtin P.BuiltinFunctionADD_BIGNUMERIC 
-    BESubBigNumeric -> builtin P.BuiltinFunctionSUB_BIGNUMERIC 
-    BEMulBigNumeric -> builtin P.BuiltinFunctionMUL_BIGNUMERIC 
-    BEDivBigNumeric -> builtin P.BuiltinFunctionDIV_BIGNUMERIC 
-    BEShiftBigNumeric -> builtin P.BuiltinFunctionSHIFT_BIGNUMERIC 
-    BEToNumericBigNumeric -> builtin P.BuiltinFunctionTO_NUMERIC_BIGNUMERIC 
+    BEScaleBigNumeric -> builtin P.BuiltinFunctionSCALE_BIGNUMERIC
+    BEPrecisionBigNumeric -> builtin P.BuiltinFunctionPRECISION_BIGNUMERIC
+    BEAddBigNumeric -> builtin P.BuiltinFunctionADD_BIGNUMERIC
+    BESubBigNumeric -> builtin P.BuiltinFunctionSUB_BIGNUMERIC
+    BEMulBigNumeric -> builtin P.BuiltinFunctionMUL_BIGNUMERIC
+    BEDivBigNumeric -> builtin P.BuiltinFunctionDIV_BIGNUMERIC
+    BEShiftBigNumeric -> builtin P.BuiltinFunctionSHIFT_BIGNUMERIC
+    BEToNumericBigNumeric -> builtin P.BuiltinFunctionTO_NUMERIC_BIGNUMERIC
     BEFromNumericBigNumeric -> builtin P.BuiltinFunctionTO_BIGNUMERIC_NUMERIC
     BEToTextBigNumeric -> builtin P.BuiltinFunctionTO_TEXT_BIGNUMERIC
 
@@ -541,12 +538,8 @@ encodeBuiltinExpr = \case
 
     BEError -> builtin P.BuiltinFunctionERROR
     BEAnyExceptionMessage -> builtin P.BuiltinFunctionANY_EXCEPTION_MESSAGE
-    BEGeneralErrorMessage -> builtin P.BuiltinFunctionGENERAL_ERROR_MESSAGE
-    BEArithmeticErrorMessage -> builtin P.BuiltinFunctionARITHMETIC_ERROR_MESSAGE
-    BEContractErrorMessage -> builtin P.BuiltinFunctionCONTRACT_ERROR_MESSAGE
-    BEMakeGeneralError -> builtin P.BuiltinFunctionMAKE_GENERAL_ERROR
-    BEMakeArithmeticError -> builtin P.BuiltinFunctionMAKE_ARITHMETIC_ERROR
-    BEMakeContractError -> builtin P.BuiltinFunctionMAKE_CONTRACT_ERROR
+    BEAnyExceptionIsArithmeticError -> builtin P.BuiltinFunctionANY_EXCEPTION_IS_ARITHMETIC_ERROR
+    BEAnyExceptionIsContractError -> builtin P.BuiltinFunctionANY_EXCEPTION_IS_CONTRACT_ERROR
 
     BETextMapEmpty -> builtin P.BuiltinFunctionTEXTMAP_EMPTY
     BETextMapInsert -> builtin P.BuiltinFunctionTEXTMAP_INSERT
