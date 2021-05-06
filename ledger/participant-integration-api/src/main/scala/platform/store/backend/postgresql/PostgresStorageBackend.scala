@@ -335,8 +335,7 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
       |   typ_in,
       |   configuration_in,
       |   rejection_reason_in
-      | )
-      | ON CONFLICT DO NOTHING;
+      | );
       |
       |""".stripMargin
     )

@@ -271,8 +271,23 @@ private class JdbcLedgerDao(
               rejectionReason = reason,
             )
         }
-        sequentialIndexer.store(conn, offsetStep.offset, Some(update))
-        PersistenceResponse.Ok
+
+        val savepoint = conn.setSavepoint()
+
+        Try({
+          sequentialIndexer.store(conn, offsetStep.offset, Some(update))
+          PersistenceResponse.Ok
+        }).recover {
+          case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+            logger.warn(s"Ignoring duplicate configuration submission, submissionId=$submissionId")
+            conn.rollback(savepoint)
+            sequentialIndexer.store(
+              conn,
+              offsetStep.offset,
+              None,
+            ) // we bump the offset regardless of the fact of a duplicate
+            PersistenceResponse.Duplicate
+        }.get
       }
     }
 
