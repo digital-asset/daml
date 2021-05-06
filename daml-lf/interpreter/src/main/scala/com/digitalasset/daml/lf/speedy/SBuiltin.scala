@@ -1300,12 +1300,9 @@ private[lf] object SBuiltin {
           // Check if we have a cached global key result.
           onLedger.ptx.globalKeyInputs.get(gkey) match {
             case Some(optCid) =>
-              val optActiveCid = optCid.flatMap { cid =>
-                if (onLedger.ptx.consumedBy.contains(cid)) {
-                  KeyInactive
-                } else {
-                  KeyActive(cid)
-                }
+              val optActiveCid = optCid match {
+                case KeyActive(cid) if onLedger.ptx.consumedBy.contains(cid) => KeyInactive
+                case _ => optCid
               }
               onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys.updated(gkey, optActiveCid))
               operation.handleKnownInputKey(machine, gkey, optActiveCid)
@@ -1318,7 +1315,7 @@ private[lf] object SBuiltin {
                   onLedger.committers,
                   result => {
                     cacheGlobalLookup(onLedger, gkey, result)
-                    // We need to check for activeness here since we only
+                    // We need to check if the contract was consumed since we only
                     // modify keys if the archive was for a key
                     // already brought into scope.
                     val activeResult: SKeyLookupResult = result match {

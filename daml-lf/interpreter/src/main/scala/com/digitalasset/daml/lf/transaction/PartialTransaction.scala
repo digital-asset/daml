@@ -165,12 +165,7 @@ private[lf] object PartialTransaction {
   final case class CompleteTransaction(tx: SubmittedTransaction) extends Result
   final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
 
-  sealed abstract class KeyMapping extends Product with Serializable {
-    final def flatMap(f: Value.ContractId => KeyMapping): KeyMapping = this match {
-      case KeyInactive => KeyInactive
-      case KeyActive(cid) => f(cid)
-    }
-  }
+  sealed abstract class KeyMapping extends Product with Serializable
   // There is no active contract with the given key.
   final case object KeyInactive extends KeyMapping
   // The contract with the given cid is active and has the given key.
