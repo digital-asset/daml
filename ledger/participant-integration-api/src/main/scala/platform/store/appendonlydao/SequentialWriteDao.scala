@@ -1,24 +1,23 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.indexer.sequential
+package com.daml.platform.store.appendonlydao
 
 import java.sql.Connection
 
 import com.daml.ledger.participant.state.v1.{Offset, Update}
-import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.backend.{DBDTOV1, StorageBackend}
 
 import scala.util.chaining.scalaUtilChainingOps
 
-trait SequentialIndexer {
+trait SequentialWriteDao {
   def store(connection: Connection, offset: Offset, update: Option[Update]): Unit
 }
 
-case class SequentialIndexerImpl[DB_BATCH](
+case class SequentialWriteDaoImpl[DB_BATCH](
     storageBackend: StorageBackend[DB_BATCH],
     updateToDbDtos: Offset => Update => Iterator[DBDTOV1],
-) extends SequentialIndexer {
+) extends SequentialWriteDao {
 
   private var lastEventSeqId: Long = _
   private var lastEventSeqIdInitialized = false
@@ -35,7 +34,7 @@ case class SequentialIndexerImpl[DB_BATCH](
   }
 
   private def adaptEventSeqIds(dbDtos: Iterator[DBDTOV1]): Vector[DBDTOV1] =
-    dbDtos.map { // TODO append-only: DRY, similar code as in the ParallelIndexerFactory
+    dbDtos.map {
       case e: DBDTOV1.EventCreate => e.copy(event_sequential_id = nextEventSeqId)
       case e: DBDTOV1.EventDivulgence => e.copy(event_sequential_id = nextEventSeqId)
       case e: DBDTOV1.EventExercise => e.copy(event_sequential_id = nextEventSeqId)
@@ -56,7 +55,7 @@ case class SequentialIndexerImpl[DB_BATCH](
         .pipe(storageBackend.insertBatch(connection, _))
 
       val configuration = dbDtos.reverseIterator
-        .collectFirst { // TODO append-only: DRY, same code as in the ParallelIndexerFactory
+        .collectFirst {
           case c: DBDTOV1.ConfigurationEntry if c.typ == JdbcLedgerDao.acceptType => c.configuration
         }
 

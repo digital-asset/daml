@@ -34,7 +34,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.OffsetStep
-import com.daml.platform.indexer.sequential.{SequentialIndexer, SequentialIndexerImpl}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
@@ -97,7 +96,7 @@ private class JdbcLedgerDao(
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     validatePartyAllocation: Boolean,
     enricher: Option[ValueEnricher],
-    sequentialIndexer: SequentialIndexer,
+    sequentialIndexer: SequentialWriteDao,
     participantId: v1.ParticipantId,
 ) extends LedgerDao {
 
@@ -994,13 +993,13 @@ private[platform] object JdbcLedgerDao {
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
-  private def sequentialIndexer(
+  private def sequentialWriteDao(
       dbType: DbType,
       participantId: v1.ParticipantId,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       metrics: Metrics,
-  ): SequentialIndexer =
-    SequentialIndexerImpl(
+  ): SequentialWriteDao =
+    SequentialWriteDaoImpl(
       storageBackend = StorageBackend.of(dbType),
       updateToDbDtos = UpdateToDBDTOV1(
         participantId = participantId,
@@ -1074,7 +1073,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       validatePartyAllocation,
       enricher,
-      sequentialIndexer(dbType, participantId, lfValueTranslationCache, metrics),
+      sequentialWriteDao(dbType, participantId, lfValueTranslationCache, metrics),
       participantId,
     )
 
