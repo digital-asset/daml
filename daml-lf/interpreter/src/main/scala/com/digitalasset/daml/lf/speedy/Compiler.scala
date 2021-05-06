@@ -591,8 +591,10 @@ private[lf] final class Compiler(
           case BAnyExceptionMessage =>
             SBAnyExceptionMessage
           case BAnyExceptionIsArithmeticError =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
             throw CompilationError("SBAnyExceptionIsArithmeticError not implemented")
           case BAnyExceptionIsContractError =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
             throw CompilationError("SBAnyExceptionIsContractError not implemented")
 
         })
