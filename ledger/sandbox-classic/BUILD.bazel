@@ -247,18 +247,41 @@ scala_test_deps = [
     "@maven//:org_scalaz_scalaz_core",
 ]
 
-da_scala_test_suite(
-    name = "sandbox-classic-tests",
-    srcs = glob(["src/test/suite/**/*.scala"]),
-    data = [
-        "//daml-lf/encoder:testing-dars",
-        "//ledger/test-common:model-tests-stable.dar",
-        "//ledger/test-common/test-certificates",
-    ],
-    resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
-    scala_deps = scala_test_deps,
-    deps = test_deps,
-)
+# The reset service is cursed so we mark all tests involving it as flaky.
+reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
+
+[
+    da_scala_test_suite(
+        name = "sandbox-classic-tests{}".format(suffix),
+        srcs = glob(
+            [pattern],
+            exclude = exclusions,
+        ),
+        data = [
+            "//daml-lf/encoder:testing-dars",
+            "//ledger/test-common:model-tests-stable.dar",
+            "//ledger/test-common/test-certificates",
+        ],
+        flaky = flaky,
+        resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+        scala_deps = scala_test_deps,
+        deps = test_deps,
+    )
+    for (suffix, pattern, exclusions, flaky) in [
+        (
+            "",
+            "src/test/suite/**/*.scala",
+            [reset_service_pattern],
+            False,
+        ),
+        (
+            "-resetservice",
+            reset_service_pattern,
+            [],
+            True,
+        ),
+    ]
+]
 
 SERVERS = {
     "memory": {
