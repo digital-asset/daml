@@ -246,7 +246,7 @@ object TransactionCoder {
       enclosingVersion: TransactionVersion,
       nodeId: Nid,
       node: GenNode[Nid, Cid],
-      disableVersionCheck: Boolean =
+      disableChecks: Boolean =
         false, //true allows encoding of bad protos (for testing of decode checks)
   ): Either[EncodeError, TransactionOuterClass.Node] = {
     val nodeVersion = node.version
@@ -268,12 +268,12 @@ object TransactionCoder {
           nr.children.foreach { id => builder.addChildren(encodeNid.asString(id)); () }
           for {
             _ <- Either.cond(
-              test = nr.children.nonEmpty,
+              test = nr.children.nonEmpty || disableChecks,
               right = (),
               left = EncodeError("rollback node with no children"),
             )
             _ <- Either.cond(
-              test = nr.version >= TransactionVersion.minExceptions || disableVersionCheck,
+              test = nr.version >= TransactionVersion.minExceptions || disableChecks,
               right = (),
               left = EncodeError(node.version, isTooOldFor = "rollback nodes"),
             )
@@ -362,7 +362,7 @@ object TransactionCoder {
                 )
               case None =>
                 Either.cond(
-                  test = ne.version >= TransactionVersion.minExceptions || disableVersionCheck,
+                  test = ne.version >= TransactionVersion.minExceptions || disableChecks,
                   right = (),
                   left = EncodeError(node.version, isTooOldFor = "NodeExercises without result"),
                 )
@@ -475,7 +475,6 @@ object TransactionCoder {
         for {
           _ <- Either.cond(
             test = nodeVersion >= TransactionVersion.minExceptions,
-            // NICK, check version matches max of children & test
             right = (),
             left = DecodeError(
               s"rollback node (supported since ${TransactionVersion.minExceptions}) unexpected in transaction of version $nodeVersion"
@@ -483,6 +482,12 @@ object TransactionCoder {
           )
           ni <- nodeId
           children <- decodeChildren(decodeNid, protoRollback.getChildrenList)
+          _ <- Either.cond(
+            test = children.nonEmpty,
+            right = (),
+            left = DecodeError("rollback node with no children"),
+          )
+          // NICK, check version matches max of children & test
         } yield ni -> NodeRollback(children, nodeVersion)
       case NodeTypeCase.CREATE =>
         val protoCreate = protoNode.getCreate

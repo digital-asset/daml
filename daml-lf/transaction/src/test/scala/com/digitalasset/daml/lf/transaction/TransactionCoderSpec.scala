@@ -688,7 +688,7 @@ class TransactionCoderSpec
               v1,
               NodeId(0),
               normalizedNode,
-              disableVersionCheck = true, //so the bad proto can be created
+              disableChecks = true, //so the bad proto can be created
             )
         val result =
           TransactionCoder
@@ -699,6 +699,36 @@ class TransactionCoderSpec
               encodedNode,
             )
         result.isLeft shouldBe (v1 < minExceptions)
+      }
+    }
+
+    "fail if try decode rollback node with empty children" in {
+      forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder(fromRollbackVersions)) {
+        case (node, (nodeVersion, txVersion)) =>
+          val normalizedNode = node
+            .updateVersion(nodeVersion)
+            .copy(
+              children = ImmArray.empty
+            )
+          val Right(encoded) =
+            TransactionCoder
+              .encodeNode(
+                TransactionCoder.NidEncoder,
+                ValueCoder.CidEncoder,
+                txVersion,
+                NodeId(0),
+                normalizedNode,
+                disableChecks = true, //so the bad proto can be created
+              )
+          val result =
+            TransactionCoder
+              .decodeVersionedNode(
+                TransactionCoder.NidDecoder,
+                ValueCoder.CidDecoder,
+                txVersion,
+                encoded,
+              )
+          result shouldEqual Left(DecodeError(s"rollback node with no children"))
       }
     }
 
@@ -717,7 +747,7 @@ class TransactionCoderSpec
               v2,
               NodeId(0),
               normalizedNode,
-              disableVersionCheck = true, //so the bad proto can be created
+              disableChecks = true, //so the bad proto can be created
             )
         val result =
           TransactionCoder
