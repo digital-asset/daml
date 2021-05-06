@@ -4,6 +4,7 @@
 package com.daml.lf
 package engine
 
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value._
 
 //TODO: Errors
@@ -41,6 +42,14 @@ object Error {
 
 final case class ContractNotFound(ci: ContractId) extends Error {
   override def msg = s"Contract could not be found with id $ci"
+  override def detailMsg: String = msg
+}
+
+/** See com.daml.lf.transaction.Transaction.DuplicateContractKey
+  * for more information.
+  */
+final case class DuplicateContractKey(key: GlobalKey) extends Error {
+  override def msg = s"Duplicate contract key $key"
   override def detailMsg: String = msg
 }
 

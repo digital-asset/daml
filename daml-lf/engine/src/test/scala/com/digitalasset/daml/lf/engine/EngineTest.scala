@@ -14,6 +14,7 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.transaction.{
+  ContractKeyUniquenessMode,
   GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
@@ -2089,6 +2090,19 @@ class EngineTest
     // these tests serve only as an indication of the current behavior
     // but can be changed freely.
     "multi keys" should {
+      import com.daml.lf.language.{LanguageVersion => LV}
+      val nonUckEngine = new Engine(
+        EngineConfig(
+          allowedLanguageVersions = LV.DevVersions,
+          contractKeyUniqueness = ContractKeyUniquenessMode.Off,
+        )
+      )
+      val uckEngine = new Engine(
+        EngineConfig(
+          allowedLanguageVersions = LV.DevVersions,
+          contractKeyUniqueness = ContractKeyUniquenessMode.On,
+        )
+      )
       val (multiKeysPkgId, _, allMultiKeysPkgs) = loadPackage("daml-lf/tests/MultiKeys.dar")
       val lookupPackage = allMultiKeysPkgs.get(_)
       val keyedId = Identifier(multiKeysPkgId, "MultiKeys:Keyed")
@@ -2116,7 +2130,7 @@ class EngineTest
           case _ =>
             None
         }
-      def run(choice: String, argument: Value[Value.ContractId]) = {
+      def run(engine: Engine, choice: String, argument: Value[Value.ContractId]) = {
         val cmd = CreateAndExerciseCommand(
           opsId,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
@@ -2156,6 +2170,8 @@ class EngineTest
       val globalArchiveOverwritesKnownGlobal1 = ("GlobalArchiveOverwritesKnownGlobal1", twoCids)
       val globalArchiveOverwritesKnownGlobal2 = ("GlobalArchiveOverwritesKnownGlobal2", twoCids)
       val rollbackCreateNonRollbackFetchByKey = ("RollbackCreateNonRollbackFetchByKey", emptyRecord)
+      val rollbackFetchByKeyRollbackCreateNonRollbackFetchByKey =
+        ("RollbackFetchByKeyRollbackCreateNonRollbackFetchByKey", emptyRecord)
       val rollbackFetchByKeyNonRollbackCreate = ("RollbackFetchByKeyNonRollbackCreate", emptyRecord)
       val rollbackFetchNonRollbackCreate = ("RollbackFetchNonRollbackCreate", keyResultCid)
       val rollbackGlobalArchiveNonRollbackCreate =
@@ -2165,28 +2181,48 @@ class EngineTest
       val rollbackGlobalArchiveUpdates =
         ("RollbackGlobalArchiveUpdates", twoCids)
 
+      val allCases = Table(
+        ("choice", "argument"),
+        createOverwritesLocal,
+        createOverwritesUnknownGlobal,
+        createOverwritesKnownGlobal,
+        fetchDoesNotOverwriteGlobal,
+        fetchDoesNotOverwriteLocal,
+        localArchiveOverwritesUnknownGlobal,
+        localArchiveOverwritesKnownGlobal,
+        globalArchiveOverwritesUnknownGlobal,
+        globalArchiveOverwritesKnownGlobal1,
+        globalArchiveOverwritesKnownGlobal2,
+        rollbackCreateNonRollbackFetchByKey,
+        rollbackFetchByKeyRollbackCreateNonRollbackFetchByKey,
+        rollbackFetchByKeyNonRollbackCreate,
+        rollbackFetchNonRollbackCreate,
+        rollbackGlobalArchiveNonRollbackCreate,
+        rollbackCreateNonRollbackGlobalArchive,
+        rollbackGlobalArchiveUpdates,
+      )
+
+      val uckFailures = Set(
+        "CreateOverwritesLocal",
+        "CreateOverwritesKnownGlobal",
+        "LocalArchiveOverwritesKnownGlobal",
+        "RollbackCreateNonRollbackFetchByKey",
+        "RollbackFetchByKeyRollbackCreateNonRollbackFetchByKey",
+        "RollbackFetchByKeyNonRollbackCreate",
+      )
+
       "non-uck mode" in {
-        val allCases = Table(
-          ("choice", "argument"),
-          createOverwritesLocal,
-          createOverwritesUnknownGlobal,
-          createOverwritesKnownGlobal,
-          fetchDoesNotOverwriteGlobal,
-          fetchDoesNotOverwriteLocal,
-          localArchiveOverwritesUnknownGlobal,
-          localArchiveOverwritesKnownGlobal,
-          globalArchiveOverwritesUnknownGlobal,
-          globalArchiveOverwritesKnownGlobal1,
-          globalArchiveOverwritesKnownGlobal2,
-          rollbackCreateNonRollbackFetchByKey,
-          rollbackFetchByKeyNonRollbackCreate,
-          rollbackFetchNonRollbackCreate,
-          rollbackGlobalArchiveNonRollbackCreate,
-          rollbackCreateNonRollbackGlobalArchive,
-          rollbackGlobalArchiveUpdates,
-        )
         forEvery(allCases) { case (name, arg) =>
-          run(name, arg) shouldBe a[Right[_, _]]
+          run(nonUckEngine, name, arg) shouldBe a[Right[_, _]]
+        }
+      }
+      "uck mode" in {
+        forEvery(allCases) { case (name, arg) =>
+          if (uckFailures.contains(name)) {
+            run(uckEngine, name, arg) shouldBe a[Left[_, _]]
+          } else {
+            run(uckEngine, name, arg) shouldBe a[Right[_, _]]
+          }
         }
       }
     }

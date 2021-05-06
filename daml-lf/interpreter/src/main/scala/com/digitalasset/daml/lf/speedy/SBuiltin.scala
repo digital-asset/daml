@@ -1878,6 +1878,8 @@ private[lf] object SBuiltin {
         throw DamlEFailedAuthorization(nid, fa)
       case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
         throw DamlELocalContractNotActive(coid, tid, consumedBy)
+      case Some(Tx.DuplicateContractKey(key)) =>
+        throw DamlEDuplicateContractKey(key)
       case Some(Tx.NonExerciseContext) =>
         crash("internal error: end exercise in non exercise context")
       case Some(Tx.NonCatchContext) =>
