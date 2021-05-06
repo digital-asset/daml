@@ -139,16 +139,20 @@ object UpdateToDBDTOV1 {
         )
 
       case u: Update.TransactionAccepted =>
-        // TODO append-only: add support for Daml Exceptions / Rollback nodes (Story for this: https://digitalasset.atlassian.net/browse/DPP-374)
+        // TODO append-only:
         //   Covering this functionality with unit test is important, since at the time of writing kvutils ledgers purge RollBack nodes already on WriteService, so conformance testing is impossible
         //   Unit tests also need to cover the full semantic contract regarding fetch and lookup node removal as well
-        //   Hint for implementation: https://github.com/digital-asset/daml/pull/9506
-        //   Hint for conformance testing: if sandbox-classic append only integration uses this code, then ExceptionIT of the respective conformance test suit (append only + sandbox-classic) will cover the indexDB population cases.
+        //   Investigate possibility to encapsulate this logic in a common place
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
         val preorderTraversal = u.transaction
-          .fold(List.empty[(NodeId, Node)]) { case (xs, x) =>
-            x :: xs
-          }
+          .foldInExecutionOrder(List.empty[(NodeId, Node)])(
+            exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, true),
+            // Rollback nodes are not included in the indexer
+            rollbackBegin = (acc, _, _) => (acc, false),
+            leaf = (acc, nid, node) => (nid -> node) :: acc,
+            exerciseEnd = (acc, _, _) => acc,
+            rollbackEnd = (acc, _, _) => acc,
+          )
           .reverse
 
         val events: Iterator[DBDTOV1] = preorderTraversal.iterator
