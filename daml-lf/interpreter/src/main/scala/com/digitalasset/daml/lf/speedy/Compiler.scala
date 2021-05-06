@@ -591,9 +591,9 @@ private[lf] final class Compiler(
           case BAnyExceptionMessage =>
             SBAnyExceptionMessage
           case BAnyExceptionIsArithmeticError =>
-            throw CompilationError(s"SBAnyExceptionIsArithmeticError not implemented")
+            throw CompilationError("SBAnyExceptionIsArithmeticError not implemented")
           case BAnyExceptionIsContractError =>
-            throw CompilationError(s"SBAnyExceptionIsContractError not implemented")
+            throw CompilationError("SBAnyExceptionIsContractError not implemented")
 
         })
     }
