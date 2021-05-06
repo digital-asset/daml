@@ -44,13 +44,15 @@ object LedgerApiBenchTool {
         val ledgerIdentityService: LedgerIdentityService = new LedgerIdentityService(channel)
         val ledgerId: String = ledgerIdentityService.fetchLedgerId()
         val transactionService = new TransactionService(channel, ledgerId)
-        config.streamType match {
-          case Config.StreamType.Transactions =>
-            transactionService.transactions(config.party)
-            ()
-          case Config.StreamType.TransactionTrees =>
-            transactionService.transactionTrees(config.party)
-            ()
+        config.streamConfig.foreach { streamConfig =>
+          streamConfig.streamType match {
+            case Config.StreamConfig.StreamType.Transactions =>
+              transactionService.transactions(streamConfig.party)
+              ()
+            case Config.StreamConfig.StreamType.TransactionTrees =>
+              transactionService.transactionTrees(streamConfig.party)
+              ()
+          }
         }
       }
     }

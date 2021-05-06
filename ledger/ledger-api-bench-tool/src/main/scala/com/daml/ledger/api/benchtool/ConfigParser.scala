@@ -3,43 +3,32 @@
 
 package com.daml.ledger.api.benchtool
 
-import scopt.OParser
+import scopt.{OParser, Read}
 
 object ConfigParser {
-  private val TransactionsStream = "Transactions"
-  private val TransactionTreesStream = "TransactionTrees"
-
   def parse(args: Array[String]): Option[Config] =
     OParser.parse(parser, args, defaultConfig)
 
   private val parser = {
     val builder = OParser.builder[Config]
     import builder._
+    import Reads._
     OParser.sequence(
       programName("ledger-api-bench-tool"),
       head("A tool for measuring transaction streaming performance of a ledger."),
-      opt[String]("streamType")
-        .valueName("<streamType>")
-        .maxOccurs(1)
+      opt[Config.StreamConfig]("consume-stream")
         .text(
-          s"Stream type for benchmarking. $TransactionsStream|$TransactionTreesStream (default: $TransactionsStream)"
+          s"Stream configuration. Format: streamType=<transactions|transactionTrees>,name=<streamName>,party=<party>"
         )
-        .action { case (streamTypeInput, config) =>
-          val streamType: Config.StreamType = streamTypeInput match {
-            case TransactionsStream => Config.StreamType.Transactions
-            case TransactionTreesStream => Config.StreamType.TransactionTrees
-            case invalid => throw new IllegalArgumentException(s"Illegal stream type: $invalid")
-          }
-          config.copy(streamType = streamType)
-        },
+        .action { case (streamConfig, config) => config.copy(streamConfig = Some(streamConfig)) },
       help("help").text("Prints this information"),
     )
   }
 
+  //TXServeUntilCancellation-alpha-7b2db7cb5ab5-party-0
+  // TODO: remove dummy values when multi-stream is implemented
   private val defaultConfig: Config =
     Config(
-      streamType = Config.StreamType.Transactions,
-      party = "TXServeUntilCancellation-alpha-7b2db7cb5ab5-party-0", //TODO
       ledger = Config.Ledger(
         hostname = "localhost",
         port = 6865,
@@ -50,5 +39,34 @@ object ConfigParser {
         keepAliveTime = 30,
         maxQueueLength = 10000,
       ),
+      streamConfig = None,
     )
+
+  object Reads {
+    implicit val streamConfigRead: Read[Config.StreamConfig] =
+      implicitly[Read[Map[String, String]]].map { m =>
+        def stringField(fieldName: String): Either[String, String] =
+          m.get(fieldName) match {
+            case Some(value) => Right(value)
+            case None => Left(s"Missing field: '$fieldName'")
+          }
+
+        val config = for {
+          name <- stringField("name")
+          party <- stringField("party")
+          streamType <- stringField("streamType").flatMap[String, Config.StreamConfig.StreamType] {
+            case "transactions" => Right(Config.StreamConfig.StreamType.Transactions)
+            case "transactionTrees" => Right(Config.StreamConfig.StreamType.TransactionTrees)
+            case invalid => Left(s"Invalid stream type: $invalid")
+          }
+        } yield Config.StreamConfig(
+          name = name,
+          streamType = streamType,
+          party = party,
+        )
+
+        config.fold(error => throw new IllegalArgumentException(error), identity)
+      }
+  }
+
 }
