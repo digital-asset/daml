@@ -38,6 +38,8 @@ class TransactionCoderSpec
 
   private[this] val transactionVersions = Table("transaction version", V10, V11, V12, V13, VDev)
 
+  val fromRollbackVersions = TransactionVersion.All.filter(_ >= minExceptions)
+
   "encode-decode" should {
 
     "do contractInstance" in {
@@ -132,8 +134,6 @@ class TransactionCoderSpec
               .map(_.informeesOfNode)
       }
     }
-
-    val fromRollbackVersions = TransactionVersion.All.filter(_ >= minExceptions)
 
     "do NodeRollback" in {
       forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder(fromRollbackVersions)) {
@@ -307,6 +307,27 @@ class TransactionCoderSpec
             )
 
           result.isLeft shouldBe (nodeVersion < minExceptions)
+      }
+    }
+
+    "fail if try encode rollback node with empty children" in {
+      forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder(fromRollbackVersions)) {
+        case (node, (nodeVersion, txVersion)) =>
+          val normalizedNode = node
+            .updateVersion(nodeVersion)
+            .copy(
+              children = ImmArray.empty
+            )
+          TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              txVersion,
+              NodeId(0),
+              normalizedNode,
+            ) shouldEqual Left(
+            EncodeError(s"rollback node with no children")
+          )
       }
     }
 

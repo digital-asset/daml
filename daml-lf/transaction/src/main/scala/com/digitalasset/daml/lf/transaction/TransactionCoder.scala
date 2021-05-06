@@ -270,7 +270,7 @@ object TransactionCoder {
             _ <- Either.cond(
               test = nr.children.nonEmpty,
               right = (),
-              left = EncodeError("rollback node with no children"), //NICK, test this check
+              left = EncodeError("rollback node with no children"),
             )
             _ <- Either.cond(
               test = nr.version >= TransactionVersion.minExceptions || disableVersionCheck,
