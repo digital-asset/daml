@@ -877,11 +877,6 @@ message Expr {
     Expr expr = 2;
   }
 
-  message Experimental {
-    string name = 1;
-    Type type = 2 ;
-  }
-
   // Location of the expression in the Daml code source.
   // Optional
   Location location = 25;
