@@ -50,6 +50,7 @@ da_scala_library(
         "//ledger/participant-state-metrics",
         "//ledger/participant-state/kvutils",
         "//ledger/sandbox-common",
+        "//ledger-service/cli-opts",
         "//libs-scala/build-info",
         "//libs-scala/contextualized-logging",
         "//libs-scala/ports",

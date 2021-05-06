@@ -64,6 +64,7 @@ da_scala_library(
         "//ledger/participant-state-index",
         "//ledger/participant-state-metrics",
         "//ledger/sandbox-common",
+        "//ledger-service/cli-opts",
         "//libs-scala/build-info",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",

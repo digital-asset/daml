@@ -12,8 +12,6 @@ import scopt.{Read, RenderingMode}
 import scala.concurrent.duration._
 import scala.util.Try
 
-import ch.qos.logback.classic.{Level => LogLevel}
-
 object Cli extends StrictLogging {
   private[http] def parseConfig(
       args: collection.Seq[String],
@@ -49,9 +47,6 @@ object Cli extends StrictLogging {
       v <- getEnvVar(envVar).toRight(s"Environment variable $envVar was not set")
       conf <- parseJdbcConfig(v)
     } yield conf
-
-  // TODO: Refactor out as this is duplicated from the sandbox code
-  private val KnownLogLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   private def configParser(getEnvVar: String => Option[String]): scopt.OptionParser[Config] =
@@ -171,17 +166,7 @@ object Cli extends StrictLogging {
         .optional()
         .valueName(WebsocketConfig.usage)
         .text(s"Optional websocket configuration string. ${WebsocketConfig.help}")
-      
-      // TODO: Refactor out as this is duplicated from the sandbox code
-      opt[String]("log-level")
-        .optional()
-        .validate(l =>
-          Either
-            .cond(KnownLogLevels.contains(l.toUpperCase), (), s"Unrecognized logging level $l")
-        )
-        .action((level, c) => c.copy(logLevel = Some(LogLevel.toLevel(level.toUpperCase))))
-        .text(
-          "Default logging level to use. Available values are INFO, TRACE, DEBUG, WARN, and ERROR. Defaults to INFO."
-        )
+
+      cliopts.Logging.loggingLevelParse(this)((f, c) => c.copy(logLevel = f(c.logLevel)))
     }
 }

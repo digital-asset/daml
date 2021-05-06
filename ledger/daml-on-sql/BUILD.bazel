@@ -23,6 +23,7 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
+        "//ledger-service/cli-opts",
         "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",

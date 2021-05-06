@@ -16,6 +16,7 @@ import scalaz.{-\/, \/, \/-}
 import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
+import com.daml.cliopts.GlobalLogLevel
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -29,23 +30,6 @@ object Main extends StrictLogging {
     val StartupError = 101
   }
 
-  // TODO: Refactor out as this is duplicated from the sandbox code
-  object Logging {
-
-    import ch.qos.logback.classic.{Level => LogLevel}
-    import org.slf4j.{Logger, LoggerFactory}
-
-    def setGlobalLogLevel(verbosity: LogLevel): Unit = {
-      LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME) match {
-        case rootLogger: ch.qos.logback.classic.Logger =>
-          rootLogger.setLevel(verbosity)
-          rootLogger.info(s"Verbosity changed to $verbosity")
-        case _ =>
-          logger.warn(s"Verbosity cannot be set to requested $verbosity")
-      }
-    }
-  }
-
   def main(args: Array[String]): Unit =
     Cli.parseConfig(args) match {
       case Some(config) =>
@@ -56,7 +40,7 @@ object Main extends StrictLogging {
     }
 
   private def main(config: Config): Unit = {
-    config.logLevel.foreach(Logging.setGlobalLogLevel(_))
+    config.logLevel.foreach(GlobalLogLevel.set("Ledger HTTP-JSON API"))
     logger.info(
       s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
         s", address=${config.address: String}, httpPort=${config.httpPort: Int}" +
