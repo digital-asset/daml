@@ -57,6 +57,7 @@ alias(
             "//ledger/participant-state-metrics",
             "//ledger/participant-state/kvutils",
             "//ledger/sandbox-common:sandbox-common-{}".format(edition),
+            "//ledger-service/cli-opts",
             "//libs-scala/build-info",
             "//libs-scala/contextualized-logging",
             "//libs-scala/ports",
