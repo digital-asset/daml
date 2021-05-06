@@ -878,7 +878,7 @@ internalTypes :: UniqSet FastString
 internalTypes = mkUniqSet
     [ "Scenario", "Update", "ContractId", "Time", "Date", "Party"
     , "Pair", "TextMap", "Map", "Any", "TypeRep"
-    , "AnyException",
+    , "AnyException"
     , "Experimental"
     ]
 
