@@ -47,6 +47,7 @@ private[platform] object JdbcIndex {
       maxContractStateCacheSize = maxContractStateCacheSize,
       maxContractKeyStateCacheSize = maxContractKeyStateCacheSize,
       enableMutableContractStateCache = enableMutableContractStateCache,
+      participantId = participantId,
     ).map { ledger =>
       new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger, metrics), participantId)
     }

@@ -111,6 +111,18 @@ conformance_test(
     ],
 )
 
+# TODO append-only: cleanup
+conformance_test(
+    name = "conformance-test-append-only",
+    server = ":daml-on-sql-ephemeral-postgresql",
+    server_args = [
+        "--ledgerid=conformance-test",
+        "--port=6865",
+        "--eager-package-loading",
+        "--enable-append-only-schema",
+    ],
+)
+
 conformance_test(
     name = "conformance-test-multi-party-submissions",
     server = ":daml-on-sql-ephemeral-postgresql",
@@ -118,6 +130,22 @@ conformance_test(
         "--ledgerid=conformance-test",
         "--port=6865",
         "--eager-package-loading",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=MultiPartySubmissionIT",
+    ],
+)
+
+# TODO append-only: cleanup
+conformance_test(
+    name = "conformance-test-multi-party-submissions-append-only",
+    server = ":daml-on-sql-ephemeral-postgresql",
+    server_args = [
+        "--ledgerid=conformance-test",
+        "--port=6865",
+        "--eager-package-loading",
+        "--enable-append-only-schema",
     ],
     test_tool_args = [
         "--verbose",

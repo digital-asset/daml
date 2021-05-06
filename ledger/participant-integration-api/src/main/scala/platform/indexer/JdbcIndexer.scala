@@ -22,7 +22,7 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.parallel.ParallelIndexerFactory
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.StorageBackend
-import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.store.dao.LedgerDao
 import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -38,7 +38,7 @@ object JdbcIndexer {
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       updateFlowOwnerBuilder: ExecuteUpdate.FlowOwnerBuilder,
-      ledgerDaoOwner: ResourceOwner[LedgerDao],
+      serverRole: ServerRole,
       flywayMigrations: FlywayMigrations,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
   )(implicit materializer: Materializer, loggingContext: LoggingContext) {
@@ -57,17 +57,7 @@ object JdbcIndexer {
         servicesExecutionContext,
         metrics,
         ExecuteUpdate.owner,
-        JdbcLedgerDao.writeOwner(
-          serverRole,
-          config.jdbcUrl,
-          config.databaseConnectionPoolSize,
-          config.eventsPageSize,
-          servicesExecutionContext,
-          metrics,
-          lfValueTranslationCache,
-          jdbcAsyncCommitMode = config.asyncCommitMode,
-          enricher = None,
-        ),
+        serverRole,
         new FlywayMigrations(config.jdbcUrl),
         lfValueTranslationCache,
       )
@@ -96,7 +86,17 @@ object JdbcIndexer {
         resetSchema: Boolean
     ): Future[ResourceOwner[Indexer]] =
       Future.successful(for {
-        ledgerDao <- ledgerDaoOwner
+        ledgerDao <- com.daml.platform.store.dao.JdbcLedgerDao.writeOwner(
+          serverRole,
+          config.jdbcUrl,
+          config.databaseConnectionPoolSize,
+          config.eventsPageSize,
+          servicesExecutionContext,
+          metrics,
+          lfValueTranslationCache,
+          jdbcAsyncCommitMode = config.asyncCommitMode,
+          enricher = None,
+        )
         _ <-
           if (resetSchema) {
             ResourceOwner.forFuture(() => ledgerDao.reset())
@@ -125,17 +125,30 @@ object JdbcIndexer {
         // Note: the LedgerDao interface is only used for initialization here, it can be released immediately
         // after initialization is finished. Hence the use of ResourceOwner.use().
         _ <- ResourceOwner.forFuture(() =>
-          ledgerDaoOwner.use(ledgerDao =>
-            for {
-              _ <-
-                if (resetSchema) {
-                  ledgerDao.reset()
-                } else {
-                  Future.successful(())
-                }
-              _ <- initializeLedger(ledgerDao)().acquire().asFuture
-            } yield ()
-          )
+          com.daml.platform.store.appendonlydao.JdbcLedgerDao
+            .writeOwner(
+              serverRole,
+              config.jdbcUrl,
+              config.databaseConnectionPoolSize,
+              config.eventsPageSize,
+              servicesExecutionContext,
+              metrics,
+              lfValueTranslationCache,
+              jdbcAsyncCommitMode = config.asyncCommitMode,
+              enricher = None,
+              participantId = config.participantId,
+            )
+            .use(ledgerDao =>
+              for {
+                _ <-
+                  if (resetSchema) {
+                    ledgerDao.reset()
+                  } else {
+                    Future.successful(())
+                  }
+                _ <- initializeLedger(ledgerDao)().acquire().asFuture
+              } yield ()
+            )
         )
         indexer <- ParallelIndexerFactory(
           jdbcUrl = config.jdbcUrl,

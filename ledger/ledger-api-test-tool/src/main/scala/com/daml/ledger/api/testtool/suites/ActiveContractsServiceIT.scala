@@ -295,7 +295,7 @@ class ActiveContractsServiceIT extends LedgerTestSuite {
       dummyWithParamCid <- ledger.create(party, DummyWithParam(party))
       contracts <- ledger.activeContracts(party)
     } yield {
-      assert(contracts.size == 2, s"$party expected 1 event, but received ${contracts.size}.")
+      assert(contracts.size == 2, s"$party expected 2 contracts, but received ${contracts.size}.")
       val dummyAgreementText = contracts.collect {
         case ev if ev.contractId == dummyCid => ev.agreementText
       }
