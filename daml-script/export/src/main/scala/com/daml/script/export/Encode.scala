@@ -21,8 +21,8 @@ private[export] object Encode {
 
   def encodeArgs(export: Export): JsObject = {
     JsObject(
-      "parties" -> JsObject(export.partyMap.map { case (Party(party), binding) =>
-        binding -> JsString(party)
+      "parties" -> JsObject(export.partyMap.keys.map { case Party(party) =>
+        party -> JsString(party)
       }.toMap),
       "contracts" -> JsObject(export.unknownCids.map { case ContractId(c) =>
         c -> JsString(c)
