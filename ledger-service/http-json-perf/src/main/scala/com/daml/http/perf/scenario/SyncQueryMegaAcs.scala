@@ -31,7 +31,7 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
   "argument": {
     "totalSteps": 100,
     "amountCycle": [${amount}],
-    "observersCycle": [[]],
+    "observersCycle": [[]]
   }
 }"""))
 
@@ -45,10 +45,9 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
 
   private val scn = scenario("SyncQueryMegaScenario")
     .exec(createRequest.silent)
-    .repeat(50, "n") {
+    .repeat(50, "amount") {
       // populate the ACS
-      feed(Iterator.continually(Map("amount" -> "${n}")))
-        .exec(createManyRequest.silent)
+      exec(createManyRequest.silent)
     }
     .repeat(500) {
       // run queries
