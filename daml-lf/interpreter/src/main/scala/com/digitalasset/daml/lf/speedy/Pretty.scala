@@ -125,7 +125,7 @@ private[lf] object Pretty {
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyPartialTransactionNode(node: PartialTransaction.Node): Doc =
     node match {
-      case NodeRollback(_, _) => // reconsider if fields added
+      case NodeRollback(_) => // reconsider if fields added
         text("rollback")
       case create: NodeCreate[Value.ContractId] =>
         "create" &: prettyContractInst(create.coinst)
@@ -270,7 +270,7 @@ private[lf] object Pretty {
     val eventId = EventId(txId.id, nodeId)
     val ni = l.ledgerData.nodeInfos(eventId)
     val ppNode = ni.node match {
-      case NodeRollback(children, _) => // reconsider if fields added
+      case NodeRollback(children) => // reconsider if fields added
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
       case create: NodeCreate[ContractId] =>
         val d = "create" &: prettyVersionedContractInst(create.versionedCoinst)
@@ -332,7 +332,8 @@ private[lf] object Pretty {
         case None => text("")
         case Some(nid) => meta("archived by" &: prettyEventId(nid))
       }
-    prettyEventId(eventId) & text("version:") & str(ni.node.version.protoValue) / stack(
+    // TODO figure out what to do about the version
+    prettyEventId(eventId) & text("version:") /* & str(ni.node.version.protoValue) */ / stack(
       Seq(ppArchivedBy, ppReferencedBy, ppDisclosedTo, arrowRight(ppNode))
         .filter(_.nonEmpty)
     )

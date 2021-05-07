@@ -615,10 +615,7 @@ private[lf] case class PartialTransaction(
   ): PartialTransaction =
     context.info match {
       case info: TryContextInfo =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        //  the version of a rollback node should be determined from its children.
-        //  in the case of there being no children we can simple drop the entire rollback node.
-        val rollbackNode = Node.NodeRollback(context.children.toImmArray, TxVersion.VDev)
+        val rollbackNode = Node.NodeRollback(context.children.toImmArray)
         copy(
           context = info.parent.addRollbackChild(info.nodeId, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),

@@ -236,7 +236,7 @@ final case class GenTransaction[Nid, +Cid](
   def serializable(f: Value[Cid] => ImmArray[String]): ImmArray[String] = {
     fold(BackStack.empty[String]) { case (errs, (_, node)) =>
       node match {
-        case Node.NodeRollback(_, _) => // reconsider if fields added
+        case Node.NodeRollback(_) => // reconsider if fields added
           errs
         case _: Node.NodeFetch[Cid] => errs
         case nc: Node.NodeCreate[Cid] =>
@@ -254,7 +254,7 @@ final case class GenTransaction[Nid, +Cid](
   def foldValues[Z](z: Z)(f: (Z, Value[Cid]) => Z): Z =
     fold(z) { case (z, (_, n)) =>
       n match {
-        case Node.NodeRollback(_, _) => // reconsider if fields added
+        case Node.NodeRollback(_) => // reconsider if fields added
           z
         case c: Node.NodeCreate[_] =>
           val z1 = f(z, c.arg)

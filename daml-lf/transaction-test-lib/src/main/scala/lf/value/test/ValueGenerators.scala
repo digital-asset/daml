@@ -9,6 +9,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.transaction.Node.{
   GenNode,
+  GenActionNode,
   KeyWithMaintainers,
   NodeCreate,
   NodeExercises,
@@ -359,12 +360,11 @@ object ValueGenerators {
   /** Makes rollback node with some random child IDs. */
   val danglingRefRollbackNodeGen: Gen[NodeRollback[NodeId]] = {
     for {
-      version <- transactionVersionGen()
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
         .map(ImmArray(_))
-    } yield NodeRollback(children, version)
+    } yield NodeRollback(children)
   }
 
   /** Makes exercise nodes with some random child IDs. */
@@ -537,7 +537,13 @@ object ValueGenerators {
           for {
             hashMap <- acc
             version <- nodeVersionGen
-          } yield hashMap.updated(nodeId, node.updateVersion(version))
+          } yield {
+            node match {
+              case na: GenActionNode[_, _] => hashMap.updated(nodeId, na.updateVersion(version))
+              case nr: NodeRollback[_] => hashMap.updated(nodeId, nr)
+            }
+
+          }
       }
     } yield VersionedTransaction(txVer, nodes, tx.roots)
 

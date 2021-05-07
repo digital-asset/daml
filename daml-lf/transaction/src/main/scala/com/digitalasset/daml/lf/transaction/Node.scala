@@ -20,7 +20,6 @@ object Node {
       extends Product
       with Serializable
       with CidContainer[GenNode[Nid, Cid]] {
-    def version: TransactionVersion
 
     def foreach2(fNid: Nid => Unit, fCid: Cid => Unit): Unit
 
@@ -55,6 +54,8 @@ object Node {
     def templateId: TypeConName
 
     final override protected def self: this.type = this
+
+    def version: TransactionVersion
 
     /** Required authorizers (see ledger model); UNSAFE TO USE on fetch nodes of transaction with versions < 5
       *
@@ -369,18 +370,15 @@ object Node {
       // Figure-out what information needs to be contained in a Rollback node.
       // For the moment, we just have the children.
       // Note: if we add values, we must extend the function which checks they are serializable
-      children: ImmArray[Nid],
-      // For the sake of consistency between types with a version field, keep this field the last.
-      override val version: TransactionVersion,
+      children: ImmArray[Nid]
   ) extends GenNode[Nid, Nothing] {
-
-    override private[lf] def updateVersion(version: TransactionVersion): NodeRollback[Nid] =
-      copy(version = version)
 
     override def foreach2(fNid: Nid => Unit, fCid: Nothing => Unit): Unit =
       children.foreach(fNid)
 
     override protected def self: GenNode[Nid, Nothing] = this
+
+    override private[lf] def updateVersion(version: TransactionVersion) = this
   }
 
 }

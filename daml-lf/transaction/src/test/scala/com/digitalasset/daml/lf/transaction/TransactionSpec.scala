@@ -11,7 +11,13 @@ import com.daml.lf.transaction.GenTransaction.{
   NotWellFormedError,
   OrphanedNode,
 }
-import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeRollback}
+import com.daml.lf.transaction.Node.{
+  GenNode,
+  GenActionNode,
+  NodeCreate,
+  NodeExercises,
+  NodeRollback,
+}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.{Value => V}
@@ -169,7 +175,11 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
   "isReplayedBy" - {
     def genTrans(node: GenNode[NodeId, ContractId]) = {
       val nid = NodeId(1)
-      VersionedTransaction(node.version, HashMap(nid -> node), ImmArray(nid))
+      val version = node match {
+        case na: GenActionNode[_, _] => na.version
+        case _: NodeRollback[_] => TransactionVersion.minExceptions
+      }
+      VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
     def isReplayedBy(
@@ -203,7 +213,11 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       }
 
       forAll(genEmptyNode, minSuccessful(10)) { n =>
-        val m = n.updateVersion(diffVersion(n.version))
+        val version = n match {
+          case na: GenActionNode[_, _] => na.version
+          case _: NodeRollback[_] => TransactionVersion.minExceptions
+        }
+        val m = n.updateVersion(diffVersion(version))
         isReplayedBy(n, m) shouldBe Symbol("left")
       }
     }
@@ -334,7 +348,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       builder.add(fetch("FetchByKey", true), exeId)
       builder.add(lookup("SuccessfulLookup", true), exeId)
       builder.add(lookup("UnsuccessfulLookup", true), exeId)
-      val rollbackId = builder.add(Node.NodeRollback(ImmArray.empty, root2.version))
+      val rollbackId = builder.add(Node.NodeRollback(ImmArray.empty))
       builder.add(create("RolledBackCreate"))
       builder.add(exe("RolledBackNonConsumingExerciseById", false, false), rollbackId)
       builder.add(exe("RolledBackConsumingExerciseById", true, false), rollbackId)
@@ -470,8 +484,7 @@ object TransactionSpec {
       children: ImmArray[NodeId]
   ): NodeRollback[NodeId] =
     NodeRollback(
-      children = children,
-      version = TransactionVersion.minVersion,
+      children = children
     )
 
   def dummyExerciseNode(

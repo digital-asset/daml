@@ -22,12 +22,26 @@ import scala.collection.compat._
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
 
+object TransactionCoderSpec {
+
+  implicit final class NodeOps[Nid, Cid](private val self: GenNode[Nid, Cid]) extends AnyVal {
+    def fixupVersion(): GenNode[Nid, Cid] = {
+      self match {
+        case na: Node.GenActionNode[Nid, Cid] => na.updateVersion(na.version)
+        case _ => self
+      }
+    }
+  }
+}
+
 class TransactionCoderSpec
     extends AnyWordSpec
     with Matchers
     with Inside
     with EitherAssertions
     with ScalaCheckPropertyChecks {
+
+  import TransactionCoderSpec._
 
   import com.daml.lf.value.test.ValueGenerators._
 
@@ -162,7 +176,7 @@ class TransactionCoderSpec
       forAll(noDanglingRefGenVersionedTransaction, minSuccessful(50)) { tx =>
         val tx2 = VersionedTransaction(
           tx.version,
-          tx.nodes.transform((_, node) => normalizeNode(node.updateVersion(node.version))),
+          tx.nodes.transform((_, node) => normalizeNode(node.fixupVersion)),
           tx.roots,
         )
         inside(
@@ -213,7 +227,7 @@ class TransactionCoderSpec
               ValueCoder.CidDecoder,
               encodedTxWithBadTxVer,
             ) shouldEqual Left(
-              DecodeError(s"Unsupported transaction version '$badTxVer'")
+              DecodeError(s"Unsupported transaction version 'aeai$badTxVer'")
             )
           }
         }
