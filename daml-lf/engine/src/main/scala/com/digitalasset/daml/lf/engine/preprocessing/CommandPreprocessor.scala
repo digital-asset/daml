@@ -151,28 +151,14 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
           choiceId,
           choiceArgument,
         )
-    }
-  }
-
-  // returns the speedy translation of an LF action together with all the contract IDs contains inside.
-  private[preprocessing] def unsafePreprocessAction(
-      action: com.daml.lf.Action
-  ): (speedy.Command, Set[Value.ContractId]) = {
-    action match {
-      case Action.Create(templateId, argument) =>
-        unsafePreprocessCreate(templateId, argument)
-      case Action.Exercise(templateId, contractId, choiceId, argument) =>
-        unsafePreprocessExercise(templateId, contractId, choiceId, argument)
-      case Action.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
-        unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument)
-      case Action.Fetch(templateId, coid) =>
+      case command.FetchCommand(templateId, coid) =>
         (speedy.Command.Fetch(templateId, SValue.SContractId(coid)), Set(coid))
-      case Action.FetchByKey(templateId, key) =>
+      case command.FetchByKeyCommand(templateId, key) =>
         val ckTtype = unsafeGetContractKeyType(templateId, unsafeGetTemplate(templateId))
         val (sKey, cids) = valueTranslator.unsafeTranslateValue(ckTtype, key)
         assert(cids.isEmpty)
         (speedy.Command.FetchByKey(templateId, sKey), Set.empty)
-      case Action.LookupByKey(templateId, key) =>
+      case command.LookupByKeyCommand(templateId, key) =>
         val ckTtype = unsafeGetContractKeyType(templateId, unsafeGetTemplate(templateId))
         val (sKey, cids) = valueTranslator.unsafeTranslateValue(ckTtype, key)
         assert(cids.isEmpty)
@@ -182,12 +168,12 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
 
   @throws[PreprocessorException]
   def unsafePreprocessCommands(
-      cmds: ImmArray[command.Command]
+      cmds: ImmArray[command.ApiCommand]
   ): (ImmArray[speedy.Command], Set[Value.ContractId]) = {
 
     @tailrec
     def go(
-        toProcess: FrontStack[command.Command],
+        toProcess: FrontStack[command.ApiCommand],
         processed: BackStack[speedy.Command],
         acc: Set[Value.ContractId],
     ): (ImmArray[speedy.Command], Set[Value.ContractId]) = {

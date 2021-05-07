@@ -267,7 +267,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
 
   private def submitCommand(ledger: MutableLedger, engine: Engine)(
       submitter: Party,
-      cmd: Command,
+      cmd: ApiCommand,
       cmdReference: String,
       seed: crypto.Hash,
   ): Transaction = {

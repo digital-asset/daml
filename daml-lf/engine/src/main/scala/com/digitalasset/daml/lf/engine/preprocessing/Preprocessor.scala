@@ -133,17 +133,17 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
       unsafeTranslateValue(ty0, v0)
     }.map(_._1)
 
-  private[engine] def preprocessAction(
-      action: Action
+  private[engine] def preprocessCommand(
+      cmd: command.Command
   ): Result[(speedy.Command, Set[Value.ContractId])] =
-    safelyRun(getDependencies(List.empty, List(action.templateId))) {
-      unsafePreprocessAction(action)
+    safelyRun(getDependencies(List.empty, List(cmd.templateId))) {
+      unsafePreprocessCommand(cmd)
     }
 
   /** Translates  LF commands to a speedy commands.
     */
   def preprocessCommands(
-      cmds: data.ImmArray[command.Command]
+      cmds: data.ImmArray[command.ApiCommand]
   ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
     safelyRun(getDependencies(List.empty, cmds.map(_.templateId).toList)) {
       unsafePreprocessCommands(cmds)
