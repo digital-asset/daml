@@ -51,7 +51,7 @@ private[indexer] final class RecoveringIndexer(
       handle
     })
     subscription.set(firstSubscription)
-    resubscribeOnFailure(firstSubscription)
+    resubscribeOnFailure(firstSubscription, ())
 
     def waitForRestart(
         delayUntil: Instant = clock.instant().plusMillis(restartDelay.toMillis)
@@ -83,11 +83,12 @@ private[indexer] final class RecoveringIndexer(
             logger.info("Restarting Indexer Server")
             val newSubscription = subscribe()
             if (subscription.compareAndSet(oldSubscription, newSubscription)) {
-              newSubscription.asFuture.map { _ =>
-                updateHealthStatus(Healthy)
-                logger.info("Restarted Indexer Server")
-              }
-              resubscribeOnFailure(newSubscription)
+              resubscribeOnFailure(
+                newSubscription, {
+                  updateHealthStatus(HealthStatus.healthy)
+                  logger.info("Restarted Indexer Server")
+                },
+              )
               Future.unit
             } else { // we must have stopped the server during the restart
               logger.info("Indexer Server was stopped; cancelling the restart")
@@ -103,9 +104,13 @@ private[indexer] final class RecoveringIndexer(
         }
       } yield ()
 
-    def resubscribeOnFailure(currentSubscription: Resource[IndexFeedHandle]): Unit =
+    def resubscribeOnFailure(
+        currentSubscription: Resource[IndexFeedHandle],
+        actOnSuccess: => Unit,
+    ): Unit =
       currentSubscription.asFuture.onComplete {
         case Success(handle) =>
+          actOnSuccess
           handle.completed().onComplete {
             case Success(()) =>
               logger.info("Successfully finished processing state updates")
