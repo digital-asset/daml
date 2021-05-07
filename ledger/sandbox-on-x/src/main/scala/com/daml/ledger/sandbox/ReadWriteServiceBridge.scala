@@ -115,17 +115,16 @@ case class ReadWriteServiceBridge(
     //   no beginAfter supported
     //   neither multiple subscriptions
     //   neither bootstrapping the bridge from indexer persistence
-    assert(
-      beginAfter.isEmpty,
-      "Re-subscribing not supported. Only supported to subscribe once, and from inception.",
-    )
     synchronized {
       if (stateUpdatesWasCalledAlready)
         throw new IllegalStateException("not allowed to call this twice")
       else stateUpdatesWasCalledAlready = true
     }
     logger.info("Indexer subscribed to state updates.")
-    queueSource
+    beginAfter match {
+      case None => queueSource
+      case Some(offset) => queueSource.dropWhile(_._1 <= offset)
+    }
   }
 
   val (queue: BoundedSourceQueue[Submission], queueSource: Source[(Offset, Update), NotUsed]) =
