@@ -402,8 +402,8 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       case Success(v) => Future.successful(SEValue(v))
                       case Failure(SError.DamlEUnhandledException(exc)) =>
                         machine.setExpressionToEvaluate(SEApp(SEValue(handle), Array(SEValue(exc))))
-                        Converter
-                          .toFuture(stepToValue())
+                        stepToValue()
+                          .fold(Future.failed, Future.successful)
                           .flatMap {
                             case SOptional(None) =>
                               Future.failed(SError.DamlEUnhandledException(exc))
