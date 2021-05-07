@@ -87,8 +87,15 @@ final class Conversions(
         setCrash(reason)
       case SError.DamlEArithmeticError(reason) =>
         setCrash(reason)
-      case SError.DamlEUnhandledException(_, exc) =>
-        builder.setUnhandledException(convertValue(exc))
+      case SError.DamlEUnhandledException(exc) =>
+        exc match {
+          case SValue.SAnyException(_, sValue) =>
+            builder.setUnhandledException(convertValue(sValue.toValue))
+          case SValue.SBuiltinException(SValue.ArithmeticError) =>
+            setCrash("ArithmeticError")
+          case SValue.SBuiltinException(SValue.ContractError) =>
+            setCrash("ContractError")
+        }
       case SError.DamlEUserError(msg) =>
         builder.setUserError(msg)
 
