@@ -486,10 +486,11 @@ private[lf] case class PartialTransaction(
             keys = mbKey match {
               case Some(kWithM) if consuming =>
                 val gkey = GlobalKey(templateId, kWithM.key)
-                keys.get(gkey) match {
+                keys.get(gkey).orElse(globalKeyInputs.get(gkey)) match {
                   // An archive can only mark a key as inactive
                   // if it was brought into scope before.
-                  case Some(KeyActive(cid)) if cid == targetId => keys.updated(gkey, KeyInactive)
+                  case Some(KeyActive(cid)) if cid == targetId =>
+                    keys.updated(gkey, KeyInactive)
                   // If the key was not in scope or mapped to a different cid, we don’t change keys. Instead we will do
                   // an activeness check when looking it up later.
                   case _ => keys

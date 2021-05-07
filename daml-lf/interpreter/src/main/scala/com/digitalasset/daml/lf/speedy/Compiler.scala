@@ -588,18 +588,15 @@ private[lf] final class Compiler(
               BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
 
-          case BMakeGeneralError =>
-            SBMakeBuiltinError("GeneralError")
-          case BMakeArithmeticError =>
-            SBMakeBuiltinError("ArithmeticError")
-          case BMakeContractError =>
-            SBMakeBuiltinError("ContractError")
-
-          case BGeneralErrorMessage | BArithmeticErrorMessage | BContractErrorMessage =>
-            SBBuiltinErrorMessage
-
           case BAnyExceptionMessage =>
             SBAnyExceptionMessage
+          case BAnyExceptionIsArithmeticError =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            throw CompilationError("SBAnyExceptionIsArithmeticError not implemented")
+          case BAnyExceptionIsContractError =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            throw CompilationError("SBAnyExceptionIsContractError not implemented")
+
         })
     }
 

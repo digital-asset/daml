@@ -85,12 +85,8 @@ safetyStep = \case
       BERoundingMode _    -> Safe 0
       BEError             -> Safe 0
       BEAnyExceptionMessage -> Safe 1
-      BEGeneralErrorMessage -> Safe 1
-      BEArithmeticErrorMessage -> Safe 1
-      BEContractErrorMessage -> Safe 1
-      BEMakeGeneralError -> Safe 1
-      BEMakeArithmeticError -> Safe 1
-      BEMakeContractError -> Safe 1
+      BEAnyExceptionIsArithmeticError -> Safe 1
+      BEAnyExceptionIsContractError -> Safe 1
       BEEqualGeneric      -> Safe 1 -- may crash if values are incomparable
       BELessGeneric       -> Safe 1 -- may crash if values are incomparable
       BELessEqGeneric     -> Safe 1 -- may crash if values are incomparable

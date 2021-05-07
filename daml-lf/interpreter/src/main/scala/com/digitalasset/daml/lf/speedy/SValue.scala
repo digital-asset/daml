@@ -209,6 +209,8 @@ object SValue {
   final case class SAny(ty: Type, value: SValue) extends SValue
   final case class SAnyException(ty: Type, value: SValue) extends SValue
 
+  // TODO https://github.com/digital-asset/daml/issues/8020
+  //    Incorporate into AnyException, or separate by tag/payload.
   // A value of one of the builtin exception types: GeneralError, ArithmeticError, ContractError
   final case class SBuiltinException(tag: String, value: SValue) extends SValue
 

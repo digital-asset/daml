@@ -820,11 +820,7 @@ convBuiltInTy env =
         LF.BTTypeRep -> mkLfInternalType env "TypeRep"
         LF.BTRoundingMode -> mkGhcType env "RoundingMode"
         LF.BTBigNumeric -> mkGhcType env "BigNumeric"
-         -- TODO https://github.com/digital-asset/daml/issues/8020
-        LF.BTAnyException -> error "data-dependencies AnyException" -- TODO #8020
-        LF.BTGeneralError -> error "data-dependencies GeneralError" -- TODO #8020
-        LF.BTArithmeticError -> error "data-dependencies ArithmeticError" -- TODO #8020
-        LF.BTContractError -> error "data-dependencies ContractError" -- TODO #8020
+        LF.BTAnyException -> mkLfInternalType env "AnyException"
 
 errTooManyNameComponents :: [T.Text] -> a
 errTooManyNameComponents cs =
