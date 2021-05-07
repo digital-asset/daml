@@ -18,6 +18,7 @@ main() {
 
   git checkout $BASELINE >&2
   git show ${current}:ci/cron/perf/CollectAuthority.scala.patch | git apply
+  git show ${current}:ci/cron/perf/BazelExclusiveSandboxing.patch | git apply
   local baseline_perf=$(measure)
   if [ "" = "$baseline_perf" ]; then exit 1; fi
 
