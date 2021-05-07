@@ -17,7 +17,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin.checkAborted
-import com.daml.lf.transaction.{Node, TransactionVersion}
+import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
@@ -108,6 +108,7 @@ private[lf] object Speedy {
 
   private[lf] final case class OnLedger(
       val validating: Boolean,
+      val contractKeyUniqueness: ContractKeyUniquenessMode,
       /* The current partial transaction */
       var ptx: PartialTransaction,
       /* Committers of the action. */
@@ -663,6 +664,7 @@ private[lf] object Speedy {
       onLedger.commitLocation = None
       onLedger.ptx = PartialTransaction.initial(
         onLedger.ptx.packageToTransactionVersion,
+        onLedger.ptx.contractKeyUniqueness,
         onLedger.ptx.submissionTime,
         InitialSeeding.TransactionSeed(freshSeed),
       )
@@ -807,6 +809,7 @@ private[lf] object Speedy {
         committers: Set[Party],
         validating: Boolean = false,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
+        contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
     ): Machine = {
       val pkg2TxVersion =
         compiledPackages.packageLanguageVersion.andThen(TransactionVersion.assignNodeVersion)
@@ -821,7 +824,8 @@ private[lf] object Speedy {
         lastLocation = None,
         ledgerMode = OnLedger(
           validating = validating,
-          ptx = PartialTransaction.initial(pkg2TxVersion, submissionTime, initialSeeding),
+          ptx = PartialTransaction
+            .initial(pkg2TxVersion, contractKeyUniqueness, submissionTime, initialSeeding),
           committers = committers,
           commitLocation = None,
           dependsOnTime = false,
@@ -829,6 +833,7 @@ private[lf] object Speedy {
             discriminator
           },
           cachedContracts = Map.empty,
+          contractKeyUniqueness = contractKeyUniqueness,
         ),
         traceLog = traceLog,
         compiledPackages = compiledPackages,

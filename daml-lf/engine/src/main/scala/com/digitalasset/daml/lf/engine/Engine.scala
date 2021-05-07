@@ -8,7 +8,7 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SExpr}
+import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{SubmittedTransaction, Transaction => Tx}
@@ -277,6 +277,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         globalCids = globalCids,
         committers = submitters,
         validating = validating,
+        contractKeyUniqueness = config.contractKeyUniqueness,
       )
       interpretLoop(machine, ledgerTime)
     }
@@ -291,6 +292,11 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     while (!finished) {
       machine.run() match {
         case SResultFinalValue(_) => finished = true
+
+        case SResultError(SError.DamlEDuplicateContractKey(key)) =>
+          // Special-cased because duplicate key errors
+          // produce a different gRPC error code.
+          return ResultError(DuplicateContractKey(key))
 
         case SResultError(err) =>
           return ResultError(

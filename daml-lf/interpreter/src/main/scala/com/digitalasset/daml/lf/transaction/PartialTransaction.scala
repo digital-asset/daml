@@ -9,6 +9,7 @@ import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.ledger.{Authorize, FailedAuthorization}
 import com.daml.lf.transaction.{
+  ContractKeyUniquenessMode,
   GenTransaction,
   GlobalKey,
   Node,
@@ -23,6 +24,12 @@ import scala.annotation.nowarn
 import scala.collection.immutable.HashMap
 
 private[lf] object PartialTransaction {
+
+  sealed trait KeyConflict extends Product with Serializable
+  object KeyConflict {
+    final case object None extends KeyConflict
+    final case object Duplicate extends KeyConflict
+  }
 
   type NodeIdx = Value.NodeIdx
   type Node = Node.GenNode[NodeId, Value.ContractId]
@@ -145,10 +152,12 @@ private[lf] object PartialTransaction {
 
   def initial(
       pkg2TxVersion: Ref.PackageId => TxVersion,
+      contractKeyUniqueness: ContractKeyUniquenessMode,
       submissionTime: Time.Timestamp,
       initialSeeds: InitialSeeding,
   ) = PartialTransaction(
     pkg2TxVersion,
+    contractKeyUniqueness = contractKeyUniqueness,
     submissionTime = submissionTime,
     nextNodeIdx = 0,
     nodes = HashMap.empty,
@@ -219,6 +228,7 @@ private[lf] object PartialTransaction {
   */
 private[lf] case class PartialTransaction(
     packageToTransactionVersion: Ref.PackageId => TxVersion,
+    contractKeyUniqueness: ContractKeyUniquenessMode,
     submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
     nodes: HashMap[NodeId, PartialTransaction.Node],
@@ -354,26 +364,57 @@ private[lf] case class PartialTransaction(
         case None => Right((cid, ptx))
         case Some(kWithM) =>
           val ck = GlobalKey(templateId, kWithM.key)
-          val globalKeyInputs = keys.get(ck) match {
-            // We saw an archive or negative lookup, no constraint on global key inputs.
-            case Some(KeyInactive) => ptx.globalKeyInputs
-            // We saw a create or successful lookup, no constraint
-            // on global key inputs.
-            // TODO (MK) In uck-mode this should be an error if there is no archive in between.
-            case Some(KeyActive(_)) => ptx.globalKeyInputs
-            // No entry or archive => key must not be active
-            // at the beginning of the transaction.
-            case None => ptx.globalKeyInputs.updated(ck, KeyInactive)
+
+          // Note (MK) Duplicate key checks in Speedy
+          // When run in ContractKeyUniquenessMode.On speedy detects duplicate contract keys errors.
+          //
+          // Just like for modifying `keys` and `globalKeyInputs` we only consider
+          // by-key operations, i.e., lookup, exercise and fetch by key as well as creates
+          // and archives if the key has been brought into scope before.
+          //
+          // In the end, those checks mean that ledgers only have to look at inputs and outputs
+          // of the transaction and check for conflicts on that while speedy checks for internal
+          // conflicts.
+          //
+          // We have to consider the following cases for conflicts:
+          // 1. Create of a new local contract
+          //    1.1. KeyInactive in `keys`. This means we saw an archive so the create is valid.
+          //    1.2. KeyActive(_) in `keys`. This can either be local contract or a global contract. Both are an error.
+          //    1.3. No entry in `keys` and no entry in `globalKeyInputs`. This is valid. Note that the ledger here will then
+          //         have to check when committing that there is no active contract with this key before the transaction.
+          //    1.4. No entry in `keys` and `KeyInactive` in `globalKeyInputs`. This is valid. Ledgers need the same check
+          //         as for 1.3.
+          //    1.5. No entry in `keys` and `KeyActive(_)` in `globalKeyInputs`. This is an error. Note that the case where
+          //         the global contract has already been archived falls under 1.2.
+          // 2. Global key lookups
+          //    2.1. Conflicts with other global contracts cannot arise as we query a key at most once.
+          //    2.2. Conflicts with local contracts also cannot arise: A successful create will either
+          //         2.2.1: Set `globalKeyInputs` to `KeyInactive`.
+          //         2.2.2: Not modify `globalKeyInputs` if there already was an entry.
+          //         For both of those cases `globalKeyInputs` already had an entry which means
+          //         we would use that as a cached result and not query the ledger.
+          val conflict = keys.get(ck).orElse(ptx.globalKeyInputs.get(ck)) match {
+            case Some(KeyActive(_)) => KeyConflict.Duplicate
+            case Some(KeyInactive) | None => KeyConflict.None
           }
-          Right(
-            (
-              cid,
-              ptx.copy(
-                keys = ptx.keys.updated(ck, KeyActive(cid)),
-                globalKeyInputs = globalKeyInputs,
-              ),
-            )
-          )
+          val globalKeyInputs = keys.get(ck).orElse(ptx.globalKeyInputs.get(ck)) match {
+            case None => ptx.globalKeyInputs.updated(ck, KeyInactive)
+            case Some(_) => ptx.globalKeyInputs
+          }
+          (conflict, contractKeyUniqueness) match {
+            case (KeyConflict.Duplicate, ContractKeyUniquenessMode.On) =>
+              Right((cid, ptx.noteAbort(Tx.DuplicateContractKey(ck))))
+            case _ =>
+              Right(
+                (
+                  cid,
+                  ptx.copy(
+                    keys = ptx.keys.updated(ck, KeyActive(cid)),
+                    globalKeyInputs = globalKeyInputs,
+                  ),
+                )
+              )
+          }
       }
     }
   }
@@ -641,7 +682,7 @@ private[lf] case class PartialTransaction(
   }
 
   /** Note that the transaction building failed due to the given error */
-  private[this] def noteAbort(err: Tx.TransactionError): PartialTransaction =
+  private def noteAbort(err: Tx.TransactionError): PartialTransaction =
     copy(aborted = Some(err))
 
   /** `True` iff the given `ContractId` has been consumed already */
