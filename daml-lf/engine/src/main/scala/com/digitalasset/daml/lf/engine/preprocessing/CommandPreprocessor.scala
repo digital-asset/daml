@@ -60,12 +60,6 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     speedy.Command.Create(templateId, arg) -> argCids
   }
 
-  def unsafePreprocessFetch(
-      templateId: Ref.Identifier,
-      coid: Value.ContractId,
-  ): speedy.Command.Fetch =
-    speedy.Command.Fetch(templateId, SValue.SContractId(coid))
-
   @throws[PreprocessorException]
   def unsafePreprocessExercise(
       templateId: Ref.Identifier,
@@ -134,58 +128,65 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     speedy.Command.LookupByKey(templateId, key)
   }
 
+  // returns the speedy translation of an LF command together with all the contract IDs contains inside.
+  private[preprocessing] def unsafePreprocessCommand(
+      cmd: command.Command
+  ): (speedy.Command, Set[Value.ContractId]) = {
+    cmd match {
+      case command.CreateCommand(templateId, argument) =>
+        unsafePreprocessCreate(templateId, argument)
+      case command.ExerciseCommand(templateId, contractId, choiceId, argument) =>
+        unsafePreprocessExercise(templateId, contractId, choiceId, argument)
+      case command.ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
+        unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument)
+      case command.CreateAndExerciseCommand(
+            templateId,
+            createArgument,
+            choiceId,
+            choiceArgument,
+          ) =>
+        unsafePreprocessCreateAndExercise(
+          templateId,
+          createArgument,
+          choiceId,
+          choiceArgument,
+        )
+      case command.FetchCommand(templateId, coid) =>
+        (speedy.Command.Fetch(templateId, SValue.SContractId(coid)), Set(coid))
+      case command.FetchByKeyCommand(templateId, key) =>
+        val ckTtype = unsafeGetContractKeyType(templateId, unsafeGetTemplate(templateId))
+        val (sKey, cids) = valueTranslator.unsafeTranslateValue(ckTtype, key)
+        assert(cids.isEmpty)
+        (speedy.Command.FetchByKey(templateId, sKey), Set.empty)
+      case command.LookupByKeyCommand(templateId, key) =>
+        val ckTtype = unsafeGetContractKeyType(templateId, unsafeGetTemplate(templateId))
+        val (sKey, cids) = valueTranslator.unsafeTranslateValue(ckTtype, key)
+        assert(cids.isEmpty)
+        (speedy.Command.LookupByKey(templateId, sKey), Set.empty)
+    }
+  }
+
   @throws[PreprocessorException]
   def unsafePreprocessCommands(
-      cmds: ImmArray[command.Command]
+      cmds: ImmArray[command.ApiCommand]
   ): (ImmArray[speedy.Command], Set[Value.ContractId]) = {
-
-    var cids = Set.empty[Value.ContractId]
-
-    @inline
-    def handleNewCids[X](tuple: (X, Set[Value.ContractId])) = {
-      val (cmd, newCids) = tuple
-      cids = cids | newCids
-      cmd
-    }
 
     @tailrec
     def go(
-        toProcess: FrontStack[command.Command],
+        toProcess: FrontStack[command.ApiCommand],
         processed: BackStack[speedy.Command],
-    ): ImmArray[speedy.Command] = {
+        acc: Set[Value.ContractId],
+    ): (ImmArray[speedy.Command], Set[Value.ContractId]) = {
       toProcess match {
         case FrontStackCons(cmd, rest) =>
-          val speedyCmd = cmd match {
-            case command.CreateCommand(templateId, argument) =>
-              handleNewCids(unsafePreprocessCreate(templateId, argument))
-            case command.ExerciseCommand(templateId, contractId, choiceId, argument) =>
-              handleNewCids(unsafePreprocessExercise(templateId, contractId, choiceId, argument))
-            case command.ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
-              handleNewCids(
-                unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument)
-              )
-            case command.CreateAndExerciseCommand(
-                  templateId,
-                  createArgument,
-                  choiceId,
-                  choiceArgument,
-                ) =>
-              handleNewCids(
-                unsafePreprocessCreateAndExercise(
-                  templateId,
-                  createArgument,
-                  choiceId,
-                  choiceArgument,
-                )
-              )
-          }
-          go(rest, processed :+ speedyCmd)
+          val (speedyCmd, newCids) = unsafePreprocessCommand(cmd)
+          go(rest, processed :+ speedyCmd, acc | newCids)
         case FrontStack() =>
-          processed.toImmArray
+          (processed.toImmArray, acc)
       }
     }
 
-    go(FrontStack(cmds), BackStack.empty) -> cids
+    go(FrontStack(cmds), BackStack.empty, Set.empty)
   }
 
 }

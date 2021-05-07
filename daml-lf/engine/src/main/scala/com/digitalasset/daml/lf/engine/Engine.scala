@@ -11,7 +11,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{NodeId, SubmittedTransaction, Transaction => Tx}
+import com.daml.lf.transaction.{SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
 import java.nio.file.Files
@@ -132,19 +132,19 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     */
   def reinterpret(
       submitters: Set[Party],
-      node: GenActionNode[NodeId, Value.ContractId],
+      command: Command,
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
-      commandWithCids <- preprocessor.translateActionNode(node)
-      (command, globalCids) = commandWithCids
+      commandWithCids <- preprocessor.preprocessCommand(command)
+      (speedyCommand, globalCids) = commandWithCids
       // reinterpret is never used for submission, only for validation.
       result <- interpretCommands(
         validating = true,
         submitters = submitters,
-        commands = ImmArray(command),
+        commands = ImmArray(speedyCommand),
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
