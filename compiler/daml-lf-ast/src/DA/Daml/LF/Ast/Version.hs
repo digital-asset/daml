@@ -195,16 +195,30 @@ allFeatures =
     , featureExperimental
     ]
 
-featureVersionMap :: MS.Map Text Version
+featureVersionMap :: MS.Map T.Text Version
 featureVersionMap = MS.fromList
     [ (key, version)
     | feature <- allFeatures
     , let version = featureMinVersion feature
-    , key <- maybeToList (featureCppFlag feature)
+    , Just key <- [featureCppFlag feature]
     ]
 
-versionForFeature :: Text -> Maybe Version
+-- | Return minimum version associated with a feature flag.
+versionForFeature :: T.Text -> Maybe Version
 versionForFeature key = MS.lookup key featureVersionMap
+
+-- | Same as 'versionForFeature' but errors out if the feature doesn't exist.
+versionForFeaturePartial :: T.Text -> Version
+versionForFeaturePartial key =
+    case versionForFeature key of
+        Just version -> version
+        Nothing ->
+            error . T.unpack . T.concat $
+                [ "Unknown feature: "
+                , key
+                , ". Available features are: "
+                , T.intercalate ", " (MS.keys featureVersionMap)
+                ]
 
 allFeaturesForVersion :: Version -> [Feature]
 allFeaturesForVersion version = filter (supports version) allFeatures
