@@ -25,6 +25,7 @@ object LedgerApiBenchTool {
       case Some(config) =>
         val benchmark = runBenchmark(config)(ExecutionContext.Implicits.global)
         Await.result(benchmark, atMost = Duration.Inf)
+        ()
       case _ =>
         logger.error("Invalid configuration arguments.")
     }
@@ -42,21 +43,19 @@ object LedgerApiBenchTool {
     } yield channel
 
     channel.use { channel =>
-      Future {
-        val ledgerIdentityService: LedgerIdentityService = new LedgerIdentityService(channel)
-        val ledgerId: String = ledgerIdentityService.fetchLedgerId()
-        val transactionService = new TransactionService(channel, ledgerId)
-        config.streamConfig.foreach { streamConfig =>
+      val ledgerIdentityService: LedgerIdentityService = new LedgerIdentityService(channel)
+      val ledgerId: String = ledgerIdentityService.fetchLedgerId()
+      val transactionService = new TransactionService(channel, ledgerId)
+      config.streamConfig
+        .map { streamConfig =>
           streamConfig.streamType match {
             case Config.StreamConfig.StreamType.Transactions =>
               transactionService.transactions(streamConfig.party)
-              ()
             case Config.StreamConfig.StreamType.TransactionTrees =>
               transactionService.transactionTrees(streamConfig.party)
-              ()
           }
         }
-      }
+        .getOrElse(Future.failed(new IllegalArgumentException("Missing stream configuration")))
     }
   }
 
