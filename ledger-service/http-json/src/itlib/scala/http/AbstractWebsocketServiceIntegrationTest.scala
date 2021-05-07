@@ -53,6 +53,11 @@ abstract class AbstractWebsocketServiceIntegrationTest
   private val baseFetchInput: Source[Message, NotUsed] =
     Source.single(TextMessage.Strict(fetchRequest))
 
+  private def heartbeatOffset(event: JsValue) = event match {
+    case ContractDelta(Vector(), Vector(), Some(offset)) => offset
+    case _ => throw new IllegalArgumentException(s"Expected heartbeat but got $event")
+  }
+
   List(
     SimpleScenario("query", Uri.Path("/v1/stream/query"), baseQueryInput),
     SimpleScenario("fetch", Uri.Path("/v1/stream/fetch"), baseFetchInput),
@@ -327,9 +332,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
               _ = kill.shutdown()
               heartbeats <- drain
-              hbCount = (heartbeats.iterator.map {
-                case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
-              }.toSet + lastSeenOffset).size - 1
+              hbCount = (heartbeats.iterator.map(heartbeatOffset).toSet + lastSeenOffset).size - 1
             } yield
             // don't count empty events block if lastSeenOffset does not change
             ShouldHaveEnded(
@@ -430,9 +433,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
             }
             _ = kill.shutdown()
             heartbeats <- drain
-            hbCount = (heartbeats.iterator.map {
-              case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
-            }.toSet + lastSeenOffset).size - 1
+            hbCount = (heartbeats.iterator.map(heartbeatOffset).toSet + lastSeenOffset).size - 1
           } yield (
             // don't count empty events block if lastSeenOffset does not change
             ShouldHaveEnded(
@@ -519,9 +520,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
 
             _ = kill.shutdown()
             heartbeats <- drain
-            hbCount = (heartbeats.iterator.map {
-              case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
-            }.toSet + lastSeenOffset).size - 1
+            hbCount = (heartbeats.iterator.map(heartbeatOffset).toSet + lastSeenOffset).size - 1
 
           } yield
           // don't count empty events block if lastSeenOffset does not change
@@ -687,9 +686,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
             _ = archivedCid2.contractId shouldBe cid2
             _ = kill.shutdown()
             heartbeats <- drain
-            hbCount = (heartbeats.iterator.map {
-              case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
-            }.toSet + lastSeenOffset).size - 1
+            hbCount = (heartbeats.iterator.map(heartbeatOffset).toSet + lastSeenOffset).size - 1
           } yield (
             // don't count empty events block if lastSeenOffset does not change
             ShouldHaveEnded(
@@ -885,9 +882,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
             ContractDelta(Vector(), _, Some(_)) <- readOne
             _ = killSwitch.shutdown()
             heartbeats <- drain
-            hbCount = (heartbeats.iterator.map {
-              case ContractDelta(Vector(), Vector(), Some(currentOffset)) => currentOffset
-            }.toSet + offset).size - 1
+            hbCount = (heartbeats.iterator.map(heartbeatOffset).toSet + offset).size - 1
           } yield
           // don't count empty events block if lastSeenOffset does not change
           ShouldHaveEnded(

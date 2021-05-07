@@ -272,6 +272,26 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
             _ <- makeFile "CaSe.daml" "module Case where"
             setFilesOfInterest [a]
             expectNoErrors
+    ,   testCase' "Record dot updates" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "module Foo where"
+                , "data Outer = Outer {inner : Inner}"
+                , "data Inner = Inner {field : Int}"
+                , "f : Outer -> Outer"
+                , "f o = o {inner.field = 2}"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+    ,   testCase' "Record dot update errors" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "module Foo where"
+                , "data Outer = Outer {inner : Inner}"
+                , "data Inner = Inner {field : Int}"
+                , "f : Outer -> Outer"
+                , "f o = o {inner.fied = 2}"
+                ]
+            setFilesOfInterest [foo]
+            expectOneError (foo, 4, 6) "fied"
     ]
     where
         testCase' = testCase mbScenarioService

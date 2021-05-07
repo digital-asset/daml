@@ -182,9 +182,6 @@ data BuiltinType
   | BTRoundingMode
   | BTBigNumeric
   | BTAnyException
-  | BTGeneralError
-  | BTArithmeticError
-  | BTContractError
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Type as used in typed binders.
@@ -249,14 +246,10 @@ data BuiltinExpr
   | BERoundingMode !RoundingModeLiteral -- :: RoundingMode
 
   -- Exceptions
-  | BEError                      -- :: ∀a. Text -> a
-  | BEAnyExceptionMessage        -- :: AnyException -> Text
-  | BEGeneralErrorMessage        -- :: GeneralError -> Text
-  | BEArithmeticErrorMessage     -- :: ArithmeticError -> Text
-  | BEContractErrorMessage       -- :: ContractError -> Text
-  | BEMakeGeneralError           -- :: Text -> GeneralError
-  | BEMakeArithmeticError        -- :: Text -> ArithmeticError
-  | BEMakeContractError          -- :: Text -> ContractError
+  | BEError                          -- :: ∀a. Text -> a
+  | BEAnyExceptionMessage            -- :: AnyException -> Text
+  | BEAnyExceptionIsArithmeticError  -- :: AnyException -> Bool
+  | BEAnyExceptionIsContractError    -- :: AnyException -> Bool
 
   -- Polymorphic functions
   | BEEqualGeneric               -- :: ∀t. t -> t -> Bool

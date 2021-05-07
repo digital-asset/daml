@@ -16,6 +16,8 @@ module DA.Internal.RebindableSyntax
   ,negate
   ,(>>), (>>=), fail, return, guard
   ,(<*>), fmap, pure, join -- ApplicativeDo
+  , setField, getField
   ) where
 
 import DA.Internal.Prelude
+import DA.Internal.Record

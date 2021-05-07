@@ -497,31 +497,32 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
 
   "buildLogEntry" should {
 
-    val anEmptyResult = DamlPackageUploadEntry.newBuilder
-      .setSubmissionId("an ID")
-      .setParticipantId("a participant") -> Map.empty[Ref.PackageId, Ast.Package]
+    val anEmptyResult = PackageCommitter.Result(
+      DamlPackageUploadEntry.newBuilder.setSubmissionId("an ID").setParticipantId("a participant"),
+      Map.empty,
+    )
 
     def newCommitter = new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.No)
 
     "produce an out-of-time-bounds rejection log entry in case pre-execution is enabled" in {
       val context = createCommitContext(recordTime = None)
 
-      newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)(loggingContext)
+      newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)
 
       context.preExecute shouldBe true
       context.outOfTimeBoundsLogEntry should not be empty
       context.outOfTimeBoundsLogEntry.foreach { actual =>
         actual.hasRecordTime shouldBe false
         actual.hasPackageUploadRejectionEntry shouldBe true
-        actual.getPackageUploadRejectionEntry.getSubmissionId shouldBe anEmptyResult._1.getSubmissionId
-        actual.getPackageUploadRejectionEntry.getParticipantId shouldBe anEmptyResult._1.getParticipantId
+        actual.getPackageUploadRejectionEntry.getSubmissionId shouldBe anEmptyResult.uploadEntry.getSubmissionId
+        actual.getPackageUploadRejectionEntry.getParticipantId shouldBe anEmptyResult.uploadEntry.getParticipantId
       }
     }
 
     "not set an out-of-time-bounds rejection log entry in case pre-execution is disabled" in {
       val context = createCommitContext(recordTime = Some(theRecordTime))
 
-      newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)(loggingContext)
+      newCommitter.packageCommitter.buildLogEntry(context, anEmptyResult)
 
       context.preExecute shouldBe false
       context.outOfTimeBoundsLogEntry shouldBe empty

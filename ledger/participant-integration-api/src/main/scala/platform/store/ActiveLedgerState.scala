@@ -70,4 +70,10 @@ private[platform] trait ActiveLedgerState[ALS <: ActiveLedgerState[ALS]] {
       global: Relation[ContractId, Party],
       referencedContracts: List[(Value.ContractId, ContractInst)],
   ): ALS
+
+  /** Clone the current active ledger state. The new state starts out
+    * being identical to the old one but writes to the cloned
+    *  state will not affect the original state and the other way around.
+    */
+  def cloneState(): ALS
 }

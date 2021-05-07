@@ -113,7 +113,7 @@ private[daml] object ApiServices {
             optWriteService,
             timeProvider,
             ledgerConfiguration,
-          )(materializer, servicesExecutionContext, loggingContext)
+          )(materializer, loggingContext)
           .acquire()
         services <- Resource(
           Future(createServices(ledgerId, ledgerConfigProvider)(servicesExecutionContext))

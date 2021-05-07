@@ -1,40 +1,21 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.indexer.parallel
+package com.daml.platform.store.backend.postgresql
 
-import java.sql.{DriverManager, PreparedStatement, ResultSet}
+import java.sql.{Connection, PreparedStatement, ResultSet}
 
-import com.daml.lf.data.Ref
 import com.daml.ledger.participant.state.v1.Offset
+import com.daml.lf.data.Ref
+import com.daml.platform.store.backend.{DBDTOV1, StorageBackend}
 
 import scala.collection.mutable
-import scala.util.{Failure, Success, Try}
 
-trait PostgresDAO {
-  def insertBatch(batch: RawDBBatchPostgreSQLV1): Unit
+object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
 
-  def updateParams(ledgerEnd: Offset, eventSeqId: Long, configuration: Option[Array[Byte]]): Unit
-
-  def initialize: (Option[Offset], Option[Long])
-}
-
-case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseable {
-
-  private val connection = {
-    val c = DriverManager.getConnection(jdbcUrl)
-    c.setAutoCommit(false)
-
-    val stmnt = c.createStatement()
-    stmnt.execute("SET synchronous_commit TO OFF;")
-    c.commit()
-    stmnt.close()
-
-    c
-  }
-
-  private val preparedInsertEventsBatchDivulgence = connection.prepareStatement(
-    """
+  private val preparedInsertEventsBatchDivulgence: Connection => PreparedStatement =
+    _.prepareStatement(
+      """
       |INSERT INTO participant_events_divulgence
       | (
       |   event_offset,
@@ -77,9 +58,9 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       | );
       |
       |""".stripMargin
-  )
+    )
 
-  private val preparedInsertEventsBatchCreate = connection.prepareStatement(
+  private val preparedInsertEventsBatchCreate: Connection => PreparedStatement = _.prepareStatement(
     """
       |INSERT INTO participant_events_create
       | (
@@ -158,8 +139,9 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |""".stripMargin
   )
 
-  private val preparedInsertEventsBatchConsumingExercise = connection.prepareStatement(
-    """
+  private val preparedInsertEventsBatchConsumingExercise: Connection => PreparedStatement =
+    _.prepareStatement(
+      """
       |INSERT INTO participant_events_consuming_exercise
       | (
       |   event_id,
@@ -238,10 +220,11 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       | );
       |
       |""".stripMargin
-  )
+    )
 
-  private val preparedInsertEventsBatchNonConsumingExercise = connection.prepareStatement(
-    """
+  private val preparedInsertEventsBatchNonConsumingExercise: Connection => PreparedStatement =
+    _.prepareStatement(
+      """
       |INSERT INTO participant_events_non_consuming_exercise
       | (
       |   event_id,
@@ -320,10 +303,14 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       | );
       |
       |""".stripMargin
-  )
+    )
 
-  private val preparedInsertConfigurationEntryBatch = connection.prepareStatement(
-    """
+  // TODO append-only: second pass of verification of conflict checking is needed.
+  //   current assumption is that both offset conflict and submission_id conflict can be safely ignored
+  //   pls consult original logic present in dao/JdbcLedgerDao/storeConfigurationEntry and new implementation in appendonlydao
+  private val preparedInsertConfigurationEntryBatch: Connection => PreparedStatement =
+    _.prepareStatement(
+      """
       |INSERT INTO configuration_entries
       | (
       |   ledger_offset,
@@ -351,9 +338,9 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       | );
       |
       |""".stripMargin
-  )
+    )
 
-  private val preparedInsertPackageEntryBatch = connection.prepareStatement(
+  private val preparedInsertPackageEntryBatch: Connection => PreparedStatement = _.prepareStatement(
     """
       |INSERT INTO package_entries
       | (
@@ -381,7 +368,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |""".stripMargin
   )
 
-  private val preparedInsertPackageBatch = connection.prepareStatement(
+  private val preparedInsertPackageBatch: Connection => PreparedStatement = _.prepareStatement(
     """
       |INSERT INTO packages
       | (
@@ -416,7 +403,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |""".stripMargin
   )
 
-  private val preparedInsertPartyEntryBatch = connection.prepareStatement(
+  private val preparedInsertPartyEntryBatch: Connection => PreparedStatement = _.prepareStatement(
     """
       |INSERT INTO party_entries
       | (
@@ -453,7 +440,7 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |""".stripMargin
   )
 
-  private val preparedInsertPartyBatch: PreparedStatement = connection.prepareStatement(
+  private val preparedInsertPartyBatch: Connection => PreparedStatement = _.prepareStatement(
     """
       |INSERT INTO parties
       | (
@@ -481,8 +468,9 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |""".stripMargin
   )
 
-  private val preparedInsertCommandCompletionBatch = connection.prepareStatement(
-    """
+  private val preparedInsertCommandCompletionBatch: Connection => PreparedStatement =
+    _.prepareStatement(
+      """
       |INSERT INTO participant_command_completions
       | (
       |   completion_offset,
@@ -516,10 +504,11 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       | );
       |
       |""".stripMargin
-  )
+    )
 
-  private val preparedDeleteCommandSubmissionBatch = connection.prepareStatement(
-    """
+  private val preparedDeleteCommandSubmissionBatch: Connection => PreparedStatement =
+    _.prepareStatement(
+      """
       |DELETE FROM participant_command_submissions
       |WHERE deduplication_key IN (
       |  SELECT deduplication_key_in
@@ -528,14 +517,19 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |)
       |
       |""".stripMargin
-  )
+    )
 
-  override def insertBatch(rawDBBatchPostgreSQLV1: RawDBBatchPostgreSQLV1): Unit = {
-    def execute(preparedStatement: PreparedStatement, params: Any*): Unit = {
+  override def insertBatch(
+      connection: Connection,
+      rawDBBatchPostgreSQLV1: RawDBBatchPostgreSQLV1,
+  ): Unit = {
+    def execute(preparedStatementFactory: Connection => PreparedStatement, params: Any*): Unit = {
+      val preparedStatement = preparedStatementFactory(connection)
       params.view.zipWithIndex.foreach { case (param, zeroBasedIndex) =>
         preparedStatement.setObject(zeroBasedIndex + 1, param)
       }
       preparedStatement.execute()
+      preparedStatement.close()
       ()
     }
 
@@ -720,11 +714,9 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
     rawDBBatchPostgreSQLV1.commandDeduplicationBatch.foreach(batch =>
       execute(preparedDeleteCommandSubmissionBatch, batch.deduplication_key)
     )
-
-    connection.commit()
   }
 
-  private val preparedUpdateLedgerEnd = connection.prepareStatement(
+  private val preparedUpdateLedgerEnd: Connection => PreparedStatement = _.prepareStatement(
     """
       |UPDATE
       |  parameters
@@ -735,8 +727,9 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |""".stripMargin
   )
 
-  private val preparedUpdateLedgerEndWithConfig = connection.prepareStatement(
-    """
+  private val preparedUpdateLedgerEndWithConfig: Connection => PreparedStatement =
+    _.prepareStatement(
+      """
       |UPDATE
       |  parameters
       |SET
@@ -745,48 +738,47 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
       |  configuration = ?
       |
       |""".stripMargin
-  )
+    )
 
-  override def updateParams(
-      ledgerEnd: Offset,
-      eventSeqId: Long,
-      configuration: Option[Array[Byte]],
-  ): Unit = {
-    configuration match {
+  override def updateParams(connection: Connection, params: StorageBackend.Params): Unit = {
+    params.configuration match {
       case Some(configBytes) =>
         // TODO append-only: just a shortcut, proper solution: reading config with a temporal query
-        preparedUpdateLedgerEndWithConfig.setString(1, ledgerEnd.toHexString)
-        preparedUpdateLedgerEndWithConfig.setLong(2, eventSeqId)
-        preparedUpdateLedgerEndWithConfig.setBytes(3, configBytes)
-        preparedUpdateLedgerEndWithConfig.execute()
+        val preparedStatement = preparedUpdateLedgerEndWithConfig(connection)
+        preparedStatement.setString(1, params.ledgerEnd.toHexString)
+        preparedStatement.setLong(2, params.eventSeqId)
+        preparedStatement.setBytes(3, configBytes)
+        preparedStatement.execute()
+        preparedStatement.close()
 
       case None =>
-        preparedUpdateLedgerEnd.setString(1, ledgerEnd.toHexString)
-        preparedUpdateLedgerEnd.setLong(2, eventSeqId)
-        preparedUpdateLedgerEnd.execute()
-
+        val preparedStatement = preparedUpdateLedgerEnd(connection)
+        preparedStatement.setString(1, params.ledgerEnd.toHexString)
+        preparedStatement.setLong(2, params.eventSeqId)
+        preparedStatement.execute()
+        preparedStatement.close()
     }
-    connection.commit()
+    ()
   }
 
-  override def initialize: (Option[Offset], Option[Long]) = {
-    val result @ (offset, _) = queryLedgerAndAndEventSeqId()
+  override def initialize(connection: Connection): StorageBackend.LedgerEnd = {
+    val result @ StorageBackend.LedgerEnd(offset, _) = ledgerEnd(connection)
 
     // TODO append-only: verify default isolation level is enough to maintain consistency here (eg the fact of selecting these values at the beginning ensures data changes to the params are postponed until purging finishes). Alternatively: if single indexer instance to db access otherwise ensured, atomicity here is not an issue.
 
     offset.foreach { existingOffset =>
+      val preparedStatement = preparedDeleteIngestionOverspillEntries(connection)
       List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).foreach(
-        preparedDeleteIngestionOverspillEntries.setString(_, existingOffset.toHexString)
+        preparedStatement.setString(_, existingOffset.toHexString)
       )
-      preparedDeleteIngestionOverspillEntries.execute()
+      preparedStatement.execute()
+      preparedStatement.close()
     }
-
-    connection.commit()
 
     result
   }
 
-  private def queryLedgerAndAndEventSeqId(): (Option[Offset], Option[Long]) = {
+  override def ledgerEnd(connection: Connection): StorageBackend.LedgerEnd = {
     val queryStatement = connection.createStatement()
     val params = fetch(
       queryStatement.executeQuery(
@@ -800,10 +792,11 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
         |""".stripMargin
       )
     )(rs =>
-      (
-        if (rs.getString(1) == null) None
-        else Some(Offset.fromHexString(Ref.HexString.assertFromString(rs.getString(1)))),
-        Option(rs.getLong(2)),
+      StorageBackend.LedgerEnd(
+        lastOffset =
+          if (rs.getString(1) == null) None
+          else Some(Offset.fromHexString(Ref.HexString.assertFromString(rs.getString(1)))),
+        lastEventSeqId = Option(rs.getLong(2)),
       )
     )
     queryStatement.close()
@@ -811,8 +804,8 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
     params.head
   }
 
-  private val preparedDeleteIngestionOverspillEntries: PreparedStatement =
-    connection.prepareStatement(
+  private val preparedDeleteIngestionOverspillEntries: Connection => PreparedStatement =
+    _.prepareStatement(
       """
       |DELETE
       |FROM configuration_entries
@@ -868,45 +861,9 @@ case class JDBCPostgresDAO(jdbcUrl: String) extends PostgresDAO with AutoCloseab
     buffer.toVector
   }
 
-  override def close(): Unit = connection.close()
-
-}
-
-object PostgresDAO {
-
-  case class ResourcePool[T <: AutoCloseable](create: () => T, size: Int) extends AutoCloseable {
-    assert(size > 0)
-
-    private val pool = mutable.Queue.empty[T]
-    pool ++= List.fill(size)(create())
-
-    def borrow[U](block: T => U): U = {
-      val resource = synchronized {
-        if (pool.isEmpty) None
-        else Some(pool.dequeue())
-      } match {
-        case None => throw new Exception("non-growing pool exhausted, please tune pool size")
-        case Some(resource) => resource
-      }
-
-      Try(block(resource)) match {
-        case Success(result) =>
-          synchronized {
-            pool.enqueue(resource)
-          }
-          result
-
-        case Failure(exception) =>
-          synchronized {
-            pool.enqueue(create())
-          }
-          Try(resource.close())
-          throw exception
-      }
-    }
-
-    override def close(): Unit =
-      pool.foreach(_.close())
+  override def batch(dbDtos: Vector[DBDTOV1]): RawDBBatchPostgreSQLV1 = {
+    val builder = RawDBBatchPostgreSQLV1.Builder()
+    dbDtos.foreach(builder.add)
+    builder.build()
   }
-
 }

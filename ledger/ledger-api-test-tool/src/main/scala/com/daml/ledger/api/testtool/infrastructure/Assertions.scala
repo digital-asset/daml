@@ -11,7 +11,6 @@ import io.grpc.Status
 
 import scala.concurrent.Future
 import scala.language.implicitConversions
-import scala.util.control.NonFatal
 
 object Assertions extends DiffExtensions {
   def fail(message: String): Nothing =
@@ -55,8 +54,8 @@ object Assertions extends DiffExtensions {
       case (GrpcException(GrpcStatus(`expectedCode`, _), _), None) => ()
       case (GrpcException(GrpcStatus(code, _), _), _) =>
         fail(s"Expected code [$expectedCode], but got [$code].")
-      case (NonFatal(e), _) =>
-        fail("Exception is neither a StatusRuntimeException nor a StatusException", e)
+      case (_, _) =>
+        fail("Exception is neither a StatusRuntimeException nor a StatusException", t)
     }
 
   /** non-regex overload for assertGrpcError which just does a substring check.

@@ -10,13 +10,11 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
-import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.DamlTransactionEntrySummary
 import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.ContractKeysValidation.validateKeys
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, TimeModel}
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
-import com.daml.lf.crypto
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine, ReplayMismatch, VisibleByKey}
@@ -30,7 +28,6 @@ import com.daml.lf.transaction.{
   SubmittedTransaction,
   TransactionOuterClass,
   VersionedTransaction,
-  Transaction => Tx,
 }
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -39,6 +36,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
+import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 
 // The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
@@ -99,8 +97,11 @@ private[kvutils] class TransactionCommitter(
 
   /** Reject duplicate commands
     */
-  private[committer] def deduplicateCommand: Step = {
-    (commitContext, transactionEntry) => implicit loggingContext =>
+  private[transaction] def deduplicateCommand: Step = new Step {
+    def apply(
+        commitContext: CommitContext,
+        transactionEntry: DamlTransactionEntrySummary,
+    )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
       commitContext.recordTime
         .map { recordTime =>
           val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
@@ -120,6 +121,7 @@ private[kvutils] class TransactionCommitter(
           }
         }
         .getOrElse(StepContinue(transactionEntry))
+    }
   }
 
   // Checks that the submission time of the command is after the
@@ -140,14 +142,11 @@ private[kvutils] class TransactionCommitter(
   /** Authorize the submission by looking up the party allocation and verifying
     * that all of the submitting parties are indeed hosted by the submitting participant.
     */
-  private[committer] def authorizeSubmitters: Step = {
-    (commitContext, transactionEntry) => implicit loggingContext =>
-      def rejection(reason: RejectionReason) =
-        reject[DamlTransactionEntrySummary](
-          commitContext.recordTime,
-          buildRejectionLogEntry(transactionEntry, reason),
-        )
-
+  private[transaction] def authorizeSubmitters: Step = new Step {
+    def apply(
+        commitContext: CommitContext,
+        transactionEntry: DamlTransactionEntrySummary,
+    )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
       @scala.annotation.tailrec
       def authorizeAll(submitters: List[Party]): StepResult[DamlTransactionEntrySummary] =
         submitters match {
@@ -183,12 +182,22 @@ private[kvutils] class TransactionCommitter(
             )
         }
 
+      def rejection(reason: RejectionReason): StepResult[DamlTransactionEntrySummary] =
+        reject[DamlTransactionEntrySummary](
+          commitContext.recordTime,
+          buildRejectionLogEntry(transactionEntry, reason),
+        )
+
       authorizeAll(transactionEntry.submitters)
+    }
   }
 
   /** Validate ledger effective time and the command's time-to-live. */
-  private[committer] def validateLedgerTime: Step = {
-    (commitContext, transactionEntry) => implicit loggingContext =>
+  private[transaction] def validateLedgerTime: Step = new Step {
+    def apply(
+        commitContext: CommitContext,
+        transactionEntry: DamlTransactionEntrySummary,
+    )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
       val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
       val timeModel = config.timeModel
 
@@ -239,11 +248,15 @@ private[kvutils] class TransactionCommitter(
           commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
           StepContinue(transactionEntry)
       }
+    }
   }
 
   /** Validate the submission's conformance to the DAML model */
-  private def validateModelConformance: Step = (commitContext, transactionEntry) =>
-    implicit loggingContext =>
+  private def validateModelConformance: Step = new Step {
+    def apply(
+        commitContext: CommitContext,
+        transactionEntry: DamlTransactionEntrySummary,
+    )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] =
       metrics.daml.kvutils.committer.transaction.interpretTimer.time(() => {
         // Pull all keys from referenced contracts. We require this for 'fetchByKey' calls
         // which are not evidenced in the transaction itself and hence the contract key state is
@@ -293,8 +306,9 @@ private[kvutils] class TransactionCommitter(
             )
         }
       })
+  }
 
-  private[committer] def rejectionReasonForValidationError(
+  private[transaction] def rejectionReasonForValidationError(
       validationError: com.daml.lf.engine.Error
   ): RejectionReason = {
     def disputed: RejectionReason =
@@ -347,8 +361,11 @@ private[kvutils] class TransactionCommitter(
   }
 
   /** Validate the submission's conformance to the DAML model */
-  private[committer] def blind: Step = {
-    (commitContext, transactionEntry) => implicit loggingContext =>
+  private[transaction] def blind: Step = new Step {
+    def apply(
+        commitContext: CommitContext,
+        transactionEntry: DamlTransactionEntrySummary,
+    )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
       val blindingInfo = Blinding.blind(transactionEntry.transaction)
       setDedupEntryAndUpdateContractState(
         commitContext,
@@ -359,63 +376,98 @@ private[kvutils] class TransactionCommitter(
         ),
         blindingInfo,
       )
+    }
   }
 
   /** Removes `Fetch` and `LookupByKey` nodes from the transactionEntry.
     */
-  private[committer] def trimUnnecessaryNodes: Step = { (_, transactionEntry) => _ =>
-    val transaction = transactionEntry.submission.getTransaction
-    val nodes = transaction.getNodesList.asScala
-    val nodesToKeep = nodes.iterator.collect {
-      case node if node.hasCreate || node.hasExercise => node.getNodeId
-    }.toSet
+  private[transaction] def trimUnnecessaryNodes: Step = new Step {
+    def apply(
+        commitContext: CommitContext,
+        transactionEntry: DamlTransactionEntrySummary,
+    )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
+      val transaction = transactionEntry.submission.getTransaction
+      val nodes = transaction.getNodesList.asScala
+      val nodeMap: Map[String, TransactionOuterClass.Node] =
+        nodes.view.map(n => n.getNodeId -> n).toMap
 
-    val filteredRoots = transaction.getRootsList.asScala.filter(nodesToKeep)
-
-    def stripUnnecessaryNodes(node: TransactionOuterClass.Node): TransactionOuterClass.Node =
-      if (node.hasExercise) {
-        val exerciseNode = node.getExercise
-        val keptChildren =
-          exerciseNode.getChildrenList.asScala.filter(nodesToKeep)
-        val newExerciseNode = exerciseNode.toBuilder
-          .clearChildren()
-          .addAllChildren(keptChildren.asJavaCollection)
-          .build()
-
-        node.toBuilder
-          .setExercise(newExerciseNode)
-          .build()
-      } else {
-        node
+      @tailrec
+      def goNodesToKeep(todo: List[String], result: Set[String]): Set[String] = todo match {
+        case Nil => result
+        case head :: tail =>
+          import TransactionOuterClass.Node.NodeTypeCase
+          val node = nodeMap
+            .get(head)
+            .getOrElse(throw Err.InternalError(s"Invalid transaction node id $head"))
+          node.getNodeTypeCase match {
+            case NodeTypeCase.CREATE =>
+              goNodesToKeep(tail, result + head)
+            case NodeTypeCase.EXERCISE =>
+              goNodesToKeep(node.getExercise.getChildrenList.asScala.toList ++ tail, result + head)
+            case NodeTypeCase.ROLLBACK | NodeTypeCase.FETCH | NodeTypeCase.LOOKUP_BY_KEY |
+                NodeTypeCase.NODETYPE_NOT_SET =>
+              goNodesToKeep(tail, result)
+          }
       }
 
-    val filteredNodes = nodes
-      .collect {
-        case node if nodesToKeep(node.getNodeId) => stripUnnecessaryNodes(node)
-      }
+      val nodesToKeep = goNodesToKeep(transaction.getRootsList.asScala.toList, Set.empty)
 
-    val newTransaction = transaction
-      .newBuilderForType()
-      .addAllRoots(filteredRoots.asJavaCollection)
-      .addAllNodes(filteredNodes.asJavaCollection)
-      .setVersion(transaction.getVersion)
-      .build()
+      val filteredRoots = transaction.getRootsList.asScala.filter(nodesToKeep)
 
-    val newTransactionEntry = transactionEntry.submission.toBuilder
-      .setTransaction(newTransaction)
-      .build()
+      def stripUnnecessaryNodes(node: TransactionOuterClass.Node): TransactionOuterClass.Node =
+        if (node.hasExercise) {
+          val exerciseNode = node.getExercise
+          val keptChildren =
+            exerciseNode.getChildrenList.asScala.filter(nodesToKeep)
+          val newExerciseNode = exerciseNode.toBuilder
+            .clearChildren()
+            .addAllChildren(keptChildren.asJavaCollection)
+            .build()
 
-    StepContinue(DamlTransactionEntrySummary(newTransactionEntry))
+          node.toBuilder
+            .setExercise(newExerciseNode)
+            .build()
+        } else {
+          node
+        }
+
+      val filteredNodes = nodes
+        .collect {
+          case node if nodesToKeep(node.getNodeId) => stripUnnecessaryNodes(node)
+        }
+
+      val newTransaction = transaction
+        .newBuilderForType()
+        .addAllRoots(filteredRoots.asJavaCollection)
+        .addAllNodes(filteredNodes.asJavaCollection)
+        .setVersion(transaction.getVersion)
+        .build()
+
+      val newTransactionEntry = transactionEntry.submission.toBuilder
+        .setTransaction(newTransaction)
+        .build()
+
+      StepContinue(DamlTransactionEntrySummary(newTransactionEntry))
+    }
   }
 
   /** Builds the log entry as the final step.
     */
-  private def buildFinalLogEntry: Step = (commitContext, transactionEntry) =>
-    _ => StepStop(buildLogEntry(transactionEntry, commitContext))
+  private def buildFinalLogEntry: Step = new Step {
+    def apply(
+        commitContext: CommitContext,
+        transactionEntry: DamlTransactionEntrySummary,
+    )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = StepStop(
+      buildLogEntry(transactionEntry, commitContext)
+    )
+  }
 
   /** Check that all informee parties mentioned of a transaction are allocated. */
-  private def checkInformeePartiesAllocation: Step = {
-    (commitContext, transactionEntry) => implicit loggingContext =>
+  private def checkInformeePartiesAllocation: Step = new Step {
+    def apply(
+        commitContext: CommitContext,
+        transactionEntry: DamlTransactionEntrySummary,
+    )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
       val parties = transactionEntry.transaction.informees
       if (parties.forall(party => commitContext.get(partyStateKey(party)).isDefined))
         StepContinue(transactionEntry)
@@ -427,6 +479,7 @@ private[kvutils] class TransactionCommitter(
             RejectionReason.PartyNotKnownOnLedger("Not all parties known"),
           ),
         )
+    }
   }
 
   /** Produce the log entry and contract state updates. */
@@ -517,7 +570,7 @@ private[kvutils] class TransactionCommitter(
     }
   }
 
-  private[committer] def buildLogEntry(
+  private[transaction] def buildLogEntry(
       transactionEntry: DamlTransactionEntrySummary,
       commitContext: CommitContext,
   ): DamlLogEntry = {
@@ -698,37 +751,6 @@ private[kvutils] class TransactionCommitter(
 }
 
 private[kvutils] object TransactionCommitter {
-  class DamlTransactionEntrySummary(val submission: DamlTransactionEntry, tx: => Tx.Transaction) {
-    val ledgerEffectiveTime: Timestamp = parseTimestamp(submission.getLedgerEffectiveTime)
-    val submitterInfo: DamlSubmitterInfo = submission.getSubmitterInfo
-    val commandId: String = submitterInfo.getCommandId
-    val submitters: List[Party] =
-      submitterInfo.getSubmittersList.asScala.toList.map(Party.assertFromString)
-    lazy val transaction: Tx.Transaction = tx
-    val submissionTime: Timestamp =
-      Conversions.parseTimestamp(submission.getSubmissionTime)
-    val submissionSeed: crypto.Hash =
-      Conversions.parseHash(submission.getSubmissionSeed)
-
-    // On copy, avoid decoding the transaction again if not needed
-    def copyPreservingDecodedTransaction(
-        submission: DamlTransactionEntry
-    ): DamlTransactionEntrySummary =
-      new DamlTransactionEntrySummary(submission, transaction)
-  }
-
-  private[transaction] type Step = Committer.Step[DamlTransactionEntrySummary]
-
-  object DamlTransactionEntrySummary {
-    def apply(
-        submission: DamlTransactionEntry
-    ): DamlTransactionEntrySummary =
-      new DamlTransactionEntrySummary(
-        submission,
-        Conversions.decodeTransaction(submission.getTransaction),
-      )
-  }
-
   // Helper to read the _current_ contract state.
   // NOTE(JM): Important to fetch from the state that is currently being built up since
   // we mark some contracts as archived and may later change their disclosure and do not

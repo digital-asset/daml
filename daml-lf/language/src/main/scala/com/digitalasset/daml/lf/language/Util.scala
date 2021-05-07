@@ -77,9 +77,6 @@ object Util {
   val TDecimal = TNumeric(TDecimalScale)
 
   val TAnyException = TBuiltin(BTAnyException)
-  val TGeneralError = TBuiltin(BTGeneralError)
-  val TArithmeticError = TBuiltin(BTArithmeticError)
-  val TContractError = TBuiltin(BTContractError)
 
   val EUnit = EPrimCon(PCUnit)
   val ETrue = EPrimCon(PCTrue)

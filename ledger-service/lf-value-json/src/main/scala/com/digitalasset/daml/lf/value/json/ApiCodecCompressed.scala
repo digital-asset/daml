@@ -44,10 +44,6 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
     case v: V.ValueVariant[Cid] => apiVariantToJsValue(v)
     case v: V.ValueEnum => apiEnumToJsValue(v)
     case v: V.ValueList[Cid] => apiListToJsValue(v)
-    case _: V.ValueBuiltinException[Cid] =>
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      //apiBuiltinExceptionToJsValue(v)
-      sys.error("exceptions not supported")
     case V.ValueText(v) => JsString(v)
     case V.ValueInt64(v) => if (encodeInt64AsString) JsString((v: Long).toString) else JsNumber(v)
     case V.ValueNumeric(v) =>
@@ -76,10 +72,6 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
 
   private[this] def apiListToJsValue(value: V.ValueList[Cid]): JsValue =
     JsArray(value.values.map(apiValueToJsValue(_)).toImmArray.toSeq: _*)
-
-  // TODO https://github.com/digital-asset/daml/issues/8020
-  /*private[this] def apiBuiltinExceptionToJsValue(value: V.ValueBuiltinException[Cid]): JsValue =
-    JsonVariant(value.tag, apiValueToJsValue(value.value))*/
 
   private[this] def apiVariantToJsValue(value: V.ValueVariant[Cid]): JsValue =
     JsonVariant(value.variant, apiValueToJsValue(value.value))
@@ -278,7 +270,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       }
       case Model.DamlLfEnum(cons) => { case JsString(c) =>
         cons
-          .collectFirst { case kc @ `c` => kc }
+          .collectFirst { case kc if kc == c => kc }
           .map(
             V.ValueEnum(
               Some(id),

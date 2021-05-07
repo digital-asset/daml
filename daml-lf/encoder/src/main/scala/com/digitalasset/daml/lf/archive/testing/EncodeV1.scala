@@ -97,7 +97,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           .setDontDiscloseNonConsumingChoicesToObservers(true)
       )
       builder.accumulateLeft(module.definitions.sortByKey)(addDefinition)
-      builder.accumulateLeft(module.templates.sortByKey)(_ addTemplates _)
+      builder.accumulateLeft(module.templates.sortByKey) { (a, b) => a.addTemplates(b) }
+      builder.accumulateLeft(module.exceptions.sortByKey) { (a, b) => a.addExceptions(b) }
       builder.build()
     }
 
@@ -156,7 +157,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     })
 
     private implicit def encodeKind(k: Kind): PLF.Kind =
-      k match {
+      // KArrows breaks the exhaustiveness checker.
+      (k: @unchecked) match {
         case KArrows(params, result) =>
           expect(result == KStar)
           PLF.Kind
@@ -230,7 +232,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       // Be warned: Both the use of the unapply pattern TForalls and the pattern
       //    case TBuiltin(BTArrow) if versionIsOlderThan(LV.Features.arrowType) =>
       // cause scala's exhaustivty checking to be disabled in the following match.
-      typ match {
+      (typ: @unchecked) match {
         case TVar(varName) =>
           val b = PLF.Type.Var.newBuilder()
           setString(varName, b.setVarStr, b.setVarInternedStr)
@@ -385,10 +387,13 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setLookupByKey(rbk)
         case UpdateEmbedExpr(typ, body) =>
           builder.setEmbedExpr(PLF.Update.EmbedExpr.newBuilder().setType(typ).setBody(body))
-        case UpdateTryCatch(_, _, _, _) =>
-          // TODO https://github.com/digital-asset/daml/issues/8020
-          //  support exceptions
-          sys.error("exceptions not supported")
+        case UpdateTryCatch(retTy, tryExpr, binder, catchExpr) =>
+          val b = PLF.Update.TryCatch.newBuilder()
+          b.setReturnType(retTy)
+          b.setTryExpr(tryExpr)
+          b.setVarInternedStr(stringsTable.insert(binder))
+          b.setCatchExpr(catchExpr)
+          builder.setTryCatch(b)
       }
       builder.build()
     }
@@ -506,7 +511,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     private def encodeExprBuilder(expr0: Expr): PLF.Expr.Builder = {
       val builder = PLF.Expr.newBuilder()
 
-      expr0 match {
+      // EAbss breaks the exhaustiveness checker.
+      (expr0: @unchecked) match {
         case EVar(value) =>
           setString(value, builder.setVarStr, builder.setVarInternedStr)
         case EVal(value) =>
@@ -622,6 +628,15 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         case ETypeRep(ty) =>
           assertSince(LV.Features.typeRep, "Expr.TypeRep")
           builder.setTypeRep(ty)
+        case EThrow(retTy, excTy, exc) =>
+          assertSince(LV.Features.exceptions, "Expr.Throw")
+          builder.setThrow(
+            PLF.Expr.Throw
+              .newBuilder()
+              .setReturnType(retTy)
+              .setExceptionType(excTy)
+              .setExceptionExpr(exc)
+          )
         case EExperimental(name, ty) =>
           assertSince(LV.v1_dev, "Expr.experimental")
           builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))
@@ -653,6 +668,16 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           )
           builder.setEnum(b)
       }
+      builder.build()
+    }
+
+    private implicit def encodeException(
+        nameWithDef: (DottedName, DefException)
+    ): PLF.DefException = {
+      val (dottedName, exception) = nameWithDef
+      val builder = PLF.DefException.newBuilder()
+      builder.setNameInternedDname(dottedNameTable.insert(dottedName))
+      builder.setMessage(exception.message)
       builder.build()
     }
 

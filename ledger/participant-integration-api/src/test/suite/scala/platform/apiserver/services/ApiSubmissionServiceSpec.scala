@@ -89,7 +89,11 @@ class ApiSubmissionServiceSpec
     submissionService(writeService, partyManagementService, implicitPartyAllocation = true)
 
   before {
-    when(writeService.allocateParty(any[Option[Party]], any[Option[Party]], any[SubmissionId]))
+    when(
+      writeService.allocateParty(any[Option[Party]], any[Option[Party]], any[SubmissionId])(
+        any[TelemetryContext]
+      )
+    )
       .thenReturn(CompletableFuture.completedFuture(SubmissionResult.Acknowledged))
   }
 
@@ -120,7 +124,7 @@ class ApiSubmissionServiceSpec
           eqTo(Some(Ref.Party.assertFromString(party))),
           eqTo(Some(Ref.Party.assertFromString(party))),
           any[SubmissionId],
-        )
+        )(any[TelemetryContext])
       )
       verifyNoMoreInteractions(writeService)
       succeed
@@ -155,8 +159,11 @@ class ApiSubmissionServiceSpec
     val party = "party-1"
     val typedParty = Ref.Party.assertFromString(party)
     val submissionFailure = SubmissionResult.InternalError(s"failed to allocate $party")
-    when(writeService.allocateParty(eqTo(Some(typedParty)), eqTo(Some(party)), any[SubmissionId]))
-      .thenReturn(CompletableFuture.completedFuture(submissionFailure))
+    when(
+      writeService.allocateParty(eqTo(Some(typedParty)), eqTo(Some(party)), any[SubmissionId])(
+        any[TelemetryContext]
+      )
+    ).thenReturn(CompletableFuture.completedFuture(submissionFailure))
     when(partyManagementService.getParties(eqTo(Seq(typedParty)))(any[LoggingContext])).thenAnswer(
       Future(List.empty[PartyDetails])
     )

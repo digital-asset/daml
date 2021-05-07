@@ -80,15 +80,14 @@ class TypeSpec extends AnyWordSpec with Matchers {
           case Pkg.BTTypeRep => sys.error("cannot use type representation in interface type")
           case Pkg.BTRoundingMode => sys.error("cannot use rounding mode in interface type")
           case Pkg.BTBigNumeric => sys.error("cannot use big numeric in interface type")
-          case Pkg.BTAnyException | Pkg.BTArithmeticError | Pkg.BTContractError |
-              Pkg.BTGeneralError =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
+          case Pkg.BTAnyException =>
             sys.error("exception not supported")
         }
       case Pkg.TTyCon(tycon) => TypeCon(TypeConName(tycon), args.toImmArray.toSeq)
       case Pkg.TNat(_) => sys.error("cannot use nat type in interface type")
       case _: Pkg.TStruct => sys.error("cannot use structs in interface type")
       case _: Pkg.TForall => sys.error("cannot use forall in interface type")
+      case _: Pkg.TSynApp => sys.error("cannot use type synonym in interface type")
     }
 
     go(pkgTyp00, BackStack.empty)

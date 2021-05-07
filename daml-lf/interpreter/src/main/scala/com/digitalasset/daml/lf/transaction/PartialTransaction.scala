@@ -130,7 +130,7 @@ private[lf] object PartialTransaction {
 
   final case class ActiveLedgerState(
       consumedBy: Map[Value.ContractId, NodeId],
-      keys: Map[GlobalKey, Option[Value.ContractId]],
+      keys: Map[GlobalKey, KeyMapping],
   )
 
   final case class TryContextInfo(
@@ -157,6 +157,7 @@ private[lf] object PartialTransaction {
     context = Context(initialSeeds),
     aborted = None,
     keys = Map.empty,
+    globalKeyInputs = Map.empty,
     localContracts = Set.empty,
   )
 
@@ -164,6 +165,11 @@ private[lf] object PartialTransaction {
   final case class CompleteTransaction(tx: SubmittedTransaction) extends Result
   final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
 
+  sealed abstract class KeyMapping extends Product with Serializable
+  // There is no active contract with the given key.
+  final case object KeyInactive extends KeyMapping
+  // The contract with the given cid is active and has the given key.
+  final case class KeyActive(cid: Value.ContractId) extends KeyMapping
 }
 
 /** A transaction under construction
@@ -180,16 +186,36 @@ private[lf] object PartialTransaction {
   *                 the transaction was in when aborted. It is up to
   *                 the caller to check for 'isAborted' after every
   *                 change to a transaction.
-  *  @param keys A local store of the contract keys. Note that this contains
-  *              info both about relative and contract ids. We must
-  *              do this because contract ids can be archived as
-  *              part of execution, and we must record these archivals locally.
-  *              Note: it is important for keys that we know to not be present
-  *              to be present as [[None]]. The reason for this is that we must
-  *              record the "no key" information for contract ids that
-  *              we archive. This is not an optimization and is required for
-  *              correct semantics, since otherwise lookups for keys for
-  *              locally archived contract ids will succeed wrongly.
+  *  @param keys A local store of the contract keys used for lookups and fetches by keys
+  *              (including exercise by key). Each of those operations will be resolved
+  *              against this map first. Only if there is no entry in here
+  *              (but not if there is an entry mapped to None), will we ask the ledger.
+  *
+  *              This map is mutated by the following operations:
+  *              1. fetch-by-key/lookup-by-key/exercise-by-key will insert an
+  *                 an entry in the map if there wasn’t already one (i.e., if they queried the ledger).
+  *              2. ACS mutating operations if the corresponding contract has a key. Specifically,
+  *                 2.1. A create will set the corresponding map entry to KeyActive(cid) if the contract has a key.
+  *                 2.2. A consuming choice on cid will set the corresponding map entry to KeyInactive
+  *                      iff we had a KeyActive(cid) entry for the same key before. If not, keys
+  *                      will not be modified. Later lookups have an activeness check
+  *                      that can then set this to KeyInactive if the result of the
+  *                      lookup was already archived.
+  *
+  *              On a rollback, we restore the state at the beginning of the rollback. However,
+  *              we preserve globalKeyInputs so we will not ask the ledger again for a key lookup
+  *              that we saw in a rollback.
+  *
+  *              Note that the engine is also used in Canton’s non-uck (unique contract key) mode.
+  *              In that mode, duplicate keys should not be an error. We provide no stability
+  *              guarantees for this mode at this point so tests can be changed freely.
+  *  @param globalKeyInputs A store of fetches and lookups of global keys.
+  *   Note that this represents the required state at the beginning of the transaction, i.e., the
+  *   transaction inputs.
+  *   The contract might no longer be active or a new local contract with the
+  *   same key might have been created since. This is updated on creates with keys with KeyInactive
+  *   (implying that no key must have been active at the beginning of the transaction)
+  *   and on failing and successful lookup and fetch by key.
   */
 private[lf] case class PartialTransaction(
     packageToTransactionVersion: Ref.PackageId => TxVersion,
@@ -200,7 +226,8 @@ private[lf] case class PartialTransaction(
     consumedBy: Map[Value.ContractId, NodeId],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
-    keys: Map[GlobalKey, Option[Value.ContractId]],
+    keys: Map[GlobalKey, PartialTransaction.KeyMapping],
+    globalKeyInputs: Map[GlobalKey, PartialTransaction.KeyMapping],
     localContracts: Set[Value.ContractId],
 ) {
 
@@ -327,7 +354,26 @@ private[lf] case class PartialTransaction(
         case None => Right((cid, ptx))
         case Some(kWithM) =>
           val ck = GlobalKey(templateId, kWithM.key)
-          Right((cid, ptx.copy(keys = ptx.keys.updated(ck, Some(cid)))))
+          val globalKeyInputs = keys.get(ck) match {
+            // We saw an archive or negative lookup, no constraint on global key inputs.
+            case Some(KeyInactive) => ptx.globalKeyInputs
+            // We saw a create or successful lookup, no constraint
+            // on global key inputs.
+            // TODO (MK) In uck-mode this should be an error if there is no archive in between.
+            case Some(KeyActive(_)) => ptx.globalKeyInputs
+            // No entry or archive => key must not be active
+            // at the beginning of the transaction.
+            case None => ptx.globalKeyInputs.updated(ck, KeyInactive)
+          }
+          Right(
+            (
+              cid,
+              ptx.copy(
+                keys = ptx.keys.updated(ck, KeyActive(cid)),
+                globalKeyInputs = globalKeyInputs,
+              ),
+            )
+          )
       }
     }
   }
@@ -439,7 +485,16 @@ private[lf] case class PartialTransaction(
             consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
             keys = mbKey match {
               case Some(kWithM) if consuming =>
-                keys.updated(GlobalKey(templateId, kWithM.key), None)
+                val gkey = GlobalKey(templateId, kWithM.key)
+                keys.get(gkey).orElse(globalKeyInputs.get(gkey)) match {
+                  // An archive can only mark a key as inactive
+                  // if it was brought into scope before.
+                  case Some(KeyActive(cid)) if cid == targetId =>
+                    keys.updated(gkey, KeyInactive)
+                  // If the key was not in scope or mapped to a different cid, we don’t change keys. Instead we will do
+                  // an activeness check when looking it up later.
+                  case _ => keys
+                }
               case _ => keys
             },
           ),

@@ -30,7 +30,7 @@ final class PostgresqlQueries(override protected implicit val connection: Connec
   }
 
   override protected val updateStateQuery: String =
-    s"INSERT INTO $StateTable VALUES ({key}, {value}) ON CONFLICT(key) DO UPDATE SET value = {value}"
+    s"INSERT INTO $StateTable (key, key_hash, value) VALUES ({key}, {key_hash}, {value}) ON CONFLICT(key_hash) DO UPDATE SET value = {value}"
 
   override def truncate(): Try[Unit] = Try {
     SQL"truncate #$StateTable".executeUpdate()

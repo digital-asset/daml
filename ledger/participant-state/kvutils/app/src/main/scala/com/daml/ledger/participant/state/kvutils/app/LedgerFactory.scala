@@ -46,6 +46,7 @@ trait ConfigProvider[ExtraConfig] {
       allowExistingSchema = participantConfig.indexerConfig.allowExistingSchema,
       enableAppendOnlySchema = config.enableAppendOnlySchema,
       inputMappingParallelism = participantConfig.indexerConfig.ingestionParallelism,
+      batchingParallelism = participantConfig.indexerConfig.batchingParallelism,
       submissionBatchSize = participantConfig.indexerConfig.submissionBatchSize,
       tailingRateLimitPerSecond = participantConfig.indexerConfig.tailingRateLimitPerSecond,
       batchWithinMillis = participantConfig.indexerConfig.batchWithinMillis,

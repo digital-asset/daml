@@ -45,7 +45,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       submissionId: SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
-  ): CompletionStage[SubmissionResult] = {
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val submission = keyValueSubmission
       .archivesToSubmission(
         submissionId,
@@ -53,14 +53,14 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
         sourceDescription.getOrElse(""),
         writer.participantId,
       )
-    commit(submissionId, submission)(NoOpTelemetryContext)
+    commit(submissionId, submission)
   }
 
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
       config: Configuration,
-  ): CompletionStage[SubmissionResult] = {
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val submission =
       keyValueSubmission
         .configurationToSubmission(maxRecordTime, submissionId, writer.participantId, config)
@@ -71,7 +71,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       hint: Option[Party],
       displayName: Option[String],
       submissionId: SubmissionId,
-  ): CompletionStage[SubmissionResult] = {
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(generateRandomParty())
     val submission =
       keyValueSubmission.partyToSubmission(
@@ -80,7 +80,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
         displayName,
         writer.participantId,
       )
-    commit(submissionId, submission)(NoOpTelemetryContext)
+    commit(submissionId, submission)
   }
 
   override def currentHealth(): HealthStatus = writer.currentHealth()

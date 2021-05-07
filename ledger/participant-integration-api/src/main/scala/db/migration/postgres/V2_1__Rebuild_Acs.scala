@@ -349,6 +349,9 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
             }
             this
           }
+
+          override def cloneState() =
+            throw new UnsupportedOperationException(s"AcsStoreAcc cannot be cloned")
         }
 
         // this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection

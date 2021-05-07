@@ -59,21 +59,21 @@ class KeyValueParticipantState(
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
       config: Configuration,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     writerAdapter.submitConfiguration(maxRecordTime, submissionId, config)
 
   override def uploadPackages(
       submissionId: SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     writerAdapter.uploadPackages(submissionId, archives, sourceDescription)
 
   override def allocateParty(
       hint: Option[Party],
       displayName: Option[String],
       submissionId: SubmissionId,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     writerAdapter.allocateParty(hint, displayName, submissionId)
 
   override def prune(

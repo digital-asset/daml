@@ -26,6 +26,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.services.LedgerConfigProviderSpec._
 import com.daml.platform.configuration.LedgerConfiguration
+import com.daml.telemetry.TelemetryContext
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -162,7 +163,7 @@ object LedgerConfigProviderSpec {
         maxRecordTime: Timestamp,
         submissionId: SubmissionId,
         config: Configuration,
-    ): CompletionStage[SubmissionResult] =
+    )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
       CompletableFuture.supplyAsync { () =>
         Thread.sleep(delay.toMillis)
         currentOffset += 1

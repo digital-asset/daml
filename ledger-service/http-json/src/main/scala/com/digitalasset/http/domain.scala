@@ -285,8 +285,6 @@ object domain {
           es: Vector[String],
           acc: Error \/ Vector[Contract[lav1.value.Value]],
       ): Error \/ Vector[Contract[lav1.value.Value]] = es match {
-        case Vector() =>
-          acc
         case head +: tail =>
           eventsById(head).kind match {
             case lav1.transaction.TreeEvent.Kind.Created(created) =>
@@ -301,6 +299,9 @@ object domain {
               val errorMsg = s"Expected either Created or Exercised event, got: Empty"
               -\/(Error(Symbol("Contract_fromTreeEvent"), errorMsg))
           }
+        // Wildcard to make the exhaustiveness checker happy.
+        case _ =>
+          acc
       }
 
       loop(Vector(eventId), \/-(Vector()))

@@ -5,6 +5,7 @@ package com.daml.lf.engine.script.ledgerinteraction
 
 import java.time.Instant
 
+import akka.util.ByteString
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
@@ -72,15 +73,6 @@ class JsonLedgerClient(
   private def damlLfTypeLookup(id: Identifier) =
     envIface.typeDecls.get(id).map(_.`type`)
 
-  case class FailedJsonApiRequest(
-      path: Path,
-      reqBody: Option[JsValue],
-      respStatus: StatusCode,
-      errors: List[String],
-  ) extends RuntimeException(
-        s"Request to $path with ${reqBody.map(_.compactPrint)} failed with status $respStatus: $errors"
-      )
-
   def request[A, B](path: Path, a: A)(implicit
       wa: JsonWriter[A],
       rb: JsonReader[B],
@@ -94,7 +86,16 @@ class JsonLedgerClient(
       ),
       headers = List(Authorization(OAuth2BearerToken(token.value))),
     )
-    Http().singleRequest(req).flatMap(resp => Unmarshal(resp.entity).to[Response[B]])
+    Http()
+      .singleRequest(req)
+      .flatMap(resp =>
+        Unmarshal(resp.entity).to[Response[B]].recoverWith { case _ =>
+          resp.entity.dataBytes
+            .runFold(ByteString.empty)((b, a) => b ++ a)
+            .map(_.utf8String)
+            .map(body => ErrorResponse(status = resp.status, errors = List(body)))
+        }
+      )
   }
 
   def request[A](path: Path)(implicit ra: JsonReader[A]): Future[Response[A]] = {
@@ -456,6 +457,15 @@ class JsonLedgerClient(
 }
 
 object JsonLedgerClient {
+
+  case class FailedJsonApiRequest(
+      path: Path,
+      reqBody: Option[JsValue],
+      respStatus: StatusCode,
+      errors: List[String],
+  ) extends RuntimeException(
+        s"Request to $path with ${reqBody.map(_.compactPrint)} failed with status $respStatus: $errors"
+      )
 
   def validateSubmitParties(
       actAs: OneAnd[Set, Ref.Party],

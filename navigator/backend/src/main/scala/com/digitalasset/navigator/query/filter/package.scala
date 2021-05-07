@@ -117,20 +117,24 @@ package object filter {
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, Boolean] =
       argument match {
-        case V.ValueContractId(value) if cursor.isLast =>
-          Right(checkContained(value, expectedValue))
-        case V.ValueInt64(value) if cursor.isLast =>
-          Right(checkContained(value.toString, expectedValue))
-        case V.ValueNumeric(value) if cursor.isLast =>
-          Right(checkContained(value.toUnscaledString, expectedValue))
-        case V.ValueText(value) if cursor.isLast => Right(checkContained(value, expectedValue))
-        case V.ValueParty(value) if cursor.isLast => Right(checkContained(value, expectedValue))
-        case V.ValueBool(value) if cursor.isLast =>
-          Right(checkContained(value.toString, expectedValue))
-        case V.ValueUnit if cursor.isLast => Right(expectedValue == "")
-        case t: V.ValueTimestamp if cursor.isLast =>
-          Right(checkContained(t.toIso8601, expectedValue))
-        case t: V.ValueDate if cursor.isLast => Right(checkContained(t.toIso8601, expectedValue))
+        case V.ValueContractId(value) =>
+          cursor.ensureLast("ContractId")(checkContained(value, expectedValue))
+        case V.ValueInt64(value) =>
+          cursor.ensureLast("Int64")(checkContained(value.toString, expectedValue))
+        case V.ValueNumeric(value) =>
+          cursor.ensureLast("Numeric")(checkContained(value.toUnscaledString, expectedValue))
+        case V.ValueText(value) =>
+          cursor.ensureLast("Text")(checkContained(value, expectedValue))
+        case V.ValueParty(value) =>
+          cursor.ensureLast("Party")(checkContained(value, expectedValue))
+        case V.ValueBool(value) =>
+          cursor.ensureLast("Bool")(checkContained(value.toString, expectedValue))
+        case V.ValueUnit =>
+          cursor.ensureLast("Unit")(expectedValue == "")
+        case t: V.ValueTimestamp =>
+          cursor.ensureLast("Timestamp")(checkContained(t.toIso8601, expectedValue))
+        case t: V.ValueDate =>
+          cursor.ensureLast("Date")(checkContained(t.toIso8601, expectedValue))
         case V.ValueRecord(_, fields) =>
           cursor.next match {
             case None => Right(false)
@@ -204,6 +208,7 @@ package object filter {
                       loop(entries(index)._1, nextNextCursor)
                     case Some(nextNextCursor) if nextNextCursor.current == "value" =>
                       loop(entries(index)._2, nextNextCursor)
+                    case Some(_) => Left(UnknownProperty("genmap", nextCursor, expectedValue))
                     case None =>
                       Right(false)
                   }

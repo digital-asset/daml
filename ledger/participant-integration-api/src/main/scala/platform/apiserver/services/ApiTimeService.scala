@@ -49,7 +49,7 @@ private[apiserver] final class ApiTimeService private (
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
       Source.failed,
       { ledgerId =>
-        logger.trace(s"Request for time with ledger ID $ledgerId")
+        logger.info(s"Received request for time with ledger ID $ledgerId")
         dispatcher
           .subscribe()
           .map(_ => backend.getCurrentTime)
@@ -70,7 +70,8 @@ private[apiserver] final class ApiTimeService private (
     def updateTime(
         expectedTime: Instant,
         requestedTime: Instant,
-    ): Future[Either[StatusRuntimeException, Instant]] =
+    ): Future[Either[StatusRuntimeException, Instant]] = {
+      logger.info(s"Setting time to $requestedTime")
       backend
         .setCurrentTime(expectedTime, requestedTime)
         .map(success =>
@@ -85,6 +86,7 @@ private[apiserver] final class ApiTimeService private (
               ) with NoStackTrace
             )
         )
+    }
 
     val result = for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))

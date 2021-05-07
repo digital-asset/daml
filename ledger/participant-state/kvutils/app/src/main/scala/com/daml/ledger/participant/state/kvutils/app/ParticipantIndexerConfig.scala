@@ -14,6 +14,7 @@ final case class ParticipantIndexerConfig(
     allowExistingSchema: Boolean,
     databaseConnectionPoolSize: Int = ParticipantIndexerConfig.DefaultDatabaseConnectionPoolSize,
     inputMappingParallelism: Int = ParticipantIndexerConfig.DefaultInputMappingParallelism,
+    batchingParallelism: Int = ParticipantIndexerConfig.DefaultBatchingParallelism,
     ingestionParallelism: Int = ParticipantIndexerConfig.DefaultIngestionParallelism,
     submissionBatchSize: Long = ParticipantIndexerConfig.DefaultSubmissionBatchSize,
     tailingRateLimitPerSecond: Int = ParticipantIndexerConfig.DefaultTailingRateLimitPerSecond,
@@ -24,6 +25,7 @@ final case class ParticipantIndexerConfig(
 object ParticipantIndexerConfig {
   val DefaultDatabaseConnectionPoolSize: Int = IndexerConfig.DefaultDatabaseConnectionPoolSize
   val DefaultInputMappingParallelism: Int = IndexerConfig.DefaultInputMappingParallelism
+  val DefaultBatchingParallelism: Int = IndexerConfig.DefaultBatchingParallelism
   val DefaultIngestionParallelism: Int = IndexerConfig.DefaultIngestionParallelism
   val DefaultSubmissionBatchSize: Long = IndexerConfig.DefaultSubmissionBatchSize
   val DefaultTailingRateLimitPerSecond: Int = IndexerConfig.DefaultTailingRateLimitPerSecond

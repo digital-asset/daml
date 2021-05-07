@@ -35,6 +35,8 @@ import scalaz.scalacheck.ScalaCheckBinding._
 
 object ValueGenerators {
 
+  import TransactionVersion.minExceptions
+
   //generate decimal values
   def numGen(scale: Numeric.Scale): Gen[Numeric] = {
     val num = for {
@@ -105,15 +107,6 @@ object ValueGenerators {
     Gen
       .chooseNum(Time.Timestamp.MinValue.micros, Time.Timestamp.MaxValue.micros)
       .map(Time.Timestamp.assertFromLong)
-
-  // generate a builtinException with arbitrary value
-  private def builtinExceptionGen(nesting: Int): Gen[ValueBuiltinException[ContractId]] =
-    for {
-      tag <- Gen.alphaStr
-      value <- Gen.lzy(valueGen(nesting))
-    } yield ValueBuiltinException(tag, value)
-
-  def builtinExceptionGen: Gen[ValueBuiltinException[ContractId]] = builtinExceptionGen(0)
 
   // generate a variant with arbitrary value
   private def variantGen(nesting: Int): Gen[ValueVariant[ContractId]] =
@@ -222,9 +215,6 @@ object ValueGenerators {
       val nested = List(
         (sz / 2 + 1, Gen.resize(sz / 5, valueListGen(newNesting))),
         (sz / 2 + 1, Gen.resize(sz / 5, variantGen(newNesting))),
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        //   test must work when we enable the following line:
-        //(sz / 2 + 1, Gen.resize(sz / 5, builtinExceptionGen(newNesting))),
         (sz / 2 + 1, Gen.resize(sz / 5, recordGen(newNesting))),
         (sz / 2 + 1, Gen.resize(sz / 5, valueOptionalGen(newNesting))),
         (sz / 2 + 1, Gen.resize(sz / 5, valueMapGen(newNesting))),
@@ -394,7 +384,7 @@ object ValueGenerators {
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
         .map(ImmArray(_))
-      exerciseResultValue <- valueGen
+      exerciseResult <- if (version < minExceptions) valueGen.map(Some(_)) else Gen.option(valueGen)
       key <- Gen.option(keyWithMaintainersGen)
       byKey <- Gen.oneOf(true, false)
     } yield NodeExercises(
@@ -409,7 +399,7 @@ object ValueGenerators {
       signatories,
       choiceObservers = choiceObservers,
       children,
-      Some(exerciseResultValue),
+      exerciseResult,
       key,
       byKey,
       version,
@@ -565,9 +555,9 @@ object ValueGenerators {
 
   def transactionVersionGen(
       minVersion: TransactionVersion = TransactionVersion.minVersion, // inclusive
-      maxVersion: TransactionVersion = TransactionVersion.maxVersion, // exclusive
+      maxVersion: Option[TransactionVersion] = None, // exclusive if defined
   ): Gen[TransactionVersion] =
-    Gen.oneOf(TransactionVersion.All.filter(v => minVersion <= v && v < maxVersion))
+    Gen.oneOf(TransactionVersion.All.filter(v => minVersion <= v && maxVersion.forall(v < _)))
 
   object Implicits {
     implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)

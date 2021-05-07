@@ -71,7 +71,7 @@ class TransactionCoderSpec
 
           Right(createNode.informeesOfNode) shouldEqual
             TransactionCoder
-              .protoNodeInfo(txVersion, encodedNode)
+              .protoActionNodeInfo(txVersion, encodedNode)
               .map(_.informeesOfNode)
       }
     }
@@ -100,7 +100,7 @@ class TransactionCoderSpec
             ) shouldBe Right((NodeId(0), normalizeFetch(versionedNode)))
           Right(fetchNode.informeesOfNode) shouldEqual
             TransactionCoder
-              .protoNodeInfo(txVersion, encodedNode)
+              .protoActionNodeInfo(txVersion, encodedNode)
               .map(_.informeesOfNode)
       }
     }
@@ -128,7 +128,7 @@ class TransactionCoderSpec
 
           Right(normalizedNode.informeesOfNode) shouldEqual
             TransactionCoder
-              .protoNodeInfo(txVersion, encodedNode)
+              .protoActionNodeInfo(txVersion, encodedNode)
               .map(_.informeesOfNode)
       }
     }
@@ -271,7 +271,10 @@ class TransactionCoderSpec
 
         val normalized = normalizeNode(node) match {
           case exe: NodeExercises[NodeId, ContractId] =>
-            exe.copy(choiceObservers = node.choiceObservers)
+            exe.copy(
+              choiceObservers = node.choiceObservers,
+              exerciseResult = Some(Value.ValueText("not-missing")),
+            )
           case otherwise => otherwise
         }
 
@@ -294,6 +297,26 @@ class TransactionCoderSpec
       forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder()) {
         case (node, (nodeVersion, txVersion)) =>
           val normalizedNode = normalizeNode(node.updateVersion(nodeVersion))
+          val result = TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              txVersion,
+              NodeId(0),
+              normalizedNode,
+            )
+
+          result.isLeft shouldBe (nodeVersion < minExceptions)
+      }
+    }
+
+    "fail if try encode missing exerciseResult in version < minExceptions" in {
+      forAll(danglingRefExerciseNodeGen, versionInIncreasingOrder()) {
+        case (node, (nodeVersion, txVersion)) =>
+          val normalizedNode =
+            normalizeExe(node.updateVersion(nodeVersion)).copy(
+              exerciseResult = None
+            )
           val result = TransactionCoder
             .encodeNode(
               TransactionCoder.NidEncoder,
@@ -332,8 +355,8 @@ class TransactionCoderSpec
 
     "fail if try to encode a create node containing value with version different from node" in {
       forAll(
-        transactionVersionGen(maxVersion = V11),
-        transactionVersionGen(maxVersion = V12),
+        transactionVersionGen(maxVersion = Some(V11)),
+        transactionVersionGen(maxVersion = Some(V12)),
         minSuccessful(5),
       ) { (nodeVersion, version) =>
         whenever(nodeVersion != version) {
@@ -449,7 +472,7 @@ class TransactionCoderSpec
 
       forAll(
         danglingRefExerciseNodeGen,
-        transactionVersionGen(maxVersion = TransactionVersion.minNoVersionValue),
+        transactionVersionGen(maxVersion = Some(TransactionVersion.minNoVersionValue)),
         minSuccessful(5),
       ) { (exeNode, version) =>
         whenever(exeNode.version != version) {
@@ -658,6 +681,35 @@ class TransactionCoderSpec
       }
     }
 
+    "fail if we try to decode an exercise node with a missing result in a version < minExceptions" in {
+      forAll(danglingRefExerciseNodeGen, versionInIncreasingOrder()) { case (node, (v1, v2)) =>
+        val normalizedNode =
+          normalizeExe(node.updateVersion(v1))
+            .copy(
+              exerciseResult = None
+            )
+        val Right(encodedNode) =
+          TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              v2,
+              NodeId(0),
+              normalizedNode,
+              disableVersionCheck = true, //so the bad proto can be created
+            )
+        val result =
+          TransactionCoder
+            .decodeVersionedNode(
+              TransactionCoder.NidDecoder,
+              ValueCoder.CidDecoder,
+              v2,
+              encodedNode,
+            )
+        result.isLeft shouldBe (v1 < minExceptions)
+      }
+    }
+
     "ignore field observers in version < 11" in {
 
       forAll(
@@ -789,7 +841,16 @@ class TransactionCoderSpec
   private[this] def normalizeExe[Nid](exe: Node.NodeExercises[Nid, ContractId]) =
     exe.copy(
       chosenValue = normalize(exe.chosenValue, exe.version),
-      exerciseResult = exe.exerciseResult.map(normalize(_, exe.version)),
+      exerciseResult = exe.exerciseResult match {
+        case None =>
+          if (exe.version >= minExceptions) {
+            None
+          } else {
+            Some(Value.ValueText("not-missing"))
+          }
+        case Some(v) =>
+          Some(normalize(v, exe.version))
+      },
       choiceObservers =
         exe.choiceObservers.filter(_ => exe.version >= TransactionVersion.minChoiceObservers),
       key = exe.key.map(normalizeKey(_, exe.version)),

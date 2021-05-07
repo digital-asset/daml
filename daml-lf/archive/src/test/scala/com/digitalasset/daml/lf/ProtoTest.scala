@@ -300,8 +300,8 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
         ("file", "Linux hash", "windows hash"),
         (
           "daml_lf_1.proto",
-          "d39be086ffd1ef8d510bc850f0d01b9ab671a7be829a61abfdc66bae08028f75",
-          "905f035efa5c06e1a07a925eaedbe7f430fd0f30ef6e5bad33cd2b7f8f9be1a1",
+          "66c18f32acff0c75cc2cbcb55e175749aedc246ccb9630cc959b462ddf717af4",
+          "33c4f75472db481862a745d18b7e28843aa284666b79b822172cd7ead1dc6ca8",
         ),
         (
           "daml_lf.proto",

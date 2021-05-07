@@ -58,7 +58,7 @@ object TreeUtils {
     Graphs.topoSort(graph) match {
       case Left(cycle) =>
         throw new IllegalArgumentException(s"Encountered cyclic contract dependencies: $cycle")
-      case Right(sorted) => sorted.map(cid => acs.get(cid).get)
+      case Right(sorted) => sorted.collect(Function.unlift(cid => acs.get(cid)))
     }
   }
 
@@ -362,6 +362,12 @@ object TreeUtils {
       with SubmitMulti
 
   object Action {
+    def fromACS(acs: Seq[CreatedEvent], batchSize: Int): Seq[Action] = {
+      acs
+        .grouped(batchSize)
+        .map(SubmitSimple.fromCreatedEvents)
+        .toSeq
+    }
     def fromTrees(trees: Seq[TransactionTree], setTime: Boolean): Seq[Action] = {
       if (setTime) {
         var currentTime = Timestamp.MinValue

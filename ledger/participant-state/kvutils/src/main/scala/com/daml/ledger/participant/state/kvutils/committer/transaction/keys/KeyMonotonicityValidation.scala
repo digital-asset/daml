@@ -5,9 +5,11 @@ package com.daml.ledger.participant.state.kvutils.committer.transaction.keys
 
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.committer.transaction.{
+  DamlTransactionEntrySummary,
+  TransactionCommitter,
+}
 import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepResult}
-import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter
-import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.DamlTransactionEntrySummary
 import com.daml.ledger.participant.state.v1.RejectionReason
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext

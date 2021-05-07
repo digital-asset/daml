@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.indexer.parallel
+package com.daml.platform.store.backend
 
 import java.time.Instant
 
@@ -20,7 +20,7 @@ object DBDTOV1 {
       tree_event_witnesses: Set[String],
       create_argument: Option[Array[Byte]],
       create_argument_compression: Option[Int],
-      // missing: event_sequential_id: Long - this will be assigned only at batches
+      event_sequential_id: Long,
   ) extends DBDTOV1
 
   case class EventCreate(
@@ -45,7 +45,7 @@ object DBDTOV1 {
       create_key_hash: Option[String],
       create_argument_compression: Option[Int],
       create_key_value_compression: Option[Int],
-      // missing: event_sequential_id: Long - this will be assigned only at batches
+      event_sequential_id: Long,
   ) extends DBDTOV1
 
   case class EventExercise(
@@ -72,10 +72,13 @@ object DBDTOV1 {
       create_key_value_compression: Option[Int],
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
-      // missing: event_sequential_id: Long - this will be assigned only at batches
+      event_sequential_id: Long,
   ) extends DBDTOV1
 
-  // TODO wartremover complained about having Array-s in case classes. I would prefer case classes. can we work that somehow around? Similarly in other DTO cases...
+  // TODO append-only: wartremover complained about having Array-s in case classes. I would prefer case classes. can we work that somehow around? Similarly in other DTO cases...
+  // TODO append-only: there are some options:
+  //   - mixing in SomeArrayEquals if we need array equality for some reason: would be proper if we move SomeArrayEquals out from speedy codebase to scalalib first.
+  //   - spawning somewhere something like trait NeverEqualsOverride { override equals(o: Object): Boolean = false }, and mixing in these classes
   class ConfigurationEntry(
       val ledger_offset: String,
       val recorded_at: Instant,

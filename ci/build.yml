@@ -102,7 +102,7 @@ jobs:
         release_tag: $(release_tag)
         name: 'linux-scala-2.13'
         is_release: variables.is_release
-        scala_version: "2.13.3"
+        scala_version: "2.13.5"
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'

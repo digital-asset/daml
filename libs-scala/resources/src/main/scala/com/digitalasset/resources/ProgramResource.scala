@@ -3,6 +3,7 @@
 
 package com.daml.resources
 
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{Executors, TimeUnit}
 
 import com.daml.logging.ContextualizedLogger
@@ -20,7 +21,12 @@ final class ProgramResource[Context: HasExecutionContext, T](
 ) {
   private val logger = ContextualizedLogger.get(getClass)
 
-  private val executorService = Executors.newCachedThreadPool()
+  private val executorService = {
+    val counter = new AtomicLong(0L)
+    Executors.newCachedThreadPool((runnable: Runnable) =>
+      new Thread(runnable, s"program-resource-pool-${counter.incrementAndGet()}")
+    )
+  }
 
   def run(newContext: ExecutionContext => Context): Unit = {
     newLoggingContext { implicit loggingContext =>
@@ -72,4 +78,5 @@ object ProgramResource {
   trait SuppressedStartupException {
     self: Exception =>
   }
+
 }

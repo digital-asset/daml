@@ -178,13 +178,20 @@ final class IT
 
   private def runScriptExport(
       client: LedgerClient,
-      parties: List[Ref.Party],
+      partiesMap: Map[Ref.Party, Ref.Party],
       dar: Dar[(PackageId, Package)],
   ): Future[Unit] = for {
     _ <- Runner.run(
       dar,
       Ref.Identifier(dar.main._1, Ref.QualifiedName.assertFromString("Export:export")),
-      inputValue = Some(JsArray(parties.map(JsString(_)).toVector)),
+      inputValue = Some(
+        JsObject(
+          "parties" -> JsObject(partiesMap.map { case (oldP, newP) =>
+            oldP -> JsString(newP)
+          }.toSeq: _*),
+          "contracts" -> JsObject(),
+        )
+      ),
       timeMode = ScriptTimeMode.Static,
       initialClients = Participants(
         default_participant = Some(new GrpcLedgerClient(client, ApplicationId("script"))),
@@ -212,7 +219,8 @@ final class IT
       // reproduce from export
       dar <- createScriptExport(parties, offset)
       newParties <- allocateParties(client, numParties)
-      _ <- runScriptExport(client, newParties, dar)
+      partiesMap = parties.zip(newParties).toMap
+      _ <- runScriptExport(client, partiesMap, dar)
       // check that the new transaction trees are the same
       after <- collectTrees(client, newParties)
       afterCmp = after.drop(after.length - beforeCmp.length)

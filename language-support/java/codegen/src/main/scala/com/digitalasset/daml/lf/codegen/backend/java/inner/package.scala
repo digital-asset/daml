@@ -98,6 +98,7 @@ package object inner {
           )
       case TypePrim(PrimTypeUnit, _) => ClassName.get(classOf[javaapi.data.Unit])
       case TypeVar(name) => TypeVariableName.get(JavaEscaper.escapeString(name))
+      case _ => throw new IllegalArgumentException(s"Invalid Daml datatype: $damlType")
     }
 
   private[inner] def toAPITypeName(damlType: Type): TypeName =

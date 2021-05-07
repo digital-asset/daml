@@ -58,6 +58,9 @@ object TestData {
         created.toCreatedEvent(s"create$i")
       }
     }
+    def toACS: Map[ContractId, CreatedEvent] = {
+      this.toCreatedEvents.map(ev => (ContractId(ev.contractId), ev)).toMap
+    }
   }
 
   sealed case class Tree(

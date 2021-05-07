@@ -12,6 +12,7 @@ import akka.stream.{BoundedSourceQueue, Materializer, QueueOfferResult}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1._
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -50,7 +51,7 @@ case class ReadWriteServiceBridge(
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
       config: Configuration,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     submit(
       Submission.Config(
         maxRecordTime = maxRecordTime,
@@ -65,7 +66,7 @@ case class ReadWriteServiceBridge(
       hint: Option[Party],
       displayName: Option[String],
       submissionId: SubmissionId,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     submit(
       Submission.AllocateParty(
         hint = hint,
@@ -78,7 +79,7 @@ case class ReadWriteServiceBridge(
       submissionId: SubmissionId,
       archives: List[Archive],
       sourceDescription: Option[String],
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     submit(
       Submission.UploadPackages(
         submissionId = submissionId,
@@ -181,7 +182,7 @@ object ReadWriteServiceBridge {
     case s: Submission.AllocateParty =>
       val party = s.hint.getOrElse(UUID.randomUUID().toString)
       Update.PartyAddedToParticipant(
-        party = party.asInstanceOf[Party],
+        party = Party.assertFromString(party),
         displayName = s.displayName.getOrElse(party),
         participantId = participantId,
         recordTime = Time.Timestamp.now(),
@@ -209,7 +210,7 @@ object ReadWriteServiceBridge {
         optSubmitterInfo = Some(s.submitterInfo),
         transactionMeta = s.transactionMeta,
         transaction = s.transaction.asInstanceOf[CommittedTransaction],
-        transactionId = index.toString.asInstanceOf[TransactionId],
+        transactionId = TransactionId.assertFromString(index.toString),
         recordTime = Time.Timestamp.now(),
         divulgedContracts = Nil,
         blindingInfo = None,

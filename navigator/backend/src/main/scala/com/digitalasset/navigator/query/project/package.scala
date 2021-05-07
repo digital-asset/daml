@@ -131,15 +131,16 @@ object project {
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, ProjectValue] =
       argument match {
-        case V.ValueContractId(value) if cursor.isLast => Right(StringValue(value))
-        case V.ValueInt64(value) if cursor.isLast => Right(NumberValue(value))
-        case V.ValueNumeric(value) if cursor.isLast => Right(StringValue(value.toUnscaledString))
-        case V.ValueText(value) if cursor.isLast => Right(StringValue(value))
-        case V.ValueParty(value) if cursor.isLast => Right(StringValue(value))
-        case V.ValueBool(value) if cursor.isLast => Right(BooleanValue(value))
-        case V.ValueUnit if cursor.isLast => Right(StringValue(""))
-        case t: V.ValueTimestamp if cursor.isLast => Right(StringValue(t.toIso8601))
-        case t: V.ValueDate if cursor.isLast => Right(StringValue(t.toIso8601))
+        case V.ValueContractId(value) => cursor.ensureLast("contractid")(StringValue(value))
+        case V.ValueInt64(value) => cursor.ensureLast("int64")(NumberValue(value))
+        case V.ValueNumeric(value) =>
+          cursor.ensureLast("numeric")(StringValue(value.toUnscaledString))
+        case V.ValueText(value) => cursor.ensureLast("text")(StringValue(value))
+        case V.ValueParty(value) => cursor.ensureLast("party")(StringValue(value))
+        case V.ValueBool(value) => cursor.ensureLast("bool")(BooleanValue(value))
+        case V.ValueUnit => cursor.ensureLast("unit")(StringValue(""))
+        case t: V.ValueTimestamp => cursor.ensureLast("timestamp")(StringValue(t.toIso8601))
+        case t: V.ValueDate => cursor.ensureLast("date")(StringValue(t.toIso8601))
         case V.ValueRecord(_, fields) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("record", cursor, expectedValue))
@@ -214,6 +215,7 @@ object project {
                       loop(entries(index)._1, nextNextCursor)
                     case Some(nextNextCursor) if nextNextCursor.current == "value" =>
                       loop(entries(index)._2, nextNextCursor)
+                    case Some(_) => Left(UnknownProperty("genmap", nextCursor, expectedValue))
                     case None =>
                       Left(UnknownProperty(nextCursor.current, nextCursor, expectedValue))
                   }

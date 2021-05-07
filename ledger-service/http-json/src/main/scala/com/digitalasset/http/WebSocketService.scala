@@ -394,26 +394,23 @@ class WebSocketService(
       .takeWithin(config.maxDuration)
       .throttle(config.throttleElem, config.throttlePer, config.maxBurst, config.mode)
 
-  @SuppressWarnings(
-    Array(
-      "org.wartremover.warts.NonUnitStatements",
-      "org.wartremover.warts.JavaSerializable",
-      "org.wartremover.warts.Serializable",
-    )
-  )
   private def connCounter[A]: Flow[A, A, NotUsed] =
     Flow[A]
       .watchTermination() { (_, future) =>
-        numConns.incrementAndGet
-        logger.info(s"New websocket client has connected, current number of clients:$numConns")
+        discard { numConns.incrementAndGet }
+        logger.info(
+          s"New websocket client has connected, current number of clients:${numConns.get()}"
+        )
         future onComplete {
           case Success(_) =>
-            numConns.decrementAndGet
-            logger.info(s"Websocket client has disconnected. Current number of clients: $numConns")
-          case Failure(ex) =>
-            numConns.decrementAndGet
+            discard { numConns.decrementAndGet }
             logger.info(
-              s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: $numConns"
+              s"Websocket client has disconnected. Current number of clients: ${numConns.get()}"
+            )
+          case Failure(ex) =>
+            discard { numConns.decrementAndGet }
+            logger.info(
+              s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: ${numConns.get()}"
             )
         }
         NotUsed

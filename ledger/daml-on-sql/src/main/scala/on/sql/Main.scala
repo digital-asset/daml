@@ -4,10 +4,10 @@
 package com.daml.on.sql
 
 import java.util.concurrent.Executors
-
 import com.daml.ledger.resources.ResourceContext
+import com.daml.cliopts.GlobalLogLevel
 import com.daml.platform.sandbox.config.{PostgresStartupMode, SandboxConfig}
-import com.daml.platform.sandbox.{GlobalLogLevel, SandboxServer}
+import com.daml.platform.sandbox.SandboxServer
 import com.daml.resources.ProgramResource
 
 import scala.concurrent.ExecutionContext
@@ -17,7 +17,7 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     val config = new Cli().parse(args).getOrElse(sys.exit(1))
-    config.logLevel.foreach(GlobalLogLevel.set)
+    config.logLevel.foreach(GlobalLogLevel.set("Daml-on-sql"))
     run(config)
   }
 

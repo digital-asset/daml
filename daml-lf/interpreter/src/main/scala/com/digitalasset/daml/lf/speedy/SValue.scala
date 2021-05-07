@@ -62,8 +62,8 @@ sealed trait SValue {
         V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
       case SContractId(coid) =>
         V.ValueContractId(coid)
-      case SBuiltinException(tag, value) =>
-        V.ValueBuiltinException(tag, value.toValue)
+      case SBuiltinException(_, _) =>
+        throw SErrorCrash("SValue.toValue: unexpected SBuiltinException")
       case SStruct(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SStruct")
       case SAny(_, _) =>
@@ -209,6 +209,8 @@ object SValue {
   final case class SAny(ty: Type, value: SValue) extends SValue
   final case class SAnyException(ty: Type, value: SValue) extends SValue
 
+  // TODO https://github.com/digital-asset/daml/issues/8020
+  //    Incorporate into AnyException, or separate by tag/payload.
   // A value of one of the builtin exception types: GeneralError, ArithmeticError, ContractError
   final case class SBuiltinException(tag: String, value: SValue) extends SValue
 

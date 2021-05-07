@@ -25,6 +25,7 @@ import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.StandaloneApiServer
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
+import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
@@ -45,7 +46,7 @@ final class Runner[T <: ReadWriteService, Extra](
 
       config.mode match {
         case Mode.DumpIndexMetadata(jdbcUrls) =>
-          dumpIndexMetadata(jdbcUrls)
+          dumpIndexMetadata(jdbcUrls, originalConfig.enableAppendOnlySchema)
           sys.exit(0)
         case Mode.Run =>
           run(config)
@@ -54,13 +55,14 @@ final class Runner[T <: ReadWriteService, Extra](
   }
 
   private def dumpIndexMetadata(
-      jdbcUrls: Seq[String]
+      jdbcUrls: Seq[String],
+      enableAppendOnlySchema: Boolean,
   )(implicit resourceContext: ResourceContext): Resource[Unit] = {
     val logger = ContextualizedLogger.get(this.getClass)
     import ExecutionContext.Implicits.global
     Resource.sequenceIgnoringValues(for (jdbcUrl <- jdbcUrls) yield {
       newLoggingContext { implicit loggingContext: LoggingContext =>
-        Resource.fromFuture(IndexMetadata.read(jdbcUrl).andThen {
+        Resource.fromFuture(IndexMetadata.read(jdbcUrl, enableAppendOnlySchema).andThen {
           case Failure(exception) =>
             logger.error("Error while retrieving the index metadata", exception)
           case Success(metadata) =>
@@ -178,15 +180,16 @@ final class Runner[T <: ReadWriteService, Extra](
 
   private def uploadDar(from: Path, to: WritePackagesService)(implicit
       executionContext: ExecutionContext
-  ): Future[Unit] = {
-    val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
-    for {
-      dar <- Future(
-        DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
-          .readArchiveFromFile(from.toFile)
-          .get
-      )
-      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
-    } yield ()
+  ): Future[Unit] = DefaultTelemetry.runFutureInSpan(SpanName.RunnerUploadDar, SpanKind.Internal) {
+    implicit telemetryContext =>
+      val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
+      for {
+        dar <- Future(
+          DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
+            .readArchiveFromFile(from.toFile)
+            .get
+        )
+        _ <- to.uploadPackages(submissionId, dar.all, None).toScala
+      } yield ()
   }
 }

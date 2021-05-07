@@ -25,8 +25,7 @@ private[validation] object Typing {
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
     case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep |
-        BTAnyException | BTGeneralError | BTArithmeticError | BTContractError | BTRoundingMode |
-        BTBigNumeric =>
+        BTAnyException | BTRoundingMode | BTBigNumeric =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
@@ -236,13 +235,9 @@ private[validation] object Typing {
       BToBigNumericNumeric -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TBigNumeric),
       BToTextBigNumeric -> (TBigNumeric ->: TText),
       // Exception functions
-      BMakeGeneralError -> (TText ->: TGeneralError),
-      BMakeArithmeticError -> (TText ->: TArithmeticError),
-      BMakeContractError -> (TText ->: TContractError),
       BAnyExceptionMessage -> (TAnyException ->: TText),
-      BGeneralErrorMessage -> (TGeneralError ->: TText),
-      BArithmeticErrorMessage -> (TArithmeticError ->: TText),
-      BContractErrorMessage -> (TContractError ->: TText),
+      BAnyExceptionIsArithmeticError -> (TAnyException ->: TBool),
+      BAnyExceptionIsContractError -> (TAnyException ->: TBool),
       // Unstable text functions
       BTextToUpper -> (TText ->: TText),
       BTextToLower -> (TText ->: TText),
@@ -967,8 +962,6 @@ private[validation] object Typing {
 
     private def checkExceptionType(typ: Type): Unit = {
       typ match {
-        case TGeneralError | TArithmeticError | TContractError =>
-          ()
         case TTyCon(tyCon) =>
           lookupException(ctx, tyCon)
           ()

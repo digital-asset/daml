@@ -32,7 +32,7 @@ final class H2Queries(override protected implicit val connection: Connection)
     }.flatMap(_ => lastInsertId())
 
   override protected val updateStateQuery: String =
-    s"MERGE INTO $StateTable VALUES ({key}, {value})"
+    s"MERGE INTO $StateTable(key, key_hash, value) KEY(key_hash) VALUES ({key}, {key_hash}, {value})"
 
   private def lastInsertId(): Try[Index] = Try {
     SQL"CALL IDENTITY()"

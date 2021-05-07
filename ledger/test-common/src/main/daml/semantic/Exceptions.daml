@@ -1,0 +1,153 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+module Exceptions where
+
+#ifdef DAML_EXCEPTIONS
+
+import DA.Exception
+
+exception E
+  with
+    t : Text
+  where
+    message t
+
+exception E2
+  with
+    t : Text
+  where
+    message t
+
+template WithKey
+  with
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+    nonconsuming choice WithKey_Noop : ()
+      controller p
+      do pure ()
+
+template Divulger
+  with
+    sig : Party
+    obs : Party
+  where
+    signatory sig
+    observer obs
+    nonconsuming choice Divulge : ()
+      with
+        cid : ContractId WithKey
+      controller obs
+      do try (fetch cid >> throw (E ""))
+         catch
+           E _ -> pure ()
+
+template Fetcher
+  with
+    sig : Party
+    obs : Party
+  where
+    signatory sig
+    observer obs
+    nonconsuming choice Fetch : WithKey
+      with
+        cid : ContractId WithKey
+      controller obs
+      do fetch cid
+
+template ExceptionTester
+  with
+    p : Party
+  where
+    signatory p
+    nonconsuming choice Noop : ()
+      controller p
+      do pure ()
+    nonconsuming choice ThrowUncaught : ()
+      controller p
+      do throw (E "exception message")
+    nonconsuming choice ThrowCaught : Text
+      controller p
+      do try (exercise self ThrowUncaught >> pure "uncaught")
+         catch
+           E msg -> pure msg
+    nonconsuming choice RollbackFetch : ()
+      with
+        cid : ContractId ExceptionTester
+      controller p
+      do try (fetch cid >> throw (E ""))
+         catch
+           E _ -> pure ()
+    nonconsuming choice RollbackConsuming : ()
+      with
+        cid : ContractId ExceptionTester
+      controller p
+      do try (archive cid >> throw (E ""))
+         catch
+           E _ -> pure ()
+    nonconsuming choice RollbackNonConsuming : ()
+      with
+        cid : ContractId ExceptionTester
+      controller p
+      do try (exercise cid Noop >> throw (E ""))
+         catch
+           E _ -> pure ()
+    nonconsuming choice RolledBackChoice : ContractId ExceptionTester
+      controller p
+        do create this
+    nonconsuming choice RollbackCreate : ()
+      controller p
+      do try (exercise self RolledBackChoice >> throw (E ""))
+         catch
+           E _ -> pure ()
+    nonconsuming choice DuplicateKey : ()
+      controller p
+      do try (create (WithKey p) >> throw (E ""))
+         catch
+           E _ -> pure ()
+
+    nonconsuming choice FetchKey : ()
+      controller p
+      do try (fetchByKey @WithKey p >> throw (E ""))
+         catch
+           E _ -> pure ()
+
+    nonconsuming choice NestedCatch : ()
+      controller p
+      do try (exercise self NestedCatchChild)
+         catch
+           E2 _ -> pure ()
+
+    nonconsuming choice NestedCatchChild : ()
+      controller p
+      do try throw (E2 "nested")
+         catch
+           E _ -> pure ()
+
+    nonconsuming choice RolledbackArchiveConsuming : ()
+      with
+        cid : ContractId WithKey
+      controller p
+      do try (archive cid >> throw (E ""))
+         catch
+            E _ -> archive cid
+
+    nonconsuming choice RolledbackArchiveNonConsuming : ()
+      with
+        cid : ContractId WithKey
+      controller p
+      do try (archive cid >> throw (E ""))
+         catch
+            E _ -> exercise cid WithKey_Noop
+
+    nonconsuming choice RolledbackDuplicateKey : ()
+      controller p
+      do try (create (WithKey p) >> throw (E ""))
+         catch
+            E _ -> create (WithKey p) >> pure ()
+
+#endif

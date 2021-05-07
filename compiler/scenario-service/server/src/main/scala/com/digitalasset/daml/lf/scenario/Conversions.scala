@@ -650,14 +650,6 @@ final class Conversions(
             )
             .build
         )
-      case V.ValueBuiltinException(tag, value) =>
-        val vbuilder = proto.BuiltinException.newBuilder
-        builder.setBuiltinException(
-          vbuilder
-            .setTag(tag)
-            .setValue(convertValue(value))
-            .build
-        )
       case V.ValueVariant(tycon, variant, value) =>
         val vbuilder = proto.Variant.newBuilder
         tycon.foreach(x => vbuilder.setVariantId(convertIdentifier(x)))

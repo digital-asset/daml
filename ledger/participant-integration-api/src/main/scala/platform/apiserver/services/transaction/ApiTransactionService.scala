@@ -69,7 +69,7 @@ private[apiserver] final class ApiTransactionService private (
       logging.parties(request.filter.filtersByParty.keys),
     ) { implicit loggingContext =>
       val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
-      logger.debug(s"Received request for transaction subscription $subscriptionId: $request")
+      logger.info(s"Received request for transaction subscription $subscriptionId: $request")
       transactionsService
         .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
         .via(logger.debugStream(transactionsLoggable))
@@ -105,7 +105,7 @@ private[apiserver] final class ApiTransactionService private (
       logging.endInclusive(request.endInclusive),
       logging.parties(request.parties),
     ) { implicit loggingContext =>
-      logger.debug(s"Received $request")
+      logger.info(s"Received request for transaction tree subscription: $request")
       transactionsService
         .transactionTrees(
           request.startExclusive,
@@ -124,7 +124,7 @@ private[apiserver] final class ApiTransactionService private (
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
-      logger.debug(s"Received $request")
+      logger.info(s"Received request for transaction by event id: $request")
       ledger.EventId
         .fromString(request.eventId.unwrap)
         .map { case ledger.EventId(transactionId, _) =>
@@ -147,7 +147,7 @@ private[apiserver] final class ApiTransactionService private (
       logging.transactionId(request.transactionId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
-      logger.debug(s"Received $request")
+      logger.info(s"Received request for transaction by id $request")
       lookUpTreeByTransactionId(request.transactionId, request.requestingParties)
         .andThen(logger.logErrorsOnCall[GetTransactionResponse])
     }
@@ -159,6 +159,7 @@ private[apiserver] final class ApiTransactionService private (
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
+      logger.info(s"Received request for flat transaction by event id: $request")
       ledger.EventId
         .fromString(request.eventId.unwrap)
         .fold(
@@ -182,6 +183,7 @@ private[apiserver] final class ApiTransactionService private (
       logging.transactionId(request.transactionId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
+      logger.info(s"Received request for flat transaction by id: $request")
       lookUpFlatByTransactionId(request.transactionId, request.requestingParties)
         .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
     }

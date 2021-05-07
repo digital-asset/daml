@@ -36,10 +36,6 @@ import Util
 
 import qualified SdkVersion
 
--- Keep in sync with /bazel_tools/scala_version.bzl and /nix/nixpkgs.nix
-scalaVersions :: [T.Text]
-scalaVersions = ["2.12.13", "2.13.3"]
-
 -- Hack: the logic that looks for missing transitive dependencies is broken, as it checks all build-time dependencies with `bazel query`
 depsToExclude :: T.Text
 depsToExclude = T.intercalate " + " [
@@ -47,13 +43,13 @@ depsToExclude = T.intercalate " + " [
    "//compiler/repl-service/protos:repl_service_java_proto",
    "//daml-script/runner:script-runner-lib-ce"]
 
-buildAndCopyArtifacts :: (MonadLogger m, MonadIO m, E.MonadThrow m) => SemVer.Version -> BazelLocations -> Path Abs Dir -> [Artifact (Maybe ArtifactLocation)] -> m [Artifact PomData]
-buildAndCopyArtifacts mvnVersion bazelLocations releaseDir artifacts = do
-      let targets = concatMap buildTargets artifacts
+buildAndCopyArtifacts :: (MonadLogger m, MonadIO m, E.MonadThrow m) => IncludeDocs -> SemVer.Version -> BazelLocations -> Path Abs Dir -> [Artifact (Maybe ArtifactLocation)] -> m [Artifact PomData]
+buildAndCopyArtifacts includeDocs mvnVersion bazelLocations releaseDir artifacts = do
+      let targets = concatMap (buildTargets includeDocs) artifacts
       liftIO $ callProcess "bazel" ("build" : map (T.unpack . getBazelTarget) targets)
       $logInfo "Reading metadata from pom files"
       as <- liftIO $ mapM (resolvePomData bazelLocations mvnVersion) artifacts
-      copyArtifacts bazelLocations releaseDir as
+      copyArtifacts includeDocs bazelLocations releaseDir as
       pure as
 
 checkForMissingDeps :: (MonadLogger m, MonadIO m) => [Artifact c] -> m ()
@@ -82,11 +78,11 @@ checkForMissingDeps jars = do
       let query = "kind(\"(java|scala)_library\", deps(" <> target <> ")) intersect //... except (" <> T.unpack depsToExclude <> ")"
       in liftIO $ lines <$> readCreateProcess (proc "bazel" ["query", query]) ""
 
-copyArtifacts :: (MonadIO m, MonadLogger m, E.MonadThrow m) => BazelLocations -> Path Abs Dir -> [Artifact PomData] -> m ()
-copyArtifacts bazelLocations releaseDir as = do
+copyArtifacts :: (MonadIO m, MonadLogger m, E.MonadThrow m) => IncludeDocs -> BazelLocations -> Path Abs Dir -> [Artifact PomData] -> m ()
+copyArtifacts includeDocs bazelLocations releaseDir as = do
   mvnFiles <-
     fmap concat $ forM as $ \artifact ->
-    map (artifact,) . toList <$> artifactFiles artifact
+    map (artifact,) . toList <$> artifactFiles includeDocs artifact
   forM_ mvnFiles $ \(_, (inp, outp)) ->
     copyToReleaseDir bazelLocations releaseDir inp outp
 
@@ -107,10 +103,10 @@ main = do
       -- we don't check dependencies for deploy jars as they are single-executable-jars
       let nonDeployJars = filter (not . isDeployJar . artReleaseType) mvnArtifacts
 
-      nonScalaArtifacts <- buildAndCopyArtifacts mvnVersion bazelLocations releaseDir nonScalaArtifacts
+      nonScalaArtifacts <- buildAndCopyArtifacts optIncludeDocs mvnVersion bazelLocations releaseDir nonScalaArtifacts
 
-      scalaArtifacts <- forM scalaVersions $ \ver -> withEnv [("DAML_SCALA_VERSION", Just (T.unpack ver))] $ do
-          as <- buildAndCopyArtifacts mvnVersion bazelLocations releaseDir scalaArtifacts
+      scalaArtifacts <- forM optScalaVersions $ \ver -> withEnv [("DAML_SCALA_VERSION", Just (T.unpack ver))] $ do
+          as <- buildAndCopyArtifacts optIncludeDocs mvnVersion bazelLocations releaseDir scalaArtifacts
           -- Check for missing deps once per Scala version since bazel query depends on DAML_SCALA_VERSION.
           checkForMissingDeps (nonDeployJars ++ scalaArtifacts)
           pure as
@@ -136,7 +132,7 @@ main = do
                   $logError ("\t- "# getBazelTarget (artTarget artifact))
           liftIO exitFailure
 
-      mvnUploadArtifacts <- concatMapM mavenArtifactCoords allArtifacts
+      mvnUploadArtifacts <- concatMapM (mavenArtifactCoords optIncludeDocs) allArtifacts
       validateMavenArtifacts releaseDir mvnUploadArtifacts
 
       -- NPM packages we want to publish
@@ -145,9 +141,12 @@ main = do
               , "//language-support/ts/daml-ledger"
               , "//language-support/ts/daml-react"
               ]
-      -- make sure the NPM packages can be built
-      $logInfo "Building language-support TypeScript packages"
-      liftIO $ callProcess "bazel" $ ["build"] ++ npmPackages
+
+      when (getIncludeTypescript optIncludeTypescript) $ do
+
+        -- make sure the NPM packages can be built
+        $logInfo "Building language-support TypeScript packages"
+        liftIO $ callProcess "bazel" $ ["build"] ++ npmPackages
 
       if  | getPerformUpload optsPerformUpload -> do
               $logInfo "Uploading to Maven Central"
@@ -158,21 +157,23 @@ main = do
                   else
                     $logInfo "No artifacts to upload to Maven Central"
 
-              $logDebug "Uploading npm packages"
-              -- We can't put an .npmrc file in the root of the directory because other bazel npm
-              -- code picks it up and looks for the token which is not yet set before the release
-              -- phase.
-              let npmrcPath = ".npmrc"
-              liftIO $ bracket_
-                (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
-                (Dir.removeFile npmrcPath)
-                (forM_ npmPackages
-                  $ \rule -> liftIO $ callCommand $ unwords $
-                      ["bazel", "run", rule <> ":npm_package.publish", "--", "--access", "public"] <>
-                      [ x | isSnapshot mvnVersion, x <- ["--tag", "next"] ])
+              when (getIncludeTypescript optIncludeTypescript) $ do
+
+                $logDebug "Uploading npm packages"
+                -- We can't put an .npmrc file in the root of the directory because other bazel npm
+                -- code picks it up and looks for the token which is not yet set before the release
+                -- phase.
+                let npmrcPath = ".npmrc"
+                liftIO $ bracket_
+                  (writeFile npmrcPath "//registry.npmjs.org/:_authToken=${NPM_TOKEN}")
+                  (Dir.removeFile npmrcPath)
+                  (forM_ npmPackages
+                    $ \rule -> liftIO $ callCommand $ unwords $
+                        ["bazel", "run", rule <> ":npm_package.publish", "--", "--access", "public"] <>
+                        [ x | isSnapshot mvnVersion, x <- ["--tag", "next"] ])
 
           | optsLocallyInstallJars -> do
-              pom <- generateAggregatePom releaseDir allArtifacts
+              pom <- generateAggregatePom optIncludeDocs releaseDir allArtifacts
               pomPath <- (releaseDir </>) <$> parseRelFile "pom.xml"
               liftIO $ T.IO.writeFile (toFilePath pomPath) pom
               exitCode <- liftIO $ withCreateProcess ((proc "mvn" ["initialize"]) { cwd = Just (toFilePath releaseDir) }) $ \_ _ _ mvnHandle ->

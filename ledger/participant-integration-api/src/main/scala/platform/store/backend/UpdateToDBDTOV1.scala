@@ -1,16 +1,17 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.indexer.parallel
+package com.daml.platform.store.backend
 
 import java.util.UUID
+
 import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId, Update}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.Conversions
-import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
+import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.dao.DeduplicationKeyMaker
 
 // TODO append-only: target to separation per update-type to it's own function + unit tests
@@ -74,7 +75,7 @@ object UpdateToDBDTOV1 {
             recorded_at = u.recordTime.toInstant,
             submission_id = u.submissionId,
             party = Some(u.party),
-            display_name = Some(u.displayName),
+            display_name = Option(u.displayName),
             typ = JdbcLedgerDao.acceptType,
             rejection_reason = None,
             is_local = Some(u.participantId == participantId),
@@ -138,11 +139,20 @@ object UpdateToDBDTOV1 {
         )
 
       case u: Update.TransactionAccepted =>
+        // TODO append-only:
+        //   Covering this functionality with unit test is important, since at the time of writing kvutils ledgers purge RollBack nodes already on WriteService, so conformance testing is impossible
+        //   Unit tests also need to cover the full semantic contract regarding fetch and lookup node removal as well
+        //   Investigate possibility to encapsulate this logic in a common place
         val blinding = u.blindingInfo.getOrElse(Blinding.blind(u.transaction))
         val preorderTraversal = u.transaction
-          .fold(List.empty[(NodeId, Node)]) { case (xs, x) =>
-            x :: xs
-          }
+          .foldInExecutionOrder(List.empty[(NodeId, Node)])(
+            exerciseBegin = (acc, nid, node) => ((nid -> node) :: acc, true),
+            // Rollback nodes are not included in the indexer
+            rollbackBegin = (acc, _, _) => (acc, false),
+            leaf = (acc, nid, node) => (nid -> node) :: acc,
+            exerciseEnd = (acc, _, _) => acc,
+            rollbackEnd = (acc, _, _) => acc,
+          )
           .reverse
 
         val events: Iterator[DBDTOV1] = preorderTraversal.iterator
@@ -181,6 +191,7 @@ object UpdateToDBDTOV1 {
                   compressionStrategy.createKeyValueCompression.id.filter(_ =>
                     createKeyValue.isDefined
                   ),
+                event_sequential_id = 0, // this is filled later
               )
 
             case (nodeId, exercise: Exercise) =>
@@ -220,29 +231,33 @@ object UpdateToDBDTOV1 {
                 create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
                 exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
                 exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
+                event_sequential_id = 0, // this is filled later
               )
           }
 
         val divulgedContractIndex = u.divulgedContracts
           .map(divulgedContract => divulgedContract.contractId -> divulgedContract)
           .toMap
-        val divulgences = blinding.divulgence.iterator.map { case (contractId, visibleToParties) =>
-          val contractInst = divulgedContractIndex.get(contractId).map(_.contractInst)
-          DBDTOV1.EventDivulgence(
-            event_offset = Some(offset.toHexString),
-            command_id = u.optSubmitterInfo.map(_.commandId),
-            workflow_id = u.transactionMeta.workflowId,
-            application_id = u.optSubmitterInfo.map(_.applicationId),
-            submitters = u.optSubmitterInfo.map(_.actAs.toSet),
-            contract_id = contractId.coid,
-            template_id = contractInst.map(_.template.toString),
-            tree_event_witnesses = visibleToParties.map(_.toString),
-            create_argument = contractInst
-              .map(_.arg)
-              .map(translation.serialize(contractId, _))
-              .map(compressionStrategy.createArgumentCompression.compress),
-            create_argument_compression = compressionStrategy.createArgumentCompression.id,
-          )
+        val divulgences = blinding.divulgence.iterator.collect {
+          // only store divulgence events, which are divulging to parties
+          case (contractId, visibleToParties) if visibleToParties.nonEmpty =>
+            val contractInst = divulgedContractIndex.get(contractId).map(_.contractInst)
+            DBDTOV1.EventDivulgence(
+              event_offset = Some(offset.toHexString),
+              command_id = u.optSubmitterInfo.map(_.commandId),
+              workflow_id = u.transactionMeta.workflowId,
+              application_id = u.optSubmitterInfo.map(_.applicationId),
+              submitters = u.optSubmitterInfo.map(_.actAs.toSet),
+              contract_id = contractId.coid,
+              template_id = contractInst.map(_.template.toString),
+              tree_event_witnesses = visibleToParties.map(_.toString),
+              create_argument = contractInst
+                .map(_.arg)
+                .map(translation.serialize(contractId, _))
+                .map(compressionStrategy.createArgumentCompression.compress),
+              create_argument_compression = compressionStrategy.createArgumentCompression.id,
+              event_sequential_id = 0, // this is filled later
+            )
         }
 
         val completions = u.optSubmitterInfo.iterator.map { submitterInfo =>

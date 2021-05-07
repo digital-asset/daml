@@ -17,6 +17,7 @@ import scalaz.{-\/, \/, \/-}
 import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
+import com.daml.cliopts.GlobalLogLevel
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -43,6 +44,7 @@ object Main extends StrictLogging {
     }
 
   private def main(config: Config): Unit = {
+    config.logLevel.foreach(GlobalLogLevel.set("Ledger HTTP-JSON API"))
     logger.info(
       s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
         s", address=${config.address: String}, httpPort=${config.httpPort: Int}" +

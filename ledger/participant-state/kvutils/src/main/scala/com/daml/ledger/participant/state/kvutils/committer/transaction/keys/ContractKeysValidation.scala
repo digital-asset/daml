@@ -8,13 +8,15 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue,
 }
-import com.daml.ledger.participant.state.kvutils.committer.Committer.Step
-import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter
-import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.DamlTransactionEntrySummary
+import com.daml.ledger.participant.state.kvutils.committer.transaction.{
+  DamlTransactionEntrySummary,
+  Step,
+  TransactionCommitter,
+}
 import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.KeyConsistencyValidation.checkNodeKeyConsistency
 import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.KeyMonotonicityValidation.checkContractKeysCausalMonotonicity
 import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.KeyUniquenessValidation.checkNodeKeyUniqueness
-import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepResult}
+import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
 import com.daml.ledger.participant.state.v1.RejectionReason
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.{Node, NodeId}
@@ -22,11 +24,11 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 
 private[transaction] object ContractKeysValidation {
-
-  def validateKeys(
-      transactionCommitter: TransactionCommitter
-  ): Step[DamlTransactionEntrySummary] = {
-    (commitContext, transactionEntry) => implicit loggingContext =>
+  def validateKeys(transactionCommitter: TransactionCommitter): Step = new Step {
+    def apply(
+        commitContext: CommitContext,
+        transactionEntry: DamlTransactionEntrySummary,
+    )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
       val damlState = commitContext
         .collectInputs[(DamlStateKey, DamlStateValue), Map[DamlStateKey, DamlStateValue]] {
           case (key, Some(value)) if key.hasContractKey => key -> value
@@ -58,6 +60,7 @@ private[transaction] object ContractKeysValidation {
           stateAfterMonotonicityCheck,
         )
       } yield finalState
+    }
   }
 
   private def performTraversalContractKeysChecks(

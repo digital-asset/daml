@@ -76,7 +76,6 @@ object Hash {
 
   implicit val order: Order[Hash] = Order.fromScalaOrdering
 
-  @throws[HashingError]
   private[lf] val aCid2Bytes: Value.ContractId => Bytes = {
     case cid @ Value.ContractId.V1(_, _) =>
       cid.toBytes
@@ -84,7 +83,6 @@ object Hash {
       Utf8.getBytes(s)
   }
 
-  @throws[HashingError]
   private[lf] val noCid2String: Value.ContractId => Nothing =
     _ => error("Contract IDs are not supported in contract keys.")
 
@@ -213,8 +211,6 @@ object Hash {
           iterateOver(xs.toImmArray)((acc, x) => acc.add(x._1).addTypedValue(x._2))
         case Value.ValueRecord(_, fs) =>
           iterateOver(fs)(_ addTypedValue _._2)
-        case Value.ValueBuiltinException(tag, v) =>
-          add(tag).addTypedValue(v)
         case Value.ValueVariant(_, variant, v) =>
           add(variant).addTypedValue(v)
         case Value.ValueEnum(_, v) =>

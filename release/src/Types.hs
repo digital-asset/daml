@@ -13,7 +13,8 @@ module Types (
     MavenCoords(..),
     MavenUploadConfig(..),
     MonadCI,
-    OnlyScala(..),
+    IncludeDocs(..),
+    IncludeTypescript(..),
     OS(..),
     PerformUpload(..),
     (#),
@@ -109,7 +110,10 @@ type GitRev = Text
 newtype PerformUpload = PerformUpload{getPerformUpload :: Bool}
     deriving (Eq, Show)
 
-newtype OnlyScala = OnlyScala{getOnlyScala :: Bool}
+-- | Whether documentation should be included as well.
+-- This is useful to disable if you run this via daml-sdk-head where you often
+-- don’t care about documentation.
+newtype IncludeDocs = IncludeDocs{includeDocs :: Bool}
     deriving (Eq, Show)
 
 newtype MavenAllowUnsecureTls = MavenAllowUnsecureTls { getAllowUnsecureTls :: Bool }
@@ -132,3 +136,7 @@ instance FromJSON MavenUploadConfig where
         <*> o .: "password"
         <*> (fromMaybe (MavenAllowUnsecureTls False) <$> o .:? "allowUnsecureTls")
         <*> o .: "signingKey"
+
+-- | Whether typescript packages should also be built and uploaded.
+newtype IncludeTypescript = IncludeTypescript { getIncludeTypescript :: Bool}
+  deriving (Eq, Show)

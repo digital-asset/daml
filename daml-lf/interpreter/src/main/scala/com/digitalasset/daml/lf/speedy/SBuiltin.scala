@@ -753,8 +753,7 @@ private[lf] object SBuiltin {
 
   /** $rcon[R, fields] :: a -> b -> ... -> R */
   final case class SBRecCon(id: Identifier, fields: ImmArray[Name])
-      extends SBuiltinPure(fields.length)
-      with SomeArrayEquals {
+      extends SBuiltinPure(fields.length) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       SRecord(id, fields, args)
     }
@@ -774,9 +773,8 @@ private[lf] object SBuiltin {
   }
 
   /** $rupdmulti[R, [field_1, ..., field_n]] :: R -> a_1 -> ... -> a_n -> R */
-  final case class SBRecUpdMulti(id: Identifier, updateFields: Array[Int])
-      extends SBuiltinPure(1 + updateFields.length)
-      with SomeArrayEquals {
+  final case class SBRecUpdMulti(id: Identifier, updateFields: ImmArray[Int])
+      extends SBuiltinPure(1 + updateFields.length) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       val record = getSRecord(args, 0)
       if (record.id != id) {
@@ -1165,72 +1163,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $lookupKey[T]
-    *   :: { key: key, maintainers: List Party }
-    *   -> Maybe (ContractId T)
-    */
-  final case class SBULookupKey(templateId: TypeConName) extends OnLedgerBuiltin(1) {
-    private[this] val typ = AstUtil.TContractId(Ast.TTyCon(templateId))
-    override protected final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-        onLedger: OnLedger,
-    ): Unit = {
-      val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
-      if (keyWithMaintainers.maintainers.isEmpty)
-        throw DamlEFetchEmptyContractKeyMaintainers(templateId, keyWithMaintainers.key)
-      val gkey = GlobalKey(templateId, keyWithMaintainers.key)
-      // check if we find it locally
-      onLedger.ptx.keys.get(gkey) match {
-        case Some(Some(coid)) if onLedger.ptx.localContracts.contains(coid) =>
-          val cachedContract = onLedger.cachedContracts
-            .get(coid)
-            .getOrElse(crash(s"Local contract $coid not in cachedContracts"))
-          val stakeholders = cachedContract.signatories union cachedContract.observers
-          throw SpeedyHungry(
-            SResultNeedLocalKeyVisible(
-              stakeholders,
-              onLedger.committers,
-              {
-                case SVisibleByKey.Visible =>
-                  machine.returnValue = SOptional(Some(SContractId(coid)))
-                case SVisibleByKey.NotVisible(actAs, readAs) =>
-                  machine.ctrl = SEDamlException(
-                    DamlELocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
-                  )
-              },
-            )
-          )
-        case Some(mbCoid) =>
-          machine.returnValue = SOptional(mbCoid.map(SContractId))
-        case None =>
-          // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
-          // that.
-          throw SpeedyHungry(
-            SResultNeedKey(
-              GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
-              onLedger.committers,
-              {
-                case SKeyLookupResult.Found(cid) =>
-                  onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> Some(cid)))
-                  // We have to check that the discriminator of cid does not conflict with a local ones
-                  // however we cannot raise an exception in case of failure here.
-                  // We delegate to CtrlImportValue the task to check cid.
-                  machine.ctrl = SBSome(SEImportValue(typ, V.ValueContractId(cid)))
-                  true
-                case SKeyLookupResult.NotFound =>
-                  onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> None))
-                  machine.returnValue = SV.None
-                  true
-                case SKeyLookupResult.NotVisible =>
-                  machine.tryHandleSubmitMustFail()
-              },
-            )
-          )
-      }
-    }
-  }
-
   /** $insertLookup[T]
     *    :: { key : key, maintainers: List Party}
     *    -> Maybe (ContractId T)
@@ -1267,29 +1199,85 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $fetchKey[T]
-    *   :: { key: key, maintainers: List Party }
-    *   -> ContractId T
-    */
-  final case class SBUFetchKey(templateId: TypeConName) extends OnLedgerBuiltin(1) {
+  private[this] abstract class KeyOperation {
+    val templateId: TypeConName
     private[this] val typ = AstUtil.TContractId(Ast.TTyCon(templateId))
-    override protected final def execute(
-        args: util.ArrayList[SValue],
+
+    final protected def importCid(cid: V.ContractId): SEImportValue =
+      SEImportValue(typ, V.ValueContractId(cid))
+    // Callback from the engine returned NotFound
+    def handleInputKeyNotFound(machine: Machine): Boolean
+    // CallBack from the engine returned a new Cid
+    def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit
+    // We already saw this key, but it was undefined or was archived
+    def handleInactiveKey(machine: Machine, gkey: GlobalKey): Unit
+    // We already saw this key and it is still active
+    def handleActiveKey(machine: Machine, cid: V.ContractId): Unit
+
+    final def handleKnownInputKey(
         machine: Machine,
-        onLedger: OnLedger,
-    ): Unit = {
+        gkey: GlobalKey,
+        keyMapping: PartialTransaction.KeyMapping,
+    ): Unit =
+      keyMapping match {
+        case PartialTransaction.KeyActive(cid) => handleActiveKey(machine, cid)
+        case PartialTransaction.KeyInactive => handleInactiveKey(machine, gkey)
+      }
+  }
+
+  private[this] object KeyOperation {
+    final class Fetch(override val templateId: TypeConName) extends KeyOperation {
+      override def handleInputKeyNotFound(machine: Machine): Boolean =
+        machine.tryHandleSubmitMustFail()
+      override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
+        machine.ctrl = importCid(cid)
+      override def handleInactiveKey(machine: Machine, gkey: GlobalKey): Unit =
+        // TODO (MK) Produce a proper error here.
+        crash(s"Could not find key $gkey")
+      override def handleActiveKey(machine: Machine, cid: V.ContractId): Unit =
+        machine.returnValue = SContractId(cid)
+    }
+
+    final class Lookup(override val templateId: TypeConName) extends KeyOperation {
+      override def handleInputKeyNotFound(machine: Machine): Boolean = {
+        machine.returnValue = SValue.SValue.None
+        true
+      }
+      override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
+        machine.ctrl = SBSome(importCid(cid))
+      override def handleInactiveKey(machine: Machine, key: GlobalKey): Unit =
+        machine.returnValue = SValue.SValue.None
+      override def handleActiveKey(machine: Machine, cid: V.ContractId): Unit =
+        machine.returnValue = SOptional(Some(SContractId(cid)))
+    }
+  }
+
+  private[speedy] sealed abstract class SBUKeyBuiltin(operation: KeyOperation)
+      extends OnLedgerBuiltin(1) {
+
+    private def cacheGlobalLookup(onLedger: OnLedger, gkey: GlobalKey, result: SKeyLookupResult) = {
+      import PartialTransaction.{KeyActive, KeyInactive}
+      val keyMapping = result match {
+        case SKeyLookupResult.Found(cid) => KeyActive(cid)
+        case SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible => KeyInactive
+      }
+      onLedger.ptx = onLedger.ptx.copy(
+        globalKeyInputs = onLedger.ptx.globalKeyInputs.updated(gkey, keyMapping)
+      )
+    }
+
+    final def execute(args: util.ArrayList[SValue], machine: Machine, onLedger: OnLedger): Unit = {
+      import PartialTransaction.{KeyActive, KeyInactive}
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       if (keyWithMaintainers.maintainers.isEmpty)
-        throw DamlEFetchEmptyContractKeyMaintainers(templateId, keyWithMaintainers.key)
-      val gkey = GlobalKey(templateId, keyWithMaintainers.key)
+        throw DamlEFetchEmptyContractKeyMaintainers(operation.templateId, keyWithMaintainers.key)
+      val gkey = GlobalKey(operation.templateId, keyWithMaintainers.key)
       // check if we find it locally
       onLedger.ptx.keys.get(gkey) match {
-        case Some(None) =>
-          crash(s"Could not find key $gkey")
-        case Some(Some(coid)) if onLedger.ptx.localContracts.contains(coid) =>
+        case Some(PartialTransaction.KeyActive(coid))
+            if onLedger.ptx.localContracts.contains(coid) =>
           val cachedContract = onLedger.cachedContracts
-            .get(coid)
-            .getOrElse(crash(s"Local contract $coid not in cachedContracts"))
+            .getOrElse(coid, crash(s"Local contract $coid not in cachedContracts"))
           val stakeholders = cachedContract.signatories union cachedContract.observers
           throw SpeedyHungry(
             SResultNeedLocalKeyVisible(
@@ -1297,7 +1285,7 @@ private[lf] object SBuiltin {
               onLedger.committers,
               {
                 case SVisibleByKey.Visible =>
-                  machine.returnValue = SContractId(coid)
+                  operation.handleActiveKey(machine, coid)
                 case SVisibleByKey.NotVisible(actAs, readAs) =>
                   machine.ctrl = SEDamlException(
                     DamlELocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
@@ -1305,32 +1293,72 @@ private[lf] object SBuiltin {
               },
             )
           )
-        case Some(Some(coid)) =>
-          machine.returnValue = SContractId(coid)
+        case Some(keyMapping) =>
+          operation.handleKnownInputKey(machine, gkey, keyMapping)
         case None =>
-          // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
-          // that.
-          throw SpeedyHungry(
-            SResultNeedKey(
-              GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
-              onLedger.committers,
-              {
-                case SKeyLookupResult.Found(cid) =>
-                  onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> Some(cid)))
-                  // We have to check that the discriminator of cid does not conflict with a local ones
-                  // however we cannot raise an exception in case of failure here.
-                  // We delegate to CtrlImportValue the task to check cid.
-                  machine.ctrl = SEImportValue(typ, V.ValueContractId(cid))
-                  true
-                case SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible =>
-                  onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys + (gkey -> None))
-                  machine.tryHandleSubmitMustFail()
-              },
-            )
-          )
+          // Check if we have a cached global key result.
+          onLedger.ptx.globalKeyInputs.get(gkey) match {
+            case Some(keyMapping) =>
+              onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys.updated(gkey, keyMapping))
+              operation.handleKnownInputKey(machine, gkey, keyMapping)
+            case None =>
+              // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
+              // that.
+              throw SpeedyHungry(
+                SResultNeedKey(
+                  GlobalKeyWithMaintainers(gkey, keyWithMaintainers.maintainers),
+                  onLedger.committers,
+                  { result =>
+                    cacheGlobalLookup(onLedger, gkey, result)
+                    // We need to check if the contract was consumed since we only
+                    // modify keys if the archive was for a key
+                    // already brought into scope.
+                    val activeResult = result match {
+                      case SKeyLookupResult.Found(cid) if onLedger.ptx.consumedBy.contains(cid) =>
+                        SKeyLookupResult.NotFound
+                      case SKeyLookupResult.Found(_) | SKeyLookupResult.NotFound |
+                          SKeyLookupResult.NotVisible =>
+                        result
+                    }
+                    activeResult match {
+                      case SKeyLookupResult.Found(cid) =>
+                        onLedger.ptx = onLedger.ptx.copy(
+                          keys = onLedger.ptx.keys.updated(gkey, KeyActive(cid))
+                        )
+                        // We have to check that the discriminator of cid does not conflict with a local ones
+                        // however we cannot raise an exception in case of failure here.
+                        // We delegate to CtrlImportValue the task to check cid.
+                        operation.handleInputKeyFound(machine, cid)
+                        true
+                      case SKeyLookupResult.NotFound =>
+                        onLedger.ptx = onLedger.ptx.copy(
+                          keys = onLedger.ptx.keys.updated(gkey, KeyInactive)
+                        )
+                        operation.handleInputKeyNotFound(machine)
+                      case SKeyLookupResult.NotVisible =>
+                        machine.tryHandleSubmitMustFail()
+                    }
+                  },
+                )
+              )
+          }
       }
     }
   }
+
+  /** $fetchKey[T]
+    *   :: { key: key, maintainers: List Party }
+    *   -> ContractId T
+    */
+  final case class SBUFetchKey(templateId: TypeConName)
+      extends SBUKeyBuiltin(new KeyOperation.Fetch(templateId))
+
+  /** $lookupKey[T]
+    *   :: { key: key, maintainers: List Party }
+    *   -> Maybe (ContractId T)
+    */
+  final case class SBULookupKey(templateId: TypeConName)
+      extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId))
 
   /** $getTime :: Token -> Timestamp */
   final case object SBGetTime extends SBuiltin(1) {
@@ -1605,8 +1633,6 @@ private[lf] object SBuiltin {
 
   private def exceptionMessage(ty: Ast.Type): SExpr =
     ty match {
-      case AstUtil.TGeneralError | AstUtil.TArithmeticError | AstUtil.TContractError =>
-        SEBuiltin(SBBuiltinErrorMessage)
       case Ast.TTyCon(tyCon) =>
         SEVal(ExceptionMessageDefRef(tyCon))
       case _ => crash(s"$ty is not a valid exception type")

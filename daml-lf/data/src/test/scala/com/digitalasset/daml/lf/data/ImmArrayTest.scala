@@ -28,8 +28,23 @@ class ImmArrayTest extends AnyFlatSpec with Matchers with FlatSpecCheckLaws {
 
   it should "copy to array" in {
     val arr: Array[Int] = new Array(5)
-    ImmArray(1, 2, 3, 4, 5).copyToArray(arr)
-    arr.toSeq shouldBe Array[Int](1, 2, 3, 4, 5).toSeq
+    val copied = ImmArray(1, 2, 3, 4, 5).copyToArray(arr)
+    copied shouldBe 5
+    arr.toSeq shouldBe Seq(1, 2, 3, 4, 5)
+  }
+
+  it should "copy to a shorter array" in {
+    val arr: Array[Int] = new Array(4)
+    val copied = ImmArray(1, 2, 3, 4, 5).copyToArray(arr)
+    copied shouldBe 4
+    arr.toSeq shouldBe Seq(1, 2, 3, 4)
+  }
+
+  it should "copy to a longer array" in {
+    val arr: Array[Int] = new Array(6)
+    val copied = ImmArray(1, 2, 3, 4, 5).copyToArray(arr)
+    copied shouldBe 5
+    arr.toSeq shouldBe Seq(1, 2, 3, 4, 5, 0)
   }
 
   it should "append" in {

@@ -5,8 +5,10 @@ package com.daml.ledger.client.binding.config
 
 import pureconfig.ConfigConvert
 
+import scala.annotation.nowarn
 import scala.util.{Failure, Success, Try}
 
+@nowarn("msg=parameter value evidence.* is never used")
 class Positive[T: Numeric] private (val value: T) {
   override def toString: String = value.toString
 }
