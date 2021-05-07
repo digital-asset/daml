@@ -60,7 +60,7 @@ object LedgerApiBenchTool {
     }
   }
 
-  // TODO: add TLS
+  // TODO: add TLS compatible with the ledger-api-test-tool
   private def channelOwner(ledger: Config.Ledger, executor: Executor): ResourceOwner[Channel] = {
     val MessageChannelSizeBytes: Int = 32 * 1024 * 1024 // 32 MiB
     val ShutdownTimeout: FiniteDuration = 5.seconds

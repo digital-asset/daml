@@ -28,7 +28,7 @@ final class TransactionService(channel: Channel, ledgerId: String) {
       beginOffset = ledgerBeginOffset,
       endOffset = ledgerEndOffset,
     )
-    val observer = new LogOnlyObserver[GetTransactionsResponse]
+    val observer = new LogOnlyObserver[GetTransactionsResponse](logger)
     service.getTransactions(request, observer)
     logger.info("Started fetching transactions")
     observer
@@ -41,7 +41,7 @@ final class TransactionService(channel: Channel, ledgerId: String) {
       beginOffset = ledgerBeginOffset,
       endOffset = ledgerEndOffset,
     )
-    val observer = new LogOnlyObserver[GetTransactionTreesResponse]
+    val observer = new LogOnlyObserver[GetTransactionTreesResponse](logger)
     service.getTransactionTrees(request, observer)
     logger.info("Started fetching transaction trees")
     observer

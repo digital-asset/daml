@@ -3,11 +3,10 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
-import org.slf4j.LoggerFactory
+import org.slf4j.Logger
 
 // TODO: add metrics
-class LogOnlyObserver[T] extends ManagedStreamObserver[T] {
-  private val logger = LoggerFactory.getLogger(getClass)
+class LogOnlyObserver[T](logger: Logger) extends ManagedStreamObserver[T] {
 
   override def onNext(value: T): Unit = {
     logger.debug(s"Received message: $value")
