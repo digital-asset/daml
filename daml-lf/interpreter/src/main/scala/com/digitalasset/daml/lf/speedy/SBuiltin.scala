@@ -1299,12 +1299,8 @@ private[lf] object SBuiltin {
           // Check if we have a cached global key result.
           onLedger.ptx.globalKeyInputs.get(gkey) match {
             case Some(optCid) =>
-              val optActiveCid = optCid match {
-                case KeyActive(cid) if onLedger.ptx.consumedBy.contains(cid) => KeyInactive
-                case _ => optCid
-              }
-              onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys.updated(gkey, optActiveCid))
-              operation.handleKnownInputKey(machine, gkey, optActiveCid)
+              onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys.updated(gkey, optCid))
+              operation.handleKnownInputKey(machine, gkey, optCid)
             case None =>
               // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
               // that.
