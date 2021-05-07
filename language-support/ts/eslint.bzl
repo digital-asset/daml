@@ -16,6 +16,7 @@ def eslint_test(name, srcs, tsconfig = ":tsconfig.json", eslintrc = ":.eslintrc.
     """
     eslint_deps = [
         "@language_support_ts_deps//@typescript-eslint",
+        "@language_support_ts_deps//@typescript-eslint/eslint-plugin",
         "@language_support_ts_deps//tsutils",
     ] if not is_windows else []
     templated_args = [
