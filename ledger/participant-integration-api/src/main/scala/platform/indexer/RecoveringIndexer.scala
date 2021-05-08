@@ -51,7 +51,7 @@ private[indexer] final class RecoveringIndexer(
       handle
     })
     subscription.set(firstSubscription)
-    resubscribeOnFailure(firstSubscription, ())
+    resubscribeOnFailure(firstSubscription) {}
 
     def waitForRestart(
         delayUntil: Instant = clock.instant().plusMillis(restartDelay.toMillis)
@@ -105,9 +105,8 @@ private[indexer] final class RecoveringIndexer(
       } yield ()
 
     def resubscribeOnFailure(
-        currentSubscription: Resource[IndexFeedHandle],
-        actOnSuccess: => Unit,
-    ): Unit =
+        currentSubscription: Resource[IndexFeedHandle]
+    )(actOnSuccess: => Unit): Unit =
       currentSubscription.asFuture.onComplete {
         case Success(handle) =>
           actOnSuccess
