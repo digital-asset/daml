@@ -34,11 +34,12 @@ class MetricalStreamObserver[T](reportingPeriod: Long, logger: Logger)(
     val duration = totalDurationSeconds
     val rate = transactionCount.get() / duration
     val sizeRate =
-      if (sizeRateList.nonEmpty) s"${sizeRateList.sum / sizeRateList.length}"
+      if (sizeRateList.nonEmpty) s"${rounded(sizeRateList.sum / sizeRateList.length)}"
       else "-"
 
     logger.info(
-      s"Processed ${transactionCount.get()} transactions in $duration [s], average rate: $rate [tx/s], $sizeRate [MB/s]"
+      s"Processed ${transactionCount
+        .get()} transactions in ${rounded(duration)} [s], average rate: ${rounded(rate)} [tx/s], $sizeRate} [MB/s]"
     )
     super.onCompleted()
   }
@@ -54,9 +55,13 @@ class MetricalStreamObserver[T](reportingPeriod: Long, logger: Logger)(
       val rate = (count - lastCount.get()) * 1000.0 / periodMillis
       val sizeRate = currentSizeBucket.get() * 1000.0 / 1024 / 1024 / periodMillis
       sizeRateList += sizeRate
-      logger.info(s"Rate: $rate [tx/s], $sizeRate [MB/s], total count: ${transactionCount.get()}.")
+      logger.info(
+        s"Rate: ${rounded(rate)} [tx/s], ${rounded(sizeRate)} [MB/s], total count: ${transactionCount.get()}."
+      )
       lastCount.set(count)
     }
   }
+
+  private def rounded(value: Double): String = "%.2f".format(value)
 
 }
