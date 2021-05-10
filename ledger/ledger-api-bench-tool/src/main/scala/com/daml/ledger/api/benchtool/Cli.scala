@@ -5,9 +5,11 @@ package com.daml.ledger.api.benchtool
 
 import scopt.{OParser, Read}
 
+import scala.concurrent.duration.Duration
+
 object Cli {
   def config(args: Array[String]): Option[Config] =
-    OParser.parse(parser, args, defaultConfig)
+    OParser.parse(parser, args, Config.Default)
 
   private val parser = {
     val builder = OParser.builder[Config]
@@ -31,24 +33,13 @@ object Cli {
         )
         .valueName("streamType=<transactions|transaction-trees>,name=<streamName>,party=<party>")
         .action { case (streamConfig, config) => config.copy(streamConfig = Some(streamConfig)) },
+      opt[Duration]("reporting-period")
+        .abbr("r")
+        .text("Reporting period")
+        .action { case (period, config) => config.copy(reportingPeriod = period) },
       help("help").text("Prints this information"),
     )
   }
-
-  private val defaultConfig: Config =
-    Config(
-      ledger = Config.Ledger(
-        hostname = "localhost",
-        port = 6865,
-      ),
-      concurrency = Config.Concurrency(
-        corePoolSize = 2,
-        maxPoolSize = 8,
-        keepAliveTime = 30,
-        maxQueueLength = 10000,
-      ),
-      streamConfig = None,
-    )
 
   private object Reads {
     implicit val streamConfigRead: Read[Config.StreamConfig] =

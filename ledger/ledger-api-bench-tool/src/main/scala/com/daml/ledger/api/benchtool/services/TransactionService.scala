@@ -7,17 +7,18 @@ import com.daml.ledger.api.benchtool.metrics.MetricalStreamObserver
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
-  GetTransactionsResponse,
   GetTransactionTreesResponse,
   GetTransactionsRequest,
+  GetTransactionsResponse,
   TransactionServiceGrpc,
 }
 import io.grpc.Channel
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
+import scala.concurrent.duration.Duration
 
-final class TransactionService(channel: Channel, ledgerId: String) {
+final class TransactionService(channel: Channel, ledgerId: String, reportingPeriod: Duration) {
   private val logger = LoggerFactory.getLogger(getClass)
   private val service: TransactionServiceGrpc.TransactionServiceStub =
     TransactionServiceGrpc.stub(channel)
@@ -30,8 +31,6 @@ final class TransactionService(channel: Channel, ledgerId: String) {
       beginOffset = ledgerBeginOffset,
       endOffset = dummyEndOffset,
     )
-    // TODO: make it a configurable parameter
-    val reportingPeriod: Long = 500
     val observer = new MetricalStreamObserver[GetTransactionsResponse](reportingPeriod, logger)(
       _.transactions.length,
       _.serializedSize,
@@ -48,8 +47,6 @@ final class TransactionService(channel: Channel, ledgerId: String) {
       beginOffset = ledgerBeginOffset,
       endOffset = ledgerEndOffset,
     )
-    // TODO: make it a configurable parameter
-    val reportingPeriod: Long = 500
     val observer = new MetricalStreamObserver[GetTransactionTreesResponse](reportingPeriod, logger)(
       _.transactions.length,
       _.serializedSize,

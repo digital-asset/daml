@@ -45,7 +45,7 @@ object LedgerApiBenchTool {
     channel.use { channel =>
       val ledgerIdentityService: LedgerIdentityService = new LedgerIdentityService(channel)
       val ledgerId: String = ledgerIdentityService.fetchLedgerId()
-      val transactionService = new TransactionService(channel, ledgerId)
+      val transactionService = new TransactionService(channel, ledgerId, config.reportingPeriod)
       config.streamConfig
         .map { streamConfig =>
           streamConfig.streamType match {

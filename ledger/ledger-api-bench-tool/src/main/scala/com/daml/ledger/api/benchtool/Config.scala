@@ -3,10 +3,13 @@
 
 package com.daml.ledger.api.benchtool
 
+import scala.concurrent.duration._
+
 case class Config(
     ledger: Config.Ledger,
     concurrency: Config.Concurrency,
     streamConfig: Option[Config.StreamConfig],
+    reportingPeriod: Duration,
 )
 
 object Config {
@@ -36,4 +39,19 @@ object Config {
       maxQueueLength: Int,
   )
 
+  val Default: Config =
+    Config(
+      ledger = Config.Ledger(
+        hostname = "localhost",
+        port = 6865,
+      ),
+      concurrency = Config.Concurrency(
+        corePoolSize = 2,
+        maxPoolSize = 8,
+        keepAliveTime = 30,
+        maxQueueLength = 10000,
+      ),
+      streamConfig = None,
+      reportingPeriod = 5.seconds,
+    )
 }
