@@ -3,7 +3,7 @@
 
 package com.daml.script.export
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Paths}
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -86,13 +86,12 @@ class ConfigSpec extends AnyFreeSpec with Matchers with OptionValues {
         val crtPath = rlocation("ledger/test-common/test-certificates/client.crt")
         val args = defaultRequiredArgs ++ Array("--pem", pemPath, "--crt", crtPath)
         val optConfig = Config.parse(args)
-        optConfig.value.tlsConfig.keyFile.value.toPath shouldBe Files.isSameFile(
-          _: Path,
-          Paths.get(pemPath),
-        )
-        optConfig.value.tlsConfig.keyCertChainFile.value.toPath shouldBe Files.isSameFile(
-          _: Path,
-          Paths.get(crtPath),
+        assert(Files.isSameFile(optConfig.value.tlsConfig.keyFile.value.toPath, Paths.get(pemPath)))
+        assert(
+          Files.isSameFile(
+            optConfig.value.tlsConfig.keyCertChainFile.value.toPath,
+            Paths.get(crtPath),
+          )
         )
       }
     }
