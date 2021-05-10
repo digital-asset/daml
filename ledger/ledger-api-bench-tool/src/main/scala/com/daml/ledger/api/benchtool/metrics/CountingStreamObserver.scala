@@ -3,15 +3,14 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
-import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
 import org.slf4j.Logger
 
 import java.time.Instant
 import java.util.{Timer, TimerTask}
 import java.util.concurrent.atomic.AtomicInteger
 
-class TransactionsStreamObserver(reportingPeriod: Long, logger: Logger)
-    extends LogOnlyObserver[GetTransactionsResponse](logger) {
+class CountingStreamObserver[T](reportingPeriod: Long, logger: Logger)(countingFunction: T => Int)
+    extends LogOnlyObserver[T](logger) {
 
   private val timer = new Timer(true)
   timer.schedule(new LogTransactionCountTask(reportingPeriod), 0, reportingPeriod)
@@ -19,9 +18,9 @@ class TransactionsStreamObserver(reportingPeriod: Long, logger: Logger)
   private val transactionCount = new AtomicInteger()
   private val startTime = Instant.now()
 
-  override def onNext(value: GetTransactionsResponse): Unit = {
+  override def onNext(value: T): Unit = {
     Thread.sleep(100)
-    transactionCount.addAndGet(value.transactions.length)
+    transactionCount.addAndGet(countingFunction(value))
     super.onNext(value)
   }
 
