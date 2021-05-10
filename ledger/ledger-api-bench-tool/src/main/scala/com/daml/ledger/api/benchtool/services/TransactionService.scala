@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.benchtool.services
 
-import com.daml.ledger.api.benchtool.metrics.CountingStreamObserver
+import com.daml.ledger.api.benchtool.metrics.MetricalStreamObserver
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
@@ -32,8 +32,9 @@ final class TransactionService(channel: Channel, ledgerId: String) {
     )
     // TODO: make it a configurable parameter
     val reportingPeriod: Long = 500
-    val observer = new CountingStreamObserver[GetTransactionsResponse](reportingPeriod, logger)(
-      _.transactions.length
+    val observer = new MetricalStreamObserver[GetTransactionsResponse](reportingPeriod, logger)(
+      _.transactions.length,
+      _.serializedSize,
     )
     service.getTransactions(request, observer)
     logger.info("Started fetching transactions")
@@ -49,8 +50,9 @@ final class TransactionService(channel: Channel, ledgerId: String) {
     )
     // TODO: make it a configurable parameter
     val reportingPeriod: Long = 500
-    val observer = new CountingStreamObserver[GetTransactionTreesResponse](reportingPeriod, logger)(
-      _.transactions.length
+    val observer = new MetricalStreamObserver[GetTransactionTreesResponse](reportingPeriod, logger)(
+      _.transactions.length,
+      _.serializedSize,
     )
     service.getTransactionTrees(request, observer)
     logger.info("Started fetching transaction trees")
