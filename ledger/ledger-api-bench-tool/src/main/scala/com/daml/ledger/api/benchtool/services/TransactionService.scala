@@ -38,7 +38,7 @@ final class TransactionService(channel: Channel, ledgerId: String) {
     )
     service.getTransactions(request, observer)
     logger.info("Started fetching transactions")
-    observer.completion
+    observer.result
   }
 
   def transactionTrees(party: String): Future[Unit] = {
@@ -56,7 +56,7 @@ final class TransactionService(channel: Channel, ledgerId: String) {
     )
     service.getTransactionTrees(request, observer)
     logger.info("Started fetching transaction trees")
-    observer.completion
+    observer.result
   }
 
   private def getTransactionsRequest(

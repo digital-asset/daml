@@ -13,7 +13,7 @@ import scala.collection.mutable.ListBuffer
 class MetricalStreamObserver[T](reportingPeriod: Long, logger: Logger)(
     countingFunction: T => Int,
     sizingFunction: T => Int,
-) extends LogOnlyObserver[T](logger) {
+) extends ObserverWithResult[T](logger) {
 
   private val timer = new Timer(true)
   timer.schedule(new LogTransactionCountTask(reportingPeriod), 0, reportingPeriod)
@@ -54,6 +54,7 @@ class MetricalStreamObserver[T](reportingPeriod: Long, logger: Logger)(
       val count = transactionCount.get()
       val rate = (count - lastCount.get()) * 1000.0 / periodMillis
       val sizeRate = currentSizeBucket.get() * 1000.0 / 1024 / 1024 / periodMillis
+      currentSizeBucket.set(0)
       sizeRateList += sizeRate
       logger.info(
         s"Rate: ${rounded(rate)} [tx/s], ${rounded(sizeRate)} [MB/s], total count: ${transactionCount.get()}."
