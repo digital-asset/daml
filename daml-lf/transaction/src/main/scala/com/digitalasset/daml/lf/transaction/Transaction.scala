@@ -483,6 +483,132 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
     }
   }
 
+  /** Return the expected contract key inputs (i.e. the state before the transaction)
+    * for this transaction or an error if the transaction contains a
+    * duplicate key error or has an inconsistent mapping for a key.
+    *
+    * Because we do not preserve byKey flags across transaction serialization
+    * this method will consider all operations with keys for conflicts
+    * rather than just by-key operations.
+    */
+  @throws[IllegalArgumentException](
+    "If a contract key contains a contract id"
+  )
+  final def contractKeyInputs(implicit
+      evidence: HasTxNodes[Nid, Cid] <:< HasTxNodes[_, Value.ContractId]
+  ): Either[GlobalKey, Map[GlobalKey, Option[Value.ContractId]]] = {
+    val evThis = evidence(this)
+    val localContracts = evThis.localContracts
+    final case class State(
+        keys: Map[GlobalKey, Option[Value.ContractId]],
+        rollbackStack: List[Map[GlobalKey, Option[Value.ContractId]]],
+        keyInputs: Map[GlobalKey, Option[Value.ContractId]],
+    ) {
+      def setKeyMapping(
+          key: GlobalKey,
+          value: Option[Value.ContractId],
+      ): Either[GlobalKey, State] = {
+        keyInputs.get(key) match {
+          case Some(prev) if prev != value => Left(key)
+          case _ => Right(copy(keyInputs = keyInputs.updated(key, value)))
+        }
+      }
+      def assertKeyMapping(
+          templateId: Identifier,
+          cid: Value.ContractId,
+          optKey: Option[Node.KeyWithMaintainers[Value[Value.ContractId]]],
+      ): Either[GlobalKey, State] =
+        optKey.fold[Either[GlobalKey, State]](Right(this)) { key =>
+          val gk = GlobalKey.assertBuild(templateId, key.key)
+          keys.get(gk) match {
+            case Some(keyMapping) if Some(cid) != keyMapping => Left(gk)
+            case _ =>
+              val r = copy(keys = keys.updated(gk, Some(cid)))
+              if (localContracts.contains(cid)) {
+                Right(r)
+              } else {
+                r.setKeyMapping(gk, Some(cid))
+              }
+          }
+        }
+      def handleExercise(exe: Node.NodeExercises[_, Value.ContractId]) =
+        assertKeyMapping(exe.templateId, exe.targetCoid, exe.key).map { state =>
+          exe.key.fold(state) { key =>
+            val gk = GlobalKey.assertBuild(exe.templateId, key.key)
+            if (exe.consuming) {
+              state.copy(
+                keys = keys.updated(gk, None)
+              )
+            } else {
+              state
+            }
+          }
+        }
+
+      def handleCreate(create: Node.NodeCreate[Value.ContractId]) =
+        create.key.fold[Either[GlobalKey, State]](Right(this)) { key =>
+          val gk = GlobalKey.assertBuild(create.templateId, key.key)
+          keys.get(gk).orElse(keyInputs.get(gk)) match {
+            case None =>
+              Right(
+                copy(
+                  keys = keys.updated(gk, Some(create.coid)),
+                  keyInputs = keyInputs.updated(gk, None),
+                )
+              )
+            case Some(None) =>
+              Right(copy(keys = keys.updated(gk, Some(create.coid))))
+            case Some(Some(_)) =>
+              Left(gk)
+          }
+        }
+
+      def handleLookup(lookup: Node.NodeLookupByKey[Value.ContractId]) = {
+        val gk = GlobalKey.assertBuild(lookup.templateId, lookup.key.key)
+        keys.get(gk) match {
+          case None => setKeyMapping(gk, lookup.result)
+          case Some(optCid) =>
+            if (optCid != lookup.result) {
+              Left(gk)
+            } else {
+              // No need to update anything, we updated keyInputs when we updated keys.
+              Right(this)
+            }
+        }
+      }
+
+      def handleLeaf(leaf: Node.LeafOnlyActionNode[Value.ContractId]): Either[GlobalKey, State] =
+        leaf match {
+          case create: Node.NodeCreate[Value.ContractId] =>
+            handleCreate(create)
+          case fetch: Node.NodeFetch[Value.ContractId] =>
+            assertKeyMapping(fetch.templateId, fetch.coid, fetch.key)
+          case lookup: Node.NodeLookupByKey[Value.ContractId] =>
+            handleLookup(lookup)
+        }
+      def beginRollback(): State =
+        copy(
+          rollbackStack = keys :: rollbackStack
+        )
+      def endRollback(): State =
+        copy(
+          keys = rollbackStack.head,
+          rollbackStack = rollbackStack.tail,
+        )
+    }
+    evThis
+      .foldInExecutionOrder[Either[GlobalKey, State]](
+        Right(State(Map.empty, List.empty, Map.empty))
+      )(
+        exerciseBegin = (acc, _, exe) => (acc.flatMap(_.handleExercise(exe)), true),
+        exerciseEnd = (acc, _, _) => acc,
+        rollbackBegin = (acc, _, _) => (acc.map(_.beginRollback()), true),
+        rollbackEnd = (acc, _, _) => acc.map(_.endRollback()),
+        leaf = (acc, _, leaf) => acc.flatMap(_.handleLeaf(leaf)),
+      )
+      .map(_.keyInputs)
+  }
+
   /** The contract keys created or updated as part of the transaction.
     *  This includes updates to transient contracts (by mapping them to None)
     *  but it does not include any updates under rollback nodes.
