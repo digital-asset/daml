@@ -112,9 +112,9 @@ case class ReadWriteServiceBridge(
   var stateUpdatesWasCalledAlready = false
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
     // TODO for PoC purposes:
-    //   no beginAfter supported
-    //   neither multiple subscriptions
-    //   neither bootstrapping the bridge from indexer persistence
+    //   This method may only be called once, either with `beginAfter` set or unset.
+    //   A second call will result in an error unless the server is restarted.
+    //   Bootstrapping the bridge from indexer persistence is supported.
     synchronized {
       if (stateUpdatesWasCalledAlready)
         throw new IllegalStateException("not allowed to call this twice")
