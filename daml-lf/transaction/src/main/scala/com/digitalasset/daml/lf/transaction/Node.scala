@@ -20,11 +20,15 @@ object Node {
       extends Product
       with Serializable
       with CidContainer[GenNode[Nid, Cid]] {
-    def version: TransactionVersion
+
+    private[lf] def updateVersion(version: TransactionVersion): GenNode[Nid, Cid]
 
     def foreach2(fNid: Nid => Unit, fCid: Cid => Unit): Unit
 
-    private[lf] def updateVersion(version: TransactionVersion): GenNode[Nid, Cid]
+    def optVersion: Option[TransactionVersion] = this match {
+      case node: GenActionNode[_, _] => Some(node.version)
+      case _: NodeRollback[_] => None
+    }
   }
 
   object GenNode extends CidContainer2[GenNode] {
@@ -51,6 +55,8 @@ object Node {
       extends GenNode[Nid, Cid]
       with ActionNodeInfo
       with CidContainer[GenActionNode[Nid, Cid]] {
+
+    def version: TransactionVersion
 
     def templateId: TypeConName
 
@@ -365,17 +371,10 @@ object Node {
   }
 
   final case class NodeRollback[+Nid](
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      // Figure-out what information needs to be contained in a Rollback node.
-      // For the moment, we just have the children.
-      // Note: if we add values, we must extend the function which checks they are serializable
-      children: ImmArray[Nid],
-      // For the sake of consistency between types with a version field, keep this field the last.
-      override val version: TransactionVersion,
+      children: ImmArray[Nid]
   ) extends GenNode[Nid, Nothing] {
 
-    override private[lf] def updateVersion(version: TransactionVersion): NodeRollback[Nid] =
-      copy(version = version)
+    private[lf] def updateVersion(version: TransactionVersion): NodeRollback[Nid] = this
 
     override def foreach2(fNid: Nid => Unit, fCid: Nothing => Unit): Unit =
       children.foreach(fNid)

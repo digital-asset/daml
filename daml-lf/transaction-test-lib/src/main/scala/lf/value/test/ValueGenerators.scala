@@ -359,12 +359,11 @@ object ValueGenerators {
   /** Makes rollback node with some random child IDs. */
   val danglingRefRollbackNodeGen: Gen[NodeRollback[NodeId]] = {
     for {
-      version <- transactionVersionGen()
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
         .map(ImmArray(_))
-    } yield NodeRollback(children, version)
+    } yield NodeRollback(children)
   }
 
   /** Makes exercise nodes with some random child IDs. */
@@ -427,7 +426,8 @@ object ValueGenerators {
   /** Makes nodes with the problems listed under `malformedCreateNodeGen`, and
     * `malformedGenTransaction` should they be incorporated into a transaction.
     */
-  val danglingRefGenNode: Gen[(NodeId, Tx.Node)] = {
+  val danglingRefGenNode //TODO: FIXME: this generator never produces rollback nodes
+      : Gen[(NodeId, Tx.Node)] = {
     for {
       id <- Arbitrary.arbInt.arbitrary.map(NodeId(_))
       node <- Gen.oneOf(malformedCreateNodeGen, danglingRefExerciseNodeGen, fetchNodeGen)

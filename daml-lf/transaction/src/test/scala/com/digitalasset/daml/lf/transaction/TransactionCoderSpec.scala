@@ -162,7 +162,7 @@ class TransactionCoderSpec
       forAll(noDanglingRefGenVersionedTransaction, minSuccessful(50)) { tx =>
         val tx2 = VersionedTransaction(
           tx.version,
-          tx.nodes.transform((_, node) => normalizeNode(node.updateVersion(node.version))),
+          tx.nodes.transform((_, node) => normalizeNode(node)),
           tx.roots,
         )
         inside(
@@ -294,9 +294,9 @@ class TransactionCoderSpec
     }
 
     "fail if try encode rollback node in version < minExceptions" in {
-      forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder()) {
-        case (node, (nodeVersion, txVersion)) =>
-          val normalizedNode = normalizeNode(node.updateVersion(nodeVersion))
+      forAll(danglingRefRollbackNodeGen) { node =>
+        forEvery(transactionVersions) { txVersion =>
+          val normalizedNode = normalizeNode(node)
           val result = TransactionCoder
             .encodeNode(
               TransactionCoder.NidEncoder,
@@ -306,7 +306,8 @@ class TransactionCoderSpec
               normalizedNode,
             )
 
-          result.isLeft shouldBe (nodeVersion < minExceptions)
+          result.isLeft shouldBe (txVersion < minExceptions)
+        }
       }
     }
 
@@ -657,27 +658,29 @@ class TransactionCoderSpec
     }
 
     "fail if we try to decode a rollback node in a version < minExceptions" in {
-      forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder()) { case (node, (v1, v2)) =>
-        val normalizedNode = normalizeNode(node.updateVersion(v1))
-        val Right(encodedNode) =
-          TransactionCoder
-            .encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              v1,
-              NodeId(0),
-              normalizedNode,
-              disableVersionCheck = true, //so the bad proto can be created
-            )
-        val result =
-          TransactionCoder
-            .decodeVersionedNode(
-              TransactionCoder.NidDecoder,
-              ValueCoder.CidDecoder,
-              v2,
-              encodedNode,
-            )
-        result.isLeft shouldBe (v1 < minExceptions)
+      forAll(danglingRefRollbackNodeGen) { node =>
+        forEvery(transactionVersions) { txVersion =>
+          val normalizedNode = normalizeNode(node)
+          val Right(encodedNode) =
+            TransactionCoder
+              .encodeNode(
+                TransactionCoder.NidEncoder,
+                ValueCoder.CidEncoder,
+                txVersion,
+                NodeId(0),
+                normalizedNode,
+                disableVersionCheck = true, //so the bad proto can be created
+              )
+          val result =
+            TransactionCoder
+              .decodeVersionedNode(
+                TransactionCoder.NidDecoder,
+                ValueCoder.CidDecoder,
+                txVersion,
+                encodedNode,
+              )
+          result.isLeft shouldBe (txVersion < minExceptions)
+        }
       }
     }
 
