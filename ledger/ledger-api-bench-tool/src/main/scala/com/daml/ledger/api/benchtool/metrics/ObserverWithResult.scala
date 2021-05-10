@@ -3,17 +3,16 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
+import io.grpc.stub.StreamObserver
 import org.slf4j.Logger
 
 import scala.concurrent.{Future, Promise}
 
-// TODO: add metrics
-class LogOnlyObserver[T](logger: Logger) extends ManagedStreamObserver[T] {
+class ObserverWithResult[T](logger: Logger) extends StreamObserver[T] {
 
-  // TODO: move this to a generic class
-  private val result = Promise[Unit]()
+  private val promise = Promise[Unit]()
 
-  def completion: Future[Unit] = result.future
+  def result: Future[Unit] = promise.future
 
   override def onNext(value: T): Unit = {
     ()
@@ -21,12 +20,12 @@ class LogOnlyObserver[T](logger: Logger) extends ManagedStreamObserver[T] {
 
   override def onError(t: Throwable): Unit = {
     logger.error(s"Received error: $t")
-    result.failure(t)
+    promise.failure(t)
   }
 
   override def onCompleted(): Unit = {
     logger.debug(s"Stream has completed.")
-    result.success(())
+    promise.success(())
   }
 
 }
