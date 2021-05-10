@@ -8,27 +8,37 @@ import org.slf4j.Logger
 import java.time.Instant
 import java.util.{Timer, TimerTask}
 import java.util.concurrent.atomic.AtomicInteger
+import scala.collection.mutable.ListBuffer
 
-class CountingStreamObserver[T](reportingPeriod: Long, logger: Logger)(countingFunction: T => Int)
-    extends LogOnlyObserver[T](logger) {
+class MetricalStreamObserver[T](reportingPeriod: Long, logger: Logger)(
+    countingFunction: T => Int,
+    sizingFunction: T => Int,
+) extends LogOnlyObserver[T](logger) {
 
   private val timer = new Timer(true)
   timer.schedule(new LogTransactionCountTask(reportingPeriod), 0, reportingPeriod)
 
   private val transactionCount = new AtomicInteger()
+  private val sizeRateList: ListBuffer[Double] = ListBuffer.empty
+  private val currentSizeBucket = new AtomicInteger()
   private val startTime = Instant.now()
 
   override def onNext(value: T): Unit = {
     Thread.sleep(100)
     transactionCount.addAndGet(countingFunction(value))
+    currentSizeBucket.addAndGet(sizingFunction(value))
     super.onNext(value)
   }
 
   override def onCompleted(): Unit = {
     val duration = totalDurationSeconds
     val rate = transactionCount.get() / duration
+    val sizeRate =
+      if (sizeRateList.nonEmpty) s"${sizeRateList.sum / sizeRateList.length}"
+      else "-"
+
     logger.info(
-      s"Processed ${transactionCount.get()} transactions in $duration [s], average rate: $rate [tx/s]"
+      s"Processed ${transactionCount.get()} transactions in $duration [s], average rate: $rate [tx/s], $sizeRate [MB/s]"
     )
     super.onCompleted()
   }
@@ -42,7 +52,9 @@ class CountingStreamObserver[T](reportingPeriod: Long, logger: Logger)(countingF
     override def run(): Unit = {
       val count = transactionCount.get()
       val rate = (count - lastCount.get()) * 1000.0 / periodMillis
-      logger.info(s"Rate: $rate [tx/s], total count: ${transactionCount.get()}.")
+      val sizeRate = currentSizeBucket.get() * 1000.0 / 1024 / 1024 / periodMillis
+      sizeRateList += sizeRate
+      logger.info(s"Rate: $rate [tx/s], $sizeRate [MB/s], total count: ${transactionCount.get()}.")
       lastCount.set(count)
     }
   }
