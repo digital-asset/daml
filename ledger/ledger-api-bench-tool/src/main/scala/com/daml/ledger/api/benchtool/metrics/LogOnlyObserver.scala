@@ -16,7 +16,7 @@ class LogOnlyObserver[T](logger: Logger) extends ManagedStreamObserver[T] {
   def completion: Future[Unit] = result.future
 
   override def onNext(value: T): Unit = {
-    logger.debug(s"Received message: ${value.toString.take(20)}")
+    ()
   }
 
   override def onError(t: Throwable): Unit = {

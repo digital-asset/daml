@@ -3,13 +3,12 @@
 
 package com.daml.ledger.api.benchtool.services
 
-import com.daml.ledger.api.benchtool.metrics.LogOnlyObserver
+import com.daml.ledger.api.benchtool.metrics.{LogOnlyObserver, TransactionsStreamObserver}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsRequest,
-  GetTransactionsResponse,
   TransactionServiceGrpc,
 }
 import io.grpc.Channel
@@ -30,7 +29,8 @@ final class TransactionService(channel: Channel, ledgerId: String) {
       beginOffset = ledgerBeginOffset,
       endOffset = dummyEndOffset,
     )
-    val observer = new LogOnlyObserver[GetTransactionsResponse](logger)
+    val reportingPeriod: Long = 500
+    val observer = new TransactionsStreamObserver(reportingPeriod, logger)
     service.getTransactions(request, observer)
     logger.info("Started fetching transactions")
     observer.completion
