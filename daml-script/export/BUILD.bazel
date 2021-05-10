@@ -64,6 +64,7 @@ da_scala_test(
         "//daml-lf/language",
         "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
+        "//libs-scala/auth-utils",
     ],
 )
 
