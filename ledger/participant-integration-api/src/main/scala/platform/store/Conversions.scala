@@ -47,7 +47,7 @@ private[platform] object OracleArrayConversions {
       } else {
         s.setObject(
           index,
-          unwrapConnection(s).createARRAY(oracleTypeName, v.asInstanceOf[Array[AnyRef]]),
+          unwrapConnection(s).createOracleArray(oracleTypeName, v.asInstanceOf[Array[AnyRef]]),
           JDBCType.ARRAY.getVendorTypeNumber,
         )
       }
@@ -72,7 +72,7 @@ private[platform] object OracleArrayConversions {
     override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
       s.setObject(
         index,
-        unwrapConnection(s).createARRAY("TIMESTAMP_ARRAY", v.map(java.sql.Timestamp.from)),
+        unwrapConnection(s).createOracleArray("TIMESTAMP_ARRAY", v.map(java.sql.Timestamp.from)),
         JDBCType.ARRAY.getVendorTypeNumber,
       )
     }
@@ -87,7 +87,7 @@ private[platform] object OracleArrayConversions {
           s.setObject(
             index,
             unwrapConnection(s)
-              .createARRAY("VARCHAR_ARRAY", arr.asInstanceOf[Array[AnyRef]]),
+              .createOracleArray("VARCHAR_ARRAY", arr.asInstanceOf[Array[AnyRef]]),
             JDBCType.ARRAY.getVendorTypeNumber,
           )
       }
@@ -102,7 +102,7 @@ private[platform] object OracleArrayConversions {
         s.setObject(
           index,
           unwrapConnection(s)
-            .createARRAY("SMALLINT_ARRAY", intOrNullsArray.asInstanceOf[Array[AnyRef]]),
+            .createOracleArray("SMALLINT_ARRAY", intOrNullsArray.asInstanceOf[Array[AnyRef]]),
           JDBCType.ARRAY.getVendorTypeNumber,
         )
       }
