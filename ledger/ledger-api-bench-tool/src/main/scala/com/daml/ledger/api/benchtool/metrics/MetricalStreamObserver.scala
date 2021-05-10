@@ -9,14 +9,15 @@ import java.time.Instant
 import java.util.{Timer, TimerTask}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.duration.Duration
 
-class MetricalStreamObserver[T](reportingPeriod: Long, logger: Logger)(
+class MetricalStreamObserver[T](reportingPeriod: Duration, logger: Logger)(
     countingFunction: T => Int,
     sizingFunction: T => Int,
 ) extends ObserverWithResult[T](logger) {
 
   private val timer = new Timer(true)
-  timer.schedule(new LogTransactionCountTask(reportingPeriod), 0, reportingPeriod)
+  timer.schedule(new PeriodicalReportingTask(reportingPeriod.toMillis), 0, reportingPeriod.toMillis)
 
   private val transactionCount = new AtomicInteger()
   private val sizeRateList: ListBuffer[Double] = ListBuffer.empty
@@ -47,7 +48,7 @@ class MetricalStreamObserver[T](reportingPeriod: Long, logger: Logger)(
   private def totalDurationSeconds: Double =
     (Instant.now().toEpochMilli - startTime.toEpochMilli) / 1000.0
 
-  private class LogTransactionCountTask(periodMillis: Long) extends TimerTask {
+  private class PeriodicalReportingTask(periodMillis: Long) extends TimerTask {
     private val lastCount = new AtomicInteger()
 
     override def run(): Unit = {
