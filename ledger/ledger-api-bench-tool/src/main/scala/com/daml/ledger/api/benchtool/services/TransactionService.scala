@@ -24,7 +24,7 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
     TransactionServiceGrpc.stub(channel)
 
   // TODO: add filters
-  def transactions(party: String): Future[Unit] = {
+  def transactions(streamName: String, party: String): Future[Unit] = {
     val request = getTransactionsRequest(
       ledgerId = ledgerId,
       party = party,
@@ -42,13 +42,18 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
       ),
     )
     val observer =
-      new MetricalStreamObserver[GetTransactionsResponse](reportingPeriod, metrics, logger)
+      new MetricalStreamObserver[GetTransactionsResponse](
+        streamName,
+        reportingPeriod,
+        metrics,
+        logger,
+      )
     service.getTransactions(request, observer)
     logger.info("Started fetching transactions")
     observer.result
   }
 
-  def transactionTrees(party: String): Future[Unit] = {
+  def transactionTrees(streamName: String, party: String): Future[Unit] = {
     val request = getTransactionsRequest(
       ledgerId = ledgerId,
       party = party,
@@ -67,7 +72,12 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
         ),
       )
     val observer =
-      new MetricalStreamObserver[GetTransactionTreesResponse](reportingPeriod, metrics, logger)
+      new MetricalStreamObserver[GetTransactionTreesResponse](
+        streamName,
+        reportingPeriod,
+        metrics,
+        logger,
+      )
     service.getTransactionTrees(request, observer)
     logger.info("Started fetching transaction trees")
     observer.result
