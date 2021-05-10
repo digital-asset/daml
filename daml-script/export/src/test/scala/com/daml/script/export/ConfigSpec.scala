@@ -3,6 +3,7 @@
 
 package com.daml.script.export
 
+import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -75,6 +76,16 @@ class ConfigSpec extends AnyFreeSpec with Matchers with OptionValues {
         val args = defaultRequiredArgs ++ Array("--party", "Alice,Bob")
         val optConfig = Config.parse(args)
         optConfig.value.parties should contain only ("Alice", "Bob")
+      }
+    }
+    "TLS" - {
+      "--pem PEM --crt CRT" in {
+        val pemPath = rlocation("ledger/test-common/test-certificates/client.pem")
+        val crtPath = rlocation("ledger/test-common/test-certificates/client.crt")
+        val args = defaultRequiredArgs ++ Array("--pem", pemPath, "--crt", crtPath)
+        val optConfig = Config.parse(args)
+        optConfig.value.tlsConfig.keyFile.value.toString shouldBe pemPath
+        optConfig.value.tlsConfig.keyCertChainFile.value.toString shouldBe crtPath
       }
     }
   }

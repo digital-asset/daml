@@ -48,6 +48,9 @@ da_scala_binary(
 da_scala_test(
     name = "tests",
     srcs = glob(["src/test/scala/**/*.scala"]),
+    data = [
+        "//ledger/test-common/test-certificates",
+    ],
     scala_deps = [
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_typelevel_paiges_core",
@@ -55,9 +58,11 @@ da_scala_test(
     visibility = ["//visibility:public"],
     deps = [
         ":export",
+        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
         "//daml-lf/language",
         "//language-support/scala/bindings",
+        "//ledger/ledger-api-common",
     ],
 )
 
