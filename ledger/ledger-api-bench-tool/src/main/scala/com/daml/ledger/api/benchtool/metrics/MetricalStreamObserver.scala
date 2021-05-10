@@ -25,8 +25,12 @@ import scala.concurrent.duration.Duration
 //  }
 //}
 
-class MetricalStreamObserver[T](reportingPeriod: Duration, metrics: List[Metric[T]], logger: Logger)
-    extends ObserverWithResult[T](logger) {
+class MetricalStreamObserver[T](
+    streamName: String,
+    reportingPeriod: Duration,
+    metrics: List[Metric[T]],
+    logger: Logger,
+) extends ObserverWithResult[T](logger) {
 
   private val timer = new Timer(true)
   timer.schedule(new PeriodicalReportingTask, 0, reportingPeriod.toMillis)
@@ -45,7 +49,7 @@ class MetricalStreamObserver[T](reportingPeriod: Duration, metrics: List[Metric[
   override def onCompleted(): Unit = {
     val duration = totalDurationSeconds
     val reports = metrics.map(_.completeInfo(duration))
-    logger.info(s"Final metrics: ${reports.mkString(", ")}")
+    logger.info(namedMessage(s"Final metrics: ${reports.mkString(", ")}"))
     super.onCompleted()
   }
 
@@ -55,8 +59,10 @@ class MetricalStreamObserver[T](reportingPeriod: Duration, metrics: List[Metric[
   private class PeriodicalReportingTask extends TimerTask {
     override def run(): Unit = {
       val periodicUpdates = metrics.map(_.periodicUpdate())
-      logger.info(periodicUpdates.mkString(", "))
+      logger.info(namedMessage(periodicUpdates.mkString(", ")))
     }
   }
+
+  private def namedMessage(message: String) = s"[$streamName] $message"
 
 }
