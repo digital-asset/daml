@@ -11,6 +11,7 @@ abstract class ManagedStreamObserver[T] extends ClientResponseObserver[AnyRef, T
   override def beforeStart(requestStream: ClientCallStreamObserver[AnyRef]): Unit =
     clientCallStreamObserver = Some(requestStream)
 
+  // TODO:
   def shutdown(): Unit =
     clientCallStreamObserver.foreach(_.cancel("Shutdown", new Cancel))
 
