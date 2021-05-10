@@ -530,51 +530,44 @@ evUpdExercNonConsumErr = scenario do
     abort "EvUpdExercNonConsumErr failed"
 
 
--- TODO https://github.com/digital-asset/daml/issues/8020
---   Exceptions raised in choice controller field are
---   causing an internal CRASH, when they should be
---   propagated outwards instead.
---
---   Fix and reenable EvUpdExercWithoutActorsErr_1 and C_EvUpdExercWithoutActorsErr_2.
+-- | Verify that the exercising party is evaluated
+-- when the exercise is performed, not after.
+-- @ERROR EvUpdExercWithoutActorsErr_1 OK
+template T_EvUpdExercWithoutActorsErr_1
+  with
+    p : Party
+  where
+    signatory p
+    choice C_EvUpdExercWithoutActorsErr_1 : () with
+      controller (error @Party "EvUpdExercWithoutActorsErr_1 OK")
+        do abort "EvUpdExercWithoutActorsErr_1 failed (1)"
 
--- -- | Verify that the exercising party is evaluated
--- -- when the exercise is performed, not after.
--- -- @ERROR EvUpdExercWithoutActorsErr_1 OK
--- template T_EvUpdExercWithoutActorsErr_1
---   with
---     p : Party
---   where
---     signatory p
---     choice C_EvUpdExercWithoutActorsErr_1 : () with
---       controller (error @Party "EvUpdExercWithoutActorsErr_1 OK")
---         do abort "EvUpdExercWithoutActorsErr_1 failed (1)"
+evUpdExercWithoutActorsErr_1 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    c <- create (T_EvUpdExercWithoutActorsErr_1 p)
+    exercise c C_EvUpdExercWithoutActorsErr_1
+    abort "EvUpdExercWithoutActorsErr_1 failed (2)"
 
--- evUpdExercWithoutActorsErr_1 = scenario do
---   p <- getParty "Alice"
---   submit p do
---     c <- create (T_EvUpdExercWithoutActorsErr_1 p)
---     exercise c C_EvUpdExercWithoutActorsErr_1
---     abort "EvUpdExercWithoutActorsErr_1 failed (2)"
+-- | Show that the exercising party is evaluated before
+-- we check that the contract is still active.
+-- @ERROR EvUpdExercWithoutActorsErr_2 OK
+template T_EvUpdExercWithoutActorsErr_2
+  with
+    p : Party
+  where
+    signatory p
+    choice C_EvUpdExercWithoutActorsErr_2 : () with
+      controller (error @Party "EvUpdExercWithoutActorsErr_2 OK")
+        do abort "EvUpdExercWithoutActorsErr_2 failed (1)"
 
--- -- | Show that the exercising party is evaluated before
--- -- we check that the contract is still active.
--- -- @ERROR EvUpdExercWithoutActorsErr_2 OK
--- template T_EvUpdExercWithoutActorsErr_2
---   with
---     p : Party
---   where
---     signatory p
---     choice C_EvUpdExercWithoutActorsErr_2 : () with
---       controller (error @Party "EvUpdExercWithoutActorsErr_2 OK")
---         do abort "EvUpdExercWithoutActorsErr_2 failed (1)"
-
--- evUpdExercWithoutActorsErr_2 = scenario do
---   p <- getParty "Alice"
---   submit p do
---     c <- create (T_EvUpdExercWithoutActorsErr_2 p)
---     archive c
---     exercise c C_EvUpdExercWithoutActorsErr_2
---     abort "EvUpdExercWithoutActorsErr_2 failed (2)"
+evUpdExercWithoutActorsErr_2 = scenario do
+  p <- getParty "Alice"
+  submit p do
+    c <- create (T_EvUpdExercWithoutActorsErr_2 p)
+    archive c
+    exercise c C_EvUpdExercWithoutActorsErr_2
+    abort "EvUpdExercWithoutActorsErr_2 failed (2)"
 
 -- | Checks that an authorization / bad actor check occurs
 -- at some point during submission.
