@@ -7,63 +7,56 @@ import org.slf4j.Logger
 
 import java.time.Instant
 import java.util.{Timer, TimerTask}
-import java.util.concurrent.atomic.AtomicInteger
-import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.Duration
 
-class MetricalStreamObserver[T](reportingPeriod: Duration, logger: Logger)(
-    countingFunction: T => Int,
-    sizingFunction: T => Int,
-) extends ObserverWithResult[T](logger) {
+//class CountingMetric[T](countingFunction: T => Int) {
+//  private val transactionCount = new AtomicInteger()
+//
+//
+//  def onNext(value: T) = {
+//    transactionCount.addAndGet(countingFunction(value))
+//  }
+//
+//  def periodicValue(): String =
+//    s"${transactionCount.get()} [tx]"
+//
+//  def periodicRate() = {
+//
+//  }
+//}
+
+class MetricalStreamObserver[T](reportingPeriod: Duration, metrics: List[Metric[T]], logger: Logger)
+    extends ObserverWithResult[T](logger) {
 
   private val timer = new Timer(true)
-  timer.schedule(new PeriodicalReportingTask(reportingPeriod.toMillis), 0, reportingPeriod.toMillis)
+  timer.schedule(new PeriodicalReportingTask, 0, reportingPeriod.toMillis)
 
-  private val transactionCount = new AtomicInteger()
-  private val sizeRateList: ListBuffer[Double] = ListBuffer.empty
-  private val currentSizeBucket = new AtomicInteger()
+//  private var firstOfPeriodLedgerTime: Option[com.google.protobuf.timestamp.Timestamp] = None
+//  private var lastOfPeriodLedgerTime: Option[com.google.protobuf.timestamp.Timestamp] = None
   private val startTime = Instant.now()
 
   override def onNext(value: T): Unit = {
+    // TODO: remove sleep
     Thread.sleep(100)
-    transactionCount.addAndGet(countingFunction(value))
-    currentSizeBucket.addAndGet(sizingFunction(value))
+    metrics.foreach(_.onNext(value))
     super.onNext(value)
   }
 
   override def onCompleted(): Unit = {
     val duration = totalDurationSeconds
-    val rate = transactionCount.get() / duration
-    val sizeRate =
-      if (sizeRateList.nonEmpty) s"${rounded(sizeRateList.sum / sizeRateList.length)}"
-      else "-"
-
-    logger.info(
-      s"Processed ${transactionCount
-        .get()} transactions in ${rounded(duration)} [s], average rate: ${rounded(rate)} [tx/s], $sizeRate} [MB/s]"
-    )
+    val reports = metrics.map(_.completeInfo(duration))
+    logger.info(s"Final metrics: ${reports.mkString(", ")}")
     super.onCompleted()
   }
 
   private def totalDurationSeconds: Double =
     (Instant.now().toEpochMilli - startTime.toEpochMilli) / 1000.0
 
-  private class PeriodicalReportingTask(periodMillis: Long) extends TimerTask {
-    private val lastCount = new AtomicInteger()
-
+  private class PeriodicalReportingTask extends TimerTask {
     override def run(): Unit = {
-      val count = transactionCount.get()
-      val rate = (count - lastCount.get()) * 1000.0 / periodMillis
-      val sizeRate = currentSizeBucket.get() * 1000.0 / 1024 / 1024 / periodMillis
-      currentSizeBucket.set(0)
-      sizeRateList += sizeRate
-      logger.info(
-        s"Rate: ${rounded(rate)} [tx/s], ${rounded(sizeRate)} [MB/s], total count: ${transactionCount.get()}."
-      )
-      lastCount.set(count)
+      val periodicUpdates = metrics.map(_.periodicUpdate())
+      logger.info(periodicUpdates.mkString(", "))
     }
   }
-
-  private def rounded(value: Double): String = "%.2f".format(value)
 
 }

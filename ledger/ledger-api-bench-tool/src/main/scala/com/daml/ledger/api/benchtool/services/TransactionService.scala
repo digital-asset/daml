@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.benchtool.services
 
-import com.daml.ledger.api.benchtool.metrics.MetricalStreamObserver
+import com.daml.ledger.api.benchtool.metrics.{Metric, MetricalStreamObserver}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
@@ -31,10 +31,18 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
       beginOffset = ledgerBeginOffset,
       endOffset = dummyEndOffset,
     )
-    val observer = new MetricalStreamObserver[GetTransactionsResponse](reportingPeriod, logger)(
-      _.transactions.length,
-      _.serializedSize,
+    val metrics: List[Metric[GetTransactionsResponse]] = List[Metric[GetTransactionsResponse]](
+      Metric.TransactionCountingMetric[GetTransactionsResponse](
+        reportingPeriod.toMillis,
+        _.transactions.length,
+      ),
+      Metric.TransactionSizingMetric[GetTransactionsResponse](
+        reportingPeriod.toMillis,
+        _.serializedSize,
+      ),
     )
+    val observer =
+      new MetricalStreamObserver[GetTransactionsResponse](reportingPeriod, metrics, logger)
     service.getTransactions(request, observer)
     logger.info("Started fetching transactions")
     observer.result
@@ -47,10 +55,19 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
       beginOffset = ledgerBeginOffset,
       endOffset = ledgerEndOffset,
     )
-    val observer = new MetricalStreamObserver[GetTransactionTreesResponse](reportingPeriod, logger)(
-      _.transactions.length,
-      _.serializedSize,
-    )
+    val metrics: List[Metric[GetTransactionTreesResponse]] =
+      List[Metric[GetTransactionTreesResponse]](
+        Metric.TransactionCountingMetric[GetTransactionTreesResponse](
+          reportingPeriod.toMillis,
+          _.transactions.length,
+        ),
+        Metric.TransactionSizingMetric[GetTransactionTreesResponse](
+          reportingPeriod.toMillis,
+          _.serializedSize,
+        ),
+      )
+    val observer =
+      new MetricalStreamObserver[GetTransactionTreesResponse](reportingPeriod, metrics, logger)
     service.getTransactionTrees(request, observer)
     logger.info("Started fetching transaction trees")
     observer.result
