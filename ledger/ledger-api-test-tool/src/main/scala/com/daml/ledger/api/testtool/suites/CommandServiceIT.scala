@@ -301,7 +301,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         Status.Code.INVALID_ARGUMENT,
         Some(
           Pattern.compile(
-            "Command interpretation error in LF-DAMLe: Interpretation error: Error: (User abort: Assertion failed\\.|unhandled exception: DA.Internal.Exception.Types:GeneralError@6ad87e6c{ message = "Assertion failed" }\\.) Details: Last location: \\[[^\\]]*\\], partial transaction: root node"
+            "Command interpretation error in LF-DAMLe: Interpretation error: Error: (User abort: Assertion failed\\.|unhandled exception: DA.Internal.Exception.Types:GeneralError@6ad87e6c{ message = \"Assertion failed\" }\\.) Details: Last location: \\[[^\\]]*\\], partial transaction: root node"
           )
         ),
       )
