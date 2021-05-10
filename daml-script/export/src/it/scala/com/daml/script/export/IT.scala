@@ -33,6 +33,7 @@ import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.SdkVersion
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTimeMode}
 import scalaz.syntax.tag._
 import scalaz.std.scalaFuture._
@@ -146,6 +147,7 @@ final class IT
       Config(
         ledgerHost = "localhost",
         ledgerPort = serverPort.value,
+        tlsConfig = TlsConfiguration(false, None, None, None),
         parties = parties,
         start = offset,
         end = ledgerEnd,

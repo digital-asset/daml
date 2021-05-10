@@ -49,7 +49,11 @@ object Main {
     config.exportType match {
       case Some(exportScript: ExportScript) =>
         for {
-          client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)
+          client <- LedgerClient.singleHost(
+            config.ledgerHost,
+            config.ledgerPort,
+            clientConfig(config),
+          )
           acs <- LedgerUtils.getACS(client, config.parties, config.start)
           trees <- LedgerUtils.getTransactionTrees(client, config.parties, config.start, config.end)
           acsPkgRefs = TreeUtils.contractsReferences(acs.values)
@@ -73,10 +77,10 @@ object Main {
     }
   }
 
-  val clientConfig: LedgerClientConfiguration = LedgerClientConfiguration(
+  private def clientConfig(config: Config): LedgerClientConfiguration = LedgerClientConfiguration(
     applicationId = "script-export",
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
+    sslContext = config.tlsConfig.client,
   )
 }
