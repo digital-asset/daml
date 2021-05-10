@@ -4,7 +4,6 @@
 package com.daml.http
 
 import java.nio.file.Path
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
@@ -12,18 +11,21 @@ import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFact
 import com.daml.runtime.JdbcDrivers
 import com.daml.scalautil.Statement.discard
 import com.daml.http.dbbackend.ContractDao
-import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
 import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
 import com.daml.cliopts.GlobalLogLevel
+import com.daml.http.util.Logging.{CorrelationID, correlationIdLogCtx}
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-object Main extends StrictLogging {
+object Main {
+
+  private[this] val logger = ContextualizedLogger.get(getClass)
 
   object ErrorCodes {
     val Ok = 0
@@ -31,19 +33,22 @@ object Main extends StrictLogging {
     val StartupError = 101
   }
 
-  def main(args: Array[String]): Unit =
-    Cli.parseConfig(
-      args,
-      ContractDao.supportedJdbcDriverNames(JdbcDrivers.availableJdbcDriverNames),
-    ) match {
-      case Some(config) =>
-        main(config)
-      case None =>
-        // error is printed out by scopt
-        sys.exit(ErrorCodes.InvalidUsage)
-    }
+  def main(args: Array[String]): Unit = {
+    correlationIdLogCtx(implicit lc =>
+      Cli.parseConfig(
+        args,
+        ContractDao.supportedJdbcDriverNames(JdbcDrivers.availableJdbcDriverNames),
+      ) match {
+        case Some(config) =>
+          main(config)
+        case None =>
+          // error is printed out by scopt
+          sys.exit(ErrorCodes.InvalidUsage)
+      }
+    )
+  }
 
-  private def main(config: Config): Unit = {
+  private def main(config: Config)(implicit lc: LoggingContextOf[CorrelationID]): Unit = {
     config.logLevel.foreach(GlobalLogLevel.set("Ledger HTTP-JSON API"))
     logger.info(
       s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
@@ -122,7 +127,9 @@ object Main extends StrictLogging {
     }
   }
 
-  private def logFailure[A](msg: String, fa: Try[A]): Unit = fa match {
+  private def logFailure[A](msg: String, fa: Try[A])(implicit
+      lc: LoggingContextOf[CorrelationID]
+  ): Unit = fa match {
     case Failure(e) => logger.error(msg, e)
     case _ =>
   }
