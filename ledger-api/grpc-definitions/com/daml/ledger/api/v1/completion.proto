@@ -35,7 +35,7 @@ message Completion {
   // The application ID that was used for the submission, as described in ``commands.proto``.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
-  // TODO: Can be made required once all Daml ledgers return the application ID
+  // TODO(v2): Can be made required once all Daml ledgers return the application ID
   string application_id = 6;
 
   // The set of parties on whose behalf the commands were executed.
@@ -43,19 +43,19 @@ message Completion {
   // The order of the parties need not be the same as in the submission.
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
   // Optional
-  // TODO: Can be made required once all Daml ledgers return the application ID
+  // TODO(v2): Can be made required once all Daml ledgers return the application ID
   repeated string act_as = 7;
 
   // The submission ID this completion refers to, as described in ``commands.proto``.
   // Optional
-  // TODO: Can be made required once all Daml ledgers return the application ID
-  // TODO: Do we want to enforce the format of a UUID here?
+  // TODO(v2): Can be made required once all Daml ledgers return the application ID
+  // TODO(v2): Do we want to enforce the format of a UUID here?
   string submission_id = 4;
 
   // The submission rank of the submission this completion refers to, as described in ``commands.proto``.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
-  // TODO: Can be made required once all Daml ledgers return the application ID
+  // TODO(v2): Can be made required once all Daml ledgers return the application ID
   string submission_rank = 5;
 
   // Whether this completion is a definite answer for the deduplication and rank guarantees,

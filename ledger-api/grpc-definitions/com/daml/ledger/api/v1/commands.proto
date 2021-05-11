@@ -130,7 +130,7 @@ message Commands {
   // If omitted, the participant or Daml ledger may set a UUID of their choice.
   // Optional
   //
-  // TODO Do we want to enforce the format of a UUID here?
+  // TODO(v2) Do we want to enforce the format of a UUID here?
   string submission_id = 16;
 
   // Applications can rank their submissions with the same change ID.
