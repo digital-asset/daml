@@ -40,6 +40,7 @@ import System.Exit
 import System.IO
 import System.IO.Extra (writeFileUTF8)
 import System.IO.Temp
+import System.FileLock (withFileLock, SharedExclusive (Exclusive))
 import System.FilePath
 import System.Directory
 import Control.Monad.Extra
@@ -339,9 +340,22 @@ httpInstall env@InstallEnv{..} version = do
                 liftIO $ incProgress pb (BS.length bs)
                 pure bs
 
+-- | Perform an action with a file lock from DAML_HOME/sdk/.lock
+-- This function blocks until the lock has been obtained.
+-- The lock is released after the action is performed, and is
+-- automatically released if the process ends prematurely.
+withInstallLock :: DamlPath -> IO () -> IO ()
+withInstallLock (DamlPath path) action = do
+    createDirectoryIfMissing True (path </> "sdk")
+    withFileLock (path </> "sdk" </> ".lock") Exclusive (const action)
+
 -- | Install SDK from a path. If the path is a tarball, extract it first.
+--
+-- This function takes the install file lock, so it can't be performed
+-- concurrently with a versionInstall or another pathInstall, blocking
+-- until the other process is finished.
 pathInstall :: InstallEnv -> FilePath -> IO ()
-pathInstall env@InstallEnv{..} sourcePath = do
+pathInstall env@InstallEnv{..} sourcePath = withInstallLock damlPath $ do
     isDirectory <- doesDirectoryExist sourcePath
     if isDirectory
         then do
@@ -352,8 +366,12 @@ pathInstall env@InstallEnv{..} sourcePath = do
             extractAndInstall env (sourceFileBS sourcePath)
 
 -- | Install a specific SDK version.
+--
+-- This function takes the install file lock, so it can't be performed
+-- concurrently with a pathInstall or another versionInstall, blocking
+-- until the other process is finished.
 versionInstall :: InstallEnv -> SdkVersion -> IO ()
-versionInstall env@InstallEnv{..} version = do
+versionInstall env@InstallEnv{..} version = withInstallLock damlPath $ do
 
     let SdkPath path = defaultSdkPath damlPath version
     alreadyInstalled <- doesDirectoryExist path
