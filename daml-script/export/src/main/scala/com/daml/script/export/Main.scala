@@ -82,5 +82,6 @@ object Main {
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
     sslContext = config.tlsConfig.client,
+    token = config.accessToken.flatMap(_.token),
   )
 }

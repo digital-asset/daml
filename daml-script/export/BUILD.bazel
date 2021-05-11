@@ -41,6 +41,7 @@ da_scala_binary(
         "//ledger-service/cli-opts",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
+        "//libs-scala/auth-utils",
         "@maven//:org_apache_commons_commons_text",
     ],
 )
@@ -63,6 +64,7 @@ da_scala_test(
         "//daml-lf/language",
         "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
+        "//libs-scala/auth-utils",
     ],
 )
 

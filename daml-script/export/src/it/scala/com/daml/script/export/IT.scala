@@ -148,6 +148,7 @@ final class IT
         ledgerHost = "localhost",
         ledgerPort = serverPort.value,
         tlsConfig = TlsConfiguration(false, None, None, None),
+        accessToken = None,
         parties = parties,
         start = offset,
         end = ledgerEnd,
