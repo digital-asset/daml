@@ -373,6 +373,186 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
     }
   }
 
+  "contractKeyInputs" - {
+    // TODO: https://github.com/digital-asset/daml/issues/8020
+    // change VDev to  TransactionVersion.StableVersions.max once exception are released
+    val dummyBuilder = TransactionBuilder(TransactionVersion.VDev)
+    val parties = List("Alice")
+    val tmplId = Ref.Identifier.assertFromString("-pkg-:Mod:T")
+    def keyValue(s: String) = V.ValueText(s)
+    def globalKey(s: String) = GlobalKey(tmplId, keyValue(s))
+    def create(s: String) = dummyBuilder
+      .create(
+        id = s,
+        template = "-pkg-:Mod:T",
+        argument = V.ValueUnit,
+        signatories = parties,
+        observers = parties,
+        key = Some(keyValue(s)),
+      )
+
+    def exe(s: String, consuming: Boolean, byKey: Boolean) =
+      dummyBuilder
+        .exercise(
+          contract = create(s),
+          choice = "Choice",
+          actingParties = parties.toSet,
+          consuming = consuming,
+          argument = V.ValueUnit,
+          byKey = byKey,
+        )
+
+    def fetch(s: String, byKey: Boolean) =
+      dummyBuilder.fetch(contract = create(s), byKey = byKey)
+
+    def lookup(s: String, found: Boolean) =
+      dummyBuilder.lookupByKey(contract = create(s), found = found)
+
+    "return None for create" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val createNode = create("#0")
+      builder.add(createNode)
+      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> None))
+    }
+    "return Some(_) for fetch and fetch-by-key" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val fetchNode0 = fetch("#0", byKey = false)
+      val fetchNode1 = fetch("#1", byKey = true)
+      builder.add(fetchNode0)
+      builder.add(fetchNode1)
+      builder.build().contractKeyInputs shouldBe Right(
+        Map(globalKey("#0") -> Some(fetchNode0.coid), globalKey("#1") -> Some(fetchNode1.coid))
+      )
+    }
+    "return Some(_) for consuming/non-consuming exercise and exercise-by-key" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val exe0 = exe("#0", consuming = false, byKey = false)
+      val exe1 = exe("#1", consuming = true, byKey = false)
+      val exe2 = exe("#2", consuming = false, byKey = true)
+      val exe3 = exe("#3", consuming = true, byKey = true)
+      builder.add(exe0)
+      builder.add(exe1)
+      builder.add(exe2)
+      builder.add(exe3)
+      builder.build().contractKeyInputs shouldBe
+        Right(
+          Seq(exe0, exe1, exe2, exe3).view
+            .map(exe => globalKey(exe.targetCoid.coid) -> Some(exe.targetCoid))
+            .toMap
+        )
+    }
+
+    "return None for negative lookup by key" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val lookupNode = lookup("#0", found = false)
+      builder.add(lookupNode)
+      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> None))
+    }
+
+    "return Some(_) for negative lookup by key" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val lookupNode = lookup("#0", found = true)
+      builder.add(lookupNode)
+      lookupNode.result shouldBe a[Some[_]]
+      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> lookupNode.result))
+    }
+    "returns keys used under rollback nodes" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val createNode = create("#0")
+      val exerciseNode = exe("#1", consuming = false, byKey = false)
+      val fetchNode = fetch("#2", byKey = false)
+      val lookupNode = lookup("#3", found = false)
+      val rollback = builder.add(builder.rollback())
+      builder.add(createNode, rollback)
+      builder.add(exerciseNode, rollback)
+      builder.add(fetchNode, rollback)
+      builder.add(lookupNode, rollback)
+      builder.build().contractKeyInputs shouldBe Right(
+        Map(
+          globalKey("#0") -> None,
+          globalKey("#1") -> Some(exerciseNode.targetCoid),
+          globalKey("#2") -> Some(fetchNode.coid),
+          globalKey("#3") -> None,
+        )
+      )
+    }
+    "two creates conflict" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      builder.add(create("#0"))
+      builder.add(create("#0"))
+      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+    }
+    "two creates do not conflict if interleaved with archive" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      builder.add(create("#0"))
+      builder.add(exe("#0", consuming = true, byKey = false))
+      builder.add(create("#0"))
+      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> None))
+    }
+    "two creates do not conflict if one is in rollback" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val rollback = builder.add(builder.rollback())
+      builder.add(create("#0"), rollback)
+      builder.add(create("#0"))
+      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> None))
+    }
+    "negative lookup after create fails" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      builder.add(create("#0"))
+      builder.add(lookup("#0", found = false))
+      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+    }
+    "inconsistent lookups conflict" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      builder.add(lookup("#0", found = true))
+      builder.add(lookup("#0", found = false))
+      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+    }
+    "inconsistent lookups conflict across rollback" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val rollback = builder.add(builder.rollback())
+      builder.add(lookup("#0", found = true), rollback)
+      builder.add(lookup("#0", found = false))
+      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+    }
+    "positive lookup conflicts with create" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      builder.add(lookup("#0", found = true))
+      builder.add(create("#0"))
+      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+    }
+    "positive lookup in rollback conflicts with create" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val rollback = builder.add(builder.rollback())
+      builder.add(lookup("#0", found = true), rollback)
+      builder.add(create("#0"))
+      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+    }
+    "rolled back archive does not prevent conflict" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      builder.add(create("#0"))
+      val rollback = builder.add(builder.rollback())
+      builder.add(exe("#0", consuming = true, byKey = true), rollback)
+      builder.add(create("#0"))
+      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+    }
+    "successful, inconsistent lookups conflict" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val create0 = create("#0")
+      val create1 = create("#1").copy(
+        key = Some(
+          Node.KeyWithMaintainers(
+            key = keyValue("#0"),
+            maintainers = Set.empty,
+          )
+        )
+      )
+      builder.add(builder.lookupByKey(create0, found = true))
+      builder.add(builder.lookupByKey(create1, found = true))
+      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+    }
+  }
+
   def create(builder: TransactionBuilder, parties: Seq[String], key: Option[String] = None) = {
     val cid: ContractId = builder.newCid
     val node = builder.create(
