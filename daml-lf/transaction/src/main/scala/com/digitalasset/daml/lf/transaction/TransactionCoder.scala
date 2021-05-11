@@ -311,6 +311,9 @@ object TransactionCoder {
           nf.stakeholders.foreach(builder.addStakeholders)
           nf.signatories.foreach(builder.addSignatories)
           builder.setContractIdStruct(encodeCid.encode(nf.coid))
+          if (nodeVersion >= TransactionVersion.minByKey) {
+            builder.setByKey(nf.byKey)
+          }
           nf.actingParties.foreach(builder.addActors)
           for {
             _ <- encodeAndSetContractKey(
@@ -332,6 +335,9 @@ object TransactionCoder {
           ne.signatories.foreach(builder.addSignatories)
           ne.stakeholders.foreach(builder.addStakeholders)
           ne.choiceObservers.foreach(builder.addObservers)
+          if (nodeVersion >= TransactionVersion.minByKey) {
+            builder.setByKey(ne.byKey)
+          }
           for {
             _ <- Either.cond(
               test = ne.version >= TransactionVersion.minChoiceObservers ||
@@ -524,16 +530,20 @@ object TransactionCoder {
             nodeVersion,
             protoFetch.getKeyWithMaintainers,
           )
+          byKey =
+            if (nodeVersion >= TransactionVersion.minByKey)
+              protoFetch.getByKey
+            else false
         } yield ni -> NodeFetch(
-          c,
-          templateId,
-          None,
-          actingParties,
-          signatories,
-          stakeholders,
-          key,
-          false,
-          nodeVersion,
+          coid = c,
+          templateId = templateId,
+          optLocation = None,
+          actingParties = actingParties,
+          signatories = signatories,
+          stakeholders = stakeholders,
+          key = key,
+          byKey = byKey,
+          version = nodeVersion,
         )
 
       case NodeTypeCase.EXERCISE =>
@@ -578,6 +588,10 @@ object TransactionCoder {
               toPartySet(protoExe.getObserversList)
             }
           choiceName <- toIdentifier(protoExe.getChoice)
+          byKey =
+            if (nodeVersion >= TransactionVersion.minByKey)
+              protoExe.getByKey
+            else false
         } yield ni -> NodeExercises(
           targetCoid = targetCoid,
           templateId = templateId,
@@ -592,7 +606,7 @@ object TransactionCoder {
           children = children,
           exerciseResult = rvOpt,
           key = keyWithMaintainers,
-          byKey = false,
+          byKey = byKey,
           version = nodeVersion,
         )
       case NodeTypeCase.LOOKUP_BY_KEY =>
