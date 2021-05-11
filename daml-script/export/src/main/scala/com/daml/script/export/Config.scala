@@ -3,15 +3,19 @@
 
 package com.daml.script.export
 
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 import java.io.File
 
+import com.daml.auth.TokenHolder
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 
 final case class Config(
     ledgerHost: String,
     ledgerPort: Int,
-    parties: List[String],
+    tlsConfig: TlsConfiguration,
+    accessToken: Option[TokenHolder],
+    parties: Seq[String],
     start: LedgerOffset,
     end: LedgerOffset,
     exportType: Option[ExportType],
@@ -50,11 +54,22 @@ object Config {
       .required()
       .action((x, c) => c.copy(ledgerPort = x))
       .text("Daml ledger port to connect to.")
-    opt[String]("party")
+    TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
+      c.copy(tlsConfig = f(c.tlsConfig))
+    )
+    opt[String]("access-token-file")
+      .action((f, c) => c.copy(accessToken = Some(new TokenHolder(Paths.get(f)))))
+      .text(
+        "File from which the access token will be read, required to interact with an authenticated ledger."
+      )
+    opt[Seq[String]]("party")
       .required()
       .unbounded()
-      .action((x, c) => c.copy(parties = x :: c.parties))
-      .text("Export ledger state as seen by these parties.")
+      .action((x, c) => c.copy(parties = c.parties ++ x.toList))
+      .text(
+        "Export ledger state as seen by these parties. " +
+          "Pass --party multiple times or use a comma-separated list of party names to specify multiple parties."
+      )
     opt[String]("start")
       .optional()
       .action((x, c) => c.copy(start = parseLedgerOffset(x)))
@@ -63,7 +78,7 @@ object Config {
       )
     opt[String]("end")
       .optional()
-      .action((x, c) => c.copy(start = parseLedgerOffset(x)))
+      .action((x, c) => c.copy(end = parseLedgerOffset(x)))
       .text(
         "The transaction offset (inclusive) for the end position of the export. Optional, by default the export includes the current end of the ledger."
       )
@@ -123,6 +138,8 @@ object Config {
   private val Empty = Config(
     ledgerHost = "",
     ledgerPort = -1,
+    tlsConfig = TlsConfiguration(false, None, None, None),
+    accessToken = None,
     parties = List(),
     start = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)),

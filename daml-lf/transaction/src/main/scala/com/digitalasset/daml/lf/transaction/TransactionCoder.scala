@@ -311,6 +311,9 @@ object TransactionCoder {
           nf.stakeholders.foreach(builder.addStakeholders)
           nf.signatories.foreach(builder.addSignatories)
           builder.setContractIdStruct(encodeCid.encode(nf.coid))
+          if (nodeVersion >= TransactionVersion.minByKey) {
+            builder.setByKey(nf.byKey)
+          }
           nf.actingParties.foreach(builder.addActors)
           for {
             _ <- encodeAndSetContractKey(
@@ -332,6 +335,9 @@ object TransactionCoder {
           ne.signatories.foreach(builder.addSignatories)
           ne.stakeholders.foreach(builder.addStakeholders)
           ne.choiceObservers.foreach(builder.addObservers)
+          if (nodeVersion >= TransactionVersion.minByKey) {
+            builder.setByKey(ne.byKey)
+          }
           for {
             _ <- Either.cond(
               test = ne.version >= TransactionVersion.minChoiceObservers ||
@@ -524,16 +530,20 @@ object TransactionCoder {
             nodeVersion,
             protoFetch.getKeyWithMaintainers,
           )
+          byKey =
+            if (nodeVersion >= TransactionVersion.minByKey)
+              protoFetch.getByKey
+            else false
         } yield ni -> NodeFetch(
-          c,
-          templateId,
-          None,
-          actingParties,
-          signatories,
-          stakeholders,
-          key,
-          false,
-          nodeVersion,
+          coid = c,
+          templateId = templateId,
+          optLocation = None,
+          actingParties = actingParties,
+          signatories = signatories,
+          stakeholders = stakeholders,
+          key = key,
+          byKey = byKey,
+          version = nodeVersion,
         )
 
       case NodeTypeCase.EXERCISE =>
@@ -578,6 +588,10 @@ object TransactionCoder {
               toPartySet(protoExe.getObserversList)
             }
           choiceName <- toIdentifier(protoExe.getChoice)
+          byKey =
+            if (nodeVersion >= TransactionVersion.minByKey)
+              protoExe.getByKey
+            else false
         } yield ni -> NodeExercises(
           targetCoid = targetCoid,
           templateId = templateId,
@@ -592,7 +606,7 @@ object TransactionCoder {
           children = children,
           exerciseResult = rvOpt,
           key = keyWithMaintainers,
-          byKey = false,
+          byKey = byKey,
           version = nodeVersion,
         )
       case NodeTypeCase.LOOKUP_BY_KEY =>
@@ -787,28 +801,33 @@ object TransactionCoder {
     else
       decodeVersion(node.getVersion)
 
-  /** Node information for a serialized transaction node. Used to compute
+  /** Action node information for a serialized transaction node. Used to compute
     * informees when deserialization is too costly.
     * This method is not supported for transaction version <5 (as NodeInfo does not support it).
     * We're not using e.g. "implicit class" in order to keep the decoding errors explicit.
     * NOTE(JM): Currently used only externally, but kept here to keep in sync
     * with the implementation.
+    * Note that this can only be applied to action nodes and will return Left on
+    * rollback nodes.
     */
-  def protoNodeInfo(
+  def protoActionNodeInfo(
       txVersion: TransactionVersion,
       protoNode: TransactionOuterClass.Node,
-  ): Either[DecodeError, NodeInfo] =
+  ): Either[DecodeError, ActionNodeInfo] =
     protoNode.getNodeTypeCase match {
       case NodeTypeCase.ROLLBACK =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        sys.error("protoNodeInfo, rollback nodes are not supported")
+        Left(
+          DecodeError(
+            "protoActionNodeInfo only supports action nodes but was applied to a rollback node"
+          )
+        )
       case NodeTypeCase.CREATE =>
         val protoCreate = protoNode.getCreate
         for {
           signatories_ <- toPartySet(protoCreate.getSignatoriesList)
           stakeholders_ <- toPartySet(protoCreate.getStakeholdersList)
         } yield {
-          new NodeInfo.Create {
+          new ActionNodeInfo.Create {
             def signatories = signatories_
             def stakeholders = stakeholders_
           }
@@ -820,7 +839,7 @@ object TransactionCoder {
           stakeholders_ <- toPartySet(protoFetch.getStakeholdersList)
           signatories_ <- toPartySet(protoFetch.getSignatoriesList)
         } yield {
-          new NodeInfo.Fetch {
+          new ActionNodeInfo.Fetch {
             def signatories = signatories_
             def stakeholders = stakeholders_
             def actingParties = actingParties_
@@ -839,7 +858,7 @@ object TransactionCoder {
             else
               toPartySet(protoExe.getObserversList)
         } yield {
-          new NodeInfo.Exercise {
+          new ActionNodeInfo.Exercise {
             def signatories = signatories_
             def stakeholders = stakeholders_
             def actingParties = actingParties_
@@ -853,7 +872,7 @@ object TransactionCoder {
         for {
           maintainers <- toPartySet(protoLookupByKey.getKeyWithMaintainers.getMaintainersList)
         } yield {
-          new NodeInfo.LookupByKey {
+          new ActionNodeInfo.LookupByKey {
             def hasResult = protoLookupByKey.hasContractIdStruct
             def keyMaintainers = maintainers
           }

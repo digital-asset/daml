@@ -5,6 +5,7 @@ package com.daml.telemetry
 
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
 import io.opentelemetry.sdk.trace.SdkTracerProvider
+import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
 
 import scala.jdk.CollectionConverters._
@@ -27,14 +28,25 @@ trait TelemetrySpecBase {
   protected object TestTelemetry extends DefaultTelemetry(tracerProvider.get(anInstrumentationName))
 
   protected implicit class RichInMemorySpanExporter(exporter: InMemorySpanExporter) {
-    def finishedSpanAttributes: Map[SpanAttribute, String] = {
-      val finishedSpans = exporter.getFinishedSpanItems.asScala
-      finishedSpans.flatMap { span =>
-        val attributes = span.getAttributes.asMap.asScala
-        attributes.map { case (key, value) =>
-          SpanAttribute(key.toString) -> value.toString
-        }
+    def finishedSpanAttributes: Map[SpanAttribute, String] = finishedSpansToAttributes { spanData =>
+      spanData.getAttributes.asMap.asScala.map { case (key, value) =>
+        SpanAttribute(key.toString) -> value.toString
       }.toMap
+    }
+
+    def finishedEventAttributes: Map[SpanAttribute, String] = finishedSpansToAttributes {
+      spanData =>
+        spanData.getEvents.asScala
+          .flatMap(_.getAttributes.asMap.entrySet.asScala)
+          .map(entry => SpanAttribute(entry.getKey.toString) -> entry.getValue.toString)
+          .toMap
+    }
+
+    private def finishedSpansToAttributes(
+        spanDataToAttributes: SpanData => Map[SpanAttribute, String]
+    ): Map[SpanAttribute, String] = {
+      val finishedSpans = exporter.getFinishedSpanItems.asScala
+      finishedSpans.flatMap(spanDataToAttributes).toMap
     }
   }
 }

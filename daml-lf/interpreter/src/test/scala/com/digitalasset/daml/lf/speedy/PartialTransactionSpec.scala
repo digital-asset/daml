@@ -7,7 +7,7 @@ package speedy
 import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.PartialTransaction._
-import com.daml.lf.transaction.{Node, TransactionVersion}
+import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
 import com.daml.lf.value.Value
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
@@ -23,6 +23,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   private[this] val initialState = PartialTransaction.initial(
     _ => TransactionVersion.maxVersion,
+    ContractKeyUniquenessMode.On,
     data.Time.Timestamp.Epoch,
     InitialSeeding.TransactionSeed(transactionSeed),
   )

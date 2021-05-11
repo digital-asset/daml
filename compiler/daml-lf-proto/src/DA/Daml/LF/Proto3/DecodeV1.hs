@@ -443,12 +443,8 @@ decodeBuiltinFunction = pure . \case
 
   LF1.BuiltinFunctionERROR          -> BEError
   LF1.BuiltinFunctionANY_EXCEPTION_MESSAGE -> BEAnyExceptionMessage
-  LF1.BuiltinFunctionGENERAL_ERROR_MESSAGE -> BEGeneralErrorMessage
-  LF1.BuiltinFunctionARITHMETIC_ERROR_MESSAGE -> BEArithmeticErrorMessage
-  LF1.BuiltinFunctionCONTRACT_ERROR_MESSAGE -> BEContractErrorMessage
-  LF1.BuiltinFunctionMAKE_GENERAL_ERROR -> BEMakeGeneralError
-  LF1.BuiltinFunctionMAKE_ARITHMETIC_ERROR -> BEMakeArithmeticError
-  LF1.BuiltinFunctionMAKE_CONTRACT_ERROR -> BEMakeContractError
+  LF1.BuiltinFunctionANY_EXCEPTION_IS_ARITHMETIC_ERROR -> BEAnyExceptionIsArithmeticError
+  LF1.BuiltinFunctionANY_EXCEPTION_IS_CONTRACT_ERROR -> BEAnyExceptionIsContractError
 
   LF1.BuiltinFunctionTEXTMAP_EMPTY      -> BETextMapEmpty
   LF1.BuiltinFunctionTEXTMAP_INSERT     -> BETextMapInsert
@@ -821,10 +817,6 @@ decodePrim = pure . \case
   LF1.PrimTypeROUNDING_MODE -> BTRoundingMode
   LF1.PrimTypeBIGNUMERIC -> BTBigNumeric
   LF1.PrimTypeANY_EXCEPTION -> BTAnyException
-  LF1.PrimTypeGENERAL_ERROR -> BTGeneralError
-  LF1.PrimTypeARITHMETIC_ERROR -> BTArithmeticError
-  LF1.PrimTypeCONTRACT_ERROR -> BTContractError
-
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =

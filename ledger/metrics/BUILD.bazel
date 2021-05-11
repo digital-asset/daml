@@ -46,6 +46,7 @@ da_scala_library(
     deps = [
         ":metrics",
         "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
         "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
     ],
@@ -76,5 +77,6 @@ da_scala_test_suite(
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
         "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
+        "@maven//:io_opentelemetry_opentelemetry_semconv",
     ],
 )

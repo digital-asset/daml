@@ -60,6 +60,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Engine,
+      enableAppendOnlySchema: Boolean,
       validatePartyAllocation: Boolean = false,
   )(implicit
       mat: Materializer,
@@ -84,6 +85,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       lfValueTranslationCache = lfValueTranslationCache,
       engine = engine,
       validatePartyAllocation = validatePartyAllocation,
+      enableAppendOnlySchema = enableAppendOnlySchema,
     ).flatMap(ledger => owner(MeteredLedger(ledger, metrics), participantId, timeProvider))
 
   def inMemory(

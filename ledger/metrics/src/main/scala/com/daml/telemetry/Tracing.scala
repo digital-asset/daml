@@ -4,7 +4,6 @@
 package com.daml.telemetry
 
 import io.opentelemetry.api.GlobalOpenTelemetry
-import io.opentelemetry.api.trace.Span
 import io.opentelemetry.context.Context
 import io.opentelemetry.context.propagation.TextMapPropagator
 
@@ -49,8 +48,4 @@ object Tracing {
       carrier.keys.asJava
     }
   }
-
-  final val DefaultEmptyMap = Map[String, String]()
-  final val InvalidContext =
-    Context.root().`with`(Span.getInvalid)
 }

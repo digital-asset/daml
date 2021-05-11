@@ -151,6 +151,6 @@
         "@types/node": "12.7.11",
         "@types/vscode": "1.39",
         "typescript": "3.6.3",
-        "vsce": "1.66.0"
+        "vsce": "1.88.0"
     }
 }

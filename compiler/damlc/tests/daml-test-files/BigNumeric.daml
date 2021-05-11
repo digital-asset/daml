@@ -1,0 +1,26 @@
+-- Copyright (c) 2021, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 1.13
+
+module BigNumeric where
+
+import DA.Assert
+import DA.BigNumeric
+
+testShift = scenario do
+     shift 2 32.0 === 0.32
+     shift (-2) 32.0 === 3200.0
+
+testPrecision = scenario do
+     precision 0.0 === 1
+     precision 1.0 === 1
+     precision 1.1 === 2
+     precision 1.10 === 2
+
+testScale = scenario do
+    scale 0.0 === 0
+    scale 1.0 === 0
+    scale 1.1 === 1
+    scale 1.1 === 1
+    scale (shift (-2^14) 1.0) === -2^14

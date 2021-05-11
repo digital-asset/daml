@@ -32,7 +32,8 @@ private[apiserver] final class ApiLedgerIdentityService private (
 
   override def getLedgerIdentity(
       request: GetLedgerIdentityRequest
-  ): Future[GetLedgerIdentityResponse] =
+  ): Future[GetLedgerIdentityResponse] = {
+    logger.info(s"Received request for ledger identity: $request")
     if (closed)
       Future.failed(
         new ApiException(
@@ -44,6 +45,7 @@ private[apiserver] final class ApiLedgerIdentityService private (
       getLedgerId()
         .map(ledgerId => GetLedgerIdentityResponse(ledgerId.unwrap))
         .andThen(logger.logErrorsOnCall[GetLedgerIdentityResponse])
+  }
 
   override def close(): Unit = closed = true
 

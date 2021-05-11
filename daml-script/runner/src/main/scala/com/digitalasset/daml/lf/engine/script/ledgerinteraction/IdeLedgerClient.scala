@@ -145,7 +145,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
   private def unsafeSubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.Command],
+      commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext): Future[
     Either[StatusRuntimeException, RichTransaction]
@@ -233,7 +233,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.Command],
+      commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
@@ -244,19 +244,22 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
         val transaction = richTransaction.transaction
         // Expected successful commit so clear.
         machine.clearCommit
-        def convRootEvent(id: NodeId): ScriptLedgerClient.CommandResult = transaction.nodes
-          .getOrElse(id, throw new IllegalArgumentException(s"Unknown root node id $id")) match {
-          case _: NodeRollback[_] =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
-            sys.error("rollback nodes are not supported")
-          case create: NodeCreate[ContractId] => ScriptLedgerClient.CreateResult(create.coid)
-          case exercise: NodeExercises[NodeId, ContractId] =>
-            ScriptLedgerClient.ExerciseResult(
-              exercise.templateId,
-              exercise.choiceId,
-              exercise.exerciseResult.get,
-            )
-          case n => throw new IllegalArgumentException(s"Unexpected root node: $n")
+        def convRootEvent(id: NodeId): ScriptLedgerClient.CommandResult = {
+          val node = transaction.nodes.getOrElse(
+            id,
+            throw new IllegalArgumentException(s"Unknown root node id $id"),
+          )
+          node match {
+            case create: NodeCreate[ContractId] => ScriptLedgerClient.CreateResult(create.coid)
+            case exercise: NodeExercises[NodeId, ContractId] =>
+              ScriptLedgerClient.ExerciseResult(
+                exercise.templateId,
+                exercise.choiceId,
+                exercise.exerciseResult.get,
+              )
+            case _: NodeFetch[_] | _: NodeLookupByKey[_] | _: NodeRollback[_] =>
+              throw new IllegalArgumentException(s"Invalid root node: $node")
+          }
         }
         Right(transaction.roots.toSeq.map(convRootEvent(_)))
       case Left(err) =>
@@ -268,7 +271,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
   override def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.Command],
+      commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]] = {
     unsafeSubmit(actAs, readAs, commands, optLocation)
@@ -288,7 +291,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
   override def submitTree(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.Command],
+      commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
@@ -301,9 +304,6 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
         val transaction = richTransaction.transaction
         def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
           transaction.nodes(id) match {
-            case _: NodeRollback[_] =>
-              // TODO https://github.com/digital-asset/daml/issues/8020
-              sys.error("rollback nodes are not supported")
             case create: NodeCreate[ContractId] =>
               Some(ScriptLedgerClient.Created(create.templateId, create.coid, create.arg))
             case exercise: NodeExercises[NodeId, ContractId] =>
@@ -316,8 +316,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
                   exercise.children.collect(Function.unlift(convEvent(_))).toList,
                 )
               )
-            case _: NodeFetch[ContractId] => None
-            case _: NodeLookupByKey[ContractId] => None
+            case _: NodeFetch[_] | _: NodeLookupByKey[_] | _: NodeRollback[_] => None
           }
         ScriptLedgerClient.TransactionTree(
           transaction.roots.collect(Function.unlift(convEvent(_))).toList

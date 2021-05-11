@@ -37,7 +37,7 @@ private[apiserver] final class ApiActiveContractsService private (
   ): Source[GetActiveContractsResponse, NotUsed] =
     withEnrichedLoggingContext(logging.filters(request.getFilter.filtersByParty)) {
       implicit loggingContext: LoggingContext =>
-        logger.trace("Serving an Active Contracts request...")
+        logger.info(s"Received request for active contracts: $request")
         TransactionFilterValidator
           .validate(request.getFilter)
           .fold(Source.failed, backend.getActiveContracts(_, request.verbose))

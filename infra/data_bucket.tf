@@ -55,6 +55,7 @@ variable "appr" {
     "user:moritz.kiefer@digitalasset.com",
     "user:stefano.baghino@digitalasset.com",
     "user:stephen.compall@digitalasset.com",
+    "user:victor.mueller@digitalasset.com",
   ]
 }
 

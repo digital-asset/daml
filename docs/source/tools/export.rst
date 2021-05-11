@@ -39,7 +39,8 @@ with a running ledger, e.g. with a running ``daml start``.
 
 The ``--party`` flags define which contracts will be included in the export. In
 the above example only contracts visible to the parties Alice and Bob will be
-included in the export. Lack of visibility of certain events may cause exports to fail, see :ref:`caveats <export-caveats>`.
+included in the export. Lack of visibility of certain events may cause
+references to :ref:`unknown contract ids <export-unknown-cids>`.
 
 The ``--output`` flag defines the directory prefix under which to generate the
 Daml project that contains the Daml script that represents the ledger export.
@@ -53,20 +54,36 @@ this behavior.
 Output
 ******
 
-The generated Daml code contains the following top-level definitions:
+Daml Script
+===========
 
-``data Parties``
-  A record that holds the relevant Daml parties.
+The generated Daml code in ``Export.daml`` contains the following top-level definitions:
+
+``type Parties``
+  A mapping from parties in the original ledger state to parties to be used in
+  the new reconstructed ledger state.
+``lookupParty : Text -> Parties -> Party``
+  A helper function to look up parties in the ``Parties`` mapping.
 ``allocateParties : Script Parties``
   A Daml script that allocates fresh parties on the ledger and returns them in
-  the ``Parties`` record.
-``export : Parties -> Script ()``
-  The Daml ledger export encoded as a Daml script. Given the relevant parties
+  a ``Parties`` mapping.
+``type Contracts``
+  A mapping from unknown contract ids to replacement contract ids,
+  see :ref:`unknown contract ids <export-unknown-cids>`.
+``lookupContract : Text -> Contracts -> ContractId a``
+  A helper function to look up unknown contract ids in the ``Contracts`` mapping.
+``data Args``
+  A record that holds all arguments to the export script.
+``export : Args -> Script ()``
+  The Daml ledger export encoded as a Daml script. Given the relevant arguments
   this script will reproduce the ledger state when executed. You can read this
   script to understand the exported ledger state or history, and you can modify
   this script for debugging or testing purposes.
 ``testExport : Script ()``
-  A Daml script that will first invoke ``allocateParties`` and then ``export``. This can be useful to test it in Daml Studio.
+  A Daml script that will first invoke ``allocateParties`` and then ``export``.
+  It will use an empty ``Contracts`` mapping. This can be useful to test the
+  export in Daml studio. If your export references unknown contract ids then
+  you may need to manually extend the ``Contracts`` mapping.
 
 In most simple cases the generated Daml script will use the functions
 ``submit`` or ``submitMulti`` to issue ledger commands that reproduce a
@@ -95,7 +112,41 @@ created by ``ChoiceA``.
         exercised @Main.ContractA "ChoiceA" $
         createdN @Main.ContractB 1
 
+Arguments
+=========
+
+Daml export will generate a default arguments file in ``args.json``, which
+configures the export to use the same party names as in the original ledger
+state and to map unknown contract ids to themselves. For example:
+
+.. code-block:: json
+
+  {
+    "contracts": {
+      "001335..": "001335..."
+    },
+    "parties": {
+      "Alice": "Alice",
+      "Bob": "Bob"
+    }
+  }
+
 .. TODO[AH] Add a full example project and example export.
+
+Executing the Export
+********************
+
+The generated Daml project is configured such that ``daml start`` will execute
+the Daml export with the default arguments defined in ``args.json``.
+Alternatively you can build and execute the generated Daml script manually
+using commands of the following form: ::
+
+  daml build
+  daml script --ledger-host localhost --ledger-port 6865 --dar .daml/dist/export-1.0.0.dar --script-name Export:export --input-file args.json
+
+The arguments ``--ledger-host`` and ``--ledger-port`` configure the address of
+the ledger and the argument ``--input-file`` points to a JSON file that defines
+the export script's arguments.
 
 .. _export-ledger-offsets:
 
@@ -120,6 +171,29 @@ behavior. Both flags accept ledger offsets, either the special offsets
 
 .. TODO[AH] Provide a reference or hints how to obtain arbitrary ledger offsets.
 
+.. _export-unknown-cids:
+
+Unknown Contract Ids
+********************
+
+Daml ledger export may encounter references to unknown contracts. This may occur
+if a contract was divulged to one of the configured parties, but the event that
+initially created that contract is not visible to any of the configured
+parties. This may also occur if a contract was archived before the configured
+start offset, such that it is neither part of the recreated ACS nor created in
+any of the exported transactions, and another live contract retains a reference
+to this archived contract.
+
+In such cases Daml export will not generate commands to recreate these unknown
+contracts. Instead, it will generate a lookup in the ``Contracts`` mapping
+defined in the scripts arguments. You can define a mapping from unknown
+contract ids to replacement contract ids in the JSON input file. The default
+``args.json`` generated by Daml ledger export will map unknown contract ids to
+themselves.
+
+Note that you may submit references to non-existing contract ids to the ledger
+using this feature. A ``fetch`` on such a dangling contract id will fail.
+
 Transaction Time
 ****************
 
@@ -132,18 +206,6 @@ script. However, this is not supported by all ledgers.
 
 Caveats
 *******
-
-Unknown Contract Ids
-====================
-
-Daml ledger export does currently not handle references to unknown contract
-ids, but will just fail if any such references are encountered. This may occur
-if a contract was divulged to one of the configured parties, but the event that
-initially created that contract is not visible to any of the configured
-parties. This may also occur if a contract was archived before the configured
-start offset, such that it is neither part of the recreated ACS nor created in
-any of the exported transactions, and another live contract retains a reference
-to this archived contract.
 
 Contracts Created and Referenced in Same Transaction
 ====================================================

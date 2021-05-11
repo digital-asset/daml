@@ -43,7 +43,7 @@ private[apiserver] final class ApiCommandCompletionService private (
     withEnrichedLoggingContext(logging.parties(request.parties), logging.offset(request.offset)) {
       implicit loggingContext =>
         val subscriptionId = subscriptionIdCounter.getAndIncrement().toString
-        logger.debug(s"Received request for completion subscription $subscriptionId: $request")
+        logger.info(s"Received request for completion subscription $subscriptionId: $request")
 
         val offset = request.offset.getOrElse(LedgerOffset.LedgerEnd)
 

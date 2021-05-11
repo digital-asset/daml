@@ -59,7 +59,7 @@ class KeyValueParticipantState(
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
       config: Configuration,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     writerAdapter.submitConfiguration(maxRecordTime, submissionId, config)
 
   override def uploadPackages(

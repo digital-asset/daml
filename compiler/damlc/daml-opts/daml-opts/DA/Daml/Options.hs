@@ -270,6 +270,7 @@ xExtensionsSet =
   , PackageImports
     -- our changes
   , DamlSyntax
+  , OverloadedRecordUpdate
   ]
 
 -- | Extensions which we support with data-dependencies.
@@ -298,6 +299,11 @@ dataDependableExtensions = ES.fromList $ xExtensionsSet ++
     -- NOTE: This should not appear on any list of extensions that are
     -- compatible with data-dependencies since this would spur wrong hopes.
   , Cpp
+  , OverloadedRecordUpdate
+  , OverloadedLists
+    -- Pure syntactic sugar so no reason to disallow this. Note that
+    -- we always turn on RebindableSyntax so this does not rely
+    -- on the IsList typeclass which in turn uses a type family.
   ]
 
 -- | Language settings _disabled_ ($-XNo...$) in the DAML-1.2 compilation

@@ -7,6 +7,7 @@ package engine
 import java.nio.file.Path
 
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.ContractKeyUniquenessMode
 
 /** The Engine configurations describes the versions of language and
   * transaction the engine is allowed to read and write together with
@@ -28,6 +29,7 @@ final case class EngineConfig(
     packageValidation: Boolean = true,
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,
+    contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
 ) {
 
   private[lf] def getCompilerConfig: speedy.Compiler.Config =

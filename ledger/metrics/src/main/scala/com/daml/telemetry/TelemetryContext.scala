@@ -77,6 +77,13 @@ trait TelemetryContext {
     */
   def encodeMetadata(): jMap[String, String]
 
+  /** Returns a raw Open Telemetry context.
+    * Should only be used by consumers that are using the Open Telemetry API directly.
+    *
+    * @return Open Telemetry context
+    */
+  def openTelemetryContext: Context
+
 }
 
 /** Default implementation of TelemetryContext. Uses OpenTelemetry to generate and gather traces.
@@ -119,6 +126,10 @@ protected class DefaultTelemetryContext(protected val tracer: Tracer, protected 
 
     try {
       body(DefaultTelemetryContext(tracer, subSpan))
+    } catch {
+      case exception: Exception =>
+        subSpan.recordException(exception)
+        throw exception
     } finally {
       subSpan.end()
     }
@@ -132,7 +143,7 @@ protected class DefaultTelemetryContext(protected val tracer: Tracer, protected 
     val subSpan =
       tracer
         .spanBuilder(spanName)
-        .setParent(Context.current.`with`(span))
+        .setParent(openTelemetryContext)
         .setSpanKind(kind.kind)
         .startSpan()
     for {
@@ -144,7 +155,7 @@ protected class DefaultTelemetryContext(protected val tracer: Tracer, protected 
   }
 
   override def runInOpenTelemetryScope[T](body: => T): T = {
-    val scope = Context.current.`with`(span).makeCurrent()
+    val scope = openTelemetryContext.makeCurrent()
     try {
       body
     } finally {
@@ -154,8 +165,10 @@ protected class DefaultTelemetryContext(protected val tracer: Tracer, protected 
 
   override def encodeMetadata(): jMap[String, String] = {
     import scala.jdk.CollectionConverters._
-    Tracing.encodeTraceMetadata(Context.current.`with`(span)).asJava
+    Tracing.encodeTraceMetadata(openTelemetryContext).asJava
   }
+
+  override def openTelemetryContext: Context = Context.current.`with`(span)
 }
 
 object DefaultTelemetryContext {
@@ -219,4 +232,6 @@ object NoOpTelemetryContext extends TelemetryContext {
   }
 
   override def encodeMetadata(): jMap[String, String] = new jHashMap()
+
+  override def openTelemetryContext: Context = Context.root.`with`(Span.getInvalid)
 }

@@ -5,15 +5,15 @@ package com.daml.lf.transaction
 
 import com.daml.lf.data.Ref.Party
 
-/** Trait for extracting information from an abstract node.
+/** Trait for extracting information from an abstract action node.
   * Used for sharing the implementation of common computations
   * over nodes and transactions.
   *
   * External codebases use these utilities on transaction and
-  * node implementations that are not the one defined by [[Node]]
+  * node implementations that are not the one defined by [[ActionNode]]
   * and hence the need for the indirection.
   */
-trait NodeInfo {
+trait ActionNodeInfo {
 
   /** Compute the informees of a node based on the ledger model definition.
     *
@@ -33,9 +33,9 @@ trait NodeInfo {
   def requiredAuthorizers: Set[Party]
 }
 
-object NodeInfo {
+object ActionNodeInfo {
 
-  trait Create extends NodeInfo {
+  trait Create extends ActionNodeInfo {
     def signatories: Set[Party]
     def stakeholders: Set[Party]
 
@@ -43,7 +43,7 @@ object NodeInfo {
     final def informeesOfNode: Set[Party] = stakeholders
   }
 
-  trait Fetch extends NodeInfo {
+  trait Fetch extends ActionNodeInfo {
     def signatories: Set[Party]
     def stakeholders: Set[Party]
     def actingParties: Set[Party]
@@ -55,7 +55,7 @@ object NodeInfo {
 
   }
 
-  trait Exercise extends NodeInfo {
+  trait Exercise extends ActionNodeInfo {
 
     def consuming: Boolean
     def signatories: Set[Party]
@@ -72,7 +72,7 @@ object NodeInfo {
         signatories | actingParties | choiceObservers
   }
 
-  trait LookupByKey extends NodeInfo {
+  trait LookupByKey extends ActionNodeInfo {
     def keyMaintainers: Set[Party]
     def hasResult: Boolean
 

@@ -134,9 +134,6 @@ kindOfBuiltin = \case
   BTRoundingMode -> KStar
   BTBigNumeric -> KStar
   BTAnyException -> KStar
-  BTGeneralError -> KStar
-  BTArithmeticError -> KStar
-  BTContractError -> KStar
 
 checkKind :: MonadGamma m => Kind -> m ()
 checkKind = \case
@@ -219,12 +216,8 @@ typeOfBuiltin = \case
   BERoundingMode _   -> pure TRoundingMode
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
   BEAnyExceptionMessage -> pure $ TAnyException :-> TText
-  BEGeneralErrorMessage -> pure $ TGeneralError :-> TText
-  BEArithmeticErrorMessage -> pure $ TArithmeticError :-> TText
-  BEContractErrorMessage -> pure $ TContractError :-> TText
-  BEMakeGeneralError -> pure $ TText :-> TGeneralError
-  BEMakeArithmeticError -> pure $ TText :-> TArithmeticError
-  BEMakeContractError -> pure $ TText :-> TContractError
+  BEAnyExceptionIsArithmeticError -> pure $ TAnyException :-> TBool
+  BEAnyExceptionIsContractError -> pure $ TAnyException :-> TBool
   BEEqualGeneric     -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BELessGeneric      -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BELessEqGeneric    -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
@@ -751,9 +744,6 @@ checkGroundType ty = do
 
 checkExceptionType' :: MonadGamma m => Type -> m ()
 checkExceptionType' = \case
-    TGeneralError -> pure ()
-    TArithmeticError -> pure ()
-    TContractError -> pure ()
     TCon qtcon -> do
       _ <- inWorld (lookupException qtcon)
       pure ()

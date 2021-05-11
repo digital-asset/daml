@@ -23,6 +23,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.LedgerConfiguration
+import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.{DurationInt, DurationLong}
@@ -40,7 +41,7 @@ private[apiserver] final class LedgerConfigProvider private (
     timeProvider: TimeProvider,
     config: LedgerConfiguration,
     materializer: Materializer,
-)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
+)(implicit loggingContext: LoggingContext)
     extends AutoCloseable {
 
   private[this] val logger = ContextualizedLogger.get(this.getClass)
@@ -49,9 +50,8 @@ private[apiserver] final class LedgerConfigProvider private (
   private[this] type StateType = (Option[LedgerOffset.Absolute], Option[Configuration])
   private[this] val state: AtomicReference[StateType] = new AtomicReference(None -> None)
   private[this] val closed: AtomicBoolean = new AtomicBoolean(false)
-  private[this] val killSwitch: AtomicReference[Option[UniqueKillSwitch]] = new AtomicReference(
-    None
-  )
+  private[this] val killSwitch: AtomicReference[Option[UniqueKillSwitch]] =
+    new AtomicReference(None)
   private[this] val readyPromise: Promise[Unit] = Promise()
 
   // At startup, do the following:
@@ -84,7 +84,8 @@ private[apiserver] final class LedgerConfigProvider private (
   // stream of configuration changes.
   // If the source of configuration changes proves to be a performance bottleneck,
   // it could be replaced by regular polling.
-  private[this] def startLoading(): Future[Unit] =
+  private[this] def startLoading(): Future[Unit] = {
+    implicit val executionContext: ExecutionContext = materializer.executionContext
     index
       .lookupConfiguration()
       .map {
@@ -100,6 +101,7 @@ private[apiserver] final class LedgerConfigProvider private (
           state.set(None -> None)
       }
       .map(_ => startStreamingUpdates())
+  }
 
   private[this] def configFound(offset: LedgerOffset.Absolute, config: Configuration): Unit = {
     state.set(Some(offset) -> Some(config))
@@ -139,33 +141,36 @@ private[apiserver] final class LedgerConfigProvider private (
   }
 
   private[this] def submitInitialConfig(writeService: WriteConfigService): Future[Unit] = {
+    implicit val executionContext: ExecutionContext = materializer.executionContext
     // There are several reasons why the change could be rejected:
     // - The participant is not authorized to set the configuration
     // - There already is a configuration, it just didn't appear in the index yet
     // This method therefore does not try to re-submit the initial configuration in case of failure.
     val submissionId = SubmissionId.assertFromString(UUID.randomUUID.toString)
     logger.info(s"No ledger configuration found, submitting an initial configuration $submissionId")
-    FutureConverters
-      .toScala(
-        writeService.submitConfiguration(
-          Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
-          submissionId,
-          config.initialConfiguration,
-        )
-      )
-      .map {
-        case SubmissionResult.Acknowledged =>
-          logger.info(s"Initial configuration submission $submissionId was successful")
-          ()
-        case SubmissionResult.NotSupported =>
-          logger.info("Setting an initial ledger configuration is not supported")
-          ()
-        case result =>
-          logger.warn(
-            s"Initial configuration submission $submissionId failed. Reason: ${result.description}"
+    DefaultTelemetry.runFutureInSpan(
+      SpanName.LedgerConfigProviderInitialConfig,
+      SpanKind.Internal,
+    ) { implicit telemetryContext =>
+      FutureConverters
+        .toScala(
+          writeService.submitConfiguration(
+            Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
+            submissionId,
+            config.initialConfiguration,
           )
-          ()
-      }
+        )
+        .map {
+          case SubmissionResult.Acknowledged =>
+            logger.info(s"Initial configuration submission $submissionId was successful")
+          case SubmissionResult.NotSupported =>
+            logger.info("Setting an initial ledger configuration is not supported")
+          case result =>
+            logger.warn(
+              s"Initial configuration submission $submissionId failed. Reason: ${result.description}"
+            )
+        }
+    }
   }
 
   /** The latest configuration found so far.
@@ -194,13 +199,14 @@ private[apiserver] object LedgerConfigProvider {
       config: LedgerConfiguration,
   )(implicit
       materializer: Materializer,
-      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ResourceOwner[LedgerConfigProvider] =
     for {
       provider <- ResourceOwner.forCloseable(() =>
         new LedgerConfigProvider(index, optWriteService, timeProvider, config, materializer)
       )
-      _ <- ResourceOwner.forFuture(() => provider.ready.map(_ => provider))
+      _ <- ResourceOwner.forFuture(() =>
+        provider.ready.map(_ => provider)(materializer.executionContext)
+      )
     } yield provider
 }

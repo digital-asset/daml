@@ -4,17 +4,22 @@
 package com.daml.telemetry
 
 import io.opentelemetry.api.trace.Span
-import org.scalatest.BeforeAndAfterEach
+import io.opentelemetry.context.Context
+import io.opentelemetry.semconv.trace.attributes.SemanticAttributes
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpecLike
+import org.scalatest.{Assertion, BeforeAndAfterEach}
 
 import scala.concurrent.Future
+import scala.util.Try
 
 class TelemetrySpec
     extends TelemetrySpecBase
     with AsyncWordSpecLike
     with BeforeAndAfterEach
     with Matchers {
+
+  import TelemetrySpec._
 
   override protected def afterEach(): Unit = spanExporter.reset()
 
@@ -62,6 +67,30 @@ class TelemetrySpec
     }
   }
 
+  "contextFromOpenTelemetryContext" should {
+    "return a raw Open Telemetry Context" in {
+      val tracer = tracerProvider.get(anInstrumentationName)
+      val span = tracer.spanBuilder(aSpanName).startSpan()
+      val openTelemetryContext = Context.current.`with`(span)
+
+      val context = DefaultTelemetry.contextFromOpenTelemetryContext(openTelemetryContext)
+
+      Span.fromContextOrNull(context.openTelemetryContext) shouldBe span
+    }
+
+    "return a root context" in {
+      val openTelemetryContext = Context.root
+
+      val context = DefaultTelemetry.contextFromOpenTelemetryContext(openTelemetryContext)
+
+      Span.fromContextOrNull(context.openTelemetryContext) shouldBe Span.getInvalid
+    }
+
+    "return a no-op context" in {
+      NoOpTelemetry.contextFromOpenTelemetryContext(Context.current) shouldBe NoOpTelemetryContext
+    }
+  }
+
   "runInSpan" should {
     "create and finish a span" in {
       TestTelemetry
@@ -76,6 +105,23 @@ class TelemetrySpec
       val attributes = spanExporter.finishedSpanAttributes
       attributes should contain(anApplicationIdSpanAttribute)
       attributes should contain(aCommandIdSpanAttribute)
+    }
+
+    "record an exception" in {
+      Try(
+        TestTelemetry
+          .runInSpan(
+            aSpanName,
+            SpanKind.Internal,
+            anApplicationIdSpanAttribute,
+          ) { _ =>
+            throw anException
+          }
+      )
+      val spanAttributes = spanExporter.finishedSpanAttributes
+      spanAttributes should contain(anApplicationIdSpanAttribute)
+
+      assertExceptionRecorded
     }
   }
 
@@ -96,5 +142,38 @@ class TelemetrySpec
           attributes should contain(aCommandIdSpanAttribute)
         }
     }
+
+    "record an exception" in {
+      TestTelemetry
+        .runFutureInSpan(
+          aSpanName,
+          SpanKind.Internal,
+          anApplicationIdSpanAttribute,
+        ) { _ =>
+          Future.failed(anException)
+        }
+        .recover { case _ =>
+          val spanAttributes = spanExporter.finishedSpanAttributes
+          spanAttributes should contain(anApplicationIdSpanAttribute)
+
+          assertExceptionRecorded
+        }
+    }
   }
+
+  private def assertExceptionRecorded: Assertion = {
+    val evenAttributes = spanExporter.finishedEventAttributes
+    evenAttributes should contain(
+      SpanAttribute(SemanticAttributes.EXCEPTION_TYPE) -> anExceptionName
+    )
+    evenAttributes should contain(
+      SpanAttribute(SemanticAttributes.EXCEPTION_MESSAGE) -> anExceptionMessage
+    )
+  }
+}
+
+object TelemetrySpec {
+  private val anExceptionMessage = "anException"
+  private val anException = new IllegalStateException(anExceptionMessage)
+  private val anExceptionName = anException.getClass.getCanonicalName
 }

@@ -45,3 +45,13 @@ final case class GlobalKeyWithMaintainers(
     globalKey: GlobalKey,
     maintainers: Set[Ref.Party],
 )
+
+/** Controls whether the engine should error out when it encounters duplicate keys.
+  * This is always turned on with the exception of Canton which allows turning this on or off
+  * and forces it to be turned off in multi-domain mode.
+  */
+sealed trait ContractKeyUniquenessMode
+object ContractKeyUniquenessMode {
+  case object On extends ContractKeyUniquenessMode
+  case object Off extends ContractKeyUniquenessMode
+}

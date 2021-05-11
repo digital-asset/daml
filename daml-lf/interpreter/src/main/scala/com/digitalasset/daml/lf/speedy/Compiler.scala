@@ -588,18 +588,15 @@ private[lf] final class Compiler(
               BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
 
-          case BMakeGeneralError =>
-            SBMakeBuiltinError("GeneralError")
-          case BMakeArithmeticError =>
-            SBMakeBuiltinError("ArithmeticError")
-          case BMakeContractError =>
-            SBMakeBuiltinError("ContractError")
-
-          case BGeneralErrorMessage | BArithmeticErrorMessage | BContractErrorMessage =>
-            SBBuiltinErrorMessage
-
           case BAnyExceptionMessage =>
             SBAnyExceptionMessage
+          case BAnyExceptionIsArithmeticError =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            throw CompilationError("SBAnyExceptionIsArithmeticError not implemented")
+          case BAnyExceptionIsContractError =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            throw CompilationError("SBAnyExceptionIsContractError not implemented")
+
         })
     }
 
@@ -660,7 +657,7 @@ private[lf] final class Compiler(
         compile(updates.head),
       )
     } else {
-      SBRecUpdMulti(tapp.tycon, fields.map(lookupRecordIndex(tapp, _)).toArray)(
+      SBRecUpdMulti(tapp.tycon, fields.map(lookupRecordIndex(tapp, _)).to(ImmArray))(
         (record :: updates).map(compile): _*
       )
     }
@@ -965,26 +962,23 @@ private[lf] final class Compiler(
       )(svar(cidPos), mbKey.fold(SEValue.None: SExpr)(pos => SBSome(svar(pos))))
     ) { tmplArgPos =>
       addExprVar(tmpl.param, tmplArgPos)
-      SEScopeExercise(
-        let(
-          SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
-            svar(choiceArgPos),
-            svar(cidPos), {
-              addExprVar(choice.argBinder._1, choiceArgPos)
-              compile(choice.controllers)
-            }, //
-            {
-              choice.choiceObservers match {
-                case Some(observers) => compile(observers)
-                case None => SEValue.EmptyList
-              }
-            },
-          )
-        ) { _ =>
-          addExprVar(choice.selfBinder, cidPos)
-          app(compile(choice.update), svar(tokenPos))
-        }
-      )
+      let(
+        SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
+          svar(choiceArgPos),
+          svar(cidPos), {
+            addExprVar(choice.argBinder._1, choiceArgPos)
+            compile(choice.controllers)
+          }, {
+            choice.choiceObservers match {
+              case Some(observers) => compile(observers)
+              case None => SEValue.EmptyList
+            }
+          },
+        )
+      ) { _ =>
+        addExprVar(choice.selfBinder, cidPos)
+        SEScopeExercise(app(compile(choice.update), svar(tokenPos)))
+      }
     }
   }
 
@@ -1326,7 +1320,7 @@ private[lf] final class Compiler(
         case SEnum(_, _, _) => ()
         case SAny(_, v) => goV(v)
         case SAnyException(_, v) => goV(v)
-        case SBuiltinException(_, v) => goV(v)
+        case SBuiltinException(ContractError | ArithmeticError) => ()
         case _: SPAP | SToken | SStruct(_, _) =>
           throw CompilationError("validate: unexpected SEValue")
       }

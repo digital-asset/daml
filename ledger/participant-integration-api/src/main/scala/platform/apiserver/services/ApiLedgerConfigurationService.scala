@@ -32,7 +32,8 @@ private[apiserver] final class ApiLedgerConfigurationService private (
 
   override protected def getLedgerConfigurationSource(
       request: GetLedgerConfigurationRequest
-  ): Source[GetLedgerConfigurationResponse, NotUsed] =
+  ): Source[GetLedgerConfigurationResponse, NotUsed] = {
+    logger.info(s"Received request for configuration subscription: $request")
     configurationService
       .getLedgerConfiguration()
       .map(configuration =>
@@ -45,6 +46,7 @@ private[apiserver] final class ApiLedgerConfigurationService private (
         )
       )
       .via(logger.logErrorsOnStream)
+  }
 
   override def bindService(): ServerServiceDefinition =
     LedgerConfigurationServiceGrpc.bindService(this, executionContext)

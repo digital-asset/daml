@@ -71,7 +71,7 @@ class TransactionCoderSpec
 
           Right(createNode.informeesOfNode) shouldEqual
             TransactionCoder
-              .protoNodeInfo(txVersion, encodedNode)
+              .protoActionNodeInfo(txVersion, encodedNode)
               .map(_.informeesOfNode)
       }
     }
@@ -100,7 +100,7 @@ class TransactionCoderSpec
             ) shouldBe Right((NodeId(0), normalizeFetch(versionedNode)))
           Right(fetchNode.informeesOfNode) shouldEqual
             TransactionCoder
-              .protoNodeInfo(txVersion, encodedNode)
+              .protoActionNodeInfo(txVersion, encodedNode)
               .map(_.informeesOfNode)
       }
     }
@@ -128,7 +128,7 @@ class TransactionCoderSpec
 
           Right(normalizedNode.informeesOfNode) shouldEqual
             TransactionCoder
-              .protoNodeInfo(txVersion, encodedNode)
+              .protoActionNodeInfo(txVersion, encodedNode)
               .map(_.informeesOfNode)
       }
     }
@@ -355,8 +355,8 @@ class TransactionCoderSpec
 
     "fail if try to encode a create node containing value with version different from node" in {
       forAll(
-        transactionVersionGen(maxVersion = V11),
-        transactionVersionGen(maxVersion = V12),
+        transactionVersionGen(maxVersion = Some(V11)),
+        transactionVersionGen(maxVersion = Some(V12)),
         minSuccessful(5),
       ) { (nodeVersion, version) =>
         whenever(nodeVersion != version) {
@@ -472,7 +472,7 @@ class TransactionCoderSpec
 
       forAll(
         danglingRefExerciseNodeGen,
-        transactionVersionGen(maxVersion = TransactionVersion.minNoVersionValue),
+        transactionVersionGen(maxVersion = Some(TransactionVersion.minNoVersionValue)),
         minSuccessful(5),
       ) { (exeNode, version) =>
         whenever(exeNode.version != version) {
@@ -746,6 +746,76 @@ class TransactionCoderSpec
         }
       }
     }
+
+    s"preserve byKey on exercise in version >= ${TransactionVersion.minByKey} and drop before" in {
+      forAll(
+        Arbitrary.arbInt.arbitrary,
+        danglingRefExerciseNodeGen,
+        minSuccessful(50),
+      ) { (nodeIdx, node) =>
+        val nodeId = NodeId(nodeIdx)
+        // We want to check that byKey gets lost so we undo the normalization
+        val byKey = node.byKey
+        val normalizedNode = normalizeExe(node.updateVersion(node.version)).copy(byKey = byKey)
+
+        val result = TransactionCoder
+          .encodeNode(
+            TransactionCoder.NidEncoder,
+            ValueCoder.CidEncoder,
+            node.version,
+            nodeId,
+            normalizedNode,
+          )
+        inside(result) { case Right(encoded) =>
+          val result = TransactionCoder.decodeVersionedNode(
+            TransactionCoder.NidDecoder,
+            ValueCoder.CidDecoder,
+            node.version,
+            encoded,
+          )
+          result shouldBe Right(
+            nodeId -> normalizedNode.copy(
+              byKey = if (node.version >= TransactionVersion.minByKey) byKey else false
+            )
+          )
+        }
+      }
+    }
+
+    s"preserve byKey on fetch in version >= ${TransactionVersion.minByKey} and drop before" in {
+      forAll(
+        Arbitrary.arbInt.arbitrary,
+        fetchNodeGen,
+        minSuccessful(50),
+      ) { (nodeIdx, node) =>
+        val nodeId = NodeId(nodeIdx)
+        // We want to check that byKey gets lost so we undo the normalization
+        val byKey = node.byKey
+        val normalizedNode = normalizeFetch(node.updateVersion(node.version)).copy(byKey = byKey)
+
+        val result = TransactionCoder
+          .encodeNode(
+            TransactionCoder.NidEncoder,
+            ValueCoder.CidEncoder,
+            node.version,
+            nodeId,
+            normalizedNode,
+          )
+        inside(result) { case Right(encoded) =>
+          val result = TransactionCoder.decodeVersionedNode(
+            TransactionCoder.NidDecoder,
+            ValueCoder.CidDecoder,
+            node.version,
+            encoded,
+          )
+          result shouldBe Right(
+            nodeId -> normalizedNode.copy(
+              byKey = if (node.version >= TransactionVersion.minByKey) byKey else false
+            )
+          )
+        }
+      }
+    }
   }
 
   def withoutExerciseResult[Nid, Cid](gn: GenNode[Nid, Cid]): GenNode[Nid, Cid] =
@@ -762,17 +832,6 @@ class TransactionCoderSpec
     gn match {
       case ne: NodeExercises[Nid, Cid] =>
         ne copy (key = ne.key.map(_.copy(maintainers = Set.empty)))
-      case _ => gn
-    }
-
-  // FIXME: https://github.com/digital-asset/daml/issues/7622
-  // Fix the usage of this function in the test, once `byKey` is added to the serialization format.
-  def withoutByKeyFlag[Nid, Cid](gn: GenNode[Nid, Cid]): GenNode[Nid, Cid] =
-    gn match {
-      case ne: NodeExercises[Nid, Cid] =>
-        ne.copy(byKey = false)
-      case fe: NodeFetch[Cid] =>
-        fe.copy(byKey = false)
       case _ => gn
     }
 
@@ -835,7 +894,10 @@ class TransactionCoderSpec
   private[this] def normalizeFetch(fetch: Node.NodeFetch[ContractId]) =
     fetch.copy(
       key = fetch.key.map(normalizeKey(_, fetch.version)),
-      byKey = false,
+      byKey =
+        if (fetch.version >= TransactionVersion.minByKey)
+          fetch.byKey
+        else false,
     )
 
   private[this] def normalizeExe[Nid](exe: Node.NodeExercises[Nid, ContractId]) =
@@ -854,7 +916,10 @@ class TransactionCoderSpec
       choiceObservers =
         exe.choiceObservers.filter(_ => exe.version >= TransactionVersion.minChoiceObservers),
       key = exe.key.map(normalizeKey(_, exe.version)),
-      byKey = false,
+      byKey =
+        if (exe.version >= TransactionVersion.minByKey)
+          exe.byKey
+        else false,
     )
 
   private[this] def normalizeKey(

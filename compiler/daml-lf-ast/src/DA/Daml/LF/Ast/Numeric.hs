@@ -54,7 +54,7 @@ data NumericError
 numericE :: Natural -> Integer -> Either NumericError Numeric
 numericE s m
     | s > numericMaxScale = Left NEScaleTooLarge
-    | m > numericMaxMantissa = Left NEMantissaTooLarge
+    | abs m > numericMaxMantissa = Left NEMantissaTooLarge
     | otherwise = Right . Numeric $ Decimal (fromIntegral s) m
 
 -- | Partial smart constructor for Numeric literals. Returns undefined

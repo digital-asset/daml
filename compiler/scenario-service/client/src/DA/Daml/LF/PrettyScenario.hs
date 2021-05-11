@@ -207,6 +207,12 @@ prettyTraceMessage _world msg =
   --  prettyMayLocation world (traceMessageLocation msg)
   ltext (traceMessageMessage msg)
 
+pattern ValueGeneralError :: TL.Text -> Value
+pattern ValueGeneralError t <-
+    Value (Just (ValueSumRecord (Record
+        (Just (Identifier _ "DA.Internal.Exception.Types:GeneralError"))
+        (V.toList -> [Field "message" (Just (Value (Just (ValueSumText t))))]))))
+
 prettyScenarioErrorError :: Maybe ScenarioErrorError -> M (Doc SyntaxClass)
 prettyScenarioErrorError Nothing = pure $ text "<missing error details>"
 prettyScenarioErrorError (Just err) =  do
@@ -214,6 +220,7 @@ prettyScenarioErrorError (Just err) =  do
   case err of
     ScenarioErrorErrorCrash reason -> pure $ text "CRASH:" <-> ltext reason
     ScenarioErrorErrorUserError reason -> pure $ text "Aborted: " <-> ltext reason
+    ScenarioErrorErrorUnhandledException (ValueGeneralError reason) -> pure $ text "Aborted: " <-> ltext reason
     ScenarioErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' True 0 world exc
     ScenarioErrorErrorTemplatePrecondViolated ScenarioError_TemplatePreconditionViolated{..} -> do
       pure $
@@ -677,7 +684,7 @@ prettyPartialTransaction PartialTransaction{..} = do
           text "Failed exercise"
             <-> parens (prettyMayLocation world exerciseContextExerciseLocation) <> ":"
             $$ nest 2 (
-                keyword_ "exercise"
+                keyword_ "exercises"
             <-> prettyMay "<missing template id>"
                   (\tid ->
                       prettyChoiceId world tid exerciseContextChoiceId)
@@ -708,8 +715,6 @@ prettyValue' showRecordType prec world (Value (Just vsum)) = case vsum of
        then \fs -> prettyMay "" (prettyDefName world) mbRecordId <-> keyword_ "with" $$ nest 2 fs
        else id)
       (sep (punctuate ";" (mapV prettyField fields)))
-  ValueSumBuiltinException(BuiltinException tag mbValue) ->
-    ltext tag <> char '(' <> prettyMay "<missing value>" (prettyValue' True prec world) mbValue <> char ')'
   ValueSumVariant (Variant mbVariantId ctor mbValue) ->
         prettyMay "" (\v -> prettyDefName world v <> ":") mbVariantId <> ltext ctor
     <-> prettyMay "<missing value>" (prettyValue' True precHighest world) mbValue

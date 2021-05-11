@@ -151,9 +151,6 @@ instance Pretty BuiltinType where
     BTRoundingMode -> "RoundingMode"
     BTBigNumeric -> "BigNumeric"
     BTAnyException -> "AnyException"
-    BTGeneralError -> "GeneralError"
-    BTArithmeticError -> "ArithmeticError"
-    BTContractError -> "ContractError"
 
 pPrintRecord :: Pretty a => PrettyLevel -> Doc ann -> [(FieldName, a)] -> Doc ann
 pPrintRecord lvl sept fields =
@@ -226,12 +223,8 @@ instance Pretty BuiltinExpr where
     BERoundingMode r -> keyword_ $ prettyRounding r
     BEError -> "ERROR"
     BEAnyExceptionMessage -> "ANY_EXCEPTION_MESSAGE"
-    BEGeneralErrorMessage -> "GENERAL_ERROR_MESSAGE"
-    BEArithmeticErrorMessage -> "ARITHMETIC_ERROR_MESSAGE"
-    BEContractErrorMessage -> "CONTRACT_ERROR_MESSAGE"
-    BEMakeGeneralError -> "MAKE_GENERAL_ERROR"
-    BEMakeArithmeticError -> "MAKE_ARITHMETIC_ERROR"
-    BEMakeContractError -> "MAKE_CONTRACT_ERROR"
+    BEAnyExceptionIsArithmeticError -> "ANY_EXCEPTION_IS_ARITHMETIC_ERROR"
+    BEAnyExceptionIsContractError -> "ANY_EXCEPTION_IS_CONTRACT_ERROR"
     BEEqualGeneric -> "EQUAL"
     BELessGeneric -> "LESS"
     BELessEqGeneric -> "LESS_EQ"

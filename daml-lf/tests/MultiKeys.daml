@@ -45,7 +45,7 @@ template KeyOperations
          (cid, _) <- fetchByKey @Keyed p
          cid2 === cid
 
-    -- should be rejected in uck
+    -- should be accepted in uck
     nonconsuming choice CreateOverwritesUnknownGlobal : ()
       controller p
       do -- assume the global exists but do not fetch it
@@ -130,7 +130,9 @@ template KeyOperations
          (keyCid, _) <- fetchByKey @Keyed p
          assert (keyCid `elem` [cid1, cid2])
          archive (fromSome (find (/= keyCid) [cid1, cid2]))
-         None <- lookupByKey @Keyed p
+         -- archive can only influence result for a contract fetched by key before.
+         Some keyCid' <- lookupByKey @Keyed p
+         keyCid' === keyCid
          pure ()
 
     -- should be accepted in uck
@@ -164,6 +166,23 @@ template KeyOperations
          cid1 === cid2
 
     -- should be rejected in uck
+    nonconsuming choice RollbackFetchByKeyRollbackCreateNonRollbackFetchByKey : ()
+      controller p
+      do try do
+          cid <- fetchByKey @Keyed p
+          throw E
+         catch E -> pure ()
+         try do
+           cid <- create (Keyed p)
+           (cid', _) <- fetchByKey @Keyed p
+           cid === cid'
+           throw E
+         catch E -> pure ()
+         cid2 <- fetchByKey @Keyed p
+         pure ()
+         -- cid1 === cid2
+
+    -- should be rejected in uck
     nonconsuming choice RollbackFetchByKeyNonRollbackCreate : ()
       controller p
       do try do
@@ -188,7 +207,7 @@ template KeyOperations
          (cid', _) <- fetchByKey @Keyed p
          cid === cid'
 
-    -- should be rejected in uck
+    -- should be accepted in uck, fetch and archive not by key.
     nonconsuming choice RollbackGlobalArchiveNonRollbackCreate : ()
       with
         cid : ContractId Keyed
@@ -203,7 +222,7 @@ template KeyOperations
          (cid', _) <- fetchByKey @Keyed p
          cid === cid'
 
-    -- should be rejected in uck
+    -- should be accepted in uck, fetch and archive not by key
     nonconsuming choice RollbackCreateNonRollbackGlobalArchive : ()
       with
         cid : ContractId Keyed
@@ -218,7 +237,7 @@ template KeyOperations
          None <- lookupByKey @Keyed p
          pure ()
 
-    -- should be rejected in uck
+    -- should be accepted in uck, archive not for an active key.
     nonconsuming choice RollbackGlobalArchiveUpdates : ()
       with
         cid1 : ContractId Keyed

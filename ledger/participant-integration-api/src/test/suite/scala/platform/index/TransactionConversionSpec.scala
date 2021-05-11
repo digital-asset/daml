@@ -130,7 +130,8 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
     "remove rollback nodes" in {
       val builder = TransactionBuilder()
       builder.add(create(builder, "#1"))
-      val rollback = builder.add(builder.rollback())
+      val rollbackParent = builder.add(exercise(builder, "#0"))
+      val rollback = builder.add(builder.rollback(), rollbackParent)
       builder.add(create(builder, "#2"), rollback)
       builder.add(exercise(builder, "#1"), rollback)
       val ex = builder.add(exercise(builder, "#1"))
@@ -146,8 +147,9 @@ final class TransactionConversionSpec extends AnyWordSpec with Matchers {
         .get
         .eventsById shouldBe Map(
         "#transactionId:0" -> createdEv("0", "#1"),
-        "#transactionId:4" -> exercisedEv("4", "#1", Seq("5")),
-        "#transactionId:5" -> createdEv("5", "#3"),
+        "#transactionId:1" -> exercisedEv("1", "#0", Seq.empty),
+        "#transactionId:5" -> exercisedEv("5", "#1", Seq("6")),
+        "#transactionId:6" -> createdEv("6", "#3"),
       )
     }
   }

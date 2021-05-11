@@ -15,48 +15,122 @@ import com.daml.script.export.TreeUtils._
 import org.apache.commons.text.StringEscapeUtils
 import org.typelevel.paiges.Doc
 
+import spray.json._
+
 private[export] object Encode {
 
+  def encodeArgs(export: Export): JsObject = {
+    JsObject(
+      "parties" -> JsObject(export.partyMap.keys.map { case Party(party) =>
+        party -> JsString(party)
+      }.toMap),
+      "contracts" -> JsObject(export.unknownCids.map { case ContractId(c) =>
+        c -> JsString(c)
+      }.toMap),
+    )
+  }
+
   def encodeExport(export: Export): Doc = {
-    Doc.text("{-# LANGUAGE ApplicativeDo #-}") /
-      Doc.text("module Export where") /
-      Doc.text("import Daml.Script") /
-      Doc.stack(export.moduleRefs.map(encodeImport(_))) /
+    encodeModuleHeader(export.moduleRefs) /
       Doc.hardLine +
-      encodePartyType(export.partyMap) /
+      encodePartyType() /
+      Doc.hardLine +
+      encodeLookupParty() /
       Doc.hardLine +
       encodeAllocateParties(export.partyMap) /
       Doc.hardLine +
-      Doc.text("testExport : Script ()") /
-      (Doc.text("testExport = do") /
-        Doc.text("parties <- allocateParties") /
-        Doc.text("export parties")).hang(2) /
+      encodeContractsType() /
+      Doc.hardLine +
+      encodeLookupContract() /
+      Doc.hardLine +
+      encodeArgsType() /
+      Doc.hardLine +
+      encodeTestExport() /
       Doc.hardLine +
       encodeExportActions(export)
   }
 
   private def encodeExportActions(export: Export): Doc = {
-    Doc.text("export : Parties -> Script ()") /
-      (Doc.text("export Parties{..} = do") /
+    Doc.text("-- | The Daml ledger export.") /
+      Doc.text("export : Args -> Script ()") /
+      (Doc.text("export Args{parties, contracts} = do") /
         stackNonEmpty(
-          export.actions.map(encodeAction(export.partyMap, export.cidMap, export.cidRefs, _))
-            :+ Doc.text("pure ()")
+          export.partyMap.map(Function.tupled(encodePartyBinding)).toSeq ++ export.actions.map(
+            encodeAction(export.partyMap, export.cidMap, export.cidRefs, _)
+          ) :+ Doc.text("pure ()")
         )).hang(2)
   }
 
-  private def encodeAllocateParties(partyMap: Map[Party, String]): Doc =
-    Doc.text("allocateParties : Script Parties") /
-      (Doc.text("allocateParties = do") /
-        Doc.stack(partyMap.map { case (k, v) =>
-          Doc.text(v) + Doc.text(" <- allocateParty \"") + Doc.text(Party.unwrap(k)) + Doc.text(
-            "\""
-          )
-        }) /
-        Doc.text("pure Parties{..}")).hang(2)
+  private def encodePartyBinding(party: Party, binding: String): Doc =
+    s"let $binding = lookupParty" &: quotes(Doc.text(Party.unwrap(party))) :& "parties"
 
-  private def encodePartyType(partyMap: Map[Party, String]): Doc =
-    (Doc.text("data Parties = Parties with") /
-      Doc.stack(partyMap.values.map(p => Doc.text(p) + Doc.text(" : Party")))).hang(2)
+  private def encodeTestExport(): Doc =
+    Doc.text("-- | Test 'export' with freshly allocated parties and") /
+      Doc.text("-- no replacements for missing contract ids.") /
+      Doc.text("testExport : Script ()") /
+      (Doc.text("testExport = do") /
+        Doc.text("parties <- allocateParties") /
+        Doc.text("let contracts = DA.TextMap.empty") /
+        Doc.text("export Args with ..")).nested(2)
+
+  private def encodeArgsType(): Doc =
+    Doc.text("-- | Arguments to 'export'. See 'Parties' and 'Contracts' for details.") /
+      (Doc.text("data Args = Args with") /
+        Doc.text("parties : Parties") /
+        Doc.text("contracts : Contracts")).nested(2)
+
+  private def encodeLookupContract(): Doc =
+    Doc.text("-- | Look-up a replacement for a missing contract id. Fails if none is found.") /
+      Doc.text("lookupContract : DA.Stack.HasCallStack => Text -> Contracts -> ContractId a") /
+      (Doc.text("lookupContract old contracts =") /
+        (Doc.text("case DA.TextMap.lookup old contracts of") /
+          Doc.text("None -> error (\"Missing contract id \" <> old)") /
+          Doc.text("Some new -> coerceContractId new")).nested(2)).nested(2)
+
+  private def encodeContractsType(): Doc =
+    Doc.text("-- | Mapping from missing contract ids to replacement contract ids.") /
+      Doc.text("--") /
+      Doc.text("-- You can provide replacement contract ids in an input file to") /
+      Doc.text("-- the @--input-file@ argument of @daml script@, or you can provide") /
+      Doc.text("-- replacements from within Daml script.") /
+      Doc.text("--") /
+      Doc.text("-- >>> (replacement, _):_ <- query @T alice_0") /
+      Doc.text("-- >>> let args = Args with") /
+      Doc.text("-- >>>   parties = Parties with alice_0") /
+      Doc.text("-- >>>   contracts = DA.TextMap.fromList [(\"00737...\", replacement)]") /
+      Doc.text("-- >>> export args") /
+      Doc.text("type Contracts = DA.TextMap.TextMap (ContractId ())")
+
+  private def encodeAllocateParties(partyMap: Map[Party, String]): Doc =
+    Doc.text("-- | Allocates fresh parties from the party management service.") /
+      Doc.text("allocateParties : Script Parties") /
+      Doc.text("allocateParties = DA.Traversable.mapA allocateParty (DA.TextMap.fromList") /
+      ("[" &: Doc.intercalate(
+        Doc.hardLine :+ ", ",
+        partyMap.keys.map { case Party(p) =>
+          val party = quotes(Doc.text(p))
+          tuple(Seq(party, party))
+        },
+      ) :& "])").indent(2)
+
+  private def encodeLookupParty(): Doc =
+    Doc.text("-- | Look-up a party based on the party name in the original ledger state.") /
+      Doc.text("lookupParty : DA.Stack.HasCallStack => Text -> Parties -> Party") /
+      (Doc.text("lookupParty old parties =") /
+        (Doc.text("case DA.TextMap.lookup old parties of") /
+          Doc.text("None -> error (\"Missing party \" <> old)") /
+          Doc.text("Some new -> new")).nested(2)).nested(2)
+
+  private def encodePartyType(): Doc =
+    Doc.text("-- | Mapping from party names in the original ledger state ") /
+      Doc.text("-- to parties to be used in 'export'.") /
+      Doc.text("type Parties = DA.TextMap.TextMap Party")
+
+  private def encodeModuleHeader(moduleRefs: Set[String]): Doc =
+    Doc.text("{-# LANGUAGE ApplicativeDo #-}") /
+      Doc.text("module Export where") /
+      Doc.text("import Daml.Script") /
+      Doc.stack(moduleRefs.map(encodeImport(_)))
 
   private def encodeLocalDate(d: LocalDate): Doc = {
     val formatter = DateTimeFormatter.ofPattern("uuuu 'DA.Date.'MMM d")
@@ -180,7 +254,10 @@ private[export] object Encode {
 
   private def encodeCid(cidMap: Map[ContractId, String], cid: ContractId): Doc = {
     // LedgerStrings are strings that match the regexp ``[A-Za-z0-9#:\-_/ ]+
-    Doc.text(cidMap(cid))
+    cidMap.get(cid) match {
+      case Some(value) => Doc.text(value)
+      case None => parens("lookupContract" &: quotes(Doc.text(cid.toString)) :& "contracts")
+    }
   }
 
   private def qualifyId(id: Identifier): Doc =

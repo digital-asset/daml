@@ -313,7 +313,6 @@ object ScenarioLedger {
           fs.foreach { case (_, v) =>
             collect(v)
           }
-        case ValueBuiltinException(_, arg) => collect(arg)
         case ValueVariant(_, _, arg) => collect(arg)
         case _: ValueEnum => ()
         case ValueList(vs) =>
@@ -639,10 +638,6 @@ case class ScenarioLedger(
       case None => LookupContractNotFound(coid)
       case Some(info) =>
         info.node match {
-          case _: NodeRollback[_] =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
-            sys.error("rollback nodes are not supported")
-
           case create: NodeCreate[ContractId] =>
             if (info.effectiveAt.compareTo(effectiveAt) > 0)
               LookupContractNotEffective(coid, create.coinst.template, info.effectiveAt)
@@ -662,7 +657,8 @@ case class ScenarioLedger(
             else
               LookupOk(coid, create.versionedCoinst, create.stakeholders)
 
-          case _: NodeExercises[_, _] | _: NodeFetch[_] | _: NodeLookupByKey[_] =>
+          case _: NodeExercises[_, _] | _: NodeFetch[_] | _: NodeLookupByKey[_] |
+              _: NodeRollback[_] =>
             LookupContractNotFound(coid)
         }
     }

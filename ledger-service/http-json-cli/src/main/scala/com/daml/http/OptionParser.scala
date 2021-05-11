@@ -165,4 +165,6 @@ class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames
     .optional()
     .valueName(WebsocketConfig.usage)
     .text(s"Optional websocket configuration string. ${WebsocketConfig.help}")
+
+  cliopts.Logging.loggingLevelParse(this)((f, c) => c.copy(logLevel = f(c.logLevel)))
 }

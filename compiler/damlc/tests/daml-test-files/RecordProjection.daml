@@ -6,8 +6,6 @@
 -- the record type and the field name.
 module RecordProjection where
 
-import DA.Record (getField)
-
 data Foo = Foo with quux: Int
 
 data Bar = Bar with quux: Int

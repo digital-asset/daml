@@ -90,9 +90,6 @@ object TypeOrdering extends Ordering[Type] {
       Ast.BTBigNumeric,
       Ast.BTRoundingMode,
       Ast.BTAnyException,
-      Ast.BTGeneralError,
-      Ast.BTArithmeticError,
-      Ast.BTContractError,
     ).zipWithIndex.toMap
 
   private[this] def typeRank(typ: Ast.Type): Int =
