@@ -121,10 +121,12 @@ case class ReadWriteServiceBridge(
       else stateUpdatesWasCalledAlready = true
     }
     logger.info("Indexer subscribed to state updates.")
-    beginAfter match {
-      case None => queueSource
-      case Some(offset) => queueSource.dropWhile(_._1 <= offset)
-    }
+    beginAfter.foreach(offset =>
+      logger.warn(
+        s"Indexer subscribed from a specific offset $offset. This offset is not taking into consideration, and does not change the behavior of the ReadWriteServiceBridge. Only valid use case supported: service starting from an already ingested database, and indexer subscribes from exactly the ledger-end."
+      )
+    )
+    queueSource
   }
 
   val (queue: BoundedSourceQueue[Submission], queueSource: Source[(Offset, Update), NotUsed]) =
