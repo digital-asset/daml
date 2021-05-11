@@ -40,6 +40,12 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
       Metric.ConsumptionDelayMetric(_.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
       }),
+      Metric.ConsumptionSpeedMetric(
+        reportingPeriod.toMillis,
+        _.transactions.collect {
+          case t if t.effectiveAt.isDefined => t.getEffectiveAt
+        },
+      ),
     )
     val observer =
       new MetricalStreamObserver[GetTransactionsResponse](
@@ -68,6 +74,12 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
         Metric.ConsumptionDelayMetric(_.transactions.collect {
           case t if t.effectiveAt.isDefined => t.getEffectiveAt
         }),
+        Metric.ConsumptionSpeedMetric(
+          reportingPeriod.toMillis,
+          _.transactions.collect {
+            case t if t.effectiveAt.isDefined => t.getEffectiveAt
+          },
+        ),
       )
     val observer =
       new MetricalStreamObserver[GetTransactionTreesResponse](

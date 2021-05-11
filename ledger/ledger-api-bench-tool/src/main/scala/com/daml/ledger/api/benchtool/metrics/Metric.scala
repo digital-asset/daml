@@ -6,6 +6,7 @@ package com.daml.ledger.api.benchtool.metrics
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ListBuffer
+import com.google.protobuf.timestamp.Timestamp
 
 trait Metric[T] {
 
@@ -71,7 +72,6 @@ object Metric {
     }
   }
 
-  import com.google.protobuf.timestamp.Timestamp
   case class ConsumptionDelayMetric[T](recordTimeFunction: T => Seq[Timestamp]) extends Metric[T] {
 
     private val delaysInCurrentInterval: ListBuffer[Duration] = ListBuffer.empty
@@ -102,5 +102,39 @@ object Metric {
 
     override def completeInfo(totalDurationSeconds: Double): Option[String] = None
 
+  }
+
+  case class ConsumptionSpeedMetric[T](periodMillis: Long, recordTimeFunction: T => Seq[Timestamp])
+      extends Metric[T] {
+
+    private var firstRecordTime: Option[Instant] = None
+    private var lastRecordTime: Option[Instant] = None
+
+    override def onNext(value: T): Unit = {
+      val recordTimes = recordTimeFunction(value)
+      if (firstRecordTime.isEmpty) {
+        firstRecordTime = recordTimes.headOption.map { recordTime =>
+          Instant.ofEpochSecond(recordTime.seconds.toLong, recordTime.nanos.toLong)
+        }
+      }
+      lastRecordTime = recordTimes.lastOption.map { recordTime =>
+        Instant.ofEpochSecond(recordTime.seconds.toLong, recordTime.nanos.toLong)
+      }
+    }
+
+    override def periodicUpdate(): String = {
+      val speed = (firstRecordTime, lastRecordTime) match {
+        case (Some(first), Some(last)) =>
+          println(s"first: ${first.toEpochMilli}, last: ${last.toEpochMilli}")
+          Some((last.toEpochMilli - first.toEpochMilli) * 1.0 / periodMillis)
+        case _ =>
+          None
+      }
+      firstRecordTime = None
+      lastRecordTime = None
+      s"speed (interval): ${speed.getOrElse("-")} [-]"
+    }
+
+    override def completeInfo(totalDurationSeconds: Double): Option[String] = None
   }
 }
