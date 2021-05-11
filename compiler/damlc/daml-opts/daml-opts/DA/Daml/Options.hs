@@ -300,6 +300,8 @@ dataDependableExtensions = ES.fromList $ xExtensionsSet ++
     -- compatible with data-dependencies since this would spur wrong hopes.
   , Cpp
   , OverloadedRecordUpdate
+  , OverloadedLists
+    -- Pure syntactic sugar so no reason to disallow this.
   ]
 
 -- | Language settings _disabled_ ($-XNo...$) in the DAML-1.2 compilation
