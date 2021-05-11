@@ -76,7 +76,7 @@ object TransactionVersion {
     val txVersion = roots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
       nodes(nodeId).optVersion match {
         case Some(version) => acc max version
-        case None => acc
+        case None => acc max TransactionVersion.minExceptions
       }
     )
 
