@@ -6,7 +6,7 @@ package engine
 package preprocessing
 
 import com.daml.lf.data.{BackStack, ImmArray}
-import com.daml.lf.transaction.{GenTransaction, Node, NodeId}
+import com.daml.lf.transaction.{GenTransaction, Node, NodeId, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
@@ -95,12 +95,23 @@ private[preprocessing] final class TransactionPreprocessor(
                 commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
               acc.update(newCids, List(create.coid), cmd)
             case exe: Node.NodeExercises[_, Cid] =>
-              val (cmd, newCids) = commandPreprocessor.unsafePreprocessExercise(
-                exe.templateId,
-                exe.targetCoid,
-                exe.choiceId,
-                exe.chosenValue,
-              )
+              import scala.Ordering.Implicits.infixOrderingOps
+              val (cmd, newCids) = exe.key match {
+                case Some(key) if exe.byKey && exe.version >= TransactionVersion.minByKey =>
+                  commandPreprocessor.unsafePreprocessExerciseByKey(
+                    exe.templateId,
+                    key.key,
+                    exe.choiceId,
+                    exe.chosenValue,
+                  )
+                case _ =>
+                  commandPreprocessor.unsafePreprocessExercise(
+                    exe.templateId,
+                    exe.targetCoid,
+                    exe.choiceId,
+                    exe.chosenValue,
+                  )
+              }
               val newLocalCids = GenTransaction(tx.nodes, ImmArray(id)).localContracts.keys
               acc.update(newCids, newLocalCids, cmd)
             case _: Node.NodeFetch[_] =>
