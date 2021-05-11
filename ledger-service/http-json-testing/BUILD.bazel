@@ -58,6 +58,7 @@ da_scala_library(
         "//ledger/sandbox-classic",
         "//ledger/sandbox-common",
         "//libs-scala/auth-utils",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/ports",
     ],
 )

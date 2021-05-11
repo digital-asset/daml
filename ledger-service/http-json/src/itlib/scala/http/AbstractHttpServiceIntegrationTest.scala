@@ -5,7 +5,6 @@ package com.daml.http
 
 import java.security.DigestInputStream
 import java.time.Instant
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
@@ -30,6 +29,7 @@ import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.service.MetadataReader
 import com.daml.platform.participant.util.LfEngineToApi
+import com.daml.http.util.Logging.{correlationIdLogCtx}
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -1059,10 +1059,12 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "should be able to serialize and deserialize domain commands" in withLedger { client =>
-    jsonCodecs(client).map { case (encoder, decoder) =>
-      testCreateCommandEncodingDecoding(encoder, decoder)
-      testExerciseCommandEncodingDecoding(encoder, decoder)
-    }: Future[Assertion]
+    correlationIdLogCtx(implicit lc =>
+      jsonCodecs(client).map { case (encoder, decoder) =>
+        testCreateCommandEncodingDecoding(encoder, decoder)
+        testExerciseCommandEncodingDecoding(encoder, decoder)
+      }: Future[Assertion]
+    )
   }
 
   private def testCreateCommandEncodingDecoding(

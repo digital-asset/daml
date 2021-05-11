@@ -7,8 +7,10 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import com.daml.http.util.Logging.{CorrelationID, RequestID}
 import com.daml.http.util.ProtobufByteStrings
 import com.daml.jwt.domain.Jwt
+import com.daml.logging.LoggingContextOf
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -18,12 +20,18 @@ class PackageManagementService(
     uploadDarFileFn: LedgerClientJwt.UploadDarFile,
 )(implicit ec: ExecutionContext, mat: Materializer) {
 
-  def listPackages(jwt: Jwt): Future[Seq[String]] =
-    listKnownPackagesFn(jwt).map(_.packageIds)
+  def listPackages(jwt: Jwt)(implicit
+      lc: LoggingContextOf[CorrelationID with RequestID]
+  ): Future[Seq[String]] =
+    listKnownPackagesFn(jwt)(lc).map(_.packageIds)
 
-  def getPackage(jwt: Jwt, packageId: String): Future[admin.GetPackageResponse] =
-    getPackageFn(jwt, packageId).map(admin.GetPackageResponse.fromLedgerApi)
+  def getPackage(jwt: Jwt, packageId: String)(implicit
+      lc: LoggingContextOf[CorrelationID with RequestID]
+  ): Future[admin.GetPackageResponse] =
+    getPackageFn(jwt, packageId)(lc).map(admin.GetPackageResponse.fromLedgerApi)
 
-  def uploadDarFile(jwt: Jwt, source: Source[ByteString, NotUsed]): Future[Unit] =
-    uploadDarFileFn(jwt, ProtobufByteStrings.readFrom(source))
+  def uploadDarFile(jwt: Jwt, source: Source[ByteString, NotUsed])(implicit
+      lc: LoggingContextOf[CorrelationID with RequestID]
+  ): Future[Unit] =
+    uploadDarFileFn(jwt, ProtobufByteStrings.readFrom(source))(lc)
 }

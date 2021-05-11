@@ -24,11 +24,11 @@ import com.daml.http.domain.{JwtPayload, JwtWritePayload}
 import com.daml.http.json._
 import com.daml.http.util.Collections.toNonEmptySet
 import com.daml.http.util.FutureUtil.{either, eitherT}
+import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.http.util.ProtobufByteStrings
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.util.ExceptionOps._
-import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
@@ -39,6 +39,7 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -51,8 +52,9 @@ class Endpoints(
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
     maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"),
-)(implicit ec: ExecutionContext, mat: Materializer)
-    extends StrictLogging {
+)(implicit ec: ExecutionContext, mat: Materializer) {
+
+  private[this] val logger = ContextualizedLogger.get(getClass)
 
   import Endpoints._
   import encoder.implicits._
@@ -60,36 +62,63 @@ class Endpoints(
   import util.ErrorOps._
   import Uri.Path._
 
-  lazy val all: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) => httpResponse(create(req))
-    case req @ HttpRequest(POST, Uri.Path("/v1/exercise"), _, _, _) => httpResponse(exercise(req))
-    case req @ HttpRequest(POST, Uri.Path("/v1/create-and-exercise"), _, _, _) =>
-      httpResponse(createAndExercise(req))
-    case req @ HttpRequest(POST, Uri.Path("/v1/fetch"), _, _, _) => httpResponse(fetch(req))
-    case req @ HttpRequest(GET, Uri.Path("/v1/query"), _, _, _) => httpResponse(retrieveAll(req))
-    case req @ HttpRequest(POST, Uri.Path("/v1/query"), _, _, _) => httpResponse(query(req))
-    case req @ HttpRequest(GET, Uri.Path("/v1/parties"), _, _, _) => httpResponse(allParties(req))
-    case req @ HttpRequest(POST, Uri.Path("/v1/parties"), _, _, _) => httpResponse(parties(req))
-    case req @ HttpRequest(POST, Uri.Path("/v1/parties/allocate"), _, _, _) =>
-      httpResponse(allocateParty(req))
-    case req @ HttpRequest(GET, Uri.Path("/v1/packages"), _, _, _) =>
-      httpResponse(listPackages(req))
-    // format: off
-    case req @ HttpRequest(
-          GET, Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
-          _, _, _) =>
-      downloadPackage(req, packageId)
-    // format: on
-    case req @ HttpRequest(POST, Uri.Path("/v1/packages"), _, _, _) =>
-      httpResponse(uploadDarFile(req))
-    case HttpRequest(GET, Uri.Path("/livez"), _, _, _) =>
-      Future.successful(HttpResponse(status = StatusCodes.OK))
-    case HttpRequest(GET, Uri.Path("/readyz"), _, _, _) =>
-      healthService.ready().map(_.toHttpResponse)
-
+  def all(implicit
+      lc: LoggingContextOf[InstanceUUID]
+  ): PartialFunction[HttpRequest, Future[HttpResponse]] = {
+    val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
+      InstanceUUID with RequestID
+    ] => Future[HttpResponse]] = {
+      // Parenthesis are required because otherwise scalafmt breaks.
+      case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) =>
+        (implicit lc => httpResponse(create(req)))
+      case req @ HttpRequest(POST, Uri.Path("/v1/exercise"), _, _, _) =>
+        (implicit lc => httpResponse(exercise(req)))
+      case req @ HttpRequest(POST, Uri.Path("/v1/create-and-exercise"), _, _, _) =>
+        (implicit lc => httpResponse(createAndExercise(req)))
+      case req @ HttpRequest(POST, Uri.Path("/v1/fetch"), _, _, _) =>
+        (implicit lc => httpResponse(fetch(req)))
+      case req @ HttpRequest(GET, Uri.Path("/v1/query"), _, _, _) =>
+        (implicit lc => httpResponse(retrieveAll(req)))
+      case req @ HttpRequest(POST, Uri.Path("/v1/query"), _, _, _) =>
+        (implicit lc => httpResponse(query(req)))
+      case req @ HttpRequest(GET, Uri.Path("/v1/parties"), _, _, _) =>
+        (implicit lc => httpResponse(allParties(req)))
+      case req @ HttpRequest(POST, Uri.Path("/v1/parties"), _, _, _) =>
+        (implicit lc => httpResponse(parties(req)))
+      case req @ HttpRequest(POST, Uri.Path("/v1/parties/allocate"), _, _, _) =>
+        (implicit lc => httpResponse(allocateParty(req)))
+      case req @ HttpRequest(GET, Uri.Path("/v1/packages"), _, _, _) =>
+        (implicit lc => httpResponse(listPackages(req)))
+      // format: off
+      case req @ HttpRequest(GET,
+        Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
+        _, _, _) => (implicit lc => downloadPackage(req, packageId))
+      // format: on
+      case req @ HttpRequest(POST, Uri.Path("/v1/packages"), _, _, _) =>
+        (implicit lc => httpResponse(uploadDarFile(req)))
+      case HttpRequest(GET, Uri.Path("/livez"), _, _, _) =>
+        _ => Future.successful(HttpResponse(status = StatusCodes.OK))
+      case HttpRequest(GET, Uri.Path("/readyz"), _, _, _) =>
+        _ => healthService.ready().map(_.toHttpResponse)
+    }
+    import scalaz.std.partialFunction._, scalaz.syntax.arrow._
+    (dispatch &&& { case r => r }) andThen { case (lcFhr, req) =>
+      extendWithRequestIdLogCtx(implicit lc =>
+        // TODO: Refactor this somehow into an own function
+        for {
+          _ <- Future.unit
+          _ = logger.trace(s"Incoming request on ${req.uri}")
+          t0 = System.nanoTime()
+          res <- lcFhr(lc)
+          _ = logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+        } yield res
+      )
+    }
   }
 
-  def create(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
+  def create(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[JsValue]] =
     for {
       t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
 
@@ -107,7 +136,9 @@ class Endpoints(
 
     } yield domain.OkResponse(jsVal)
 
-  def exercise(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
+  def exercise(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[JsValue]] =
     for {
       t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
 
@@ -133,7 +164,9 @@ class Endpoints(
 
     } yield domain.OkResponse(jsVal)
 
-  def createAndExercise(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
+  def createAndExercise(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[JsValue]] =
     for {
       t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
 
@@ -151,7 +184,9 @@ class Endpoints(
 
     } yield domain.OkResponse(jsVal)
 
-  def fetch(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
+  def fetch(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[JsValue]] =
     for {
       input <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
 
@@ -175,7 +210,9 @@ class Endpoints(
 
     } yield domain.OkResponse(jsVal)
 
-  def retrieveAll(req: HttpRequest): Future[Error \/ SearchResult[Error \/ JsValue]] =
+  def retrieveAll(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[Error \/ SearchResult[Error \/ JsValue]] =
     inputAndJwtPayload[JwtPayload](req).map {
       _.map { case (jwt, jwtPayload, _) =>
         val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
@@ -189,7 +226,9 @@ class Endpoints(
       }
     }
 
-  def query(req: HttpRequest): Future[Error \/ SearchResult[Error \/ JsValue]] =
+  def query(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[Error \/ SearchResult[Error \/ JsValue]] =
     inputAndJwtPayload[JwtPayload](req).map {
       _.flatMap { case (jwt, jwtPayload, reqBody) =>
         SprayJson
@@ -208,22 +247,32 @@ class Endpoints(
       }
     }
 
-  def allParties(req: HttpRequest): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
+  def allParties(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
     proxyWithoutCommand(partiesService.allParties)(req).map(domain.OkResponse(_))
 
-  def parties(req: HttpRequest): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
+  def parties(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
     proxyWithCommand[NonEmptyList[domain.Party], (Set[domain.PartyDetails], Set[domain.Party])](
       (jwt, cmd) => partiesService.parties(jwt, toNonEmptySet(cmd))
     )(req)
       .map(ps => partiesResponse(parties = ps._1.toList, unknownParties = ps._2.toList))
 
-  def allocateParty(req: HttpRequest): ET[domain.SyncResponse[domain.PartyDetails]] =
+  def allocateParty(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[domain.PartyDetails]] =
     proxyWithCommand(partiesService.allocate)(req).map(domain.OkResponse(_))
 
-  def listPackages(req: HttpRequest): ET[domain.SyncResponse[Seq[String]]] =
+  def listPackages(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[Seq[String]]] =
     proxyWithoutCommand(packageManagementService.listPackages)(req).map(domain.OkResponse(_))
 
-  def downloadPackage(req: HttpRequest, packageId: String): Future[HttpResponse] = {
+  def downloadPackage(req: HttpRequest, packageId: String)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[HttpResponse] = {
     val et: ET[admin.GetPackageResponse] =
       proxyWithoutCommand(jwt => packageManagementService.getPackage(jwt, packageId))(req)
     val fa: Future[Error \/ admin.GetPackageResponse] = et.run
@@ -240,7 +289,9 @@ class Endpoints(
     }
   }
 
-  def uploadDarFile(req: HttpRequest): ET[domain.SyncResponse[Unit]] =
+  def uploadDarFile(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[domain.SyncResponse[Unit]] =
     for {
       t2 <- either(inputSource(req)): ET[(Jwt, Source[ByteString, Any])]
 
@@ -254,25 +305,33 @@ class Endpoints(
 
     } yield domain.OkResponse(())
 
-  private def handleFutureEitherFailure[B](fa: Future[Error \/ B]): Future[Error \/ B] =
+  private def handleFutureEitherFailure[B](fa: Future[Error \/ B])(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[Error \/ B] =
     fa.recover { case NonFatal(e) =>
       logger.error("Future failed", e)
       -\/(ServerError(e.description))
     }
 
-  private def handleFutureEitherFailure[A: Show, B](fa: Future[A \/ B]): Future[ServerError \/ B] =
+  private def handleFutureEitherFailure[A: Show, B](fa: Future[A \/ B])(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[ServerError \/ B] =
     fa.map(_.liftErr(ServerError)).recover { case NonFatal(e) =>
       logger.error("Future failed", e)
       -\/(ServerError(e.description))
     }
 
-  private def handleFutureFailure[A](fa: Future[A]): Future[ServerError \/ A] =
+  private def handleFutureFailure[A](fa: Future[A])(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[ServerError \/ A] =
     fa.map(a => \/-(a)).recover { case NonFatal(e) =>
       logger.error("Future failed", e)
       -\/(ServerError(e.description))
     }
 
-  private def handleSourceFailure[E: Show, A]: Flow[E \/ A, ServerError \/ A, NotUsed] =
+  private def handleSourceFailure[E: Show, A](implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Flow[E \/ A, ServerError \/ A, NotUsed] =
     Flow
       .fromFunction((_: E \/ A).liftErr(ServerError))
       .recover { case NonFatal(e) =>
@@ -334,7 +393,9 @@ class Endpoints(
   private[http] def data(entity: RequestEntity): Future[String] =
     entity.toStrict(maxTimeToCollectRequest).map(_.data.utf8String)
 
-  private[http] def input(req: HttpRequest): Future[Unauthorized \/ (Jwt, String)] = {
+  private[http] def input(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[Unauthorized \/ (Jwt, String)] = {
     findJwt(req) match {
       case e @ -\/(_) =>
         discard { req.entity.discardBytes(mat) }
@@ -344,7 +405,9 @@ class Endpoints(
     }
   }
 
-  private[http] def inputJsVal(req: HttpRequest): ET[(Jwt, JsValue)] =
+  private[http] def inputJsVal(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[(Jwt, JsValue)] =
     for {
       t2 <- eitherT(input(req)): ET[(Jwt, String)]
       jsVal <- either(SprayJson.parse(t2._2).liftErr(InvalidUserInput)): ET[JsValue]
@@ -357,16 +420,22 @@ class Endpoints(
 
   private[http] def inputAndJwtPayload[P](
       req: HttpRequest
-  )(implicit parse: ParsePayload[P]): Future[Unauthorized \/ (Jwt, P, String)] =
+  )(implicit
+      parse: ParsePayload[P],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+  ): Future[Unauthorized \/ (Jwt, P, String)] =
     input(req).map(_.flatMap(withJwtPayload[String, P]))
 
   private[http] def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
-      parse: ParsePayload[P]
+      parse: ParsePayload[P],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): ET[(Jwt, P, JsValue)] =
     inputJsVal(req).flatMap(x => either(withJwtPayload[JsValue, P](x)))
 
   private[http] def inputSource(
       req: HttpRequest
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Error \/ (Jwt, Source[ByteString, Any]) =
     findJwt(req) match {
       case e @ -\/(_) =>
@@ -376,7 +445,9 @@ class Endpoints(
         \/-((j, req.entity.dataBytes))
     }
 
-  private[this] def findJwt(req: HttpRequest): Unauthorized \/ Jwt =
+  private[this] def findJwt(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Unauthorized \/ Jwt =
     ensureHttpsForwarded(req) flatMap { _ =>
       req.headers
         .collectFirst { case Authorization(OAuth2BearerToken(token)) =>
@@ -387,7 +458,9 @@ class Endpoints(
         )
     }
 
-  private[this] def ensureHttpsForwarded(req: HttpRequest): Unauthorized \/ Unit =
+  private[this] def ensureHttpsForwarded(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Unauthorized \/ Unit =
     if (allowNonHttps || isForwardedForHttps(req.headers)) \/-(())
     else {
       logger.warn(nonHttpsErrorMessage)
@@ -408,6 +481,8 @@ class Endpoints(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
       reference: domain.ContractLocator[LfValue],
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
       .resolveContractReference(jwt, jwtPayload.parties, reference)
@@ -420,7 +495,9 @@ class Endpoints(
         }
       }
 
-  private def proxyWithoutCommand[A](fn: Jwt => Future[A])(req: HttpRequest): ET[A] =
+  private def proxyWithoutCommand[A](fn: Jwt => Future[A])(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[A] =
     for {
       t3 <- eitherT(input(req)): ET[(Jwt, _)]
       a <- eitherT(handleFutureFailure(fn(t3._1))): ET[A]
@@ -428,7 +505,9 @@ class Endpoints(
 
   private def proxyWithCommand[A: JsonReader, R](
       fn: (Jwt, A) => Future[Error \/ R]
-  )(req: HttpRequest): ET[R] =
+  )(req: HttpRequest)(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): ET[R] =
     for {
       t2 <- inputJsVal(req): ET[(Jwt, JsValue)]
       (jwt, reqBody) = t2
