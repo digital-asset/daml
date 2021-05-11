@@ -668,44 +668,42 @@ private class JdbcLedgerDao(
         // This is again not an issue since all callers of this method always use the same value for all source descriptions.
         val update = optEntry match {
           case None =>
-            if (packages.nonEmpty) {
-              // Calling storePackageEntry() without providing a PackageLedgerEntry is used to copy initial packages,
-              // or in the case where the submission ID is unknown (package was submitted through a different participant).
-              Some(
-                Update.PublicPackageUpload(
-                  archives = packages.view.map(_._1).toList,
-                  sourceDescription = packages.head._2.sourceDescription,
-                  recordTime = Time.Timestamp.assertFromInstant(packages.head._2.knownSince),
-                  submissionId =
-                    None, // If the submission ID is missing, this update will not insert a row in the package_entries table
-                )
-              )
-            } else {
-              None
-            }
+            // Calling storePackageEntry() without providing a PackageLedgerEntry is used to copy initial packages,
+            // or in the case where the submission ID is unknown (package was submitted through a different participant).
+            Update.PublicPackageUpload(
+              archives = packages.view.map(_._1).toList,
+              sourceDescription = packages.headOption.flatMap(
+                _._2.sourceDescription
+              ),
+              recordTime = Time.Timestamp.assertFromInstant(
+                packages.headOption
+                  .map(
+                    _._2.knownSince
+                  )
+                  .getOrElse(Instant.EPOCH)
+              ),
+              submissionId =
+                None, // If the submission ID is missing, this update will not insert a row in the package_entries table
+            )
 
           case Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime)) =>
-            Some(
-              Update.PublicPackageUpload(
-                archives = packages.view.map(_._1).toList,
-                sourceDescription = packages.headOption.flatMap(
-                  _._2.sourceDescription
-                ),
-                recordTime = Time.Timestamp.assertFromInstant(recordTime),
-                submissionId = Some(submissionId),
-              )
+            Update.PublicPackageUpload(
+              archives = packages.view.map(_._1).toList,
+              sourceDescription = packages.headOption.flatMap(
+                _._2.sourceDescription
+              ),
+              recordTime = Time.Timestamp.assertFromInstant(recordTime),
+              submissionId = Some(submissionId),
             )
 
           case Some(PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason)) =>
-            Some(
-              Update.PublicPackageUploadRejected(
-                submissionId = submissionId,
-                recordTime = Time.Timestamp.assertFromInstant(recordTime),
-                rejectionReason = reason,
-              )
+            Update.PublicPackageUploadRejected(
+              submissionId = submissionId,
+              recordTime = Time.Timestamp.assertFromInstant(recordTime),
+              rejectionReason = reason,
             )
         }
-        sequentialIndexer.store(connection, offsetStep.offset, update)
+        sequentialIndexer.store(connection, offsetStep.offset, Some(update))
         PersistenceResponse.Ok
     }
   }
