@@ -9,22 +9,6 @@ import java.time.Instant
 import java.util.{Timer, TimerTask}
 import scala.concurrent.duration.Duration
 
-//class CountingMetric[T](countingFunction: T => Int) {
-//  private val transactionCount = new AtomicInteger()
-//
-//
-//  def onNext(value: T) = {
-//    transactionCount.addAndGet(countingFunction(value))
-//  }
-//
-//  def periodicValue(): String =
-//    s"${transactionCount.get()} [tx]"
-//
-//  def periodicRate() = {
-//
-//  }
-//}
-
 class MetricalStreamObserver[T](
     streamName: String,
     reportingPeriod: Duration,
@@ -35,8 +19,6 @@ class MetricalStreamObserver[T](
   private val timer = new Timer(true)
   timer.schedule(new PeriodicalReportingTask, 0, reportingPeriod.toMillis)
 
-//  private var firstOfPeriodLedgerTime: Option[com.google.protobuf.timestamp.Timestamp] = None
-//  private var lastOfPeriodLedgerTime: Option[com.google.protobuf.timestamp.Timestamp] = None
   private val startTime = Instant.now()
 
   override def onNext(value: T): Unit = {
