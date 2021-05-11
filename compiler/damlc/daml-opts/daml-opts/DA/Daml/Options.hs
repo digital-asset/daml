@@ -301,7 +301,9 @@ dataDependableExtensions = ES.fromList $ xExtensionsSet ++
   , Cpp
   , OverloadedRecordUpdate
   , OverloadedLists
-    -- Pure syntactic sugar so no reason to disallow this.
+    -- Pure syntactic sugar so no reason to disallow this. Note that
+    -- we always turn on RebindableSyntax so this does not rely
+    -- on the IsList typeclass which in turn uses a type family.
   ]
 
 -- | Language settings _disabled_ ($-XNo...$) in the DAML-1.2 compilation
