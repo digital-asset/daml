@@ -13,7 +13,7 @@ trait Metric[T] {
 
   def periodicUpdate(): String
 
-  def completeInfo(totalDurationSeconds: Double): String
+  def completeInfo(totalDurationSeconds: Double): Option[String]
 
 }
 
@@ -36,13 +36,13 @@ object Metric {
       val count = counter.get()
       val rate = (count - lastCount.get()) * 1000.0 / periodMillis
       lastCount.set(counter.get())
-      s"total count: $count [tx], rate: $rate [tx/s]"
+      s"count: $count [tx], rate: $rate [tx/s]"
     }
 
-    override def completeInfo(totalDurationSeconds: Double): String = {
+    override def completeInfo(totalDurationSeconds: Double): Option[String] = {
       val count = counter.get()
       val rate = count * 1000.0 / periodMillis
-      s"total count: $count [tx], rate: $rate [tx/s]"
+      Some(s"count: $count [tx], rate: $rate [tx/s]")
     }
   }
 
@@ -60,14 +60,14 @@ object Metric {
       val sizeRate = currentSizeBucket.get() * 1000.0 / periodMillis / 1024 / 1024
       sizeRateList += sizeRate
       currentSizeBucket.set(0)
-      s"size rate: $sizeRate [MB/s]"
+      s"size rate (interval): $sizeRate [MB/s]"
     }
 
-    override def completeInfo(totalDurationSeconds: Double): String = {
+    override def completeInfo(totalDurationSeconds: Double): Option[String] = {
       val sizeRate =
         if (sizeRateList.nonEmpty) s"${rounded(sizeRateList.sum / sizeRateList.length)}"
         else "not available"
-      s"size rate: $sizeRate [MB/s]"
+      Some(s"size rate: $sizeRate [MB/s]")
     }
   }
 
@@ -97,10 +97,10 @@ object Metric {
           )
         else None
       delaysInCurrentInterval.clear()
-      s"mean delay: ${meanDelay.map(_.getSeconds).getOrElse("-")} [s]"
+      s"mean delay (interval): ${meanDelay.map(_.getSeconds).getOrElse("-")} [s]"
     }
 
-    override def completeInfo(totalDurationSeconds: Double): String = "N/A"
+    override def completeInfo(totalDurationSeconds: Double): Option[String] = None
 
   }
 }

@@ -30,8 +30,8 @@ class MetricalStreamObserver[T](
 
   override def onCompleted(): Unit = {
     val duration = totalDurationSeconds
-    val reports = metrics.map(_.completeInfo(duration))
-    logger.info(namedMessage(s"Final metrics: ${reports.mkString(", ")}"))
+    val reports = metrics.flatMap(_.completeInfo(duration).toList)
+    logger.info(namedMessage(s"Summary: ${reports.mkString(", ")}"))
     super.onCompleted()
   }
 
