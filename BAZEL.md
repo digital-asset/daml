@@ -469,8 +469,7 @@ detailed information.
 - Run a Scala REPL which has the library on the classpath:
 
     ```
-    bazel build //ledger/ledger-on-memory:ledger-on-memory_repl
-    ./bazel-bin/ledger/ledger-on-memory/ledger-on-memory_repl
+    bazel run //ledger/ledger-on-memory:ledger-on-memory_repl
     ```
 
 ### Querying Targets
