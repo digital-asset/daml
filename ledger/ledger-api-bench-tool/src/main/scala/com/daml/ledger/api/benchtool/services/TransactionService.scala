@@ -3,15 +3,17 @@
 
 package com.daml.ledger.api.benchtool.services
 
+import com.daml.ledger.api.benchtool.Config
 import com.daml.ledger.api.benchtool.metrics.{Metric, MetricalStreamObserver}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsRequest,
   GetTransactionsResponse,
   TransactionServiceGrpc,
 }
+import com.daml.ledger.api.v1.value.Identifier
 import io.grpc.Channel
 import org.slf4j.LoggerFactory
 
@@ -24,10 +26,11 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
     TransactionServiceGrpc.stub(channel)
 
   // TODO: add filters
-  def transactions(streamName: String, party: String): Future[Unit] = {
+  def transactions(config: Config.StreamConfig): Future[Unit] = {
     val request = getTransactionsRequest(
       ledgerId = ledgerId,
-      party = party,
+      party = config.party,
+      templateIds = config.templateIds,
       beginOffset = ledgerBeginOffset,
       endOffset = dummyEndOffset,
     )
@@ -43,7 +46,7 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
     )
     val observer =
       new MetricalStreamObserver[GetTransactionsResponse](
-        streamName,
+        config.name,
         reportingPeriod,
         metrics,
         logger,
@@ -53,10 +56,11 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
     observer.result
   }
 
-  def transactionTrees(streamName: String, party: String): Future[Unit] = {
+  def transactionTrees(config: Config.StreamConfig): Future[Unit] = {
     val request = getTransactionsRequest(
       ledgerId = ledgerId,
-      party = party,
+      party = config.party,
+      templateIds = config.templateIds,
       beginOffset = ledgerBeginOffset,
       endOffset = ledgerEndOffset,
     )
@@ -73,7 +77,7 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
       )
     val observer =
       new MetricalStreamObserver[GetTransactionTreesResponse](
-        streamName,
+        config.name,
         reportingPeriod,
         metrics,
         logger,
@@ -86,20 +90,20 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
   private def getTransactionsRequest(
       ledgerId: String,
       party: String,
+      templateIds: List[Identifier],
       beginOffset: LedgerOffset,
       endOffset: LedgerOffset,
   ): GetTransactionsRequest = {
-    println(endOffset)
     GetTransactionsRequest.defaultInstance
       .withLedgerId(ledgerId)
       .withBegin(beginOffset)
       .withEnd(endOffset)
-      .withFilter(partyFilter(party))
+      .withFilter(partyFilter(party, templateIds))
   }
 
-  private def partyFilter(party: String): TransactionFilter = {
-    // TODO: actual templates filter
+  private def partyFilter(party: String, templateIds: List[Identifier]): TransactionFilter = {
     val templatesFilter = Filters.defaultInstance
+      .withInclusive(InclusiveFilters.defaultInstance.addAllTemplateIds(templateIds))
     TransactionFilter()
       .withFiltersByParty(Map(party -> templatesFilter))
   }
@@ -108,7 +112,8 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
     LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
 
   private def dummyEndOffset: LedgerOffset =
-    LedgerOffset().withAbsolute("0000000000000038")
+    LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)
+//  LedgerOffset().withAbsolute("0000000000000038")
 
   private def ledgerEndOffset: LedgerOffset =
     LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)

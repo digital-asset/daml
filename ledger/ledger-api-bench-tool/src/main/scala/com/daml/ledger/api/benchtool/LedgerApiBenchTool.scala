@@ -50,9 +50,9 @@ object LedgerApiBenchTool {
         .map { streamConfig =>
           streamConfig.streamType match {
             case Config.StreamConfig.StreamType.Transactions =>
-              transactionService.transactions(streamConfig.name, streamConfig.party)
+              transactionService.transactions(streamConfig)
             case Config.StreamConfig.StreamType.TransactionTrees =>
-              transactionService.transactionTrees(streamConfig.name, streamConfig.party)
+              transactionService.transactionTrees(streamConfig)
           }
         }
         .getOrElse(Future.failed(new IllegalArgumentException("Missing stream configuration")))

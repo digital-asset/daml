@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.benchtool
 
+import com.daml.ledger.api.v1.value.Identifier
+
 import scala.concurrent.duration._
 
 case class Config(
@@ -17,6 +19,7 @@ object Config {
       name: String,
       streamType: Config.StreamConfig.StreamType,
       party: String,
+      templateIds: List[Identifier],
   )
 
   object StreamConfig {
