@@ -586,11 +586,11 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
           case lookup: Node.NodeLookupByKey[Value.ContractId] =>
             handleLookup(lookup)
         }
-      def beginRollback(): State =
+      def beginRollback: State =
         copy(
           rollbackStack = keys :: rollbackStack
         )
-      def endRollback(): State =
+      def endRollback: State =
         copy(
           keys = rollbackStack.head,
           rollbackStack = rollbackStack.tail,
@@ -602,8 +602,8 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
       )(
         exerciseBegin = (acc, _, exe) => (acc.flatMap(_.handleExercise(exe)), true),
         exerciseEnd = (acc, _, _) => acc,
-        rollbackBegin = (acc, _, _) => (acc.map(_.beginRollback()), true),
-        rollbackEnd = (acc, _, _) => acc.map(_.endRollback()),
+        rollbackBegin = (acc, _, _) => (acc.map(_.beginRollback), true),
+        rollbackEnd = (acc, _, _) => acc.map(_.endRollback),
         leaf = (acc, _, leaf) => acc.flatMap(_.handleLeaf(leaf)),
       )
       .map(_.keyInputs)
