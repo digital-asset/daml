@@ -529,6 +529,7 @@ evUpdExercNonConsumErr = scenario do
     exercise c C_EvUpdExercNonConsumErr
     abort "EvUpdExercNonConsumErr failed"
 
+
 -- | Verify that the exercising party is evaluated
 -- when the exercise is performed, not after.
 -- @ERROR EvUpdExercWithoutActorsErr_1 OK

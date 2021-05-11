@@ -5,13 +5,13 @@ package com.daml.lf.speedy
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
-import com.daml.lf.language.Ast
 import com.daml.lf.ledger.EventId
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.ScenarioLedger
+import com.daml.lf.speedy.SValue.SException
 
 object SError {
 
@@ -43,9 +43,8 @@ object SError {
   sealed abstract class SErrorDamlException extends SError
 
   /** Unhandled exceptions */
-  final case class DamlEUnhandledException(ty: Ast.Type, exception: Value[ContractId])
-      extends SErrorDamlException {
-    override def toString: String = s"Unhandled exception: $exception of type $ty"
+  final case class DamlEUnhandledException(exception: SException) extends SErrorDamlException {
+    override def toString: String = s"Unhandled exception: $exception"
   }
 
   /** Arithmetic error such as division by zero */
@@ -83,6 +82,14 @@ object SError {
       actAs: Set[Party],
       readAs: Set[Party],
       stakeholders: Set[Party],
+  ) extends SErrorDamlException
+
+  /** Two contracts with the same key were active at the same time.
+    * See com.daml.lf.transaction.Transaction.DuplicateContractKey
+    * for more details.
+    */
+  final case class DamlEDuplicateContractKey(
+      key: GlobalKey
   ) extends SErrorDamlException
 
   /** Error during an operation on the update transaction. */

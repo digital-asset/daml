@@ -84,7 +84,12 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
                 x1: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 400 };
                 u: Unit <- throw @(Update Unit) @M:MyException (M:MyException {message = "oops"});
                 x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
-              in upure @Unit ()
+              in upure @Unit (),
+
+            choice ChControllerThrow (self) (i : Unit) : Unit
+            , controllers (throw @(List Party) @M:MyException (M:MyException {message = "oops"}))
+            to
+              upure @Unit ()
           }
         };
 
@@ -192,6 +197,19 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
               x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
             in upure @Unit ();
 
+        val exer3 : Party -> Update Unit = \(party: Party) ->
+            ubind
+              x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
+
+              u: Unit <-
+                try @Unit
+                  ubind
+                    u: Unit <- exercise @M:T1 ChControllerThrow x1 ()
+                  in upure @Unit ()
+                catch e -> Some @(Update Unit) (upure @Unit ())
+
+            in upure @Unit ();
+
        }
       """)
 
@@ -207,6 +225,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     ("create3throwAndOuterCatch", List[Tree](R(List(C(100), C(200))), C(300))),
     ("exer1", List[Tree](C(100), X(List(C(400), C(500))), C(200), C(300))),
     ("exer2", List[Tree](C(100), R(List(X(List(C(400))))), C(300))),
+    ("exer3", List[Tree](C(100), R(List()))),
   )
 
   forEvery(testCases) { (exp: String, expected: List[Tree]) =>

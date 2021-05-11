@@ -438,7 +438,7 @@ object ScriptF {
   final case class SubmitData(
       actAs: OneAnd[Set, Party],
       readAs: Set[Party],
-      cmds: List[command.Command],
+      cmds: List[command.ApiCommand],
       freeAp: SValue,
       stackTrace: StackTrace,
       continue: SValue,

@@ -86,7 +86,7 @@ trait ScriptLedgerClient {
   def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.Command],
+      commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
@@ -96,14 +96,14 @@ trait ScriptLedgerClient {
   def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.Command],
+      commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]]
 
   def submitTree(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.Command],
+      commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[ScriptLedgerClient.TransactionTree]
 

@@ -419,6 +419,11 @@ party identifier.
 
 ``key_with_maintainers`` is optional.
 
+(*since version 1.dev*)
+As of version 1.dev, this field is required:
+
+``bool`` byKey
+
 message NodeExercise
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -492,6 +497,12 @@ As version 12, these field are included:
 
 ``arg_unversioned`` and ``result_unversioned`` are required, while
 ``arg_versioned`` and ``result_versioned`` are not used anymore.
+
+
+(*since version 1.dev*)
+As of version 1.dev, this field is required:
+
+``bool`` byKey
 
 message NodeLookupByKey
 ^^^^^^^^^^^^^^^^^^^^^^^

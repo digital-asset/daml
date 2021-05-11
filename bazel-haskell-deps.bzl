@@ -447,6 +447,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "extra",
             "fast-logger",
             "file-embed",
+            "filelock",
             "filepath",
             "filepattern",
             "foldl",

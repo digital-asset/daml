@@ -6,7 +6,7 @@ package engine
 package preprocessing
 
 import com.daml.lf.data.{BackStack, ImmArray}
-import com.daml.lf.transaction.{GenTransaction, Node, NodeId}
+import com.daml.lf.transaction.{GenTransaction, Node, NodeId, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
@@ -17,40 +17,6 @@ private[preprocessing] final class TransactionPreprocessor(
   import Preprocessor._
 
   val commandPreprocessor = new CommandPreprocessor(compiledPackages)
-
-  @throws[PreprocessorException]
-  private def unsafeAsValueWithNoContractIds(v: Value[Value.ContractId]): Value[Nothing] =
-    v.ensureNoCid.fold(
-      coid => fail(s"engine: found a contract ID $coid in the given value"),
-      identity,
-    )
-
-  // Translate a GenNode into an expression re-interpretable by the interpreter
-  @throws[PreprocessorException]
-  def unsafeTranslateActionNode[Cid <: Value.ContractId](
-      node: Node.GenActionNode[NodeId, Cid]
-  ): (speedy.Command, Set[Value.ContractId]) = {
-
-    node match {
-      case create: Node.NodeCreate[Cid] =>
-        commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
-
-      case exe: Node.NodeExercises[_, Cid] =>
-        commandPreprocessor.unsafePreprocessExercise(
-          exe.templateId,
-          exe.targetCoid,
-          exe.choiceId,
-          exe.chosenValue,
-        )
-      case fetch: Node.NodeFetch[Cid] =>
-        val cmd = commandPreprocessor.unsafePreprocessFetch(fetch.templateId, fetch.coid)
-        (cmd, Set.empty)
-      case lookup: Node.NodeLookupByKey[Cid] =>
-        val keyValue = unsafeAsValueWithNoContractIds(lookup.key.key)
-        val cmd = commandPreprocessor.unsafePreprocessLookupByKey(lookup.templateId, keyValue)
-        (cmd, Set.empty)
-    }
-  }
 
   // Accumulator used by unsafeTranslateTransactionRoots method.
   private[this] case class Acc(
@@ -129,12 +95,23 @@ private[preprocessing] final class TransactionPreprocessor(
                 commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
               acc.update(newCids, List(create.coid), cmd)
             case exe: Node.NodeExercises[_, Cid] =>
-              val (cmd, newCids) = commandPreprocessor.unsafePreprocessExercise(
-                exe.templateId,
-                exe.targetCoid,
-                exe.choiceId,
-                exe.chosenValue,
-              )
+              import scala.Ordering.Implicits.infixOrderingOps
+              val (cmd, newCids) = exe.key match {
+                case Some(key) if exe.byKey && exe.version >= TransactionVersion.minByKey =>
+                  commandPreprocessor.unsafePreprocessExerciseByKey(
+                    exe.templateId,
+                    key.key,
+                    exe.choiceId,
+                    exe.chosenValue,
+                  )
+                case _ =>
+                  commandPreprocessor.unsafePreprocessExercise(
+                    exe.templateId,
+                    exe.targetCoid,
+                    exe.choiceId,
+                    exe.chosenValue,
+                  )
+              }
               val newLocalCids = GenTransaction(tx.nodes, ImmArray(id)).localContracts.keys
               acc.update(newCids, newLocalCids, cmd)
             case _: Node.NodeFetch[_] =>

@@ -6,6 +6,7 @@ load(
     "scala_binary",
     "scala_library",
     "scala_library_suite",
+    "scala_repl",
     "scala_test",
     "scala_test_suite",
 )
@@ -222,11 +223,21 @@ def _wrap_rule(
         **kwargs
     )
 
-def _wrap_rule_no_plugins(rule, deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], **kwargs):
+def _wrap_rule_no_plugins(
+        rule,
+        deps = [],
+        scala_deps = [],
+        versioned_scala_deps = {},
+        runtime_deps = [],
+        scala_runtime_deps = [],
+        scalacopts = [],
+        **kwargs):
     deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
     rule(
         scalacopts = common_scalacopts + scalacopts,
         deps = deps,
+        runtime_deps = runtime_deps,
         **kwargs
     )
 
@@ -511,6 +522,27 @@ def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scala_deps = [], v
             tags = ["scaladoc"],
         )
 
+def _create_scala_repl(
+        name,
+        deps = [],
+        scala_deps = [],
+        versioned_scala_deps = {},
+        runtime_deps = [],
+        scala_runtime_deps = [],
+        tags = [],
+        # hiding the following from the `scala_repl` rule
+        main_class = None,
+        exports = None,
+        scala_exports = None,
+        scalac_opts = None,
+        generated_srcs = None,
+        **kwargs):
+    name = name + "_repl"
+    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
+    tags = tags + ["manual"]
+    scala_repl(name = name, deps = deps, runtime_deps = runtime_deps, tags = tags, **kwargs)
+
 def da_scala_library(name, **kwargs):
     """
     Define a Scala library.
@@ -527,8 +559,8 @@ def da_scala_library(name, **kwargs):
     arguments = _set_compile_jvm_flags(arguments)
     _wrap_rule(scala_library, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
-
     _create_scaladoc_jar(name = name, **arguments)
+    _create_scala_repl(name = name, **kwargs)
 
     if "tags" in arguments:
         for tag in arguments["tags"]:

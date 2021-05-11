@@ -4,12 +4,11 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.PureCompiledPackages
-import com.daml.lf.data
+import java.util
+
 import com.daml.lf.language.Ast._
-import com.daml.lf.value.Value._
 import com.daml.lf.speedy.Compiler.FullStackTrace
-import com.daml.lf.speedy.SResult.{SResultFinalValue, SResultError}
+import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SError.DamlEUnhandledException
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.validation.Validation
@@ -140,40 +139,24 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
        }
       """)
 
-    val e1 =
-      data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:M:E1")
-    val e2 =
-      data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:M:E2")
+    val List(e1, e2) =
+      List("M:E1", "M:E2")
+        .map(id =>
+          data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:$id")
+        )
+        .map(tyCon =>
+          SValue.SAnyException(
+            TTyCon(tyCon),
+            SValue.SRecord(tyCon, data.ImmArray.empty, new util.ArrayList()),
+          )
+        )
 
     val testCases = Table[String, SResult](
       ("expression", "expected"),
-      (
-        "M:unhandled1",
-        SResultError(
-          DamlEUnhandledException(TTyCon(e1), ValueRecord(Some(e1), data.ImmArray.empty))
-        ),
-      ),
-      (
-        "M:unhandled2",
-        SResultError(
-          DamlEUnhandledException(
-            TTyCon(e1),
-            ValueRecord(Some(e1), data.ImmArray.empty),
-          )
-        ),
-      ),
-      (
-        "M:unhandled3",
-        SResultError(
-          DamlEUnhandledException(TTyCon(e1), ValueRecord(Some(e1), data.ImmArray.empty))
-        ),
-      ),
-      (
-        "M:unhandled4",
-        SResultError(
-          DamlEUnhandledException(TTyCon(e2), ValueRecord(Some(e2), data.ImmArray.empty))
-        ),
-      ),
+      ("M:unhandled1", SResultError(DamlEUnhandledException(e1))),
+      ("M:unhandled2", SResultError(DamlEUnhandledException(e1))),
+      ("M:unhandled3", SResultError(DamlEUnhandledException(e1))),
+      ("M:unhandled4", SResultError(DamlEUnhandledException(e2))),
     )
 
     forEvery(testCases) { (exp: String, expected: SResult) =>

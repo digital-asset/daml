@@ -15,7 +15,12 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.scenario.ScenarioLedger.TransactionId
 import com.daml.lf.scenario._
-import com.daml.lf.transaction.{NodeId, TransactionVersion, Transaction => Tx}
+import com.daml.lf.transaction.{
+  ContractKeyUniquenessMode,
+  NodeId,
+  TransactionVersion,
+  Transaction => Tx,
+}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
@@ -42,6 +47,7 @@ private[lf] object Pretty {
   def prettyError(err: SError): Doc = {
     val ptx = PartialTransaction.initial(
       (_ => TransactionVersion.minVersion),
+      ContractKeyUniquenessMode.On,
       submissionTime = Time.Timestamp.MinValue,
       initialSeeds = InitialSeeding.NoSeed,
     )
@@ -57,8 +63,17 @@ private[lf] object Pretty {
         text(prettyFailedAuthorization(nid, fa))
       case DamlEArithmeticError(message) =>
         text(message)
-      case DamlEUnhandledException(_, exc) =>
-        text(s"unhandled exception:") & prettyValue(true)(exc)
+      case DamlEUnhandledException(exc) =>
+        text(s"unhandled exception:") & {
+          exc match {
+            case SAnyException(_, value) =>
+              prettyValue(true)(value.toValue)
+            case SBuiltinException(ContractError) =>
+              text("ContractError")
+            case SBuiltinException(ArithmeticError) =>
+              text("ArithmeticError")
+          }
+        }
       case DamlEUserError(message) =>
         text(s"User abort: $message")
       case DamlETransactionError(reason) =>
@@ -99,6 +114,9 @@ private[lf] object Pretty {
             comma + space,
             stakeholders.map(prettyParty),
           ) + char('.')
+
+      case DamlEDuplicateContractKey(key) =>
+        text("Update failed due to a duplicate contract key") & prettyValue(false)(key.key)
 
       case DamlEWronglyTypedContract(coid, expected, actual) =>
         text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /

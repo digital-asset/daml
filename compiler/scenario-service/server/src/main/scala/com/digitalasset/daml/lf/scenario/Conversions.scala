@@ -87,8 +87,16 @@ final class Conversions(
         setCrash(reason)
       case SError.DamlEArithmeticError(reason) =>
         setCrash(reason)
-      case SError.DamlEUnhandledException(_, exc) =>
-        builder.setUnhandledException(convertValue(exc))
+      case SError.DamlEUnhandledException(exc) =>
+        exc match {
+          case SValue.SAnyException(_, sValue) =>
+            builder.setUnhandledException(convertValue(sValue.toValue))
+          case SValue.SBuiltinException(error) =>
+            // TODO https://github.com/digital-asset/daml/issues/8020
+            //  We should not crash here.
+            //  We however need conversion primitive for builtin exeception to be implemented.
+            setCrash(error.toString)
+        }
       case SError.DamlEUserError(msg) =>
         builder.setUserError(msg)
 
@@ -110,6 +118,10 @@ final class Conversions(
             .setContractRef(mkContractRef(coid, tid))
             .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
             .build
+        )
+      case SError.DamlEDuplicateContractKey(key) =>
+        builder.setScenarioCommitError(
+          proto.CommitError.newBuilder.setUniqueKeyViolation(convertGlobalKey(key)).build
         )
       case SError.DamlEFailedAuthorization(nid, fa) =>
         builder.setScenarioCommitError(

@@ -1581,23 +1581,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $make-builtin-error :: Text -> BuiltinError */
-  final case class SBMakeBuiltinError(tag: String) extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      SBuiltinException(tag, args.get(0))
-    }
-  }
-
-  /** $builtin-error-message :: BuiltinError -> Text */
-  final case object SBBuiltinErrorMessage extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case SBuiltinException(_, value) => value
-        case v => crash(s"invalid argument to SBBuiltinErrorMessage: $v")
-      }
-    }
-  }
-
   /** $to-any-exception :: exception-type -> AnyException */
   final case class SBToAnyException(ty: Ast.Type) extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
@@ -1878,6 +1861,8 @@ private[lf] object SBuiltin {
         throw DamlEFailedAuthorization(nid, fa)
       case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
         throw DamlELocalContractNotActive(coid, tid, consumedBy)
+      case Some(Tx.DuplicateContractKey(key)) =>
+        throw DamlEDuplicateContractKey(key)
       case Some(Tx.NonExerciseContext) =>
         crash("internal error: end exercise in non exercise context")
       case Some(Tx.NonCatchContext) =>

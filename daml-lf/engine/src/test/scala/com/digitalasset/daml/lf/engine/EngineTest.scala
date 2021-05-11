@@ -14,6 +14,7 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.transaction.{
+  ContractKeyUniquenessMode,
   GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
@@ -1440,7 +1441,7 @@ class EngineTest
           engine
             .reinterpret(
               n.requiredAuthorizers,
-              n,
+              FetchCommand(n.templateId, n.coid),
               txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
               txMeta.submissionTime,
               let,
@@ -1491,16 +1492,9 @@ class EngineTest
     "succeed with a fresh engine, correctly compiling packages" in {
       val engine = Engine.DevEngine()
 
-      val fetchNode = Node.NodeFetch(
-        coid = fetchedCid,
+      val fetchNode = FetchCommand(
         templateId = fetchedTid,
-        optLocation = None,
-        actingParties = Set.empty,
-        signatories = Set.empty,
-        stakeholders = Set.empty,
-        key = None,
-        byKey = false,
-        version = TxVersions.minVersion,
+        coid = fetchedCid,
       )
 
       val let = Time.Timestamp.now()
@@ -1615,7 +1609,7 @@ class EngineTest
           .DevEngine()
           .reinterpret(
             submitters,
-            lookupNode,
+            LookupByKeyCommand(lookupNode.templateId, lookupNode.key.key),
             nodeSeedMap.get(nid),
             txMeta.submissionTime,
             now,
@@ -1656,7 +1650,13 @@ class EngineTest
       val Right((reinterpreted, _)) =
         Engine
           .DevEngine()
-          .reinterpret(submitters, lookupNode, nodeSeedMap.get(nid), txMeta.submissionTime, now)
+          .reinterpret(
+            submitters,
+            LookupByKeyCommand(lookupNode.templateId, lookupNode.key.key),
+            nodeSeedMap.get(nid),
+            txMeta.submissionTime,
+            now,
+          )
           .consume(
             lookupContract,
             lookupPackage,
@@ -1879,7 +1879,7 @@ class EngineTest
 
     val now = Time.Timestamp.now()
     val submissionSeed = hash("wrongly-typed cid")
-    def run(cmds: ImmArray[Command]) =
+    def run(cmds: ImmArray[ApiCommand]) =
       engine
         .submit(Set(alice), Commands(cmds, now, ""), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(Set(alice)))
@@ -2089,6 +2089,19 @@ class EngineTest
     // these tests serve only as an indication of the current behavior
     // but can be changed freely.
     "multi keys" should {
+      import com.daml.lf.language.{LanguageVersion => LV}
+      val nonUckEngine = new Engine(
+        EngineConfig(
+          allowedLanguageVersions = LV.DevVersions,
+          contractKeyUniqueness = ContractKeyUniquenessMode.Off,
+        )
+      )
+      val uckEngine = new Engine(
+        EngineConfig(
+          allowedLanguageVersions = LV.DevVersions,
+          contractKeyUniqueness = ContractKeyUniquenessMode.On,
+        )
+      )
       val (multiKeysPkgId, _, allMultiKeysPkgs) = loadPackage("daml-lf/tests/MultiKeys.dar")
       val lookupPackage = allMultiKeysPkgs.get(_)
       val keyedId = Identifier(multiKeysPkgId, "MultiKeys:Keyed")
@@ -2116,7 +2129,7 @@ class EngineTest
           case _ =>
             None
         }
-      def run(choice: String, argument: Value[Value.ContractId]) = {
+      def run(engine: Engine, choice: String, argument: Value[Value.ContractId]) = {
         val cmd = CreateAndExerciseCommand(
           opsId,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
@@ -2156,6 +2169,8 @@ class EngineTest
       val globalArchiveOverwritesKnownGlobal1 = ("GlobalArchiveOverwritesKnownGlobal1", twoCids)
       val globalArchiveOverwritesKnownGlobal2 = ("GlobalArchiveOverwritesKnownGlobal2", twoCids)
       val rollbackCreateNonRollbackFetchByKey = ("RollbackCreateNonRollbackFetchByKey", emptyRecord)
+      val rollbackFetchByKeyRollbackCreateNonRollbackFetchByKey =
+        ("RollbackFetchByKeyRollbackCreateNonRollbackFetchByKey", emptyRecord)
       val rollbackFetchByKeyNonRollbackCreate = ("RollbackFetchByKeyNonRollbackCreate", emptyRecord)
       val rollbackFetchNonRollbackCreate = ("RollbackFetchNonRollbackCreate", keyResultCid)
       val rollbackGlobalArchiveNonRollbackCreate =
@@ -2165,28 +2180,48 @@ class EngineTest
       val rollbackGlobalArchiveUpdates =
         ("RollbackGlobalArchiveUpdates", twoCids)
 
+      val allCases = Table(
+        ("choice", "argument"),
+        createOverwritesLocal,
+        createOverwritesUnknownGlobal,
+        createOverwritesKnownGlobal,
+        fetchDoesNotOverwriteGlobal,
+        fetchDoesNotOverwriteLocal,
+        localArchiveOverwritesUnknownGlobal,
+        localArchiveOverwritesKnownGlobal,
+        globalArchiveOverwritesUnknownGlobal,
+        globalArchiveOverwritesKnownGlobal1,
+        globalArchiveOverwritesKnownGlobal2,
+        rollbackCreateNonRollbackFetchByKey,
+        rollbackFetchByKeyRollbackCreateNonRollbackFetchByKey,
+        rollbackFetchByKeyNonRollbackCreate,
+        rollbackFetchNonRollbackCreate,
+        rollbackGlobalArchiveNonRollbackCreate,
+        rollbackCreateNonRollbackGlobalArchive,
+        rollbackGlobalArchiveUpdates,
+      )
+
+      val uckFailures = Set(
+        "CreateOverwritesLocal",
+        "CreateOverwritesKnownGlobal",
+        "LocalArchiveOverwritesKnownGlobal",
+        "RollbackCreateNonRollbackFetchByKey",
+        "RollbackFetchByKeyRollbackCreateNonRollbackFetchByKey",
+        "RollbackFetchByKeyNonRollbackCreate",
+      )
+
       "non-uck mode" in {
-        val allCases = Table(
-          ("choice", "argument"),
-          createOverwritesLocal,
-          createOverwritesUnknownGlobal,
-          createOverwritesKnownGlobal,
-          fetchDoesNotOverwriteGlobal,
-          fetchDoesNotOverwriteLocal,
-          localArchiveOverwritesUnknownGlobal,
-          localArchiveOverwritesKnownGlobal,
-          globalArchiveOverwritesUnknownGlobal,
-          globalArchiveOverwritesKnownGlobal1,
-          globalArchiveOverwritesKnownGlobal2,
-          rollbackCreateNonRollbackFetchByKey,
-          rollbackFetchByKeyNonRollbackCreate,
-          rollbackFetchNonRollbackCreate,
-          rollbackGlobalArchiveNonRollbackCreate,
-          rollbackCreateNonRollbackGlobalArchive,
-          rollbackGlobalArchiveUpdates,
-        )
         forEvery(allCases) { case (name, arg) =>
-          run(name, arg) shouldBe a[Right[_, _]]
+          run(nonUckEngine, name, arg) shouldBe a[Right[_, _]]
+        }
+      }
+      "uck mode" in {
+        forEvery(allCases) { case (name, arg) =>
+          if (uckFailures.contains(name)) {
+            run(uckEngine, name, arg) shouldBe a[Left[_, _]]
+          } else {
+            run(uckEngine, name, arg) shouldBe a[Right[_, _]]
+          }
         }
       }
     }
@@ -2220,7 +2255,7 @@ class EngineTest
           case _ =>
             None
         }
-      def run(cmd: Command) = {
+      def run(cmd: ApiCommand) = {
         val submitters = Set(party)
         val Right((cmds, globalCids)) = preprocessor
           .preprocessCommands(ImmArray(cmd))
@@ -2332,7 +2367,7 @@ class EngineTest
           case _ =>
             None
         }
-      def run(cmd: Command): Int = {
+      def run(cmd: ApiCommand): Int = {
         val submitters = Set(party)
         var keyLookups = 0
         def mockedKeyLookup(key: GlobalKeyWithMaintainers) = {
@@ -2502,10 +2537,22 @@ object EngineTest {
         for {
           previousStep <- acc
           (nodes, roots, dependsOnTime, nodeSeeds, contracts0, keys0) = previousStep
+          cmd = tx.transaction.nodes(nodeId) match {
+            case create: Node.NodeCreate[ContractId] =>
+              CreateCommand(create.templateId, create.arg)
+            case fetch: Node.NodeFetch[ContractId] =>
+              FetchCommand(fetch.templateId, fetch.coid)
+            case lookup: Node.NodeLookupByKey[ContractId] =>
+              LookupByKeyCommand(lookup.templateId, lookup.key.key)
+            case exe: Node.NodeExercises[NodeId, ContractId] =>
+              ExerciseCommand(exe.templateId, exe.targetCoid, exe.choiceId, exe.chosenValue)
+            case _: Node.NodeRollback[NodeId] =>
+              sys.error("unexpected rollback node")
+          }
           currentStep <- engine
             .reinterpret(
               submitters,
-              tx.transaction.nodes(nodeId).asInstanceOf[GenActionNode[NodeId, ContractId]],
+              cmd,
               nodeSeedMap.get(nodeId),
               txMeta.submissionTime,
               ledgerEffectiveTime,
