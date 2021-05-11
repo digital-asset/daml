@@ -33,9 +33,9 @@ object Cli {
         )
         .valueName("streamType=<transactions|transaction-trees>,name=<streamName>,party=<party>")
         .action { case (streamConfig, config) => config.copy(streamConfig = Some(streamConfig)) },
-      opt[Duration]("reporting-period")
+      opt[Duration]("log-interval")
         .abbr("r")
-        .text("Reporting period")
+        .text("Stream metrics log interval.")
         .action { case (period, config) => config.copy(reportingPeriod = period) },
       help("help").text("Prints this information"),
     )
