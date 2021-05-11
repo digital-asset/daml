@@ -5,13 +5,20 @@ package com.daml.ledger.participant.state.v2
 
 import com.daml.lf.data.Time.Timestamp
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.ledger.participant.state.v1.{Configuration, DivulgedContract, TransactionMeta}
+import com.daml.ledger.participant.state.v1.{
+  CommittedTransaction,
+  Configuration,
+  DivulgedContract,
+  ParticipantId,
+  TransactionId,
+  TransactionMeta
+}
 import com.daml.lf.transaction.BlindingInfo
 
 /** An update to the (abstract) participant state.
   *
   * [[Update]]'s are used in [[ReadService.stateUpdates]] to communicate
-  * changes to abstract participant state to consumers. We describe
+  * changes to abstract participant state to consumers.
   *
   * We describe the possible updates in the comments of
   * each of the case classes implementing [[Update]].
@@ -155,9 +162,13 @@ object Update {
     *
     * @param optSubmitterInfo:
     *   The information provided by the submitter of the command that
-    *   created this transaction. It must be provided if the submitter is
-    *   hosted at this participant. It can be elided otherwise. This allows
-    *   ledgers to implement a fine-grained privacy model.
+    *   created this transaction. It must be provided if this participant
+    *   hosts one of the submitters and shall output a completion event
+    *   for this transaction. This in particular applies if this participant has
+    *   submitted the command to the [[WriteService]].
+    *
+    *   The [[ReadService]] implementation must ensure that command deduplication
+    *   and the submission rank guarantees are met.
     *
     * @param transactionMeta:
     *   The metadata of the transaction that was provided by the submitter.
@@ -196,6 +207,11 @@ object Update {
   }
 
   /** Signal that a command submitted via [[WriteService]] was rejected.
+    *
+    * @param cancelled If false, the [[ReadService]]'s deduplication and submission rank guarantees
+    *   apply to this rejection. The participant state implementations should
+    *   strive to set this flag to false as often as possible so that applications
+    *   get better guarantees.
     */
   final case class CommandRejected(
       recordTime: Timestamp,
@@ -204,7 +220,7 @@ object Update {
       cancelled: Boolean
   ) extends Update {
     override def description: String = {
-      s"Reject command ${submitterInfo.commandId}: $reason"
+      s"Reject command ${submitterInfo.commandId}: ${reason.message}"
     }
   }
 

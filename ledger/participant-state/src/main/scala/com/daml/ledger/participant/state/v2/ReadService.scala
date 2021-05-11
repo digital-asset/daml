@@ -16,14 +16,14 @@ import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset}
   * the current state and creates indexes to satisfy read requests against
   * that state.
   *
-  * See [[com.daml.ledger.participant.state.v1]] for further architectural
+  * See [[com.daml.ledger.participant.state.v2]] for further architectural
   * information. See [[Update]] for a description of the state updates
   * communicated by [[ReadService!.stateUpdates]].
   */
 trait ReadService extends ReportsHealth {
 
   /** Retrieve the static initial conditions of the ledger, containing
-    * the ledger identifier and the initial the ledger record time.
+    * the ledger identifier and the initial ledger record time.
     *
     * Returns a single element Source since the implementation may need to
     * first establish connectivity to the underlying ledger. The implementer
@@ -64,6 +64,8 @@ trait ReadService extends ReportsHealth {
     *   meta-data.
     *   Note that the ledger time of unrelated updates is not necessarily monotonically
     *   increasing.
+    *   The creating transaction need not have a [[Update.TransactionAccepted]] even on this participant
+    *   if the participant does not host a stakeholder of the contract, e.g., in the case of divulgence.
     *
     * - *time skew*: given a [[Update.TransactionAccepted]] with an associated
     *   ledger time `lt_tx` and a record time `rt_tx`, it holds that
@@ -76,7 +78,7 @@ trait ReadService extends ReportsHealth {
     *   Then there is no other [[Update.TransactionAccepted]] with [[SubmitterInfo]] for the same [[SubmitterInfo.changeId]]
     *   between the offsets `off1` and `off2` inclusive.
     *
-    *   So if a command submission has resulted in an [[Update.TransactionAccepted]],
+    *   So if a command submission has resulted in a [[Update.TransactionAccepted]],
     *   other command submissions with the same [[SubmitterInfo.changeId]] must be deduplicated
     *   if the earlier's [[Update.TransactionAccepted]] falls within the latter's [[SubmitterInfo.deduplicationPeriod]].
     *
@@ -96,14 +98,16 @@ trait ReadService extends ReportsHealth {
     *   or a [[Update.CommandRejected]] with [[SubmitterInfo]] and not [[Update.CommandRejected.cancelled]] at offset `off`.
     *   Let `rank` be the [[SubmitterInfo.submissionRank]] of the [[Update]].
     *   Then there is no other [[Update.TransactionAccepted]] or [[Update.CommandRejected]] with [[SubmitterInfo]]
-    *   for the same [[SubmitterInfo.changeId]] after offset `off` whose [[SubmitterInfo.submissionRank]] is at most `rank`.
+    *   for the same [[SubmitterInfo.changeId]] with offset at least `off`
+    *   whose [[SubmitterInfo.submissionRank]] is at most `rank`.
     *
     *   If the [[WriteService]] detects that a command submission would violate the submission rank guarantee
-    *   if accepted or rejected, it reports either an  [[SubmissionResult]] error
+    *   if accepted or rejected, it either returns a [[SubmissionResult.SynchronousError]] error or
+    *   produces a [[Update.CommandRejected]] with [[Update.CommandRejected.cancelled]].
     *
     * - *finality*: If the corresponding [[WriteService]] acknowledges a submitted transaction or rejection
     *   with [[SubmissionResult.Acknowledged]], the [[ReadService]] SHOULD make sure that
-    *   it eventually produces be a [[Update.TransactionAccepted]] or [[Update.CommandRejected]] with this [[SubmitterInfo]],
+    *   it eventually produces a [[Update.TransactionAccepted]] or [[Update.CommandRejected]] with this [[SubmitterInfo]],
     *   even if there are crashes or lost network messages.
     *
     * The second class of properties relates multiple calls to

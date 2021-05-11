@@ -8,7 +8,7 @@ import java.time.Duration
 import com.daml.ledger.participant.state.v1.TimeModel
 
 /** Ledger configuration describing the ledger's time model.
-  * Emitted in [[com.daml.ledger.participant.state.v1.Update.ConfigurationChanged]].
+  * Emitted in [[com.daml.ledger.participant.state.v2.Update.ConfigurationChanged]].
   *
   * @param generation The configuration generation. Monotonically increasing.
   * @param timeModel The time model of the ledger.

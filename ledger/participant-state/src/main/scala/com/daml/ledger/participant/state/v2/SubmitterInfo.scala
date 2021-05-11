@@ -3,9 +3,7 @@
 
 package com.daml.ledger.participant.state.v2
 
-import java.time.Instant
-
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.participant.state.v1.{ApplicationId, CommandId, Offset, Party}
 
 /** Information provided by the submitter of changes submitted to the ledger.
   *
@@ -18,19 +16,19 @@ import com.daml.ledger.participant.state.v1.Offset
   *   submitted the command. This is used for monitoring and to allow DAML
   *   applications subscribe to their own submissions only.
   *
-  * @param commandId a submitter provided identifier that he can use to
-  *   correlate the stream of changes to the participant state with the
-  *   changes he submitted.
+  * @param commandId a submitter-provided identifier to identify an intended ledger change
+  *   within all the submissions by the same parties and application.
   *
   * @param deduplicationPeriod The deduplication period for the command submission.
   *   If not given explicitly as an offset, the [[WriteService]] is responsible for
   *   determining a suitable completion offset where deduplication starts according
   *   to the [[ReadService]]'s deduplication guarantee.
   *
-  * @param submissionId An identifier for the submission that allows an application to correlate completions to its submissions.
+  * @param submissionId An identifier for the submission that allows an application
+  *   to correlate completions to its submissions.
   *
   * @param submissionRank The rank of the submission among all submissions with the same change ID.
-  *                       Used for the submission rank guarantee described in the [[ReadService.stateUpdates]].
+  *   Used for the submission rank guarantee described in the [[ReadService.stateUpdates]].
   */
 final case class SubmitterInfo(
     actAs: List[Party],
@@ -40,7 +38,13 @@ final case class SubmitterInfo(
     submissionId: SubmissionId,
     submissionRank: Offset,
 ) {
+
+  /** The ID for the ledger change */
   def changeId: ChangeId = ChangeId(applicationId, commandId, actAs = actAs.toSet)
 }
 
+/** Identifier for ledger changes used by command deduplication
+  *
+  * @see ReadService.stateUpdates for the command deduplication guarantee
+  */
 case class ChangeId(applicationId: ApplicationId, commandId: CommandId, actAs: Set[Party])

@@ -7,9 +7,8 @@ import java.util.concurrent.CompletionStage
 
 import com.daml.ledger.api.health.ReportsHealth
 import com.daml.ledger.participant.state.v1.{
-  ReadService,
+  SubmittedTransaction,
   TransactionMeta,
-  Update,
   WriteConfigService,
   WritePackagesService,
   WriteParticipantPruningService,
@@ -31,8 +30,9 @@ import com.daml.telemetry.TelemetryContext
   * plans to make this functionality uniformly available: see the roadmap for
   * progress information https://github.com/digital-asset/daml/issues/121.
   *
-  * As of now there are four methods for changing the state of a DAML ledger:
+  * As of now there are five methods for changing the state of a DAML ledger:
   * - submitting a transaction using [[WriteService!.submitTransaction]]
+  * - recording the rejection of a command submission using [[WriteService!.rejectSubmission]]
   * - allocating a new party using [[WritePartyService!.allocateParty]]
   * - uploading a new package using [[WritePackagesService!.uploadPackages]]
   * - pruning a participant ledger using [[WriteParticipantPruningService!.prune]]
@@ -134,21 +134,21 @@ trait WriteService
     * of the [[WriteService]].
     *
     * The result is communicated asynchronously via a [[ReadService]] implementation backed by the same participant
-    * state as this [[WriteService]]. Successful recording is
-    * communicated using a [[Update.CommandRejected]] with [[SubmitterInfo]] and not [[Update.CommandRejected.cancelled]].
+    * state as this [[WriteService]]. Successful recording is communicated using a [[Update.CommandRejected]]
+    * with [[SubmitterInfo]] and not [[Update.CommandRejected.cancelled]].
     * If the recording as a rejection fails (e.g., due to deduplication or violations of the submission rank),
     * the failure should be communicated using a [[Update.CommandRejected]] with [[SubmitterInfo]]
     * and [[Update.CommandRejected.cancelled]].
     *
     * Recorded rejections fall under the deduplication and submission rank guarantees
-    * desced in [[ReadService.stateUpdates]].
+    * described in [[ReadService.stateUpdates]].
     *
     * @param submitterInfo the information provided by the submitter for correlating this submission
     *                      with its rejection or cancellation on the associated [[ReadService]].
     * @param reason The rejection reason to be included in the [[Update.CommandRejected]]
     * @param telemetryContext Implicit context for tracing.
     */
-  def rejectTransaction(
+  def rejectSubmission(
       submitterInfo: SubmitterInfo,
       reason: com.google.rpc.Status
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]

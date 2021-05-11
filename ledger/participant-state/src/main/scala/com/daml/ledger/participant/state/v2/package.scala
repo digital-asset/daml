@@ -4,8 +4,6 @@
 package com.daml.ledger.participant.state
 
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction
-import com.daml.lf.value.Value
 
 /** Interfaces to read from and write to an (abstract) participant state.
   *
@@ -46,31 +44,10 @@ import com.daml.lf.value.Value
   * possible. There can therefore potentially be multiple versions of
   * participant state APIs at the same time. We plan to deprecate and drop old
   * versions on separate and appropriate timelines.
+  *
+  * TODO(v2) We only list the classes and types that differ from v1.
   */
 package object v2 {
-
-  /** Identifier for the ledger, MUST match regexp [a-zA-Z0-9-]. */
-  type LedgerId = String
-
-  /** Identifier for the participant, MUST match regexp [a-zA-Z0-9-]. */
-  val ParticipantId: Ref.ParticipantId.type = Ref.ParticipantId
-  type ParticipantId = Ref.ParticipantId
-
-  /** Identifiers for transactions. */
-  val TransactionId: Ref.LedgerString.type = Ref.LedgerString
-  type TransactionId = Ref.LedgerString
-
-  /** Identifiers used to correlate submission with results. */
-  val CommandId: Ref.LedgerString.type = Ref.LedgerString
-  type CommandId = Ref.LedgerString
-
-  /** Identifiers used for correlating submission with a workflow. */
-  val WorkflowId: Ref.LedgerString.type = Ref.LedgerString
-  type WorkflowId = Ref.LedgerString
-
-  /** Identifiers for submitting client applications. */
-  val ApplicationId: Ref.LedgerString.type = Ref.LedgerString
-  type ApplicationId = Ref.LedgerString
 
   /** Identifiers used to correlate admin submission with results. */
   val AdminSubmissionId: Ref.LedgerString.type = Ref.LedgerString
@@ -80,31 +57,4 @@ package object v2 {
   // TODO(v2) Should we restrict this to UUIDs?
   val SubmissionId: Ref.LedgerString.type = Ref.LedgerString
   type SubmissionId = Ref.LedgerString
-
-  /** Identifiers for nodes in a transaction. */
-  type NodeId = transaction.NodeId
-
-  /** Identifiers for packages. */
-  type PackageId = Ref.PackageId
-
-  /** Identifiers for parties. */
-  type Party = Ref.Party
-
-  /** A transaction with contract IDs that may require suffixing.
-    *
-    * See the Contract Id specification for more detail daml-lf/spec/contract-id.rst
-    */
-  type SubmittedTransaction = transaction.SubmittedTransaction
-
-  /** A transaction with globally unique contract IDs.
-    *
-    * Used to communicate transactions that have been accepted to the ledger.
-    * See the Contract Id specification for more detail daml-lf/spec/contract-id.rst
-    */
-  type CommittedTransaction = transaction.CommittedTransaction
-
-  /** A contract instance. */
-  type ContractInst =
-    Value.ContractInst[Value.VersionedValue[Value.ContractId]]
-
 }
