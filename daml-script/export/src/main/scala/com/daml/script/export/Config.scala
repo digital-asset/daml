@@ -3,14 +3,18 @@
 
 package com.daml.script.export
 
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 import java.io.File
 
+import com.daml.auth.TokenHolder
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 
 final case class Config(
     ledgerHost: String,
     ledgerPort: Int,
+    tlsConfig: TlsConfiguration,
+    accessToken: Option[TokenHolder],
     parties: Seq[String],
     start: LedgerOffset,
     end: LedgerOffset,
@@ -50,6 +54,14 @@ object Config {
       .required()
       .action((x, c) => c.copy(ledgerPort = x))
       .text("Daml ledger port to connect to.")
+    TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
+      c.copy(tlsConfig = f(c.tlsConfig))
+    )
+    opt[String]("access-token-file")
+      .action((f, c) => c.copy(accessToken = Some(new TokenHolder(Paths.get(f)))))
+      .text(
+        "File from which the access token will be read, required to interact with an authenticated ledger."
+      )
     opt[Seq[String]]("party")
       .required()
       .unbounded()
@@ -126,6 +138,8 @@ object Config {
   private val Empty = Config(
     ledgerHost = "",
     ledgerPort = -1,
+    tlsConfig = TlsConfiguration(false, None, None, None),
+    accessToken = None,
     parties = List(),
     start = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END)),

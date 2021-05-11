@@ -51,6 +51,8 @@ object TransactionVersion {
   private[lf] val minTypeErasure = V12
   //nothing was added in V13, so there are no vals: "minSomething = V13"
   private[lf] val minExceptions = VDev
+  // TODO Move to a stable version https://github.com/digital-asset/daml/issues/7622
+  private[lf] val minByKey = VDev
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
     import LanguageVersion._

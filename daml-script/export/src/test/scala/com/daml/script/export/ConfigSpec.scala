@@ -3,10 +3,14 @@
 
 package com.daml.script.export
 
+import java.io.PrintWriter
+import java.nio.file.{Files, Path, Paths}
+
+import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.OptionValues
+import org.scalatest.{Assertion, OptionValues}
 
 class ConfigSpec extends AnyFreeSpec with Matchers with OptionValues {
   private val outputTypeArgs = Array("script")
@@ -75,6 +79,43 @@ class ConfigSpec extends AnyFreeSpec with Matchers with OptionValues {
         val args = defaultRequiredArgs ++ Array("--party", "Alice,Bob")
         val optConfig = Config.parse(args)
         optConfig.value.parties should contain only ("Alice", "Bob")
+      }
+    }
+    "TLS" - {
+      "--pem PEM --crt CRT" in {
+        val pemPath = rlocation("ledger/test-common/test-certificates/client.pem")
+        val crtPath = rlocation("ledger/test-common/test-certificates/client.crt")
+        val args = defaultRequiredArgs ++ Array("--pem", pemPath, "--crt", crtPath)
+        val optConfig = Config.parse(args)
+        assert(Files.isSameFile(optConfig.value.tlsConfig.keyFile.value.toPath, Paths.get(pemPath)))
+        assert(
+          Files.isSameFile(
+            optConfig.value.tlsConfig.keyCertChainFile.value.toPath,
+            Paths.get(crtPath),
+          )
+        )
+      }
+    }
+    "Auth" - {
+      val token = "test-token"
+      def withTokenFile(f: Path => Assertion): Assertion = {
+        val tokenFile: Path = Files.createTempFile("token", ".jwt")
+        try {
+          val writer = new PrintWriter(tokenFile.toFile)
+          try {
+            writer.print(token)
+          } finally {
+            writer.close
+          }
+          f(tokenFile)
+        } finally {
+          Files.delete(tokenFile)
+        }
+      }
+      "--access-token-file" in withTokenFile { tokenFile =>
+        val args = defaultRequiredArgs ++ Array("--access-token-file", tokenFile.toString)
+        val optConfig = Config.parse(args)
+        optConfig.value.accessToken.value.token.value shouldBe token
       }
     }
   }

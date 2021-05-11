@@ -145,7 +145,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
   private def unsafeSubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.Command],
+      commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext): Future[
     Either[StatusRuntimeException, RichTransaction]
@@ -233,7 +233,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.Command],
+      commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
@@ -271,7 +271,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
   override def submitMustFail(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.Command],
+      commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]] = {
     unsafeSubmit(actAs, readAs, commands, optLocation)
@@ -291,7 +291,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
   override def submitTree(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
-      commands: List[command.Command],
+      commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,

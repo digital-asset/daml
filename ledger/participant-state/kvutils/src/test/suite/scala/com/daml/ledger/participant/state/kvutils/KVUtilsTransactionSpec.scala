@@ -19,7 +19,7 @@ import com.daml.ledger.test.{
   SimplePackageVariantTestDar,
   TestDar,
 }
-import com.daml.lf.command.Command
+import com.daml.lf.command.ApiCommand
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.{FrontStack, SortedLookupList}
@@ -616,7 +616,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
       }
     }
 
-  private def simpleCreateCmd(simplePackage: SimplePackage): Command =
+  private def simpleCreateCmd(simplePackage: SimplePackage): ApiCommand =
     simplePackage.simpleCreateCmd(mkSimpleCreateArg(simplePackage))
 
   private def mkSimpleCreateArg(simplePackage: SimplePackage): Value[ContractId] =

@@ -6,23 +6,27 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.ContentTypeResolver.Default
-import akka.http.scaladsl.server.{Directives}
-import com.typesafe.scalalogging.StrictLogging
+import akka.http.scaladsl.server.Directives
+import com.daml.http.util.Logging.CorrelationID
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.syntax.show._
 
 import scala.concurrent.Future
 
 object StaticContentEndpoints {
   def all(config: StaticContentConfig)(implicit
-      asys: ActorSystem
-  ): HttpRequest PartialFunction Future[HttpResponse] =
+      asys: ActorSystem,
+      lc: LoggingContextOf[CorrelationID],
+  ): PartialFunction[HttpRequest, Future[HttpResponse]] =
     new StaticContentRouter(config)
 }
 
 private class StaticContentRouter(config: StaticContentConfig)(implicit
-    asys: ActorSystem
-) extends PartialFunction[HttpRequest, Future[HttpResponse]]
-    with StrictLogging {
+    asys: ActorSystem,
+    lc: LoggingContextOf[CorrelationID],
+) extends PartialFunction[HttpRequest, Future[HttpResponse]] {
+
+  private[this] val logger = ContextualizedLogger.get(getClass)
 
   private val pathPrefix: Uri.Path = Uri.Path("/" + config.prefix)
 

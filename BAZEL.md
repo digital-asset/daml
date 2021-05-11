@@ -464,6 +464,14 @@ detailed information.
     bazel run //ledger/sandbox:sandbox-binary -- --help
     ```
 
+### Running a REPL
+
+- Run a Scala REPL which has the library on the classpath:
+
+    ```
+    bazel run //ledger/ledger-on-memory:ledger-on-memory_repl
+    ```
+
 ### Querying Targets
 
 The Bazel query language is described in detail in the [official Bazel

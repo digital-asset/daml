@@ -17,7 +17,7 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin.checkAborted
-import com.daml.lf.transaction.{Node, TransactionVersion}
+import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
@@ -108,6 +108,7 @@ private[lf] object Speedy {
 
   private[lf] final case class OnLedger(
       val validating: Boolean,
+      val contractKeyUniqueness: ContractKeyUniquenessMode,
       /* The current partial transaction */
       var ptx: PartialTransaction,
       /* Committers of the action. */
@@ -434,16 +435,30 @@ private[lf] object Speedy {
       * was caught.
       */
     private[speedy] def tryHandleSubmitMustFail(): Boolean = {
-      val catchIndex =
-        kontStack.asScala.lastIndexWhere(_.isInstanceOf[KCatchSubmitMustFail])
-      if (catchIndex >= 0) {
-        val kcatch = kontStack.get(catchIndex).asInstanceOf[KCatchSubmitMustFail]
-        kontStack.subList(catchIndex, kontStack.size).clear()
-        restoreBase(kcatch.envSize)
+      if (kontStack.asScala.exists(k => k.isInstanceOf[KCatchSubmitMustFail])) {
+        @tailrec def unwind(): KCatchSubmitMustFail = {
+          popKont() match {
+            case handler: KCatchSubmitMustFail =>
+              handler
+            case _: KCloseExercise =>
+              withOnLedger("tryHandleSubmitMustFail/KCloseExercise") { onLedger =>
+                onLedger.ptx = onLedger.ptx.abortExercises
+              }
+              unwind()
+            case _ =>
+              unwind()
+          }
+        }
+        val mustFail = unwind()
+        restoreBase(mustFail.envSize)
         returnValue = SValue.SValue.True
         true
-      } else
+      } else {
+        // In this case we don’t want to modify anything
+        // to preserve the partial transaction for stacktraces
+        // and error messages.
         false
+      }
     }
 
     def lookupVal(eval: SEVal): Unit = {
@@ -649,6 +664,7 @@ private[lf] object Speedy {
       onLedger.commitLocation = None
       onLedger.ptx = PartialTransaction.initial(
         onLedger.ptx.packageToTransactionVersion,
+        onLedger.ptx.contractKeyUniqueness,
         onLedger.ptx.submissionTime,
         InitialSeeding.TransactionSeed(freshSeed),
       )
@@ -793,6 +809,7 @@ private[lf] object Speedy {
         committers: Set[Party],
         validating: Boolean = false,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
+        contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
     ): Machine = {
       val pkg2TxVersion =
         compiledPackages.packageLanguageVersion.andThen(TransactionVersion.assignNodeVersion)
@@ -807,7 +824,8 @@ private[lf] object Speedy {
         lastLocation = None,
         ledgerMode = OnLedger(
           validating = validating,
-          ptx = PartialTransaction.initial(pkg2TxVersion, submissionTime, initialSeeding),
+          ptx = PartialTransaction
+            .initial(pkg2TxVersion, contractKeyUniqueness, submissionTime, initialSeeding),
           committers = committers,
           commitLocation = None,
           dependsOnTime = false,
@@ -815,6 +833,7 @@ private[lf] object Speedy {
             discriminator
           },
           cachedContracts = Map.empty,
+          contractKeyUniqueness = contractKeyUniqueness,
         ),
         traceLog = traceLog,
         compiledPackages = compiledPackages,
@@ -1114,7 +1133,7 @@ private[lf] object Speedy {
           SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
           SValue.SMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
           SValue.STNat(_) | SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken |
-          SValue.SBuiltinException(_, _) | SValue.SAnyException(_, _) =>
+          SValue.SBuiltinException(_) | SValue.SAnyException(_, _) =>
         crash("Match on non-matchable value")
     }
 
@@ -1350,8 +1369,8 @@ private[lf] object Speedy {
 
   private[speedy] def throwUnhandledException(payload: SValue) = {
     payload match {
-      case SValue.SAnyException(ty, innerValue) =>
-        throw DamlEUnhandledException(ty, innerValue.toValue)
+      case exec: SValue.SException =>
+        throw DamlEUnhandledException(exec)
       case v =>
         crash(s"throwUnhandledException, applied to non-AnyException: $v")
     }

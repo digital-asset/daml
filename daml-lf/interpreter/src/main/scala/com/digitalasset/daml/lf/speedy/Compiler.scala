@@ -962,26 +962,23 @@ private[lf] final class Compiler(
       )(svar(cidPos), mbKey.fold(SEValue.None: SExpr)(pos => SBSome(svar(pos))))
     ) { tmplArgPos =>
       addExprVar(tmpl.param, tmplArgPos)
-      SEScopeExercise(
-        let(
-          SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
-            svar(choiceArgPos),
-            svar(cidPos), {
-              addExprVar(choice.argBinder._1, choiceArgPos)
-              compile(choice.controllers)
-            }, //
-            {
-              choice.choiceObservers match {
-                case Some(observers) => compile(observers)
-                case None => SEValue.EmptyList
-              }
-            },
-          )
-        ) { _ =>
-          addExprVar(choice.selfBinder, cidPos)
-          app(compile(choice.update), svar(tokenPos))
-        }
-      )
+      let(
+        SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
+          svar(choiceArgPos),
+          svar(cidPos), {
+            addExprVar(choice.argBinder._1, choiceArgPos)
+            compile(choice.controllers)
+          }, {
+            choice.choiceObservers match {
+              case Some(observers) => compile(observers)
+              case None => SEValue.EmptyList
+            }
+          },
+        )
+      ) { _ =>
+        addExprVar(choice.selfBinder, cidPos)
+        SEScopeExercise(app(compile(choice.update), svar(tokenPos)))
+      }
     }
   }
 
@@ -1323,7 +1320,7 @@ private[lf] final class Compiler(
         case SEnum(_, _, _) => ()
         case SAny(_, v) => goV(v)
         case SAnyException(_, v) => goV(v)
-        case SBuiltinException(_, v) => goV(v)
+        case SBuiltinException(ContractError | ArithmeticError) => ()
         case _: SPAP | SToken | SStruct(_, _) =>
           throw CompilationError("validate: unexpected SEValue")
       }
