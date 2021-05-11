@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.benchtool
 
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.Identifier
 
 import scala.concurrent.duration._
@@ -20,6 +21,8 @@ object Config {
       streamType: Config.StreamConfig.StreamType,
       party: String,
       templateIds: List[Identifier],
+      beginOffset: Option[LedgerOffset],
+      endOffset: Option[LedgerOffset],
   )
 
   object StreamConfig {

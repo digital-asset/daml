@@ -27,13 +27,7 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
 
   // TODO: add filters
   def transactions(config: Config.StreamConfig): Future[Unit] = {
-    val request = getTransactionsRequest(
-      ledgerId = ledgerId,
-      party = config.party,
-      templateIds = config.templateIds,
-      beginOffset = ledgerBeginOffset,
-      endOffset = dummyEndOffset,
-    )
+    val request = getTransactionsRequest(ledgerId, config)
     val metrics: List[Metric[GetTransactionsResponse]] = List[Metric[GetTransactionsResponse]](
       Metric.TransactionCountingMetric[GetTransactionsResponse](
         reportingPeriod.toMillis,
@@ -57,13 +51,7 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
   }
 
   def transactionTrees(config: Config.StreamConfig): Future[Unit] = {
-    val request = getTransactionsRequest(
-      ledgerId = ledgerId,
-      party = config.party,
-      templateIds = config.templateIds,
-      beginOffset = ledgerBeginOffset,
-      endOffset = ledgerEndOffset,
-    )
+    val request = getTransactionsRequest(ledgerId, config)
     val metrics: List[Metric[GetTransactionTreesResponse]] =
       List[Metric[GetTransactionTreesResponse]](
         Metric.TransactionCountingMetric[GetTransactionTreesResponse](
@@ -89,16 +77,13 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
 
   private def getTransactionsRequest(
       ledgerId: String,
-      party: String,
-      templateIds: List[Identifier],
-      beginOffset: LedgerOffset,
-      endOffset: LedgerOffset,
+      config: Config.StreamConfig,
   ): GetTransactionsRequest = {
     GetTransactionsRequest.defaultInstance
       .withLedgerId(ledgerId)
-      .withBegin(beginOffset)
-      .withEnd(endOffset)
-      .withFilter(partyFilter(party, templateIds))
+      .withBegin(config.beginOffset.getOrElse(ledgerBeginOffset))
+      .withEnd(config.endOffset.getOrElse(ledgerEndOffset))
+      .withFilter(partyFilter(config.party, config.templateIds))
   }
 
   private def partyFilter(party: String, templateIds: List[Identifier]): TransactionFilter = {
@@ -110,10 +95,6 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
 
   private def ledgerBeginOffset: LedgerOffset =
     LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
-
-  private def dummyEndOffset: LedgerOffset =
-    LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)
-//  LedgerOffset().withAbsolute("0000000000000038")
 
   private def ledgerEndOffset: LedgerOffset =
     LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_END)

@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.benchtool
 
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.Identifier
 import scopt.{OParser, Read}
 
@@ -33,7 +34,7 @@ object Cli {
           s"Stream configuration."
         )
         .valueName(
-          "streamType=<transactions|transaction-trees>,name=<streamName>,party=<party>,template-ids=<id1>|<id2>"
+          "streamType=<transactions|transaction-trees>,name=<streamName>,party=<party>[,begin-offset=<offset>][,end-offset=<offset>][,template-ids=<id1>|<id2>]"
         )
         .action { case (streamConfig, config) => config.copy(streamConfig = Some(streamConfig)) },
       opt[Duration]("log-interval")
@@ -56,6 +57,9 @@ object Cli {
         def optionalStringField(fieldName: String): Either[String, Option[String]] =
           Right(m.get(fieldName))
 
+        def offset(stringValue: String): LedgerOffset =
+          LedgerOffset.defaultInstance.withAbsolute(stringValue)
+
         val config = for {
           name <- stringField("name")
           party <- stringField("party")
@@ -69,11 +73,15 @@ object Cli {
               case Some(ids) => listOfTemplateIds(ids)
               case None => Right(List.empty[Identifier])
             }
+          beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
+          endOffset <- optionalStringField("end-offset").map(_.map(offset))
         } yield Config.StreamConfig(
           name = name,
           streamType = streamType,
           party = party,
           templateIds = templateIds,
+          beginOffset = beginOffset,
+          endOffset = endOffset,
         )
 
         config.fold(error => throw new IllegalArgumentException(error), identity)
