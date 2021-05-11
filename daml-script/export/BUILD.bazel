@@ -121,6 +121,7 @@ da_scala_test(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
+        "//libs-scala/fs-utils",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:io_grpc_grpc_api",
