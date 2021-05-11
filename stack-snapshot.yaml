@@ -18,7 +18,6 @@ packages:
     commit: "0cb7999e9e89d0c17c5e1d917e97cc6e450b9346"
     sha256: "531bbd4df2eca160be436074ade336a70cad3a6477df8d00d479440edfe9896b"
   - grpc-haskell-core-0.0.0.0
-  - filelock-0.1.1.5
   - fuzzy-0.1.0.0
   - haddock-library-1.9.0
   - haskell-lsp-0.23.0.0

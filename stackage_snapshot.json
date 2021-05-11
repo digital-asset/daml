@@ -1,6 +1,6 @@
 {
-  "__GENERATED_FILE_DO_NOT_MODIFY_MANUALLY": 1873495310,
-  "all-cabal-hashes": "https://raw.githubusercontent.com/commercialhaskell/all-cabal-hashes/58c4a5fbbee9385f43bf84f2ddd54b2bc269ae80",
+  "__GENERATED_FILE_DO_NOT_MODIFY_MANUALLY": 902427350,
+  "all-cabal-hashes": "https://raw.githubusercontent.com/commercialhaskell/all-cabal-hashes/584343788270a51414ba3841f097e6c2969ac6e6",
   "resolved": {
     "Cabal": {"dependencies":[],"location":{"type":"core"},"name":"Cabal","version":"3.2.1.0"},
     "Decimal": {"dependencies":["base","deepseq"],"location":{"type":"hackage","url":"https://hackage.haskell.org/package/Decimal-0.5.1/Decimal-0.5.1.tar.gz"},"name":"Decimal","pinned":{"url":["https://hackage.haskell.org/package/Decimal-0.5.1/Decimal-0.5.1.tar.gz","https://s3.amazonaws.com/hackage.fpcomplete.com/package/Decimal-0.5.1.tar.gz"],"sha256":"575ca5c65a8ea5a5bf2cd7b794a0d16622082cb501bf4b0327c5895c0b80f34c","cabal-sha256":"06bdd0f8badfb2104fd052f64888c283792a08f9a0d3661339e133e073080299"},"version":"0.5.1"},
