@@ -79,6 +79,7 @@ da_haskell_binary(
         "mtl",
         "optparse-applicative",
         "process",
+        "semver",
         "text",
     ],
     main_function = "Migration.Runner.main",
