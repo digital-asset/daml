@@ -400,21 +400,13 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                   case ScriptF.Catch(act, handle) =>
                     run(SEApp(SEValue(act), Array(SEValue(SUnit)))).transformWith {
                       case Success(v) => Future.successful(SEValue(v))
-                      case Failure(SError.DamlEUnhandledException(ty, exc)) =>
-                        Converter
-                          .toFuture(env.translateValue(ty, exc))
-                          .flatMap { exc =>
-                            machine.setExpressionToEvaluate(
-                              SEApp(SEValue(handle), Array(SEValue(SAnyException(ty, exc))))
-                            )
-                            stepToValue().fold(
-                              Future.failed,
-                              Future.successful,
-                            )
-                          }
+                      case Failure(SError.DamlEUnhandledException(exc)) =>
+                        machine.setExpressionToEvaluate(SEApp(SEValue(handle), Array(SEValue(exc))))
+                        stepToValue()
+                          .fold(Future.failed, Future.successful)
                           .flatMap {
                             case SOptional(None) =>
-                              Future.failed(SError.DamlEUnhandledException(ty, exc))
+                              Future.failed(SError.DamlEUnhandledException(exc))
                             case SOptional(Some(free)) => Future.successful(SEValue(free))
                             case e =>
                               Future.failed(
@@ -424,7 +416,7 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       case Failure(e) => Future.failed(e)
                     }
                   case ScriptF.Throw(exc) =>
-                    Future.failed(SError.DamlEUnhandledException(exc.ty, exc.value.toValue))
+                    Future.failed(SError.DamlEUnhandledException(exc))
                   case cmd: ScriptF.Cmd =>
                     cmd.execute(env).transform {
                       case Failure(exception) =>

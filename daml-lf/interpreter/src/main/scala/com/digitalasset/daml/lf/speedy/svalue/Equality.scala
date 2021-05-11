@@ -63,9 +63,8 @@ private[lf] object Equality {
         case (SAnyException(xType, x), SAnyException(yType, y)) =>
           push(Iterator.single(x), Iterator.single(y))
           success = xType == yType
-        case (SBuiltinException(xTag, x), SBuiltinException(yTag, y)) =>
-          push(Iterator.single(x), Iterator.single(y))
-          success = xTag == yTag
+        case (SBuiltinException(x), SBuiltinException(y)) =>
+          success = x == y
         case (STypeRep(xType), STypeRep(yType)) =>
           success = xType == yType
         case (x, y) =>

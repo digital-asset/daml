@@ -63,8 +63,17 @@ private[lf] object Pretty {
         text(prettyFailedAuthorization(nid, fa))
       case DamlEArithmeticError(message) =>
         text(message)
-      case DamlEUnhandledException(_, exc) =>
-        text(s"unhandled exception:") & prettyValue(true)(exc)
+      case DamlEUnhandledException(exc) =>
+        text(s"unhandled exception:") & {
+          exc match {
+            case SAnyException(_, value) =>
+              prettyValue(true)(value.toValue)
+            case SBuiltinException(ContractError) =>
+              text("ContractError")
+            case SBuiltinException(ArithmeticError) =>
+              text("ArithmeticError")
+          }
+        }
       case DamlEUserError(message) =>
         text(s"User abort: $message")
       case DamlETransactionError(reason) =>

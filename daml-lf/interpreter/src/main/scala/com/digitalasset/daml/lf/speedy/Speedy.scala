@@ -1133,7 +1133,7 @@ private[lf] object Speedy {
           SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
           SValue.SMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
           SValue.STNat(_) | SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken |
-          SValue.SBuiltinException(_, _) | SValue.SAnyException(_, _) =>
+          SValue.SBuiltinException(_) | SValue.SAnyException(_, _) =>
         crash("Match on non-matchable value")
     }
 
@@ -1369,8 +1369,8 @@ private[lf] object Speedy {
 
   private[speedy] def throwUnhandledException(payload: SValue) = {
     payload match {
-      case SValue.SAnyException(ty, innerValue) =>
-        throw DamlEUnhandledException(ty, innerValue.toValue)
+      case exec: SValue.SException =>
+        throw DamlEUnhandledException(exec)
       case v =>
         crash(s"throwUnhandledException, applied to non-AnyException: $v")
     }
