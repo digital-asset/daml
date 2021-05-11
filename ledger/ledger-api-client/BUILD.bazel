@@ -20,9 +20,6 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
     ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
     tags = ["maven_coordinates=com.daml:ledger-api-client:__VERSION__"],
     visibility = [
         "//visibility:public",

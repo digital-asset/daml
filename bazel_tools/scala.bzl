@@ -31,6 +31,11 @@ load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_s
 def resolve_scala_deps(deps, scala_deps = [], versioned_scala_deps = {}):
     return deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
 
+def extra_scalacopts(scala_deps, plugins):
+    return (["-P:silencer:lineContentFilters=import scala.collection.compat._"] if (scala_major_version != "2.12" and
+                                                                                    silencer_plugin in plugins and
+                                                                                    "@maven//:org_scala_lang_modules_scala_collection_compat" in scala_deps) else [])
+
 version_specific = {
     "2.12": [
         # these two flags turn on source-incompatible enhancements that are always
@@ -214,9 +219,10 @@ def _wrap_rule(
     exports = resolve_scala_deps(exports, scala_exports)
     if (len(exports) > 0):
         kwargs["exports"] = exports
+    compat_scalacopts = extra_scalacopts(scala_deps = scala_deps, plugins = plugins)
     rule(
         name = name,
-        scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
+        scalacopts = common_scalacopts + plugin_scalacopts + compat_scalacopts + scalacopts,
         plugins = common_plugins + plugins,
         deps = deps,
         runtime_deps = runtime_deps,
@@ -508,15 +514,15 @@ Arguments:
 """
 
 def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], generated_srcs = [], **kwargs):
-    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
-
     # Limit execution to Linux and MacOS
     if is_windows == False:
+        deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+        compat_scalacopts = extra_scalacopts(scala_deps = scala_deps, plugins = plugins)
         scaladoc_jar(
             name = name + "_scaladoc",
             deps = deps,
             srcs = srcs,
-            scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
+            scalacopts = common_scalacopts + plugin_scalacopts + compat_scalacopts + scalacopts,
             plugins = common_plugins + plugins,
             generated_srcs = generated_srcs,
             tags = ["scaladoc"],

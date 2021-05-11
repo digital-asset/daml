@@ -116,9 +116,6 @@ da_scala_binary(
                 "@maven//:com_softwaremill_diffx_diffx_core",
                 "@maven//:org_scala_lang_modules_scala_collection_compat",
             ],
-            scalacopts = [
-                "-P:silencer:lineContentFilters=import scala.collection.compat._",
-            ],
             scaladoc = False,
             visibility = [
                 "//:__subpackages__",
@@ -165,9 +162,6 @@ da_scala_binary(
             scala_deps = [
                 "@maven//:org_scala_lang_modules_scala_collection_compat",
                 "@maven//:com_github_scopt_scopt",
-            ],
-            scalacopts = [
-                "-P:silencer:lineContentFilters=import scala.collection.compat._",
             ],
             visibility = ["//visibility:public"],
             runtime_deps = [

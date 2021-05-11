@@ -117,9 +117,6 @@ da_scala_test_suite(
         "@maven//:org_scalatestplus_scalacheck_1_14",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
     deps = [
         ":bindings-java",
         ":bindings-java-tests-lib",

@@ -34,9 +34,6 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
     tags = ["maven_coordinates=com.daml:participant-state-kvutils:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -91,9 +88,6 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
-    ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
     ],
     tags = ["maven_coordinates=com.daml:kvutils-tests-lib:__VERSION__"],
     visibility = [
@@ -151,9 +145,6 @@ da_scala_test_suite(
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scalaz_scalaz_core",
-    ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
     ],
     deps = [
         ":daml_kvutils_proto_java",

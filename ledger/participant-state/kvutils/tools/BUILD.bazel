@@ -140,9 +140,6 @@ da_scala_library(
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
