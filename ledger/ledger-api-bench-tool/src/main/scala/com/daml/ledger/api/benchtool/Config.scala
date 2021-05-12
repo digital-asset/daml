@@ -11,7 +11,7 @@ import scala.concurrent.duration._
 case class Config(
     ledger: Config.Ledger,
     concurrency: Config.Concurrency,
-    streamConfig: Option[Config.StreamConfig],
+    streams: List[Config.StreamConfig],
     reportingPeriod: Duration,
 )
 
@@ -57,7 +57,7 @@ object Config {
         keepAliveTime = 30,
         maxQueueLength = 10000,
       ),
-      streamConfig = None,
+      streams = List.empty[Config.StreamConfig],
       reportingPeriod = 5.seconds,
     )
 }

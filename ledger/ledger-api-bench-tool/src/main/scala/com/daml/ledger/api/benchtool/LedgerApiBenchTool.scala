@@ -46,8 +46,8 @@ object LedgerApiBenchTool {
       val ledgerIdentityService: LedgerIdentityService = new LedgerIdentityService(channel)
       val ledgerId: String = ledgerIdentityService.fetchLedgerId()
       val transactionService = new TransactionService(channel, ledgerId, config.reportingPeriod)
-      config.streamConfig
-        .map { streamConfig =>
+      Future
+        .traverse(config.streams) { streamConfig =>
           streamConfig.streamType match {
             case Config.StreamConfig.StreamType.Transactions =>
               transactionService.transactions(streamConfig)
@@ -55,7 +55,7 @@ object LedgerApiBenchTool {
               transactionService.transactionTrees(streamConfig)
           }
         }
-        .getOrElse(Future.failed(new IllegalArgumentException("Missing stream configuration")))
+        .map(_ => ())
     }
   }
 

@@ -30,13 +30,17 @@ object Cli {
         },
       opt[Config.StreamConfig]("consume-stream")
         .abbr("s")
+        .unbounded()
+        .minOccurs(1)
         .text(
           s"Stream configuration."
         )
         .valueName(
           "stream-type=<transactions|transaction-trees>,name=<streamName>,party=<party>[,begin-offset=<offset>][,end-offset=<offset>][,template-ids=<id1>|<id2>]"
         )
-        .action { case (streamConfig, config) => config.copy(streamConfig = Some(streamConfig)) },
+        .action { case (streamConfig, config) =>
+          config.copy(streams = config.streams :+ streamConfig)
+        },
       opt[Duration]("log-interval")
         .abbr("r")
         .text("Stream metrics log interval.")
