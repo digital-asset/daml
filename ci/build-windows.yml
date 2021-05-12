@@ -20,6 +20,17 @@ steps:
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
+      # On release, we want to skip testing because:
+      # - Caching on Windows is keyed on full path, and full path is somewhat
+      #   random (for a given machine, each pipeline has a its own workdir, but
+      #   they are not the same across machines).
+      # - In the specific case of a release commit on `main`, the exact same
+      #   code has already been tested twice: once as part of the target
+      #   commit's own build (albeit with 0.0.0 as version number), and once as
+      #   part of the release PR that triggered the build (with correct version
+      #   number).
+      SKIP_TESTS: ${{and(eq(parameters.is_release, 'true'),
+                         eq(variables['Build.SourceBranchName'], 'main'))}}
 
   - task: PublishBuildArtifacts@1
     condition: failed()
