@@ -32,8 +32,8 @@ object LedgerApiBenchTool {
   }
 
   private def runBenchmark(config: Config)(implicit ec: ExecutionContext): Future[Unit] = {
-    logger.info(s"Starting benchmark")
-    logger.info(config.toString) //TODO: print a nice representation
+    val printer = pprint.PPrinter(200, 1000)
+    logger.info(s"Starting benchmark with configuration:\n${printer(config).toString()}")
 
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
