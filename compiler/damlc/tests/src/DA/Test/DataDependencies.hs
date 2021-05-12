@@ -1106,7 +1106,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
 
     -- TODO https://github.com/digital-asset/daml/issues/8020
     --   Replace with a simpleImportTest once exceptions are stable.
-    , testCaseSteps "Exceptions" $ \step -> withTempDir $ \tmpDir -> do
+    , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building project to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")
         writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
