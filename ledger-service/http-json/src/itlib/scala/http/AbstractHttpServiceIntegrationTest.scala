@@ -1213,7 +1213,7 @@ abstract class AbstractHttpServiceIntegrationTest
         status shouldBe StatusCodes.BadRequest
         inside(decode1[domain.SyncResponse, List[domain.PartyDetails]](output)) {
           case \/-(domain.ErrorResponse(List(error), None, StatusCodes.BadRequest)) =>
-            error should include("DAML LF Party is empty")
+            error should include("Daml LF Party is empty")
         }
       }: Future[Assertion]
   }

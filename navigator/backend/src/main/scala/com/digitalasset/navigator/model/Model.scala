@@ -96,7 +96,7 @@ final case class Result(id: ApiTypes.CommandId, errorOrTx: Either[Error, Transac
     extends TaggedNode[ApiTypes.CommandIdTag]
 
 // ------------------------------------------------------------------------------------------------
-// DAML Package
+// Daml Package
 // ------------------------------------------------------------------------------------------------
 
 case class DamlLfPackage(
