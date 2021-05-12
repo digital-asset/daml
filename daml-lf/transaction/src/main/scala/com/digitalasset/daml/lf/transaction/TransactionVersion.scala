@@ -74,10 +74,7 @@ object TransactionVersion {
     import scala.Ordering.Implicits.infixOrderingOps
 
     val txVersion = roots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
-      nodes(nodeId).optVersion match {
-        case Some(version) => acc max version
-        case None => acc max TransactionVersion.minExceptions
-      }
+      acc max nodes(nodeId).version
     )
 
     VersionedTransaction(txVersion, nodes, roots)
