@@ -1118,12 +1118,16 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             ]
         writeFileUTF8 (tmpDir </> "lib" </> "Lib.daml") $ unlines
             [ "module Lib where"
+            , "import DA.Exception"
             , "exception E1"
             , "  with m : Text"
             , "  where message m"
             , ""
+            , "libFnThatThrowsE1 : Update ()"
             , "libFnThatThrowsE1 = throw (E1 \"throw from lib\")"
+            , "libFnThatThrows : Exception e => e -> Update ()"
             , "libFnThatThrows x = throw x"
+            , "libFnThatCatches : Exception e => (() -> Update ()) -> (e -> Update ()) -> Update ()"
             , "libFnThatCatches m c = try m () catch e -> c e"
             ]
         withCurrentDirectory (tmpDir </> "lib") $
@@ -1142,14 +1146,19 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             ]
         writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines
             [ "module Main where"
+            , "import DA.Exception"
             , "import Lib"
             , "exception E2"
             , "  with m : Text"
             , "  where message m"
             , ""
+            , "mainFnThatThrowsE1 : Update ()"
             , "mainFnThatThrowsE1 = throw (E1 \"throw from main\")"
+            , "mainFnThatThrowsE2 : Update ()"
             , "mainFnThatThrowsE2 = libFnThatThrows (E2 \"thrown from lib\")"
+            , "mainFnThatCatchesE1 : Update ()"
             , "mainFnThatCatchesE1 = try libFnThatThrowsE1 catch E1 e -> pure ()"
+            , "mainFnThatCatchesE2 : (() -> Update ()) -> Update ()"
             , "mainFnThatCatchesE2 m = libFnThatCatches m (\\ (e: E2) -> pure ())"
             ]
         withCurrentDirectory (tmpDir </> "main") $
