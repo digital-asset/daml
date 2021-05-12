@@ -17,7 +17,7 @@ import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionTreeResponse,
 }
 import com.daml.ledger.api.{v1 => scalaAPI}
-import com.daml.ledger.javaapi.data.{Unit => DAMLUnit, _}
+import com.daml.ledger.javaapi.data.{Unit => DamlUnit, _}
 import com.daml.ledger.rxjava.components.BotTest._
 import com.daml.ledger.rxjava.components.LedgerViewFlowable.LedgerView
 import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, CreatedContract}
@@ -270,7 +270,7 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
             // let's run this test 3 times
             if (counter.get() < 3) {
               counter.incrementAndGet()
-              val command = new ExerciseCommand(templateId, cid, "choice", DAMLUnit.getInstance())
+              val command = new ExerciseCommand(templateId, cid, "choice", DamlUnit.getInstance())
               val commandList = List[Command](command).asJava
               val commands = new SubmitCommandsRequest(
                 "wid",
@@ -356,7 +356,7 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
               .asScala
               .map { case (contractId, _) =>
                 val command =
-                  new ExerciseCommand(templateId, contractId, "choice", DAMLUnit.getInstance())
+                  new ExerciseCommand(templateId, contractId, "choice", DamlUnit.getInstance())
                 logger.debug(s"exercise: $command")
                 val commandList = List[Command](command).asJava
                 val commands =

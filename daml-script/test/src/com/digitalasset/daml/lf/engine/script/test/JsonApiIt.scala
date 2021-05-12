@@ -263,7 +263,7 @@ final class JsonApiIt
     Runner.run(dar, scriptId, inputValue, clients, ScriptTimeMode.WallClock)
   }
 
-  "DAML Script over JSON API" can {
+  "Daml Script over JSON API" can {
     "Basic" should {
       "return 42" in {
         for {
@@ -445,7 +445,7 @@ final class JsonApiIt
       // fresh parties to avoid key collisions with other tests
       val party0 = "jsonMultiPartyQuery0"
       val party1 = "jsonMultiPartyQuery1"
-      // We need to call DAML script twice since we need per-party tokens for the creates
+      // We need to call Daml script twice since we need per-party tokens for the creates
       // and a single token for the query.
       for {
         clients <- getClients(parties = List(party0, party1))

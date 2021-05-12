@@ -21,7 +21,7 @@ trait PrinterFunctionWriter { self: Writer =>
 
   def init(): Future[Unit] = {
     printer("==============")
-    printer("DAML Extractor")
+    printer("Daml Extractor")
     printer("==============")
 
     Future.unit

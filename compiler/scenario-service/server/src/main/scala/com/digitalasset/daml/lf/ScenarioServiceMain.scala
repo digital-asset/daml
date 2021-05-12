@@ -31,7 +31,7 @@ object ScenarioServiceMain extends App {
   // default to 128MB
   val maxMessageSize = args.headOption.map(_.toInt).getOrElse(128 * 1024 * 1024)
 
-  // Needed for the akka Ledger bindings used by DAML Script.
+  // Needed for the akka Ledger bindings used by Daml Script.
   val system = ActorSystem("ScriptService")
   implicit val sequencer: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool("ScriptServicePool")(system)
