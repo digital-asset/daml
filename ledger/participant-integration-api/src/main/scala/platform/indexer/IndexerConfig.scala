@@ -35,7 +35,7 @@ object IndexerConfig {
 
   val DefaultUpdatePreparationParallelism = 2
   val DefaultRestartDelay: FiniteDuration = 10.seconds
-  // Should be greater than or equal to the number of pipline stages
+  // Should be greater than or equal to the number of pipeline stages.
   val DefaultDatabaseConnectionPoolSize: Int = 3
   val DefaultAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit
 
