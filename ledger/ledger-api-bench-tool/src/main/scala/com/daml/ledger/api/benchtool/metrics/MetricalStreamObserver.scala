@@ -29,10 +29,26 @@ class MetricalStreamObserver[T](
   }
 
   override def onCompleted(): Unit = {
-    val duration = totalDurationSeconds
-    val reports = metrics.flatMap(_.completeInfo(duration).toList)
-    logger.info(namedMessage(s"Summary: ${reports.mkString(", ")}"))
+    logger.info(namedMessage(summary(totalDurationSeconds)))
     super.onCompleted()
+  }
+
+  private def summary(durationSeconds: Double): String = {
+    val reports = metrics.flatMap { metric =>
+      metric.completeInfo(durationSeconds) match {
+        case Nil => Nil
+        case results => List(s"""${metric.name}:
+                                |${results.map(r => s"  $r").mkString("\n")}""".stripMargin)
+      }
+    }
+    val reportWidth = 80
+    val bar = "=" * reportWidth
+    s"""
+         |$bar
+         |Stream: $streamName
+         |Total duration: $durationSeconds [s]
+         |${reports.mkString("\n")}
+         |$bar""".stripMargin
   }
 
   private def totalDurationSeconds: Double =

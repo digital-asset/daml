@@ -14,7 +14,9 @@ trait Metric[T] {
 
   def periodicUpdate(): String
 
-  def completeInfo(totalDurationSeconds: Double): Option[String]
+  def completeInfo(totalDurationSeconds: Double): List[String]
+
+  def name: String = getClass.getSimpleName
 
 }
 
@@ -23,7 +25,7 @@ object Metric {
   // TODO: use this in all places
   private def rounded(value: Double): String = "%.2f".format(value)
 
-  case class TransactionCountingMetric[T](periodMillis: Long, countingFunction: T => Int)
+  case class TransactionCountMetric[T](periodMillis: Long, countingFunction: T => Int)
       extends Metric[T] {
     private val counter = new AtomicInteger()
     private val lastCount = new AtomicInteger()
@@ -37,17 +39,20 @@ object Metric {
       val count = counter.get()
       val rate = (count - lastCount.get()) * 1000.0 / periodMillis
       lastCount.set(counter.get())
-      s"count: $count [tx], rate: ${rounded(rate)} [tx/s]"
+      s"rate: ${rounded(rate)} [tx/s], count: $count [tx]"
     }
 
-    override def completeInfo(totalDurationSeconds: Double): Option[String] = {
+    override def completeInfo(totalDurationSeconds: Double): List[String] = {
       val count = counter.get()
       val rate = count * 1000.0 / periodMillis
-      Some(s"count: $count [tx], rate: ${rounded(rate)} [tx/s]")
+      List(
+        s"rate: ${rounded(rate)} [tx/s]",
+        s"count: $count [tx]",
+      )
     }
   }
 
-  case class TransactionSizingMetric[T](periodMillis: Long, sizingFunction: T => Int)
+  case class TransactionSizeMetric[T](periodMillis: Long, sizingFunction: T => Int)
       extends Metric[T] {
     private val currentSizeBucket = new AtomicInteger()
     private val sizeRateList: ListBuffer[Double] = ListBuffer.empty
@@ -64,11 +69,11 @@ object Metric {
       s"size rate (interval): ${rounded(sizeRate)} [MB/s]"
     }
 
-    override def completeInfo(totalDurationSeconds: Double): Option[String] = {
+    override def completeInfo(totalDurationSeconds: Double): List[String] = {
       val sizeRate: String =
         if (sizeRateList.nonEmpty) s"${rounded(sizeRateList.sum / sizeRateList.length)}"
         else "not available"
-      Some(s"size rate: $sizeRate [MB/s]")
+      List(s"size rate: $sizeRate [MB/s]")
     }
   }
 
@@ -100,7 +105,7 @@ object Metric {
       s"mean delay (interval): ${meanDelay.map(_.getSeconds.toString).getOrElse("-")} [s]"
     }
 
-    override def completeInfo(totalDurationSeconds: Double): Option[String] = None
+    override def completeInfo(totalDurationSeconds: Double): List[String] = Nil
 
   }
 
@@ -134,6 +139,6 @@ object Metric {
       s"speed (interval): ${speed.map(rounded).getOrElse("-")} [-]"
     }
 
-    override def completeInfo(totalDurationSeconds: Double): Option[String] = None
+    override def completeInfo(totalDurationSeconds: Double): List[String] = Nil
   }
 }

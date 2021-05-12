@@ -29,11 +29,11 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
   def transactions(config: Config.StreamConfig): Future[Unit] = {
     val request = getTransactionsRequest(ledgerId, config)
     val metrics: List[Metric[GetTransactionsResponse]] = List[Metric[GetTransactionsResponse]](
-      Metric.TransactionCountingMetric[GetTransactionsResponse](
+      Metric.TransactionCountMetric[GetTransactionsResponse](
         reportingPeriod.toMillis,
         _.transactions.length,
       ),
-      Metric.TransactionSizingMetric[GetTransactionsResponse](
+      Metric.TransactionSizeMetric[GetTransactionsResponse](
         reportingPeriod.toMillis,
         _.serializedSize,
       ),
@@ -63,11 +63,11 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
     val request = getTransactionsRequest(ledgerId, config)
     val metrics: List[Metric[GetTransactionTreesResponse]] =
       List[Metric[GetTransactionTreesResponse]](
-        Metric.TransactionCountingMetric[GetTransactionTreesResponse](
+        Metric.TransactionCountMetric[GetTransactionTreesResponse](
           reportingPeriod.toMillis,
           _.transactions.length,
         ),
-        Metric.TransactionSizingMetric[GetTransactionTreesResponse](
+        Metric.TransactionSizeMetric[GetTransactionTreesResponse](
           reportingPeriod.toMillis,
           _.serializedSize,
         ),

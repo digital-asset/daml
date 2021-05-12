@@ -24,7 +24,7 @@ class ObserverWithResult[T](logger: Logger) extends StreamObserver[T] {
   }
 
   override def onCompleted(): Unit = {
-    logger.debug(s"Stream has completed.")
+    logger.debug(s"Completed.")
     promise.success(())
   }
 
