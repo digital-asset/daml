@@ -1121,7 +1121,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             , "exception E1"
             , "  with m : Text"
             , "  where message m"
-            ,
+            , ""
             , "libFnThatThrowsE1 = throw (E1 \"throw from lib\")"
             , "libFnThatThrows x = throw x"
             , "libFnThatCatches m c = try m () catch e -> c e"
