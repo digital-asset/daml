@@ -57,9 +57,9 @@ private[dao] sealed class ContractsReader(
 
         dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics) {
           implicit connection =>
-            SQL"""select pc.contract_id from #$contractsTable
-                 where #$stakeholdersWhere and pcw.contract_witness in ($readers)
-                 and pc.create_key_hash = ${key.hash}
+            SQL"""select contract_id from #$contractsTable
+                 where #$stakeholdersWhere and contract_witness in ($readers)
+                 and create_key_hash = ${key.hash}
                  #${sqlFunctions.limitClause(1)}"""
               .as(contractId("contract_id").singleOpt)
         }
@@ -74,10 +74,9 @@ private[dao] sealed class ContractsReader(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
         .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
-          SQL"""select pc.contract_id, pc.template_id, pc.create_argument, pc.create_argument_compression from #$contractsTable
+          SQL"""select contract_id, template_id, create_argument, create_argument_compression from #$contractsTable
                where
-               pc.contract_id = pcw.contract_id and
-               pcw.contract_witness in ($readers) and pc.contract_id = $contractId #${sqlFunctions
+               contract_witness in ($readers) and contract_id = $contractId #${sqlFunctions
             .limitClause(1)}"""
             .as(contractRowParser.singleOpt)
         }
@@ -105,7 +104,7 @@ private[dao] sealed class ContractsReader(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
         .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
-          SQL"select pc.contract_id, pc.template_id from #$contractsTable where pcw.contract_witness in ($readers) and pc.contract_id = $contractId #${sqlFunctions
+          SQL"select contract_id, template_id from #$contractsTable where contract_witness in ($readers) and participant_contracts.contract_id = $contractId #${sqlFunctions
             .limitClause(1)}"
             .as(contractWithoutValueRowParser.singleOpt)
         }
@@ -136,7 +135,7 @@ private[dao] sealed class ContractsReader(
 
 private[dao] object ContractsReader {
   private val contractsTable =
-    "participant_contracts pc, participant_contract_witnesses pcw"
+    "participant_contracts natural join participant_contract_witnesses"
   private val contractWithoutValueRowParser: RowParser[String] =
     str("template_id")
   private val contractRowParser: RowParser[(String, InputStream, Option[Int])] =
