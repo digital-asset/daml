@@ -11,47 +11,79 @@ script_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart 
     "NonUnitStatements",
 ]]
 
-alias(
+test_script_sources = [
+    "src/main/scala/com/digitalasset/daml/lf/engine/script/TestMain.scala",
+]
+
+da_scala_library(
     name = "script-runner-lib",
-    actual = "script-runner-lib-ce",
+    srcs = glob(
+        ["src/main/scala/**/*.scala"],
+        exclude = test_script_sources,
+    ),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http_spray_json",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_parsing",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_paiges_core",
+    ],
+    scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
+    deps = [
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interface",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/scenario-interpreter",
+        "//daml-lf/transaction",
+        "//daml-script/converter",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
+        "//ledger-service/jwt",
+        "//ledger-service/lf-value-json",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-client",
+        "//ledger/ledger-api-common",
+        "//libs-scala/auth-utils",
+        "//libs-scala/scala-utils",
+    ],
 )
 
+# Spun out into a separate library to avoid pulling in a sandbox
+# dependency where we don’t need it.
 [
     da_scala_library(
-        name = "script-runner-lib-{}".format(edition),
-        srcs = glob(["src/main/scala/**/*.scala"]),
+        name = "script-test-lib-{}".format(edition),
+        srcs = test_script_sources,
         scala_deps = [
-            "@maven//:com_github_scopt_scopt",
-            "@maven//:com_typesafe_akka_akka_http",
-            "@maven//:com_typesafe_akka_akka_http_core",
-            "@maven//:com_typesafe_akka_akka_http_spray_json",
             "@maven//:com_typesafe_akka_akka_stream",
-            "@maven//:com_typesafe_akka_akka_parsing",
             "@maven//:io_spray_spray_json",
-            "@maven//:org_scala_lang_modules_scala_collection_compat",
             "@maven//:org_scalaz_scalaz_core",
-            "@maven//:org_typelevel_paiges_core",
         ],
         scalacopts = script_scalacopts,
         visibility = ["//visibility:public"],
         deps = [
+            ":script-runner-lib",
             "//daml-lf/archive:daml_lf_archive_reader",
             "//daml-lf/archive:daml_lf_dev_archive_proto_java",
             "//daml-lf/data",
-            "//daml-lf/engine",
-            "//daml-lf/interface",
             "//daml-lf/interpreter",
             "//daml-lf/language",
-            "//daml-lf/scenario-interpreter",
             "//daml-lf/transaction",
-            "//daml-script/converter",
             "//language-support/scala/bindings",
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
-            "//ledger-service/cli-opts",
-            "//ledger-service/jwt",
-            "//ledger-service/lf-value-json",
             "//ledger/caching",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-client",
@@ -61,10 +93,8 @@ alias(
             "//ledger/participant-state",
             "//ledger/sandbox-classic:sandbox-classic-{}".format(edition),
             "//ledger/sandbox-common",
-            "//libs-scala/auth-utils",
             "//libs-scala/ports",
             "//libs-scala/resources",
-            "//libs-scala/scala-utils",
         ],
     )
     for edition in [
@@ -88,7 +118,7 @@ da_scala_binary(
     resources = glob(["src/main/resources/**/*"]),
     scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
-    deps = [":script-runner-lib"],
+    deps = [":script-test-lib-ce"],
 )
 
 exports_files(["src/main/resources/logback.xml"])
