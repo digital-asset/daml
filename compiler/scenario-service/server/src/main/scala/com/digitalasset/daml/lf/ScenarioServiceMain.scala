@@ -62,7 +62,7 @@ object ScenarioServiceMain extends App {
       system.terminate()
       ()
     }
-  }).start
+  }).start()
 
   println("Server started.")
   server.awaitTermination()
