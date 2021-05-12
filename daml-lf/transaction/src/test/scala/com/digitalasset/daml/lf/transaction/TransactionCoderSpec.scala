@@ -133,28 +133,29 @@ class TransactionCoderSpec
       }
     }
 
-    val fromRollbackVersions = TransactionVersion.All.filter(_ >= minExceptions)
-
     "do NodeRollback" in {
-      forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder(fromRollbackVersions)) {
-        case (node, (nodeVersion, txVersion)) =>
-          val normalizedNode = normalizeNode(node.updateVersion(nodeVersion))
-          val Right(encodedNode) =
+      forAll(danglingRefRollbackNodeGen) { node =>
+        forEvery(transactionVersions) { txVersion =>
+          if (txVersion >= minExceptions) {
+            val normalizedNode = normalizeNode(node)
+            val Right(encodedNode) =
+              TransactionCoder
+                .encodeNode(
+                  TransactionCoder.NidEncoder,
+                  ValueCoder.CidEncoder,
+                  txVersion,
+                  NodeId(0),
+                  normalizedNode,
+                )
             TransactionCoder
-              .encodeNode(
-                TransactionCoder.NidEncoder,
-                ValueCoder.CidEncoder,
+              .decodeVersionedNode(
+                TransactionCoder.NidDecoder,
+                ValueCoder.CidDecoder,
                 txVersion,
-                NodeId(0),
-                normalizedNode,
-              )
-          TransactionCoder
-            .decodeVersionedNode(
-              TransactionCoder.NidDecoder,
-              ValueCoder.CidDecoder,
-              txVersion,
-              encodedNode,
-            ) shouldBe Right((NodeId(0), normalizedNode))
+                encodedNode,
+              ) shouldBe Right((NodeId(0), normalizedNode))
+          }
+        }
       }
     }
 
@@ -162,7 +163,7 @@ class TransactionCoderSpec
       forAll(noDanglingRefGenVersionedTransaction, minSuccessful(50)) { tx =>
         val tx2 = VersionedTransaction(
           tx.version,
-          tx.nodes.transform((_, node) => normalizeNode(node.updateVersion(node.version))),
+          tx.nodes.transform((_, node) => normalizeNode(node)),
           tx.roots,
         )
         inside(
@@ -200,7 +201,7 @@ class TransactionCoderSpec
                   ValueCoder.CidEncoder,
                   VersionedTransaction(
                     TransactionVersion.VDev,
-                    tx.nodes.view.mapValues(_.updateVersion(TransactionVersion.VDev)).toMap,
+                    tx.nodes.view.mapValues(updateVersion(_, TransactionVersion.VDev)).toMap,
                     tx.roots,
                   ),
                 )
@@ -285,7 +286,7 @@ class TransactionCoderSpec
               ValueCoder.CidEncoder,
               txVersion,
               NodeId(0),
-              normalized.updateVersion(V10),
+              updateVersion(normalized, V10),
             )
 
           result.isLeft shouldBe shouldFail
@@ -294,9 +295,9 @@ class TransactionCoderSpec
     }
 
     "fail if try encode rollback node in version < minExceptions" in {
-      forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder()) {
-        case (node, (nodeVersion, txVersion)) =>
-          val normalizedNode = normalizeNode(node.updateVersion(nodeVersion))
+      forAll(danglingRefRollbackNodeGen) { node =>
+        forEvery(transactionVersions) { txVersion =>
+          val normalizedNode = normalizeNode(node)
           val result = TransactionCoder
             .encodeNode(
               TransactionCoder.NidEncoder,
@@ -306,7 +307,8 @@ class TransactionCoderSpec
               normalizedNode,
             )
 
-          result.isLeft shouldBe (nodeVersion < minExceptions)
+          result.isLeft shouldBe (txVersion < minExceptions)
+        }
       }
     }
 
@@ -334,7 +336,7 @@ class TransactionCoderSpec
 
       forAll(danglingRefGenNode, versionInStrictIncreasingOrder(), minSuccessful(10)) {
         case ((nodeId, node), (txVersion, nodeVersion)) =>
-          val normalizedNode = normalizeNode(node.updateVersion(nodeVersion))
+          val normalizedNode = normalizeNode(updateVersion(node, nodeVersion))
 
           TransactionCoder
             .encodeNode(
@@ -524,7 +526,7 @@ class TransactionCoderSpec
 
       forAll(danglingRefGenNode, versionInIncreasingOrder(postV10Versions), minSuccessful(5)) {
         case ((nodeId, node), (v1, v2)) =>
-          val normalizedNode = normalizeNode(node.updateVersion(v1))
+          val normalizedNode = normalizeNode(updateVersion(node, v1))
 
           val Right(encoded) = TransactionCoder
             .encodeNode(
@@ -546,7 +548,7 @@ class TransactionCoderSpec
         versionInStrictIncreasingOrder(postV10Versions),
         minSuccessful(5),
       ) { case ((nodeId, node), (v1, v2)) =>
-        val normalizedNode = normalizeNode(node.updateVersion(v2))
+        val normalizedNode = normalizeNode(updateVersion(node, v2))
 
         val Right(encoded) = TransactionCoder
           .encodeNode(
@@ -564,7 +566,7 @@ class TransactionCoderSpec
     "return V10 when the node does not have a version set" in {
 
       forAll(danglingRefGenNode, minSuccessful(5)) { case (nodeId, node) =>
-        val normalizedNode = normalizeNode(node.updateVersion(V10))
+        val normalizedNode = normalizeNode(updateVersion(node, V10))
 
         val Right(encoded) = TransactionCoder
           .encodeNode(
@@ -585,7 +587,7 @@ class TransactionCoderSpec
       forAll(danglingRefGenNode, Gen.asciiStr, minSuccessful(5)) { case ((nodeId, node), str) =>
         val nonEmptyString = if (str.isEmpty) V10.protoValue else str
 
-        val normalizedNode = normalizeNode(node.updateVersion(V10))
+        val normalizedNode = normalizeNode(updateVersion(node, V10))
 
         val Right(encoded) = TransactionCoder
           .encodeNode(
@@ -608,7 +610,7 @@ class TransactionCoderSpec
 
     """ignore field version if enclosing Transaction message is of version 10""" in {
       forAll(danglingRefGenNode, Gen.asciiStr, minSuccessful(10)) { case ((nodeId, node), str) =>
-        val normalizedNode = normalizeNode(node.updateVersion(V10))
+        val normalizedNode = normalizeNode(updateVersion(node, V10))
 
         val Right(encoded) = for {
           encoded <- TransactionCoder
@@ -636,7 +638,7 @@ class TransactionCoderSpec
 
       forAll(danglingRefGenNode, versionInStrictIncreasingOrder(postV10versions)) {
         case ((nodeId, node), (txVersion, nodeVersion)) =>
-          val normalizedNode = normalizeNode(node.updateVersion(nodeVersion))
+          val normalizedNode = normalizeNode(updateVersion(node, nodeVersion))
 
           val Right(encoded) = TransactionCoder
             .encodeNode(
@@ -657,27 +659,29 @@ class TransactionCoderSpec
     }
 
     "fail if we try to decode a rollback node in a version < minExceptions" in {
-      forAll(danglingRefRollbackNodeGen, versionInIncreasingOrder()) { case (node, (v1, v2)) =>
-        val normalizedNode = normalizeNode(node.updateVersion(v1))
-        val Right(encodedNode) =
-          TransactionCoder
-            .encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              v1,
-              NodeId(0),
-              normalizedNode,
-              disableVersionCheck = true, //so the bad proto can be created
-            )
-        val result =
-          TransactionCoder
-            .decodeVersionedNode(
-              TransactionCoder.NidDecoder,
-              ValueCoder.CidDecoder,
-              v2,
-              encodedNode,
-            )
-        result.isLeft shouldBe (v1 < minExceptions)
+      forAll(danglingRefRollbackNodeGen) { node =>
+        forEvery(transactionVersions) { txVersion =>
+          val normalizedNode = normalizeNode(node)
+          val Right(encodedNode) =
+            TransactionCoder
+              .encodeNode(
+                TransactionCoder.NidEncoder,
+                ValueCoder.CidEncoder,
+                txVersion,
+                NodeId(0),
+                normalizedNode,
+                disableVersionCheck = true, //so the bad proto can be created
+              )
+          val result =
+            TransactionCoder
+              .decodeVersionedNode(
+                TransactionCoder.NidDecoder,
+                ValueCoder.CidDecoder,
+                txVersion,
+                encodedNode,
+              )
+          result.isLeft shouldBe (txVersion < minExceptions)
+        }
       }
     }
 
@@ -855,7 +859,7 @@ class TransactionCoderSpec
       version: TransactionVersion,
       nodes: Map[Nid, GenNode[Nid, Cid]],
   ): Map[Nid, GenNode[Nid, Cid]] =
-    nodes.view.mapValues(_.updateVersion(version)).toMap
+    nodes.view.mapValues(updateVersion(_, version)).toMap
 
   private def versionInIncreasingOrder(
       versions: Seq[TransactionVersion] = TransactionVersion.All
@@ -944,5 +948,13 @@ class TransactionCoderSpec
       value0: Value[ContractId],
       version: TransactionVersion,
   ): Value[ContractId] = Util.assertNormalizeValue(value0, version)
+
+  private def updateVersion[Nid, Cid](
+      node: GenNode[Nid, Cid],
+      version: TransactionVersion,
+  ): GenNode[Nid, Cid] = node match {
+    case node: GenActionNode[_, _] => node.updateVersion(version)
+    case node: Node.NodeRollback[_] => node
+  }
 
 }

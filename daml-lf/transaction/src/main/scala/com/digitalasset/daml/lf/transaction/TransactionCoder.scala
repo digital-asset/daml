@@ -249,144 +249,150 @@ object TransactionCoder {
       disableVersionCheck: Boolean =
         false, //true allows encoding of bad protos (for testing of decode checks)
   ): Either[EncodeError, TransactionOuterClass.Node] = {
-    val nodeVersion = node.version
-    if (enclosingVersion < nodeVersion)
-      Left(
-        EncodeError(
-          s"A transaction of version $enclosingVersion cannot contain nodes of newer version (${node.version})"
-        )
-      )
-    else {
-      val nodeBuilder =
-        TransactionOuterClass.Node.newBuilder().setNodeId(encodeNid.asString(nodeId))
-      if (enclosingVersion >= TransactionVersion.minNodeVersion)
-        nodeBuilder.setVersion(node.version.protoValue)
 
-      node match {
-        case nr @ NodeRollback(_, _) =>
-          val builder = TransactionOuterClass.NodeRollback.newBuilder()
-          nr.children.foreach { id => builder.addChildren(encodeNid.asString(id)); () }
-          for {
-            _ <- Either.cond(
-              test = nr.version >= TransactionVersion.minExceptions || disableVersionCheck,
-              right = (),
-              left = EncodeError(node.version, isTooOldFor = "rollback nodes"),
-            )
-          } yield nodeBuilder.setRollback(builder).build()
+    val nodeBuilder =
+      TransactionOuterClass.Node.newBuilder().setNodeId(encodeNid.asString(nodeId))
 
-        case nc @ NodeCreate(_, _, _, _, _, _, _, _, _) =>
-          val builder = TransactionOuterClass.NodeCreate.newBuilder()
-          nc.stakeholders.foreach(builder.addStakeholders)
-          nc.signatories.foreach(builder.addSignatories)
-          builder.setContractIdStruct(encodeCid.encode(nc.coid))
-          for {
-            _ <-
-              if (nodeVersion < TransactionVersion.minNoVersionValue) {
-                encodeContractInstance(
-                  encodeCid,
-                  nc.version,
-                  nc.templateId,
-                  nc.arg,
-                  nc.agreementText,
-                )
-                  .map(builder.setContractInstance)
-              } else {
-                encodeValue(encodeCid, nodeVersion, nc.coinst.arg).map { arg =>
-                  builder.setTemplateId(ValueCoder.encodeIdentifier(nc.templateId))
-                  builder.setArgUnversioned(arg)
-                  builder.setAgreement(nc.coinst.agreementText)
-                }
-              }
-            _ <- encodeAndSetContractKey(
-              encodeCid,
-              nodeVersion,
-              nc.key,
-              builder.setKeyWithMaintainers,
-            )
-          } yield nodeBuilder.setCreate(builder).build()
+    node match {
+      case NodeRollback(children) =>
+        val builder = TransactionOuterClass.NodeRollback.newBuilder()
+        children.foreach { id => builder.addChildren(encodeNid.asString(id)); () }
+        for {
+          _ <- Either.cond(
+            test = enclosingVersion >= TransactionVersion.minExceptions || disableVersionCheck,
+            right = (),
+            left = EncodeError(enclosingVersion, isTooOldFor = "rollback nodes"),
+          )
+        } yield nodeBuilder.setRollback(builder).build()
 
-        case nf @ NodeFetch(_, _, _, _, _, _, _, _, _) =>
-          val builder = TransactionOuterClass.NodeFetch.newBuilder()
-          builder.setTemplateId(ValueCoder.encodeIdentifier(nf.templateId))
-          nf.stakeholders.foreach(builder.addStakeholders)
-          nf.signatories.foreach(builder.addSignatories)
-          builder.setContractIdStruct(encodeCid.encode(nf.coid))
-          if (nodeVersion >= TransactionVersion.minByKey) {
-            builder.setByKey(nf.byKey)
-          }
-          nf.actingParties.foreach(builder.addActors)
-          for {
-            _ <- encodeAndSetContractKey(
-              encodeCid,
-              nodeVersion,
-              nf.key,
-              builder.setKeyWithMaintainers,
+      case node: GenActionNode[_, _] =>
+        val nodeVersion = node.version
+        if (enclosingVersion < nodeVersion)
+          Left(
+            EncodeError(
+              s"A transaction of version $enclosingVersion cannot contain nodes of newer version ($nodeVersion)"
             )
-          } yield nodeBuilder.setFetch(builder).build()
+          )
+        else {
+          if (enclosingVersion >= TransactionVersion.minNodeVersion)
+            nodeBuilder.setVersion(nodeVersion.protoValue)
 
-        case ne @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-          val builder = TransactionOuterClass.NodeExercise.newBuilder()
-          builder.setContractIdStruct(encodeCid.encode(ne.targetCoid))
-          builder.setChoice(ne.choiceId)
-          builder.setTemplateId(ValueCoder.encodeIdentifier(ne.templateId))
-          builder.setConsuming(ne.consuming)
-          ne.actingParties.foreach(builder.addActors)
-          ne.children.foreach { id => builder.addChildren(encodeNid.asString(id)); () }
-          ne.signatories.foreach(builder.addSignatories)
-          ne.stakeholders.foreach(builder.addStakeholders)
-          ne.choiceObservers.foreach(builder.addObservers)
-          if (nodeVersion >= TransactionVersion.minByKey) {
-            builder.setByKey(ne.byKey)
-          }
-          for {
-            _ <- Either.cond(
-              test = ne.version >= TransactionVersion.minChoiceObservers ||
-                ne.choiceObservers.isEmpty,
-              right = (),
-              left = EncodeError(node.version, isTooOldFor = "non-empty choice-observers"),
-            )
-            _ <- encodeAndSetValue(
-              encodeCid,
-              nodeVersion,
-              ne.chosenValue,
-              builder.setArgVersioned,
-              builder.setArgUnversioned,
-            )
-            _ <- ne.exerciseResult match {
-              case Some(value) =>
-                encodeAndSetValue(
+          node match {
+
+            case nc @ NodeCreate(_, _, _, _, _, _, _, _, _) =>
+              val builder = TransactionOuterClass.NodeCreate.newBuilder()
+              nc.stakeholders.foreach(builder.addStakeholders)
+              nc.signatories.foreach(builder.addSignatories)
+              builder.setContractIdStruct(encodeCid.encode(nc.coid))
+              for {
+                _ <-
+                  if (nodeVersion < TransactionVersion.minNoVersionValue) {
+                    encodeContractInstance(
+                      encodeCid,
+                      nc.version,
+                      nc.templateId,
+                      nc.arg,
+                      nc.agreementText,
+                    )
+                      .map(builder.setContractInstance)
+                  } else {
+                    encodeValue(encodeCid, nodeVersion, nc.coinst.arg).map { arg =>
+                      builder.setTemplateId(ValueCoder.encodeIdentifier(nc.templateId))
+                      builder.setArgUnversioned(arg)
+                      builder.setAgreement(nc.coinst.agreementText)
+                    }
+                  }
+                _ <- encodeAndSetContractKey(
                   encodeCid,
                   nodeVersion,
-                  value,
-                  builder.setResultVersioned,
-                  builder.setResultUnversioned,
+                  nc.key,
+                  builder.setKeyWithMaintainers,
                 )
-              case None =>
-                Either.cond(
-                  test = ne.version >= TransactionVersion.minExceptions || disableVersionCheck,
-                  right = (),
-                  left = EncodeError(node.version, isTooOldFor = "NodeExercises without result"),
-                )
-            }
-            _ <- encodeAndSetContractKey(
-              encodeCid,
-              nodeVersion,
-              ne.key,
-              builder.setKeyWithMaintainers,
-            )
-          } yield nodeBuilder.setExercise(builder).build()
+              } yield nodeBuilder.setCreate(builder).build()
 
-        case nlbk @ NodeLookupByKey(_, _, _, _, _) =>
-          val builder = TransactionOuterClass.NodeLookupByKey.newBuilder()
-          builder.setTemplateId(ValueCoder.encodeIdentifier(nlbk.templateId))
-          nlbk.result.foreach(cid => builder.setContractIdStruct(encodeCid.encode(cid)))
-          for {
-            encodedKey <- encodeKeyWithMaintainers(encodeCid, nlbk.version, nlbk.key)
-          } yield {
-            builder.setKeyWithMaintainers(encodedKey)
-            nodeBuilder.setLookupByKey(builder).build()
+            case nf @ NodeFetch(_, _, _, _, _, _, _, _, _) =>
+              val builder = TransactionOuterClass.NodeFetch.newBuilder()
+              builder.setTemplateId(ValueCoder.encodeIdentifier(nf.templateId))
+              nf.stakeholders.foreach(builder.addStakeholders)
+              nf.signatories.foreach(builder.addSignatories)
+              builder.setContractIdStruct(encodeCid.encode(nf.coid))
+              if (nodeVersion >= TransactionVersion.minByKey) {
+                builder.setByKey(nf.byKey)
+              }
+              nf.actingParties.foreach(builder.addActors)
+              for {
+                _ <- encodeAndSetContractKey(
+                  encodeCid,
+                  nodeVersion,
+                  nf.key,
+                  builder.setKeyWithMaintainers,
+                )
+              } yield nodeBuilder.setFetch(builder).build()
+
+            case ne @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+              val builder = TransactionOuterClass.NodeExercise.newBuilder()
+              builder.setContractIdStruct(encodeCid.encode(ne.targetCoid))
+              builder.setChoice(ne.choiceId)
+              builder.setTemplateId(ValueCoder.encodeIdentifier(ne.templateId))
+              builder.setConsuming(ne.consuming)
+              ne.actingParties.foreach(builder.addActors)
+              ne.children.foreach { id => builder.addChildren(encodeNid.asString(id)); () }
+              ne.signatories.foreach(builder.addSignatories)
+              ne.stakeholders.foreach(builder.addStakeholders)
+              ne.choiceObservers.foreach(builder.addObservers)
+              if (nodeVersion >= TransactionVersion.minByKey) {
+                builder.setByKey(ne.byKey)
+              }
+              for {
+                _ <- Either.cond(
+                  test = ne.version >= TransactionVersion.minChoiceObservers ||
+                    ne.choiceObservers.isEmpty,
+                  right = (),
+                  left = EncodeError(nodeVersion, isTooOldFor = "non-empty choice-observers"),
+                )
+                _ <- encodeAndSetValue(
+                  encodeCid,
+                  nodeVersion,
+                  ne.chosenValue,
+                  builder.setArgVersioned,
+                  builder.setArgUnversioned,
+                )
+                _ <- ne.exerciseResult match {
+                  case Some(value) =>
+                    encodeAndSetValue(
+                      encodeCid,
+                      nodeVersion,
+                      value,
+                      builder.setResultVersioned,
+                      builder.setResultUnversioned,
+                    )
+                  case None =>
+                    Either.cond(
+                      test = ne.version >= TransactionVersion.minExceptions || disableVersionCheck,
+                      right = (),
+                      left = EncodeError(nodeVersion, isTooOldFor = "NodeExercises without result"),
+                    )
+                }
+                _ <- encodeAndSetContractKey(
+                  encodeCid,
+                  nodeVersion,
+                  ne.key,
+                  builder.setKeyWithMaintainers,
+                )
+              } yield nodeBuilder.setExercise(builder).build()
+
+            case nlbk @ NodeLookupByKey(_, _, _, _, _) =>
+              val builder = TransactionOuterClass.NodeLookupByKey.newBuilder()
+              builder.setTemplateId(ValueCoder.encodeIdentifier(nlbk.templateId))
+              nlbk.result.foreach(cid => builder.setContractIdStruct(encodeCid.encode(cid)))
+              for {
+                encodedKey <- encodeKeyWithMaintainers(encodeCid, nlbk.version, nlbk.key)
+              } yield {
+                builder.setKeyWithMaintainers(encodedKey)
+                nodeBuilder.setLookupByKey(builder).build()
+              }
           }
-      }
+        }
     }
   }
 
@@ -483,7 +489,7 @@ object TransactionCoder {
           )
           ni <- nodeId
           children <- decodeChildren(decodeNid, protoRollback.getChildrenList)
-        } yield ni -> NodeRollback(children, nodeVersion)
+        } yield ni -> NodeRollback(children)
       case NodeTypeCase.CREATE =>
         val protoCreate = protoNode.getCreate
         for {
@@ -701,14 +707,18 @@ object TransactionCoder {
     if (txVersion < TransactionVersion.minNodeVersion) {
       Right(txVersion)
     } else {
-      decodeVersion(protoNode.getVersion) match {
-        case Right(nodeVersion) if (txVersion < nodeVersion) =>
-          Left(
-            DecodeError(
-              s"A transaction of version $txVersion cannot contain node of newer version (${protoNode.getVersion})"
-            )
-          )
-        case otherwise => otherwise
+      protoNode.getNodeTypeCase match {
+        case NodeTypeCase.ROLLBACK => Right(txVersion)
+        case _ =>
+          decodeVersion(protoNode.getVersion) match {
+            case Right(nodeVersion) if (txVersion < nodeVersion) =>
+              Left(
+                DecodeError(
+                  s"A transaction of version $txVersion cannot contain node of newer version (${protoNode.getVersion})"
+                )
+              )
+            case otherwise => otherwise
+          }
       }
     }
   }
