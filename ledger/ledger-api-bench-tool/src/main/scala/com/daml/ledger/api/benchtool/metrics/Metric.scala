@@ -22,7 +22,6 @@ trait Metric[T] {
 
 // TODO: add thread safety
 object Metric {
-  // TODO: use this in all places
   private def rounded(value: Double): String = "%.2f".format(value)
 
   case class TransactionCountMetric[T](periodMillis: Long, countingFunction: T => Int)
