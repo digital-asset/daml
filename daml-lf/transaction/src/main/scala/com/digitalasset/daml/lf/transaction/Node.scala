@@ -69,7 +69,7 @@ object Node {
       * The usage of this method must thus be restricted to:
       * 1. settings where no fetch nodes appear (for example, the `validate` method of DAMLe, which uses it on root
       *    nodes, which are guaranteed never to contain a fetch node)
-      * 2. DAML ledger implementations that do not store or process any transactions with version < 5
+      * 2. Daml ledger implementations that do not store or process any transactions with version < 5
       */
     def requiredAuthorizers: Set[Party]
 

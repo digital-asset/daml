@@ -36,7 +36,7 @@ object SError {
   def crash[A](reason: String): A =
     throw SErrorCrash(reason)
 
-  /** DAML exceptions that can be caught. These include
+  /** Daml exceptions that can be caught. These include
     * arithmetic errors, call to error builtin or update
     * errors.
     */

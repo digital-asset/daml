@@ -848,7 +848,7 @@ object Transaction {
 
   /** (Complete) transactions, which are the result of interpreting a
     * ledger-update. These transactions are consumed by either the
-    * scenario-interpreter or the DAML-engine code. Both of these
+    * scenario-interpreter or the Daml-engine code. Both of these
     * code-paths share the computations for segregating the
     * transaction into party-specific ledgers and for computing
     * divulgence of contracts.

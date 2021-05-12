@@ -216,10 +216,10 @@ object SValue {
   // A value of one of the builtin exception types: ArithmeticError, ContractError
   final case class SBuiltinException(error: BuiltinError) extends SException
 
-  // Corresponds to a DAML-LF Nat type reified as a Speedy value.
+  // Corresponds to a Daml-LF Nat type reified as a Speedy value.
   // It is currently used to track at runtime the scale of the
   // Numeric builtin's arguments/output. Should never be translated
-  // back to DAML-LF expressions / values.
+  // back to Daml-LF expressions / values.
   final case class STNat(n: Numeric.Scale) extends SValue
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified

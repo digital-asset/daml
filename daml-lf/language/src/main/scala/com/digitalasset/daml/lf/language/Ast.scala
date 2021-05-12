@@ -770,7 +770,7 @@ object Ast {
   case class FeatureFlags(
       forbidPartyLiterals: Boolean // If set to true, party literals are not allowed to appear in daml-lf packages.
       /*
-      These flags are present in DAML-LF, but our ecosystem does not support them anymore:
+      These flags are present in Daml-LF, but our ecosystem does not support them anymore:
       dontDivulgeContractIdsInCreateArguments: Boolean, // If set to true, arguments to creates are not divulged.
       // Instead target contract id's of exercises are divulged
       // and fetches are authorized.

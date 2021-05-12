@@ -386,7 +386,7 @@ object ValueCoder {
     def go(nesting: Int, v: Value[Cid]): proto.Value = {
       if (nesting > MAXIMUM_NESTING) {
         throw Err(
-          s"Provided DAML-LF value to encode exceeds maximum nesting level of $MAXIMUM_NESTING"
+          s"Provided Daml-LF value to encode exceeds maximum nesting level of $MAXIMUM_NESTING"
         )
       } else {
         val newNesting = nesting + 1

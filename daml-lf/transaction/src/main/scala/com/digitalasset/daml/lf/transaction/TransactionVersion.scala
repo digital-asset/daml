@@ -14,7 +14,7 @@ sealed abstract class TransactionVersion private (val protoValue: String, privat
     extends Product
     with Serializable
 
-/** Currently supported versions of the DAML-LF transaction specification.
+/** Currently supported versions of the Daml-LF transaction specification.
   */
 object TransactionVersion {
 

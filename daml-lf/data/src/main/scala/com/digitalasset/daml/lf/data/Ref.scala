@@ -29,7 +29,7 @@ object Ref {
   val Party: IdString.Party.type = IdString.Party
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
-    * lowercase hex-encoded hash of the package contents found in the DAML LF Archive.
+    * lowercase hex-encoded hash of the package contents found in the Daml LF Archive.
     */
   type PackageId = IdString.PackageId
   val PackageId: IdString.PackageId.type = IdString.PackageId

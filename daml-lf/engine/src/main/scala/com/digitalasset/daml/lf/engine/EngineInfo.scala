@@ -20,7 +20,7 @@ class EngineInfo(config: EngineConfig) {
     val allowedLangVersions =
       allLangVersions.filter(config.allowedLanguageVersions.contains)
 
-    s"DAML LF Engine supports LF versions: ${formatLangVersions(allowedLangVersions)}"
+    s"Daml LF Engine supports LF versions: ${formatLangVersions(allowedLangVersions)}"
   }
 
   private[this] def formatLangVersions(versions: Iterable[LV]) =

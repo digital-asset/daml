@@ -22,16 +22,16 @@ class EngineInfoTest extends AnyWordSpec with Matchers {
     "show supported LF, Transaction and Value versions" in {
 
       engineInfoLegacy.show shouldBe
-        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8"
+        "Daml LF Engine supports LF versions: 1.6, 1.7, 1.8"
 
       engineInfoStable.show shouldBe
-        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.12"
+        "Daml LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.12"
 
       engineEarlyAccess.show shouldBe
-        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.12, 1.13"
+        "Daml LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.12, 1.13"
 
       engineInfoDev.show shouldBe
-        "DAML LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.12, 1.13, 1.dev"
+        "Daml LF Engine supports LF versions: 1.6, 1.7, 1.8, 1.11, 1.12, 1.13, 1.dev"
     }
 
     "toString returns the same value as show" in {
