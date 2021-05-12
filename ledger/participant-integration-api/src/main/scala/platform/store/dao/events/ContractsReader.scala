@@ -74,7 +74,8 @@ private[dao] sealed class ContractsReader(
       metrics.daml.index.db.lookupActiveContract,
       dispatcher
         .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
-          SQL"""select pc.contract_id, template_id, create_argument, create_argument_compression from #$contractsTable where contract_witness in ($readers) and pc.contract_id = $contractId #${sqlFunctions.limitClause(1)}"""
+          SQL"""select pc.contract_id, template_id, create_argument, create_argument_compression from #$contractsTable where contract_witness in ($readers) and pc.contract_id = $contractId #${sqlFunctions
+            .limitClause(1)}"""
             .as(contractRowParser.singleOpt)
         }
         .map(_.map { case (templateId, createArgument, createArgumentCompression) =>
