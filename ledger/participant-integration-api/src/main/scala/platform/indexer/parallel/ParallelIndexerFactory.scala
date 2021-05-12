@@ -29,9 +29,8 @@ import scala.util.control.NonFatal
 
 object ParallelIndexerFactory {
 
-  // TODO append-only: migrate code for mutable initialisation
   def apply[DB_BATCH](
-      jdbcUrl: String, // TODO maybe inject the whole dispatcher instead, and let a higher level factory create that alongside with StorageBackend
+      jdbcUrl: String,
       storageBackend: StorageBackend[DB_BATCH],
       participantId: ParticipantId,
       translation: LfValueTranslation,
