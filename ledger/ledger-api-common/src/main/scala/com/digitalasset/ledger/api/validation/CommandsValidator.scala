@@ -55,7 +55,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         .left
         .map(_ =>
           invalidArgument(
-            s"Can not represent command ledger time $ledgerEffectiveTime as a DAML timestamp"
+            s"Can not represent command ledger time $ledgerEffectiveTime as a Daml timestamp"
           )
         )
       deduplicationTime <- validateDeduplicationTime(

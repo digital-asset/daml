@@ -17,14 +17,14 @@ import com.daml.metrics.MetricName
   * `logEntryIds` describes the ordering of log entries. The `logEntryMap` contains the data for the log entries.
   * This map is expected to be append-only and existing entries are never modified or removed.
   * `kvState` describes auxiliary mutable state which may be created as part of one log entry and mutated by a later one.
-  * (e.g. a log entry might describe a DAML transaction containing contracts and the auxiliary mutable data may
+  * (e.g. a log entry might describe a Daml transaction containing contracts and the auxiliary mutable data may
   * describe their activeness).
   *
   * While these can be represented in a key-value store directly, some implementations may
   * provide the ordering of log entries from outside the state (e.g. via a transaction chain).
-  * The distinction between DAML log entries and DAML state values is that log entries are immutable,
+  * The distinction between Daml log entries and Daml state values is that log entries are immutable,
   * and that their keys are not necessarily known beforehand, which is why the implementation deals
-  * with them separately, even though both log entries and DAML state values may live in the same storage.
+  * with them separately, even though both log entries and Daml state values may live in the same storage.
   */
 package object kvutils {
 
@@ -32,6 +32,6 @@ package object kvutils {
 
   type CorrelationId = String
 
-  val MetricPrefix: MetricName = MetricName.DAML :+ "kvutils"
+  val MetricPrefix: MetricName = MetricName.Daml :+ "kvutils"
 
 }

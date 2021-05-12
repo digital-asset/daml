@@ -73,7 +73,7 @@ object Cli {
       failure(s"$name is not a valid performance test name. Use `--list` to see valid names.")
 
     head("""The Ledger API Test Tool is a command line tool for testing the correctness of
-        |ledger implementations based on DAML and Ledger API.""".stripMargin)
+        |ledger implementations based on Daml and Ledger API.""".stripMargin)
 
     arg[(String, Int)]("[endpoints...]")(endpointRead)
       .action((address, config) => config.copy(participants = config.participants :+ address))
@@ -139,8 +139,8 @@ object Cli {
     opt[Unit]('x', "extract")
       .action((_, c) => c.copy(extract = true))
       .text(
-        """Extract a DAR necessary to test a DAML ledger and exit without running tests.
-              |The DAR needs to be manually loaded into a DAML ledger for the tool to work.""".stripMargin
+        """Extract a DAR necessary to test a Daml ledger and exit without running tests.
+              |The DAR needs to be manually loaded into a Daml ledger for the tool to work.""".stripMargin
       )
 
     opt[Seq[String]]("exclude")

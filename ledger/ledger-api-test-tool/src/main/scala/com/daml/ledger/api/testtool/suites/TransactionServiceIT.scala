@@ -730,7 +730,7 @@ class TransactionServiceIT extends LedgerTestSuite {
 
   test(
     "TXUnitAsArgumentToNothing",
-    "DAML engine returns Unit as argument to Nothing",
+    "Daml engine returns Unit as argument to Nothing",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val template = NothingArgument(party, Primitive.Optional.empty)

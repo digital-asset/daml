@@ -30,7 +30,7 @@ final class ConfigurationServiceWithEmptyLedgerIT
     with TestCommands
     with SuiteResourceManagementAroundEach {
 
-  // Start with no DAML packages and a large configuration delay, such that we can test the API's
+  // Start with no Daml packages and a large configuration delay, such that we can test the API's
   // behavior on an empty index.
   override protected def config: SandboxConfig =
     super.config.copy(

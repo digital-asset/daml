@@ -37,9 +37,9 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 /** @param dispatcher Executes the queries prepared by this object
-  * @param executionContext Runs transformations on data fetched from the database, including DAML-LF value deserialization
+  * @param executionContext Runs transformations on data fetched from the database, including Daml-LF value deserialization
   * @param pageSize The number of events to fetch at a time the database when serving streaming calls
-  * @param lfValueTranslation The delegate in charge of translating serialized DAML-LF values
+  * @param lfValueTranslation The delegate in charge of translating serialized Daml-LF values
   * @see [[PaginatingAsyncStream]]
   */
 private[dao] final class TransactionsReader(

@@ -25,7 +25,7 @@ object Err {
   }
 
   final case class ArchiveDecodingFailed(packageId: PackageId, reason: String) extends Err {
-    override def getMessage: String = s"Decoding of DAML-LF archive $packageId failed: $reason"
+    override def getMessage: String = s"Decoding of Daml-LF archive $packageId failed: $reason"
   }
 
   final case class DecodeError(kind: String, message: String) extends Err {

@@ -44,13 +44,13 @@ package object benchmark {
 
   /** This is the output of a successful call to
     * [[com.daml.lf.transaction.TransactionCoder.decodeTransaction]].
-    * It's the DAML-LF representation of a transaction.
+    * It's the Daml-LF representation of a transaction.
     */
   private[lf] type DecodedTransaction = VersionedTransaction[NodeId, ContractId]
 
   /** This is the output of a successful call to
     * [[com.daml.lf.value.ValueCoder.decodeValue]].
-    * It's the DAML-LF representation of a value.
+    * It's the Daml-LF representation of a value.
     */
   private[lf] type DecodedValue = Versioned[value.Value[ContractId]]
 

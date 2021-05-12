@@ -215,7 +215,7 @@ final class SqlLedgerSpec
     /** Workaround test for asserting that PostgreSQL asynchronous commits are disabled in
       * [[com.daml.platform.store.dao.JdbcLedgerDao]] transactions when used from [[SqlLedger]].
       *
-      * NOTE: This is needed for ensuring durability guarantees of DAML-on-SQL.
+      * NOTE: This is needed for ensuring durability guarantees of Daml-on-SQL.
       */
     "does not use async commit when building JdbcLedgerDao" in {
       for {

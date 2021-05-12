@@ -77,11 +77,11 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   // Note: *identifiers* and *values* defined below MUST correspond to //ledger/test-common/src/main/daml/model/Test.daml
   // This is because some tests request values in verbose mode, which requires filling in missing type information,
-  // which in turn requires loading DAML-LF packages with valid DAML-LF types that correspond to the DAML-LF values.
+  // which in turn requires loading Daml-LF packages with valid Daml-LF types that correspond to the Daml-LF values.
   //
   // On the other hand, *transactions* do not need to correspond to valid transactions that could be produced by the
-  // above mentioned DAML code, e.g., signatories/stakeholders may not correspond to the contract/choice arguments.
-  // This is because JdbcLedgerDao is only concerned with serialization, and does not verify the DAML ledger model.
+  // above mentioned Daml code, e.g., signatories/stakeholders may not correspond to the contract/choice arguments.
+  // This is because JdbcLedgerDao is only concerned with serialization, and does not verify the Daml ledger model.
   private def testIdentifier(name: String) = Identifier(
     testPackageId,
     Ref.QualifiedName(

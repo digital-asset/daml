@@ -33,7 +33,7 @@ final class MetricsNamingSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "keep acronyms together and change their capitalization as a single unit" in {
-    camelCaseToSnakeCase("DAML") shouldBe "daml"
+    camelCaseToSnakeCase("Daml") shouldBe "daml"
     camelCaseToSnakeCase("DAMLFactory") shouldBe "daml_factory"
     camelCaseToSnakeCase("AbstractDAML") shouldBe "abstract_daml"
     camelCaseToSnakeCase("AbstractDAMLFactory") shouldBe "abstract_daml_factory"

@@ -39,7 +39,7 @@ final class SemanticTests extends LedgerTestSuite {
    * `c` if the following hold for all its subactions `act`
    * on the contract `c`:
    *
-   * 1. `act` does not happen before any Create c action (correct by construction in DAML)
+   * 1. `act` does not happen before any Create c action (correct by construction in Daml)
    * 2. `act` does not happen after the contract has been consumend (i.e. no double spending)
    */
 
