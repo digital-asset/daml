@@ -37,13 +37,13 @@ object Metric {
       val count = counter.get()
       val rate = (count - lastCount.get()) * 1000.0 / periodMillis
       lastCount.set(counter.get())
-      s"count: $count [tx], rate: $rate [tx/s]"
+      s"count: $count [tx], rate: ${rounded(rate)} [tx/s]"
     }
 
     override def completeInfo(totalDurationSeconds: Double): Option[String] = {
       val count = counter.get()
       val rate = count * 1000.0 / periodMillis
-      Some(s"count: $count [tx], rate: $rate [tx/s]")
+      Some(s"count: $count [tx], rate: ${rounded(rate)} [tx/s]")
     }
   }
 
@@ -61,11 +61,11 @@ object Metric {
       val sizeRate = currentSizeBucket.get() * 1000.0 / periodMillis / 1024 / 1024
       sizeRateList += sizeRate
       currentSizeBucket.set(0)
-      s"size rate (interval): $sizeRate [MB/s]"
+      s"size rate (interval): ${rounded(sizeRate)} [MB/s]"
     }
 
     override def completeInfo(totalDurationSeconds: Double): Option[String] = {
-      val sizeRate =
+      val sizeRate: String =
         if (sizeRateList.nonEmpty) s"${rounded(sizeRateList.sum / sizeRateList.length)}"
         else "not available"
       Some(s"size rate: $sizeRate [MB/s]")
@@ -88,7 +88,7 @@ object Metric {
     }
 
     override def periodicUpdate(): String = {
-      val meanDelay =
+      val meanDelay: Option[Duration] =
         if (delaysInCurrentInterval.nonEmpty)
           Some(
             delaysInCurrentInterval
@@ -97,7 +97,7 @@ object Metric {
           )
         else None
       delaysInCurrentInterval.clear()
-      s"mean delay (interval): ${meanDelay.map(_.getSeconds).getOrElse("-")} [s]"
+      s"mean delay (interval): ${meanDelay.map(_.getSeconds.toString).getOrElse("-")} [s]"
     }
 
     override def completeInfo(totalDurationSeconds: Double): Option[String] = None
@@ -123,7 +123,7 @@ object Metric {
     }
 
     override def periodicUpdate(): String = {
-      val speed = (firstRecordTime, lastRecordTime) match {
+      val speed: Option[Double] = (firstRecordTime, lastRecordTime) match {
         case (Some(first), Some(last)) =>
           Some((last.toEpochMilli - first.toEpochMilli) * 1.0 / periodMillis)
         case _ =>
@@ -131,7 +131,7 @@ object Metric {
       }
       firstRecordTime = None
       lastRecordTime = None
-      s"speed (interval): ${speed.getOrElse("-")} [-]"
+      s"speed (interval): ${speed.map(rounded).getOrElse("-")} [-]"
     }
 
     override def completeInfo(totalDurationSeconds: Double): Option[String] = None
