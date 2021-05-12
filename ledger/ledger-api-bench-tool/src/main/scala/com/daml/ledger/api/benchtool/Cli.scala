@@ -34,7 +34,7 @@ object Cli {
           s"Stream configuration."
         )
         .valueName(
-          "streamType=<transactions|transaction-trees>,name=<streamName>,party=<party>[,begin-offset=<offset>][,end-offset=<offset>][,template-ids=<id1>|<id2>]"
+          "stream-type=<transactions|transaction-trees>,name=<streamName>,party=<party>[,begin-offset=<offset>][,end-offset=<offset>][,template-ids=<id1>|<id2>]"
         )
         .action { case (streamConfig, config) => config.copy(streamConfig = Some(streamConfig)) },
       opt[Duration]("log-interval")
@@ -63,7 +63,7 @@ object Cli {
         val config = for {
           name <- stringField("name")
           party <- stringField("party")
-          streamType <- stringField("streamType").flatMap[String, Config.StreamConfig.StreamType] {
+          streamType <- stringField("stream-type").flatMap[String, Config.StreamConfig.StreamType] {
             case "transactions" => Right(Config.StreamConfig.StreamType.Transactions)
             case "transaction-trees" => Right(Config.StreamConfig.StreamType.TransactionTrees)
             case invalid => Left(s"Invalid stream type: $invalid")
