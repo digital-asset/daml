@@ -3,7 +3,7 @@
 
 
 ---------------------------------------------------------------------------------------------------
--- V50: Append-only schema
+-- V100: Append-only schema
 --
 -- This is a major redesign of the index database schema. Updates from the ReadService are
 -- now written into the append-only table participant_events, and the set of active contracts is
@@ -28,7 +28,7 @@ CREATE TABLE participant_migration_history (
     -- were created by the migration itself.
 );
 INSERT INTO participant_migration_history VALUES (
-    'V50',
+    'V100',
     (SELECT max(event_sequential_id) FROM participant_events),
     NULL -- updated at the end
 );
@@ -733,7 +733,7 @@ UPDATE participant_migration_history
 SET ledger_end_sequential_id_after = (
     SELECT max(ledger_end_sequential_id) FROM parameters
 )
-WHERE name = 'V50';
+WHERE name = 'V100';
 
 
 ---------------------------------------------------------------------------------------------------
