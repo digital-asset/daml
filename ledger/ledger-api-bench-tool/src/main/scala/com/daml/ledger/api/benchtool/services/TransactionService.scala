@@ -25,7 +25,6 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
   private val service: TransactionServiceGrpc.TransactionServiceStub =
     TransactionServiceGrpc.stub(channel)
 
-  // TODO: add filters
   def transactions(config: Config.StreamConfig): Future[Unit] = {
     val request = getTransactionsRequest(ledgerId, config)
     val metrics: List[Metric[GetTransactionsResponse]] = List[Metric[GetTransactionsResponse]](
