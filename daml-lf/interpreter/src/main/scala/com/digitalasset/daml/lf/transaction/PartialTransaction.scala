@@ -573,8 +573,7 @@ private[lf] case class PartialTransaction(
           nodes = nodes.updated(nodeId, exerciseNode),
           actionNodeSeeds = actionNodeSeeds :+ (nodeId -> ec.actionNodeSeed),
         )
-      case _ =>
-        noteAbort(Tx.NonExerciseContext)
+      case _ => throw new RuntimeException("endExercises called in non-exercise context")
     }
 
   /** Close a abruptly an exercise context du to an uncaught exception.
@@ -607,8 +606,7 @@ private[lf] case class PartialTransaction(
           nodes = nodes.updated(nodeId, exerciseNode),
           actionNodeSeeds = actionNodeSeeds :+ (nodeId -> actionNodeSeed),
         )
-      case _ =>
-        noteAbort(Tx.NonExerciseContext)
+      case _ => throw new RuntimeException("abortExercises called in non-exercise context")
     }
 
   /** Open a Try context.
@@ -636,7 +634,7 @@ private[lf] case class PartialTransaction(
           )
         )
       case _ =>
-        noteAbort(Tx.NonCatchContext)
+        throw new RuntimeException("endTry called in non-catch context")
     }
 
   /** Close abruptly a try context, due to an uncaught exception,
@@ -664,8 +662,7 @@ private[lf] case class PartialTransaction(
           context = info.parent.addRollbackChild(info.nodeId, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),
         ).resetActiveState(info.beginState)
-      case _ =>
-        noteAbort(Tx.NonCatchContext)
+      case _ => throw new RuntimeException("rollbackTry called in non-catch context")
     }
 
   /** Note that the transaction building failed due to an authorization failure */
