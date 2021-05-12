@@ -17,7 +17,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.dbbackend.ContractDao
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
 import com.daml.http.util.ClientUtil.boxedRecord
-import com.daml.http.util.Logging.{CorrelationID, correlationIdLogCtx}
+import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.util.TestUtil.getResponseDataBytes
 import com.daml.http.util.{FutureUtil, NewBoolean}
 import com.daml.jwt.JwtSigner
@@ -76,7 +76,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
   ): Future[A] = {
-    implicit val lc: LoggingContextOf[CorrelationID] = correlationIdLogCtx()
+    implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
     val applicationId = ApplicationId(testName)
 
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
@@ -217,7 +217,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       client: LedgerClient
   )(implicit
       ec: ExecutionContext,
-      lc: LoggingContextOf[CorrelationID],
+      lc: LoggingContextOf[InstanceUUID],
   ): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
     val packageService = new PackageService(
       HttpService.loadPackageStoreUpdates(client.packageClient, holderM = None)

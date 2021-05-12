@@ -7,7 +7,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.ContentTypeResolver.Default
 import akka.http.scaladsl.server.Directives
-import com.daml.http.util.Logging.CorrelationID
+import com.daml.http.util.Logging.InstanceUUID
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.syntax.show._
 
@@ -16,14 +16,14 @@ import scala.concurrent.Future
 object StaticContentEndpoints {
   def all(config: StaticContentConfig)(implicit
       asys: ActorSystem,
-      lc: LoggingContextOf[CorrelationID],
+      lc: LoggingContextOf[InstanceUUID],
   ): PartialFunction[HttpRequest, Future[HttpResponse]] =
     new StaticContentRouter(config)
 }
 
 private class StaticContentRouter(config: StaticContentConfig)(implicit
     asys: ActorSystem,
-    lc: LoggingContextOf[CorrelationID],
+    lc: LoggingContextOf[InstanceUUID],
 ) extends PartialFunction[HttpRequest, Future[HttpResponse]] {
 
   private[this] val logger = ContextualizedLogger.get(getClass)

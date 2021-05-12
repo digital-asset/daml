@@ -17,7 +17,7 @@ import com.daml.http.domain.{
 import com.daml.http.util.ClientUtil.uniqueCommandId
 import com.daml.http.util.FutureUtil._
 import com.daml.http.util.IdentifierConverters.refApiIdentifier
-import com.daml.http.util.Logging.{CorrelationID, RequestID}
+import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.http.util.{Commands, Transactions}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -45,7 +45,7 @@ class CommandService(
       jwtPayload: JwtWritePayload,
       input: CreateCommand[lav1.value.Record],
   )(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ActiveContract[lav1.value.Value]] = {
     logger.trace("sending create command to ledger")
     val et: ET[ActiveContract[lav1.value.Value]] = for {
@@ -62,7 +62,7 @@ class CommandService(
       jwtPayload: JwtWritePayload,
       input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef],
   )(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
     logger.trace("sending exercise command to ledger")
     val command = exerciseCommand(input)
@@ -84,7 +84,7 @@ class CommandService(
       jwtPayload: JwtWritePayload,
       input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value],
   )(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
     logger.trace("sending create and exercise command to ledger")
     val et: ET[ExerciseResponse[lav1.value.Value]] = for {
@@ -101,7 +101,7 @@ class CommandService(
   }
 
   private def logResult[A](op: Symbol, fa: Future[A])(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[A] = {
     fa.onComplete {
       case Failure(e) => logger.error(s"$op failure", e)

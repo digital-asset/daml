@@ -29,7 +29,7 @@ import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.service.MetadataReader
 import com.daml.platform.participant.util.LfEngineToApi
-import com.daml.http.util.Logging.{correlationIdLogCtx}
+import com.daml.http.util.Logging.{instanceUUIDLogCtx}
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import org.scalatest.freespec.AsyncFreeSpec
@@ -1059,7 +1059,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "should be able to serialize and deserialize domain commands" in withLedger { client =>
-    correlationIdLogCtx(implicit lc =>
+    instanceUUIDLogCtx(implicit lc =>
       jsonCodecs(client).map { case (encoder, decoder) =>
         testCreateCommandEncodingDecoding(encoder, decoder)
         testExerciseCommandEncodingDecoding(encoder, decoder)

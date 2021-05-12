@@ -10,7 +10,7 @@ import com.daml.auth.TokenHolder
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.util.TestUtil.requiredFile
-import com.daml.http.util.Logging.correlationIdLogCtx
+import com.daml.http.util.Logging.instanceUUIDLogCtx
 import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, ClaimSet}
 import com.daml.ledger.client.LedgerClient
 import org.scalatest.BeforeAndAfterAll
@@ -72,12 +72,12 @@ final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with 
 
   it should "fail immediately if the authorization is insufficient" in withLedger { client =>
     setToken(emptyToken)
-    correlationIdLogCtx(implicit lc => packageService(client).reload.failed.map(_ => succeed))
+    instanceUUIDLogCtx(implicit lc => packageService(client).reload.failed.map(_ => succeed))
   }
 
   it should "succeed if the authorization is sufficient" in withLedger { client =>
     setToken(publicToken)
-    correlationIdLogCtx(implicit lc => packageService(client).reload.map(_ => succeed))
+    instanceUUIDLogCtx(implicit lc => packageService(client).reload.map(_ => succeed))
   }
 
 }

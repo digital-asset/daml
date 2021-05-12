@@ -10,7 +10,7 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.http.util.Logging.{CorrelationID, correlationIdLogCtx}
+import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.HttpService
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{HMAC256Verifier, JwtSigner}
@@ -134,7 +134,7 @@ trait JsonApiFixture
         channel <- GrpcClientResource.owner(server.port)
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
-            implicit val lc: LoggingContextOf[CorrelationID] = correlationIdLogCtx(
+            implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(
               identity(_)
             )
             Resource[ServerBinding] {

@@ -20,7 +20,7 @@ import com.daml.http.json.{
 import com.daml.http.util.ApiValueToLfValueConverter
 import com.daml.http.util.FutureUtil._
 import com.daml.http.util.IdentifierConverters.apiLedgerId
-import com.daml.http.util.Logging.CorrelationID
+import com.daml.http.util.Logging.InstanceUUID
 import com.daml.jwt.JwtDecoder
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
@@ -102,7 +102,7 @@ object HttpService {
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
-      lc: LoggingContextOf[CorrelationID],
+      lc: LoggingContextOf[InstanceUUID],
   ): Future[Error \/ (ServerBinding, Option[ContractDao])] = {
 
     logger.info("HTTP Server pre-startup")
@@ -280,7 +280,7 @@ object HttpService {
       f: Future[Error \/ (ServerBinding, Option[ContractDao])]
   )(implicit
       ec: ExecutionContext,
-      lc: LoggingContextOf[CorrelationID],
+      lc: LoggingContextOf[InstanceUUID],
   ): Future[Unit] = {
     logger.info("Stopping server...")
     f.collect { case \/-((a, dao)) =>
@@ -327,7 +327,7 @@ object HttpService {
   )(implicit
       asys: ActorSystem,
       ec: ExecutionContext,
-      lc: LoggingContextOf[CorrelationID],
+      lc: LoggingContextOf[InstanceUUID],
   ): Cancellable = {
     val maxWait = pollInterval * 10
 
@@ -374,7 +374,7 @@ object HttpService {
 
   private def uploadDarAndReloadPackages(
       f: LedgerClientJwt.UploadDarFile,
-      g: LoggingContextOf[CorrelationID] => Future[PackageService.Error \/ Unit],
+      g: LoggingContextOf[InstanceUUID] => Future[PackageService.Error \/ Unit],
   )(implicit ec: ExecutionContext): LedgerClientJwt.UploadDarFile =
     (x, y) => implicit lc => f(x, y)(lc).flatMap(_ => g(lc).flatMap(toFuture(_): Future[Unit]))
 }

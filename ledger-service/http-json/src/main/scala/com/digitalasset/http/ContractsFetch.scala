@@ -27,7 +27,7 @@ import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue
 }
 import com.daml.http.util.IdentifierConverters.apiIdentifier
-import com.daml.http.util.Logging.{CorrelationID}
+import com.daml.http.util.Logging.{InstanceUUID}
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
 import com.daml.util.ExceptionOps._
 import com.daml.jwt.domain.Jwt
@@ -71,7 +71,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[CorrelationID],
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[BeginBookmark[Terminates.AtAbsolute]] = {
     import cats.instances.list._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps},
     cats.syntax.traverse.{toTraverseOps => ToTraverseOps}, cats.syntax.functor._, doobie.implicits._
@@ -135,7 +135,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[CorrelationID],
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
     import doobie.implicits._
@@ -164,7 +164,7 @@ private class ContractsFetch(
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
-      lc: LoggingContextOf[CorrelationID],
+      lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[BeginBookmark[domain.Offset]] =
     for {
       offsets <- ContractDao.lastOffset(parties, templateId)

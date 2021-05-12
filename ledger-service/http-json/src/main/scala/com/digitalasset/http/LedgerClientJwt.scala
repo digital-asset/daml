@@ -5,7 +5,7 @@ package com.daml.http
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.http.util.Logging.{CorrelationID, RequestID}
+import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api
 import com.daml.ledger.api.v1.package_service
@@ -55,17 +55,17 @@ object LedgerClientJwt {
     (Jwt, Option[Ref.Party], Option[String]) => Future[api.domain.PartyDetails]
 
   type ListPackages =
-    Jwt => LoggingContextOf[CorrelationID with RequestID] => Future[
+    Jwt => LoggingContextOf[InstanceUUID with RequestID] => Future[
       package_service.ListPackagesResponse
     ]
 
   type GetPackage =
-    (Jwt, String) => LoggingContextOf[CorrelationID with RequestID] => Future[
+    (Jwt, String) => LoggingContextOf[InstanceUUID with RequestID] => Future[
       package_service.GetPackageResponse
     ]
 
   type UploadDarFile =
-    (Jwt, protobuf.ByteString) => LoggingContextOf[CorrelationID with RequestID] => Future[Unit]
+    (Jwt, protobuf.ByteString) => LoggingContextOf[InstanceUUID with RequestID] => Future[Unit]
 
   private def bearer(jwt: Jwt): Some[String] = Some(jwt.value: String)
 

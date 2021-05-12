@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.iface
 import com.daml.http.domain.{Choice, TemplateId}
 import com.daml.http.util.IdentifierConverters
-import com.daml.http.util.Logging.{CorrelationID}
+import com.daml.http.util.Logging.{InstanceUUID}
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.ledger.service.{LedgerReader, TemplateIds}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
@@ -51,7 +51,7 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
   // synchronized, so two threads cannot reload it concurrently
   def reload(implicit
       ec: ExecutionContext,
-      lc: LoggingContextOf[CorrelationID],
+      lc: LoggingContextOf[InstanceUUID],
   ): Future[Error \/ Unit] =
     synchronized {
       reloadPackageStoreIfChanged(state.packageIds).map {
