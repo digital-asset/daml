@@ -252,7 +252,6 @@ object ParallelIndexerFactory {
   ): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
       dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
-        metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
         ingestTailFunction(
           connection,
           StorageBackend.Params(
