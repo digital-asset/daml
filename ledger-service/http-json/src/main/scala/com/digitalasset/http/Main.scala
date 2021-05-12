@@ -16,7 +16,7 @@ import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
 import com.daml.cliopts.GlobalLogLevel
-import com.daml.http.util.Logging.{CorrelationID, correlationIdLogCtx}
+import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 
 import scala.concurrent.duration._
@@ -34,7 +34,7 @@ object Main {
   }
 
   def main(args: Array[String]): Unit = {
-    correlationIdLogCtx(implicit lc =>
+    instanceUUIDLogCtx(implicit lc =>
       Cli.parseConfig(
         args,
         ContractDao.supportedJdbcDriverNames(JdbcDrivers.availableJdbcDriverNames),
@@ -48,7 +48,7 @@ object Main {
     )
   }
 
-  private def main(config: Config)(implicit lc: LoggingContextOf[CorrelationID]): Unit = {
+  private def main(config: Config)(implicit lc: LoggingContextOf[InstanceUUID]): Unit = {
     config.logLevel.foreach(GlobalLogLevel.set("Ledger HTTP-JSON API"))
     logger.info(
       s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
@@ -128,7 +128,7 @@ object Main {
   }
 
   private def logFailure[A](msg: String, fa: Try[A])(implicit
-      lc: LoggingContextOf[CorrelationID]
+      lc: LoggingContextOf[InstanceUUID]
   ): Unit = fa match {
     case Failure(e) => logger.error(msg, e)
     case _ =>
