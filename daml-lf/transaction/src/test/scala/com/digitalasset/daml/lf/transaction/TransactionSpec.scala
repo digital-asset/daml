@@ -169,7 +169,8 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
   "isReplayedBy" - {
     def genTrans(node: GenNode[NodeId, ContractId]) = {
       val nid = NodeId(1)
-      VersionedTransaction(node.version, HashMap(nid -> node), ImmArray(nid))
+      val version = node.optVersion.getOrElse(TransactionVersion.minExceptions)
+      VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
     def isReplayedBy(
@@ -203,7 +204,8 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       }
 
       forAll(genEmptyNode, minSuccessful(10)) { n =>
-        val m = n.updateVersion(diffVersion(n.version))
+        val version = n.optVersion.getOrElse(TransactionVersion.minExceptions)
+        val m = n.updateVersion(diffVersion(version))
         isReplayedBy(n, m) shouldBe Symbol("left")
       }
     }

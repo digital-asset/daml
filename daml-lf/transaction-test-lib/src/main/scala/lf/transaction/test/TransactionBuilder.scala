@@ -69,7 +69,10 @@ final class TransactionBuilder(
     }
     val finalRoots = roots.toImmArray
     val txVersion = finalRoots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
-      acc max finalNodes(nodeId).version
+      finalNodes(nodeId).optVersion match {
+        case Some(version) => acc max version
+        case None => acc max TransactionVersion.minExceptions
+      }
     )
     VersionedTransaction(txVersion, finalNodes, finalRoots)
   }
