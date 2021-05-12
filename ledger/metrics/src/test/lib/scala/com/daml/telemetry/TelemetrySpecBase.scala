@@ -12,7 +12,7 @@ import scala.jdk.CollectionConverters._
 
 trait TelemetrySpecBase {
 
-  protected val anInstrumentationName = "com.daml.telemetry.TelemetrySpec"
+  protected val anInstrumentationName: String = classOf[TelemetrySpecBase].getCanonicalName
   protected val aSpanName = "aSpan"
   protected val anApplicationIdSpanAttribute: (SpanAttribute, String) =
     SpanAttribute.ApplicationId -> "anApplicationId"
