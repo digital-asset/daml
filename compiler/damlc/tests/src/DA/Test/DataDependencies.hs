@@ -1125,9 +1125,9 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             , ""
             , "libFnThatThrowsE1 : Update ()"
             , "libFnThatThrowsE1 = throw (E1 \"throw from lib\")"
-            , "libFnThatThrows : Exception e => e -> Update ()"
+            , "libFnThatThrows : (HasMessage e, HasThrow e, HasToAnyException e, HasFromAnyException e) => e -> Update ()"
             , "libFnThatThrows x = throw x"
-            , "libFnThatCatches : Exception e => (() -> Update ()) -> (e -> Update ()) -> Update ()"
+            , "libFnThatCatches : HasFromAnyException e => (() -> Update ()) -> (e -> Update ()) -> Update ()"
             , "libFnThatCatches m c = try m () catch e -> c e"
             ]
         withCurrentDirectory (tmpDir </> "lib") $
