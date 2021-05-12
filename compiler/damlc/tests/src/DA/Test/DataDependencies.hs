@@ -1106,54 +1106,54 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
 
     -- TODO https://github.com/digital-asset/daml/issues/8020
     --   Replace with a simpleImportTest once exceptions are stable.
-    testCaseSteps "Exceptions" $ \step -> withTempDir $ \tmpDir -> do
-            step "building project to be imported via data-dependencies"
-            createDirectoryIfMissing True (tmpDir </> "lib")
-            writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
-                [ "sdk-version: " <> sdkVersion
-                , "name: lib"
-                , "source: ."
-                , "version: 0.1.0"
-                , "dependencies: [daml-prim, daml-stdlib]"
-                ]
-            writeFileUTF8 (tmpDir </> "lib" </> "Lib.daml") $ unlines
-                [ "module Lib where"
-                , "exception E1"
-                , "  with m : Text"
-                , "  where message m"
-                ,
-                , "libFnThatThrowsE1 = throw (E1 \"throw from lib\")"
-                , "libFnThatThrows x = throw x"
-                , "libFnThatCatches m c = try m () catch e -> c e"
-                ]
-            withCurrentDirectory (tmpDir </> "lib") $
-                callProcessSilent damlc ["build", "-o", "lib.dar", "--target=1.dev"]
+    , testCaseSteps "Exceptions" $ \step -> withTempDir $ \tmpDir -> do
+        step "building project to be imported via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "lib")
+        writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: lib"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (tmpDir </> "lib" </> "Lib.daml") $ unlines
+            [ "module Lib where"
+            , "exception E1"
+            , "  with m : Text"
+            , "  where message m"
+            ,
+            , "libFnThatThrowsE1 = throw (E1 \"throw from lib\")"
+            , "libFnThatThrows x = throw x"
+            , "libFnThatCatches m c = try m () catch e -> c e"
+            ]
+        withCurrentDirectory (tmpDir </> "lib") $
+            callProcessSilent damlc ["build", "-o", "lib.dar", "--target=1.dev"]
 
-            step "building project that imports it via data-dependencies"
-            createDirectoryIfMissing True (tmpDir </> "main")
-            writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
-                [ "sdk-version: " <> sdkVersion
-                , "name: main"
-                , "source: ."
-                , "version: 0.1.0"
-                , "dependencies: [daml-prim, daml-stdlib]"
-                , "data-dependencies: "
-                , "  - " <> (tmpDir </> "lib" </> "lib.dar")
-                ]
-            writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines
-                [ "module Main where"
-                , "import Lib"
-                , "exception E2"
-                , "  with m : Text"
-                , "  where message m"
-                , ""
-                , "mainFnThatThrowsE1 = throw (E1 \"throw from main\")"
-                , "mainFnThatThrowsE2 = libFnThatThrows (E2 \"thrown from lib\")"
-                , "mainFnThatCatchesE1 = try libFnThatThrowsE1 catch E1 e -> pure ()"
-                , "mainFnThatCatchesE2 m = libFnThatCatches m (\\ (e: E2) -> pure ())"
-                ]
-            withCurrentDirectory (tmpDir </> "main") $
-                callProcessSilent damlc ["build", "--target=1.dev"]
+        step "building project that imports it via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "main")
+        writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: main"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: "
+            , "  - " <> (tmpDir </> "lib" </> "lib.dar")
+            ]
+        writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "import Lib"
+            , "exception E2"
+            , "  with m : Text"
+            , "  where message m"
+            , ""
+            , "mainFnThatThrowsE1 = throw (E1 \"throw from main\")"
+            , "mainFnThatThrowsE2 = libFnThatThrows (E2 \"thrown from lib\")"
+            , "mainFnThatCatchesE1 = try libFnThatThrowsE1 catch E1 e -> pure ()"
+            , "mainFnThatCatchesE2 m = libFnThatCatches m (\\ (e: E2) -> pure ())"
+            ]
+        withCurrentDirectory (tmpDir </> "main") $
+            callProcessSilent damlc ["build", "--target=1.dev"]
     ]
   where
     simpleImportTest :: String -> [String] -> [String] -> TestTree
