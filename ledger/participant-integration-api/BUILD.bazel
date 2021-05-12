@@ -338,7 +338,7 @@ scaladoc_jar(
         "//ledger/ledger-api-auth:sources",
         "//ledger/participant-state:sources",
     ],
-    doctitle = "DAML participant integration API",
+    doctitle = "Daml participant integration API",
     plugins = [
         silencer_plugin,
     ],

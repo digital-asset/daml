@@ -262,10 +262,10 @@ daml_compile(
         #
         #
         # Compile the DAR files with and without a package to allow
-        # DAML-LF version agnostic tests to be run using generated
-        # Java classes with the same qualified name, while the DAML-LF
+        # Daml-LF version agnostic tests to be run using generated
+        # Java classes with the same qualified name, while the Daml-LF
         # specific tests run using Java classes generated with a
-        # package name qualified by the DAML-LF version.
+        # package name qualified by the Daml-LF version.
         #
         dar_to_java(
             name = "integration-tests-model-%s" % target,
