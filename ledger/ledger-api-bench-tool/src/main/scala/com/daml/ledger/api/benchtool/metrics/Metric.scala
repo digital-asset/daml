@@ -125,7 +125,6 @@ object Metric {
     override def periodicUpdate(): String = {
       val speed = (firstRecordTime, lastRecordTime) match {
         case (Some(first), Some(last)) =>
-          println(s"first: ${first.toEpochMilli}, last: ${last.toEpochMilli}")
           Some((last.toEpochMilli - first.toEpochMilli) * 1.0 / periodMillis)
         case _ =>
           None
