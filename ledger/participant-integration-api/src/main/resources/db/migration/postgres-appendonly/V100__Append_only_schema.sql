@@ -523,7 +523,7 @@ SELECT
     NULL,
     contract_id,
     template_id,
-    divulgees,
+    ARRAY['NonExistingParty'],
     create_argument,
     create_argument_compression
 FROM divulged_contracts INNER JOIN participant_contracts USING (contract_id);
