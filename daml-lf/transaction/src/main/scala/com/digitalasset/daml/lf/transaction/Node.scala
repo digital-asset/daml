@@ -21,8 +21,6 @@ object Node {
       with Serializable
       with CidContainer[GenNode[Nid, Cid]] {
 
-    private[lf] def updateVersion(version: TransactionVersion): GenNode[Nid, Cid]
-
     def foreach2(fNid: Nid => Unit, fCid: Cid => Unit): Unit
 
     def optVersion: Option[TransactionVersion] = this match {
@@ -57,6 +55,8 @@ object Node {
       with CidContainer[GenActionNode[Nid, Cid]] {
 
     def version: TransactionVersion
+
+    private[lf] def updateVersion(version: TransactionVersion): GenNode[Nid, Cid]
 
     def templateId: TypeConName
 
@@ -373,8 +373,6 @@ object Node {
   final case class NodeRollback[+Nid](
       children: ImmArray[Nid]
   ) extends GenNode[Nid, Nothing] {
-
-    private[lf] def updateVersion(version: TransactionVersion): NodeRollback[Nid] = this
 
     override def foreach2(fNid: Nid => Unit, fCid: Nothing => Unit): Unit =
       children.foreach(fNid)

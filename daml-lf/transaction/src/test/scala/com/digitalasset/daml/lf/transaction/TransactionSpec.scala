@@ -205,8 +205,12 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
 
       forAll(genEmptyNode, minSuccessful(10)) { n =>
         val version = n.optVersion.getOrElse(TransactionVersion.minExceptions)
-        val m = n.updateVersion(diffVersion(version))
-        isReplayedBy(n, m) shouldBe Symbol("left")
+        n match {
+          case _: NodeRollback[_] => ()
+          case n: Node.GenActionNode[_, _] =>
+            val m = n.updateVersion(diffVersion(version))
+            isReplayedBy(n, m) shouldBe Symbol("left")
+        }
       }
     }
 

@@ -537,8 +537,7 @@ object ValueGenerators {
         case (acc, (nodeId, node)) =>
           for {
             hashMap <- acc
-            version <- nodeVersionGen
-          } yield hashMap.updated(nodeId, node.updateVersion(version))
+          } yield hashMap.updated(nodeId, node)
       }
     } yield VersionedTransaction(txVer, nodes, tx.roots)
 
