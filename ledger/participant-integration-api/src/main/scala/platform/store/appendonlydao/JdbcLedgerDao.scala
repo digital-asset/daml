@@ -655,25 +655,55 @@ private class JdbcLedgerDao(
     logger.info("Storing package entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePackageEntryDbMetrics) {
       implicit connection =>
-        val update = optEntry.map {
-          case PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime) =>
+        // Note on knownSince and recordTime:
+        // - There are two different time values in the input: PackageDetails.knownSince and PackageUploadAccepted.recordTime
+        // - There is only one time value in the intermediate values: PublicPackageUpload.recordTime
+        // - There are two different time values in the database schema: packages.known_since and package_entries.recorded_at
+        // This is not an issue since all callers of this method always use the same value for all knownSince and recordTime times.
+        //
+        // Note on sourceDescription:
+        // - In the input, each package can have its own source description (see PackageDetails.sourceDescription)
+        // - In the intermediate value, there is only one source description for all packages (see PublicPackageUpload.sourceDescription)
+        // - In the database schema, each package can have its own source description (see packages.source_description)
+        // This is again not an issue since all callers of this method always use the same value for all source descriptions.
+        val update = optEntry match {
+          case None =>
+            // Calling storePackageEntry() without providing a PackageLedgerEntry is used to copy initial packages,
+            // or in the case where the submission ID is unknown (package was submitted through a different participant).
             Update.PublicPackageUpload(
               archives = packages.view.map(_._1).toList,
               sourceDescription = packages.headOption.flatMap(
                 _._2.sourceDescription
-              ), // this is valid since all clients of this method share the same behavior: all PackageDetails-s will have the same sourceDescription
+              ),
+              recordTime = Time.Timestamp.assertFromInstant(
+                packages.headOption
+                  .map(
+                    _._2.knownSince
+                  )
+                  .getOrElse(Instant.EPOCH)
+              ),
+              submissionId =
+                None, // If the submission ID is missing, this update will not insert a row in the package_entries table
+            )
+
+          case Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime)) =>
+            Update.PublicPackageUpload(
+              archives = packages.view.map(_._1).toList,
+              sourceDescription = packages.headOption.flatMap(
+                _._2.sourceDescription
+              ),
               recordTime = Time.Timestamp.assertFromInstant(recordTime),
               submissionId = Some(submissionId),
             )
 
-          case PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason) =>
+          case Some(PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason)) =>
             Update.PublicPackageUploadRejected(
               submissionId = submissionId,
               recordTime = Time.Timestamp.assertFromInstant(recordTime),
               rejectionReason = reason,
             )
         }
-        sequentialIndexer.store(connection, offsetStep.offset, update)
+        sequentialIndexer.store(connection, offsetStep.offset, Some(update))
         PersistenceResponse.Ok
     }
   }

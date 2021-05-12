@@ -472,6 +472,7 @@ faye-websocket-node 0.10.0 : MIT License
 figures 1.7.0 : MIT License
 file-embed 0.0.13.0 : BSD 3-clause "New" or "Revised" License
 file-sync-cmp 0.1.1 : MIT License
+filelock 0.1.1.5 : Public Domain
 filepattern 0.1.2 : BSD 3-clause "New" or "Revised" License
 fill-range 4.0.0 : MIT License
 fill-range 7.0.1 : MIT License
@@ -16252,7 +16253,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ---
 
 Public Domain
-(XZ for Java 1.8, conduit-parse 0.2.1.0, jsonify 0.0.0, monad-loops 0.4.3)
+(XZ for Java 1.8, conduit-parse 0.2.1.0, filelock 0.1.1.5, jsonify 0.0.0, monad-loops 0.4.3)
 
 Public domain code is not subject to any license.
 
