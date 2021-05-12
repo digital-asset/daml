@@ -426,6 +426,7 @@ object ValueGenerators {
   /** Makes nodes with the problems listed under `malformedCreateNodeGen`, and
     * `malformedGenTransaction` should they be incorporated into a transaction.
     */
+  // TODO https://github.com/digital-asset/daml/issues/8020
   val danglingRefGenNode //TODO: FIXME: this generator never produces rollback nodes
       : Gen[(NodeId, Tx.Node)] = {
     for {
