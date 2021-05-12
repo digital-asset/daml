@@ -79,7 +79,8 @@ jobs:
 
 - job: notify_release_pr
   condition: and(not(canceled()),
-                 startsWith(variables['Build.SourceBranchName'], 'auto-release-pr-'),
+                 or(startsWith(variables['Build.SourceBranchName'], 'auto-release-pr-'),
+                    startsWith(variables['System.PullRequest.SourceBranch'], 'auto-release-pr-')),
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'true'))
   dependsOn:
     - git_sha
