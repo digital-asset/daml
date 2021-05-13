@@ -6,11 +6,16 @@ package speedy
 
 import java.util
 
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SError.DamlEUnhandledException
+import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.Validation
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
@@ -536,11 +541,81 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     }
   }
 
+  "rollback of creates" should {
+
+    val party = Party.assertFromString("Alice")
+    val example: Expr = EApp(e"M:causeRollback", EPrimLit(PLParty(party)))
+    def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
+
+    val anException = {
+      val id = "M:AnException"
+      val tyCon =
+        data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:$id")
+      SValue.SAnyException(
+        TTyCon(tyCon),
+        SValue.SRecord(tyCon, data.ImmArray.empty, new util.ArrayList()),
+      )
+    }
+
+    "works as expected for a contract version POST-dating exceptions" in {
+      val pkgs = mkPackagesAtVersion(LanguageVersion.v1_dev)
+      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, example, party).run()
+      res shouldBe SResultFinalValue(SUnit)
+    }
+
+    "causes an uncatchable exception to be thrown for a contract version PRE-dating exceptions" in {
+      val pkgs = mkPackagesAtVersion(LanguageVersion.v1_11)
+      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, example, party).run()
+      res shouldBe SResultError(DamlEUnhandledException(anException))
+    }
+
+    def mkPackagesAtVersion(languageVersion: LanguageVersion): PureCompiledPackages = {
+
+      implicit val defaultParserParameters: ParserParameters[this.type] = {
+        ParserParameters(
+          defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
+          languageVersion,
+        )
+      }
+
+      typeAndCompile(p"""
+      module M {
+
+        record @serializable AnException = { } ;
+        exception AnException = { message \(e: M:AnException) -> "AnException" };
+
+        record @serializable T1 = { party: Party, info: Int64 } ;
+        template (record : T1) = {
+          precondition True,
+          signatories Cons @Party [M:T1 {party} record] (Nil @Party),
+          observers Nil @Party,
+          agreement "Agreement",
+          choices {}
+        };
+
+        val causeRollback : Party -> Update Unit = \(party: Party) ->
+            ubind
+              u1: Unit <-
+                try @Unit
+                  ubind
+                    x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
+                    x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
+                  in throw @(Update Unit) @M:AnException (M:AnException {})
+                catch e -> Some @(Update Unit) (upure @Unit ())
+              ;
+              x3: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 300 }
+            in upure @Unit ();
+
+      } """)
+    }
+
+  }
+
   private def typeAndCompile(pkg: Package): PureCompiledPackages = {
     val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
     Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId, pkg)
     data.assertRight(
-      PureCompiledPackages(rawPkgs, Compiler.Config.Default.copy(stacktracing = FullStackTrace))
+      PureCompiledPackages(rawPkgs, Compiler.Config.Dev.copy(stacktracing = FullStackTrace))
     )
   }
 

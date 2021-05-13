@@ -1567,8 +1567,8 @@ private[lf] object SBuiltin {
                 unwindToHandler(machine, payload) //re-throw
               case Some(handler) =>
                 payload match {
-                  case SAnyException(typ, value) =>
-                    onLedger.ptx = onLedger.ptx.rollbackTry(typ, value.toValue)
+                  case ex: SAnyException =>
+                    onLedger.ptx = onLedger.ptx.rollbackTry(ex)
                   case _ =>
                     crash(s"SBTryHandler, expected payload to be SAnyException: $payload")
                 }

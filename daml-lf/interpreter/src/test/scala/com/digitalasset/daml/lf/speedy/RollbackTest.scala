@@ -5,12 +5,15 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.Ast.{Package, Expr, PrimLit, PLParty, EPrimLit, EApp}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.PartialTransaction.{CompleteTransaction, IncompleteTransaction, LeafNode}
 import com.daml.lf.speedy.SResult.SResultFinalValue
 import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeRollback}
 import com.daml.lf.transaction.NodeId
 import com.daml.lf.transaction.SubmittedTransaction
@@ -25,11 +28,18 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
   import ExceptionTest._
 
+  implicit val defaultParserParameters: ParserParameters[this.type] = {
+    ParserParameters(
+      defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
+      languageVersion = LanguageVersion.v1_dev,
+    )
+  }
+
   private def typeAndCompile(pkg: Package): PureCompiledPackages = {
     val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
     Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId, pkg)
     data.assertRight(
-      PureCompiledPackages(rawPkgs, Compiler.Config.Default.copy(stacktracing = FullStackTrace))
+      PureCompiledPackages(rawPkgs, Compiler.Config.Dev.copy(stacktracing = FullStackTrace))
     )
   }
 
