@@ -1863,10 +1863,6 @@ private[lf] object SBuiltin {
         throw DamlELocalContractNotActive(coid, tid, consumedBy)
       case Some(Tx.DuplicateContractKey(key)) =>
         throw DamlEDuplicateContractKey(key)
-      case Some(Tx.NonExerciseContext) =>
-        crash("internal error: end exercise in non exercise context")
-      case Some(Tx.NonCatchContext) =>
-        crash("internal error: end catch in non catch context")
       case None =>
         ()
     }

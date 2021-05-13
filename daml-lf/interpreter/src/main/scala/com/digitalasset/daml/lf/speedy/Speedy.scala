@@ -440,6 +440,11 @@ private[lf] object Speedy {
           popKont() match {
             case handler: KCatchSubmitMustFail =>
               handler
+            case _: KTryCatchHandler =>
+              withOnLedger("tryHandleSubmitMustFail/KCloseExercise") { onLedger =>
+                onLedger.ptx = onLedger.ptx.abortTry
+              }
+              unwind()
             case _: KCloseExercise =>
               withOnLedger("tryHandleSubmitMustFail/KCloseExercise") { onLedger =>
                 onLedger.ptx = onLedger.ptx.abortExercises
@@ -1396,7 +1401,6 @@ private[lf] object Speedy {
           case _: KCloseExercise =>
             machine.withOnLedger("unwindToHandler/KCloseExercise") { onLedger =>
               onLedger.ptx = onLedger.ptx.abortExercises
-              checkAborted(onLedger.ptx)
             }
             unwind()
           case _ =>
