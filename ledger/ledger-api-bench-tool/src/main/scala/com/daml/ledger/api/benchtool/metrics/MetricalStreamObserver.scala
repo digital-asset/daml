@@ -3,11 +3,33 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
+import akka.actor.typed.ActorRef
 import org.slf4j.Logger
 
 import java.time.Instant
 import java.util.{Timer, TimerTask}
 import scala.concurrent.duration.Duration
+import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
+
+class TransactionsMetricalStreamObserver(
+    logger: Logger,
+    manager: ActorRef[MetricsManager.Message],
+) extends ObserverWithResult[GetTransactionsResponse](logger) {
+
+  override def onNext(value: GetTransactionsResponse): Unit = {
+    manager ! MetricsManager.NewValue(value)
+    // TODO: remove sleep
+    Thread.sleep(100)
+    super.onNext(value)
+  }
+
+  override def onCompleted(): Unit = {
+    logger.debug(s"Sending ${MetricsManager.StreamCompleted} notification.")
+    manager ! MetricsManager.StreamCompleted
+    super.onCompleted()
+  }
+
+}
 
 class MetricalStreamObserver[T](
     streamName: String,

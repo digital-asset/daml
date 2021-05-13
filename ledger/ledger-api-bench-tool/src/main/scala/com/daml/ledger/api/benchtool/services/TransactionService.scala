@@ -3,8 +3,16 @@
 
 package com.daml.ledger.api.benchtool.services
 
+import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
+import akka.util.Timeout
 import com.daml.ledger.api.benchtool.Config
-import com.daml.ledger.api.benchtool.metrics.{Metric, MetricalStreamObserver}
+import com.daml.ledger.api.benchtool.metrics.{
+  Creator,
+  Metric,
+  MetricalStreamObserver,
+  MetricsManager,
+  TransactionsMetricalStreamObserver,
+}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
@@ -17,13 +25,23 @@ import com.daml.ledger.api.v1.value.Identifier
 import io.grpc.Channel
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
-import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
 
-final class TransactionService(channel: Channel, ledgerId: String, reportingPeriod: Duration) {
+final class TransactionService(
+    channel: Channel,
+    ledgerId: String,
+    reportingPeriod: FiniteDuration,
+) {
   private val logger = LoggerFactory.getLogger(getClass)
   private val service: TransactionServiceGrpc.TransactionServiceStub =
     TransactionServiceGrpc.stub(channel)
+
+  implicit val system: ActorSystem[SpawnProtocol.Command] = ActorSystem(Creator(), "Creator")
+  implicit val ec: ExecutionContext = system.executionContext
+  implicit val timeout: Timeout = Timeout(3.seconds)
+
+  import akka.actor.typed.scaladsl.AskPattern._
 
   def transactions(config: Config.StreamConfig): Future[Unit] = {
     val request = getTransactionsRequest(ledgerId, config)
@@ -46,16 +64,25 @@ final class TransactionService(channel: Channel, ledgerId: String, reportingPeri
         },
       ),
     )
-    val observer =
-      new MetricalStreamObserver[GetTransactionsResponse](
-        config.name,
-        reportingPeriod,
-        metrics,
-        logger,
+
+    val manager1: Future[ActorRef[MetricsManager.Message]] = system.ask(
+      SpawnProtocol.Spawn(
+        behavior = MetricsManager(
+          streamName = config.name,
+          metrics = metrics,
+          logInterval = reportingPeriod,
+        ),
+        name = "manager-1",
+        props = Props.empty,
+        _,
       )
-    service.getTransactions(request, observer)
-    logger.info("Started fetching transactions")
-    observer.result
+    )
+    manager1.flatMap { manager =>
+      val observer = new TransactionsMetricalStreamObserver(logger, manager)
+      service.getTransactions(request, observer)
+      logger.info("Started fetching transactions")
+      observer.result
+    }
   }
 
   def transactionTrees(config: Config.StreamConfig): Future[Unit] = {

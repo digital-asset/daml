@@ -12,7 +12,7 @@ case class Config(
     ledger: Config.Ledger,
     concurrency: Config.Concurrency,
     streams: List[Config.StreamConfig],
-    reportingPeriod: Duration,
+    reportingPeriod: FiniteDuration,
 )
 
 object Config {

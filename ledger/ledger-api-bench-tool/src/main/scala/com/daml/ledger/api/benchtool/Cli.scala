@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.Identifier
 import scopt.{OParser, Read}
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.FiniteDuration
 
 object Cli {
   def config(args: Array[String]): Option[Config] =
@@ -41,7 +41,7 @@ object Cli {
         .action { case (streamConfig, config) =>
           config.copy(streams = config.streams :+ streamConfig)
         },
-      opt[Duration]("log-interval")
+      opt[FiniteDuration]("log-interval")
         .abbr("r")
         .text("Stream metrics log interval.")
         .action { case (period, config) => config.copy(reportingPeriod = period) },
