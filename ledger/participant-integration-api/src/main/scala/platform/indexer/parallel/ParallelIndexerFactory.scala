@@ -35,6 +35,7 @@ object ParallelIndexerFactory {
       translation: LfValueTranslation,
       compressionStrategy: CompressionStrategy,
       mat: Materializer,
+      maxInputBufferSize: Int,
       inputMappingParallelism: Int,
       batchingParallelism: Int,
       ingestionParallelism: Int,
@@ -94,7 +95,7 @@ object ParallelIndexerFactory {
                 .bufferedSource(
                   original = source,
                   counter = metrics.daml.parallelIndexer.inputBufferLength,
-                  size = 200, // TODO append-only: maybe make it configurable
+                  size = maxInputBufferSize,
                 )
                 .map(_ -> System.nanoTime())
             ).map(_ => ())

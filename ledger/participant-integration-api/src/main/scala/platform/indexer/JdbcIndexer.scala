@@ -164,6 +164,7 @@ object JdbcIndexer {
             if (config.enableCompression) CompressionStrategy.allGZIP(metrics)
             else CompressionStrategy.none(metrics),
           mat = materializer,
+          maxInputBufferSize = config.maxInputBufferSize,
           inputMappingParallelism = config.inputMappingParallelism,
           batchingParallelism = config.batchingParallelism,
           ingestionParallelism = config.ingestionParallelism,
