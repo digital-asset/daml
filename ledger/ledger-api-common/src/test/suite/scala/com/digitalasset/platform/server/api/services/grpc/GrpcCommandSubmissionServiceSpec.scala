@@ -10,6 +10,7 @@ import com.daml.ledger.api.testing.utils.MockMessages.{
   commandId,
   commands,
   ledgerId,
+  party,
   submitRequest,
   workflowId,
 }
@@ -56,6 +57,7 @@ class GrpcCommandSubmissionServiceSpec
             val spanAttributes = spanExporter.finishedSpanAttributes
             spanAttributes should contain(SpanAttribute.ApplicationId -> applicationId)
             spanAttributes should contain(SpanAttribute.CommandId -> commandId)
+            spanAttributes should contain(SpanAttribute.Submitter -> party)
             spanAttributes should contain(SpanAttribute.WorkflowId -> workflowId)
           }
       } finally {
