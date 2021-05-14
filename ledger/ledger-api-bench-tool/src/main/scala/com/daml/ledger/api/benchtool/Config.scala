@@ -20,7 +20,7 @@ object Config {
       name: String,
       streamType: Config.StreamConfig.StreamType,
       party: String,
-      templateIds: List[Identifier],
+      templateIds: Option[List[Identifier]],
       beginOffset: Option[LedgerOffset],
       endOffset: Option[LedgerOffset],
   )

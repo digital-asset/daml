@@ -96,11 +96,10 @@ object Cli {
             case "transaction-trees" => Right(Config.StreamConfig.StreamType.TransactionTrees)
             case invalid => Left(s"Invalid stream type: $invalid")
           }
-          templateIds <- optionalStringField("template-ids")
-            .flatMap {
-              case Some(ids) => listOfTemplateIds(ids)
-              case None => Right(List.empty[Identifier])
-            }
+          templateIds <- optionalStringField("template-ids").flatMap {
+            case Some(ids) => listOfTemplateIds(ids).map(Some(_))
+            case None => Right(None)
+          }
           beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
         } yield Config.StreamConfig(

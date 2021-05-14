@@ -58,9 +58,18 @@ final class TransactionService(
       .withFilter(partyFilter(config.party, config.templateIds))
   }
 
-  private def partyFilter(party: String, templateIds: List[Identifier]): TransactionFilter = {
-    val templatesFilter = Filters.defaultInstance
-      .withInclusive(InclusiveFilters.defaultInstance.addAllTemplateIds(templateIds))
+  private def partyFilter(
+      party: String,
+      templateIds: Option[List[Identifier]],
+  ): TransactionFilter = {
+    val templatesFilter = templateIds match {
+      case Some(ids) =>
+        Filters.defaultInstance.withInclusive(
+          InclusiveFilters.defaultInstance.addAllTemplateIds(ids)
+        )
+      case None =>
+        Filters.defaultInstance
+    }
     TransactionFilter()
       .withFiltersByParty(Map(party -> templatesFilter))
   }
