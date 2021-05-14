@@ -822,7 +822,7 @@ convType env reexported =
                     , tcdFixity = Prefix
                     , tcdRhs = noLoc $ HsTupleTy noExt HsConstraintTuple (map noLoc fieldTys)
                     }
-                pure $ foldl
+                pure $ foldl'
                     (\ accum freeVar ->
                         HsParTy noExt
                         . noLoc . HsAppTy noExt (noLoc accum)
