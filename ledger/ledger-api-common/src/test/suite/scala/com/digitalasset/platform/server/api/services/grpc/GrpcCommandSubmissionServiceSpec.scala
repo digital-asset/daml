@@ -92,4 +92,3 @@ object GrpcCommandSubmissionServiceSpec {
     commands = Some(commands.copy(commands = Seq(aCommand)))
   )
 }
-
