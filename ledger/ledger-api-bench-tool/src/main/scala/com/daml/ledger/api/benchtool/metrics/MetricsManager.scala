@@ -29,7 +29,6 @@ object MetricsManager {
 
 }
 
-// TODO: separate actor for logging?
 class MetricsManager[T](
     timers: TimerScheduler[MetricsManager.Message[T]],
     streamName: String,

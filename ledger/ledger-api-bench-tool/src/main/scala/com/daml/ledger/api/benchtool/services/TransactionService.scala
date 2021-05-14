@@ -6,7 +6,11 @@ package com.daml.ledger.api.benchtool.services
 import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
 import akka.util.Timeout
 import com.daml.ledger.api.benchtool.Config
-import com.daml.ledger.api.benchtool.metrics.{Metric, MetricalStreamObserver, MetricsManager}
+import com.daml.ledger.api.benchtool.metrics.{
+  MetricalStreamObserver,
+  MetricsManager,
+  TransactionMetrics,
+}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
@@ -39,32 +43,13 @@ final class TransactionService(
 
   def transactions(config: Config.StreamConfig): Future[Unit] = {
     val request = getTransactionsRequest(ledgerId, config)
-    val metrics: List[Metric[GetTransactionsResponse]] = List[Metric[GetTransactionsResponse]](
-      Metric.TransactionCountMetric[GetTransactionsResponse](
-        reportingPeriod.toMillis,
-        _.transactions.length,
-      ),
-      Metric.TransactionSizeMetric[GetTransactionsResponse](
-        reportingPeriod.toMillis,
-        _.serializedSize,
-      ),
-      Metric.ConsumptionDelayMetric(_.transactions.collect {
-        case t if t.effectiveAt.isDefined => t.getEffectiveAt
-      }),
-      Metric.ConsumptionSpeedMetric(
-        reportingPeriod.toMillis,
-        _.transactions.collect {
-          case t if t.effectiveAt.isDefined => t.getEffectiveAt
-        },
-      ),
-    )
 
     // TODO: move this to an abstraction
     val manager: Future[ActorRef[MetricsManager.Message[GetTransactionsResponse]]] = system.ask(
       SpawnProtocol.Spawn(
         behavior = MetricsManager(
           streamName = config.name,
-          metrics = metrics,
+          metrics = TransactionMetrics.transactionMetrics(reportingPeriod),
           logInterval = reportingPeriod,
         ),
         name = s"${config.name}-manager",
@@ -83,33 +68,13 @@ final class TransactionService(
 
   def transactionTrees(config: Config.StreamConfig): Future[Unit] = {
     val request = getTransactionsRequest(ledgerId, config)
-    val metrics: List[Metric[GetTransactionTreesResponse]] =
-      List[Metric[GetTransactionTreesResponse]](
-        Metric.TransactionCountMetric[GetTransactionTreesResponse](
-          reportingPeriod.toMillis,
-          _.transactions.length,
-        ),
-        Metric.TransactionSizeMetric[GetTransactionTreesResponse](
-          reportingPeriod.toMillis,
-          _.serializedSize,
-        ),
-        Metric.ConsumptionDelayMetric(_.transactions.collect {
-          case t if t.effectiveAt.isDefined => t.getEffectiveAt
-        }),
-        Metric.ConsumptionSpeedMetric(
-          reportingPeriod.toMillis,
-          _.transactions.collect {
-            case t if t.effectiveAt.isDefined => t.getEffectiveAt
-          },
-        ),
-      )
 
     // TODO: move this to an abstraction
     val manager: Future[ActorRef[MetricsManager.Message[GetTransactionTreesResponse]]] = system.ask(
       SpawnProtocol.Spawn(
         behavior = MetricsManager(
           streamName = config.name,
-          metrics = metrics,
+          metrics = TransactionMetrics.transactionTreesMetrics(reportingPeriod),
           logInterval = reportingPeriod,
         ),
         name = s"${config.name}-manager",
