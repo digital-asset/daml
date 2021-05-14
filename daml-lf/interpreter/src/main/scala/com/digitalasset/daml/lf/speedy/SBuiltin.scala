@@ -418,27 +418,26 @@ private[lf] object SBuiltin {
       SText(getSText(args, 0) + getSText(args, 1))
   }
 
-  final case object SBToText extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      val x = args.get(0)
-      val string = x match {
-        case SBool(b) => b.toString
-        case SInt64(i) => i.toString
-        case STimestamp(t) => t.toString
-        case SText(t) => t
-        case SParty(p) => p
-        case SUnit => s"<unit>"
-        case SDate(date) => date.toString
-        case SBigNumeric(x) => Numeric.toUnscaledString(x)
-        case SNumeric(x) => Numeric.toUnscaledString(x)
-        case _: SContractId | _: SNumeric | _: STNat | SToken | _: SAny | _: SAnyException |
-            _: SBuiltinException | _: SEnum | _: SList | _: SMap | _: SOptional | _: SPAP |
-            _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
-          crash(s"litToText: unexpected $x")
-      }
-      SText(string)
+  private[this] def litToText(x: SValue): String =
+    x match {
+      case SBool(b) => b.toString
+      case SInt64(i) => i.toString
+      case STimestamp(t) => t.toString
+      case SText(t) => t
+      case SParty(p) => p
+      case SUnit => s"<unit>"
+      case SDate(date) => date.toString
+      case SBigNumeric(x) => Numeric.toUnscaledString(x)
+      case SNumeric(x) => Numeric.toUnscaledString(x)
+      case _: SContractId |  _: STNat | SToken | _: SAny | _: SAnyException |
+           _: SBuiltinException | _: SEnum | _: SList | _: SMap | _: SOptional | _: SPAP |
+           _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
+        crash(s"litToText: unexpected $x")
     }
-  }
+
+  final case object SBToText extends SBuiltinPure(1) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+      SText(litToText(args.get(0)))
 
   final case object SBToTextContractId extends SBuiltin(1) {
     override private[speedy] final def execute(
