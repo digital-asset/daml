@@ -63,7 +63,7 @@ object ParallelIndexerFactory {
           connectionTimeout = FiniteDuration(
             250,
             "millis",
-          ), // TODO append-only: verify why would we need here a timeout, in this case (amount of parallelism aligned) it should not happen by design
+          ), // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
           metrics = metrics,
           connectionAsyncCommitMode = DbType.AsynchronousCommit,
         )
