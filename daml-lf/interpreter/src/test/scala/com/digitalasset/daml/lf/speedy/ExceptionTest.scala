@@ -13,7 +13,7 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SError.DamlEUnhandledException
-import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SValue.SUnit
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.Validation
