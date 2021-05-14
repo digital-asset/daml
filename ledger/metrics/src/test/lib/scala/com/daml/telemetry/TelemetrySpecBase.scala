@@ -3,16 +3,17 @@
 
 package com.daml.telemetry
 
+import io.opentelemetry.api.trace.{Span, Tracer}
 import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter
 import io.opentelemetry.sdk.trace.SdkTracerProvider
 import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
+import org.scalatest.{BeforeAndAfterEach, Suite}
 
 import scala.jdk.CollectionConverters._
 
-trait TelemetrySpecBase {
+trait TelemetrySpecBase extends BeforeAndAfterEach { self: Suite =>
 
-  protected val anInstrumentationName: String = this.getClass.getCanonicalName
   protected val aSpanName = "aSpan"
   protected val anApplicationIdSpanAttribute: (SpanAttribute, String) =
     SpanAttribute.ApplicationId -> "anApplicationId"
@@ -20,12 +21,23 @@ trait TelemetrySpecBase {
     SpanAttribute.CommandId -> "aCommandId"
 
   protected val spanExporter: InMemorySpanExporter = InMemorySpanExporter.create
-  protected val tracerProvider: SdkTracerProvider = SdkTracerProvider
-    .builder()
-    .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
-    .build()
+  protected val tracer: Tracer = {
+    val tracerProvider = SdkTracerProvider
+      .builder()
+      .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
+      .build()
+    val anInstrumentationName = this.getClass.getCanonicalName
+    tracerProvider.get(anInstrumentationName)
+  }
 
-  protected object TestTelemetry extends DefaultTelemetry(tracerProvider.get(anInstrumentationName))
+  override protected def afterEach(): Unit = {
+    spanExporter.reset()
+    super.afterEach()
+  }
+
+  protected def anEmptySpan(): Span = tracer.spanBuilder(aSpanName).startSpan()
+
+  protected object TestTelemetry extends DefaultTelemetry(tracer)
 
   protected implicit class RichInMemorySpanExporter(exporter: InMemorySpanExporter) {
     def finishedSpanAttributes: Map[SpanAttribute, String] = finishedSpansToAttributes { spanData =>
