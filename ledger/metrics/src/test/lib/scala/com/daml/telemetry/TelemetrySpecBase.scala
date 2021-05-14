@@ -22,7 +22,7 @@ trait TelemetrySpecBase extends BeforeAndAfterEach { self: Suite =>
 
   protected val spanExporter: InMemorySpanExporter = InMemorySpanExporter.create
   protected val tracer: Tracer = {
-    val tracerProvider: SdkTracerProvider = SdkTracerProvider
+    val tracerProvider = SdkTracerProvider
       .builder()
       .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
       .build()
