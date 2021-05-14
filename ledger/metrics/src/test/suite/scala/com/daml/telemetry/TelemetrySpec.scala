@@ -6,34 +6,29 @@ package com.daml.telemetry
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.context.Context
 import io.opentelemetry.semconv.trace.attributes.SemanticAttributes
+import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AsyncWordSpecLike
-import org.scalatest.{Assertion, BeforeAndAfterEach}
+import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 import scala.util.Try
 
-class TelemetrySpec
-    extends TelemetrySpecBase
-    with AsyncWordSpecLike
-    with BeforeAndAfterEach
-    with Matchers {
+class TelemetrySpec extends AsyncWordSpec with TelemetrySpecBase with Matchers {
 
   import TelemetrySpec._
 
-  override protected def afterEach(): Unit = spanExporter.reset()
-
   "contextFromGrpcThreadLocalContext" should {
     "return a context" in {
-      val tracer = tracerProvider.get(anInstrumentationName)
-      tracer
-        .spanBuilder(aSpanName)
-        .setAttribute("existingKey", "existingValue")
-        .startSpan()
-        .makeCurrent()
-      val context = DefaultTelemetry.contextFromGrpcThreadLocalContext()
-      context.setAttribute(anApplicationIdSpanAttribute._1, anApplicationIdSpanAttribute._2)
-      Span.current.end()
+      val span = anEmptySpan()
+      span.setAttribute("existingKey", "existingValue")
+      val scope = span.makeCurrent()
+      try {
+        val context = DefaultTelemetry.contextFromGrpcThreadLocalContext()
+        context.setAttribute(anApplicationIdSpanAttribute._1, anApplicationIdSpanAttribute._2)
+      } finally {
+        scope.close()
+        span.end()
+      }
 
       val attributes = spanExporter.finishedSpanAttributes
       attributes should contain(SpanAttribute("existingKey") -> "existingValue")
@@ -47,8 +42,7 @@ class TelemetrySpec
 
   "contextFromMetadata" should {
     "return an extracted context" in {
-      val tracer = tracerProvider.get(anInstrumentationName)
-      val span = tracer.spanBuilder(aSpanName).startSpan()
+      val span = anEmptySpan()
       val metadata = DefaultTelemetryContext(tracer, span).encodeMetadata()
 
       val context = DefaultTelemetry.contextFromMetadata(Some(metadata))
@@ -69,8 +63,7 @@ class TelemetrySpec
 
   "contextFromOpenTelemetryContext" should {
     "return a raw Open Telemetry Context" in {
-      val tracer = tracerProvider.get(anInstrumentationName)
-      val span = tracer.spanBuilder(aSpanName).startSpan()
+      val span = anEmptySpan()
       val openTelemetryContext = Context.current.`with`(span)
 
       val context = DefaultTelemetry.contextFromOpenTelemetryContext(openTelemetryContext)
