@@ -7,7 +7,6 @@ import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
 import akka.util.Timeout
 import com.daml.ledger.api.benchtool.Config
 import com.daml.ledger.api.benchtool.metrics.{
-  Creator,
   Metric,
   MetricalStreamObserver,
   MetricsManager,
@@ -25,11 +24,13 @@ import com.daml.ledger.api.v1.value.Identifier
 import io.grpc.Channel
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
 final class TransactionService(
     channel: Channel,
+    implicit val system: ActorSystem[SpawnProtocol.Command], //TODO: abstract over this
     ledgerId: String,
     reportingPeriod: FiniteDuration,
 ) {
@@ -37,10 +38,8 @@ final class TransactionService(
   private val service: TransactionServiceGrpc.TransactionServiceStub =
     TransactionServiceGrpc.stub(channel)
 
-  implicit val system: ActorSystem[SpawnProtocol.Command] = ActorSystem(Creator(), "Creator")
-  implicit val ec: ExecutionContext = system.executionContext
+  // TODO: move this to the abstraction ^^^
   implicit val timeout: Timeout = Timeout(3.seconds)
-
   import akka.actor.typed.scaladsl.AskPattern._
 
   def transactions(config: Config.StreamConfig): Future[Unit] = {

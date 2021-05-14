@@ -3,7 +3,10 @@
 
 package com.daml.ledger.api.benchtool
 
+import akka.actor.typed.{ActorSystem, SpawnProtocol}
+import com.daml.ledger.api.benchtool.metrics.Creator
 import com.daml.ledger.api.benchtool.services.{LedgerIdentityService, TransactionService}
+import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
@@ -37,15 +40,17 @@ object LedgerApiBenchTool {
 
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
-    val channel = for {
+    val resources = for {
       executorService <- threadPoolExecutorOwner(config.concurrency)
       channel <- channelOwner(config.ledger, executorService)
-    } yield channel
+      system <- actorSystemResourceOwner()
+    } yield (channel, system)
 
-    channel.use { channel =>
+    resources.use { case (channel, system) =>
       val ledgerIdentityService: LedgerIdentityService = new LedgerIdentityService(channel)
       val ledgerId: String = ledgerIdentityService.fetchLedgerId()
-      val transactionService = new TransactionService(channel, ledgerId, config.reportingPeriod)
+      val transactionService =
+        new TransactionService(channel, system, ledgerId, config.reportingPeriod)
       Future
         .traverse(config.streams) { streamConfig =>
           streamConfig.streamType match {
@@ -72,6 +77,11 @@ object LedgerApiBenchTool {
 
     ResourceOwner.forChannel(channelBuilder, ShutdownTimeout)
   }
+
+  private def actorSystemResourceOwner(): ResourceOwner[ActorSystem[SpawnProtocol.Command]] =
+    new TypedActorSystemResourceOwner[SpawnProtocol.Command](() =>
+      ActorSystem(Creator(), "Creator")
+    )
 
   private def threadPoolExecutorOwner(
       config: Config.Concurrency
