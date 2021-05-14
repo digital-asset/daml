@@ -12,10 +12,9 @@ import akka.stream.{KillSwitch, KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.{InstrumentedSource, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.parallel.AsyncSupport._
-import com.daml.platform.indexer.parallel.PerfSupport._
 import com.daml.platform.indexer.{IndexFeedHandle, Indexer}
 import com.daml.platform.store.{DbType, backend}
 import com.daml.platform.store.appendonlydao.{DbDispatcher, JdbcLedgerDao}
@@ -91,11 +90,13 @@ object ParallelIndexerFactory {
               tailingRateLimitPerSecond = tailingRateLimitPerSecond,
               ingestTail = ingestTail[DB_BATCH](storageBackend.updateParams, dbDispatcher, metrics),
             )(
-              instrumentedBufferedSource(
-                original = source,
-                counter = metrics.daml.parallelIndexer.inputBufferLength,
-                size = 200, // TODO append-only: maybe make it configurable
-              ).map(_ -> System.nanoTime())
+              InstrumentedSource
+                .bufferedSource(
+                  original = source,
+                  counter = metrics.daml.parallelIndexer.inputBufferLength,
+                  size = 200, // TODO append-only: maybe make it configurable
+                )
+                .map(_ -> System.nanoTime())
             ).map(_ => ())
 
       def subscribe(readService: ReadService): Future[Source[Unit, NotUsed]] =
