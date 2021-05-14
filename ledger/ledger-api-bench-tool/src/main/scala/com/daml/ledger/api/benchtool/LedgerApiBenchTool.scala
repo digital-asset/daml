@@ -4,9 +4,13 @@
 package com.daml.ledger.api.benchtool
 
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
-import com.daml.ledger.api.benchtool.metrics.{Creator, TransactionMetrics}
+import com.daml.ledger.api.benchtool.metrics.{Creator, MetricalStreamObserver, TransactionMetrics}
 import com.daml.ledger.api.benchtool.services.{LedgerIdentityService, TransactionService}
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
+import com.daml.ledger.api.v1.transaction_service.{
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
@@ -19,8 +23,8 @@ import java.util.concurrent.{
   ThreadPoolExecutor,
   TimeUnit,
 }
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 object LedgerApiBenchTool {
   def main(args: Array[String]): Unit = {
@@ -57,13 +61,25 @@ object LedgerApiBenchTool {
               TransactionMetrics
                 .transactionsMetricsManager(streamConfig.name, config.reportingPeriod)(system)
                 .flatMap { manager =>
-                  transactionService.transactions(streamConfig, manager)
+                  val observer: MetricalStreamObserver[GetTransactionsResponse] =
+                    new MetricalStreamObserver[GetTransactionsResponse](
+                      streamConfig.name,
+                      logger,
+                      manager,
+                    )
+                  transactionService.transactions(streamConfig, observer)
                 }
             case Config.StreamConfig.StreamType.TransactionTrees =>
               TransactionMetrics
                 .transactionTreesMetricsManager(streamConfig.name, config.reportingPeriod)(system)
                 .flatMap { manager =>
-                  transactionService.transactionTrees(streamConfig, manager)
+                  val observer =
+                    new MetricalStreamObserver[GetTransactionTreesResponse](
+                      streamConfig.name,
+                      logger,
+                      manager,
+                    )
+                  transactionService.transactionTrees(streamConfig, observer)
                 }
           }
         }

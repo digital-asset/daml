@@ -3,9 +3,8 @@
 
 package com.daml.ledger.api.benchtool.services
 
-import akka.actor.typed.ActorRef
 import com.daml.ledger.api.benchtool.Config
-import com.daml.ledger.api.benchtool.metrics.{MetricalStreamObserver, MetricsManager}
+import com.daml.ledger.api.benchtool.metrics.ObserverWithResult
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
@@ -30,12 +29,9 @@ final class TransactionService(
 
   def transactions(
       config: Config.StreamConfig,
-      manager: ActorRef[MetricsManager.Message[GetTransactionsResponse]],
+      observer: ObserverWithResult[GetTransactionsResponse],
   ): Future[Unit] = {
     val request = getTransactionsRequest(ledgerId, config)
-
-    val observer =
-      new MetricalStreamObserver[GetTransactionsResponse](config.name, logger, manager)
     service.getTransactions(request, observer)
     logger.info("Started fetching transactions")
     observer.result
@@ -43,12 +39,9 @@ final class TransactionService(
 
   def transactionTrees(
       config: Config.StreamConfig,
-      manager: ActorRef[MetricsManager.Message[GetTransactionTreesResponse]],
+      observer: ObserverWithResult[GetTransactionTreesResponse],
   ): Future[Unit] = {
     val request = getTransactionsRequest(ledgerId, config)
-
-    val observer =
-      new MetricalStreamObserver[GetTransactionTreesResponse](config.name, logger, manager)
     service.getTransactionTrees(request, observer)
     logger.info("Started fetching transaction trees")
     observer.result
