@@ -222,52 +222,45 @@ private[lf] object SBuiltin {
   // Arithmetic
   //
 
-  private[this] def add(x: Long, y: Long): Long =
+  private[this] def handleArithmeticException[X](x: => X): Option[X] =
     try {
-      Math.addExact(x, y)
+      Some(x)
     } catch {
       case _: ArithmeticException =>
-        throw DamlEArithmeticError(s"Int64 overflow when adding $y to $x.")
+        None
     }
 
-  private[this] def div(x: Long, y: Long): Long =
-    if (y == 0)
-      throw DamlEArithmeticError(s"Attempt to divide $x by 0.")
-    else if (x == Long.MinValue && y == -1)
-      throw DamlEArithmeticError(s"Int64 overflow when dividing $x by $y.")
+  private[this] def add(x: Long, y: Long): Option[Long] =
+    handleArithmeticException(Math.addExact(x, y))
+
+  private[this] def div(x: Long, y: Long): Option[Long] =
+    if (y == 0 || x == Long.MinValue && y == -1)
+      None
     else
-      x / y
+      Some(x / y)
 
-  private[this] def mult(x: Long, y: Long): Long =
-    try {
-      Math.multiplyExact(x, y)
-    } catch {
-      case _: ArithmeticException =>
-        throw DamlEArithmeticError(s"Int64 overflow when multiplying $x by $y.")
-    }
+  private[this] def mult(x: Long, y: Long): Option[Long] =
+    handleArithmeticException(Math.multiplyExact(x, y))
 
-  private[this] def sub(x: Long, y: Long): Long =
-    try {
-      Math.subtractExact(x, y)
-    } catch {
-      case _: ArithmeticException =>
-        throw DamlEArithmeticError(s"Int64 overflow when subtracting $y from $x.")
-    }
+  private[this] def sub(x: Long, y: Long): Option[Long] =
+    handleArithmeticException(Math.subtractExact(x, y))
 
-  private[this] def mod(x: Long, y: Long): Long =
+  private[this] def mod(x: Long, y: Long): Option[Long] =
     if (y == 0)
-      throw DamlEArithmeticError(s"Attempt to compute $x modulo 0.")
+      None
     else
-      x % y
+      Some(x % y)
+
+  private[this] val SomeOne = Some(1L)
 
   // Exponentiation by squaring
   // https://en.wikipedia.org/wiki/Exponentiation_by_squaring
-  private[this] def exp(base: Long, exponent: Long): Long =
+  private[this] def exp(base: Long, exponent: Long): Option[Long] =
     if (exponent < 0)
-      throw DamlEArithmeticError(s"Attempt to raise $base to the negative exponent $exponent.")
-    else if (exponent == 0) 1
+      None
+    else if (exponent == 0) SomeOne
     else
-      try {
+      handleArithmeticException {
         var x = base
         var y = 1L
         var n = exponent
@@ -280,107 +273,91 @@ private[lf] object SBuiltin {
         }
 
         Math.multiplyExact(x, y)
-      } catch {
-        case _: ArithmeticException =>
-          throw DamlEArithmeticError(
-            s"Int64 overflow when raising $base to the exponent $exponent."
-          )
       }
 
-  sealed abstract class SBBinaryOpInt64(op: (Long, Long) => Long) extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
-      SInt64(op(getSInt64(args, 0), getSInt64(args, 1)))
+  sealed abstract class SBBuiltinArithmetic(name: String, arity: Int) extends SBuiltinPure(arity) {
+    private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue]
+
+    override private[speedy] def executePure(args: util.ArrayList[SValue]) =
+      compute(args).getOrElse(
+        throw DamlEArithmeticError(name, args.iterator().asScala.map(litToText).to(ImmArray))
+      )
   }
 
-  final case object SBAddInt64 extends SBBinaryOpInt64(add)
-  final case object SBSubInt64 extends SBBinaryOpInt64(sub)
-  final case object SBMulInt64 extends SBBinaryOpInt64(mult)
-  final case object SBDivInt64 extends SBBinaryOpInt64(div)
-  final case object SBModInt64 extends SBBinaryOpInt64(mod)
-  final case object SBExpInt64 extends SBBinaryOpInt64(exp)
+  sealed abstract class SBBinaryOpInt64(name: String, op: (Long, Long) => Option[Long])
+      extends SBBuiltinArithmetic(name, 2) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue] =
+      op(getSInt64(args, 0), getSInt64(args, 1)).map(SInt64)
+  }
+
+  final case object SBAddInt64 extends SBBinaryOpInt64("ADD_INT64", add)
+  final case object SBSubInt64 extends SBBinaryOpInt64("SUB_INT64", sub)
+  final case object SBMulInt64 extends SBBinaryOpInt64("MUL_INT64", mult)
+  final case object SBDivInt64 extends SBBinaryOpInt64("DIV_INT64", div)
+  final case object SBModInt64 extends SBBinaryOpInt64("MOD_INT64", mod)
+  final case object SBExpInt64 extends SBBinaryOpInt64("EXP_INT64", exp)
 
   // Numeric Arithmetic
 
-  private[this] def add(x: Numeric, y: Numeric): Numeric =
-    rightOrArithmeticError(
-      s"(Numeric ${x.scale}) overflow when adding ${Numeric.toString(y)} to ${Numeric.toString(x)}.",
-      Numeric.add(x, y),
-    )
+  private[this] def add(x: Numeric, y: Numeric): Option[Numeric] =
+    Numeric.add(x, y).toOption
 
-  private[this] def subtract(x: Numeric, y: Numeric): Numeric =
-    rightOrArithmeticError(
-      s"(Numeric ${x.scale}) overflow when subtracting ${Numeric.toString(y)} from ${Numeric.toString(x)}.",
-      Numeric.subtract(x, y),
-    )
+  private[this] def subtract(x: Numeric, y: Numeric): Option[Numeric] =
+    Numeric.subtract(x, y).toOption
 
-  private[this] def multiply(scale: Scale, x: Numeric, y: Numeric): Numeric =
-    rightOrArithmeticError(
-      s"(Numeric $scale) overflow when multiplying ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
-      Numeric.multiply(scale, x, y),
-    )
+  private[this] def multiply(scale: Scale, x: Numeric, y: Numeric): Option[Numeric] =
+    Numeric.multiply(scale, x, y).toOption
 
-  private[this] def divide(scale: Scale, x: Numeric, y: Numeric): Numeric =
+  private[this] def divide(scale: Scale, x: Numeric, y: Numeric): Option[Numeric] =
     if (y.signum() == 0)
-      throw DamlEArithmeticError(
-        s"Attempt to divide ${Numeric.toString(x)} by ${Numeric.toString(y)}."
-      )
+      None
     else
-      rightOrArithmeticError(
-        s"(Numeric $scale) overflow when dividing ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
-        Numeric.divide(scale, x, y),
-      )
+      Numeric.divide(scale, x, y).toOption
 
-  sealed abstract class SBBinaryOpNumeric(op: (Numeric, Numeric) => Numeric)
-      extends SBuiltinPure(3) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+  sealed abstract class SBBinaryOpNumeric(name: String, op: (Numeric, Numeric) => Option[Numeric])
+      extends SBBuiltinArithmetic(name, 3) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue] = {
       val scale = getSTNat(args, 0)
       val a = getSNumeric(args, 1)
       val b = getSNumeric(args, 2)
       assert(a.scale == scale && b.scale == scale)
-      SNumeric(op(a, b))
+      op(a, b).map(SNumeric)
     }
   }
 
-  sealed abstract class SBBinaryOpNumeric2(op: (Scale, Numeric, Numeric) => Numeric)
-      extends SBuiltinPure(5) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+  sealed abstract class SBBinaryOpNumeric2(
+      name: String,
+      op: (Scale, Numeric, Numeric) => Option[Numeric],
+  ) extends SBBuiltinArithmetic(name, 5) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue] = {
       val scaleA = getSTNat(args, 0)
       val scaleB = getSTNat(args, 1)
       val scale = getSTNat(args, 2)
       val a = getSNumeric(args, 3)
       val b = getSNumeric(args, 4)
       assert(a.scale == scaleA && b.scale == scaleB)
-      SNumeric(op(scale, a, b))
+      op(scale, a, b).map(SNumeric)
     }
   }
 
-  final case object SBAddNumeric extends SBBinaryOpNumeric(add)
-  final case object SBSubNumeric extends SBBinaryOpNumeric(subtract)
-  final case object SBMulNumeric extends SBBinaryOpNumeric2(multiply)
-  final case object SBDivNumeric extends SBBinaryOpNumeric2(divide)
+  final case object SBAddNumeric extends SBBinaryOpNumeric("ADD_NUMERIC", add)
+  final case object SBSubNumeric extends SBBinaryOpNumeric("SUB_NUMERIC", subtract)
+  final case object SBMulNumeric extends SBBinaryOpNumeric2("MUL_NUMERIC", multiply)
+  final case object SBDivNumeric extends SBBinaryOpNumeric2("DIV_NUMERIC", divide)
 
-  final case object SBRoundNumeric extends SBuiltinPure(3) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      val scale = getSTNat(args, 0)
+  final case object SBRoundNumeric extends SBBuiltinArithmetic("ROUND_NUMERIC", 3) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
       val prec = getSInt64(args, 1)
       val x = getSNumeric(args, 2)
-      SNumeric(
-        rightOrArithmeticError(s"Error while rounding (Numeric $scale)", Numeric.round(prec, x))
-      )
+      Numeric.round(prec, x).toOption.map(SNumeric)
     }
   }
 
-  final case object SBCastNumeric extends SBuiltinPure(3) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      val inputScale = getSTNat(args, 0)
+  final case object SBCastNumeric extends SBBuiltinArithmetic("CAST_NUMERIC", 3) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
       val outputScale = getSTNat(args, 1)
       val x = getSNumeric(args, 2)
-      SNumeric(
-        rightOrArithmeticError(
-          s"Error while casting (Numeric $inputScale) to (Numeric $outputScale)",
-          Numeric.fromBigDecimal(outputScale, x),
-        )
-      )
+      Numeric.fromBigDecimal(outputScale, x).toOption.map(SNumeric)
     }
   }
 
@@ -390,10 +367,7 @@ private[lf] object SBuiltin {
       val outputScale = getSTNat(args, 1)
       val x = getSNumeric(args, 2)
       SNumeric(
-        rightOrArithmeticError(
-          s"Error while shifting (Numeric $inputScale) to (Numeric $outputScale)",
-          Numeric.fromBigDecimal(outputScale, x.scaleByPowerOfTen(inputScale - outputScale)),
-        )
+        Numeric.assertFromBigDecimal(outputScale, x.scaleByPowerOfTen(inputScale - outputScale))
       )
     }
   }
@@ -438,9 +412,10 @@ private[lf] object SBuiltin {
       case SDate(date) => date.toString
       case SBigNumeric(x) => Numeric.toUnscaledString(x)
       case SNumeric(x) => Numeric.toUnscaledString(x)
-      case _: SContractId | _: STNat | SToken | _: SAny | _: SAnyException | _: SBuiltinException |
-          _: SEnum | _: SList | _: SMap | _: SOptional | _: SPAP | _: SRecord | _: SStruct |
-          _: STypeRep | _: SVariant =>
+      case STNat(n) => s"@$n"
+      case _: SContractId | SToken | _: SAny | _: SAnyException | _: SBuiltinException | _: SEnum |
+          _: SList | _: SMap | _: SOptional | _: SPAP | _: SRecord | _: SStruct | _: STypeRep |
+          _: SVariant =>
         crash(s"litToText: unexpected $x")
     }
 
@@ -655,28 +630,18 @@ private[lf] object SBuiltin {
   // Conversions
   //
 
-  final case object SBInt64ToNumeric extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+  final case object SBInt64ToNumeric extends SBBuiltinArithmetic("INT64_TO_NUMERIC", 2) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
       val scale = getSTNat(args, 0)
       val x = getSInt64(args, 1)
-      SNumeric(
-        rightOrArithmeticError(
-          s"overflow when converting $x to (Numeric $scale)",
-          Numeric.fromLong(scale, x),
-        )
-      )
+      Numeric.fromLong(scale, x).toOption.map(SNumeric)
     }
   }
 
-  final case object SBNumericToInt64 extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+  final case object SBNumericToInt64 extends SBBuiltinArithmetic("NUMERIC_TO_INT64", 2) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SInt64] = {
       val x = getSNumeric(args, 1)
-      SInt64(
-        rightOrArithmeticError(
-          s"Int64 overflow when converting ${Numeric.toString(x)} to Int64",
-          Numeric.toLong(x),
-        )
-      )
+      Numeric.toLong(x).toOption.map(SInt64)
     }
   }
 
@@ -685,15 +650,10 @@ private[lf] object SBuiltin {
       SInt64(getSDate(args, 0).days.toLong)
   }
 
-  final case object SBUnixDaysToDate extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+  final case object SBUnixDaysToDate extends SBBuiltinArithmetic("UNIX_DAYS_TO_DATE", 1) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SDate] = {
       val days = getSInt64(args, 0)
-      SDate(
-        rightOrArithmeticError(
-          s"Could not convert Int64 $days to Date.",
-          Time.Date.asInt(days) flatMap Time.Date.fromDaysSinceEpoch,
-        )
-      )
+      Time.Date.asInt(days).flatMap(Time.Date.fromDaysSinceEpoch).toOption.map(SDate)
     }
   }
 
@@ -702,15 +662,11 @@ private[lf] object SBuiltin {
       SInt64(getSTimeStamp(args, 0).micros)
   }
 
-  final case object SBUnixMicrosecondsToTimestamp extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+  final case object SBUnixMicrosecondsToTimestamp
+      extends SBBuiltinArithmetic("UNIX_MICROSECONDS_TO_TIMESTAMP", 1) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[STimestamp] = {
       val micros = getSInt64(args, 0)
-      STimestamp(
-        rightOrArithmeticError(
-          s"Could not convert Int64 $micros to Timestamp.",
-          Time.Timestamp.fromLong(micros),
-        )
-      )
+      Time.Timestamp.fromLong(micros).toOption.map(STimestamp)
     }
   }
 
@@ -870,75 +826,71 @@ private[lf] object SBuiltin {
     }
   }
 
-  final object SBAddBigNumeric extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
+  final object SBAddBigNumeric extends SBBuiltinArithmetic("ADD_BIGNUMERIC", 2) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SBigNumeric] = {
       val x = getSBigNumeric(args, 0)
       val y = getSBigNumeric(args, 1)
-      rightOrArithmeticError("overflow/underflow", SBigNumeric.fromBigDecimal(x add y))
+      SBigNumeric.fromBigDecimal(x add y).toOption
     }
   }
 
-  final object SBSubBigNumeric extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
+  final object SBSubBigNumeric extends SBBuiltinArithmetic("SUB_BIGNUMERIC", 2) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SBigNumeric] = {
       val x = getSBigNumeric(args, 0)
       val y = getSBigNumeric(args, 1)
-      rightOrArithmeticError("overflow/underflow", SBigNumeric.fromBigDecimal(x subtract y))
+      SBigNumeric.fromBigDecimal(x subtract y).toOption
     }
   }
 
-  final object SBMulBigNumeric extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
+  final object SBMulBigNumeric extends SBBuiltinArithmetic("MUL_BIGNUMERIC", 2) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SBigNumeric] = {
       val x = getSBigNumeric(args, 0)
       val y = getSBigNumeric(args, 1)
-      rightOrArithmeticError("overflow/underflow", SBigNumeric.fromBigDecimal(x multiply y))
+      SBigNumeric.fromBigDecimal(x multiply y).toOption
     }
   }
 
-  final object SBDivBigNumeric extends SBuiltinPure(4) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
-      val scale = rightOrCrash(SBigNumeric.checkScale(getSInt64(args, 0)))
-      val roundingMode = java.math.RoundingMode.valueOf(getSInt64(args, 1).toInt)
+  final object SBDivBigNumeric extends SBBuiltinArithmetic("DIV_BIGNUMERIC", 4) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SBigNumeric] = {
+      val unchekedScale = getSInt64(args, 0)
+      val unchekedRoundingMode = getSInt64(args, 1)
       val x = getSBigNumeric(args, 2)
       val y = getSBigNumeric(args, 3)
-      val result =
-        try {
-          x.divide(y, scale, roundingMode)
-        } catch {
-          case e: ArithmeticException =>
-            throw DamlEArithmeticError(e.getMessage)
-        }
-      rightOrArithmeticError("overflow/underflow", SBigNumeric.fromBigDecimal(result))
+      for {
+        scale <- SBigNumeric.checkScale(unchekedScale).toOption
+        roundingModeIndex <- scala.util.Try(Math.toIntExact(unchekedRoundingMode)).toOption
+        roundingMode <- java.math.RoundingMode.values().lift(roundingModeIndex)
+        uncheckedResult <- handleArithmeticException(x.divide(y, scale, roundingMode))
+        result <- SBigNumeric.fromBigDecimal(uncheckedResult).toOption
+      } yield result
     }
   }
 
-  final object SBShiftRightBigNumeric extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
+  final object SBShiftRightBigNumeric extends SBBuiltinArithmetic("SHIFT_RIGHT_BIGNUMERIC", 2) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SBigNumeric] = {
       val shifting = getSInt64(args, 0)
       val x = getSBigNumeric(args, 1)
       if (x.signum() == 0)
-        SBigNumeric.Zero
+        Some(SBigNumeric.Zero)
       else if (shifting.abs > SBigNumeric.MaxPrecision)
-        throw DamlEArithmeticError("overflow/underflow")
+        None
       else
-        rightOrArithmeticError(
-          "overflow/underflow",
-          SBigNumeric.fromBigDecimal(x.scaleByPowerOfTen(-shifting.toInt)),
-        )
+        SBigNumeric.fromBigDecimal(x.scaleByPowerOfTen(-shifting.toInt)).toOption
     }
   }
 
   final object SBToBigNumericNumeric extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
-      SBigNumeric.fromNumeric(getSNumeric(args, 1))
+      val x = getSNumeric(args, 1)
+      SBigNumeric.fromNumeric(x)
     }
   }
 
-  final object SBToNumericBigNumeric extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SNumeric = {
-      rightOrArithmeticError(
-        "overflow/underflow",
-        Numeric.fromBigDecimal(getSTNat(args, 0), getSBigNumeric(args, 1)).map(SNumeric),
-      )
+  final object SBToNumericBigNumeric extends SBBuiltinArithmetic("TO_NUMERIC_BIGNUMERIC", 2) {
+    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
+      val scale = getSTNat(args, 0)
+      val x = getSBigNumeric(args, 1)
+      Numeric.fromBigDecimal(scale, x).toOption.map(SNumeric)
     }
   }
 
@@ -1995,9 +1947,6 @@ private[lf] object SBuiltin {
         )
       case _ => crash(s"Invalid cached contract: $v")
     }
-
-  private[this] def rightOrArithmeticError[A](message: => String, mb: Either[String, A]): A =
-    mb.fold(_ => throw DamlEArithmeticError(s"$message"), identity)
 
   private[this] def rightOrCrash[A](either: Either[String, A]) =
     either.fold(crash, identity)

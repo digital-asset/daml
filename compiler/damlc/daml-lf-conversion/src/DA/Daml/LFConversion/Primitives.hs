@@ -278,9 +278,9 @@ convertPrim version "BEMulBigNumeric" ty@(TBigNumeric :-> TBigNumeric :-> TBigNu
 convertPrim version "BEDivBigNumeric" ty@(TInt64 :-> TRoundingMode :-> TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
     whenRuntimeSupports version featureBigNumeric ty $
       EBuiltin BEDivBigNumeric
-convertPrim version "BEShiftBigNumeric" ty@(TInt64 :-> TBigNumeric :-> TBigNumeric) =
+convertPrim version "BEShiftRightBigNumeric" ty@(TInt64 :-> TBigNumeric :-> TBigNumeric) =
     whenRuntimeSupports version featureBigNumeric ty $
-      EBuiltin BEShiftBigNumeric
+      EBuiltin BEShiftRightBigNumeric
 convertPrim version "BEFromNumericBigNumeric" ty@(TNumeric n :-> TBigNumeric) =
     whenRuntimeSupports version featureBigNumeric ty $
       EBuiltin BEFromNumericBigNumeric `ETyApp` n

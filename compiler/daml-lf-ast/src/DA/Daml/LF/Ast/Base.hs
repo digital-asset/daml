@@ -350,7 +350,7 @@ data BuiltinExpr
   | BESubBigNumeric              -- :: BigNumeric -> BigNumeric -> BigNumeric
   | BEMulBigNumeric              -- :: BigNumeric -> BigNumeric -> BigNumeric
   | BEDivBigNumeric              -- :: Int64 -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric
-  | BEShiftBigNumeric            -- :: Int64 -> BigNumeric -> BigNumeric
+  | BEShiftRightBigNumeric            -- :: Int64 -> BigNumeric -> BigNumeric
   | BEToNumericBigNumeric        -- :: ∀(s:nat). BigNumeric -> Numeric s
   | BEFromNumericBigNumeric      -- :: ∀(s:nat). Numeric s -> BigNumeric
   | BEToTextBigNumeric           -- :: BigNumeric -> Text

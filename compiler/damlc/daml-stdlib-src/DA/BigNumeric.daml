@@ -84,7 +84,7 @@ round scale rounding x = div scale rounding x 1.0
 -- 0.32
 -- ```
 shiftRight : Int -> BigNumeric -> BigNumeric
-shiftRight = primitive @"BEShiftBigNumeric"
+shiftRight = primitive @"BEShiftRightBigNumeric"
 
 -- | Shift a `BigNumeric` number to the left by a power of 10. The value
 -- `shiftLeft n a` is the value of `a` times `10^n`.

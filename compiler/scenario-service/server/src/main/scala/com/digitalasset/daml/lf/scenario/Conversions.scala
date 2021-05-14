@@ -85,8 +85,8 @@ final class Conversions(
 
       case SError.DamlEMatchError(reason) =>
         setCrash(reason)
-      case SError.DamlEArithmeticError(reason) =>
-        setCrash(reason)
+      case err: SError.DamlEArithmeticError =>
+        setCrash(err.toString)
       case SError.DamlEUnhandledException(exc) =>
         exc match {
           case SValue.SAnyException(_, sValue) =>
