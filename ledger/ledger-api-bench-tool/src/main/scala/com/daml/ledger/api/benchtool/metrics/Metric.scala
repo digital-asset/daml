@@ -20,7 +20,6 @@ trait Metric[T] {
 
 }
 
-// TODO: add thread safety
 object Metric {
   private def rounded(value: Double): String = "%.2f".format(value)
 

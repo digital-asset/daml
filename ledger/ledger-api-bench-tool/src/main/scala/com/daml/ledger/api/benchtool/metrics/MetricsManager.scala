@@ -5,57 +5,57 @@ package com.daml.ledger.api.benchtool.metrics
 
 import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}
 import akka.actor.typed.{Behavior, SpawnProtocol}
-import com.daml.ledger.api.v1.transaction_service.GetTransactionsResponse
 
 import java.time.Instant
 import scala.concurrent.duration._
 
 object MetricsManager {
 
-  sealed trait Message
-  final case class NewValue(value: GetTransactionsResponse) extends Message
-  final case object StreamCompleted extends Message
-  final case object PeriodicUpdateCommand extends Message
+  sealed trait Message[T]
+  object Message {
+    final case class NewValue[T](value: T) extends Message[T]
+    final case class StreamCompleted[T]() extends Message[T]
+    final case class PeriodicUpdateCommand[T]() extends Message[T]
+  }
 
-  def apply(
+  def apply[T](
       streamName: String,
-      metrics: List[Metric[GetTransactionsResponse]],
+      metrics: List[Metric[T]],
       logInterval: FiniteDuration,
-  ): Behavior[Message] =
+  ): Behavior[Message[T]] =
     Behaviors.withTimers(timers =>
-      new MetricsManager(timers, streamName, logInterval, metrics).handlingMessages()
+      new MetricsManager[T](timers, streamName, logInterval, metrics).handlingMessages()
     )
 
 }
 
 // TODO: separate actor for logging?
-class MetricsManager(
-    timers: TimerScheduler[MetricsManager.Message],
+class MetricsManager[T](
+    timers: TimerScheduler[MetricsManager.Message[T]],
     streamName: String,
     logInterval: FiniteDuration,
-    metrics: List[
-      Metric[GetTransactionsResponse]
-    ], //TODO: make this immutable and part of the behavior
+    metrics: List[Metric[T]], //TODO: make this immutable and part of the behavior
 ) {
   import MetricsManager._
+  import MetricsManager.Message._
 
-  timers.startTimerWithFixedDelay(PeriodicUpdateCommand, logInterval)
+  timers.startTimerWithFixedDelay(PeriodicUpdateCommand(), logInterval)
 
   private val startTime: Instant = Instant.now()
 
-  def handlingMessages(): Behavior[Message] = {
+  def handlingMessages(): Behavior[Message[T]] = {
     Behaviors.receive { case (context, message) =>
       message match {
-        case NewValue(value) =>
-          metrics.foreach(_.onNext(value))
+        case newValue: NewValue[T] =>
+          metrics.foreach(_.onNext(newValue.value))
           Behaviors.same
 
-        case PeriodicUpdateCommand =>
+        case _: PeriodicUpdateCommand[T] =>
           val periodicUpdates = metrics.map(_.periodicUpdate())
           context.log.info(namedMessage(periodicUpdates.mkString(", ")))
           Behaviors.same
 
-        case StreamCompleted =>
+        case _: StreamCompleted[T] =>
           context.log.info(namedMessage(summary(totalDurationSeconds)))
           Behaviors.stopped
       }

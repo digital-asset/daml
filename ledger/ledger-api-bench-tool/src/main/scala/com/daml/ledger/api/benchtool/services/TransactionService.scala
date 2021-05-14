@@ -6,12 +6,7 @@ package com.daml.ledger.api.benchtool.services
 import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
 import akka.util.Timeout
 import com.daml.ledger.api.benchtool.Config
-import com.daml.ledger.api.benchtool.metrics.{
-  Metric,
-  MetricalStreamObserver,
-  MetricsManager,
-  TransactionsMetricalStreamObserver,
-}
+import com.daml.ledger.api.benchtool.metrics.{Metric, MetricalStreamObserver, MetricsManager}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
@@ -64,20 +59,22 @@ final class TransactionService(
       ),
     )
 
-    val manager1: Future[ActorRef[MetricsManager.Message]] = system.ask(
+    // TODO: move this to an abstraction
+    val manager: Future[ActorRef[MetricsManager.Message[GetTransactionsResponse]]] = system.ask(
       SpawnProtocol.Spawn(
         behavior = MetricsManager(
           streamName = config.name,
           metrics = metrics,
           logInterval = reportingPeriod,
         ),
-        name = "manager-1",
+        name = s"${config.name}-manager",
         props = Props.empty,
         _,
       )
     )
-    manager1.flatMap { manager =>
-      val observer = new TransactionsMetricalStreamObserver(logger, manager)
+    manager.flatMap { manager =>
+      val observer =
+        new MetricalStreamObserver[GetTransactionsResponse](config.name, logger, manager)
       service.getTransactions(request, observer)
       logger.info("Started fetching transactions")
       observer.result
@@ -106,16 +103,27 @@ final class TransactionService(
           },
         ),
       )
-    val observer =
-      new MetricalStreamObserver[GetTransactionTreesResponse](
-        config.name,
-        reportingPeriod,
-        metrics,
-        logger,
+
+    // TODO: move this to an abstraction
+    val manager: Future[ActorRef[MetricsManager.Message[GetTransactionTreesResponse]]] = system.ask(
+      SpawnProtocol.Spawn(
+        behavior = MetricsManager(
+          streamName = config.name,
+          metrics = metrics,
+          logInterval = reportingPeriod,
+        ),
+        name = s"${config.name}-manager",
+        props = Props.empty,
+        _,
       )
-    service.getTransactionTrees(request, observer)
-    logger.info("Started fetching transaction trees")
-    observer.result
+    )
+    manager.flatMap { manager =>
+      val observer =
+        new MetricalStreamObserver[GetTransactionTreesResponse](config.name, logger, manager)
+      service.getTransactionTrees(request, observer)
+      logger.info("Started fetching transaction trees")
+      observer.result
+    }
   }
 
   private def getTransactionsRequest(
