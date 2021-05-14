@@ -15,8 +15,6 @@ class MetricalStreamObserver[T](
 
   override def onNext(value: T): Unit = {
     metricsManager ! NewValue(value)
-    // TODO: remove sleep
-    Thread.sleep(100)
     super.onNext(value)
   }
 
