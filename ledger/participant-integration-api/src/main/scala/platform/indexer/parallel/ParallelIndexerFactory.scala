@@ -86,7 +86,7 @@ object ParallelIndexerFactory {
               batcher = batcherExecutor.execute(batcher(storageBackend.batch, metrics)),
               ingestingParallelism = ingestionParallelism,
               ingester = ingester(storageBackend.insertBatch, dbDispatcher, metrics),
-              tailer = tailer[DB_BATCH],
+              tailer = tailer(storageBackend.batch(Vector.empty)),
               tailingRateLimitPerSecond = tailingRateLimitPerSecond,
               ingestTail = ingestTail[DB_BATCH](storageBackend.updateParams, dbDispatcher, metrics),
             )(
@@ -225,14 +225,15 @@ object ParallelIndexerFactory {
         batch
       }
 
-  def tailer[DB_BATCH]: (Batch[DB_BATCH], Batch[DB_BATCH]) => Batch[DB_BATCH] =
+  def tailer[DB_BATCH](
+      zeroDbBatch: DB_BATCH
+  ): (Batch[DB_BATCH], Batch[DB_BATCH]) => Batch[DB_BATCH] =
     (prev, curr) =>
       Batch[DB_BATCH](
         lastOffset = curr.lastOffset,
         lastSeqEventId = curr.lastSeqEventId,
         lastConfig = curr.lastConfig.orElse(prev.lastConfig),
-        batch =
-          null.asInstanceOf[DB_BATCH], // not used anymore TODO figure something nicer than ClassCastException upon DB_BATCH is AnyVal
+        batch = zeroDbBatch, // not used anymore
         batchSize = 0, // not used anymore
         averageStartTime = 0, // not used anymore
       )
