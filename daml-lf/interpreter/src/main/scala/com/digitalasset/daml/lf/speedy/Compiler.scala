@@ -84,6 +84,8 @@ private[lf] object Compiler {
   private val SBGreaterEqNumeric = SBCompareNumeric(SBGreaterEq)
   private val SBEqualNumeric = SBCompareNumeric(SBEqual)
 
+  private val SBEToTextNumeric = SEAbs(1, SEBuiltin(SBToText))
+
   private val SENat: Numeric.Scale => Some[SEValue] =
     Numeric.Scale.values.map(n => Some(SEValue(STNat(n))))
 
@@ -476,6 +478,7 @@ private[lf] final class Compiler(
       case BGreaterNumeric => SBGreaterNumeric
       case BGreaterEqNumeric => SBGreaterEqNumeric
       case BEqualNumeric => SBEqualNumeric
+      case BToTextNumeric => SBEToTextNumeric
 
       case BTextMapEmpty => SEValue.EmptyTextMap
       case BGenMapEmpty => SEValue.EmptyGenMap
@@ -514,7 +517,6 @@ private[lf] final class Compiler(
           case BAppendText => SBAppendText
 
           case BToTextInt64 => SBToText
-          case BToTextNumeric => SBToTextNumeric
           case BToTextText => SBToText
           case BToTextTimestamp => SBToText
           case BToTextParty => SBToText
@@ -585,7 +587,7 @@ private[lf] final class Compiler(
           // Implemented using normal SExpr
           case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq |
               BLess | BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
-              BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
+              BGreaterEqNumeric | BEqualNumeric | BToTextNumeric | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
 
           case BAnyExceptionMessage =>
