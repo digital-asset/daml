@@ -3,16 +3,15 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
-import java.time.{Duration, Instant}
-import java.util.concurrent.atomic.AtomicInteger
-import scala.collection.mutable.ListBuffer
 import com.google.protobuf.timestamp.Timestamp
+
+import java.time.{Duration, Instant}
 
 trait Metric[T] {
 
-  def onNext(value: T): Unit
+  def onNext(value: T): Metric[T]
 
-  def periodicUpdate(): String
+  def periodicUpdate(): (Metric[T], String)
 
   def completeInfo(totalDurationSeconds: Double): List[String]
 
@@ -21,122 +20,142 @@ trait Metric[T] {
 }
 
 object Metric {
-  private def rounded(value: Double): String = "%.2f".format(value)
+  case class TransactionCountMetric[T](
+      periodMillis: Long,
+      countingFunction: T => Int,
+      counter: Int = 0,
+      lastCount: Int = 0,
+  ) extends Metric[T] {
 
-  case class TransactionCountMetric[T](periodMillis: Long, countingFunction: T => Int)
-      extends Metric[T] {
-    private val counter = new AtomicInteger()
-    private val lastCount = new AtomicInteger()
+    override def onNext(value: T): TransactionCountMetric[T] =
+      this.copy(counter = counter + countingFunction(value))
 
-    override def onNext(value: T): Unit = {
-      counter.addAndGet(countingFunction(value))
-      ()
+    override def periodicUpdate(): (TransactionCountMetric[T], String) = {
+      val update: String = s"rate: ${rounded(periodicRate)} [tx/s], count: $counter [tx]"
+      val updatedMetric = this.copy(lastCount = counter)
+      (updatedMetric, update)
     }
 
-    override def periodicUpdate(): String = {
-      val count = counter.get()
-      val rate = (count - lastCount.get()) * 1000.0 / periodMillis
-      lastCount.set(counter.get())
-      s"rate: ${rounded(rate)} [tx/s], count: $count [tx]"
-    }
-
-    override def completeInfo(totalDurationSeconds: Double): List[String] = {
-      val count = counter.get()
-      val rate = count * 1000.0 / periodMillis
+    override def completeInfo(totalDurationSeconds: Double): List[String] =
       List(
-        s"rate: ${rounded(rate)} [tx/s]",
-        s"count: $count [tx]",
+        s"rate: ${rounded(totalRate)} [tx/s]",
+        s"count: $counter [tx]",
       )
-    }
+
+    private def periodicRate: Double = (counter - lastCount) * 1000.0 / periodMillis
+
+    private def totalRate: Double = counter * 1000.0 / periodMillis
   }
 
-  case class TransactionSizeMetric[T](periodMillis: Long, sizingFunction: T => Int)
-      extends Metric[T] {
-    private val currentSizeBucket = new AtomicInteger()
-    private val sizeRateList: ListBuffer[Double] = ListBuffer.empty
+  case class TransactionSizeMetric[T](
+      periodMillis: Long,
+      sizingFunction: T => Int,
+      currentSizeBucket: Long = 0,
+      sizeRateList: List[Double] = List.empty,
+  ) extends Metric[T] {
 
-    override def onNext(value: T): Unit = {
-      currentSizeBucket.addAndGet(sizingFunction(value))
-      ()
+    override def onNext(value: T): TransactionSizeMetric[T] =
+      this.copy(currentSizeBucket = currentSizeBucket + sizingFunction(value))
+
+    override def periodicUpdate(): (TransactionSizeMetric[T], String) = {
+      val sizeRate = periodicSizeRate
+      val update = s"size rate (interval): ${rounded(sizeRate)} [MB/s]"
+      val updatedMetric = this.copy(
+        currentSizeBucket = 0,
+        sizeRateList = sizeRate :: sizeRateList,
+      ) // ok to prepend because the list is used only to calculate mean value
+      (updatedMetric, update)
     }
 
-    override def periodicUpdate(): String = {
-      val sizeRate = currentSizeBucket.get() * 1000.0 / periodMillis / 1024 / 1024
-      sizeRateList += sizeRate
-      currentSizeBucket.set(0)
-      s"size rate (interval): ${rounded(sizeRate)} [MB/s]"
-    }
+    override def completeInfo(totalDurationSeconds: Double): List[String] =
+      List(s"size rate: $totalSizeRate [MB/s]")
 
-    override def completeInfo(totalDurationSeconds: Double): List[String] = {
-      val sizeRate: String =
-        if (sizeRateList.nonEmpty) s"${rounded(sizeRateList.sum / sizeRateList.length)}"
-        else "not available"
-      List(s"size rate: $sizeRate [MB/s]")
-    }
+    private def periodicSizeRate: Double = currentSizeBucket * 1000.0 / periodMillis / 1024 / 1024
+
+    private def totalSizeRate: String =
+      sizeRateList match {
+        case Nil => "not available"
+        case rates => s"${rounded(rates.sum / rates.length)}"
+      }
   }
 
-  case class ConsumptionDelayMetric[T](recordTimeFunction: T => Seq[Timestamp]) extends Metric[T] {
+  case class ConsumptionDelayMetric[T](
+      recordTimeFunction: T => Seq[Timestamp],
+      delaysInCurrentInterval: List[Duration] = List.empty,
+  ) extends Metric[T] {
 
-    private val delaysInCurrentInterval: ListBuffer[Duration] = ListBuffer.empty
-
-    override def onNext(value: T): Unit = {
+    override def onNext(value: T): ConsumptionDelayMetric[T] = {
       val now = Instant.now()
-      recordTimeFunction(value).foreach { recordTime =>
-        val delay = Duration.between(
+      val newDelays: List[Duration] = recordTimeFunction(value).toList.map { recordTime =>
+        Duration.between(
           Instant.ofEpochSecond(recordTime.seconds.toLong, recordTime.nanos.toLong),
           now,
         )
-        delaysInCurrentInterval.append(delay)
       }
+      this.copy(delaysInCurrentInterval = delaysInCurrentInterval ::: newDelays)
     }
 
-    override def periodicUpdate(): String = {
-      val meanDelay: Option[Duration] =
-        if (delaysInCurrentInterval.nonEmpty)
-          Some(
-            delaysInCurrentInterval
-              .reduceLeft(_.plus(_))
-              .dividedBy(delaysInCurrentInterval.length.toLong)
-          )
-        else None
-      delaysInCurrentInterval.clear()
-      s"mean delay (interval): ${meanDelay.map(_.getSeconds.toString).getOrElse("-")} [s]"
+    override def periodicUpdate(): (ConsumptionDelayMetric[T], String) = {
+      val update =
+        s"mean delay (interval): ${periodicMeanDelay.map(_.getSeconds.toString).getOrElse("-")} [s]"
+      val updatedMetric = this.copy(delaysInCurrentInterval = List.empty)
+      (updatedMetric, update)
     }
 
-    override def completeInfo(totalDurationSeconds: Double): List[String] = Nil
+    override def completeInfo(totalDurationSeconds: Double): List[String] = List.empty
 
+    private def periodicMeanDelay: Option[Duration] =
+      if (delaysInCurrentInterval.nonEmpty)
+        Some(
+          delaysInCurrentInterval
+            .reduceLeft(_.plus(_))
+            .dividedBy(delaysInCurrentInterval.length.toLong)
+        )
+      else None
   }
 
-  case class ConsumptionSpeedMetric[T](periodMillis: Long, recordTimeFunction: T => Seq[Timestamp])
-      extends Metric[T] {
+  case class ConsumptionSpeedMetric[T](
+      periodMillis: Long,
+      recordTimeFunction: T => Seq[Timestamp],
+      firstRecordTime: Option[Instant] = None,
+      lastRecordTime: Option[Instant] = None,
+  ) extends Metric[T] {
 
-    private var firstRecordTime: Option[Instant] = None
-    private var lastRecordTime: Option[Instant] = None
-
-    override def onNext(value: T): Unit = {
+    override def onNext(value: T): ConsumptionSpeedMetric[T] = {
       val recordTimes = recordTimeFunction(value)
-      if (firstRecordTime.isEmpty) {
-        firstRecordTime = recordTimes.headOption.map { recordTime =>
-          Instant.ofEpochSecond(recordTime.seconds.toLong, recordTime.nanos.toLong)
+      val updatedFirstRecordTime =
+        firstRecordTime match {
+          case None =>
+            recordTimes.headOption.map { recordTime =>
+              Instant.ofEpochSecond(recordTime.seconds.toLong, recordTime.nanos.toLong)
+            }
+          case recordTime => recordTime
         }
-      }
-      lastRecordTime = recordTimes.lastOption.map { recordTime =>
+      val updatedLastRecordTime = recordTimes.lastOption.map { recordTime =>
         Instant.ofEpochSecond(recordTime.seconds.toLong, recordTime.nanos.toLong)
       }
+      this.copy(
+        firstRecordTime = updatedFirstRecordTime,
+        lastRecordTime = updatedLastRecordTime,
+      )
     }
 
-    override def periodicUpdate(): String = {
-      val speed: Option[Double] = (firstRecordTime, lastRecordTime) match {
+    override def periodicUpdate(): (ConsumptionSpeedMetric[T], String) = {
+      val update = s"speed (interval): ${periodicSpeed.map(rounded).getOrElse("-")} [-]"
+      val updatedMetric = this.copy(firstRecordTime = None, lastRecordTime = None)
+      (updatedMetric, update)
+    }
+
+    override def completeInfo(totalDurationSeconds: Double): List[String] = List.empty
+
+    private def periodicSpeed: Option[Double] =
+      (firstRecordTime, lastRecordTime) match {
         case (Some(first), Some(last)) =>
           Some((last.toEpochMilli - first.toEpochMilli) * 1.0 / periodMillis)
         case _ =>
           None
       }
-      firstRecordTime = None
-      lastRecordTime = None
-      s"speed (interval): ${speed.map(rounded).getOrElse("-")} [-]"
-    }
-
-    override def completeInfo(totalDurationSeconds: Double): List[String] = Nil
   }
+
+  private def rounded(value: Double): String = "%.2f".format(value)
 }

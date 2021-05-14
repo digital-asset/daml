@@ -24,7 +24,7 @@ object MetricsManager {
       logInterval: FiniteDuration,
   ): Behavior[Message[T]] =
     Behaviors.withTimers(timers =>
-      new MetricsManager[T](timers, streamName, logInterval, metrics).handlingMessages()
+      new MetricsManager[T](timers, streamName, logInterval).handlingMessages(metrics)
     )
 
 }
@@ -34,7 +34,6 @@ class MetricsManager[T](
     timers: TimerScheduler[MetricsManager.Message[T]],
     streamName: String,
     logInterval: FiniteDuration,
-    metrics: List[Metric[T]], //TODO: make this immutable and part of the behavior
 ) {
   import MetricsManager._
   import MetricsManager.Message._
@@ -43,26 +42,25 @@ class MetricsManager[T](
 
   private val startTime: Instant = Instant.now()
 
-  def handlingMessages(): Behavior[Message[T]] = {
+  def handlingMessages(metrics: List[Metric[T]]): Behavior[Message[T]] = {
     Behaviors.receive { case (context, message) =>
       message match {
         case newValue: NewValue[T] =>
-          metrics.foreach(_.onNext(newValue.value))
-          Behaviors.same
+          handlingMessages(metrics.map(_.onNext(newValue.value)))
 
         case _: PeriodicUpdateCommand[T] =>
-          val periodicUpdates = metrics.map(_.periodicUpdate())
-          context.log.info(namedMessage(periodicUpdates.mkString(", ")))
-          Behaviors.same
+          val (newMetrics, updates) = metrics.map(_.periodicUpdate()).unzip
+          context.log.info(namedMessage(updates.mkString(", ")))
+          handlingMessages(newMetrics)
 
         case _: StreamCompleted[T] =>
-          context.log.info(namedMessage(summary(totalDurationSeconds)))
+          context.log.info(namedMessage(summary(metrics, totalDurationSeconds)))
           Behaviors.stopped
       }
     }
   }
 
-  private def summary(durationSeconds: Double): String = {
+  private def summary(metrics: List[Metric[T]], durationSeconds: Double): String = {
     val reports = metrics.flatMap { metric =>
       metric.completeInfo(durationSeconds) match {
         case Nil => Nil
