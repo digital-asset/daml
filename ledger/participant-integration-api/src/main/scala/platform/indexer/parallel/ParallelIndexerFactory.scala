@@ -101,9 +101,7 @@ object ParallelIndexerFactory {
 
       def subscribe(readService: ReadService): Future[Source[Unit, NotUsed]] =
         dbDispatcher
-          .executeSql(metrics.daml.parallelIndexer.initialization)(
-            storageBackend.initialize
-          ) // TODO here is an implicit LoggingContext injected from the factory apply implicit param, is that good this way? shouldn't we create here something for the purpose?
+          .executeSql(metrics.daml.parallelIndexer.initialization)(storageBackend.initialize)
           .map(initialized =>
             ingest(initialized.lastEventSeqId.getOrElse(0L))(
               readService.stateUpdates(beginAfter = initialized.lastOffset)
@@ -214,9 +212,7 @@ object ParallelIndexerFactory {
       ingestFunction: (Connection, DB_BATCH) => Unit,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
-  )(implicit
-      loggingContext: LoggingContext // TODO is that right so? shouldn't we prep something here?
-  ): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
+  )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
       dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
         metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
@@ -245,9 +241,7 @@ object ParallelIndexerFactory {
       ingestTailFunction: (Connection, StorageBackend.Params) => Unit,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
-  )(implicit
-      loggingContext: LoggingContext // TODO is that right so? shouldn't we prep something here?
-  ): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
+  )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
       dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
         ingestTailFunction(
