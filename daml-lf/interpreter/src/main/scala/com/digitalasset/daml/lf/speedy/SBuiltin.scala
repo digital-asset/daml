@@ -293,22 +293,13 @@ private[lf] object SBuiltin {
   // Numeric Arithmetic
 
   private[this] def add(x: Numeric, y: Numeric): Numeric =
-    rightOrArithmeticError(
-      s"(Numeric ${x.scale}) overflow when adding ${Numeric.toString(y)} to ${Numeric.toString(x)}.",
-      Numeric.add(x, y),
-    )
+    Numeric.add(x, y)
 
   private[this] def subtract(x: Numeric, y: Numeric): Numeric =
-    rightOrArithmeticError(
-      s"(Numeric ${x.scale}) overflow when subtracting ${Numeric.toString(y)} from ${Numeric.toString(x)}.",
-      Numeric.subtract(x, y),
-    )
+    Numeric.subtract(x, y)
 
   private[this] def multiply(scale: Scale, x: Numeric, y: Numeric): Numeric =
-    rightOrArithmeticError(
-      s"(Numeric $scale) overflow when multiplying ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
-      Numeric.multiply(scale, x, y),
-    )
+    Numeric.multiply(scale, x, y)
 
   private[this] def divide(scale: Scale, x: Numeric, y: Numeric): Numeric =
     if (y.signum() == 0)
@@ -316,10 +307,7 @@ private[lf] object SBuiltin {
         s"Attempt to divide ${Numeric.toString(x)} by ${Numeric.toString(y)}."
       )
     else
-      rightOrArithmeticError(
-        s"(Numeric $scale) overflow when dividing ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
-        Numeric.divide(scale, x, y),
-      )
+      Numeric.divide(scale, x, y)
 
   sealed abstract class SBBinaryOpNumeric(op: (Numeric, Numeric) => Numeric)
       extends SBuiltinPure(3) {

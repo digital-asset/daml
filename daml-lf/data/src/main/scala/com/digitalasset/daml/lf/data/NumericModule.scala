@@ -117,7 +117,12 @@ abstract class NumericModule {
     * In case of overflow, returns an error message instead.
     */
   final def divide(scale: Scale, x: Numeric, y: Numeric): Either[String, Numeric] =
-    checkForOverflow(x.divide(y, scale, ROUND_HALF_EVEN))
+    try {
+      checkForOverflow(x.divide(y, scale, ROUND_HALF_EVEN))
+    } catch {
+      case err: ArithmeticException =>
+        Left(s"ArithmeticException: ${err.getMessage}")
+    }
 
   /** Returns the integral part of the given decimal, in other words, rounds towards 0.
     * In case the result does not fit into a long, returns an error message instead.
@@ -125,9 +130,12 @@ abstract class NumericModule {
     * ```Requires the scale of `x` and `y` are the same.```
     */
   final def toLong(x: Numeric): Either[String, Long] =
-    Try(x.setScale(0, ROUND_DOWN).longValueExact()).toEither.left.map(_ =>
-      s"(Numeric ${x.scale}) ${toString(x)} does not fit into an Int64"
-    )
+    try {
+      Right(x.setScale(0, ROUND_DOWN).longValueExact())
+    } catch {
+      case _: ArithmeticException =>
+        Left(s"(Numeric ${x.scale}) ${toString(x)} does not fit into an Int64")
+    }
 
   /** Rounds the `x` to the closest multiple of ``10^targetScale`` using the
     * [[https://en.wikipedia.org/wiki/Rounding#Round_half_to_even> banker's rounding convention]].
