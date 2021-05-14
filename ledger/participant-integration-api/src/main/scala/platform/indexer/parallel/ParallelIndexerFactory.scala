@@ -56,7 +56,7 @@ object ParallelIndexerFactory {
         Some(metrics.daml.parallelIndexer.batching.executor -> metrics.registry),
       )
       dbDispatcher <- DbDispatcher
-        .owner( // TODO append-only: do we need to wire health status here somehow?
+        .owner(
           serverRole = ServerRole.Indexer,
           jdbcUrl = jdbcUrl,
           connectionPoolSize = ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
