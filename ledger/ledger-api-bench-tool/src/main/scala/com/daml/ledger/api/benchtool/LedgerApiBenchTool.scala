@@ -4,7 +4,7 @@
 package com.daml.ledger.api.benchtool
 
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
-import com.daml.ledger.api.benchtool.metrics.Creator
+import com.daml.ledger.api.benchtool.metrics.{Creator, TransactionMetrics}
 import com.daml.ledger.api.benchtool.services.{LedgerIdentityService, TransactionService}
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
@@ -49,15 +49,22 @@ object LedgerApiBenchTool {
     resources.use { case (channel, system) =>
       val ledgerIdentityService: LedgerIdentityService = new LedgerIdentityService(channel)
       val ledgerId: String = ledgerIdentityService.fetchLedgerId()
-      val transactionService =
-        new TransactionService(channel, system, ledgerId, config.reportingPeriod)
+      val transactionService = new TransactionService(channel, ledgerId)
       Future
         .traverse(config.streams) { streamConfig =>
           streamConfig.streamType match {
             case Config.StreamConfig.StreamType.Transactions =>
-              transactionService.transactions(streamConfig)
+              TransactionMetrics
+                .transactionsMetricsManager(streamConfig.name, config.reportingPeriod)(system)
+                .flatMap { manager =>
+                  transactionService.transactions(streamConfig, manager)
+                }
             case Config.StreamConfig.StreamType.TransactionTrees =>
-              transactionService.transactionTrees(streamConfig)
+              TransactionMetrics
+                .transactionTreesMetricsManager(streamConfig.name, config.reportingPeriod)(system)
+                .flatMap { manager =>
+                  transactionService.transactionTrees(streamConfig, manager)
+                }
           }
         }
         .map(_ => ())

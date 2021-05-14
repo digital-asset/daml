@@ -3,16 +3,58 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
+import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
+import akka.util.Timeout
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
 import com.google.protobuf.timestamp.Timestamp
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.Future
+import scala.concurrent.duration._
 
 object TransactionMetrics {
-  def transactionMetrics(reportingPeriod: FiniteDuration): List[Metric[GetTransactionsResponse]] =
+  implicit val timeout: Timeout = Timeout(3.seconds)
+  import akka.actor.typed.scaladsl.AskPattern._
+
+  def transactionsMetricsManager(streamName: String, logInterval: FiniteDuration)(implicit
+      system: ActorSystem[SpawnProtocol.Command]
+  ): Future[ActorRef[MetricsManager.Message[GetTransactionsResponse]]] = {
+    system.ask(
+      SpawnProtocol.Spawn(
+        behavior = MetricsManager(
+          streamName = streamName,
+          metrics = transactionMetrics(logInterval),
+          logInterval = logInterval,
+        ),
+        name = s"${streamName}-manager",
+        props = Props.empty,
+        _,
+      )
+    )
+  }
+
+  def transactionTreesMetricsManager(streamName: String, logInterval: FiniteDuration)(implicit
+      system: ActorSystem[SpawnProtocol.Command]
+  ): Future[ActorRef[MetricsManager.Message[GetTransactionTreesResponse]]] = {
+    system.ask(
+      SpawnProtocol.Spawn(
+        behavior = MetricsManager(
+          streamName = streamName,
+          metrics = transactionTreesMetrics(logInterval),
+          logInterval = logInterval,
+        ),
+        name = s"${streamName}-manager",
+        props = Props.empty,
+        _,
+      )
+    )
+  }
+
+  private def transactionMetrics(
+      reportingPeriod: FiniteDuration
+  ): List[Metric[GetTransactionsResponse]] =
     all[GetTransactionsResponse](
       reportingPeriod = reportingPeriod,
       countingFunction = _.transactions.length,
@@ -22,7 +64,7 @@ object TransactionMetrics {
       },
     )
 
-  def transactionTreesMetrics(
+  private def transactionTreesMetrics(
       reportingPeriod: FiniteDuration
   ): List[Metric[GetTransactionTreesResponse]] =
     all[GetTransactionTreesResponse](
