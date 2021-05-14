@@ -420,7 +420,8 @@ private[lf] object SBuiltin {
 
   final case object SBToText extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      val string = args.get(0) match {
+      val x = args.get(0)
+      val string = x match {
         case SBool(b) => b.toString
         case SInt64(i) => i.toString
         case STimestamp(t) => t.toString
@@ -429,11 +430,11 @@ private[lf] object SBuiltin {
         case SUnit => s"<unit>"
         case SDate(date) => date.toString
         case SBigNumeric(x) => Numeric.toUnscaledString(x)
-        case SContractId(_) | SNumeric(_) => crash("litToText: literal not supported")
-        case otherwise =>
-          throw SErrorCrash(
-            s"${getClass.getSimpleName}: type mismatch of argument 0: expect SNumeric but got $otherwise"
-          )
+        case SNumeric(x) => Numeric.toUnscaledString(x)
+        case _: SContractId | _: SNumeric | _: STNat | SToken | _: SAny | _: SAnyException |
+            _: SBuiltinException | _: SEnum | _: SList | _: SMap | _: SOptional | _: SPAP |
+            _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
+          crash(s"litToText: unexpected $x")
       }
       SText(string)
     }
@@ -451,13 +452,6 @@ private[lf] object SBuiltin {
         case _ =>
           machine.returnValue = SValue.SValue.None
       }
-    }
-  }
-
-  final case object SBToTextNumeric extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      val x = getSNumeric(args, 1)
-      SText(Numeric.toUnscaledString(x))
     }
   }
 
