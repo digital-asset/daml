@@ -169,7 +169,6 @@ fi
 
 if [ ! -f "$TARGET_DIR/stack.yaml" ]; then
     cat <<EOF > "$TARGET_DIR/stack.yaml"
-# last known good resolver configuration for these libraries
 resolver: lts-17.11
 
 packages:
