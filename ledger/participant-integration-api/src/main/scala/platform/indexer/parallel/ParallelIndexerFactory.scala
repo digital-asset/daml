@@ -76,9 +76,7 @@ object ParallelIndexerFactory {
       val ingest: Long => Source[(Offset, Update), NotUsed] => Source[Unit, NotUsed] =
         initialSeqId =>
           source =>
-            BatchingParallelIngestionPipe[((Offset, Update), Long), Batch[
-              Vector[DBDTOV1]
-            ], Batch[DB_BATCH]]( // TODO explicit type parameters meeeh: it should be able to figure out from the fully typed params, but...
+            BatchingParallelIngestionPipe(
               submissionBatchSize = submissionBatchSize,
               batchWithinMillis = batchWithinMillis,
               inputMappingParallelism = inputMappingParallelism,
@@ -89,9 +87,9 @@ object ParallelIndexerFactory {
               batcher = batcherExecutor.execute(batcher(storageBackend.batch, metrics)),
               ingestingParallelism = ingestionParallelism,
               ingester = ingester(storageBackend.insertBatch, dbDispatcher, metrics),
-              tailer = tailer,
+              tailer = tailer[DB_BATCH],
               tailingRateLimitPerSecond = tailingRateLimitPerSecond,
-              ingestTail = ingestTail(storageBackend.updateParams, dbDispatcher, metrics),
+              ingestTail = ingestTail[DB_BATCH](storageBackend.updateParams, dbDispatcher, metrics),
             )(
               instrumentedBufferedSource(
                 original = source,
@@ -124,7 +122,7 @@ object ParallelIndexerFactory {
     * @param batchSize Size of the batch measured in number of updates. Needed for metrics population.
     * @param averageStartTime The nanosecond timestamp of the start of the previous processing stage. Needed for metrics population: how much time is spend by a particular update in a certain stage.
     */
-  case class Batch[T](
+  case class Batch[+T](
       lastOffset: Offset,
       lastSeqEventId: Long,
       lastConfig: Option[Array[Byte]],
