@@ -178,7 +178,7 @@ packages:
 # adding proto3 libraries (not on stackage) for daml-lf-proto-types
 extra-deps:
 - proto3-suite-0.4.2
-- proto3-wire-1.2.0
+- proto3-wire-1.2.2
 - ./da-hs-base-${LIB_VERSION}.tar.gz
 - ./daml-lf-ast-${LIB_VERSION}.tar.gz
 - ./daml-lf-proto-types-${LIB_VERSION}.tar.gz
