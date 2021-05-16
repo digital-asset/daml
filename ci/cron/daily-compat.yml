@@ -256,11 +256,10 @@ jobs:
           --detect.excluded.detector.types=NUGET \
           --detect.excluded.detector.types=GO_MOD \
           --detect.yarn.prod.only=true \
-          --detect.python.python3=true \
           --detect.tools=DETECTOR,BAZEL,DOCKER \
           --detect.bazel.target=//... \
           --detect.bazel.dependency.type=${BAZEL_DEPENDENCY_TYPE} \
-          --detect.detector.search.exclusion.paths=.bazel-cache,language-support/ts/codegen/tests/ts,language-support/ts,language-support/scala/examples/iou-no-codegen,language-support/scala/examples/quickstart-scala,docs/source/app-dev/bindings-java/code-snippets,docs/source/app-dev/bindings-java/quickstart/template-root,language-support/scala/examples/quickstart-scala,language-support/scala/examples/iou-no-codegen \
+          --detect.excluded.directories=.bazel-cache,language-support/ts/codegen/tests/ts,language-support/ts,language-support/scala/examples/iou-no-codegen,language-support/scala/examples/quickstart-scala,docs/source/app-dev/bindings-java/code-snippets,docs/source/app-dev/bindings-java/quickstart/template-root,language-support/scala/examples/quickstart-scala,language-support/scala/examples/iou-no-codegen \
           --detect.cleanup=false \
           --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
           --detect.notices.report=true \
