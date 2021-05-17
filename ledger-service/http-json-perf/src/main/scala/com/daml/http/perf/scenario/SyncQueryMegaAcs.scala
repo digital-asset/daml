@@ -7,6 +7,29 @@ import io.gatling.http.Predef._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAmount {
+  import SyncQueryMegaAcs._
+
+  private[this] val notAliceJwt = aliceJwt // TODO SC ... not
+
+  /* TODO SC private[this] */
+  val discriminators = Seq(
+    // label, readAs, observers
+    (
+      "party matches by observer distribution",
+      Seq(notAliceJwt),
+      Seq(
+        Seq((Seq(notAliceJwt), 1), (Seq.empty, 99)),
+        Seq((Seq(notAliceJwt), 1), (Seq.empty, 19)),
+        Seq((Seq(notAliceJwt), 1), (Seq.empty, 9)),
+      ),
+    ),
+    ("", Seq(), Seq()),
+  ).flatMap { case (label, readAses, observerses) =>
+    for {
+      readAs <- readAses
+      observers <- observerses
+    } yield (s"$label, ${reportCycle(observers) * 100}% positive", readAs, makeCycle(observers))
+  }
 
   private val createRequest =
     http("CreateCommand")
@@ -58,4 +81,14 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
   setUp(
     scn.inject(atOnceUsers(1))
   ).protocols(httpProtocol)
+}
+
+object SyncQueryMegaAcs {
+  private def reportCycle(s: Seq[(_, Int)]): Double = {
+    val (_, h) +: _ = s
+    h.toDouble / s.view.map(_._2).sum
+  }
+
+  private def makeCycle[A](s: Seq[(A, Int)]): Seq[A] =
+    s flatMap { case (a, n) => Iterator.fill(n)(a) }
 }
