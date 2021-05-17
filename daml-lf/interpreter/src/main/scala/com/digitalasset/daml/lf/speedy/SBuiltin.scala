@@ -1638,7 +1638,7 @@ private[lf] object SBuiltin {
   final case object SBAnyExceptionIsContractError extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
-        case SBuiltinException(Contract) =>
+        case SBuiltinException(ContractError) =>
           SBool(True)
         case SBuiltinException(_) =>
           SBool(False)
