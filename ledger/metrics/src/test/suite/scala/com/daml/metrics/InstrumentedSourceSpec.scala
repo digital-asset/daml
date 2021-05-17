@@ -146,7 +146,7 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
   behavior of "InstrumentedSource.bufferedSource"
 
   def throttledTest(producerMaxSpeed: Int, consumerMaxSpeed: Int): Future[List[Long]] = {
-    val counter = SamplingCounter(10)
+    val counter = new SamplingCounter(10.millis)
     Source(List.fill(1000)("element"))
       .throttle(producerMaxSpeed, FiniteDuration(10, "millis"))
       .pipe(original =>
@@ -240,13 +240,13 @@ object InstrumentedSourceSpec {
   }
 
   // For testing only, provides a sampled sequence of the state of the counter until finishSampling is called.
-  private final case class SamplingCounter(samplingMillis: Long) extends Counter {
+  private final class SamplingCounter(samplingInterval: FiniteDuration) extends Counter {
     private val t = new java.util.Timer()
     private val samples = scala.collection.mutable.ListBuffer[Long]()
     private val task = new java.util.TimerTask {
       def run(): Unit = samples.+=(getCount)
     }
-    t.schedule(task, samplingMillis, samplingMillis)
+    t.schedule(task, samplingInterval.toMillis, samplingInterval.toMillis)
 
     def finishSampling(): List[Long] = {
       t.cancel()

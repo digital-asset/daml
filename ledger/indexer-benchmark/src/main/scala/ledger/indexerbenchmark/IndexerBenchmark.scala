@@ -121,6 +121,7 @@ class IndexerBenchmark() {
              |
              |Indexer parameters:
              |  enableAppendOnlySchema:    ${config.indexerConfig.enableAppendOnlySchema}
+             |  maxInputBufferSize:        ${config.indexerConfig.maxInputBufferSize}
              |  inputMappingParallelism:   ${config.indexerConfig.inputMappingParallelism}
              |  ingestionParallelism:      ${config.indexerConfig.ingestionParallelism}
              |  submissionBatchSize:       ${config.indexerConfig.submissionBatchSize}
