@@ -577,10 +577,11 @@ enum BuiltinFunction {
   SCALE_BIGNUMERIC = 137; // *Available in versions >= 1.13*
   PRECISION_BIGNUMERIC = 138; // *Available in versions >= 1.13*
   ADD_BIGNUMERIC = 139; // *Available in versions >= 1.13*
+  ADD_BIGNUMERIC = 139; // *Available in versions >= 1.13*
   SUB_BIGNUMERIC = 140; // *Available in versions >= 1.13*
   MUL_BIGNUMERIC = 141; // *Available in versions >= 1.13*
   DIV_BIGNUMERIC = 142; // *Available in versions >= 1.13*
-  SHIFT_BIGNUMERIC = 143; // *Available in versions >= 1.13*
+  SHIFT_RIGHT_BIGNUMERIC = 143; // *Available in versions >= 1.13*
   TO_NUMERIC_BIGNUMERIC = 144; // *Available in versions >= 1.13*
   TO_BIGNUMERIC_NUMERIC = 145; // *Available in versions >= 1.13*
   TO_TEXT_BIGNUMERIC = 146; // *Available in versions >= 1.13*
