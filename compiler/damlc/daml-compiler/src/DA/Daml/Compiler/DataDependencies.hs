@@ -307,7 +307,7 @@ generateSrcFromLf env = noLoc mod
         LF.TypeSynName [name] <- [synName]
         Just (pkgId, depDef) <- [envLookupDepClass synName env]
         guard (safeToReexport env synDef depDef)
-        let occName = mkOccName clsName . T.unpack $ sanitize name
+        let occName = mkOccName clsName (T.unpack name)
         pure . (\x -> (synName,(pkgId, x))) $ do
             ghcMod <- genModule env (LF.PRImport pkgId) (LF.moduleName (envMod env))
             pure . noLoc . IEThingAll noExt
@@ -327,7 +327,7 @@ generateSrcFromLf env = noLoc mod
         LF.TypeSynName [name] <- [synName]
         guard (synName `MS.notMember` classReexportMap)
         guard (shouldExposeDefTypeSyn defTypeSyn)
-        let occName = mkOccName clsName . T.unpack $ sanitize name
+        let occName = mkOccName clsName (T.unpack name)
         pure $ do
             supers <- sequence
                 [ convType env reexportedClasses fieldType
@@ -401,7 +401,7 @@ generateSrcFromLf env = noLoc mod
             _ -> True
         LF.TypeSynName [name] <- [synName]
         guard (shouldExposeDefTypeSyn defTypeSyn)
-        let occName = mkOccName tcName . T.unpack $ sanitize name
+        let occName = mkOccName tcName (T.unpack name)
         pure $ do
             params <- mapM (convTyVarBinder env) synParams
             rhs <- convType env reexportedClasses synType
@@ -425,7 +425,7 @@ generateSrcFromLf env = noLoc mod
         -- the type will be inlined into the definition of the variant in
         -- convDataCons.
         [dataTypeCon0] <- [LF.unTypeConName dataTypeCon]
-        let occName = mkOccName varName $ T.unpack $ sanitize dataTypeCon0
+        let occName = mkOccName varName (T.unpack dataTypeCon0)
         [ mkDataDecl env thisModule occName dataParams =<<
             convDataCons dataTypeCon0 dataCons ]
 
@@ -562,8 +562,8 @@ generateSrcFromLf env = noLoc mod
                 | conName <- cons
                 ]
       where
-        occName = mkOccName varName $ T.unpack (sanitize dataTypeCon0)
-        occNameFor (LF.VariantConName c) = mkOccName varName $ T.unpack (sanitize c)
+        occName = mkOccName varName (T.unpack dataTypeCon0)
+        occNameFor (LF.VariantConName c) = mkOccName varName (T.unpack c)
 
         mkConDecl :: OccName -> HsConDeclDetails GhcPs -> LConDecl GhcPs
         mkConDecl conName details = noLoc $ ConDeclH98
@@ -611,10 +611,6 @@ generateSrcFromLf env = noLoc mod
         -- hardcoded in GHC).
         , modRefModule /= LF.ModuleName ["CurrentSdk", "GHC", "Prim"]
         ]
-
--- TODO (drsk) how come those '#' appear in daml-lf names?
-sanitize :: T.Text -> T.Text
-sanitize = T.dropWhileEnd (== '#')
 
 mkConRdr :: Env -> Module -> OccName -> RdrName
 mkConRdr env thisModule
@@ -961,6 +957,7 @@ generateSrcPkgFromLf envConfig pkg = do
         , "{-# LANGUAGE TypeOperators #-}"
         , "{-# LANGUAGE UndecidableInstances #-}"
         , "{-# LANGUAGE AllowAmbiguousTypes #-}"
+        , "{-# LANGUAGE MagicHash #-}"
         , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods #-}"
         ]
 
