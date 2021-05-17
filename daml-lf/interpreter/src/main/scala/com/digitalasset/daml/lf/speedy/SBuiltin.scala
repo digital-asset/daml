@@ -178,8 +178,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
 
   final protected def getSException(args: util.ArrayList[SValue], i: Int): SException =
     args.get(i) match {
-      case exception: SAnyException => exception
-      case exception: SBuiltinException => exception
+      case exception: SException => exception
       case otherwise =>
         throw SErrorCrash(
           s"${getClass.getSimpleName}: type mismatch of argument $i: expect SException but got $otherwise"
