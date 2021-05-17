@@ -45,6 +45,9 @@ isInternal (GHC.moduleNameString -> x)
       , "LibraryModules"
       , "DA.Types"
       , "DA.Time.Types"
+      , "DA.Exception.GeneralError"
+      , "DA.Exception.ArithmeticError"
+      , "DA.Exception.ContractError"
       ]
 
 preprocessorExceptions :: Set.Set GHC.ModuleName
