@@ -14,6 +14,7 @@ module DA.BigNumeric where
 module DA.BigNumeric where
 
 import GHC.Types (primitive)
+import Prelude hiding (round)
 
 -- | Calculate the scale of a `BigNumeric` number. The `BigNumeric` number is
 -- represented as `n * 10^-s` where `n` is an integer with no trailing zeros,
