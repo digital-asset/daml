@@ -199,7 +199,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
             // The final result should always be unit.
             throw new RuntimeException(s"FATAL: Unexpected non-unit final result: $v")
           case SResultScenarioCommit(_, _, _, _) =>
-            throw new RuntimeException("FATAL: Encountered scenario commit in DAML Script")
+            throw new RuntimeException("FATAL: Encountered scenario commit in Daml Script")
           case SResultError(err) =>
             // Capture the error and exit.
             throw err
@@ -211,19 +211,19 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
             )
           case SResultScenarioInsertMustFail(committers @ _, optLocation @ _) =>
             throw new RuntimeException(
-              "FATAL: Encountered scenario instruction for submitMustFail in DAML script"
+              "FATAL: Encountered scenario instruction for submitMustFail in Daml script"
             )
           case SResultScenarioMustFail(ptx @ _, committers @ _, callback @ _) =>
             throw new RuntimeException(
-              "FATAL: Encountered scenario instruction for submitMustFail in DAML Script"
+              "FATAL: Encountered scenario instruction for submitMustFail in Daml Script"
             )
           case SResultScenarioPassTime(relTime @ _, callback @ _) =>
             throw new RuntimeException(
-              "FATAL: Encountered scenario instruction setTime in DAML Script"
+              "FATAL: Encountered scenario instruction setTime in Daml Script"
             )
           case SResultScenarioGetParty(partyText @ _, callback @ _) =>
             throw new RuntimeException(
-              "FATAL: Encountered scenario instruction getParty in DAML Script"
+              "FATAL: Encountered scenario instruction getParty in Daml Script"
             )
         }
       }
