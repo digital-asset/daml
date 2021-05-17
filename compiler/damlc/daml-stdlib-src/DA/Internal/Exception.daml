@@ -15,13 +15,13 @@ module DA.Internal.Exception where
 module DA.Internal.Exception
     ( module DA.Internal.Exception
     , AnyException
-    , GeneralError (..)
-    , ArithmeticError (..)
-    , ContractError (..)
+    , GeneralError    (GeneralError)
+    , ArithmeticError (ArithmeticError)
+    , ContractError   (ContractError)
     ) where
 
 import GHC.Types
-import DA.Internal.Exception.Types
+import DA.Internal.Exception.Types hiding (message)
 import DA.Internal.LF
 import DA.Internal.Prelude
 import DA.Internal.Record
