@@ -83,7 +83,7 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
         forEvery(decimals) { a =>
           forEvery(decimals) { b =>
             val actualResult = eval(
-              e"$builtin (TO_BIGNUMERIC_NUMERIC @10 ${s(10, a)}) (TO_BIGNUMERIC_NUMERIC @10 ${s(10, b)})"
+              e"$builtin (NUMERIC_TO_BIGNUMERIC @10 ${s(10, a)}) (NUMERIC_TO_BIGNUMERIC @10 ${s(10, b)})"
             )
 
             actualResult.toOption shouldBe ref(n(10, a), n(10, b))
@@ -92,7 +92,7 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
       }
     }
 
-    "TO_TEXT_BIGNUMERIC" - {
+    "BIGNUMERIC_TO_TEXT" - {
       "return proper result" in {
         val testCases = Table(
           "expression" -> "regex",
@@ -107,7 +107,7 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
 
         forEvery(testCases) { (exp, regexp) =>
           val p = regexp.r.pattern
-          inside(eval(e"TO_TEXT_BIGNUMERIC $exp")) {
+          inside(eval(e"BIGNUMERIC_TO_TEXT $exp")) {
             case Right(SText(x)) if p.matcher(x).find() =>
           }
         }
@@ -282,7 +282,7 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
         )
         forEvery(testCases) { (inputScale, shifting, input, output) =>
           eval(
-            e"SHIFT_BIGNUMERIC $shifting (TO_BIGNUMERIC_NUMERIC @$inputScale $input)"
+            e"SHIFT_BIGNUMERIC $shifting (NUMERIC_TO_BIGNUMERIC @$inputScale $input)"
           ) shouldBe Right(assertFromBigDecimal(new BigDecimal(output)))
         }
       }
@@ -317,23 +317,23 @@ object SBuiltinBigNumericTest {
           val maxScale: Int64 = ${SValue.SBigNumeric.MaxScale};
           val minScale: Int64 = SUB_INT64 1 BigNumeric:maxScale;
                
-          val zero: BigNumeric = TO_BIGNUMERIC_NUMERIC @0 0. ;
-          val one: BigNumeric = TO_BIGNUMERIC_NUMERIC @0 1. ;
-          val two: BigNumeric = TO_BIGNUMERIC_NUMERIC @0 2. ;
-          val three: BigNumeric = TO_BIGNUMERIC_NUMERIC @0 3. ;
-          val minusOne: BigNumeric = TO_BIGNUMERIC_NUMERIC @0 -1. ;
-          val minusTwo: BigNumeric = TO_BIGNUMERIC_NUMERIC @0 -2. ;
-          val ten: BigNumeric = TO_BIGNUMERIC_NUMERIC @0 10. ;
+          val zero: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 0. ;
+          val one: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 1. ;
+          val two: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 2. ;
+          val three: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 3. ;
+          val minusOne: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 -1. ;
+          val minusTwo: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 -2. ;
+          val ten: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 10. ;
           val underSqrtOfTen: BigNumeric = 
-            TO_BIGNUMERIC_NUMERIC @37 3.1622776601683793319988935444327185337;
+            NUMERIC_TO_BIGNUMERIC @37 3.1622776601683793319988935444327185337;
           val overSqrtOfTen: BigNumeric = 
-            TO_BIGNUMERIC_NUMERIC @37 3.1622776601683793319988935444327185338;
+            NUMERIC_TO_BIGNUMERIC @37 3.1622776601683793319988935444327185338;
           val nineteen: BigNumeric = 
-            TO_BIGNUMERIC_NUMERIC @0 19.;
+            NUMERIC_TO_BIGNUMERIC @0 19.;
           val twentyEight: BigNumeric = 
-            TO_BIGNUMERIC_NUMERIC @0 28.;  
+            NUMERIC_TO_BIGNUMERIC @0 28.;  
           val twentyNine: BigNumeric = 
-            TO_BIGNUMERIC_NUMERIC @0 29.;  
+            NUMERIC_TO_BIGNUMERIC @0 29.;  
           val minPositive: BigNumeric = 
             SHIFT_BIGNUMERIC BigNumeric:maxScale BigNumeric:one;
           val maxPositive: BigNumeric =
@@ -347,7 +347,7 @@ object SBuiltinBigNumericTest {
           
           val tenPower: Int64 -> BigNumeric = \(n: Int64) ->
            SHIFT_BIGNUMERIC (SUB_INT64 0 n) BigNumeric:one;
-          val x: BigNumeric = SHIFT_BIGNUMERIC ${SValue.SBigNumeric.MinScale} (TO_BIGNUMERIC_NUMERIC @0 5.); 
+          val x: BigNumeric = SHIFT_BIGNUMERIC ${SValue.SBigNumeric.MinScale} (NUMERIC_TO_BIGNUMERIC @0 5.); 
           val almostX: BigNumeric = SUB_BIGNUMERIC BigNumeric:x BigNumeric:minPositive; 
           val minusX: BigNumeric = SUB_BIGNUMERIC BigNumeric:zero BigNumeric:x;
         }

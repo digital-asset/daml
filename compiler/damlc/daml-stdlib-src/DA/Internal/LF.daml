@@ -146,7 +146,7 @@ instance Ord (ContractId a) where
   (>=) = primitive @"BEGreaterEq"
 #endif
 instance Show (ContractId a) where
-#ifdef DAML_TO_TEXT_CONTRACT_ID
+#ifdef DAML_CONTRACT_ID_TO_TEXT
   show cid = case primitive @"BEToTextContractId" cid of
     None -> "<contract-id>"
     Some t -> t

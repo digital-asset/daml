@@ -236,7 +236,7 @@ instance Pretty BuiltinExpr where
     BEGreater t   -> pPrintAppKeyword lvl prec "GREATER"    [TyArg (TBuiltin t)]
     BEGreaterEq t -> pPrintAppKeyword lvl prec "GREATER_EQ" [TyArg (TBuiltin t)]
     BEToText t    -> pPrintAppKeyword lvl prec "TO_TEXT"    [TyArg (TBuiltin t)]
-    BEToTextContractId -> "TO_TEXT_CONTRACT_ID"
+    BEToTextContractId -> "CONTRACT_ID_TO_TEXT"
     BEAddDecimal -> "ADD_DECIMAL"
     BESubDecimal -> "SUB_DECIMAL"
     BEMulDecimal -> "MUL_DECIMAL"
@@ -257,7 +257,7 @@ instance Pretty BuiltinExpr where
     BEGreaterEqNumeric -> "GEQ_NUMERIC"
     BEGreaterNumeric -> "GREATER_NUMERIC"
     BENumericFromText -> "FROM_TEXT_NUMERIC"
-    BEToTextNumeric -> "TO_TEXT_NUMERIC"
+    BEToTextNumeric -> "NUMERIC_TO_TEXT"
     BEScaleBigNumeric -> "SCALE_BIGNUMERIC"
     BEPrecisionBigNumeric -> "PRECISION_BIGNUMERIC"
     BEAddBigNumeric -> "ADD_BIGNUMERIC"
@@ -265,9 +265,9 @@ instance Pretty BuiltinExpr where
     BEMulBigNumeric -> "MUl_BIGNUMERIC"
     BEDivBigNumeric -> "DIV_BIGNUMERIC"
     BEShiftBigNumeric -> "SHIFT_BIGNUMERIC"
-    BEToNumericBigNumeric -> "TO_NUMERIC_BIGNUMERIC"
-    BEFromNumericBigNumeric -> "TO_BIGNUMERIC_NUMERIC"
-    BEToTextBigNumeric -> "TO_TEXT_BIGNUMERIC"
+    BEToNumericBigNumeric -> "BIGNUMERIC_TO_NUMERIC"
+    BEFromNumericBigNumeric -> "NUMERIC_TO_BIGNUMERIC"
+    BEToTextBigNumeric -> "BIGNUMERIC_TO_TEXT"
     BEAddInt64 -> "ADD_INT64"
     BESubInt64 -> "SUB_INT64"
     BEMulInt64 -> "MUL_INT64"

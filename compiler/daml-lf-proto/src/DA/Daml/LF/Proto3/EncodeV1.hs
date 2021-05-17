@@ -473,22 +473,22 @@ encodeBuiltinExpr = \case
     BEGreaterEqNumeric -> builtin P.BuiltinFunctionGEQ_NUMERIC
 
     BEToText typ -> case typ of
-      BTInt64 -> builtin P.BuiltinFunctionTO_TEXT_INT64
-      BTDecimal -> builtin P.BuiltinFunctionTO_TEXT_DECIMAL
-      BTText -> builtin P.BuiltinFunctionTO_TEXT_TEXT
-      BTTimestamp -> builtin P.BuiltinFunctionTO_TEXT_TIMESTAMP
-      BTDate -> builtin P.BuiltinFunctionTO_TEXT_DATE
-      BTParty -> builtin P.BuiltinFunctionTO_TEXT_PARTY
+      BTInt64 -> builtin P.BuiltinFunctionINT64_TO_TEXT
+      BTDecimal -> builtin P.BuiltinFunctionDECIMAL_TO_TEXT
+      BTText -> builtin P.BuiltinFunctionTEXT_TO_TEXT
+      BTTimestamp -> builtin P.BuiltinFunctionTIMESTAMP_TO_TEXT
+      BTDate -> builtin P.BuiltinFunctionDATE_TO_TEXT
+      BTParty -> builtin P.BuiltinFunctionPARTY_TO_TEXT
       other -> error $ "BEToText unexpected type " <> show other
-    BEToTextContractId -> builtin P.BuiltinFunctionTO_TEXT_CONTRACT_ID
-    BEToTextNumeric -> builtin P.BuiltinFunctionTO_TEXT_NUMERIC
+    BEToTextContractId -> builtin P.BuiltinFunctionID_TO_TEXT_CONTRACT
+    BEToTextNumeric -> builtin P.BuiltinFunctionNUMERIC_TO_TEXT
     BETextFromCodePoints -> builtin P.BuiltinFunctionTEXT_FROM_CODE_POINTS
     BEPartyFromText -> builtin P.BuiltinFunctionFROM_TEXT_PARTY
     BEInt64FromText -> builtin P.BuiltinFunctionFROM_TEXT_INT64
     BEDecimalFromText-> builtin P.BuiltinFunctionFROM_TEXT_DECIMAL
     BENumericFromText-> builtin P.BuiltinFunctionFROM_TEXT_NUMERIC
-    BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
-    BEPartyToQuotedText -> builtin P.BuiltinFunctionTO_QUOTED_TEXT_PARTY
+    BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_POINTS_TO_CODE
+    BEPartyToQuotedText -> builtin P.BuiltinFunctionPARTY_TO_QUOTED_TEXT
 
     BEAddDecimal -> builtin P.BuiltinFunctionADD_DECIMAL
     BESubDecimal -> builtin P.BuiltinFunctionSUB_DECIMAL
@@ -511,9 +511,9 @@ encodeBuiltinExpr = \case
     BEMulBigNumeric -> builtin P.BuiltinFunctionMUL_BIGNUMERIC
     BEDivBigNumeric -> builtin P.BuiltinFunctionDIV_BIGNUMERIC
     BEShiftBigNumeric -> builtin P.BuiltinFunctionSHIFT_BIGNUMERIC
-    BEToNumericBigNumeric -> builtin P.BuiltinFunctionTO_NUMERIC_BIGNUMERIC
-    BEFromNumericBigNumeric -> builtin P.BuiltinFunctionTO_BIGNUMERIC_NUMERIC
-    BEToTextBigNumeric -> builtin P.BuiltinFunctionTO_TEXT_BIGNUMERIC
+    BEToNumericBigNumeric -> builtin P.BuiltinFunctionBIGNUMERIC_TO_NUMERIC
+    BEFromNumericBigNumeric -> builtin P.BuiltinFunctionNUMERIC_TO_BIGNUMERIC
+    BEToTextBigNumeric -> builtin P.BuiltinFunctionBIGNUMERIC_TO_TEXT
 
     BEAddInt64 -> builtin P.BuiltinFunctionADD_INT64
     BESubInt64 -> builtin P.BuiltinFunctionSUB_INT64

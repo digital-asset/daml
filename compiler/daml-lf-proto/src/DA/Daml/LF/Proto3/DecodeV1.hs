@@ -400,21 +400,21 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionGREATER_DATE -> BEGreater BTDate
   LF1.BuiltinFunctionGREATER_PARTY -> BEGreater BTParty
 
-  LF1.BuiltinFunctionTO_TEXT_INT64 -> BEToText BTInt64
-  LF1.BuiltinFunctionTO_TEXT_DECIMAL -> BEToText BTDecimal
-  LF1.BuiltinFunctionTO_TEXT_NUMERIC -> BEToTextNumeric
-  LF1.BuiltinFunctionTO_TEXT_TEXT -> BEToText BTText
-  LF1.BuiltinFunctionTO_TEXT_TIMESTAMP -> BEToText BTTimestamp
-  LF1.BuiltinFunctionTO_TEXT_PARTY -> BEToText BTParty
-  LF1.BuiltinFunctionTO_TEXT_DATE -> BEToText BTDate
-  LF1.BuiltinFunctionTO_TEXT_CONTRACT_ID -> BEToTextContractId
+  LF1.BuiltinFunctionINT64_TO_TEXT -> BEToText BTInt64
+  LF1.BuiltinFunctionDECIMAL_TO_TEXT -> BEToText BTDecimal
+  LF1.BuiltinFunctionNUMERIC_TO_TEXT -> BEToTextNumeric
+  LF1.BuiltinFunctionTEXT_TO_TEXT -> BEToText BTText
+  LF1.BuiltinFunctionTIMESTAMP_TO_TEXT -> BEToText BTTimestamp
+  LF1.BuiltinFunctionPARTY_TO_TEXT -> BEToText BTParty
+  LF1.BuiltinFunctionDATE_TO_TEXT -> BEToText BTDate
+  LF1.BuiltinFunctionID_TO_TEXT_CONTRACT -> BEToTextContractId
   LF1.BuiltinFunctionTEXT_FROM_CODE_POINTS -> BETextFromCodePoints
   LF1.BuiltinFunctionFROM_TEXT_PARTY -> BEPartyFromText
   LF1.BuiltinFunctionFROM_TEXT_INT64 -> BEInt64FromText
   LF1.BuiltinFunctionFROM_TEXT_DECIMAL -> BEDecimalFromText
   LF1.BuiltinFunctionFROM_TEXT_NUMERIC -> BENumericFromText
-  LF1.BuiltinFunctionTEXT_TO_CODE_POINTS -> BETextToCodePoints
-  LF1.BuiltinFunctionTO_QUOTED_TEXT_PARTY -> BEPartyToQuotedText
+  LF1.BuiltinFunctionTEXT_POINTS_TO_CODE -> BETextToCodePoints
+  LF1.BuiltinFunctionPARTY_TO_QUOTED_TEXT -> BEPartyToQuotedText
 
   LF1.BuiltinFunctionADD_DECIMAL   -> BEAddDecimal
   LF1.BuiltinFunctionSUB_DECIMAL   -> BESubDecimal
@@ -495,9 +495,9 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionMUL_BIGNUMERIC -> BEMulBigNumeric
   LF1.BuiltinFunctionDIV_BIGNUMERIC -> BEDivBigNumeric
   LF1.BuiltinFunctionSHIFT_BIGNUMERIC -> BEShiftBigNumeric
-  LF1.BuiltinFunctionTO_NUMERIC_BIGNUMERIC -> BEToNumericBigNumeric
-  LF1.BuiltinFunctionTO_BIGNUMERIC_NUMERIC -> BEFromNumericBigNumeric
-  LF1.BuiltinFunctionTO_TEXT_BIGNUMERIC -> BEToTextBigNumeric
+  LF1.BuiltinFunctionBIGNUMERIC_TO_NUMERIC -> BEToNumericBigNumeric
+  LF1.BuiltinFunctionNUMERIC_TO_BIGNUMERIC -> BEFromNumericBigNumeric
+  LF1.BuiltinFunctionBIGNUMERIC_TO_TEXT -> BEToTextBigNumeric
 
 decodeLocation :: LF1.Location -> Decode SourceLoc
 decodeLocation (LF1.Location mbModRef mbRange) = do
