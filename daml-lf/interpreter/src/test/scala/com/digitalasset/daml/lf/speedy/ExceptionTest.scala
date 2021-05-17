@@ -590,7 +590,15 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
           signatories Cons @Party [M:T1 {party} record] (Nil @Party),
           observers Nil @Party,
           agreement "Agreement",
-          choices {}
+          choices {
+            choice MyChoice (self) (i : Unit) : Unit
+            , controllers Cons @Party [M:T1 {party} record] (Nil @Party)
+            to
+              ubind
+                x1: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 400 };
+                x2: ContractId M:T1 <- create @M:T1 M:T1 { party = M:T1 {party} record, info = 500 }
+              in upure @Unit ()
+          }
         };
 
         val causeRollback : Party -> Update Unit = \(party: Party) ->
@@ -599,6 +607,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
                 try @Unit
                   ubind
                     x1: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 100 };
+                    u: Unit <- exercise @M:T1 MyChoice x1 ();
                     x2: ContractId M:T1 <- create @M:T1 M:T1 { party = party, info = 200 }
                   in throw @(Update Unit) @M:AnException (M:AnException {})
                 catch e -> Some @(Update Unit) (upure @Unit ())
