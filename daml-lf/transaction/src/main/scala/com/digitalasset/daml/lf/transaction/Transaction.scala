@@ -275,6 +275,16 @@ final case class GenTransaction[Nid, +Cid](
 
 sealed abstract class HasTxNodes[Nid, +Cid] {
 
+  import Transaction.{
+    KeyInput,
+    KeyActive,
+    KeyCreate,
+    NegativeKeyLookup,
+    KeyInputError,
+    DuplicateKeys,
+    InconsistentKeys,
+  }
+
   def nodes: Map[Nid, Node.GenNode[Nid, Cid]]
 
   def roots: ImmArray[Nid]
@@ -485,7 +495,11 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
 
   /** Return the expected contract key inputs (i.e. the state before the transaction)
     * for this transaction or an error if the transaction contains a
-    * duplicate key error or has an inconsistent mapping for a key.
+    * duplicate key error or has an inconsistent mapping for a key. For
+    * KeyCreate and NegativeKeyLookup (both corresponding to the key not being active)
+    * the first required input in execution order wins. So if a create comes first
+    * the input will be set to KeyCreate, if a negative lookup by key comes first
+    * the input will be set to NegativeKeyLookup.
     *
     * Because we do not preserve byKey flags across transaction serialization
     * this method will consider all operations with keys for conflicts
@@ -496,38 +510,42 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
   )
   final def contractKeyInputs(implicit
       evidence: HasTxNodes[Nid, Cid] <:< HasTxNodes[_, Value.ContractId]
-  ): Either[GlobalKey, Map[GlobalKey, Option[Value.ContractId]]] = {
+  ): Either[KeyInputError, Map[GlobalKey, KeyInput]] = {
     val evThis = evidence(this)
     val localContracts = evThis.localContracts
     final case class State(
         keys: Map[GlobalKey, Option[Value.ContractId]],
         rollbackStack: List[Map[GlobalKey, Option[Value.ContractId]]],
-        keyInputs: Map[GlobalKey, Option[Value.ContractId]],
+        keyInputs: Map[GlobalKey, KeyInput],
     ) {
       def setKeyMapping(
           key: GlobalKey,
-          value: Option[Value.ContractId],
-      ): Either[GlobalKey, State] = {
-        keyInputs.get(key) match {
-          case Some(prev) if prev != value => Left(key)
-          case _ => Right(copy(keyInputs = keyInputs.updated(key, value)))
+          value: KeyInput,
+      ): Either[KeyInputError, State] = {
+        (keyInputs.get(key), value) match {
+          case (None, _) =>
+            Right(copy(keyInputs = keyInputs.updated(key, value)))
+          case (Some(KeyCreate | NegativeKeyLookup), KeyActive(_)) => Left(InconsistentKeys(key))
+          case (Some(KeyActive(_)), NegativeKeyLookup) => Left(InconsistentKeys(key))
+          case (Some(KeyActive(_)), KeyCreate) => Left(DuplicateKeys(key))
+          case _ => Right(this)
         }
       }
       def assertKeyMapping(
           templateId: Identifier,
           cid: Value.ContractId,
           optKey: Option[Node.KeyWithMaintainers[Value[Value.ContractId]]],
-      ): Either[GlobalKey, State] =
-        optKey.fold[Either[GlobalKey, State]](Right(this)) { key =>
+      ): Either[KeyInputError, State] =
+        optKey.fold[Either[KeyInputError, State]](Right(this)) { key =>
           val gk = GlobalKey.assertBuild(templateId, key.key)
           keys.get(gk) match {
-            case Some(keyMapping) if Some(cid) != keyMapping => Left(gk)
+            case Some(keyMapping) if Some(cid) != keyMapping => Left(InconsistentKeys(gk))
             case _ =>
               val r = copy(keys = keys.updated(gk, Some(cid)))
               if (localContracts.contains(cid)) {
                 Right(r)
               } else {
-                r.setKeyMapping(gk, Some(cid))
+                r.setKeyMapping(gk, KeyActive(cid))
               }
           }
         }
@@ -546,30 +564,29 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
         }
 
       def handleCreate(create: Node.NodeCreate[Value.ContractId]) =
-        create.key.fold[Either[GlobalKey, State]](Right(this)) { key =>
+        create.key.fold[Either[KeyInputError, State]](Right(this)) { key =>
           val gk = GlobalKey.assertBuild(create.templateId, key.key)
-          keys.get(gk).orElse(keyInputs.get(gk)) match {
+          val next = copy(keys = keys.updated(gk, Some(create.coid)))
+          keys.get(gk) match {
             case None =>
-              Right(
-                copy(
-                  keys = keys.updated(gk, Some(create.coid)),
-                  keyInputs = keyInputs.updated(gk, None),
-                )
-              )
+              next.setKeyMapping(gk, KeyCreate)
             case Some(None) =>
-              Right(copy(keys = keys.updated(gk, Some(create.coid))))
-            case Some(Some(_)) =>
-              Left(gk)
+              Right(next)
+            case Some(Some(_)) => Left(DuplicateKeys(gk))
           }
         }
 
-      def handleLookup(lookup: Node.NodeLookupByKey[Value.ContractId]) = {
+      def handleLookup(
+          lookup: Node.NodeLookupByKey[Value.ContractId]
+      ): Either[KeyInputError, State] = {
         val gk = GlobalKey.assertBuild(lookup.templateId, lookup.key.key)
         keys.get(gk) match {
-          case None => setKeyMapping(gk, lookup.result)
+          case None =>
+            copy(keys = keys.updated(gk, lookup.result))
+              .setKeyMapping(gk, lookup.result.fold[KeyInput](NegativeKeyLookup)(KeyActive(_)))
           case Some(optCid) =>
             if (optCid != lookup.result) {
-              Left(gk)
+              Left(InconsistentKeys(gk))
             } else {
               // No need to update anything, we updated keyInputs when we updated keys.
               Right(this)
@@ -577,7 +594,9 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
         }
       }
 
-      def handleLeaf(leaf: Node.LeafOnlyActionNode[Value.ContractId]): Either[GlobalKey, State] =
+      def handleLeaf(
+          leaf: Node.LeafOnlyActionNode[Value.ContractId]
+      ): Either[KeyInputError, State] =
         leaf match {
           case create: Node.NodeCreate[Value.ContractId] =>
             handleCreate(create)
@@ -597,7 +616,7 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
         )
     }
     evThis
-      .foldInExecutionOrder[Either[GlobalKey, State]](
+      .foldInExecutionOrder[Either[KeyInputError, State]](
         Right(State(Map.empty, List.empty, Map.empty))
       )(
         exerciseBegin = (acc, _, exe) => (acc.flatMap(_.handleExercise(exe)), true),
@@ -815,7 +834,6 @@ object GenTransaction extends value.CidContainer2[GenTransaction] {
       }
     }.duplicates
   }
-
 }
 
 object Transaction {
@@ -913,4 +931,39 @@ object Transaction {
       replayed: VersionedTransaction[Nid, Cid],
   )(implicit ECid: Equal[Cid]): Either[ReplayMismatch[Nid, Cid], Unit] =
     Validation.isReplayedBy(recorded, replayed)
+
+  /** The state of a key at the beginning of the transaction.
+    */
+  sealed trait KeyInput extends Product with Serializable
+
+  /** No active contract with the given key.
+    */
+  sealed trait KeyInactive extends KeyInput
+
+  /** A contract with the key will be created so the key must be inactive.
+    */
+  final case object KeyCreate extends KeyInactive
+
+  /** Negative key lookup so the key mus tbe inactive.
+    */
+  final case object NegativeKeyLookup extends KeyInactive
+
+  /** Key must be mapped to this active contract.
+    */
+  final case class KeyActive(cid: Value.ContractId) extends KeyInput
+
+  /** contractKeyInputs failed to produce an input due to an error for the given key.
+    */
+  sealed abstract class KeyInputError {
+    def key: GlobalKey
+  }
+
+  /** A create failed because there was already an active contract with the same key.
+    */
+  final case class DuplicateKeys(key: GlobalKey) extends KeyInputError
+
+  /** An exercise, fetch or lookupByKey failed because the mapping of key -> contract id
+    * was inconsistent with earlier nodes (in execution order).
+    */
+  final case class InconsistentKeys(key: GlobalKey) extends KeyInputError
 }
