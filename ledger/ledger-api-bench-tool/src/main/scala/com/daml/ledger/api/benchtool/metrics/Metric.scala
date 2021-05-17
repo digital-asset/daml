@@ -38,13 +38,13 @@ object Metric {
 
     override def completeInfo(totalDurationSeconds: Double): List[String] =
       List(
-        s"rate: ${rounded(totalRate)} [tx/s]",
+        s"rate: ${rounded(totalRate(totalDurationSeconds))} [tx/s]",
         s"count: $counter [tx]",
       )
 
     private def periodicRate: Double = (counter - lastCount) * 1000.0 / periodMillis
 
-    private def totalRate: Double = counter * 1000.0 / periodMillis
+    private def totalRate(totalDurationSeconds: Double): Double = counter / totalDurationSeconds
   }
 
   case class TransactionSizeMetric[T](
