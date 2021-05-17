@@ -21,11 +21,9 @@ module DA.Internal.Exception
     ) where
 
 import GHC.Types
-import DA.Internal.Exception.Types
-    ( GeneralError    (GeneralError)
-    , ArithmeticError (ArithmeticError)
-    , ContractError   (ContractError)
-    )
+import DA.Exception.GeneralError    ( GeneralError    (GeneralError) )
+import DA.Exception.ArithmeticError ( ArithmeticError (ArithmeticError) )
+import DA.Exception.ContractError   ( ContractError   (ContractError) )
 import DA.Internal.LF
 import DA.Internal.Prelude
 import DA.Internal.Record
