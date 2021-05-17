@@ -6,8 +6,8 @@ package speedy
 
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
-import com.daml.lf.language.Ast
 import com.daml.lf.ledger.{Authorize, FailedAuthorization}
+import com.daml.lf.speedy.SError.DamlEUnhandledException
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
   GenTransaction,
@@ -20,7 +20,6 @@ import com.daml.lf.transaction.{
 }
 import com.daml.lf.value.Value
 
-import scala.annotation.nowarn
 import scala.collection.immutable.HashMap
 
 private[lf] object PartialTransaction {
@@ -647,22 +646,50 @@ private[lf] case class PartialTransaction(
   /** Close a try context, by catching an exception,
     * i.e. a exception was thrown inside the context, and the catch associated to the try context did handle it.
     */
-  @nowarn("msg=parameter value (exceptionType|exception) in method rollbackTry is never used")
   def rollbackTry(
-      exceptionType: Ast.Type,
-      exception: Value[Value.ContractId],
-  ): PartialTransaction =
+      ex: SValue.SException
+  ): PartialTransaction = {
+    import scala.Ordering.Implicits.infixOrderingOps
     context.info match {
       case info: TryContextInfo =>
         // TODO https://github.com/digital-asset/daml/issues/8020
         //  in the case of there being no children we can simple drop the entire rollback node.
         val rollbackNode = Node.NodeRollback(context.children.toImmArray)
+        if (smallestContainedVersion(rollbackNode) < TxVersion.minExceptions) {
+          throw DamlEUnhandledException(ex)
+        }
         copy(
           context = info.parent.addRollbackChild(info.nodeId, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),
         ).resetActiveState(info.beginState)
       case _ => throw new RuntimeException("rollbackTry called in non-catch context")
     }
+  }
+
+  private def smallestContainedVersion(top: Node): TxVersion = {
+    // This is somewhat inefficient. We are retraversing everything under the rollback node. We could instead keep track of the minimum below each subtree as we build up the transaction and avoid retraversing anything.
+    import scala.Ordering.Implicits.infixOrderingOps
+    def loop(smallest0: TxVersion, todo: List[Node]): TxVersion = {
+      todo match {
+        case Nil => smallest0
+        case node :: todo =>
+          node match {
+            case Node.NodeRollback(children) =>
+              val more = children.toList.map(nodes(_))
+              loop(smallest0, more ++ todo)
+            case act: Node.LeafOnlyActionNode[_] =>
+              val smallest = smallest0 min act.version
+              loop(smallest, todo)
+            case exe: Node.NodeExercises[_, _] =>
+              val more = exe.children.toList.map(nodes(_))
+              val smallest = smallest0 min exe.version
+              loop(smallest, more ++ todo)
+          }
+      }
+    }
+    val max = TxVersion.VDev
+    loop(max, List(top))
+  }
 
   /** Note that the transaction building failed due to an authorization failure */
   private def noteAuthFails(
