@@ -1624,9 +1624,7 @@ private[lf] object SBuiltin {
       args.get(0) match {
         case SBuiltinException(ArithmeticError) =>
           SBool(true)
-        case SBuiltinException(_) =>
-          SBool(false)
-        case SAnyException(_, _) =>
+        case SBuiltinException(_) | SAnyException(_, _) =>
           SBool(false)
         case v =>
           crash(s"AnyExceptionIsArithmeticError applied to non-AnyException: $v")
@@ -1640,9 +1638,7 @@ private[lf] object SBuiltin {
       args.get(0) match {
         case SBuiltinException(ContractError) =>
           SBool(true)
-        case SBuiltinException(_) =>
-          SBool(false)
-        case SAnyException(_, _) =>
+        case SBuiltinException(_) | SAnyException(_, _) =>
           SBool(false)
         case v =>
           crash(s"AnyExceptionIsContractError applied to non-AnyException: $v")
