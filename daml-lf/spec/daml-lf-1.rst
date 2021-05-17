@@ -3842,6 +3842,14 @@ BigNumeric functions
 
   [*Available in version ≥ 1.13*]
 
+* ``SHIFT_RIGHT_BIGNUMERIC : 'Int64' → 'BigNumeric' → 'BigNumeric'``
+
+  Multiply the second argument by 10 to the negative power of the first
+  argument. Throws an ``ArithmeticError`` in case the result cannot be
+  represented without loss of precision.
+
+  [*Available in version ≥ 1.13*]
+
 * ``TO_TEXT_BIGNUMERIC : 'BigNumeric' → 'Text'``
 
   Returns the numeric string representation of the BigNumeric. The

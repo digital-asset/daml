@@ -319,7 +319,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "SUB_BIGNUMERIC" -> BSubBigNumeric,
     "MUL_BIGNUMERIC" -> BMulBigNumeric,
     "DIV_BIGNUMERIC" -> BDivBigNumeric,
-    "SHIFT_BIGNUMERIC" -> BShiftBigNumeric,
+    "SHIFT_RIGHT_BIGNUMERIC" -> BShiftRightBigNumeric,
     "TO_NUMERIC_BIGNUMERIC" -> BToNumericBigNumeric,
     "TO_BIGNUMERIC_NUMERIC" -> BToBigNumericNumeric,
     "TO_TEXT_BIGNUMERIC" -> BToTextBigNumeric,

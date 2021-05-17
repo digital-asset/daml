@@ -268,6 +268,8 @@ object SValue {
     def assertFromBigDecimal(x: java.math.BigDecimal): SBigNumeric =
       data.assertRight(fromBigDecimal(x))
 
+    val Zero: SBigNumeric = new SBigNumeric(java.math.BigDecimal.ZERO)
+
     def checkScale(s: Long): Either[String, Int] =
       Either.cond(test = s.abs <= MaxScale, right = s.toInt, left = "invalide scale")
   }

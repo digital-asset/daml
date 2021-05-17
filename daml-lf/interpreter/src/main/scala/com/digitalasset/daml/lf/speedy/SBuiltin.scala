@@ -911,14 +911,19 @@ private[lf] object SBuiltin {
     }
   }
 
-  final object SBShiftBigNumeric extends SBuiltinPure(2) {
+  final object SBShiftRightBigNumeric extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
       val shifting = getSInt64(args, 0)
-      if (shifting.abs > SBigNumeric.MaxPrecision) throw DamlEArithmeticError("overflow/underflow")
-      rightOrArithmeticError(
-        "overflow/underflow",
-        SBigNumeric.fromBigDecimal(getSBigNumeric(args, 1).scaleByPowerOfTen(-shifting.toInt)),
-      )
+      val x = getSBigNumeric(args, 1)
+      if (x.signum() == 0)
+        SBigNumeric.Zero
+      else if (shifting.abs > SBigNumeric.MaxPrecision)
+        throw DamlEArithmeticError("overflow/underflow")
+      else
+        rightOrArithmeticError(
+          "overflow/underflow",
+          SBigNumeric.fromBigDecimal(x.scaleByPowerOfTen(-shifting.toInt)),
+        )
     }
   }
 

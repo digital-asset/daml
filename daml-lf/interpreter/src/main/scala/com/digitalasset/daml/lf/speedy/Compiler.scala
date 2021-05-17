@@ -569,7 +569,7 @@ private[lf] final class Compiler(
           case BSubBigNumeric => SBSubBigNumeric
           case BDivBigNumeric => SBDivBigNumeric
           case BMulBigNumeric => SBMulBigNumeric
-          case BShiftBigNumeric => SBShiftBigNumeric
+          case BShiftRightBigNumeric => SBShiftRightBigNumeric
           case BToBigNumericNumeric => SBToBigNumericNumeric
           case BToNumericBigNumeric => SBToNumericBigNumeric
           case BToTextBigNumeric => SBToText

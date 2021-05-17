@@ -453,7 +453,8 @@ object Ast {
   final case object BMulBigNumeric extends BuiltinFunction // : BigNumeric → BigNumeric → BigNumeric
   final case object BDivBigNumeric
       extends BuiltinFunction // : Int64 -> RoundingMode → BigNumeric → BigNumeric → BigNumeric s
-  final case object BShiftBigNumeric extends BuiltinFunction // : Int64 → BigNumeric → BigNumeric
+  final case object BShiftRightBigNumeric
+      extends BuiltinFunction // : Int64 → BigNumeric → BigNumeric
   final case object BToNumericBigNumeric extends BuiltinFunction // :  ∀s. BigNumeric → Numeric s
   final case object BToBigNumericNumeric extends BuiltinFunction // :  ∀s. Numeric s → BigNumeric
   final case object BToTextBigNumeric extends BuiltinFunction // : BigNumeric → Text
