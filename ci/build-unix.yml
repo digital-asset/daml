@@ -62,7 +62,7 @@ steps:
                    eq(${{parameters.is_release}}, 'true'),
                    eq('${{parameters.scala_version}}', ''),
                    eq(variables['Build.SourceBranchName'], 'main'),
-                   in('${{parameters.name}}', 'linux', 'linux-scala-2.13'))
+                   in('${{parameters.name}}', 'linux', 'linux-scala-2.12'))
   - template: bash-lib.yml
     parameters:
       var_name: bash-lib

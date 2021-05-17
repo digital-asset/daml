@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Keep in sync with /nix/nixpkgs.nix and /release/src/Main.hs
-default_scala_version = "2.12.13"
+default_scala_version = "2.13.5"
 
 scala_artifacts = {
     "2.12.13": {
