@@ -117,7 +117,7 @@ instance HasToAnyException ArithmeticError where
 instance HasFromAnyException ArithmeticError where
     fromAnyException e
         | primitive @"BEAnyExceptionIsArithmeticError" e =
-            Just (ArithmeticError (message e))
+            Some (ArithmeticError (message e))
         | otherwise =
             primitive @"EFromAnyException" e
 
@@ -139,7 +139,7 @@ instance HasToAnyException ContractError where
 instance HasFromAnyException ContractError where
     fromAnyException e
         | primitive @"BEAnyExceptionIsContractError" e =
-            Just (ContractError (message e))
+            Some (ContractError (message e))
         | otherwise =
             primitive @"EFromAnyException" e
 
