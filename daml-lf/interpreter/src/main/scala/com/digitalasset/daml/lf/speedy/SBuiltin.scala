@@ -1613,7 +1613,7 @@ private[lf] object SBuiltin {
           //   Return more useful exception message (e.g. include the template name)
           machine.returnValue = SText("ContractError")
         case v =>
-          crash(s"AnyExceptionMessage applied to non-AnyExceßption: $v")
+          crash(s"AnyExceptionMessage applied to non-AnyException: $v")
       }
     }
   }
