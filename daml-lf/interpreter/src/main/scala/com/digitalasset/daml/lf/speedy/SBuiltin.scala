@@ -1588,6 +1588,8 @@ private[lf] object SBuiltin {
       args.get(0) match {
         case SAnyException(actualTy, v) =>
           SOptional(if (actualTy == expectedTy) Some(v) else None)
+        case SBuiltinException(_) =>
+          SOptional(None)
         case v => crash(s"FromAnyException applied to non-AnyException: $v")
       }
     }
@@ -1602,8 +1604,48 @@ private[lf] object SBuiltin {
       args.get(0) match {
         case SAnyException(ty, innerValue) =>
           machine.ctrl = SEApp(exceptionMessage(ty), Array(SEValue(innerValue)))
+        case SBuiltinException(ArithmeticError) =>
+          // TODO https://github.com/digital-asset/daml/issues/8020
+          //   Return more useful exception message (e.g. include the function and arguments)
+          machine.returnValue = SText("ArithmeticError")
+        case SBuiltinException(ContractError) =>
+          // TODO https://github.com/digital-asset/daml/issues/8020
+          //   Return more useful exception message (e.g. include the template name)
+          machine.returnValue = SText("ContractError")
         case v =>
-          crash(s"AnyExceptionMessage applied to non-AnyException: $v")
+          crash(s"AnyExceptionMessage applied to non-AnyExceßption: $v")
+      }
+    }
+  }
+
+  /** $any-exception-is-arithmetic-error :: AnyException -> Bool */
+  final case object SBAnyExceptionIsArithmeticError extends SBuiltinPure(1) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+      args.get(0) match {
+        case SBuiltinException(ArithmeticError) =>
+          SBool(True)
+        case SBuiltinException(_) =>
+          SBool(False)
+        case SAnyException(_, _) =>
+          SBool(False)
+        case v =>
+          crash(s"AnyExceptionIsArithmeticError applied to non-AnyException: $v")
+      }
+    }
+  }
+
+  /** $any-exception-is-contract-error :: AnyException -> Bool */
+  final case object SBAnyExceptionIsContractError extends SBuiltinPure(1) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+      args.get(0) match {
+        case SBuiltinException(Contract) =>
+          SBool(True)
+        case SBuiltinException(_) =>
+          SBool(False)
+        case SAnyException(_, _) =>
+          SBool(False)
+        case v =>
+          crash(s"AnyExceptionIsContractError applied to non-AnyException: $v")
       }
     }
   }
