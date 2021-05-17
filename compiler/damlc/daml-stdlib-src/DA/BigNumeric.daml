@@ -77,9 +77,7 @@ round scale rounding x = div scale rounding x 1.0
 -- | Shift a `BigNumeric` number to the right by a power of 10. The value
 -- `shiftRight n a` is the value of `a` times `10^(-n)`.
 --
--- This will fail if the resulting `BigNumeric` is out of bounds,
--- or if the absolute value of `n` is larger than the maximum
--- precision (2^16 - 1).
+-- This will fail if the resulting `BigNumeric` is out of bounds.
 --
 -- ```
 -- >>> shiftRight 2 32.0
@@ -91,9 +89,7 @@ shiftRight = primitive @"BEShiftBigNumeric"
 -- | Shift a `BigNumeric` number to the left by a power of 10. The value
 -- `shiftLeft n a` is the value of `a` times `10^n`.
 --
--- This will fail if the resulting `BigNumeric` is out of bounds,
--- or if the absolute value of `n` is larger than the maximum
--- precision (2^16 - 1).
+-- This will fail if the resulting `BigNumeric` is out of bounds.
 --
 -- ```
 -- >>> shiftLeft 2 32.0
@@ -107,6 +103,11 @@ shiftLeft n x = shiftRight (-n) x
 --
 -- This will fail when using the `RoundingUnnecessary` mode if the `BigNumeric`
 -- cannot be represented exactly in the requested `Numeric n`.
+--
+-- ```
+-- >>> (roundToNumeric RoundingHalfUp 1.23456789 : Numeric 5)
+-- 1.23457
+-- ```
 roundToNumeric : forall n. NumericScale n => RoundingMode -> BigNumeric -> Numeric n
 roundToNumeric r x = fromBigNumeric (round (numericScale (aunit : Numeric n)) r x)
 
