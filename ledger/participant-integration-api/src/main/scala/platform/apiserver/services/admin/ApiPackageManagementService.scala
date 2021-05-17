@@ -41,6 +41,7 @@ private[apiserver] final class ApiPackageManagementService private (
     packagesWrite: WritePackagesService,
     managementServiceTimeout: Duration,
     engine: Engine,
+    darReader: DarReader[Archive],
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -82,8 +83,6 @@ private[apiserver] final class ApiPackageManagementService private (
       }
       .andThen(logger.logErrorsOnCall[ListKnownPackagesResponse])
   }
-
-  private[this] val darReader = DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
 
   private def decodeAndValidate(stream: ZipInputStream): Try[Dar[Archive]] =
     for {
@@ -138,6 +137,7 @@ private[apiserver] object ApiPackageManagementService {
       writeBackend: WritePackagesService,
       managementServiceTimeout: Duration,
       engine: Engine,
+      darReader: DarReader[Archive] = DarReader { case (_, x) => Try(Archive.parseFrom(x)) },
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -149,6 +149,7 @@ private[apiserver] object ApiPackageManagementService {
       writeBackend,
       managementServiceTimeout,
       engine,
+      darReader,
     )
 
   private final class SynchronousResponseStrategy(
