@@ -3,7 +3,7 @@
 
 package com.daml.http.perf
 
-import java.io.File
+import java.nio.file.{Files, Path}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -19,6 +19,8 @@ import com.daml.scalautil.Statement.discard
 import com.daml.testing.postgresql.PostgresDatabase
 import com.typesafe.scalalogging.StrictLogging
 import io.gatling.core.scenario.Simulation
+import io.gatling.netty.util.Transports
+import io.netty.channel.EventLoopGroup
 import scalaz.std.scalaFuture._
 import scalaz.std.string._
 import scalaz.syntax.tag._
@@ -27,7 +29,7 @@ import scalaz.{-\/, EitherT, \/, \/-}
 import Config.QueryStoreIndex
 
 import scala.concurrent.duration.{Duration, _}
-import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise, TimeoutException}
 import scala.util.{Failure, Success, Try}
 
 object Main extends StrictLogging {
@@ -52,9 +54,20 @@ object Main extends StrictLogging {
     implicit val mat: Materializer = Materializer(asys)
     implicit val aesf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool(poolName = name, terminationTimeout = terminationTimeout)
+    implicit val elg: EventLoopGroup = Transports.newEventLoopGroup(true, 0, "gatling")
     implicit val ec: ExecutionContext = asys.dispatcher
 
-    def terminate(): Unit = discard { Await.result(asys.terminate(), terminationTimeout) }
+    def terminate(): Unit = {
+      discard { Await.result(asys.terminate(), terminationTimeout) }
+      val promise = Promise[Unit]()
+      val future = elg.shutdownGracefully(0, terminationTimeout.length, terminationTimeout.unit)
+      discard {
+        future.addListener((f: io.netty.util.concurrent.Future[_]) =>
+          discard { promise.complete(Try(f.get).map(_ => ())) }
+        )
+      }
+      discard { Await.result(promise.future, terminationTimeout) }
+    }
 
     val exitCode: ExitCode = Config.parseConfig(args) match {
       case None =>
@@ -93,6 +106,7 @@ object Main extends StrictLogging {
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
+      elg: EventLoopGroup,
   ): Future[Throwable \/ ExitCode] = {
     import scalaz.syntax.traverse._
 
@@ -123,6 +137,7 @@ object Main extends StrictLogging {
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
+      elg: EventLoopGroup,
   ): Future[ExitCode] =
     withLedger(config.dars, ledgerId.unwrap) { (ledgerPort, _) =>
       withJsonApiJdbcConfig(config.queryStoreIndex) { jsonApiJdbcConfig =>
@@ -131,7 +146,7 @@ object Main extends StrictLogging {
             .flatMap { case (exitCode, dir) =>
               toFuture(generateReport(dir))
                 .map { _ =>
-                  logger.info(s"Report directory: ${dir.getAbsolutePath}")
+                  logger.info(s"Report directory: ${dir.toAbsolutePath}")
                   exitCode
                 }
             }: Future[ExitCode]
@@ -234,7 +249,11 @@ object Main extends StrictLogging {
       config: Config[String],
       jsonApiHost: String,
       jsonApiPort: Int,
-  )(implicit sys: ActorSystem, ec: ExecutionContext): Future[(ExitCode, File)] = {
+  )(implicit
+      sys: ActorSystem,
+      ec: ExecutionContext,
+      elg: EventLoopGroup,
+  ): Future[(ExitCode, Path)] = {
 
     import io.gatling.app
     import io.gatling.core.config.GatlingPropertiesBuilder
@@ -246,24 +265,25 @@ object Main extends StrictLogging {
     val configBuilder = new GatlingPropertiesBuilder()
       .simulationClass(config.scenario)
       .resultsDirectory(config.reportsDir.getAbsolutePath)
-      .noReports()
 
     Future
       .fromTry {
-        app.CustomRunner.runWith(sys, configBuilder.build, None)
+        app.CustomRunner.runWith(sys, elg, configBuilder.build, None)
       }
       .map { case (a, f) =>
         if (a == app.cli.StatusCode.Success.code) (ExitCode.Ok, f) else (ExitCode.GatlingError, f)
       }
   }
 
-  private def generateReport(dir: File): String \/ Unit = {
+  private def generateReport(dir: Path): String \/ Unit = {
     import SimulationLogSyntax._
 
-    require(dir.isDirectory)
+    require(Files.isDirectory(dir))
 
-    val logPath = new File(dir, "simulation.log")
-    val simulationLog = SimulationLog.fromFile(logPath)
+    val jsDir = dir.resolve("js")
+    val statsPath = jsDir.resolve("stats.json")
+    val assertionsPath = jsDir.resolve("assertions.json")
+    val simulationLog = SimulationLog.fromFiles(statsPath, assertionsPath)
     simulationLog.foreach { x =>
       x.writeSummaryCsv(dir)
       val summary = x.writeSummaryText(dir)

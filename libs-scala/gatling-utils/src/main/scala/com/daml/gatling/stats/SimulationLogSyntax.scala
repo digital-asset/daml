@@ -3,11 +3,11 @@
 
 package com.daml.gatling.stats
 
-import java.io.File
+import java.nio.file.Path
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
-import com.daml.gatling.stats.SimulationLog.ScenarioStats
+import com.daml.gatling.stats.SimulationLog.RequestTypeStats
 import com.daml.scalautil.Statement.discard
 
 object SimulationLogSyntax {
@@ -16,32 +16,30 @@ object SimulationLogSyntax {
     /** Will write a summary.csv given a Gatling result directory.
       * @param targetDirectory the directory where the summary.csv will be created.
       */
-    def writeSummaryCsv(targetDirectory: File): Unit = {
+    def writeSummaryCsv(targetDirectory: Path): Unit = {
       discard {
         Files.write(
-          new File(targetDirectory, "summary.csv").toPath,
+          targetDirectory.resolve("summary.csv"),
           log.toCsvString.getBytes(StandardCharsets.UTF_8),
         )
       }
     }
 
-    def writeSummaryText(targetDirectory: File): String = {
-      val summary = formatTextReport(log.scenarios)
+    def writeSummaryText(targetDirectory: Path): String = {
+      val summary = formatTextReport(log.requests)
       discard {
         Files.write(
-          new File(targetDirectory, "summary.txt").toPath,
+          targetDirectory.resolve("summary.txt"),
           summary.getBytes(StandardCharsets.UTF_8),
         )
       }
       summary
     }
 
-    private def formatTextReport(scenarios: List[ScenarioStats]): String = {
+    private def formatTextReport(requests: Map[String, RequestTypeStats]): String = {
       val buf = new StringBuffer()
-      scenarios.foreach { x =>
-        x.requestsByType.foreach { case (name, stats) =>
-          buf.append(stats.formatted(name))
-        }
+      requests.foreach { case (name, stats) =>
+        buf.append(stats.formatted(name))
       }
       buf.toString
     }

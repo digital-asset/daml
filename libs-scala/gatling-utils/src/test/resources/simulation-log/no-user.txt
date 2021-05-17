@@ -1,3 +1,0 @@
-ASSERTION	AAIBAAIFAAAAAAAAAAAA
-RUN	simulation.StandardTwoStepsSimulation	standardtwostepssimulation	1587679986754	, args: --ledger abc
-REQUEST	1		two-steps-sync	1587679987299	1587680007510	OK	ACK
