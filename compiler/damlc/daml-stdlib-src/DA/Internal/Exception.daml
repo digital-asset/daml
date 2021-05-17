@@ -21,7 +21,11 @@ module DA.Internal.Exception
     ) where
 
 import GHC.Types
-import DA.Internal.Exception.Types hiding (message)
+import DA.Internal.Exception.Types
+    ( GeneralError    (GeneralError)
+    , ArithmeticError (ArithmeticError)
+    , ContractError   (ContractError)
+    )
 import DA.Internal.LF
 import DA.Internal.Prelude
 import DA.Internal.Record
