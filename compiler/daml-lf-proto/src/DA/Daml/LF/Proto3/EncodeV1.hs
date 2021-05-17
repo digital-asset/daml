@@ -510,7 +510,7 @@ encodeBuiltinExpr = \case
     BESubBigNumeric -> builtin P.BuiltinFunctionSUB_BIGNUMERIC
     BEMulBigNumeric -> builtin P.BuiltinFunctionMUL_BIGNUMERIC
     BEDivBigNumeric -> builtin P.BuiltinFunctionDIV_BIGNUMERIC
-    BEShiftBigNumeric -> builtin P.BuiltinFunctionSHIFT_BIGNUMERIC
+    BEShiftBigNumeric -> builtin P.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC
     BEToNumericBigNumeric -> builtin P.BuiltinFunctionTO_NUMERIC_BIGNUMERIC
     BEFromNumericBigNumeric -> builtin P.BuiltinFunctionTO_BIGNUMERIC_NUMERIC
     BEToTextBigNumeric -> builtin P.BuiltinFunctionTO_TEXT_BIGNUMERIC
