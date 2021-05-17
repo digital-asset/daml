@@ -4,11 +4,8 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.data.ImmArray
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.value.Value
-
-import scala.collection.immutable.HashMap
 
 sealed abstract class TransactionVersion private (val protoValue: String, private val index: Int)
     extends Product
@@ -68,19 +65,21 @@ object TransactionVersion {
   }
 
   private[lf] def asVersionedTransaction(
-      roots: ImmArray[NodeId],
-      nodes: HashMap[NodeId, Node.GenNode[NodeId, Value.ContractId]],
+      tx: GenTransaction[NodeId, Value.ContractId]
   ): VersionedTransaction[NodeId, Value.ContractId] = {
     import scala.Ordering.Implicits.infixOrderingOps
 
-    val txVersion = roots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
-      nodes(nodeId).optVersion match {
-        case Some(version) => acc max version
-        case None => acc max TransactionVersion.minExceptions
-      }
-    )
+    tx match {
+      case GenTransaction(nodes, roots) =>
+        val txVersion = roots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
+          nodes(nodeId).optVersion match {
+            case Some(version) => acc max version
+            case None => acc max TransactionVersion.minExceptions
+          }
+        )
 
-    VersionedTransaction(txVersion, nodes, roots)
+        VersionedTransaction(txVersion, nodes, roots)
+    }
   }
 
   private[lf] val StableVersions: VersionRange[TransactionVersion] =
