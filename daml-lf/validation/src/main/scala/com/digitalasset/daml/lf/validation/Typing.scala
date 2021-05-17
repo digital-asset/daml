@@ -230,7 +230,7 @@ private[validation] object Typing {
       BSubBigNumeric -> (TBigNumeric ->: TBigNumeric ->: TBigNumeric),
       BMulBigNumeric -> (TBigNumeric ->: TBigNumeric ->: TBigNumeric),
       BDivBigNumeric -> (TInt64 ->: TRoundingMode ->: TBigNumeric ->: TBigNumeric ->: TBigNumeric),
-      BShiftBigNumeric -> (TInt64 ->: TBigNumeric ->: TBigNumeric),
+      BShiftRightBigNumeric -> (TInt64 ->: TBigNumeric ->: TBigNumeric),
       BToNumericBigNumeric -> TForall(alpha.name -> KNat, TBigNumeric ->: TNumeric(alpha)),
       BToBigNumericNumeric -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TBigNumeric),
       BToTextBigNumeric -> (TBigNumeric ->: TText),
