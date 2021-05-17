@@ -98,7 +98,7 @@ partyToText = primitive @"BEToText"
 --
 -- This function will crash at runtime if you compile Daml to Daml-LF < 1.2.
 partyFromText : Text -> Optional Party
-partyFromText = primitive @"BEPartyFromText"
+partyFromText = primitive @"BETextToParty"
 
 -- | Get the party with the given name. Party names must be non-empty and only
 -- contain alphanumeric charaters, space, `-` (dash) or `_` (underscore).
@@ -147,7 +147,7 @@ instance Ord (ContractId a) where
 #endif
 instance Show (ContractId a) where
 #ifdef DAML_CONTRACT_ID_TO_TEXT
-  show cid = case primitive @"BEToTextContractId" cid of
+  show cid = case primitive @"BEContractIdToText" cid of
     None -> "<contract-id>"
     Some t -> t
 #else

@@ -338,7 +338,7 @@ convertRationalBigNumeric num denom = case numericFromRational rational of
     Left _ -> invalid
     Right n ->
         let scale = numericScale n
-        in pure (EBuiltin BEFromNumericBigNumeric
+        in pure (EBuiltin BENumericToBigNumeric
             `ETyApp` TNat (typeLevelNat scale)
             `ETmApp` EBuiltin (BENumeric n))
 

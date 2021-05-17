@@ -138,16 +138,16 @@ convertPrim _ "BESha256Text" (TText :-> TText) =
     EBuiltin BESha256Text
 convertPrim _ "BEPartyToQuotedText" (TParty :-> TText) =
     EBuiltin BEPartyToQuotedText
-convertPrim _ "BEPartyFromText" (TText :-> TOptional TParty) =
-    EBuiltin BEPartyFromText
-convertPrim _ "BEInt64FromText" (TText :-> TOptional TInt64) =
-    EBuiltin BEInt64FromText
-convertPrim _ "BEDecimalFromText" (TText :-> TOptional TDecimal) =
-    EBuiltin BEDecimalFromText
+convertPrim _ "BETextToParty" (TText :-> TOptional TParty) =
+    EBuiltin BETextToParty
+convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =
+    EBuiltin BETextToInt64
+convertPrim _ "BETextToDecimal" (TText :-> TOptional TDecimal) =
+    EBuiltin BETextToDecimal
 convertPrim _ "BETextToCodePoints" (TText :-> TList TInt64) =
     EBuiltin BETextToCodePoints
-convertPrim _ "BETextFromCodePoints" (TList TInt64 :-> TText) =
-    EBuiltin BETextFromCodePoints
+convertPrim _ "BECodePointsToText" (TList TInt64 :-> TText) =
+    EBuiltin BECodePointsToText
 
 -- Map operations
 
@@ -212,9 +212,9 @@ convertPrim _ "BEInt64ToDecimal" (TInt64 :-> TNumeric10) =
 convertPrim _ "BEDecimalToInt64" (TNumeric10 :-> TInt64) =
     ETyApp (EBuiltin BENumericToInt64) TNat10
 convertPrim _ "BEToText" (TNumeric10 :-> TText) =
-    ETyApp (EBuiltin BEToTextNumeric) TNat10
-convertPrim _ "BEDecimalFromText" (TText :-> TOptional TNumeric10) =
-    ETyApp (EBuiltin BENumericFromText) TNat10
+    ETyApp (EBuiltin BENumericToText) TNat10
+convertPrim _ "BETextToDecimal" (TText :-> TOptional TNumeric10) =
+    ETyApp (EBuiltin BETextToNumeric) TNat10
 
 -- Numeric primitives. These are polymorphic in the scale.
 convertPrim _ "BEAddNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
@@ -255,10 +255,10 @@ convertPrim _ "BEInt64ToNumeric" (TInt64 :-> TNumeric n) =
     ETyApp (EBuiltin BEInt64ToNumeric) n
 convertPrim _ "BENumericToInt64" (TNumeric n :-> TInt64) =
     ETyApp (EBuiltin BENumericToInt64) n
-convertPrim _ "BEToTextNumeric" (TNumeric n :-> TText) =
-    ETyApp (EBuiltin BEToTextNumeric) n
-convertPrim _ "BENumericFromText" (TText :-> TOptional (TNumeric n)) =
-    ETyApp (EBuiltin BENumericFromText) n
+convertPrim _ "BENumericToText" (TNumeric n :-> TText) =
+    ETyApp (EBuiltin BENumericToText) n
+convertPrim _ "BETextToNumeric" (TText :-> TOptional (TNumeric n)) =
+    ETyApp (EBuiltin BETextToNumeric) n
 
 convertPrim version "BEScaleBigNumeric" ty@(TBigNumeric :-> TInt64) =
     whenRuntimeSupports version featureBigNumeric ty $
@@ -281,12 +281,12 @@ convertPrim version "BEDivBigNumeric" ty@(TInt64 :-> TRoundingMode :-> TBigNumer
 convertPrim version "BEShiftRightBigNumeric" ty@(TInt64 :-> TBigNumeric :-> TBigNumeric) =
     whenRuntimeSupports version featureBigNumeric ty $
       EBuiltin BEShiftRightBigNumeric
-convertPrim version "BEFromNumericBigNumeric" ty@(TNumeric n :-> TBigNumeric) =
+convertPrim version "BENumericToBigNumeric" ty@(TNumeric n :-> TBigNumeric) =
     whenRuntimeSupports version featureBigNumeric ty $
-      EBuiltin BEFromNumericBigNumeric `ETyApp` n
-convertPrim version "BEToNumericBigNumeric" ty@(TBigNumeric :-> TNumeric n) =
+      EBuiltin BENumericToBigNumeric `ETyApp` n
+convertPrim version "BEBigNumericToNumeric" ty@(TBigNumeric :-> TNumeric n) =
     whenRuntimeSupports version featureBigNumeric ty $
-      EBuiltin BEToNumericBigNumeric `ETyApp` n
+      EBuiltin BEBigNumericToNumeric `ETyApp` n
 
 -- Experimental text primitives.
 convertPrim _ "BETextToUpper" (TText :-> TText) = EBuiltin BETextToUpper
@@ -300,8 +300,8 @@ convertPrim _ "BETextIntercalate" (TText :-> TList TText :-> TText) = EBuiltin B
 
 -- Conversion from ContractId to Text
 
-convertPrim _ "BEToTextContractId" (TContractId t :-> TOptional TText) =
-    ETyApp (EBuiltin BEToTextContractId) t
+convertPrim _ "BEContractIdToText" (TContractId t :-> TOptional TText) =
+    ETyApp (EBuiltin BEContractIdToText) t
 
 
 -- Template Desugaring.

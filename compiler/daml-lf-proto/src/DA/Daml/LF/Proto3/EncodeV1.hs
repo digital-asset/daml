@@ -481,13 +481,13 @@ encodeBuiltinExpr = \case
       BTParty -> builtin P.BuiltinFunctionPARTY_TO_TEXT
       BTBigNumeric ->  builtin P.BuiltinFunctionBIGNUMERIC_TO_TEXT
       other -> error $ "BEToText unexpected type " <> show other
-    BEToTextContractId -> builtin P.BuiltinFunctionCONTRACT_ID_TO_TEXT
-    BEToTextNumeric -> builtin P.BuiltinFunctionNUMERIC_TO_TEXT
-    BETextFromCodePoints -> builtin P.BuiltinFunctionCODE_POINTS_TO_TEXT
-    BEPartyFromText -> builtin P.BuiltinFunctionTEXT_TO_PARTY
-    BEInt64FromText -> builtin P.BuiltinFunctionTEXT_TO_INT64
-    BEDecimalFromText-> builtin P.BuiltinFunctionTEXT_TO_DECIMAL
-    BENumericFromText-> builtin P.BuiltinFunctionTEXT_TO_NUMERIC
+    BEContractIdToText -> builtin P.BuiltinFunctionCONTRACT_ID_TO_TEXT
+    BENumericToText -> builtin P.BuiltinFunctionNUMERIC_TO_TEXT
+    BECodePointsToText -> builtin P.BuiltinFunctionCODE_POINTS_TO_TEXT
+    BETextToParty -> builtin P.BuiltinFunctionTEXT_TO_PARTY
+    BETextToInt64 -> builtin P.BuiltinFunctionTEXT_TO_INT64
+    BETextToDecimal-> builtin P.BuiltinFunctionTEXT_TO_DECIMAL
+    BETextToNumeric-> builtin P.BuiltinFunctionTEXT_TO_NUMERIC
     BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_POINTS_TO_CODE
     BEPartyToQuotedText -> builtin P.BuiltinFunctionPARTY_TO_QUOTED_TEXT
 
@@ -512,8 +512,8 @@ encodeBuiltinExpr = \case
     BEMulBigNumeric -> builtin P.BuiltinFunctionMUL_BIGNUMERIC
     BEDivBigNumeric -> builtin P.BuiltinFunctionDIV_BIGNUMERIC
     BEShiftRightBigNumeric -> builtin P.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC
-    BEToNumericBigNumeric -> builtin P.BuiltinFunctionBIGNUMERIC_TO_NUMERIC
-    BEFromNumericBigNumeric -> builtin P.BuiltinFunctionNUMERIC_TO_BIGNUMERIC
+    BEBigNumericToNumeric -> builtin P.BuiltinFunctionBIGNUMERIC_TO_NUMERIC
+    BENumericToBigNumeric -> builtin P.BuiltinFunctionNUMERIC_TO_BIGNUMERIC
 
     BEAddInt64 -> builtin P.BuiltinFunctionADD_INT64
     BESubInt64 -> builtin P.BuiltinFunctionSUB_INT64
