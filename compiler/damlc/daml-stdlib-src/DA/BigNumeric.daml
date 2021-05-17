@@ -33,7 +33,7 @@ import GHC.Types (primitive)
 -- ```
 --
 -- ```
--- >>> scale (shift (-2^14) 1.0)
+-- >>> scale (shiftLeft (2^14) 1.0)
 -- -2^14
 -- ```
 scale : BigNumeric -> Int
@@ -73,16 +73,40 @@ div = primitive @"BEDivBigNumeric"
 round : Int -> RoundingMode -> BigNumeric -> BigNumeric
 round scale rounding x = div scale rounding x 1.0
 
--- | Shift a `BigNumeric` number up or down by a power of 10. The value
--- `shift n a` is the value of `a` times `10^(-n)`.
+-- | Shift a `BigNumeric` number to the right by a power of 10. The value
+-- `shiftRight n a` is the value of `a` times `10^(-n)`.
 --
--- This will fail if the resulting `BigNumeric` is out of bounds.
+-- This will fail if the resulting `BigNumeric` is out of bounds,
+-- or if the absolute value of `n` is larger than the maximum
+-- precision (2^16 - 1).
 --
 -- ```
--- >>> shift 2 32.0
+-- >>> shiftRight 2 32.0
 -- 0.32
 -- ```
-shift : Int -> BigNumeric -> BigNumeric
-shift = primitive @"BEShiftBigNumeric"
+shiftRight : Int -> BigNumeric -> BigNumeric
+shiftRight = primitive @"BEShiftBigNumeric"
+
+-- | Shift a `BigNumeric` number to the left by a power of 10. The value
+-- `shiftLeft n a` is the value of `a` times `10^n`.
+--
+-- This will fail if the resulting `BigNumeric` is out of bounds,
+-- or if the absolute value of `n` is larger than the maximum
+-- precision (2^16 - 1).
+--
+-- ```
+-- >>> shiftLeft 2 32.0
+-- 3200.0
+-- ```
+shiftLeft : Int -> BigNumeric -> BigNumeric
+shiftLeft n x = shiftRight (-n) x
+
+-- | Round a `BigNumeric` and cast it to a `Numeric`. This function uses the
+-- scale of the resulting numeric to determine the scale of the rounding.
+--
+-- This will fail when using the `RoundingUnnecessary` mode if the `BigNumeric`
+-- cannot be represented exactly in the requested `Numeric n`.
+roundToNumeric : forall n. NumericScale n => RoundingMode -> BigNumeric -> Numeric n
+roundToNumeric r x = fromBigNumeric (round (numericScale (aunit : Numeric n)) r x)
 
 #endif
