@@ -792,7 +792,7 @@ filegroup(
     ],
 )
 
-# Check that DAML compilation is deterministic.
+# Check that Daml compilation is deterministic.
 
 sh_test(
     name = "deterministic",
