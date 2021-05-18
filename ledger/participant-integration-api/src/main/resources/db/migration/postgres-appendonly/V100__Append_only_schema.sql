@@ -485,49 +485,29 @@ FROM participant_events
 WHERE participant_events.exercise_consuming = FALSE -- non-consuming exercise events
 ORDER BY participant_events.event_sequential_id;
 
--- Temporary sequence and table used to generate sequential IDs that appear after
+-- Temporary sequence to generate sequential IDs that appear after
 -- all other already existing sequential IDs.
--- We are using plain temporary objects to minimize the amount of database-specific SQL features used.
 CREATE SEQUENCE temp_divulgence_sequential_id START 1;
-CREATE TABLE temp_ledger_end_sequential_info (
-    ledger_end_sequential_id bigint NOT NULL
-);
-INSERT INTO temp_ledger_end_sequential_info(
-    SELECT coalesce(max(event_sequential_id), 0) FROM participant_events
-);
 
--- A temporary table with data for existing divulgence events.
 -- Divulgence events did not exist before, we need to assign a new sequential ID for them.
 -- They will all be inserted after all other events, i.e., at a point later than the transaction
 -- that actually lead to the divulgence. This is OK, as we only use the for lookups
 -- AND we can recognize these divulgence events from not having an associated ???.
 -- In addition, we want to avoid rewriting the event_sequential_id of other events
 -- for data continuity reasons.
-CREATE TABLE temp_divulged_contracts (
-    event_sequential_id bigint NOT NULL,
-    contract_id text NOT NULL,
-    divulgees text[] NOT NULL
-);
-INSERT INTO temp_divulged_contracts (
-    event_sequential_id,
-    contract_id,
-    divulgees
-)
-SELECT
-    nextval('temp_divulgence_sequential_id') + ledger_end_sequential_id,
-    contract_id,
-    array_agg(contract_witness)
-FROM
-    participant_contract_witnesses
-        INNER JOIN participant_contracts USING (contract_id)
-        LEFT JOIN participant_events USING (contract_id),
-    temp_ledger_end_sequential_info
-WHERE (NOT create_stakeholders @> array[contract_witness])
-    AND exercise_consuming IS NULL -- create events only
-    AND (tree_event_witnesses IS NULL OR NOT tree_event_witnesses @> array[contract_witness])
-GROUP BY contract_id, ledger_end_sequential_id;
-
-INSERT INTO participant_events_divulgence (
+WITH divulged_contracts AS (
+    SELECT nextval('temp_divulgence_sequential_id') +
+           (SELECT coalesce(max(event_sequential_id), 0) FROM participant_events) as event_sequential_id,
+           contract_id,
+           array_agg(contract_witness) as divulgees
+    FROM participant_contract_witnesses
+             INNER JOIN participant_contracts USING (contract_id)
+             LEFT JOIN participant_events USING (contract_id)
+    WHERE (NOT create_stakeholders @> array [contract_witness])
+      AND exercise_consuming IS NULL -- create events only
+      AND (tree_event_witnesses IS NULL OR NOT tree_event_witnesses @> array [contract_witness])
+    GROUP BY contract_id
+) INSERT INTO participant_events_divulgence (
     event_sequential_id,
     event_offset,
     command_id,
@@ -554,11 +534,9 @@ SELECT
     divulgees,
     create_argument,
     create_argument_compression
-FROM temp_divulged_contracts INNER JOIN participant_contracts USING (contract_id);
+FROM divulged_contracts INNER JOIN participant_contracts USING (contract_id);
 
--- Drop temporary tables
-DROP TABLE temp_divulged_contracts;
-DROP TABLE temp_ledger_end_sequential_info;
+-- Drop temporary objects
 DROP SEQUENCE temp_divulgence_sequential_id;
 
 
