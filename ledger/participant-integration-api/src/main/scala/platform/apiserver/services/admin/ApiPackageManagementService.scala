@@ -131,13 +131,17 @@ private[apiserver] final class ApiPackageManagementService private (
 
 private[apiserver] object ApiPackageManagementService {
 
+  private lazy val DefaultDarReader = DarReader[Archive] { case (_, inputStream) =>
+    Try(Archive.parseFrom(inputStream))
+  }
+
   def createApiService(
       readBackend: IndexPackagesService,
       transactionsService: IndexTransactionsService,
       writeBackend: WritePackagesService,
       managementServiceTimeout: Duration,
       engine: Engine,
-      darReader: DarReader[Archive] = DarReader { case (_, x) => Try(Archive.parseFrom(x)) },
+      darReader: DarReader[Archive] = DefaultDarReader,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
