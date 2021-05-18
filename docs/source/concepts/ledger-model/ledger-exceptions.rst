@@ -160,27 +160,19 @@ example, we need `p` to be able to verify that a rolled back exercise
 (to which they are an informee) is conformant, but we also need `p` to
 know that the exercise was rolled back.
 
-Before we define projection, we first need to define the simpler notion of
+Before we define projection, we first define the simpler notion of
 **raw projection**. In a raw projection for `p`, we proceed with projection
 for `p` as defined in the previous sections, and when we encounter a rollback
 node we replace it with the projection for `p` of all of its children.
 
 This would be the notion of projection we would get if we did not want to
-preserve any of the rollback structure. For example, the raw projection for
-`p` of the "fake double spend" example would actually be a double spend, as
-the rollback structure is stripped away:
-
-..
-  TODO: Add a diagram of a double spend via raw projection.
-
-Notice that the double spend happens because the "after" relation was not
-preserved during raw projection. Similarly, notice that a node that was
-rolled back in the original transaction did not remain rolled back in
-the raw projection. So that's two strikes against using raw projection
-as our notion of projection.
+preserve any of the rollback structure. This raw projection preserves the
+"prefix order" relation on the projected actions, but it forgets the
+"before-after" relation on these actions, and it forgets which actions
+were rolled back.
 
 If we could preserve the "after" relation, and the set of rolled back
-nodes, we would have a suitable notion of projection. This observation
+actions, we would have a suitable notion of projection. This observation
 forms the basis for the definition that follows. Here are our goals for
 defining projection in the presence of rollbacks nodes:
 
@@ -253,7 +245,7 @@ the following steps:
 
 - If the projected rollback node is empty, we drop it.
 
-Note that all of these transformations preserve the "after" relation among
+Note that all of these transformations preserve the "before-after" relation among
 actions in the transaction tree, as well as the set of rolled back actions.
 They only affect the structure of the transaction by reducing the amount of
 variation that may occur in a projected rollback node. Thus, our privacy
