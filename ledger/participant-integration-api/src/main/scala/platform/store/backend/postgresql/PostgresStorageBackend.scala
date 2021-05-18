@@ -764,8 +764,6 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
   override def initialize(connection: Connection): StorageBackend.LedgerEnd = {
     val result @ StorageBackend.LedgerEnd(offset, _) = ledgerEnd(connection)
 
-    // TODO append-only: verify default isolation level is enough to maintain consistency here (eg the fact of selecting these values at the beginning ensures data changes to the params are postponed until purging finishes). Alternatively: if single indexer instance to db access otherwise ensured, atomicity here is not an issue.
-
     offset.foreach { existingOffset =>
       val preparedStatement = preparedDeleteIngestionOverspillEntries(connection)
       List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).foreach(
