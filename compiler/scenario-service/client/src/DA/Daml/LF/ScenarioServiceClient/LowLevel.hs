@@ -268,12 +268,13 @@ newCtx Handle{..} = do
   pure (ContextId . SS.newContextResponseContextId <$> res)
 
 cloneCtx :: Handle -> ContextId -> IO (Either BackendError ContextId)
-cloneCtx Handle{..} (ContextId ctxId) = do
-  res <- withLogs hOptions ("cloneCtx(" <> show ctxId <> ")") $
+cloneCtx Handle{..} (ContextId ctxId) = withLogs hOptions ("cloneCtx(" <> show ctxId <> ")") $do
+  res <-
     performRequest
       (SS.scenarioServiceCloneContext hClient)
       (optRequestTimeout hOptions)
       (SS.CloneContextRequest ctxId)
+  optLogInfo hOptions ("cloneCtx result:" <> show (SS.cloneContextResponseContextId <$> res))
   pure (ContextId . SS.cloneContextResponseContextId <$> res)
 
 deleteCtx :: Handle -> ContextId -> IO (Either BackendError ())

@@ -30,6 +30,8 @@ import Control.Concurrent.Extra
 import Control.DeepSeq
 import Control.Exception
 import Control.Monad.Except
+import qualified Data.UUID as UUID
+import qualified Data.UUID.V4 as UUID
 import qualified Data.ByteString as BS
 import Data.Hashable
 import Data.IORef
@@ -211,8 +213,16 @@ runScenario h ctxId name = run (\h -> LowLevel.runScenario h ctxId name) h
 runScript :: Handle -> LowLevel.ContextId -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
 runScript h ctxId name = run (\h -> LowLevel.runScript h ctxId name) h
 
+withLogs :: Options -> (UUID.UUID -> IO a) -> IO a
+withLogs Options{optLogInfo} act = do
+    id <- UUID.nextRandom
+    bracket_
+      (optLogInfo ("RUN " <> show id <> " -->"))
+      (optLogInfo ("RUN " <> show id <> " <--"))
+      (act id)
+
 run :: (LowLevel.Handle -> IO (Either LowLevel.Error r)) -> Handle -> IO (Either LowLevel.Error r)
-run f Handle{..} = do
+run f Handle{..} = withLogs hOptions $ \id -> do
   resVar <- newEmptyMVar
   -- When a scenario/script execution is aborted, we would like to be able to return
   -- immediately. However, we cannot cancel the actual execution of the scenario/script.
@@ -228,7 +238,9 @@ run f Handle{..} = do
       -- semaphore.
       waitQSemN hConcurrencySem 1
       _ <- forkIO $ do
+        optLogInfo hOptions $ "FORKED RUN " <> show id <> " -->"
         r <- try $ restore $ f hLowLevelHandle
+        optLogInfo hOptions $ "FORKED RUN " <> show id <> " <--"
         case r of
             Left ex -> putMVar resVar (Left $ LowLevel.ExceptionError ex)
             Right r -> putMVar resVar r

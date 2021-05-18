@@ -71,6 +71,7 @@ jobs:
     - template: report-end.yml
 
 - job: Linux_scala_2_12
+  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -107,6 +108,7 @@ jobs:
     - template: report-end.yml
 
 - job: macOS
+  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -144,6 +146,7 @@ jobs:
     final_job_name: patch_bazel_windows
 
 - job: Windows
+  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release

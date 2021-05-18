@@ -782,7 +782,10 @@ createScenarioContextRule =
                 pure
                 ctxIdOrErr
         scenarioContextsVar <- envScenarioContexts <$> getDamlServiceEnv
+        logger <- actionLogger
+        liftIO $ logInfo logger $ T.pack $ "--> Inserting new context" <> show ctxId
         liftIO $ modifyMVar_ scenarioContextsVar $ pure . HashMap.insert file ctxId
+        liftIO $ logInfo logger $ T.pack $ "<-- Inserting new context" <> show ctxId
         pure ([], Just ctxId)
 
 -- | This helper should be used instead of GenerateDalf/GenerateRawDalf
