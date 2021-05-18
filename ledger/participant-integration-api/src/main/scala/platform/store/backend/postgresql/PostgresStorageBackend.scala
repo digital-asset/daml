@@ -724,37 +724,12 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
       |""".stripMargin
   )
 
-  private val preparedUpdateLedgerEndWithConfig: Connection => PreparedStatement =
-    _.prepareStatement(
-      """
-      |UPDATE
-      |  parameters
-      |SET
-      |  ledger_end = ?,
-      |  ledger_end_sequential_id = ?,
-      |  configuration = ?
-      |
-      |""".stripMargin
-    )
-
   override def updateParams(connection: Connection, params: StorageBackend.Params): Unit = {
-    params.configuration match {
-      case Some(configBytes) =>
-        // TODO append-only: just a shortcut, proper solution: reading config with a temporal query
-        val preparedStatement = preparedUpdateLedgerEndWithConfig(connection)
-        preparedStatement.setString(1, params.ledgerEnd.toHexString)
-        preparedStatement.setLong(2, params.eventSeqId)
-        preparedStatement.setBytes(3, configBytes)
-        preparedStatement.execute()
-        preparedStatement.close()
-
-      case None =>
-        val preparedStatement = preparedUpdateLedgerEnd(connection)
-        preparedStatement.setString(1, params.ledgerEnd.toHexString)
-        preparedStatement.setLong(2, params.eventSeqId)
-        preparedStatement.execute()
-        preparedStatement.close()
-    }
+    val preparedStatement = preparedUpdateLedgerEnd(connection)
+    preparedStatement.setString(1, params.ledgerEnd.toHexString)
+    preparedStatement.setLong(2, params.eventSeqId)
+    preparedStatement.execute()
+    preparedStatement.close()
     ()
   }
 
