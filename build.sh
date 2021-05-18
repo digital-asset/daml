@@ -30,4 +30,4 @@ fi
 # Temporary until all nodes have been reset
 rm -rf compiler/daml-extension/node_modules
 
-bazel query "filter(integration-*, kind(_haskell_test, //compiler/damlc/tests/...))" | xargs bazel test --runs_per_test=10
+bazel query "filter(integration-*, kind(_haskell_test, //compiler/damlc/tests/...))" | xargs bazel test --runs_per_test=20
