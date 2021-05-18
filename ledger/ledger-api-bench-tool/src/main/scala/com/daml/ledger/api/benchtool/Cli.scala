@@ -46,28 +46,16 @@ object Cli {
         .text("Stream metrics log interval.")
         .action { case (period, config) => config.copy(reportingPeriod = period) },
       opt[Int]("core-pool-size")
-        .text("corePoolSize parameter of the ThreadPoolExecutor.")
+        .text("Initial size of the worker thread pool.")
         .optional()
         .action { case (size, config) =>
           config.copy(concurrency = config.concurrency.copy(corePoolSize = size))
         },
       opt[Int]("max-pool-size")
-        .text("maxPoolSize parameter of the ThreadPoolExecutor.")
+        .text("Maximum size of the worker thread pool.")
         .optional()
         .action { case (size, config) =>
           config.copy(concurrency = config.concurrency.copy(maxPoolSize = size))
-        },
-      opt[Long]("keep-alive-time")
-        .text("keepAliveTime parameter of the ThreadPoolExecutor.")
-        .optional()
-        .action { case (time, config) =>
-          config.copy(concurrency = config.concurrency.copy(keepAliveTime = time))
-        },
-      opt[Int]("max-queue-length")
-        .text("maxQueueLength parameter of the ThreadPoolExecutor.")
-        .optional()
-        .action { case (length, config) =>
-          config.copy(concurrency = config.concurrency.copy(maxQueueLength = length))
         },
       help("help").text("Prints this information"),
     )
