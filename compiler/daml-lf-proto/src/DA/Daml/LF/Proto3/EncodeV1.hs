@@ -479,6 +479,7 @@ encodeBuiltinExpr = \case
       BTTimestamp -> builtin P.BuiltinFunctionTO_TEXT_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionTO_TEXT_DATE
       BTParty -> builtin P.BuiltinFunctionTO_TEXT_PARTY
+      BTBigNumeric ->  builtin P.BuiltinFunctionTO_TEXT_BIGNUMERIC
       other -> error $ "BEToText unexpected type " <> show other
     BEToTextContractId -> builtin P.BuiltinFunctionTO_TEXT_CONTRACT_ID
     BEToTextNumeric -> builtin P.BuiltinFunctionTO_TEXT_NUMERIC
@@ -513,7 +514,6 @@ encodeBuiltinExpr = \case
     BEShiftRightBigNumeric -> builtin P.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC
     BEToNumericBigNumeric -> builtin P.BuiltinFunctionTO_NUMERIC_BIGNUMERIC
     BEFromNumericBigNumeric -> builtin P.BuiltinFunctionTO_BIGNUMERIC_NUMERIC
-    BEToTextBigNumeric -> builtin P.BuiltinFunctionTO_TEXT_BIGNUMERIC
 
     BEAddInt64 -> builtin P.BuiltinFunctionADD_INT64
     BESubInt64 -> builtin P.BuiltinFunctionSUB_INT64
