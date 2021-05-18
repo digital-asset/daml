@@ -14,6 +14,7 @@ exports_files(
         "configs/static/typescript.py",
         "scripts/check-closing-quotes.sh",
         "scripts/check-closing-quotes.sh.allow",
+        "source/tools/export/output-root/Export.daml",
     ],
 )
 

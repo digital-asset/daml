@@ -6,6 +6,10 @@ load(
     "client_server_build",
 )
 load(
+    "//bazel_tools/sh:sh.bzl",
+    "sh_inline_test",
+)
+load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
@@ -143,4 +147,23 @@ client_server_build(
     output_env = "EXPORT_OUT",
     server = "//ledger/sandbox:sandbox-binary",
     server_files = ["//daml-script/test:script-test.dar"],
+)
+
+# Compare the generated Daml ledger export to the example export used in the
+# documentation. This functions as both a golden test on ledger exports and to
+# make sure that the documentation stays up-to-date.
+sh_inline_test(
+    name = "example-export-compare",
+    cmd = """\
+EXPECTED_EXPORT=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/Export.daml))
+ACTUAL_EXPORT=$$(canonicalize_rlocation $(rootpath :example-export/Export.daml))
+# Normalize the expected file by removing the copyright header and any documentation import markers.
+# Normalize the actual output by adding a newline to the last line if missing.
+$(POSIX_DIFF) -Naur <(sed '1,3d;/^-- EXPORT/d' $$EXPECTED_EXPORT) <(sed '$$a\\' $$ACTUAL_EXPORT)
+""",
+    data = [
+        ":example-export/Export.daml",
+        "//docs:source/tools/export/output-root/Export.daml",
+    ],
+    toolchains = ["@rules_sh//sh/posix:make_variables"],
 )
