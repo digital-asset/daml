@@ -109,7 +109,7 @@ main = do
  LfVersionOpt lfVer <- do
      let parser = optionCLParser <* many (strArgument @String mempty)
      execParser (info parser forwardOptions)
- scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
+ scenarioLogger <- Logger.newStderrLogger Logger.Info "scenario"
  SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
   hSetEncoding stdout utf8
   setEnv "TASTY_NUM_THREADS" "1" True

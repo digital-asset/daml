@@ -29,6 +29,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
 import Conduit (runConduit, (.|), MonadUnliftIO(..))
 import Data.Either
 import Data.Functor
+import qualified Data.UUID.V4 as UUID
 import Data.Maybe
 import Data.IORef
 import GHC.Generics
@@ -76,6 +77,14 @@ data Options = Options
   }
 
 type TimeoutSeconds = Int
+
+withLogs :: Options -> String -> IO a -> IO a
+withLogs Options{optLogInfo} msg act = do
+    id <- UUID.nextRandom
+    optLogInfo ("LOWLEVEL " <> show id <> " -->" <> msg)
+    r <- act
+    optLogInfo ("LOWLEVEL " <> show id <> " <--" <> msg)
+    pure r
 
 data Handle = Handle
   { hClient :: SS.ScenarioService ClientRequest ClientResult
@@ -252,7 +261,7 @@ withScenarioService opts@Options{..} f = do
 
 newCtx :: Handle -> IO (Either BackendError ContextId)
 newCtx Handle{..} = do
-  res <- performRequest
+  res <- withLogs hOptions "newCtx" $ performRequest
       (SS.scenarioServiceNewContext hClient)
       (optRequestTimeout hOptions)
       (SS.NewContextRequest $ TL.pack $ LF.renderMinorVersion $ LF.versionMinor $ optDamlLfVersion hOptions)
@@ -260,7 +269,7 @@ newCtx Handle{..} = do
 
 cloneCtx :: Handle -> ContextId -> IO (Either BackendError ContextId)
 cloneCtx Handle{..} (ContextId ctxId) = do
-  res <-
+  res <- withLogs hOptions ("cloneCtx(" <> show ctxId <> ")") $
     performRequest
       (SS.scenarioServiceCloneContext hClient)
       (optRequestTimeout hOptions)
@@ -268,7 +277,7 @@ cloneCtx Handle{..} (ContextId ctxId) = do
   pure (ContextId . SS.cloneContextResponseContextId <$> res)
 
 deleteCtx :: Handle -> ContextId -> IO (Either BackendError ())
-deleteCtx Handle{..} (ContextId ctxId) = do
+deleteCtx Handle{..} (ContextId ctxId) = withLogs hOptions ("deleteCtx(" <> show ctxId <> ")") $ do
   res <-
     performRequest
       (SS.scenarioServiceDeleteContext hClient)
@@ -277,7 +286,7 @@ deleteCtx Handle{..} (ContextId ctxId) = do
   pure (void res)
 
 gcCtxs :: Handle -> [ContextId] -> IO (Either BackendError ())
-gcCtxs Handle{..} ctxIds = do
+gcCtxs Handle{..} ctxIds = withLogs hOptions ("gcCtxs(" <> show ctxIds <> ")") $ do
     res <-
         performRequest
             (SS.scenarioServiceGCContexts hClient)
@@ -286,7 +295,7 @@ gcCtxs Handle{..} ctxIds = do
     pure (void res)
 
 updateCtx :: Handle -> ContextId -> ContextUpdate -> IO (Either BackendError ())
-updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
+updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = withLogs hOptions ("updateCtx(" <> show ctxId <> ")") $ do
   res <-
     performRequest
       (SS.scenarioServiceUpdateContext hClient)
@@ -317,7 +326,7 @@ mangleModuleName (LF.ModuleName modName) =
 
 runScenario :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
 runScenario Handle{..} (ContextId ctxId) name = do
-  res <-
+  res <- withLogs hOptions ("runScenario(" <> show ctxId <> ")") $
     performRequest
       (SS.scenarioServiceRunScenario hClient)
       (optRequestTimeout hOptions)
@@ -344,7 +353,7 @@ toIdentifier (LF.Qualified pkgId modName defn) =
 
 runScript :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
 runScript Handle{..} (ContextId ctxId) name = do
-  res <-
+  res <- withLogs hOptions ("runScript(" <> show ctxId <> ")") $
     performRequest
       (SS.scenarioServiceRunScript hClient)
       (optRequestTimeout hOptions)

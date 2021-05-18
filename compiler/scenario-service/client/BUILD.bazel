@@ -34,6 +34,7 @@ da_haskell_library(
         "text",
         "time",
         "transformers",
+        "uuid",
         "uri-encode",
         "vector",
     ],
