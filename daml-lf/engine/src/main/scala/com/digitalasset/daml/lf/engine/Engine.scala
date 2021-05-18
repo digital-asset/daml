@@ -404,7 +404,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
 
   /** This method checks a set of packages is self-consistent (it
     * contains all its dependencies), contains only well-formed
-    * packages (See daml LF spec for more details) and uses only the
+    * packages (See Daml-LF spec for more details) and uses only the
     * allowed language versions (as described by the engine
     * config).
     * This is not affected by [[config.packageValidation]] flag.
