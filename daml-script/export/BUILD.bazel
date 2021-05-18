@@ -140,7 +140,10 @@ da_scala_binary(
 
 client_server_build(
     name = "example-export",
-    outs = ["example-export/Export.daml"],
+    outs = [
+        "example-export/Export.daml",
+        "example-export/args.json",
+    ],
     client = ":example-export-client",
     client_files = ["//daml-script/test:script-test.dar"],
     data = ["//daml-script/test:script-test.dar"],
@@ -156,14 +159,25 @@ sh_inline_test(
     name = "example-export-compare",
     cmd = """\
 EXPECTED_EXPORT=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/Export.daml))
+EXPECTED_ARGS=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/args.json))
 ACTUAL_EXPORT=$$(canonicalize_rlocation $(rootpath :example-export/Export.daml))
+ACTUAL_ARGS=$$(canonicalize_rlocation $(rootpath :example-export/args.json))
 # Normalize the expected file by removing the copyright header and any documentation import markers.
 # Normalize the actual output by adding a newline to the last line if missing.
-$(POSIX_DIFF) -Naur <(sed '1,3d;/^-- EXPORT/d' $$EXPECTED_EXPORT) <(sed '$$a\\' $$ACTUAL_EXPORT)
+$(POSIX_DIFF) -Naur <(sed '1,3d;/^-- EXPORT/d' $$EXPECTED_EXPORT) <(sed '$$a\\' $$ACTUAL_EXPORT) || {
+  echo "$$EXPECTED_EXPORT did not match $$ACTUAL_EXPORT"
+  exit 1
+}
+$(POSIX_DIFF) -Naur $$EXPECTED_ARGS <(sed '$$a\\' $$ACTUAL_ARGS) || {
+  echo "$$EXPECTED_ARGS did not match $$ACTUAL_ARGS"
+  exit 1
+}
 """,
     data = [
         ":example-export/Export.daml",
+        ":example-export/args.json",
         "//docs:source/tools/export/output-root/Export.daml",
+        "//docs:source/tools/export/output-root/args.json",
     ],
     toolchains = ["@rules_sh//sh/posix:make_variables"],
 )

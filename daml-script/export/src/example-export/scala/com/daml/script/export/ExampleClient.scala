@@ -33,10 +33,15 @@ object ExampleClientConfig {
     if (envVar.isEmpty) Left("Environment variable EXPORT_OUT must not be empty")
     else
       envVar.split(" ") match {
-        case Array(export_daml) =>
+        case Array(export_daml, args_json) =>
           val export_daml_path = Paths.get(export_daml)
+          val args_json_path = Paths.get(args_json)
           if (export_daml_path.getParent == null) {
             Left("First component in environment variable EXPORT_OUT has no parent")
+          } else if (export_daml_path.getParent != args_json_path.getParent) {
+            Left(
+              "First and second component in environment variable EXPORT_OUT have different parent"
+            )
           } else {
             Right(c => c.copy(outputPath = export_daml_path.getParent))
           }
