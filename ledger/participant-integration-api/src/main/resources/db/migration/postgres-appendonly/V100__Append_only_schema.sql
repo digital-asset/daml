@@ -47,6 +47,7 @@ INSERT INTO participant_migration_history VALUES (
 ---------------------------------------------------------------------------------------------------
 -- Events table: divulgence
 ---------------------------------------------------------------------------------------------------
+-- TODO append-only: reorder small fields to the end to avoid unnecessary padding.
 CREATE TABLE participant_events_divulgence (
     -- * event identification
     event_sequential_id bigint NOT NULL,
@@ -96,6 +97,7 @@ CREATE INDEX participant_events_divulgence_contract_id_idx ON participant_events
 ---------------------------------------------------------------------------------------------------
 -- Events table: create
 ---------------------------------------------------------------------------------------------------
+-- TODO append-only: reorder small fields to the end to avoid unnecessary padding.
 CREATE TABLE participant_events_create (
     -- * event identification
     event_sequential_id bigint NOT NULL,
@@ -174,6 +176,7 @@ CREATE INDEX participant_events_create_create_key_hash_idx ON participant_events
 ---------------------------------------------------------------------------------------------------
 -- Events table: consuming exercise
 ---------------------------------------------------------------------------------------------------
+-- TODO append-only: reorder small fields to the end to avoid unnecessary padding.
 CREATE TABLE participant_events_consuming_exercise (
     -- * event identification
     event_sequential_id bigint NOT NULL,
@@ -246,6 +249,7 @@ CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participan
 ---------------------------------------------------------------------------------------------------
 -- Events table: non-consuming exercise
 ---------------------------------------------------------------------------------------------------
+-- TODO append-only: reorder small fields to the end to avoid unnecessary padding.
 CREATE TABLE participant_events_non_consuming_exercise (
     -- * event identification
     event_sequential_id bigint NOT NULL,

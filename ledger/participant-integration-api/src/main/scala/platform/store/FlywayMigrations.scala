@@ -85,6 +85,7 @@ private[platform] object FlywayMigrations {
       dbType: DbType,
       enableAppendOnlySchema: Boolean = false,
   ): FluentConfiguration =
+    // TODO append-only: move all migrations from the '-appendonly' folder to the main folder, and remove the enableAppendOnlySchema parameter here
     if (enableAppendOnlySchema) {
       Flyway
         .configure()
