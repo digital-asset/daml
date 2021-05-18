@@ -408,6 +408,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionTO_TEXT_PARTY -> BEToText BTParty
   LF1.BuiltinFunctionTO_TEXT_DATE -> BEToText BTDate
   LF1.BuiltinFunctionTO_TEXT_CONTRACT_ID -> BEToTextContractId
+  LF1.BuiltinFunctionTO_TEXT_BIGNUMERIC -> BEToText BTBigNumeric
   LF1.BuiltinFunctionTEXT_FROM_CODE_POINTS -> BETextFromCodePoints
   LF1.BuiltinFunctionFROM_TEXT_PARTY -> BEPartyFromText
   LF1.BuiltinFunctionFROM_TEXT_INT64 -> BEInt64FromText
@@ -497,7 +498,6 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC -> BEShiftRightBigNumeric
   LF1.BuiltinFunctionTO_NUMERIC_BIGNUMERIC -> BEToNumericBigNumeric
   LF1.BuiltinFunctionTO_BIGNUMERIC_NUMERIC -> BEFromNumericBigNumeric
-  LF1.BuiltinFunctionTO_TEXT_BIGNUMERIC -> BEToTextBigNumeric
 
 decodeLocation :: LF1.Location -> Decode SourceLoc
 decodeLocation (LF1.Location mbModRef mbRange) = do

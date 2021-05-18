@@ -235,8 +235,8 @@ Version: 1.12
     details
 
 
-Version: 1.13 (preview)
-.......................
+Version: 1.13
+.............
 
 * Introduction date:
 
@@ -244,17 +244,16 @@ Version: 1.13 (preview)
 
 * Description:
 
-  + A BigNumeric
+  + **Add** Add BigNumeric support (arbitrary precision decimals).
+    - add `BigNumeric` primitive type
+    - add `RoundingMode` primitive type
+    - add `BigNumeric` builtins
 
 
 Version: 1.dev (development)
 ............................
 
   + **Add** exception handling.
-  + **Add** BigDecimal type.
-
-    - add `BigNumeric` primitive type
-    - add `RoundingMode` primitive type
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
