@@ -424,7 +424,7 @@ private[lf] object SBuiltin {
       SText(litToText(args.get(0)))
   }
 
-  final case object SBToTextContractId extends SBuiltin(1) {
+  final case object SBContractIdToText extends SBuiltin(1) {
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
@@ -439,19 +439,19 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBToQuotedTextParty extends SBuiltinPure(1) {
+  final case object SBPartyToQuotedText extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
       SText(s"'${getSParty(args, 0): String}'")
   }
 
-  final case object SBToTextCodePoints extends SBuiltinPure(1) {
+  final case object SBCodePointsToText extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       val codePoints = getSList(args, 0).map(_.asInstanceOf[SInt64].value)
       SText(Utf8.pack(codePoints.toImmArray))
     }
   }
 
-  final case object SBFromTextParty extends SBuiltinPure(1) {
+  final case object SBTextToParty extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       Party.fromString(getSText(args, 0)) match {
         case Left(_) => SV.None
@@ -460,7 +460,7 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBFromTextInt64 extends SBuiltinPure(1) {
+  final case object SBTextToInt64 extends SBuiltinPure(1) {
     private val pattern = """[+-]?\d+""".r.pattern
 
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
@@ -481,7 +481,7 @@ private[lf] object SBuiltin {
   // accept and convert. In particular it should convert any string with an arbitrary number of
   // leading and trailing '0's as long as the corresponding number fits a Numeric without loss of
   // precision. We should take care not calling String to BigDecimal conversion on huge strings.
-  final case object SBFromTextNumeric extends SBuiltinPure(2) {
+  final case object SBTextToNumeric extends SBuiltinPure(2) {
     private val validFormat =
       """([+-]?)0*(\d+)(\.(\d*[1-9]|0)0*)?""".r
 
@@ -512,7 +512,7 @@ private[lf] object SBuiltin {
     }
   }
 
-  final case object SBFromTextCodePoints extends SBuiltinPure(1) {
+  final case object SBTextToCodePoints extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       val string = getSText(args, 0)
       val codePoints = Utf8.unpack(string)
@@ -879,14 +879,14 @@ private[lf] object SBuiltin {
     }
   }
 
-  final object SBToBigNumericNumeric extends SBuiltinPure(2) {
+  final object SBNumericToBigNumeric extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
       val x = getSNumeric(args, 1)
       SBigNumeric.fromNumeric(x)
     }
   }
 
-  final object SBToNumericBigNumeric extends SBBuiltinArithmetic("BIGNUMERIC_TO_NUMERIC", 2) {
+  final object SBBigNumericToNumeric extends SBBuiltinArithmetic("BIGNUMERIC_TO_NUMERIC", 2) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
       val scale = getSTNat(args, 0)
       val x = getSBigNumeric(args, 1)

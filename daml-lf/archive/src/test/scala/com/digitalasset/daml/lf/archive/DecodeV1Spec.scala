@@ -435,12 +435,12 @@ class DecodeV1Spec
       (
         DamlLf1.BuiltinFunction.DECIMAL_TO_TEXT,
         "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BToTextNumeric), TDecimalScale),
+        Ast.ETyApp(Ast.EBuiltin(Ast.BNumericToText), TDecimalScale),
       ),
       (
         DamlLf1.BuiltinFunction.TEXT_TO_DECIMAL,
         "6",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BFromTextNumeric), TDecimalScale),
+        Ast.ETyApp(Ast.EBuiltin(Ast.BTextToNumeric), TDecimalScale),
       ),
       (
         DamlLf1.BuiltinFunction.INT64_TO_DECIMAL,
@@ -462,8 +462,8 @@ class DecodeV1Spec
       DamlLf1.BuiltinFunction.MUL_NUMERIC -> Ast.EBuiltin(Ast.BMulNumeric),
       DamlLf1.BuiltinFunction.DIV_NUMERIC -> Ast.EBuiltin(Ast.BDivNumeric),
       DamlLf1.BuiltinFunction.ROUND_NUMERIC -> Ast.EBuiltin(Ast.BRoundNumeric),
-      DamlLf1.BuiltinFunction.NUMERIC_TO_TEXT -> Ast.EBuiltin(Ast.BToTextNumeric),
-      DamlLf1.BuiltinFunction.TEXT_TO_NUMERIC -> Ast.EBuiltin(Ast.BFromTextNumeric),
+      DamlLf1.BuiltinFunction.NUMERIC_TO_TEXT -> Ast.EBuiltin(Ast.BNumericToText),
+      DamlLf1.BuiltinFunction.TEXT_TO_NUMERIC -> Ast.EBuiltin(Ast.BTextToNumeric),
       DamlLf1.BuiltinFunction.INT64_TO_NUMERIC -> Ast.EBuiltin(Ast.BInt64ToNumeric),
       DamlLf1.BuiltinFunction.NUMERIC_TO_INT64 -> Ast.EBuiltin(Ast.BNumericToInt64),
     )
@@ -525,7 +525,7 @@ class DecodeV1Spec
 
     val contractIdTextConversionCases = Table(
       "builtin" -> "expected output",
-      DamlLf1.BuiltinFunction.CONTRACT_ID_TO_TEXT -> Ast.EBuiltin(Ast.BToTextContractId),
+      DamlLf1.BuiltinFunction.CONTRACT_ID_TO_TEXT -> Ast.EBuiltin(Ast.BContractIdToText),
     )
 
     "translate non numeric/decimal builtin as is for any version" in {
@@ -788,11 +788,11 @@ class DecodeV1Spec
         DamlLf1.BuiltinFunction.DIV_BIGNUMERIC ->
           Ast.EBuiltin(Ast.BDivBigNumeric),
         DamlLf1.BuiltinFunction.NUMERIC_TO_BIGNUMERIC ->
-          Ast.EBuiltin(Ast.BToBigNumericNumeric),
+          Ast.EBuiltin(Ast.BNumericToBigNumeric),
         DamlLf1.BuiltinFunction.BIGNUMERIC_TO_NUMERIC ->
-          Ast.EBuiltin(Ast.BToNumericBigNumeric),
+          Ast.EBuiltin(Ast.BBigNumericToNumeric),
         DamlLf1.BuiltinFunction.BIGNUMERIC_TO_TEXT ->
-          Ast.EBuiltin(Ast.BToTextBigNumeric),
+          Ast.EBuiltin(Ast.BBigNumericToText),
       )
 
       forEveryVersion { version =>

@@ -478,7 +478,7 @@ private[lf] final class Compiler(
       case BGreaterNumeric => SBGreaterNumeric
       case BGreaterEqNumeric => SBGreaterEqNumeric
       case BEqualNumeric => SBEqualNumeric
-      case BToTextNumeric => SBEToTextNumeric
+      case BNumericToText => SBEToTextNumeric
 
       case BTextMapEmpty => SEValue.EmptyTextMap
       case BGenMapEmpty => SEValue.EmptyGenMap
@@ -516,18 +516,18 @@ private[lf] final class Compiler(
           case BImplodeText => SBImplodeText
           case BAppendText => SBAppendText
 
-          case BToTextInt64 => SBToText
-          case BToTextText => SBToText
-          case BToTextTimestamp => SBToText
-          case BToTextParty => SBToText
-          case BToTextDate => SBToText
-          case BToTextContractId => SBToTextContractId
-          case BToQuotedTextParty => SBToQuotedTextParty
-          case BToTextCodePoints => SBToTextCodePoints
-          case BFromTextParty => SBFromTextParty
-          case BFromTextInt64 => SBFromTextInt64
-          case BFromTextNumeric => SBFromTextNumeric
-          case BFromTextCodePoints => SBFromTextCodePoints
+          case BInt64ToText => SBToText
+          case BTextToText => SBToText
+          case BTimestampToText => SBToText
+          case BPartyToText => SBToText
+          case BDateToText => SBToText
+          case BContractIdToText => SBContractIdToText
+          case BPartyToQuotedText => SBPartyToQuotedText
+          case BCodePointsToText => SBCodePointsToText
+          case BTextToParty => SBTextToParty
+          case BTextToInt64 => SBTextToInt64
+          case BTextToNumeric => SBTextToNumeric
+          case BTextToCodePoints => SBTextToCodePoints
 
           case BSHA256Text => SBSHA256Text
 
@@ -570,9 +570,9 @@ private[lf] final class Compiler(
           case BDivBigNumeric => SBDivBigNumeric
           case BMulBigNumeric => SBMulBigNumeric
           case BShiftRightBigNumeric => SBShiftRightBigNumeric
-          case BToBigNumericNumeric => SBToBigNumericNumeric
-          case BToNumericBigNumeric => SBToNumericBigNumeric
-          case BToTextBigNumeric => SBToText
+          case BNumericToBigNumeric => SBNumericToBigNumeric
+          case BBigNumericToNumeric => SBBigNumericToNumeric
+          case BBigNumericToText => SBToText
 
           // Unstable Text Primitives
           case BTextToUpper => SBTextToUpper
@@ -587,7 +587,7 @@ private[lf] final class Compiler(
           // Implemented using normal SExpr
           case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq |
               BLess | BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
-              BGreaterEqNumeric | BEqualNumeric | BToTextNumeric | BTextMapEmpty | BGenMapEmpty =>
+              BGreaterEqNumeric | BEqualNumeric | BNumericToText | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
 
           case BAnyExceptionMessage => SBAnyExceptionMessage
