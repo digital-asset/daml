@@ -29,8 +29,8 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 import Development.IDE.Core.Compile
+import Development.IDE.Core.IdeState.Daml (toIdeLogger)
 import Development.IDE.Core.Debouncer
-import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options(IdeReportProgress(..))
 import qualified Data.Aeson.Encode.Pretty as A
@@ -174,6 +174,8 @@ getIntegrationTests registerTODO scenarioService = do
 
     dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
 
+    compilerLogger <- Logger.newStderrLogger Logger.Info "compiler"
+
     -- initialise the compiler service
     vfs <- makeVFSHandle
     -- We use a separate service for generated files so that we can test files containing internal imports.
@@ -188,10 +190,10 @@ getIntegrationTests registerTODO scenarioService = do
           in
           withResource (mkDamlEnv opts (Just scenarioService)) (\_damlEnv -> pure ()) $ \getDamlEnv ->
           withResource
-          (getDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
+          (getDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) (toIdeLogger compilerLogger) noopDebouncer damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
           shutdown $ \service ->
           withResource
-          (getDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
+          (getDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) (toIdeLogger compilerLogger) noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
           shutdown $ \serviceGenerated ->
           testGroup ("Tests for DAML-LF " ++ renderPretty version) $
             map (testCase version service outdir registerTODO) nongeneratedFiles <>

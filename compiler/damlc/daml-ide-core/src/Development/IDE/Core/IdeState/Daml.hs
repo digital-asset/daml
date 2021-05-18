@@ -6,6 +6,7 @@ module Development.IDE.Core.IdeState.Daml
     , getDamlIdeState
     , withDamlIdeState
     , enabledPlugins
+    , toIdeLogger
     ) where
 
 import Data.Default
