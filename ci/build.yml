@@ -286,26 +286,6 @@ jobs:
     - template: tell-slack-failed.yml
     - template: report-end.yml
 
-- job: compatibility_macos
-  dependsOn:
-    - da_ghc_lib
-    - check_for_release
-    - compatibility_ts_libs
-  timeoutInMinutes: 360
-  pool:
-    name: macOS-pool
-    demands: assignment -equals default
-  steps:
-    - template: report-start.yml
-    - template: clear-shared-segments-macos.yml
-    - checkout: self
-    - template: clean-up.yml
-    - template: compatibility.yml
-      parameters:
-        test_flags: '--quick'
-    - template: tell-slack-failed.yml
-    - template: report-end.yml
-
 - job: compatibility_windows
   dependsOn:
     - da_ghc_lib
@@ -402,7 +382,6 @@ jobs:
     - Windows
     - release
     - git_sha
-    - compatibility_macos
     - compatibility_linux
     - compatibility_windows
     - check_for_release
@@ -438,10 +417,6 @@ jobs:
     compatibility_linux.machine: $[ dependencies.compatibility_linux.outputs['start.machine'] ]
     compatibility_linux.end: $[ dependencies.compatibility_linux.outputs['end.time'] ]
     compatibility_linux.status: $[ dependencies.compatibility_linux.result ]
-    compatibility_macos.start: $[ dependencies.compatibility_macos.outputs['start.time'] ]
-    compatibility_macos.machine: $[ dependencies.compatibility_macos.outputs['start.machine'] ]
-    compatibility_macos.end: $[ dependencies.compatibility_macos.outputs['end.time'] ]
-    compatibility_macos.status: $[ dependencies.compatibility_macos.result ]
     compatibility_windows.start: $[ dependencies.compatibility_windows.outputs['start.time'] ]
     compatibility_windows.machine: $[ dependencies.compatibility_windows.outputs['start.machine'] ]
     compatibility_windows.end: $[ dependencies.compatibility_windows.outputs['end.time'] ]
@@ -499,10 +474,6 @@ jobs:
                                           "machine": "$(compatibility_linux.machine)",
                                           "end": "$(compatibility_linux.end)",
                                           "status": "$(compatibility_linux.status)"},
-                  "compatibility_macos": {"start": "$(compatibility_macos.start)",
-                                          "machine": "$(compatibility_macos.machine)",
-                                          "end": "$(compatibility_macos.end)",
-                                          "status": "$(compatibility_macos.status)"},
                   "compatibility_windows": {"start": "$(compatibility_windows.start)",
                                             "machine": "$(compatibility_windows.machine)",
                                             "end": "$(compatibility_windows.end)",
@@ -549,7 +520,6 @@ jobs:
             || "$(macOS.status)" != "Succeeded"
             || "$(Windows.status)" != "Succeeded"
             || ("$(is_release)" == "false" && "$(compatibility_linux.status)" != "Succeeded")
-            || ("$(is_release)" == "false" && "$(compatibility_macos.status)" != "Succeeded")
             || ("$(is_release)" == "false" && "$(compatibility_windows.status)" != "Succeeded")
             || "$(release.status)" == "Canceled" ]]; then
             exit 1
