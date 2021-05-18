@@ -210,7 +210,7 @@ prettyTraceMessage _world msg =
 pattern ValueGeneralError :: TL.Text -> Value
 pattern ValueGeneralError t <-
     Value (Just (ValueSumRecord (Record
-        (Just (Identifier _ "DA.Internal.Exception.Types:GeneralError"))
+        (Just (Identifier _ "DA.Exception.GeneralError:GeneralError"))
         (V.toList -> [Field "message" (Just (Value (Just (ValueSumText t))))]))))
 
 prettyScenarioErrorError :: Maybe ScenarioErrorError -> M (Doc SyntaxClass)

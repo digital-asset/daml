@@ -7,24 +7,18 @@
 #ifndef DAML_EXCEPTIONS
 
 -- | HIDE
-module DA.Internal.Exception.Types where
+module DA.Exception.ArithmeticError where
 
 import GHC.Types ()
 
 #else
 
 -- | MOVE DA.Exception
-module DA.Internal.Exception.Types where
+module DA.Exception.ArithmeticError where
 
 import GHC.Types (Text)
 
--- | Exception raised by `error`.
-data GeneralError = GeneralError { message : Text }
-
 -- | Exception raised by an arithmetic operation, such as divide-by-zero or overflow.
 data ArithmeticError = ArithmeticError { message : Text }
-
--- | Exception raised when a contract is invalid, i.e. fails the ensure clause.
-data ContractError = ContractError { message : Text }
 
 #endif

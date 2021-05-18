@@ -80,10 +80,14 @@ main = do
       writePackage daInternalDown optOutputPath
     ModuleName ["DA", "Internal", "Erased"] ->
       writePackage daInternalErased optOutputPath
-    ModuleName ["DA", "Internal", "Exception", "Types"] ->
-      writePackage daInternalExceptionTypes optOutputPath
     ModuleName ["DA", "Internal", "PromotedText"] ->
       writePackage daInternalPromotedText optOutputPath
+    ModuleName ["DA", "Exception", "GeneralError"] ->
+      writePackage daExceptionGeneralError optOutputPath
+    ModuleName ["DA", "Exception", "ArithmeticError"] ->
+      writePackage daExceptionArithmeticError optOutputPath
+    ModuleName ["DA", "Exception", "ContractError"] ->
+      writePackage daExceptionContractError optOutputPath
     ModuleName ["DA", "Set", "Types"] ->
       writePackage daSetTypes optOutputPath
     _ -> fail $ "Unknown module: " <> show optModule
@@ -583,8 +587,17 @@ daInternalPromotedText = package version1_6 $ NM.singleton Module
       [ DefDataType Nothing ptextTyCon (IsSerializable False) [(mkTypeVar "t", KStar)] $ DataVariant []
       ]
 
-daInternalExceptionTypes :: Package
-daInternalExceptionTypes = Package
+daExceptionGeneralError :: Package
+daExceptionGeneralError = builtinExceptionPackage "GeneralError"
+
+daExceptionArithmeticError :: Package
+daExceptionArithmeticError = builtinExceptionPackage "ArithmeticError"
+
+daExceptionContractError :: Package
+daExceptionContractError = builtinExceptionPackage "ContractError"
+
+builtinExceptionPackage :: T.Text -> Package
+builtinExceptionPackage name = Package
     { packageLfVersion = featureMinVersion featureExceptions
     , packageModules = NM.singleton Module
         { moduleName = modName
@@ -597,36 +610,28 @@ daInternalExceptionTypes = Package
         , moduleExceptions = exceptions
         }
     , packageMetadata = Just PackageMetadata
-        { packageName = PackageName "daml-prim-DA-Internal-Exception-Types"
+        { packageName = PackageName ("daml-prim-DA-Exception-" <> name)
         , packageVersion = PackageVersion "1.0.0"
         }
     }
   where
-    modName = mkModName ["DA", "Internal", "Exception", "Types"]
-    tyCons = map mkTypeCon [ ["GeneralError"], ["ArithmeticError"], ["ContractError"] ]
+    modName = mkModName ["DA", "Exception", name]
+    tyCon = mkTypeCon [name]
     tyVars = []
     fieldName = mkField "message"
     fieldType = TText
-    types = NM.fromList
-      [ DefDataType Nothing tyCon (IsSerializable True) tyVars $ DataRecord [(fieldName, fieldType)]
-      | tyCon <- tyCons
-      ]
-    values = NM.fromList
-      [ mkWorkerDef modName tyCon tyVars [(fieldName, fieldType)]
-      | tyCon <- tyCons
-      ]
+    fields = [(fieldName, fieldType)]
+    types = NM.singleton (DefDataType Nothing tyCon (IsSerializable True) tyVars (DataRecord fields))
+    values = NM.singleton (mkWorkerDef modName tyCon tyVars fields)
     var = mkVar "x"
     qualify = Qualified PRSelf modName
-    exceptions = NM.fromList
-      [ DefException
-          { exnLocation = Nothing
-          , exnName = tyCon
-          , exnMessage =
-              ETmLam (var, TCon (qualify tyCon))
-                  (ERecProj (TypeConApp (qualify tyCon) []) fieldName (EVar var))
-          }
-      | tyCon <- tyCons
-      ]
+    exceptions = NM.singleton DefException
+        { exnLocation = Nothing
+        , exnName = tyCon
+        , exnMessage =
+            ETmLam (var, TCon (qualify tyCon))
+                (ERecProj (TypeConApp (qualify tyCon) []) fieldName (EVar var))
+        }
 
 
 mkSelectorDef :: ModuleName -> TypeConName -> [(TypeVarName, Kind)] -> FieldName -> Type -> DefValue

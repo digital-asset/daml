@@ -60,7 +60,7 @@ numStablePackages ver
   | ver == LF.version1_11 = 17
   | ver == LF.version1_12 = 17
   | ver == LF.version1_13 = 17
-  | ver == LF.versionDev = 18
+  | ver == LF.versionDev = 20
   | otherwise = error $ "numStablePackages: Unknown LF version: " <> show ver
 
 -- | Sequential LF version pairs, with an additional (1.dev, 1.dev) pair at the end.
