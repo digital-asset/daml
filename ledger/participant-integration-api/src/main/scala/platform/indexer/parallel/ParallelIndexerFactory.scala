@@ -12,10 +12,9 @@ import akka.stream.{KillSwitch, KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.{InstrumentedSource, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.parallel.AsyncSupport._
-import com.daml.platform.indexer.parallel.PerfSupport._
 import com.daml.platform.indexer.{IndexFeedHandle, Indexer}
 import com.daml.platform.store.{DbType, backend}
 import com.daml.platform.store.appendonlydao.{DbDispatcher, JdbcLedgerDao}
@@ -29,14 +28,14 @@ import scala.util.control.NonFatal
 
 object ParallelIndexerFactory {
 
-  // TODO append-only: migrate code for mutable initialisation
   def apply[DB_BATCH](
-      jdbcUrl: String, // TODO maybe inject the whole dispatcher instead, and let a higher level factory create that alongside with StorageBackend
+      jdbcUrl: String,
       storageBackend: StorageBackend[DB_BATCH],
       participantId: ParticipantId,
       translation: LfValueTranslation,
       compressionStrategy: CompressionStrategy,
       mat: Materializer,
+      maxInputBufferSize: Int,
       inputMappingParallelism: Int,
       batchingParallelism: Int,
       ingestionParallelism: Int,
@@ -57,14 +56,14 @@ object ParallelIndexerFactory {
         Some(metrics.daml.parallelIndexer.batching.executor -> metrics.registry),
       )
       dbDispatcher <- DbDispatcher
-        .owner( // TODO append-only: do we need to wire health status here somehow?
+        .owner(
           serverRole = ServerRole.Indexer,
           jdbcUrl = jdbcUrl,
           connectionPoolSize = ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
           connectionTimeout = FiniteDuration(
             250,
             "millis",
-          ), // TODO append-only: verify why would we need here a timeout, in this case (amount of parallelism aligned) it should not happen by design
+          ), // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
           metrics = metrics,
           connectionAsyncCommitMode = DbType.AsynchronousCommit,
         )
@@ -77,9 +76,7 @@ object ParallelIndexerFactory {
       val ingest: Long => Source[(Offset, Update), NotUsed] => Source[Unit, NotUsed] =
         initialSeqId =>
           source =>
-            BatchingParallelIngestionPipe[((Offset, Update), Long), Batch[
-              Vector[DBDTOV1]
-            ], Batch[DB_BATCH]]( // TODO explicit type parameters meeeh: it should be able to figure out from the fully typed params, but...
+            BatchingParallelIngestionPipe(
               submissionBatchSize = submissionBatchSize,
               batchWithinMillis = batchWithinMillis,
               inputMappingParallelism = inputMappingParallelism,
@@ -90,22 +87,22 @@ object ParallelIndexerFactory {
               batcher = batcherExecutor.execute(batcher(storageBackend.batch, metrics)),
               ingestingParallelism = ingestionParallelism,
               ingester = ingester(storageBackend.insertBatch, dbDispatcher, metrics),
-              tailer = tailer,
+              tailer = tailer(storageBackend.batch(Vector.empty)),
               tailingRateLimitPerSecond = tailingRateLimitPerSecond,
-              ingestTail = ingestTail(storageBackend.updateParams, dbDispatcher, metrics),
+              ingestTail = ingestTail[DB_BATCH](storageBackend.updateParams, dbDispatcher, metrics),
             )(
-              instrumentedBufferedSource(
-                original = source,
-                counter = metrics.daml.parallelIndexer.inputBufferLength,
-                size = 200, // TODO append-only: maybe make it configurable
-              ).map(_ -> System.nanoTime())
+              InstrumentedSource
+                .bufferedSource(
+                  original = source,
+                  counter = metrics.daml.parallelIndexer.inputBufferLength,
+                  size = maxInputBufferSize,
+                )
+                .map(_ -> System.nanoTime())
             ).map(_ => ())
 
       def subscribe(readService: ReadService): Future[Source[Unit, NotUsed]] =
         dbDispatcher
-          .executeSql(metrics.daml.parallelIndexer.initialization)(
-            storageBackend.initialize
-          ) // TODO here is an implicit LoggingContext injected from the factory apply implicit param, is that good this way? shouldn't we create here something for the purpose?
+          .executeSql(metrics.daml.parallelIndexer.initialization)(storageBackend.initialize)
           .map(initialized =>
             ingest(initialized.lastEventSeqId.getOrElse(0L))(
               readService.stateUpdates(beginAfter = initialized.lastOffset)
@@ -125,7 +122,7 @@ object ParallelIndexerFactory {
     * @param batchSize Size of the batch measured in number of updates. Needed for metrics population.
     * @param averageStartTime The nanosecond timestamp of the start of the previous processing stage. Needed for metrics population: how much time is spend by a particular update in a certain stage.
     */
-  case class Batch[T](
+  case class Batch[+T](
       lastOffset: Offset,
       lastSeqEventId: Long,
       lastConfig: Option[Array[Byte]],
@@ -216,9 +213,7 @@ object ParallelIndexerFactory {
       ingestFunction: (Connection, DB_BATCH) => Unit,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
-  )(implicit
-      loggingContext: LoggingContext // TODO is that right so? shouldn't we prep something here?
-  ): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
+  )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
       dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
         metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
@@ -231,14 +226,15 @@ object ParallelIndexerFactory {
         batch
       }
 
-  def tailer[DB_BATCH]: (Batch[DB_BATCH], Batch[DB_BATCH]) => Batch[DB_BATCH] =
+  def tailer[DB_BATCH](
+      zeroDbBatch: DB_BATCH
+  ): (Batch[DB_BATCH], Batch[DB_BATCH]) => Batch[DB_BATCH] =
     (prev, curr) =>
       Batch[DB_BATCH](
         lastOffset = curr.lastOffset,
         lastSeqEventId = curr.lastSeqEventId,
         lastConfig = curr.lastConfig.orElse(prev.lastConfig),
-        batch =
-          null.asInstanceOf[DB_BATCH], // not used anymore TODO figure something nicer than ClassCastException upon DB_BATCH is AnyVal
+        batch = zeroDbBatch, // not used anymore
         batchSize = 0, // not used anymore
         averageStartTime = 0, // not used anymore
       )
@@ -247,9 +243,7 @@ object ParallelIndexerFactory {
       ingestTailFunction: (Connection, StorageBackend.Params) => Unit,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
-  )(implicit
-      loggingContext: LoggingContext // TODO is that right so? shouldn't we prep something here?
-  ): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
+  )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
       dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
         ingestTailFunction(

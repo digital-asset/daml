@@ -45,6 +45,7 @@ trait ConfigProvider[ExtraConfig] {
       eventsPageSize = config.eventsPageSize,
       allowExistingSchema = participantConfig.indexerConfig.allowExistingSchema,
       enableAppendOnlySchema = config.enableAppendOnlySchema,
+      maxInputBufferSize = participantConfig.indexerConfig.maxInputBufferSize,
       inputMappingParallelism = participantConfig.indexerConfig.ingestionParallelism,
       batchingParallelism = participantConfig.indexerConfig.batchingParallelism,
       submissionBatchSize = participantConfig.indexerConfig.submissionBatchSize,
