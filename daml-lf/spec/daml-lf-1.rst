@@ -4082,6 +4082,8 @@ Party functions
   is equivalent to a call to ``TO_TEXT_PARTY``, followed by quoting
   the resulting ``Text`` with single quotes.
 
+  [*Available in version < 1.dev*]
+
 * ``TO_TEXT_PARTY : 'Party' → 'Text'``
 
   Returns the string representation of the party. This function,
