@@ -53,7 +53,7 @@ message PackageRef {
 
     // A `Package identifier` for an imported Package.
     // A ascii7 lowercase hex-encoded package identifier. This refers
-    // to the Daml-LF Archive Hash.
+    // to the DAML LF Archive Hash.
     string package_id = 2;
 
     // An index into `interned_package_ids` of the Package containing
