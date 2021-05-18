@@ -36,14 +36,13 @@ private[apiserver] final class ApiPartyManagementService private (
     transactionService: IndexTransactionsService,
     writeService: WritePartyService,
     managementServiceTimeout: Duration,
+    submissionIdGenerator: Option[Ref.Party] => v1.SubmissionId,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends PartyManagementService
     with GrpcApiService {
-
-  import ApiPartyManagementService.CreateSubmissionId
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -112,7 +111,7 @@ private[apiserver] final class ApiPartyManagementService private (
         .flatMap(party => {
           val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
           synchronousResponse
-            .submitAndWait(CreateSubmissionId.withPrefix(party), (party, displayName))
+            .submitAndWait(submissionIdGenerator(party), (party, displayName))
             .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
               AllocatePartyResponse(
                 Some(
@@ -137,6 +136,7 @@ private[apiserver] object ApiPartyManagementService {
       transactionsService: IndexTransactionsService,
       writeBackend: WritePartyService,
       managementServiceTimeout: Duration,
+      submissionIdGenerator: Option[Ref.Party] => v1.SubmissionId = CreateSubmissionId.withPrefix,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -147,6 +147,7 @@ private[apiserver] object ApiPartyManagementService {
       transactionsService,
       writeBackend,
       managementServiceTimeout,
+      submissionIdGenerator,
     )
 
   private object CreateSubmissionId {
