@@ -129,7 +129,7 @@ Since they are not ledger actions, rollback nodes do not have authorizers
 directly. Instead, a ledger is well-authorized exactly when the same ledger
 with rollback nodes removed (that is, replacing the rollback nodes with
 their children) is well-authorized, according to
-:ref:`the old definition <_da-ledgers-authorization-rules>`.
+:ref:`the old definition <da-ledgers-authorization-rules>`.
 
 This is captured in the following rules:
 
