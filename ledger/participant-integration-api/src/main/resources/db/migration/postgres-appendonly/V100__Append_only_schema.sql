@@ -526,7 +526,7 @@ SELECT
     -- We can't reconstruct this information from the old schema.
     NULL, -- TODO append-only: this is the only reason why the event_offset is nullable. Use some non-null offset instead?
     NULL,
-    'flyway-migration',
+    '',
     NULL,
     NULL,
     contract_id,
