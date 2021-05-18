@@ -775,17 +775,22 @@ createScenarioContextRule =
     define $ \CreateScenarioContext file -> do
         ctx <- contextForFile file
         Just scenarioService <- envScenarioService <$> getDamlServiceEnv
-        ctxIdOrErr <- liftIO $ SS.getNewCtx scenarioService ctx
-        ctxId <-
-            liftIO $ either
-                (throwIO . ScenarioBackendException "Failed to create scenario context")
-                pure
-                ctxIdOrErr
         scenarioContextsVar <- envScenarioContexts <$> getDamlServiceEnv
-        logger <- actionLogger
-        liftIO $ logInfo logger $ T.pack $ "--> Inserting new context" <> show ctxId
-        liftIO $ modifyMVar_ scenarioContextsVar $ pure . HashMap.insert file ctxId
-        liftIO $ logInfo logger $ T.pack $ "<-- Inserting new context" <> show ctxId
+        -- We need to keep the lock while creating the context not just while
+        -- updating the variable. That avoids the following race:
+        -- 1. getNewCtx creates a new context A
+        -- 2. Before scenarioContextsVar is updated, gcCtxs kicks in and ends up GCing A.
+        -- 3. Now we update the var and insert A (which has been GCd).
+        -- 4. We return A from the rule and run a scenario on A which
+        --    now fails due to a missing context.
+        ctxId <- liftIO $ modifyMVar scenarioContextsVar $ \prevCtxs -> do
+          ctxIdOrErr <- SS.getNewCtx scenarioService ctx
+          ctxId <-
+              either
+                  (throwIO . ScenarioBackendException "Failed to create scenario context")
+                  pure
+                  ctxIdOrErr
+          pure (HashMap.insert file ctxId prevCtxs, ctxId)
         pure ([], Just ctxId)
 
 -- | This helper should be used instead of GenerateDalf/GenerateRawDalf
