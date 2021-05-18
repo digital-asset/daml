@@ -4,7 +4,7 @@
 package com.daml.ledger.api.benchtool
 
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
-import com.daml.ledger.api.benchtool.metrics.{Creator, MetricalStreamObserver, TransactionMetrics}
+import com.daml.ledger.api.benchtool.metrics.{Creator, MeteredStreamObserver, TransactionMetrics}
 import com.daml.ledger.api.benchtool.services.{LedgerIdentityService, TransactionService}
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.daml.ledger.api.v1.transaction_service.{
@@ -61,8 +61,8 @@ object LedgerApiBenchTool {
               TransactionMetrics
                 .transactionsMetricsManager(streamConfig.name, config.reportingPeriod)(system)
                 .flatMap { manager =>
-                  val observer: MetricalStreamObserver[GetTransactionsResponse] =
-                    new MetricalStreamObserver[GetTransactionsResponse](
+                  val observer: MeteredStreamObserver[GetTransactionsResponse] =
+                    new MeteredStreamObserver[GetTransactionsResponse](
                       streamConfig.name,
                       logger,
                       manager,
@@ -74,7 +74,7 @@ object LedgerApiBenchTool {
                 .transactionTreesMetricsManager(streamConfig.name, config.reportingPeriod)(system)
                 .flatMap { manager =>
                   val observer =
-                    new MetricalStreamObserver[GetTransactionTreesResponse](
+                    new MeteredStreamObserver[GetTransactionTreesResponse](
                       streamConfig.name,
                       logger,
                       manager,

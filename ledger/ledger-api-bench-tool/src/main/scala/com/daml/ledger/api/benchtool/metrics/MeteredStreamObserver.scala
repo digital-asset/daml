@@ -6,7 +6,7 @@ package com.daml.ledger.api.benchtool.metrics
 import akka.actor.typed.ActorRef
 import org.slf4j.Logger
 
-class MetricalStreamObserver[T](
+class MeteredStreamObserver[T](
     val streamName: String,
     logger: Logger,
     metricsManager: ActorRef[MetricsManager.Message[T]],
