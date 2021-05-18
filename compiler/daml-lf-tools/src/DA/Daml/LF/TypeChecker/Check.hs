@@ -264,7 +264,7 @@ typeOfBuiltin = \case
   BESubBigNumeric -> pure $ TBigNumeric :-> TBigNumeric :-> TBigNumeric
   BEMulBigNumeric -> pure $ TBigNumeric :-> TBigNumeric :-> TBigNumeric
   BEDivBigNumeric -> pure $ TInt64 :-> TRoundingMode :-> TBigNumeric :-> TBigNumeric :-> TBigNumeric
-  BEShiftBigNumeric -> pure $ TInt64 :-> TBigNumeric :-> TBigNumeric
+  BEShiftRightBigNumeric -> pure $ TInt64 :-> TBigNumeric :-> TBigNumeric
   BEToNumericBigNumeric -> pure $ TForall (alpha, KNat) $ TBigNumeric :-> TNumeric tAlpha
   BEFromNumericBigNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TBigNumeric
   BEToTextBigNumeric -> pure $ TBigNumeric :-> TText

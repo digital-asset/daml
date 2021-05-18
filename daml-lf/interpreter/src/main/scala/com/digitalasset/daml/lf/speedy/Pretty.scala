@@ -61,8 +61,8 @@ private[lf] object Pretty {
     ex match {
       case DamlEFailedAuthorization(nid, fa) =>
         text(prettyFailedAuthorization(nid, fa))
-      case DamlEArithmeticError(message) =>
-        text(message)
+      case err: DamlEArithmeticError =>
+        text(err.toString)
       case DamlEUnhandledException(exc) =>
         text(s"unhandled exception:") & {
           exc match {

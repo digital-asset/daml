@@ -494,7 +494,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionSUB_BIGNUMERIC -> BESubBigNumeric
   LF1.BuiltinFunctionMUL_BIGNUMERIC -> BEMulBigNumeric
   LF1.BuiltinFunctionDIV_BIGNUMERIC -> BEDivBigNumeric
-  LF1.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC -> BEShiftBigNumeric
+  LF1.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC -> BEShiftRightBigNumeric
   LF1.BuiltinFunctionTO_NUMERIC_BIGNUMERIC -> BEToNumericBigNumeric
   LF1.BuiltinFunctionTO_BIGNUMERIC_NUMERIC -> BEFromNumericBigNumeric
   LF1.BuiltinFunctionTO_TEXT_BIGNUMERIC -> BEToTextBigNumeric
