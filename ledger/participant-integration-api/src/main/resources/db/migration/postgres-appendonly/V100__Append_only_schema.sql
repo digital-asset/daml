@@ -723,13 +723,3 @@ WHERE name = 'V100';
 ---------------------------------------------------------------------------------------------------
 
 CREATE INDEX participant_command_completion_offset_application_idx ON participant_command_completions USING btree (completion_offset, application_id);
-
-
-
----------------------------------------------------------------------------------------------------
--- Finalize
----------------------------------------------------------------------------------------------------
--- TODO append-only: VACUUM ANALYZE should be run in a separate migration script.
--- Flyway doesn't like mixing transactional and non-transactional statements within a single migration.
--- COMMIT;
--- VACUUM ANALYZE;
