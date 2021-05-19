@@ -469,6 +469,7 @@ da_haskell_test(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
+        "//compiler/damlc/stable-packages:stable-packages-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
