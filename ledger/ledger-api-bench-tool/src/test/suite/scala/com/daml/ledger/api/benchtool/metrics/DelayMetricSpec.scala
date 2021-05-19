@@ -19,8 +19,8 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
       val (_, periodicValue) = metric.periodicValue()
       val finalValue = metric.finalValue(aPositiveDouble())
 
-      periodicValue shouldBe None
-      finalValue shouldBe None
+      periodicValue shouldBe DelayMetric.Value(None)
+      finalValue shouldBe DelayMetric.Value(None)
     }
 
     "compute values after processing elements" in {
@@ -54,8 +54,8 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
       val finalValue = newMetric.finalValue(totalDurationSeconds)
 
       val expectedMean = (delay1 + delay2 + delay3) / 3
-      periodicValue shouldBe Some(DelayMetric.Value(expectedMean))
-      finalValue shouldBe None
+      periodicValue shouldBe DelayMetric.Value(Some(expectedMean))
+      finalValue shouldBe DelayMetric.Value(None)
     }
 
     "correctly handle periods with no elements" in {
@@ -87,8 +87,8 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
         .periodicValue()
       val finalValue = newMetric.finalValue(totalDurationSeconds)
 
-      periodicValue shouldBe None
-      finalValue shouldBe None
+      periodicValue shouldBe DelayMetric.Value(None)
+      finalValue shouldBe DelayMetric.Value(None)
     }
 
     "correctly handle multiple periods with elements" in {
@@ -130,8 +130,8 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
       val finalValue = newMetric.finalValue(totalDurationSeconds)
 
       val expectedMean = (delay4 + delay5) / 2
-      periodicValue shouldBe Some(DelayMetric.Value(expectedMean))
-      finalValue shouldBe None
+      periodicValue shouldBe DelayMetric.Value(Some(expectedMean))
+      finalValue shouldBe DelayMetric.Value(None)
     }
   }
 

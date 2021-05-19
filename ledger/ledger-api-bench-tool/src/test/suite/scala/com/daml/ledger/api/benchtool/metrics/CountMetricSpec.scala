@@ -17,8 +17,8 @@ class CountMetricSpec extends AnyWordSpec with Matchers {
       val (_, periodicValue) = metric.periodicValue()
       val finalValue = metric.finalValue(aPositiveDouble())
 
-      periodicValue shouldBe Some(CountMetric.Value(0, 0.0))
-      finalValue shouldBe Some(CountMetric.Value(0, 0.0))
+      periodicValue shouldBe CountMetric.Value(0, 0.0)
+      finalValue shouldBe CountMetric.Value(0, 0.0)
     }
 
     "compute values after processing elements" in {
@@ -35,17 +35,13 @@ class CountMetricSpec extends AnyWordSpec with Matchers {
       val finalValue = newMetric.finalValue(totalDurationSeconds)
 
       val totalCount: Int = stringLength(elem1) + stringLength(elem2)
-      periodicValue shouldBe Some(
-        CountMetric.Value(
-          totalCount = totalCount,
-          ratePerSecond = totalCount * 1000.0 / periodMillis,
-        )
+      periodicValue shouldBe CountMetric.Value(
+        totalCount = totalCount,
+        ratePerSecond = totalCount * 1000.0 / periodMillis,
       )
-      finalValue shouldBe Some(
-        CountMetric.Value(
-          totalCount = totalCount,
-          ratePerSecond = totalCount / totalDurationSeconds,
-        )
+      finalValue shouldBe CountMetric.Value(
+        totalCount = totalCount,
+        ratePerSecond = totalCount / totalDurationSeconds,
       )
     }
 
@@ -65,17 +61,13 @@ class CountMetricSpec extends AnyWordSpec with Matchers {
       val finalValue = newMetric.finalValue(totalDurationSeconds)
 
       val totalCount: Int = stringLength(elem1) + stringLength(elem2)
-      periodicValue shouldBe Some(
-        CountMetric.Value(
-          totalCount = totalCount,
-          ratePerSecond = 0.0,
-        )
+      periodicValue shouldBe CountMetric.Value(
+        totalCount = totalCount,
+        ratePerSecond = 0.0,
       )
-      finalValue shouldBe Some(
-        CountMetric.Value(
-          totalCount = totalCount,
-          ratePerSecond = totalCount / totalDurationSeconds,
-        )
+      finalValue shouldBe CountMetric.Value(
+        totalCount = totalCount,
+        ratePerSecond = totalCount / totalDurationSeconds,
       )
     }
 
@@ -97,17 +89,13 @@ class CountMetricSpec extends AnyWordSpec with Matchers {
       val finalValue = newMetric.finalValue(totalDurationSeconds)
 
       val totalCount: Int = stringLength(elem1) + stringLength(elem2) + stringLength(elem3)
-      periodicValue shouldBe Some(
-        CountMetric.Value(
-          totalCount = totalCount,
-          ratePerSecond = stringLength(elem3) * 1000.0 / periodMillis,
-        )
+      periodicValue shouldBe CountMetric.Value(
+        totalCount = totalCount,
+        ratePerSecond = stringLength(elem3) * 1000.0 / periodMillis,
       )
-      finalValue shouldBe Some(
-        CountMetric.Value(
-          totalCount = totalCount,
-          ratePerSecond = totalCount / totalDurationSeconds,
-        )
+      finalValue shouldBe CountMetric.Value(
+        totalCount = totalCount,
+        ratePerSecond = totalCount / totalDurationSeconds,
       )
     }
   }

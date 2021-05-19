@@ -19,8 +19,8 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
       val (_, periodicValue) = metric.periodicValue()
       val finalValue = metric.finalValue(aPositiveDouble())
 
-      periodicValue shouldBe None
-      finalValue shouldBe None
+      periodicValue shouldBe ConsumptionSpeedMetric.Value(Some(0.0))
+      finalValue shouldBe ConsumptionSpeedMetric.Value(None)
     }
 
     "compute values after processing elements" in {
@@ -55,8 +55,8 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
       val expectedSpeed =
         (lastElementOfThePeriod.getEpochSecond - firstElementOfThePeriod.getEpochSecond) * 1000.0 / periodMillis
 
-      periodicValue shouldBe Some(ConsumptionSpeedMetric.Value(expectedSpeed))
-      finalValue shouldBe None
+      periodicValue shouldBe ConsumptionSpeedMetric.Value(Some(expectedSpeed))
+      finalValue shouldBe ConsumptionSpeedMetric.Value(None)
     }
 
     "correctly handle periods with a single record time" in {
@@ -82,8 +82,8 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
         .periodicValue()
       val finalValue = newMetric.finalValue(totalDurationSeconds)
 
-      periodicValue shouldBe Some(ConsumptionSpeedMetric.Value(0.0))
-      finalValue shouldBe None
+      periodicValue shouldBe ConsumptionSpeedMetric.Value(Some(0.0))
+      finalValue shouldBe ConsumptionSpeedMetric.Value(None)
     }
 
     "correctly handle periods with no elements" in {
@@ -115,8 +115,8 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
         .periodicValue()
       val finalValue = newMetric.finalValue(totalDurationSeconds)
 
-      periodicValue shouldBe None
-      finalValue shouldBe None
+      periodicValue shouldBe ConsumptionSpeedMetric.Value(Some(0.0))
+      finalValue shouldBe ConsumptionSpeedMetric.Value(None)
     }
 
     "correctly handle multiple periods with elements" in {
@@ -159,8 +159,8 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
       val expectedSpeed =
         (lastElementOfThePeriod.getEpochSecond - firstElementOfThePeriod.getEpochSecond) * 1000.0 / periodMillis
 
-      periodicValue shouldBe Some(ConsumptionSpeedMetric.Value(expectedSpeed))
-      finalValue shouldBe None
+      periodicValue shouldBe ConsumptionSpeedMetric.Value(Some(expectedSpeed))
+      finalValue shouldBe ConsumptionSpeedMetric.Value(None)
     }
   }
 
