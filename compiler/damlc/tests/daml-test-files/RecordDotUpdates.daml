@@ -50,3 +50,22 @@ y = Outer {inner = x, text = "world", int = 21}
 y' = let text = "world" in let int = 12 in y {text, inner.text = text, int, inner.int = int}
 
 z = let Outer {..} = y in Outer {..}
+
+data One = One with two : Two
+data Two = Two with val : Int
+
+class HasDefault a where def : a
+instance HasDefault Int where def = 0
+instance HasDefault One where def = One def
+instance HasDefault Two where def = Two def
+
+q : One
+q = def {two.val = 42}
+
+-- NOTE (drsk) This is here to check that we don't colide with the local binding of the `arg`
+-- variable introduced by ghc when adding a preceding let/case expression in the record dot update.
+arg : One
+arg = One with two = Two 32
+
+arg' : One
+arg' = arg {two.val = 42}
