@@ -4,10 +4,12 @@ module DA.Daml.Assistant.IntegrationTests (main) where
 
 import Conduit hiding (connect)
 import Control.Concurrent
+import Control.Concurrent.STM
 import Control.Concurrent.Async
 import Control.Exception.Extra
 import Control.Lens
 import Control.Monad
+import Control.Monad.Loops (untilM_)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
@@ -69,8 +71,9 @@ authorizationHeaders = [("Authorization", "Bearer " <> T.encodeUtf8 hardcodedTok
 data DamlStartResource = DamlStartResource
     { projDir :: FilePath
     , tmpDir :: FilePath
-    , startStdin :: Maybe Handle
-    , startPh :: ProcessHandle
+    , startStdin :: Handle
+    , stdoutChan :: TChan String
+    , stop :: IO ()
     , sandboxPort :: PortNumber
     , jsonApiPort :: PortNumber
     }
@@ -147,9 +150,13 @@ damlStart startCwd tmpDir = do
                  , "--json-api-port"
                  , show jsonApiPort
                  ])
-                {std_in = CreatePipe, cwd = Just cwd}
+                {std_in = CreatePipe, std_out = CreatePipe, cwd = Just cwd}
     withEnv env $ do
-      (startStdin, _, _, startPh) <- createProcess startProc
+      (Just startStdin, Just startStdout, _, startPh) <- createProcess startProc
+      outChan <- newBroadcastTChanIO
+      outReader <- forkIO $ forever $ do
+          line <- hGetLine startStdout
+          atomically $ writeTChan outChan line
       waitForHttpServer
           (threadDelay 100000)
           ("http://localhost:" <> show jsonApiPort <> "/v1/query")
@@ -161,7 +168,10 @@ damlStart startCwd tmpDir = do
               , sandboxPort = sandboxPort
               , jsonApiPort = jsonApiPort
               , startStdin = startStdin
-              , startPh = startPh
+              , stop = do
+                  terminateProcess startPh
+                  killThread outReader
+              , stdoutChan = outChan
               }
 
 data QuickSandboxResource = QuickSandboxResource
@@ -213,7 +223,7 @@ tests tmpDir =
               withCurrentDirectory tmpDir $ callCommandSilent "daml new --list"
             , packagingTests tmpDir
             , damlToolTests
-            , withResource (damlStart ProjDir tmpDir) (terminateProcess . startPh) damlStartTests
+            , withResource (damlStart ProjDir tmpDir) stop damlStartTests
             , withResource (quickSandbox quickstartDir) (terminateProcess . quickSandboxPh) $
               quickstartTests quickstartDir mvnDir
             , cleanTests cleanDir
@@ -561,7 +571,8 @@ damlStartTests getDamlStart =
                               -- process.
                               terminateProcess navigatorPh
         , testCase "hot-reload" $ do
-              DamlStartResource {projDir, jsonApiPort, startStdin} <- getDamlStart
+              DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan} <- getDamlStart
+              stdoutReadChan <- atomically $ dupTChan stdoutChan
               withCurrentDirectory projDir $ do
                   writeFileUTF8 (projDir </> "daml/Main.daml") $
                       unlines
@@ -575,11 +586,11 @@ damlStartTests getDamlStart =
                           , "  alice `submit` createCmd (S alice)"
                           , "  pure ()"
                           ]
-                  maybe
-                      (fail "No start process stdin handle")
-                      (\h -> hPutChar h 'r' >> hFlush h)
-                      startStdin
-                  threadDelay 40_000_000
+                  hPutChar startStdin 'r'
+                  hFlush startStdin
+                  untilM_ (pure ()) $ do
+                      line <- atomically $ readTChan stdoutReadChan
+                      pure ("Rebuild complete" `isInfixOf` line)
                   initialRequest <-
                       parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
                   manager <- newManager defaultManagerSettings
@@ -703,12 +714,12 @@ damlStartTests getDamlStart =
                       terminateProcess ph
         , testCase "daml start with relative project dir" $
           withTempDir $ \tmpDir -> do
-            DamlStartResource{startPh} <- damlStart EnvRelativeDir tmpDir
-            terminateProcess startPh
+            DamlStartResource{stop} <- damlStart EnvRelativeDir tmpDir
+            stop
         , testCase "daml start absolut path" $
           withTempDir $ \tmpDir -> do
-            DamlStartResource{startPh} <- damlStart EnvAbsoluteDir tmpDir
-            terminateProcess startPh
+            DamlStartResource{stop} <- damlStart EnvAbsoluteDir tmpDir
+            stop
         , testCase "run a daml deploy without project parties" $ do
               DamlStartResource {projDir, sandboxPort} <- getDamlStart
               withCurrentDirectory projDir $ do
