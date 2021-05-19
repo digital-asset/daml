@@ -1,7 +1,25 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_binary")
+
+da_haskell_library(
+    name = "stable-packages-lib",
+    srcs = glob(["lib/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "text",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc/daml-lf-conversion",
+        "//compiler/daml-lf-proto",
+        "//libs-haskell/da-hs-base",
+    ],
+)
 
 da_haskell_binary(
     name = "generate-stable-package",
@@ -9,15 +27,16 @@ da_haskell_binary(
     hackage_deps = [
         "base",
         "bytestring",
+        "containers",
         "optparse-applicative",
         "text",
     ],
     main_function = "GenerateStablePackage.main",
     visibility = ["//visibility:public"],
     deps = [
+        ":stable-packages-lib",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
-        "//compiler/damlc/daml-lf-conversion",
         "//libs-haskell/da-hs-base",
     ],
 )

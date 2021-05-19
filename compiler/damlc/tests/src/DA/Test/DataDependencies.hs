@@ -8,6 +8,7 @@ import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Reader (readDalfs, Dalfs(..))
 import qualified DA.Daml.LF.Proto3.Archive as LFArchive
+import DA.Daml.StablePackages (numStablePackagesForVersion)
 import DA.Test.Process
 import DA.Test.Util
 import qualified Data.ByteString.Lazy as BSL
@@ -49,19 +50,6 @@ darPackageIds fp = do
     Dalfs mainDalf dalfDeps <- either fail pure $ readDalfs archive
     Right dalfPkgIds  <- pure $ mapM (LFArchive.decodeArchivePackageId . BSL.toStrict) $ mainDalf : dalfDeps
     pure dalfPkgIds
-
--- TODO https://github.com/digital-asset/daml/issues/8020
---   Update stable package count when shipping exceptions.
-numStablePackages :: LF.Version -> Int
-numStablePackages ver
-  | ver == LF.version1_6 = 15
-  | ver == LF.version1_7 = 16
-  | ver == LF.version1_8 = 16
-  | ver == LF.version1_11 = 17
-  | ver == LF.version1_12 = 17
-  | ver == LF.version1_13 = 17
-  | ver == LF.versionDev = 20
-  | otherwise = error $ "numStablePackages: Unknown LF version: " <> show ver
 
 -- | Sequential LF version pairs, with an additional (1.dev, 1.dev) pair at the end.
 sequentialVersionPairs :: [(LF.Version, LF.Version)]
@@ -111,7 +99,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
                 ]
           projaPkgIds <- darPackageIds (proja </> "proja.dar")
           -- daml-stdlib, daml-prim and proja
-          length projaPkgIds @?= numStablePackages depLfVer + 2 + 1
+          length projaPkgIds @?= numStablePackagesForVersion depLfVer + 2 + 1
 
           step "Build projb"
           createDirectoryIfMissing True (projb </> "src")
@@ -148,10 +136,11 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
           validate $ projb </> "projb.dar"
           projbPkgIds <- darPackageIds (projb </> "projb.dar")
           -- daml-prim, daml-stdlib for targetLfVer, daml-prim, daml-stdlib for depLfVer if targetLfVer /= depLfVer, proja and projb
-          length projbPkgIds @?= numStablePackages
-            targetLfVer + 2 + (if targetLfVer /= depLfVer then 2 else 0) + 1 + 1
+          length projbPkgIds @?= numStablePackagesForVersion targetLfVer
+              + 2 + (if targetLfVer /= depLfVer then 2 else 0) + 1 + 1
           length (filter (`notElem` projaPkgIds) projbPkgIds) @?=
-              (numStablePackages targetLfVer - numStablePackages depLfVer) + -- new stable packages
+              ( numStablePackagesForVersion targetLfVer
+              - numStablePackagesForVersion depLfVer ) + -- new stable packages
               1 + -- projb
               (if targetLfVer /= depLfVer then 2 else 0) -- different daml-stdlib/daml-prim
     | (depLfVer, targetLfVer) <- sequentialVersionPairs
