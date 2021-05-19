@@ -51,14 +51,4 @@ function bazel() {
 # which is a workaround for this problem.
 bazel shutdown
 
-# Prefetch nodejs_dev_env to avoid permission denied errors on external/nodejs_dev_env/nodejs_dev_env/node.exe
-# It isn’t clear where exactly those errors are coming from.
-bazel fetch @nodejs_dev_env//...
-
-bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/build_execution_windows.log //...
-
-bazel shutdown
-
-if ($env:SKIP_TESTS = "False") {
-    bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/test_execution_windows.log //...
-}
+bazel test //daml-assistant/integration-tests/... --runs_per_test=100

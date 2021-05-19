@@ -122,8 +122,6 @@ da_haskell_test(
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
     ] + ([] if is_windows else ts_libraries),
-    # I’m sure the mvn stuff will be flaky.
-    flaky = True,
     hackage_deps = [
         "aeson",
         "async",
