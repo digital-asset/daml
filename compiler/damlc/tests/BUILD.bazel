@@ -463,6 +463,9 @@ da_haskell_test(
     ],
     main_function = "DA.Test.DataDependencies.main",
     src_strip_prefix = "src",
+    tags = [
+        "cpu:3",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
