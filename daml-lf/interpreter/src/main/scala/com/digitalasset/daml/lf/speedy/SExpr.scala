@@ -299,11 +299,40 @@ object SExpr {
     }
   }
 
+  /** A (single) let-expression with an unhungry, saturated builtin-application as RHS */
+  final case class SELet1BuiltinArithmetic(
+      builtin: SBuiltinArithmetic,
+      args: Array[SExprAtomic],
+      body: SExpr,
+  ) extends SExpr
+      with SomeArrayEquals {
+    def execute(machine: Machine): Unit = {
+      val arity = builtin.arity
+      val actuals = new util.ArrayList[SValue](arity)
+      var i = 0
+      while (i < arity) {
+        val arg = args(i)
+        val v = arg.lookupValue(machine)
+        actuals.add(v)
+        i += 1
+      }
+      builtin.compute(actuals) match {
+        case Some(value) =>
+          machine.pushEnv(value) //use pushEnv not env.add so instrumentation is updated
+          machine.ctrl = body
+        case None =>
+          unwindToHandler(machine, builtin.buildException(actuals))
+      }
+    }
+  }
+
   object SELet1 {
     def apply(rhs: SExpr, body: SExpr): SExpr = {
       rhs match {
         case SEAppAtomicSaturatedBuiltin(builtin: SBuiltinPure, args) =>
           SELet1Builtin(builtin, args, body)
+        case SEAppAtomicSaturatedBuiltin(builtin: SBuiltinArithmetic, args) =>
+          SELet1BuiltinArithmetic(builtin, args, body)
         case _ => SELet1General(rhs, body)
       }
     }

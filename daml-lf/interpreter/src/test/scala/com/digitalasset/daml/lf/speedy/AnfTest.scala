@@ -203,6 +203,9 @@ class AnfTest extends AnyWordSpec with Matchers {
 
   private def binop(op: SBuiltinPure, x: SExpr, y: SExpr): SExpr = SEApp(SEBuiltin(op), Array(x, y))
 
+  private def binop(op: SBuiltinArithmetic, x: SExpr, y: SExpr): SExpr =
+    SEApp(SEBuiltin(op), Array(x, y))
+
   private def ite(i: SExpr, t: SExpr, e: SExpr): SExpr =
     SECase(i, Array(SCaseAlt(patTrue, t), SCaseAlt(patFalse, e)))
 
@@ -213,10 +216,18 @@ class AnfTest extends AnyWordSpec with Matchers {
   private def let1b2(op: SBuiltinPure, arg1: SExprAtomic, arg2: SExprAtomic, body: SExpr): SExpr =
     SELet1Builtin(op, Array(arg1, arg2), body)
 
+  private def let1b2(
+      op: SBuiltinArithmetic,
+      arg1: SExprAtomic,
+      arg2: SExprAtomic,
+      body: SExpr,
+  ): SExpr =
+    SELet1BuiltinArithmetic(op, Array(arg1, arg2), body)
+
   private def appa(func: SExprAtomic, arg: SExprAtomic): SExpr =
     SEAppAtomicGeneral(func, Array(arg))
 
-  private def binopa(op: SBuiltinPure, x: SExprAtomic, y: SExprAtomic): SExpr =
+  private def binopa(op: SBuiltinArithmetic, x: SExprAtomic, y: SExprAtomic): SExpr =
     SEAppAtomicSaturatedBuiltin(op, Array(x, y))
 
   private def itea(i: SExprAtomic, t: SExpr, e: SExpr): SExpr =

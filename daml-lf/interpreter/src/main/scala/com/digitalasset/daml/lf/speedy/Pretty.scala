@@ -61,17 +61,13 @@ private[lf] object Pretty {
     ex match {
       case DamlEFailedAuthorization(nid, fa) =>
         text(prettyFailedAuthorization(nid, fa))
-      case err: DamlEArithmeticError =>
-        text(err.toString)
       case DamlEUnhandledException(exc) =>
         text(s"unhandled exception:") & {
           exc match {
             case SAnyException(_, value) =>
               prettyValue(true)(value.toValue)
-            case SBuiltinException(ContractError) =>
-              text("ContractError")
-            case SBuiltinException(ArithmeticError) =>
-              text("ArithmeticError")
+            case exception: SBuiltinException =>
+              text(exception.message)
           }
         }
       case DamlEUserError(message) =>
@@ -599,7 +595,8 @@ private[lf] object Pretty {
           prettySExpr(index)(SELet(List(rhs), body))
         case SELet1Builtin(builtin, args, body) =>
           prettySExpr(index)(SELet1General(SEAppAtomicSaturatedBuiltin(builtin, args), body))
-
+        case SELet1BuiltinArithmetic(builtin, args, body) =>
+          prettySExpr(index)(SELet1General(SEAppAtomicSaturatedBuiltin(builtin, args), body))
         case SETryCatch(body, handler) =>
           text("try-catch") + char('(') + prettySExpr(index)(body) + text(", ") +
             prettySExpr(index)(handler) + char(')')
