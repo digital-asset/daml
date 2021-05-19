@@ -32,20 +32,22 @@ object ExampleClientConfig {
   ): Either[String, ExampleClientConfig => ExampleClientConfig] = {
     if (envVar.isEmpty) Left("Environment variable EXPORT_OUT must not be empty")
     else
-      envVar.split(" ") match {
-        case Array(export_daml, args_json) =>
-          val export_daml_path = Paths.get(export_daml)
-          val args_json_path = Paths.get(args_json)
-          if (export_daml_path.getParent == null) {
+      envVar.split(" ").map(s => Paths.get(s)) match {
+        case Array(export_daml, args_json, daml_yaml) =>
+          if (export_daml.getParent == null) {
             Left("First component in environment variable EXPORT_OUT has no parent")
-          } else if (export_daml_path.getParent != args_json_path.getParent) {
+          } else if (export_daml.getParent != args_json.getParent) {
             Left(
               "First and second component in environment variable EXPORT_OUT have different parent"
             )
+          } else if (export_daml.getParent != daml_yaml.getParent) {
+            Left(
+              "First and third component in environment variable EXPORT_OUT have different parent"
+            )
           } else {
-            Right(c => c.copy(outputPath = export_daml_path.getParent))
+            Right(c => c.copy(outputPath = export_daml.getParent))
           }
-        case _ => Left("Environment variable EXPORT_OUT must contain one path")
+        case _ => Left("Environment variable EXPORT_OUT must contain three paths")
       }
   }
 

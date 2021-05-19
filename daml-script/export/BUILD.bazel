@@ -145,6 +145,7 @@ client_server_build(
     outs = [
         "example-export/Export.daml",
         "example-export/args.json",
+        "example-export/daml.yaml",
     ],
     client = ":example-export-client",
     client_files = ["//daml-script/test:script-test.dar"],
@@ -165,13 +166,18 @@ client_server_build(
 # Normalizes the expected output by removing the copyright header and any
 # documentation import markers and normalizes the actual output by adding a
 # newline to the last line if missing.
+#
+# Normalizes the absolute paths to data-dependencies in the generated daml.yaml
+# to replace the path to the Bazel execroot by a placeholder.
 sh_inline_test(
     name = "example-export-compare",
     cmd = """\
 EXPECTED_EXPORT=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/Export.daml))
 EXPECTED_ARGS=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/args.json))
+EXPECTED_YAML=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/daml.yaml))
 ACTUAL_EXPORT=$$(canonicalize_rlocation $(rootpath :example-export/Export.daml))
 ACTUAL_ARGS=$$(canonicalize_rlocation $(rootpath :example-export/args.json))
+ACTUAL_YAML=$$(canonicalize_rlocation $(rootpath :example-export/daml.yaml))
 # Normalize the expected file by removing the copyright header and any documentation import markers.
 # Normalize the actual output by adding a newline to the last line if missing.
 $(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;/^-- EXPORT/d' $$EXPECTED_EXPORT) <($(POSIX_SED) '$$a\\' $$ACTUAL_EXPORT) || {
@@ -182,12 +188,20 @@ $(POSIX_DIFF) -Naur --strip-trailing-cr $$EXPECTED_ARGS <($(POSIX_SED) '$$a\\' $
   echo "$$EXPECTED_ARGS did not match $$ACTUAL_ARGS"
   exit 1
 }
+# Normalize the absolute paths to data-dependencies in the generated daml.yaml
+# to replace the path to the Bazel execroot by a placeholder.
+$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d' $$EXPECTED_YAML) <($(POSIX_SED) "s,$$($(POSIX_DIRNAME) $(execpath :example-export/daml.yaml)),EXPORT_OUT,g"';$$a\\' $$ACTUAL_YAML) || {
+  echo "$$EXPECTED_YAML did not match $$ACTUAL_YAML"
+  exit 1
+}
 """,
     data = [
         ":example-export/Export.daml",
         ":example-export/args.json",
+        ":example-export/daml.yaml",
         "//docs:source/tools/export/output-root/Export.daml",
         "//docs:source/tools/export/output-root/args.json",
+        "//docs:source/tools/export/output-root/daml.yaml",
     ],
     toolchains = ["@rules_sh//sh/posix:make_variables"],
 )
