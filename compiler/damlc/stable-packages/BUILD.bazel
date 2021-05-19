@@ -99,8 +99,8 @@ genrule(
 filegroup(
     name = "stable-packages",
     srcs = [
-        "daml-prim/DA-Exception-AssertionFailed.dalf",
         "daml-prim/DA-Exception-ArithmeticError.dalf",
+        "daml-prim/DA-Exception-AssertionFailed.dalf",
         "daml-prim/DA-Exception-ContractError.dalf",
         "daml-prim/DA-Exception-GeneralError.dalf",
         "daml-prim/DA-Internal-Erased.dalf",
