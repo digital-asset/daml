@@ -15,6 +15,7 @@ import Data.List (sort)
 import qualified Data.NameMap as NM
 import Module (unitIdString)
 import System.Directory.Extra
+import System.Environment.Blank
 import System.FilePath
 import System.Info.Extra
 import System.IO.Extra
@@ -26,6 +27,7 @@ import SdkVersion
 
 main :: IO ()
 main = do
+    setEnv "TASTY_NUM_THREADS" "3" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     repl <- locateRunfiles (mainWorkspace </> "daml-lf" </> "repl" </> exe "repl")
     davlDar <- locateRunfiles ("davl-v3" </> "released" </> "davl-v3.dar")
