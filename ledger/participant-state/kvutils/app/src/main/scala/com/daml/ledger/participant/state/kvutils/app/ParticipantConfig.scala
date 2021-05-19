@@ -35,7 +35,7 @@ object ParticipantConfig {
     s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
 
   val DefaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
-  val DefaultApiServerDatabaseConnectionTimeout: Duration = Duration.ofMinutes(2)
+  val DefaultApiServerDatabaseConnectionTimeout: Duration = Duration.ofMillis(250)
 
   // this pool is used for all data access for the ledger api (command submission, transaction service, ...)
   val DefaultApiServerDatabaseConnectionPoolSize = 16
