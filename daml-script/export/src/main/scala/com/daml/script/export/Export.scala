@@ -151,12 +151,16 @@ object Export {
     val exposedPackages: Seq[String] =
       pkgRefs.view.collect(Function.unlift(Dependencies.toPackages(_, pkgs))).toSeq
     val deps = Files.createDirectory(dir.resolve("deps"))
-    val dalfFiles = pkgs.map { case (pkgId, (bs, pkg)) =>
-      val prefix = pkg.metadata.map(md => s"${md.name}-${md.version}-").getOrElse("")
-      val file = deps.resolve(s"$prefix$pkgId.dalf")
-      Dependencies.writeDalf(file, pkgId, bs)
-      file
-    }.toSeq
+    val dalfFiles = pkgs.toSeq
+      .sortBy { case (pkgId, (_, pkg)) =>
+        (pkg.metadata.map(md => (md.name, md.version)), pkgId)
+      }
+      .map { case (pkgId, (bs, pkg)) =>
+        val prefix = pkg.metadata.map(md => s"${md.name}-${md.version}-").getOrElse("")
+        val file = deps.resolve(s"$prefix$pkgId.dalf")
+        Dependencies.writeDalf(file, pkgId, bs)
+        file
+      }
     val lfTarget = Dependencies.targetLfVersion(pkgs.values.map(_._2.languageVersion))
     val targetFlag = lfTarget.fold("")(Dependencies.targetFlag(_))
 
