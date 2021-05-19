@@ -168,11 +168,11 @@ ACTUAL_EXPORT=$$(canonicalize_rlocation $(rootpath :example-export/Export.daml))
 ACTUAL_ARGS=$$(canonicalize_rlocation $(rootpath :example-export/args.json))
 # Normalize the expected file by removing the copyright header and any documentation import markers.
 # Normalize the actual output by adding a newline to the last line if missing.
-$(POSIX_DIFF) -Naur <($(POSIX_SED) '1,3d;/^-- EXPORT/d' $$EXPECTED_EXPORT) <($(POSIX_SED) '$$a\\' $$ACTUAL_EXPORT) || {
+$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;/^-- EXPORT/d' $$EXPECTED_EXPORT) <($(POSIX_SED) '$$a\\' $$ACTUAL_EXPORT) || {
   echo "$$EXPECTED_EXPORT did not match $$ACTUAL_EXPORT"
   exit 1
 }
-$(POSIX_DIFF) -Naur $$EXPECTED_ARGS <($(POSIX_SED) '$$a\\' $$ACTUAL_ARGS) || {
+$(POSIX_DIFF) -Naur --strip-trailing-cr $$EXPECTED_ARGS <($(POSIX_SED) '$$a\\' $$ACTUAL_ARGS) || {
   echo "$$EXPECTED_ARGS did not match $$ACTUAL_ARGS"
   exit 1
 }
