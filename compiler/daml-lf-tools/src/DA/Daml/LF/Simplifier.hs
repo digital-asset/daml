@@ -98,8 +98,8 @@ safetyStep = \case
       BEGreaterEq _       -> Safe 2
       BEGreater _         -> Safe 2
       BEToText _          -> Safe 1
-      BEToTextContractId  -> Safe 1
-      BETextFromCodePoints  -> Safe 1
+      BEContractIdToText  -> Safe 1
+      BECodePointsToText  -> Safe 1
       BEAddDecimal        -> Safe 1
       BESubDecimal        -> Safe 1
       BEMulDecimal        -> Safe 1
@@ -116,8 +116,8 @@ safetyStep = \case
       BEDivNumeric        -> Safe 1
       BEInt64ToNumeric    -> Safe 0
       BENumericToInt64    -> Safe 0
-      BENumericFromText   -> Safe 1
-      BEToTextNumeric     -> Safe 1
+      BETextToNumeric   -> Safe 1
+      BENumericToText     -> Safe 1
       BERoundNumeric      -> Safe 1
       BECastNumeric       -> Safe 0
       BEShiftNumeric      -> Safe 1
@@ -128,8 +128,8 @@ safetyStep = \case
       BEMulBigNumeric       -> Safe 1 -- fails on overflow
       BEDivBigNumeric       -> Safe 3 -- takes 4 arguments, fails on division by 0 and on rounding ("rounding unnecessary" mode)
       BEShiftRightBigNumeric     -> Safe 1 -- fails on overflow (shift too large)
-      BEToNumericBigNumeric -> Safe 0 -- fails on overflow (numeric doesn't fit)
-      BEFromNumericBigNumeric -> Safe 1 -- doesn't fail
+      BEBigNumericToNumeric -> Safe 0 -- fails on overflow (numeric doesn't fit)
+      BENumericToBigNumeric -> Safe 1 -- doesn't fail
       BEAddInt64          -> Safe 1
       BESubInt64          -> Safe 1
       BEMulInt64          -> Safe 1
@@ -165,9 +165,9 @@ safetyStep = \case
       BETrace -> Unsafe -- we make it unsafe so that it never gets erased
       BEEqualContractId -> Safe 2
       BEPartyToQuotedText -> Safe 1
-      BEPartyFromText -> Safe 1
-      BEInt64FromText -> Safe 1
-      BEDecimalFromText -> Safe 1
+      BETextToParty -> Safe 1
+      BETextToInt64 -> Safe 1
+      BETextToDecimal -> Safe 1
       BETextToCodePoints -> Safe 1
       BECoerceContractId -> Safe 1
       BETextToUpper -> Safe 1

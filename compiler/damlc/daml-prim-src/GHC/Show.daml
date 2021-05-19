@@ -116,7 +116,7 @@ instance Show Int where
 
 #ifdef DAML_NUMERIC
 instance Show (Numeric n) where
-  show = primitive @"BEToTextNumeric"
+  show = primitive @"BENumericToText"
 #else
 instance Show Decimal where
   show = primitive @"BEToText"
