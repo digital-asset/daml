@@ -1459,7 +1459,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           "SHIFT_RIGHT_BIGNUMERIC",
         ),
         (
-          SBToNumericBigNumeric,
+          SBBigNumericToNumeric,
           List[SValue](TMinScale, VeryBigBigNumericA),
           "BIGNUMERIC_TO_NUMERIC",
         ),

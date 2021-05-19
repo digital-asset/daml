@@ -398,20 +398,20 @@ object Ast {
   final case object BImplodeText extends BuiltinFunction // : List Text -> Text
   final case object BAppendText extends BuiltinFunction // : Text → Text → Text
 
-  final case object BToTextInt64 extends BuiltinFunction //  Int64 → Text
-  final case object BToTextNumeric extends BuiltinFunction // : ∀s. Numeric s → Text
-  final case object BToTextText extends BuiltinFunction // : Text → Text
-  final case object BToTextTimestamp extends BuiltinFunction // : Timestamp → Text
-  final case object BToTextParty extends BuiltinFunction // : Party → Text
-  final case object BToTextDate extends BuiltinFunction // : Date -> Text
-  final case object BToTextContractId
+  final case object BInt64ToText extends BuiltinFunction //  Int64 → Text
+  final case object BNumericToText extends BuiltinFunction // : ∀s. Numeric s → Text
+  final case object BTextToText extends BuiltinFunction // : Text → Text
+  final case object BTimestampToText extends BuiltinFunction // : Timestamp → Text
+  final case object BPartyToText extends BuiltinFunction // : Party → Text
+  final case object BDateToText extends BuiltinFunction // : Date -> Text
+  final case object BContractIdToText
       extends BuiltinFunction // : forall t. ContractId t -> Optional Text
-  final case object BToQuotedTextParty extends BuiltinFunction // : Party -> Text
-  final case object BToTextCodePoints extends BuiltinFunction // : [Int64] -> Text
-  final case object BFromTextParty extends BuiltinFunction // : Text -> Optional Party
-  final case object BFromTextInt64 extends BuiltinFunction // : Text -> Optional Int64
-  final case object BFromTextNumeric extends BuiltinFunction // :  ∀s. Text -> Optional (Numeric s)
-  final case object BFromTextCodePoints extends BuiltinFunction // : Text -> List Int64
+  final case object BPartyToQuotedText extends BuiltinFunction // : Party -> Text
+  final case object BCodePointsToText extends BuiltinFunction // : [Int64] -> Text
+  final case object BTextToParty extends BuiltinFunction // : Text -> Optional Party
+  final case object BTextToInt64 extends BuiltinFunction // : Text -> Optional Int64
+  final case object BTextToNumeric extends BuiltinFunction // :  ∀s. Text -> Optional (Numeric s)
+  final case object BTextToCodePoints extends BuiltinFunction // : Text -> List Int64
 
   final case object BSHA256Text extends BuiltinFunction // : Text -> Text
 
@@ -455,9 +455,9 @@ object Ast {
       extends BuiltinFunction // : Int64 -> RoundingMode → BigNumeric → BigNumeric → BigNumeric s
   final case object BShiftRightBigNumeric
       extends BuiltinFunction // : Int64 → BigNumeric → BigNumeric
-  final case object BToNumericBigNumeric extends BuiltinFunction // :  ∀s. BigNumeric → Numeric s
-  final case object BToBigNumericNumeric extends BuiltinFunction // :  ∀s. Numeric s → BigNumeric
-  final case object BToTextBigNumeric extends BuiltinFunction // : BigNumeric → Text
+  final case object BBigNumericToNumeric extends BuiltinFunction // :  ∀s. BigNumeric → Numeric s
+  final case object BNumericToBigNumeric extends BuiltinFunction // :  ∀s. Numeric s → BigNumeric
+  final case object BBigNumericToText extends BuiltinFunction // : BigNumeric → Text
 
   // Unstable Text Primitives
   final case object BTextToUpper extends BuiltinFunction // Text → Text
