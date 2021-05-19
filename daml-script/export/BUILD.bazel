@@ -151,6 +151,10 @@ client_server_build(
     data = ["//daml-script/test:script-test.dar"],
     output_env = "EXPORT_OUT",
     server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "--port",
+        "0",
+    ],
     server_files = ["//daml-script/test:script-test.dar"],
 )
 
