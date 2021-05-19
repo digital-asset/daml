@@ -20,7 +20,7 @@
 // * 1 --  2019-01-10: Add Optional type
 //     --  2019-01-27: Add <, <=, =>, > for Party
 //     --  2019-01-29: Add PrimType.ARROW
-// * 2 --  2019-03-18: Add BuiltinFunction.{SHA256_TEXT, TO_TEXT_PARTY, FROM_TEXT_PARTY}
+// * 2 --  2019-03-18: Add BuiltinFunction.{SHA256_TEXT, PARTY_TO_TEXT, TEXT_TO_PARTY}
 //     --  2019-03-18: Add flexible controllers (change scoping of controller expressions)
 // * 3 --  2019-03-25: Add contract keys
 //     --  2019-03-27: Add Map type
@@ -29,7 +29,7 @@
 //         2019-05-23: Add BuiltinFunction.COERCE_CONTRACT_ID
 //         2019-05-24: Make actors in exercise optional
 // * 6 --  2019-05-27: Add enum type.
-//         2019-06-04: Add BuiltinFunction.{TEXT_FROM_CODE_POINTS, TEXT_TO_CODE_POINTS}
+//         2019-06-04: Add BuiltinFunction.{CODE_POINTS_TO_TEXT, TEXT_POINTS_TO_CODE}
 //         2019-06-12: Add Package.interned_package_ids and PackageRef.interned_id
 // * 7 --  2019-07-29: Add nat kind and Nat types, Numeric types and Numeric builtins
 //         2019-09-17: Add Any type and, `to_any` and `from_any` builtins
@@ -520,19 +520,19 @@ enum BuiltinFunction {
   GREATER_DATE = 70;      // *Available in versions < 1.11*
   GREATER_PARTY = 92;     // *Available in versions >= 1.1 and < 1.11*
 
-  TO_TEXT_INT64 = 57;
-  TO_TEXT_DECIMAL = 58;  // *Available in versions < 1.7*
-  TO_TEXT_NUMERIC = 116;  // *Available in versions >= 1.7*
-  TO_TEXT_TEXT = 60;
-  TO_TEXT_TIMESTAMP = 61;
-  TO_TEXT_DATE = 71;
-  TO_QUOTED_TEXT_PARTY = 63; // legacy,  *Available in versions <= 1.dev*
-  TO_TEXT_PARTY = 94; // *Available in versions >= 1.2*
-  FROM_TEXT_PARTY = 95; // *Available in versions >= 1.2*, was named FROM_TEXT_PARTY in 1.2, 1.3 and 1.4
-  FROM_TEXT_INT64 = 103; // *Available in versions >= 1.5*
-  FROM_TEXT_DECIMAL = 104; // *Available in versions 1.5 and 1.6
-  FROM_TEXT_NUMERIC = 117;  // *Available in versions >= 1.7*
-  TO_TEXT_CONTRACT_ID = 136; // *Available in versions >= 1.11*
+  INT64_TO_TEXT = 57;
+  DECIMAL_TO_TEXT = 58;  // *Available in versions < 1.7*
+  NUMERIC_TO_TEXT = 116;  // *Available in versions >= 1.7*
+  TEXT_TO_TEXT = 60;
+  TIMESTAMP_TO_TEXT = 61;
+  DATE_TO_TEXT = 71;
+  PARTY_TO_QUOTED_TEXT = 63; // *Available in versions <= 1.dev*
+  PARTY_TO_TEXT = 94; // *Available in versions >= 1.2*
+  TEXT_TO_PARTY = 95; // *Available in versions >= 1.2*, was named TEXT_TO_PARTY in 1.2, 1.3 and 1.4
+  TEXT_TO_INT64 = 103; // *Available in versions >= 1.5*
+  TEXT_TO_DECIMAL = 104; // *Available in versions 1.5 and 1.6
+  TEXT_TO_NUMERIC = 117;  // *Available in versions >= 1.7*
+  CONTRACT_ID_TO_TEXT = 136; // *Available in versions >= 1.11*
   SHA256_TEXT = 93; // *Available in versions >= 1.2*
 
   DATE_TO_UNIX_DAYS = 72; // Date -> Int64
@@ -571,8 +571,8 @@ enum BuiltinFunction {
 
   COERCE_CONTRACT_ID = 102;
 
-  TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
-  TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
+  CODE_POINTS_TO_TEXT = 105;  // *Available in versions >= 1.6*
+  TEXT_POINTS_TO_CODE = 106; // *Available in versions >= 1.6*
 
   SCALE_BIGNUMERIC = 137; // *Available in versions >= 1.13*
   PRECISION_BIGNUMERIC = 138; // *Available in versions >= 1.13*
@@ -581,9 +581,9 @@ enum BuiltinFunction {
   MUL_BIGNUMERIC = 141; // *Available in versions >= 1.13*
   DIV_BIGNUMERIC = 142; // *Available in versions >= 1.13*
   SHIFT_RIGHT_BIGNUMERIC = 143; // *Available in versions >= 1.13*
-  TO_NUMERIC_BIGNUMERIC = 144; // *Available in versions >= 1.13*
-  TO_BIGNUMERIC_NUMERIC = 145; // *Available in versions >= 1.13*
-  TO_TEXT_BIGNUMERIC = 146; // *Available in versions >= 1.13*
+  BIGNUMERIC_TO_NUMERIC = 144; // *Available in versions >= 1.13*
+  NUMERIC_TO_BIGNUMERIC = 145; // *Available in versions >= 1.13*
+  BIGNUMERIC_TO_TEXT = 146; // *Available in versions >= 1.13*
 
   // Next id is 150. 149 is ANY_EXCEPTION_IS_CONTRACT_ERROR.
 

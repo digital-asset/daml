@@ -183,10 +183,10 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
-    "TO_TEXT_INT64" - {
+    "INT64_TO_TEXT" - {
       "return proper results" in {
         forEvery(smallInt64s) { a =>
-          eval(e"TO_TEXT_INT64 $a") shouldBe Right(SText(a.toString))
+          eval(e"INT64_TO_TEXT $a") shouldBe Right(SText(a.toString))
         }
       }
     }
@@ -371,10 +371,10 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
-    "TO_TEXT_NUMERIC" - {
+    "NUMERIC_TO_TEXT" - {
       "returns proper results" in {
         forEvery(decimals) { a =>
-          eval(e"TO_TEXT_NUMERIC @10 ${s(10, a)}") shouldBe Right(SText(a))
+          eval(e"NUMERIC_TO_TEXT @10 ${s(10, a)}") shouldBe Right(SText(a))
         }
       }
     }
@@ -515,7 +515,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     "TEXT_TO_TEXT" - {
       "is idempotent" in {
         forEvery(strings) { s =>
-          eval(e""" TO_TEXT_TEXT "$s" """) shouldBe Right(SText(s))
+          eval(e""" TEXT_TO_TEXT "$s" """) shouldBe Right(SText(s))
         }
       }
     }
@@ -536,7 +536,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
-    "TEXT_FROM_CODE_POINTS" - {
+    "CODE_POINTS_TO_TEXT" - {
 
       "accepts legal code points" in {
         val testCases = Table(
@@ -573,7 +573,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
         forEvery(testCases)(cp =>
           eval(
-            e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}"""
+            e"""CODE_POINTS_TO_TEXT ${intList('\''.toLong, cp.toLong, '\''.toLong)}"""
           ) shouldBe Right(
             SText("'" + new String(Character.toChars(cp)) + "'")
           )
@@ -593,7 +593,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
         forEvery(testCases)(cp =>
           eval(
-            e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}"""
+            e"""CODE_POINTS_TO_TEXT ${intList('\''.toLong, cp.toLong, '\''.toLong)}"""
           ) shouldBe a[Left[_, _]]
         )
       }
@@ -614,7 +614,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         )
 
         forEvery(testCases)(cp =>
-          eval(e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp, '\''.toLong)}""") shouldBe a[
+          eval(e"""CODE_POINTS_TO_TEXT ${intList('\''.toLong, cp, '\''.toLong)}""") shouldBe a[
             Left[_, _]
           ]
         )
@@ -669,7 +669,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           )
 
         forEvery(testCases) { s =>
-          eval(e"TO_TEXT_TEXT $s") shouldBe Right(SText(s))
+          eval(e"TEXT_TO_TEXT $s") shouldBe Right(SText(s))
         }
       }
     }
@@ -702,9 +702,9 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
-    "TEXT_TO_DATE" - {
+    "DATE_TO_TEXT" - {
       "works as expected" in {
-        eval(e"TO_TEXT_TEXT  1879-03-14").left.map(_ => ()) shouldBe Right(SText("1879-03-14"))
+        eval(e"DATE_TO_TEXT  1879-03-14").left.map(_ => ()) shouldBe Right(SText("1879-03-14"))
       }
     }
   }
@@ -1182,43 +1182,43 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     }
 
     "Text Operations" - {
-      "TO_QUOTED_TEXT_PARTY single quotes" in {
-        eval(e"TO_QUOTED_TEXT_PARTY 'alice'") shouldBe Right(SText("'alice'"))
+      "PARTY_TO_QUOTED_TEXT single quotes" in {
+        eval(e"PARTY_TO_QUOTED_TEXT 'alice'") shouldBe Right(SText("'alice'"))
       }
 
-      "TO_TEXT_PARTY does not single quote" in {
-        eval(e"TO_TEXT_PARTY 'alice'") shouldBe Right(SText("alice"))
+      "PARTY_TO_TEXT does not single quote" in {
+        eval(e"PARTY_TO_TEXT 'alice'") shouldBe Right(SText("alice"))
       }
 
-      "FROM_TEXT_PARTY" - {
+      "TEXT_TO_PARTY" - {
         "should convert correct string" in {
-          eval(e"""FROM_TEXT_PARTY "alice" """) shouldBe Right(
+          eval(e"""TEXT_TO_PARTY "alice" """) shouldBe Right(
             SOptional(Some(SParty(Ref.Party.assertFromString("alice"))))
           )
         }
         "should not convert string with incorrect char" in {
-          eval(e"""FROM_TEXT_PARTY "bad%char" """) shouldBe Right(SOptional(None))
+          eval(e"""TEXT_TO_PARTY "bad%char" """) shouldBe Right(SOptional(None))
         }
 
         "should not convert too long string" in {
           val party255 = "p" * 255
           val party256 = party255 + "p"
-          eval(e"""FROM_TEXT_PARTY "$party255" """) shouldBe Right(
+          eval(e"""TEXT_TO_PARTY "$party255" """) shouldBe Right(
             SOptional(Some(SParty(Ref.Party.assertFromString(party255))))
           )
-          eval(e"""FROM_TEXT_PARTY "$party256" """) shouldBe Right(SOptional(None))
+          eval(e"""TEXT_TO_PARTY "$party256" """) shouldBe Right(SOptional(None))
         }
 
         "should not convert empty string" in {
-          eval(e"""FROM_TEXT_PARTY "p" """) shouldBe Right(
+          eval(e"""TEXT_TO_PARTY "p" """) shouldBe Right(
             SOptional(Some(SParty(Ref.Party.assertFromString("p"))))
           )
-          eval(e"""FROM_TEXT_PARTY "" """) shouldBe Right(SOptional(None))
+          eval(e"""TEXT_TO_PARTY "" """) shouldBe Right(SOptional(None))
         }
 
       }
 
-      "FROM_TEXT_INT64" in {
+      "TEXT_TO_INT64" in {
         val positiveTestCases =
           Table(
             "strings",
@@ -1251,16 +1251,16 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           )
 
         forEvery(positiveTestCases) { s =>
-          eval(e"""FROM_TEXT_INT64 "$s"""") shouldBe Right(SOptional(Some(SInt64(s.toLong))))
+          eval(e"""TEXT_TO_INT64 "$s"""") shouldBe Right(SOptional(Some(SInt64(s.toLong))))
         }
         forEvery(negativeTestCases) { s =>
-          eval(e"""FROM_TEXT_INT64 "$s"""") shouldBe Right(SOptional(None))
+          eval(e"""TEXT_TO_INT64 "$s"""") shouldBe Right(SOptional(None))
         }
       }
 
-      "TO_TEXT_CONTRACT_ID" - {
+      "CONTRACT_ID_TO_TEXT" - {
         "returns None on-ledger" in {
-          val f = """(\(c:(ContractId Mod:T)) -> TO_TEXT_CONTRACT_ID @Mod:T c)"""
+          val f = """(\(c:(ContractId Mod:T)) -> CONTRACT_ID_TO_TEXT @Mod:T c)"""
           evalApp(
             e"$f",
             Array(SContractId(Value.ContractId.assertFromString("#abc"))),
@@ -1268,7 +1268,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           ) shouldBe Right(SOptional(None))
         }
         "returns Some(abc) off-ledger" in {
-          val f = """(\(c:(ContractId Mod:T)) -> TO_TEXT_CONTRACT_ID @Mod:T c)"""
+          val f = """(\(c:(ContractId Mod:T)) -> CONTRACT_ID_TO_TEXT @Mod:T c)"""
           evalApp(
             e"$f",
             Array(SContractId(Value.ContractId.assertFromString("#abc"))),
@@ -1284,7 +1284,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           (() => "1" * 10000000) -> None,
           (() => "0" * 10000000 + "1") -> Some(SInt64(1)),
         )
-        val builtin = e"""FROM_TEXT_INT64"""
+        val builtin = e"""TEXT_TO_INT64"""
 
         forEvery(testCases) { (input, output) =>
           eval(EApp(builtin, EPrimLit(PLText(input())))) shouldBe Right(
@@ -1296,7 +1296,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
     }
 
-    "FROM_TEXT_NUMERIC" in {
+    "TEXT_TO_NUMERIC" in {
       val positiveTestCases =
         Table(
           "strings" -> "canonical string",
@@ -1338,11 +1338,11 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         )
 
       forEvery(positiveTestCases) { (input, expected) =>
-        val e = e"""FROM_TEXT_NUMERIC @10 "$input""""
+        val e = e"""TEXT_TO_NUMERIC @10 "$input""""
         eval(e) shouldBe Right(SOptional(Some(SNumeric(n(10, expected)))))
       }
       forEvery(negativeTestCases) { input =>
-        eval(e"""FROM_TEXT_NUMERIC @10 "$input"""") shouldBe Right(SOptional(None))
+        eval(e"""TEXT_TO_NUMERIC @10 "$input"""") shouldBe Right(SOptional(None))
       }
     }
 
@@ -1356,7 +1356,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         (() => "+" + "0" * 10000000 + "2.0") -> Some(SNumeric(n(10, 2))),
         (() => "-" + "0" * 10000000 + "3.0") -> Some(SNumeric(n(10, -3))),
       )
-      val builtin = e"""FROM_TEXT_NUMERIC @10"""
+      val builtin = e"""TEXT_TO_NUMERIC @10"""
 
       forEvery(testCases) { (input, output) =>
         eval(EApp(builtin, EPrimLit(PLText(input())))) shouldBe Right(SOptional(output))
@@ -1461,7 +1461,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         (
           SBToNumericBigNumeric,
           List[SValue](TMinScale, VeryBigBigNumericA),
-          "TO_NUMERIC_BIGNUMERIC",
+          "BIGNUMERIC_TO_NUMERIC",
         ),
       )
 

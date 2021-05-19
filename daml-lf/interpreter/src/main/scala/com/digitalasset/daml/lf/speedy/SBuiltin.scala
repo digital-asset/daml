@@ -886,7 +886,7 @@ private[lf] object SBuiltin {
     }
   }
 
-  final object SBToNumericBigNumeric extends SBBuiltinArithmetic("TO_NUMERIC_BIGNUMERIC", 2) {
+  final object SBToNumericBigNumeric extends SBBuiltinArithmetic("BIGNUMERIC_TO_NUMERIC", 2) {
     override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
       val scale = getSTNat(args, 0)
       val x = getSBigNumeric(args, 1)
