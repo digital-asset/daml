@@ -168,7 +168,8 @@ client_server_build(
 # newline to the last line if missing.
 #
 # Normalizes the absolute paths to data-dependencies in the generated daml.yaml
-# to replace the path to the Bazel execroot by a placeholder.
+# to replace the path to the Bazel execroot by a placeholder and replaces the
+# hashes by a placeholder.
 sh_inline_test(
     name = "example-export-compare",
     cmd = """\
@@ -189,8 +190,9 @@ $(POSIX_DIFF) -Naur --strip-trailing-cr $$EXPECTED_ARGS <($(POSIX_SED) '$$a\\' $
   exit 1
 }
 # Normalize the absolute paths to data-dependencies in the generated daml.yaml
-# to replace the path to the Bazel execroot by a placeholder.
-$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d' $$EXPECTED_YAML) <($(POSIX_SED) "s,$$($(POSIX_DIRNAME) $(execpath :example-export/daml.yaml)),EXPORT_OUT,g"';$$a\\' $$ACTUAL_YAML) || {
+# to replace the path to the Bazel execroot by a placeholder and replace the
+# hashes in the data-dependencies by a placeholder.
+$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;s/[0-9a-f]\\{64\\}/HASH/' $$EXPECTED_YAML) <($(POSIX_SED) "s,$$($(POSIX_DIRNAME) $(execpath :example-export/daml.yaml)),EXPORT_OUT,g"';s/[0-9a-f]\\{64\\}/HASH/;$$a\\' $$ACTUAL_YAML) || {
   echo "$$EXPECTED_YAML did not match $$ACTUAL_YAML"
   exit 1
 }
