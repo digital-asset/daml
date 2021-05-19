@@ -5,22 +5,30 @@ package com.daml.ledger.api.benchtool.metrics
 
 import com.google.protobuf.timestamp.Timestamp
 
-import java.time.{Duration, Instant}
+import java.time.{Clock, Duration, Instant}
 
-trait Metric[T] {
+sealed trait Metric[T] {
 
   def onNext(value: T): Metric[T]
 
+  // TODO: rename to periodicValue
   def periodicUpdate(): (Metric[T], String)
 
+  def periodicValue(): (Metric[T], Option[MetricValue])
+
+  // TODO: rename to finalValue
   def completeInfo(totalDurationSeconds: Double): List[String]
+
+  def finalValue(totalDurationSeconds: Double): Option[MetricValue]
 
   def name: String = getClass.getSimpleName
 
 }
 
+sealed trait MetricValue
+
 object Metric {
-  case class CountMetric[T](
+  final case class CountMetric[T](
       periodMillis: Long,
       countingFunction: T => Int,
       counter: Int = 0,
@@ -36,10 +44,21 @@ object Metric {
       (updatedMetric, update)
     }
 
+    override def periodicValue(): (Metric[T], Option[MetricValue]) =
+      (this.copy(lastCount = counter), Some(CountMetric.Value(counter, periodicRate)))
+
     override def completeInfo(totalDurationSeconds: Double): List[String] =
       List(
         s"rate: ${rounded(totalRate(totalDurationSeconds))} [tx/s]",
         s"count: $counter [tx]",
+      )
+
+    override def finalValue(totalDurationSeconds: Double): Option[MetricValue] =
+      Some(
+        CountMetric.Value(
+          totalCount = counter,
+          ratePerSecond = totalRate(totalDurationSeconds),
+        )
       )
 
     private def periodicRate: Double = (counter - lastCount) * 1000.0 / periodMillis
@@ -47,30 +66,56 @@ object Metric {
     private def totalRate(totalDurationSeconds: Double): Double = counter / totalDurationSeconds
   }
 
-  case class SizeMetric[T](
+  object CountMetric {
+    final case class Value(totalCount: Int, ratePerSecond: Double) extends MetricValue
+
+    def empty[T](
+        periodMillis: Long,
+        countingFunction: T => Int,
+    ): CountMetric[T] = CountMetric[T](periodMillis, countingFunction)
+  }
+
+  final case class SizeMetric[T](
       periodMillis: Long,
-      sizingFunction: T => Int,
-      currentSizeBucket: Long = 0,
+      sizingBytesFunction: T => Long,
+      currentSizeBytesBucket: Long = 0,
       sizeRateList: List[Double] = List.empty,
   ) extends Metric[T] {
 
     override def onNext(value: T): SizeMetric[T] =
-      this.copy(currentSizeBucket = currentSizeBucket + sizingFunction(value))
+      this.copy(currentSizeBytesBucket = currentSizeBytesBucket + sizingBytesFunction(value))
 
     override def periodicUpdate(): (SizeMetric[T], String) = {
       val sizeRate = periodicSizeRate
       val update = s"size rate (interval): ${rounded(sizeRate)} [MB/s]"
       val updatedMetric = this.copy(
-        currentSizeBucket = 0,
+        currentSizeBytesBucket = 0,
         sizeRateList = sizeRate :: sizeRateList,
       ) // ok to prepend because the list is used only to calculate mean value
       (updatedMetric, update)
     }
 
+    override def periodicValue(): (Metric[T], Option[MetricValue]) = {
+      val sizeRate = periodicSizeRate
+      val updatedMetric = this.copy(
+        currentSizeBytesBucket = 0,
+        sizeRateList = sizeRate :: sizeRateList,
+      ) // ok to prepend because the list is used only to calculate mean value so the order doesn't matter
+      (updatedMetric, Some(SizeMetric.Value(sizeRate)))
+    }
+
     override def completeInfo(totalDurationSeconds: Double): List[String] =
       List(s"size rate: $totalSizeRate [MB/s]")
 
-    private def periodicSizeRate: Double = currentSizeBucket * 1000.0 / periodMillis / 1024 / 1024
+    override def finalValue(totalDurationSeconds: Double): Option[MetricValue] = {
+      sizeRateList match {
+        case Nil => None
+        case rates => Some(SizeMetric.Value(rates.sum / rates.length))
+      }
+    }
+
+    private def periodicSizeRate: Double =
+      currentSizeBytesBucket * 1000.0 / periodMillis / 1024 / 1024
 
     private def totalSizeRate: String =
       sizeRateList match {
@@ -79,13 +124,21 @@ object Metric {
       }
   }
 
-  case class DelayMetric[T](
+  object SizeMetric {
+    final case class Value(megabytesPerSecond: Double) extends MetricValue
+
+    def empty[T](periodMillis: Long, sizingFunction: T => Long): SizeMetric[T] =
+      SizeMetric[T](periodMillis, sizingFunction)
+  }
+
+  final case class DelayMetric[T](
       recordTimeFunction: T => Seq[Timestamp],
+      clock: Clock,
       delaysInCurrentInterval: List[Duration] = List.empty,
   ) extends Metric[T] {
 
     override def onNext(value: T): DelayMetric[T] = {
-      val now = Instant.now()
+      val now = clock.instant()
       val newDelays: List[Duration] = recordTimeFunction(value).toList.map { recordTime =>
         Duration.between(
           Instant.ofEpochSecond(recordTime.seconds.toLong, recordTime.nanos.toLong),
@@ -102,7 +155,17 @@ object Metric {
       (updatedMetric, update)
     }
 
+    override def periodicValue(): (Metric[T], Option[MetricValue]) = {
+      val value = periodicMeanDelay.map { delay =>
+        DelayMetric.Value(delay.getSeconds)
+      }
+      val updatedMetric = this.copy(delaysInCurrentInterval = List.empty)
+      (updatedMetric, value)
+    }
+
     override def completeInfo(totalDurationSeconds: Double): List[String] = List.empty
+
+    override def finalValue(totalDurationSeconds: Double): Option[MetricValue] = None
 
     private def periodicMeanDelay: Option[Duration] =
       if (delaysInCurrentInterval.nonEmpty)
@@ -114,7 +177,14 @@ object Metric {
       else None
   }
 
-  case class ConsumptionSpeedMetric[T](
+  object DelayMetric {
+    final case class Value(meanDelaySeconds: Long) extends MetricValue
+
+    def empty[T](recordTimeFunction: T => Seq[Timestamp], clock: Clock): DelayMetric[T] =
+      DelayMetric(recordTimeFunction, clock)
+  }
+
+  final case class ConsumptionSpeedMetric[T](
       periodMillis: Long,
       recordTimeFunction: T => Seq[Timestamp],
       firstRecordTime: Option[Instant] = None,
@@ -146,7 +216,17 @@ object Metric {
       (updatedMetric, update)
     }
 
+    override def periodicValue(): (Metric[T], Option[MetricValue]) = {
+      val value = periodicSpeed.map { speed =>
+        ConsumptionSpeedMetric.Value(speed)
+      }
+      val updatedMetric = this.copy(firstRecordTime = None, lastRecordTime = None)
+      (updatedMetric, value)
+    }
+
     override def completeInfo(totalDurationSeconds: Double): List[String] = List.empty
+
+    override def finalValue(totalDurationSeconds: Double): Option[MetricValue] = None
 
     private def periodicSpeed: Option[Double] =
       (firstRecordTime, lastRecordTime) match {
@@ -155,6 +235,16 @@ object Metric {
         case _ =>
           None
       }
+  }
+
+  object ConsumptionSpeedMetric {
+    final case class Value(relativeSpeed: Double) extends MetricValue
+
+    def empty[T](
+        periodMillis: Long,
+        recordTimeFunction: T => Seq[Timestamp],
+    ): ConsumptionSpeedMetric[T] =
+      ConsumptionSpeedMetric(periodMillis, recordTimeFunction)
   }
 
   private def rounded(value: Double): String = "%.2f".format(value)
