@@ -50,6 +50,7 @@ client_server_test(
 
 client_server_build(
     name = "build",
+    outs = ["build.out"],
     client = ":client",
     client_args = [
         "--foobar",

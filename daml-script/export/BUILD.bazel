@@ -2,6 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
+    "//bazel_tools/client_server:client_server_build.bzl",
+    "client_server_build",
+)
+load(
+    "//bazel_tools/sh:sh.bzl",
+    "sh_inline_test",
+)
+load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
@@ -110,4 +118,70 @@ da_scala_test(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_netty_netty_handler",
     ],
+)
+
+da_scala_binary(
+    name = "example-export-client",
+    srcs = ["src/example-export/scala/com/daml/script/export/ExampleClient.scala"],
+    main_class = "com.daml.script.export.ExampleClient",
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+    ],
+    deps = [
+        ":export",
+        "//daml-lf/data",
+        "//daml-script/runner:script-runner-lib",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger/ledger-api-common",
+        "//libs-scala/auth-utils",
+    ],
+)
+
+client_server_build(
+    name = "example-export",
+    outs = [
+        "example-export/Export.daml",
+        "example-export/args.json",
+    ],
+    client = ":example-export-client",
+    client_files = ["//daml-script/test:script-test.dar"],
+    data = ["//daml-script/test:script-test.dar"],
+    output_env = "EXPORT_OUT",
+    server = "//ledger/sandbox:sandbox-binary",
+    server_files = ["//daml-script/test:script-test.dar"],
+)
+
+# Compare the generated Daml ledger export to the example export used in the
+# documentation. This functions as both a golden test on ledger exports and to
+# make sure that the documentation stays up-to-date.
+#
+# Normalizes the expected output by removing the copyright header and any
+# documentation import markers and normalizes the actual output by adding a
+# newline to the last line if missing.
+sh_inline_test(
+    name = "example-export-compare",
+    cmd = """\
+EXPECTED_EXPORT=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/Export.daml))
+EXPECTED_ARGS=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/args.json))
+ACTUAL_EXPORT=$$(canonicalize_rlocation $(rootpath :example-export/Export.daml))
+ACTUAL_ARGS=$$(canonicalize_rlocation $(rootpath :example-export/args.json))
+# Normalize the expected file by removing the copyright header and any documentation import markers.
+# Normalize the actual output by adding a newline to the last line if missing.
+$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;/^-- EXPORT/d' $$EXPECTED_EXPORT) <($(POSIX_SED) '$$a\\' $$ACTUAL_EXPORT) || {
+  echo "$$EXPECTED_EXPORT did not match $$ACTUAL_EXPORT"
+  exit 1
+}
+$(POSIX_DIFF) -Naur --strip-trailing-cr $$EXPECTED_ARGS <($(POSIX_SED) '$$a\\' $$ACTUAL_ARGS) || {
+  echo "$$EXPECTED_ARGS did not match $$ACTUAL_ARGS"
+  exit 1
+}
+""",
+    data = [
+        ":example-export/Export.daml",
+        ":example-export/args.json",
+        "//docs:source/tools/export/output-root/Export.daml",
+        "//docs:source/tools/export/output-root/args.json",
+    ],
+    toolchains = ["@rules_sh//sh/posix:make_variables"],
 )

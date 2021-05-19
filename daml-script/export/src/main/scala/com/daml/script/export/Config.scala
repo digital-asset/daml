@@ -117,7 +117,7 @@ object Config {
     )
   }
 
-  private val EmptyExportScript = ExportScript(
+  val EmptyExportScript = ExportScript(
     outputPath = null,
     sdkVersion = "",
     acsBatchSize = 10,
@@ -135,7 +135,7 @@ object Config {
     }
   }
 
-  private val Empty = Config(
+  val Empty = Config(
     ledgerHost = "",
     ledgerPort = -1,
     tlsConfig = TlsConfiguration(false, None, None, None),
