@@ -58,7 +58,7 @@ trait StorageBackend[DB_BATCH] {
 }
 
 object StorageBackend {
-  case class Params(ledgerEnd: Offset, eventSeqId: Long, configuration: Option[Array[Byte]])
+  case class Params(ledgerEnd: Offset, eventSeqId: Long)
 
   case class LedgerEnd(lastOffset: Option[Offset], lastEventSeqId: Option[Long])
 

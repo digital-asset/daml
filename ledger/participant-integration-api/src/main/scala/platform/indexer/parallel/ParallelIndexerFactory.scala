@@ -17,7 +17,7 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.indexer.{IndexFeedHandle, Indexer}
 import com.daml.platform.store.{DbType, backend}
-import com.daml.platform.store.appendonlydao.{DbDispatcher, JdbcLedgerDao}
+import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.{DBDTOV1, StorageBackend}
 import com.daml.resources
@@ -117,7 +117,6 @@ object ParallelIndexerFactory {
     *
     * @param lastOffset The latest offset available in the batch. Needed for tail ingestion.
     * @param lastSeqEventId The latest sequential-event-id in the batch, or if none present there, then the latest from before. Needed for tail ingestion.
-    * @param lastConfig The latest successful accepted configuration in the batch, if available.
     * @param batch The batch of variable type.
     * @param batchSize Size of the batch measured in number of updates. Needed for metrics population.
     * @param averageStartTime The nanosecond timestamp of the start of the previous processing stage. Needed for metrics population: how much time is spend by a particular update in a certain stage.
@@ -125,7 +124,6 @@ object ParallelIndexerFactory {
   case class Batch[+T](
       lastOffset: Offset,
       lastSeqEventId: Long,
-      lastConfig: Option[Array[Byte]],
       batch: T,
       batchSize: Int,
       averageStartTime: Long,
@@ -142,9 +140,6 @@ object ParallelIndexerFactory {
     Batch(
       lastOffset = input.last._1._1,
       lastSeqEventId = 0, // will be filled later in the sequential step
-      lastConfig = batch.reverseIterator.collectFirst {
-        case c: DBDTOV1.ConfigurationEntry if c.typ == JdbcLedgerDao.acceptType => c.configuration
-      },
       batch = batch,
       batchSize = input.size,
       averageStartTime = input.view.map(_._2 / input.size).sum,
@@ -155,7 +150,6 @@ object ParallelIndexerFactory {
     Batch(
       lastOffset = null,
       lastSeqEventId = initialSeqId, // this is the only property of interest in the zero element
-      lastConfig = None,
       batch = Vector.empty,
       batchSize = 0,
       averageStartTime = 0,
@@ -229,11 +223,10 @@ object ParallelIndexerFactory {
   def tailer[DB_BATCH](
       zeroDbBatch: DB_BATCH
   ): (Batch[DB_BATCH], Batch[DB_BATCH]) => Batch[DB_BATCH] =
-    (prev, curr) =>
+    (_, curr) =>
       Batch[DB_BATCH](
         lastOffset = curr.lastOffset,
         lastSeqEventId = curr.lastSeqEventId,
-        lastConfig = curr.lastConfig.orElse(prev.lastConfig),
         batch = zeroDbBatch, // not used anymore
         batchSize = 0, // not used anymore
         averageStartTime = 0, // not used anymore
@@ -251,7 +244,6 @@ object ParallelIndexerFactory {
           StorageBackend.Params(
             ledgerEnd = batch.lastOffset,
             eventSeqId = batch.lastSeqEventId,
-            configuration = batch.lastConfig,
           ),
         )
         metrics.daml.indexer.ledgerEndSequentialId.updateValue(batch.lastSeqEventId)
