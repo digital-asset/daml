@@ -4,7 +4,7 @@
 package com.daml.lf.speedy
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
@@ -45,13 +45,6 @@ object SError {
   /** Unhandled exceptions */
   final case class DamlEUnhandledException(exception: SException) extends SErrorDamlException {
     override def toString: String = s"Unhandled exception: $exception"
-  }
-
-  /** Arithmetic error such as division by zero */
-  final case class DamlEArithmeticError(builtinName: String, args: ImmArray[String])
-      extends SErrorDamlException {
-    override def toString: String =
-      s"ArithmeticError while evaluating $builtinName(${args.iterator.mkString(",")})."
   }
 
   /** User initiated error, via e.g. 'abort' or 'assert' */

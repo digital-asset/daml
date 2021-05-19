@@ -1140,12 +1140,6 @@ private[lf] final class Compiler(
         val newBody = closureConvert(newRemapsF ++ newRemapsA, body)
         SEMakeClo(fvs.map(remap).toArray, arity, newBody)
 
-      case x: SELoc =>
-        throw CompilationError(s"closureConvert: unexpected SELoc: $x")
-
-      case x: SEMakeClo =>
-        throw CompilationError(s"closureConvert: unexpected SEMakeClo: $x")
-
       case SEAppGeneral(fun, args) =>
         val newFun = closureConvert(remaps, fun)
         val newArgs = args.map(closureConvert(remaps, _))
@@ -1193,26 +1187,13 @@ private[lf] final class Compiler(
       case SELabelClosure(label, expr) =>
         SELabelClosure(label, closureConvert(remaps, expr))
 
-      case x: SEDamlException =>
-        throw CompilationError(s"unexpected SEDamlException: $x")
-
-      case x: SEImportValue =>
-        throw CompilationError(s"unexpected SEImportValue: $x")
-
-      case x: SEAppAtomicGeneral =>
-        throw CompilationError(s"closureConvert: unexpected: $x")
-
-      case x: SEAppAtomicSaturatedBuiltin =>
-        throw CompilationError(s"closureConvert: unexpected: $x")
-
       case SELet1General(bound, body) =>
         SELet1General(closureConvert(remaps, bound), closureConvert(shift(remaps, 1), body))
 
-      case x: SELet1Builtin =>
-        throw CompilationError(s"closureConvert: unexpected: $x")
-
-      case x: SECaseAtomic =>
-        throw CompilationError(s"closureConvert: unexpected: $x")
+      case _: SELoc | _: SEMakeClo | _: SELet1Builtin | _: SELet1BuiltinArithmetic |
+          _: SEDamlException | _: SEImportValue | _: SEAppAtomicGeneral |
+          _: SEAppAtomicSaturatedBuiltin | _: SECaseAtomic =>
+        throw CompilationError(s"closureConvert: unexpected $expr")
     }
   }
 
@@ -1260,10 +1241,6 @@ private[lf] final class Compiler(
           args.foldLeft(go(fun, bound, free))((acc, arg) => go(arg, bound, acc))
         case SEAbs(n, body) =>
           go(body, bound + n, free)
-        case x: SELoc =>
-          throw CompilationError(s"freeVars: unexpected SELoc: $x")
-        case x: SEMakeClo =>
-          throw CompilationError(s"freeVars: unexpected SEMakeClo: $x")
         case SECase(scrut, alts) =>
           alts.foldLeft(go(scrut, bound, free)) { case (acc, SCaseAlt(pat, body)) =>
             go(body, bound + patternNArgs(pat), acc)
@@ -1281,16 +1258,10 @@ private[lf] final class Compiler(
         case SEScopeExercise(body) =>
           go(body, bound, free)
 
-        case x: SEDamlException =>
-          throw CompilationError(s"unexpected SEDamlException: $x")
-        case x: SEImportValue =>
-          throw CompilationError(s"unexpected SEImportValue: $x")
-
-        case x: SEAppAtomicGeneral => throw CompilationError(s"freeVars: unexpected: $x")
-        case x: SEAppAtomicSaturatedBuiltin => throw CompilationError(s"freeVars: unexpected: $x")
-        case x: SELet1General => throw CompilationError(s"freeVars: unexpected: $x")
-        case x: SELet1Builtin => throw CompilationError(s"freeVars: unexpected: $x")
-        case x: SECaseAtomic => throw CompilationError(s"freeVars: unexpected: $x")
+        case _: SELoc | _: SEMakeClo | _: SEDamlException | _: SEImportValue |
+            _: SEAppAtomicGeneral | _: SEAppAtomicSaturatedBuiltin | _: SELet1General |
+            _: SELet1Builtin | _: SELet1BuiltinArithmetic | _: SECaseAtomic =>
+          throw CompilationError(s"freeVars: unexpected $expr")
       }
 
     go(expr, initiallyBound, Set.empty)
@@ -1316,7 +1287,7 @@ private[lf] final class Compiler(
         case SEnum(_, _, _) => ()
         case SAny(_, v) => goV(v)
         case SAnyException(_, v) => goV(v)
-        case SBuiltinException(ContractError | ArithmeticError) => ()
+        case SBuiltinException(_, _, _) => ()
         case _: SPAP | SToken | SStruct(_, _) =>
           throw CompilationError("validate: unexpected SEValue")
       }
@@ -1352,10 +1323,6 @@ private[lf] final class Compiler(
         case SEAppAtomicFun(fun, args) =>
           go(fun)
           args.foreach(go)
-        case x: SEVar =>
-          throw CompilationError(s"validate: SEVar encountered: $x")
-        case abs: SEAbs =>
-          throw CompilationError(s"validate: SEAbs encountered: $abs")
         case SEMakeClo(fvs, n, body) =>
           fvs.foreach(goLoc)
           goBody(0, n, fvs.length)(body)
@@ -1373,6 +1340,7 @@ private[lf] final class Compiler(
           goBody(maxS + bounds.length, maxA, maxF)(body)
         case _: SELet1General => goLets(maxS)(expr)
         case _: SELet1Builtin => goLets(maxS)(expr)
+        case _: SELet1BuiltinArithmetic => goLets(maxS)(expr)
         case SECatchSubmitMustFail(body) =>
           go(body)
         case SELocation(_, body) =>
@@ -1385,10 +1353,8 @@ private[lf] final class Compiler(
         case SEScopeExercise(body) =>
           go(body)
 
-        case x: SEDamlException =>
-          throw CompilationError(s"unexpected SEDamlException: $x")
-        case x: SEImportValue =>
-          throw CompilationError(s"unexpected SEImportValue: $x")
+        case _: SEVar | _: SEAbs | _: SEDamlException | _: SEImportValue =>
+          throw CompilationError(s"validate: unexpected $expr")
       }
       @tailrec
       def goLets(maxS: Int)(expr: SExpr): Unit = {
@@ -1398,6 +1364,9 @@ private[lf] final class Compiler(
             go(rhs)
             goLets(maxS + 1)(body)
           case SELet1Builtin(_, args, body) =>
+            args.foreach(go)
+            goLets(maxS + 1)(body)
+          case SELet1BuiltinArithmetic(_, args, body) =>
             args.foreach(go)
             goLets(maxS + 1)(body)
           case expr =>

@@ -8,7 +8,7 @@ import java.util
 
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SError.{DamlEArithmeticError, SError, SErrorCrash}
+import com.daml.lf.speedy.SError.{DamlEUnhandledException, SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
@@ -1396,7 +1396,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       val TwoInt64 = SInt64(2L)
       val MaxInt64 = SInt64(Long.MaxValue)
 
-      val cases = Table[SBBuiltinArithmetic, Seq[SValue], String](
+      val cases = Table[SBuiltinArithmetic, Seq[SValue], String](
         ("builtin", "args", "name"),
         (SBAddInt64, List[SValue](MaxInt64, TwoInt64), "ADD_INT64"),
         (SBSubInt64, List[SValue](SInt64(-2L), MaxInt64), "SUB_INT64"),
@@ -1469,7 +1469,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         inside(
           evalSExpr(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).toArray), false)
         ) {
-          case Left(DamlEArithmeticError(name_, args_))
+          case Left(DamlEUnhandledException(SBuiltinException(ArithmeticError, name_, args_)))
               if name_ == name && (args.iterator.map(lit2string) sameElements args_.iterator) =>
         }
       }

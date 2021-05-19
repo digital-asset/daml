@@ -86,17 +86,15 @@ final class Conversions(
 
       case SError.DamlEMatchError(reason) =>
         setCrash(reason)
-      case err: SError.DamlEArithmeticError =>
-        setCrash(err.toString)
       case SError.DamlEUnhandledException(exc) =>
         exc match {
           case SValue.SAnyException(_, sValue) =>
             builder.setUnhandledException(convertValue(sValue.toValue))
-          case SValue.SBuiltinException(error) =>
+          case error: SValue.SBuiltinException =>
             // TODO https://github.com/digital-asset/daml/issues/8020
             //  We should not crash here.
             //  We however need conversion primitive for builtin exeception to be implemented.
-            setCrash(error.toString)
+            setCrash(error.message)
         }
       case SError.DamlEUserError(msg) =>
         builder.setUserError(msg)
