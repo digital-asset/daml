@@ -1131,7 +1131,7 @@ private[platform] object JdbcLedgerDao {
         serverRole,
         jdbcUrl,
         connectionPoolSize,
-        250.millis,
+        2.seconds,
         metrics,
         jdbcAsyncCommitMode,
       )
