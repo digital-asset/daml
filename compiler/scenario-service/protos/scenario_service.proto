@@ -564,6 +564,7 @@ message Node {
   repeated Disclosure disclosures = 3;
   repeated NodeId referenced_by = 4;
   NodeId consumed_by = 5; // optional
+  NodeId rolledback_by = 13; // optional
   NodeId parent = 6; // optional
 
   // The location of the update expression

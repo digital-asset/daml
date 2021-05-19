@@ -159,6 +159,10 @@ object ScenarioLedger {
     *                       either 'NodeExercises' or 'NodeEnsureActive'
     *                       nodes.
     * @param consumedBy     The node consuming this node, provided such a
+    *                       node exists. Consumption under a rollback
+    *                       is not included here even for contracts created
+    *                       under a rollback node.
+    * @param rolledbackBy   The nearest parent rollback node, provided such a
     *                       node exists.
     * @param parent         If the node is part of a sub-transaction, then
     *                       this is the immediate parent, which must be an
@@ -171,6 +175,7 @@ object ScenarioLedger {
       disclosures: Map[Party, Disclosure],
       referencedBy: Set[EventId],
       consumedBy: Option[EventId],
+      rolledbackBy: Option[EventId],
       parent: Option[EventId],
   ) {
 
@@ -394,18 +399,18 @@ object ScenarioLedger {
       ledgerData: LedgerData,
   ): Either[UniqueKeyViolation, LedgerData] = {
 
-    // The subset of LedgerData that is unmodified by a rollback node.
-    final case class ActiveLedgerState(
+    final case class RollbackBeginState(
+        rollbackId: EventId,
         activeContracts: Set[ContractId],
         activeKeys: Map[GlobalKey, ContractId],
-    ) {}
+    )
 
     final case class ProcessingNode(
         mbParentId: Option[NodeId],
         children: List[NodeId],
         // For rollback nodes, we store the previous state here and restore it.
         // For exercise nodes, we don’t need to restore anything.
-        prevState: Option[ActiveLedgerState],
+        prevState: Option[RollbackBeginState],
     )
 
     @tailrec
@@ -430,7 +435,7 @@ object ScenarioLedger {
             case (processingNode @ ProcessingNode(
                   mbParentId,
                   nodeId :: restOfNodeIds,
-                  _,
+                  optPrevState,
                 )) :: restENPs =>
               val eventId = EventId(trId.id, nodeId)
               richTr.transaction.nodes.get(nodeId) match {
@@ -444,6 +449,7 @@ object ScenarioLedger {
                     disclosures = Map.empty,
                     referencedBy = Set.empty,
                     consumedBy = None,
+                    rolledbackBy = optPrevState.map(_.rollbackId),
                     parent = mbParentId.map(EventId(trId.id, _)),
                   )
                   val newCache =
@@ -452,14 +458,14 @@ object ScenarioLedger {
 
                   node match {
                     case rollback: NodeRollback[NodeId] =>
-                      val activeState =
-                        ActiveLedgerState(newCache.activeContracts, newCache.activeKeys)
+                      val rollbackState =
+                        RollbackBeginState(eventId, newCache.activeContracts, newCache.activeKeys)
                       processNodes(
                         Right(newCache),
                         ProcessingNode(
                           Some(nodeId),
                           rollback.children.toList,
-                          Some(activeState),
+                          Some(rollbackState),
                         ) :: idsToProcess,
                       )
 
@@ -492,7 +498,11 @@ object ScenarioLedger {
                         newCache.updateLedgerNodeInfo(ex.targetCoid)(info =>
                           info.copy(
                             referencedBy = info.referencedBy + eventId,
-                            consumedBy = if (ex.consuming) Some(eventId) else info.consumedBy,
+                            consumedBy = optPrevState match {
+                              // consuming exercise outside a rollback node
+                              case None if ex.consuming => Some(eventId)
+                              case _ => info.consumedBy
+                            },
                           )
                         )
                       val newCache1 =
