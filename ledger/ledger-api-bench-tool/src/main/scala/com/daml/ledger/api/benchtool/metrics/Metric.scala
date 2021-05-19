@@ -25,7 +25,9 @@ sealed trait Metric[T] {
 
 }
 
-sealed trait MetricValue
+sealed trait MetricValue {
+  def formatted: List[String]
+}
 
 object Metric {
   final case class CountMetric[T](
@@ -65,7 +67,13 @@ object Metric {
   }
 
   object CountMetric {
-    final case class Value(totalCount: Int, ratePerSecond: Double) extends MetricValue
+    final case class Value(totalCount: Int, ratePerSecond: Double) extends MetricValue {
+      override def formatted: List[String] =
+        List(
+          s"total count: $totalCount [tx]",
+          s"rate: ${rounded(ratePerSecond)} [tx/s]",
+        )
+    }
 
     def empty[T](
         periodMillis: Long,
@@ -124,7 +132,11 @@ object Metric {
   }
 
   object SizeMetric {
-    final case class Value(megabytesPerSecond: Option[Double]) extends MetricValue
+    // TODO: remove Option
+    final case class Value(megabytesPerSecond: Option[Double]) extends MetricValue {
+      override def formatted: List[String] =
+        List(s"size rate: $megabytesPerSecond [MB/s]")
+    }
 
     def empty[T](periodMillis: Long, sizingFunction: T => Long): SizeMetric[T] =
       SizeMetric[T](periodMillis, sizingFunction)
@@ -175,7 +187,10 @@ object Metric {
   }
 
   object DelayMetric {
-    final case class Value(meanDelaySeconds: Option[Long]) extends MetricValue
+    final case class Value(meanDelaySeconds: Option[Long]) extends MetricValue {
+      override def formatted: List[String] =
+        List(s"mean delay: ${meanDelaySeconds.getOrElse("-")} [s]")
+    }
 
     def empty[T](recordTimeFunction: T => Seq[Timestamp], clock: Clock): DelayMetric[T] =
       DelayMetric(recordTimeFunction, clock)
@@ -234,7 +249,10 @@ object Metric {
   }
 
   object ConsumptionSpeedMetric {
-    final case class Value(relativeSpeed: Option[Double]) extends MetricValue
+    final case class Value(relativeSpeed: Option[Double]) extends MetricValue {
+      override def formatted: List[String] =
+        List(s"speed: ${relativeSpeed.map(rounded).getOrElse("-")} [-]")
+    }
 
     def empty[T](
         periodMillis: Long,
