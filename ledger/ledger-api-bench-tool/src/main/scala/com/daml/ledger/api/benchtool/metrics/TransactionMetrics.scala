@@ -11,6 +11,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.google.protobuf.timestamp.Timestamp
 
+import java.time.Clock
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
@@ -58,7 +59,7 @@ object TransactionMetrics {
     all[GetTransactionsResponse](
       reportingPeriod = reportingPeriod,
       countingFunction = _.transactions.length,
-      sizingFunction = _.serializedSize,
+      sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
       },
@@ -70,7 +71,7 @@ object TransactionMetrics {
     all[GetTransactionTreesResponse](
       reportingPeriod = reportingPeriod,
       countingFunction = _.transactions.length,
-      sizingFunction = _.serializedSize,
+      sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
       },
@@ -79,14 +80,14 @@ object TransactionMetrics {
   private def all[T](
       reportingPeriod: FiniteDuration,
       countingFunction: T => Int,
-      sizingFunction: T => Int,
+      sizingFunction: T => Long,
       recordTimeFunction: T => Seq[Timestamp],
   ): List[Metric[T]] = {
     val reportingPeriodMillis = reportingPeriod.toMillis
     List[Metric[T]](
       Metric.CountMetric(reportingPeriodMillis, countingFunction),
       Metric.SizeMetric(reportingPeriodMillis, sizingFunction),
-      Metric.DelayMetric(recordTimeFunction),
+      Metric.DelayMetric(recordTimeFunction, Clock.systemUTC()),
       Metric.ConsumptionSpeedMetric(reportingPeriodMillis, recordTimeFunction),
     )
   }

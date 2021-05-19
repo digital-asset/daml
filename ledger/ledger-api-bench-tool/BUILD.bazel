@@ -5,6 +5,8 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
+    "da_scala_test",
+    "da_scala_test_suite",
 )
 
 da_scala_binary(
@@ -51,5 +53,22 @@ da_scala_library(
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_test_suite(
+    name = "ledger-api-bench-tool-tests",
+    size = "medium",
+    srcs = glob(
+        ["src/test/suite/**/*.scala"],
+    ),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+    ],
+    deps = [
+        ":ledger-api-bench-tool-lib",
+        "//language-support/scala/bindings",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
     ],
 )
