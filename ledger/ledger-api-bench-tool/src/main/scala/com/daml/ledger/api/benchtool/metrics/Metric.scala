@@ -20,17 +20,17 @@ trait Metric[T] {
 }
 
 object Metric {
-  case class TransactionCountMetric[T](
+  case class CountMetric[T](
       periodMillis: Long,
       countingFunction: T => Int,
       counter: Int = 0,
       lastCount: Int = 0,
   ) extends Metric[T] {
 
-    override def onNext(value: T): TransactionCountMetric[T] =
+    override def onNext(value: T): CountMetric[T] =
       this.copy(counter = counter + countingFunction(value))
 
-    override def periodicUpdate(): (TransactionCountMetric[T], String) = {
+    override def periodicUpdate(): (CountMetric[T], String) = {
       val update: String = s"rate: ${rounded(periodicRate)} [tx/s], count: $counter [tx]"
       val updatedMetric = this.copy(lastCount = counter)
       (updatedMetric, update)
@@ -47,17 +47,17 @@ object Metric {
     private def totalRate(totalDurationSeconds: Double): Double = counter / totalDurationSeconds
   }
 
-  case class TransactionSizeMetric[T](
+  case class SizeMetric[T](
       periodMillis: Long,
       sizingFunction: T => Int,
       currentSizeBucket: Long = 0,
       sizeRateList: List[Double] = List.empty,
   ) extends Metric[T] {
 
-    override def onNext(value: T): TransactionSizeMetric[T] =
+    override def onNext(value: T): SizeMetric[T] =
       this.copy(currentSizeBucket = currentSizeBucket + sizingFunction(value))
 
-    override def periodicUpdate(): (TransactionSizeMetric[T], String) = {
+    override def periodicUpdate(): (SizeMetric[T], String) = {
       val sizeRate = periodicSizeRate
       val update = s"size rate (interval): ${rounded(sizeRate)} [MB/s]"
       val updatedMetric = this.copy(
@@ -79,12 +79,12 @@ object Metric {
       }
   }
 
-  case class ConsumptionDelayMetric[T](
+  case class DelayMetric[T](
       recordTimeFunction: T => Seq[Timestamp],
       delaysInCurrentInterval: List[Duration] = List.empty,
   ) extends Metric[T] {
 
-    override def onNext(value: T): ConsumptionDelayMetric[T] = {
+    override def onNext(value: T): DelayMetric[T] = {
       val now = Instant.now()
       val newDelays: List[Duration] = recordTimeFunction(value).toList.map { recordTime =>
         Duration.between(
@@ -95,7 +95,7 @@ object Metric {
       this.copy(delaysInCurrentInterval = delaysInCurrentInterval ::: newDelays)
     }
 
-    override def periodicUpdate(): (ConsumptionDelayMetric[T], String) = {
+    override def periodicUpdate(): (DelayMetric[T], String) = {
       val update =
         s"mean delay (interval): ${periodicMeanDelay.map(_.getSeconds.toString).getOrElse("-")} [s]"
       val updatedMetric = this.copy(delaysInCurrentInterval = List.empty)

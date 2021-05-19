@@ -84,9 +84,9 @@ object TransactionMetrics {
   ): List[Metric[T]] = {
     val reportingPeriodMillis = reportingPeriod.toMillis
     List[Metric[T]](
-      Metric.TransactionCountMetric(reportingPeriodMillis, countingFunction),
-      Metric.TransactionSizeMetric(reportingPeriodMillis, sizingFunction),
-      Metric.ConsumptionDelayMetric(recordTimeFunction),
+      Metric.CountMetric(reportingPeriodMillis, countingFunction),
+      Metric.SizeMetric(reportingPeriodMillis, sizingFunction),
+      Metric.DelayMetric(recordTimeFunction),
       Metric.ConsumptionSpeedMetric(reportingPeriodMillis, recordTimeFunction),
     )
   }
