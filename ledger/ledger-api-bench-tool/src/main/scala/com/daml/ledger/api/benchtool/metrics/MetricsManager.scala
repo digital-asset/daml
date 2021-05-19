@@ -48,8 +48,9 @@ class MetricsManager[T](
           handlingMessages(metrics.map(_.onNext(newValue.value)))
 
         case _: PeriodicUpdateCommand[T] =>
-          val (newMetrics, updates) = metrics.map(_.periodicUpdate()).unzip
-          context.log.info(namedMessage(updates.mkString(", ")))
+          val (newMetrics, values) = metrics.map(_.periodicValue()).unzip
+          val formattedValues: List[String] = values.flatMap(_.formatted)
+          context.log.info(namedMessage(formattedValues.mkString(", ")))
           handlingMessages(newMetrics)
 
         case _: StreamCompleted[T] =>
@@ -60,12 +61,16 @@ class MetricsManager[T](
   }
 
   private def summary(metrics: List[Metric[T]], durationSeconds: Double): String = {
-    val reports = metrics.flatMap { metric =>
-      metric.completeInfo(durationSeconds) match {
-        case Nil => Nil
-        case results => List(s"""${metric.name}:
-                                |${results.map(r => s"  $r").mkString("\n")}""".stripMargin)
-      }
+    def indented(str: String): String = s"  $str"
+    val reports = metrics.map { metric =>
+      val metricValues: String = metric
+        .finalValue(totalDurationSeconds)
+        .formatted
+        .map(indented)
+        .mkString("\n")
+
+      s"""${metric.name}:
+         |$metricValues""".stripMargin
     }
     val reportWidth = 80
     val bar = "=" * reportWidth
