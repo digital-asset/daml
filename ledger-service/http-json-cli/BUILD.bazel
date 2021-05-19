@@ -38,6 +38,7 @@ da_scala_library(
         exports = [":base"],
         deps = [
             ":base",
+            "//ledger-service/cli-opts",
             "//ledger/ledger-api-common",
         ],
     )

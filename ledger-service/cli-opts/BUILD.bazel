@@ -16,7 +16,15 @@ da_scala_library(
     ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:http-json-cli-opts:__VERSION__"],
+    versioned_scala_deps = {
+        "2.12": [
+            "@maven//:org_scala_lang_modules_scala_collection_compat",
+        ],
+    },
     visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:org_codehaus_janino_janino",
+    ],
     deps = [
         "//ledger/ledger-api-common",
         "@maven//:ch_qos_logback_logback_classic",
