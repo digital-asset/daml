@@ -30,6 +30,8 @@ import scalaz.std.iterable._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
 
+import scala.collection.mutable
+
 case class Export(
     partyMap: Map[Party, String],
     cidMap: Map[ContractId, String],
@@ -159,20 +161,45 @@ object Export {
     val targetFlag = lfTarget.fold("")(Dependencies.targetFlag(_))
 
     val buildOptions = targetFlag +: exposedPackages.map(pkgId => s"--package=$pkgId")
+    val damlYaml = {
+      import io.circe.Json
+      import io.circe.yaml.Printer
+      val json = Json.fromFields(
+        mutable.LinkedHashMap(
+          "sdk-version" -> Json.fromString(sdkVersion),
+          "name" -> Json.fromString("export"),
+          "version" -> Json.fromString("1.0.0"),
+          "source" -> Json.fromString("."),
+          "init-script" -> Json.fromString("Export:export"),
+          "script-options" -> Json.fromValues(
+            List(
+              Json.fromString("--input-file"),
+              Json.fromString("args.json"),
+            )
+          ),
+          "parties" -> Json.fromValues(
+            export.partyMap.keys.map(p => Json.fromString(Party.unwrap(p)))
+          ),
+          "dependencies" -> Json.fromValues(
+            List(
+              Json.fromString("daml-stdlib"),
+              Json.fromString("daml-prim"),
+              Json.fromString(damlScriptLib),
+            )
+          ),
+          "data-dependencies" -> Json.fromValues(dalfFiles.map(p => Json.fromString(p.toString))),
+          "build-options" -> Json.fromValues(buildOptions.map(Json.fromString)),
+        )
+      )
+      Printer(
+        indent = 4,
+        preserveOrder = true,
+      ).pretty(json)
+    }
 
     Files.write(
       dir.resolve("daml.yaml"),
-      s"""sdk-version: $sdkVersion
-         |name: export
-         |version: 1.0.0
-         |source: .
-         |init-script: Export:export
-         |script-options: [--input-file, args.json]
-         |parties: [${export.partyMap.keys.mkString(",")}]
-         |dependencies: [daml-stdlib, daml-prim, $damlScriptLib]
-         |data-dependencies: [${dalfFiles.mkString(",")}]
-         |build-options: [${buildOptions.mkString(",")}]
-         |""".stripMargin.getBytes(StandardCharsets.UTF_8),
+      damlYaml.getBytes(StandardCharsets.UTF_8),
     )
   }
 }
