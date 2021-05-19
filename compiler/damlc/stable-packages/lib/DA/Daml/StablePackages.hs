@@ -39,6 +39,7 @@ allStablePackages =
     , daExceptionGeneralError
     , daExceptionArithmeticError
     , daExceptionContractError
+    , daExceptionAssertionFailed
     ]
 
 allStablePackagesForVersion :: Version -> [Package]
@@ -554,6 +555,9 @@ daExceptionArithmeticError = builtinExceptionPackage "ArithmeticError"
 
 daExceptionContractError :: Package
 daExceptionContractError = builtinExceptionPackage "ContractError"
+
+daExceptionAssertionFailed :: Package
+daExceptionAssertionFailed = builtinExceptionPackage "AssertionFailed"
 
 builtinExceptionPackage :: T.Text -> Package
 builtinExceptionPackage name = Package

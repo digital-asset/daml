@@ -53,6 +53,7 @@ genrule(
         "daml-prim/DA-Exception-GeneralError.dalf",
         "daml-prim/DA-Exception-ArithmeticError.dalf",
         "daml-prim/DA-Exception-ContractError.dalf",
+        "daml-prim/DA-Exception-AssertionFailed.dalf",
         "daml-prim/DA-Types.dalf",
         "daml-stdlib/DA-Internal-Template.dalf",
         "daml-stdlib/DA-Internal-Any.dalf",
@@ -75,6 +76,7 @@ genrule(
       $(location :generate-stable-package) --module DA.Exception.GeneralError -o $(location daml-prim/DA-Exception-GeneralError.dalf)
       $(location :generate-stable-package) --module DA.Exception.ArithmeticError -o $(location daml-prim/DA-Exception-ArithmeticError.dalf)
       $(location :generate-stable-package) --module DA.Exception.ContractError -o $(location daml-prim/DA-Exception-ContractError.dalf)
+      $(location :generate-stable-package) --module DA.Exception.AssertionFailed -o $(location daml-prim/DA-Exception-AssertionFailed.dalf)
       $(location :generate-stable-package) --module DA.Types -o $(location daml-prim/DA-Types.dalf)
       $(location :generate-stable-package) --module DA.Time.Types -o $(location daml-stdlib/DA-Time-Types.dalf)
       $(location :generate-stable-package) --module DA.NonEmpty.Types -o $(location daml-stdlib/DA-NonEmpty-Types.dalf)
@@ -97,6 +99,7 @@ genrule(
 filegroup(
     name = "stable-packages",
     srcs = [
+        "daml-prim/DA-Exception-AssertionFailed.dalf",
         "daml-prim/DA-Exception-ArithmeticError.dalf",
         "daml-prim/DA-Exception-ContractError.dalf",
         "daml-prim/DA-Exception-GeneralError.dalf",
