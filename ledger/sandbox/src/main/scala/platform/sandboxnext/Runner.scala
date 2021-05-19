@@ -51,6 +51,8 @@ import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.duration._
+
 import scala.util.Try
 
 /** Runs Sandbox with a KV SQL ledger backend.
@@ -230,6 +232,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   jdbcUrl = indexJdbcUrl,
                   // 16 DB connections has been shown to be sufficient for applications running on the sandbox
                   databaseConnectionPoolSize = 16,
+                  databaseConnectionTimeout = 250.millis,
                   tlsConfig = config.tlsConfig,
                   maxInboundMessageSize = config.maxInboundMessageSize,
                   eventsPageSize = config.eventsPageSize,

@@ -15,6 +15,7 @@ import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.LfValueTranslationCache
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.FiniteDuration
 
 private[platform] object JdbcIndex {
   def owner(
@@ -23,6 +24,7 @@ private[platform] object JdbcIndex {
       participantId: ParticipantId,
       jdbcUrl: String,
       databaseConnectionPoolSize: Int,
+      databaseConnectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -37,6 +39,7 @@ private[platform] object JdbcIndex {
       serverRole = serverRole,
       jdbcUrl = jdbcUrl,
       databaseConnectionPoolSize = databaseConnectionPoolSize,
+      databaseConnectionTimeout = databaseConnectionTimeout,
       initialLedgerId = ledgerId,
       eventsPageSize = eventsPageSize,
       servicesExecutionContext = servicesExecutionContext,

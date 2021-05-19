@@ -5,7 +5,6 @@ package com.daml.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
-
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
@@ -44,6 +43,7 @@ import com.daml.resources.ProgramResource.StartupException
 import scalaz.Tag
 
 import scala.collection.immutable.Queue
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
@@ -68,6 +68,7 @@ private[sandbox] object SqlLedger {
       // jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
       jdbcUrl: String,
       databaseConnectionPoolSize: Int,
+      databaseConnectionTimeout: FiniteDuration,
       providedLedgerId: LedgerIdMode,
       participantId: domain.ParticipantId,
       timeProvider: TimeProvider,
@@ -241,6 +242,7 @@ private[sandbox] object SqlLedger {
           serverRole,
           jdbcUrl,
           databaseConnectionPoolSize,
+          databaseConnectionTimeout,
           eventsPageSize,
           servicesExecutionContext,
           metrics,
@@ -255,6 +257,7 @@ private[sandbox] object SqlLedger {
           serverRole,
           jdbcUrl,
           databaseConnectionPoolSize,
+          databaseConnectionTimeout,
           eventsPageSize,
           servicesExecutionContext,
           metrics,
