@@ -10,15 +10,9 @@
 -- reconstructed from the log of create and archive events.
 ---------------------------------------------------------------------------------------------------
 
----------------------------------------------------------------------------------------------------
--- Migrations history table
--- Stores which events were touched by which migration, to simplify fixing migration issues.
----------------------------------------------------------------------------------------------------
-
-CREATE TABLE participant_migration_history (
-    -- * name of the migration
-    name text NOT NULL,
-
+-- Stores which events were touched by which migration.
+-- This metadata is not used for normal indexing operations and exists only to simplify fixing data migration issues.
+CREATE TABLE participant_migration_history_v100 (
     -- * last event inserted before the migration was run
     ledger_end_sequential_id_before bigint,
 
@@ -27,10 +21,9 @@ CREATE TABLE participant_migration_history (
     -- NOTE: events between ledger_end_sequential_id_before and ledger_end_sequential_id_after
     -- were created by the migration itself.
 );
-INSERT INTO participant_migration_history VALUES (
-    'V100',
+INSERT INTO participant_migration_history_v100 VALUES (
     (SELECT max(event_sequential_id) FROM participant_events),
-    NULL -- updated at the end
+    NULL -- updated at the end of this script
 );
 
 ---------------------------------------------------------------------------------------------------
@@ -709,14 +702,12 @@ UPDATE parameters SET ledger_end_sequential_id = (
     SELECT max(event_sequential_id) FROM participant_events
 );
 
--- For this migration ledger_end_sequential_id_before will not be equal to ledger_end_sequential_id_after,
+-- Note that ledger_end_sequential_id_before will not be equal to ledger_end_sequential_id_after,
 -- as this migration creates divulgence events.
-UPDATE participant_migration_history
+UPDATE participant_migration_history_v100
 SET ledger_end_sequential_id_after = (
     SELECT max(ledger_end_sequential_id) FROM parameters
-)
-WHERE name = 'V100';
-
+);
 
 ---------------------------------------------------------------------------------------------------
 -- Completions table
