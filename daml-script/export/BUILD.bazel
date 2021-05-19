@@ -155,6 +155,10 @@ client_server_build(
 # Compare the generated Daml ledger export to the example export used in the
 # documentation. This functions as both a golden test on ledger exports and to
 # make sure that the documentation stays up-to-date.
+#
+# Normalizes the expected output by removing the copyright header and any
+# documentation import markers and normalizes the actual output by adding a
+# newline to the last line if missing.
 sh_inline_test(
     name = "example-export-compare",
     cmd = """\
