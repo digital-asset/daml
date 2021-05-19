@@ -167,8 +167,8 @@ First, you need to modify the `artifacts` attribute to
 @unpinned_maven//:pin` to update `maven_install.json`.  You should
 also run `@unpinned_maven//:pin` if you change other attributes to
 `maven_install`. You need to run this once per Scala version with the
-default being 2.12 so run it again for 2.13:
-``DAML_SCALA_VERSION=2.13.5 bazel run @unpinned_maven//:pin``.
+default being 2.13 so run it again for 2.12:
+``DAML_SCALA_VERSION=2.12.13 bazel run @unpinned_maven//:pin``.
 
 Refer to the [`rules_jvm_external` documentation][rules_jvm_external] for
 further information.

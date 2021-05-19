@@ -18,6 +18,7 @@ import com.daml.lf.value.{Value => V}
 import com.daml.lf.value.test.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
 
@@ -25,7 +26,11 @@ import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 import scala.util.Random
 
-class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPropertyChecks {
+class TransactionSpec
+    extends AnyFreeSpec
+    with Matchers
+    with Inside
+    with ScalaCheckDrivenPropertyChecks {
 
   import TransactionSpec._
 
@@ -169,7 +174,8 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
   "isReplayedBy" - {
     def genTrans(node: GenNode[NodeId, ContractId]) = {
       val nid = NodeId(1)
-      VersionedTransaction(node.version, HashMap(nid -> node), ImmArray(nid))
+      val version = node.optVersion.getOrElse(TransactionVersion.minExceptions)
+      VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
     def isReplayedBy(
@@ -203,8 +209,13 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       }
 
       forAll(genEmptyNode, minSuccessful(10)) { n =>
-        val m = n.updateVersion(diffVersion(n.version))
-        isReplayedBy(n, m) shouldBe Symbol("left")
+        val version = n.optVersion.getOrElse(TransactionVersion.minExceptions)
+        n match {
+          case _: NodeRollback[_] => ()
+          case n: Node.GenActionNode[_, _] =>
+            val m = n.updateVersion(diffVersion(version))
+            isReplayedBy(n, m) shouldBe Symbol("left")
+        }
       }
     }
 
@@ -334,7 +345,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       builder.add(fetch("FetchByKey", true), exeId)
       builder.add(lookup("SuccessfulLookup", true), exeId)
       builder.add(lookup("UnsuccessfulLookup", true), exeId)
-      val rollbackId = builder.add(Node.NodeRollback(ImmArray.empty, root2.version))
+      val rollbackId = builder.add(Node.NodeRollback(ImmArray.empty))
       builder.add(create("RolledBackCreate"))
       builder.add(exe("RolledBackNonConsumingExerciseById", false, false), rollbackId)
       builder.add(exe("RolledBackConsumingExerciseById", true, false), rollbackId)
@@ -374,6 +385,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
   }
 
   "contractKeyInputs" - {
+    import Transaction._
     // TODO: https://github.com/digital-asset/daml/issues/8020
     // change VDev to  TransactionVersion.StableVersions.max once exception are released
     val dummyBuilder = TransactionBuilder(TransactionVersion.VDev)
@@ -412,7 +424,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       val builder = TransactionBuilder(TransactionVersion.VDev)
       val createNode = create("#0")
       builder.add(createNode)
-      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> None))
+      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> KeyCreate))
     }
     "return Some(_) for fetch and fetch-by-key" in {
       val builder = TransactionBuilder(TransactionVersion.VDev)
@@ -421,7 +433,10 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       builder.add(fetchNode0)
       builder.add(fetchNode1)
       builder.build().contractKeyInputs shouldBe Right(
-        Map(globalKey("#0") -> Some(fetchNode0.coid), globalKey("#1") -> Some(fetchNode1.coid))
+        Map(
+          globalKey("#0") -> KeyActive(fetchNode0.coid),
+          globalKey("#1") -> KeyActive(fetchNode1.coid),
+        )
       )
     }
     "return Some(_) for consuming/non-consuming exercise and exercise-by-key" in {
@@ -437,7 +452,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       builder.build().contractKeyInputs shouldBe
         Right(
           Seq(exe0, exe1, exe2, exe3).view
-            .map(exe => globalKey(exe.targetCoid.coid) -> Some(exe.targetCoid))
+            .map(exe => globalKey(exe.targetCoid.coid) -> KeyActive(exe.targetCoid))
             .toMap
         )
     }
@@ -446,15 +461,16 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       val builder = TransactionBuilder(TransactionVersion.VDev)
       val lookupNode = lookup("#0", found = false)
       builder.add(lookupNode)
-      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> None))
+      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> NegativeKeyLookup))
     }
 
     "return Some(_) for negative lookup by key" in {
       val builder = TransactionBuilder(TransactionVersion.VDev)
       val lookupNode = lookup("#0", found = true)
       builder.add(lookupNode)
-      lookupNode.result shouldBe a[Some[_]]
-      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> lookupNode.result))
+      inside(lookupNode.result) { case Some(cid) =>
+        builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> KeyActive(cid)))
+      }
     }
     "returns keys used under rollback nodes" in {
       val builder = TransactionBuilder(TransactionVersion.VDev)
@@ -469,10 +485,10 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       builder.add(lookupNode, rollback)
       builder.build().contractKeyInputs shouldBe Right(
         Map(
-          globalKey("#0") -> None,
-          globalKey("#1") -> Some(exerciseNode.targetCoid),
-          globalKey("#2") -> Some(fetchNode.coid),
-          globalKey("#3") -> None,
+          globalKey("#0") -> KeyCreate,
+          globalKey("#1") -> KeyActive(exerciseNode.targetCoid),
+          globalKey("#2") -> KeyActive(fetchNode.coid),
+          globalKey("#3") -> NegativeKeyLookup,
         )
       )
     }
@@ -480,53 +496,53 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       val builder = TransactionBuilder(TransactionVersion.VDev)
       builder.add(create("#0"))
       builder.add(create("#0"))
-      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+      builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey("#0")))
     }
     "two creates do not conflict if interleaved with archive" in {
       val builder = TransactionBuilder(TransactionVersion.VDev)
       builder.add(create("#0"))
       builder.add(exe("#0", consuming = true, byKey = false))
       builder.add(create("#0"))
-      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> None))
+      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> KeyCreate))
     }
     "two creates do not conflict if one is in rollback" in {
       val builder = TransactionBuilder(TransactionVersion.VDev)
       val rollback = builder.add(builder.rollback())
       builder.add(create("#0"), rollback)
       builder.add(create("#0"))
-      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> None))
+      builder.build().contractKeyInputs shouldBe Right(Map(globalKey("#0") -> KeyCreate))
     }
     "negative lookup after create fails" in {
       val builder = TransactionBuilder(TransactionVersion.VDev)
       builder.add(create("#0"))
       builder.add(lookup("#0", found = false))
-      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey("#0")))
     }
     "inconsistent lookups conflict" in {
       val builder = TransactionBuilder(TransactionVersion.VDev)
       builder.add(lookup("#0", found = true))
       builder.add(lookup("#0", found = false))
-      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey("#0")))
     }
     "inconsistent lookups conflict across rollback" in {
       val builder = TransactionBuilder(TransactionVersion.VDev)
       val rollback = builder.add(builder.rollback())
       builder.add(lookup("#0", found = true), rollback)
       builder.add(lookup("#0", found = false))
-      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey("#0")))
     }
     "positive lookup conflicts with create" in {
       val builder = TransactionBuilder(TransactionVersion.VDev)
       builder.add(lookup("#0", found = true))
       builder.add(create("#0"))
-      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+      builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey("#0")))
     }
     "positive lookup in rollback conflicts with create" in {
       val builder = TransactionBuilder(TransactionVersion.VDev)
       val rollback = builder.add(builder.rollback())
       builder.add(lookup("#0", found = true), rollback)
       builder.add(create("#0"))
-      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+      builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey("#0")))
     }
     "rolled back archive does not prevent conflict" in {
       val builder = TransactionBuilder(TransactionVersion.VDev)
@@ -534,7 +550,7 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       val rollback = builder.add(builder.rollback())
       builder.add(exe("#0", consuming = true, byKey = true), rollback)
       builder.add(create("#0"))
-      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+      builder.build().contractKeyInputs shouldBe Left(DuplicateKeys(globalKey("#0")))
     }
     "successful, inconsistent lookups conflict" in {
       val builder = TransactionBuilder(TransactionVersion.VDev)
@@ -549,7 +565,22 @@ class TransactionSpec extends AnyFreeSpec with Matchers with ScalaCheckDrivenPro
       )
       builder.add(builder.lookupByKey(create0, found = true))
       builder.add(builder.lookupByKey(create1, found = true))
-      builder.build().contractKeyInputs shouldBe Left(globalKey("#0"))
+      builder.build().contractKeyInputs shouldBe Left(InconsistentKeys(globalKey("#0")))
+    }
+    "first negative input wins" in {
+      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val rollback = builder.add(builder.rollback())
+      val create0 = create("#0")
+      val lookup0 = builder.lookupByKey(create0, found = false)
+      val create1 = create("#1")
+      val lookup1 = builder.lookupByKey(create1, found = false)
+      builder.add(create0, rollback)
+      builder.add(lookup1, rollback)
+      builder.add(lookup0)
+      builder.add(create1)
+      builder.build().contractKeyInputs shouldBe Right(
+        Map(globalKey("#0") -> KeyCreate, globalKey("#1") -> NegativeKeyLookup)
+      )
     }
   }
 
@@ -650,8 +681,7 @@ object TransactionSpec {
       children: ImmArray[NodeId]
   ): NodeRollback[NodeId] =
     NodeRollback(
-      children = children,
-      version = TransactionVersion.minVersion,
+      children = children
     )
 
   def dummyExerciseNode(

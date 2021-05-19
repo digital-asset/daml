@@ -84,6 +84,8 @@ private[lf] object Compiler {
   private val SBGreaterEqNumeric = SBCompareNumeric(SBGreaterEq)
   private val SBEqualNumeric = SBCompareNumeric(SBEqual)
 
+  private val SBEToTextNumeric = SEAbs(1, SEBuiltin(SBToText))
+
   private val SENat: Numeric.Scale => Some[SEValue] =
     Numeric.Scale.values.map(n => Some(SEValue(STNat(n))))
 
@@ -476,6 +478,7 @@ private[lf] final class Compiler(
       case BGreaterNumeric => SBGreaterNumeric
       case BGreaterEqNumeric => SBGreaterEqNumeric
       case BEqualNumeric => SBEqualNumeric
+      case BNumericToText => SBEToTextNumeric
 
       case BTextMapEmpty => SEValue.EmptyTextMap
       case BGenMapEmpty => SEValue.EmptyGenMap
@@ -513,19 +516,18 @@ private[lf] final class Compiler(
           case BImplodeText => SBImplodeText
           case BAppendText => SBAppendText
 
-          case BToTextInt64 => SBToText
-          case BToTextNumeric => SBToTextNumeric
-          case BToTextText => SBToText
-          case BToTextTimestamp => SBToText
-          case BToTextParty => SBToText
-          case BToTextDate => SBToText
-          case BToTextContractId => SBToTextContractId
-          case BToQuotedTextParty => SBToQuotedTextParty
-          case BToTextCodePoints => SBToTextCodePoints
-          case BFromTextParty => SBFromTextParty
-          case BFromTextInt64 => SBFromTextInt64
-          case BFromTextNumeric => SBFromTextNumeric
-          case BFromTextCodePoints => SBFromTextCodePoints
+          case BInt64ToText => SBToText
+          case BTextToText => SBToText
+          case BTimestampToText => SBToText
+          case BPartyToText => SBToText
+          case BDateToText => SBToText
+          case BContractIdToText => SBContractIdToText
+          case BPartyToQuotedText => SBPartyToQuotedText
+          case BCodePointsToText => SBCodePointsToText
+          case BTextToParty => SBTextToParty
+          case BTextToInt64 => SBTextToInt64
+          case BTextToNumeric => SBTextToNumeric
+          case BTextToCodePoints => SBTextToCodePoints
 
           case BSHA256Text => SBSHA256Text
 
@@ -567,10 +569,10 @@ private[lf] final class Compiler(
           case BSubBigNumeric => SBSubBigNumeric
           case BDivBigNumeric => SBDivBigNumeric
           case BMulBigNumeric => SBMulBigNumeric
-          case BShiftBigNumeric => SBShiftBigNumeric
-          case BToBigNumericNumeric => SBToBigNumericNumeric
-          case BToNumericBigNumeric => SBToNumericBigNumeric
-          case BToTextBigNumeric => SBToText
+          case BShiftRightBigNumeric => SBShiftRightBigNumeric
+          case BNumericToBigNumeric => SBNumericToBigNumeric
+          case BBigNumericToNumeric => SBBigNumericToNumeric
+          case BBigNumericToText => SBToText
 
           // Unstable Text Primitives
           case BTextToUpper => SBTextToUpper
@@ -585,18 +587,12 @@ private[lf] final class Compiler(
           // Implemented using normal SExpr
           case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq |
               BLess | BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
-              BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
+              BGreaterEqNumeric | BEqualNumeric | BNumericToText | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
 
-          case BAnyExceptionMessage =>
-            SBAnyExceptionMessage
-          case BAnyExceptionIsArithmeticError =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
-            throw CompilationError("SBAnyExceptionIsArithmeticError not implemented")
-          case BAnyExceptionIsContractError =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
-            throw CompilationError("SBAnyExceptionIsContractError not implemented")
-
+          case BAnyExceptionMessage => SBAnyExceptionMessage
+          case BAnyExceptionIsArithmeticError => SBAnyExceptionIsArithmeticError
+          case BAnyExceptionIsContractError => SBAnyExceptionIsContractError
         })
     }
 

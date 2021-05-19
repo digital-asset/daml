@@ -3,7 +3,7 @@
 
 load("@oracle//:index.bzl", "oracle_testing")
 load("@os_info//:os_info.bzl", "is_windows")
-load("@scala_version//:index.bzl", "scala_major_version_suffix")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_suffix")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
@@ -73,6 +73,7 @@ scala_compile_deps = [
     "@maven//:com_typesafe_akka_akka_stream",
     "@maven//:org_playframework_anorm_anorm",
     "@maven//:org_playframework_anorm_anorm_tokenizer",
+    "@maven//:org_scala_lang_modules_scala_collection_compat",
     "@maven//:org_scala_lang_modules_scala_java8_compat",
     "@maven//:org_scalaz_scalaz_core",
 ]
@@ -99,12 +100,7 @@ da_scala_library(
         ) + [
             "//ledger-api:api-version-files",
         ],
-    scala_deps = scala_compile_deps + [
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
-    ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
+    scala_deps = scala_compile_deps,
     tags = ["maven_coordinates=com.daml:participant-integration-api:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -127,9 +123,6 @@ da_scala_library(
             exclude = ["src/main/resources/logback.xml"],
         ),
     scala_deps = scala_compile_deps,
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
     tags = ["maven_coordinates=com.daml:ledger-api-server:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -147,15 +140,13 @@ da_scala_library(
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest",
     ],
     scala_runtime_deps = [
         "@maven//:com_typesafe_akka_akka_slf4j",
-    ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat._",
     ],
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -241,9 +232,11 @@ da_scala_test_suite(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
+        "//daml-lf/encoder",
         "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
+        "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction:value_proto_java",
         "//daml-lf/transaction-test-lib",
@@ -262,8 +255,10 @@ da_scala_test_suite(
         "//ledger/ledger-resources",
         "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
+        "//ledger/metrics:metrics-test-lib",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
+        "//ledger/participant-state/kvutils",
         "//ledger/test-common",
         "//ledger/test-common:dar-files-stable-lib",
         "//libs-scala/concurrent",
@@ -282,6 +277,10 @@ da_scala_test_suite(
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_transport",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
         "@maven//:org_flywaydb_flyway_core",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_reactivestreams_reactive_streams",
@@ -347,15 +346,14 @@ scaladoc_jar(
         "//ledger/ledger-api-auth:sources",
         "//ledger/participant-state:sources",
     ],
-    doctitle = "DAML participant integration API",
+    doctitle = "Daml participant integration API",
     plugins = [
         silencer_plugin,
     ],
     root_content = "rootdoc.txt",
     scalacopts = [
         "-P:silencer:checkUnused",
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
+    ] + (["-P:silencer:lineContentFilters=import scala.collection.compat._"] if scala_major_version != "2.12" else []),
     visibility = [
         "//visibility:public",
     ],
@@ -363,7 +361,7 @@ scaladoc_jar(
         compile_deps +
         [
             "{}_{}".format(d, scala_major_version_suffix)
-            for d in scala_compile_deps + ["@maven//:org_scala_lang_modules_scala_collection_compat"]
+            for d in scala_compile_deps
         ],
 ) if not is_windows else None
 

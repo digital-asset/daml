@@ -8,7 +8,7 @@ import scalaz.{OneAnd, Plus}
 import scalaz.syntax.foldable1._
 import com.daml.ledger.api.v1.{value => rpcvalue}
 
-/** A backend for accumulating well-typed information about DAML-LF ADTs
+/** A backend for accumulating well-typed information about Daml-LF ADTs
   * (records, variants, and templates) into encodings of those ADTs.
   *
   * While a few of its methods are concrete, implementers of

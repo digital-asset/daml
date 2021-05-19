@@ -16,10 +16,16 @@ set -euox pipefail
 
 RUNNER="$(rlocation $TEST_WORKSPACE/sandbox-migration/sandbox-migration-runner)"
 MODEL_DAR="$(rlocation $TEST_WORKSPACE/sandbox-migration/migration-model.dar)"
+VERSIONS="$@"
+EXTRA_ARGS=""
+if [[ $1 == "--append-only" ]]; then
+    EXTRA_ARGS="--append-only"
+    VERSIONS="${@:2}"
+fi
 SANDBOX_ARGS=""
-for PLATFORM in $@; do
+for PLATFORM in $VERSIONS; do
     SANDBOX_ARGS="$SANDBOX_ARGS $(rlocation daml-sdk-$PLATFORM/daml)"
 done
 $RUNNER \
-    --model-dar $MODEL_DAR \
+    --model-dar $MODEL_DAR $EXTRA_ARGS \
     $SANDBOX_ARGS

@@ -4,7 +4,6 @@
 package com.daml.lf.data
 
 import scala.annotation.unchecked.uncheckedVariance
-import scala.collection.compat.immutable.ArraySeq
 import scala.collection.generic.{
   CanBuildFrom,
   GenericCompanion,

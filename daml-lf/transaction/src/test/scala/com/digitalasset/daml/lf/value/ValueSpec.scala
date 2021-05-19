@@ -4,7 +4,6 @@
 package com.daml.lf
 package value
 
-import scala.collection.compat._
 import data.{Bytes, ImmArray, Ref}
 import Value._
 import Ref.{Identifier, Name}

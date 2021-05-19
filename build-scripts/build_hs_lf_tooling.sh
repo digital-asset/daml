@@ -17,7 +17,7 @@ mkdir -p $TARGET_DIR
 
 # This version needs to be adapted in all cabal files, too
 # The script below will fail on the `cp` command otherwise.
-LIB_VERSION="0.1.10.0"
+LIB_VERSION="0.1.13.0"
 
 package_from_dir() {
     local dir=$1
@@ -169,19 +169,15 @@ fi
 
 if [ ! -f "$TARGET_DIR/stack.yaml" ]; then
     cat <<EOF > "$TARGET_DIR/stack.yaml"
-# last known good resolver configuration for these libraries
-resolver: lts-17.1
+resolver: lts-17.11
 
 packages:
 - .
 
 # adding proto3 libraries (not on stackage) for daml-lf-proto-types
 extra-deps:
-# - proto3-suite-0.4.2.0, not on hackage
-- github: awakesecurity/proto3-suite
-  commit: 0af901f9ef3b9719e08eae4fab8fd700d6c8047a
-- haskell-src-1.0.3.1
-- proto3-wire-1.2.0
+- proto3-suite-0.4.2
+- proto3-wire-1.2.2
 - ./da-hs-base-${LIB_VERSION}.tar.gz
 - ./daml-lf-ast-${LIB_VERSION}.tar.gz
 - ./daml-lf-proto-types-${LIB_VERSION}.tar.gz

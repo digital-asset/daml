@@ -53,9 +53,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = lf_scalacopts + [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
+    scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -82,9 +80,7 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = lf_scalacopts + [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
+    scalacopts = lf_scalacopts,
     deps = [
         ":transaction",
         ":transaction_proto_java",

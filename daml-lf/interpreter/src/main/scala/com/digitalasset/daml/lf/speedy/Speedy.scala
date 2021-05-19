@@ -440,6 +440,11 @@ private[lf] object Speedy {
           popKont() match {
             case handler: KCatchSubmitMustFail =>
               handler
+            case _: KTryCatchHandler =>
+              withOnLedger("tryHandleSubmitMustFail/KCloseExercise") { onLedger =>
+                onLedger.ptx = onLedger.ptx.abortTry
+              }
+              unwind()
             case _: KCloseExercise =>
               withOnLedger("tryHandleSubmitMustFail/KCloseExercise") { onLedger =>
                 onLedger.ptx = onLedger.ptx.abortExercises
@@ -552,14 +557,7 @@ private[lf] object Speedy {
 
               case SValue.PBuiltin(builtin) =>
                 this.actuals = actuals
-                try {
-                  builtin.execute(actuals, this)
-                } catch {
-                  // We turn arithmetic exceptions into a daml exception that can be caught.
-                  case e: ArithmeticException =>
-                    throw DamlEArithmeticError(e.getMessage)
-                }
-
+                builtin.execute(actuals, this)
             }
           }
 
@@ -1039,13 +1037,7 @@ private[lf] object Speedy {
       // A builtin has no free-vars, so we set the frame to null.
       machine.restoreBase(savedBase)
       machine.restoreFrameAndActuals(null, actuals)
-      try {
-        builtin.execute(actuals, machine)
-      } catch {
-        // We turn arithmetic exceptions into a daml exception that can be caught.
-        case e: ArithmeticException =>
-          throw DamlEArithmeticError(e.getMessage)
-      }
+      builtin.execute(actuals, machine)
     }
   }
 
@@ -1396,7 +1388,6 @@ private[lf] object Speedy {
           case _: KCloseExercise =>
             machine.withOnLedger("unwindToHandler/KCloseExercise") { onLedger =>
               onLedger.ptx = onLedger.ptx.abortExercises
-              checkAborted(onLedger.ptx)
             }
             unwind()
           case _ =>

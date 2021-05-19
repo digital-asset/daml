@@ -69,7 +69,10 @@ final class TransactionBuilder(
     }
     val finalRoots = roots.toImmArray
     val txVersion = finalRoots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
-      acc max finalNodes(nodeId).version
+      finalNodes(nodeId).optVersion match {
+        case Some(version) => acc max version
+        case None => acc max TransactionVersion.minExceptions
+      }
     )
     VersionedTransaction(txVersion, finalNodes, finalRoots)
   }
@@ -201,11 +204,7 @@ final class TransactionBuilder(
 
   def rollback(): Rollback =
     Rollback(
-      children = ImmArray.empty,
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      //  the version of a rollback node should be determined from its children.
-      //  in the case of there being no children we can simple drop the entire rollback node.
-      version = TransactionVersion.VDev,
+      children = ImmArray.empty
     )
 }
 

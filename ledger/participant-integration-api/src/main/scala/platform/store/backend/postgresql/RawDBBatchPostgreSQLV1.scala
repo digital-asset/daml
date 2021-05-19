@@ -7,6 +7,7 @@ import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneOffset}
 
 import com.daml.platform.store.backend.DBDTOV1
+import com.daml.scalautil.NeverEqualsOverride
 
 import scala.collection.mutable
 
@@ -31,129 +32,129 @@ case class RawDBBatchPostgreSQLV1(
     commandDeduplicationBatch: Option[CommandDeduplicationBatch],
 )
 
-class EventsBatchDivulgence(
-    val event_offset: Array[String],
-    val command_id: Array[String],
-    val workflow_id: Array[String],
-    val application_id: Array[String],
-    val submitters: Array[String], // '|' separated list
-    val contract_id: Array[String],
-    val template_id: Array[String],
-    val tree_event_witnesses: Array[String], // '|' separated list
-    val create_argument: Array[Array[Byte]],
-    val event_sequential_id: Array[Long],
-    val create_argument_compression: Array[java.lang.Integer],
-)
+case class EventsBatchDivulgence(
+    event_offset: Array[String],
+    command_id: Array[String],
+    workflow_id: Array[String],
+    application_id: Array[String],
+    submitters: Array[String], // '|' separated list
+    contract_id: Array[String],
+    template_id: Array[String],
+    tree_event_witnesses: Array[String], // '|' separated list
+    create_argument: Array[Array[Byte]],
+    event_sequential_id: Array[Long],
+    create_argument_compression: Array[java.lang.Integer],
+) extends NeverEqualsOverride
 
-class EventsBatchCreate(
-    val event_offset: Array[String],
-    val transaction_id: Array[String],
-    val ledger_effective_time: Array[String], // timestamp
-    val command_id: Array[String],
-    val workflow_id: Array[String],
-    val application_id: Array[String],
-    val submitters: Array[String], // '|' separated list
-    val node_index: Array[java.lang.Integer],
-    val event_id: Array[String],
-    val contract_id: Array[String],
-    val template_id: Array[String],
-    val flat_event_witnesses: Array[String], // '|' separated list
-    val tree_event_witnesses: Array[String], // '|' separated list
-    val create_argument: Array[Array[Byte]],
-    val create_signatories: Array[String], // '|' separated list
-    val create_observers: Array[String], // '|' separated list
-    val create_agreement_text: Array[String],
-    val create_key_value: Array[Array[Byte]],
-    val create_key_hash: Array[String],
-    val event_sequential_id: Array[Long],
-    val create_argument_compression: Array[java.lang.Integer],
-    val create_key_value_compression: Array[java.lang.Integer],
-)
+case class EventsBatchCreate(
+    event_offset: Array[String],
+    transaction_id: Array[String],
+    ledger_effective_time: Array[String], // timestamp
+    command_id: Array[String],
+    workflow_id: Array[String],
+    application_id: Array[String],
+    submitters: Array[String], // '|' separated list
+    node_index: Array[java.lang.Integer],
+    event_id: Array[String],
+    contract_id: Array[String],
+    template_id: Array[String],
+    flat_event_witnesses: Array[String], // '|' separated list
+    tree_event_witnesses: Array[String], // '|' separated list
+    create_argument: Array[Array[Byte]],
+    create_signatories: Array[String], // '|' separated list
+    create_observers: Array[String], // '|' separated list
+    create_agreement_text: Array[String],
+    create_key_value: Array[Array[Byte]],
+    create_key_hash: Array[String],
+    event_sequential_id: Array[Long],
+    create_argument_compression: Array[java.lang.Integer],
+    create_key_value_compression: Array[java.lang.Integer],
+) extends NeverEqualsOverride
 
-class EventsBatchExercise(
-    val event_offset: Array[String],
-    val transaction_id: Array[String],
-    val ledger_effective_time: Array[String], // timestamp
-    val command_id: Array[String],
-    val workflow_id: Array[String],
-    val application_id: Array[String],
-    val submitters: Array[String], // '|' separated list
-    val node_index: Array[java.lang.Integer],
-    val event_id: Array[String],
-    val contract_id: Array[String],
-    val template_id: Array[String],
-    val flat_event_witnesses: Array[String], // '|' separated list
-    val tree_event_witnesses: Array[String], // '|' separated list
-    val create_key_value: Array[Array[Byte]],
-    val exercise_choice: Array[String],
-    val exercise_argument: Array[Array[Byte]],
-    val exercise_result: Array[Array[Byte]],
-    val exercise_actors: Array[String], // '|' separated list
-    val exercise_child_event_ids: Array[String], // '|' separated list
-    val event_sequential_id: Array[Long],
-    val create_key_value_compression: Array[java.lang.Integer],
-    val exercise_argument_compression: Array[java.lang.Integer],
-    val exercise_result_compression: Array[java.lang.Integer],
-)
+case class EventsBatchExercise(
+    event_offset: Array[String],
+    transaction_id: Array[String],
+    ledger_effective_time: Array[String], // timestamp
+    command_id: Array[String],
+    workflow_id: Array[String],
+    application_id: Array[String],
+    submitters: Array[String], // '|' separated list
+    node_index: Array[java.lang.Integer],
+    event_id: Array[String],
+    contract_id: Array[String],
+    template_id: Array[String],
+    flat_event_witnesses: Array[String], // '|' separated list
+    tree_event_witnesses: Array[String], // '|' separated list
+    create_key_value: Array[Array[Byte]],
+    exercise_choice: Array[String],
+    exercise_argument: Array[Array[Byte]],
+    exercise_result: Array[Array[Byte]],
+    exercise_actors: Array[String], // '|' separated list
+    exercise_child_event_ids: Array[String], // '|' separated list
+    event_sequential_id: Array[Long],
+    create_key_value_compression: Array[java.lang.Integer],
+    exercise_argument_compression: Array[java.lang.Integer],
+    exercise_result_compression: Array[java.lang.Integer],
+) extends NeverEqualsOverride
 
-class ConfigurationEntriesBatch(
-    val ledger_offset: Array[String],
-    val recorded_at: Array[String], // timestamp
-    val submission_id: Array[String],
-    val typ: Array[String],
-    val configuration: Array[Array[Byte]],
-    val rejection_reason: Array[String],
-)
+case class ConfigurationEntriesBatch(
+    ledger_offset: Array[String],
+    recorded_at: Array[String], // timestamp
+    submission_id: Array[String],
+    typ: Array[String],
+    configuration: Array[Array[Byte]],
+    rejection_reason: Array[String],
+) extends NeverEqualsOverride
 
-class PackageEntriesBatch(
-    val ledger_offset: Array[String],
-    val recorded_at: Array[String], // timestamp
-    val submission_id: Array[String],
-    val typ: Array[String],
-    val rejection_reason: Array[String],
-)
+case class PackageEntriesBatch(
+    ledger_offset: Array[String],
+    recorded_at: Array[String], // timestamp
+    submission_id: Array[String],
+    typ: Array[String],
+    rejection_reason: Array[String],
+) extends NeverEqualsOverride
 
-class PackagesBatch(
-    val package_id: Array[String],
-    val upload_id: Array[String],
-    val source_description: Array[String],
-    val size: Array[Long],
-    val known_since: Array[String], // timestamp
-    val ledger_offset: Array[String],
-    val _package: Array[Array[Byte]],
-)
+case class PackagesBatch(
+    package_id: Array[String],
+    upload_id: Array[String],
+    source_description: Array[String],
+    size: Array[Long],
+    known_since: Array[String], // timestamp
+    ledger_offset: Array[String],
+    _package: Array[Array[Byte]],
+) extends NeverEqualsOverride
 
-class PartiesBatch(
-    val party: Array[String],
-    val display_name: Array[String],
-    val explicit: Array[Boolean],
-    val ledger_offset: Array[String],
-    val is_local: Array[Boolean],
-)
+case class PartiesBatch(
+    party: Array[String],
+    display_name: Array[String],
+    explicit: Array[Boolean],
+    ledger_offset: Array[String],
+    is_local: Array[Boolean],
+) extends NeverEqualsOverride
 
-class PartyEntriesBatch(
-    val ledger_offset: Array[String],
-    val recorded_at: Array[String], // timestamp
-    val submission_id: Array[String],
-    val party: Array[String],
-    val display_name: Array[String],
-    val typ: Array[String],
-    val rejection_reason: Array[String],
-    val is_local: Array[java.lang.Boolean],
-)
+case class PartyEntriesBatch(
+    ledger_offset: Array[String],
+    recorded_at: Array[String], // timestamp
+    submission_id: Array[String],
+    party: Array[String],
+    display_name: Array[String],
+    typ: Array[String],
+    rejection_reason: Array[String],
+    is_local: Array[java.lang.Boolean],
+) extends NeverEqualsOverride
 
-class CommandCompletionsBatch(
-    val completion_offset: Array[String],
-    val record_time: Array[String], // timestamp
-    val application_id: Array[String],
-    val submitters: Array[String], // '|' separated list
-    val command_id: Array[String],
-    val transaction_id: Array[String],
-    val status_code: Array[java.lang.Integer],
-    val status_message: Array[String],
-)
+case class CommandCompletionsBatch(
+    completion_offset: Array[String],
+    record_time: Array[String], // timestamp
+    application_id: Array[String],
+    submitters: Array[String], // '|' separated list
+    command_id: Array[String],
+    transaction_id: Array[String],
+    status_code: Array[java.lang.Integer],
+    status_message: Array[String],
+) extends NeverEqualsOverride
 
-class CommandDeduplicationBatch(val deduplication_key: Array[String])
+case class CommandDeduplicationBatch(deduplication_key: Array[String]) extends NeverEqualsOverride
 
 object RawDBBatchPostgreSQLV1 {
 
@@ -507,7 +508,7 @@ object RawDBBatchPostgreSQLV1 {
 
     def build(): RawDBBatchPostgreSQLV1 = RawDBBatchPostgreSQLV1(
       eventsBatchDivulgence = Option(eventsBatchBuilderDivulgence).map(b =>
-        new EventsBatchDivulgence(
+        EventsBatchDivulgence(
           event_offset = b.event_offset.result(),
           command_id = b.command_id.result(),
           workflow_id = b.workflow_id.result(),
@@ -522,7 +523,7 @@ object RawDBBatchPostgreSQLV1 {
         )
       ),
       eventsBatchCreate = Option(eventsBatchBuilderCreate).map(b =>
-        new EventsBatchCreate(
+        EventsBatchCreate(
           event_offset = b.event_offset.result(),
           transaction_id = b.transaction_id.result(),
           ledger_effective_time = b.ledger_effective_time.result(),
@@ -548,7 +549,7 @@ object RawDBBatchPostgreSQLV1 {
         )
       ),
       eventsBatchConsumingExercise = Option(eventsBatchBuilderConsumingExercise).map(b =>
-        new EventsBatchExercise(
+        EventsBatchExercise(
           event_offset = b.event_offset.result(),
           transaction_id = b.transaction_id.result(),
           ledger_effective_time = b.ledger_effective_time.result(),
@@ -575,7 +576,7 @@ object RawDBBatchPostgreSQLV1 {
         )
       ),
       eventsBatchNonConsumingExercise = Option(eventsBatchBuilderNonConsumingExercise).map(b =>
-        new EventsBatchExercise(
+        EventsBatchExercise(
           event_offset = b.event_offset.result(),
           transaction_id = b.transaction_id.result(),
           ledger_effective_time = b.ledger_effective_time.result(),
@@ -602,7 +603,7 @@ object RawDBBatchPostgreSQLV1 {
         )
       ),
       configurationEntriesBatch = Option(configurationEntriesBatchBuilder).map(b =>
-        new ConfigurationEntriesBatch(
+        ConfigurationEntriesBatch(
           ledger_offset = b.ledger_offset.result(),
           recorded_at = b.recorded_at.result(),
           submission_id = b.submission_id.result(),
@@ -612,7 +613,7 @@ object RawDBBatchPostgreSQLV1 {
         )
       ),
       packageEntriesBatch = Option(packageEntriesBatchBuilder).map(b =>
-        new PackageEntriesBatch(
+        PackageEntriesBatch(
           ledger_offset = b.ledger_offset.result(),
           recorded_at = b.recorded_at.result(),
           submission_id = b.submission_id.result(),
@@ -621,7 +622,7 @@ object RawDBBatchPostgreSQLV1 {
         )
       ),
       packagesBatch = Option(packagesBatchBuilder).map(b =>
-        new PackagesBatch(
+        PackagesBatch(
           package_id = b.package_id.result(),
           upload_id = b.upload_id.result(),
           source_description = b.source_description.result(),
@@ -632,7 +633,7 @@ object RawDBBatchPostgreSQLV1 {
         )
       ),
       partiesBatch = Option(partiesBatchBuilder).map(b =>
-        new PartiesBatch(
+        PartiesBatch(
           party = b.party.result(),
           display_name = b.display_name.result(),
           explicit = b.explicit.result(),
@@ -641,7 +642,7 @@ object RawDBBatchPostgreSQLV1 {
         )
       ),
       partyEntriesBatch = Option(partyEntriesBatchBuilder).map(b =>
-        new PartyEntriesBatch(
+        PartyEntriesBatch(
           ledger_offset = b.ledger_offset.result(),
           recorded_at = b.recorded_at.result(),
           submission_id = b.submission_id.result(),
@@ -653,7 +654,7 @@ object RawDBBatchPostgreSQLV1 {
         )
       ),
       commandCompletionsBatch = Option(commandCompletionsBatchBuilder).map(b =>
-        new CommandCompletionsBatch(
+        CommandCompletionsBatch(
           completion_offset = b.completion_offset.result(),
           record_time = b.record_time.result(),
           application_id = b.application_id.result(),
@@ -665,7 +666,7 @@ object RawDBBatchPostgreSQLV1 {
         )
       ),
       commandDeduplicationBatch = Option(commandDeduplicationBatchBuilder).map(b =>
-        new CommandDeduplicationBatch(
+        CommandDeduplicationBatch(
           deduplication_key = b.deduplication_key.result()
         )
       ),

@@ -24,7 +24,7 @@ import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 
-// Fixture for a set of participants used in DAML Script tests
+// Fixture for a set of participants used in Daml Script tests
 trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
   self: Suite =>
   protected def timeMode: ScriptTimeMode

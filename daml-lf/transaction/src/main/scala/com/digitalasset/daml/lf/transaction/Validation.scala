@@ -318,14 +318,12 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
               loop(rest1, rest2, stack)
             case (
                   Node.NodeRollback(
-                    children1,
-                    version1,
+                    children1
                   ),
                   Node.NodeRollback(
-                    children2,
-                    version2,
+                    children2
                   ),
-                ) if version1 == version2 =>
+                ) =>
               loop(
                 children1.iterator.to(LazyList),
                 children2.iterator.to(LazyList),

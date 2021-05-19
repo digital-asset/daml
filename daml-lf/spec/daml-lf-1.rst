@@ -151,7 +151,7 @@ Version: 1.7
     - add numeric builtins, namely `ADD_NUMERIC`, `SUB_NUMERIC`,
       `MUL_NUMERIC`, `DIV_NUMERIC`, `ROUND_NUMERIC`, `CAST_NUMERIC`,
       `SHIFT_NUMERIC`, `LEQ_NUMERIC`, `LESS_NUMERIC`, `GEQ_NUMERIC`,
-      `GREATER_NUMERIC`, `FROM_TEXT_NUMERIC`, `TO_TEXT_NUMERIC`,
+      `GREATER_NUMERIC`, `TEXT_TO_NUMERIC`, `NUMERIC_TO_TEXT`,
       `INT64_TO_NUMERIC`, `NUMERIC_TO_INT64`, `EQUAL_NUMERIC`
 
   + **Drop** support for Decimal type. Use Numeric of scale 10 instead.
@@ -161,7 +161,7 @@ Version: 1.7
     - drop decimal builtins, namely `ADD_DECIMAL`, `SUB_DECIMAL`,
       `MUL_DECIMAL`, `DIV_DECIMAL`, `ROUND_DECIMAL`, `LEQ_DECIMAL`,
       `LESS_DECIMAL`, `GEQ_DECIMAL`, `GREATER_DECIMAL`,
-      `FROM_TEXT_DECIMAL`, `TO_TEXT_DECIMAL`, `INT64_TO_DECIMAL`,
+      `TEXT_TO_DECIMAL`, `DECIMAL_TO_TEXT`, `INT64_TO_DECIMAL`,
       `DECIMAL_TO_INT64`, `EQUAL_DECIMAL`
 
   + **Add** string interning in external package references.
@@ -213,7 +213,7 @@ Version: 1.11
 
   + **Add** generic map type ``GenMap``.
 
-  + **Add** ``TO_TEXT_CONTRACT_ID`` builtin.
+  + **Add** ``CONTRACT_ID_TO_TEXT`` builtin.
 
   + **Add** `exercise_by_key` Update.
 
@@ -235,8 +235,8 @@ Version: 1.12
     details
 
 
-Version: 1.13 (preview)
-.......................
+Version: 1.13
+.............
 
 * Introduction date:
 
@@ -244,17 +244,16 @@ Version: 1.13 (preview)
 
 * Description:
 
-  + A BigNumeric
+  + **Add** Add BigNumeric support (arbitrary precision decimals).
+    - add `BigNumeric` primitive type
+    - add `RoundingMode` primitive type
+    - add `BigNumeric` builtins
 
 
 Version: 1.dev (development)
 ............................
 
   + **Add** exception handling.
-  + **Add** BigDecimal type.
-
-    - add `BigNumeric` primitive type
-    - add `RoundingMode` primitive type
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -3669,11 +3668,11 @@ Int64 functions
 
   [*Available in version < 1.11*]
 
-* ``TO_TEXT_INT64 : 'Int64' → 'Text'``
+* ``INT64_TO_TEXT : 'Int64' → 'Text'``
 
   Returns the decimal representation of the integer as a string.
 
-* ``FROM_TEXT_INT64 : 'Text' → 'Optional' 'Int64'``
+* ``TEXT_TO_INT64 : 'Text' → 'Optional' 'Int64'``
 
   Given a string representation of an integer returns the integer wrapped
   in ``Some``. If the input does not match the regexp ``[+-]?\d+`` or
@@ -3756,12 +3755,12 @@ Numeric functions
 
   [*Available in version < 1.11*]
 
-* ``TO_TEXT_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Text'``
+* ``NUMERIC_TO_TEXT : ∀ (α : nat) . 'Numeric' α → 'Text'``
 
   Returns the numeric string representation of the numeric.  The scale
   of the input is given by the type parameter `α`.
 
-* ``FROM_TEXT_NUMERIC : ∀ (α : nat) .'Text' → 'Optional' 'Numeric' α``
+* ``TEXT_TO_NUMERIC : ∀ (α : nat) .'Text' → 'Optional' 'Numeric' α``
 
   Given a string representation of a numeric returns the numeric
   wrapped in ``Some``. If the input does not match the regexp
@@ -3842,7 +3841,15 @@ BigNumeric functions
 
   [*Available in version ≥ 1.13*]
 
-* ``TO_TEXT_BIGNUMERIC : 'BigNumeric' → 'Text'``
+* ``SHIFT_RIGHT_BIGNUMERIC : 'Int64' → 'BigNumeric' → 'BigNumeric'``
+
+  Multiply the second argument by 10 to the negative power of the first
+  argument. Throws an ``ArithmeticError`` in case the result cannot be
+  represented without loss of precision.
+
+  [*Available in version ≥ 1.13*]
+
+* ``BIGNUMERIC_TO_TEXT : 'BigNumeric' → 'Text'``
 
   Returns the numeric string representation of the BigNumeric. The
   result will be returned at the smallest precision that can represent
@@ -3850,7 +3857,7 @@ BigNumeric functions
 
   [*Available in version ≥ 1.13*]
 
-* ``'TO_NUMERIC_BIGNUMERIC' : ∀ (α : nat). 'BigNumeric'  → 'Numeric' α``
+* ``'BIGNUMERIC_TO_NUMERIC' : ∀ (α : nat). 'BigNumeric'  → 'Numeric' α``
 
   Converts the ``BigNumeric`` to a ``Numeric α`` value with scale
   ``α``.  Throws an ``ArithmeticError`` in case the result cannot be
@@ -3858,7 +3865,7 @@ BigNumeric functions
 
   [*Available in version ≥ 1.13*]
 
-* ``'TO_BIGNUMERIC_NUMERIC' : ∀ (α : nat). 'Numeric' α  → 'BigNumeric'``
+* ``'NUMERIC_TO_BIGNUMERIC' : ∀ (α : nat). 'Numeric' α  → 'BigNumeric'``
 
   Converts the ``Numeric`` to a ``BigNumeric``. This is always exact.
 
@@ -3914,17 +3921,17 @@ String functions
 
   [*Available in version < 1.11*]
 
-* ``TO_TEXT_TEXT : 'Text' → 'Text'``
+* ``TEXT_TO_TEXT : 'Text' → 'Text'``
 
   Returns string such as.
 
-* ``TEXT_TO_CODE_POINTS``: 'Text' → 'List' 'Int64'
+* ``TEXT_POINTS_TO_CODE``: 'Text' → 'List' 'Int64'
 
   Returns the list of the Unicode `codepoints
   <https://en.wikipedia.org/wiki/Code_point>`_ of the input
   string represented as integers.
 
-* ``TEXT_FROM_CODE_POINTS``: 'List' 'Int64' → 'Text'
+* ``CODE_POINTS_TO_TEXT``: 'List' 'Int64' → 'Text'
 
   Given a list of integer representations of Unicode codepoints,
   return the string built from those codepoints. Throws an error
@@ -3962,7 +3969,7 @@ Timestamp functions
 
   [*Available in version < 1.11*]
 
-* ``TO_TEXT_TIMESTAMP : 'Timestamp' → 'Text'``
+* ``TIMESTAMP_TO_TEXT : 'Timestamp' → 'Text'``
 
   Returns an `ISO 8601 <https://en.wikipedia.org/wiki/ISO_8601>`_
   compliant string representation of the timestamp.  The actual format
@@ -4024,7 +4031,7 @@ Date functions
 
   [*Available in version < 1.11*]
 
-* ``TO_TEXT_DATE : 'Date' → 'Text'``
+* ``DATE_TO_TEXT : 'Date' → 'Text'``
 
   Returns an `ISO 8601 <https://en.wikipedia.org/wiki/ISO_8601>`_
   compliant string representation of the timestamp date.  The actual
@@ -4068,23 +4075,25 @@ Party functions
 
   [*Available in version < 1.11*]
 
-* ``TO_QUOTED_TEXT_PARTY : 'Party' → 'Text'``
+* ``PARTY_TO_QUOTED_TEXT : 'Party' → 'Text'``
 
   Returns a single-quoted ``Text`` representation of the party. It
-  is equivalent to a call to ``TO_TEXT_PARTY``, followed by quoting
+  is equivalent to a call to ``PARTY_TO_TEXT``, followed by quoting
   the resulting ``Text`` with single quotes.
 
-* ``TO_TEXT_PARTY : 'Party' → 'Text'``
+  [*Available in version < 1.dev*]
+
+* ``PARTY_TO_TEXT : 'Party' → 'Text'``
 
   Returns the string representation of the party. This function,
-  together with ``FROM_TEXT_PARTY``, forms an isomorphism between
+  together with ``TEXT_TO_PARTY``, forms an isomorphism between
   `PartyId strings <Literals_>`_ and parties. In other words,
   the following equations hold::
 
-    ∀ p. FROM_TEXT_PARTY (TO_TEXT_PARTY p) = 'Some' p
-    ∀ txt p. FROM_TEXT_PARTY txt = 'Some' p → TO_TEXT_PARTY p = txt
+    ∀ p. TEXT_TO_PARTY (PARTY_TO_TEXT p) = 'Some' p
+    ∀ txt p. TEXT_TO_PARTY txt = 'Some' p → PARTY_TO_TEXT p = txt
 
-* ``FROM_TEXT_PARTY : 'Text' → 'Optional' 'Party'``
+* ``TEXT_TO_PARTY : 'Text' → 'Optional' 'Party'``
 
   Given the string representation of the party, returns the party,
   if the input string is a `PartyId strings <Literals_>`_.
@@ -4101,7 +4110,7 @@ ContractId functions
 
   Returns the given contract ID unchanged at a different type.
 
-* ``TO_TEXT_CONTRACT_ID : ∀ (α : ⋆) . 'ContractId' α -> 'Optional' 'Text'``
+* ``CONTRACT_ID_TO_TEXT : ∀ (α : ⋆) . 'ContractId' α -> 'Optional' 'Text'``
 
   Always returns ``None`` in ledger code. This function is only useful
   for off-ledger code which is not covered by this specification.
@@ -4715,8 +4724,8 @@ On the one hand, in case of Daml-LF 1.6 archive:
   + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)``
   + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)``
   + ``EQUAL_DECIMAL`` message is translated to ``(EQUAL_NUMERIC @10)``
-  + ``TO_TEXT_DECIMAL`` message is translated to ``(TO_TEXT_NUMERIC @10)``
-  + ``FROM_TEXT_DECIMAL`` message is translated to ``(FROM_TEXT_NUMERIC @10)``  [*Available in versions >= 1.5*]
+  + ``DECIMAL_TO_TEXT`` message is translated to ``(NUMERIC_TO_TEXT @10)``
+  + ``TEXT_TO_DECIMAL`` message is translated to ``(TEXT_TO_NUMERIC @10)``  [*Available in versions >= 1.5*]
   + ``INT64_TO_DECIMAL`` message is translated to ``(INT64_TO_NUMERIC @10)``
   + ``DECIMAL_TO_INT64`` message is translated to ``(NUMERIC_TO_INT64 @10)``
 
@@ -4797,13 +4806,13 @@ exercise_by_key
 The deserialization process will reject any Daml-LF 1.8 (or earlier)
 program using the field ``exercise_by_key`` in the ``Update`` message.
 
-TO_TEXT_CONTRACT_ID
+CONTRACT_ID_TO_TEXT
 ...................
 
 [*Available in versions >= 1.11*]
 
 The deserialization process will reject any Daml-LF 1.8 (or earlier)
-program using the builtin function ``TO_TEXT_CONTRACT_ID``.
+program using the builtin function ``CONTRACT_ID_TO_TEXT``.
 
 Choice observers
 ................

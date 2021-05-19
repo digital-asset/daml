@@ -84,12 +84,10 @@ da_scala_library(
     ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scalaz_scalaz_core",
-    ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",

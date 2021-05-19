@@ -4,9 +4,9 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.PartialTransaction._
+import com.daml.lf.speedy.SValue._
 import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
 import com.daml.lf.value.Value
 import org.scalatest._
@@ -79,7 +79,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
       ptx.endExercises(Value.ValueUnit)
 
     def rollbackTry_ : PartialTransaction =
-      ptx.rollbackTry(AstUtil.TUnit, Value.ValueUnit)
+      ptx.rollbackTry(SBuiltinException(ArithmeticError))
   }
 
   private[this] val outputCids =

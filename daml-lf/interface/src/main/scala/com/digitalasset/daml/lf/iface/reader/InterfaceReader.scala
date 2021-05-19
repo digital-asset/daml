@@ -246,17 +246,13 @@ object InterfaceReader {
         case Ast.BTOptional => \/-((1, PrimType.Optional))
         case Ast.BTTextMap => \/-((1, PrimType.TextMap))
         case Ast.BTGenMap => \/-((2, PrimType.GenMap))
-        case Ast.BTAnyException | Ast.BTBigNumeric | Ast.BTRoundingMode =>
-          unserializableDataType(
-            ctx,
-            "Exception types are still under implementation, see issue #8020",
-          )
         case Ast.BTNumeric =>
           unserializableDataType(
             ctx,
             s"Unserializable primitive type: $a must be applied to one and only one TNat",
           )
-        case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow | Ast.BTAny | Ast.BTTypeRep =>
+        case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow | Ast.BTAny | Ast.BTTypeRep |
+            Ast.BTAnyException | Ast.BTBigNumeric | Ast.BTRoundingMode =>
           unserializableDataType(ctx, s"Unserializable primitive type: $a")
       }
       (arity, primType) = ab
