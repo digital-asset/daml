@@ -11,13 +11,7 @@ sealed trait Metric[T] {
 
   def onNext(value: T): Metric[T]
 
-  // TODO: rename to periodicValue
-  def periodicUpdate(): (Metric[T], String)
-
   def periodicValue(): (Metric[T], MetricValue)
-
-  // TODO: rename to finalValue
-  def completeInfo(totalDurationSeconds: Double): List[String]
 
   def finalValue(totalDurationSeconds: Double): MetricValue
 
@@ -40,20 +34,8 @@ object Metric {
     override def onNext(value: T): CountMetric[T] =
       this.copy(counter = counter + countingFunction(value))
 
-    override def periodicUpdate(): (CountMetric[T], String) = {
-      val update: String = s"rate: ${rounded(periodicRate)} [tx/s], count: $counter [tx]"
-      val updatedMetric = this.copy(lastCount = counter)
-      (updatedMetric, update)
-    }
-
     override def periodicValue(): (Metric[T], MetricValue) =
       (this.copy(lastCount = counter), CountMetric.Value(counter, periodicRate))
-
-    override def completeInfo(totalDurationSeconds: Double): List[String] =
-      List(
-        s"rate: ${rounded(totalRate(totalDurationSeconds))} [tx/s]",
-        s"count: $counter [tx]",
-      )
 
     override def finalValue(totalDurationSeconds: Double): MetricValue =
       CountMetric.Value(
@@ -91,16 +73,6 @@ object Metric {
     override def onNext(value: T): SizeMetric[T] =
       this.copy(currentSizeBytesBucket = currentSizeBytesBucket + sizingBytesFunction(value))
 
-    override def periodicUpdate(): (SizeMetric[T], String) = {
-      val sizeRate = periodicSizeRate
-      val update = s"size rate (interval): ${rounded(sizeRate)} [MB/s]"
-      val updatedMetric = this.copy(
-        currentSizeBytesBucket = 0,
-        sizeRateList = sizeRate :: sizeRateList,
-      ) // ok to prepend because the list is used only to calculate mean value
-      (updatedMetric, update)
-    }
-
     override def periodicValue(): (Metric[T], MetricValue) = {
       val sizeRate = periodicSizeRate
       val updatedMetric = this.copy(
@@ -109,9 +81,6 @@ object Metric {
       ) // ok to prepend because the list is used only to calculate mean value so the order doesn't matter
       (updatedMetric, SizeMetric.Value(Some(sizeRate)))
     }
-
-    override def completeInfo(totalDurationSeconds: Double): List[String] =
-      List(s"size rate: $totalSizeRate [MB/s]")
 
     override def finalValue(totalDurationSeconds: Double): MetricValue = {
       val value = sizeRateList match {
@@ -123,12 +92,6 @@ object Metric {
 
     private def periodicSizeRate: Double =
       currentSizeBytesBucket * 1000.0 / periodMillis / 1024 / 1024
-
-    private def totalSizeRate: String =
-      sizeRateList match {
-        case Nil => "not available"
-        case rates => s"${rounded(rates.sum / rates.length)}"
-      }
   }
 
   object SizeMetric {
@@ -159,20 +122,11 @@ object Metric {
       this.copy(delaysInCurrentInterval = delaysInCurrentInterval ::: newDelays)
     }
 
-    override def periodicUpdate(): (DelayMetric[T], String) = {
-      val update =
-        s"mean delay (interval): ${periodicMeanDelay.map(_.getSeconds.toString).getOrElse("-")} [s]"
-      val updatedMetric = this.copy(delaysInCurrentInterval = List.empty)
-      (updatedMetric, update)
-    }
-
     override def periodicValue(): (Metric[T], MetricValue) = {
       val value: Option[Long] = periodicMeanDelay.map(_.getSeconds)
       val updatedMetric = this.copy(delaysInCurrentInterval = List.empty)
       (updatedMetric, DelayMetric.Value(value))
     }
-
-    override def completeInfo(totalDurationSeconds: Double): List[String] = List.empty
 
     override def finalValue(totalDurationSeconds: Double): MetricValue = DelayMetric.Value(None)
 
@@ -222,19 +176,11 @@ object Metric {
       )
     }
 
-    override def periodicUpdate(): (ConsumptionSpeedMetric[T], String) = {
-      val update = s"speed (interval): ${periodicSpeed.map(rounded).getOrElse("-")} [-]"
-      val updatedMetric = this.copy(firstRecordTime = None, lastRecordTime = None)
-      (updatedMetric, update)
-    }
-
     override def periodicValue(): (Metric[T], MetricValue) = {
       val value: Option[Double] = periodicSpeed
       val updatedMetric = this.copy(firstRecordTime = None, lastRecordTime = None)
       (updatedMetric, ConsumptionSpeedMetric.Value(value))
     }
-
-    override def completeInfo(totalDurationSeconds: Double): List[String] = List.empty
 
     override def finalValue(totalDurationSeconds: Double): MetricValue =
       ConsumptionSpeedMetric.Value(None)
