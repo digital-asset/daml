@@ -23,6 +23,10 @@ sealed trait MetricValue {
   def formatted: List[String]
 }
 
+sealed trait ServiceLevelObjective[MetricValueType] {
+  def isViolatedBy(metricValue: MetricValueType): Boolean
+}
+
 object Metric {
   final case class CountMetric[T](
       periodMillis: Long,
@@ -108,6 +112,7 @@ object Metric {
   final case class DelayMetric[T](
       recordTimeFunction: T => Seq[Timestamp],
       clock: Clock,
+      objectives: List[ServiceLevelObjective[DelayMetric.Value]],
       delaysInCurrentInterval: List[Duration] = List.empty,
   ) extends Metric[T] {
 
@@ -147,7 +152,12 @@ object Metric {
     }
 
     def empty[T](recordTimeFunction: T => Seq[Timestamp], clock: Clock): DelayMetric[T] =
-      DelayMetric(recordTimeFunction, clock)
+      DelayMetric(recordTimeFunction, clock, List.empty)
+
+    final case class MaxDelay(maxDelaySeconds: Long) extends ServiceLevelObjective[Value] {
+      override def isViolatedBy(metricValue: Value): Boolean =
+        metricValue.meanDelaySeconds.exists(_ > maxDelaySeconds)
+    }
   }
 
   final case class ConsumptionSpeedMetric[T](
