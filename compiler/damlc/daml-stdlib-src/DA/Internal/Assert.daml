@@ -5,12 +5,17 @@
 {-# LANGUAGE CPP #-}
 
 -- | MOVE Prelude
-module DA.Internal.Assert where
+module DA.Internal.Assert
+  ( module DA.Internal.Assert
+#ifdef DAML_EXCEPTIONS
+  , AssertionFailed (AssertionFailed)
+#endif
+  ) where
 
 import DA.Internal.Prelude
 import DA.Internal.LF
 
-#ifdef DAML_EXCEPTION
+#ifdef DAML_EXCEPTIONS
 import DA.Internal.Exception
 #endif
 
@@ -23,7 +28,7 @@ class Action m => CanAssert m where
     -- message as an error.
     assertFail : Text -> m t
 
-#ifdef DAML_EXCEPTION
+#ifdef DAML_EXCEPTIONS
 
 instance CanAssert Update where
     assertFail msg = throw (AssertionFailed msg)

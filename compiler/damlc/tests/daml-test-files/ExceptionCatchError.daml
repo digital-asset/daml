@@ -36,12 +36,3 @@ test3 = scenario do
         catch
             GeneralError msg ->
                 msg === "bar"
-
-test4 = scenario do
-    p <- getParty "Alice"
-    submit p do
-        try do
-            1 + 1 === 3
-        catch
-            GeneralError msg ->
-                msg === "Failure, expected 2 == 3"
