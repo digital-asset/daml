@@ -5,14 +5,14 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import java.util.regex.Pattern
 
-import com.softwaremill.diffx._
 import com.daml.grpc.{GrpcException, GrpcStatus}
+import munit.{Assertions => MUnit, ComparisonFailException}
 import io.grpc.Status
 
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
-object Assertions extends DiffExtensions {
+object Assertions {
   def fail(message: String): Nothing =
     throw new AssertionError(message)
 
@@ -27,13 +27,16 @@ object Assertions extends DiffExtensions {
   def assertSingleton[A](context: String, as: Seq[A]): A =
     assertLength(context, 1, as).head
 
-  def assertEquals[T: Diff](context: String, actual: T, expected: T): Unit = {
-    val diff = Diff.compare(actual, expected)
-    if (!diff.isIdentical)
-      throw AssertionErrorWithPreformattedMessage(
-        diff.show,
-        s"$context: two objects are supposed to be equal but they are not",
-      )
+  def assertEquals[T](context: String, actual: T, expected: T): Unit = {
+    try {
+      MUnit.assertEquals(actual, expected, context)
+    } catch {
+      case e: ComparisonFailException =>
+        throw AssertionErrorWithPreformattedMessage(
+          e.message,
+          s"$context: two objects are supposed to be equal but they are not",
+        )
+    }
   }
 
   /** Match the given exception against a status code and a regex for the expected message.

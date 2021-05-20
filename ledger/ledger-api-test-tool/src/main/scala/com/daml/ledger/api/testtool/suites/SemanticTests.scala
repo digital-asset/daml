@@ -21,7 +21,6 @@ import com.daml.ledger.test.semantic.SemanticTests.PaintCounterOffer._
 import com.daml.ledger.test.semantic.SemanticTests.PaintOffer._
 import com.daml.ledger.test.semantic.SemanticTests.SharedContract._
 import com.daml.ledger.test.semantic.SemanticTests._
-import com.softwaremill.diffx.generic.auto._
 import io.grpc.Status
 import scalaz.Tag
 
