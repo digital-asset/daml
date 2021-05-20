@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v1
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.ReportsHealth
+import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset}
 
 /** An interface for reading the state of a ledger participant.
   *
@@ -15,14 +16,14 @@ import com.daml.ledger.api.health.ReportsHealth
   * the current state and creates indexes to satisfy read requests against
   * that state.
   *
-  * See [[com.daml.ledger.participant.state.v1]] for further architectural
+  * See [[com.daml.ledger.participant.state.v2]] for further architectural
   * information. See [[Update]] for a description of the state updates
   * communicated by [[ReadService!.stateUpdates]].
   */
 trait ReadService extends ReportsHealth {
 
   /** Retrieve the static initial conditions of the ledger, containing
-    * the ledger identifier and the initial the ledger record time.
+    * the ledger identifier and the initial ledger record time.
     *
     * Returns a single element Source since the implementation may need to
     * first establish connectivity to the underlying ledger. The implementer
@@ -59,38 +60,48 @@ trait ReadService extends ReportsHealth {
     *   ledger time `lt_tx`, it holds that `lt_tx >= lt_c` for all `c`, where `c` is a
     *   contract used by the transaction and `lt_c` the ledger time of the
     *   [[Update.TransactionAccepted]] that created the contract.
-    *   The ledger time of a transaction is specified in the corresponding [[TransactionMeta]]
+    *   The ledger time of a transaction is specified in the corresponding [[com.daml.ledger.participant.state.v1.TransactionMeta]]
     *   meta-data.
     *   Note that the ledger time of unrelated updates is not necessarily monotonically
     *   increasing.
+    *   The creating transaction need not have a [[Update.TransactionAccepted]] even on this participant
+    *   if the participant does not host a stakeholder of the contract, e.g., in the case of divulgence.
     *
     * - *time skew*: given a [[Update.TransactionAccepted]] with an associated
     *   ledger time `lt_tx` and a record time `rt_tx`, it holds that
     *   `rt_TX - minSkew <= lt_TX <= rt_TX + maxSkew`, where `minSkew` and `maxSkew`
-    *   are parameters specified in the ledger [[TimeModel]].
+    *   are parameters specified in the ledger [[com.daml.ledger.participant.state.v1.TimeModel]].
     *
-    * - *command deduplication*: if there is a [[Update.TransactionAccepted]] with
-    *   an associated [[SubmitterInfo]] `info1`, then for every later
-    *   transaction with [[SubmitterInfo]] `info2` that agrees with
-    *   `info1` on the `submitter` and `commandId` fields and
-    *   was submitted before `info1.deduplicateUntil`,
-    *   a transaction may be rejected without a corresponding update being issued.
-    *   I.e., transactions may be deduplicated on the `(submitter, commandId)` tuple,
-    *   but only until the time specified in [[SubmitterInfo.deduplicateUntil]].
+    * - *command deduplication*: Let there be a [[Update.TransactionAccepted]] with [[SubmitterInfo]]
+    *   or a [[Update.CommandRejected]] with [[SubmitterInfo]] and not [[Update.CommandRejected.cancelled]] at offset `off2`
+    *   and let `off1` be the completion offset where the [[SubmitterInfo.deduplicationPeriod]] starts.
+    *   Then there is no other [[Update.TransactionAccepted]] with [[SubmitterInfo]] for the same [[SubmitterInfo.changeId]]
+    *   between the offsets `off1` and `off2` inclusive.
     *
-    *   TODO (SM): we would like to weaken this requirement to allow multiple
-    *   [[Update.TransactionAccepted]] updates provided
-    *   the transactions are sub-transactions of each other. Thereby enabling
-    *   the after-the-fact communication of extra details about a transaction
-    *   in case a party is newly hosted at a participant.
-    *   See https://github.com/digital-asset/daml/issues/430
+    *   So if a command submission has resulted in a [[Update.TransactionAccepted]],
+    *   other command submissions with the same [[SubmitterInfo.changeId]] must be deduplicated
+    *   if the earlier's [[Update.TransactionAccepted]] falls within the latter's [[SubmitterInfo.deduplicationPeriod]].
     *
-    * - *rejection finality*: if there is a [[Update.CommandRejected]] update
-    *   with [[SubmitterInfo]] `info`, then there is no later
-    *   [[Update.TransactionAccepted]] with the same associated [[SubmitterInfo]]
-    *   `info`. Note that in contrast to *command deduplication*
-    *   this only holds wrt the full [[SubmitterInfo]], as a resubmission of a
-    *   transaction with a higher `deduplicateUntil` must be allowed.
+    *   Implementations MAY extend the deduplication period arbitrarily and reject a command submission as a duplicate
+    *   even if its deduplication period does not include the earlier's [[Update.TransactionAccepted]].
+    *   A [[Update.CommandRejected]] completion does not trigger deduplication and implementations SHOULD
+    *   process such resubmissions normally, subject to the submission rank guarantee listed below.
+    *
+    * - *submission rank*: Let there be a [[Update.TransactionAccepted]] with [[SubmitterInfo]]
+    *   or a [[Update.CommandRejected]] with [[SubmitterInfo]] and not [[Update.CommandRejected.cancelled]] at offset `off`.
+    *   Let `rank` be the [[SubmitterInfo.submissionRank]] of the [[Update]].
+    *   Then there is no other [[Update.TransactionAccepted]] or [[Update.CommandRejected]] with [[SubmitterInfo]]
+    *   for the same [[SubmitterInfo.changeId]] with offset at least `off`
+    *   whose [[SubmitterInfo.submissionRank]] is at most `rank`.
+    *
+    *   If the [[WriteService]] detects that a command submission would violate the submission rank guarantee
+    *   if accepted or rejected, it either returns a [[SubmissionResult.SynchronousError]] error or
+    *   produces a [[Update.CommandRejected]] with [[Update.CommandRejected.cancelled]].
+    *
+    * - *finality*: If the corresponding [[WriteService]] acknowledges a submitted transaction or rejection
+    *   with [[SubmissionResult.Acknowledged]], the [[ReadService]] SHOULD make sure that
+    *   it eventually produces a [[Update.TransactionAccepted]] or [[Update.CommandRejected]] with this [[SubmitterInfo]],
+    *   even if there are crashes or lost network messages.
     *
     * The second class of properties relates multiple calls to
     * [[stateUpdates]]s, and thereby provides constraints on which [[Update]]s
@@ -101,6 +112,9 @@ trait ReadService extends ReportsHealth {
     * always be persisted by the backends implementing the [[ReadService]].
     * For rejections, the situation is more nuanced, as we want to provide
     * the backends with additional implementation leeway.
+    *
+    * TODO(v2) Do we actually exploit this freedom anywhere? With later [[Update.CommandRejected]]s referring
+    *  to earlier completion offsets (e.g., ALREADY_EXISTS), this becomes tricky to specify.
     *
     * [[Update.CommandRejected]] messages are advisory messages to submitters of
     * transactions to inform them in a timely fashion that their transaction
@@ -149,6 +163,8 @@ trait ReadService extends ReportsHealth {
     * host the same parties; and some implementations ensure data segregation on the ledger. Requiring
     * only the projections to sets of parties to be equal leaves just enough leeway for this
     * data segregation.
+    *
+    *Note further that the offsets of the transactions might not agree, as these offsets are participant-local.
     */
   def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed]
 }

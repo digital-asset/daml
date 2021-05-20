@@ -22,8 +22,9 @@ import com.daml.telemetry.TelemetryContext
   * plans to make this functionality uniformly available: see the roadmap for
   * progress information https://github.com/digital-asset/daml/issues/121.
   *
-  * As of now there are four methods for changing the state of a DAML ledger:
+  * As of now there are five methods for changing the state of a DAML ledger:
   * - submitting a transaction using [[WriteService!.submitTransaction]]
+  * - recording the rejection of a command submission using [[WriteService!.rejectSubmission]]
   * - allocating a new party using [[WritePartyService!.allocateParty]]
   * - uploading a new package using [[WritePackagesService!.uploadPackages]]
   * - pruning a participant ledger using [[WriteParticipantPruningService!.prune]]
@@ -37,12 +38,7 @@ trait WriteService
 
   /** Submit a transaction for acceptance to the ledger.
     *
-    * This method must be thread-safe, not throw, and not block on IO. It is
-    * though allowed to perform significant computation. The expectation is
-    * that callers call this method on a thread dedicated to getting this transaction
-    * ready for acceptance to the ledger, which typically requires some
-    * preparation steps (decomposition, serialization) by the implementation
-    * of the [[WriteService]].
+    * This method must be thread-safe.
     *
     * The result of the transaction submission is communicated asynchronously
     * via a [[ReadService]] implementation backed by the same participant
@@ -54,11 +50,11 @@ trait WriteService
     * transaction submission is lost in transit, and no [[Update.CommandRejected]] is
     * generated. See the comments on [[ReadService.stateUpdates]] for further details.
     *
-    * A note on ledger effective time and record time: transactions are
-    * submitted together with a `ledgerEffectiveTime` provided as part of the
-    * `transactionMeta` information. The ledger-effective time is used by the
+    * A note on ledger time and record time: transactions are
+    * submitted together with a `ledgerTime` provided as part of the
+    * `transactionMeta` information. The ledger time is used by the
     * DAML Engine to resolve calls to the `getTime :: Update Time`
-    * function. Letting the submitter freely choose the ledger-effective time
+    * function. Letting the submitter freely choose the ledger time
     * is though a problem for the other stakeholders in the contracts affected
     * by the submitted transaction. The submitter can in principle choose to
     * submit transactions that are effective far in the past or future
@@ -78,12 +74,16 @@ trait WriteService
     * transaction and the wall-clock time at delivery to these participants.
     *
     * Concretely, we typically expect the allowed skew between record time and
-    * ledger effective time to be in the minute range. Thereby leaving ample
+    * ledger time to be in the minute range. Thereby leaving ample
     * time for submitting and validating large transactions before they are
     * timestamped with their record time.
     *
+    * The [[WriteService]] is responsible for deduplicating commands
+    * with the same [[SubmitterInfo.changeId]] within the [[SubmitterInfo.deduplicationPeriod]].
+    * See the deduplication and rank guarantee described in [[ReadService.stateUpdates]].
+    *
     * @param submitterInfo               the information provided by the submitter for
-    *                                    correlating this submission with its acceptance or rejection on the
+    *                                    correlating this submission with its acceptance, rejection, or cancellation on the
     *                                    associated [[ReadService]].
     * @param transactionMeta             the meta-data accessible to all consumers of the transaction.
     *                                    See [[TransactionMeta]] for more information.
@@ -95,12 +95,35 @@ trait WriteService
     * @param estimatedInterpretationCost Estimated cost of interpretation that may be used for
     *                                    handling submitted transactions differently.
     * @param telemetryContext            Implicit context for tracing.
-    * @return an async result of a SubmissionResult
     */
   def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
+
+  /** Record the rejection of a command submission on the ledger.
+    *
+    * This method must be thread-safe.
+    *
+    * The result is communicated asynchronously via a [[ReadService]] implementation backed by the same participant
+    * state as this [[WriteService]]. Successful recording is communicated using a [[Update.CommandRejected]]
+    * with [[SubmitterInfo]] and not [[Update.CommandRejected.cancelled]].
+    * If the recording as a rejection fails (e.g., due to deduplication or violations of the submission rank),
+    * the failure should be communicated using a [[Update.CommandRejected]] with [[SubmitterInfo]]
+    * and [[Update.CommandRejected.cancelled]].
+    *
+    * Recorded rejections fall under the deduplication and submission rank guarantees
+    * described in [[ReadService.stateUpdates]].
+    *
+    * @param submitterInfo the information provided by the submitter for correlating this submission
+    *                      with its rejection or cancellation on the associated [[ReadService]].
+    * @param reason The rejection reason to be included in the [[Update.CommandRejected]]
+    * @param telemetryContext Implicit context for tracing.
+    */
+  def rejectSubmission(
+      submitterInfo: SubmitterInfo,
+      reason: com.google.rpc.Status
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
 }

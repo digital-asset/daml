@@ -14,18 +14,11 @@ object SubmissionResult {
     override val description: String = "The request has been received"
   }
 
-  /** The system is overloaded, clients should back off exponentially */
-  case object Overloaded extends SubmissionResult {
-    override val description: String = "System is overloaded, please try again later"
-  }
-
-  /** Submission is not supported */
-  case object NotSupported extends SubmissionResult {
-    override val description: String = "Submission is not supported"
-  }
-
-  /** Submission ended up with internal error */
-  final case class InternalError(reason: String) extends SubmissionResult {
-    override val description: String = s"Failed with an internal error, reason=$reason"
+  /** The submission has failed with a synchronous error.
+    *
+    * Asynchronous errors are reported via the command completion stream as a [[Update.CommandRejected]]
+    */
+  case class SynchronousError(grpcError: com.google.rpc.status.Status) extends SubmissionResult {
+    override val description: String = s"Submission failed with error ${grpcError.message}"
   }
 }
