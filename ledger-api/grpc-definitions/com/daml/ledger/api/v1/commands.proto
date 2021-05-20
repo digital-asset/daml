@@ -71,6 +71,11 @@ message Commands {
   // If omitted, the participant chooses the start of the deduplication period at its discretion.
   // Optional
   oneof deduplication {
+    // Same semantics as deduplication_since
+    //
+    // DEPRECATED
+    google.protobuf.Duration deduplication_time = 9;
+
     // Specifies the start of the deduplication period by a completion stream offset.
     //
     // Must be a valid LedgerString (as described in ``value.proto``).
@@ -87,7 +92,7 @@ message Commands {
     // by subtracting the duration from its local clock at some point during processing the submission.
     //
     // Must be non-negative.
-    google.protobuf.Duration deduplication_time = 9;
+    google.protobuf.Duration deduplication_since = 16;
   }
 
   // Lower bound for the ledger time assigned to the resulting transaction.
@@ -131,7 +136,7 @@ message Commands {
   // Optional
   //
   // TODO(v2) Do we want to enforce the format of a UUID here?
-  string submission_id = 16;
+  string submission_id = 17;
 
   // Applications can rank their submissions with the same change ID.
   // This allows the participants and Daml ledger to detect when one submission has been overtaken by a later resubmission.
@@ -143,6 +148,7 @@ message Commands {
   //
   // The submission rank is a completion offset.
   // It must be no earlier than the offset that defines the start of the deduplication period.
+  // Otherwise, the submission is rejected with INVALID_ARGUMENT.
   // Must be a valid LedgerString (as described in ``value.proto``).
   //
   // The participant or Daml ledger may reject the submission with OUT_OF_RANGE
@@ -152,7 +158,7 @@ message Commands {
   //
   // If omitted, the participant defaults the submission rank to the completion end.
   // Optional
-  string submission_rank = 17;
+  string submission_rank = 18;
 }
 
 // A command can either create a new contract or exercise a choice on an existing contract.
