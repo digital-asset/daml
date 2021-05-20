@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -158,7 +159,21 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
         response1.configurationGeneration + 1 == response2.configurationGeneration,
         s"New configuration's generation (${response2.configurationGeneration} should be original configurations's generation (${response1.configurationGeneration} + 1) )",
       )
-      assertGrpcError(failure, Status.Code.ABORTED, "")
+      failure match {
+        case GrpcException(GrpcStatus(Status.Code.ABORTED, _), _) =>
+          () // if the "looser" command fails after command submission (the winner completed after looser did submit the configuration change)
+
+        case GrpcException(GrpcStatus(Status.Code.INVALID_ARGUMENT, _), _) =>
+          () // if the "looser" command fails already on command submission (the winner completed before looser submission is over)
+
+        case GrpcException(GrpcStatus(notExpectedCode, _), _) =>
+          fail(s"One of the submissions failed with an unexpected status code: $notExpectedCode")
+
+        case notExpectedException =>
+          fail(
+            s"Unexpected exception: type:${notExpectedException.getClass.getName}, message:${notExpectedException.getMessage}"
+          )
+      }
     }
   })
 
