@@ -221,7 +221,7 @@ prettyScenarioErrorError (Just err) =  do
     ScenarioErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' True 0 world exc
     ScenarioErrorErrorTemplatePrecondViolated ScenarioError_TemplatePreconditionViolated{..} -> do
       pure $
-        "Template pre-condition violated in:"
+        "Template precondition violated in:"
           $$ nest 2
           (   "create"
           <-> prettyMay "<missing template id>" (prettyDefName world) scenarioError_TemplatePreconditionViolatedTemplateId

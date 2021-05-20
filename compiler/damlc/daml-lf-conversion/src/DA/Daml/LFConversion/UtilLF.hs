@@ -124,3 +124,16 @@ mkBuiltinGreater v ty =
     if v `supports` featureGenericComparison
         then EBuiltin BEGreaterGeneric `ETyApp` TBuiltin ty
         else EBuiltin (BEGreater ty)
+
+contractErrorTypeCon :: Qualified TypeConName
+contractErrorTypeCon = Qualified
+    { qualPackage = PRImport (PackageId "a4d351c1a14963402c98d9c4ad92ce7e7cea74d81138f4de012df8d65229b78f")
+    , qualModule = ModuleName ["DA", "Exception", "ContractError"]
+    , qualObject = TypeConName ["ContractError"]
+    }
+
+mkContractError :: Expr -> Expr
+mkContractError msg = ERecCon
+    { recTypeCon = TypeConApp contractErrorTypeCon []
+    , recFields = [(FieldName "message", msg)]
+    }
