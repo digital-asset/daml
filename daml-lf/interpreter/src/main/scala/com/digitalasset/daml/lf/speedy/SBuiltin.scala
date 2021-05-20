@@ -279,8 +279,7 @@ private[lf] object SBuiltin {
     private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue]
 
     private[speedy] def buildException(args: util.ArrayList[SValue]) =
-      SBuiltinException(
-        ArithmeticError,
+      SArithmeticError(
         name,
         args.iterator.asScala.map(litToText).to(ImmArray),
       )
@@ -426,7 +425,7 @@ private[lf] object SBuiltin {
       case SBigNumeric(x) => Numeric.toUnscaledString(x)
       case SNumeric(x) => Numeric.toUnscaledString(x)
       case STNat(n) => s"@$n"
-      case _: SContractId | SToken | _: SAny | _: SAnyException | _: SBuiltinException | _: SEnum |
+      case _: SContractId | SToken | _: SAny | _: SAnyException | _: SArithmeticError | _: SEnum |
           _: SList | _: SMap | _: SOptional | _: SPAP | _: SRecord | _: SStruct | _: STypeRep |
           _: SVariant =>
         crash(s"litToText: unexpected $x")
@@ -1567,7 +1566,7 @@ private[lf] object SBuiltin {
       args.get(0) match {
         case SAnyException(actualTy, v) =>
           SOptional(if (actualTy == expectedTy) Some(v) else None)
-        case SBuiltinException(_, _, _) =>
+        case SArithmeticError(_, _) =>
           SOptional(None)
         case v => crash(s"FromAnyException applied to non-AnyException: $v")
       }
@@ -1583,7 +1582,7 @@ private[lf] object SBuiltin {
       getSException(args, 0) match {
         case SAnyException(ty, innerValue) =>
           machine.ctrl = SEApp(exceptionMessage(ty), Array(SEValue(innerValue)))
-        case exception: SBuiltinException =>
+        case exception: SArithmeticError =>
           machine.returnValue = SText(exception.message)
       }
     }
@@ -1593,19 +1592,7 @@ private[lf] object SBuiltin {
   final case object SBAnyExceptionIsArithmeticError extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       getSException(args, 0) match {
-        case SBuiltinException(ArithmeticError, _, _) =>
-          SValue.SValue.True
-        case _ =>
-          SValue.SValue.False
-      }
-    }
-  }
-
-  /** $any-exception-is-contract-error :: AnyException -> Bool */
-  final case object SBAnyExceptionIsContractError extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      getSException(args, 0) match {
-        case SBuiltinException(ContractError, _, _) =>
+        case SArithmeticError(_, _) =>
           SValue.SValue.True
         case _ =>
           SValue.SValue.False

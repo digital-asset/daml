@@ -846,8 +846,6 @@ class DecodeV1Spec
           Ast.EBuiltin(Ast.BAnyExceptionMessage),
         DamlLf1.BuiltinFunction.ANY_EXCEPTION_IS_ARITHMETIC_ERROR ->
           Ast.EBuiltin(Ast.BAnyExceptionIsArithmeticError),
-        DamlLf1.BuiltinFunction.ANY_EXCEPTION_IS_CONTRACT_ERROR ->
-          Ast.EBuiltin(Ast.BAnyExceptionIsContractError),
       )
 
       forEveryVersion { version =>

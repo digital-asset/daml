@@ -1469,7 +1469,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         inside(
           evalSExpr(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).toArray), false)
         ) {
-          case Left(DamlEUnhandledException(SBuiltinException(ArithmeticError, name_, args_)))
+          case Left(DamlEUnhandledException(SArithmeticError(name_, args_)))
               if name_ == name && (args.iterator.map(lit2string) sameElements args_.iterator) =>
         }
       }
