@@ -51,7 +51,6 @@ import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.concurrent.duration._
 
 import scala.util.Try
 
