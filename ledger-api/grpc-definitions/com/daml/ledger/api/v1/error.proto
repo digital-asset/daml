@@ -8,7 +8,7 @@ package com.daml.ledger.api.v1;
 // Rules on error reporting over the Ledger API
 //
 // 1. We use gRPC status codes to report synchronous success and failures
-//    coming from the underlying gRPC protocol and at the API level.
+//    coming from the underlying gRPC protocol or the API-level request processing.
 //    Asynchronous API-level errors are reported over a completion stream like the command completion stream,
 //    which themselves include a `google.rpc.Status` message to indicate the status.
 //    The status code `OK` denotes success.
@@ -18,8 +18,8 @@ package com.daml.ledger.api.v1;
 //    Error details use the `google.rpc.ErrorInfo` message defined at
 //    https://github.com/googleapis/googleapis/blob/master/google/rpc/error_details.proto#L112.
 //    Its `reason` field includes an error code.
-//    Further details on the error and information for subsequent API usage may be included in `metadata`
-//    The RPC documentation may document further metadata of the error that applications should
+//    Further details on the error and information for subsequent API calls may be included in the `metadata` field.
+//    The RPC documentation may document further metadata of the error.
 //
 // 3. RPC requests can specify that the API-level error details of the RPC response shall be JSON-encoded in the error message
 //    instead of using the `details` field by setting the flag `error_details_in_message` in the RPC request message to `true`.

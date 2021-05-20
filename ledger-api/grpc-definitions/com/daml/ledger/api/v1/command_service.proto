@@ -103,7 +103,7 @@ message SubmitAndWaitRequest {
   TraceContext trace_context = 1000;
 
   // Whether synchronous API-level errors include the error details as part of the error message string,
-  // as explained in `errors.proto`.
+  // as explained in `error.proto`.
   // Optional
   bool error_details_in_message = 1001;
 }

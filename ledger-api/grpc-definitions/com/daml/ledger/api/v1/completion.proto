@@ -50,8 +50,8 @@ message Completion {
   repeated string act_as = 7;
 
   // The submission ID this completion refers to, as described in ``commands.proto``.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional for historic completions where this data is not available.
-  // TODO(v2): Do we want to enforce the format of a UUID here?
   string submission_id = 4;
 
   // The submission rank of the submission this completion refers to, as described in ``commands.proto``.
