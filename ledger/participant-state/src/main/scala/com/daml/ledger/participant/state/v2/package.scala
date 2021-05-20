@@ -54,7 +54,6 @@ package object v2 {
   type AdminSubmissionId = Ref.LedgerString
 
   /** Identifier for command submissions. */
-  // TODO(v2) Should we restrict this to UUIDs?
   val SubmissionId: Ref.LedgerString.type = Ref.LedgerString
   type SubmissionId = Ref.LedgerString
 }
