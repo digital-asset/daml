@@ -346,8 +346,8 @@ class ApiCodecCompressedSpec
       ("\"1970-01-01T00:00:00+01:00\"", VA.timestamp, ""),
       ("\"1970-01-01T00:00:00+01:00[Europe/Paris]\"", VA.timestamp, ""),
       ("""{"a": "b", "c": "d"}""", VA.genMap(VA.text, VA.text), ""),
-      ("\"\"", VA.party, "DAML LF Party is empty"),
-      (List.fill(256)('a').mkString("\"", "", "\""), VA.party, "DAML LF Party is too long"),
+      ("\"\"", VA.party, "Daml-LF Party is empty"),
+      (List.fill(256)('a').mkString("\"", "", "\""), VA.party, "Daml-LF Party is too long"),
     )
 
     "dealing with particular formats" should {

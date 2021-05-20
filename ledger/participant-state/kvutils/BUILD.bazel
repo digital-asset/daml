@@ -227,6 +227,7 @@ REFERENCE_LEDGER_EXPORT_PORT = 65102
 client_server_build(
     name = REFERENCE_LEDGER_EXPORT_NAME,
     testonly = True,  # only test targets can depend on this.
+    outs = ["%s.out" % REFERENCE_LEDGER_EXPORT_NAME],
     client = "//ledger/ledger-api-test-tool",
     client_args = [
         "--concurrent-test-runs=4",

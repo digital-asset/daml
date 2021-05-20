@@ -9,8 +9,8 @@ import ch.qos.logback.classic.Level
 import com.daml.buildinfo.BuildInfo
 import scopt.{OptionParser, Read}
 
-/** @param darFiles The [[Set]] of DAML-LF [[Path]]s to convert into code. It MUST contain
-  *                        all the DAML-LF packages dependencies.
+/** @param darFiles The [[Set]] of Daml-LF [[Path]]s to convert into code. It MUST contain
+  *                        all the Daml-LF packages dependencies.
   * @param outputDirectory The directory where the code will be generated
   * @param decoderPkgAndClass the fully qualified name of the generated decoder class (optional)
   */
@@ -32,7 +32,7 @@ object Conf {
 
   def parser: OptionParser[Conf] = new scopt.OptionParser[Conf]("codegen") {
     head("codegen", BuildInfo.Version)
-    note("Code generator for the DAML ledger bindings.\n")
+    note("Code generator for the Daml ledger bindings.\n")
 
     arg[(Path, Option[String])]("<DAR-file[=package-prefix]>...")(
       optTupleRead(readPath, Read.stringRead)

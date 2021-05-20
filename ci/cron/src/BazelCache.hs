@@ -91,8 +91,9 @@ handleInvalid (Delete delete) (time, path, r) = do
     putStrLn $ "Found invalid AC at " <> show path <> " created at " <> show time <> ": " <> show r
     when delete $ do
         putStrLn $ "Deleting AC " <> show path
-        Conduit.runProcess_ $
+        exit <- Conduit.runProcess $
             Conduit.proc "gsutil" ["rm", "gs://daml-bazel-cache/" <> T.unpack path]
+        putStrLn $ "Exit code: " <> show exit
 
 -- | Filter to lines that parse and are for entries that are not older
 -- than the supplied age.

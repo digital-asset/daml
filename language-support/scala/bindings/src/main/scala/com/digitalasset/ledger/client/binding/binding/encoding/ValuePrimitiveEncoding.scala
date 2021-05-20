@@ -14,7 +14,7 @@ import com.daml.ledger.client.binding.{Primitive => P}
   * [[com.daml.ledger.api.v1.value.Value]] sum type to the [[Primitive]]
   * types.  All other instances, such as those for record, sum, and template
   * types, are derived from these ones, which thus form the "axioms" of any
-  * typeclass relating gRPC values to custom DAML data types built upon Scala
+  * typeclass relating gRPC values to custom Daml data types built upon Scala
   * datatypes.
   */
 trait ValuePrimitiveEncoding[TC[_]] {

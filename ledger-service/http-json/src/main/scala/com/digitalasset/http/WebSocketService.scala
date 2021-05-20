@@ -33,7 +33,7 @@ import scalaz.std.vector._
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
 import Liskov.<~<
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
-import com.daml.http.util.Logging.{CorrelationID, RequestID}
+import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
@@ -386,7 +386,7 @@ class WebSocketService(
   private[http] def transactionMessageHandler[A: StreamQueryReader](
       jwt: Jwt,
       jwtPayload: JwtPayload,
-  )(implicit lc: LoggingContextOf[CorrelationID with RequestID]): Flow[Message, Message, _] =
+  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): Flow[Message, Message, _] =
     wsMessageHandler[A](jwt, jwtPayload)
       .via(applyConfig)
       .via(connCounter)
@@ -397,7 +397,7 @@ class WebSocketService(
       .throttle(config.throttleElem, config.throttlePer, config.maxBurst, config.mode)
 
   private def connCounter[A](implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Flow[A, A, NotUsed] =
     Flow[A]
       .watchTermination() { (_, future) =>
@@ -424,7 +424,7 @@ class WebSocketService(
       jwt: Jwt,
       jwtPayload: JwtPayload,
   )(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Flow[Message, Message, NotUsed] = {
     val Q = implicitly[StreamQueryReader[A]]
     Flow[Message]
@@ -474,7 +474,7 @@ class WebSocketService(
       offPrefix: Option[domain.StartingOffset],
       request: A,
   )(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Source[Error \/ Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
 

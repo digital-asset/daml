@@ -21,7 +21,7 @@ final class AuthIT
   override def darFile = new File(rlocation("daml-script/test/script-test.dar"))
   val (dar, envIface) = readDar(darFile)
 
-  "DAML Script against authorized ledger" can {
+  "Daml Script against authorized ledger" can {
     "auth" should {
       "create and accept Proposal" in {
         for {

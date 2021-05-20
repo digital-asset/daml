@@ -76,7 +76,7 @@ object CodeGenRunner extends StrictLogging {
             InterfaceReader.InterfaceReaderError.treeReport(errors).toString
           )
         }
-        logger.trace(s"DAML-LF Archive decoded, packageId '${interface.packageId}'")
+        logger.trace(s"Daml-LF Archive decoded, packageId '${interface.packageId}'")
         (interface, interface.packageId -> pkgPrefix)
       }
     }

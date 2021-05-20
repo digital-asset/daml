@@ -3,7 +3,14 @@
 
 package com.daml.ledger.api.benchtool
 
+import akka.actor.typed.{ActorSystem, SpawnProtocol}
+import com.daml.ledger.api.benchtool.metrics.{Creator, MeteredStreamObserver, TransactionMetrics}
 import com.daml.ledger.api.benchtool.services.{LedgerIdentityService, TransactionService}
+import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
+import com.daml.ledger.api.v1.transaction_service.{
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
+}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
@@ -16,8 +23,8 @@ import java.util.concurrent.{
   ThreadPoolExecutor,
   TimeUnit,
 }
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 object LedgerApiBenchTool {
   def main(args: Array[String]): Unit = {
@@ -25,38 +32,58 @@ object LedgerApiBenchTool {
       case Some(config) =>
         val benchmark = runBenchmark(config)(ExecutionContext.Implicits.global)
         Await.result(benchmark, atMost = Duration.Inf)
+        ()
       case _ =>
         logger.error("Invalid configuration arguments.")
     }
   }
 
   private def runBenchmark(config: Config)(implicit ec: ExecutionContext): Future[Unit] = {
-    logger.info(s"Starting benchmark")
-    logger.info(config.toString) //TODO: print a nice representation
+    val printer = pprint.PPrinter(200, 1000)
+    logger.info(s"Starting benchmark with configuration:\n${printer(config).toString()}")
 
     implicit val resourceContext: ResourceContext = ResourceContext(ec)
 
-    val channel = for {
+    val resources = for {
       executorService <- threadPoolExecutorOwner(config.concurrency)
       channel <- channelOwner(config.ledger, executorService)
-    } yield channel
+      system <- actorSystemResourceOwner()
+    } yield (channel, system)
 
-    channel.use { channel =>
-      Future {
-        val ledgerIdentityService: LedgerIdentityService = new LedgerIdentityService(channel)
-        val ledgerId: String = ledgerIdentityService.fetchLedgerId()
-        val transactionService = new TransactionService(channel, ledgerId)
-        config.streamConfig.foreach { streamConfig =>
+    resources.use { case (channel, system) =>
+      val ledgerIdentityService: LedgerIdentityService = new LedgerIdentityService(channel)
+      val ledgerId: String = ledgerIdentityService.fetchLedgerId()
+      val transactionService = new TransactionService(channel, ledgerId)
+      Future
+        .traverse(config.streams) { streamConfig =>
           streamConfig.streamType match {
             case Config.StreamConfig.StreamType.Transactions =>
-              transactionService.transactions(streamConfig.party)
-              ()
+              TransactionMetrics
+                .transactionsMetricsManager(streamConfig.name, config.reportingPeriod)(system)
+                .flatMap { manager =>
+                  val observer: MeteredStreamObserver[GetTransactionsResponse] =
+                    new MeteredStreamObserver[GetTransactionsResponse](
+                      streamConfig.name,
+                      logger,
+                      manager,
+                    )
+                  transactionService.transactions(streamConfig, observer)
+                }
             case Config.StreamConfig.StreamType.TransactionTrees =>
-              transactionService.transactionTrees(streamConfig.party)
-              ()
+              TransactionMetrics
+                .transactionTreesMetricsManager(streamConfig.name, config.reportingPeriod)(system)
+                .flatMap { manager =>
+                  val observer =
+                    new MeteredStreamObserver[GetTransactionTreesResponse](
+                      streamConfig.name,
+                      logger,
+                      manager,
+                    )
+                  transactionService.transactionTrees(streamConfig, observer)
+                }
           }
         }
-      }
+        .map(_ => ())
     }
   }
 
@@ -73,6 +100,11 @@ object LedgerApiBenchTool {
 
     ResourceOwner.forChannel(channelBuilder, ShutdownTimeout)
   }
+
+  private def actorSystemResourceOwner(): ResourceOwner[ActorSystem[SpawnProtocol.Command]] =
+    new TypedActorSystemResourceOwner[SpawnProtocol.Command](() =>
+      ActorSystem(Creator(), "Creator")
+    )
 
   private def threadPoolExecutorOwner(
       config: Config.Concurrency

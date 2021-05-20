@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SINCE-LF-FEATURE DAML_EXCEPTIONS
+-- @ERROR range=145:1-145:11; Attempt to exercise a consumed contract
 module ExceptionSemantics where
 
 import DA.Exception (throw)
@@ -32,6 +33,14 @@ template T
       do try (exercise self Throw)
          catch
            E -> pure ()
+
+    nonconsuming choice UncatchableTry : ()
+      with
+        cid : ContractId K
+      controller p
+      do try (() <$ fetch cid)
+         catch
+           E -> pure()
 
     nonconsuming choice TransientDuplicate : ()
       with
@@ -132,3 +141,12 @@ divulgence = scenario do
   submit p1 $ exercise divulger (RollbackFetch cid)
   submit p2 $ exercise fetcher (Fetch cid)
   pure ()
+
+tryContext = scenario do
+  p <- getParty "p"
+  kCid <- submit p $ create (K p 0)
+  submit p $ archive kCid
+  c <- submit p $ create (T p)
+  -- This will result in a partial transaction with ptx.context.info
+  -- pointing to a TryContextInfo.
+  submit p $ exercise c (UncatchableTry kCid)

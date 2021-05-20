@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import com.daml.http.util.Logging.{CorrelationID, RequestID}
+import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.http.util.ProtobufByteStrings
 import com.daml.jwt.domain.Jwt
 import com.daml.logging.LoggingContextOf
@@ -21,17 +21,17 @@ class PackageManagementService(
 )(implicit ec: ExecutionContext, mat: Materializer) {
 
   def listPackages(jwt: Jwt)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Seq[String]] =
     listKnownPackagesFn(jwt)(lc).map(_.packageIds)
 
   def getPackage(jwt: Jwt, packageId: String)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[admin.GetPackageResponse] =
     getPackageFn(jwt, packageId)(lc).map(admin.GetPackageResponse.fromLedgerApi)
 
   def uploadDarFile(jwt: Jwt, source: Source[ByteString, NotUsed])(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Unit] =
     uploadDarFileFn(jwt, ProtobufByteStrings.readFrom(source))(lc)
 }

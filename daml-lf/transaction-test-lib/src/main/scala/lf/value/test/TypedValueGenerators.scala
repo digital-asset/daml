@@ -476,7 +476,7 @@ object TypedValueGenerators {
     // has the correct type, as implicit conversion is not used at all
 
     // unlike most `name = value` calls in Scala, `Record` is order-sensitive,
-    // just as DAML-LF record values are order-sensitive. Most tests should preserve
+    // just as Daml-LF record values are order-sensitive. Most tests should preserve
     // this behavior, but if you want to automatically reorder the keys (for a runtime cost!)
     // you can do so with `align`. The resulting error messages are far worse, so
     // I recommend just writing them in the correct order

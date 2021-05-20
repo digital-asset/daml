@@ -24,7 +24,7 @@ import com.daml.http.domain.{JwtPayload, JwtWritePayload}
 import com.daml.http.json._
 import com.daml.http.util.Collections.toNonEmptySet
 import com.daml.http.util.FutureUtil.{either, eitherT}
-import com.daml.http.util.Logging.{CorrelationID, RequestID, extendWithRequestIdLogCtx}
+import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.http.util.ProtobufByteStrings
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
@@ -63,10 +63,10 @@ class Endpoints(
   import Uri.Path._
 
   def all(implicit
-      lc: LoggingContextOf[CorrelationID]
+      lc: LoggingContextOf[InstanceUUID]
   ): PartialFunction[HttpRequest, Future[HttpResponse]] = {
     val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
-      CorrelationID with RequestID
+      InstanceUUID with RequestID
     ] => Future[HttpResponse]] = {
       // Parenthesis are required because otherwise scalafmt breaks.
       case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) =>
@@ -117,7 +117,7 @@ class Endpoints(
   }
 
   def create(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[JsValue]] =
     for {
       t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
@@ -137,7 +137,7 @@ class Endpoints(
     } yield domain.OkResponse(jsVal)
 
   def exercise(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[JsValue]] =
     for {
       t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
@@ -165,7 +165,7 @@ class Endpoints(
     } yield domain.OkResponse(jsVal)
 
   def createAndExercise(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[JsValue]] =
     for {
       t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
@@ -185,7 +185,7 @@ class Endpoints(
     } yield domain.OkResponse(jsVal)
 
   def fetch(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[JsValue]] =
     for {
       input <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
@@ -211,7 +211,7 @@ class Endpoints(
     } yield domain.OkResponse(jsVal)
 
   def retrieveAll(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ SearchResult[Error \/ JsValue]] =
     inputAndJwtPayload[JwtPayload](req).map {
       _.map { case (jwt, jwtPayload, _) =>
@@ -227,7 +227,7 @@ class Endpoints(
     }
 
   def query(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ SearchResult[Error \/ JsValue]] =
     inputAndJwtPayload[JwtPayload](req).map {
       _.flatMap { case (jwt, jwtPayload, reqBody) =>
@@ -248,12 +248,12 @@ class Endpoints(
     }
 
   def allParties(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
     proxyWithoutCommand(partiesService.allParties)(req).map(domain.OkResponse(_))
 
   def parties(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
     proxyWithCommand[NonEmptyList[domain.Party], (Set[domain.PartyDetails], Set[domain.Party])](
       (jwt, cmd) => partiesService.parties(jwt, toNonEmptySet(cmd))
@@ -261,17 +261,17 @@ class Endpoints(
       .map(ps => partiesResponse(parties = ps._1.toList, unknownParties = ps._2.toList))
 
   def allocateParty(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[domain.PartyDetails]] =
     proxyWithCommand(partiesService.allocate)(req).map(domain.OkResponse(_))
 
   def listPackages(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[Seq[String]]] =
     proxyWithoutCommand(packageManagementService.listPackages)(req).map(domain.OkResponse(_))
 
   def downloadPackage(req: HttpRequest, packageId: String)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[HttpResponse] = {
     val et: ET[admin.GetPackageResponse] =
       proxyWithoutCommand(jwt => packageManagementService.getPackage(jwt, packageId))(req)
@@ -290,7 +290,7 @@ class Endpoints(
   }
 
   def uploadDarFile(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[Unit]] =
     for {
       t2 <- either(inputSource(req)): ET[(Jwt, Source[ByteString, Any])]
@@ -306,7 +306,7 @@ class Endpoints(
     } yield domain.OkResponse(())
 
   private def handleFutureEitherFailure[B](fa: Future[Error \/ B])(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ B] =
     fa.recover { case NonFatal(e) =>
       logger.error("Future failed", e)
@@ -314,7 +314,7 @@ class Endpoints(
     }
 
   private def handleFutureEitherFailure[A: Show, B](fa: Future[A \/ B])(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[ServerError \/ B] =
     fa.map(_.liftErr(ServerError)).recover { case NonFatal(e) =>
       logger.error("Future failed", e)
@@ -322,7 +322,7 @@ class Endpoints(
     }
 
   private def handleFutureFailure[A](fa: Future[A])(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[ServerError \/ A] =
     fa.map(a => \/-(a)).recover { case NonFatal(e) =>
       logger.error("Future failed", e)
@@ -330,7 +330,7 @@ class Endpoints(
     }
 
   private def handleSourceFailure[E: Show, A](implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Flow[E \/ A, ServerError \/ A, NotUsed] =
     Flow
       .fromFunction((_: E \/ A).liftErr(ServerError))
@@ -394,7 +394,7 @@ class Endpoints(
     entity.toStrict(maxTimeToCollectRequest).map(_.data.utf8String)
 
   private[http] def input(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Unauthorized \/ (Jwt, String)] = {
     findJwt(req) match {
       case e @ -\/(_) =>
@@ -406,7 +406,7 @@ class Endpoints(
   }
 
   private[http] def inputJsVal(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[(Jwt, JsValue)] =
     for {
       t2 <- eitherT(input(req)): ET[(Jwt, String)]
@@ -422,20 +422,20 @@ class Endpoints(
       req: HttpRequest
   )(implicit
       parse: ParsePayload[P],
-      lc: LoggingContextOf[CorrelationID with RequestID],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): Future[Unauthorized \/ (Jwt, P, String)] =
     input(req).map(_.flatMap(withJwtPayload[String, P]))
 
   private[http] def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
       parse: ParsePayload[P],
-      lc: LoggingContextOf[CorrelationID with RequestID],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): ET[(Jwt, P, JsValue)] =
     inputJsVal(req).flatMap(x => either(withJwtPayload[JsValue, P](x)))
 
   private[http] def inputSource(
       req: HttpRequest
   )(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Error \/ (Jwt, Source[ByteString, Any]) =
     findJwt(req) match {
       case e @ -\/(_) =>
@@ -446,7 +446,7 @@ class Endpoints(
     }
 
   private[this] def findJwt(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Unauthorized \/ Jwt =
     ensureHttpsForwarded(req) flatMap { _ =>
       req.headers
@@ -459,7 +459,7 @@ class Endpoints(
     }
 
   private[this] def ensureHttpsForwarded(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Unauthorized \/ Unit =
     if (allowNonHttps || isForwardedForHttps(req.headers)) \/-(())
     else {
@@ -482,7 +482,7 @@ class Endpoints(
       jwtPayload: JwtWritePayload,
       reference: domain.ContractLocator[LfValue],
   )(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
       .resolveContractReference(jwt, jwtPayload.parties, reference)
@@ -496,7 +496,7 @@ class Endpoints(
       }
 
   private def proxyWithoutCommand[A](fn: Jwt => Future[A])(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[A] =
     for {
       t3 <- eitherT(input(req)): ET[(Jwt, _)]
@@ -506,7 +506,7 @@ class Endpoints(
   private def proxyWithCommand[A: JsonReader, R](
       fn: (Jwt, A) => Future[Error \/ R]
   )(req: HttpRequest)(implicit
-      lc: LoggingContextOf[CorrelationID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[R] =
     for {
       t2 <- inputJsVal(req): ET[(Jwt, JsValue)]

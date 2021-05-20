@@ -348,8 +348,10 @@ baseImports =
            , "GHC.Types"
            , "DA.Types"
            , "DA.Internal.Erased"
-           , "DA.Internal.Exception.Types"
            , "DA.Internal.PromotedText"
+           , "DA.Exception.GeneralError"
+           , "DA.Exception.ArithmeticError"
+           , "DA.Exception.ContractError"
            , "GHC.Err"
            , "Data.String"
            ]

@@ -38,8 +38,10 @@ $DAMLC build --target=1.dev --project-root $DIR -o $DIR/out.dar
 # an empty package
 $DIFF -u -b <($DAMLC inspect-dar $DIR/out.dar | sed '1,/following packages/d' | head -n -1) <(cat <<EOF
 
+daml-prim-DA-Exception-ArithmeticError-f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981 "f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981"
+daml-prim-DA-Exception-ContractError-a4d351c1a14963402c98d9c4ad92ce7e7cea74d81138f4de012df8d65229b78f "a4d351c1a14963402c98d9c4ad92ce7e7cea74d81138f4de012df8d65229b78f"
+daml-prim-DA-Exception-GeneralError-a4c4df2bd621b1bc1ba9fb5d3e633a5ddffb5b59e379bb091a18ce3f7801a7e4 "a4c4df2bd621b1bc1ba9fb5d3e633a5ddffb5b59e379bb091a18ce3f7801a7e4"
 daml-prim-DA-Internal-Erased-76bf0fd12bd945762a01f8fc5bbcdfa4d0ff20f8762af490f8f41d6237c6524f "76bf0fd12bd945762a01f8fc5bbcdfa4d0ff20f8762af490f8f41d6237c6524f"
-daml-prim-DA-Internal-Exception-Types-6ad87e6cf53b6f3cc55f7b8b025bf3f12d454004838a7e71aea73dc3f69fa7b2 "6ad87e6cf53b6f3cc55f7b8b025bf3f12d454004838a7e71aea73dc3f69fa7b2"
 daml-prim-DA-Internal-PromotedText-d58cf9939847921b2aab78eaa7b427dc4c649d25e6bee3c749ace4c3f52f5c97 "d58cf9939847921b2aab78eaa7b427dc4c649d25e6bee3c749ace4c3f52f5c97"
 daml-prim-DA-Types-40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7 "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
 daml-prim-GHC-Prim-e491352788e56ca4603acc411ffe1a49fefd76ed8b163af86cf5ee5f4c38645b "e491352788e56ca4603acc411ffe1a49fefd76ed8b163af86cf5ee5f4c38645b"

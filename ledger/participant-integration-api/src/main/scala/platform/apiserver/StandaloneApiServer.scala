@@ -31,9 +31,11 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.LfValueTranslationCache
 import com.daml.ports.{Port, PortFiles}
 import io.grpc.{BindableService, ServerInterceptor}
+import scalaz.{-\/, \/-}
 
 import scala.collection.immutable
-import scala.concurrent.ExecutionContextExecutor
+import scala.concurrent.{ExecutionContextExecutor}
+import scala.util.{Failure, Success, Try}
 
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
@@ -121,8 +123,8 @@ final class StandaloneApiServer(
         servicesExecutionContext,
         metrics,
       )
+      _ <- ResourceOwner.forTry(() => writePortFile(apiServer.port))
     } yield {
-      writePortFile(apiServer.port)
       logger.info(
         s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}, dar file = ${config.archiveFiles}"
       )
@@ -165,8 +167,15 @@ final class StandaloneApiServer(
       .fold({ case (err, file) => sys.error(s"Could not load package $file: $err") }, identity)
   }
 
-  private def writePortFile(port: Port): Unit =
-    config.portFile.foreach { path =>
-      PortFiles.write(path, port)
+  private def writePortFile(port: Port): Try[Unit] = {
+    config.portFile match {
+      case Some(path) =>
+        PortFiles.write(path, port) match {
+          case -\/(err) => Failure(new RuntimeException(err.toString))
+          case \/-(()) => Success(())
+        }
+      case None =>
+        Success(())
     }
+  }
 }

@@ -34,6 +34,10 @@ da_scala_library(
     resources = [],
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
+        "@maven//:com_lihaoyi_fansi",
+        "@maven//:com_lihaoyi_pprint",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_actor_typed",
     ],
     visibility = ["//visibility:public"],
     deps = [

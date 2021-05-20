@@ -13,7 +13,7 @@ import akka.http.scaladsl.server.Directives._
 import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.http.util.Logging.{CorrelationID, correlationIdLogCtx}
+import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{HMAC256Verifier, JwtSigner}
@@ -140,7 +140,7 @@ trait JsonApiFixture
         channel <- GrpcClientResource.owner(server.port)
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
-            implicit val lc: LoggingContextOf[CorrelationID] = correlationIdLogCtx(
+            implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(
               identity(_)
             )
             Resource[ServerBinding] {
@@ -263,7 +263,7 @@ final class JsonApiIt
     Runner.run(dar, scriptId, inputValue, clients, ScriptTimeMode.WallClock)
   }
 
-  "DAML Script over JSON API" can {
+  "Daml Script over JSON API" can {
     "Basic" should {
       "return 42" in {
         for {
@@ -445,7 +445,7 @@ final class JsonApiIt
       // fresh parties to avoid key collisions with other tests
       val party0 = "jsonMultiPartyQuery0"
       val party1 = "jsonMultiPartyQuery1"
-      // We need to call DAML script twice since we need per-party tokens for the creates
+      // We need to call Daml script twice since we need per-party tokens for the creates
       // and a single token for the query.
       for {
         clients <- getClients(parties = List(party0, party1))

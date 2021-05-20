@@ -26,14 +26,14 @@ module BuiltinMod {
     MUL_BIGNUMERIC;
   val divBigNumeric: Int64 -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric =
     DIV_BIGNUMERIC;
-  val shiftBigNumeric: Int64 -> BigNumeric -> BigNumeric =
-    SHIFT_BIGNUMERIC;
+  val shiftRightBigNumeric: Int64 -> BigNumeric -> BigNumeric =
+    SHIFT_RIGHT_BIGNUMERIC;
   val toNumericBigNumeric: forall (n: nat). BigNumeric -> Numeric n =
-    TO_NUMERIC_BIGNUMERIC;
+    BIGNUMERIC_TO_NUMERIC;
   val toBigNumericNumeric: forall (n: nat). Numeric n -> BigNumeric =
-    TO_BIGNUMERIC_NUMERIC;
+    NUMERIC_TO_BIGNUMERIC;
   val toTextBigNumeric: BigNumeric -> Text =
-    TO_TEXT_BIGNUMERIC;
+    BIGNUMERIC_TO_TEXT;
 
   val roundingMode: RoundingMode =
     ROUNDING_UP;

@@ -161,7 +161,7 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
   implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])
 }
 
-// DAML script, either an Action that can be executed immediately, or a
+// Daml script, either an Action that can be executed immediately, or a
 // Function that requires an argument.
 sealed abstract class Script extends Product with Serializable
 object Script {
@@ -179,9 +179,9 @@ object Script {
       .getSignature(scriptId.packageId)
       .flatMap(_.lookupDefinition(scriptId.qualifiedName).toOption) match {
       case Some(DValueSignature(ty, _, _, _)) => Right(ty)
-      case Some(d @ DTypeSyn(_, _)) => Left(s"Expected DAML script but got synonym $d")
-      case Some(d @ DDataType(_, _, _)) => Left(s"Expected DAML script but got datatype $d")
-      case None => Left(s"Could not find DAML script $scriptId")
+      case Some(d @ DTypeSyn(_, _)) => Left(s"Expected Daml script but got synonym $d")
+      case Some(d @ DDataType(_, _, _)) => Left(s"Expected Daml script but got datatype $d")
+      case None => Left(s"Could not find Daml script $scriptId")
     }
     def getScriptIds(ty: Type): Either[String, ScriptIds] =
       ScriptIds.fromType(ty).toRight(s"Expected type 'Daml.Script.Script a' but got $ty")
@@ -280,10 +280,10 @@ object Runner {
     } yield Participants(defClient, otherClients, participantParams.party_participants)
   }
 
-  // Executes a DAML script
+  // Executes a Daml script
   //
   // Looks for the script in the given DAR, applies the input value as an
-  // argument if provided, and runs the script with the given pariticipants.
+  // argument if provided, and runs the script with the given participants.
   def run(
       dar: Dar[(PackageId, Package)],
       scriptId: Identifier,

@@ -8,7 +8,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 object Main extends App with StrictLogging {
 
-  logger.info("Starting DAML Extractor...")
+  logger.info("Starting Daml Extractor...")
   logger.trace("Parsing config...")
 
   private val (config, target) = ConfigParser.parse(args).getOrElse {

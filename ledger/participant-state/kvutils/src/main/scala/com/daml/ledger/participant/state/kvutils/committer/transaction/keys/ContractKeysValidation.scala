@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committer.transaction.keys
 
+import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlContractKey,
   DamlStateKey,
@@ -13,14 +14,10 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   Step,
   TransactionCommitter,
 }
-import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.KeyConsistencyValidation.checkNodeKeyConsistency
 import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.KeyMonotonicityValidation.checkContractKeysCausalMonotonicity
-import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.KeyUniquenessValidation.checkNodeKeyUniqueness
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
 import com.daml.ledger.participant.state.v1.RejectionReason
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.transaction.{Node, NodeId}
-import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
 
 private[transaction] object ContractKeysValidation {
@@ -55,7 +52,6 @@ private[transaction] object ContractKeysValidation {
         finalState <- performTraversalContractKeysChecks(
           transactionCommitter,
           commitContext.recordTime,
-          contractKeyDamlStateKeys,
           contractKeysToContractIds,
           stateAfterMonotonicityCheck,
         )
@@ -66,31 +62,43 @@ private[transaction] object ContractKeysValidation {
   private def performTraversalContractKeysChecks(
       transactionCommitter: TransactionCommitter,
       recordTime: Option[Timestamp],
-      contractKeyDamlStateKeys: Set[DamlStateKey],
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       transactionEntry: DamlTransactionEntrySummary,
   )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-    type KeyValidationStackStatus = Either[KeyValidationError, List[KeyValidationState]]
+    import scalaz.std.either._
+    import scalaz.std.list._
+    import scalaz.syntax.foldable._
 
-    val keysValidationOutcome = transactionEntry.transaction
-      .foldInExecutionOrder[KeyValidationStackStatus](
-        Right(List(KeyValidationState(activeStateKeys = contractKeyDamlStateKeys)))
-      )(
-        exerciseBegin = (status, _, exerciseBeginNode) => {
-          val newStatus =
-            onCurrentStatus(status)(
-              checkNodeContractKey(exerciseBeginNode, contractKeysToContractIds, _)
-            )
-          (newStatus, true)
-        },
-        rollbackBegin = (status, _, _) =>
-          // Store state to restore after rollback
-          (status.map(stack => stack.head +: stack), true),
-        leaf = (status, _, leafNode) =>
-          onCurrentStatus(status)(checkNodeContractKey(leafNode, contractKeysToContractIds, _)),
-        exerciseEnd = (accum, _, _) => accum,
-        rollbackEnd = (status, _, _) => status.map(stack => stack.tail),
-      )
+    import com.daml.lf.transaction.Transaction.{
+      KeyActive,
+      KeyCreate,
+      NegativeKeyLookup,
+      DuplicateKeys,
+      InconsistentKeys,
+    }
+
+    val transaction = transactionEntry.transaction
+
+    val keysValidationOutcome = for {
+      keyInputs <- transaction.contractKeyInputs.left.map {
+        case DuplicateKeys(_) => Duplicate
+        case InconsistentKeys(_) => Inconsistent
+      }
+      _ <- keyInputs.toList.traverse_ { case (key, keyInput) =>
+        val submittedDamlContractKey = Conversions.encodeGlobalKey(key)
+        (contractKeysToContractIds.get(submittedDamlContractKey), keyInput) match {
+          case (Some(_), KeyCreate) => Left(Duplicate)
+          case (Some(_), NegativeKeyLookup) => Left(Inconsistent)
+          case (Some(cid), KeyActive(submitted)) =>
+            if (cid != submitted.coid)
+              Left(Inconsistent)
+            else
+              Right(())
+          case (None, KeyActive(_)) => Left(Inconsistent)
+          case (None, KeyCreate | NegativeKeyLookup) => Right(())
+        }
+      }
+    } yield ()
 
     keysValidationOutcome match {
       case Right(_) =>
@@ -112,90 +120,9 @@ private[transaction] object ContractKeysValidation {
     }
   }
 
-  private def checkNodeContractKey(
-      node: Node.GenActionNode[NodeId, ContractId],
-      contractKeysToContractIds: Map[DamlContractKey, RawContractId],
-      initialState: KeyValidationState,
-  ): KeyValidationStatus =
-    for {
-      stateAfterUniquenessCheck <- initialState.onActiveStateKeys(
-        checkNodeKeyUniqueness(
-          node,
-          _,
-        )
-      )
-      finalState <- stateAfterUniquenessCheck.onSubmittedContractKeysToContractIds(
-        checkNodeKeyConsistency(
-          contractKeysToContractIds,
-          node,
-          _,
-        )
-      )
-    } yield finalState
-
   private[keys] type RawContractId = String
 
-  private[keys] sealed trait KeyValidationError
+  private[keys] sealed trait KeyValidationError extends Product with Serializable
   private[keys] case object Duplicate extends KeyValidationError
   private[keys] case object Inconsistent extends KeyValidationError
-
-  /** The state used during key validation.
-    *
-    * @param activeStateKeys The currently active contract keys for uniqueness
-    *  checks starting with the keys active before the transaction.
-    * @param submittedContractKeysToContractIds Map of keys to their expected assignment at
-    *  the beginning of the transaction starting with an empty map.
-    *  E.g., a create (with nothing before) means the key must have been inactive
-    *  at the beginning.
-    */
-  private[keys] final class KeyValidationState private[ContractKeysValidation] (
-      private[keys] val activeStateKeys: Set[DamlStateKey],
-      private[keys] val submittedContractKeysToContractIds: KeyConsistencyValidation.State,
-  ) {
-
-    def onSubmittedContractKeysToContractIds(
-        f: KeyConsistencyValidation.State => KeyConsistencyValidation.Status
-    ): KeyValidationStatus =
-      f(submittedContractKeysToContractIds).map(newSubmitted =>
-        new KeyValidationState(
-          activeStateKeys = this.activeStateKeys,
-          submittedContractKeysToContractIds = newSubmitted,
-        )
-      )
-
-    def onActiveStateKeys(
-        f: Set[DamlStateKey] => Either[KeyValidationError, Set[DamlStateKey]]
-    ): KeyValidationStatus =
-      f(activeStateKeys).map(newActive =>
-        new KeyValidationState(
-          activeStateKeys = newActive,
-          submittedContractKeysToContractIds = this.submittedContractKeysToContractIds,
-        )
-      )
-  }
-
-  private[keys] object KeyValidationState {
-    def apply(activeStateKeys: Set[DamlStateKey]): KeyValidationState =
-      new KeyValidationState(activeStateKeys, Map.empty)
-
-    def apply(
-        submittedContractKeysToContractIds: Map[DamlContractKey, Option[
-          RawContractId
-        ]]
-    ): KeyValidationState =
-      new KeyValidationState(Set.empty, submittedContractKeysToContractIds)
-  }
-
-  private[keys] type KeyValidationStatus =
-    Either[KeyValidationError, KeyValidationState]
-
-  def onCurrentStatus[E, A](
-      statusStack: Either[E, List[A]]
-  )(f: A => Either[E, A]): Either[E, List[A]] =
-    for {
-      statusStack <- statusStack
-      status <- f(statusStack.head)
-    } yield {
-      status +: statusStack.tail
-    }
 }

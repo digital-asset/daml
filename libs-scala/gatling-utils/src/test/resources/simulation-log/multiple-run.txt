@@ -1,5 +1,0 @@
-ASSERTION	AAIBAAIFAAAAAAAAAAAA
-RUN	simulation.StandardTwoStepsSimulation	standardtwostepssimulation	1587679986754	, args: --ledger abc
-RUN	simulation.StandardTwoStepsSimulation	standardtwostepsslation	1587679986754	, args: --ledger def
-USER	two-steps.standard	1	START	1587679986860	1587679986860
-REQUEST	1		two-steps-sync	1587679987299	1587680007510	OK	ACK

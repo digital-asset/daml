@@ -5,7 +5,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 
--- | Constraint generator for DAML LF static verification
+-- | Constraint generator for Daml-LF static verification
 module DA.Daml.LF.Verify.Generate
   ( genPackages
   , genExpr

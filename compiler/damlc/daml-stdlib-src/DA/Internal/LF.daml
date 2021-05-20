@@ -64,7 +64,7 @@ data Party =
 -- Note that before Daml-LF 1.2 BEToText added single quotes around the party.
 -- now it does not, and the old behavior has been renamed BEPartyToQuotedText.
 -- Since we want this to work with both versions, keep the old behavior.
-instance Show Party where show = primitive @"BEPartyToQuotedText"
+instance Show Party where show party = "'" <> partyToText party <> "'"
 instance Eq Party where (==) = primitive @"BEEqual"
 instance Ord Party where
   (<) = primitive @"BELess"
@@ -98,7 +98,7 @@ partyToText = primitive @"BEToText"
 --
 -- This function will crash at runtime if you compile Daml to Daml-LF < 1.2.
 partyFromText : Text -> Optional Party
-partyFromText = primitive @"BEPartyFromText"
+partyFromText = primitive @"BETextToParty"
 
 -- | Get the party with the given name. Party names must be non-empty and only
 -- contain alphanumeric charaters, space, `-` (dash) or `_` (underscore).
@@ -146,8 +146,8 @@ instance Ord (ContractId a) where
   (>=) = primitive @"BEGreaterEq"
 #endif
 instance Show (ContractId a) where
-#ifdef DAML_TO_TEXT_CONTRACT_ID
-  show cid = case primitive @"BEToTextContractId" cid of
+#ifdef DAML_CONTRACT_ID_TO_TEXT
+  show cid = case primitive @"BEContractIdToText" cid of
     None -> "<contract-id>"
     Some t -> t
 #else

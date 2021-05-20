@@ -69,7 +69,7 @@ package object inner {
           case templateClass: ClassName => templateClass.nestedClass("ContractId")
           case typeVariableName: TypeVariableName =>
             ParameterizedTypeName.get(ClassName.get(classOf[ContractId[_]]), typeVariableName)
-          case unexpected => sys.error(s"Unexpected type [$unexpected] for DAML type [$damlType]")
+          case unexpected => sys.error(s"Unexpected type [$unexpected] for Daml type [$damlType]")
         }
       case TypePrim(PrimTypeList, typeParameters) =>
         ParameterizedTypeName
