@@ -6,7 +6,6 @@ package com.daml.platform.sandbox.config
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
-
 import ch.qos.logback.classic.Level
 import com.daml.caching.SizedCache
 import com.daml.ledger.api.auth.AuthService
@@ -17,6 +16,8 @@ import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguration, MetricsReporter}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
+
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 /** Defines the basic configuration for running sandbox
   */
@@ -36,6 +37,7 @@ final case class SandboxConfig(
     maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
     databaseConnectionPoolSize: Int,
+    databaseConnectionTimeout: FiniteDuration,
     eagerPackageLoading: Boolean,
     logLevel: Option[Level],
     authService: Option[AuthService],
@@ -59,6 +61,7 @@ object SandboxConfig {
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
   val DefaultDatabaseConnectionPoolSize: Int = 16
+  val DefaultDatabaseConnectionTimeout: FiniteDuration = 250.millis
 
   val DefaultEventsPageSize: Int = 1000
 
@@ -91,6 +94,7 @@ object SandboxConfig {
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,
       databaseConnectionPoolSize = DefaultDatabaseConnectionPoolSize,
+      databaseConnectionTimeout = DefaultDatabaseConnectionTimeout,
       eagerPackageLoading = false,
       logLevel = None, // the default is in logback.xml
       authService = None,

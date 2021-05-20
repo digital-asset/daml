@@ -226,6 +226,7 @@ class RecoveringIndexerIntegrationSpec
       serverRole = ServerRole.Testing(getClass),
       jdbcUrl = jdbcUrl,
       connectionPoolSize = 16,
+      connectionTimeout = 250.millis,
       eventsPageSize = 100,
       servicesExecutionContext = executionContext,
       metrics = new Metrics(new MetricRegistry),
