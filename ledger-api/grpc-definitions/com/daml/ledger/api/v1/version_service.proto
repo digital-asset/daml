@@ -22,6 +22,11 @@ message GetLedgerApiVersionRequest {
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string ledger_id = 1;
+
+  // Whether synchronous API-level errors include the error details as part of the error message string,
+  // as explained in `errors.proto`.
+  // Optional
+  bool error_details_in_message = 1001;
 }
 
 message GetLedgerApiVersionResponse {

@@ -49,6 +49,11 @@ message ListPackagesRequest {
   // This field is a future extension point and is currently not supported.
   // Optional
   TraceContext trace_context = 1000;
+
+  // Whether synchronous API-level errors include the error details as part of the error message string,
+  // as explained in `errors.proto`.
+  // Optional
+  bool error_details_in_message = 1001;
 }
 
 message ListPackagesResponse {
@@ -75,6 +80,11 @@ message GetPackageRequest {
   // This field is a future extension point and is currently not supported.
   // Optional
   TraceContext trace_context = 1000;
+
+  // Whether synchronous API-level errors include the error details as part of the error message string,
+  // as explained in `errors.proto`.
+  // Optional
+  bool error_details_in_message = 1001;
 }
 
 message GetPackageResponse {
@@ -109,6 +119,11 @@ message GetPackageStatusRequest {
   // This field is a future extension point and is currently not supported.
   // Optional
   TraceContext trace_context = 1000;
+
+  // Whether synchronous API-level errors include the error details as part of the error message string,
+  // as explained in `errors.proto`.
+  // Optional
+  bool error_details_in_message = 1001;
 }
 
 message GetPackageStatusResponse {

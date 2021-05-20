@@ -1,0 +1,28 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+// Rules on error reporting over the Ledger API
+//
+// 1. We use gRPC status codes to report synchronous success and failures
+//    coming from the underlying gRPC protocol and at the API level.
+//    Asynchronous API-level errors are reported over a completion stream like the command completion stream,
+//    which themselves include a `google.rpc.Status` message to indicate the status.
+//    The status code `OK` denotes success.
+//
+// 2. Error reporting includes relevant error details in the `details` field of the status message,
+//    following the gRPC rich error model as described at https://cloud.google.com/apis/design/errors#error_model.
+//    Error details use the `google.rpc.ErrorInfo` message defined at
+//    https://github.com/googleapis/googleapis/blob/master/google/rpc/error_details.proto#L112.
+//    Its `reason` field includes an error code.
+//    Further details on the error and information for subsequent API usage may be included in `metadata`
+//    The RPC documentation may document further metadata of the error that applications should
+//
+// 3. RPC requests can specify that the API-level error details of the RPC response shall be JSON-encoded in the error message
+//    instead of using the `details` field by setting the flag `error_details_in_message` in the RPC request message to `true`.
+//    If an application cannot read the error details from the trailers, e.g. because some middleware drops them,
+//    it can obtain the details by parsing the message. This flag does not affect the errors coming from the underlying gRPC protocol.
+//    Neither does this flag affect asynchronous errors reported as part of completions.

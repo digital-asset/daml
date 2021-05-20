@@ -47,7 +47,7 @@ service CommandSubmissionService {
   // - ``FAILED_PRECONDITION`` if there is another submission with a higher submission rank.
   // - ``ALREADY_EXISTS`` if there is a definite completion for the same deduplication key with at least the same submission rank
   //   or an earlier accepting completion that falls into the submission’s deduplication period.
-  // TODO keep these error codes in sync with the `CommandService`
+  // TODO(v2) keep these error codes in sync with the `CommandService`
   rpc Submit (SubmitRequest) returns (google.protobuf.Empty);
 
 }
@@ -63,4 +63,9 @@ message SubmitRequest {
   // This field is a future extension point and is currently not supported.
   // Optional
   TraceContext trace_context = 1000;
+
+  // Whether synchronous API-level errors include the error details as part of the error message string,
+  // as explained in `errors.proto`.
+  // Optional
+  bool error_details_in_message = 1001;
 }

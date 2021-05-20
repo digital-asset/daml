@@ -90,6 +90,10 @@ message SubmitAndWaitRequest {
   // Optional
   TraceContext trace_context = 1000;
 
+  // Whether synchronous API-level errors include the error details as part of the error message string,
+  // as explained in `errors.proto`.
+  // Optional
+  bool error_details_in_message = 1001;
 }
 
 // TODO(v2) How do we communicate this information when we actually want to return an error?
