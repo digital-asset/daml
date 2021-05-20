@@ -184,6 +184,7 @@ da_scala_test_suite(
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//ledger-service/cli-opts",
         "//ledger-service/http-json:http-json-ce",
         "//ledger-service/http-json-cli:ce",
         "//ledger-service/jwt",

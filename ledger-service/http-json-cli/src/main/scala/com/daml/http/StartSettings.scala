@@ -10,6 +10,7 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import scala.concurrent.duration.FiniteDuration
 
 import ch.qos.logback.classic.{Level => LogLevel}
+import com.daml.cliopts.Logging.LogEncoder
 
 // defined separately from Config so
 //  1. it is absolutely lexically apparent what `import startSettings._` means
@@ -31,6 +32,7 @@ trait StartSettings {
   val healthTimeoutSeconds: Int
   val nonRepudiation: nonrepudiation.Configuration.Cli
   val logLevel: Option[LogLevel]
+  val logEncoder: LogEncoder
 }
 
 object StartSettings {
