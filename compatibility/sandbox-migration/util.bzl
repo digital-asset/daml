@@ -21,9 +21,7 @@ def migration_test(name, versions, tags, **kwargs):
         name = "{}-append-only".format(name),
         srcs = ["//sandbox-migration:test.sh"],
         deps = ["@bazel_tools//tools/bash/runfiles"],
-        tags = [
-            "manual",  # Manual until data migration is implemented
-        ] + tags,
+        tags = tags,
         data = [
             "//sandbox-migration:sandbox-migration-runner",
             "//sandbox-migration:migration-model.dar",
