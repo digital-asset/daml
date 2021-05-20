@@ -9,7 +9,7 @@ import com.daml.lf.language.{LanguageVersion, Util}
 import com.daml.lf.speedy.SExpr.SDefinitionRef
 import com.daml.lf.speedy.{Compiler, SDefinition}
 
-/** Trait to abstract over a collection holding onto DAML-LF package definitions + the
+/** Trait to abstract over a collection holding onto Daml-LF package definitions + the
   * compiled speedy expressions.
   */
 private[lf] abstract class CompiledPackages(

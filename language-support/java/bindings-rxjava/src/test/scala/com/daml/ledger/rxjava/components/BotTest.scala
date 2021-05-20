@@ -453,8 +453,8 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
       * stream based on if it's fulfilled or not: if fulfilled, the last transaction will contain the same offset
       * of the ACS, otherwise it will contain an offset before it.
       *
-      * Note that the tests delays sending the ACS to the Bot in order to "guarantee" that the test is not green because
-      * or race conditions.
+      * Note that the tests delay sending the ACS to the Bot in order to "guarantee" that the test is not green because
+      * of race conditions.
       */
     val (wrongOffset, rightOffset) = ("0", "1")
 

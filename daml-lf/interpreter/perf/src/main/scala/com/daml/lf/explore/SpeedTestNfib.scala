@@ -16,7 +16,7 @@ object SpeedTestNfib extends App {
   val dar = s"daml-lf/interpreter/perf/${base}.dar"
   val darFile = new File(rlocation(dar))
 
-  println(s"Loading DAML function for: $base.$funcName");
+  println(s"Loading Daml function for: $base.$funcName");
 
   val nfib = LoadDarFunction.load(darFile, base, funcName)
 

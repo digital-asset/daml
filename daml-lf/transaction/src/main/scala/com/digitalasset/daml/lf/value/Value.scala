@@ -196,7 +196,7 @@ object Value extends CidContainer1[Value] {
     go
   }
 
-  /** the maximum nesting level for DAML-LF serializable values. we put this
+  /** the maximum nesting level for Daml-LF serializable values. we put this
     * limitation to be able to reliably implement stack safe programs with it.
     * right now it's 100 to be conservative -- it's in the same order of magnitude
     * as the default maximum nesting value of protobuf.
@@ -255,7 +255,7 @@ object Value extends CidContainer1[Value] {
 
   final case class ValueContractId[+Cid](value: Cid) extends Value[Cid]
 
-  /** DAML-LF lists are basically linked lists. However we use FrontQueue since we store list-literals in the DAML-LF
+  /** Daml-LF lists are basically linked lists. However we use FrontQueue since we store list-literals in the Daml-LF
     * packages and FrontQueue lets prepend chunks rather than only one element.
     */
   final case class ValueList[+Cid](values: FrontStack[Value[Cid]]) extends Value[Cid]

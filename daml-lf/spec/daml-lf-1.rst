@@ -3335,7 +3335,7 @@ evaluated during the interpretation of an update.
 Built-in functions
 ^^^^^^^^^^^^^^^^^^
 
-This section lists the built-in functions supported by Daml LF 1.
+This section lists the built-in functions supported by Daml-LF 1.
 The functions come with their types and a description of their
 behavior.
 

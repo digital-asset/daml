@@ -261,7 +261,7 @@ generateRawDalfRule =
                     PackageMap pkgMap <- use_ GeneratePackageMap file
                     stablePkgs <- useNoFile_ GenerateStablePackages
                     DamlEnv{envIsGenerated} <- getDamlServiceEnv
-                    -- GHC Core to DAML LF
+                    -- GHC Core to Daml-LF
                     case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core details of
                         Left e -> return ([e], Nothing)
                         Right v -> do

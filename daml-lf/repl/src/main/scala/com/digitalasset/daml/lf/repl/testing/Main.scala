@@ -78,7 +78,7 @@ object Main extends App {
   }
 }
 
-// The DAML-LF Read-Eval-Print-Loop
+// The Daml-LF Read-Eval-Print-Loop
 object Repl {
 
   val defaultCompilerConfig: Compiler.Config =
@@ -104,7 +104,7 @@ object Repl {
   def repl(state0: State): Unit = {
     var state = state0
     state.history.load
-    println("DAML-LF -- REPL")
+    println("Daml-LF -- REPL")
     try {
       while (!state.quit) {
         val line = state.reader.readLine("daml> ")
@@ -395,7 +395,7 @@ object Repl {
     result -> Duration.fromNanos(endTime - startTime).toMillis
   }
 
-  // Load DAML-LF packages from a set of files.
+  // Load Daml-LF packages from a set of files.
   def load(
       compilerConfig: Compiler.Config,
       darFile: String,
@@ -670,7 +670,7 @@ object Repl {
       }
       .mkString("\n")
     println(s"""
-      |DAML-LF Read-Eval-Print-Loop. Supported commands:
+      |Daml-LF Read-Eval-Print-Loop. Supported commands:
       |
       $cmds
       | <function> <args>...      call the given pure function with given arguments.

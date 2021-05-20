@@ -70,7 +70,7 @@ data Options = Options
   , optThreads :: Int
     -- ^ number of threads to use
   , optDamlLfVersion :: LF.Version
-    -- ^ The target DAML LF version
+    -- ^ The target Daml-LF version
   , optDebug :: Bool
     -- ^ Whether to enable debugging output
   , optGhcCustomOpts :: [String]

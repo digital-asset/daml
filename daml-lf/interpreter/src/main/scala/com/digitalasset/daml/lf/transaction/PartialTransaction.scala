@@ -520,7 +520,7 @@ private[lf] case class PartialTransaction(
           copy(
             nextNodeIdx = nextNodeIdx + 1,
             context = Context(ec, BackStack.empty, 0),
-            // important: the semantics of DAML dictate that contracts are immediately
+            // important: the semantics of Daml dictate that contracts are immediately
             // inactive as soon as you exercise it. therefore, mark it as consumed now.
             consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
             keys = mbKey match {

@@ -8,7 +8,7 @@ Daml-LF Transaction Specification
 **version 13, 06 April 2021**
 
 This specification, in concert with the ``transaction.proto``
-machine-readable definition, defines a format for *Daml LF
+machine-readable definition, defines a format for *Daml-LF
 transactions*, to be used when inspecting ledger activity as a st
 ream, or submitting changes to the ledger.
 

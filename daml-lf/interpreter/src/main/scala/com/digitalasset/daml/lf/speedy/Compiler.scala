@@ -142,9 +142,9 @@ private[lf] final class Compiler(
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
   private[this] abstract class VarRef { def name: Name }
-  // corresponds to DAML-LF expression variable.
+  // corresponds to Daml-LF expression variable.
   private[this] case class EVarRef(name: ExprVarName) extends VarRef
-  // corresponds to DAML-LF type variable.
+  // corresponds to Daml-LF type variable.
   private[this] case class TVarRef(name: TypeVarName) extends VarRef
 
   case class Position(idx: Int)
