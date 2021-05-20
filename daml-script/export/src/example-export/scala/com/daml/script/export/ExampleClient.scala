@@ -129,7 +129,7 @@ object ExampleClient {
     try {
       reader
         .getLines()
-        .map { x => x.replaceFirst(outputPath.toString, "EXPORT_OUT") }
+        .map { x => x.replace(outputPath.toString, "EXPORT_OUT") }
         .foreach(x => writer.println(x))
     } finally {
       reader.close()
