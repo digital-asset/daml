@@ -18,6 +18,8 @@ private[logging] object LeveledLogger {
       logger.trace(m, msg, t)
     override protected def log(fmt: String, arg: AnyRef): Unit =
       logger.trace(fmt, arg)
+    override protected def log(m: Marker, msg: String): Unit =
+      logger.trace(m, msg)
   }
 
   final class Debug(logger: Logger) extends LeveledLogger {
@@ -31,6 +33,8 @@ private[logging] object LeveledLogger {
       logger.debug(m, msg, t)
     override protected def log(fmt: String, arg: AnyRef): Unit =
       logger.debug(fmt, arg)
+    override protected def log(m: Marker, msg: String): Unit =
+      logger.debug(m, msg)
   }
 
   final class Info(logger: Logger) extends LeveledLogger {
@@ -44,6 +48,8 @@ private[logging] object LeveledLogger {
       logger.info(m, msg, t)
     override protected def log(fmt: String, arg: AnyRef): Unit =
       logger.info(fmt, arg)
+    override protected def log(m: Marker, msg: String): Unit =
+      logger.info(m, msg)
   }
 
   final class Warn(logger: Logger) extends LeveledLogger {
@@ -57,6 +63,8 @@ private[logging] object LeveledLogger {
       logger.warn(m, msg, t)
     override protected def log(fmt: String, arg: AnyRef): Unit =
       logger.warn(fmt, arg)
+    override protected def log(m: Marker, msg: String): Unit =
+      logger.warn(m, msg)
   }
 
   final class Error(logger: Logger) extends LeveledLogger {
@@ -70,6 +78,8 @@ private[logging] object LeveledLogger {
       logger.error(m, msg, t)
     override protected def log(fmt: String, arg: AnyRef): Unit =
       logger.error(fmt, arg)
+    override protected def log(m: Marker, msg: String): Unit =
+      logger.error(m, msg)
   }
 
 }
@@ -82,13 +92,14 @@ private[logging] sealed abstract class LeveledLogger {
   protected def log(msg: String, t: Throwable): Unit
   protected def log(m: Marker, msg: String, t: Throwable): Unit
   protected def log(fmt: String, arg: AnyRef): Unit
+  protected def log(m: Marker, msg: String): Unit
 
   final def apply(msg: => String)(implicit loggingContext: LoggingContext): Unit =
     if (isEnabled)
-      loggingContext.ifEmpty(log(msg))(log(s"$msg (context: {})", _))
+      loggingContext.ifEmpty(log(msg))(log(_, msg))
 
   final def apply(msg: => String, t: Throwable)(implicit loggingContext: LoggingContext): Unit =
     if (isEnabled)
-      loggingContext.ifEmpty(log(msg, t))(c => log(c, s"$msg (context: $c)", t))
+      loggingContext.ifEmpty(log(msg, t))(c => log(c, msg, t))
 
 }

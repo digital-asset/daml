@@ -193,7 +193,7 @@ class CommonCli(name: LedgerName) {
         .text("This flag is deprecated -- please use --sql-backend-jdbcurl.")
         .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
-      com.daml.cliopts.Logging.loggingLevelParse(this)((f, c) => c.copy(logLevel = f(c.logLevel)))
+      com.daml.cliopts.Logging.logLevelParse(this)((f, c) => c.copy(logLevel = f(c.logLevel)))
 
       opt[Unit]("eager-package-loading")
         .optional()

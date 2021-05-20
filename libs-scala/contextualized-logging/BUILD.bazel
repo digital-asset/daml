@@ -36,6 +36,7 @@ da_scala_library(
 da_scala_test_suite(
     name = "contextualized-logging-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
+    resources = glob(["src/test/suite/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",

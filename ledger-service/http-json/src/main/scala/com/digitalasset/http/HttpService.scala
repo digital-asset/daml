@@ -48,6 +48,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 import ch.qos.logback.classic.{Level => LogLevel}
+import com.daml.cliopts.Logging.LogEncoder
 
 object HttpService {
 
@@ -83,6 +84,7 @@ object HttpService {
     val maxInboundMessageSize: Int
     val healthTimeoutSeconds: Int
     val logLevel: Option[LogLevel]
+    val logEncoder: LogEncoder
   }
 
   trait DefaultStartSettings extends StartSettings {

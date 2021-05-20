@@ -47,6 +47,7 @@ da_scala_library(
         "//bazel_tools/runfiles:scala_runfiles",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
         "//ledger-service/http-json",
         "//ledger-service/jwt",
         "//ledger-service/utils",
