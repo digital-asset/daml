@@ -144,6 +144,7 @@ da_scala_binary(
         "//language-support/scala/bindings-akka",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+        "//libs-scala/fs-utils",
     ],
 )
 

@@ -4,9 +4,10 @@
 package com.daml.script.export
 
 import java.io.{File, PrintWriter}
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 import java.time.Duration
 
+import com.daml.fs.Utils.deleteRecursively
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script.{RunnerConfig, RunnerMain}
 
@@ -15,7 +16,9 @@ import scala.io.Source
 case class ExampleClientConfig(
     darPath: File,
     targetPort: Int,
-    outputPath: Path,
+    outputExportDaml: Path,
+    outputArgsJson: Path,
+    outputDamlYaml: Path,
 )
 
 object ExampleClientConfig {
@@ -25,32 +28,26 @@ object ExampleClientConfig {
       ExampleClientConfig(
         darPath = null,
         targetPort = -1,
-        outputPath = null,
+        outputExportDaml = null,
+        outputArgsJson = null,
+        outputDamlYaml = null,
       ),
     )
 
   private def parseExportOut(
       envVar: String
   ): Either[String, ExampleClientConfig => ExampleClientConfig] = {
-    if (envVar.isEmpty) Left("Environment variable EXPORT_OUT must not be empty")
-    else
-      envVar.split(" ").map(s => Paths.get(s)) match {
-        case Array(export_daml, args_json, daml_yaml) =>
-          if (export_daml.getParent == null) {
-            Left("First component in environment variable EXPORT_OUT has no parent")
-          } else if (export_daml.getParent != args_json.getParent) {
-            Left(
-              "First and second component in environment variable EXPORT_OUT have different parent"
-            )
-          } else if (export_daml.getParent != daml_yaml.getParent) {
-            Left(
-              "First and third component in environment variable EXPORT_OUT have different parent"
-            )
-          } else {
-            Right(c => c.copy(outputPath = export_daml.getParent))
-          }
-        case _ => Left("Environment variable EXPORT_OUT must contain three paths")
-      }
+    envVar.split(" ").map(s => Paths.get(s)) match {
+      case Array(export_daml, args_json, daml_yaml) =>
+        Right(c =>
+          c.copy(
+            outputExportDaml = export_daml,
+            outputArgsJson = args_json,
+            outputDamlYaml = daml_yaml,
+          )
+        )
+      case _ => Left("Environment variable EXPORT_OUT must contain three paths")
+    }
   }
 
   private val parser = new scopt.OptionParser[ExampleClientConfig]("script-export") {
@@ -104,20 +101,25 @@ object ExampleClient {
         applicationId = None,
       )
     )
-    Main.main(
-      Config.Empty.copy(
-        ledgerHost = "localhost",
-        ledgerPort = clientConfig.targetPort,
-        parties = Seq("Alice", "Bob"),
-        exportType = Some(
-          Config.EmptyExportScript.copy(
-            sdkVersion = "0.0.0",
-            outputPath = clientConfig.outputPath,
-          )
-        ),
+    withTemporaryDirectory { outputPath =>
+      Main.main(
+        Config.Empty.copy(
+          ledgerHost = "localhost",
+          ledgerPort = clientConfig.targetPort,
+          parties = Seq("Alice", "Bob"),
+          exportType = Some(
+            Config.EmptyExportScript.copy(
+              sdkVersion = "0.0.0",
+              outputPath = outputPath,
+            )
+          ),
+        )
       )
-    )
-    normalizeDataDependencies(clientConfig.outputPath, clientConfig.outputPath.resolve("daml.yaml"))
+      normalizeDataDependencies(outputPath, outputPath.resolve("daml.yaml"))
+      moveFile(outputPath.resolve("Export.daml").toFile, clientConfig.outputExportDaml.toFile)
+      moveFile(outputPath.resolve("args.json").toFile, clientConfig.outputArgsJson.toFile)
+      moveFile(outputPath.resolve("daml.yaml").toFile, clientConfig.outputDamlYaml.toFile)
+    }
   }
 
   private def normalizeDataDependencies(outputPath: Path, damlYaml: Path): Unit = {
@@ -129,8 +131,25 @@ object ExampleClient {
       .map { x => x.replaceFirst(outputPath.toString, "EXPORT_OUT") }
       .foreach(x => w.println(x))
     w.close()
-    if (!tmpFile.renameTo(damlYaml.toFile)) {
-      throw new RuntimeException(s"Failed to normalize daml.yaml file: $damlYaml")
+    moveFile(tmpFile, damlYaml.toFile)
+  }
+
+  private def moveFile(src: File, dst: File): Unit = {
+    if (!dst.getParentFile.exists()) {
+      if (!dst.getParentFile.mkdirs())
+        throw new RuntimeException(
+          s"Failed to move $src to $dst. Could not create parent directory ${dst.getParent}."
+        )
+    }
+    val _ = Files.move(src.toPath, dst.toPath, StandardCopyOption.REPLACE_EXISTING)
+  }
+
+  private def withTemporaryDirectory(f: Path => Unit): Unit = {
+    val tmpDir = Files.createTempDirectory("daml-ledger-export")
+    try {
+      f(tmpDir)
+    } finally {
+      deleteRecursively(tmpDir)
     }
   }
 }
