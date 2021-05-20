@@ -359,7 +359,7 @@ object Config {
         opt[Long]("max-lf-value-translation-cache-entries")
           .optional()
           .text(
-            s"The maximum size of the cache used to deserialize DAML-LF values, in number of allowed entries. By default, nothing is cached."
+            s"The maximum size of the cache used to deserialize Daml-LF values, in number of allowed entries. By default, nothing is cached."
           )
           .action((maximumLfValueTranslationCacheEntries, config) =>
             config.copy(

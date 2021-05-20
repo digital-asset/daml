@@ -27,12 +27,12 @@ import com.daml.metrics.Metrics
   * It is parametrized by the committer's partial result `PartialResult`.
   *
   * A committer implementation defines an initial partial result with init and `steps` to process the submission
-  * into a set of DAML state outputs and a log entry. The main rationale behind this abstraction is to provide uniform
-  * approach to implementing a kvutils committer that shares the handling of input and output DAML state, rejecting
+  * into a set of Daml state outputs and a log entry. The main rationale behind this abstraction is to provide uniform
+  * approach to implementing a kvutils committer that shares the handling of input and output Daml state, rejecting
   * a submission, logging and metrics.
   *
   * Each step is invoked with [[CommitContext]], that allows it to [[CommitContext.get]] and [[CommitContext.set]]
-  * DAML state, and the partial result from previous step.
+  * Daml state, and the partial result from previous step.
   * When processing a submission for pre-execution, a committer produces the following set of results:
   *   - a set of output states and a log entry to be applied in case of no conflicts and/or time-out,
   *   - a record time window within which the submission is considered valid and a deduplication

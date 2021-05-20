@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.v1.{CommittedTransaction, RejectionReas
   * This is intended exclusively as a temporary replacement for
   * [[com.daml.platform.store.ActiveLedgerState]] and [[com.daml.platform.store.ActiveLedgerStateManager]]
   * so that the old post-commit validation backed by the old participant schema can be
-  * dropped and the DAML-on-X-backed implementation of the Sandbox can skip it entirely.
+  * dropped and the Daml-on-X-backed implementation of the Sandbox can skip it entirely.
   *
   * Post-commit validation is relevant for three reasons:
   * - keys can be referenced by two concurrent interpretations, potentially leading to

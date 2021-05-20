@@ -227,7 +227,7 @@ final class LfValueTranslation(
       loggingContext: LoggingContext,
   ): Future[CreatedEvent] = {
     // Load the deserialized contract argument and contract key from the cache
-    // This returns the values in DAML-LF format.
+    // This returns the values in Daml-LF format.
     val create =
       cache.events
         .getIfPresent(eventKey(raw.partial.eventId))
@@ -241,8 +241,8 @@ final class LfValueTranslation(
 
     lazy val templateId: LfIdentifier = apiIdentifierToDamlLfIdentifier(raw.partial.templateId.get)
 
-    // Convert DAML-LF values to ledger API values.
-    // In verbose mode, this involves loading DAML-LF packages and filling in missing type information.
+    // Convert Daml-LF values to ledger API values.
+    // In verbose mode, this involves loading Daml-LF packages and filling in missing type information.
     for {
       createArguments <- toApiRecord(
         value = create.argument,
@@ -276,7 +276,7 @@ final class LfValueTranslation(
       loggingContext: LoggingContext,
   ): Future[ExercisedEvent] = {
     // Load the deserialized choice argument and choice result from the cache
-    // This returns the values in DAML-LF format.
+    // This returns the values in Daml-LF format.
     val exercise =
       cache.events
         .getIfPresent(eventKey(raw.partial.eventId))
@@ -293,8 +293,8 @@ final class LfValueTranslation(
     lazy val templateId: LfIdentifier = apiIdentifierToDamlLfIdentifier(raw.partial.templateId.get)
     lazy val choiceName: LfChoiceName = LfChoiceName.assertFromString(raw.partial.choice)
 
-    // Convert DAML-LF values to ledger API values.
-    // In verbose mode, this involves loading DAML-LF packages and filling in missing type information.
+    // Convert Daml-LF values to ledger API values.
+    // In verbose mode, this involves loading Daml-LF packages and filling in missing type information.
     for {
       choiceArgument <- toApiValue(
         value = exercise.argument,

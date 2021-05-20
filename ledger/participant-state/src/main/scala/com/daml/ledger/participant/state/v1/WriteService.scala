@@ -22,7 +22,7 @@ import com.daml.telemetry.TelemetryContext
   * plans to make this functionality uniformly available: see the roadmap for
   * progress information https://github.com/digital-asset/daml/issues/121.
   *
-  * As of now there are four methods for changing the state of a DAML ledger:
+  * As of now there are four methods for changing the state of a Daml ledger:
   * - submitting a transaction using [[WriteService!.submitTransaction]]
   * - allocating a new party using [[WritePartyService!.allocateParty]]
   * - uploading a new package using [[WritePackagesService!.uploadPackages]]
@@ -57,7 +57,7 @@ trait WriteService
     * A note on ledger effective time and record time: transactions are
     * submitted together with a `ledgerEffectiveTime` provided as part of the
     * `transactionMeta` information. The ledger-effective time is used by the
-    * DAML Engine to resolve calls to the `getTime :: Update Time`
+    * Daml Engine to resolve calls to the `getTime :: Update Time`
     * function. Letting the submitter freely choose the ledger-effective time
     * is though a problem for the other stakeholders in the contracts affected
     * by the submitted transaction. The submitter can in principle choose to

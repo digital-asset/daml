@@ -41,15 +41,15 @@ class KeyValueCommitting private[daml] (
 
   def this(engine: Engine, metrics: Metrics) = this(engine, metrics, false)
 
-  /** Processes a DAML submission, given the allocated log entry id, the submission and its resolved inputs.
-    * Produces the log entry to be committed, and DAML state updates.
+  /** Processes a Daml submission, given the allocated log entry id, the submission and its resolved inputs.
+    * Produces the log entry to be committed, and Daml state updates.
     *
     * The caller is expected to resolve the inputs declared in [[DamlSubmission]] prior
     * to calling this method, e.g. by reading [[DamlSubmission!.getInputEntriesList]] and
     * [[DamlSubmission!.getInputStateList]]
     *
     * The caller is expected to store the produced [[DamlLogEntry]] in key-value store at a location
-    * that can be accessed through `entryId`. The DAML state updates may create new entries or update
+    * that can be accessed through `entryId`. The Daml state updates may create new entries or update
     * existing entries in the key-value store.
     *
     * @param entryId: Log entry id to which this submission is committed.
@@ -65,7 +65,7 @@ class KeyValueCommitting private[daml] (
     *   to verify that an input actually does not exist and was not just included in inputs.
     *   For example when committing a configuration we need the current configuration to authorize
     *   the submission.
-    * @return Log entry to be committed and the DAML state updates to be applied.
+    * @return Log entry to be committed and the Daml state updates to be applied.
     */
   @throws(classOf[Err])
   def processSubmission(
@@ -166,7 +166,7 @@ object KeyValueCommitting {
       maximumRecordTime: Option[Timestamp],
   )
 
-  /** Compute the submission outputs, that is the DAML State Keys created or updated by
+  /** Compute the submission outputs, that is the Daml State Keys created or updated by
     * the processing of the submission.
     */
   def submissionOutputs(submission: DamlSubmission): Set[DamlStateKey] = {

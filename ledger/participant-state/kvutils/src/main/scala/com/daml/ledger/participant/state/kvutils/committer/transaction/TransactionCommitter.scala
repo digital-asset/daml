@@ -251,7 +251,7 @@ private[kvutils] class TransactionCommitter(
     }
   }
 
-  /** Validate the submission's conformance to the DAML model */
+  /** Validate the submission's conformance to the Daml model */
   private def validateModelConformance: Step = new Step {
     def apply(
         commitContext: CommitContext,
@@ -360,7 +360,7 @@ private[kvutils] class TransactionCommitter(
     }
   }
 
-  /** Validate the submission's conformance to the DAML model */
+  /** Validate the submission's conformance to the Daml model */
   private[transaction] def blind: Step = new Step {
     def apply(
         commitContext: CommitContext,
@@ -635,7 +635,7 @@ private[kvutils] class TransactionCommitter(
 
   // Helper to lookup package from the state. The package contents
   // are stored in the [[DamlLogEntry]], which we find by looking up
-  // the DAML state entry at `DamlStateKey(packageId = pkgId)`.
+  // the Daml state entry at `DamlStateKey(packageId = pkgId)`.
   private def lookupPackage(
       commitContext: CommitContext
   )(pkgId: PackageId)(implicit loggingContext: LoggingContext): Option[Ast.Package] =
@@ -661,7 +661,7 @@ private[kvutils] class TransactionCommitter(
             }
 
           case _ =>
-            val msg = "value is not a DAML-LF archive"
+            val msg = "value is not a Daml-LF archive"
             logger.warn(s"Package lookup failed, $msg.")
             throw Err.DecodeError("Archive", msg)
         }

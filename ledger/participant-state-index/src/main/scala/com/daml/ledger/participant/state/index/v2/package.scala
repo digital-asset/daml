@@ -42,8 +42,8 @@ package v2 {
     *
     * @param submitter: the party that submitted the change.
     *
-    * @param applicationId: an identifier for the DAML application that
-    *   submitted the command. This is used for monitoring and to allow DAML
+    * @param applicationId: an identifier for the Daml application that
+    *   submitted the command. This is used for monitoring and to allow Daml
     *   applications subscribe to their own submissions only.
     *
     * @param commandId: a submitter provided identifier that he can use to
@@ -60,7 +60,7 @@ package v2 {
     * the transaction.
     *
     * @param transactionId: identifier of the transaction for looking it up
-    *   over the DAML Ledger API.
+    *   over the Daml Ledger API.
     *
     *   Implementors are free to make it equal to the 'offset' of this event.
     *
@@ -68,7 +68,7 @@ package v2 {
     *
     * @param ledgerEffectiveTime: the submitter-provided time at which the
     *   transaction should be interpreted. This is the time returned by the
-    *   DAML interpreter on a `getTime :: Update Time` call.
+    *   Daml interpreter on a `getTime :: Update Time` call.
     *
     * @param recordTime:
     *   The time at which this event was recorded. Depending on the
@@ -76,7 +76,7 @@ package v2 {
     *   to the whole ledger.
     *
     * @param workflowId: a submitter-provided identifier used for monitoring
-    *   and to traffic-shape the work handled by DAML applications
+    *   and to traffic-shape the work handled by Daml applications
     *   communicating over the ledger. Meant to used in a coordinated
     *   fashion by all parties participating in the workflow.
     */
@@ -90,7 +90,7 @@ package v2 {
 
   final case class LedgerConfiguration(maxDeduplicationTime: Duration)
 
-  /** Meta-data of a DAML-LF package
+  /** Meta-data of a Daml-LF package
     *
     * @param size              : The size of the archive payload, in bytes.
     *

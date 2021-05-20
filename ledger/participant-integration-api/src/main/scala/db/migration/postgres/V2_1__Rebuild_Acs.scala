@@ -275,8 +275,8 @@ private[migration] class V2_1__Rebuild_Acs extends BaseJavaMigration {
       |on conflict on constraint contract_divulgences_idx
       |do nothing""".stripMargin
 
-  /** Updates the active contract set from the given DAML transaction.
-    * Note: This involves checking the validity of the given DAML transaction.
+  /** Updates the active contract set from the given Daml transaction.
+    * Note: This involves checking the validity of the given Daml transaction.
     * Invalid transactions trigger a rollback of the current SQL transaction.
     */
   private def updateActiveContractSet(

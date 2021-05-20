@@ -423,8 +423,8 @@ final class SandboxServer(
       )
       if (config.scenario.nonEmpty) {
         logger.withoutContext.warn(
-          """|Initializing a ledger with scenarios is deprecated and will be removed in the future. You are advised to use DAML Script instead. Using scenarios in DAML Studio will continue to work as expected.
-             |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin
+          """|Initializing a ledger with scenarios is deprecated and will be removed in the future. You are advised to use Daml Script instead. Using scenarios in Daml Studio will continue to work as expected.
+             |A migration guide for converting your scenarios to Daml Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin
         )
       }
       if (config.engineMode == SandboxConfig.EngineMode.EarlyAccess) {

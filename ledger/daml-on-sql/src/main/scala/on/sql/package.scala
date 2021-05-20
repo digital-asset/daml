@@ -10,7 +10,7 @@ import scalaz.syntax.tag._
 
 package object sql {
 
-  private[sql] val Name = LedgerName("DAML-on-SQL")
+  private[sql] val Name = LedgerName("Daml-on-SQL")
 
   private[sql] val DefaultConfig = SandboxConfig.defaultConfig.copy(
     participantId = v1.ParticipantId.assertFromString(Name.unwrap.toLowerCase()),
