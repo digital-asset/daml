@@ -371,7 +371,7 @@ object Hash {
       .addStringSet(parties)
       .build
 
-  // For DAML-on-Corda to ensure the hashing is performed in a way that will work with upgrades.
+  // For Daml-on-Corda to ensure the hashing is performed in a way that will work with upgrades.
   def deriveMaintainerContractKeyUUID(
       keyHash: Hash,
       maintainer: Ref.Party,

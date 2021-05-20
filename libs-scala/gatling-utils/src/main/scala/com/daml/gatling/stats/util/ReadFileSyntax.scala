@@ -3,20 +3,20 @@
 
 package com.daml.gatling.stats.util
 
-import java.io.File
+import java.nio.file.Path
 
 import scalaz.\/
 
 import scala.io.{BufferedSource, Source}
 
 object ReadFileSyntax {
-  implicit class FileSourceOps(val path: File) extends AnyVal {
+  implicit class PathSourceOps(val path: Path) extends AnyVal {
     def contentsAsString: Throwable \/ String =
       withSource(_.mkString)
 
     def withSource(f: BufferedSource => String): Throwable \/ String =
       \/.fromTryCatchNonFatal {
-        val source = Source.fromFile(path)
+        val source = Source.fromFile(path.toFile)
         try f(source)
         finally source.close()
       }

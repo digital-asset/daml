@@ -61,7 +61,7 @@ private[codegen] object JavaBackend extends Backend with StrictLogging {
     val prefixes = packagePrefixes.view.mapValues(_.stripSuffix(".")).toMap
     nodeWithContext match {
       case moduleWithContext: ModuleWithContext if moduleWithContext.module.types.nonEmpty =>
-        // this is a DAML module that contains type declarations => the codegen will create one file
+        // this is a Daml module that contains type declarations => the codegen will create one file
         Future {
           logger.info(
             s"Generating code for module ${moduleWithContext.lineage.map(_._1).toSeq.mkString(".")}"

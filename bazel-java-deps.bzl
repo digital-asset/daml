@@ -11,20 +11,18 @@ load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
 
 version_specific = {
     "2.12": [
-        # Gatling does not cross-build so this is limited to Scala 2.12. Newer
-        # versions of Gatling still don’t cross-build but they build against Scala 2.13
-        # instead so we’ll have to switch over at that point.
-        "io.gatling:gatling-app:3.3.1",
-        "io.gatling:gatling-core:3.3.1",
-        "io.gatling:gatling-commons:3.3.1",
-        "io.gatling:gatling-recorder:3.3.1",
-        "io.gatling:gatling-charts:3.3.1",
-        "io.gatling.highcharts:gatling-highcharts:3.3.1",
-        "io.gatling:gatling-http:3.3.1",
-        "io.gatling:gatling-http-client:3.3.1",
     ],
     "2.13": [
         "org.scala-lang.modules:scala-parallel-collections_2.13:1.0.0",
+        # Gatling does not cross-build so this is limited to Scala 2.13.
+        "io.gatling:gatling-app:3.5.1",
+        "io.gatling:gatling-core:3.5.1",
+        "io.gatling:gatling-commons:3.5.1",
+        "io.gatling:gatling-recorder:3.5.1",
+        "io.gatling:gatling-charts:3.5.1",
+        "io.gatling.highcharts:gatling-charts-highcharts:3.5.1",
+        "io.gatling:gatling-http:3.5.1",
+        "io.gatling:gatling-http-client:3.5.1",
     ],
 }
 

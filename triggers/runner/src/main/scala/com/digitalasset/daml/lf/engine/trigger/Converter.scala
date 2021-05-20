@@ -44,7 +44,7 @@ case class Converter(
     toRegisteredTemplates: SValue => Either[String, Seq[Identifier]],
 )
 
-// Helper to create identifiers pointing to the DAML.Trigger module
+// Helper to create identifiers pointing to the Daml.Trigger module
 case class TriggerIds(val triggerPackageId: PackageId) {
   def damlTrigger(s: String) =
     Identifier(
@@ -371,7 +371,7 @@ object Converter {
   private[this] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
     v match {
       case SRecord(_, _, JavaList(SAny(TTyCon(tycon), value), _)) =>
-        // This exploits the fact that in DAML, choice argument type names
+        // This exploits the fact that in Daml, choice argument type names
         // and choice names match up.
         ChoiceName.fromString(tycon.qualifiedName.name.toString).map(AnyChoice(_, value))
       case _ =>

@@ -5,29 +5,20 @@ package com.daml.telemetry
 
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.context.Context
+import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
-import org.scalatest.{Assertion, BeforeAndAfterEach}
+import org.scalatest.wordspec.AnyWordSpec
 
 /** Other cases are covered by [[TelemetrySpec]] */
-class TelemetryContextSpec
-    extends TelemetrySpecBase
-    with AnyWordSpecLike
-    with Matchers
-    with BeforeAndAfterEach {
-
-  override protected def afterEach(): Unit = spanExporter.reset()
+class TelemetryContextSpec extends AnyWordSpec with TelemetrySpecBase with Matchers {
 
   "DefaultTelemetryContext.runInOpenTelemetryScope" should {
     "run a body and create a current context with a span" in {
-      val tracer = tracerProvider.get(anInstrumentationName)
-      val span = tracer
-        .spanBuilder(aSpanName)
-        .setAttribute(
-          anApplicationIdSpanAttribute._1.key,
-          anApplicationIdSpanAttribute._2,
-        )
-        .startSpan()
+      val span = anEmptySpan()
+      span.setAttribute(
+        anApplicationIdSpanAttribute._1.key,
+        anApplicationIdSpanAttribute._2,
+      )
 
       runInOpenTelemetryScopeAndAssert(DefaultTelemetryContext(tracer, span))
 
@@ -36,10 +27,7 @@ class TelemetryContextSpec
     }
 
     "return a raw Open Telemetry context" in {
-      val tracer = tracerProvider.get(anInstrumentationName)
-      val span = tracer
-        .spanBuilder(aSpanName)
-        .startSpan()
+      val span = anEmptySpan()
 
       val openTelemetryContext = DefaultTelemetryContext(tracer, span).openTelemetryContext
 
@@ -49,7 +37,6 @@ class TelemetryContextSpec
 
   "RootDefaultTelemetryContext.runInOpenTelemetryScope" should {
     "run a body" in {
-      val tracer = tracerProvider.get(anInstrumentationName)
       runInOpenTelemetryScopeAndAssert(RootDefaultTelemetryContext(tracer))
     }
   }

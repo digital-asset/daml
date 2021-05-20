@@ -83,7 +83,7 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
         forEvery(decimals) { a =>
           forEvery(decimals) { b =>
             val actualResult = eval(
-              e"$builtin (TO_BIGNUMERIC_NUMERIC @10 ${s(10, a)}) (TO_BIGNUMERIC_NUMERIC @10 ${s(10, b)})"
+              e"$builtin (NUMERIC_TO_BIGNUMERIC @10 ${s(10, a)}) (NUMERIC_TO_BIGNUMERIC @10 ${s(10, b)})"
             )
 
             actualResult.toOption shouldBe ref(n(10, a), n(10, b))
@@ -92,7 +92,7 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
       }
     }
 
-    "TO_TEXT_BIGNUMERIC" - {
+    "BIGNUMERIC_TO_TEXT" - {
       "return proper result" in {
         val testCases = Table(
           "expression" -> "regex",
@@ -107,7 +107,7 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
 
         forEvery(testCases) { (exp, regexp) =>
           val p = regexp.r.pattern
-          inside(eval(e"TO_TEXT_BIGNUMERIC $exp")) {
+          inside(eval(e"BIGNUMERIC_TO_TEXT $exp")) {
             case Right(SText(x)) if p.matcher(x).find() =>
           }
         }
@@ -145,16 +145,16 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
 
         val testCases = Table(
           "arguments" -> "success",
-          s"(SHIFT_BIGNUMERIC ${MinScale} BigNumeric:one) BigNumeric:one" -> true,
-          s"(SHIFT_BIGNUMERIC ${MinScale} BigNumeric:one) BigNumeric:ten" -> false,
-          s"(SHIFT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one) (SHIFT_BIGNUMERIC ${MinScale / 2} BigNumeric:one)" -> true,
-          s"(SHIFT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one) (SHIFT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one)" -> false,
-          s"(SHIFT_BIGNUMERIC ${MaxScale} BigNumeric:one) BigNumeric:one" -> true,
-          s"(SHIFT_BIGNUMERIC ${MaxScale} BigNumeric:one) (SHIFT_BIGNUMERIC 1 BigNumeric:one)" -> false,
-          s"(SHIFT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one) (SHIFT_BIGNUMERIC ${MinScale / 2} BigNumeric:one)" -> true,
-          s"(SHIFT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one) (SHIFT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one)" -> false,
-          s"(SHIFT_BIGNUMERIC ${MinScale / 2} BigNumeric:underSqrtOfTen) (SHIFT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:underSqrtOfTen)" -> true,
-          s"(SHIFT_BIGNUMERIC ${MinScale / 2} BigNumeric:overSqrtOfTen) (SHIFT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:overSqrtOfTen)" -> false,
+          s"(SHIFT_RIGHT_BIGNUMERIC ${MinScale} BigNumeric:one) BigNumeric:one" -> true,
+          s"(SHIFT_RIGHT_BIGNUMERIC ${MinScale} BigNumeric:one) BigNumeric:ten" -> false,
+          s"(SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one) (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2} BigNumeric:one)" -> true,
+          s"(SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one) (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one)" -> false,
+          s"(SHIFT_RIGHT_BIGNUMERIC ${MaxScale} BigNumeric:one) BigNumeric:one" -> true,
+          s"(SHIFT_RIGHT_BIGNUMERIC ${MaxScale} BigNumeric:one) (SHIFT_RIGHT_BIGNUMERIC 1 BigNumeric:one)" -> false,
+          s"(SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one) (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2} BigNumeric:one)" -> true,
+          s"(SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one) (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one)" -> false,
+          s"(SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2} BigNumeric:underSqrtOfTen) (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:underSqrtOfTen)" -> true,
+          s"(SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2} BigNumeric:overSqrtOfTen) (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:overSqrtOfTen)" -> false,
         )
 
         forEvery(testCases)((args, success) =>
@@ -167,40 +167,40 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
       "throws an exception in case of overflow" in {
         val testCases = Table(
           "arguments" -> "success",
-          s"-1000 ROUNDING_DOWN (SHIFT_BIGNUMERIC ${MinScale / 2} BigNumeric:one) (SHIFT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:one)" -> true,
-          s"-1000 ROUNDING_DOWN (SHIFT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one) (SHIFT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:one)" -> false,
-          s"-1000 ROUNDING_DOWN (SHIFT_BIGNUMERIC ${MinScale} BigNumeric:one) BigNumeric:one" -> true,
-          s"-1000 ROUNDING_DOWN (SHIFT_BIGNUMERIC ${MinScale} BigNumeric:one) (SHIFT_BIGNUMERIC 1 BigNumeric:one)" -> false,
-          s"-1000 ROUNDING_DOWN (SHIFT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:underSqrtOfTen) (SHIFT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:overSqrtOfTen)" -> true,
-          s"-1000 ROUNDING_DOWN (SHIFT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:overSqrtOfTen) (SHIFT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:overSqrtOfTen)" -> false,
-          s"${MinScale} ROUNDING_UP BigNumeric:nineteen (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
-          s"${MinScale} ROUNDING_DOWN BigNumeric:nineteen (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> true,
-          s"${MinScale} ROUNDING_CEILING BigNumeric:nineteen (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
-          s"${MinScale} ROUNDING_FLOOR BigNumeric:nineteen (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> true,
-          s"${MinScale} ROUNDING_HALF_UP BigNumeric:nineteen (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
-          s"${MinScale} ROUNDING_HALF_DOWN BigNumeric:nineteen (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> true,
-          s"${MinScale} ROUNDING_HALF_EVEN BigNumeric:nineteen (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
-          s"${MinScale} ROUNDING_UP BigNumeric:twentyEight (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
-          s"${MinScale} ROUNDING_DOWN BigNumeric:twentyEight (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
-          s"${MinScale} ROUNDING_CEILING BigNumeric:twentyEight (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
-          s"${MinScale} ROUNDING_FLOOR BigNumeric:twentyEight (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
-          s"${MinScale} ROUNDING_HALF_UP BigNumeric:twentyEight (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
-          s"${MinScale} ROUNDING_HALF_DOWN BigNumeric:twentyEight (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
-          s"${MinScale} ROUNDING_HALF_EVEN BigNumeric:twentyEight (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
-          s"${MinScale} ROUNDING_UP BigNumeric:twentyNine (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
-          s"${MinScale} ROUNDING_DOWN BigNumeric:twentyNine (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
-          s"${MinScale} ROUNDING_CEILING BigNumeric:twentyNine (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
-          s"${MinScale} ROUNDING_FLOOR BigNumeric:twentyNine (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
-          s"${MinScale} ROUNDING_HALF_UP BigNumeric:twentyNine (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
-          s"${MinScale} ROUNDING_HALF_DOWN BigNumeric:twentyNine (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
-          s"${MinScale} ROUNDING_HALF_EVEN BigNumeric:twentyNine (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
-          s"${MinScale} ROUNDING_UP BigNumeric:nineteen (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
-          s"${MinScale} ROUNDING_DOWN BigNumeric:nineteen (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> true,
-          s"${MinScale} ROUNDING_CEILING BigNumeric:nineteen (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> true,
-          s"${MinScale} ROUNDING_FLOOR BigNumeric:nineteen (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
-          s"${MinScale} ROUNDING_HALF_UP BigNumeric:nineteen (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
-          s"${MinScale} ROUNDING_HALF_DOWN BigNumeric:nineteen (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> true,
-          s"${MinScale} ROUNDING_HALF_EVEN BigNumeric:nineteen (SHIFT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
+          s"-1000 ROUNDING_DOWN (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2} BigNumeric:one) (SHIFT_RIGHT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:one)" -> true,
+          s"-1000 ROUNDING_DOWN (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:one) (SHIFT_RIGHT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:one)" -> false,
+          s"-1000 ROUNDING_DOWN (SHIFT_RIGHT_BIGNUMERIC ${MinScale} BigNumeric:one) BigNumeric:one" -> true,
+          s"-1000 ROUNDING_DOWN (SHIFT_RIGHT_BIGNUMERIC ${MinScale} BigNumeric:one) (SHIFT_RIGHT_BIGNUMERIC 1 BigNumeric:one)" -> false,
+          s"-1000 ROUNDING_DOWN (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:underSqrtOfTen) (SHIFT_RIGHT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:overSqrtOfTen)" -> true,
+          s"-1000 ROUNDING_DOWN (SHIFT_RIGHT_BIGNUMERIC ${MinScale / 2 - 1} BigNumeric:overSqrtOfTen) (SHIFT_RIGHT_BIGNUMERIC ${-(MinScale / 2 - 1)} BigNumeric:overSqrtOfTen)" -> false,
+          s"${MinScale} ROUNDING_UP BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
+          s"${MinScale} ROUNDING_DOWN BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> true,
+          s"${MinScale} ROUNDING_CEILING BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
+          s"${MinScale} ROUNDING_FLOOR BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> true,
+          s"${MinScale} ROUNDING_HALF_UP BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
+          s"${MinScale} ROUNDING_HALF_DOWN BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> true,
+          s"${MinScale} ROUNDING_HALF_EVEN BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:two)" -> false,
+          s"${MinScale} ROUNDING_UP BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
+          s"${MinScale} ROUNDING_DOWN BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
+          s"${MinScale} ROUNDING_CEILING BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
+          s"${MinScale} ROUNDING_FLOOR BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
+          s"${MinScale} ROUNDING_HALF_UP BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
+          s"${MinScale} ROUNDING_HALF_DOWN BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
+          s"${MinScale} ROUNDING_HALF_EVEN BigNumeric:twentyEight (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
+          s"${MinScale} ROUNDING_UP BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
+          s"${MinScale} ROUNDING_DOWN BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
+          s"${MinScale} ROUNDING_CEILING BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
+          s"${MinScale} ROUNDING_FLOOR BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> true,
+          s"${MinScale} ROUNDING_HALF_UP BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
+          s"${MinScale} ROUNDING_HALF_DOWN BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
+          s"${MinScale} ROUNDING_HALF_EVEN BigNumeric:twentyNine (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:three)" -> false,
+          s"${MinScale} ROUNDING_UP BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
+          s"${MinScale} ROUNDING_DOWN BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> true,
+          s"${MinScale} ROUNDING_CEILING BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> true,
+          s"${MinScale} ROUNDING_FLOOR BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
+          s"${MinScale} ROUNDING_HALF_UP BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
+          s"${MinScale} ROUNDING_HALF_DOWN BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> true,
+          s"${MinScale} ROUNDING_HALF_EVEN BigNumeric:nineteen (SHIFT_RIGHT_BIGNUMERIC ${-MinScale} BigNumeric:minusTwo)" -> false,
         )
         forEvery(testCases)((args, success) =>
           eval(e"DIV_BIGNUMERIC $args") shouldBe (if (success) a[Right[_, _]] else a[Left[_, _]])
@@ -264,7 +264,7 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
 
     }
 
-    "SHIFT_BIGNUMERIC" - {
+    "SHIFT_RIGHT_BIGNUMERIC" - {
       import java.math.BigDecimal
       import SBigNumeric.assertFromBigDecimal
 
@@ -282,7 +282,7 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
         )
         forEvery(testCases) { (inputScale, shifting, input, output) =>
           eval(
-            e"SHIFT_BIGNUMERIC $shifting (TO_BIGNUMERIC_NUMERIC @$inputScale $input)"
+            e"SHIFT_RIGHT_BIGNUMERIC $shifting (NUMERIC_TO_BIGNUMERIC @$inputScale $input)"
           ) shouldBe Right(assertFromBigDecimal(new BigDecimal(output)))
         }
       }
@@ -290,7 +290,6 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
       "throws an exception in case of underflow/overflow" in {
         val testCases = Table(
           "arguments" -> "success",
-          "0 BigNumeric:maxPositive" -> true,
           "1 BigNumeric:maxPositive" -> false,
           "-1 BigNumeric:maxPositive" -> false,
           s"${MaxScale} BigNumeric:one" -> true,
@@ -300,9 +299,31 @@ class SBuiltinBigNumericTest extends AnyFreeSpec with Matchers with TableDrivenP
         )
 
         forEvery(testCases)((args, success) =>
-          eval(e"SHIFT_BIGNUMERIC  $args") shouldBe (if (success) a[Right[_, _]] else a[Left[_, _]])
+          eval(e"SHIFT_RIGHT_BIGNUMERIC  $args") shouldBe (if (success) a[Right[_, _]]
+                                                           else a[Left[_, _]])
         )
       }
+
+      "never throw an exception when trying to shifting 0" in {
+        val testCases = Table(
+          "argument",
+          Long.MinValue,
+          Int.MinValue.toLong,
+          MinScale.toLong - 1,
+          MinScale.toLong,
+          -1L,
+          0L,
+          1L,
+          MaxScale.toLong,
+          MaxScale.toLong + 1,
+          Int.MaxValue.toLong,
+          Long.MaxValue,
+        )
+        forEvery(testCases)(arg =>
+          eval(e"SHIFT_RIGHT_BIGNUMERIC $arg BigNumeric:zero") shouldBe Right(SBigNumeric.Zero)
+        )
+      }
+
     }
   }
 
@@ -317,37 +338,37 @@ object SBuiltinBigNumericTest {
           val maxScale: Int64 = ${SValue.SBigNumeric.MaxScale};
           val minScale: Int64 = SUB_INT64 1 BigNumeric:maxScale;
                
-          val zero: BigNumeric = TO_BIGNUMERIC_NUMERIC @0 0. ;
-          val one: BigNumeric = TO_BIGNUMERIC_NUMERIC @0 1. ;
-          val two: BigNumeric = TO_BIGNUMERIC_NUMERIC @0 2. ;
-          val three: BigNumeric = TO_BIGNUMERIC_NUMERIC @0 3. ;
-          val minusOne: BigNumeric = TO_BIGNUMERIC_NUMERIC @0 -1. ;
-          val minusTwo: BigNumeric = TO_BIGNUMERIC_NUMERIC @0 -2. ;
-          val ten: BigNumeric = TO_BIGNUMERIC_NUMERIC @0 10. ;
+          val zero: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 0. ;
+          val one: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 1. ;
+          val two: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 2. ;
+          val three: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 3. ;
+          val minusOne: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 -1. ;
+          val minusTwo: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 -2. ;
+          val ten: BigNumeric = NUMERIC_TO_BIGNUMERIC @0 10. ;
           val underSqrtOfTen: BigNumeric = 
-            TO_BIGNUMERIC_NUMERIC @37 3.1622776601683793319988935444327185337;
+            NUMERIC_TO_BIGNUMERIC @37 3.1622776601683793319988935444327185337;
           val overSqrtOfTen: BigNumeric = 
-            TO_BIGNUMERIC_NUMERIC @37 3.1622776601683793319988935444327185338;
+            NUMERIC_TO_BIGNUMERIC @37 3.1622776601683793319988935444327185338;
           val nineteen: BigNumeric = 
-            TO_BIGNUMERIC_NUMERIC @0 19.;
+            NUMERIC_TO_BIGNUMERIC @0 19.;
           val twentyEight: BigNumeric = 
-            TO_BIGNUMERIC_NUMERIC @0 28.;  
+            NUMERIC_TO_BIGNUMERIC @0 28.;  
           val twentyNine: BigNumeric = 
-            TO_BIGNUMERIC_NUMERIC @0 29.;  
+            NUMERIC_TO_BIGNUMERIC @0 29.;  
           val minPositive: BigNumeric = 
-            SHIFT_BIGNUMERIC BigNumeric:maxScale BigNumeric:one;
+            SHIFT_RIGHT_BIGNUMERIC BigNumeric:maxScale BigNumeric:one;
           val maxPositive: BigNumeric =
             let x: BigNumeric = SUB_BIGNUMERIC BigNumeric:one BigNumeric:minPositive in
-            ADD_BIGNUMERIC x (SHIFT_BIGNUMERIC (SUB_INT64 0 BigNumeric:maxScale) x);
+            ADD_BIGNUMERIC x (SHIFT_RIGHT_BIGNUMERIC (SUB_INT64 0 BigNumeric:maxScale) x);
           val maxNegative: BigNumeric =
-            SHIFT_BIGNUMERIC BigNumeric:maxScale BigNumeric:minusOne;
+            SHIFT_RIGHT_BIGNUMERIC BigNumeric:maxScale BigNumeric:minusOne;
           val minNegative: BigNumeric = 
             let x: BigNumeric = ADD_BIGNUMERIC BigNumeric:minusOne BigNumeric:minPositive in
-              ADD_BIGNUMERIC x (SHIFT_BIGNUMERIC (SUB_INT64 0 BigNumeric:maxScale) x);
+              ADD_BIGNUMERIC x (SHIFT_RIGHT_BIGNUMERIC (SUB_INT64 0 BigNumeric:maxScale) x);
           
           val tenPower: Int64 -> BigNumeric = \(n: Int64) ->
-           SHIFT_BIGNUMERIC (SUB_INT64 0 n) BigNumeric:one;
-          val x: BigNumeric = SHIFT_BIGNUMERIC ${SValue.SBigNumeric.MinScale} (TO_BIGNUMERIC_NUMERIC @0 5.); 
+           SHIFT_RIGHT_BIGNUMERIC (SUB_INT64 0 n) BigNumeric:one;
+          val x: BigNumeric = SHIFT_RIGHT_BIGNUMERIC ${SValue.SBigNumeric.MinScale} (NUMERIC_TO_BIGNUMERIC @0 5.); 
           val almostX: BigNumeric = SUB_BIGNUMERIC BigNumeric:x BigNumeric:minPositive; 
           val minusX: BigNumeric = SUB_BIGNUMERIC BigNumeric:zero BigNumeric:x;
         }

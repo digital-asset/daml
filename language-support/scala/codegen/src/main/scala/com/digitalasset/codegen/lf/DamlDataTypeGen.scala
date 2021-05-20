@@ -15,10 +15,10 @@ import scalaz.{-\/, \/, \/-}
 
 import scala.reflect.runtime.{universe => runUni}
 
-/**  This object is used for generating code that corresponds to a DAMLrecord or variant type
+/**  This object is used for generating code that corresponds to a Daml record or variant type
   *
   *  An app user that uses these generated classes is guaranteed to have the same level of type
-  *  safety that DAML provides.
+  *  safety that Daml provides.
   *
   *  See the comments below for more details on what classes/methods/types are generated.
   */
@@ -47,7 +47,7 @@ object DamlDataTypeGen {
       companionMembers,
     )
 
-  /**  This function produces a class for a DAML type (either a record or a
+  /**  This function produces a class for a Daml type (either a record or a
     *  variant) that is defined by a `data` declaration
     */
   private[lf] def generate(
@@ -134,9 +134,9 @@ object DamlDataTypeGen {
           $valueInstanceExpr"""
     }
 
-    // The generated class for a DAML enum type contains:
+    // The generated class for a Daml enum type contains:
     //  - the definition of a "Value" trait
-    //  - the definition of a _case object_ for each constructor of the DAML enum
+    //  - the definition of a _case object_ for each constructor of the Daml enum
     //  - A type class instance (i.e. implicit object) for serializing/deserializing
     //    to/from the ArgumentValue type (see typed-ledger-api project)
     def toScalaDamlEnumType(constructors: List[Ref.Name]): (Set[Tree], (Tree, Tree)) = {
@@ -176,9 +176,9 @@ object DamlDataTypeGen {
 
     }
 
-    // The generated class for a DAML variant type contains:
+    // The generated class for a Daml variant type contains:
     // - the definition of a "Value" trait
-    // - the definition of a _case class_ for each variant constructor of the DAML variant
+    // - the definition of a _case class_ for each variant constructor of the Daml variant
     // - "smart constructors" that create values for each constructor automatically up-casting
     //    to the Value (trait) type
     // - A type class instance (i.e. implicit object) for serializing/deserializing
@@ -189,7 +189,7 @@ object DamlDataTypeGen {
         else damlVariantOneOrMoreFields
 
       /*
-       *  A variant with no fields in DAML is also known as the "Void" type. It has no
+       *  A variant with no fields in Daml is also known as the "Void" type. It has no
        *  values. A value of this class cannot be created!
        */
       lazy val damlVariantZeroFields =
@@ -323,8 +323,8 @@ object DamlDataTypeGen {
       damlVariant
     }
 
-    // The generated class for a DAML record type contains:
-    // - the definition of a "Value" case class that contains all the DAML record fields/types.
+    // The generated class for a Daml record type contains:
+    // - the definition of a "Value" case class that contains all the Daml record fields/types.
     // - An type class instance (i.e. implicit object) for serializing/deserializing
     //   to/from the ArgumentValue type (see typed-ledger-api project)
     def toScalaDamlRecordType(fields: Seq[FieldWithType]): (Tree, Tree) = {

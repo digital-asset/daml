@@ -81,6 +81,11 @@ object Config {
         .action((value, config) =>
           config.copy(indexerConfig = config.indexerConfig.copy(enableCompression = value))
         )
+      opt[Int]("indexer-max-input-buffer-size")
+        .text("[TODO] Sets the corresponding indexer parameter.")
+        .action((value, config) =>
+          config.copy(indexerConfig = config.indexerConfig.copy(maxInputBufferSize = value))
+        )
 
       opt[String]("jdbc-url")
         .text(

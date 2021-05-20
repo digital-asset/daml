@@ -15,7 +15,7 @@ import scalaz.\/
 import scala.concurrent.{ExecutionContext, Future}
 import EndpointsCompanion._
 import com.daml.http.domain.JwtPayload
-import com.daml.http.util.Logging.{CorrelationID, RequestID, extendWithRequestIdLogCtx}
+import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 
 object WebsocketEndpoints {
@@ -57,10 +57,10 @@ class WebsocketEndpoints(
 
   def transactionWebSocket(implicit
       ec: ExecutionContext,
-      lc: LoggingContextOf[CorrelationID],
+      lc: LoggingContextOf[InstanceUUID],
   ) = {
     val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
-      CorrelationID with RequestID
+      InstanceUUID with RequestID
     ] => Future[HttpResponse]] = {
       case req @ HttpRequest(GET, Uri.Path("/v1/stream/query"), _, _, _) =>
         (
@@ -124,7 +124,7 @@ class WebsocketEndpoints(
       jwtPayload: domain.JwtPayload,
       req: WebSocketUpgrade,
       protocol: String,
-  )(implicit lc: LoggingContextOf[CorrelationID with RequestID]): HttpResponse = {
+  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): HttpResponse = {
     val handler: Flow[Message, Message, _] =
       webSocketService.transactionMessageHandler[A](jwt, jwtPayload)
     req.handleMessages(handler, Some(protocol))

@@ -4,7 +4,7 @@
 Daml-LF Value Specification
 ===========================
 
-**version 10, 10 Dec 2020**
+**version 13, 06 April 2021**
 
 The Daml-LF language includes ways to define *data types*,
 specifications of structure, and includes rules by which a restricted
@@ -159,6 +159,8 @@ later.
 |                 11 |      2021-01-19 |
 +--------------------+-----------------+
 |                 12 |      2021-01-27 |
++--------------------+-----------------+
+|                 13 |      2021-04-06 |
 +--------------------+-----------------+
 |                dev |      2019-12-14 |
 +--------------------+-----------------+

@@ -7,7 +7,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | Solving references (adding support for recursion) for DAML LF static verification
+-- | Solving references (adding support for recursion) for Daml-LF static verification
 module DA.Daml.LF.Verify.ReferenceSolve
   ( solveValueReferences
   , solveChoiceReferences

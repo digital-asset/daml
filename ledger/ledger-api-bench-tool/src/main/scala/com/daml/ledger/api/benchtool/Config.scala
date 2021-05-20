@@ -3,10 +3,16 @@
 
 package com.daml.ledger.api.benchtool
 
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.value.Identifier
+
+import scala.concurrent.duration._
+
 case class Config(
     ledger: Config.Ledger,
     concurrency: Config.Concurrency,
-    streamConfig: Option[Config.StreamConfig],
+    streams: List[Config.StreamConfig],
+    reportingPeriod: FiniteDuration,
 )
 
 object Config {
@@ -14,6 +20,9 @@ object Config {
       name: String,
       streamType: Config.StreamConfig.StreamType,
       party: String,
+      templateIds: Option[List[Identifier]],
+      beginOffset: Option[LedgerOffset],
+      endOffset: Option[LedgerOffset],
   )
 
   object StreamConfig {
@@ -36,4 +45,19 @@ object Config {
       maxQueueLength: Int,
   )
 
+  val Default: Config =
+    Config(
+      ledger = Config.Ledger(
+        hostname = "localhost",
+        port = 6865,
+      ),
+      concurrency = Config.Concurrency(
+        corePoolSize = 2,
+        maxPoolSize = 8,
+        keepAliveTime = 30,
+        maxQueueLength = 10000,
+      ),
+      streams = List.empty[Config.StreamConfig],
+      reportingPeriod = 5.seconds,
+    )
 }

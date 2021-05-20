@@ -22,6 +22,7 @@ case class IndexerConfig(
     // TODO append-only: remove after removing support for the current (mutating) schema
     enableAppendOnlySchema: Boolean = false,
     asyncCommitMode: DbType.AsyncCommitMode = DefaultAsyncCommitMode,
+    maxInputBufferSize: Int = DefaultMaxInputBufferSize,
     inputMappingParallelism: Int = DefaultInputMappingParallelism,
     batchingParallelism: Int = DefaultBatchingParallelism,
     ingestionParallelism: Int = DefaultIngestionParallelism,
@@ -39,6 +40,7 @@ object IndexerConfig {
   val DefaultDatabaseConnectionPoolSize: Int = 3
   val DefaultAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit
 
+  val DefaultMaxInputBufferSize: Int = 50
   val DefaultInputMappingParallelism: Int = 16
   val DefaultBatchingParallelism: Int = 4
   val DefaultIngestionParallelism: Int = 16

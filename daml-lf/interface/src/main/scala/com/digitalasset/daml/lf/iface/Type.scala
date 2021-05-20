@@ -23,7 +23,7 @@ import scala.jdk.CollectionConverters._
   *
   * The reason we have chosen to use the [[Core.Type]] in the
   * `typeDecls` field of [[com.daml.core.Package.PackageInterface]]
-  * is because other programs besides the DAML Scala code generator inspect
+  * is because other programs besides the Daml Scala code generator inspect
   * this data structure. (e.g. Integration Adapter as of 07 Sep 2017).
   *
   * The [[Package.ParamType]] structure represents all types that are valid

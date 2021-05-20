@@ -3,65 +3,73 @@
 
 package com.daml.ledger.api.benchtool.services
 
-import com.daml.ledger.api.benchtool.metrics.LogOnlyObserver
+import com.daml.ledger.api.benchtool.Config
+import com.daml.ledger.api.benchtool.metrics.ObserverWithResult
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsRequest,
   GetTransactionsResponse,
   TransactionServiceGrpc,
 }
+import com.daml.ledger.api.v1.value.Identifier
 import io.grpc.Channel
 import org.slf4j.LoggerFactory
 
-final class TransactionService(channel: Channel, ledgerId: String) {
+import scala.concurrent.Future
+
+final class TransactionService(
+    channel: Channel,
+    ledgerId: String,
+) {
   private val logger = LoggerFactory.getLogger(getClass)
   private val service: TransactionServiceGrpc.TransactionServiceStub =
     TransactionServiceGrpc.stub(channel)
 
-  // TODO: add filters
-  def transactions(party: String): LogOnlyObserver[GetTransactionsResponse] = {
-    val request = getTransactionsRequest(
-      ledgerId = ledgerId,
-      party = party,
-      beginOffset = ledgerBeginOffset,
-      endOffset = ledgerEndOffset,
-    )
-    val observer = new LogOnlyObserver[GetTransactionsResponse](logger)
+  def transactions(
+      config: Config.StreamConfig,
+      observer: ObserverWithResult[GetTransactionsResponse],
+  ): Future[Unit] = {
+    val request = getTransactionsRequest(ledgerId, config)
     service.getTransactions(request, observer)
     logger.info("Started fetching transactions")
-    observer
+    observer.result
   }
 
-  def transactionTrees(party: String): LogOnlyObserver[GetTransactionTreesResponse] = {
-    val request = getTransactionsRequest(
-      ledgerId = ledgerId,
-      party = party,
-      beginOffset = ledgerBeginOffset,
-      endOffset = ledgerEndOffset,
-    )
-    val observer = new LogOnlyObserver[GetTransactionTreesResponse](logger)
+  def transactionTrees(
+      config: Config.StreamConfig,
+      observer: ObserverWithResult[GetTransactionTreesResponse],
+  ): Future[Unit] = {
+    val request = getTransactionsRequest(ledgerId, config)
     service.getTransactionTrees(request, observer)
     logger.info("Started fetching transaction trees")
-    observer
+    observer.result
   }
 
   private def getTransactionsRequest(
       ledgerId: String,
-      party: String,
-      beginOffset: LedgerOffset,
-      endOffset: LedgerOffset,
-  ): GetTransactionsRequest =
+      config: Config.StreamConfig,
+  ): GetTransactionsRequest = {
     GetTransactionsRequest.defaultInstance
       .withLedgerId(ledgerId)
-      .withBegin(beginOffset)
-      .withEnd(endOffset)
-      .withFilter(partyFilter(party))
+      .withBegin(config.beginOffset.getOrElse(ledgerBeginOffset))
+      .withEnd(config.endOffset.getOrElse(ledgerEndOffset))
+      .withFilter(partyFilter(config.party, config.templateIds))
+  }
 
-  private def partyFilter(party: String): TransactionFilter = {
-    // TODO: actual templates filter
-    val templatesFilter = Filters.defaultInstance
+  private def partyFilter(
+      party: String,
+      templateIds: Option[List[Identifier]],
+  ): TransactionFilter = {
+    val templatesFilter = templateIds match {
+      case Some(ids) =>
+        Filters.defaultInstance.withInclusive(
+          InclusiveFilters.defaultInstance.addAllTemplateIds(ids)
+        )
+      case None =>
+        Filters.defaultInstance
+    }
     TransactionFilter()
       .withFiltersByParty(Map(party -> templatesFilter))
   }

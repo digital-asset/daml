@@ -3,7 +3,7 @@
 
 {-# LANGUAGE DataKinds #-}
 
--- | Constraint solver for DAML LF static verification
+-- | Constraint solver for Daml-LF static verification
 module DA.Daml.LF.Verify.Solve
   ( constructConstr
   , solveConstr

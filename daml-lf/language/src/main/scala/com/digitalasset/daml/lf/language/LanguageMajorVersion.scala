@@ -7,7 +7,7 @@ import com.daml.lf.LfVersions
 
 import scalaz.NonEmptyList
 
-// an ADT version of the DAML-LF version
+// an ADT version of the Daml-LF version
 sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: NonEmptyList[String])
     extends LfVersions(minorAscending.map[LanguageMinorVersion](LanguageMinorVersion))(
       _.toProtoIdentifier

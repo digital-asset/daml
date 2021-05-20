@@ -32,7 +32,7 @@ da_haskell_library(
     ],
 )
 
-# This contains the conversion from the DAML-dependent Options type to
+# This contains the conversion from the Daml-dependent Options type to
 # ghcide’s IdeOpts. We split this into a separate lib so that daml-opts-types
 # does not need to depend on the preprocessor.
 da_haskell_library(

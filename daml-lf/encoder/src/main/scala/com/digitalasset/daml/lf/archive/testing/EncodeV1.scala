@@ -796,7 +796,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
 
   private def assertSince(minVersion: LV, description: String): Unit =
     if (languageVersion < minVersion)
-      throw EncodeError(s"$description is not supported by DAML-LF 1.$minor")
+      throw EncodeError(s"$description is not supported by Daml-LF 1.$minor")
 
 }
 

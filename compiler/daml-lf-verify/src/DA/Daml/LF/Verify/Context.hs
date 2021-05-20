@@ -8,7 +8,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | Contexts for DAML LF static verification
+-- | Contexts for Daml-LF static verification
 module DA.Daml.LF.Verify.Context
   ( Phase(..)
   , IsPhase(..)

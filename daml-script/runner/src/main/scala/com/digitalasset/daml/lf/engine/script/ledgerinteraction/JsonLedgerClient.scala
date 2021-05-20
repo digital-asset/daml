@@ -39,7 +39,7 @@ import spray.json._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-// Current limitations and issues when running DAML script over the JSON API:
+// Current limitations and issues when running Daml script over the JSON API:
 // 1. Multi-command submissions are not supported. This is simply not possible until
 //    we have an endpoint for this in the JSON API.
 // 2. This is the biggest issue imho: parties are kind of a mess. `submit` and `query` pretend
@@ -251,7 +251,7 @@ class JsonLedgerClient(
   ): Future[ScriptLedgerClient.TransactionTree] = {
     Future.failed(
       new RuntimeException(
-        "submitTree is not supported when running DAML Script over the JSON API."
+        "submitTree is not supported when running Daml Script over the JSON API."
       )
     )
   }
@@ -290,7 +290,7 @@ class JsonLedgerClient(
   ): Future[Unit] = {
     // No time service in the JSON API
     Future.failed(
-      new RuntimeException("setTime is not supported when running DAML Script over the JSON API.")
+      new RuntimeException("setTime is not supported when running Daml Script over the JSON API.")
     )
   }
 

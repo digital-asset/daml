@@ -3,17 +3,19 @@
 
 package com.daml.metrics
 
+import scala.util.chaining._
 import java.util.concurrent.atomic.AtomicLong
 
-import akka.stream.scaladsl.{Keep, Sink}
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{OverflowStrategy, QueueOfferResult}
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.metrics.InstrumentedSourceSpec.SamplingCounter
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.{Future, Promise}
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with AkkaBeforeAndAfterAll {
 
@@ -141,6 +143,78 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
     }
   }
 
+  behavior of "InstrumentedSource.bufferedSource"
+
+  def throttledTest(producerMaxSpeed: Int, consumerMaxSpeed: Int): Future[List[Long]] = {
+    val counter = new SamplingCounter(10.millis)
+    Source(List.fill(1000)("element"))
+      .throttle(producerMaxSpeed, FiniteDuration(10, "millis"))
+      .pipe(original =>
+        InstrumentedSource.bufferedSource(
+          original = original,
+          counter = counter,
+          size = 100,
+        )
+      )
+      .throttle(consumerMaxSpeed, FiniteDuration(10, "millis"))
+      .run()
+      .map(_ => counter.finishSampling())
+  }
+
+  def sampleAverage(samples: List[Long]): Double =
+    samples.sum.toDouble / samples.size.toDouble
+  def samplePercentage(samples: List[Long])(filter: Long => Boolean): Double =
+    samples.count(filter).toDouble / samples.size.toDouble * 100.0
+
+  it should "signal mostly full buffer if slow consumer" in {
+    throttledTest(
+      producerMaxSpeed = 10,
+      consumerMaxSpeed = 5,
+    ) map { samples =>
+      sampleAverage(samples) should be > 80.0
+      samplePercentage(samples)(_ == 100) should be > 80.0
+    }
+  }
+
+  it should "signal mostly empty buffer if fast consumer" in {
+    throttledTest(
+      producerMaxSpeed = 10,
+      consumerMaxSpeed = 20,
+    ) map { samples =>
+      sampleAverage(samples) should be < 10.0
+      samplePercentage(samples)(_ == 0) should be > 90.0
+    }
+  }
+
+  it should "signal mostly empty buffer if speeds are aligned" in {
+    throttledTest(
+      producerMaxSpeed = 10,
+      consumerMaxSpeed = 10,
+    ) map { samples =>
+      sampleAverage(samples) should be < 10.0
+      samplePercentage(samples)(_ == 0) should be > 90.0
+    }
+  }
+
+  it should "signal mostly empty buffer if consumer slightly faster" in {
+    throttledTest(
+      producerMaxSpeed = 10,
+      consumerMaxSpeed = 12,
+    ) map { samples =>
+      sampleAverage(samples) should be < 10.0
+      samplePercentage(samples)(_ == 0) should be > 90.0
+    }
+  }
+
+  it should "signal mostly full buffer if consumer slightly slower" in {
+    throttledTest(
+      producerMaxSpeed = 10,
+      consumerMaxSpeed = 8,
+    ) map { samples =>
+      sampleAverage(samples) should be > 50.0
+      samplePercentage(samples)(_ == 100) should be > 50.0
+    }
+  }
 }
 
 object InstrumentedSourceSpec {
@@ -160,4 +234,19 @@ object InstrumentedSourceSpec {
 
   }
 
+  // For testing only, provides a sampled sequence of the state of the counter until finishSampling is called.
+  private final class SamplingCounter(samplingInterval: FiniteDuration) extends Counter {
+    private val t = new java.util.Timer()
+    private val samples = scala.collection.mutable.ListBuffer[Long]()
+    private val task = new java.util.TimerTask {
+      def run(): Unit = samples.+=(getCount)
+    }
+    t.schedule(task, samplingInterval.toMillis, samplingInterval.toMillis)
+
+    def finishSampling(): List[Long] = {
+      t.cancel()
+      task.cancel()
+      samples.result()
+    }
+  }
 }
