@@ -9,7 +9,7 @@ import com.daml.lf.{iface => DamlLfIface}
 import com.daml.lf.data.{Ref => DamlLfRef}
 import scala.collection.compat.immutable.LazyList
 
-/** Manages a set of known DAML-LF packages. */
+/** Manages a set of known Daml-LF packages. */
 case class PackageRegistry(
     private val packages: Map[DamlLfRef.PackageId, DamlLfPackage] = Map.empty,
     private val templates: Map[DamlLfIdentifier, Template] = Map.empty,

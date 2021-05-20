@@ -12,8 +12,8 @@ import value.{Value => V}
   */
 trait NavigatorModelAliases[Cid] {
 
-  /** An absolute reference of a DAML-LF entity.
-    * Contains a DAML-LF package ID and a qualified name.
+  /** An absolute reference of a Daml-LF entity.
+    * Contains a Daml-LF package ID and a qualified name.
     * Currently, such identifiers can point to:
     * - Templates
     * - User-defined records
@@ -22,7 +22,7 @@ trait NavigatorModelAliases[Cid] {
   type DamlLfIdentifier = DamlLfRef.Identifier
   val DamlLfIdentifier = DamlLfRef.Identifier
 
-  /** A simple DAML-LF type
+  /** A simple Daml-LF type
     * Currently, these can be:
     * - Primitive types
     * - Type constructor applications (i.e., dereferencing a DamlLfIdentifier)
@@ -43,25 +43,25 @@ trait NavigatorModelAliases[Cid] {
   type DamlLfPrimType = iface.PrimType
   val DamlLfPrimType = iface.PrimType
 
-  /** A user-defined DAML-LF type (closed form). Can be a record or variant. */
+  /** A user-defined Daml-LF type (closed form). Can be a record or variant. */
   type DamlLfDataType = iface.DataType.FWT
   val DamlLfDataType = iface.DataType
 
-  /** A user-defined DAML-LF type (generic form). Can be a record or variant. */
+  /** A user-defined Daml-LF type (generic form). Can be a record or variant. */
   type DamlLfDefDataType = iface.DefDataType.FWT
   val DamlLfDefDataType = iface.DefDataType
 
   type DamlLfTypeLookup = DamlLfIdentifier => Option[DamlLfDefDataType]
 
-  /** A user-defined DAML-LF record */
+  /** A user-defined Daml-LF record */
   type DamlLfRecord = iface.Record.FWT
   val DamlLfRecord = iface.Record
 
-  /** A user-defined DAML-LF variant */
+  /** A user-defined Daml-LF variant */
   type DamlLfVariant = iface.Variant.FWT
   val DamlLfVariant = iface.Variant
 
-  /** A user-defined DAML-LF enum */
+  /** A user-defined Daml-LF enum */
   type DamlLfEnum = iface.Enum
   val DamlLfEnum = iface.Enum
 
