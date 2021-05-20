@@ -232,7 +232,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   jdbcUrl = indexJdbcUrl,
                   // 16 DB connections has been shown to be sufficient for applications running on the sandbox
                   databaseConnectionPoolSize = 16,
-                  databaseConnectionTimeout = 250.millis,
+                  databaseConnectionTimeout = config.databaseConnectionTimeout,
                   tlsConfig = config.tlsConfig,
                   maxInboundMessageSize = config.maxInboundMessageSize,
                   eventsPageSize = config.eventsPageSize,
