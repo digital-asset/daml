@@ -138,8 +138,8 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
   private def recordTimeFunctionFromMap(
       map: Map[String, List[Instant]]
   )(str: String): List[Timestamp] =
-    map.view
-      .mapValues(_.map(instantToTimestamp))
+    map
+      .map { case (k, v) => k -> v.map(instantToTimestamp) }
       .getOrElse(str, throw new RuntimeException(s"Unexpected record function argument: $str"))
 
   private def instantToTimestamp(instant: Instant): Timestamp =
