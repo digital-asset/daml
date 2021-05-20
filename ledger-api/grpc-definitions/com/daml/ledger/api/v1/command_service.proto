@@ -26,15 +26,26 @@ service CommandService {
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   // - ``NOT_FOUND``: if the request does not include a valid ledger id or the submission rank or
   //   deduplication period are too old.
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
+  // - ``INVALID_ARGUMENT`` if one of the following holds:
+  //   - The payload is malformed or is missing required fields.
+  //   - A party involved in the transaction is not known on the ledger.
+  //   - The interpreted command is inconsistent with the state of the ledger
+  //     If the submission led to a completion event, the error details' metadata key ``completion_offset``
+  //     contains the corresponding completion offset. This offset can be used as a submission rank in later calls.
+  //     If the completion event at the offset is a definite answer, the metadata key ''definite_answer``
+  //     is set to ``true``.
   // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
   // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
   // - ``ABORTED`` if one of the following holds:
-  //   - If a contract key is missing or duplicated due to for example contention on resources.
-  //   - If there is another submission in flight for the same change ID.
+  //   - A contract key is missing or duplicated due to for example contention on resources.
+  //   - The command submission was disputed or the ledger time is invalid.
+  //     If the submission led to a completion event, the error detail's `metadata` field ``completion_offset``
+  //     contains the corresponding completion offset. This offset can be used as a submission rank in later calls.
+  //     If the completion event at the offset is a definite answer, the metadata key ''definite_answer``
+  //     is set to ``true``.
+  //   - There is another submission in flight for the same change ID.
   //     In this case, the error details report the reason ``ALREADY_IN_FLIGHT``.
   //     The error details include the metadata keys ``submission_rank`` and `submission_id`` of the in-flight submission.
-  //
   // - ``FAILED_PRECONDITION`` if there is another submission with a higher submission rank.
   //   The error details report the reason ``RANK_TOO_LOW`` and include the metadata keys ``submission_rank``
   //   and ``submission_id`` of the conflicting submission.
@@ -44,8 +55,6 @@ service CommandService {
   //   The error details report the reason ``DEDUPLICATION``;
   //   if available, the metadata keys ``earlier_completion_offset`` and ``earlier_submission_id``
   //   contain the completion offset and submission id of the conflicting completion.
-  // TODO(v2) How do we report a failed submission? It looks as if there are some error cases missing here.
-  // TODO(v2) We want to set the definite answer field and possibly include the completion offset that generated this negative response.
   rpc SubmitAndWait (SubmitAndWaitRequest) returns (SubmitAndWaitResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction id.
