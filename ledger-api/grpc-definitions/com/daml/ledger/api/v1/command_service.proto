@@ -29,11 +29,23 @@ service CommandService {
   // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
   // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
-  // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources or
-  //   if there is another submission in flight for the same change ID.
+  // - ``ABORTED`` if one of the following holds:
+  //   - If a contract key is missing or duplicated due to for example contention on resources.
+  //   - If there is another submission in flight for the same change ID.
+  //     In this case, the error details report the reason ``ALREADY_IN_FLIGHT``.
+  //     The error details include the metadata keys ``submission_rank`` and `submission_id`` of the in-flight submission.
+  //
   // - ``FAILED_PRECONDITION`` if there is another submission with a higher submission rank.
-  // - ``ALREADY_EXISTS`` if there is a definite completion for the same deduplication key with at least the same submission rank
-  //   or an earlier accepting completion that falls into the submission’s deduplication period.
+  //   The error details report the reason ``RANK_TOO_LOW`` and include the metadata keys ``submission_rank``
+  //   and ``submission_id`` of the conflicting submission.
+  //
+  // - ``ALREADY_EXISTS`` if there is a definite-answer completion for the same deduplication key
+  //   with at least the same submission rank or an earlier accepting completion that falls into the submission’s deduplication period.
+  //   The error details report the reason ``DEDUPLICATION``;
+  //   if available, the metadata keys ``earlier_completion_offset`` and ``earlier_submission_id``
+  //   contain the completion offset and submission id of the conflicting completion.
+  // TODO(v2) How do we report a failed submission? It looks as if there are some error cases missing here.
+  // TODO(v2) We want to set the definite answer field and possibly include the completion offset that generated this negative response.
   rpc SubmitAndWait (SubmitAndWaitRequest) returns (SubmitAndWaitResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction id.
@@ -96,26 +108,17 @@ message SubmitAndWaitRequest {
   bool error_details_in_message = 1001;
 }
 
-// TODO(v2) How do we communicate this information when we actually want to return an error?
 message SubmitAndWaitResponse {
   // The completion offset for the submission that triggered this response.
   // This offset can be used as the submission rank for subsequent command submissions.
   // Optional
-  // TODO(v2) Make it required for responses with status code `OK` once all Daml ledgers support it?
   string completion_offset = 1;
-
-  // Whether this response is a definite answer for the deduplication and rank guarantees,
-  // as defined in ``commands.proto``.
-  // Always true if the status code is `OK`.
-  // TODO(v2) Should this be inverted to `cancelled` as what is proposed for the read/write service API?
-  bool definite_answer = 2;
 }
 
 message SubmitAndWaitForTransactionIdResponse {
   // The id of the transaction that resulted from the submitted command.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  // TODO(v2) Why is this field required? In ``completion.proto``, the `transaction_id` is optional.
   string transaction_id = 1;
 
   // The completion offset for the submission that triggered this response
@@ -123,17 +126,11 @@ message SubmitAndWaitForTransactionIdResponse {
   // Optional
   // TODO(v2) Make it required for responses with status code `OK` once all Daml ledgers support it.
   string completion_offset = 2;
-
-  // Whether this response is a definite answer for the deduplication and rank guarantees,
-  // as defined in ``commands.proto``.
-  // Always true if the status code is `OK`.
-  bool definite_answer = 3;
 }
 
 message SubmitAndWaitForTransactionResponse {
   // The flat transaction that resulted from the submitted command.
   // Required
-  // TODO(v2) Why is this field required? We should only require this field if the status code is `OK`.
   Transaction transaction = 1;
 
   // The completion offset for the submission that triggered this response
@@ -141,24 +138,13 @@ message SubmitAndWaitForTransactionResponse {
   // Optional
   // TODO Make it required for responses with status code `OK` once all Daml ledgers support it.
   string completion_offset = 2;
-
-  // Whether this response is a definite answer for the deduplication and rank guarantees,
-  // as defined in ``commands.proto``.
-  // Always true if the status code is `OK`.
-  bool definite_answer = 3;
 }
 
 message SubmitAndWaitForTransactionTreeResponse {
   // The transaction tree that resulted from the submitted command.
   // Required
-  // TODO(v2) Why is this field required? We should only require this field if the status code is `OK`.
   TransactionTree transaction = 1;
 
   // This offset can be used as the submission rank for subsequent command submissions.
   string completion_offset = 2;
-
-  // Whether this response is a definite answer for the deduplication and rank guarantees,
-  // as defined in ``commands.proto``.
-  // Always true if the status code is `OK`.
-  bool definite_answer = 3;
 }
