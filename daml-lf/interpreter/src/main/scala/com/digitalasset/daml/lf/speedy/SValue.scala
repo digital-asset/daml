@@ -221,7 +221,7 @@ object SValue {
       builtinName: String,
       args: ImmArray[String],
   ) extends SException {
-    def message = s"${error.name} while evaluating $builtinName(${args.iterator.mkString(",")})."
+    def message = s"${error.name} while evaluating ($builtinName ${args.iterator.mkString(" ")})."
   }
 
   // Corresponds to a Daml-LF Nat type reified as a Speedy value.
