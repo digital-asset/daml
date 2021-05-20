@@ -11,7 +11,7 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{KillSwitch, KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.parallel.AsyncSupport._
@@ -27,6 +27,8 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NonFatal
 
 object ParallelIndexerFactory {
+
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   def apply[DB_BATCH](
       jdbcUrl: String,
@@ -127,13 +129,23 @@ object ParallelIndexerFactory {
       batch: T,
       batchSize: Int,
       averageStartTime: Long,
+      offsets: Vector[Offset],
   )
 
   def inputMapper(
       metrics: Metrics,
       toDbDto: Offset => Update => Iterator[DBDTOV1],
+  )(implicit
+      loggingContext: LoggingContext
   ): Iterable[((Offset, Update), Long)] => Batch[Vector[DBDTOV1]] = { input =>
     metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
+    input.foreach { case ((offset, update), _) =>
+      LoggingContext.withEnrichedLoggingContext(
+        IndexerLoggingContext.loggingContextFor(offset, update)
+      ) { implicit loggingContext =>
+        logger.info("Storing transaction")
+      }
+    }
     val batch = input.iterator.flatMap { case ((offset, update), _) =>
       toDbDto(offset)(update)
     }.toVector
@@ -143,6 +155,7 @@ object ParallelIndexerFactory {
       batch = batch,
       batchSize = input.size,
       averageStartTime = input.view.map(_._2 / input.size).sum,
+      offsets = input.view.map(_._1._1).toVector,
     )
   }
 
@@ -153,6 +166,7 @@ object ParallelIndexerFactory {
       batch = Vector.empty,
       batchSize = 0,
       averageStartTime = 0,
+      offsets = Vector.empty,
     )
 
   def seqMapper(metrics: Metrics)(
@@ -209,15 +223,19 @@ object ParallelIndexerFactory {
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
-      dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
-        metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
-        ingestFunction(connection, batch.batch)
-        val nowNanos = System.nanoTime()
-        metrics.daml.parallelIndexer.ingestion.duration.update(
-          (nowNanos - batch.averageStartTime) / batch.batchSize,
-          TimeUnit.NANOSECONDS,
-        )
-        batch
+      LoggingContext.withEnrichedLoggingContext(
+        "updateOffsets" -> batch.offsets.view.map(_.toHexString).mkString("[", ", ", "]")
+      ) { implicit loggingContext =>
+        dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
+          metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
+          ingestFunction(connection, batch.batch)
+          val nowNanos = System.nanoTime()
+          metrics.daml.parallelIndexer.ingestion.duration.update(
+            (nowNanos - batch.averageStartTime) / batch.batchSize,
+            TimeUnit.NANOSECONDS,
+          )
+          batch
+        }
       }
 
   def tailer[DB_BATCH](
@@ -230,6 +248,7 @@ object ParallelIndexerFactory {
         batch = zeroDbBatch, // not used anymore
         batchSize = 0, // not used anymore
         averageStartTime = 0, // not used anymore
+        offsets = Vector.empty, // not used anymore
       )
 
   def ingestTail[DB_BATCH](
@@ -238,16 +257,21 @@ object ParallelIndexerFactory {
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
-      dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
-        ingestTailFunction(
-          connection,
-          StorageBackend.Params(
-            ledgerEnd = batch.lastOffset,
-            eventSeqId = batch.lastSeqEventId,
-          ),
-        )
-        metrics.daml.indexer.ledgerEndSequentialId.updateValue(batch.lastSeqEventId)
-        batch
+      LoggingContext.withEnrichedLoggingContext(
+        "updateOffset" -> batch.lastOffset.toHexString
+      ) { implicit loggingContext =>
+        dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
+          ingestTailFunction(
+            connection,
+            StorageBackend.Params(
+              ledgerEnd = batch.lastOffset,
+              eventSeqId = batch.lastSeqEventId,
+            ),
+          )
+          metrics.daml.indexer.ledgerEndSequentialId.updateValue(batch.lastSeqEventId)
+          logger.info("Ledger end updated")
+          batch
+        }
       }
 
   def toIndexer(
