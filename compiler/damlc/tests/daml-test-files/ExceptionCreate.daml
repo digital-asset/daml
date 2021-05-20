@@ -3,7 +3,7 @@
 
 -- @SINCE-LF 1.dev
 
--- | Test that create throws a ContractError when the pre-condition is violated.
+-- | Test that create throws a ContractError when the precondition is violated.
 module ExceptionCreate where
 
 import DA.Assert
@@ -25,4 +25,4 @@ test = scenario do
         catch
             ContractError msg ->
                 pure msg
-    m === "Template pre-condition violated: MyTemplate {p = 'Alice'}"
+    m === "Template precondition violated: MyTemplate {p = 'Alice'}"

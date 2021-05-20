@@ -294,7 +294,7 @@ evUpdCreateErr1 = scenario do
     create (T_EvUpdCreateErr1 p)
     error "EvUpdCreateErr1 failed (4)"
 
--- @ERROR range=307:1-307:16; Template pre-condition violated
+-- @ERROR range=307:1-307:16; Template precondition violated
 template T_EvUpdCreateFail
   with
     p : Party

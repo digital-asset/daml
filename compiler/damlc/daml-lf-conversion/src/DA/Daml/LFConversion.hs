@@ -710,7 +710,7 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
                         $ EThrow TBool (TCon contractErrorTypeCon)
                         $ mkContractError
                         $ EBuiltin BEAppendText
-                            `ETmApp` EBuiltin (BEText "Template pre-condition violated: " )
+                            `ETmApp` EBuiltin (BEText "Template precondition violated: " )
                             `ETmApp`
                                 (EStructProj (FieldName "m_show")
                                     (EVal (Qualified PRSelf (envLFModuleName env) (convVal showDict)))
