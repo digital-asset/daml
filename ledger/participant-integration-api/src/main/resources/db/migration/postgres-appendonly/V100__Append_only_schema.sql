@@ -484,8 +484,7 @@ CREATE SEQUENCE temp_divulgence_sequential_id START 1;
 
 -- Divulgence events did not exist before, we need to assign a new sequential ID for them.
 -- They will all be inserted after all other events, i.e., at a point later than the transaction
--- that actually lead to the divulgence. This is OK, as we only use the for lookups
--- AND we can recognize these divulgence events from not having an associated ???.
+-- that actually lead to the divulgence. This is OK, as we only use them for lookups.
 -- In addition, we want to avoid rewriting the event_sequential_id of other events
 -- for data continuity reasons.
 WITH divulged_contracts AS (
@@ -517,7 +516,7 @@ SELECT
     event_sequential_id,
     -- The following 5 fields are metadata of the transaction that lead to the divulgence.
     -- We can't reconstruct this information from the old schema.
-    NULL, -- TODO append-only: this is the only reason why the event_offset is nullable. Use some non-null offset instead?
+    NULL,
     NULL,
     '',
     NULL,
