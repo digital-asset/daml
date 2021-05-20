@@ -519,7 +519,6 @@ jobs:
             || "$(macOS.status)" != "Succeeded"
             || "$(Windows.status)" != "Succeeded"
             || ("$(is_release)" == "false" && "$(compatibility_linux.status)" != "Succeeded")
-            || ("$(is_release)" == "false" && "$(compatibility_windows.status)" != "Succeeded")
             || "$(release.status)" == "Canceled" ]]; then
             exit 1
         fi
