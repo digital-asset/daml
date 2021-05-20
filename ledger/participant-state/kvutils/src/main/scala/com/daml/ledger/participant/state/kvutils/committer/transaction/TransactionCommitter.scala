@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils.committer._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.ContractKeysValidation.validateKeys
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
-import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, TimeModel}
+import com.daml.ledger.participant.state.v1.{Configuration, RejectionReasonV0, TimeModel}
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.{PackageId, Party}
@@ -169,7 +169,7 @@ private[kvutils] class TransactionCommitter(
           case Some(_) =>
             Some(
               rejection(
-                RejectionReason.SubmitterCannotActViaParticipant(
+                RejectionReasonV0.SubmitterCannotActViaParticipant(
                   s"Party '$submitter' not hosted by participant ${commitContext.participantId}"
                 )
               )
@@ -177,12 +177,12 @@ private[kvutils] class TransactionCommitter(
           case None =>
             Some(
               rejection(
-                RejectionReason.PartyNotKnownOnLedger(s"Submitting party '$submitter' not known")
+                RejectionReasonV0.PartyNotKnownOnLedger(s"Submitting party '$submitter' not known")
               )
             )
         }
 
-      def rejection(reason: RejectionReason): StepResult[DamlTransactionEntrySummary] =
+      def rejection(reason: RejectionReasonV0): StepResult[DamlTransactionEntrySummary] =
         reject[DamlTransactionEntrySummary](
           commitContext.recordTime,
           buildRejectionLogEntry(transactionEntry, reason),
@@ -213,7 +213,7 @@ private[kvutils] class TransactionCommitter(
                   commitContext.recordTime,
                   buildRejectionLogEntry(
                     transactionEntry,
-                    RejectionReason.InvalidLedgerTime(reason),
+                    RejectionReasonV0.InvalidLedgerTime(reason),
                   ),
                 ),
               _ => StepContinue(transactionEntry),
@@ -239,7 +239,7 @@ private[kvutils] class TransactionCommitter(
             .setTransactionRejectionEntry(
               buildRejectionLogEntry(
                 transactionEntry,
-                RejectionReason.InvalidLedgerTime(
+                RejectionReasonV0.InvalidLedgerTime(
                   s"Record time is outside of valid range [$minimumRecordTime, $maximumRecordTime]"
                 ),
               )
@@ -302,7 +302,7 @@ private[kvutils] class TransactionCommitter(
             )
             reject(
               commitContext.recordTime,
-              buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.getMessage)),
+              buildRejectionLogEntry(transactionEntry, RejectionReasonV0.Disputed(err.getMessage)),
             )
         }
       })
@@ -310,9 +310,9 @@ private[kvutils] class TransactionCommitter(
 
   private[transaction] def rejectionReasonForValidationError(
       validationError: com.daml.lf.engine.Error
-  ): RejectionReason = {
-    def disputed: RejectionReason =
-      RejectionReason.Disputed(validationError.msg)
+  ): RejectionReasonV0 = {
+    def disputed: RejectionReasonV0 =
+      RejectionReasonV0.Disputed(validationError.msg)
 
     def resultIsCreatedInTx(
         tx: VersionedTransaction[NodeId, ContractId],
@@ -353,7 +353,7 @@ private[kvutils] class TransactionCommitter(
                 recordedTemplateId == replayedTemplateId && recordedKey == replayedKey
                 && !resultIsCreatedInTx(recordedTx, recordedResult)
                 && !resultIsCreatedInTx(replayedTx, replayedResult) =>
-            RejectionReason.Inconsistent(validationError.msg)
+            RejectionReasonV0.Inconsistent(validationError.msg)
           case _ => disputed
         }
       case _ => disputed
@@ -476,7 +476,7 @@ private[kvutils] class TransactionCommitter(
           commitContext.recordTime,
           buildRejectionLogEntry(
             transactionEntry,
-            RejectionReason.PartyNotKnownOnLedger("Not all parties known"),
+            RejectionReasonV0.PartyNotKnownOnLedger("Not all parties known"),
           ),
         )
     }
@@ -699,7 +699,7 @@ private[kvutils] class TransactionCommitter(
 
   private[transaction] def buildRejectionLogEntry(
       transactionEntry: DamlTransactionEntrySummary,
-      reason: RejectionReason,
+      reason: RejectionReasonV0,
   )(implicit loggingContext: LoggingContext): DamlTransactionRejectionEntry.Builder = {
     logger.trace(s"Transaction rejected, ${reason.description}.")
     val builder = DamlTransactionRejectionEntry.newBuilder
@@ -707,20 +707,20 @@ private[kvutils] class TransactionCommitter(
       .setSubmitterInfo(transactionEntry.submitterInfo)
 
     reason match {
-      case RejectionReason.Inconsistent(reason) =>
+      case RejectionReasonV0.Inconsistent(reason) =>
         builder.setInconsistent(Inconsistent.newBuilder.setDetails(reason))
-      case RejectionReason.Disputed(reason) =>
+      case RejectionReasonV0.Disputed(reason) =>
         builder.setDisputed(Disputed.newBuilder.setDetails(reason))
-      case RejectionReason.ResourcesExhausted(reason) =>
+      case RejectionReasonV0.ResourcesExhausted(reason) =>
         builder.setResourcesExhausted(ResourcesExhausted.newBuilder.setDetails(reason))
-      case RejectionReason.PartyNotKnownOnLedger(reason) =>
+      case RejectionReasonV0.PartyNotKnownOnLedger(reason) =>
         builder.setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder.setDetails(reason))
-      case RejectionReason.SubmitterCannotActViaParticipant(details) =>
+      case RejectionReasonV0.SubmitterCannotActViaParticipant(details) =>
         builder.setSubmitterCannotActViaParticipant(
           SubmitterCannotActViaParticipant.newBuilder
             .setDetails(details)
         )
-      case RejectionReason.InvalidLedgerTime(reason) =>
+      case RejectionReasonV0.InvalidLedgerTime(reason) =>
         builder.setInvalidLedgerTime(InvalidLedgerTime.newBuilder.setDetails(reason))
     }
     builder

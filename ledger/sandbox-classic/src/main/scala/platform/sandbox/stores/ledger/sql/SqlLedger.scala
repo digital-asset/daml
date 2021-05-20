@@ -379,16 +379,16 @@ private final class SqlLedger(
   private def checkTimeModel(
       ledgerTime: Instant,
       recordTime: Instant,
-  ): Either[RejectionReason, Unit] = {
+  ): Either[RejectionReasonV0, Unit] = {
     currentConfiguration
       .get()
-      .fold[Either[RejectionReason, Unit]](
+      .fold[Either[RejectionReasonV0, Unit]](
         Left(
-          RejectionReason
+          RejectionReasonV0
             .InvalidLedgerTime("No ledger configuration available, cannot validate ledger time")
         )
       )(
-        _.timeModel.checkTime(ledgerTime, recordTime).left.map(RejectionReason.InvalidLedgerTime)
+        _.timeModel.checkTime(ledgerTime, recordTime).left.map(RejectionReasonV0.InvalidLedgerTime)
       )
   }
 
