@@ -31,4 +31,5 @@ import GHC.Types
 import DA.Exception.GeneralError
 import DA.Exception.ArithmeticError
 import DA.Exception.ContractError
+import DA.Exception.AssertionFailed
 #endif
