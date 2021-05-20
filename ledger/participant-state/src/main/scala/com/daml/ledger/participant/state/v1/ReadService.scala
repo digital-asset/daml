@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset}
   * the current state and creates indexes to satisfy read requests against
   * that state.
   *
-  * See [[com.daml.ledger.participant.state.v2]] for further architectural
+  * See [[com.daml.ledger.participant.state.v1]] for further architectural
   * information. See [[Update]] for a description of the state updates
   * communicated by [[ReadService!.stateUpdates]].
   */
@@ -60,7 +60,7 @@ trait ReadService extends ReportsHealth {
     *   ledger time `lt_tx`, it holds that `lt_tx >= lt_c` for all `c`, where `c` is a
     *   contract used by the transaction and `lt_c` the ledger time of the
     *   [[Update.TransactionAccepted]] that created the contract.
-    *   The ledger time of a transaction is specified in the corresponding [[com.daml.ledger.participant.state.v1.TransactionMeta]]
+    *   The ledger time of a transaction is specified in the corresponding [[TransactionMeta]]
     *   meta-data.
     *   Note that the ledger time of unrelated updates is not necessarily monotonically
     *   increasing.
