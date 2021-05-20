@@ -20,9 +20,7 @@ import com.daml.ledger.participant.state.v1.{ApplicationId, CommandId, Offset, P
   *   within all the submissions by the same parties and application.
   *
   * @param deduplicationPeriod The deduplication period for the command submission.
-  *   If not given explicitly as an offset, the [[WriteService]] is responsible for
-  *   determining a suitable completion offset where deduplication starts according
-  *   to the [[ReadService]]'s deduplication guarantee.
+  *   Used for the deduplication guarantee described in the [[ReadService.stateUpdates]].
   *
   * @param submissionId An identifier for the submission that allows an application
   *   to correlate completions to its submissions.

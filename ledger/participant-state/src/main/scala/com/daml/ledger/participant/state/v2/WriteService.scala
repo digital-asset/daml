@@ -46,16 +46,7 @@ trait WriteService
 
   /** Submit a transaction for acceptance to the ledger.
     *
-    * TODO(v2) Why do we need the requirement below on no IO? Canton doesn't respect it at the moment.
-    *  For command deduplication, we will need to do some IO inside the write service,
-    *  and want to report the outcome synchronously whenever possible.
-    *
-    * This method must be thread-safe, not throw, and not block on IO. It is
-    * though allowed to perform significant computation. The expectation is
-    * that callers call this method on a thread dedicated to getting this transaction
-    * ready for acceptance to the ledger, which typically requires some
-    * preparation steps (decomposition, serialization) by the implementation
-    * of the [[WriteService]].
+    * This method must be thread-safe.
     *
     * The result of the transaction submission is communicated asynchronously
     * via a [[ReadService]] implementation backed by the same participant

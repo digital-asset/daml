@@ -87,13 +87,6 @@ trait ReadService extends ReportsHealth {
     *   A [[Update.CommandRejected]] completion does not trigger deduplication and implementations SHOULD
     *   process such resubmissions normally, subject to the submission rank guarantee listed below.
     *
-    *   TODO (SM): we would like to weaken this requirement to allow multiple
-    *   [[Update.TransactionAccepted]] updates provided
-    *   the transactions are sub-transactions of each other. Thereby enabling
-    *   the after-the-fact communication of extra details about a transaction
-    *   in case a party is newly hosted at a participant.
-    *   See https://github.com/digital-asset/daml/issues/430
-    *
     * - *submission rank*: Let there be a [[Update.TransactionAccepted]] with [[SubmitterInfo]]
     *   or a [[Update.CommandRejected]] with [[SubmitterInfo]] and not [[Update.CommandRejected.cancelled]] at offset `off`.
     *   Let `rank` be the [[SubmitterInfo.submissionRank]] of the [[Update]].
@@ -170,6 +163,8 @@ trait ReadService extends ReportsHealth {
     * host the same parties; and some implementations ensure data segregation on the ledger. Requiring
     * only the projections to sets of parties to be equal leaves just enough leeway for this
     * data segregation.
+    *
+    *Note further that the offsets of the transactions might not agree, as these offsets are participant-local.
     */
   def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed]
 }
