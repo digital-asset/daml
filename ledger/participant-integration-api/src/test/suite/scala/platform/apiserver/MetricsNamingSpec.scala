@@ -37,7 +37,9 @@ final class MetricsNamingSpec extends AnyFlatSpec with Matchers {
     camelCaseToSnakeCase("ACRONYMFactory") shouldBe "acronym_factory"
     camelCaseToSnakeCase("AbstractACRONYM") shouldBe "abstract_acronym"
     camelCaseToSnakeCase("AbstractACRONYMFactory") shouldBe "abstract_acronym_factory"
-    camelCaseToSnakeCase("AbstractACRONYMProxyJVMFactory") shouldBe "abstract_acronym_proxy_jvm_factory"
+    camelCaseToSnakeCase(
+      "AbstractACRONYMProxyJVMFactory"
+    ) shouldBe "abstract_acronym_proxy_jvm_factory"
   }
 
   it should "treat single letter words intelligently" in {
