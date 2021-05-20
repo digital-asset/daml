@@ -3,12 +3,14 @@
 
 package com.daml.script.export
 
-import java.io.File
+import java.io.{File, PrintWriter}
 import java.nio.file.{Path, Paths}
 import java.time.Duration
 
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script.{RunnerConfig, RunnerMain}
+
+import scala.io.Source
 
 case class ExampleClientConfig(
     darPath: File,
@@ -115,5 +117,20 @@ object ExampleClient {
         ),
       )
     )
+    normalizeDataDependencies(clientConfig.outputPath, clientConfig.outputPath.resolve("daml.yaml"))
+  }
+
+  private def normalizeDataDependencies(outputPath: Path, damlYaml: Path): Unit = {
+    val tmpFile = damlYaml.resolveSibling("daml.yaml.new").toFile
+    val w = new PrintWriter(tmpFile)
+    Source
+      .fromFile(damlYaml.toFile)
+      .getLines()
+      .map { x => x.replaceFirst(outputPath.toString, "EXPORT_OUT") }
+      .foreach(x => w.println(x))
+    w.close()
+    if (!tmpFile.renameTo(damlYaml.toFile)) {
+      throw new RuntimeException(s"Failed to normalize daml.yaml file: $damlYaml")
+    }
   }
 }
