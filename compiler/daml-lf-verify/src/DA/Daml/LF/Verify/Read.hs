@@ -5,7 +5,7 @@
 -- TODO: There is a lot of copying going on here from TsCodeGenMain.hs.
 -- A nicer alternative would be to just change the exports from this module.
 
--- | Reading dar files for DAML LF verification.
+-- | Reading dar files for Daml-LF verification.
 module DA.Daml.LF.Verify.Read
   ( readPackages
   , optionsParserInfo

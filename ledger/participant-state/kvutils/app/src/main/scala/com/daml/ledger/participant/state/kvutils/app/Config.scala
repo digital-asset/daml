@@ -156,6 +156,7 @@ object Config {
               "run-mode, " +
               "shard-name, " +
               "indexer-connection-pool-size, " +
+              "indexer-max-input-buffer-size, " +
               "indexer-input-mapping-parallelism, " +
               "indexer-ingestion-parallelism, " +
               "indexer-submission-batch-size, " +
@@ -202,6 +203,10 @@ object Config {
               .get("indexer-input-mapping-parallelism")
               .map(_.toInt)
               .getOrElse(ParticipantIndexerConfig.DefaultInputMappingParallelism)
+            val indexerMaxInputBufferSize = kv
+              .get("indexer-max-input-buffer-size")
+              .map(_.toInt)
+              .getOrElse(ParticipantIndexerConfig.DefaultMaxInputBufferSize)
             val indexerBatchingParallelism = kv
               .get("indexer-batching-parallelism")
               .map(_.toInt)
@@ -253,6 +258,7 @@ object Config {
               indexerConfig = ParticipantIndexerConfig(
                 databaseConnectionPoolSize = indexerConnectionPoolSize,
                 allowExistingSchema = false,
+                maxInputBufferSize = indexerMaxInputBufferSize,
                 inputMappingParallelism = indexerInputMappingParallelism,
                 batchingParallelism = indexerBatchingParallelism,
                 ingestionParallelism = indexerIngestionParallelism,

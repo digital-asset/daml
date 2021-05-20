@@ -29,7 +29,7 @@ sealed trait ValueEncoder[@sp(Long) -A] extends DamlCodecs {
 
 /** Typeclass of "serializable" types as defined by the LF specification.
   *
-  * @tparam A Scala representation for some DAML ''serializable''
+  * @tparam A Scala representation for some Daml ''serializable''
   *         type. Specialized to match [[Primitive]].
   */
 sealed trait Value[@sp(Long) A] extends ValueDecoder[A] with ValueEncoder[A]

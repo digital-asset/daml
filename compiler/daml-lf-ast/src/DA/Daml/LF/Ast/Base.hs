@@ -264,7 +264,7 @@ data BuiltinExpr
   | BEGreater    !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BEToText     !BuiltinType    -- :: t -> Text, where t is one of the builtin types
                                  -- {Int64, Decimal, Text, Timestamp, Date, Party}
-  | BEToTextContractId           -- :: forall t. ContractId t -> Option Text
+  | BEContractIdToText           -- :: forall t. ContractId t -> Option Text
 
   -- Decimal arithmetic
   | BEAddDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow
@@ -279,7 +279,7 @@ data BuiltinExpr
   | BELessEqNumeric              -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
   | BEGreaterEqNumeric           -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
   | BEGreaterNumeric             -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
-  | BEToTextNumeric              -- :: ∀(s:nat). Numeric s -> Text
+  | BENumericToText              -- :: ∀(s:nat). Numeric s -> Text
   | BEAddNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
   | BESubNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
   | BEMulNumeric                 -- :: ∀(s1:nat). ∀(s2:nat). ∀(s3:nat). Numeric s1 -> Numeric s2 -> Numeric s3, crashes on overflow and underflow, automatically rounds to even (see <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>)
@@ -335,12 +335,12 @@ data BuiltinExpr
   | BEAppendText                 -- :: Text -> Text -> Text
   | BEImplodeText                -- :: List Text -> Text
   | BESha256Text                 -- :: Text -> Text
-  | BEPartyFromText              -- :: Text -> Optional Party
-  | BEInt64FromText              -- :: Text -> Optional Int64
-  | BEDecimalFromText            -- :: Text -> Optional Decimal
-  | BENumericFromText            -- :: ∀(s:nat). Text -> Optional (Numeric s)
+  | BETextToParty              -- :: Text -> Optional Party
+  | BETextToInt64              -- :: Text -> Optional Int64
+  | BETextToDecimal            -- :: Text -> Optional Decimal
+  | BETextToNumeric            -- :: ∀(s:nat). Text -> Optional (Numeric s)
   | BETextToCodePoints           -- :: Text -> List Int64
-  | BETextFromCodePoints         -- :: List Int64 -> Text
+  | BECodePointsToText         -- :: List Int64 -> Text
   | BEPartyToQuotedText          -- :: Party -> Text
 
   -- BigNumeric operations
@@ -350,10 +350,9 @@ data BuiltinExpr
   | BESubBigNumeric              -- :: BigNumeric -> BigNumeric -> BigNumeric
   | BEMulBigNumeric              -- :: BigNumeric -> BigNumeric -> BigNumeric
   | BEDivBigNumeric              -- :: Int64 -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric
-  | BEShiftBigNumeric            -- :: Int64 -> BigNumeric -> BigNumeric
-  | BEToNumericBigNumeric        -- :: ∀(s:nat). BigNumeric -> Numeric s
-  | BEFromNumericBigNumeric      -- :: ∀(s:nat). Numeric s -> BigNumeric
-  | BEToTextBigNumeric           -- :: BigNumeric -> Text
+  | BEShiftRightBigNumeric            -- :: Int64 -> BigNumeric -> BigNumeric
+  | BEBigNumericToNumeric        -- :: ∀(s:nat). BigNumeric -> Numeric s
+  | BENumericToBigNumeric      -- :: ∀(s:nat). Numeric s -> BigNumeric
 
   | BETrace                      -- :: forall a. Text -> a -> a
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool

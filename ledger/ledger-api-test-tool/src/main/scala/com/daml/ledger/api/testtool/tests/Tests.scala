@@ -45,7 +45,8 @@ object Tests {
       new ValueLimitsIT,
       new WitnessesIT,
       new WronglyTypedContractIdIT,
-    ) ++ (if (supportsExceptions) Vector(new ExceptionsIT) else Vector.empty)
+    ) ++ (if (supportsExceptions) Vector(new ExceptionsIT, new ExceptionRaceConditionIT)
+          else Vector.empty)
 
   val optional: Vector[LedgerTestSuite] =
     Vector(

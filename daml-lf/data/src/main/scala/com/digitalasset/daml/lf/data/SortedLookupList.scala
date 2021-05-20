@@ -13,7 +13,7 @@ import scalaz.syntax.traverse._
 import scala.collection.immutable.HashMap
 import scala.collection.compat._
 
-/** We use this container to pass around DAML-LF text maps as flat lists in various parts of the codebase. */
+/** We use this container to pass around Daml-LF text maps as flat lists in various parts of the codebase. */
 // Note that keys are ordered using Utf8 ordering
 final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extends Equals {
 

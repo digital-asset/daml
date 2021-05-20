@@ -13,9 +13,9 @@ import scalaz.syntax.std.option._
 
 import scala.reflect.runtime.universe._
 
-/**  This object is used for generating code that corresponds to a DAML contract template.
+/**  This object is used for generating code that corresponds to a Daml contract template.
   *  An app user that uses these generated classes is guaranteed to have the same level of type
-  *  safety that DAML provides.
+  *  safety that Daml provides.
   *
   *  See the comments below for more details on what classes/methods/types are generated.
   */

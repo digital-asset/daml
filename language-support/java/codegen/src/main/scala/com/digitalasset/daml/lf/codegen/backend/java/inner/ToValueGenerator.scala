@@ -14,7 +14,7 @@ import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
 
 /** Produces an overload of a method or constructor that uses unboxed
-  * versions of DAML-LF primitives, if any is passed
+  * versions of Daml-LF primitives, if any is passed
   *
   * e.g.
   *   - f(Int64) => Some(f(long))
@@ -23,7 +23,7 @@ import scala.jdk.CollectionConverters._
   *
   * The generated overload will always return the same type as the
   * method it's overloading, meaning that the return type will be
-  * boxed even if it's a DAML-LF primitive
+  * boxed even if it's a Daml-LF primitive
   */
 object ToValueGenerator {
 

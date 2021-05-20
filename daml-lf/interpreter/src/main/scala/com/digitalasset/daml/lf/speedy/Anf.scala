@@ -371,13 +371,10 @@ private[lf] object Anf {
         val body: SExpr = flattenExp(depth, env, body0)(anf => Land(anf.wrapped)).bounce
         Bounce(() => transform(depth, SEScopeExercise(body), k))
 
-      case x: SEAbs => throw CompilationError(s"flatten: unexpected: $x")
-      case x: SEDamlException => throw CompilationError(s"flatten: unexpected: $x")
-      case x: SEAppAtomicFun => throw CompilationError(s"flatten: unexpected: $x")
-      case x: SEAppAtomicGeneral => throw CompilationError(s"flatten: unexpected: $x")
-      case x: SEAppAtomicSaturatedBuiltin => throw CompilationError(s"flatten: unexpected: $x")
-      case x: SELet1Builtin => throw CompilationError(s"flatten: unexpected: $x")
-      case x: SECaseAtomic => throw CompilationError(s"flatten: unexpected: $x")
+      case _: SEAbs | _: SEDamlException | _: SEAppAtomicFun | _: SEAppAtomicGeneral |
+          _: SEAppAtomicSaturatedBuiltin | _: SELet1Builtin | _: SELet1BuiltinArithmetic |
+          _: SECaseAtomic =>
+        throw CompilationError(s"flatten: unexpected: $exp")
     }
 
   private[this] def atomizeExps[A](depth: DepthA, env: Env, exps: List[SExpr], k: K[AExpr, A])(

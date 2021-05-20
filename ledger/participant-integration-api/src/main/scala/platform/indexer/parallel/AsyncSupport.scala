@@ -12,11 +12,18 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.{ExecutionContext, Future}
 
-// TODO append-only: add unit tests and move to some scala/concurrent library project for convenience
 object AsyncSupport {
 
   trait Executor {
     def execute[FIN, FOUT](f: FIN => FOUT): FIN => Future[FOUT]
+  }
+
+  object Executor {
+    def forExecutionContext(executionContext: ExecutionContext): Executor =
+      new Executor {
+        override def execute[FIN, FOUT](f: FIN => FOUT): FIN => Future[FOUT] =
+          in => Future(f(in))(executionContext)
+      }
   }
 
   def asyncPool(
@@ -24,29 +31,24 @@ object AsyncSupport {
       namePrefix: String,
       withMetric: Option[(MetricName, MetricRegistry)] = None,
   ): ResourceOwner[Executor] =
-    ResourceOwner.forCloseable { () =>
-      val executor = Executors.newFixedThreadPool(
-        size,
-        new ThreadFactoryBuilder().setNameFormat(s"$namePrefix-%d").build,
-      )
-      val workerE = withMetric match {
-        case Some((metricName, metricRegistry)) =>
-          new InstrumentedExecutorService(
-            executor,
-            metricRegistry,
-            metricName,
+    ResourceOwner
+      .forExecutorService(() =>
+        ExecutionContext.fromExecutorService {
+          val executor = Executors.newFixedThreadPool(
+            size,
+            new ThreadFactoryBuilder().setNameFormat(s"$namePrefix-%d").build,
           )
-        case None => executor
-      }
-      val workerEC = ExecutionContext.fromExecutorService(workerE)
-      new Executor with AutoCloseable {
-        override def execute[FIN, FOUT](f: FIN => FOUT): FIN => Future[FOUT] =
-          in => Future(f(in))(workerEC)
+          withMetric match {
+            case Some((metricName, metricRegistry)) =>
+              new InstrumentedExecutorService(
+                executor,
+                metricRegistry,
+                metricName,
+              )
 
-        override def close(): Unit = {
-          workerEC.shutdownNow()
-          ()
+            case None => executor
+          }
         }
-      }
-    }
+      )
+      .map(Executor.forExecutionContext)
 }

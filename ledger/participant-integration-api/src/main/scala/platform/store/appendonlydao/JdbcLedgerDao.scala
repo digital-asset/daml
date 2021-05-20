@@ -159,15 +159,55 @@ private class JdbcLedgerDao(
     }
 
   private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
-    "select * from configuration_entries where ledger_offset > {startExclusive} and ledger_offset <= {endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}"
+    """select
+      |    configuration_entries.ledger_offset,
+      |    configuration_entries.recorded_at,
+      |    configuration_entries.submission_id,
+      |    configuration_entries.typ,
+      |    configuration_entries.configuration,
+      |    configuration_entries.rejection_reason
+      |  from
+      |    configuration_entries,
+      |    parameters
+      |  where
+      |    ledger_offset > {startExclusive} and
+      |    ledger_offset <= {endInclusive} and
+      |    parameters.ledger_end >= ledger_offset
+      |  order by ledger_offset asc
+      |  limit {pageSize}
+      |  offset {queryOffset}""".stripMargin
   )
+
+  private val SQL_GET_LATEST_CONFIGURATION_ENTRY = SQL(
+    s"""select
+      |    configuration_entries.ledger_offset,
+      |    configuration_entries.recorded_at,
+      |    configuration_entries.submission_id,
+      |    configuration_entries.typ,
+      |    configuration_entries.configuration,
+      |    configuration_entries.rejection_reason
+      |  from
+      |    configuration_entries,
+      |    parameters
+      |  where
+      |    configuration_entries.typ = '$acceptType' and
+      |    parameters.ledger_end >= ledger_offset
+      |  order by ledger_offset desc
+      |  limit 1""".stripMargin
+  )
+
+  private def lookupLedgerConfiguration(connection: Connection): Option[(Offset, Configuration)] =
+    SQL_GET_LATEST_CONFIGURATION_ENTRY
+      .on()
+      .asVectorOf(configurationEntryParser)(connection)
+      .collectFirst { case (offset, ConfigurationEntry.Accepted(_, configuration)) =>
+        offset -> configuration
+      }
 
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
   ): Future[Option[(Offset, Configuration)]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.lookupConfiguration)(
-      ParametersTable.getLedgerEndAndConfiguration
-    )
+    dbDispatcher.executeSql(metrics.daml.index.db.lookupConfiguration)(lookupLedgerConfiguration)
 
   private val configurationEntryParser: RowParser[(Offset, ConfigurationEntry)] =
     (offset("ledger_offset") ~
@@ -231,7 +271,7 @@ private class JdbcLedgerDao(
       dbDispatcher.executeSql(
         metrics.daml.index.db.storeConfigurationEntryDbMetrics
       ) { implicit conn =>
-        val optCurrentConfig = ParametersTable.getLedgerEndAndConfiguration(conn)
+        val optCurrentConfig = lookupLedgerConfiguration(conn)
         val optExpectedGeneration: Option[Long] =
           optCurrentConfig.map { case (_, c) => c.generation + 1 }
         val finalRejectionReason: Option[String] =

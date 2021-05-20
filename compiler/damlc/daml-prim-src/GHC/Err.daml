@@ -17,7 +17,7 @@ import GHC.Types
 
 #ifdef DAML_EXCEPTIONS
 
-import DA.Internal.Exception.Types
+import DA.Exception.GeneralError
 
 -- | `error` stops execution and displays the given error message.
 --

@@ -49,6 +49,7 @@ def sh_inline_test(
         name,
         cmd,
         data = [],
+        toolchains = [],
         **kwargs):
     testonly = kwargs.pop("testonly", True)
     _sh_inline_script(
@@ -57,6 +58,7 @@ def sh_inline_test(
         output = name + ".sh",
         data = data,
         testonly = testonly,
+        toolchains = toolchains,
     )
     native.sh_test(
         name = name,

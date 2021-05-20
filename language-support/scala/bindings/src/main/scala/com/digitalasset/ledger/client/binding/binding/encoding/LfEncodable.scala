@@ -83,7 +83,7 @@ object LfEncodable extends ValuePrimitiveEncoding[LfEncodable] {
     /** The fields of `T`'s associated record type, each in some
       * type constructor `C`.
       *
-      * @note Lowercase because `T.View` is a valid DAML type name,
+      * @note Lowercase because `T.View` is a valid Daml type name,
       *       and this trait describes codegen output.
       */
     type view[C[_]] <: RecordView[C, view]

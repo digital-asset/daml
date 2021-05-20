@@ -5,10 +5,10 @@ package com.daml.platform.store.appendonlydao
 
 import java.sql.Connection
 
-import anorm.SqlParser.{byteArray, long}
-import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
+import anorm.SqlParser.long
+import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
-import com.daml.ledger.participant.state.v1.{Configuration, Offset}
+import com.daml.ledger.participant.state.v1.Offset
 import com.daml.platform.store.Conversions.{ledgerString, offset, participantId}
 import com.daml.scalautil.Statement.discard
 
@@ -18,7 +18,6 @@ private[appendonlydao] object ParametersTable {
   private val ParticipantIdColumnName: String = "participant_id"
   private val LedgerEndColumnName: String = "ledger_end"
   private val LedgerEndSequentialIdColumnName: String = "ledger_end_sequential_id"
-  private val ConfigurationColumnName: String = "configuration"
 
   private val LedgerIdParser: RowParser[LedgerId] =
     ledgerString(LedgerIdColumnName).map(LedgerId(_))
@@ -42,17 +41,6 @@ private[appendonlydao] object ParametersTable {
         case (None, Some(_)) =>
           throw InvalidLedgerEnd("Parameters table in invalid state: ledger_end is not set")
       }
-
-  private val ConfigurationParser: RowParser[Option[Configuration]] =
-    byteArray(ConfigurationColumnName).? map (_.flatMap(Configuration.decode(_).toOption))
-
-  private val LedgerEndAndConfigurationParser: RowParser[Option[(Offset, Configuration)]] =
-    LedgerEndParser ~ ConfigurationParser map { case ledgerEnd ~ configuration =>
-      for {
-        e <- ledgerEnd
-        c <- configuration
-      } yield (e, c)
-    }
 
   private val SelectLedgerEnd: SimpleSql[Row] = SQL"select #$LedgerEndColumnName from #$TableName"
 
@@ -88,11 +76,6 @@ private[appendonlydao] object ParametersTable {
 
   def getInitialLedgerEnd(connection: Connection): Option[Offset] =
     SelectLedgerEnd.as(LedgerEndParser.single)(connection)
-
-  def getLedgerEndAndConfiguration(connection: Connection): Option[(Offset, Configuration)] =
-    SQL"select #$LedgerEndColumnName, #$ConfigurationColumnName from #$TableName".as(
-      LedgerEndAndConfigurationParser.single
-    )(connection)
 
   case class InvalidLedgerEnd(msg: String) extends RuntimeException(msg)
 

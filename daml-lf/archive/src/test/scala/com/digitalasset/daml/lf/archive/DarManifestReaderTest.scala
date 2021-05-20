@@ -19,7 +19,7 @@ class DarManifestReaderTest extends AnyWordSpec with Matchers with Inside {
 
   "should read dalf names from manifest, real scenario with Dalfs line split" in {
     val manifest = """Manifest-Version: 1.0
-      |Created-By: Digital Asset packager (DAML-GHC)
+      |Created-By: Digital Asset packager (Daml-GHC)
       |Main-Dalf: com.daml.lf.archive:DarReaderTest:0.1.dalf
       |Dalfs: com.daml.lf.archive:DarReaderTest:0.1.dalf, daml-pri
       | m.dalf

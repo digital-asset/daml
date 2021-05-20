@@ -21,7 +21,7 @@ final class MultiParticipantIT
   private def darFile = new File(rlocation("daml-script/test/script-test.dar"))
   val (dar, envIface) = readDar(darFile)
 
-  "Multi-participant DAML Script" can {
+  "Multi-participant Daml Script" can {
     "multiTest" should {
       "return 42" in {
         for {

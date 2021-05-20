@@ -5,11 +5,16 @@ package com.daml.platform.store.backend
 
 import java.time.Instant
 
-trait DBDTOV1
+import com.daml.scalautil.NeverEqualsOverride
+
+sealed trait DBDTOV1
+    extends NeverEqualsOverride
+    with Product
+    with Serializable // to aid type inference for case class implementors
 
 object DBDTOV1 {
 
-  case class EventDivulgence(
+  final case class EventDivulgence(
       event_offset: Option[String],
       command_id: Option[String],
       workflow_id: Option[String],
@@ -23,7 +28,7 @@ object DBDTOV1 {
       event_sequential_id: Long,
   ) extends DBDTOV1
 
-  case class EventCreate(
+  final case class EventCreate(
       event_offset: Option[String],
       transaction_id: Option[String],
       ledger_effective_time: Option[Instant],
@@ -48,7 +53,7 @@ object DBDTOV1 {
       event_sequential_id: Long,
   ) extends DBDTOV1
 
-  case class EventExercise(
+  final case class EventExercise(
       consuming: Boolean,
       event_offset: Option[String],
       transaction_id: Option[String],
@@ -75,67 +80,63 @@ object DBDTOV1 {
       event_sequential_id: Long,
   ) extends DBDTOV1
 
-  // TODO append-only: wartremover complained about having Array-s in case classes. I would prefer case classes. can we work that somehow around? Similarly in other DTO cases...
-  // TODO append-only: there are some options:
-  //   - mixing in SomeArrayEquals if we need array equality for some reason: would be proper if we move SomeArrayEquals out from speedy codebase to scalalib first.
-  //   - spawning somewhere something like trait NeverEqualsOverride { override equals(o: Object): Boolean = false }, and mixing in these classes
-  class ConfigurationEntry(
-      val ledger_offset: String,
-      val recorded_at: Instant,
-      val submission_id: String,
-      val typ: String,
-      val configuration: Array[Byte],
-      val rejection_reason: Option[String],
+  final case class ConfigurationEntry(
+      ledger_offset: String,
+      recorded_at: Instant,
+      submission_id: String,
+      typ: String,
+      configuration: Array[Byte],
+      rejection_reason: Option[String],
   ) extends DBDTOV1
 
-  class PackageEntry(
-      val ledger_offset: String,
-      val recorded_at: Instant,
-      val submission_id: Option[String],
-      val typ: String,
-      val rejection_reason: Option[String],
+  final case class PackageEntry(
+      ledger_offset: String,
+      recorded_at: Instant,
+      submission_id: Option[String],
+      typ: String,
+      rejection_reason: Option[String],
   ) extends DBDTOV1
 
-  class Package(
-      val package_id: String,
-      val upload_id: String,
-      val source_description: Option[String],
-      val size: Long,
-      val known_since: Instant,
-      val ledger_offset: String,
-      val _package: Array[Byte],
+  final case class Package(
+      package_id: String,
+      upload_id: String,
+      source_description: Option[String],
+      size: Long,
+      known_since: Instant,
+      ledger_offset: String,
+      _package: Array[Byte],
   ) extends DBDTOV1
 
-  class PartyEntry(
-      val ledger_offset: String,
-      val recorded_at: Instant,
-      val submission_id: Option[String],
-      val party: Option[String],
-      val display_name: Option[String],
-      val typ: String,
-      val rejection_reason: Option[String],
-      val is_local: Option[Boolean],
+  final case class PartyEntry(
+      ledger_offset: String,
+      recorded_at: Instant,
+      submission_id: Option[String],
+      party: Option[String],
+      display_name: Option[String],
+      typ: String,
+      rejection_reason: Option[String],
+      is_local: Option[Boolean],
   ) extends DBDTOV1
 
-  class Party(
-      val party: String,
-      val display_name: Option[String],
-      val explicit: Boolean,
-      val ledger_offset: Option[String],
-      val is_local: Boolean,
+  final case class Party(
+      party: String,
+      display_name: Option[String],
+      explicit: Boolean,
+      ledger_offset: Option[String],
+      is_local: Boolean,
   ) extends DBDTOV1
 
-  class CommandCompletion(
-      val completion_offset: String,
-      val record_time: Instant,
-      val application_id: String,
-      val submitters: Set[String],
-      val command_id: String,
-      val transaction_id: Option[String],
-      val status_code: Option[Int],
-      val status_message: Option[String],
+  final case class CommandCompletion(
+      completion_offset: String,
+      record_time: Instant,
+      application_id: String,
+      submitters: Set[String],
+      command_id: String,
+      transaction_id: Option[String],
+      status_code: Option[Int],
+      status_message: Option[String],
   ) extends DBDTOV1
 
-  class CommandDeduplication(val deduplication_key: String) extends DBDTOV1
+  final case class CommandDeduplication(deduplication_key: String) extends DBDTOV1
 
 }

@@ -91,4 +91,33 @@ object InstrumentedSource {
     }
   }
 
+  /** Adds a buffer to the output of the original source, and adds a Counter metric for buffer size.
+    *
+    * Good for detecting bottlenecks and speed difference between consumer and producer.
+    * In case producer is faster, this buffer should be mostly empty.
+    * In case producer is slower, this buffer should be mostly full.
+    *
+    * @param original the original source which will be instrumented
+    * @param counter the counter to track the actual size of the buffer
+    * @param size the maximum size of the buffer. In case of a bottleneck in producer this will be mostly full, so careful estimation needed to prevent excessive memory pressure
+    * @tparam T
+    * @tparam U
+    * @return the instrumentes source
+    */
+  def bufferedSource[T, U](
+      original: Source[T, U],
+      counter: com.codahale.metrics.Counter,
+      size: Int,
+  ): Source[T, U] = {
+    def tap(block: => Unit): T => T = t => {
+      block
+      t
+    }
+    original
+      .map(
+        tap(counter.inc())
+      ) // since wireTap is not guaranteed to be executed always, we need map to prevent counter skew over time.
+      .buffer(size, OverflowStrategy.backpressure)
+      .map(tap(counter.dec()))
+  }
 }

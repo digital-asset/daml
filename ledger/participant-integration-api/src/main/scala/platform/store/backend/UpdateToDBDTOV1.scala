@@ -14,7 +14,6 @@ import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.dao.DeduplicationKeyMaker
 
-// TODO append-only: target to separation per update-type to it's own function + unit tests
 object UpdateToDBDTOV1 {
 
   def apply(
@@ -24,9 +23,8 @@ object UpdateToDBDTOV1 {
   ): Offset => Update => Iterator[DBDTOV1] = { offset =>
     {
       case u: Update.CommandRejected =>
-        // TODO append-only: we might want to tune up deduplications so it is also a temporal query
         Iterator(
-          new DBDTOV1.CommandCompletion(
+          DBDTOV1.CommandCompletion(
             completion_offset = offset.toHexString,
             record_time = u.recordTime.toInstant,
             application_id = u.submitterInfo.applicationId,
@@ -36,7 +34,7 @@ object UpdateToDBDTOV1 {
             status_code = Some(Conversions.participantRejectionReasonToErrorCode(u.reason).value()),
             status_message = Some(u.reason.description),
           ),
-          new DBDTOV1.CommandDeduplication(
+          DBDTOV1.CommandDeduplication(
             DeduplicationKeyMaker.make(
               domain.CommandId(u.submitterInfo.commandId),
               u.submitterInfo.actAs,
@@ -46,7 +44,7 @@ object UpdateToDBDTOV1 {
 
       case u: Update.ConfigurationChanged =>
         Iterator(
-          new DBDTOV1.ConfigurationEntry(
+          DBDTOV1.ConfigurationEntry(
             ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = u.submissionId,
@@ -58,7 +56,7 @@ object UpdateToDBDTOV1 {
 
       case u: Update.ConfigurationChangeRejected =>
         Iterator(
-          new DBDTOV1.ConfigurationEntry(
+          DBDTOV1.ConfigurationEntry(
             ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = u.submissionId,
@@ -70,7 +68,7 @@ object UpdateToDBDTOV1 {
 
       case u: Update.PartyAddedToParticipant =>
         Iterator(
-          new DBDTOV1.PartyEntry(
+          DBDTOV1.PartyEntry(
             ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = u.submissionId,
@@ -80,7 +78,7 @@ object UpdateToDBDTOV1 {
             rejection_reason = None,
             is_local = Some(u.participantId == participantId),
           ),
-          new DBDTOV1.Party(
+          DBDTOV1.Party(
             party = u.party,
             display_name = Some(u.displayName),
             explicit = true,
@@ -91,7 +89,7 @@ object UpdateToDBDTOV1 {
 
       case u: Update.PartyAllocationRejected =>
         Iterator(
-          new DBDTOV1.PartyEntry(
+          DBDTOV1.PartyEntry(
             ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = Some(u.submissionId),
@@ -106,7 +104,7 @@ object UpdateToDBDTOV1 {
       case u: Update.PublicPackageUpload =>
         val uploadId = u.submissionId.getOrElse(UUID.randomUUID().toString)
         val packages = u.archives.iterator.map { archive =>
-          new DBDTOV1.Package(
+          DBDTOV1.Package(
             package_id = archive.getHash,
             upload_id = uploadId,
             source_description = u.sourceDescription,
@@ -117,7 +115,7 @@ object UpdateToDBDTOV1 {
           )
         }
         val packageEntries = u.submissionId.iterator.map(submissionId =>
-          new DBDTOV1.PackageEntry(
+          DBDTOV1.PackageEntry(
             ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = Some(submissionId),
@@ -129,7 +127,7 @@ object UpdateToDBDTOV1 {
 
       case u: Update.PublicPackageUploadRejected =>
         Iterator(
-          new DBDTOV1.PackageEntry(
+          DBDTOV1.PackageEntry(
             ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = Some(u.submissionId),
@@ -261,7 +259,7 @@ object UpdateToDBDTOV1 {
         }
 
         val completions = u.optSubmitterInfo.iterator.map { submitterInfo =>
-          new DBDTOV1.CommandCompletion(
+          DBDTOV1.CommandCompletion(
             completion_offset = offset.toHexString,
             record_time = u.recordTime.toInstant,
             application_id = submitterInfo.applicationId,

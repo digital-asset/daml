@@ -1,1 +1,1 @@
-Error: Attempt to divide 0 by 0.
+Error: unhandled exception: ArithmeticError while evaluating DIV_INT64(0,0).

@@ -109,7 +109,7 @@ final class ExceptionsIT extends LedgerTestSuite {
 
   test(
     "ExRolledbackArchiveConsuming",
-    "Rolledback archive does not block consuming exercise",
+    "Rolled back archive does not block consuming exercise",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {

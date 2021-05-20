@@ -135,7 +135,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       // Note that the Equal instance on Value performs structural equality
       // and also compares optional field and constructor names and is
       // therefore not correct here.
-      // Equality.areEqual corresponds to the DAML-LF value equality
+      // Equality.areEqual corresponds to the Daml-LF value equality
       // which we want here.
       speedyContracts.collectFirst({ case (c, Some(k)) if svalue.Equality.areEqual(k, key) => c })
     }

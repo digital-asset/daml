@@ -2,6 +2,38 @@
 # SPDX-License-Identifier: Apache-2.0
 
 jobs:
+
+- job: fix_bazel_cache
+  timeoutInMinutes: 120
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  steps:
+    - checkout: self
+    - bash: ci/dev-env-install.sh
+      displayName: 'Build/Install the Developer Environment'
+    - template: bash-lib.yml
+      parameters:
+        var_name: bash-lib
+    - bash: |
+        set -euo pipefail
+        eval "$(dev-env/bin/dade assist)"
+
+        bazel build //ci/cron:cron
+
+        key=$(mktemp)
+        cleanup="rm -rf $key ~/.config/gcloud"
+        trap "$cleanup" EXIT
+        echo "$GCRED" > $key
+        gcloud auth activate-service-account --key-file=$key
+        export BOTO_CONFIG=/dev/null
+          # 90 minutes should provide enough overlap for an hourly
+        # cronjob.
+        ./bazel-bin/ci/cron/cron bazel-cache --age 90 --delete
+      env:
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+    - template: tell-slack-failed.yml
+
 - job: git_sha
   pool:
     name: 'ubuntu_20_04'
@@ -70,7 +102,7 @@ jobs:
         trigger_sha: '$(trigger_sha)'
     - template: report-end.yml
 
-- job: Linux_scala_2_13
+- job: Linux_scala_2_12
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -78,12 +110,10 @@ jobs:
     release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
     release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
     trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    # We still need to be able to run builds for releases that don’t yet support Scala 2.13
-    # The easiest option seems to be to still run the Scala 2.13 job but
-    # pretend it’s not a release build and thereby just run it against main
-    # so that’s what we do here.
-    is_release: $[ and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'), eq(dependencies.check_for_release.outputs['out.scala_2_13'], 'true')) ]
-    scala_2_13: $[ dependencies.check_for_release.outputs['out.scala_2_13'] ]
+    # For old release builds, this job is redundant since the default is already 2.12.
+    # However, since bugfix releases are not very frequent we opt for the simple solution
+    # of simply running this build either way.
+    is_release: $[ eq(dependencies.check_for_release.outputs['out.is_release'], 'true') ]
   timeoutInMinutes: 360
   pool:
     name: 'ubuntu_20_04'
@@ -100,9 +130,9 @@ jobs:
     - template: build-unix.yml
       parameters:
         release_tag: $(release_tag)
-        name: 'linux-scala-2.13'
+        name: 'linux-scala-2.12'
         is_release: variables.is_release
-        scala_version: "2.13.5"
+        scala_version: "2.12.13"
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
@@ -288,26 +318,6 @@ jobs:
     - template: tell-slack-failed.yml
     - template: report-end.yml
 
-- job: compatibility_macos
-  dependsOn:
-    - da_ghc_lib
-    - check_for_release
-    - compatibility_ts_libs
-  timeoutInMinutes: 360
-  pool:
-    name: macOS-pool
-    demands: assignment -equals default
-  steps:
-    - template: report-start.yml
-    - template: clear-shared-segments-macos.yml
-    - checkout: self
-    - template: clean-up.yml
-    - template: compatibility.yml
-      parameters:
-        test_flags: '--quick'
-    - template: tell-slack-failed.yml
-    - template: report-end.yml
-
 - job: compatibility_windows
   dependsOn:
     - da_ghc_lib
@@ -399,12 +409,11 @@ jobs:
   dependsOn:
     - Linux
     - Linux_oracle
-    - Linux_scala_2_13
+    - Linux_scala_2_12
     - macOS
     - Windows
     - release
     - git_sha
-    - compatibility_macos
     - compatibility_linux
     - compatibility_windows
     - check_for_release
@@ -420,10 +429,10 @@ jobs:
     Linux_oracle.machine: $[ dependencies.Linux_oracle.outputs['start.machine'] ]
     Linux_oracle.end: $[ dependencies.Linux_oracle.outputs['end.time'] ]
     Linux_oracle.status: $[ dependencies.Linux_oracle.result ]
-    Linux_scala_2_13.start: $[ dependencies.Linux_scala_2_13.outputs['start.time'] ]
-    Linux_scala_2_13.machine: $[ dependencies.Linux_scala_2_13.outputs['start.machine'] ]
-    Linux_scala_2_13.end: $[ dependencies.Linux_scala_2_13.outputs['end.time'] ]
-    Linux_scala_2_13.status: $[ dependencies.Linux_scala_2_13.result ]
+    Linux_scala_2_12.start: $[ dependencies.Linux_scala_2_12.outputs['start.time'] ]
+    Linux_scala_2_12.machine: $[ dependencies.Linux_scala_2_12.outputs['start.machine'] ]
+    Linux_scala_2_12.end: $[ dependencies.Linux_scala_2_12.outputs['end.time'] ]
+    Linux_scala_2_12.status: $[ dependencies.Linux_scala_2_12.result ]
     macOS.start: $[ dependencies.macOS.outputs['start.time'] ]
     macOS.machine: $[ dependencies.macOS.outputs['start.machine'] ]
     macOS.end: $[ dependencies.macOS.outputs['end.time'] ]
@@ -440,10 +449,6 @@ jobs:
     compatibility_linux.machine: $[ dependencies.compatibility_linux.outputs['start.machine'] ]
     compatibility_linux.end: $[ dependencies.compatibility_linux.outputs['end.time'] ]
     compatibility_linux.status: $[ dependencies.compatibility_linux.result ]
-    compatibility_macos.start: $[ dependencies.compatibility_macos.outputs['start.time'] ]
-    compatibility_macos.machine: $[ dependencies.compatibility_macos.outputs['start.machine'] ]
-    compatibility_macos.end: $[ dependencies.compatibility_macos.outputs['end.time'] ]
-    compatibility_macos.status: $[ dependencies.compatibility_macos.result ]
     compatibility_windows.start: $[ dependencies.compatibility_windows.outputs['start.time'] ]
     compatibility_windows.machine: $[ dependencies.compatibility_windows.outputs['start.machine'] ]
     compatibility_windows.end: $[ dependencies.compatibility_windows.outputs['end.time'] ]
@@ -481,10 +486,10 @@ jobs:
                             "machine": "$(Linux_oracle.machine)",
                             "end": "$(Linux_oracle.end)",
                             "status": "$(Linux_oracle.status)"},
-                  "Linux_scala_2_13": {"start": "$(Linux_scala_2_13.start)",
-                            "machine": "$(Linux_scala_2_13.machine)",
-                            "end": "$(Linux_scala_2_13.end)",
-                            "status": "$(Linux_scala_2_13.status)"},
+                  "Linux_scala_2_12": {"start": "$(Linux_scala_2_12.start)",
+                            "machine": "$(Linux_scala_2_12.machine)",
+                            "end": "$(Linux_scala_2_12.end)",
+                            "status": "$(Linux_scala_2_12.status)"},
                   "macOS": {"start": "$(macOS.start)",
                             "machine": "$(macOS.machine)",
                             "end": "$(macOS.end)",
@@ -501,10 +506,6 @@ jobs:
                                           "machine": "$(compatibility_linux.machine)",
                                           "end": "$(compatibility_linux.end)",
                                           "status": "$(compatibility_linux.status)"},
-                  "compatibility_macos": {"start": "$(compatibility_macos.start)",
-                                          "machine": "$(compatibility_macos.machine)",
-                                          "end": "$(compatibility_macos.end)",
-                                          "status": "$(compatibility_macos.status)"},
                   "compatibility_windows": {"start": "$(compatibility_windows.start)",
                                             "machine": "$(compatibility_windows.machine)",
                                             "end": "$(compatibility_windows.end)",
@@ -547,11 +548,10 @@ jobs:
         # release only run on releases and is skipped otherwise.
         if [[ "$(Linux.status)" != "Succeeded"
             || "$(Linux_oracle.status)" != "Succeeded"
-            || "$(Linux_scala_2_13.status)" != "Succeeded"
+            || "$(Linux_scala_2_12.status)" != "Succeeded"
             || "$(macOS.status)" != "Succeeded"
             || "$(Windows.status)" != "Succeeded"
             || ("$(is_release)" == "false" && "$(compatibility_linux.status)" != "Succeeded")
-            || ("$(is_release)" == "false" && "$(compatibility_macos.status)" != "Succeeded")
             || ("$(is_release)" == "false" && "$(compatibility_windows.status)" != "Succeeded")
             || "$(release.status)" == "Canceled" ]]; then
             exit 1

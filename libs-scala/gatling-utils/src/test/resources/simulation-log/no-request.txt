@@ -1,3 +1,0 @@
-ASSERTION	AAIBAAIFAAAAAAAAAAAA
-RUN	simulation.StandardTwoStepsSimulation	standardtwostepssimulation	1587679986754	, args: --ledger abc
-USER	two-steps.standard	1	START	1587679986860	1587679986860

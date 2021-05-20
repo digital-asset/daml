@@ -18,7 +18,7 @@ import scalaz.OneAnd
 import scala.concurrent.{ExecutionContext, Future}
 
 // We have our own type for time modes since TimeProviderType
-// allows for more stuff that doesn’t make sense in DAML Script.
+// allows for more stuff that doesn’t make sense in Daml Script.
 sealed trait ScriptTimeMode
 
 object ScriptTimeMode {
