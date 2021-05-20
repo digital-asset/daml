@@ -153,7 +153,7 @@ object Export {
     val deps = Files.createDirectory(dir.resolve("deps"))
     val dalfFiles = pkgs.toSeq
       .sortBy { case (pkgId, (_, pkg)) =>
-        (pkg.metadata.map(md => (md.name, md.version)), pkgId)
+        (pkg.metadata.map(md => (md.name.toString, md.version.toString)), pkgId.toString)
       }
       .map { case (pkgId, (bs, pkg)) =>
         val prefix = pkg.metadata.map(md => s"${md.name}-${md.version}-").getOrElse("")
