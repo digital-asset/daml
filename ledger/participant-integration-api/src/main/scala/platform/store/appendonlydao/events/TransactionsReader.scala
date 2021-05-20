@@ -27,8 +27,10 @@ import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream}
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.ContractStateEvent
+import com.daml.platform.store.utils.Telemetry
 import com.daml.telemetry
-import com.daml.telemetry.{OpenTelemetryTracer, SpanAttribute, Spans}
+import com.daml.telemetry.{SpanAttribute, Spans}
+import com.github.dwickern.macros.NameOf._
 import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -48,6 +50,8 @@ private[appendonlydao] final class TransactionsReader(
     lfValueTranslation: LfValueTranslation,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
+
+  private val qualifiedName = qualifiedNameOfType[TransactionsReader]
 
   private val dbMetrics = metrics.daml.index.db
 
@@ -84,15 +88,9 @@ private[appendonlydao] final class TransactionsReader(
       filter: FilterRelation,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-    val span =
-      OpenTelemetryTracer
-        .spanBuilder(
-          "com.daml.platform.store.dao.events.TransactionsReader.getFlatTransactions"
-        )
-        .setNoParent()
-        .setAttribute(SpanAttribute.OffsetFrom.key, startExclusive.toHexString)
-        .setAttribute(SpanAttribute.OffsetTo.key, endInclusive.toHexString)
-        .startSpan()
+    val span = Telemetry.Transactions.createSpan(startExclusive, endInclusive)(
+      s"$qualifiedName.${nameOf(getFlatTransactions _)}"
+    )
     logger.debug(s"getFlatTransactions($startExclusive, $endInclusive, $filter, $verbose)")
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
@@ -174,15 +172,9 @@ private[appendonlydao] final class TransactionsReader(
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-    val span =
-      OpenTelemetryTracer
-        .spanBuilder(
-          "com.daml.platform.store.dao.events.TransactionsReader.getTransactionTrees"
-        )
-        .setNoParent()
-        .setAttribute(SpanAttribute.OffsetFrom.key, startExclusive.toHexString)
-        .setAttribute(SpanAttribute.OffsetTo.key, endInclusive.toHexString)
-        .startSpan()
+    val span = Telemetry.Transactions.createSpan(startExclusive, endInclusive)(
+      s"$qualifiedName.${nameOf(getTransactionTrees _)}"
+    )
     logger.debug(
       s"getTransactionTrees($startExclusive, $endInclusive, $requestingParties, $verbose)"
     )
@@ -264,13 +256,7 @@ private[appendonlydao] final class TransactionsReader(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val span =
-      OpenTelemetryTracer
-        .spanBuilder(
-          "com.daml.platform.store.dao.events.TransactionsReader.getActiveContracts"
-        )
-        .setNoParent()
-        .setAttribute(SpanAttribute.Offset.key, activeAt.toHexString)
-        .startSpan()
+      Telemetry.Transactions.createSpan(activeAt)(s"$qualifiedName.${nameOf(getActiveContracts _)}")
     logger.debug(s"getActiveContracts($activeAt, $filter, $verbose)")
 
     val requestedRangeF: Future[EventsRange[(Offset, Long)]] = getAcsEventSeqIdRange(activeAt)
