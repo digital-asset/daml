@@ -124,13 +124,17 @@ object ExampleClient {
 
   private def normalizeDataDependencies(outputPath: Path, damlYaml: Path): Unit = {
     val tmpFile = damlYaml.resolveSibling("daml.yaml.new").toFile
-    val w = new PrintWriter(tmpFile)
-    Source
-      .fromFile(damlYaml.toFile)
-      .getLines()
-      .map { x => x.replaceFirst(outputPath.toString, "EXPORT_OUT") }
-      .foreach(x => w.println(x))
-    w.close()
+    val reader = Source.fromFile(damlYaml.toFile)
+    val writer = new PrintWriter(tmpFile)
+    try {
+      reader
+        .getLines()
+        .map { x => x.replaceFirst(outputPath.toString, "EXPORT_OUT") }
+        .foreach(x => writer.println(x))
+    } finally {
+      reader.close()
+      writer.close()
+    }
     moveFile(tmpFile, damlYaml.toFile)
   }
 
