@@ -135,7 +135,6 @@ def install_java_deps():
             "javax.ws.rs:javax.ws.rs-api:2.1",
             "junit:junit:4.12",
             "junit:junit-dep:4.10",
-            "com.github.dwickern:scala-nameof_{}:3.0.0".format(scala_major_version),
             "net.logstash.logback:logstash-logback-encoder:6.6",
             "org.codehaus.janino:janino:3.1.4",
             "org.apache.commons:commons-lang3:3.9",
