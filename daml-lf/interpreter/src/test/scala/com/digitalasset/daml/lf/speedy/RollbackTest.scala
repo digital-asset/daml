@@ -235,10 +235,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     ("create3throwAndOuterCatch", List[Tree](R(List(C(100), C(200))), C(300))),
     ("exer1", List[Tree](C(100), X(List(C(400), C(500))), C(200), C(300))),
     ("exer2", List[Tree](C(100), R(List(X(List(C(400))))), C(300))),
-    // TODO: https://github.com/digital-asset/daml/issues/8020
-    // when rollback normalization is enabled, this test needs to be adapted thus:
-    // ("exer3", List[Tree](C(100))),
-    ("exer3", List[Tree](C(100), R(List()))),
+    ("exer3", List[Tree](C(100))),
   )
 
   forEvery(testCases) { (exp: String, expected: List[Tree]) =>
