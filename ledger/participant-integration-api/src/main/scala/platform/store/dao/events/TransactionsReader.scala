@@ -4,7 +4,6 @@
 package com.daml.platform.store.dao.events
 
 import java.sql.Connection
-
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
@@ -21,6 +20,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics._
+import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
@@ -32,7 +32,6 @@ import com.daml.platform.store.dao.{
 import com.daml.platform.store.utils.Telemetry
 import com.daml.telemetry
 import com.daml.telemetry.{SpanAttribute, Spans}
-import com.github.dwickern.macros.NameOf.{nameOf, _}
 import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -52,8 +51,6 @@ private[dao] final class TransactionsReader(
     lfValueTranslation: LfValueTranslation,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
-
-  private val qualifiedName = qualifiedNameOfType[TransactionsReader]
 
   private val dbMetrics = metrics.daml.index.db
 
@@ -87,9 +84,8 @@ private[dao] final class TransactionsReader(
       filter: FilterRelation,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-    val span = Telemetry.Transactions.createSpan(startExclusive, endInclusive)(
-      s"$qualifiedName.${nameOf(getFlatTransactions _)}"
-    )
+    val span =
+      Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
     logger.debug(s"getFlatTransactions($startExclusive, $endInclusive, $filter, $verbose)")
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
@@ -171,9 +167,8 @@ private[dao] final class TransactionsReader(
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-    val span = Telemetry.Transactions.createSpan(startExclusive, endInclusive)(
-      s"$qualifiedName.${nameOf(getTransactionTrees _)}"
-    )
+    val span =
+      Telemetry.Transactions.createSpan(startExclusive, endInclusive)(qualifiedNameOfCurrentFunc)
     logger.debug(
       s"getTransactionTrees($startExclusive, $endInclusive, $requestingParties, $verbose)"
     )
@@ -255,7 +250,7 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
     val span =
-      Telemetry.Transactions.createSpan(activeAt)(s"$qualifiedName.${nameOf(getActiveContracts _)}")
+      Telemetry.Transactions.createSpan(activeAt)(qualifiedNameOfCurrentFunc)
     logger.debug(s"getActiveContracts($activeAt, $filter, $verbose)")
 
     val requestedRangeF: Future[EventsRange[(Offset, Long)]] = getAcsEventSeqIdRange(activeAt)
