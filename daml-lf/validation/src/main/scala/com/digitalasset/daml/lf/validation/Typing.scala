@@ -237,7 +237,6 @@ private[validation] object Typing {
       // Exception functions
       BAnyExceptionMessage -> (TAnyException ->: TText),
       BAnyExceptionIsArithmeticError -> (TAnyException ->: TBool),
-      BAnyExceptionIsContractError -> (TAnyException ->: TBool),
       // Unstable text functions
       BTextToUpper -> (TText ->: TText),
       BTextToLower -> (TText ->: TText),

@@ -486,7 +486,6 @@ enum BuiltinFunction {
   ERROR = 25;
   ANY_EXCEPTION_MESSAGE = 147;              // *Available in versions >= 1.dev*
   ANY_EXCEPTION_IS_ARITHMETIC_ERROR = 148;  // *Available in versions >= 1.dev*
-  ANY_EXCEPTION_IS_CONTRACT_ERROR = 149;    // *Available in versions >= 1.dev*
 
   LEQ_INT64 = 33;         // *Available in versions < 1.11*
   LEQ_DECIMAL = 34;       // *Available in versions < 1.7*

@@ -86,7 +86,6 @@ safetyStep = \case
       BEError             -> Safe 0
       BEAnyExceptionMessage -> Safe 0 -- evaluates user-defined code which may throw
       BEAnyExceptionIsArithmeticError -> Safe 1
-      BEAnyExceptionIsContractError -> Safe 1
       BEEqualGeneric      -> Safe 1 -- may crash if values are incomparable
       BELessGeneric       -> Safe 1 -- may crash if values are incomparable
       BELessEqGeneric     -> Safe 1 -- may crash if values are incomparable

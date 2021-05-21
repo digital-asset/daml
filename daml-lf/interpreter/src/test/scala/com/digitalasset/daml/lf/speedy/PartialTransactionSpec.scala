@@ -79,7 +79,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     def endExercises_ : PartialTransaction =
       ptx.endExercises(Value.ValueUnit)
 
-    private val dummyException = SBuiltinException(ArithmeticError, "Dummy", ImmArray.empty)
+    private val dummyException = SArithmeticError("Dummy", ImmArray.empty)
 
     def rollbackTry_ : PartialTransaction =
       ptx.rollbackTry(dummyException)

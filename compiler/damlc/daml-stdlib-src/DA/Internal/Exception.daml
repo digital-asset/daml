@@ -137,11 +137,8 @@ instance HasToAnyException ContractError where
     toAnyException = primitive @"EToAnyException"
 
 instance HasFromAnyException ContractError where
-    fromAnyException e
-        | primitive @"BEAnyExceptionIsContractError" e =
-            Some (ContractError (message e))
-        | otherwise =
-            primitive @"EFromAnyException" e
+    fromAnyException e =
+      primitive @"EFromAnyException" e
 
 --------------------------------------------------------------
 

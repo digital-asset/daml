@@ -1848,11 +1848,6 @@ private[lf] object DecodeV1 {
         BAnyExceptionIsArithmeticError,
         minVersion = exceptions,
       ),
-      BuiltinFunctionInfo(
-        ANY_EXCEPTION_IS_CONTRACT_ERROR,
-        BAnyExceptionIsContractError,
-        minVersion = exceptions,
-      ),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),
