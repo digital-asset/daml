@@ -636,6 +636,14 @@ final class Metrics(val registry: MetricRegistry) {
         val deduplicateCommand: Timer = registry.timer(Prefix :+ "deduplicate_command")
         val stopDeduplicateCommand: Timer = registry.timer(Prefix :+ "stop_deduplicating_command")
         val prune: Timer = registry.timer(Prefix :+ "prune")
+
+        object streamsBuffer {
+          private val Prefix: MetricName = index.Prefix :+ "streams_buffer"
+
+          def push(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "push")
+          def slice(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "slice")
+          def prune(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "prune")
+        }
       }
 
       object read {
