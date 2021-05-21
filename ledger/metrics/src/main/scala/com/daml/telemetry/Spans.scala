@@ -9,9 +9,8 @@ import io.opentelemetry.api.trace.Span
   * use `opentelemetry-api` directly.
   */
 object Spans {
-  def addEventToCurrentSpan(event: Event): Unit = {
+  def addEventToCurrentSpan(event: Event): Unit =
     addEventToSpan(event, Span.current)
-  }
 
   def addEventToSpan(event: Event, span: Span): Unit = {
     val _ = span.addEvent(event.name, event.getAttributes)

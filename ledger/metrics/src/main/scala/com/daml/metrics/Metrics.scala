@@ -143,9 +143,8 @@ final class Metrics(val registry: MetricRegistry) {
           val accepts: Counter = registry.counter(Prefix :+ "accepts")
           val rejections: Counter = registry.counter(Prefix :+ "rejections")
 
-          def loadedPackages(value: () => Int): Unit = {
+          def loadedPackages(value: () => Int): Unit =
             register(Prefix :+ "loaded_packages", () => () => value())
-          }
         }
 
         object partyAllocation {

@@ -53,9 +53,8 @@ abstract class Telemetry(protected val tracer: Tracer) {
       attributes: (SpanAttribute, String)*
   )(
       body: TelemetryContext => Future[T]
-  ): Future[T] = {
+  ): Future[T] =
     rootContext.runFutureInNewSpan(spanName, kind, attributes: _*)(body)
-  }
 
   /** Creates the first span of a new trace, and runs the computation inside it.
     *
@@ -67,9 +66,8 @@ abstract class Telemetry(protected val tracer: Tracer) {
     */
   def runInSpan[T](spanName: String, kind: SpanKind, attributes: (SpanAttribute, String)*)(
       body: TelemetryContext => T
-  ): T = {
+  ): T =
     rootContext.runInNewSpan(spanName, kind, attributes: _*)(body)
-  }
 
   /** Returns a new root context for this implementation of Telemetry.
     *
@@ -80,9 +78,8 @@ abstract class Telemetry(protected val tracer: Tracer) {
 
 abstract class DefaultTelemetry(override protected val tracer: Tracer) extends Telemetry(tracer) {
 
-  override def contextFromGrpcThreadLocalContext(): TelemetryContext = {
+  override def contextFromGrpcThreadLocalContext(): TelemetryContext =
     DefaultTelemetryContext(tracer, Span.current)
-  }
 
   override def contextFromMetadata(metadata: Option[jMap[String, String]]): TelemetryContext = {
     metadata

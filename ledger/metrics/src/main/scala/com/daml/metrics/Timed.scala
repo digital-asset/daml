@@ -25,9 +25,8 @@ object Timed {
     result
   }
 
-  def timedAndTrackedValue[T](timer: Timer, meter: Meter, value: => T): T = {
+  def timedAndTrackedValue[T](timer: Timer, meter: Meter, value: => T): T =
     Timed.value(timer, trackedValue(meter, value))
-  }
 
   def completionStage[T](timer: Timer, future: => CompletionStage[T]): CompletionStage[T] = {
     val ctx = timer.time()
@@ -49,9 +48,8 @@ object Timed {
       timer: Timer,
       meter: Meter,
       future: => CompletionStage[T],
-  ): CompletionStage[T] = {
+  ): CompletionStage[T] =
     Timed.completionStage(timer, trackedCompletionStage(meter, future))
-  }
 
   def future[T](timer: Timer, future: => Future[T]): Future[T] = {
     val ctx = timer.time()
@@ -77,13 +75,11 @@ object Timed {
     future.andThen { case _ => meter.mark(-1) }(DirectExecutionContext)
   }
 
-  def timedAndTrackedFuture[T](timer: Timer, counter: Counter, future: => Future[T]): Future[T] = {
+  def timedAndTrackedFuture[T](timer: Timer, counter: Counter, future: => Future[T]): Future[T] =
     Timed.future(timer, trackedFuture(counter, future))
-  }
 
-  def timedAndTrackedFuture[T](timer: Timer, meter: Meter, future: => Future[T]): Future[T] = {
+  def timedAndTrackedFuture[T](timer: Timer, meter: Meter, future: => Future[T]): Future[T] =
     Timed.future(timer, trackedFuture(meter, future))
-  }
 
   def source[Out, Mat](timer: Timer, source: => Source[Out, Mat]): Source[Out, Mat] = {
     val ctx = timer.time()

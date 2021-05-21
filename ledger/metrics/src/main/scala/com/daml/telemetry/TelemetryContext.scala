@@ -124,15 +124,12 @@ protected class DefaultTelemetryContext(protected val tracer: Tracer, protected 
   ): T = {
     val subSpan = createSubSpan(spanName, kind, attributes: _*)
 
-    try {
-      body(DefaultTelemetryContext(tracer, subSpan))
-    } catch {
+    try body(DefaultTelemetryContext(tracer, subSpan))
+    catch {
       case exception: Exception =>
         subSpan.recordException(exception)
         throw exception
-    } finally {
-      subSpan.end()
-    }
+    } finally subSpan.end()
   }
 
   protected def createSubSpan(
@@ -146,21 +143,15 @@ protected class DefaultTelemetryContext(protected val tracer: Tracer, protected 
         .setParent(openTelemetryContext)
         .setSpanKind(kind.kind)
         .startSpan()
-    for {
-      (attribute, value) <- attributes
-    } {
+    for ((attribute, value) <- attributes)
       subSpan.setAttribute(attribute.key, value)
-    }
     subSpan
   }
 
   override def runInOpenTelemetryScope[T](body: => T): T = {
     val scope = openTelemetryContext.makeCurrent()
-    try {
-      body
-    } finally {
-      scope.close()
-    }
+    try body
+    finally scope.close()
   }
 
   override def encodeMetadata(): jMap[String, String] = {
@@ -185,11 +176,8 @@ protected class RootDefaultTelemetryContext(override protected val tracer: Trace
   ): Span = {
     val subSpan =
       tracer.spanBuilder(spanName).setNoParent().setSpanKind(kind.kind).startSpan()
-    for {
-      (attribute, value) <- attributes
-    } {
+    for ((attribute, value) <- attributes)
       subSpan.setAttribute(attribute.key, value)
-    }
     subSpan
   }
 }
