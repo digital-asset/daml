@@ -43,7 +43,7 @@ jobs:
       fi
     displayName: check perf changes
 
-- job: test-windows-signing
+- job: test_windows_signing
   dependsOn: [ "check_for_release", "Windows" ]
   condition: and(succeeded(),
                  eq(variables['Build.SourceBranchName'], 'main'))
