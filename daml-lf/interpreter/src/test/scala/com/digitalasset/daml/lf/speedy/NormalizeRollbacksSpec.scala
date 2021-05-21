@@ -38,6 +38,9 @@ class NormalizeRollbacksSpec extends AnyWordSpec with Matchers with Inside {
       "be a normal form" in {
         assert(isNormalized(txN))
       }
+      "have increasing node-ids when listed in pre-order" in {
+        assert(preOrderNidsOfTxIsIncreasing(txN))
+      }
     }
   }
 
@@ -173,6 +176,38 @@ object NormalizeRollbackSpec {
   type TX = GenTransaction[Nid, Cid]
   type Node = GenNode[Nid, Cid]
   type RB = NodeRollback[Nid]
+
+  def preOrderNidsOfTxIsIncreasing(tx: TX): Boolean = {
+    def check(x1: Int, xs: List[Int]): Boolean = {
+      xs match {
+        case Nil => true
+        case x2 :: xs => x1 < x2 && check(x2, xs)
+      }
+    }
+    preOrderNidsOfTx(tx) match {
+      case Nil => true
+      case x :: xs => check(x, xs)
+    }
+  }
+
+  def preOrderNidsOfTx(tx: TX): List[Int] = {
+    def fromNids(acc: List[Int], xs: List[Nid]): List[Int] = {
+      xs match {
+        case Nil => acc
+        case x :: xs =>
+          val node = tx.nodes(x)
+          fromNids(fromNode(x.index :: acc, node), xs)
+      }
+    }
+    def fromNode(acc: List[Int], node: Node): List[Int] = {
+      node match {
+        case _: LeafNode => acc
+        case node: NodeExercises[_, _] => fromNids(acc, node.children.toList)
+        case node: NodeRollback[_] => fromNids(acc, node.children.toList)
+      }
+    }
+    fromNids(Nil, tx.roots.toList).reverse
+  }
 
   def forallNode(tx: TX)(pred: Node => Boolean): Boolean = {
     tx.fold[Boolean](true) { case (acc, (_, node)) =>

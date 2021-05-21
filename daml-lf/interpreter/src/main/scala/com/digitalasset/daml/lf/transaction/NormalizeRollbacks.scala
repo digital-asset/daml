@@ -5,13 +5,7 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.transaction.{NodeId, GenTransaction}
-import com.daml.lf.transaction.Node.{
-  GenNode,
-  GenActionNode,
-  NodeRollback,
-  NodeExercises,
-  LeafOnlyActionNode,
-}
+import com.daml.lf.transaction.Node.{GenNode, NodeRollback, NodeExercises, LeafOnlyActionNode}
 import com.daml.lf.value.Value
 import com.daml.lf.data.ImmArray
 
@@ -21,7 +15,8 @@ private[lf] object NormalizeRollbacks {
   type Cid = Value.ContractId
   type TX = GenTransaction[Nid, Cid]
   type Node = GenNode[Nid, Cid]
-  type ActNode = GenActionNode[Nid, Cid]
+  type LeafNode = LeafOnlyActionNode[Cid]
+  type ExeNode = NodeExercises[Nid, Cid]
 
   // Normalize a transaction so rollback nodes satisfy the normalization rules.
   // see `makeRoll` below
@@ -29,22 +24,18 @@ private[lf] object NormalizeRollbacks {
   def normalizeTx(txOriginal: TX): TX = {
 
     // Here we generate fresh node-ids for the normalized transaction.
-    val ids = Iterator.from(0).map(NodeId(_)) // perhaps we could reuse orig nids
+    val ids = Iterator.from(0).map(NodeId(_))
 
     // There is no connection between the ids in the pre and post transaction.
     // Semantically this is fine: The ids are just of tie the tree structure together.
     // But perhaps for ease of debugging we might consider trying to reuse existing ids.
 
     // We accumulate (imperatively!) a nodes-map for the normalized transaction
-    var nodes: Map[Nid, Node] = Map.empty
+    var theNodeMap: Map[Nid, Node] = Map.empty
 
-    def pushNode(node: Node): Nid = {
-      val nodeId = ids.next()
-      nodes += (nodeId -> node)
-      nodeId
+    def pushNode(nid: Nid, node: Node): Unit = {
+      theNodeMap += (nid -> node)
     }
-
-    def pushNodes(nodes: List[Node]): List[Nid] = nodes.map(pushNode)
 
     import Canonical.{Norm, Case, caseNorms}
     // The normalization phase works by constructing intermediate values which are
@@ -54,26 +45,44 @@ private[lf] object NormalizeRollbacks {
     // The `force*` functions move from the world of Norms into standard transactions.
     // This is also where node-ids for the resulting normalized transaction are generated.
 
-    def forceRoll(x: Norm.Roll): Node = {
+    def forceAct(x: Norm.Act): Nid = {
+      val me = ids.next()
       x match {
-        case Norm.Roll1(act) =>
-          val child = pushNode(act.node)
-          NodeRollback(children = ImmArray(List(child)))
-        case Norm.Roll2(h, m, t) =>
-          val nodes = List(h.node) ++ m ++ List(t.node)
-          val children = pushNodes(nodes)
-          NodeRollback(children = ImmArray(children))
+        case Norm.Leaf(node) =>
+          pushNode(me, node)
+          me
+        case Norm.Exe(exe, subs) =>
+          val children = forceNorms(subs)
+          val node = exe.copy(children = ImmArray(children))
+          pushNode(me, node)
+          me
       }
     }
 
-    def forceNorm(x: Norm): Node = {
+    def forceRoll(x: Norm.Roll): Nid = {
+      val me = ids.next()
       x match {
-        case Norm.Act(node) => node
+        case Norm.Roll1(act) =>
+          val child = forceAct(act)
+          val node = NodeRollback(children = ImmArray(List(child)))
+          pushNode(me, node)
+          me
+        case Norm.Roll2(h, m, t) =>
+          val children = List(forceAct(h)) ++ forceNorms(m) ++ List(forceAct(t))
+          val node = NodeRollback(children = ImmArray(children))
+          pushNode(me, node)
+          me
+      }
+    }
+
+    def forceNorm(x: Norm): Nid = {
+      x match {
+        case act: Norm.Act => forceAct(act)
         case roll: Norm.Roll => forceRoll(roll)
       }
     }
 
-    def forceNorms(xs: List[Norm]): List[Node] = xs.map(forceNorm)
+    def forceNorms(xs: List[Norm]): List[Nid] = xs.map(forceNorm)
 
     // makeRoll: encodes the normalization transformation rules:
     //   rule #1: R [ ] -> ε
@@ -100,18 +109,18 @@ private[lf] object NormalizeRollbacks {
 
         case Case.Multi(h: Norm.Act, m, t: Norm.Roll) =>
           // normalization rule #3
-          List(pushIntoRoll(h, forceNorms(m), t))
+          List(pushIntoRoll(h, m, t))
 
         case Case.Multi(h: Norm.Act, m, t: Norm.Act) =>
           // no rule
-          List(Norm.Roll2(h, forceNorms(m), t))
+          List(Norm.Roll2(h, m, t))
       }
     }
 
-    def pushIntoRoll(a1: Norm.Act, xs2: List[Node], t: Norm.Roll): Norm.Roll = {
+    def pushIntoRoll(a1: Norm.Act, xs2: List[Norm], t: Norm.Roll): Norm.Roll = {
       t match {
         case Norm.Roll1(a3) => Norm.Roll2(a1, xs2, a3)
-        case Norm.Roll2(a3, xs4, a5) => Norm.Roll2(a1, xs2 ++ List(a3.node) ++ xs4, a5)
+        case Norm.Roll2(a3, xs4, a5) => Norm.Roll2(a1, xs2 ++ List(a3) ++ xs4, a5)
       }
     }
 
@@ -135,18 +144,17 @@ private[lf] object NormalizeRollbacks {
             case NodeRollback(children) =>
               makeRoll(traverseNids(children.toList))
 
-            case ex: NodeExercises[_, _] =>
-              val norms = traverseNids(ex.children.toList)
-              val children = pushNodes(forceNorms(norms))
-              List(Norm.Act(ex.copy(children = ImmArray(children))))
+            case exe: NodeExercises[_, _] =>
+              val norms = traverseNids(exe.children.toList)
+              List(Norm.Exe(exe, norms))
 
-            case act: LeafOnlyActionNode[_] =>
-              List(Norm.Act(act))
+            case leaf: LeafOnlyActionNode[_] =>
+              List(Norm.Leaf(leaf))
           }
         }
         val norms = traverseNids(rootsOriginal.toList)
-        val roots = pushNodes(forceNorms(norms))
-        GenTransaction(nodes, ImmArray(roots))
+        val roots = forceNorms(norms)
+        GenTransaction(theNodeMap, ImmArray(roots))
     }
   }
 
@@ -158,14 +166,16 @@ private[lf] object NormalizeRollbacks {
     object Norm {
 
       // A non-rollback tx/node
-      final case class Act(node: ActNode) extends Norm
+      sealed trait Act extends Norm
+      final case class Leaf(node: LeafNode) extends Act
+      final case class Exe(node: ExeNode, children: List[Norm]) extends Act
 
       // A *normalized* rollback tx/node. 2 cases:
       // - rollback containing a single non-rollback tx/node.
       // - rollback of 2 or more tx/nodes, such that first and last are not rollbacks.
       sealed trait Roll extends Norm
       final case class Roll1(act: Act) extends Roll
-      final case class Roll2(head: Act, middle: List[Node], tail: Act) extends Roll
+      final case class Roll2(head: Act, middle: List[Norm], tail: Act) extends Roll
     }
 
     // Case analysis on a list of Norms, distinuishing: Empty, Single and Multi forms
