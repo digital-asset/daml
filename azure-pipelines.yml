@@ -71,7 +71,7 @@ jobs:
         --timestamp-rfc3161 "http://timestamp.digicert.com" \
         --file-digest sha256 \
         --verbose \
-        $(Build.StagingDirectory)/test-signing/installer.exe
+        '$(Build.StagingDirectory)'\\test-signing\\installer.exe
       exit 0
     env:
       AZURE_KEY_VAULT_URL: $(AZURE_KEY_VAULT_URL)
