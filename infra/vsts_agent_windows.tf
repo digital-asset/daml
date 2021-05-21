@@ -20,8 +20,8 @@ locals {
       size       = 1,
       assignment = "windows-signing",
       install    = <<INSTALL
-choco install dotnetcore-2.1-sdk
-"C:\Program Files\dotnet\dotnet.exe" tool install --global AzureSignTool
+& choco install dotnetcore-2.1-sdk --no-progress --yes 2>&1 | %%{ "$_" }
+& "C:\Program Files\dotnet\dotnet.exe" tool install --global AzureSignTool
 INSTALL
     }
   ]
