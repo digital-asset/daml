@@ -155,6 +155,14 @@ class NormalizeRollbacksSpec extends AnyWordSpec with Matchers with Inside {
     Top(R(R(c1), c2, c3, R(c4))),
     Top(R(c1), R(c2, c3, c4)),
   )
+  test("mixed-extra-1")(
+    Top(R(c1, R(R(c2), c3))),
+    Top(R(c1, R(c2), c3)),
+  )
+  test("mixed-extra-2")(
+    Top(R(R(c1, R(c2)), c3)),
+    Top(R(c1, c2), R(c3)),
+  )
 
 }
 
