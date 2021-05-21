@@ -87,7 +87,7 @@ object TransactionMetrics {
     List[Metric[T]](
       Metric.CountMetric.empty[T](reportingPeriodMillis, countingFunction),
       Metric.SizeMetric.empty[T](reportingPeriodMillis, sizingFunction),
-      Metric.DelayMetric.empty[T](recordTimeFunction, Clock.systemUTC()),
+      Metric.DelayMetric.empty[T](recordTimeFunction, List.empty, Clock.systemUTC()),
       Metric.ConsumptionSpeedMetric.empty[T](reportingPeriodMillis, recordTimeFunction),
     )
   }

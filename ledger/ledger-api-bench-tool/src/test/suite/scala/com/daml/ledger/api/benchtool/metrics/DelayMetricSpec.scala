@@ -10,6 +10,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.{Clock, Duration, Instant, ZoneId}
 
+import scala.language.existentials
+
 class DelayMetricSpec extends AnyWordSpec with Matchers {
   DelayMetric.getClass.getSimpleName should {
     "correctly handle initial state" in {
@@ -44,6 +46,7 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
       val metric: DelayMetric[String] =
         DelayMetric.empty[String](
           recordTimeFunction = testRecordTimeFunction,
+          objectives = List.empty,
           clock = clock,
         )
 
@@ -76,6 +79,7 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
       val metric: DelayMetric[String] =
         DelayMetric.empty[String](
           recordTimeFunction = testRecordTimeFunction,
+          objectives = List.empty,
           clock = clock,
         )
 
@@ -115,6 +119,7 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
       val metric: DelayMetric[String] =
         DelayMetric.empty[String](
           recordTimeFunction = testRecordTimeFunction,
+          objectives = List.empty,
           clock = clock,
         )
 
@@ -133,6 +138,85 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
       periodicValue shouldBe DelayMetric.Value(Some(expectedMean))
       finalValue shouldBe DelayMetric.Value(None)
     }
+
+    "compute violated max delay SLO with the most extreme value" in {
+      val maxAllowedDelaySeconds: Long = 1000
+      val elem1: String = "abc"
+      val elem2: String = "defg"
+      val elem3: String = "hijkl"
+      val elem4: String = "mno"
+      val testNow = Clock.systemUTC().instant()
+
+      // first period
+      val recordTime1 =
+        testNow.minusSeconds(maxAllowedDelaySeconds - 100) // allowed record time
+
+      // second period
+      val recordTime2A =
+        testNow.minusSeconds(maxAllowedDelaySeconds + 100) // not allowed record time
+      val recordTime2B =
+        testNow.minusSeconds(maxAllowedDelaySeconds + 200) // not allowed record time
+      val delay2A = durationBetween(recordTime2A, testNow)
+      val delay2B = durationBetween(recordTime2B, testNow)
+      val meanInPeriod2 = delay2A.plus(delay2B).dividedBy(2).getSeconds
+
+      // third period - a period with record times higher than anywhere else,
+      // the mean delay from this period should be provided by the metric as the most violating value
+      val recordTime3A = testNow.minusSeconds(
+        maxAllowedDelaySeconds + 1100
+      ) // not allowed record time
+      val recordTime3B = testNow.minusSeconds(
+        maxAllowedDelaySeconds + 1200
+      ) // not allowed record time
+      val delay3A = durationBetween(recordTime3A, testNow)
+      val delay3B = durationBetween(recordTime3B, testNow)
+      val meanInPeriod3 = delay3A.plus(delay3B).dividedBy(2).getSeconds
+
+      // fourth period
+      val recordTime4 =
+        testNow.minusSeconds(maxAllowedDelaySeconds + 300) // not allowed record time
+      val delay4 = durationBetween(recordTime4, testNow)
+      val meanInPeriod4 = delay4.getSeconds
+
+      val maxDelay = List(meanInPeriod2, meanInPeriod3, meanInPeriod4).max
+
+      def testRecordTimeFunction: String => List[Timestamp] = recordTimeFunctionFromMap(
+        Map(
+          elem1 -> List(recordTime1),
+          elem2 -> List(recordTime2A, recordTime2B),
+          elem3 -> List(recordTime3A, recordTime3B),
+          elem4 -> List(recordTime4),
+        )
+      )
+      val expectedViolatedObjective = DelayMetric.DelayObjective.MaxDelay(maxAllowedDelaySeconds)
+      val clock = Clock.fixed(testNow, ZoneId.of("UTC"))
+      val metric: DelayMetric[String] =
+        DelayMetric.empty[String](
+          recordTimeFunction = testRecordTimeFunction,
+          objectives = List(expectedViolatedObjective),
+          clock = clock,
+        )
+
+      val violatedObjectives =
+        metric
+          .onNext(elem1)
+          .periodicValue()
+          ._1
+          .onNext(elem2)
+          .periodicValue()
+          ._1
+          .onNext(elem3)
+          .periodicValue()
+          ._1
+          .onNext(elem4)
+          .periodicValue()
+          ._1
+          .violatedObjectives
+
+      violatedObjectives shouldBe Map(
+        expectedViolatedObjective -> DelayMetric.Value(Some(maxDelay))
+      )
+    }
   }
 
   private def recordTimeFunctionFromMap(
@@ -145,6 +229,9 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
   private def instantToTimestamp(instant: Instant): Timestamp =
     Timestamp.of(instant.getEpochSecond, instant.getNano)
 
+  private def durationBetween(first: Instant, second: Instant): Duration =
+    Duration.between(first, second)
+
   private def secondsBetween(first: Instant, second: Instant): Long =
     Duration.between(first, second).getSeconds
 
@@ -152,5 +239,5 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
     str.map(_ => Timestamp.of(100, 0)).toList
 
   private def anEmptyDelayMetric(clock: Clock): DelayMetric[String] =
-    DelayMetric.empty[String](dummyRecordTimesFunction, clock)
+    DelayMetric.empty[String](dummyRecordTimesFunction, List.empty, clock)
 }
