@@ -53,7 +53,7 @@ jobs:
   steps:
   - checkout: none
   - bash: |
-      mkdir $(Build.StagingDirectory)/test-signing
+      mkdir -p '$(Build.StagingDirectory)'/test-signing
   - task: DownloadPipelineArtifact@0
     inputs:
       artifactName: test-signing
