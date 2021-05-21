@@ -37,7 +37,7 @@ steps:
     displayName: 'Publish the bazel test logs'
     inputs:
       pathtoPublish: 'bazel-testlogs/'
-      artifactName: 'Test logs'
+      artifactName: 'Test logs Windows'
 
   - template: bash-lib.yml
     parameters:
