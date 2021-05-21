@@ -59,19 +59,26 @@ jobs:
       artifactName: test-signing
       targetPath: $(Build.StagingDirectory)/test-signing
   - bash: |
+      ls -l '$(Build.StagingDirectory)'\\test-signing\\installer.exe
       "/C/Program Files/dotnet/dotnet.exe" tool install --global AzureSignTool
+      ls -l /C/Users/u/.dotnet/tools/azuresigntool
       /C/Users/u/.dotnet/tools/azuresigntool sign \
         --azure-key-vault-url "$AZURE_KEY_VAULT_URL" \
         --azure-key-vault-client-id "$AZURE_CLIENT_ID" \
         --azure-key-vault-client-secret "$AZURE_CLIENT_SECRET" \
-        --azure-key-vault-tenant-id "$AZURE_TENANT_ID"\
         --azure-key-vault-certificate "$AZURE_KEY_VAULT_CERTIFICATE" \
         --description "Daml SDK installer" \
         --description-url "https://daml.com" \
         --timestamp-rfc3161 "http://timestamp.digicert.com" \
-        --file-digest sha256 \
+        --file-digest sha384 \
         --verbose \
         '$(Build.StagingDirectory)'\\test-signing\\installer.exe
+      echo $?
+      ls -l '$(Build.StagingDirectory)'\\test-signing\\installer.exe
+      echo check
+      signtool verify /pa '$(Build.StagingDirectory)'\\test-signing\\installer.exe
+      echo $?
+      echo done check
       exit 0
     env:
       AZURE_KEY_VAULT_URL: $(AZURE_KEY_VAULT_URL)
