@@ -45,8 +45,7 @@ steps:
 
   # TODO: remove once new signing is working (see #9758)
   - bash: |
-      set -x
-      OUTPUT_DIR=$(Build.StagingDirectory)/test-signing
+      OUTPUT_DIR='$(Build.StagingDirectory)'/test-signing
       mkdir -p $OUTPUT_DIR
       cp "bazel-bin/release/windows-installer/daml-sdk-installer-ce.exe" "$OUTPUT_DIR/installer.exe"
   - task: PublishPipelineArtifact@0
