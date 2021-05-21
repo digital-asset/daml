@@ -3,7 +3,7 @@
 
 
 ---------------------------------------------------------------------------------------------------
--- V101: Vacuum
+-- V100.3: Vacuum
 --
 -- This is a maintenance task run after the big migration to the append-only schema.
 -- It is run in a separate migration because Flyway does not allow mixing transactional and
