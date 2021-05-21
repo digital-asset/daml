@@ -4,6 +4,7 @@
 package com.daml.platform.store.dao.events
 
 import java.sql.Connection
+
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
