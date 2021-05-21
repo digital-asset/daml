@@ -335,6 +335,7 @@ final class SandboxServer(
             engine = engine,
             validatePartyAllocation = !config.implicitPartyAllocation,
             enableAppendOnlySchema = config.enableAppendOnlySchema,
+            enableCompression = config.enableCompression,
           )
         case None =>
           SandboxIndexAndWriteService.inMemory(

@@ -53,6 +53,7 @@ final case class SandboxConfig(
     managementServiceTimeout: Duration,
     sqlStartMode: Option[PostgresStartupMode],
     enableAppendOnlySchema: Boolean,
+    enableCompression: Boolean,
 )
 
 object SandboxConfig {
@@ -110,6 +111,7 @@ object SandboxConfig {
       managementServiceTimeout = DefaultManagementServiceTimeout,
       sqlStartMode = Some(DefaultSqlStartupMode),
       enableAppendOnlySchema = false,
+      enableCompression = false,
     )
 
   sealed abstract class EngineMode extends Product with Serializable

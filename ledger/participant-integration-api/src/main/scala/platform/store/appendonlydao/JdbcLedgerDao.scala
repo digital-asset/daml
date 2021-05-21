@@ -1020,6 +1020,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       enricher = enricher,
       participantId = participantId,
+      compressionStrategy = CompressionStrategy.none(metrics), // not needed
     ).map(new MeteredLedgerReadDao(_, metrics))
   }
 
@@ -1051,6 +1052,7 @@ private[platform] object JdbcLedgerDao {
         if (dbType.supportsAsynchronousCommits) jdbcAsyncCommitMode else DbType.SynchronousCommit,
       enricher = enricher,
       participantId = participantId,
+      compressionStrategy = CompressionStrategy.none(metrics), // not needed
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1066,6 +1068,7 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation: Boolean = false,
       enricher: Option[ValueEnricher],
       participantId: v1.ParticipantId,
+      compressionStrategy: CompressionStrategy,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     owner(
@@ -1081,6 +1084,7 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation,
       enricher = enricher,
       participantId = participantId,
+      compressionStrategy = compressionStrategy,
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1089,6 +1093,7 @@ private[platform] object JdbcLedgerDao {
       participantId: v1.ParticipantId,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       metrics: Metrics,
+      compressionStrategy: CompressionStrategy,
   ): SequentialWriteDao =
     SequentialWriteDaoImpl(
       storageBackend = StorageBackend.of(dbType),
@@ -1100,9 +1105,7 @@ private[platform] object JdbcLedgerDao {
           enricherO = None,
           loadPackage = (_, _) => Future.successful(None),
         ),
-        compressionStrategy = CompressionStrategy.none(
-          metrics
-        ), // TODO append-only: is it ok, to turn it off completely for sandbox-classic?
+        compressionStrategy = compressionStrategy,
       ),
     )
 
@@ -1144,6 +1147,7 @@ private[platform] object JdbcLedgerDao {
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
       enricher: Option[ValueEnricher],
       participantId: v1.ParticipantId,
+      compressionStrategy: CompressionStrategy,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(
@@ -1165,7 +1169,13 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       validatePartyAllocation,
       enricher,
-      sequentialWriteDao(dbType, participantId, lfValueTranslationCache, metrics),
+      sequentialWriteDao(
+        dbType,
+        participantId,
+        lfValueTranslationCache,
+        metrics,
+        compressionStrategy,
+      ),
       participantId,
     )
 
