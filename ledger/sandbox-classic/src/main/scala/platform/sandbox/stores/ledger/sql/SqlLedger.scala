@@ -35,6 +35,7 @@ import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedger._
 import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
+import com.daml.platform.store.appendonlydao.events.CompressionStrategy
 import com.daml.platform.store.cache.TranslationCacheBackedContractStore
 import com.daml.platform.store.dao.{LedgerDao, LedgerWriteDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
@@ -84,6 +85,7 @@ private[sandbox] object SqlLedger {
       engine: Engine,
       validatePartyAllocation: Boolean = false,
       enableAppendOnlySchema: Boolean = false,
+      enableCompression: Boolean = false,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[Ledger] {
 
@@ -239,18 +241,21 @@ private[sandbox] object SqlLedger {
     ): ResourceOwner[LedgerDao] =
       if (enableAppendOnlySchema)
         com.daml.platform.store.appendonlydao.JdbcLedgerDao.validatingWriteOwner(
-          serverRole,
-          jdbcUrl,
-          databaseConnectionPoolSize,
-          databaseConnectionTimeout,
-          eventsPageSize,
-          servicesExecutionContext,
-          metrics,
-          lfValueTranslationCache,
-          validatePartyAllocation,
-          Some(new ValueEnricher(engine)),
-          com.daml.ledger.participant.state.v1.ParticipantId
+          serverRole = serverRole,
+          jdbcUrl = jdbcUrl,
+          connectionPoolSize = databaseConnectionPoolSize,
+          connectionTimeout = databaseConnectionTimeout,
+          eventsPageSize = eventsPageSize,
+          servicesExecutionContext = servicesExecutionContext,
+          metrics = metrics,
+          lfValueTranslationCache = lfValueTranslationCache,
+          validatePartyAllocation = validatePartyAllocation,
+          enricher = Some(new ValueEnricher(engine)),
+          participantId = com.daml.ledger.participant.state.v1.ParticipantId
             .assertFromString(participantId.toString),
+          compressionStrategy =
+            if (enableCompression) CompressionStrategy.allGZIP(metrics)
+            else CompressionStrategy.none(metrics),
         )
       else
         com.daml.platform.store.dao.JdbcLedgerDao.validatingWriteOwner(
