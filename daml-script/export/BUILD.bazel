@@ -34,7 +34,15 @@ da_scala_binary(
         "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_paiges_core",
+        "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_yaml",
     ],
+    versioned_scala_deps = {
+        "2.12": [
+            "@maven//:org_typelevel_cats_core",
+            "@maven//:org_typelevel_cats_kernel",
+        ],
+    },
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -113,6 +121,7 @@ da_scala_test(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
+        "//libs-scala/fs-utils",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:io_grpc_grpc_api",
@@ -135,6 +144,7 @@ da_scala_binary(
         "//language-support/scala/bindings-akka",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+        "//libs-scala/fs-utils",
     ],
 )
 
@@ -143,12 +153,17 @@ client_server_build(
     outs = [
         "example-export/Export.daml",
         "example-export/args.json",
+        "example-export/daml.yaml",
     ],
     client = ":example-export-client",
     client_files = ["//daml-script/test:script-test.dar"],
     data = ["//daml-script/test:script-test.dar"],
     output_env = "EXPORT_OUT",
     server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "--port",
+        "0",
+    ],
     server_files = ["//daml-script/test:script-test.dar"],
 )
 
@@ -159,13 +174,18 @@ client_server_build(
 # Normalizes the expected output by removing the copyright header and any
 # documentation import markers and normalizes the actual output by adding a
 # newline to the last line if missing.
+#
+# Normalizes the data-dependencies by replacing package-id hashes with a
+# placeholder and Windows path separators by Unix separators.
 sh_inline_test(
     name = "example-export-compare",
     cmd = """\
 EXPECTED_EXPORT=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/Export.daml))
 EXPECTED_ARGS=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/args.json))
+EXPECTED_YAML=$$(canonicalize_rlocation $(rootpath //docs:source/tools/export/output-root/daml.yaml))
 ACTUAL_EXPORT=$$(canonicalize_rlocation $(rootpath :example-export/Export.daml))
 ACTUAL_ARGS=$$(canonicalize_rlocation $(rootpath :example-export/args.json))
+ACTUAL_YAML=$$(canonicalize_rlocation $(rootpath :example-export/daml.yaml))
 # Normalize the expected file by removing the copyright header and any documentation import markers.
 # Normalize the actual output by adding a newline to the last line if missing.
 $(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;/^-- EXPORT/d' $$EXPECTED_EXPORT) <($(POSIX_SED) '$$a\\' $$ACTUAL_EXPORT) || {
@@ -176,12 +196,20 @@ $(POSIX_DIFF) -Naur --strip-trailing-cr $$EXPECTED_ARGS <($(POSIX_SED) '$$a\\' $
   echo "$$EXPECTED_ARGS did not match $$ACTUAL_ARGS"
   exit 1
 }
+# Normalize the expected file by removing the copyright header and any documentation import markers.
+# Normalize the data-dependencies by replacing package-id hashes with a placeholder and Windows path separators by Unix separators.
+$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;s/[0-9a-f]\\{64\\}/HASH/' $$EXPECTED_YAML) <($(POSIX_SED) 's/[0-9a-f]\\{64\\}/HASH/;s,\\\\,/,g;$$a\\' $$ACTUAL_YAML) || {
+  echo "$$EXPECTED_YAML did not match $$ACTUAL_YAML"
+  exit 1
+}
 """,
     data = [
         ":example-export/Export.daml",
         ":example-export/args.json",
+        ":example-export/daml.yaml",
         "//docs:source/tools/export/output-root/Export.daml",
         "//docs:source/tools/export/output-root/args.json",
+        "//docs:source/tools/export/output-root/daml.yaml",
     ],
     toolchains = ["@rules_sh//sh/posix:make_variables"],
 )

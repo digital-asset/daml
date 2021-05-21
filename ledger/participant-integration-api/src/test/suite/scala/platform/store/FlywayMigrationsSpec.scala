@@ -24,13 +24,16 @@ class FlywayMigrationsSpec extends AnyWordSpec {
 
   "Postgres flyway migration files" should {
     "always have a valid SHA-256 digest file accompanied" in {
-      assertFlywayMigrationFileHashes(DbType.Postgres)
+      assertFlywayMigrationFileHashes(DbType.Postgres, 10)
+    }
+    "always have a valid SHA-256 digest file accompanied (append-only)" in {
+      assertFlywayMigrationFileHashes(DbType.Postgres, 1, true)
     }
   }
 
   "H2 database flyway migration files" should {
     "always have a valid SHA-256 digest file accompanied" in {
-      assertFlywayMigrationFileHashes(DbType.H2Database)
+      assertFlywayMigrationFileHashes(DbType.H2Database, 10)
     }
   }
 
@@ -40,11 +43,15 @@ object FlywayMigrationsSpec {
 
   private val digester = MessageDigest.getInstance("SHA-256")
 
-  private def assertFlywayMigrationFileHashes(dbType: DbType): Unit = {
-    val config = FlywayMigrations.configurationBase(dbType)
+  private def assertFlywayMigrationFileHashes(
+      dbType: DbType,
+      minMigrationCount: Int,
+      enableAppendOnlySchema: Boolean = false,
+  ): Unit = {
+    val config = FlywayMigrations.configurationBase(dbType, enableAppendOnlySchema)
     val resourceScanner = scanner(config)
     val resources = resourceScanner.getResources("", ".sql").asScala.toSeq
-    resources.size should be > 10
+    resources.size should be >= minMigrationCount
 
     resources.foreach { res =>
       val fileName = res.getFilename

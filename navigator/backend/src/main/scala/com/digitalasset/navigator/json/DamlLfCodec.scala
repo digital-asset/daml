@@ -8,7 +8,7 @@ import com.daml.navigator.json.Util._
 import com.daml.navigator.{model => Model}
 import spray.json._
 
-/** An encoding of DAML-LF types.
+/** An encoding of Daml-LF types.
   *
   * The types are encoded as-is (no type variables substitution, no type reference resolution).
   */

@@ -19,7 +19,6 @@ import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.DummyFactory._
 import com.daml.ledger.test.model.Test.WithObservers._
 import com.daml.ledger.test.model.Test._
-import com.softwaremill.diffx.generic.auto._
 import io.grpc.Status
 import scalaz.syntax.tag._
 

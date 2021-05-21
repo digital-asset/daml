@@ -68,7 +68,7 @@ object LedgerApiTestTool {
 
   private def extractResources(resources: Seq[String]): Unit = {
     val pwd = Paths.get(".").toAbsolutePath
-    println(s"Extracting all DAML resources necessary to run the tests into $pwd.")
+    println(s"Extracting all Daml resources necessary to run the tests into $pwd.")
     for (resource <- resources) {
       val is = getClass.getClassLoader.getResourceAsStream(resource)
       if (is == null) sys.error(s"Could not find $resource in classpath")

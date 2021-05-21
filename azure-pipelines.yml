@@ -43,6 +43,46 @@ jobs:
       fi
     displayName: check perf changes
 
+- job: test_windows_signing
+  dependsOn: [ "check_for_release", "Windows" ]
+  condition: and(succeeded(),
+                 eq(variables['Build.SourceBranchName'], 'main'))
+  pool:
+    name: 'windows-pool'
+    demands: assignment -equals windows-signing
+  steps:
+  - checkout: none
+  - bash: |
+      mkdir $(Build.StagingDirectory)/test-signing
+  - task: DownloadPipelineArtifact@0
+    inputs:
+      artifactName: test-signing
+      targetPath: $(Build.StagingDirectory)/test-signing
+  - bash: |
+      azuresigntool sign \
+        --azure-key-vault-url "$AZURE_KEY_VAULT_URL" \
+        --azure-key-vault-client-id "$AZURE_CLIENT_ID" \
+        --azure-key-vault-client-secret "$AZURE_CLIENT_SECRET" \
+        --azure-key-vault-tenant-id "$AZURE_TENANT_ID"\
+        --azure-key-vault-certificate "$AZURE_KEY_VAULT_CERTIFICATE" \
+        --description "Daml SDK installer" \
+        --description-url "https://daml.com" \
+        --timestamp-rfc3161 "http://timestamp.digicert.com" \
+        --file-digest sha256 \
+        --verbose \
+        $(Build.StagingDirectory)/test-signing/installer.exe
+      exit 0
+    env:
+      AZURE_KEY_VAULT_URL: $(AZURE_KEY_VAULT_URL)
+      AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
+      AZURE_CLIENT_SECRET: $(AZURE_CLIENT_SECRET)
+      AZURE_TENANT_ID: $(AZURE_TENANT_ID)
+      AZURE_KEY_VAULT_CERTIFICATE: $(AZURE_KEY_VAULT_CERTIFICATE)
+  - task: PublishPipelineArtifact@0
+    inputs:
+      targetPath: $(Build.StagingDirectory)/test-signing/installer.exe
+      artifactName: test-signing-signed
+
 - job: release
   dependsOn: [ "check_for_release", "Linux", "Linux_scala_2_12", "macOS", "Windows" ]
   condition: and(succeeded(),

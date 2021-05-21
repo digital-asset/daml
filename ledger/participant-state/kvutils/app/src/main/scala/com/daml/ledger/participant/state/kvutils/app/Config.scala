@@ -8,7 +8,6 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-
 import com.daml.caching
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
@@ -151,11 +150,13 @@ object Config {
               "port-file, " +
               "server-jdbc-url, " +
               "api-server-connection-pool-size" +
+              "api-server-connection-timeout" +
               "max-commands-in-flight, " +
               "management-service-timeout, " +
               "run-mode, " +
               "shard-name, " +
               "indexer-connection-pool-size, " +
+              "indexer-connection-timeout, " +
               "indexer-max-input-buffer-size, " +
               "indexer-input-mapping-parallelism, " +
               "indexer-ingestion-parallelism, " +
@@ -195,10 +196,19 @@ object Config {
               .get("api-server-connection-pool-size")
               .map(_.toInt)
               .getOrElse(ParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize)
+
+            val apiServerConnectionTimeout = kv
+              .get("api-server-connection-timeout")
+              .map(Duration.parse)
+              .getOrElse(ParticipantConfig.DefaultApiServerDatabaseConnectionTimeout)
             val indexerConnectionPoolSize = kv
               .get("indexer-connection-pool-size")
               .map(_.toInt)
               .getOrElse(ParticipantIndexerConfig.DefaultDatabaseConnectionPoolSize)
+            val indexerConnectionTimeout = kv
+              .get("indexer-connection-timeout")
+              .map(Duration.parse)
+              .getOrElse(ParticipantConfig.DefaultApiServerDatabaseConnectionTimeout)
             val indexerInputMappingParallelism = kv
               .get("indexer-input-mapping-parallelism")
               .map(_.toInt)
@@ -257,6 +267,8 @@ object Config {
               jdbcUrl,
               indexerConfig = ParticipantIndexerConfig(
                 databaseConnectionPoolSize = indexerConnectionPoolSize,
+                databaseConnectionTimeout =
+                  FiniteDuration(indexerConnectionTimeout.toMillis, TimeUnit.MILLISECONDS),
                 allowExistingSchema = false,
                 maxInputBufferSize = indexerMaxInputBufferSize,
                 inputMappingParallelism = indexerInputMappingParallelism,
@@ -268,6 +280,7 @@ object Config {
                 enableCompression = indexerEnableCompression,
               ),
               apiServerDatabaseConnectionPoolSize = apiServerConnectionPoolSize,
+              apiServerDatabaseConnectionTimeout = apiServerConnectionTimeout,
               maxCommandsInFlight = maxCommandsInFlight,
               managementServiceTimeout = managementServiceTimeout,
               maxContractStateCacheSize = maxContractStateCacheSize,
@@ -359,7 +372,7 @@ object Config {
         opt[Long]("max-lf-value-translation-cache-entries")
           .optional()
           .text(
-            s"The maximum size of the cache used to deserialize DAML-LF values, in number of allowed entries. By default, nothing is cached."
+            s"The maximum size of the cache used to deserialize Daml-LF values, in number of allowed entries. By default, nothing is cached."
           )
           .action((maximumLfValueTranslationCacheEntries, config) =>
             config.copy(

@@ -62,8 +62,8 @@ sealed trait SValue {
         V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
       case SContractId(coid) =>
         V.ValueContractId(coid)
-      case SBuiltinException(_, _, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SBuiltinException")
+      case SArithmeticError(_, _) =>
+        throw SErrorCrash("SValue.toValue: unexpected SArithmeticError")
       case SStruct(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SStruct")
       case SAny(_, _) =>
@@ -113,7 +113,7 @@ sealed trait SValue {
         SAny(ty, value.mapContractId(f))
       case SAnyException(ty, value) =>
         SAnyException(ty, value.mapContractId(f))
-      case excep: SBuiltinException =>
+      case excep: SArithmeticError =>
         excep
     }
 }
@@ -209,19 +209,11 @@ object SValue {
   final case class SAny(ty: Type, value: SValue) extends SValue
   sealed abstract class SException extends SValue
   final case class SAnyException(ty: Type, value: SValue) extends SException
-
-  sealed abstract class BuiltinError(val name: String) extends Product with Serializable {
-    final override val productArity = 1
-  }
-  case object ArithmeticError extends BuiltinError("ArithmeticError")
-  case object ContractError extends BuiltinError("ContractError")
-  // A value of one of the builtin exception types: ArithmeticError, ContractError
-  final case class SBuiltinException(
-      error: BuiltinError,
+  final case class SArithmeticError(
       builtinName: String,
       args: ImmArray[String],
   ) extends SException {
-    def message = s"${error.name} while evaluating $builtinName(${args.iterator.mkString(",")})."
+    def message = s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")})."
   }
 
   // Corresponds to a Daml-LF Nat type reified as a Speedy value.

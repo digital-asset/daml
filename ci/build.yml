@@ -318,30 +318,6 @@ jobs:
     - template: tell-slack-failed.yml
     - template: report-end.yml
 
-- job: compatibility_windows
-  dependsOn:
-    - da_ghc_lib
-    - check_for_release
-    - compatibility_ts_libs
-    - patch_bazel_windows
-  timeoutInMinutes: 360
-  pool:
-    name: 'windows-pool'
-    demands: assignment -equals default
-  steps:
-    - template: report-start.yml
-    - checkout: self
-    - template: compatibility-windows.yml
-      parameters:
-        test_flags: '--quick'
-    - template: tell-slack-failed.yml
-    - template: report-end.yml
-    - task: PublishBuildArtifacts@1
-      condition: succeededOrFailed()
-      inputs:
-        pathtoPublish: '$(Build.StagingDirectory)'
-        artifactName: 'Bazel Compatibility Logs'
-
 - job: check_for_release
   dependsOn:
     - git_sha
@@ -415,7 +391,6 @@ jobs:
     - release
     - git_sha
     - compatibility_linux
-    - compatibility_windows
     - check_for_release
   pool:
     name: "ubuntu_20_04"
@@ -449,10 +424,6 @@ jobs:
     compatibility_linux.machine: $[ dependencies.compatibility_linux.outputs['start.machine'] ]
     compatibility_linux.end: $[ dependencies.compatibility_linux.outputs['end.time'] ]
     compatibility_linux.status: $[ dependencies.compatibility_linux.result ]
-    compatibility_windows.start: $[ dependencies.compatibility_windows.outputs['start.time'] ]
-    compatibility_windows.machine: $[ dependencies.compatibility_windows.outputs['start.machine'] ]
-    compatibility_windows.end: $[ dependencies.compatibility_windows.outputs['end.time'] ]
-    compatibility_windows.status: $[ dependencies.compatibility_windows.result ]
 
     branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     main_sha: $[ dependencies.git_sha.outputs['out.main'] ]
@@ -505,11 +476,7 @@ jobs:
                   "compatibility_linux": {"start": "$(compatibility_linux.start)",
                                           "machine": "$(compatibility_linux.machine)",
                                           "end": "$(compatibility_linux.end)",
-                                          "status": "$(compatibility_linux.status)"},
-                  "compatibility_windows": {"start": "$(compatibility_windows.start)",
-                                            "machine": "$(compatibility_windows.machine)",
-                                            "end": "$(compatibility_windows.end)",
-                                            "status": "$(compatibility_windows.status)"}},
+                                          "status": "$(compatibility_linux.status)"}},
          "id": "$(Build.BuildId)",
          "url": "https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)",
          "name": "$(Build.DefinitionName)",
@@ -552,7 +519,6 @@ jobs:
             || "$(macOS.status)" != "Succeeded"
             || "$(Windows.status)" != "Succeeded"
             || ("$(is_release)" == "false" && "$(compatibility_linux.status)" != "Succeeded")
-            || ("$(is_release)" == "false" && "$(compatibility_windows.status)" != "Succeeded")
             || "$(release.status)" == "Canceled" ]]; then
             exit 1
         fi

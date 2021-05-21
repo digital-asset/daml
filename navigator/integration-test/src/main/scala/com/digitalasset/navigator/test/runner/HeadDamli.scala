@@ -9,7 +9,7 @@ import java.nio.file.Files
 import scala.sys.error
 import scala.sys.process.Process
 
-/** Run the HEAD version of damlc from source, to create a DAR file from a DAML file.
+/** Run the HEAD version of damlc from source, to create a DAR file from a Daml file.
   */
 object HeadDamlc {
   private val packageName = "Test"
@@ -22,7 +22,7 @@ object HeadDamlc {
     tempDirectory.deleteOnExit()
     val shutdown: Unit => Unit = _ => { tempDirectory.delete(); () }
 
-    // DAML -> DAR
+    // Daml -> DAR
     val exitCode = Process(
       s"bazel run damlc -- package $damlPath $packageName --output ${darFile.getAbsolutePath}"
     ).!

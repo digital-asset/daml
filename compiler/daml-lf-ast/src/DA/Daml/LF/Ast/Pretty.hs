@@ -224,7 +224,6 @@ instance Pretty BuiltinExpr where
     BEError -> "ERROR"
     BEAnyExceptionMessage -> "ANY_EXCEPTION_MESSAGE"
     BEAnyExceptionIsArithmeticError -> "ANY_EXCEPTION_IS_ARITHMETIC_ERROR"
-    BEAnyExceptionIsContractError -> "ANY_EXCEPTION_IS_CONTRACT_ERROR"
     BEEqualGeneric -> "EQUAL"
     BELessGeneric -> "LESS"
     BELessEqGeneric -> "LESS_EQ"

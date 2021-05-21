@@ -222,7 +222,7 @@ class ApiCodecCompressedSpec
         (typ, v: Any, typ.inj(v))
 
       val roundtrips = Table(
-        ("type", "original value", "DAML value"),
+        ("type", "original value", "Daml value"),
         cr(C.emptyRecordT)(HRecord()),
         cr(C.simpleRecordT)(C.simpleRecordV),
         cr(C.simpleVariantT)(C.simpleVariantV),

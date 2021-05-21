@@ -466,6 +466,13 @@ instance CanAbort Script where
 instance ActionFail Script where
   fail = abort
 
+instance CanAssert Script where
+#ifdef DAML_EXCEPTIONS
+  assertFail m = throw (AssertionFailed m)
+#else
+  assertFail = abort
+#endif
+
 data LedgerValue = LedgerValue {}
 
 fromLedgerValue : LedgerValue -> a

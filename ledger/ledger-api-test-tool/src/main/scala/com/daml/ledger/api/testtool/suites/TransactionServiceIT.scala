@@ -32,7 +32,6 @@ import com.daml.ledger.test.model.Test.ParameterShowcase._
 import com.daml.ledger.test.model.Test.TriProposal._
 import com.daml.ledger.test.model.Test._
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
-import com.softwaremill.diffx.generic.auto._
 import io.grpc.Status
 import scalaz.Tag
 
@@ -730,7 +729,7 @@ class TransactionServiceIT extends LedgerTestSuite {
 
   test(
     "TXUnitAsArgumentToNothing",
-    "DAML engine returns Unit as argument to Nothing",
+    "Daml engine returns Unit as argument to Nothing",
     allocate(SingleParty),
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     val template = NothingArgument(party, Primitive.Optional.empty)

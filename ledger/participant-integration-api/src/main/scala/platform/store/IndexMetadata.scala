@@ -13,6 +13,8 @@ import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.ServerRole
+
+import scala.concurrent.duration._
 import scalaz.Tag
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -47,6 +49,7 @@ object IndexMetadata {
         serverRole = ServerRole.ReadIndexMetadata,
         jdbcUrl = jdbcUrl,
         connectionPoolSize = 1,
+        connectionTimeout = 250.millis,
         eventsPageSize = 1000,
         servicesExecutionContext = executionContext,
         metrics = new Metrics(new MetricRegistry),
@@ -61,6 +64,7 @@ object IndexMetadata {
         serverRole = ServerRole.ReadIndexMetadata,
         jdbcUrl = jdbcUrl,
         connectionPoolSize = 1,
+        connectionTimeout = 250.millis,
         eventsPageSize = 1000,
         servicesExecutionContext = executionContext,
         metrics = new Metrics(new MetricRegistry),

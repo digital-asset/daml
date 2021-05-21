@@ -589,6 +589,7 @@ generateStablePackages lfVersion fp = do
                     , "DA-Exception-GeneralError.dalf"
                     , "DA-Exception-ArithmeticError.dalf"
                     , "DA-Exception-ContractError.dalf"
+                    , "DA-Exception-AssertionFailed.dalf"
                     , "DA-Types.dalf"
                     , "GHC-Prim.dalf"
                     , "GHC-Tuple.dalf"

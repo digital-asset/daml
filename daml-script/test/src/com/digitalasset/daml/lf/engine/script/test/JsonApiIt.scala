@@ -12,6 +12,7 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles._
+import com.daml.cliopts.Logging.LogEncoder
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
@@ -157,6 +158,7 @@ trait JsonApiFixture
                 override val allowNonHttps = true
                 override val nonRepudiation = nonrepudiation.Configuration.Cli.Empty
                 override val logLevel = None
+                override val logEncoder = LogEncoder.Plain
               }
               HttpService
                 .start(config)(

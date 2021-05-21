@@ -18,12 +18,14 @@ module DA.Internal.Exception
     , GeneralError    (GeneralError)
     , ArithmeticError (ArithmeticError)
     , ContractError   (ContractError)
+    , AssertionFailed (AssertionFailed)
     ) where
 
 import GHC.Types
 import DA.Exception.GeneralError    ( GeneralError    (GeneralError) )
 import DA.Exception.ArithmeticError ( ArithmeticError (ArithmeticError) )
 import DA.Exception.ContractError   ( ContractError   (ContractError) )
+import DA.Exception.AssertionFailed ( AssertionFailed (AssertionFailed) )
 import DA.Internal.LF
 import DA.Internal.Prelude
 import DA.Internal.Record
@@ -135,11 +137,26 @@ instance HasToAnyException ContractError where
     toAnyException = primitive @"EToAnyException"
 
 instance HasFromAnyException ContractError where
-    fromAnyException e
-        | primitive @"BEAnyExceptionIsContractError" e =
-            Some (ContractError (message e))
-        | otherwise =
-            primitive @"EFromAnyException" e
+    fromAnyException e =
+      primitive @"EFromAnyException" e
+
+--------------------------------------------------------------
+
+instance HasField "message" AssertionFailed Text where
+    getField (AssertionFailed m) = m
+    setField m (AssertionFailed _) = AssertionFailed m
+
+instance HasThrow AssertionFailed where
+    throwPure = primitive @"EThrow"
+
+instance HasMessage AssertionFailed where
+    message (AssertionFailed m) = m
+
+instance HasToAnyException AssertionFailed where
+    toAnyException = primitive @"EToAnyException"
+
+instance HasFromAnyException AssertionFailed where
+    fromAnyException = primitive @"EFromAnyException"
 
 --------------------------------------------------------------
 
@@ -159,6 +176,9 @@ instance ActionThrow Update where
 instance ActionCatch Update where
     _tryCatch = primitive @"UTryCatch"
 
---------------------------------------------------------------
+instance ActionThrow Scenario where
+    throw e = pure () >>= \_ -> throwPure e
+
+-- Can't catch in scenarios.
 
 #endif

@@ -43,10 +43,10 @@ private[speedy] object SExprIterable {
     case SValue.SPAP(prim, actuals, _) =>
       iterator(prim) ++ actuals.asScala.iterator.flatMap(iterator(_))
     case SValue.SAnyException(_, value) => iterator(value)
-    case SValue.SBuiltinException(_, _, _) | SValue.STNat(_) | _: SValue.SPrimLit |
-        SValue.STypeRep(_) | SValue.SToken | SValue.SAny(_, _) | SValue.SEnum(_, _, _) |
-        SValue.SMap(_, _) | SValue.SList(_) | SValue.SOptional(_) | SValue.SRecord(_, _, _) |
-        SValue.SStruct(_, _) | SValue.SVariant(_, _, _, _) =>
+    case SValue.SArithmeticError(_, _) | SValue.STNat(_) | _: SValue.SPrimLit | SValue.STypeRep(_) |
+        SValue.SToken | SValue.SAny(_, _) | SValue.SEnum(_, _, _) | SValue.SMap(_, _) |
+        SValue.SList(_) | SValue.SOptional(_) | SValue.SRecord(_, _, _) | SValue.SStruct(_, _) |
+        SValue.SVariant(_, _, _, _) =>
       SValueIterable.iterator(v).flatMap(iterator(_))
   }
   private def iterator(v: SValue.Prim): Iterator[SExpr] = v match {

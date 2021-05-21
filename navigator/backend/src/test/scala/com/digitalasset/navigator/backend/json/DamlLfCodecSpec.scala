@@ -24,9 +24,9 @@ class DamlLfCodecSpec extends AnyWordSpec with Matchers {
     } yield parsed
   }
 
-  "DAML-LF JSON codec" when {
+  "Daml-LF JSON codec" when {
 
-    "serializing and parsing a DAML-LF object" should {
+    "serializing and parsing a Daml-LF object" should {
 
       "work for DamlLFIdentifier" in {
         serializeAndParse(C.ref0) shouldBe Success(C.ref0)

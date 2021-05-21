@@ -66,7 +66,7 @@ private[lf] object Pretty {
           exc match {
             case SAnyException(_, value) =>
               prettyValue(true)(value.toValue)
-            case exception: SBuiltinException =>
+            case exception: SArithmeticError =>
               text(exception.message)
           }
         }

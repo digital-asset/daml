@@ -3,9 +3,7 @@
 
 package com.daml.script.export
 
-import java.io.IOException
-import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
-import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.{Files, Path}
 import java.util.UUID
 
 import akka.stream.scaladsl.Sink
@@ -33,6 +31,7 @@ import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.platform.sandbox.services.TestCommands
 import com.daml.platform.sandboxnext.SandboxNextFixture
 import com.daml.SdkVersion
+import com.daml.fs.Utils.deleteRecursively
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.engine.script.ledgerinteraction.{GrpcLedgerClient, ScriptTimeMode}
 import scalaz.syntax.tag._
@@ -80,25 +79,6 @@ final class IT
   override protected def afterEach(): Unit = {
     super.afterEach()
     deleteRecursively(tmpDir)
-  }
-
-  // TODO(MK) Put this somewhere in //libs-scala
-  private def deleteRecursively(dir: Path): Unit = {
-    Files.walkFileTree(
-      dir,
-      new SimpleFileVisitor[Path] {
-        override def postVisitDirectory(dir: Path, exc: IOException) = {
-          Files.delete(dir)
-          FileVisitResult.CONTINUE
-        }
-
-        override def visitFile(file: Path, attrs: BasicFileAttributes) = {
-          Files.delete(file)
-          FileVisitResult.CONTINUE
-        }
-      },
-    )
-    ()
   }
 
   private def submit(client: LedgerClient, p: Ref.Party, cmd: Command) =

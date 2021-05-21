@@ -62,11 +62,11 @@ final class ContextualizedLoggerIT extends AnyFlatSpec with Matchers {
 
     log map decode[Entry] should contain theSameElementsAs Seq(
       Right(Entry("1", "ERROR", None, None, None)),
-      Right(Entry("2 (context: {a=1})", "ERROR", Some("1"), None, None)),
-      Right(Entry("3 (context: {a=1, b=2})", "ERROR", Some("1"), Some("2"), None)),
-      Right(Entry("4 (context: {a=1, b=2, c=3})", "ERROR", Some("1"), Some("2"), Some("3"))),
-      Right(Entry("3 (context: {a=1, b=2})", "INFO", Some("1"), Some("2"), None)),
-      Right(Entry("2 (context: {a=1})", "INFO", Some("1"), None, None)),
+      Right(Entry("2", "ERROR", Some("1"), None, None)),
+      Right(Entry("3", "ERROR", Some("1"), Some("2"), None)),
+      Right(Entry("4", "ERROR", Some("1"), Some("2"), Some("3"))),
+      Right(Entry("3", "INFO", Some("1"), Some("2"), None)),
+      Right(Entry("2", "INFO", Some("1"), None, None)),
       Right(Entry("1", "INFO", None, None, None)),
     )
 
@@ -81,11 +81,11 @@ final class ContextualizedLoggerIT extends AnyFlatSpec with Matchers {
 
     log should contain theSameElementsAs Seq(
       "1",
-      "2 (context: {a=1})",
-      "3 (context: {a=1, b=2})",
-      "4 (context: {a=1, b=2, c=3})",
-      "3 (context: {a=1, b=2})",
-      "2 (context: {a=1})",
+      "2",
+      "3",
+      "4",
+      "3",
+      "2",
       "1",
     )
 

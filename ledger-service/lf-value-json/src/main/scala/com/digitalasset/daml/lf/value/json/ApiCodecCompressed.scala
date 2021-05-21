@@ -109,7 +109,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
     )
 
   // ------------------------------------------------------------------------------------------------------------------
-  // Decoding - this needs access to DAML-LF types
+  // Decoding - this needs access to Daml-LF types
   // ------------------------------------------------------------------------------------------------------------------
 
   @throws[DeserializationException]

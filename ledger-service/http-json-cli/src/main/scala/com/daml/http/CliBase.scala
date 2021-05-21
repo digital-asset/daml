@@ -3,9 +3,8 @@
 
 package com.daml.http
 
-import com.typesafe.scalalogging.StrictLogging
+trait CliBase {
 
-trait CliBase extends StrictLogging {
   private[http] def parseConfig(
       args: collection.Seq[String],
       supportedJdbcDriverNames: Set[String],

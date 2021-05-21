@@ -19,7 +19,6 @@ import com.daml.ledger.test.model.Test.ShowDelegated._
 import com.daml.ledger.test.model.Test.TextKey._
 import com.daml.ledger.test.model.Test.TextKeyOperations._
 import com.daml.ledger.test.model.Test._
-import com.softwaremill.diffx.generic.auto._
 import io.grpc.Status
 import scalaz.Tag
 
