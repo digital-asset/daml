@@ -23,19 +23,18 @@ private[lf] object NormalizeRollbacks {
 
   def normalizeTx(txOriginal: TX): TX = {
 
-    // Here we generate fresh node-ids for the normalized transaction.
-    val ids = Iterator.from(0).map(NodeId(_))
+    // State manages a counter for node-id generation, and accumulates the nodes-map for
+    // the normalized transaction
 
-    // There is no connection between the ids in the pre and post transaction.
-    // Semantically this is fine: The ids are just of tie the tree structure together.
-    // But perhaps for ease of debugging we might consider trying to reuse existing ids.
+    // There is no connection between the ids in the original and normalized transaction.
 
-    // We accumulate (imperatively!) a nodes-map for the normalized transaction
-    var theNodeMap: Map[Nid, Node] = Map.empty
-
-    def pushNode(nid: Nid, node: Node): Unit = {
-      theNodeMap += (nid -> node)
+    case class State(index: Int, nodeMap: Map[Nid, Node]) {
+      def next: (State, Nid) = (State(index + 1, nodeMap), NodeId(index))
+      def push(nid: Nid, node: Node): (State, Nid) =
+        (State(index, nodeMap = nodeMap + (nid -> node)), nid)
     }
+
+    val initialState = State(100, Map.empty)
 
     import Canonical.{Norm, Case, caseNorms}
     // The normalization phase works by constructing intermediate values which are
@@ -43,46 +42,52 @@ private[lf] object NormalizeRollbacks {
     // Although this doesn't ensure correctness, one class of bugs is avoided.
 
     // The `force*` functions move from the world of Norms into standard transactions.
-    // This is also where node-ids for the resulting normalized transaction are generated.
 
-    def forceAct(x: Norm.Act): Nid = {
-      val me = ids.next()
+    def forceAct(s0: State, x: Norm.Act): (State, Nid) = {
+      val (s, me) = s0.next
       x match {
         case Norm.Leaf(node) =>
-          pushNode(me, node)
-          me
+          s.push(me, node)
         case Norm.Exe(exe, subs) =>
-          val children = forceNorms(subs)
+          val (s1, children) = forceNorms(s, subs)
           val node = exe.copy(children = ImmArray(children))
-          pushNode(me, node)
-          me
+          s1.push(me, node)
       }
     }
 
-    def forceRoll(x: Norm.Roll): Nid = {
-      val me = ids.next()
+    def forceRoll(s0: State, x: Norm.Roll): (State, Nid) = {
+      val (s, me) = s0.next
       x match {
         case Norm.Roll1(act) =>
-          val child = forceAct(act)
+          val (s1, child) = forceAct(s, act)
           val node = NodeRollback(children = ImmArray(List(child)))
-          pushNode(me, node)
-          me
+          s1.push(me, node)
         case Norm.Roll2(h, m, t) =>
-          val children = List(forceAct(h)) ++ forceNorms(m) ++ List(forceAct(t))
+          val (s1, hh) = forceAct(s, h)
+          val (s2, mm) = forceNorms(s1, m)
+          val (s3, tt) = forceAct(s2, t)
+          val children = List(hh) ++ mm ++ List(tt)
           val node = NodeRollback(children = ImmArray(children))
-          pushNode(me, node)
-          me
+          s3.push(me, node)
       }
     }
 
-    def forceNorm(x: Norm): Nid = {
+    def forceNorm(s: State, x: Norm): (State, Nid) = {
       x match {
-        case act: Norm.Act => forceAct(act)
-        case roll: Norm.Roll => forceRoll(roll)
+        case act: Norm.Act => forceAct(s, act)
+        case roll: Norm.Roll => forceRoll(s, roll)
       }
     }
 
-    def forceNorms(xs: List[Norm]): List[Nid] = xs.map(forceNorm)
+    def forceNorms(s: State, xs: List[Norm]): (State, List[Nid]) = {
+      xs match {
+        case Nil => (s, Nil)
+        case x :: xs =>
+          val (s1, y) = forceNorm(s, x)
+          val (s2, ys) = forceNorms(s1, xs)
+          (s2, y :: ys)
+      }
+    }
 
     // makeRoll: encodes the normalization transformation rules:
     //   rule #1: R [ ] -> ε
@@ -153,8 +158,8 @@ private[lf] object NormalizeRollbacks {
           }
         }
         val norms = traverseNids(rootsOriginal.toList)
-        val roots = forceNorms(norms)
-        GenTransaction(theNodeMap, ImmArray(roots))
+        val (finalState, roots) = forceNorms(initialState, norms)
+        GenTransaction(finalState.nodeMap, ImmArray(roots))
     }
   }
 
