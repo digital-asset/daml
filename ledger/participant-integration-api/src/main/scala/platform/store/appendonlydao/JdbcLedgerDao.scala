@@ -1000,6 +1000,7 @@ private[platform] object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       connectionPoolSize: Int,
+      connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -1011,6 +1012,7 @@ private[platform] object JdbcLedgerDao {
       serverRole,
       jdbcUrl,
       connectionPoolSize,
+      connectionTimeout,
       eventsPageSize,
       validate = false,
       servicesExecutionContext,
@@ -1018,6 +1020,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       enricher = enricher,
       participantId = participantId,
+      compressionStrategy = CompressionStrategy.none(metrics), // not needed
     ).map(new MeteredLedgerReadDao(_, metrics))
   }
 
@@ -1025,6 +1028,7 @@ private[platform] object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       connectionPoolSize: Int,
+      connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -1038,6 +1042,7 @@ private[platform] object JdbcLedgerDao {
       serverRole,
       jdbcUrl,
       dbType.maxSupportedWriteConnections(connectionPoolSize),
+      connectionTimeout,
       eventsPageSize,
       validate = false,
       servicesExecutionContext,
@@ -1047,6 +1052,7 @@ private[platform] object JdbcLedgerDao {
         if (dbType.supportsAsynchronousCommits) jdbcAsyncCommitMode else DbType.SynchronousCommit,
       enricher = enricher,
       participantId = participantId,
+      compressionStrategy = CompressionStrategy.none(metrics), // not needed
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1054,6 +1060,7 @@ private[platform] object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       connectionPoolSize: Int,
+      connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -1061,12 +1068,14 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation: Boolean = false,
       enricher: Option[ValueEnricher],
       participantId: v1.ParticipantId,
+      compressionStrategy: CompressionStrategy,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     owner(
       serverRole,
       jdbcUrl,
       dbType.maxSupportedWriteConnections(connectionPoolSize),
+      connectionTimeout,
       eventsPageSize,
       validate = true,
       servicesExecutionContext,
@@ -1075,6 +1084,7 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation,
       enricher = enricher,
       participantId = participantId,
+      compressionStrategy = compressionStrategy,
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1083,6 +1093,7 @@ private[platform] object JdbcLedgerDao {
       participantId: v1.ParticipantId,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       metrics: Metrics,
+      compressionStrategy: CompressionStrategy,
   ): SequentialWriteDao =
     SequentialWriteDaoImpl(
       storageBackend = StorageBackend.of(dbType),
@@ -1094,9 +1105,7 @@ private[platform] object JdbcLedgerDao {
           enricherO = None,
           loadPackage = (_, _) => Future.successful(None),
         ),
-        compressionStrategy = CompressionStrategy.none(
-          metrics
-        ), // TODO append-only: is it ok, to turn it off completely for sandbox-classic?
+        compressionStrategy = compressionStrategy,
       ),
     )
 
@@ -1128,6 +1137,7 @@ private[platform] object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       connectionPoolSize: Int,
+      connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       validate: Boolean,
       servicesExecutionContext: ExecutionContext,
@@ -1137,13 +1147,14 @@ private[platform] object JdbcLedgerDao {
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
       enricher: Option[ValueEnricher],
       participantId: v1.ParticipantId,
+      compressionStrategy: CompressionStrategy,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(
         serverRole,
         jdbcUrl,
         connectionPoolSize,
-        250.millis,
+        connectionTimeout,
         metrics,
         jdbcAsyncCommitMode,
       )
@@ -1158,7 +1169,13 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       validatePartyAllocation,
       enricher,
-      sequentialWriteDao(dbType, participantId, lfValueTranslationCache, metrics),
+      sequentialWriteDao(
+        dbType,
+        participantId,
+        lfValueTranslationCache,
+        metrics,
+        compressionStrategy,
+      ),
       participantId,
     )
 

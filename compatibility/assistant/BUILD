@@ -21,7 +21,6 @@ da_haskell_test(
         "extra",
         "process",
         "typed-process",
-        "safe-exceptions",
         "tasty",
         "tasty-hunit",
         "utf8-string",

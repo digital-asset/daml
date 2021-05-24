@@ -249,7 +249,6 @@ data BuiltinExpr
   | BEError                          -- :: ∀a. Text -> a
   | BEAnyExceptionMessage            -- :: AnyException -> Text
   | BEAnyExceptionIsArithmeticError  -- :: AnyException -> Bool
-  | BEAnyExceptionIsContractError    -- :: AnyException -> Bool
 
   -- Polymorphic functions
   | BEEqualGeneric               -- :: ∀t. t -> t -> Bool

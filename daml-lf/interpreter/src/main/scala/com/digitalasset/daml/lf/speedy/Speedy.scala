@@ -153,7 +153,7 @@ private[lf] object Speedy {
       var lastLocation: Option[Location],
       /* The trace log. */
       val traceLog: TraceLog,
-      /* Compiled packages (DAML-LF ast + compiled speedy expressions). */
+      /* Compiled packages (Daml-LF ast + compiled speedy expressions). */
       var compiledPackages: CompiledPackages,
       /* Used when enableLightweightStepTracing is true */
       var steps: Int,
@@ -162,7 +162,7 @@ private[lf] object Speedy {
       /* Profile of the run when the packages haven been compiled with profiling enabled. */
       var profile: Profile,
       /* True if we are running on ledger building transactions, false if we
-         are running off-ledger code, e.g., DAML Script or
+         are running off-ledger code, e.g., Daml Script or
          Triggers. It is safe to use on ledger for off ledger code but
          not the other way around.
        */
@@ -430,7 +430,7 @@ private[lf] object Speedy {
       result
     }
 
-    /** Try to handle a DAML exception by looking for
+    /** Try to handle a Daml exception by looking for
       * the catch handler. Returns true if the exception
       * was caught.
       */
@@ -1125,7 +1125,7 @@ private[lf] object Speedy {
           SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
           SValue.SMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
           SValue.STNat(_) | SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken |
-          SValue.SBuiltinException(_) | SValue.SAnyException(_, _) =>
+          SValue.SArithmeticError(_, _) | SValue.SAnyException(_, _) =>
         crash("Match on non-matchable value")
     }
 

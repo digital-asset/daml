@@ -77,7 +77,7 @@ public class RecordTest {
     MyRecord myRecord = MyRecord.fromValue(myDataRecord);
     checkRecord(myRecord);
     assertTrue(
-        "to value uses original daml lf names for fields",
+        "to value uses original Daml-LF names for fields",
         myRecord.toValue().getFieldsMap().get("void").asBool().isPresent());
   }
 

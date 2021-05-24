@@ -125,9 +125,6 @@ prettyScenarioResult
   :: LF.World -> ScenarioResult -> Doc SyntaxClass
 prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime traceLog) =
   let ppSteps = runM nodes world (vsep <$> mapM prettyScenarioStep (V.toList steps))
-      isActive Node{..} = case nodeNode of
-        Just NodeNodeCreate{} -> isNothing nodeConsumedBy
-        _ -> False
       sortNodeIds = sortOn parseNodeId
       ppActive =
           fcommasep
@@ -224,7 +221,7 @@ prettyScenarioErrorError (Just err) =  do
     ScenarioErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' True 0 world exc
     ScenarioErrorErrorTemplatePrecondViolated ScenarioError_TemplatePreconditionViolated{..} -> do
       pure $
-        "Template pre-condition violated in:"
+        "Template precondition violated in:"
           $$ nest 2
           (   "create"
           <-> prettyMay "<missing template id>" (prettyDefName world) scenarioError_TemplatePreconditionViolatedTemplateId
@@ -832,14 +829,19 @@ data Table = Table
     , tRows :: [NodeInfo]
     }
 
+isActive :: Node -> Bool
+isActive Node{..} = case nodeNode of
+    Just NodeNodeCreate{} -> isNothing nodeConsumedBy && isNothing nodeRolledbackBy
+    _ -> False
+
 nodeInfo :: Node -> Maybe NodeInfo
-nodeInfo Node{..} = do
+nodeInfo node@Node{..} = do
     NodeNodeCreate create <- nodeNode
     niNodeId <- nodeNodeId
     inst <- node_CreateContractInstance create
     niTemplateId <- contractInstanceTemplateId inst
     niValue <- contractInstanceValue inst
-    let niActive = isNothing nodeConsumedBy
+    let niActive = isActive node
     let niSignatories = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateSignatories create)
     let niStakeholders = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateStakeholders create)
     let (nodeWitnesses, nodeDivulgences) = partition disclosureExplicit $ V.toList nodeDisclosures

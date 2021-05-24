@@ -53,8 +53,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
     // The actAs and readAs parties are used for two kinds of checks by the ledger API server:
     // When looking up contracts during command interpretation, the engine should only see contracts
     // that are visible to at least one of the actAs or readAs parties. This visibility check is not part of the
-    // DAML ledger model.
-    // When checking DAML authorization rules, the engine verifies that the actAs parties are sufficient to
+    // Daml ledger model.
+    // When checking Daml authorization rules, the engine verifies that the actAs parties are sufficient to
     // authorize the resulting transaction.
     val commitAuthorizers = commands.actAs
     val submissionResult = Timed.trackedValue(

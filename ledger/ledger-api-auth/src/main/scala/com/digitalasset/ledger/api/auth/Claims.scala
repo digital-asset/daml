@@ -21,7 +21,7 @@ sealed abstract class Claim
 case object ClaimAdmin extends Claim
 
 /** Authorized to use all "public" services, i.e.,
-  * those that do not require admin rights and do not depend on any DAML party.
+  * those that do not require admin rights and do not depend on any Daml party.
   * Examples include the LedgerIdentityService or the PackageService.
   */
 case object ClaimPublic extends Claim

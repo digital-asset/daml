@@ -194,7 +194,7 @@ class CommonCliBase(name: LedgerName) {
         .text("This flag is deprecated -- please use --sql-backend-jdbcurl.")
         .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
-      com.daml.cliopts.Logging.loggingLevelParse(this)((f, c) => c.copy(logLevel = f(c.logLevel)))
+      com.daml.cliopts.Logging.logLevelParse(this)((f, c) => c.copy(logLevel = f(c.logLevel)))
 
       opt[Unit]("eager-package-loading")
         .optional()
@@ -291,12 +291,22 @@ class CommonCliBase(name: LedgerName) {
           s"The timeout used for requests by management services of the Ledger API. The default is set to ${SandboxConfig.DefaultManagementServiceTimeout.getSeconds} seconds."
         )
 
+      // TODO append-only: cleanup
       opt[Unit]("enable-append-only-schema")
         .hidden()
         .optional()
         .action((_, config) => config.copy(enableAppendOnlySchema = true))
         .text(
           s"Turns on append-only schema support."
+        )
+
+      // TODO append-only: cleanup
+      opt[Unit]("enable-compression")
+        .hidden()
+        .optional()
+        .action((_, config) => config.copy(enableCompression = true))
+        .text(
+          s"By default compression is off, his switch enables it. This has only effect for append-only ingestion." // TODO append-only: fix description
         )
 
       help("help").text("Print the usage text")

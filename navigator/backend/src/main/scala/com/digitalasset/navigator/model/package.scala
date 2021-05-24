@@ -31,14 +31,14 @@ package object model extends NavigatorModelAliases[String] {
   type WorkflowId = ApiTypes.WorkflowId
 
   // ----------------------------------------------------------------------------------------------
-  // Types used in DAML-LF
+  // Types used in Daml-LF
   // ----------------------------------------------------------------------------------------------
 
   /** A dot-separated list of strings */
   type DamlLfDottedName = DamlLfRef.DottedName
   val DamlLfDottedName = DamlLfRef.DottedName
 
-  /** A qualified name, referencing entities from the same DAML-LF package */
+  /** A qualified name, referencing entities from the same Daml-LF package */
   type DamlLfQualifiedName = DamlLfRef.QualifiedName
   val DamlLfQualifiedName = DamlLfRef.QualifiedName
 
@@ -53,7 +53,7 @@ package object model extends NavigatorModelAliases[String] {
   type DamlLfFieldWithType = DamlLfIface.FieldWithType
 
   // ----------------------------------------------------------------------------------------------
-  // Conversion between API Identifier, DAML-LF Identifier, and String
+  // Conversion between API Identifier, Daml-LF Identifier, and String
   // ----------------------------------------------------------------------------------------------
   implicit class IdentifierApiConversions(val id: ApiV1.value.Identifier) extends AnyVal {
     def asDaml: DamlLfRef.Identifier =

@@ -7,6 +7,7 @@ import java.nio.file.Path
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
+import com.daml.cliopts.Logging.LogEncoder
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.runtime.JdbcDrivers
 import com.daml.scalautil.Statement.discard
@@ -15,7 +16,7 @@ import scalaz.{-\/, \/, \/-}
 import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
-import com.daml.cliopts.GlobalLogLevel
+import com.daml.cliopts.{GlobalLogLevel, Logging}
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 
@@ -33,6 +34,22 @@ object Main {
     val StartupError = 101
   }
 
+  def adjustAndReloadLoggingOptions(
+      config: Config
+  ): Unit = {
+    // If the system property was explicitly set before application startup and the config option was provided,
+    // the prior value will be overridden here.
+    config.logEncoder match {
+      case LogEncoder.Plain => () // This is the default
+      case LogEncoder.Json =>
+        Logging.setUseJsonLogEncoderSystemProp()
+        Logging.reconfigure(getClass, "logback.xml")
+    }
+    // Here we set all things which are related to logging but not to
+    // any env vars in the logback.xml file.
+    config.logLevel.foreach(GlobalLogLevel.set("Ledger HTTP-JSON API"))
+  }
+
   def main(args: Array[String]): Unit = {
     instanceUUIDLogCtx(implicit lc =>
       Cli.parseConfig(
@@ -40,6 +57,7 @@ object Main {
         ContractDao.supportedJdbcDriverNames(JdbcDrivers.availableJdbcDriverNames),
       ) match {
         case Some(config) =>
+          adjustAndReloadLoggingOptions(config)
           main(config)
         case None =>
           // error is printed out by scopt
@@ -49,7 +67,6 @@ object Main {
   }
 
   private def main(config: Config)(implicit lc: LoggingContextOf[InstanceUUID]): Unit = {
-    config.logLevel.foreach(GlobalLogLevel.set("Ledger HTTP-JSON API"))
     logger.info(
       s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
         s", address=${config.address: String}, httpPort=${config.httpPort: Int}" +

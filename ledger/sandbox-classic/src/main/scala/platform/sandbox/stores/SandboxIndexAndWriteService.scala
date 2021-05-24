@@ -49,6 +49,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       participantId: ParticipantId,
       jdbcUrl: String,
       databaseConnectionPoolSize: Int,
+      databaseConnectionTimeout: FiniteDuration,
       timeProvider: TimeProvider,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       startMode: SqlStartMode,
@@ -61,6 +62,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Engine,
       enableAppendOnlySchema: Boolean,
+      enableCompression: Boolean,
       validatePartyAllocation: Boolean = false,
   )(implicit
       mat: Materializer,
@@ -71,6 +73,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       serverRole = ServerRole.Sandbox,
       jdbcUrl = jdbcUrl,
       databaseConnectionPoolSize = databaseConnectionPoolSize,
+      databaseConnectionTimeout = databaseConnectionTimeout,
       providedLedgerId = providedLedgerId,
       participantId = domain.ParticipantId(participantId),
       timeProvider = timeProvider,
@@ -86,6 +89,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       engine = engine,
       validatePartyAllocation = validatePartyAllocation,
       enableAppendOnlySchema = enableAppendOnlySchema,
+      enableCompression = enableCompression,
     ).flatMap(ledger => owner(MeteredLedger(ledger, metrics), participantId, timeProvider))
 
   def inMemory(

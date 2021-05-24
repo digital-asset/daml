@@ -3,10 +3,12 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import java.nio.file.Path
+import com.daml.ledger.participant.state.kvutils.app.ParticipantConfig.DefaultApiServerDatabaseConnectionTimeout
 
+import java.nio.file.Path
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ports.Port
+
 import java.time.Duration
 
 final case class ParticipantConfig(
@@ -23,6 +25,7 @@ final case class ParticipantConfig(
     indexerConfig: ParticipantIndexerConfig,
     apiServerDatabaseConnectionPoolSize: Int =
       ParticipantConfig.DefaultApiServerDatabaseConnectionPoolSize,
+    apiServerDatabaseConnectionTimeout: Duration = DefaultApiServerDatabaseConnectionTimeout,
     maxContractStateCacheSize: Long = ParticipantConfig.DefaultMaxContractStateCacheSize,
     maxContractKeyStateCacheSize: Long = ParticipantConfig.DefaultMaxContractKeyStateCacheSize,
 )
@@ -32,6 +35,7 @@ object ParticipantConfig {
     s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
 
   val DefaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
+  val DefaultApiServerDatabaseConnectionTimeout: Duration = Duration.ofMillis(250)
 
   // this pool is used for all data access for the ledger api (command submission, transaction service, ...)
   val DefaultApiServerDatabaseConnectionPoolSize = 16

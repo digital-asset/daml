@@ -21,7 +21,7 @@ import com.daml.lf.transaction.ContractKeyUniquenessMode
   * @param stackTraceMode The flag enables the runtime support for
   *     stack trace.
   * @param profileDir The optional specifies the directory where to
-  *     save the output of the DAML scenario profiler. The profiler is
+  *     save the output of the Daml scenario profiler. The profiler is
   *     disabled if the option is empty.
   */
 final case class EngineConfig(

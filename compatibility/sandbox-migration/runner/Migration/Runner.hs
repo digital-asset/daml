@@ -79,9 +79,11 @@ main = do
             (ProposeAccept.test step modelDar `interleave` KeyTransfer.test step modelDar `interleave` Divulgence.test step modelDar)
 
 supportsAppendOnly :: SemVer.Version -> Bool
-supportsAppendOnly v = v == SemVer.initial || v > prev
-  where
-    prev = fromRight (error "invalid version") (SemVer.fromText "1.13.0-snapshot.20210504.6833.0.9ae787d0")
+supportsAppendOnly v = v == SemVer.initial
+-- Note: until the append-only migration is frozen, only the head version of it should be used
+--supportsAppendOnly v = v == SemVer.initial || v > prev
+--  where
+--    prev = fromRight (error "invalid version") (SemVer.fromText "<first version that has a frozen append-only migration>")
 
 runTest :: forall s r. AppendOnly -> T.Text -> [FilePath] -> Test s r -> IO ()
 runTest appendOnly jdbcUrl platformAssistants Test{..} = do

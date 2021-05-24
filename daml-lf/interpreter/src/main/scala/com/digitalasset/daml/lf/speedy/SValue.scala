@@ -62,8 +62,8 @@ sealed trait SValue {
         V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
       case SContractId(coid) =>
         V.ValueContractId(coid)
-      case SBuiltinException(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected SBuiltinException")
+      case SArithmeticError(_, _) =>
+        throw SErrorCrash("SValue.toValue: unexpected SArithmeticError")
       case SStruct(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SStruct")
       case SAny(_, _) =>
@@ -113,7 +113,7 @@ sealed trait SValue {
         SAny(ty, value.mapContractId(f))
       case SAnyException(ty, value) =>
         SAnyException(ty, value.mapContractId(f))
-      case excep @ SBuiltinException(ContractError | ArithmeticError) =>
+      case excep: SArithmeticError =>
         excep
     }
 }
@@ -209,17 +209,17 @@ object SValue {
   final case class SAny(ty: Type, value: SValue) extends SValue
   sealed abstract class SException extends SValue
   final case class SAnyException(ty: Type, value: SValue) extends SException
+  final case class SArithmeticError(
+      builtinName: String,
+      args: ImmArray[String],
+  ) extends SException {
+    def message = s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")})."
+  }
 
-  sealed abstract class BuiltinError extends Product with Serializable
-  case object ArithmeticError extends BuiltinError
-  case object ContractError extends BuiltinError
-  // A value of one of the builtin exception types: ArithmeticError, ContractError
-  final case class SBuiltinException(error: BuiltinError) extends SException
-
-  // Corresponds to a DAML-LF Nat type reified as a Speedy value.
+  // Corresponds to a Daml-LF Nat type reified as a Speedy value.
   // It is currently used to track at runtime the scale of the
   // Numeric builtin's arguments/output. Should never be translated
-  // back to DAML-LF expressions / values.
+  // back to Daml-LF expressions / values.
   final case class STNat(n: Numeric.Scale) extends SValue
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified
@@ -230,6 +230,15 @@ object SValue {
   //  try to factorize SNumeric and SBigNumeric
   //  note it seems that scale is relevant in SNumeric but lost in SBigNumeric
   final case class SNumeric(value: Numeric) extends SPrimLit
+  object SNumeric {
+    def fromBigDecimal(scale: Numeric.Scale, x: java.math.BigDecimal) =
+      Numeric.fromBigDecimal(scale, x) match {
+        case Right(value) =>
+          Right(SNumeric(value))
+        case Left(_) =>
+          overflowUnderflow
+      }
+  }
   final class SBigNumeric private (val value: java.math.BigDecimal) extends SPrimLit {
     override def canEqual(that: Any): Boolean = that match {
       case _: SBigNumeric => true
@@ -255,11 +264,10 @@ object SValue {
 
     def fromBigDecimal(x: java.math.BigDecimal): Either[String, SBigNumeric] = {
       val norm = x.stripTrailingZeros()
-      Either.cond(
-        test = norm.scale <= MaxScale && norm.precision - norm.scale <= MaxScale,
-        right = new SBigNumeric(norm),
-        left = "non valid BigNumeric",
-      )
+      if (norm.scale <= MaxScale && norm.precision - norm.scale <= MaxScale)
+        Right(new SBigNumeric(norm))
+      else
+        overflowUnderflow
     }
 
     def fromNumeric(x: Numeric) =
@@ -345,5 +353,7 @@ object SValue {
     }
     bs
   }
+
+  private[this] val overflowUnderflow = Left("overflow/underflow")
 
 }

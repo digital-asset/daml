@@ -60,7 +60,7 @@ final case class CommandStatusUnknown() extends CommandStatus {
 
 sealed trait Command extends TaggedNode[ApiTypes.CommandIdTag] {
 
-  /** Order in which the command was submitted */
+  /** Order in which the command was submitted. */
   def index: Long
   def workflowId: ApiTypes.WorkflowId
   def platformTime: Instant
@@ -96,7 +96,7 @@ final case class Result(id: ApiTypes.CommandId, errorOrTx: Either[Error, Transac
     extends TaggedNode[ApiTypes.CommandIdTag]
 
 // ------------------------------------------------------------------------------------------------
-// DAML Package
+// Daml Package
 // ------------------------------------------------------------------------------------------------
 
 case class DamlLfPackage(
@@ -131,13 +131,13 @@ final case class Transaction(
 sealed trait Event extends TaggedNode[ApiTypes.EventIdTag] {
   def workflowId: ApiTypes.WorkflowId
 
-  /** Id of the parent event in the transaction tree */
+  /** Id of the parent event in the transaction tree. */
   def parentId: Option[ApiTypes.EventId]
 
-  /** Id of the transaction tree containing this event */
+  /** Id of the transaction tree containing this event. */
   def transactionId: ApiTypes.TransactionId
 
-  /** Determines which parties are notified of this event */
+  /** Determines which parties are notified of this event. */
   def witnessParties: List[ApiTypes.Party]
 }
 

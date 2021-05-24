@@ -50,7 +50,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         Some(decodePackageMetadata(lfPackage.getMetadata, internedStrings))
       } else {
         if (!versionIsOlderThan(LV.Features.packageMetadata)) {
-          throw ParseError(s"Package.metadata is required in DAML-LF 1.$minor")
+          throw ParseError(s"Package.metadata is required in Daml-LF 1.$minor")
         }
         None
       }
@@ -332,11 +332,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     ): DottedName =
       if (versionIsOlderThan(LV.Features.internedDottedNames)) {
         if (actualCase != dNameCase)
-          throw ParseError(s"${description}_dname is required by DAML-LF 1.$minor")
+          throw ParseError(s"${description}_dname is required by Daml-LF 1.$minor")
         decodeSegments(dName.getSegmentsList.asScala)
       } else {
         if (actualCase != internedDNameCase)
-          throw ParseError(s"${description}_interned_dname is required by DAML-LF 1.$minor")
+          throw ParseError(s"${description}_interned_dname is required by Daml-LF 1.$minor")
         getInternedDottedName(internedDName)
       }
 
@@ -392,11 +392,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     ) = {
       val str = if (versionIsOlderThan(LV.Features.internedStrings)) {
         if (actualCase != stringCase)
-          throw ParseError(s"${description}_str is required by DAML-LF 1.$minor")
+          throw ParseError(s"${description}_str is required by Daml-LF 1.$minor")
         string
       } else {
         if (actualCase != internedStringCase)
-          throw ParseError(s"${description}_interned_str is required by DAML-LF 1.$minor")
+          throw ParseError(s"${description}_interned_str is required by Daml-LF 1.$minor")
         internedStrings(internedString)
       }
       toName(str)
@@ -1403,20 +1403,20 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
   // maxVersion excluded
   private[this] def assertUntil(maxVersion: LV, description: => String): Unit =
     if (!versionIsOlderThan(maxVersion))
-      throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
+      throw ParseError(s"$description is not supported by Daml-LF 1.$minor")
 
   // minVersion included
   private[this] def assertSince(minVersion: LV, description: => String): Unit =
     if (versionIsOlderThan(minVersion))
-      throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
+      throw ParseError(s"$description is not supported by Daml-LF 1.$minor")
 
   private def assertUndefined(i: Int, description: => String): Unit =
     if (i != 0)
-      throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
+      throw ParseError(s"$description is not supported by Daml-LF 1.$minor")
 
   private def assertUndefined(s: collection.Seq[_], description: => String): Unit =
     if (s.nonEmpty)
-      throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
+      throw ParseError(s"$description is not supported by Daml-LF 1.$minor")
 
   private def assertNonEmpty(s: collection.Seq[_], description: => String): Unit =
     if (s.isEmpty) throw ParseError(s"Unexpected empty $description")
@@ -1846,11 +1846,6 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(
         ANY_EXCEPTION_IS_ARITHMETIC_ERROR,
         BAnyExceptionIsArithmeticError,
-        minVersion = exceptions,
-      ),
-      BuiltinFunctionInfo(
-        ANY_EXCEPTION_IS_CONTRACT_ERROR,
-        BAnyExceptionIsContractError,
         minVersion = exceptions,
       ),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),

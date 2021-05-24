@@ -4,7 +4,6 @@
 package com.daml.platform.sandbox
 
 import java.util.concurrent.Executors
-
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
@@ -30,6 +29,7 @@ import com.daml.platform.store.LfValueTranslationCache
 import com.daml.testing.postgresql.PostgresResource
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.DurationInt
 
 private[sandbox] object LedgerResource {
 
@@ -78,6 +78,7 @@ private[sandbox] object LedgerResource {
           serverRole = ServerRole.Testing(testClass),
           jdbcUrl = database.url,
           databaseConnectionPoolSize = 16,
+          databaseConnectionTimeout = 250.millis,
           providedLedgerId = LedgerIdMode.Static(ledgerId),
           participantId = TestParticipantId,
           timeProvider = timeProvider,

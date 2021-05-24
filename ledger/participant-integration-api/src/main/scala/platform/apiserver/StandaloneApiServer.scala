@@ -77,6 +77,7 @@ final class StandaloneApiServer(
           participantId = participantId,
           jdbcUrl = config.jdbcUrl,
           databaseConnectionPoolSize = config.databaseConnectionPoolSize,
+          databaseConnectionTimeout = config.databaseConnectionTimeout,
           eventsPageSize = config.eventsPageSize,
           servicesExecutionContext = servicesExecutionContext,
           metrics = metrics,

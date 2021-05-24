@@ -37,11 +37,21 @@ steps:
     displayName: 'Publish the bazel test logs'
     inputs:
       pathtoPublish: 'bazel-testlogs/'
-      artifactName: 'Test logs'
+      artifactName: 'Test logs Windows'
 
   - template: bash-lib.yml
     parameters:
       var_name: bash-lib
+
+  # TODO: remove once new signing is working (see #9758)
+  - bash: |
+      OUTPUT_DIR='$(Build.StagingDirectory)'/test-signing
+      mkdir -p $OUTPUT_DIR
+      cp "bazel-bin/release/windows-installer/daml-sdk-installer-ce.exe" "$OUTPUT_DIR/installer.exe"
+  - task: PublishPipelineArtifact@0
+    inputs:
+      targetPath: $(Build.StagingDirectory)/test-signing
+      artifactName: test-signing
 
   - bash: |
       set -euo pipefail

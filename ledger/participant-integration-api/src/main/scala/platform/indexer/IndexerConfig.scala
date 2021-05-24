@@ -15,6 +15,7 @@ case class IndexerConfig(
     jdbcUrl: String,
     startupMode: IndexerStartupMode,
     databaseConnectionPoolSize: Int = DefaultDatabaseConnectionPoolSize,
+    databaseConnectionTimeout: FiniteDuration = DefaultDatabaseConnectionTimeout,
     restartDelay: FiniteDuration = DefaultRestartDelay,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     updatePreparationParallelism: Int = DefaultUpdatePreparationParallelism,
@@ -36,8 +37,9 @@ object IndexerConfig {
 
   val DefaultUpdatePreparationParallelism = 2
   val DefaultRestartDelay: FiniteDuration = 10.seconds
-  // Should be greater than or equal to the number of pipline stages
+  // Should be greater than or equal to the number of pipeline stages
   val DefaultDatabaseConnectionPoolSize: Int = 3
+  val DefaultDatabaseConnectionTimeout: FiniteDuration = 250.millis
   val DefaultAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit
 
   val DefaultMaxInputBufferSize: Int = 50
