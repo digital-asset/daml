@@ -60,10 +60,52 @@ private[lf] object NormalizeRollbacks {
               List(Norm.Leaf(leaf))
           }
         }
+        //pass 1
         val norms = traverseNids(rootsOriginal.toList)
+        //pass 2
         pushNorms(initialState, norms) { (finalState, roots) =>
           Land(GenTransaction(finalState.nodeMap, ImmArray(roots)))
         }.run
+    }
+  }
+
+  // makeRoll: encodes the normalization transformation rules:
+  //   rule #1: R [ ] -> ε
+  //   rule #2: R [ R [ xs… ] , ys… ] -> R [ xs… ] , R [ ys… ]
+  //   rule #3: R [ xs… , R [ ys… ] ] ->  R [ xs… , ys… ]
+
+  private def makeRoll(norms: List[Norm]): List[Norm] = {
+    caseNorms(norms) match {
+      case Case.Empty =>
+        // normalization rule #1
+        Nil
+
+      case Case.Single(roll: Norm.Roll) =>
+        // normalization rule #2 or #3
+        List(roll)
+
+      case Case.Single(act: Norm.Act) =>
+        // no rule
+        List(Norm.Roll1(act))
+
+      case Case.Multi(h: Norm.Roll, m, t) =>
+        // normalization rule #2
+        h :: makeRoll(m ++ List(t))
+
+      case Case.Multi(h: Norm.Act, m, t: Norm.Roll) =>
+        // normalization rule #3
+        List(pushIntoRoll(h, m, t))
+
+      case Case.Multi(h: Norm.Act, m, t: Norm.Act) =>
+        // no rule
+        List(Norm.Roll2(h, m, t))
+    }
+  }
+
+  private def pushIntoRoll(a1: Norm.Act, xs2: List[Norm], t: Norm.Roll): Norm.Roll = {
+    t match {
+      case Norm.Roll1(a3) => Norm.Roll2(a1, xs2, a3)
+      case Norm.Roll2(a3, xs4, a5) => Norm.Roll2(a1, xs2 ++ List(a3) ++ xs4, a5)
     }
   }
 
@@ -151,46 +193,6 @@ private[lf] object NormalizeRollbacks {
             }
           }
       }
-    }
-  }
-
-  // makeRoll: encodes the normalization transformation rules:
-  //   rule #1: R [ ] -> ε
-  //   rule #2: R [ R [ xs… ] , ys… ] -> R [ xs… ] , R [ ys… ]
-  //   rule #3: R [ xs… , R [ ys… ] ] ->  R [ xs… , ys… ]
-
-  private def makeRoll(norms: List[Norm]): List[Norm] = {
-    caseNorms(norms) match {
-      case Case.Empty =>
-        // normalization rule #1
-        Nil
-
-      case Case.Single(roll: Norm.Roll) =>
-        // normalization rule #2 or #3
-        List(roll)
-
-      case Case.Single(act: Norm.Act) =>
-        // no rule
-        List(Norm.Roll1(act))
-
-      case Case.Multi(h: Norm.Roll, m, t) =>
-        // normalization rule #2
-        h :: makeRoll(m ++ List(t))
-
-      case Case.Multi(h: Norm.Act, m, t: Norm.Roll) =>
-        // normalization rule #3
-        List(pushIntoRoll(h, m, t))
-
-      case Case.Multi(h: Norm.Act, m, t: Norm.Act) =>
-        // no rule
-        List(Norm.Roll2(h, m, t))
-    }
-  }
-
-  private def pushIntoRoll(a1: Norm.Act, xs2: List[Norm], t: Norm.Roll): Norm.Roll = {
-    t match {
-      case Norm.Roll1(a3) => Norm.Roll2(a1, xs2, a3)
-      case Norm.Roll2(a3, xs4, a5) => Norm.Roll2(a1, xs2 ++ List(a3) ++ xs4, a5)
     }
   }
 
