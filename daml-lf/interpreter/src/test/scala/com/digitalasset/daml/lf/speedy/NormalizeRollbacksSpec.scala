@@ -39,7 +39,7 @@ class NormalizeRollbacksSpec extends AnyWordSpec with Matchers with Inside {
         assert(isNormalized(txN))
       }
       "have increasing node-ids when listed in pre-order" in {
-        assert(preOrderNidsOfTxIsIncreasing(txN))
+        assert(preOrderNidsOfTxIsIncreasingFromZero(txN))
       }
     }
   }
@@ -177,7 +177,7 @@ object NormalizeRollbackSpec {
   type Node = GenNode[Nid, Cid]
   type RB = NodeRollback[Nid]
 
-  def preOrderNidsOfTxIsIncreasing(tx: TX): Boolean = {
+  def preOrderNidsOfTxIsIncreasingFromZero(tx: TX): Boolean = {
     def check(x1: Int, xs: List[Int]): Boolean = {
       xs match {
         case Nil => true
@@ -186,7 +186,7 @@ object NormalizeRollbackSpec {
     }
     preOrderNidsOfTx(tx) match {
       case Nil => true
-      case x :: xs => check(x, xs)
+      case x :: xs => x == 0 && check(x, xs)
     }
   }
 
