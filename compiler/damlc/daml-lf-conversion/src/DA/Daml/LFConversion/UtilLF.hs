@@ -125,15 +125,15 @@ mkBuiltinGreater v ty =
         then EBuiltin BEGreaterGeneric `ETyApp` TBuiltin ty
         else EBuiltin (BEGreater ty)
 
-contractErrorTypeCon :: Qualified TypeConName
-contractErrorTypeCon = Qualified
-    { qualPackage = PRImport (PackageId "a4d351c1a14963402c98d9c4ad92ce7e7cea74d81138f4de012df8d65229b78f")
-    , qualModule = ModuleName ["DA", "Exception", "ContractError"]
-    , qualObject = TypeConName ["ContractError"]
+preconditionFailedTypeCon :: Qualified TypeConName
+preconditionFailedTypeCon = Qualified
+    { qualPackage = PRImport (PackageId "dc9576d7b3a816944d0d07c7e2d57f8ebe247187f9e08629d6fa9b1020a77b5d")
+    , qualModule = ModuleName ["DA", "Exception", "PreconditionFailed"]
+    , qualObject = TypeConName ["PreconditionFailed"]
     }
 
-mkContractError :: Expr -> Expr
-mkContractError msg = ERecCon
-    { recTypeCon = TypeConApp contractErrorTypeCon []
+mkPreconditionFailed :: Expr -> Expr
+mkPreconditionFailed msg = ERecCon
+    { recTypeCon = TypeConApp preconditionFailedTypeCon []
     , recFields = [(FieldName "message", msg)]
     }

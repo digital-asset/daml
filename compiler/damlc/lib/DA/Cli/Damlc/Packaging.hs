@@ -351,7 +351,6 @@ baseImports =
            , "DA.Internal.PromotedText"
            , "DA.Exception.GeneralError"
            , "DA.Exception.ArithmeticError"
-           , "DA.Exception.ContractError"
            , "DA.Exception.AssertionFailed"
            , "GHC.Err"
            , "Data.String"

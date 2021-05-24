@@ -7,18 +7,18 @@
 #ifndef DAML_EXCEPTIONS
 
 -- | HIDE
-module DA.Exception.ContractError where
+module DA.Exception.PreconditionFailed where
 
 import GHC.Types ()
 
 #else
 
 -- | MOVE DA.Exception
-module DA.Exception.ContractError where
+module DA.Exception.PreconditionFailed where
 
 import GHC.Types (Text)
 
 -- | Exception raised when a contract is invalid, i.e. fails the ensure clause.
-data ContractError = ContractError { message : Text }
+data PreconditionFailed = PreconditionFailed { message : Text }
 
 #endif

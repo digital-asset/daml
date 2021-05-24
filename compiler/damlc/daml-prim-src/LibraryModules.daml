@@ -30,6 +30,6 @@ import GHC.Types
 #ifdef DAML_EXCEPTIONS
 import DA.Exception.GeneralError
 import DA.Exception.ArithmeticError
-import DA.Exception.ContractError
 import DA.Exception.AssertionFailed
+import DA.Exception.PreconditionFailed
 #endif

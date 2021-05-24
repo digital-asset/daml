@@ -707,8 +707,8 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
                 ECase b
                     [ CaseAlternative (CPBool True) ETrue
                     , CaseAlternative (CPBool False)
-                        $ EThrow TBool (TCon contractErrorTypeCon)
-                        $ mkContractError
+                        $ EThrow TBool (TCon preconditionFailedTypeCon)
+                        $ mkPreconditionFailed
                         $ EBuiltin BEAppendText
                             `ETmApp` EBuiltin (BEText "Template precondition violated: " )
                             `ETmApp`
