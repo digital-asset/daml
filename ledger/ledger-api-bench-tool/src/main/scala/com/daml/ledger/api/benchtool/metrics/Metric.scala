@@ -33,6 +33,7 @@ object Metric {
   trait ServiceLevelObjective[MetricValueType <: MetricValue] {
     def isViolatedBy(metricValue: MetricValueType): Boolean
     def moreViolatingOf(first: MetricValueType, second: MetricValueType): MetricValueType
+    def formatted: String
   }
 
   final case class CountMetric[T](
@@ -225,6 +226,9 @@ object Metric {
             case (None, Some(_)) => second
             case (None, None) => first
           }
+
+        override def formatted: String =
+          s"max allowed delay: $maxDelaySeconds [s]"
       }
     }
   }

@@ -108,6 +108,8 @@ class MetricsManagerSpec extends ScalaTestWithActorTestKit(ManualTime.config) wi
 
     override def moreViolatingOf(first: TestMetricValue, second: TestMetricValue): TestMetricValue =
       ???
+
+    override def formatted: String = "testObjective"
   }
 
   private case class TestMetric(

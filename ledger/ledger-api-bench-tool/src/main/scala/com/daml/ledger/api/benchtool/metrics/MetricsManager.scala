@@ -73,17 +73,28 @@ class MetricsManager[T](
     else MetricsResult.Ok
   }
 
+  // TODO: move to a separate util
   private def summary(metrics: List[Metric[T]], durationSeconds: Double): String = {
-    def indented(str: String): String = s"  $str"
+    def indented(str: String, spaces: Int = 2): String = s"${" " * spaces}$str"
     val reports = metrics.map { metric =>
-      val metricValues: String = metric
+      val metricValues: List[String] = metric
         .finalValue(totalDurationSeconds)
         .formatted
-        .map(indented)
+        .map(indented(_))
+
+      val violatedObjectives: List[String] =
+        (metric.violatedObjectives.map { case (objective, value) =>
+          s"objective: ${objective.formatted} - value: ${value.formatted.mkString(", ")}"
+        }.toList match {
+          case Nil => Nil
+          case elems => "!!! VIOLATED OBJECTIVES !!!" :: elems
+        }).map(indented(_))
+
+      val all: String = (metricValues ::: violatedObjectives)
         .mkString("\n")
 
       s"""${metric.name}:
-         |$metricValues""".stripMargin
+         |$all""".stripMargin
     }
     val reportWidth = 80
     val bar = "=" * reportWidth
