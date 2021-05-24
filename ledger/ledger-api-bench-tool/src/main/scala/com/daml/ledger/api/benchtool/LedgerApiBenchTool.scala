@@ -4,7 +4,12 @@
 package com.daml.ledger.api.benchtool
 
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
-import com.daml.ledger.api.benchtool.metrics.{Creator, MeteredStreamObserver, TransactionMetrics}
+import com.daml.ledger.api.benchtool.metrics.{
+  Creator,
+  MeteredStreamObserver,
+  MetricsManager,
+  TransactionMetrics,
+}
 import com.daml.ledger.api.benchtool.services.{LedgerIdentityService, TransactionService}
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.daml.ledger.api.v1.transaction_service.{
@@ -25,12 +30,17 @@ import java.util.concurrent.{
 }
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 object LedgerApiBenchTool {
   def main(args: Array[String]): Unit = {
     Cli.config(args) match {
       case Some(config) =>
         val benchmark = runBenchmark(config)(ExecutionContext.Implicits.global)
+          .recover { case ex =>
+            println(s"Error: ${ex.getMessage}")
+            sys.exit(1)
+          }(scala.concurrent.ExecutionContext.Implicits.global)
         Await.result(benchmark, atMost = Duration.Inf)
         ()
       case _ =>
@@ -56,7 +66,7 @@ object LedgerApiBenchTool {
       val transactionService = new TransactionService(channel, ledgerId)
       Future
         .traverse(config.streams) { streamConfig =>
-          (streamConfig.streamType match {
+          streamConfig.streamType match {
             case Config.StreamConfig.StreamType.Transactions =>
               TransactionMetrics
                 .transactionsMetricsManager(streamConfig.name, config.reportingPeriod)(system)
@@ -81,12 +91,16 @@ object LedgerApiBenchTool {
                     )(system)
                   transactionService.transactionTrees(streamConfig, observer)
                 }
-          }).map { result =>
-            // TODO: return exit code according to the result
-            println(s"GOT RESULT: ${result}")
           }
         }
-        .map(_ => ())
+        .transform {
+          case Success(results) =>
+            if (results.contains(MetricsManager.Message.MetricsResult.ObjectivesViolated))
+              Failure(new RuntimeException("Metrics objectives violated."))
+            else Success(())
+          case Failure(ex) =>
+            Failure(ex)
+        }
     }
   }
 
