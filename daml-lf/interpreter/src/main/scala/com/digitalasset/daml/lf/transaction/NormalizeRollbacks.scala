@@ -38,9 +38,6 @@ private[lf] object NormalizeRollbacks {
     // The List is necessary because the rules can:
     // (1) drop nodes; (2) combine nodes (3) lift nodes from a lower level to a higher level.
 
-    // TODO: https://github.com/digital-asset/daml/issues/8020
-    // make this traversal code stack-safe
-
     txOriginal match {
       case GenTransaction(nodesOriginal, rootsOriginal) =>
         def traverseNids[R](xs: List[Nid])(k: List[Norm] => Tramp[R]): Tramp[R] = {
