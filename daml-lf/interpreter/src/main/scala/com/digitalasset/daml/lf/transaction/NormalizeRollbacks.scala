@@ -84,9 +84,12 @@ private[lf] object NormalizeRollbacks {
 
   }
 
-  private val initialState = State(100, Map.empty)
-
   // The `push*` functions convert the Canonical types to the tx being collected in State.
+  // Ensuring:
+  // - The final tx has increasing node-ids when nodes are listed in pre-order.
+  // - The root node-id is 0 (we have tests that rely on this)
+
+  private val initialState = State(0, Map.empty)
 
   private def pushAct[R](s: State, x: Norm.Act)(k: (State, Nid) => Tramp[R]): Tramp[R] = {
     Bounce { () =>
