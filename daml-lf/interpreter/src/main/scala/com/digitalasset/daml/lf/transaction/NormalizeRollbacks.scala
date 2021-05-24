@@ -9,6 +9,8 @@ import com.daml.lf.transaction.Node.{GenNode, NodeRollback, NodeExercises, LeafO
 import com.daml.lf.value.Value
 import com.daml.lf.data.ImmArray
 
+import scala.annotation.tailrec
+
 private[lf] object NormalizeRollbacks {
 
   type Nid = NodeId
@@ -25,6 +27,8 @@ private[lf] object NormalizeRollbacks {
   // The normalization phase works by constructing intermediate values which are
   // `Canonical` in the sense that only properly normalized nodes can be represented.
   // Although this doesn't ensure correctness, one class of bugs is avoided.
+
+  import Trampoline.{Bounce, Land, Tramp}
 
   def normalizeTx(txOriginal: TX): TX = {
 
@@ -58,8 +62,8 @@ private[lf] object NormalizeRollbacks {
         }
         val norms = traverseNids(rootsOriginal.toList)
         pushNorms(initialState, norms) { (finalState, roots) =>
-          GenTransaction(finalState.nodeMap, ImmArray(roots))
-        }
+          Land(GenTransaction(finalState.nodeMap, ImmArray(roots)))
+        }.run
     }
   }
 
@@ -70,11 +74,11 @@ private[lf] object NormalizeRollbacks {
 
   private case class State(index: Int, nodeMap: Map[Nid, Node]) {
 
-    def next[R](k: (State, Nid) => R): R = {
+    def next[R](k: (State, Nid) => Tramp[R]): Tramp[R] = {
       k(State(index + 1, nodeMap), NodeId(index))
     }
 
-    def push[R](nid: Nid, node: Node)(k: (State, Nid) => R): R = {
+    def push[R](nid: Nid, node: Node)(k: (State, Nid) => Tramp[R]): Tramp[R] = {
       k(State(index, nodeMap = nodeMap + (nid -> node)), nid)
     }
 
@@ -84,21 +88,23 @@ private[lf] object NormalizeRollbacks {
 
   // The `push*` functions convert the Canonical types to the tx being collected in State.
 
-  private def pushAct[R](s: State, x: Norm.Act)(k: (State, Nid) => R): R = {
-    s.next { (s, me) =>
-      x match {
-        case Norm.Leaf(node) =>
-          s.push(me, node)(k)
-        case Norm.Exe(exe, subs) =>
-          pushNorms(s, subs) { (s, children) =>
-            val node = exe.copy(children = ImmArray(children))
+  private def pushAct[R](s: State, x: Norm.Act)(k: (State, Nid) => Tramp[R]): Tramp[R] = {
+    Bounce { () =>
+      s.next { (s, me) =>
+        x match {
+          case Norm.Leaf(node) =>
             s.push(me, node)(k)
-          }
+          case Norm.Exe(exe, subs) =>
+            pushNorms(s, subs) { (s, children) =>
+              val node = exe.copy(children = ImmArray(children))
+              s.push(me, node)(k)
+            }
+        }
       }
     }
   }
 
-  private def pushRoll[R](s: State, x: Norm.Roll)(k: (State, Nid) => R): R = {
+  private def pushRoll[R](s: State, x: Norm.Roll)(k: (State, Nid) => Tramp[R]): Tramp[R] = {
     s.next { (s, me) =>
       x match {
         case Norm.Roll1(act) =>
@@ -120,22 +126,26 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private def pushNorm[R](s: State, x: Norm)(k: (State, Nid) => R): R = {
+  private def pushNorm[R](s: State, x: Norm)(k: (State, Nid) => Tramp[R]): Tramp[R] = {
     x match {
       case act: Norm.Act => pushAct(s, act)(k)
       case roll: Norm.Roll => pushRoll(s, roll)(k)
     }
   }
 
-  private def pushNorms[R](s: State, xs: List[Norm])(k: (State, List[Nid]) => R): R = {
-    xs match {
-      case Nil => k(s, Nil)
-      case x :: xs =>
-        pushNorm(s, x) { (s, y) =>
-          pushNorms(s, xs) { (s, ys) =>
-            k(s, y :: ys)
+  private def pushNorms[R](s: State, xs: List[Norm])(
+      k: (State, List[Nid]) => Tramp[R]
+  ): Tramp[R] = {
+    Bounce { () =>
+      xs match {
+        case Nil => k(s, Nil)
+        case x :: xs =>
+          pushNorm(s, x) { (s, y) =>
+            pushNorms(s, xs) { (s, ys) =>
+              k(s, y :: ys)
+            }
           }
-        }
+      }
     }
   }
 
@@ -216,4 +226,20 @@ private[lf] object NormalizeRollbacks {
       }
     }
   }
+
+  // Trampolines for stack-safety
+  object Trampoline {
+    sealed trait Tramp[A] {
+      @tailrec
+      def run: A = {
+        this match {
+          case Land(a) => a
+          case Bounce(func) => func().run
+        }
+      }
+    }
+    final case class Land[A](a: A) extends Tramp[A]
+    final case class Bounce[A](func: () => Tramp[A]) extends Tramp[A]
+  }
+
 }
