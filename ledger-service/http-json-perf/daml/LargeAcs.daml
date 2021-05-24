@@ -37,7 +37,7 @@ makeIouRange count amountCycle observersCycle g =
 data InfCycle a = InfCycle { list : [a], orig : [a] }
   deriving (Eq, Ord, Show)
 
-infCycle : CanAbort m => [a] -> m (InfCycle a)
+infCycle : CanAssert m => [a] -> m (InfCycle a)
 infCycle xs = do
   assert $ case xs of
       [] -> False
