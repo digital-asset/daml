@@ -21,113 +21,12 @@ private[lf] object NormalizeRollbacks {
   // Normalize a transaction so rollback nodes satisfy the normalization rules.
   // see `makeRoll` below
 
+  import Canonical.{Norm, Case, caseNorms}
+  // The normalization phase works by constructing intermediate values which are
+  // `Canonical` in the sense that only properly normalized nodes can be represented.
+  // Although this doesn't ensure correctness, one class of bugs is avoided.
+
   def normalizeTx(txOriginal: TX): TX = {
-
-    // State manages a counter for node-id generation, and accumulates the nodes-map for
-    // the normalized transaction
-
-    // There is no connection between the ids in the original and normalized transaction.
-
-    case class State(index: Int, nodeMap: Map[Nid, Node]) {
-      def next: (State, Nid) = (State(index + 1, nodeMap), NodeId(index))
-      def push(nid: Nid, node: Node): (State, Nid) =
-        (State(index, nodeMap = nodeMap + (nid -> node)), nid)
-    }
-
-    val initialState = State(100, Map.empty)
-
-    import Canonical.{Norm, Case, caseNorms}
-    // The normalization phase works by constructing intermediate values which are
-    // `Canonical` in the sense that only properly normalized nodes can be represented.
-    // Although this doesn't ensure correctness, one class of bugs is avoided.
-
-    // The `force*` functions move from the world of Norms into standard transactions.
-
-    def forceAct(s0: State, x: Norm.Act): (State, Nid) = {
-      val (s, me) = s0.next
-      x match {
-        case Norm.Leaf(node) =>
-          s.push(me, node)
-        case Norm.Exe(exe, subs) =>
-          val (s1, children) = forceNorms(s, subs)
-          val node = exe.copy(children = ImmArray(children))
-          s1.push(me, node)
-      }
-    }
-
-    def forceRoll(s0: State, x: Norm.Roll): (State, Nid) = {
-      val (s, me) = s0.next
-      x match {
-        case Norm.Roll1(act) =>
-          val (s1, child) = forceAct(s, act)
-          val node = NodeRollback(children = ImmArray(List(child)))
-          s1.push(me, node)
-        case Norm.Roll2(h, m, t) =>
-          val (s1, hh) = forceAct(s, h)
-          val (s2, mm) = forceNorms(s1, m)
-          val (s3, tt) = forceAct(s2, t)
-          val children = List(hh) ++ mm ++ List(tt)
-          val node = NodeRollback(children = ImmArray(children))
-          s3.push(me, node)
-      }
-    }
-
-    def forceNorm(s: State, x: Norm): (State, Nid) = {
-      x match {
-        case act: Norm.Act => forceAct(s, act)
-        case roll: Norm.Roll => forceRoll(s, roll)
-      }
-    }
-
-    def forceNorms(s: State, xs: List[Norm]): (State, List[Nid]) = {
-      xs match {
-        case Nil => (s, Nil)
-        case x :: xs =>
-          val (s1, y) = forceNorm(s, x)
-          val (s2, ys) = forceNorms(s1, xs)
-          (s2, y :: ys)
-      }
-    }
-
-    // makeRoll: encodes the normalization transformation rules:
-    //   rule #1: R [ ] -> ε
-    //   rule #2: R [ R [ xs… ] , ys… ] -> R [ xs… ] , R [ ys… ]
-    //   rule #3: R [ xs… , R [ ys… ] ] ->  R [ xs… , ys… ]
-
-    def makeRoll(norms: List[Norm]): List[Norm] = {
-      caseNorms(norms) match {
-        case Case.Empty =>
-          // normalization rule #1
-          Nil
-
-        case Case.Single(roll: Norm.Roll) =>
-          // normalization rule #2 or #3
-          List(roll)
-
-        case Case.Single(act: Norm.Act) =>
-          // no rule
-          List(Norm.Roll1(act))
-
-        case Case.Multi(h: Norm.Roll, m, t) =>
-          // normalization rule #2
-          h :: makeRoll(m ++ List(t))
-
-        case Case.Multi(h: Norm.Act, m, t: Norm.Roll) =>
-          // normalization rule #3
-          List(pushIntoRoll(h, m, t))
-
-        case Case.Multi(h: Norm.Act, m, t: Norm.Act) =>
-          // no rule
-          List(Norm.Roll2(h, m, t))
-      }
-    }
-
-    def pushIntoRoll(a1: Norm.Act, xs2: List[Norm], t: Norm.Roll): Norm.Roll = {
-      t match {
-        case Norm.Roll1(a3) => Norm.Roll2(a1, xs2, a3)
-        case Norm.Roll2(a3, xs4, a5) => Norm.Roll2(a1, xs2 ++ List(a3) ++ xs4, a5)
-      }
-    }
 
     // Here we traverse the original transaction structure.
     // During the transformation, an original `Node` is mapped into a List[Norm]
@@ -163,8 +62,109 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
+  // State manages a counter for node-id generation, and accumulates the nodes-map for
+  // the normalized transaction
+
+  // There is no connection between the ids in the original and normalized transaction.
+
+  private case class State(index: Int, nodeMap: Map[Nid, Node]) {
+    def next: (State, Nid) = (State(index + 1, nodeMap), NodeId(index))
+    def push(nid: Nid, node: Node): (State, Nid) =
+      (State(index, nodeMap = nodeMap + (nid -> node)), nid)
+  }
+
+  private val initialState = State(100, Map.empty)
+
+  // The `force*` functions move from the world of Norms into standard transactions.
+
+  private def forceAct(s0: State, x: Norm.Act): (State, Nid) = {
+    val (s, me) = s0.next
+    x match {
+      case Norm.Leaf(node) =>
+        s.push(me, node)
+      case Norm.Exe(exe, subs) =>
+        val (s1, children) = forceNorms(s, subs)
+        val node = exe.copy(children = ImmArray(children))
+        s1.push(me, node)
+    }
+  }
+
+  private def forceRoll(s0: State, x: Norm.Roll): (State, Nid) = {
+    val (s, me) = s0.next
+    x match {
+      case Norm.Roll1(act) =>
+        val (s1, child) = forceAct(s, act)
+        val node = NodeRollback(children = ImmArray(List(child)))
+        s1.push(me, node)
+      case Norm.Roll2(h, m, t) =>
+        val (s1, hh) = forceAct(s, h)
+        val (s2, mm) = forceNorms(s1, m)
+        val (s3, tt) = forceAct(s2, t)
+        val children = List(hh) ++ mm ++ List(tt)
+        val node = NodeRollback(children = ImmArray(children))
+        s3.push(me, node)
+    }
+  }
+
+  private def forceNorm(s: State, x: Norm): (State, Nid) = {
+    x match {
+      case act: Norm.Act => forceAct(s, act)
+      case roll: Norm.Roll => forceRoll(s, roll)
+    }
+  }
+
+  private def forceNorms(s: State, xs: List[Norm]): (State, List[Nid]) = {
+    xs match {
+      case Nil => (s, Nil)
+      case x :: xs =>
+        val (s1, y) = forceNorm(s, x)
+        val (s2, ys) = forceNorms(s1, xs)
+        (s2, y :: ys)
+    }
+  }
+
+  // makeRoll: encodes the normalization transformation rules:
+  //   rule #1: R [ ] -> ε
+  //   rule #2: R [ R [ xs… ] , ys… ] -> R [ xs… ] , R [ ys… ]
+  //   rule #3: R [ xs… , R [ ys… ] ] ->  R [ xs… , ys… ]
+
+  private def makeRoll(norms: List[Norm]): List[Norm] = {
+    caseNorms(norms) match {
+      case Case.Empty =>
+        // normalization rule #1
+        Nil
+
+      case Case.Single(roll: Norm.Roll) =>
+        // normalization rule #2 or #3
+        List(roll)
+
+      case Case.Single(act: Norm.Act) =>
+        // no rule
+        List(Norm.Roll1(act))
+
+      case Case.Multi(h: Norm.Roll, m, t) =>
+        // normalization rule #2
+        h :: makeRoll(m ++ List(t))
+
+      case Case.Multi(h: Norm.Act, m, t: Norm.Roll) =>
+        // normalization rule #3
+        List(pushIntoRoll(h, m, t))
+
+      case Case.Multi(h: Norm.Act, m, t: Norm.Act) =>
+        // no rule
+        List(Norm.Roll2(h, m, t))
+    }
+  }
+
+  private def pushIntoRoll(a1: Norm.Act, xs2: List[Norm], t: Norm.Roll): Norm.Roll = {
+    t match {
+      case Norm.Roll1(a3) => Norm.Roll2(a1, xs2, a3)
+      case Norm.Roll2(a3, xs4, a5) => Norm.Roll2(a1, xs2 ++ List(a3) ++ xs4, a5)
+    }
+  }
+
   // Types which ensure we can only represent the properly normalized cases.
-  object Canonical {
+  private object Canonical {
 
     // A properly normalized Tx/node
     sealed trait Norm
