@@ -4,7 +4,7 @@
 package com.daml.ledger.api.benchtool.services
 
 import com.daml.ledger.api.benchtool.Config
-import com.daml.ledger.api.benchtool.metrics.{MetricsManager, ObserverWithResult}
+import com.daml.ledger.api.benchtool.metrics.ObserverWithResult
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{
@@ -27,24 +27,23 @@ final class TransactionService(
   private val service: TransactionServiceGrpc.TransactionServiceStub =
     TransactionServiceGrpc.stub(channel)
 
-  def transactions(
+  def transactions[Result](
       config: Config.StreamConfig,
-      // TODO: remove the result type from the transaxction service
-      observer: ObserverWithResult[GetTransactionsResponse, MetricsManager.Message.MetricsResult],
-  ): Future[MetricsManager.Message.MetricsResult] = {
+      observer: ObserverWithResult[GetTransactionsResponse, Result],
+  ): Future[Result] = {
     val request = getTransactionsRequest(ledgerId, config)
     service.getTransactions(request, observer)
     logger.info("Started fetching transactions")
     observer.result
   }
 
-  def transactionTrees(
+  def transactionTrees[Result](
       config: Config.StreamConfig,
       observer: ObserverWithResult[
         GetTransactionTreesResponse,
-        MetricsManager.Message.MetricsResult,
+        Result,
       ],
-  ): Future[MetricsManager.Message.MetricsResult] = {
+  ): Future[Result] = {
     val request = getTransactionsRequest(ledgerId, config)
     service.getTransactionTrees(request, observer)
     logger.info("Started fetching transaction trees")
