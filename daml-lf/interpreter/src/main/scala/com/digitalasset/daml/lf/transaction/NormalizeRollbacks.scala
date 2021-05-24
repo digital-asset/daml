@@ -142,7 +142,9 @@ private[lf] object NormalizeRollbacks {
         case x :: xs =>
           pushNorm(s, x) { (s, y) =>
             pushNorms(s, xs) { (s, ys) =>
-              k(s, y :: ys)
+              Bounce { () =>
+                k(s, y :: ys)
+              }
             }
           }
       }
