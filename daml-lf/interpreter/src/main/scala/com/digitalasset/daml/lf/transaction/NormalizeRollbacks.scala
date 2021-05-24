@@ -43,33 +43,39 @@ private[lf] object NormalizeRollbacks {
 
     txOriginal match {
       case GenTransaction(nodesOriginal, rootsOriginal) =>
-        def traverseNids[R](xs: List[Nid])(k: List[Norm] => R): R = {
-          xs match {
-            case Nil => k(Nil)
-            case x :: xs =>
-              traverseNode(nodesOriginal(x)) { norms1 =>
-                traverseNids(xs) { norms2 =>
-                  k(norms1 ++ norms2)
+        def traverseNids[R](xs: List[Nid])(k: List[Norm] => Tramp[R]): Tramp[R] = {
+          Bounce { () =>
+            xs match {
+              case Nil => k(Nil)
+              case x :: xs =>
+                traverseNode(nodesOriginal(x)) { norms1 =>
+                  traverseNids(xs) { norms2 =>
+                    Bounce { () =>
+                      k(norms1 ++ norms2)
+                    }
+                  }
                 }
-              }
+            }
           }
         }
 
-        def traverseNode[R](node: Node)(k: List[Norm] => R): R = {
-          node match {
+        def traverseNode[R](node: Node)(k: List[Norm] => Tramp[R]): Tramp[R] = {
+          Bounce { () =>
+            node match {
 
-            case NodeRollback(children) =>
-              traverseNids(children.toList) { norms =>
-                makeRoll(norms)(k)
-              }
+              case NodeRollback(children) =>
+                traverseNids(children.toList) { norms =>
+                  makeRoll(norms)(k)
+                }
 
-            case exe: NodeExercises[_, _] =>
-              traverseNids(exe.children.toList) { norms =>
-                k(List(Norm.Exe(exe, norms)))
-              }
+              case exe: NodeExercises[_, _] =>
+                traverseNids(exe.children.toList) { norms =>
+                  k(List(Norm.Exe(exe, norms)))
+                }
 
-            case leaf: LeafOnlyActionNode[_] =>
-              k(List(Norm.Leaf(leaf)))
+              case leaf: LeafOnlyActionNode[_] =>
+                k(List(Norm.Leaf(leaf)))
+            }
           }
         }
         //pass 1
@@ -77,8 +83,8 @@ private[lf] object NormalizeRollbacks {
           //pass 2
           pushNorms(initialState, norms) { (finalState, roots) =>
             Land(GenTransaction(finalState.nodeMap, ImmArray(roots)))
-          }.run
-        }
+          }
+        }.run
     }
   }
 
@@ -87,7 +93,7 @@ private[lf] object NormalizeRollbacks {
   //   rule #2: R [ R [ xs… ] , ys… ] -> R [ xs… ] , R [ ys… ]
   //   rule #3: R [ xs… , R [ ys… ] ] ->  R [ xs… , ys… ]
 
-  private def makeRoll[R](norms: List[Norm])(k: List[Norm] => R): R = {
+  private def makeRoll[R](norms: List[Norm])(k: List[Norm] => Tramp[R]): Tramp[R] = {
     caseNorms(norms) match {
       case Case.Empty =>
         // normalization rule #1
