@@ -95,13 +95,13 @@ object Metric {
         currentSizeBytesBucket = 0,
         sizeRateList = sizeRate :: sizeRateList,
       ) // ok to prepend because the list is used only to calculate mean value so the order doesn't matter
-      (updatedMetric, SizeMetric.Value(Some(sizeRate)))
+      (updatedMetric, SizeMetric.Value(sizeRate))
     }
 
     override def finalValue(totalDurationSeconds: Double): SizeMetric.Value = {
       val value = sizeRateList match {
-        case Nil => Some(0.0)
-        case rates => Some(rates.sum / rates.length)
+        case Nil => 0.0
+        case rates => rates.sum / rates.length
       }
       SizeMetric.Value(value)
     }
@@ -111,10 +111,9 @@ object Metric {
   }
 
   object SizeMetric {
-    // TODO: remove Option
-    final case class Value(megabytesPerSecond: Option[Double]) extends MetricValue {
+    final case class Value(megabytesPerSecond: Double) extends MetricValue {
       override def formatted: List[String] =
-        List(s"size rate: $megabytesPerSecond [MB/s]")
+        List(s"size rate: ${rounded(megabytesPerSecond)} [MB/s]")
     }
 
     def empty[T](periodMillis: Long, sizingFunction: T => Long): SizeMetric[T] =
