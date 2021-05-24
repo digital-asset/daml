@@ -43,29 +43,42 @@ private[lf] object NormalizeRollbacks {
 
     txOriginal match {
       case GenTransaction(nodesOriginal, rootsOriginal) =>
-        def traverseNids(nids: List[Nid]): List[Norm] = nids.flatMap(traverseNid)
-        def traverseNid(nid: Nid): List[Norm] = traverseNode(nodesOriginal(nid))
+        def traverseNids[R](xs: List[Nid])(k: List[Norm] => R): R = {
+          xs match {
+            case Nil => k(Nil)
+            case x :: xs =>
+              traverseNode(nodesOriginal(x)) { norms1 =>
+                traverseNids(xs) { norms2 =>
+                  k(norms1 ++ norms2)
+                }
+              }
+          }
+        }
 
-        def traverseNode(node: Node): List[Norm] = {
+        def traverseNode[R](node: Node)(k: List[Norm] => R): R = {
           node match {
 
             case NodeRollback(children) =>
-              makeRoll(traverseNids(children.toList))
+              traverseNids(children.toList) { norms =>
+                makeRoll(norms)(k)
+              }
 
             case exe: NodeExercises[_, _] =>
-              val norms = traverseNids(exe.children.toList)
-              List(Norm.Exe(exe, norms))
+              traverseNids(exe.children.toList) { norms =>
+                k(List(Norm.Exe(exe, norms)))
+              }
 
             case leaf: LeafOnlyActionNode[_] =>
-              List(Norm.Leaf(leaf))
+              k(List(Norm.Leaf(leaf)))
           }
         }
         //pass 1
-        val norms = traverseNids(rootsOriginal.toList)
-        //pass 2
-        pushNorms(initialState, norms) { (finalState, roots) =>
-          Land(GenTransaction(finalState.nodeMap, ImmArray(roots)))
-        }.run
+        traverseNids(rootsOriginal.toList) { norms =>
+          //pass 2
+          pushNorms(initialState, norms) { (finalState, roots) =>
+            Land(GenTransaction(finalState.nodeMap, ImmArray(roots)))
+          }.run
+        }
     }
   }
 
@@ -74,31 +87,33 @@ private[lf] object NormalizeRollbacks {
   //   rule #2: R [ R [ xs… ] , ys… ] -> R [ xs… ] , R [ ys… ]
   //   rule #3: R [ xs… , R [ ys… ] ] ->  R [ xs… , ys… ]
 
-  private def makeRoll(norms: List[Norm]): List[Norm] = {
+  private def makeRoll[R](norms: List[Norm])(k: List[Norm] => R): R = {
     caseNorms(norms) match {
       case Case.Empty =>
         // normalization rule #1
-        Nil
+        k(Nil)
 
       case Case.Single(roll: Norm.Roll) =>
         // normalization rule #2 or #3
-        List(roll)
+        k(List(roll))
 
       case Case.Single(act: Norm.Act) =>
         // no rule
-        List(Norm.Roll1(act))
+        k(List(Norm.Roll1(act)))
 
       case Case.Multi(h: Norm.Roll, m, t) =>
         // normalization rule #2
-        h :: makeRoll(m ++ List(t))
+        makeRoll(m ++ List(t)) { norms =>
+          k(h :: norms)
+        }
 
       case Case.Multi(h: Norm.Act, m, t: Norm.Roll) =>
         // normalization rule #3
-        List(pushIntoRoll(h, m, t))
+        k(List(pushIntoRoll(h, m, t)))
 
       case Case.Multi(h: Norm.Act, m, t: Norm.Act) =>
         // no rule
-        List(Norm.Roll2(h, m, t))
+        k(List(Norm.Roll2(h, m, t)))
     }
   }
 
