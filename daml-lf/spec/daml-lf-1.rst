@@ -3247,7 +3247,7 @@ as described by the ledger model::
 
      e₁  ⇓  Err (Throw v₁)
      e₂[x ↦ v₁]  ⇓  Err E
-   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr1_ErrHandle
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchThrow1_ErrHandle
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀
        ⇓ᵤ
      (Err E, ('rollback' ε))
@@ -3255,7 +3255,7 @@ as described by the ledger model::
      e₁  ⇓  Ok u₁
      u₁ ‖ S₀  ⇓ᵤ  (Err (Throw v₁), tr₁)
      e₂[x ↦ v₁]  ⇓  Err E
-   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchErr2_ErrHandle
+   —————————————————————————————————————————————————————————————————————— EvUpdTryCatchThrow2_ErrHandle
      'try' @τ e₁ 'catch' x. e₂ ‖ S₀
        ⇓ᵤ
      (Err E, ('rollback' tr₁))
