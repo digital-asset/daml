@@ -22,12 +22,14 @@ import GHC.Err
 import Data.String()
 import GHC.Integer.Type
 import GHC.Num
-import GHC.Show()
 import GHC.Classes
 import GHC.CString (fromString)
 
 #ifdef DAML_EXCEPTIONS
+import GHC.Show(show)
 import DA.Exception.ArithmeticError
+#else
+import GHC.Show()
 #endif
 
 -- | Use the `Bounded` class to name the upper and lower limits of a
@@ -162,10 +164,10 @@ instance  Enum Int  where
 
 #ifdef DAML_EXCEPTIONS
     succ x
-       | x == maxBound  = primitive @"EThrow" (ArithmeticError "ArithmeticError while evaluating (succ @Int " <> show x <> ").")
-       | otherwise      = x + 1
+       | x == maxBound  = primitive @"EThrow" (ArithmeticError ("ArithmeticError while evaluating (succ @Int " ++ show x ++ ")."))
+        | otherwise      = x + 1
     pred x
-       | x == minBound  = primitive @"EThrow" (ArithmeticError "ArithmeticError while evaluating (pred @Int " <> show x <> ").")
+       | x == minBound  = primitive @"EThrow" (ArithmeticError ("ArithmeticError while evaluating (pred @Int " ++ show x ++ ")."))
        | otherwise      = x - 1
 #else
     succ x
