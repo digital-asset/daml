@@ -4,23 +4,26 @@ package com.daml.http.perf.scenario
 
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
+import spray.json._, DefaultJsonProtocol._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAmount {
   import SyncQueryMegaAcs._
 
-  private[this] val notAliceJwt = aliceJwt // TODO SC ... not
+  private[this] val notAliceParty = "NotAlice"
+  private[this] val notAliceJwt = aliceJwt // TODO SC not
 
-  /* TODO SC private[this] */
-  val discriminators = Seq(
+  private type Discriminator = (String, String, Seq[Seq[String]])
+
+  private[this] val discriminators: Seq[Discriminator] = Seq(
     // label, readAs, observers
     (
       "party matches by observer distribution",
       Seq(notAliceJwt),
       Seq(
-        Seq((Seq(notAliceJwt), 1), (Seq.empty, 99)),
-        Seq((Seq(notAliceJwt), 1), (Seq.empty, 19)),
-        Seq((Seq(notAliceJwt), 1), (Seq.empty, 9)),
+        Seq((Seq(notAliceParty), 1), (Seq.empty, 99)),
+        Seq((Seq(notAliceParty), 1), (Seq.empty, 19)),
+        Seq((Seq(notAliceParty), 1), (Seq.empty, 9)),
       ),
     ),
     ("", Seq(), Seq()),
@@ -52,9 +55,9 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
   "key": "Alice",
   "choice": "Genesis_MakeIouRange",
   "argument": {
-    "totalSteps": 100,
+    "totalSteps": 1000,
     "amountCycle": [${amount}],
-    "observersCycle": [[]]
+    "observersCycle": ${observersCycle}
   }
 }"""))
 
@@ -66,17 +69,23 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
     "query": {"amount": ${amount}}
 }"""))
 
-  private val scn = scenario("SyncQueryMegaScenario")
-    .exec(createRequest.silent)
-    .repeat(50, "amount") {
+  private val scns = discriminators map { case (scnName, jwtTODO @ _, observersCycle) =>
+    val env = Map("observersCycle" -> observersCycle.toJson)
+    scenario(s"SyncQueryMegaScenario $scnName")
+      .exec(createRequest.silent)
       // populate the ACS
-      exec(createManyRequest.silent)
-    }
-    .repeat(500) {
+      .repeat(100, "amount") {
+        feed(Iterator continually env)
+          .exec(createManyRequest.silent)
+      }
       // run queries
-      feed(Iterator.continually(Map("amount" -> randomAmount())))
-        .exec(queryRequest)
-    }
+      .repeat(500) {
+        feed(Iterator.continually(Map("amount" -> randomAmount())))
+          .exec(queryRequest)
+      }
+  }
+
+  private val scn = scns.head
 
   setUp(
     scn.inject(atOnceUsers(1))
