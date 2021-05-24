@@ -89,9 +89,11 @@ private[lf] object NormalizeRollbacks {
   }
 
   // makeRoll: encodes the normalization transformation rules:
-  //   rule #1: R [ ] -> ε
-  //   rule #2: R [ R [ xs… ] , ys… ] -> R [ xs… ] , R [ ys… ]
-  //   rule #3: R [ xs… , R [ ys… ] ] ->  R [ xs… , ys… ]
+  //   rule #1: ROLL [ ] -> ε
+  //   rule #2: ROLL [ ROLL [ xs… ] , ys… ] -> ROLL [ xs… ] , ROLL [ ys… ]
+  //   rule #3: ROLL [ xs… , ROLL [ ys… ] ] ->  ROLL [ xs… , ys… ]
+
+  //   rule #2/#3 overlap: ROLL [ ROLL [ xs… ] ] -> ROLL [ xs… ]
 
   private def makeRoll[R](norms: List[Norm])(k: List[Norm] => Tramp[R]): Tramp[R] = {
     caseNorms(norms) match {
@@ -100,7 +102,7 @@ private[lf] object NormalizeRollbacks {
         k(Nil)
 
       case Case.Single(roll: Norm.Roll) =>
-        // normalization rule #2 or #3
+        // normalization rule #2/#3 overlap
         k(List(roll))
 
       case Case.Single(act: Norm.Act) =>
