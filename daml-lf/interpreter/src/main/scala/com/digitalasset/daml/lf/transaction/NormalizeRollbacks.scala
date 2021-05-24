@@ -57,7 +57,7 @@ private[lf] object NormalizeRollbacks {
           }
         }
         val norms = traverseNids(rootsOriginal.toList)
-        val (finalState, roots) = forceNorms(initialState, norms)
+        val (finalState, roots) = pushNorms(initialState, norms)
         GenTransaction(finalState.nodeMap, ImmArray(roots))
     }
   }
@@ -75,50 +75,50 @@ private[lf] object NormalizeRollbacks {
 
   private val initialState = State(100, Map.empty)
 
-  // The `force*` functions move from the world of Norms into standard transactions.
+  // The `push*` functions convert the Canonical types to the tx being collected in State.
 
-  private def forceAct(s0: State, x: Norm.Act): (State, Nid) = {
+  private def pushAct(s0: State, x: Norm.Act): (State, Nid) = {
     val (s, me) = s0.next
     x match {
       case Norm.Leaf(node) =>
         s.push(me, node)
       case Norm.Exe(exe, subs) =>
-        val (s1, children) = forceNorms(s, subs)
+        val (s1, children) = pushNorms(s, subs)
         val node = exe.copy(children = ImmArray(children))
         s1.push(me, node)
     }
   }
 
-  private def forceRoll(s0: State, x: Norm.Roll): (State, Nid) = {
+  private def pushRoll(s0: State, x: Norm.Roll): (State, Nid) = {
     val (s, me) = s0.next
     x match {
       case Norm.Roll1(act) =>
-        val (s1, child) = forceAct(s, act)
+        val (s1, child) = pushAct(s, act)
         val node = NodeRollback(children = ImmArray(List(child)))
         s1.push(me, node)
       case Norm.Roll2(h, m, t) =>
-        val (s1, hh) = forceAct(s, h)
-        val (s2, mm) = forceNorms(s1, m)
-        val (s3, tt) = forceAct(s2, t)
+        val (s1, hh) = pushAct(s, h)
+        val (s2, mm) = pushNorms(s1, m)
+        val (s3, tt) = pushAct(s2, t)
         val children = List(hh) ++ mm ++ List(tt)
         val node = NodeRollback(children = ImmArray(children))
         s3.push(me, node)
     }
   }
 
-  private def forceNorm(s: State, x: Norm): (State, Nid) = {
+  private def pushNorm(s: State, x: Norm): (State, Nid) = {
     x match {
-      case act: Norm.Act => forceAct(s, act)
-      case roll: Norm.Roll => forceRoll(s, roll)
+      case act: Norm.Act => pushAct(s, act)
+      case roll: Norm.Roll => pushRoll(s, roll)
     }
   }
 
-  private def forceNorms(s: State, xs: List[Norm]): (State, List[Nid]) = {
+  private def pushNorms(s: State, xs: List[Norm]): (State, List[Nid]) = {
     xs match {
       case Nil => (s, Nil)
       case x :: xs =>
-        val (s1, y) = forceNorm(s, x)
-        val (s2, ys) = forceNorms(s1, xs)
+        val (s1, y) = pushNorm(s, x)
+        val (s2, ys) = pushNorms(s1, xs)
         (s2, y :: ys)
     }
   }
