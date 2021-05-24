@@ -69,7 +69,11 @@ object LedgerApiBenchTool {
           streamConfig.streamType match {
             case Config.StreamConfig.StreamType.Transactions =>
               TransactionMetrics
-                .transactionsMetricsManager(streamConfig.name, config.reportingPeriod)(system)
+                .transactionsMetricsManager(
+                  streamConfig.name,
+                  config.reportingPeriod,
+                  streamConfig.objectives,
+                )(system)
                 .flatMap { manager =>
                   val observer: MeteredStreamObserver[GetTransactionsResponse] =
                     new MeteredStreamObserver[GetTransactionsResponse](
@@ -81,7 +85,11 @@ object LedgerApiBenchTool {
                 }
             case Config.StreamConfig.StreamType.TransactionTrees =>
               TransactionMetrics
-                .transactionTreesMetricsManager(streamConfig.name, config.reportingPeriod)(system)
+                .transactionTreesMetricsManager(
+                  streamConfig.name,
+                  config.reportingPeriod,
+                  streamConfig.objectives,
+                )(system)
                 .flatMap { manager =>
                   val observer =
                     new MeteredStreamObserver[GetTransactionTreesResponse](

@@ -5,6 +5,7 @@ package com.daml.ledger.api.benchtool.metrics
 
 import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
 import akka.util.Timeout
+import com.daml.ledger.api.benchtool.Config.StreamConfig.Objectives
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
@@ -19,14 +20,18 @@ object TransactionMetrics {
   implicit val timeout: Timeout = Timeout(3.seconds)
   import akka.actor.typed.scaladsl.AskPattern._
 
-  def transactionsMetricsManager(streamName: String, logInterval: FiniteDuration)(implicit
+  def transactionsMetricsManager(
+      streamName: String,
+      logInterval: FiniteDuration,
+      objectives: Objectives,
+  )(implicit
       system: ActorSystem[SpawnProtocol.Command]
   ): Future[ActorRef[MetricsManager.Message[GetTransactionsResponse]]] = {
     system.ask(
       SpawnProtocol.Spawn(
         behavior = MetricsManager(
           streamName = streamName,
-          metrics = transactionMetrics(logInterval),
+          metrics = transactionMetrics(logInterval, objectives),
           logInterval = logInterval,
         ),
         name = s"${streamName}-manager",
@@ -36,14 +41,18 @@ object TransactionMetrics {
     )
   }
 
-  def transactionTreesMetricsManager(streamName: String, logInterval: FiniteDuration)(implicit
+  def transactionTreesMetricsManager(
+      streamName: String,
+      logInterval: FiniteDuration,
+      objectives: Objectives,
+  )(implicit
       system: ActorSystem[SpawnProtocol.Command]
   ): Future[ActorRef[MetricsManager.Message[GetTransactionTreesResponse]]] = {
     system.ask(
       SpawnProtocol.Spawn(
         behavior = MetricsManager(
           streamName = streamName,
-          metrics = transactionTreesMetrics(logInterval),
+          metrics = transactionTreesMetrics(logInterval, objectives),
           logInterval = logInterval,
         ),
         name = s"${streamName}-manager",
@@ -54,7 +63,8 @@ object TransactionMetrics {
   }
 
   private def transactionMetrics(
-      reportingPeriod: FiniteDuration
+      reportingPeriod: FiniteDuration,
+      objectives: Objectives,
   ): List[Metric[GetTransactionsResponse]] =
     all[GetTransactionsResponse](
       reportingPeriod = reportingPeriod,
@@ -63,10 +73,12 @@ object TransactionMetrics {
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
       },
+      objectives = objectives,
     )
 
   private def transactionTreesMetrics(
-      reportingPeriod: FiniteDuration
+      reportingPeriod: FiniteDuration,
+      objectives: Objectives,
   ): List[Metric[GetTransactionTreesResponse]] =
     all[GetTransactionTreesResponse](
       reportingPeriod = reportingPeriod,
@@ -75,6 +87,7 @@ object TransactionMetrics {
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
       },
+      objectives = objectives,
     )
 
   private def all[T](
@@ -82,14 +95,15 @@ object TransactionMetrics {
       countingFunction: T => Int,
       sizingFunction: T => Long,
       recordTimeFunction: T => Seq[Timestamp],
+      objectives: Objectives,
   ): List[Metric[T]] = {
     val reportingPeriodMillis = reportingPeriod.toMillis
-    // TODO: remove this
-    val testObjective = Metric.DelayMetric.DelayObjective.MaxDelay(1334792)
+    val delayObjectives =
+      objectives.maxDelaySeconds.map(Metric.DelayMetric.DelayObjective.MaxDelay).toList
     List[Metric[T]](
       Metric.CountMetric.empty[T](reportingPeriodMillis, countingFunction),
       Metric.SizeMetric.empty[T](reportingPeriodMillis, sizingFunction),
-      Metric.DelayMetric.empty[T](recordTimeFunction, List(testObjective), Clock.systemUTC()),
+      Metric.DelayMetric.empty[T](recordTimeFunction, delayObjectives, Clock.systemUTC()),
       Metric.ConsumptionSpeedMetric.empty[T](reportingPeriodMillis, recordTimeFunction),
     )
   }
