@@ -7,7 +7,7 @@ import com.google.protobuf.timestamp.Timestamp
 
 import java.time.{Clock, Duration, Instant}
 
-sealed trait Metric[Elem] {
+trait Metric[Elem] {
 
   type Value <: Metric.MetricValue
 
@@ -26,11 +26,11 @@ sealed trait Metric[Elem] {
 }
 
 object Metric {
-  sealed trait MetricValue {
+  trait MetricValue {
     def formatted: List[String]
   }
 
-  sealed trait ServiceLevelObjective[MetricValueType <: MetricValue] {
+  trait ServiceLevelObjective[MetricValueType <: MetricValue] {
     def isViolatedBy(metricValue: MetricValueType): Boolean
     def moreViolatingOf(first: MetricValueType, second: MetricValueType): MetricValueType
   }

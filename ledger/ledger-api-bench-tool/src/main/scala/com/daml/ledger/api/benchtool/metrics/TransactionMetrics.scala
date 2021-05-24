@@ -84,10 +84,12 @@ object TransactionMetrics {
       recordTimeFunction: T => Seq[Timestamp],
   ): List[Metric[T]] = {
     val reportingPeriodMillis = reportingPeriod.toMillis
+    // TODO: remove this
+    val testObjective = Metric.DelayMetric.DelayObjective.MaxDelay(1334792)
     List[Metric[T]](
       Metric.CountMetric.empty[T](reportingPeriodMillis, countingFunction),
       Metric.SizeMetric.empty[T](reportingPeriodMillis, sizingFunction),
-      Metric.DelayMetric.empty[T](recordTimeFunction, List.empty, Clock.systemUTC()),
+      Metric.DelayMetric.empty[T](recordTimeFunction, List(testObjective), Clock.systemUTC()),
       Metric.ConsumptionSpeedMetric.empty[T](reportingPeriodMillis, recordTimeFunction),
     )
   }

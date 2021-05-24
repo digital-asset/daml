@@ -58,6 +58,7 @@ def install_java_deps():
             "com.storm-enroute:scalameter_{}:0.19".format(scala_major_version),
             "com.storm-enroute:scalameter-core_{}:0.19".format(scala_major_version),
             "com.typesafe.akka:akka-actor_{}:{}".format(scala_major_version, akka_version),
+            "com.typesafe.akka:akka-actor-testkit-typed_{}:{}".format(scala_major_version, akka_version),
             "com.typesafe.akka:akka-actor-typed_{}:{}".format(scala_major_version, akka_version),
             "com.typesafe.akka:akka-http_{}:10.2.1".format(scala_major_version, akka_version),
             "com.typesafe.akka:akka-http-spray-json_{}:10.2.1".format(scala_major_version),

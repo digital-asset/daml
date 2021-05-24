@@ -56,7 +56,7 @@ object LedgerApiBenchTool {
       val transactionService = new TransactionService(channel, ledgerId)
       Future
         .traverse(config.streams) { streamConfig =>
-          streamConfig.streamType match {
+          (streamConfig.streamType match {
             case Config.StreamConfig.StreamType.Transactions =>
               TransactionMetrics
                 .transactionsMetricsManager(streamConfig.name, config.reportingPeriod)(system)
@@ -66,7 +66,7 @@ object LedgerApiBenchTool {
                       streamConfig.name,
                       logger,
                       manager,
-                    )
+                    )(system)
                   transactionService.transactions(streamConfig, observer)
                 }
             case Config.StreamConfig.StreamType.TransactionTrees =>
@@ -78,9 +78,12 @@ object LedgerApiBenchTool {
                       streamConfig.name,
                       logger,
                       manager,
-                    )
+                    )(system)
                   transactionService.transactionTrees(streamConfig, observer)
                 }
+          }).map { result =>
+            // TODO: return exit code according to the result
+            println(s"GOT RESULT: ${result}")
           }
         }
         .map(_ => ())

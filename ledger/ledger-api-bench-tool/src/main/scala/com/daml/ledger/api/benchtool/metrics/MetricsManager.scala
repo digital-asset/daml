@@ -4,7 +4,7 @@
 package com.daml.ledger.api.benchtool.metrics
 
 import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}
-import akka.actor.typed.{Behavior, SpawnProtocol}
+import akka.actor.typed.{ActorRef, Behavior, SpawnProtocol}
 
 import java.time.Instant
 import scala.concurrent.duration._
@@ -13,9 +13,14 @@ object MetricsManager {
 
   sealed trait Message[T]
   object Message {
+    sealed trait MetricsResult
+    object MetricsResult {
+      final case object Ok extends MetricsResult
+      final case object ObjectivesViolated extends MetricsResult
+    }
     final case class NewValue[T](value: T) extends Message[T]
-    final case class StreamCompleted[T]() extends Message[T]
     final case class PeriodicUpdateCommand[T]() extends Message[T]
+    final case class StreamCompleted[T](replyTo: ActorRef[MetricsResult]) extends Message[T]
   }
 
   def apply[T](
@@ -53,11 +58,19 @@ class MetricsManager[T](
           context.log.info(namedMessage(formattedValues.mkString(", ")))
           handlingMessages(newMetrics)
 
-        case _: StreamCompleted[T] =>
+        case message: StreamCompleted[T] =>
           context.log.info(namedMessage(summary(metrics, totalDurationSeconds)))
+          message.replyTo ! result(metrics)
           Behaviors.stopped
       }
     }
+  }
+
+  private def result(metrics: List[Metric[T]]): MetricsResult = {
+    val atLeastOneObjectiveViolated = metrics.exists(_.violatedObjectives.nonEmpty)
+
+    if (atLeastOneObjectiveViolated) MetricsResult.ObjectivesViolated
+    else MetricsResult.Ok
   }
 
   private def summary(metrics: List[Metric[T]], durationSeconds: Double): String = {
