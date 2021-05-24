@@ -352,6 +352,7 @@ baseImports =
            , "DA.Exception.GeneralError"
            , "DA.Exception.ArithmeticError"
            , "DA.Exception.AssertionFailed"
+           , "DA.Exception.PreconditionFailed"
            , "GHC.Err"
            , "Data.String"
            ]
