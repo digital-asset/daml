@@ -11,7 +11,8 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
   import SyncQueryMegaAcs._
 
   private[this] val notAliceParty = "NotAlice"
-  private[this] val notAliceJwt = aliceJwt // TODO SC not
+  private[this] val notAliceJwt =
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJOb3RBbGljZSJdfX0.Rk1dm5ndpgTrQFTZ_eLRWPxmYqpuV5GOWSTU4U3dAGk"
 
   private type Discriminator = (String, String, Seq[Seq[String]])
 
@@ -64,12 +65,13 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
   private val queryRequest =
     http("SyncQueryRequest")
       .post("/v1/query")
+      .header(HttpHeaderNames.Authorization, "Bearer ${jwt}")
       .body(StringBody("""{
     "templateIds": ["LargeAcs:Iou"],
     "query": {"amount": ${amount}}
 }"""))
 
-  private val scns = discriminators map { case (scnName, jwtTODO @ _, observersCycle) =>
+  private val scns = discriminators map { case (scnName, jwt, observersCycle) =>
     val env = Map("observersCycle" -> observersCycle.toJson)
     scenario(s"SyncQueryMegaScenario $scnName")
       .exec(createRequest.silent)
@@ -80,11 +82,12 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
       }
       // run queries
       .repeat(500) {
-        feed(Iterator.continually(Map("amount" -> randomAmount())))
+        feed(Iterator.continually(Map("amount" -> randomAmount(), "jwt" -> jwt)))
           .exec(queryRequest)
       }
   }
 
+  // TODO SC run other scns
   private val scn = scns.head
 
   setUp(
