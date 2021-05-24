@@ -57,8 +57,9 @@ private[lf] object NormalizeRollbacks {
           }
         }
         val norms = traverseNids(rootsOriginal.toList)
-        val (finalState, roots) = pushNorms(initialState, norms)
-        GenTransaction(finalState.nodeMap, ImmArray(roots))
+        pushNorms(initialState, norms) { (finalState, roots) =>
+          GenTransaction(finalState.nodeMap, ImmArray(roots))
+        }
     }
   }
 
@@ -68,58 +69,73 @@ private[lf] object NormalizeRollbacks {
   // There is no connection between the ids in the original and normalized transaction.
 
   private case class State(index: Int, nodeMap: Map[Nid, Node]) {
-    def next: (State, Nid) = (State(index + 1, nodeMap), NodeId(index))
-    def push(nid: Nid, node: Node): (State, Nid) =
-      (State(index, nodeMap = nodeMap + (nid -> node)), nid)
+
+    def next[R](k: (State, Nid) => R): R = {
+      k(State(index + 1, nodeMap), NodeId(index))
+    }
+
+    def push[R](nid: Nid, node: Node)(k: (State, Nid) => R): R = {
+      k(State(index, nodeMap = nodeMap + (nid -> node)), nid)
+    }
+
   }
 
   private val initialState = State(100, Map.empty)
 
   // The `push*` functions convert the Canonical types to the tx being collected in State.
 
-  private def pushAct(s0: State, x: Norm.Act): (State, Nid) = {
-    val (s, me) = s0.next
-    x match {
-      case Norm.Leaf(node) =>
-        s.push(me, node)
-      case Norm.Exe(exe, subs) =>
-        val (s1, children) = pushNorms(s, subs)
-        val node = exe.copy(children = ImmArray(children))
-        s1.push(me, node)
+  private def pushAct[R](s: State, x: Norm.Act)(k: (State, Nid) => R): R = {
+    s.next { (s, me) =>
+      x match {
+        case Norm.Leaf(node) =>
+          s.push(me, node)(k)
+        case Norm.Exe(exe, subs) =>
+          pushNorms(s, subs) { (s, children) =>
+            val node = exe.copy(children = ImmArray(children))
+            s.push(me, node)(k)
+          }
+      }
     }
   }
 
-  private def pushRoll(s0: State, x: Norm.Roll): (State, Nid) = {
-    val (s, me) = s0.next
-    x match {
-      case Norm.Roll1(act) =>
-        val (s1, child) = pushAct(s, act)
-        val node = NodeRollback(children = ImmArray(List(child)))
-        s1.push(me, node)
-      case Norm.Roll2(h, m, t) =>
-        val (s1, hh) = pushAct(s, h)
-        val (s2, mm) = pushNorms(s1, m)
-        val (s3, tt) = pushAct(s2, t)
-        val children = List(hh) ++ mm ++ List(tt)
-        val node = NodeRollback(children = ImmArray(children))
-        s3.push(me, node)
+  private def pushRoll[R](s: State, x: Norm.Roll)(k: (State, Nid) => R): R = {
+    s.next { (s, me) =>
+      x match {
+        case Norm.Roll1(act) =>
+          pushAct(s, act) { (s, child) =>
+            val node = NodeRollback(children = ImmArray(List(child)))
+            s.push(me, node)(k)
+          }
+        case Norm.Roll2(h, m, t) =>
+          pushAct(s, h) { (s, hh) =>
+            pushNorms(s, m) { (s, mm) =>
+              pushAct(s, t) { (s, tt) =>
+                val children = List(hh) ++ mm ++ List(tt)
+                val node = NodeRollback(children = ImmArray(children))
+                s.push(me, node)(k)
+              }
+            }
+          }
+      }
     }
   }
 
-  private def pushNorm(s: State, x: Norm): (State, Nid) = {
+  private def pushNorm[R](s: State, x: Norm)(k: (State, Nid) => R): R = {
     x match {
-      case act: Norm.Act => pushAct(s, act)
-      case roll: Norm.Roll => pushRoll(s, roll)
+      case act: Norm.Act => pushAct(s, act)(k)
+      case roll: Norm.Roll => pushRoll(s, roll)(k)
     }
   }
 
-  private def pushNorms(s: State, xs: List[Norm]): (State, List[Nid]) = {
+  private def pushNorms[R](s: State, xs: List[Norm])(k: (State, List[Nid]) => R): R = {
     xs match {
-      case Nil => (s, Nil)
+      case Nil => k(s, Nil)
       case x :: xs =>
-        val (s1, y) = pushNorm(s, x)
-        val (s2, ys) = pushNorms(s1, xs)
-        (s2, y :: ys)
+        pushNorm(s, x) { (s, y) =>
+          pushNorms(s, xs) { (s, ys) =>
+            k(s, y :: ys)
+          }
+        }
     }
   }
 
