@@ -258,7 +258,7 @@ template ExceptionTester
         pbcInformer : ContractId Informer
       controller p
       do -- Projection to B:
-         --   Normalization rule #3 folds R3 intüo R1
+         --   Normalization rule #3 folds R3 into R1
          --   R2 and R3 must sit under R1 for key checks to pass
          -- Projection to C:
          --   Normalization rule #2 pulls R2 out of R1.
