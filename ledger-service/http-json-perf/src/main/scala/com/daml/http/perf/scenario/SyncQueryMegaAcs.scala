@@ -65,13 +65,13 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
   private val queryRequest =
     http("SyncQueryRequest")
       .post("/v1/query")
-      .header(HttpHeaderNames.Authorization, "Bearer ${jwt}")
+      .header(HttpHeaderNames.Authorization, "Bearer ${reqJwt}")
       .body(StringBody("""{
     "templateIds": ["LargeAcs:Iou"],
     "query": {"amount": ${amount}}
 }"""))
 
-  private val scns = discriminators map { case (scnName, jwt, observersCycle) =>
+  private val scns = discriminators map { case (scnName, reqJwt, observersCycle) =>
     val env = Map("observersCycle" -> observersCycle.toJson)
     scenario(s"SyncQueryMegaScenario $scnName")
       .exec(createRequest.silent)
@@ -82,7 +82,11 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
       }
       // run queries
       .repeat(500) {
-        feed(Iterator.continually(Map("amount" -> randomAmount(), "jwt" -> jwt)))
+        // unless we request under Alice, we don't get negatives in the DB
+        feed(
+          Iterator(Map("amount" -> randomAmount(), "reqJwt" -> jwt)) ++
+            Iterator.continually(Map("amount" -> randomAmount(), "reqJwt" -> reqJwt))
+        )
           .exec(queryRequest)
       }
   }
