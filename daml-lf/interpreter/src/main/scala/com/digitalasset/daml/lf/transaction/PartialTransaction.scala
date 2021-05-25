@@ -304,9 +304,12 @@ private[lf] case class PartialTransaction(
   def finish: PartialTransaction.Result =
     context.info match {
       case _: RootContextInfo if aborted.isEmpty =>
+        val roots = context.children.toImmArray
+        val tx0 = GenTransaction(nodes, roots)
+        val tx = NormalizeRollbacks.normalizeTx(tx0)
         CompleteTransaction(
           SubmittedTransaction(
-            TxVersion.asVersionedTransaction(context.children.toImmArray, nodes)
+            TxVersion.asVersionedTransaction(tx)
           )
         )
       case _ =>

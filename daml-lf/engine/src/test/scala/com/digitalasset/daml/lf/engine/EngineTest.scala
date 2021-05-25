@@ -2617,8 +2617,10 @@ object EngineTest {
     iterate.map { case (nodes, roots, dependsOnTime, nodeSeeds, _, _) =>
       (
         TxVersions.asVersionedTransaction(
-          roots.toImmArray,
-          nodes,
+          GenTx(
+            nodes,
+            roots.toImmArray,
+          )
         ),
         Tx.Metadata(
           submissionSeed = None,
