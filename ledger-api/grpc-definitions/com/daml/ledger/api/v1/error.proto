@@ -68,6 +68,8 @@ package com.daml.ledger.api.v1;
 // Error codes for command submissions
 // ***********************************
 //
+// TODO(v2) Define test cases for these errors and enforce these error rules via the ledger API test tool
+//
 // This applies to the services in ``command_service.proto`` and ``command_submission_service.proto``.
 // The common error codes from above also apply here.
 // The status codes in command completions as defined in ``completion.proto`` follow the same rules.
