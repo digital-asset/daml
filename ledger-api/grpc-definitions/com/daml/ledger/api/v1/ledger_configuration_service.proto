@@ -14,13 +14,10 @@ option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // LedgerConfigurationService allows clients to subscribe to changes of the ledger configuration.
+// Error reporting follows the rules in ``error.proto``.
 service LedgerConfigurationService {
 
   // Returns the latest configuration as the first response, and publishes configuration updates in the same stream.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id
   rpc GetLedgerConfiguration (GetLedgerConfigurationRequest) returns (stream GetLedgerConfigurationResponse);
 
 }
@@ -36,11 +33,6 @@ message GetLedgerConfigurationRequest {
   // This field is a future extension point and is currently not supported.
   // Optional
   TraceContext trace_context = 1000;
-
-  // Whether synchronous API-level errors include the error details as part of the error message string,
-  // as explained in `error.proto`.
-  // Optional
-  bool error_details_in_message = 1001;
 }
 
 message GetLedgerConfigurationResponse {
@@ -55,8 +47,10 @@ message LedgerConfiguration {
   reserved 1; // was min_ttl
   reserved 2; // was max_ttl
 
-  // A lower bound on the length of the deduplication periods that can be used for command submissions
-  // (as described in ``commands.proto``). The deduplication period is measured on a local clock
-  // of the participant or Daml ledger.
+  // If a command submission specifies a deduplication period of length up to `max_deduplication_time`,
+  // the submission SHOULD not be rejected with ``NOT_FOUND`` because the deduplication period start is too early.
+  // The deduplication period is measured on a local clock of the participant or Daml ledger,
+  // and therefore subject to clock skews and clock drifts.
+  // Command submissions with longer periods MAY get accepted though.
   google.protobuf.Duration max_deduplication_time = 3;
 }

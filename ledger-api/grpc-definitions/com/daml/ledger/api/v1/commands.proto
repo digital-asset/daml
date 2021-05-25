@@ -63,7 +63,7 @@ message Commands {
   // If the completion for this submission is a definite answer, say at the completion offset `off`,
   // then there is no accepting completion for the same change ID between the start of the deduplication period and `off`.
   //
-  // The participant or Daml ledger may reject the submission with OUT_OF_RANGE
+  // The participant or Daml ledger may reject the submission with ``OUT_OF_RANGE``
   // if the deduplication period starts in the future (e.g., by specifying an offset that is higher than the completion end).
   // It may reject the submission with NOT_FOUND
   // if the deduplication period starts too early (e.g., by specifying an offset before the completion begin).
@@ -151,7 +151,7 @@ message Commands {
   // Otherwise, the submission is rejected with INVALID_ARGUMENT.
   // Must be a valid LedgerString (as described in ``value.proto``).
   //
-  // The participant or Daml ledger may reject the submission with OUT_OF_RANGE
+  // The participant or Daml ledger may reject the submission with ``OUT_OF_RANGE``
   // if the submission rank offset is higher than the completion end.
   // It may reject the submission with NOT_FOUND
   // if the submission rank is too low (e.g., lower than the the completion begin).

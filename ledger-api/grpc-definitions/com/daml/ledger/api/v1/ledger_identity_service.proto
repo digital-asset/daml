@@ -30,11 +30,6 @@ message GetLedgerIdentityRequest {
   // This field is a future extension point and is currently not supported.
   // Optional
   TraceContext trace_context = 1000;
-
-  // Whether synchronous API-level errors include the error details as part of the error message string,
-  // as explained in `error.proto`.
-  // Optional
-  bool error_details_in_message = 1001;
 }
 
 message GetLedgerIdentityResponse {

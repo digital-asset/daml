@@ -20,9 +20,7 @@ message Completion {
   // Required
   string command_id = 1;
 
-  // Identifies the exact type of the error.
-  // For example, malformed or double spend transactions will result in a ``INVALID_ARGUMENT`` status.
-  // Transactions with invalid time time windows (which may be valid at a later date) will result in an ``ABORTED`` error.
+  // Identifies the exact type of the error (as described in ``error.proto``).
   //
   // If the status code is ``OK``, this completion is always a definite answer for the deduplication and rank guarantees
   // described in ``commands.proto``. Otherwise, this completion is only a definite answer if the error details

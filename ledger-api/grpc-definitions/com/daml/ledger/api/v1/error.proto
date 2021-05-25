@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v1;
 
 // Rules on error reporting over the Ledger API
+// ********************************************
 //
 // 1. We use gRPC status codes to report synchronous success and failures
 //    coming from the underlying gRPC protocol or the API-level request processing.
@@ -22,7 +23,102 @@ package com.daml.ledger.api.v1;
 //    The RPC documentation may document further metadata of the error.
 //
 // 3. RPC requests can specify that the API-level error details of the RPC response shall be JSON-encoded in the error message
-//    instead of using the `details` field by setting the flag `error_details_in_message` in the RPC request message to `true`.
-//    If an application cannot read the error details from the trailers, e.g. because some middleware drops them,
-//    it can obtain the details by parsing the message. This flag does not affect the errors coming from the underlying gRPC protocol.
-//    Neither does this flag affect asynchronous errors reported as part of completions.
+//    instead of using the `details` field. To that end, the RPC request shall specify the ``X-Daml-Error-details-in-message``
+//    HTTP/2 header in the request. If an application cannot read the error details from the trailers,
+//    e.g. because some middleware drops them, it can obtain the details by parsing the message.
+//    This flag does not affect asynchronous errors reported as part of completions.
+//
+//    TODO(v2) Evaluate whether we can implement this as a gRPC interceptor that listens for the header
+//     and converts the rich error details into JSON. Otherwise this might not work for
+//     errors coming from the underlying gRPC protocol.
+//     If this doesn't work, we can alternatively add a flag to all RPC requests.
+//
+//    TODO(v2) We shoule use the same JSON encoding here as what we get from our JSON API server.
+//     We want to keep the human-readable message in one of the JSON fields.
+//
+// 4. For now, only ``ErrorInfo`` is used to communicate error details.
+//    Other forms of error details may be added in the future though.
+//
+// Common error codes and details for all services
+// ***********************************************
+//
+// Individual services may use the error codes below for other cases too.
+// See the documentation of the service for details.
+//
+// ``UNAUTHENTICATED``:
+// - The request does not include a valid access token.
+//
+// ``PERMISSION_DENIED``:
+// - The claims in the token are insufficient to perform a given operation.
+//
+// ``NOT_FOUND``:
+// - The request does not include a valid ledger id.
+//
+// ``INVALID_ARGUMENT``:
+// - The payload is malformed or is missing required fields.
+//
+// ``RESOURCE_EXHAUSTED``:
+// - The participant or the ledger is overloaded. Clients should back off exponentially and retry.
+//
+// ``DEADLINE_EXCEEDED``:
+// - The server failed to produce a result within the given timeouts.
+//   For requests that change the ledger state, clients MUST assume neither
+//   that the request succeeded nor that it was rejected.
+//
+// Error codes for command submissions
+// ***********************************
+//
+// This applies to the services in ``command_service.proto`` and ``command_submission_service.proto``.
+// The common error codes from above also apply here.
+// The status codes in command completions as defined in ``completion.proto`` follow the same rules.
+//
+// Some Daml ledger implementations may produce the same error codes in further situations.
+// See the documentation of the specific Daml ledger implementation.
+//
+// If the submission led to a completion event, the following error details are provided:
+// 1. If the error is reported outside of the completion event (e.g., via the command service),
+//    the metadata key ``completion_offset`` contains the corresponding completion offset.
+//    This offset can be used as a submission rank in later calls.
+// 2. If the completion event at the offset is a definite answer,
+//    the metadata key ''definite_answer`` is set to ``true``.
+//
+// ``UNAVAILABLE``:
+// - The participant is not yet ready to submit commands or if the service has been shut down.
+//
+// ``RESOURCE_EXHAUSTED``:
+// - The number of in-flight commands reached the maximum (if a limit is configured).
+//
+// ``NOT_FOUND``:
+// - The submission rank or deduplication period are too old.
+//
+// ``OUT_OF_RANGE``
+// - The deduplication period starts in the future (e.g., the specified offset is higher than the completion end).
+// - The submission rank is after the completion end.
+//
+// ``INVALID_ARGUMENT``:
+// - A party involved in the transaction is not known on the ledger.
+// - The interpreted command is inconsistent with the state of the ledger.
+//   TODO(error cleanup)
+//
+// ``ABORTED``:
+// - The command submission was disputed or the ledger time is invalid.
+// - There is another submission in flight for the same change ID.
+//   In this case, the error details report the reason ``ALREADY_IN_FLIGHT``.
+//   The error details include the metadata keys ``submission_rank`` and `submission_id`` of the in-flight submission.
+// - A lock for serializability checking could not be acquired during commit time, e.g., due to contention.
+//   TODO(error cleanup)
+//
+// ``FAILED_PRECONDITION``
+// - There is another submission with a higher submission rank.
+//   The error details report the reason ``RANK_TOO_LOW`` and include the metadata keys ``submission_rank``
+//   and ``submission_id`` of the conflicting submission.
+//   If the conflicting submission has previously produced a definite-answer completion,
+//   ``ALREADY_EXISTS`` is used instead.
+//
+// ``ALREADY_EXISTS``
+// - There is a definite-answer completion for the same change ID with the same or higher same submission rank
+//   or an earlier accepting completion that falls into the submission’s deduplication period.
+//   The error details report the reason ``DEDUPLICATION``;
+//   if available, the metadata keys ``earlier_completion_offset`` and ``earlier_submission_id``
+//   contain the completion offset and submission id of the conflicting completion.
+//

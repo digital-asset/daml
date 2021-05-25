@@ -17,87 +17,20 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // Command Service is able to correlate submitted commands with completion data, identify timeouts, and return contextual
 // information with each tracking result. This supports the implementation of stateless clients.
+//
+// All errors are reported synchronously, as described in ``error.proto``.
 service CommandService {
 
   // Submits a single composite command and waits for its result.
-  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
-  // Error details are communicated using https://github.com/googleapis/googleapis/blob/master/google/rpc/error_details.proto
-  // embedded within https://github.com/googleapis/googleapis/blob/master/google/rpc/status.proto
-  //
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id or the submission rank or
-  //   deduplication period are too old.
-  // - ``INVALID_ARGUMENT`` if one of the following holds:
-  //   - The payload is malformed or is missing required fields.
-  //   - A party involved in the transaction is not known on the ledger.
-  //   - The interpreted command is inconsistent with the state of the ledger
-  //     If the submission led to a completion event, the error details' metadata key ``completion_offset``
-  //     contains the corresponding completion offset. This offset can be used as a submission rank in later calls.
-  //     If the completion event at the offset is a definite answer, the metadata key ''definite_answer``
-  //     is set to ``true``.
-  // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
-  //     or other resource quotas have been reached.
-  // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
-  // - ``ABORTED`` if one of the following holds:
-  //   - A contract key is missing or duplicated due to for example contention on resources.
-  //   - The command submission was disputed or the ledger time is invalid.
-  //     If the submission led to a completion event, the error detail's `metadata` field ``completion_offset``
-  //     contains the corresponding completion offset. This offset can be used as a submission rank in later calls.
-  //     If the completion event at the offset is a definite answer, the metadata key ''definite_answer``
-  //     is set to ``true``.
-  //   - There is another submission in flight for the same change ID.
-  //     In this case, the error details report the reason ``ALREADY_IN_FLIGHT``.
-  //     The error details include the metadata keys ``submission_rank`` and `submission_id`` of the in-flight submission.
-  // - ``FAILED_PRECONDITION`` if there is another submission with a higher submission rank.
-  //   The error details report the reason ``RANK_TOO_LOW`` and include the metadata keys ``submission_rank``
-  //   and ``submission_id`` of the conflicting submission.
-  //
-  // - ``ALREADY_EXISTS`` if there is a definite-answer completion for the same deduplication key
-  //   with at least the same submission rank or an earlier accepting completion that falls into the submission’s deduplication period.
-  //   The error details report the reason ``DEDUPLICATION``;
-  //   if available, the metadata keys ``earlier_completion_offset`` and ``earlier_submission_id``
-  //   contain the completion offset and submission id of the conflicting completion.
   rpc SubmitAndWait (SubmitAndWaitRequest) returns (SubmitAndWaitResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction id.
-  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
-  // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
-  // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
-  // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources
-  // TODO(v2) update errors like for `SubmitAndWait`
   rpc SubmitAndWaitForTransactionId (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionIdResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction.
-  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
-  // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
-  // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
-  // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources
-  // TODO(v2) update errors like for `SubmitAndWait`
   rpc SubmitAndWaitForTransaction (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction tree.
-  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
-  // Errors:
-  // - ``UNAUTHENTICATED``: if the request does not include a valid access token
-  // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
-  // - ``NOT_FOUND``: if the request does not include a valid ledger id
-  // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
-  // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
-  // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
-  // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources
-  // TODO(v2) update errors like for `SubmitAndWait`
   rpc SubmitAndWaitForTransactionTree (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionTreeResponse);
 }
 
@@ -114,11 +47,6 @@ message SubmitAndWaitRequest {
   // This field is a future extension point and is currently not supported.
   // Optional
   TraceContext trace_context = 1000;
-
-  // Whether synchronous API-level errors include the error details as part of the error message string,
-  // as explained in `error.proto`.
-  // Optional
-  bool error_details_in_message = 1001;
 }
 
 message SubmitAndWaitResponse {
@@ -149,7 +77,7 @@ message SubmitAndWaitForTransactionResponse {
   // The completion offset for the submission that triggered this response
   // This offset can be used as the submission rank for subsequent command submissions.
   // Optional
-  // TODO Make it required for responses with status code `OK` once all Daml ledgers support it.
+  // TODO(v2) Make it required for responses with status code `OK` once all Daml ledgers support it.
   string completion_offset = 2;
 }
 
