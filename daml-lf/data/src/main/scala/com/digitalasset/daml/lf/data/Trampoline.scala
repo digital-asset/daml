@@ -7,9 +7,9 @@ package data
 import scala.annotation.tailrec
 
 // Trampolines for stack-safety
-object Trampoline {
+private[lf] object Trampoline {
 
-  sealed trait Trampoline[A] {
+  private[lf] sealed trait Trampoline[A] {
 
     @tailrec
     final def bounce: A = this match {
