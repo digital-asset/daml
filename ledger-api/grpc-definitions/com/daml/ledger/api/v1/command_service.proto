@@ -21,6 +21,9 @@ service CommandService {
 
   // Submits a single composite command and waits for its result.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
+  // Error details are communicated using https://github.com/googleapis/googleapis/blob/master/google/rpc/error_details.proto
+  // embedded within https://github.com/googleapis/googleapis/blob/master/google/rpc/status.proto
+  //
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
@@ -35,6 +38,7 @@ service CommandService {
   //     If the completion event at the offset is a definite answer, the metadata key ''definite_answer``
   //     is set to ``true``.
   // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
+  //     or other resource quotas have been reached.
   // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
   // - ``ABORTED`` if one of the following holds:
   //   - A contract key is missing or duplicated due to for example contention on resources.
