@@ -107,7 +107,7 @@ trait ReadService extends ReportsHealth {
     * The second class of properties relates multiple calls to [[ReadService.stateUpdates]] to each other.
     * The class contains two properties:
     * (1) a property that enables crash-fault tolerant Ledger API server implementations and
-   *  (2) a property that enables Ledger API server implementations that are synchronized by a backing ledger.
+    *  (2) a property that enables Ledger API server implementations that are synchronized by a backing ledger.
     *
     * For crash-fault-tolerance, we require an implementation of [[ReadService.stateUpdates]] to support its consumer to
     * resume consumption starting after the last offset up to which the consumer completed processing.

@@ -62,7 +62,7 @@ class ChangeId(
     else
       obj match {
         case other: ChangeId => this.hash == other.hash
-        case _               => false
+        case _ => false
       }
   }
 
