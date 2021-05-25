@@ -81,7 +81,7 @@ class MetricsManagerSpec extends ScalaTestWithActorTestKit(ManualTime.config) wi
 
   private def spawnManager(
       logInterval: FiniteDuration = 100.millis
-  ): ActorRef[MetricsManager.Message[String]] =
+  ): ActorRef[MetricsManager.Message] =
     testKit.spawn(
       behavior = managerBehavior(logInterval),
       name = Random.alphanumeric.take(10).mkString,
@@ -89,7 +89,7 @@ class MetricsManagerSpec extends ScalaTestWithActorTestKit(ManualTime.config) wi
 
   private def managerBehavior(
       logInterval: FiniteDuration = 100.millis
-  ): Behavior[MetricsManager.Message[String]] =
+  ): Behavior[MetricsManager.Message] =
     MetricsManager[String](
       streamName = "testStream",
       metrics = List(TestMetric()),
