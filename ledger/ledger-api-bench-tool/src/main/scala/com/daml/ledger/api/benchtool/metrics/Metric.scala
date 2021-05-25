@@ -32,7 +32,7 @@ object Metric {
 
   trait ServiceLevelObjective[MetricValueType <: MetricValue] {
     def isViolatedBy(metricValue: MetricValueType): Boolean
-    def moreViolatingOf(first: MetricValueType, second: MetricValueType): MetricValueType
+    def maxViolatingValue(first: MetricValueType, second: MetricValueType): MetricValueType
     def formatted: String
   }
 
@@ -156,7 +156,7 @@ object Metric {
               case Some(currentValue) =>
                 // if the new value violates objective's requirements and there is already a value that violates
                 // requirements, record the maximum value of the two
-                objective -> Some(objective.moreViolatingOf(currentValue, newValue))
+                objective -> Some(objective.maxViolatingValue(currentValue, newValue))
             }
           } else {
             objective -> currentViolatingValue
@@ -211,19 +211,26 @@ object Metric {
         List(s"mean delay: ${meanDelaySeconds.getOrElse("-")} [s]")
     }
 
+    object Value {
+      implicit val valueOrdering: Ordering[Value] = (x: Value, y: Value) => {
+        (x.meanDelaySeconds, y.meanDelaySeconds) match {
+          case (Some(xx), Some(yy)) =>
+            if (xx < yy) -1
+            else if (xx > yy) 1
+            else 0
+          case (Some(_), None) => 1
+          case (None, Some(_)) => -1
+          case (None, None) => 0
+        }
+      }
+    }
+
     final case class MaxDelay(maxDelaySeconds: Long) extends ServiceLevelObjective[Value] {
       override def isViolatedBy(metricValue: Value): Boolean =
         metricValue.meanDelaySeconds.exists(_ > maxDelaySeconds)
 
-      override def moreViolatingOf(first: Value, second: Value): Value =
-        (first.meanDelaySeconds, second.meanDelaySeconds) match {
-          case (Some(fir), Some(sec)) =>
-            if (fir > sec) first
-            else second
-          case (Some(_), None) => first
-          case (None, Some(_)) => second
-          case (None, None) => first
-        }
+      override def maxViolatingValue(first: Value, second: Value): Value =
+        Ordering[Value].max(first, second)
 
       override def formatted: String =
         s"max allowed delay: $maxDelaySeconds [s]"
