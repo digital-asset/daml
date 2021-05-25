@@ -7,6 +7,8 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.transaction.BlindingInfo
 
+import scala.util.Try
+
 /** An update to the (abstract) participant state.
   *
   * [[Update]]'s are used in [[ReadService.stateUpdates]] to communicate
@@ -155,7 +157,7 @@ object Update {
     * @param optSubmitterInfo:
     *   The information provided by the submitter of the command that
     *   created this transaction. It must be provided if this participant
-    *   hosts one of the submitters and shall output a completion event
+    *   hosts one of the [[SubmitterInfo.actAs]] parties and shall output a completion event
     *   for this transaction. This in particular applies if this participant has
     *   submitted the command to the [[WriteService]].
     *
@@ -200,20 +202,29 @@ object Update {
 
   /** Signal that a command submitted via [[WriteService]] was rejected.
     *
-    * @param cancelled If false, the [[ReadService]]'s deduplication and submission rank guarantees
-    *   apply to this rejection. The participant state implementations should
-    *   strive to set this flag to false as often as possible so that applications
-    *   get better guarantees.
+    * TODO(v2) add commentary for all parameters, and in particular, refer to the guidance on the error messages given via the Ledger API
     */
   final case class CommandRejected(
       recordTime: Timestamp,
       submitterInfo: SubmitterInfo,
       reason: com.google.rpc.status.Status,
-      cancelled: Boolean,
   ) extends Update {
     override def description: String = {
-      s"Reject command ${submitterInfo.commandId}: ${reason.message}"
+      s"Reject command ${submitterInfo.commandId}${if (cancelled) " (cancelled)"}: ${reason.message}"
     }
+
+    /** If false, the [[ReadService]]'s deduplication and submission rank guarantees
+      * apply to this rejection. The participant state implementations should
+      * strive to set this flag to false as often as possible so that applications
+      * get better guarantees.
+      */
+    lazy val cancelled: Boolean = !reason.details.exists { any =>
+        if (any.is(com.google.rpc.ErrorInfo.class)) {
+          Try(any.unpack(com.google.rpc.ErrorInfo.class)).exists( errorInfo =>
+            errorInfo.getMetadataOrDefault("definite_answer", "false") == "true"
+          )
+        } else false
+      }
   }
 
 }
