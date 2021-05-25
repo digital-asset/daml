@@ -100,7 +100,7 @@ trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with Jd
 
       // Submission with unique submissionId and correct generation is accepted.
       offset3 = nextOffset()
-      offsetString3 = offset3
+      offsetString3 = offset3.toLong
       lastConfig = newConfig.copy(generation = newConfig.generation + 1)
       resp3 <- storeConfigurationEntry(offset3, s"refuse-config-$offsetString3", lastConfig)
       lastConfigActual <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).get)
