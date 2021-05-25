@@ -168,9 +168,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       failure <- contractsReader.lookupMaximumLedgerTime(Set(randomContractId)).failed
     } yield {
       failure shouldBe an[IllegalArgumentException]
-      failure.getMessage should startWith(
-        "One or more of the following contract identifiers has not been found"
-      )
+      assertIsLedgerTimeLookupError(failure.getMessage)
     }
   }
 
@@ -235,13 +233,21 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       failure <- contractsReader.lookupMaximumLedgerTime(Set(divulgedContractId)).failed
     } yield {
       failure shouldBe an[IllegalArgumentException]
-      failure.getMessage should startWith(
-        "One or more of the following contract identifiers has not been found"
-      )
+      assertIsLedgerTimeLookupError(failure.getMessage)
     }
   }
 
   it should "store contracts with a transient contract in the global divulgence" in {
     store(fullyTransientWithChildren).flatMap(_ => succeed)
+  }
+
+  // dao.JdbcLedgerDao uses the pattern 'One or more of the following contract identifiers has not been found'
+  // appendonly.JdbcLedgerDao uses the pattern 'The following contracts have not been found'
+  // They both use different error classes.
+  // TODO append-only: remove references to errors produced by the mutating schema
+  private[this] def assertIsLedgerTimeLookupError(actualErrorString: String) = {
+    val errorStringMutating = "One or more of the following contract identifiers has not been found"
+    val errorStringAppendOnly = "The following contracts have not been found"
+    actualErrorString should (startWith(errorStringMutating) or startWith(errorStringAppendOnly))
   }
 }
