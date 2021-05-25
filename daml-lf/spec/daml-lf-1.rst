@@ -2150,17 +2150,17 @@ types that satisfies the following rules::
   ——————————————————————————————————————————————————— TypeOrderTypeRepUpdate
     'TypeRep' <ₜ 'GenMap'
 
-  ——————————————————————————————————————————————————— TypeOrderGenMapAnyException
-    'GenMap' <ₜ 'AnyException'
-
-  ——————————————————————————————————————————————————— TypeOrderAnyExceptionBigNumeric
-    'AnyException' <ₜ 'BigNumeric'
+  ——————————————————————————————————————————————————— TypeOrderGenMapBigNumeric
+    'GenMap' <ₜ 'BigNumeric'
 
   ——————————————————————————————————————————————————— TypeOrderBigNumericRoundingMode
     'BigNumeric' <ₜ 'RoundingMode'
 
-  ——————————————————————————————————————————————————— TypeOrderRoundingModeTyCon
-    'RoundingMode' <ₜ Mod:T
+  ——————————————————————————————————————————————————— TypeOrderRoundingModeAnyException
+    'RoundingMode' <ₜ 'AnyException'
+
+  ——————————————————————————————————————————————————— TypeOrderAnyExceptionTyCon
+    'AnyException' <ₜ Mod:T
 
     PkgId₁ comes lexicographically before PkgId₂
   ——————————————————————————————————————————————————— TypeOrderTyConPackageId
