@@ -12,13 +12,14 @@ import scala.util.Try
   *
   * @param generation The configuration generation. Monotonically increasing.
   * @param timeModel The time model of the ledger.
-  * @param deduplicationPeriodLengthGuarantee A lower bound on the length of the deduplication period for command submissions
-  *                                           that the WriteService provides.
+  * @param maxDeduplicationTime The WriteService promises to not reject submissions whose deduplication period
+  *                             extends for less than or equal to `maxDeduplicationTime` with the reason that
+  *                             the deduplication period is too long.
   */
 final case class Configuration(
     generation: Long,
     timeModel: TimeModel,
-    deduplicationPeriodLengthGuarantee: Duration,
+    maxDeduplicationTime: Duration,
 )
 
 // TODO(v2) Serialization and deserialization hasn't been adapted yet
@@ -48,11 +49,10 @@ object Configuration {
 
     def decode(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
       for {
-        tm <-
-          if (config.hasTimeModel)
-            decodeTimeModel(config.getTimeModel)
-          else
-            Left("Missing time model")
+        tm <- if (config.hasTimeModel)
+          decodeTimeModel(config.getTimeModel)
+        else
+          Left("Missing time model")
       } yield {
         Configuration(
           generation = config.getGeneration,
@@ -73,16 +73,14 @@ object Configuration {
 
     def decode(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
       for {
-        tm <-
-          if (config.hasTimeModel)
-            decodeTimeModel(config.getTimeModel)
-          else
-            Left("Missing time model")
-        maxDeduplicationTime <-
-          if (config.hasMaxDeduplicationTime)
-            Right(parseDuration(config.getMaxDeduplicationTime))
-          else
-            Left("Missing maximum command time to live")
+        tm <- if (config.hasTimeModel)
+          decodeTimeModel(config.getTimeModel)
+        else
+          Left("Missing time model")
+        maxDeduplicationTime <- if (config.hasMaxDeduplicationTime)
+          Right(parseDuration(config.getMaxDeduplicationTime))
+        else
+          Left("Missing maximum command time to live")
       } yield {
         Configuration(
           generation = config.getGeneration,

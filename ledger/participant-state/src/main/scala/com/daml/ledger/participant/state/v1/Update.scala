@@ -202,12 +202,16 @@ object Update {
 
   /** Signal that a command submitted via [[WriteService]] was rejected.
     *
-    * TODO(v2) add commentary for all parameters, and in particular, refer to the guidance on the error messages given via the Ledger API
+    * @param recordTime     The record time of the completion
+    * @param submitterInfo  The information provided by the submitter of the command that
+    *                       created this transaction.
+    * @param reasonTemplate A template for generating the gRPC status code with error details.
+    *                       See ``error.proto`` for the status codes of common rejection reasons.
     */
   final case class CommandRejected(
       recordTime: Timestamp,
       submitterInfo: SubmitterInfo,
-      reason: com.google.rpc.status.Status,
+      reasonTemplate: CommandRejected.RejectionReasonTemplate,
   ) extends Update {
     override def description: String = {
       s"Reject command ${submitterInfo.commandId}${if (cancelled) " (cancelled)"}: ${reason.message}"
@@ -227,4 +231,25 @@ object Update {
       }
   }
 
+  object CommandRejected {
+
+    /** A template for generating gRPC status codes.
+      * The indexer server should provide some details
+      * before the [[FinalReason]] gives an actual gRPC status code.
+      */
+    sealed trait RejectionReasonTemplate
+
+    /** The status code for the command rejection. */
+    class FinalReason(val statusCode: com.google.rpc.status.Status) extends RejectionReasonTemplate
+
+    /** The indexer shall fill in a completion offset for the completion that corresponds to the `submissionId`,
+      * by calling `provideCompletionOffset` with the completion offset. If no completion offset
+      * for the `submissionId` can be provided, [[scala.None$]] can be used instead,
+      * which may lead to less informative errors.
+      */
+    class NeedCompletionOffsetForSubmissionId(
+        val submissionId: SubmissionId,
+        val provideCompletionOffset: Option[Offset] => RejectionReasonTemplate,
+    ) extends RejectionReasonTemplate
+  }
 }

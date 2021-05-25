@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.v1
 
+import com.google.protobuf.ByteString
+
 /** Information provided by the submitter of changes submitted to the ledger.
   *
   * Note that this is used for party-originating changes only. They are
@@ -36,11 +38,36 @@ final case class SubmitterInfo(
 ) {
 
   /** The ID for the ledger change */
-  def changeId: ChangeId = ChangeId(applicationId, commandId, actAs = actAs.toSet)
+  val changeId: ChangeId = new ChangeId(applicationId, commandId, actAs.toSet)
 }
 
 /** Identifier for ledger changes used by command deduplication
   *
   * @see ReadService.stateUpdates for the command deduplication guarantee
   */
-case class ChangeId(applicationId: ApplicationId, commandId: CommandId, actAs: Set[Party])
+class ChangeId(
+    private val applicationId: ApplicationId,
+    private val commandId: CommandId,
+    private val actAs: Set[Party],
+) {
+
+  /** A stable hash of the change id.
+    * Suitable for storing in persistent storage.
+    */
+  // TODO compute it using a collision-resistant hash function. Beware that the hash must respect Set equality of `actAs`!
+  val hash: ByteString = ???
+
+  override def equals(obj: Any): Boolean = {
+    if (obj eq this) true
+    else
+      obj match {
+        case other: ChangeId => this.hash == other.hash
+        case _               => false
+      }
+  }
+
+  override def hashCode(): Int = hash.hashCode()
+
+  override def toString: String =
+    s"ChangeId(application id=$applicationId, commandId=$commandId, actAs={${actAs.mkString(", ")}})"
+}
