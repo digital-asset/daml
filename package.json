@@ -36,6 +36,6 @@
   },
   "devDependencies": {
     "@bazel/hide-bazel-files": "1.7.0",
-    "@bazel/typescript": "2.0.1"
+    "@bazel/typescript": "3.4.2"
   }
 }
