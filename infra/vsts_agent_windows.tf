@@ -13,16 +13,7 @@ locals {
       suffix     = "",
       size       = 6,
       assignment = "default",
-      install    = "",
     },
-    {
-      suffix     = "-sign"
-      size       = 1,
-      assignment = "windows-signing",
-      install    = <<INSTALL
-& choco install dotnetcore-2.1-sdk --no-progress --yes 2>&1 | %%{ "$_" }
-INSTALL
-    }
   ]
 }
 
@@ -146,7 +137,9 @@ winrm set winrm/config/service/auth '@{Basic="true"}'
 net stop winrm
 sc.exe config winrm start=auto
 net start winrm
-${local.w[count.index].install}
+
+& choco install dotnetcore-2.1-sdk --no-progress --yes 2>&1 | %%{ "$_" }
+
 echo "== Installing the VSTS agent"
 
 New-Item -ItemType Directory -Path 'C:\agent'
