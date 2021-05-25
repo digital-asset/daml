@@ -21,10 +21,8 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 //
 // Commands may fail in 2 distinct manners:
 //
-// 1. Failure communicated in the gRPC error of the submission.
-// 2. Failure communicated in a Completion.
-//
-// Only successfully submitted commands may produce a completion event.
+// 1. Failure communicated synchronously in the gRPC error of the submission.
+// 2. Failure communicated asynchronously in a Completion.
 //
 // Clients that do not receive a successful completion about their submission MUST NOT assume that it was successful.
 // Clients SHOULD subscribe to the CompletionStream before starting to submit commands to prevent race conditions.
@@ -34,7 +32,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 service CommandSubmissionService {
 
   // Submit a single composite command.
-  // Errors:
+  // Synchronous errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
   // - ``NOT_FOUND``: if the request does not include a valid ledger id or the submission rank or
