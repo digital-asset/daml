@@ -188,7 +188,7 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
           elem4 -> List(recordTime4),
         )
       )
-      val expectedViolatedObjective = DelayMetric.DelayObjective.MaxDelay(maxAllowedDelaySeconds)
+      val expectedViolatedObjective = DelayMetric.MaxDelay(maxAllowedDelaySeconds)
       val clock = Clock.fixed(testNow, ZoneId.of("UTC"))
       val metric: DelayMetric[String] =
         DelayMetric.empty[String](

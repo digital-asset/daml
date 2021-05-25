@@ -123,12 +123,12 @@ object Metric {
   final case class DelayMetric[T](
       recordTimeFunction: T => Seq[Timestamp],
       clock: Clock,
-      objectives: Map[DelayMetric.DelayObjective, Option[DelayMetric.Value]],
+      objectives: Map[ServiceLevelObjective[DelayMetric.Value], Option[DelayMetric.Value]],
       delaysInCurrentInterval: List[Duration] = List.empty,
   ) extends Metric[T] {
 
     override type Value = DelayMetric.Value
-    override type Objective = DelayMetric.DelayObjective
+    override type Objective = ServiceLevelObjective[DelayMetric.Value]
 
     override def onNext(value: T): DelayMetric[T] = {
       val now = clock.instant()
@@ -143,7 +143,7 @@ object Metric {
 
     private def updatedObjectives(
         newValue: DelayMetric.Value
-    ): Map[DelayMetric.DelayObjective, Option[DelayMetric.Value]] = {
+    ): Map[ServiceLevelObjective[DelayMetric.Value], Option[DelayMetric.Value]] = {
       objectives
         .map { case (objective, currentViolatingValue) =>
           // verify if the new value violates objective's requirements
@@ -176,7 +176,8 @@ object Metric {
     override def finalValue(totalDurationSeconds: Double): DelayMetric.Value =
       DelayMetric.Value(None)
 
-    override def violatedObjectives: Map[DelayMetric.DelayObjective, DelayMetric.Value] =
+    override def violatedObjectives
+        : Map[ServiceLevelObjective[DelayMetric.Value], DelayMetric.Value] =
       objectives
         .collect {
           case (objective, value) if value.isDefined => objective -> value.get
@@ -196,7 +197,7 @@ object Metric {
 
     def empty[T](
         recordTimeFunction: T => Seq[Timestamp],
-        objectives: List[DelayObjective],
+        objectives: List[ServiceLevelObjective[Value]],
         clock: Clock,
     ): DelayMetric[T] =
       DelayMetric(
@@ -210,25 +211,22 @@ object Metric {
         List(s"mean delay: ${meanDelaySeconds.getOrElse("-")} [s]")
     }
 
-    sealed trait DelayObjective extends ServiceLevelObjective[Value]
-    object DelayObjective {
-      final case class MaxDelay(maxDelaySeconds: Long) extends DelayObjective {
-        override def isViolatedBy(metricValue: Value): Boolean =
-          metricValue.meanDelaySeconds.exists(_ > maxDelaySeconds)
+    final case class MaxDelay(maxDelaySeconds: Long) extends ServiceLevelObjective[Value] {
+      override def isViolatedBy(metricValue: Value): Boolean =
+        metricValue.meanDelaySeconds.exists(_ > maxDelaySeconds)
 
-        override def moreViolatingOf(first: Value, second: Value): Value =
-          (first.meanDelaySeconds, second.meanDelaySeconds) match {
-            case (Some(fir), Some(sec)) =>
-              if (fir > sec) first
-              else second
-            case (Some(_), None) => first
-            case (None, Some(_)) => second
-            case (None, None) => first
-          }
+      override def moreViolatingOf(first: Value, second: Value): Value =
+        (first.meanDelaySeconds, second.meanDelaySeconds) match {
+          case (Some(fir), Some(sec)) =>
+            if (fir > sec) first
+            else second
+          case (Some(_), None) => first
+          case (None, Some(_)) => second
+          case (None, None) => first
+        }
 
-        override def formatted: String =
-          s"max allowed delay: $maxDelaySeconds [s]"
-      }
+      override def formatted: String =
+        s"max allowed delay: $maxDelaySeconds [s]"
     }
   }
 

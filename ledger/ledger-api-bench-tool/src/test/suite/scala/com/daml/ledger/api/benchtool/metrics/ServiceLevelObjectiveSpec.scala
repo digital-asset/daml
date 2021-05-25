@@ -17,7 +17,7 @@ class ServiceLevelObjectiveSpec extends AnyWordSpec with Matchers with TableDriv
       val randomValue = Random.nextInt(10000).toLong
       val randomSmaller = randomValue - 1
       val randomLarger = randomValue + 1
-      val maxDelay = DelayMetric.DelayObjective.MaxDelay(randomValue)
+      val maxDelay = DelayMetric.MaxDelay(randomValue)
       val cases = Table(
         ("Metric value", "Expected violated"),
         (Value(None), false),
@@ -43,7 +43,7 @@ class ServiceLevelObjectiveSpec extends AnyWordSpec with Matchers with TableDriv
         (Value(None), Value(Some(randomNumber)), Value(Some(randomNumber))),
         (Value(None), Value(None), Value(None)),
       )
-      val objective = DelayMetric.DelayObjective.MaxDelay(Random.nextLong())
+      val objective = DelayMetric.MaxDelay(Random.nextLong())
 
       forAll(cases) { (first, second, expected) =>
         objective.moreViolatingOf(first, second) shouldBe expected

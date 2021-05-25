@@ -99,7 +99,7 @@ object TransactionMetrics {
   ): List[Metric[T]] = {
     val reportingPeriodMillis = reportingPeriod.toMillis
     val delayObjectives =
-      objectives.maxDelaySeconds.map(Metric.DelayMetric.DelayObjective.MaxDelay).toList
+      objectives.maxDelaySeconds.map(Metric.DelayMetric.MaxDelay).toList
     List[Metric[T]](
       Metric.CountMetric.empty[T](reportingPeriodMillis, countingFunction),
       Metric.SizeMetric.empty[T](reportingPeriodMillis, sizingFunction),
