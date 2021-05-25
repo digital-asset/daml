@@ -9,11 +9,28 @@ import com.daml.lf.data.Ref.{DottedName, Name}
 import scala.language.implicitConversions
 import scala.collection.compat._
 import scala.collection.immutable.Map
-import scalaz.{-\/, ==>>, @@, Applicative, Cord, Monoid, Order, Semigroup, Tag, Traverse, \/, \/-}
+import scalaz.{
+  -\/,
+  ==>>,
+  @@,
+  Applicative,
+  Cord,
+  Maybe,
+  Monoid,
+  Order,
+  Semigroup,
+  Tag,
+  Traverse,
+  \/,
+  \/-,
+}
 import scalaz.std.map._
 import scalaz.std.string._
 import scalaz.syntax.monoid._
-import scalaz.syntax.traverse._
+import scalaz.syntax.foldable0._
+import scalaz.syntax.functor0._
+import scalaz.syntax.traverse0._
+import scalaz.syntax.std.option._
 
 // Free[K ==>> ?, A] with an incompatible semigroup and strict representation
 final case class Errors[K, A](run: A \/ (K ==>> Errors[K, A])) {
@@ -24,12 +41,12 @@ final case class Errors[K, A](run: A \/ (K ==>> Errors[K, A])) {
   }
 
   def collectAndPrune[B](f: A PartialFunction B)(implicit K: Order[K]): Errors[K, B] = {
-    def go(self: Errors[K, A]): Option[Errors[K, B]] =
+    def go(self: Errors[K, A]): Maybe[Errors[K, B]] =
       self.run.fold(
-        a => f.lift(a) map Errors.point,
+        a => f.lift(a).toMaybe map Errors.point,
         { m =>
-          val m2 = m mapOption go
-          if (m2.isEmpty) None else Some(Errors(\/-(m2)))
+          val m2 = m mapMaybe go
+          if (m2.isEmpty) Maybe.Empty() else Maybe.Just(Errors(\/-(m2)))
         },
       )
     go(this) getOrElse Errors.zeroErrors

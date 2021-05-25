@@ -8,7 +8,9 @@ package reader
 import com.daml.daml_lf_dev.DamlLf
 import scalaz.{Enum => _, _}
 import scalaz.syntax.monoid._
-import scalaz.syntax.traverse._
+import scalaz.syntax.show._
+import scalaz.syntax.foldable0._
+import scalaz.syntax.traverse0._
 import scalaz.std.list._
 import scalaz.std.option._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
@@ -34,10 +36,10 @@ object InterfaceReader {
       reason: String,
   ) = -\/(InvalidDataTypeDefinition(errorMessage(ctx, reason)))
 
-  private def unserializableDataType(
+  private def unserializableDataType[Bot](
       ctx: QualifiedName,
       reason: String,
-  ) = -\/(UnserializableDataType(errorMessage(ctx, reason)))
+  ) = -\/[InterfaceReaderError, Bot](UnserializableDataType(errorMessage(ctx, reason)))
 
   object InterfaceReaderError {
     type Tree = Errors[ErrorLoc, InterfaceReaderError]
@@ -46,7 +48,7 @@ object InterfaceReader {
       Semigroup.firstSemigroup
 
     def treeReport(errors: Errors[ErrorLoc, InterfaceReader.InvalidDataTypeDefinition]): Cord =
-      stringReport(errors)(_.fold(sy => Cord(".") :+ sy.name, Cord("'") :+ _ :+ "'"), _.error)
+      stringReport(errors)(_.fold(prop => cord".${prop.name}", ixName => cord"'$ixName'"), _.error)
   }
 
   private[reader] final case class State(

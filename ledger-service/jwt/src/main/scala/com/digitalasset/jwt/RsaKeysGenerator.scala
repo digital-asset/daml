@@ -7,7 +7,8 @@ import java.io.{File, FileNotFoundException, FileOutputStream}
 
 import com.daml.lf.data.TryOps.Bracket.bracket
 import scalaz.std.option._
-import scalaz.syntax.applicative._
+import scalaz.syntax.functor0._
+import scalaz.syntax.applicative.^
 
 import scala.util.{Failure, Success, Try}
 

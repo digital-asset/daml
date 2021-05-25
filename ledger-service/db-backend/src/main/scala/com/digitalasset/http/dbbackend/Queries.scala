@@ -17,6 +17,7 @@ import scalaz.Digit._0
 import scalaz.Id.Id
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
+import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.std.stream.unfold
 import scalaz.std.AllInstances._
@@ -379,7 +380,7 @@ object Queries {
   }
 
   private[this] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
-    oaa.copy(tail = oaa.tail.flatMap(Vector(a, _)))
+    OneAnd(oaa.head, oaa.tail.flatMap(Vector(a, _)))
 
   // Like groupBy but split into n maps where n is the longest list under groupBy.
   private[dbbackend] def uniqueSets[A, B](iter: Iterable[(A, B)]): Seq[NonEmpty[Map[A, B]]] =
@@ -662,7 +663,7 @@ private object OracleQueries extends Queries {
       }
       val quotedParties = parties.toVector.map(p => s""""$p"""").mkString(", ")
       val partiesQuery = oracleShortPathEscape(
-        '$' -: ("[*]?(@ in (": Cord) :+ quotedParties :+ "))"
+        cord"$$[*]?(@ in ($quotedParties))"
       )
       val q =
         sql"""SELECT c.contract_id contract_id, $tpid template_id, key, payload, signatories, observers, agreement_text
@@ -714,9 +715,8 @@ private object OracleQueries extends Queries {
   // None if literal is too long
   // ORA-40454: path expression not a literal
   private[this] def oraclePathEscape(readyPath: Cord): Option[Fragment] = for {
-    readyPath <- Some(readyPath)
-    if readyPath.size <= literalStringSizeLimit
-    s = readyPath.toString
+    s <- Some(readyPath.toString)
+    if s.size <= literalStringSizeLimit
     _ = assert(
       !s.startsWith("'") && !s.endsWith("'"),
       "Oracle JSON query syntax doesn't allow ' at beginning or ending",
@@ -733,7 +733,7 @@ private object OracleQueries extends Queries {
     )
 
   private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
-    val opath: Cord = '$' -: pathSteps(path)
+    val opath: Cord = cord"$$${pathSteps(path)}"
     // you cannot put a positional parameter in a path, which _must_ be a literal
     // so pass it as the path-local variable X instead
     def existsForm[Lit: Put](literal: Lit) =
@@ -763,7 +763,7 @@ private object OracleQueries extends Queries {
   private[http] override def containsAtContractPath(path: JsonPath, literal: JsValue) = {
     def ensureNotNull = {
       // we are only trying to reject None for an Optional record/variant/list
-      val pred: Cord = ('$' -: pathSteps(path)) ++ "?(@ != null)"
+      val pred: Cord = cord"$$${pathSteps(path)}?(@ != null)"
       sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ oracleShortPathEscape(pred) ++ sql")"
     }
     literal match {
@@ -816,7 +816,7 @@ private object OracleQueries extends Queries {
       case GT => ">"
       case GTEQ => ">="
     }
-    val pathc = ('$' -: pathSteps(path)) ++ s"?(@ $opc ${"$X"})"
+    val pathc = cord"$$${pathSteps(path)}?(@ $opc $$X)"
     sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++
       oracleShortPathEscape(pathc) ++ sql" PASSING " ++ literalRendered ++ sql" AS X)"
   }
