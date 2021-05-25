@@ -62,8 +62,6 @@ sealed trait SValue {
         V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
       case SContractId(coid) =>
         V.ValueContractId(coid)
-      case SArithmeticError(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SArithmeticError")
       case SStruct(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SStruct")
       case SAny(_, _) =>
@@ -113,8 +111,6 @@ sealed trait SValue {
         SAny(ty, value.mapContractId(f))
       case SAnyException(ty, value) =>
         SAnyException(ty, value.mapContractId(f))
-      case excep: SArithmeticError =>
-        excep
     }
 }
 
@@ -207,13 +203,29 @@ object SValue {
   }
 
   final case class SAny(ty: Type, value: SValue) extends SValue
-  sealed abstract class SException extends SValue
-  final case class SAnyException(ty: Type, value: SValue) extends SException
-  final case class SArithmeticError(
-      builtinName: String,
-      args: ImmArray[String],
-  ) extends SException {
-    def message = s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")})."
+  final case class SAnyException(ty: Type, value: SValue) extends SValue
+
+  object SArithmeticError {
+    val tyCon: Ref.TypeConName = Ref.Identifier.assertFromString(
+      "f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981:DA.Exception.ArithmeticError:ArithmeticError"
+    )
+    val typ: Type = TTyCon(tyCon)
+    val fields: ImmArray[Ref.Name] = ImmArray(Ref.Name.assertFromString("message"))
+    def apply(builtinName: String, args: ImmArray[String]): SAnyException = {
+      val array = new util.ArrayList[SValue](1)
+      array.add(
+        SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
+      )
+      SAnyException(typ, SRecord(tyCon, fields, array))
+    }
+    // Assumes excep is properly typed
+    def unapply(excep: SAnyException): Option[SValue] =
+      excep match {
+        case SAnyException(`typ`, SRecord(_, _, args)) =>
+          Some(args.get(0))
+        case _ =>
+          None
+      }
   }
 
   // Corresponds to a Daml-LF Nat type reified as a Speedy value.

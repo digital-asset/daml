@@ -405,8 +405,6 @@ convertPrim version "EToAnyContractKey"
 -- Exceptions
 convertPrim _ "BEAnyExceptionMessage" (TBuiltin BTAnyException :-> TText) =
     EBuiltin BEAnyExceptionMessage
-convertPrim _ "BEAnyExceptionIsArithmeticError" (TBuiltin BTAnyException :-> TBool) =
-    EBuiltin BEAnyExceptionIsArithmeticError
 
 convertPrim _ "EThrow" (ty1 :-> ty2) =
     ETmLam (mkVar "x", ty1) (EThrow ty2 ty1 (EVar (mkVar "x")))

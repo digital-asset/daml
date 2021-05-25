@@ -11,7 +11,7 @@ import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.speedy.SValue.SException
+import com.daml.lf.speedy.SValue.SAnyException
 
 object SError {
 
@@ -43,7 +43,7 @@ object SError {
   sealed abstract class SErrorDamlException extends SError
 
   /** Unhandled exceptions */
-  final case class DamlEUnhandledException(exception: SException) extends SErrorDamlException {
+  final case class DamlEUnhandledException(exception: SAnyException) extends SErrorDamlException {
     override def toString: String = s"Unhandled exception: $exception"
   }
 

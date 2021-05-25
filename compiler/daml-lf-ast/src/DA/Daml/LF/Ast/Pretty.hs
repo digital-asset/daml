@@ -223,7 +223,6 @@ instance Pretty BuiltinExpr where
     BERoundingMode r -> keyword_ $ prettyRounding r
     BEError -> "ERROR"
     BEAnyExceptionMessage -> "ANY_EXCEPTION_MESSAGE"
-    BEAnyExceptionIsArithmeticError -> "ANY_EXCEPTION_IS_ARITHMETIC_ERROR"
     BEEqualGeneric -> "EQUAL"
     BELessGeneric -> "LESS"
     BELessEqGeneric -> "LESS_EQ"

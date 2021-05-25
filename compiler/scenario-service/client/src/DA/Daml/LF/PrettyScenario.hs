@@ -211,11 +211,7 @@ prettyScenarioErrorError (Just err) =  do
   case err of
     ScenarioErrorErrorCrash reason -> pure $ text "CRASH:" <-> ltext reason
     ScenarioErrorErrorUserError reason -> pure $ text "Aborted: " <-> ltext reason
-    ScenarioErrorErrorUnhandledException (ScenarioError_Exception maybeException) ->
-      case maybeException of
-        Nothing -> pure $ text "<missing unhandled exception details>"
-        Just (ScenarioError_ExceptionErrorBuiltin message) -> pure $ text $ "Unhandled exception: " <> TL.toStrict message
-        Just (ScenarioError_ExceptionErrorUser value) -> pure $ text "Unhandled exception: " <-> prettyValue' True 0 world value
+    ScenarioErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' True 0 world exc
     ScenarioErrorErrorTemplatePrecondViolated ScenarioError_TemplatePreconditionViolated{..} -> do
       pure $
         "Template precondition violated in:"

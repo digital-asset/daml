@@ -3,7 +3,7 @@
 
 -- @SINCE-LF-FEATURE DAML_EXCEPTIONS
 -- @ERROR range=130:1-130:23; Unhandled exception: ExceptionSemantics:E
--- @ERROR range=145:1-145:25; Unhandled exception: ArithmeticError while evaluating (DIV_INT64 1 0).
+-- @ERROR range=145:1-145:25; ArithmeticError while evaluating (DIV_INT64 1 0).
 -- @ERROR range=182:1-182:11; Attempt to exercise a consumed contract
 module ExceptionSemantics where
 

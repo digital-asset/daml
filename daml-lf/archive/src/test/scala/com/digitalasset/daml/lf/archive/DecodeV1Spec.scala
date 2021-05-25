@@ -844,8 +844,6 @@ class DecodeV1Spec
         "exception builtins" -> "expected output",
         DamlLf1.BuiltinFunction.ANY_EXCEPTION_MESSAGE ->
           Ast.EBuiltin(Ast.BAnyExceptionMessage),
-        DamlLf1.BuiltinFunction.ANY_EXCEPTION_IS_ARITHMETIC_ERROR ->
-          Ast.EBuiltin(Ast.BAnyExceptionIsArithmeticError),
       )
 
       forEveryVersion { version =>
