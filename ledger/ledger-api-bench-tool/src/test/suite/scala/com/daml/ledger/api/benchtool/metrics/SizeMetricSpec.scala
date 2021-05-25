@@ -16,8 +16,8 @@ class SizeMetricSpec extends AnyWordSpec with Matchers {
       val (_, periodicValue) = metric.periodicValue()
       val finalValue = metric.finalValue(totalDurationSeconds)
 
-      periodicValue shouldBe SizeMetric.Value(Some(0.0))
-      finalValue shouldBe SizeMetric.Value(Some(0.0))
+      periodicValue shouldBe SizeMetric.Value(0.0)
+      finalValue shouldBe SizeMetric.Value(0.0)
     }
 
     "compute values after processing elements" in {
@@ -35,8 +35,8 @@ class SizeMetricSpec extends AnyWordSpec with Matchers {
 
       val totalSizeMegabytes =
         (testSizingFunction(elem1) + testSizingFunction(elem2)).toDouble / 1024 / 1024
-      periodicValue shouldBe SizeMetric.Value(Some(totalSizeMegabytes * 1000.0 / periodMillis))
-      finalValue shouldBe SizeMetric.Value(Some(totalSizeMegabytes * 1000.0 / periodMillis))
+      periodicValue shouldBe SizeMetric.Value(totalSizeMegabytes * 1000.0 / periodMillis)
+      finalValue shouldBe SizeMetric.Value(totalSizeMegabytes * 1000.0 / periodMillis)
     }
 
     "correctly handle periods with no elements" in {
@@ -59,8 +59,8 @@ class SizeMetricSpec extends AnyWordSpec with Matchers {
       val firstPeriodMean = firstPeriodMegabytes * 1000.0 / periodMillis
       val secondPeriodMean = 0.0
       val totalMean = (firstPeriodMean + secondPeriodMean) / 2
-      periodicValue shouldBe SizeMetric.Value(Some(secondPeriodMean))
-      finalValue shouldBe SizeMetric.Value(Some(totalMean))
+      periodicValue shouldBe SizeMetric.Value(secondPeriodMean)
+      finalValue shouldBe SizeMetric.Value(totalMean)
     }
 
     "correctly handle multiple periods with elements" in {
@@ -89,8 +89,8 @@ class SizeMetricSpec extends AnyWordSpec with Matchers {
       val thirdPeriodMegabytes = testSizingFunction(elem3).toDouble / 1024 / 1024
       val thirdPeriodMean = thirdPeriodMegabytes * 1000.0 / periodMillis
       val totalMean = (firstPeriodMean + secondPeriodMean + thirdPeriodMean) / 3
-      periodicValue shouldBe SizeMetric.Value(Some(thirdPeriodMean))
-      finalValue shouldBe SizeMetric.Value(Some(totalMean))
+      periodicValue shouldBe SizeMetric.Value(thirdPeriodMean)
+      finalValue shouldBe SizeMetric.Value(totalMean)
     }
   }
 
