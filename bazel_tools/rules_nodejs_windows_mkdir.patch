@@ -1,0 +1,26 @@
+diff --git a/internal/npm_install/npm_install.bzl b/internal/npm_install/npm_install.bzl
+index 3c07b3a0..8356e71a 100644
+--- a/internal/npm_install/npm_install.bzl
++++ b/internal/npm_install/npm_install.bzl
+@@ -335,8 +335,9 @@ def _copy_file(repository_ctx, f):
+     to_segments = to.split("/")
+     if len(to_segments) > 1:
+         dirname = "/".join(to_segments[:-1])
++        args = ["mkdir", "-p", dirname] if not is_windows_os(repository_ctx) else ["cmd", "/c", "if not exist {dir} mkdir {dir}".format(dir = dirname)]
+         result = repository_ctx.execute(
+-            ["mkdir", "-p", dirname],
++            args,
+             quiet = repository_ctx.attr.quiet,
+         )
+         if result.return_code:
+@@ -344,8 +345,9 @@ def _copy_file(repository_ctx, f):
+ 
+     # copy the file; don't use the repository_ctx.template trick with empty substitution as this
+     # does not copy over binary files properly
++    cp_args = ["cp", "-f", repository_ctx.path(f), to] if not is_windows_os(repository_ctx) else ["cmd", "/c", "cp /y {} {}".format(repository_ctx.path(f), to)]
+     result = repository_ctx.execute(
+-        ["cp", "-f", repository_ctx.path(f), to],
++        cp_args,
+         quiet = repository_ctx.attr.quiet,
+     )
+     if result.return_code:
