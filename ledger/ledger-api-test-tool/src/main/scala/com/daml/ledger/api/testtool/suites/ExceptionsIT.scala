@@ -71,7 +71,7 @@ final class ExceptionsIT extends LedgerTestSuite {
       t <- ledger.create(party, ExceptionTester(party))
       tFetch <- ledger.create(party, ExceptionTester(party))
       _ <- ledger.exercise(party, t.exerciseRollbackFetch(_, tFetch))
-      _ <- ledger.exercise(party, t.exerciseArchive(_))
+      _ <- ledger.exercise(party, tFetch.exerciseArchive(_))
       failure <- ledger
         .exercise(party, t.exerciseRollbackFetch(_, tFetch))
         .mustFail("contract is archived")
@@ -89,7 +89,7 @@ final class ExceptionsIT extends LedgerTestSuite {
       t <- ledger.create(party, ExceptionTester(party))
       tExercise <- ledger.create(party, ExceptionTester(party))
       _ <- ledger.exercise(party, t.exerciseRollbackConsuming(_, tExercise))
-      _ <- ledger.exercise(party, t.exerciseArchive(_))
+      _ <- ledger.exercise(party, tExercise.exerciseArchive(_))
       failure <- ledger
         .exercise(party, t.exerciseRollbackConsuming(_, tExercise))
         .mustFail("contract is archived")
@@ -107,7 +107,7 @@ final class ExceptionsIT extends LedgerTestSuite {
       t <- ledger.create(party, ExceptionTester(party))
       tExercise <- ledger.create(party, ExceptionTester(party))
       _ <- ledger.exercise(party, t.exerciseRollbackNonConsuming(_, tExercise))
-      _ <- ledger.exercise(party, t.exerciseArchive(_))
+      _ <- ledger.exercise(party, tExercise.exerciseArchive(_))
       failure <- ledger
         .exercise(party, t.exerciseRollbackNonConsuming(_, tExercise))
         .mustFail("contract is archived")
