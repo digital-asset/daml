@@ -131,11 +131,10 @@ message Commands {
   // A unique identifier to distinguish completions for different submissions with the same change ID.
   // Typically a random UUID. Applications are expected to use a different UUID for each retry of a submission
   // with the same change ID.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   //
-  // If omitted, the participant or Daml ledger may set a UUID of their choice.
+  // If omitted, the participant or Daml ledger may set a value of their choice.
   // Optional
-  //
-  // TODO(v2) Do we want to enforce the format of a UUID here?
   string submission_id = 17;
 
   // Applications can rank their submissions with the same change ID.
@@ -143,8 +142,9 @@ message Commands {
   // The participant and Daml ledger provide the following rank guarantee:
   // Let there be two submissions for the same change ID with submission ranks `rank1 <= rank2` and submission IDs `sid1` and `sid2`.
   // Suppose that the submission `sid2` has completed with a definite answer on the completion stream at offset `off2`.
-  // If there is no completion for the submission `sid1` before `off2`, then the submission `sid1` will result at most
-  // in a cancellation (it might be that the submission was lost and no result will ever reach the application).
+  // If there is no completion for the submission `sid1` before `off2`, then the submission `sid1` will not result
+  // in a definite answer or successful completion. So if a result ever reaches the application,
+  // the result will be a rejection that is not marked as a definite answer.
   //
   // The submission rank is a completion offset.
   // It must be no earlier than the offset that defines the start of the deduplication period.
