@@ -151,11 +151,11 @@ object Metric {
             currentViolatingValue match {
               case None =>
                 // if the new value violates objective's requirements and there is no other violating value,
-                // record the current value
+                // record the new value
                 objective -> Some(newValue)
               case Some(currentValue) =>
                 // if the new value violates objective's requirements and there is already a value that violates
-                // requirements, record the extreme value of the two
+                // requirements, record the maximum value of the two
                 objective -> Some(objective.moreViolatingOf(currentValue, newValue))
             }
           } else {
