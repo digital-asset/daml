@@ -13,12 +13,12 @@ import scala.annotation.tailrec
 
 private[lf] object NormalizeRollbacks {
 
-  type Nid = NodeId
-  type Cid = Value.ContractId
-  type TX = GenTransaction[Nid, Cid]
-  type Node = GenNode[Nid, Cid]
-  type LeafNode = LeafOnlyActionNode[Cid]
-  type ExeNode = NodeExercises[Nid, Cid]
+  private[this] type Nid = NodeId
+  private[this] type Cid = Value.ContractId
+  private[this] type TX = GenTransaction[Nid, Cid]
+  private[this] type Node = GenNode[Nid, Cid]
+  private[this] type LeafNode = LeafOnlyActionNode[Cid]
+  private[this] type ExeNode = NodeExercises[Nid, Cid]
 
   // Normalize a transaction so rollback nodes satisfy the normalization rules.
   // see `makeRoll` below
@@ -92,7 +92,7 @@ private[lf] object NormalizeRollbacks {
 
   //   rule #2/#3 overlap: ROLL [ ROLL [ xs… ] ] -> ROLL [ xs… ]
 
-  private def makeRoll[R](norms: List[Norm])(k: List[Norm] => Tramp[R]): Tramp[R] = {
+  private[this] def makeRoll[R](norms: List[Norm])(k: List[Norm] => Tramp[R]): Tramp[R] = {
     caseNorms(norms) match {
       case Case.Empty =>
         // normalization rule #1
@@ -134,7 +134,7 @@ private[lf] object NormalizeRollbacks {
 
   // There is no connection between the ids in the original and normalized transaction.
 
-  private case class State(index: Int, nodeMap: Map[Nid, Node]) {
+  private[this] case class State(index: Int, nodeMap: Map[Nid, Node]) {
 
     def next[R](k: (State, Nid) => Tramp[R]): Tramp[R] = {
       k(State(index + 1, nodeMap), NodeId(index))
