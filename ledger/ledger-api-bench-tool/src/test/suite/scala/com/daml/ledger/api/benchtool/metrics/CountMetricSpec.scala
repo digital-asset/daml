@@ -7,26 +7,25 @@ import com.daml.ledger.api.benchtool.metrics.Metric.CountMetric
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.util.Random
-
 class CountMetricSpec extends AnyWordSpec with Matchers {
   CountMetric.getClass.getSimpleName should {
     "correctly handle initial state" in {
+      val totalDurationSeconds: Double = 1.0
       val metric: CountMetric[String] = anEmptyStringMetric()
 
       val (_, periodicValue) = metric.periodicValue()
-      val finalValue = metric.finalValue(aPositiveDouble())
+      val finalValue = metric.finalValue(totalDurationSeconds)
 
       periodicValue shouldBe CountMetric.Value(0, 0.0)
       finalValue shouldBe CountMetric.Value(0, 0.0)
     }
 
     "compute values after processing elements" in {
-      val periodMillis: Long = aPositiveLong()
-      val totalDurationSeconds: Double = aPositiveDouble()
+      val periodMillis: Long = 100
+      val totalDurationSeconds: Double = 5.0
       val metric: CountMetric[String] = anEmptyStringMetric(periodMillis)
-      val elem1: String = aString()
-      val elem2: String = aString()
+      val elem1: String = "abc"
+      val elem2: String = "defg"
 
       val (newMetric, periodicValue) = metric
         .onNext(elem1)
@@ -46,11 +45,11 @@ class CountMetricSpec extends AnyWordSpec with Matchers {
     }
 
     "correctly handle periods with no elements" in {
-      val periodMillis: Long = aPositiveLong()
-      val totalDurationSeconds: Double = aPositiveDouble()
+      val periodMillis: Long = 100
+      val totalDurationSeconds: Double = 5.0
       val metric: CountMetric[String] = anEmptyStringMetric(periodMillis)
-      val elem1: String = aString()
-      val elem2: String = aString()
+      val elem1: String = "abc"
+      val elem2: String = "defg"
 
       val (newMetric, periodicValue) = metric
         .onNext(elem1)
@@ -72,12 +71,12 @@ class CountMetricSpec extends AnyWordSpec with Matchers {
     }
 
     "correctly handle multiple periods with elements" in {
-      val periodMillis: Long = aPositiveLong()
-      val totalDurationSeconds: Double = aPositiveDouble()
+      val periodMillis: Long = 100
+      val totalDurationSeconds: Double = 5.0
       val metric: CountMetric[String] = anEmptyStringMetric(periodMillis)
-      val elem1: String = aString()
-      val elem2: String = aString()
-      val elem3: String = aString()
+      val elem1: String = "abc"
+      val elem2: String = "defg"
+      val elem3: String = "hij"
 
       val (newMetric, periodicValue) = metric
         .onNext(elem1)
@@ -101,14 +100,9 @@ class CountMetricSpec extends AnyWordSpec with Matchers {
   }
 
   private def stringLength(value: String): Int = value.length
-  private def anEmptyStringMetric(periodMillis: Long = aPositiveLong()): CountMetric[String] =
+  private def anEmptyStringMetric(periodMillis: Long = 100): CountMetric[String] =
     CountMetric.empty[String](
       periodMillis = periodMillis,
       countingFunction = stringLength,
     )
-
-  private def aString(): String = Random.nextString(Random.nextInt(50))
-  private def aPositiveInt(): Int = Random.nextInt(100000)
-  private def aPositiveLong(): Long = aPositiveInt().toLong
-  private def aPositiveDouble(): Double = Random.nextDouble() * aPositiveInt()
 }
