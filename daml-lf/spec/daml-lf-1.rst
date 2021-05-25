@@ -3261,6 +3261,68 @@ as described by the ledger model::
      (Err E, ('rollback' tr₁))
 
 
+Transaction normalization
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+After a transaction is generated through update interpretation, it is normalized.
+Normalized transactions do not include empty rollback nodes, nor any rollback
+node that starts or ends with another rollback node.
+
+To define normalization, we need a helper function. This function takes a
+normalized transaction and tries to wrap it in a rollback node, while preserving
+normalization. This function defined recursively recursive by the following rules:
+
+                                 ┌───────────────┐
+  Normalized Rollback Wrapping   │ ℝ (tr₁) = tr₂ │
+                                 └───────────────┘
+
+   —————————————————————————————————————————————————————————————————————— RollbackEmpty
+    ℝ (ε)  =  ε
+
+    ℝ (tr₂)  =  tr₃
+   —————————————————————————————————————————————————————————————————————— RollbackPrefix
+    ℝ (('rollback'  tr₁) ⋅ tr₂)  =  ('rollback' tr₁) ⋅ tr₃
+
+   —————————————————————————————————————————————————————————————————————— RollbackSuffix
+    ℝ (act ⋅ tr₁ ⋅ ('rollback'  tr₂))  =  'rollback' (act ⋅ tr₁ ⋅ tr₂)
+
+   —————————————————————————————————————————————————————————————————————— RollbackSingle
+    ℝ (act)  =  'rollback' act
+
+   —————————————————————————————————————————————————————————————————————— RollbackMultiple
+    ℝ (act₁ ⋅ tr ⋅ act₂)  =  'rollback' (act₁ ⋅ tr ⋅ act₂)
+
+
+Normalization of a transaction is then defined according to the following rules
+(where `ntr` ranges over normalized transactions):
+
+                              ┌───────────┐
+  Transaction Normalization   │ tr ⇓ₜ ntr │
+                              └───────────┘
+
+   —————————————————————————————————————————————————————————————————————— TransNormEmpty
+    ε  ⇓ₜ  ε
+
+    tr₁  ⇓ₜ  ntr₁
+    tr₂  ⇓ₜ  ntr₂
+   —————————————————————————————————————————————————————————————————————— TransNormConcat
+    tr₁ ⋅ tr₂  ⇓ₜ  ntr₁ ⋅ ntr₂
+
+   —————————————————————————————————————————————————————————————————————— TransNormCreate
+    'create' Contract  ⇓ₜ  'create' Contract
+
+    tr  ⇓ₜ  ntr
+   —————————————————————————————————————————————————————————————————————— TransNormExercise
+    'exercise' v Contract ChKind tr
+      ⇓ₜ
+    'exercise' v Contract ChKind ntr
+
+    tr  ⇓ₜ  ntr₁
+    ℝ (ntr₁)  =  ntr₂
+   —————————————————————————————————————————————————————————————————————— TransNormRollback
+    'rollback' tr  ⇓ₜ  ntr₂
+
+
 About scenario interpretation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
