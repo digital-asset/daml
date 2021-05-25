@@ -4,6 +4,9 @@
 package com.daml.lf.data
 
 import scalaz.{Cord, Show}
+import scalaz.std.vector._
+import scalaz.syntax.foldable._
+import scalaz.syntax.show._
 
 import scala.collection.immutable.{HashMap, Queue}
 
@@ -57,13 +60,9 @@ object InsertOrdMap extends InsertOrdMapCompanion {
 
   implicit def insertMapShow[K: Show, V: Show]: Show[InsertOrdMap[K, V]] =
     Show.show { m =>
-      "InsertOrdMap[" +:
-        Cord.mkCord(
-          ", ",
-          m.toSeq.map { x =>
-            Cord(implicitly[Show[K]] show x._1, "->", implicitly[Show[V]] show x._2)
-          }: _*
-        ) :+ "]"
+      cord"""InsertOrdMap[${m.view.map { case (k, v) =>
+        cord"$k->$v"
+      }.toVector intercalate Cord(", ")}]"""
     }
 
 }
