@@ -8,8 +8,7 @@ import com.daml.lf.transaction.{NodeId, GenTransaction}
 import com.daml.lf.transaction.Node.{GenNode, NodeRollback, NodeExercises, LeafOnlyActionNode}
 import com.daml.lf.value.Value
 import com.daml.lf.data.ImmArray
-
-import scala.annotation.tailrec
+import com.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
 
 private[lf] object NormalizeRollbacks {
 
@@ -28,8 +27,6 @@ private[lf] object NormalizeRollbacks {
   // `Canonical` in the sense that only properly normalized nodes can be represented.
   // Although this doesn't ensure correctness, one class of bugs is avoided.
 
-  import Trampoline.{Bounce, Land, Tramp}
-
   def normalizeTx(txOriginal: TX): TX = {
 
     // Here we traverse the original transaction structure.
@@ -40,7 +37,7 @@ private[lf] object NormalizeRollbacks {
 
     txOriginal match {
       case GenTransaction(nodesOriginal, rootsOriginal) =>
-        def traverseNids[R](xs: List[Nid])(k: List[Norm] => Tramp[R]): Tramp[R] = {
+        def traverseNids[R](xs: List[Nid])(k: List[Norm] => Trampoline[R]): Trampoline[R] = {
           Bounce { () =>
             xs match {
               case Nil => k(Nil)
@@ -56,7 +53,7 @@ private[lf] object NormalizeRollbacks {
           }
         }
 
-        def traverseNode[R](node: Node)(k: List[Norm] => Tramp[R]): Tramp[R] = {
+        def traverseNode[R](node: Node)(k: List[Norm] => Trampoline[R]): Trampoline[R] = {
           Bounce { () =>
             node match {
 
@@ -81,7 +78,7 @@ private[lf] object NormalizeRollbacks {
           pushNorms(initialState, norms) { (finalState, roots) =>
             Land(GenTransaction(finalState.nodeMap, ImmArray(roots)))
           }
-        }.run
+        }.bounce
     }
   }
 
@@ -92,7 +89,9 @@ private[lf] object NormalizeRollbacks {
 
   //   rule #2/#3 overlap: ROLL [ ROLL [ xs… ] ] -> ROLL [ xs… ]
 
-  private[this] def makeRoll[R](norms: List[Norm])(k: List[Norm] => Tramp[R]): Tramp[R] = {
+  private[this] def makeRoll[R](
+      norms: List[Norm]
+  )(k: List[Norm] => Trampoline[R]): Trampoline[R] = {
     caseNorms(norms) match {
       case Case.Empty =>
         // normalization rule #1
@@ -136,11 +135,11 @@ private[lf] object NormalizeRollbacks {
 
   private[this] case class State(index: Int, nodeMap: Map[Nid, Node]) {
 
-    def next[R](k: (State, Nid) => Tramp[R]): Tramp[R] = {
+    def next[R](k: (State, Nid) => Trampoline[R]): Trampoline[R] = {
       k(State(index + 1, nodeMap), NodeId(index))
     }
 
-    def push[R](nid: Nid, node: Node)(k: (State, Nid) => Tramp[R]): Tramp[R] = {
+    def push[R](nid: Nid, node: Node)(k: (State, Nid) => Trampoline[R]): Trampoline[R] = {
       k(State(index, nodeMap = nodeMap + (nid -> node)), nid)
     }
 
@@ -153,7 +152,7 @@ private[lf] object NormalizeRollbacks {
 
   private val initialState = State(0, Map.empty)
 
-  private def pushAct[R](s: State, x: Norm.Act)(k: (State, Nid) => Tramp[R]): Tramp[R] = {
+  private def pushAct[R](s: State, x: Norm.Act)(k: (State, Nid) => Trampoline[R]): Trampoline[R] = {
     Bounce { () =>
       s.next { (s, me) =>
         x match {
@@ -169,7 +168,9 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private def pushRoll[R](s: State, x: Norm.Roll)(k: (State, Nid) => Tramp[R]): Tramp[R] = {
+  private def pushRoll[R](s: State, x: Norm.Roll)(
+      k: (State, Nid) => Trampoline[R]
+  ): Trampoline[R] = {
     s.next { (s, me) =>
       x match {
         case Norm.Roll1(act) =>
@@ -191,7 +192,7 @@ private[lf] object NormalizeRollbacks {
     }
   }
 
-  private def pushNorm[R](s: State, x: Norm)(k: (State, Nid) => Tramp[R]): Tramp[R] = {
+  private def pushNorm[R](s: State, x: Norm)(k: (State, Nid) => Trampoline[R]): Trampoline[R] = {
     x match {
       case act: Norm.Act => pushAct(s, act)(k)
       case roll: Norm.Roll => pushRoll(s, roll)(k)
@@ -199,8 +200,8 @@ private[lf] object NormalizeRollbacks {
   }
 
   private def pushNorms[R](s: State, xs: List[Norm])(
-      k: (State, List[Nid]) => Tramp[R]
-  ): Tramp[R] = {
+      k: (State, List[Nid]) => Trampoline[R]
+  ): Trampoline[R] = {
     Bounce { () =>
       xs match {
         case Nil => k(s, Nil)
@@ -253,20 +254,4 @@ private[lf] object NormalizeRollbacks {
       }
     }
   }
-
-  // Trampolines for stack-safety
-  object Trampoline {
-    sealed trait Tramp[A] {
-      @tailrec
-      def run: A = {
-        this match {
-          case Land(a) => a
-          case Bounce(func) => func().run
-        }
-      }
-    }
-    final case class Land[A](a: A) extends Tramp[A]
-    final case class Bounce[A](func: () => Tramp[A]) extends Tramp[A]
-  }
-
 }
