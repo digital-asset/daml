@@ -104,7 +104,7 @@ object LedgerApiBenchTool {
         .transform {
           case Success(results) =>
             if (results.contains(MetricsManager.Message.MetricsResult.ObjectivesViolated))
-              Failure(new RuntimeException("Metrics objectives violated."))
+              Failure(new RuntimeException("Metrics objectives not met."))
             else Success(())
           case Failure(ex) =>
             Failure(ex)

@@ -87,7 +87,7 @@ class MetricsManager[T](
           s"objective: ${objective.formatted} - value: ${value.formatted.mkString(", ")}"
         }.toList match {
           case Nil => Nil
-          case elems => "!!! VIOLATED OBJECTIVES !!!" :: elems
+          case elems => "!!! OBJECTIVES NOT MET !!!" :: elems
         }).map(indented(_))
 
       val all: String = (metricValues ::: violatedObjectives)
