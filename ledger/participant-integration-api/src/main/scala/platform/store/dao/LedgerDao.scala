@@ -35,7 +35,7 @@ import com.daml.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry,
 }
-import com.daml.platform.store.interfaces.LedgerDaoContractsReader
+import com.daml.platform.store.interfaces.{LedgerDaoContractsReader, TransactionLogUpdate}
 
 import scala.concurrent.Future
 
@@ -60,6 +60,10 @@ private[platform] trait LedgerDaoTransactionsReader {
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed]
+
+  def getTransactionLogUpdates(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
+      implicit loggingContext: LoggingContext
+  ): Source[((Offset, Long), TransactionLogUpdate), NotUsed]
 
   def lookupTransactionTreeById(
       transactionId: TransactionId,

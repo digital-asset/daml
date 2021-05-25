@@ -353,6 +353,11 @@ final class Metrics(val registry: MetricRegistry) {
       val uploadPackages: Timer = registry.timer(Prefix :+ "upload_packages")
       val publishConfiguration: Timer = registry.timer(Prefix :+ "publish_configuration")
 
+      val decodeTransactionLogUpdate: Timer =
+        registry.timer(Prefix :+ "decode_transaction_log_update")
+      val transactionLogUpdatesBufferSize: Counter =
+        registry.counter(Prefix :+ "transaction_log_updates_buffer_size")
+
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
         private val Prefix: MetricName = index.Prefix :+ "db"
@@ -424,6 +429,9 @@ final class Metrics(val registry: MetricRegistry) {
           "store_party_entry"
         ) // FIXME Base name conflicts with storePartyEntry
         val loadPartyEntries: DatabaseMetrics = createDbMetrics("load_party_entries")
+        val getTransactionLogUpdates: DatabaseMetrics = createDbMetrics(
+          "get_transaction_log_updates"
+        )
 
         object storeTransactionDbMetrics
             extends DatabaseMetrics(registry, Prefix, "store_ledger_entry") {
