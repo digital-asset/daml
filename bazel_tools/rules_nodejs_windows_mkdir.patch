@@ -1,5 +1,5 @@
 diff --git a/internal/npm_install/npm_install.bzl b/internal/npm_install/npm_install.bzl
-index 3c07b3a0..c022b960 100644
+index 3c07b3a0..a7b77d9a 100644
 --- a/internal/npm_install/npm_install.bzl
 +++ b/internal/npm_install/npm_install.bzl
 @@ -335,8 +335,9 @@ def _copy_file(repository_ctx, f):
@@ -17,7 +17,7 @@ index 3c07b3a0..c022b960 100644
  
      # copy the file; don't use the repository_ctx.template trick with empty substitution as this
      # does not copy over binary files properly
-+    cp_args = ["cp", "-f", repository_ctx.path(f), to] if not is_windows_os(repository_ctx) else ["cmd", "/c", "copy /y {} {}".format("\\".join(repository_ctx.path(f).split("/")), "\\".join(to_segments))]
++    cp_args = ["cp", "-f", repository_ctx.path(f), to] if not is_windows_os(repository_ctx) else ["cmd", "/c", "copy /y {} {}".format("\\".join(str(repository_ctx.path(f)).split("/")), "\\".join(to_segments))]
      result = repository_ctx.execute(
 -        ["cp", "-f", repository_ctx.path(f), to],
 +        cp_args,
