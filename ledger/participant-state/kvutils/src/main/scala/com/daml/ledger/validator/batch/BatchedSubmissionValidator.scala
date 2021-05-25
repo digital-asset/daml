@@ -74,7 +74,7 @@ object BatchedSubmissionValidator {
     withCorrelationIdLogged(correlatedSubmission.correlationId)(f)
 }
 
-/** Batch validator validates and commits DAML submission batches to a DAML ledger. */
+/** Batch validator validates and commits Daml submission batches to a Daml ledger. */
 class BatchedSubmissionValidator[CommitResult] private[validator] (
     params: BatchedSubmissionValidatorParameters,
     committer: KeyValueCommitting,
@@ -234,7 +234,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
   // The last stage commits the results.
   private type Outputs6 = Unit
 
-  /** Validate and commit a batch of indexed DAML submissions.
+  /** Validate and commit a batch of indexed Daml submissions.
     * See the type definitions above to understand the different stages in the
     * processing pipeline.
     */

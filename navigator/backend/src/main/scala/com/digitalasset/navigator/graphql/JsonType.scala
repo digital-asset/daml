@@ -96,7 +96,7 @@ object JsonType {
   val ApiRecordType: ScalarType[ApiRecord] = newScalarType[ApiRecord]("DamlLfValueRecord")
 
   // ------------------------------------------------------------------------------------------------------------------
-  // DAML-LF types
+  // Daml-LF types
   // ------------------------------------------------------------------------------------------------------------------
   val DamlLfTypeType: ScalarType[DamlLfType] = newScalarType[DamlLfType]("DamlLfType")
   val DamlLfDataTypeType: ScalarType[DamlLfDataType] =

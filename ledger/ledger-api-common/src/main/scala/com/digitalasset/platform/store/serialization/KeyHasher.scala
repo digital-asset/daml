@@ -16,12 +16,12 @@ import com.daml.lf.value.Value.ContractId
 trait KeyHasher {
 
   /** @deprecated in favor of [[GlobalKey.hash]]
-    * Returns the hash of the given DAML-LF value
+    * Returns the hash of the given Daml-LF value
     */
   def hashKey(key: GlobalKey): Array[Byte]
 
   /** @deprecated in favor of [[GlobalKey.hash]]
-    * Returns a string representation of the hash of the given DAML-LF value
+    * Returns a string representation of the hash of the given Daml-LF value
     */
   def hashKeyString(key: GlobalKey): String = hashKey(key).map("%02x" format _).mkString
 }
@@ -31,7 +31,7 @@ trait KeyHasher {
 object KeyHasher extends KeyHasher {
 
   /** ADT for data elements that appear in the input stream of the hash function
-    * used to hash DAML-LF values.
+    * used to hash Daml-LF values.
     */
   private sealed abstract class HashToken extends Product with Serializable
   private final case class HashTokenText(value: String) extends HashToken
@@ -44,7 +44,7 @@ object KeyHasher extends KeyHasher {
   /** Traverses the given value in a stable way, producing "hash tokens" for any encountered primitive values.
     * These tokens can be used as the input to a hash function.
     *
-    * @param value the DAML-LF value to hash
+    * @param value the Daml-LF value to hash
     * @param z initial hash value
     * @param op operation to append a hash token
     * @return the final hash value

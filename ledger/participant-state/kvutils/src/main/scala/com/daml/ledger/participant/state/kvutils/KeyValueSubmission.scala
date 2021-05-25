@@ -12,7 +12,6 @@ import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
-import scala.collection.compat.immutable.LazyList
 import scala.jdk.CollectionConverters._
 
 /** Methods to produce the [[DamlSubmission]] message.

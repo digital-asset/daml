@@ -380,6 +380,25 @@ testsForDamlcTest damlc = testGroup "damlc test" $
             ]
           withCurrentDirectory projDir $
               callProcessSilent damlc ["test", "--project-root=relative"]
+    , testCase "damlc test --project-root proj --junit a.xml" $ withTempDir $ \tempDir -> do
+          createDirectoryIfMissing True (tempDir </> "proj")
+          writeFileUTF8 (tempDir </> "proj" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "test = scenario do"
+            , "  assert True"
+            ]
+          writeFileUTF8 (tempDir </> "proj" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: relative"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          withCurrentDirectory tempDir $
+              callProcessSilent damlc ["test", "--project-root=proj", "--junit=a.xml"]
+          exists <- doesFileExist $ tempDir </> "a.xml"
+          -- Check that the junit output was created relative to CWD not the project.
+          assertBool "JUnit output was not created" exists
     ] <>
     [ testCase ("damlc test " <> unwords (args "") <> " in project") $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")

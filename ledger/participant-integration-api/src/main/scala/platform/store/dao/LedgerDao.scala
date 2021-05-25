@@ -146,12 +146,12 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed]
 
-  /** Returns a list of all known DAML-LF packages */
+  /** Returns a list of all known Daml-LF packages */
   def listLfPackages()(implicit
       loggingContext: LoggingContext
   ): Future[Map[PackageId, PackageDetails]]
 
-  /** Returns the given DAML-LF archive */
+  /** Returns the given Daml-LF archive */
   def getLfArchive(packageId: PackageId)(implicit
       loggingContext: LoggingContext
   ): Future[Option[Archive]]
@@ -311,7 +311,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       rejectionReason: Option[String],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
-  /** Store a DAML-LF package upload result.
+  /** Store a Daml-LF package upload result.
     */
   def storePackageEntry(
       offsetStep: OffsetStep,

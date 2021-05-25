@@ -41,8 +41,8 @@ buildifier_version = "4.0.0"
 buildifier_sha256 = "0d3ca4ed434958dda241fb129f77bd5ef0ce246250feed2d5a5470c6f29a77fa"
 zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
-rules_nodejs_version = "2.3.1"
-rules_nodejs_sha256 = "121f17d8b421ce72f3376431c3461cd66bfe14de49059edc7bb008d5aebd16be"
+rules_nodejs_version = "3.5.0"
+rules_nodejs_sha256 = "10f534e1c80f795cffe1f2822becd4897754d18564612510c59b3c73544ae7c6"
 rules_jvm_external_version = "3.3"
 rules_jvm_external_sha256 = "d85951a92c0908c80bd8551002d66cb23c3434409c814179c0ff026b53544dab"
 rules_go_version = "0.23.6"
@@ -204,6 +204,8 @@ def daml_deps():
                 # Work around for https://github.com/bazelbuild/rules_nodejs/issues/1565
                 "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_npm_cli_path.patch",
                 "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_node_dependency.patch",
+                # Can be upstreamed
+                "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_windows_mkdir.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -398,7 +400,7 @@ java_import(
     jars = glob(["lib/**/*.jar"]),
 )
         """,
-            sha256 = "5c03dd4351c2d360e8fb8ba4f78ca5fe46e8025c3b16b39295a739e0c0a690bc",
-            strip_prefix = "canton-community-0.23.0",
-            urls = ["https://www.canton.io/releases/canton-community-0.23.0.tar.gz"],
+            sha256 = "2ab610e13cadef0756aa1eebf8be9c40192b7cca1774ebd0df06c662628a6c4d",
+            strip_prefix = "canton-community-0.24.0",
+            urls = ["https://www.canton.io/releases/canton-community-0.24.0.tar.gz"],
         )

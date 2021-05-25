@@ -1,0 +1,65 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE RecordWildCards #-}
+module LargeAcs where
+
+template Genesis with
+    issuer : Party
+    owner : Party
+    currency : Text
+    observers : [Party]
+  where
+    signatory issuer, owner
+    key owner : Party
+    maintainer key
+    nonconsuming choice Genesis_MakeIouRange : ()
+        with
+          totalSteps : Int
+          amountCycle : [Decimal]
+          observersCycle : [[Party]]
+        controller owner
+        do
+          assert (totalSteps >= 0)
+          amounts <- infCycle amountCycle
+          observerses <- infCycle observersCycle
+          makeIouRange totalSteps amounts observerses this
+
+makeIouRange : Int -> InfCycle Decimal -> InfCycle [Party] -> Genesis -> Update ()
+makeIouRange count amountCycle observersCycle g =
+  if count <= 0 then pure () else do
+    let Genesis {..} = g
+        (amount, amounts) = popCycle amountCycle
+        (observers, observerses) = popCycle observersCycle
+    create Iou with ..
+    makeIouRange (count - 1) amounts observerses g
+
+data InfCycle a = InfCycle { list : [a], orig : [a] }
+  deriving (Eq, Ord, Show)
+
+infCycle : CanAssert m => [a] -> m (InfCycle a)
+infCycle xs = do
+  assert $ case xs of
+      [] -> False
+      _::_ -> True
+  pure (InfCycle xs xs)
+
+popCycle : InfCycle a -> (a, InfCycle a)
+popCycle (InfCycle (x :: xs) orig) = (x, InfCycle xs orig)
+popCycle (InfCycle [] orig) =
+  let x :: xs = orig
+  in (x, InfCycle xs orig)
+
+template Iou
+  with
+    issuer : Party
+    owner : Party
+    currency : Text
+    amount : Decimal
+    observers : [Party]
+  where
+    ensure amount > 0.0
+
+    signatory issuer, owner
+
+    observer observers

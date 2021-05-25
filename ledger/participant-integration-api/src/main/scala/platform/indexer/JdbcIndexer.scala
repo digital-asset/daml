@@ -68,7 +68,7 @@ object JdbcIndexer {
         resourceContext: ResourceContext
     ): Future[ResourceOwner[Indexer]] =
       flywayMigrations
-        .validate()
+        .validate(config.enableAppendOnlySchema)
         .flatMap(_ => initialized(resetSchema = false))(resourceContext.executionContext)
 
     def migrateSchema(
@@ -90,6 +90,7 @@ object JdbcIndexer {
           serverRole,
           config.jdbcUrl,
           config.databaseConnectionPoolSize,
+          config.databaseConnectionTimeout,
           config.eventsPageSize,
           servicesExecutionContext,
           metrics,
@@ -130,6 +131,7 @@ object JdbcIndexer {
               serverRole,
               config.jdbcUrl,
               config.databaseConnectionPoolSize,
+              config.databaseConnectionTimeout,
               config.eventsPageSize,
               servicesExecutionContext,
               metrics,
@@ -164,6 +166,7 @@ object JdbcIndexer {
             if (config.enableCompression) CompressionStrategy.allGZIP(metrics)
             else CompressionStrategy.none(metrics),
           mat = materializer,
+          maxInputBufferSize = config.maxInputBufferSize,
           inputMappingParallelism = config.inputMappingParallelism,
           batchingParallelism = config.batchingParallelism,
           ingestionParallelism = config.ingestionParallelism,

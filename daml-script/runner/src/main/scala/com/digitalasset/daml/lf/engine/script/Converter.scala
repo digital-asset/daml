@@ -35,7 +35,7 @@ import spray.json._
 import scala.annotation.tailrec
 import scala.concurrent.Future
 
-// Helper to create identifiers pointing to the DAML.Script module
+// Helper to create identifiers pointing to the Daml.Script module
 case class ScriptIds(val scriptPackageId: PackageId) {
   def damlScript(s: String) =
     Identifier(
@@ -185,7 +185,7 @@ object Converter {
   def toAnyChoice(v: SValue): Either[String, AnyChoice] = {
     v match {
       case SRecord(_, _, JavaList(SAny(TTyCon(tyCon), choiceVal), _)) =>
-        // This exploits the fact that in DAML, choice argument type names
+        // This exploits the fact that in Daml, choice argument type names
         // and choice names match up.
         ChoiceName.fromString(tyCon.qualifiedName.name.toString).map(AnyChoice(_, choiceVal))
       case _ => Left(s"Expected AnyChoice but got $v")

@@ -47,9 +47,9 @@ object CodeGen {
   import Util.{FilePlan, WriteParams}
 
   /*
-   * Given a DAML package (in DAR or DALF format), a package name and an output
+   * Given a Daml package (in DAR or DALF format), a package name and an output
    * directory, this function writes a bunch of generated .scala files
-   * to 'outputDir' that mirror the namespace of the DAML package.
+   * to 'outputDir' that mirror the namespace of the Daml package.
    *
    * This function throws exception when an unexpected error happens. Unexpected errors are:
    * - input file not found or not readable

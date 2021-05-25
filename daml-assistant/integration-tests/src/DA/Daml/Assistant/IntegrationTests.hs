@@ -4,10 +4,11 @@ module DA.Daml.Assistant.IntegrationTests (main) where
 
 import Conduit hiding (connect)
 import Control.Concurrent
-import Control.Concurrent.Async
+import Control.Concurrent.STM
 import Control.Exception.Extra
 import Control.Lens
 import Control.Monad
+import Control.Monad.Loops (untilM_)
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
@@ -15,14 +16,12 @@ import Data.List.Extra
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import Data.Typeable (Typeable)
 import qualified Data.Vector as Vector
 import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket
 import System.Directory.Extra
 import System.Environment.Blank
-import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Info.Extra
@@ -66,11 +65,23 @@ hardcodedToken = tokenFor ["Alice"] "MyLedger" "AssistantIntegrationTests"
 authorizationHeaders :: RequestHeaders
 authorizationHeaders = [("Authorization", "Bearer " <> T.encodeUtf8 hardcodedToken)]
 
+withDamlService :: String -> [String] -> IO a -> IO a
+withDamlService command args act = withDevNull $ \devNull -> do
+    let proc' = (shell $ unwords $ ["daml", command] <> args)
+          { std_out = UseHandle devNull
+          , create_group = True
+          }
+    withCreateProcess proc' $ \_ _ _ ph -> do
+        r <- act
+        interruptProcessGroupOf ph
+        pure r
+
 data DamlStartResource = DamlStartResource
     { projDir :: FilePath
     , tmpDir :: FilePath
-    , startStdin :: Maybe Handle
-    , startPh :: ProcessHandle
+    , startStdin :: Handle
+    , stdoutChan :: TChan String
+    , stop :: IO ()
     , sandboxPort :: PortNumber
     , jsonApiPort :: PortNumber
     }
@@ -147,9 +158,13 @@ damlStart startCwd tmpDir = do
                  , "--json-api-port"
                  , show jsonApiPort
                  ])
-                {std_in = CreatePipe, cwd = Just cwd}
+                {std_in = CreatePipe, std_out = CreatePipe, cwd = Just cwd, create_group = True}
     withEnv env $ do
-      (startStdin, _, _, startPh) <- createProcess startProc
+      (Just startStdin, Just startStdout, _, startPh) <- createProcess startProc
+      outChan <- newBroadcastTChanIO
+      outReader <- forkIO $ forever $ do
+          line <- hGetLine startStdout
+          atomically $ writeTChan outChan line
       waitForHttpServer
           (threadDelay 100000)
           ("http://localhost:" <> show jsonApiPort <> "/v1/query")
@@ -161,7 +176,10 @@ damlStart startCwd tmpDir = do
               , sandboxPort = sandboxPort
               , jsonApiPort = jsonApiPort
               , startStdin = startStdin
-              , startPh = startPh
+              , stop = do
+                  interruptProcessGroupOf startPh
+                  killThread outReader
+              , stdoutChan = outChan
               }
 
 data QuickSandboxResource = QuickSandboxResource
@@ -190,7 +208,7 @@ quickSandbox projDir = do
                          , "--static-time"
                          , ".daml/dist/quickstart-0.0.1.dar"
                          ])
-                        {std_out = UseHandle devNull}
+                        {std_out = UseHandle devNull, create_group = True}
             (_, _, _, sandboxPh) <- createProcess sandboxProc
             waitForConnectionOnPort (threadDelay 500000) $ fromIntegral sandboxPort
             pure $
@@ -213,8 +231,8 @@ tests tmpDir =
               withCurrentDirectory tmpDir $ callCommandSilent "daml new --list"
             , packagingTests tmpDir
             , damlToolTests
-            , withResource (damlStart ProjDir tmpDir) (terminateProcess . startPh) damlStartTests
-            , withResource (quickSandbox quickstartDir) (terminateProcess . quickSandboxPh) $
+            , withResource (damlStart ProjDir tmpDir) stop damlStartTests
+            , withResource (quickSandbox quickstartDir) (interruptProcessGroupOf . quickSandboxPh) $
               quickstartTests quickstartDir mvnDir
             , cleanTests cleanDir
             , templateTests
@@ -324,45 +342,30 @@ damlToolTests =
     testGroup
         "daml tools"
         [ testCase "OAuth 2.0 middleware startup" $ do
-              withDevNull $ \devNull1 -> do
-                  withDevNull $ \devNull2 -> do
-                      middlewarePort <- getFreePort
-                      let middlewareProc =
-                              (shell $
-                               unwords
-                                   [ "daml"
-                                   , "oauth2-middleware"
-                                   , "--address"
-                                   , "localhost"
-                                   , "--http-port"
-                                   , show middlewarePort
-                                   , "--oauth-auth"
-                                   , "http://localhost:0/authorize"
-                                   , "--oauth-token"
-                                   , "http://localhost:0/token"
-                                   , "--auth-jwt-hs256-unsafe"
-                                   , "jwt-secret"
-                                   , "--id"
-                                   , "client-id"
-                                   , "--secret"
-                                   , "client-secret"
-                                   ])
-                                  { std_out = UseHandle devNull1
-                                  , std_err = UseHandle devNull2
-                                  , std_in = CreatePipe
-                                  }
-                      withCreateProcess middlewareProc $ \_ _ _ middlewarePh ->
-                          race_ (waitForProcess' middlewareProc middlewarePh) $ do
-                              let endpoint =
-                                      "http://localhost:" <> show middlewarePort <> "/livez"
-                              waitForHttpServer (threadDelay 100000) endpoint []
-                              req <- parseRequest endpoint
-                              manager <- newManager defaultManagerSettings
-                              resp <- httpLbs req manager
-                              responseBody resp @?= "{\"status\":\"pass\"}"
-                              -- waitForProcess' will block on Windows so we explicitly kill the
-                              -- process.
-                              terminateProcess middlewarePh
+              middlewarePort <- getFreePort
+              withDamlService "oauth2-middleware"
+                  [ "--address"
+                  , "localhost"
+                  , "--http-port"
+                  , show middlewarePort
+                  , "--oauth-auth"
+                  , "http://localhost:0/authorize"
+                  , "--oauth-token"
+                  , "http://localhost:0/token"
+                  , "--auth-jwt-hs256-unsafe"
+                  , "jwt-secret"
+                  , "--id"
+                  , "client-id"
+                  , "--secret"
+                  , "client-secret"
+                  ] $ do
+                  let endpoint =
+                          "http://localhost:" <> show middlewarePort <> "/livez"
+                  waitForHttpServer (threadDelay 100000) endpoint []
+                  req <- parseRequest endpoint
+                  manager <- newManager defaultManagerSettings
+                  resp <- httpLbs req manager
+                  responseBody resp @?= "{\"status\":\"pass\"}"
         ]
 
 -- We are trying to run as many tests with the same `daml start` process as possible to safe time.
@@ -462,106 +465,63 @@ damlStartTests getDamlStart =
                       didGenerateDamlYaml @?= True
         , testCase "trigger service startup" $ do
               DamlStartResource {sandboxPort} <- getDamlStart
-              withDevNull $ \devNull1 -> do
-                  withDevNull $ \devNull2 -> do
-                      triggerServicePort <- getFreePort
-                      let triggerServiceProc =
-                              (shell $
-                               unwords
-                                   [ "daml"
-                                   , "trigger-service"
-                                   , "--ledger-host"
-                                   , "localhost"
-                                   , "--ledger-port"
-                                   , show sandboxPort
-                                   , "--http-port"
-                                   , show triggerServicePort
-                                   , "--wall-clock-time"
-                                   ])
-                                  { std_out = UseHandle devNull1
-                                  , std_err = UseHandle devNull2
-                                  , std_in = CreatePipe
-                                  }
-                      withCreateProcess triggerServiceProc $ \_ _ _ triggerServicePh ->
-                          race_ (waitForProcess' triggerServiceProc triggerServicePh) $ do
-                              let endpoint =
-                                      "http://localhost:" <> show triggerServicePort <> "/livez"
-                              waitForHttpServer (threadDelay 100000) endpoint []
-                              req <- parseRequest endpoint
-                              manager <- newManager defaultManagerSettings
-                              resp <- httpLbs req manager
-                              responseBody resp @?= "{\"status\":\"pass\"}"
-                              -- waitForProcess' will block on Windows so we explicitly kill the
-                              -- process.
-                              terminateProcess triggerServicePh
+              triggerServicePort <- getFreePort
+              withDamlService "trigger-service"
+                  [ "--ledger-host"
+                  , "localhost"
+                  , "--ledger-port"
+                  , show sandboxPort
+                  , "--http-port"
+                  , show triggerServicePort
+                  , "--wall-clock-time"
+                  ] $ do
+                  let endpoint =
+                          "http://localhost:" <> show triggerServicePort <> "/livez"
+                  waitForHttpServer (threadDelay 100000) endpoint []
+                  req <- parseRequest endpoint
+                  manager <- newManager defaultManagerSettings
+                  resp <- httpLbs req manager
+                  responseBody resp @?= "{\"status\":\"pass\"}"
         , testCase "Navigator startup" $ do
               DamlStartResource {projDir, sandboxPort} <- getDamlStart
+              navigatorPort :: Int <- fromIntegral <$> getFreePort
               withCurrentDirectory projDir $
-              -- This test just checks that navigator starts up and returns a 200 response.
-              -- Nevertheless this would have caught a few issues on rules_nodejs upgrades
-              -- where we got a 404 instead.
-               do
-                  withDevNull $ \devNull -> do
-                      navigatorPort :: Int <- fromIntegral <$> getFreePort
-                      let navigatorProc =
-                              (shell $
-                               unwords
-                                   [ "daml"
-                                   , "navigator"
-                                   , "server"
-                                   , "localhost"
-                                   , show sandboxPort
-                                   , "--port"
-                                   , show navigatorPort
-                                   ])
-                                  {std_out = UseHandle devNull, std_in = CreatePipe}
-                      withCreateProcess navigatorProc $ \_ _ _ navigatorPh ->
-                          race_ (waitForProcess' navigatorProc navigatorPh) $
-                          -- waitForHttpServer will only return once we get a 200 response so we
-                          -- don’t need to do anything else.
-                           do
-                              waitForHttpServer
-                                  (threadDelay 100000)
-                                  ("http://localhost:" <> show navigatorPort)
-                                  []
-                              -- waitForProcess' will block on Windows so we explicitly kill the
-                              -- process.
-                              terminateProcess navigatorPh
+                  -- This test just checks that navigator starts up and returns a 200 response.
+                  -- Nevertheless this would have caught a few issues on rules_nodejs upgrades
+                  -- where we got a 404 instead.
+                  withDamlService "navigator"
+                      [ "server"
+                      , "localhost"
+                      , show sandboxPort
+                      , "--port"
+                      , show navigatorPort
+                      ] $
+                      waitForHttpServer
+                          (threadDelay 100000)
+                          ("http://localhost:" <> show navigatorPort)
+                          []
         , testCase "Navigator startup via daml ledger outside project directory" $ do
               DamlStartResource {sandboxPort} <- getDamlStart
               withTempDir $ \tmpDir -> do
+              navigatorPort :: Int <- fromIntegral <$> getFreePort
               withCurrentDirectory tmpDir $
-               do
-                  withDevNull $ \devNull -> do
-                      navigatorPort :: Int <- fromIntegral <$> getFreePort
-                      let navigatorProc =
-                              (shell $
-                               unwords
-                                   [ "daml"
-                                   , "ledger"
-                                   , "navigator"
-                                   , "--host"
-                                   , "localhost"
-                                   , "--port"
-                                   , show sandboxPort
-                                   , "--port"
-                                   , show navigatorPort
-                                   ])
-                                  {std_out = UseHandle devNull, std_in = CreatePipe}
-                      withCreateProcess navigatorProc $ \_ _ _ navigatorPh ->
-                          race_ (waitForProcess' navigatorProc navigatorPh) $
-                          -- waitForHttpServer will only return once we get a 200 response so we
-                          -- don’t need to do anything else.
-                           do
-                              waitForHttpServer
-                                  (threadDelay 100000)
-                                  ("http://localhost:" <> show navigatorPort)
-                                  []
-                              -- waitForProcess' will block on Windows so we explicitly kill the
-                              -- process.
-                              terminateProcess navigatorPh
+                  withDamlService "ledger navigator"
+                      ["--host"
+                      , "localhost"
+                      , "--port"
+                      , show sandboxPort
+                      , "--port"
+                      , show navigatorPort
+                      ] $
+                      -- waitForHttpServer will only return once we get a 200 response so we
+                      -- don’t need to do anything else.
+                      waitForHttpServer
+                          (threadDelay 100000)
+                          ("http://localhost:" <> show navigatorPort)
+                          []
         , testCase "hot-reload" $ do
-              DamlStartResource {projDir, jsonApiPort, startStdin} <- getDamlStart
+              DamlStartResource {projDir, jsonApiPort, startStdin, stdoutChan} <- getDamlStart
+              stdoutReadChan <- atomically $ dupTChan stdoutChan
               withCurrentDirectory projDir $ do
                   writeFileUTF8 (projDir </> "daml/Main.daml") $
                       unlines
@@ -575,11 +535,11 @@ damlStartTests getDamlStart =
                           , "  alice `submit` createCmd (S alice)"
                           , "  pure ()"
                           ]
-                  maybe
-                      (fail "No start process stdin handle")
-                      (\h -> hPutChar h 'r' >> hFlush h)
-                      startStdin
-                  threadDelay 40_000_000
+                  hPutChar startStdin 'r'
+                  hFlush startStdin
+                  untilM_ (pure ()) $ do
+                      line <- atomically $ readTChan stdoutReadChan
+                      pure ("Rebuild complete" `isInfixOf` line)
                   initialRequest <-
                       parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
                   manager <- newManager defaultManagerSettings
@@ -625,18 +585,13 @@ damlStartTests getDamlStart =
                       , "  - daml-stdlib"
                       , "start-navigator: false"
                       ]
-              let startProc =
-                      shell $
-                      unwords
-                          [ "daml"
-                          , "start"
-                          , "--sandbox-port=0"
-                          , "--sandbox-option=--ledgerid=MyLedger"
-                          , "--json-api-port=0"
-                          , "--json-api-option=--port-file=jsonapi.port"
-                          ]
               withCurrentDirectory tmpDir $
-                  withCreateProcess startProc $ \_ _ _ ph -> do
+                  withDamlService "start"
+                      [ "--sandbox-port=0"
+                      , "--sandbox-option=--ledgerid=MyLedger"
+                      , "--json-api-port=0"
+                      , "--json-api-option=--port-file=jsonapi.port"
+                      ] $ do
                       jsonApiPort <- readPortFile maxRetries "jsonapi.port"
                       initialRequest <-
                           parseRequest $
@@ -654,8 +609,6 @@ damlStartTests getDamlStart =
                       queryResponse <- httpLbs queryRequest manager
                       responseBody queryResponse @?=
                           "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
-                      -- waitForProcess' will block on Windows so we explicitly kill the process.
-                      terminateProcess ph
         , testCase "daml start --sandbox-option --port=X" $
           withTempDir $ \tmpDir -> do
               p :: Int <- fromIntegral <$> getFreePort
@@ -670,18 +623,13 @@ damlStartTests getDamlStart =
                       , "  - daml-stdlib"
                       , "start-navigator: false"
                       ]
-              let startProc =
-                      shell $
-                      unwords
-                          [ "daml"
-                          , "start"
-                          , "--sandbox-option=--port=" <> show p
-                          , "--sandbox-option=--ledgerid=MyLedger"
-                          , "--json-api-port=0"
-                          , "--json-api-option=--port-file=jsonapi.port"
-                          ]
               withCurrentDirectory tmpDir $
-                  withCreateProcess startProc $ \_ _ _ ph -> do
+                  withDamlService "start"
+                      [ "--sandbox-option=--port=" <> show p
+                      , "--sandbox-option=--ledgerid=MyLedger"
+                      , "--json-api-port=0"
+                      , "--json-api-option=--port-file=jsonapi.port"
+                      ] $ do
                       jsonApiPort <- readPortFile maxRetries "jsonapi.port"
                       initialRequest <-
                           parseRequest $
@@ -699,16 +647,14 @@ damlStartTests getDamlStart =
                       queryResponse <- httpLbs queryRequest manager
                       responseBody queryResponse @?=
                           "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
-                      -- waitForProcess' will block on Windows so we explicitly kill the process.
-                      terminateProcess ph
         , testCase "daml start with relative project dir" $
           withTempDir $ \tmpDir -> do
-            DamlStartResource{startPh} <- damlStart EnvRelativeDir tmpDir
-            terminateProcess startPh
+            DamlStartResource{stop} <- damlStart EnvRelativeDir tmpDir
+            stop
         , testCase "daml start absolut path" $
           withTempDir $ \tmpDir -> do
-            DamlStartResource{startPh} <- damlStart EnvAbsoluteDir tmpDir
-            terminateProcess startPh
+            DamlStartResource{stop} <- damlStart EnvAbsoluteDir tmpDir
+            stop
         , testCase "run a daml deploy without project parties" $ do
               DamlStartResource {projDir, sandboxPort} <- getDamlStart
               withCurrentDirectory projDir $ do
@@ -753,30 +699,20 @@ quickstartTests quickstartDir mvnDir getSandbox =
               callCommand "daml codegen java"
               callCommand $ unwords ["mvn", mvnRepoFlag, "-q", "compile"]
         , testCase "Sandbox Classic startup" $
-          withCurrentDirectory quickstartDir $
-          withDevNull $ \devNull -> do
+          withCurrentDirectory quickstartDir $ do
               p :: Int <- fromIntegral <$> getFreePort
-              let sandboxProc =
-                      (shell $
-                       unwords
-                           [ "daml"
-                           , "sandbox-classic"
-                           , "--wall-clock-time"
-                           , "--port"
-                           , show p
-                           , ".daml/dist/quickstart-0.0.1.dar"
-                           ])
-                          {std_out = UseHandle devNull, std_in = CreatePipe}
-              withCreateProcess sandboxProc $ \_ _ _ ph ->
-                  race_ (waitForProcess' sandboxProc ph) $ do
-                      waitForConnectionOnPort (threadDelay 100000) p
-                      addr:_ <- getAddrInfo (Just socketHints) (Just "127.0.0.1") (Just $ show p)
-                      bracket
-                          (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
-                          close
-                          (\s -> connect s (addrAddress addr))
-              -- waitForProcess' will block on Windows so we explicitly kill the process.
-                      terminateProcess ph
+              withDamlService "sandbox-classic"
+                  [ "--wall-clock-time"
+                  , "--port"
+                  , show p
+                  , ".daml/dist/quickstart-0.0.1.dar"
+                  ] $ do
+                  waitForConnectionOnPort (threadDelay 100000) p
+                  addr:_ <- getAddrInfo (Just socketHints) (Just "127.0.0.1") (Just $ show p)
+                  bracket
+                      (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
+                      close
+                      (\s -> connect s (addrAddress addr))
         , testCase "mvn exec:java@run-quickstart" $ do
               QuickSandboxResource {quickProjDir, quickSandboxPort, quickDar} <- getSandbox
               withCurrentDirectory quickProjDir $
@@ -802,20 +738,29 @@ quickstartTests quickstartDir mvnDir getSandbox =
                                    , "exec:java@run-quickstart"
                                    ])
                                   {std_out = UseHandle devNull}
-                      withCreateProcess mavenProc $ \_ _ _ mavenPh ->
-                          race_ (waitForProcess' mavenProc mavenPh) $ do
-                              let url = "http://localhost:" <> show restPort <> "/iou"
-                              waitForHttpServer (threadDelay 1000000) url []
-                              threadDelay 5000000
-                              manager <- newManager defaultManagerSettings
-                              req <- parseRequest url
-                              req <-
-                                  pure req {requestHeaders = [(hContentType, "application/json")]}
-                              resp <- httpLbs req manager
-                              responseBody resp @?=
-                                  "{\"0\":{\"issuer\":\"EUR_Bank\",\"owner\":\"Alice\",\"currency\":\"EUR\",\"amount\":100.0000000000,\"observers\":[]}}"
-                  -- waitForProcess' will block on Windows so we explicitly kill the process.
-                              terminateProcess mavenPh
+                      withCreateProcess mavenProc $ \_ _ _ mavenPh -> do
+                          let url = "http://localhost:" <> show restPort <> "/iou"
+                          waitForHttpServer (threadDelay 1000000) url []
+                          threadDelay 5000000
+                          manager <- newManager defaultManagerSettings
+                          req <- parseRequest url
+                          req <-
+                              pure req {requestHeaders = [(hContentType, "application/json")]}
+                          resp <- httpLbs req manager
+                          responseBody resp @?=
+                              "{\"0\":{\"issuer\":\"EUR_Bank\",\"owner\":\"Alice\",\"currency\":\"EUR\",\"amount\":100.0000000000,\"observers\":[]}}"
+                          -- Note (MK) You might be tempted to suggest using
+                          -- create_group and interruptProcessGroupOf
+                          -- or alternatively use_process_jobs here.
+                          -- However, that is a trap. It will block forever
+                          -- trying to terminate the process on Windows. I have absolutely
+                          -- no idea why that is the case and I stopped trying
+                          -- to figure out.
+                          -- Luckily, it doesn’t seem like maven actually creates
+                          -- child processes or at least none that
+                          -- block us from cleaning up the SDK installation and
+                          -- Bazel will tear down everything at the end anyway.
+                          terminateProcess mavenPh
         , testCase "daml codegen java with DAML_PROJECT" $
               withTempDir $ \dir -> do
                 callCommandSilent $ unwords ["daml", "new", dir </> "quickstart", "--template=quickstart-java"]
@@ -919,15 +864,3 @@ codegenTests codegenDir = testGroup "daml codegen" (
                                   , "-o", outDir]
                         contents <- listDirectory outDir
                         assertBool "bindings were written" (not $ null contents)
-
--- | Like `waitForProcess` but throws ProcessExitFailure if the process fails to start.
-waitForProcess' :: CreateProcess -> ProcessHandle -> IO ()
-waitForProcess' cp ph = do
-    e <- waitForProcess ph
-    unless (e == ExitSuccess) $ throwIO $ ProcessExitFailure e cp
-
-data ProcessExitFailure = ProcessExitFailure !ExitCode !CreateProcess
-    deriving (Show, Typeable)
-
-instance Exception ProcessExitFailure
-

@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}
 
 
@@ -9,7 +10,6 @@
 module LibraryModules where
 
 import DA.Internal.Erased
-import DA.Internal.Exception.Types
 import DA.Internal.PromotedText
 import Data.String
 import Control.Exception.Base
@@ -26,3 +26,10 @@ import GHC.Show
 import GHC.Stack.Types
 import GHC.Tuple
 import GHC.Types
+
+#ifdef DAML_EXCEPTIONS
+import DA.Exception.GeneralError
+import DA.Exception.ArithmeticError
+import DA.Exception.AssertionFailed
+import DA.Exception.PreconditionFailed
+#endif

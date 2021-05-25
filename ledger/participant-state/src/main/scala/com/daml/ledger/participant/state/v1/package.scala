@@ -9,7 +9,7 @@ import com.daml.lf.value.Value
 
 /** Interfaces to read from and write to an (abstract) participant state.
   *
-  * A DAML ledger participant is code that allows to actively participate in
+  * A Daml ledger participant is code that allows to actively participate in
   * the evolution of a shared Daml ledger. Each such participant maintains a
   * particular view onto the state of the Daml ledger. We call this view the
   * participant state.
@@ -23,7 +23,7 @@ import com.daml.lf.value.Value
   * [[v1.WriteService]] interface contains the methods for changing the
   * participant state (and potentially the state of the Daml ledger), which
   * all ledger participants must support. These methods are for example
-  * exposed via the DAML Ledger API. Actual ledger participant implementations
+  * exposed via the Daml Ledger API. Actual ledger participant implementations
   * likely support more implementation-specific methods. They are however not
   * exposed via the Daml Ledger API. The [[v1.ReadService]] interface contains
   * the one method [[v1.ReadService.stateUpdates]] to read the state of a ledger

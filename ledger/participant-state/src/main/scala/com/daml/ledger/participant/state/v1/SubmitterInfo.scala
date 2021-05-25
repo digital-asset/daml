@@ -12,9 +12,9 @@ import com.google.protobuf.ByteString
   *
   * @param actAs the non-empty set of parties that submitted the change.
   *
-  * @param applicationId an identifier for the DAML application that
-  *   submitted the command. This is used for monitoring and to allow DAML
-  *   applications subscribe to their own submissions only.
+  * @param applicationId an identifier for the Daml application that
+  *   submitted the command. This is used for monitoring, command deduplication,
+  *   and to allow Daml applications subscribe to their own submissions only.
   *
   * @param commandId a submitter-provided identifier to identify an intended ledger change
   *   within all the submissions by the same parties and application.

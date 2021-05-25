@@ -61,17 +61,13 @@ private[lf] object Pretty {
     ex match {
       case DamlEFailedAuthorization(nid, fa) =>
         text(prettyFailedAuthorization(nid, fa))
-      case DamlEArithmeticError(message) =>
-        text(message)
       case DamlEUnhandledException(exc) =>
         text(s"unhandled exception:") & {
           exc match {
             case SAnyException(_, value) =>
               prettyValue(true)(value.toValue)
-            case SBuiltinException(ContractError) =>
-              text("ContractError")
-            case SBuiltinException(ArithmeticError) =>
-              text("ArithmeticError")
+            case exception: SArithmeticError =>
+              text(exception.message)
           }
         }
       case DamlEUserError(message) =>
@@ -143,7 +139,7 @@ private[lf] object Pretty {
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyPartialTransactionNode(node: PartialTransaction.Node): Doc =
     node match {
-      case NodeRollback(_, _) => // reconsider if fields added
+      case NodeRollback(_) =>
         text("rollback")
       case create: NodeCreate[Value.ContractId] =>
         "create" &: prettyContractInst(create.coinst)
@@ -288,7 +284,7 @@ private[lf] object Pretty {
     val eventId = EventId(txId.id, nodeId)
     val ni = l.ledgerData.nodeInfos(eventId)
     val ppNode = ni.node match {
-      case NodeRollback(children, _) => // reconsider if fields added
+      case NodeRollback(children) =>
         text("rollback:") / stack(children.toList.map(prettyEventInfo(l, txId)))
       case create: NodeCreate[ContractId] =>
         val d = "create" &: prettyVersionedContractInst(create.versionedCoinst)
@@ -350,10 +346,19 @@ private[lf] object Pretty {
         case None => text("")
         case Some(nid) => meta("archived by" &: prettyEventId(nid))
       }
-    prettyEventId(eventId) & text("version:") & str(ni.node.version.protoValue) / stack(
+    prettyEventId(eventId) & prettyOptVersion(ni.node.optVersion) / stack(
       Seq(ppArchivedBy, ppReferencedBy, ppDisclosedTo, arrowRight(ppNode))
         .filter(_.nonEmpty)
     )
+  }
+
+  def prettyOptVersion(opt: Option[TransactionVersion]) = {
+    opt match {
+      case Some(v) =>
+        text("version:") & str(v.protoValue)
+      case None =>
+        text("no-version")
+    }
   }
 
   def prettyEventId(n: EventId): Doc =
@@ -590,7 +595,8 @@ private[lf] object Pretty {
           prettySExpr(index)(SELet(List(rhs), body))
         case SELet1Builtin(builtin, args, body) =>
           prettySExpr(index)(SELet1General(SEAppAtomicSaturatedBuiltin(builtin, args), body))
-
+        case SELet1BuiltinArithmetic(builtin, args, body) =>
+          prettySExpr(index)(SELet1General(SEAppAtomicSaturatedBuiltin(builtin, args), body))
         case SETryCatch(body, handler) =>
           text("try-catch") + char('(') + prettySExpr(index)(body) + text(", ") +
             prettySExpr(index)(handler) + char(')')

@@ -159,15 +159,55 @@ private class JdbcLedgerDao(
     }
 
   private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
-    "select * from configuration_entries where ledger_offset > {startExclusive} and ledger_offset <= {endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}"
+    """select
+      |    configuration_entries.ledger_offset,
+      |    configuration_entries.recorded_at,
+      |    configuration_entries.submission_id,
+      |    configuration_entries.typ,
+      |    configuration_entries.configuration,
+      |    configuration_entries.rejection_reason
+      |  from
+      |    configuration_entries,
+      |    parameters
+      |  where
+      |    ledger_offset > {startExclusive} and
+      |    ledger_offset <= {endInclusive} and
+      |    parameters.ledger_end >= ledger_offset
+      |  order by ledger_offset asc
+      |  limit {pageSize}
+      |  offset {queryOffset}""".stripMargin
   )
+
+  private val SQL_GET_LATEST_CONFIGURATION_ENTRY = SQL(
+    s"""select
+      |    configuration_entries.ledger_offset,
+      |    configuration_entries.recorded_at,
+      |    configuration_entries.submission_id,
+      |    configuration_entries.typ,
+      |    configuration_entries.configuration,
+      |    configuration_entries.rejection_reason
+      |  from
+      |    configuration_entries,
+      |    parameters
+      |  where
+      |    configuration_entries.typ = '$acceptType' and
+      |    parameters.ledger_end >= ledger_offset
+      |  order by ledger_offset desc
+      |  limit 1""".stripMargin
+  )
+
+  private def lookupLedgerConfiguration(connection: Connection): Option[(Offset, Configuration)] =
+    SQL_GET_LATEST_CONFIGURATION_ENTRY
+      .on()
+      .asVectorOf(configurationEntryParser)(connection)
+      .collectFirst { case (offset, ConfigurationEntry.Accepted(_, configuration)) =>
+        offset -> configuration
+      }
 
   override def lookupLedgerConfiguration()(implicit
       loggingContext: LoggingContext
   ): Future[Option[(Offset, Configuration)]] =
-    dbDispatcher.executeSql(metrics.daml.index.db.lookupConfiguration)(
-      ParametersTable.getLedgerEndAndConfiguration
-    )
+    dbDispatcher.executeSql(metrics.daml.index.db.lookupConfiguration)(lookupLedgerConfiguration)
 
   private val configurationEntryParser: RowParser[(Offset, ConfigurationEntry)] =
     (offset("ledger_offset") ~
@@ -231,7 +271,7 @@ private class JdbcLedgerDao(
       dbDispatcher.executeSql(
         metrics.daml.index.db.storeConfigurationEntryDbMetrics
       ) { implicit conn =>
-        val optCurrentConfig = ParametersTable.getLedgerEndAndConfiguration(conn)
+        val optCurrentConfig = lookupLedgerConfiguration(conn)
         val optExpectedGeneration: Option[Long] =
           optCurrentConfig.map { case (_, c) => c.generation + 1 }
         val finalRejectionReason: Option[String] =
@@ -655,25 +695,55 @@ private class JdbcLedgerDao(
     logger.info("Storing package entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePackageEntryDbMetrics) {
       implicit connection =>
-        val update = optEntry.map {
-          case PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime) =>
+        // Note on knownSince and recordTime:
+        // - There are two different time values in the input: PackageDetails.knownSince and PackageUploadAccepted.recordTime
+        // - There is only one time value in the intermediate values: PublicPackageUpload.recordTime
+        // - There are two different time values in the database schema: packages.known_since and package_entries.recorded_at
+        // This is not an issue since all callers of this method always use the same value for all knownSince and recordTime times.
+        //
+        // Note on sourceDescription:
+        // - In the input, each package can have its own source description (see PackageDetails.sourceDescription)
+        // - In the intermediate value, there is only one source description for all packages (see PublicPackageUpload.sourceDescription)
+        // - In the database schema, each package can have its own source description (see packages.source_description)
+        // This is again not an issue since all callers of this method always use the same value for all source descriptions.
+        val update = optEntry match {
+          case None =>
+            // Calling storePackageEntry() without providing a PackageLedgerEntry is used to copy initial packages,
+            // or in the case where the submission ID is unknown (package was submitted through a different participant).
             Update.PublicPackageUpload(
               archives = packages.view.map(_._1).toList,
               sourceDescription = packages.headOption.flatMap(
                 _._2.sourceDescription
-              ), // this is valid since all clients of this method share the same behavior: all PackageDetails-s will have the same sourceDescription
+              ),
+              recordTime = Time.Timestamp.assertFromInstant(
+                packages.headOption
+                  .map(
+                    _._2.knownSince
+                  )
+                  .getOrElse(Instant.EPOCH)
+              ),
+              submissionId =
+                None, // If the submission ID is missing, this update will not insert a row in the package_entries table
+            )
+
+          case Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTime)) =>
+            Update.PublicPackageUpload(
+              archives = packages.view.map(_._1).toList,
+              sourceDescription = packages.headOption.flatMap(
+                _._2.sourceDescription
+              ),
               recordTime = Time.Timestamp.assertFromInstant(recordTime),
               submissionId = Some(submissionId),
             )
 
-          case PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason) =>
+          case Some(PackageLedgerEntry.PackageUploadRejected(submissionId, recordTime, reason)) =>
             Update.PublicPackageUploadRejected(
               submissionId = submissionId,
               recordTime = Time.Timestamp.assertFromInstant(recordTime),
               rejectionReason = reason,
             )
         }
-        sequentialIndexer.store(connection, offsetStep.offset, update)
+        sequentialIndexer.store(connection, offsetStep.offset, Some(update))
         PersistenceResponse.Ok
     }
   }
@@ -930,6 +1000,7 @@ private[platform] object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       connectionPoolSize: Int,
+      connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -941,6 +1012,7 @@ private[platform] object JdbcLedgerDao {
       serverRole,
       jdbcUrl,
       connectionPoolSize,
+      connectionTimeout,
       eventsPageSize,
       validate = false,
       servicesExecutionContext,
@@ -948,6 +1020,7 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       enricher = enricher,
       participantId = participantId,
+      compressionStrategy = CompressionStrategy.none(metrics), // not needed
     ).map(new MeteredLedgerReadDao(_, metrics))
   }
 
@@ -955,6 +1028,7 @@ private[platform] object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       connectionPoolSize: Int,
+      connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -968,6 +1042,7 @@ private[platform] object JdbcLedgerDao {
       serverRole,
       jdbcUrl,
       dbType.maxSupportedWriteConnections(connectionPoolSize),
+      connectionTimeout,
       eventsPageSize,
       validate = false,
       servicesExecutionContext,
@@ -977,6 +1052,7 @@ private[platform] object JdbcLedgerDao {
         if (dbType.supportsAsynchronousCommits) jdbcAsyncCommitMode else DbType.SynchronousCommit,
       enricher = enricher,
       participantId = participantId,
+      compressionStrategy = CompressionStrategy.none(metrics), // not needed
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -984,6 +1060,7 @@ private[platform] object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       connectionPoolSize: Int,
+      connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -991,12 +1068,14 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation: Boolean = false,
       enricher: Option[ValueEnricher],
       participantId: v1.ParticipantId,
+      compressionStrategy: CompressionStrategy,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     owner(
       serverRole,
       jdbcUrl,
       dbType.maxSupportedWriteConnections(connectionPoolSize),
+      connectionTimeout,
       eventsPageSize,
       validate = true,
       servicesExecutionContext,
@@ -1005,6 +1084,7 @@ private[platform] object JdbcLedgerDao {
       validatePartyAllocation,
       enricher = enricher,
       participantId = participantId,
+      compressionStrategy = compressionStrategy,
     ).map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1013,6 +1093,7 @@ private[platform] object JdbcLedgerDao {
       participantId: v1.ParticipantId,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       metrics: Metrics,
+      compressionStrategy: CompressionStrategy,
   ): SequentialWriteDao =
     SequentialWriteDaoImpl(
       storageBackend = StorageBackend.of(dbType),
@@ -1024,9 +1105,7 @@ private[platform] object JdbcLedgerDao {
           enricherO = None,
           loadPackage = (_, _) => Future.successful(None),
         ),
-        compressionStrategy = CompressionStrategy.none(
-          metrics
-        ), // TODO append-only: is it ok, to turn it off completely for sandbox-classic?
+        compressionStrategy = compressionStrategy,
       ),
     )
 
@@ -1058,6 +1137,7 @@ private[platform] object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       connectionPoolSize: Int,
+      connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       validate: Boolean,
       servicesExecutionContext: ExecutionContext,
@@ -1067,13 +1147,14 @@ private[platform] object JdbcLedgerDao {
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
       enricher: Option[ValueEnricher],
       participantId: v1.ParticipantId,
+      compressionStrategy: CompressionStrategy,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(
         serverRole,
         jdbcUrl,
         connectionPoolSize,
-        250.millis,
+        connectionTimeout,
         metrics,
         jdbcAsyncCommitMode,
       )
@@ -1088,7 +1169,13 @@ private[platform] object JdbcLedgerDao {
       lfValueTranslationCache,
       validatePartyAllocation,
       enricher,
-      sequentialWriteDao(dbType, participantId, lfValueTranslationCache, metrics),
+      sequentialWriteDao(
+        dbType,
+        participantId,
+        lfValueTranslationCache,
+        metrics,
+        compressionStrategy,
+      ),
       participantId,
     )
 

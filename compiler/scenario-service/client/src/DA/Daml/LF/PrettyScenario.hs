@@ -125,9 +125,6 @@ prettyScenarioResult
   :: LF.World -> ScenarioResult -> Doc SyntaxClass
 prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime traceLog) =
   let ppSteps = runM nodes world (vsep <$> mapM prettyScenarioStep (V.toList steps))
-      isActive Node{..} = case nodeNode of
-        Just NodeNodeCreate{} -> isNothing nodeConsumedBy
-        _ -> False
       sortNodeIds = sortOn parseNodeId
       ppActive =
           fcommasep
@@ -207,12 +204,6 @@ prettyTraceMessage _world msg =
   --  prettyMayLocation world (traceMessageLocation msg)
   ltext (traceMessageMessage msg)
 
-pattern ValueGeneralError :: TL.Text -> Value
-pattern ValueGeneralError t <-
-    Value (Just (ValueSumRecord (Record
-        (Just (Identifier _ "DA.Internal.Exception.Types:GeneralError"))
-        (V.toList -> [Field "message" (Just (Value (Just (ValueSumText t))))]))))
-
 prettyScenarioErrorError :: Maybe ScenarioErrorError -> M (Doc SyntaxClass)
 prettyScenarioErrorError Nothing = pure $ text "<missing error details>"
 prettyScenarioErrorError (Just err) =  do
@@ -220,11 +211,14 @@ prettyScenarioErrorError (Just err) =  do
   case err of
     ScenarioErrorErrorCrash reason -> pure $ text "CRASH:" <-> ltext reason
     ScenarioErrorErrorUserError reason -> pure $ text "Aborted: " <-> ltext reason
-    ScenarioErrorErrorUnhandledException (ValueGeneralError reason) -> pure $ text "Aborted: " <-> ltext reason
-    ScenarioErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' True 0 world exc
+    ScenarioErrorErrorUnhandledException (ScenarioError_Exception maybeException) ->
+      case maybeException of
+        Nothing -> pure $ text "<missing unhandled exception details>"
+        Just (ScenarioError_ExceptionErrorBuiltin message) -> pure $ text $ "Unhandled exception: " <> TL.toStrict message
+        Just (ScenarioError_ExceptionErrorUser value) -> pure $ text "Unhandled exception: " <-> prettyValue' True 0 world value
     ScenarioErrorErrorTemplatePrecondViolated ScenarioError_TemplatePreconditionViolated{..} -> do
       pure $
-        "Template pre-condition violated in:"
+        "Template precondition violated in:"
           $$ nest 2
           (   "create"
           <-> prettyMay "<missing template id>" (prettyDefName world) scenarioError_TemplatePreconditionViolatedTemplateId
@@ -832,14 +826,19 @@ data Table = Table
     , tRows :: [NodeInfo]
     }
 
+isActive :: Node -> Bool
+isActive Node{..} = case nodeNode of
+    Just NodeNodeCreate{} -> isNothing nodeConsumedBy && isNothing nodeRolledbackBy
+    _ -> False
+
 nodeInfo :: Node -> Maybe NodeInfo
-nodeInfo Node{..} = do
+nodeInfo node@Node{..} = do
     NodeNodeCreate create <- nodeNode
     niNodeId <- nodeNodeId
     inst <- node_CreateContractInstance create
     niTemplateId <- contractInstanceTemplateId inst
     niValue <- contractInstanceValue inst
-    let niActive = isNothing nodeConsumedBy
+    let niActive = isActive node
     let niSignatories = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateSignatories create)
     let niStakeholders = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateStakeholders create)
     let (nodeWitnesses, nodeDivulgences) = partition disclosureExplicit $ V.toList nodeDisclosures

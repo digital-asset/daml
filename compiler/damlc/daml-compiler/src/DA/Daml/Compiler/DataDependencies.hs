@@ -10,7 +10,7 @@ module DA.Daml.Compiler.DataDependencies
 import DA.Pretty
 import Control.Applicative
 import Control.Monad
-import Control.Monad.Trans.Writer.CPS
+import Control.Monad.State.Strict
 import Data.Char (isDigit)
 import qualified Data.DList as DL
 import Data.Foldable (fold)
@@ -44,6 +44,7 @@ import "ghc-lib-parser" TysPrim
 import "ghc-lib-parser" TysWiredIn
 
 import qualified DA.Daml.LF.Ast as LF
+import qualified DA.Daml.LF.Ast.Type as LF
 import qualified DA.Daml.LF.Ast.Alpha as LF
 import qualified DA.Daml.LF.TypeChecker.Check as LF
 import qualified DA.Daml.LF.TypeChecker.Env as LF
@@ -199,16 +200,37 @@ modRefImport Config{..} ModRef{..} = noLoc ImportDecl
              -- The module names from the current package are the only ones that are not modified
              | otherwise -> prefixDependencyModule importPkgId modRefModule
 
+data GenState = GenState
+    { gsModRefs :: !(Set ModRef)
+    , gsFreshCounter :: !Int
+    , gsExtraDecls :: ![LHsDecl GhcPs]
+    }
+
+initialGenState :: GenState
+initialGenState = GenState
+    { gsModRefs = mempty
+    , gsExtraDecls = []
+    , gsFreshCounter = 1
+    }
 
 -- | Monad for generating a value together with its module references.
-newtype Gen t = Gen (Writer (Set ModRef) t)
+newtype Gen t = Gen (State GenState t)
     deriving (Functor, Applicative, Monad)
 
-runGen :: Gen t -> (t, Set ModRef)
-runGen (Gen m) = runWriter m
+runGen :: Gen t -> (t, GenState)
+runGen (Gen m) = runState m initialGenState
 
 emitModRef :: ModRef -> Gen ()
-emitModRef = Gen . tell . Set.singleton
+emitModRef modRef = Gen $ modify' (\gs -> gs { gsModRefs = Set.insert modRef (gsModRefs gs) })
+
+emitHsDecl :: LHsDecl GhcPs -> Gen ()
+emitHsDecl decl = Gen $ modify' (\gs -> gs { gsExtraDecls = decl : gsExtraDecls gs })
+
+freshInt :: Gen Int
+freshInt = Gen $ state (\gs -> (gsFreshCounter gs, gs { gsFreshCounter = gsFreshCounter gs + 1 }))
+
+freshTypeName :: Gen (Located RdrName)
+freshTypeName = mkRdrName . ("T__DataDependencies__" <>) . T.pack . show <$> freshInt
 
 -- | Extract all data definitions from a daml-lf module and generate
 -- a haskell source file from it.
@@ -226,7 +248,7 @@ generateSrcFromLf env = noLoc mod
         HsModule
             { hsmodImports = imports
             , hsmodName = Just (noLoc ghcModName)
-            , hsmodDecls = decls
+            , hsmodDecls = decls <> gsExtraDecls genState
             , hsmodDeprecMessage = Nothing
             , hsmodHaddockModHeader = Nothing
             , hsmodExports = Just (noLoc exports)
@@ -234,9 +256,12 @@ generateSrcFromLf env = noLoc mod
 
     decls :: [LHsDecl GhcPs]
     exports :: [LIE GhcPs]
-    modRefs :: Set ModRef
-    ((exports, decls), modRefs) = runGen
+    genState :: GenState
+    ((exports, decls), genState) = runGen
         ((,) <$> genExports <*> genDecls)
+
+    modRefs :: Set ModRef
+    modRefs = gsModRefs genState
 
     genExports :: Gen [LIE GhcPs]
     genExports = sequence $ selfReexport : classReexports
@@ -282,7 +307,7 @@ generateSrcFromLf env = noLoc mod
         LF.TypeSynName [name] <- [synName]
         Just (pkgId, depDef) <- [envLookupDepClass synName env]
         guard (safeToReexport env synDef depDef)
-        let occName = mkOccName clsName . T.unpack $ sanitize name
+        let occName = mkOccName clsName (T.unpack name)
         pure . (\x -> (synName,(pkgId, x))) $ do
             ghcMod <- genModule env (LF.PRImport pkgId) (LF.moduleName (envMod env))
             pure . noLoc . IEThingAll noExt
@@ -302,7 +327,7 @@ generateSrcFromLf env = noLoc mod
         LF.TypeSynName [name] <- [synName]
         guard (synName `MS.notMember` classReexportMap)
         guard (shouldExposeDefTypeSyn defTypeSyn)
-        let occName = mkOccName clsName . T.unpack $ sanitize name
+        let occName = mkOccName clsName (T.unpack name)
         pure $ do
             supers <- sequence
                 [ convType env reexportedClasses fieldType
@@ -376,7 +401,7 @@ generateSrcFromLf env = noLoc mod
             _ -> True
         LF.TypeSynName [name] <- [synName]
         guard (shouldExposeDefTypeSyn defTypeSyn)
-        let occName = mkOccName tcName . T.unpack $ sanitize name
+        let occName = mkOccName tcName (T.unpack name)
         pure $ do
             params <- mapM (convTyVarBinder env) synParams
             rhs <- convType env reexportedClasses synType
@@ -400,7 +425,7 @@ generateSrcFromLf env = noLoc mod
         -- the type will be inlined into the definition of the variant in
         -- convDataCons.
         [dataTypeCon0] <- [LF.unTypeConName dataTypeCon]
-        let occName = mkOccName varName $ T.unpack $ sanitize dataTypeCon0
+        let occName = mkOccName varName (T.unpack dataTypeCon0)
         [ mkDataDecl env thisModule occName dataParams =<<
             convDataCons dataTypeCon0 dataCons ]
 
@@ -537,8 +562,8 @@ generateSrcFromLf env = noLoc mod
                 | conName <- cons
                 ]
       where
-        occName = mkOccName varName $ T.unpack (sanitize dataTypeCon0)
-        occNameFor (LF.VariantConName c) = mkOccName varName $ T.unpack (sanitize c)
+        occName = mkOccName varName (T.unpack dataTypeCon0)
+        occNameFor (LF.VariantConName c) = mkOccName varName (T.unpack c)
 
         mkConDecl :: OccName -> HsConDeclDetails GhcPs -> LConDecl GhcPs
         mkConDecl conName details = noLoc $ ConDeclH98
@@ -586,10 +611,6 @@ generateSrcFromLf env = noLoc mod
         -- hardcoded in GHC).
         , modRefModule /= LF.ModuleName ["CurrentSdk", "GHC", "Prim"]
         ]
-
--- TODO (drsk) how come those '#' appear in daml-lf names?
-sanitize :: T.Text -> T.Text
-sanitize = T.dropWhileEnd (== '#')
 
 mkConRdr :: Env -> Module -> OccName -> RdrName
 mkConRdr env thisModule
@@ -782,11 +803,32 @@ convType env reexported =
             binder <- convTyVarBinder env forallBinder
             body <- convType env reexported forallBody
             pure . HsParTy noExt . noLoc $ HsForAllTy noExt [binder] (noLoc body)
-        ty@(LF.TStruct fls) -> do
-            tys <- mapM (convType env reexported . snd) fls
-            pure $ HsTupleTy noExt
-                (if isConstraint ty then HsConstraintTuple else HsBoxedTuple)
-                (map noLoc tys)
+        ty@(LF.TStruct fls)
+            | isConstraint ty -> do
+                -- A constraint tuple. We need to lift it up to a type synonym,
+                -- otherwise GHC will treat it as a regular constraint.
+                -- See issue https://github.com/digital-asset/daml/issues/9663
+                let freeVars = map LF.unTypeVarName . Set.toList $ LF.freeVars ty
+                fieldTys <- mapM (convType env reexported . snd) fls
+                tupleTyName <- freshTypeName
+                emitHsDecl . noLoc . TyClD noExt $ SynDecl
+                    { tcdSExt = noExt
+                    , tcdLName = tupleTyName
+                    , tcdTyVars = HsQTvs noExt $ map mkUserTyVar freeVars
+                    , tcdFixity = Prefix
+                    , tcdRhs = noLoc $ HsTupleTy noExt HsConstraintTuple (map noLoc fieldTys)
+                    }
+                pure $ foldl'
+                    (\ accum freeVar ->
+                        HsParTy noExt
+                        . noLoc . HsAppTy noExt (noLoc accum)
+                        . noLoc . HsTyVar noExt NotPromoted
+                        $ mkRdrName freeVar )
+                    (HsTyVar noExt NotPromoted tupleTyName)
+                    freeVars
+
+            | otherwise ->
+                error ("Unexpected: Bare LF struct type that does not represent constraint tuple in data-dependencies. " <> show ty)
 
         LF.TNat n -> pure $
             HsTyLit noExt (HsNumTy NoSourceText (LF.fromTypeLevelNat n))
@@ -915,6 +957,7 @@ generateSrcPkgFromLf envConfig pkg = do
         , "{-# LANGUAGE TypeOperators #-}"
         , "{-# LANGUAGE UndecidableInstances #-}"
         , "{-# LANGUAGE AllowAmbiguousTypes #-}"
+        , "{-# LANGUAGE MagicHash #-}"
         , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods #-}"
         ]
 

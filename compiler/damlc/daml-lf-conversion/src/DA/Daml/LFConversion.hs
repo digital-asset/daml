@@ -338,7 +338,7 @@ convertRationalBigNumeric num denom = case numericFromRational rational of
     Left _ -> invalid
     Right n ->
         let scale = numericScale n
-        in pure (EBuiltin BEFromNumericBigNumeric
+        in pure (EBuiltin BENumericToBigNumeric
             `ETyApp` TNat (typeLevelNat scale)
             `ETmApp` EBuiltin (BENumeric n))
 
@@ -356,15 +356,16 @@ data TemplateBinds = TemplateBinds
     , tbKeyType :: Maybe GHC.Type
     , tbKey :: Maybe (GHC.Expr Var)
     , tbMaintainer :: Maybe (GHC.Expr Var)
+    , tbShow :: Maybe GHC.Var
     }
 
 emptyTemplateBinds :: TemplateBinds
 emptyTemplateBinds = TemplateBinds
     Nothing Nothing Nothing Nothing Nothing Nothing
-    Nothing Nothing Nothing
+    Nothing Nothing Nothing Nothing
 
 scrapeTemplateBinds :: [(Var, GHC.Expr Var)] -> MS.Map TypeConName TemplateBinds
-scrapeTemplateBinds binds = MS.map ($ emptyTemplateBinds) $ MS.fromListWith (.)
+scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTemplateBinds) $ MS.fromListWith (.)
     [ (mkTypeCon [getOccText (GHC.tyConName tpl)], fn)
     | (name, expr) <- binds
     , Just (tpl, fn) <- pure $ case name of
@@ -382,6 +383,8 @@ scrapeTemplateBinds binds = MS.map ($ emptyTemplateBinds) $ MS.fromListWith (.)
             Just (tpl, \tb -> tb { tbKeyType = Just key, tbKey = Just expr })
         HasMaintainerDFunId tpl _key ->
             Just (tpl, \tb -> tb { tbMaintainer = Just expr })
+        ShowDFunId tpl ->
+            Just (tpl, \tb -> tb { tbShow = Just name })
         _ -> Nothing
     ]
 
@@ -685,7 +688,7 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
         let tplParam = this
         tplSignatories <- useSingleMethodDict env fSignatory (`ETmApp` EVar this)
         tplObservers <- useSingleMethodDict env fObserver (`ETmApp` EVar this)
-        tplPrecondition <- useSingleMethodDict env fEnsure (`ETmApp` EVar this)
+        tplPrecondition <- useSingleMethodDict env fEnsure (wrapPrecondition . (`ETmApp` EVar this))
         tplAgreement <- useSingleMethodDict env fAgreement (`ETmApp` EVar this)
         tplChoices <- convertChoices env tplTypeCon tbinds
         tplKey <- convertTemplateKey env tplTypeCon tbinds
@@ -693,6 +696,31 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
 
     | otherwise =
         unhandled "Missing required instances in template definition." (show tplTypeCon)
+
+  where
+    wrapPrecondition b
+        | envLfVersion env`supports` featureExceptions
+        = case tbShow of
+            Nothing ->
+                error ("Missing Show instance for template: " <> show tplTypeCon)
+            Just showDict ->
+                ECase b
+                    [ CaseAlternative (CPBool True) ETrue
+                    , CaseAlternative (CPBool False)
+                        $ EThrow TBool (TCon preconditionFailedTypeCon)
+                        $ mkPreconditionFailed
+                        $ EBuiltin BEAppendText
+                            `ETmApp` EBuiltin (BEText "Template precondition violated: " )
+                            `ETmApp`
+                                (EStructProj (FieldName "m_show")
+                                    (EVal (Qualified PRSelf (envLFModuleName env) (convVal showDict)))
+                                `ETmApp` EUnit
+                                `ETmApp` EVar this)
+                    ]
+
+        | otherwise
+        = b
+
 
 convertTemplateKey :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (Maybe TemplateKey)
 convertTemplateKey env tname TemplateBinds{..}

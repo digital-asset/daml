@@ -211,12 +211,12 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "EXPLODE_TEXT" -> BExplodeText,
         "IMPLODE_TEXT" -> BImplodeText,
         "APPEND_TEXT" -> BAppendText,
-        "TO_TEXT_INT64" -> BToTextInt64,
-        "TO_TEXT_NUMERIC" -> BToTextNumeric,
-        "TO_TEXT_TEXT" -> BToTextText,
-        "TO_TEXT_TIMESTAMP" -> BToTextTimestamp,
-        "TO_TEXT_PARTY" -> BToTextParty,
-        "TO_TEXT_DATE" -> BToTextDate,
+        "INT64_TO_TEXT" -> BInt64ToText,
+        "NUMERIC_TO_TEXT" -> BNumericToText,
+        "TEXT_TO_TEXT" -> BTextToText,
+        "TIMESTAMP_TO_TEXT" -> BTimestampToText,
+        "PARTY_TO_TEXT" -> BPartyToText,
+        "DATE_TO_TEXT" -> BDateToText,
         "ERROR" -> BError,
         "LESS_NUMERIC" -> BLessNumeric,
         "LESS_EQ_NUMERIC" -> BLessEqNumeric,
@@ -233,7 +233,6 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
         "COERCE_CONTRACT_ID" -> BCoerceContractId,
         "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
         "ANY_EXCEPTION_IS_ARITHMETIC_ERROR" -> BAnyExceptionIsArithmeticError,
-        "ANY_EXCEPTION_IS_CONTRACT_ERROR" -> BAnyExceptionIsContractError,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltin) =>

@@ -14,7 +14,7 @@ sealed abstract class TransactionVersion private (val protoValue: String, privat
     extends Product
     with Serializable
 
-/** Currently supported versions of the DAML-LF transaction specification.
+/** Currently supported versions of the Daml-LF transaction specification.
   */
 object TransactionVersion {
 
@@ -74,7 +74,10 @@ object TransactionVersion {
     import scala.Ordering.Implicits.infixOrderingOps
 
     val txVersion = roots.iterator.foldLeft(TransactionVersion.minVersion)((acc, nodeId) =>
-      acc max nodes(nodeId).version
+      nodes(nodeId).optVersion match {
+        case Some(version) => acc max version
+        case None => acc max TransactionVersion.minExceptions
+      }
     )
 
     VersionedTransaction(txVersion, nodes, roots)

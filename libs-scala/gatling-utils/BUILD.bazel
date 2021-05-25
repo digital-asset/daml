@@ -25,11 +25,10 @@ da_scala_library(
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_spray_spray_json",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = scalacopts + [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
+    scalacopts = scalacopts,
     tags = ["maven_coordinates=com.daml:gatling-utils:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -39,9 +38,11 @@ da_scala_library(
         "//libs-scala/scala-utils",
         "@maven//:io_gatling_gatling_app",
         "@maven//:io_gatling_gatling_core",
+        "@maven//:io_netty_netty_common",
+        "@maven//:io_netty_netty_transport",
         "@maven//:org_slf4j_slf4j_api",
     ],
-) if scala_major_version == "2.12" else None
+) if scala_major_version == "2.13" else None
 
 filegroup(
     name = "test-simulation-logs",
@@ -59,16 +60,12 @@ da_scala_test(
         "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
     ],
     scala_deps = [
-        "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest",
-        "@maven//:org_scalatestplus_scalacheck_1_14",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding",
     ],
     scalacopts = scalacopts,
     deps = [
         ":gatling-utils",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//libs-scala/scalatest-utils",
     ],
-) if scala_major_version == "2.12" else None
+) if scala_major_version == "2.13" else None

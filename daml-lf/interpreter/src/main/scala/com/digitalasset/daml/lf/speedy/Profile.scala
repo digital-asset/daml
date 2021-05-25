@@ -41,7 +41,7 @@ final class Profile {
   import Profile._
   private val start: Long = System.nanoTime()
   private[lf] val events: ArrayList[Event] = new ArrayList()
-  var name: String = "DAML Engine profile"
+  var name: String = "Daml Engine profile"
 
   def addOpenEvent(label: Label) = {
     val time = System.nanoTime()
@@ -185,7 +185,7 @@ object Profile {
           profiles = List(profileJson),
           shared = sharedJson,
           activeProfileIndex = 0,
-          exporter = "DAML Engine",
+          exporter = "Daml Engine",
           name = profile.name,
         )
       }

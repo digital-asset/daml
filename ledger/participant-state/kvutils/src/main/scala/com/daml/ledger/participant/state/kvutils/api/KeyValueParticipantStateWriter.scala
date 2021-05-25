@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.metrics.Metrics
-import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
+import com.daml.telemetry.TelemetryContext
 
 import scala.compat.java8.FutureConverters
 
@@ -64,7 +64,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
     val submission =
       keyValueSubmission
         .configurationToSubmission(maxRecordTime, submissionId, writer.participantId, config)
-    commit(submissionId, submission)(NoOpTelemetryContext)
+    commit(submissionId, submission)
   }
 
   override def allocateParty(

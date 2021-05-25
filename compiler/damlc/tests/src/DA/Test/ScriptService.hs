@@ -42,6 +42,9 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Text.Regex.TDFA
 
+lfVersion :: LF.Version
+lfVersion = max (LF.featureMinVersion LF.featureExceptions) LF.versionDefault
+
 main :: IO ()
 main =
   withTempDir $ \dir -> do
@@ -49,7 +52,7 @@ main =
       setEnv "TASTY_NUM_THREADS" "1" True
 
       -- Package DB setup, we only need to do this once so we do it at the beginning.
-      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script.dar"
+      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script-1.dev.dar"
       writeFileUTF8 "daml.yaml" $
         unlines
           [ "sdk-version: " <> sdkVersion,
@@ -77,7 +80,7 @@ main =
       logger <- Logger.newStderrLogger Logger.Debug "script-service"
 
       -- Spinning up the scenario service is expensive so we do it once at the beginning.
-      SS.withScenarioService LF.versionDefault logger scenarioConfig $ \scriptService ->
+      SS.withScenarioService lfVersion logger scenarioConfig $ \scriptService ->
         defaultMain $
           testGroup
             "Script Service"
@@ -232,9 +235,9 @@ main =
                 expectScriptFailure rs (vr "testNotVisible") $ \r ->
                   matchRegex r "Attempt to fetch or exercise a contract not visible to the reading parties"
                 expectScriptFailure rs (vr "testError") $ \r ->
-                  matchRegex r "Aborted:  errorCrash"
+                  matchRegex r "errorCrash"
                 expectScriptFailure rs (vr "testAbort") $ \r ->
-                  matchRegex r "Aborted:  abortCrash"
+                  matchRegex r "abortCrash"
                 expectScriptFailure rs (vr "testPartialSubmit") $ \r ->
                   matchRegex r  $ T.unlines
                     [ "Scenario execution failed on commit at Test:57:3:"
@@ -763,7 +766,48 @@ main =
                 expectScriptSuccess rs (vr "localLookupFetchMustFail") $ \r ->
                   matchRegex r "Active contracts:"
                 expectScriptSuccess rs (vr "localLookupFetchMulti") $ \r ->
-                  matchRegex r "Active contracts:"
+                  matchRegex r "Active contracts:",
+              testCase "exceptions" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import DA.Exception"
+                    , "import DA.Assert"
+                    , "import DA.Foldable"
+                    , "import Daml.Script"
+                    , "template T"
+                    , "  with"
+                    , "    p : Party"
+                    , "  where"
+                    , "    signatory p"
+                    , "template Helper"
+                    , "  with"
+                    , "    p : Party"
+                    , "  where"
+                    , "    signatory p"
+                    , "    choice C : ()"
+                    , "      with"
+                    , "        cid : ContractId T"
+                    , "      controller p"
+                    , "      do try do"
+                    , "           -- rolled back create"
+                    , "           create (T p)"
+                    , "           -- rolled back archive"
+                    , "           archive cid"
+                    , "           error \"\""
+                    , "         catch"
+                    , "           (GeneralError _) -> pure ()"
+                    , "test = do"
+                    , "  p <- allocateParty \"p\""
+                    , "  cid <- submit p $ createCmd (T p)"
+                    , "  submit p $ createAndExerciseCmd (Helper p) (C cid)"
+                    , "  r <- query @T p"
+                    , "  r === [(cid, T p)]"
+                    , "  pure ()"
+                    ]
+                expectScriptSuccess rs (vr "test") $ \r ->
+                  matchRegex r "Active contracts:  #0:0\n"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
@@ -814,7 +858,7 @@ expectScriptFailure xs vr pred = case find ((vr ==) . fst) xs of
 
 options :: Options
 options =
-  (defaultOptions Nothing)
+  (defaultOptions (Just lfVersion))
     { optDlintUsage = DlintDisabled,
       optEnableOfInterestRule = False,
       optEnableScripts = EnableScripts True

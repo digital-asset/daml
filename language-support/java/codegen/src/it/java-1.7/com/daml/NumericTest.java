@@ -47,7 +47,7 @@ public class NumericTest {
     NumericBox record = NumericBox.fromValue(value);
     checkRecord(record);
     assertTrue(
-        "to value uses original daml lf names for fields",
+        "to value uses original Daml-LF names for fields",
         record.toValue().getFieldsMap().get("numeric37").asNumeric().isPresent());
   }
 

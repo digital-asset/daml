@@ -464,6 +464,14 @@ detailed information.
     bazel run //ledger/sandbox:sandbox-binary -- --help
     ```
 
+### Running a REPL
+
+- Run a Scala REPL which has the library on the classpath:
+
+    ```
+    bazel run //ledger/ledger-on-memory:ledger-on-memory_repl
+    ```
+
 ### Querying Targets
 
 The Bazel query language is described in detail in the [official Bazel
@@ -1001,8 +1009,8 @@ resolution and import the required artifacts into the Bazel build.
 
 The resolved versions are pinned in the file `maven_install.json`. Execute
 `bazel run @unpinned_maven//:pin` when you wish to update or add a new
-dependency. You also need to run this a second time to update the deps for 2.13
-`DAML_SCALA_VERSION=2.13.5 bazel run @unpinned_maven//:pin`.
+dependency. You also need to run this a second time to update the deps for 2.12
+`DAML_SCALA_VERSION=2.12.13 bazel run @unpinned_maven//:pin`.
 See [`rules_jvm_external`][rules_jvm_external] for details.
 
 [rules_jvm_external]: https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson

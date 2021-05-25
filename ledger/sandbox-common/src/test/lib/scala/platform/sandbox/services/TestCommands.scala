@@ -69,8 +69,8 @@ trait TestCommands {
       actAs: Seq[String],
       readAs: Seq[String],
   ): SubmitRequest = {
-    // This method returns a multi-party submission, however the DAML contract uses a single party.
-    // Pick a random party for the DAML contract (it needs to be one of the submitters).
+    // This method returns a multi-party submission, however the Daml contract uses a single party.
+    // Pick a random party for the Daml contract (it needs to be one of the submitters).
     val operator = actAs.headOption.getOrElse(party)
     dummyCommands(ledgerId, commandId, operator)
       .update(

@@ -46,6 +46,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
       // this was the previous default.
       // keeping it hardcoded here to keep tests working as before extracting the parameter
       connectionPoolSize = 16,
+      connectionTimeout = 250.millis,
       eventsPageSize = eventsPageSize,
       servicesExecutionContext = executionContext,
       metrics = new Metrics(new MetricRegistry),

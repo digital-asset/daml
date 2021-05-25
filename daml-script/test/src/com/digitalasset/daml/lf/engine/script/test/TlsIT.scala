@@ -32,7 +32,7 @@ final class TlsIT
     super.config
       .copy(tlsConfig = Some(TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)))
 
-  "DAML Script against ledger with TLS" can {
+  "Daml Script against ledger with TLS" can {
     "test0" should {
       "create and accept Proposal" in {
         for {

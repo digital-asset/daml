@@ -6,7 +6,6 @@ package com.daml.ledger.api.testtool.suites
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.softwaremill.diffx.generic.auto._
 import io.grpc.health.v1.health.HealthCheckResponse
 
 class HealthServiceIT extends LedgerTestSuite {

@@ -359,12 +359,11 @@ object ValueGenerators {
   /** Makes rollback node with some random child IDs. */
   val danglingRefRollbackNodeGen: Gen[NodeRollback[NodeId]] = {
     for {
-      version <- transactionVersionGen()
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
         .map(ImmArray(_))
-    } yield NodeRollback(children, version)
+    } yield NodeRollback(children)
   }
 
   /** Makes exercise nodes with some random child IDs. */
@@ -427,7 +426,9 @@ object ValueGenerators {
   /** Makes nodes with the problems listed under `malformedCreateNodeGen`, and
     * `malformedGenTransaction` should they be incorporated into a transaction.
     */
-  val danglingRefGenNode: Gen[(NodeId, Tx.Node)] = {
+  // TODO https://github.com/digital-asset/daml/issues/8020
+  val danglingRefGenNode //TODO: FIXME: this generator never produces rollback nodes
+      : Gen[(NodeId, Tx.Node)] = {
     for {
       id <- Arbitrary.arbInt.arbitrary.map(NodeId(_))
       node <- Gen.oneOf(malformedCreateNodeGen, danglingRefExerciseNodeGen, fetchNodeGen)
@@ -536,8 +537,7 @@ object ValueGenerators {
         case (acc, (nodeId, node)) =>
           for {
             hashMap <- acc
-            version <- nodeVersionGen
-          } yield hashMap.updated(nodeId, node.updateVersion(version))
+          } yield hashMap.updated(nodeId, node)
       }
     } yield VersionedTransaction(txVer, nodes, tx.roots)
 

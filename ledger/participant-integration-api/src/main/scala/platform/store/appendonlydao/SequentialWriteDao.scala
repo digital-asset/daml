@@ -54,17 +54,11 @@ case class SequentialWriteDaoImpl[DB_BATCH](
         .pipe(storageBackend.batch)
         .pipe(storageBackend.insertBatch(connection, _))
 
-      val configuration = dbDtos.reverseIterator
-        .collectFirst {
-          case c: DBDTOV1.ConfigurationEntry if c.typ == JdbcLedgerDao.acceptType => c.configuration
-        }
-
       storageBackend.updateParams(
         connection,
         StorageBackend.Params(
           ledgerEnd = offset,
           eventSeqId = lastEventSeqId,
-          configuration = configuration,
         ),
       )
     }

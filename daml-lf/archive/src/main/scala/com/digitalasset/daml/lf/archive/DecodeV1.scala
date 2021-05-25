@@ -50,7 +50,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         Some(decodePackageMetadata(lfPackage.getMetadata, internedStrings))
       } else {
         if (!versionIsOlderThan(LV.Features.packageMetadata)) {
-          throw ParseError(s"Package.metadata is required in DAML-LF 1.$minor")
+          throw ParseError(s"Package.metadata is required in Daml-LF 1.$minor")
         }
         None
       }
@@ -332,11 +332,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     ): DottedName =
       if (versionIsOlderThan(LV.Features.internedDottedNames)) {
         if (actualCase != dNameCase)
-          throw ParseError(s"${description}_dname is required by DAML-LF 1.$minor")
+          throw ParseError(s"${description}_dname is required by Daml-LF 1.$minor")
         decodeSegments(dName.getSegmentsList.asScala)
       } else {
         if (actualCase != internedDNameCase)
-          throw ParseError(s"${description}_interned_dname is required by DAML-LF 1.$minor")
+          throw ParseError(s"${description}_interned_dname is required by Daml-LF 1.$minor")
         getInternedDottedName(internedDName)
       }
 
@@ -392,11 +392,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     ) = {
       val str = if (versionIsOlderThan(LV.Features.internedStrings)) {
         if (actualCase != stringCase)
-          throw ParseError(s"${description}_str is required by DAML-LF 1.$minor")
+          throw ParseError(s"${description}_str is required by Daml-LF 1.$minor")
         string
       } else {
         if (actualCase != internedStringCase)
-          throw ParseError(s"${description}_interned_str is required by DAML-LF 1.$minor")
+          throw ParseError(s"${description}_interned_str is required by Daml-LF 1.$minor")
         internedStrings(internedString)
       }
       toName(str)
@@ -1403,20 +1403,20 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
   // maxVersion excluded
   private[this] def assertUntil(maxVersion: LV, description: => String): Unit =
     if (!versionIsOlderThan(maxVersion))
-      throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
+      throw ParseError(s"$description is not supported by Daml-LF 1.$minor")
 
   // minVersion included
   private[this] def assertSince(minVersion: LV, description: => String): Unit =
     if (versionIsOlderThan(minVersion))
-      throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
+      throw ParseError(s"$description is not supported by Daml-LF 1.$minor")
 
   private def assertUndefined(i: Int, description: => String): Unit =
     if (i != 0)
-      throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
+      throw ParseError(s"$description is not supported by Daml-LF 1.$minor")
 
   private def assertUndefined(s: collection.Seq[_], description: => String): Unit =
     if (s.nonEmpty)
-      throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
+      throw ParseError(s"$description is not supported by Daml-LF 1.$minor")
 
   private def assertNonEmpty(s: collection.Seq[_], description: => String): Unit =
     if (s.isEmpty) throw ParseError(s"Unexpected empty $description")
@@ -1708,34 +1708,34 @@ private[lf] object DecodeV1 {
         maxVersion = Some(genComparison),
         implicitParameters = List(TParty),
       ),
-      BuiltinFunctionInfo(TO_TEXT_INT64, BToTextInt64),
+      BuiltinFunctionInfo(INT64_TO_TEXT, BInt64ToText),
       BuiltinFunctionInfo(
-        TO_TEXT_DECIMAL,
-        BToTextNumeric,
+        DECIMAL_TO_TEXT,
+        BNumericToText,
         maxVersion = Some(numeric),
         implicitParameters = List(TNat.Decimal),
       ),
-      BuiltinFunctionInfo(TO_TEXT_NUMERIC, BToTextNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(TO_TEXT_TIMESTAMP, BToTextTimestamp),
-      BuiltinFunctionInfo(TO_TEXT_PARTY, BToTextParty),
-      BuiltinFunctionInfo(TO_TEXT_TEXT, BToTextText),
+      BuiltinFunctionInfo(NUMERIC_TO_TEXT, BNumericToText, minVersion = numeric),
+      BuiltinFunctionInfo(TIMESTAMP_TO_TEXT, BTimestampToText),
+      BuiltinFunctionInfo(PARTY_TO_TEXT, BPartyToText),
+      BuiltinFunctionInfo(TEXT_TO_TEXT, BTextToText),
       BuiltinFunctionInfo(
-        TO_TEXT_CONTRACT_ID,
-        BToTextContractId,
+        CONTRACT_ID_TO_TEXT,
+        BContractIdToText,
         minVersion = contractIdTextConversions,
       ),
-      BuiltinFunctionInfo(TO_QUOTED_TEXT_PARTY, BToQuotedTextParty),
-      BuiltinFunctionInfo(TEXT_FROM_CODE_POINTS, BToTextCodePoints, minVersion = textPacking),
-      BuiltinFunctionInfo(FROM_TEXT_PARTY, BFromTextParty),
-      BuiltinFunctionInfo(FROM_TEXT_INT64, BFromTextInt64),
+      BuiltinFunctionInfo(PARTY_TO_QUOTED_TEXT, BPartyToQuotedText, maxVersion = Some(exceptions)),
+      BuiltinFunctionInfo(CODE_POINTS_TO_TEXT, BCodePointsToText, minVersion = textPacking),
+      BuiltinFunctionInfo(TEXT_TO_PARTY, BTextToParty),
+      BuiltinFunctionInfo(TEXT_TO_INT64, BTextToInt64),
       BuiltinFunctionInfo(
-        FROM_TEXT_DECIMAL,
-        BFromTextNumeric,
+        TEXT_TO_DECIMAL,
+        BTextToNumeric,
         implicitParameters = List(TNat.Decimal),
         maxVersion = Some(numeric),
       ),
-      BuiltinFunctionInfo(FROM_TEXT_NUMERIC, BFromTextNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BFromTextCodePoints, minVersion = textPacking),
+      BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(TEXT_POINTS_TO_CODE, BTextToCodePoints, minVersion = textPacking),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
@@ -1759,7 +1759,7 @@ private[lf] object DecodeV1 {
         maxVersion = Some(genComparison),
       ),
       BuiltinFunctionInfo(TIMESTAMP_TO_UNIX_MICROSECONDS, BTimestampToUnixMicroseconds),
-      BuiltinFunctionInfo(TO_TEXT_DATE, BToTextDate),
+      BuiltinFunctionInfo(DATE_TO_TEXT, BDateToText),
       BuiltinFunctionInfo(UNIX_DAYS_TO_DATE, BUnixDaysToDate),
       BuiltinFunctionInfo(UNIX_MICROSECONDS_TO_TIMESTAMP, BUnixMicrosecondsToTimestamp),
       BuiltinFunctionInfo(
@@ -1838,19 +1838,14 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(SUB_BIGNUMERIC, BSubBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(MUL_BIGNUMERIC, BMulBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(DIV_BIGNUMERIC, BDivBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(SHIFT_BIGNUMERIC, BShiftBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(TO_NUMERIC_BIGNUMERIC, BToNumericBigNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(TO_BIGNUMERIC_NUMERIC, BToBigNumericNumeric, minVersion = bigNumeric),
-      BuiltinFunctionInfo(TO_TEXT_BIGNUMERIC, BToTextBigNumeric, minVersion = bigNumeric),
+      BuiltinFunctionInfo(SHIFT_RIGHT_BIGNUMERIC, BShiftRightBigNumeric, minVersion = bigNumeric),
+      BuiltinFunctionInfo(BIGNUMERIC_TO_NUMERIC, BBigNumericToNumeric, minVersion = bigNumeric),
+      BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = bigNumeric),
+      BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = bigNumeric),
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),
       BuiltinFunctionInfo(
         ANY_EXCEPTION_IS_ARITHMETIC_ERROR,
         BAnyExceptionIsArithmeticError,
-        minVersion = exceptions,
-      ),
-      BuiltinFunctionInfo(
-        ANY_EXCEPTION_IS_CONTRACT_ERROR,
-        BAnyExceptionIsContractError,
         minVersion = exceptions,
       ),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),

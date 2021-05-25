@@ -29,10 +29,7 @@ object BatchingParallelIngestionPipe {
     // Stage 1: the stream coming from ReadService, involves deserialization and translation to Update-s
     source
       // Stage 2: Batching plus mapping to Database DTOs encapsulates all the CPU intensive computation of the ingestion. Executed in parallel.
-      .groupedWithin(
-        submissionBatchSize.toInt,
-        FiniteDuration(batchWithinMillis, "millis"),
-      ) // TODO append-only: .batch adds no latency to the pipe, but batch and mapAsync combination leads to dirac impulses in the forming batch sizes, which leads practically single threaded ingestion throughput at this stage.
+      .groupedWithin(submissionBatchSize.toInt, FiniteDuration(batchWithinMillis, "millis"))
       .mapAsync(inputMappingParallelism)(inputMapper)
       // Stage 3: Encapsulates sequential/stateful computation (generation of sequential IDs for events)
       .scan(seqMapperZero)(seqMapper)
@@ -48,8 +45,6 @@ object BatchingParallelIngestionPipe {
       .throttle(tailingRateLimitPerSecond, FiniteDuration(1, "seconds"))
       // Stage 7: Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
       .mapAsync(1)(ingestTail)
-      .map(_ =>
-        ()
-      ) // TODO append-only: linking to consumers that depend on the moving ledger end, such as in-memory fan-out
+      .map(_ => ())
 
 }

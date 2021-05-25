@@ -42,7 +42,6 @@ alias(
             "@maven//:org_scalaz_scalaz_core",
         ],
         scalacopts = [
-            "-P:silencer:lineContentFilters=import scala.collection.compat",
             # retain is deprecated in 2.13 but the replacement filterInPlace
             # does not exist in 2.12.
             "-P:silencer:lineContentFilters=retain",
@@ -409,7 +408,8 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--include=ExceptionsIT",
+        "--open-world",
+        "--exclude=ClosedWorldIT",
     ],
 )
 
@@ -426,6 +426,7 @@ server_conformance_test(
     ],
     servers = ONLY_POSTGRES_SERVER,
     test_tool_args = [
-        "--include=ExceptionsIT",
+        "--open-world",
+        "--exclude=ClosedWorldIT",
     ],
 )

@@ -30,3 +30,4 @@ They also briefly describe the link between Daml and the model.
    ledger-integrity
    ledger-privacy
    ledger-daml
+   ledger-exceptions

@@ -1,17 +1,25 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-# Stable and latest refers to the versions used by the compiler.
-# If we make a new LF release, we bump latest and once we make it the default
-# we bump stable.
-# The following dictionary is always defined for "legacy", "stable", "latest",
-# and "dev". It contains "preview" iff a preview version is available.
-# If exists "preview"'s value is guarantee to be different for all other values.
+# The following dictionary alias LF versions to keywords:
+# - "legacy" is the keyword for last LF version that supports legacy
+#    contract ID scheme,
+# - "stable" is the keyword for the default compiler output,
+# - "latest" is the keyword for the latest stable LF version,
+# - "preview" is the keyword fort he next LF version, *not stable*,
+#    usable for beta testing,
+# - "dev" is the keyword for the development version, *not stable*,
+#    usable for alpha testing.
+# The following dictionary is always defined for "legacy", "stable",
+# "latest", and "dev". It contains "preview" iff a preview version is
+# available.  If exists "preview"'s value is guarantee to be different
+# for all other values.  If we make a new LF release, we bump latest
+# and once we make it the compiler default we bump stable.
+
 lf_version_configuration = {
     "legacy": "1.8",
     "stable": "1.12",
-    "latest": "1.12",
-    "preview": "1.13",
+    "latest": "1.13",
     "dev": "1.dev",
 }
 
@@ -63,6 +71,7 @@ LF_VERSION_PACKAGE_DIGITALASSET = {
     "1.8": "digitalasset",
     "1.11": "daml",
     "1.12": "daml",
+    "1.13": "daml",
 }
 
 def lf_version_package(version):

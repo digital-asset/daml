@@ -20,11 +20,13 @@ object Node {
       extends Product
       with Serializable
       with CidContainer[GenNode[Nid, Cid]] {
-    def version: TransactionVersion
 
     def foreach2(fNid: Nid => Unit, fCid: Cid => Unit): Unit
 
-    private[lf] def updateVersion(version: TransactionVersion): GenNode[Nid, Cid]
+    def optVersion: Option[TransactionVersion] = this match {
+      case node: GenActionNode[_, _] => Some(node.version)
+      case _: NodeRollback[_] => None
+    }
   }
 
   object GenNode extends CidContainer2[GenNode] {
@@ -52,6 +54,10 @@ object Node {
       with ActionNodeInfo
       with CidContainer[GenActionNode[Nid, Cid]] {
 
+    def version: TransactionVersion
+
+    private[lf] def updateVersion(version: TransactionVersion): GenNode[Nid, Cid]
+
     def templateId: TypeConName
 
     final override protected def self: this.type = this
@@ -63,7 +69,7 @@ object Node {
       * The usage of this method must thus be restricted to:
       * 1. settings where no fetch nodes appear (for example, the `validate` method of DAMLe, which uses it on root
       *    nodes, which are guaranteed never to contain a fetch node)
-      * 2. DAML ledger implementations that do not store or process any transactions with version < 5
+      * 2. Daml ledger implementations that do not store or process any transactions with version < 5
       */
     def requiredAuthorizers: Set[Party]
 
@@ -365,17 +371,8 @@ object Node {
   }
 
   final case class NodeRollback[+Nid](
-      // TODO https://github.com/digital-asset/daml/issues/8020
-      // Figure-out what information needs to be contained in a Rollback node.
-      // For the moment, we just have the children.
-      // Note: if we add values, we must extend the function which checks they are serializable
-      children: ImmArray[Nid],
-      // For the sake of consistency between types with a version field, keep this field the last.
-      override val version: TransactionVersion,
+      children: ImmArray[Nid]
   ) extends GenNode[Nid, Nothing] {
-
-    override private[lf] def updateVersion(version: TransactionVersion): NodeRollback[Nid] =
-      copy(version = version)
 
     override def foreach2(fNid: Nid => Unit, fCid: Nothing => Unit): Unit =
       children.foreach(fNid)

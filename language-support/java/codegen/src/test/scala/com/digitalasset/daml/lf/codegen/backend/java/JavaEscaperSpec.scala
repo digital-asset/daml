@@ -25,7 +25,7 @@ class JavaEscaperSpec extends AnyFlatSpec with Matchers {
   }
 
   // TODO(mp): use property-based testing
-  it should "escape dollars in DAML identifiers" in {
+  it should "escape dollars in Daml identifiers" in {
     JavaEscaper.escapeString("foo$") shouldEqual "foo$$"
   }
 }

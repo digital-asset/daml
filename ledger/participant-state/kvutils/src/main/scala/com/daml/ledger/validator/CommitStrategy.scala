@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 
 import scala.concurrent.Future
 
-/** Determines how we commit the results of processing a DAML submission.
+/** Determines how we commit the results of processing a Daml submission.
   *
   * This must write deterministically. The output and order of writes should not vary with the same
   * input, even across process runs. This also means that the implementing type must not depend on
