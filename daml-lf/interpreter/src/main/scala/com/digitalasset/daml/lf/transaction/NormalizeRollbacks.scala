@@ -37,10 +37,10 @@ private[lf] object NormalizeRollbacks {
 
     txOriginal match {
       case GenTransaction(nodesOriginal, rootsOriginal) =>
-        def traverseNids[R](xs: List[Nid])(k: List[Norm] => Trampoline[R]): Trampoline[R] = {
+        def traverseNids[R](xs: List[Nid])(k: Vector[Norm] => Trampoline[R]): Trampoline[R] = {
           Bounce { () =>
             xs match {
-              case Nil => k(Nil)
+              case Nil => k(Vector.empty)
               case x :: xs =>
                 traverseNode(nodesOriginal(x)) { norms1 =>
                   traverseNids(xs) { norms2 =>
@@ -53,7 +53,7 @@ private[lf] object NormalizeRollbacks {
           }
         }
 
-        def traverseNode[R](node: Node)(k: List[Norm] => Trampoline[R]): Trampoline[R] = {
+        def traverseNode[R](node: Node)(k: Vector[Norm] => Trampoline[R]): Trampoline[R] = {
           Bounce { () =>
             node match {
 
@@ -64,18 +64,18 @@ private[lf] object NormalizeRollbacks {
 
               case exe: NodeExercises[_, _] =>
                 traverseNids(exe.children.toList) { norms =>
-                  k(List(Norm.Exe(exe, norms)))
+                  k(Vector(Norm.Exe(exe, norms.toList)))
                 }
 
               case leaf: LeafOnlyActionNode[_] =>
-                k(List(Norm.Leaf(leaf)))
+                k(Vector(Norm.Leaf(leaf)))
             }
           }
         }
         //pass 1
         traverseNids(rootsOriginal.toList) { norms =>
           //pass 2
-          pushNorms(initialState, norms) { (finalState, roots) =>
+          pushNorms(initialState, norms.toList) { (finalState, roots) =>
             Land(GenTransaction(finalState.nodeMap, ImmArray(roots)))
           }
         }.bounce
@@ -90,41 +90,41 @@ private[lf] object NormalizeRollbacks {
   //   rule #2/#3 overlap: ROLL [ ROLL [ xs… ] ] -> ROLL [ xs… ]
 
   private[this] def makeRoll[R](
-      norms: List[Norm]
-  )(k: List[Norm] => Trampoline[R]): Trampoline[R] = {
+      norms: Vector[Norm]
+  )(k: Vector[Norm] => Trampoline[R]): Trampoline[R] = {
     caseNorms(norms) match {
       case Case.Empty =>
         // normalization rule #1
-        k(Nil)
+        k(Vector.empty)
 
       case Case.Single(roll: Norm.Roll) =>
         // normalization rule #2/#3 overlap
-        k(List(roll))
+        k(Vector(roll))
 
       case Case.Single(act: Norm.Act) =>
         // no rule
-        k(List(Norm.Roll1(act)))
+        k(Vector(Norm.Roll1(act)))
 
       case Case.Multi(h: Norm.Roll, m, t) =>
         // normalization rule #2
-        makeRoll(m ++ List(t)) { norms =>
-          k(h :: norms)
+        makeRoll(m :+ t) { norms =>
+          k(h +: norms)
         }
 
       case Case.Multi(h: Norm.Act, m, t: Norm.Roll) =>
         // normalization rule #3
-        k(List(pushIntoRoll(h, m, t)))
+        k(Vector(pushIntoRoll(h, m, t)))
 
       case Case.Multi(h: Norm.Act, m, t: Norm.Act) =>
         // no rule
-        k(List(Norm.Roll2(h, m, t)))
+        k(Vector(Norm.Roll2(h, m, t)))
     }
   }
 
-  private def pushIntoRoll(a1: Norm.Act, xs2: List[Norm], t: Norm.Roll): Norm.Roll = {
+  private def pushIntoRoll(a1: Norm.Act, xs2: Vector[Norm], t: Norm.Roll): Norm.Roll = {
     t match {
       case Norm.Roll1(a3) => Norm.Roll2(a1, xs2, a3)
-      case Norm.Roll2(a3, xs4, a5) => Norm.Roll2(a1, xs2 ++ List(a3) ++ xs4, a5)
+      case Norm.Roll2(a3, xs4, a5) => Norm.Roll2(a1, xs2 ++ Vector(a3) ++ xs4, a5)
     }
   }
 
@@ -180,7 +180,7 @@ private[lf] object NormalizeRollbacks {
           }
         case Norm.Roll2(h, m, t) =>
           pushAct(s, h) { (s, hh) =>
-            pushNorms(s, m) { (s, mm) =>
+            pushNorms(s, m.toList) { (s, mm) =>
               pushAct(s, t) { (s, tt) =>
                 val children = List(hh) ++ mm ++ List(tt)
                 val node = NodeRollback(children = ImmArray(children))
@@ -234,7 +234,7 @@ private[lf] object NormalizeRollbacks {
       // - rollback of 2 or more tx/nodes, such that first and last are not rollbacks.
       sealed trait Roll extends Norm
       final case class Roll1(act: Act) extends Roll
-      final case class Roll2(head: Act, middle: List[Norm], tail: Act) extends Roll
+      final case class Roll2(head: Act, middle: Vector[Norm], tail: Act) extends Roll
     }
 
     // Case analysis on a list of Norms, distinuishing: Empty, Single and Multi forms
@@ -243,10 +243,10 @@ private[lf] object NormalizeRollbacks {
     object Case {
       final case object Empty extends Case
       final case class Single(n: Norm) extends Case
-      final case class Multi(h: Norm, m: List[Norm], t: Norm) extends Case
+      final case class Multi(h: Norm, m: Vector[Norm], t: Norm) extends Case
     }
 
-    def caseNorms(xs: List[Norm]): Case = {
+    def caseNorms(xs: Vector[Norm]): Case = {
       xs.length match {
         case 0 => Case.Empty
         case 1 => Case.Single(xs(0))
