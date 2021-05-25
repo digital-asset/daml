@@ -64,8 +64,14 @@ q = def {two.val = 42}
 
 -- NOTE (drsk) This is here to check that we don't colide with the local binding of the `arg`
 -- variable introduced by ghc when adding a preceding let/case expression in the record dot update.
-arg : One
-arg = One with two = Two 32
+data X = X with
+  a : Int
+  c : Y
 
-arg' : One
-arg' = arg {two.val = 42}
+data Y = Y with
+  r : Int
+
+fun :  Int -> X -> X
+fun arg x = x with
+  a = 1
+  c.r = arg
