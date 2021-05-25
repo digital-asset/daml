@@ -134,9 +134,9 @@ featureUnstable = Feature
 
 featureToTextContractId :: Feature
 featureToTextContractId = Feature
-    { featureName = "TO_TEXT_CONTRACT_ID primitive"
+    { featureName = "CONTRACT_ID_TO_TEXT primitive"
     , featureMinVersion = version1_11
-    , featureCppFlag = Just "DAML_TO_TEXT_CONTRACT_ID"
+    , featureCppFlag = Just "DAML_CONTRACT_ID_TO_TEXT"
     }
 
 featureChoiceObservers :: Feature

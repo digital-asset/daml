@@ -11,6 +11,7 @@ import com.daml.lf.transaction.{GlobalKey, Node => N, NodeId}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
 
+import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 
 final class Conversions(
@@ -85,18 +86,15 @@ final class Conversions(
 
       case SError.DamlEMatchError(reason) =>
         setCrash(reason)
-      case SError.DamlEArithmeticError(reason) =>
-        setCrash(reason)
       case SError.DamlEUnhandledException(exc) =>
+        val exceptionBuilder = proto.ScenarioError.Exception.newBuilder
         exc match {
+          case error: SValue.SArithmeticError =>
+            exceptionBuilder.setBuiltin(error.message)
           case SValue.SAnyException(_, sValue) =>
-            builder.setUnhandledException(convertValue(sValue.toValue))
-          case SValue.SBuiltinException(error) =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
-            //  We should not crash here.
-            //  We however need conversion primitive for builtin exeception to be implemented.
-            setCrash(error.toString)
+            exceptionBuilder.setUser(convertValue(sValue.toValue))
         }
+        builder.setUnhandledException(exceptionBuilder)
       case SError.DamlEUserError(msg) =>
         builder.setUserError(msg)
 
@@ -416,19 +414,23 @@ final class Conversions(
         ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava
       )
 
-    ptx.context.info match {
-      case ctx: SPartialTransaction.ExercisesContextInfo =>
-        val ecBuilder = proto.ExerciseContext.newBuilder
-          .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
-          .setChoiceId(ctx.choiceId)
-          .setChosenValue(convertValue(ctx.chosenValue))
-        ctx.optLocation.map(loc => ecBuilder.setExerciseLocation(convertLocation(loc)))
-        builder.setExerciseContext(ecBuilder.build)
-      case _: SPartialTransaction.TryContextInfo =>
-        // TODO: https://github.com/digital-asset/daml/issues/8020
-        //  handle catch context
-        sys.error("exception not supported")
-      case _: SPartialTransaction.RootContextInfo =>
+    @tailrec
+    def unwindToExercise(
+        contextInfo: SPartialTransaction.ContextInfo
+    ): Option[SPartialTransaction.ExercisesContextInfo] = contextInfo match {
+      case ctx: SPartialTransaction.ExercisesContextInfo => Some(ctx)
+      case ctx: SPartialTransaction.TryContextInfo =>
+        unwindToExercise(ctx.parent.info)
+      case _: SPartialTransaction.RootContextInfo => None
+    }
+
+    unwindToExercise(ptx.context.info).foreach { ctx =>
+      val ecBuilder = proto.ExerciseContext.newBuilder
+        .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
+        .setChoiceId(ctx.choiceId)
+        .setChosenValue(convertValue(ctx.chosenValue))
+      ctx.optLocation.map(loc => ecBuilder.setExerciseLocation(convertLocation(loc)))
+      builder.setExerciseContext(ecBuilder.build)
     }
     builder.build
   }
@@ -459,6 +461,8 @@ final class Conversions(
 
     nodeInfo.consumedBy
       .map(eventId => builder.setConsumedBy(convertEventId(eventId)))
+    nodeInfo.rolledbackBy
+      .map(eventId => builder.setRolledbackBy(convertEventId(eventId)))
     nodeInfo.parent
       .map(eventId => builder.setParent(convertEventId(eventId)))
 

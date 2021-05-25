@@ -100,17 +100,17 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
 
     val testCases = Table(
       "input" -> "output",
-      e"""(/\ (n: nat). FROM_TEXT_NUMERIC @n "0") @1""" ->
+      e"""(/\ (n: nat). TEXT_TO_NUMERIC @n "0") @1""" ->
         result("0.0"),
-      e"""(/\ (n: nat). /\ (n: nat). FROM_TEXT_NUMERIC @n "1") @2 @3 """ ->
+      e"""(/\ (n: nat). /\ (n: nat). TEXT_TO_NUMERIC @n "1") @2 @3 """ ->
         result("1.000"),
-      e"""(/\ (n: nat). /\ (n: nat). \(n: Text) -> FROM_TEXT_NUMERIC @n n) @4 @5 "2"""" ->
+      e"""(/\ (n: nat). /\ (n: nat). \(n: Text) -> TEXT_TO_NUMERIC @n n) @4 @5 "2"""" ->
         result("2.00000"),
-      e"""(/\ (n: nat). \(n: Text) -> /\ (n: nat). FROM_TEXT_NUMERIC @n n) @6 "3" @7""" ->
+      e"""(/\ (n: nat). \(n: Text) -> /\ (n: nat). TEXT_TO_NUMERIC @n n) @6 "3" @7""" ->
         result("3.0000000"),
-      e"""(\(n: Text) -> /\ (n: nat). /\ (n: nat). FROM_TEXT_NUMERIC @n n) "4" @8 @9""" ->
+      e"""(\(n: Text) -> /\ (n: nat). /\ (n: nat). TEXT_TO_NUMERIC @n n) "4" @8 @9""" ->
         result("4.000000000"),
-      e"""(\(n: Text) -> /\ (n: *). /\ (n: nat). FROM_TEXT_NUMERIC @n n) "5" @Text @10""" ->
+      e"""(\(n: Text) -> /\ (n: *). /\ (n: nat). TEXT_TO_NUMERIC @n n) "5" @Text @10""" ->
         result("5.0000000000"),
     )
 
@@ -119,7 +119,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
     }
 
     a[Compiler.CompilationError] shouldBe thrownBy(
-      runExpr(e"""(/\ (n: nat). /\ (n: *). FROM_TEXT_NUMERIC @n n) @4 @Text""")
+      runExpr(e"""(/\ (n: nat). /\ (n: *). TEXT_TO_NUMERIC @n n) @4 @Text""")
     )
   }
 

@@ -15,6 +15,7 @@ case class IndexerConfig(
     jdbcUrl: String,
     startupMode: IndexerStartupMode,
     databaseConnectionPoolSize: Int = DefaultDatabaseConnectionPoolSize,
+    databaseConnectionTimeout: FiniteDuration = DefaultDatabaseConnectionTimeout,
     restartDelay: FiniteDuration = DefaultRestartDelay,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     updatePreparationParallelism: Int = DefaultUpdatePreparationParallelism,
@@ -22,6 +23,7 @@ case class IndexerConfig(
     // TODO append-only: remove after removing support for the current (mutating) schema
     enableAppendOnlySchema: Boolean = false,
     asyncCommitMode: DbType.AsyncCommitMode = DefaultAsyncCommitMode,
+    maxInputBufferSize: Int = DefaultMaxInputBufferSize,
     inputMappingParallelism: Int = DefaultInputMappingParallelism,
     batchingParallelism: Int = DefaultBatchingParallelism,
     ingestionParallelism: Int = DefaultIngestionParallelism,
@@ -35,10 +37,12 @@ object IndexerConfig {
 
   val DefaultUpdatePreparationParallelism = 2
   val DefaultRestartDelay: FiniteDuration = 10.seconds
-  // Should be greater than or equal to the number of pipline stages
+  // Should be greater than or equal to the number of pipeline stages
   val DefaultDatabaseConnectionPoolSize: Int = 3
+  val DefaultDatabaseConnectionTimeout: FiniteDuration = 250.millis
   val DefaultAsyncCommitMode: DbType.AsyncCommitMode = DbType.AsynchronousCommit
 
+  val DefaultMaxInputBufferSize: Int = 50
   val DefaultInputMappingParallelism: Int = 16
   val DefaultBatchingParallelism: Int = 4
   val DefaultIngestionParallelism: Int = 16

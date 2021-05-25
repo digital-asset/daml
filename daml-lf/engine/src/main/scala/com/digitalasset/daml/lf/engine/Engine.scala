@@ -62,7 +62,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
   /** Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
     * <ul>
     * <li> `ResultDone(tx)` if `cmds` could be successfully executed, where `tx` is the resulting transaction.
-    *      The transaction `tx` conforms to the DAML model consisting of the packages that have been supplied via
+    *      The transaction `tx` conforms to the Daml model consisting of the packages that have been supplied via
     *      `ResultNeedPackage.resume` to this [[Engine]].
     *      The transaction `tx` is internally consistent.
     * </li>
@@ -72,7 +72,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     * <li> `ResultNeedPackage(packageId, resume)` if the package referenced by `packageId` is needed to execute `cmds`.
     * </li>
     * <li> `ResultError` if the execution of `cmds` fails.
-    *      The execution may fail due to an error during DAML evaluation (e.g. execution of "abort") or
+    *      The execution may fail due to an error during Daml evaluation (e.g. execution of "abort") or
     *      because the caller has not provided a required contract instance or package.
     * </li>
     * </ul>
@@ -287,7 +287,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
   private[engine] def interpretLoop(
       machine: Machine,
       time: Time.Timestamp,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("DAML Engine") { onLedger =>
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
     var finished: Boolean = false
     while (!finished) {
       machine.run() match {
@@ -404,7 +404,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
 
   /** This method checks a set of packages is self-consistent (it
     * contains all its dependencies), contains only well-formed
-    * packages (See daml LF spec for more details) and uses only the
+    * packages (See Daml-LF spec for more details) and uses only the
     * allowed language versions (as described by the engine
     * config).
     * This is not affected by [[config.packageValidation]] flag.

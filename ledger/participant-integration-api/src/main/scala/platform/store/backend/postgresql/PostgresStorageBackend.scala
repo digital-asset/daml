@@ -305,9 +305,6 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
       |""".stripMargin
     )
 
-  // TODO append-only: second pass of verification of conflict checking is needed.
-  //   current assumption is that both offset conflict and submission_id conflict can be safely ignored
-  //   pls consult original logic present in dao/JdbcLedgerDao/storeConfigurationEntry and new implementation in appendonlydao
   private val preparedInsertConfigurationEntryBatch: Connection => PreparedStatement =
     _.prepareStatement(
       """
@@ -727,44 +724,17 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
       |""".stripMargin
   )
 
-  private val preparedUpdateLedgerEndWithConfig: Connection => PreparedStatement =
-    _.prepareStatement(
-      """
-      |UPDATE
-      |  parameters
-      |SET
-      |  ledger_end = ?,
-      |  ledger_end_sequential_id = ?,
-      |  configuration = ?
-      |
-      |""".stripMargin
-    )
-
   override def updateParams(connection: Connection, params: StorageBackend.Params): Unit = {
-    params.configuration match {
-      case Some(configBytes) =>
-        // TODO append-only: just a shortcut, proper solution: reading config with a temporal query
-        val preparedStatement = preparedUpdateLedgerEndWithConfig(connection)
-        preparedStatement.setString(1, params.ledgerEnd.toHexString)
-        preparedStatement.setLong(2, params.eventSeqId)
-        preparedStatement.setBytes(3, configBytes)
-        preparedStatement.execute()
-        preparedStatement.close()
-
-      case None =>
-        val preparedStatement = preparedUpdateLedgerEnd(connection)
-        preparedStatement.setString(1, params.ledgerEnd.toHexString)
-        preparedStatement.setLong(2, params.eventSeqId)
-        preparedStatement.execute()
-        preparedStatement.close()
-    }
+    val preparedStatement = preparedUpdateLedgerEnd(connection)
+    preparedStatement.setString(1, params.ledgerEnd.toHexString)
+    preparedStatement.setLong(2, params.eventSeqId)
+    preparedStatement.execute()
+    preparedStatement.close()
     ()
   }
 
   override def initialize(connection: Connection): StorageBackend.LedgerEnd = {
     val result @ StorageBackend.LedgerEnd(offset, _) = ledgerEnd(connection)
-
-    // TODO append-only: verify default isolation level is enough to maintain consistency here (eg the fact of selecting these values at the beginning ensures data changes to the params are postponed until purging finishes). Alternatively: if single indexer instance to db access otherwise ensured, atomicity here is not an issue.
 
     offset.foreach { existingOffset =>
       val preparedStatement = preparedDeleteIngestionOverspillEntries(connection)

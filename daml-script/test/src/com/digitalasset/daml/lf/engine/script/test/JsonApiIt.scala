@@ -5,7 +5,6 @@ package com.daml.lf.engine.script.test
 
 import java.io.File
 import java.nio.file.Files
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -13,7 +12,9 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles._
+import com.daml.cliopts.Logging.LogEncoder
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{HMAC256Verifier, JwtSigner}
@@ -42,6 +43,7 @@ import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.json.ApiCodecCompressed
+import com.daml.logging.LoggingContextOf
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -139,6 +141,9 @@ trait JsonApiFixture
         channel <- GrpcClientResource.owner(server.port)
         httpService <- new ResourceOwner[ServerBinding] {
           override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] = {
+            implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(
+              identity(_)
+            )
             Resource[ServerBinding] {
               Files.write(jsonAccessTokenFile, getToken(List(), List(), false).getBytes())
               val config = new StartSettings.Default {
@@ -153,6 +158,7 @@ trait JsonApiFixture
                 override val allowNonHttps = true
                 override val nonRepudiation = nonrepudiation.Configuration.Cli.Empty
                 override val logLevel = None
+                override val logEncoder = LogEncoder.Plain
               }
               HttpService
                 .start(config)(
@@ -160,6 +166,7 @@ trait JsonApiFixture
                   jsonApiMaterializer,
                   jsonApiExecutionSequencerFactory,
                   jsonApiActorSystem.dispatcher,
+                  lc,
                 )
                 .flatMap({
                   case -\/(e) => Future.failed(new IllegalStateException(e.toString))
@@ -258,7 +265,7 @@ final class JsonApiIt
     Runner.run(dar, scriptId, inputValue, clients, ScriptTimeMode.WallClock)
   }
 
-  "DAML Script over JSON API" can {
+  "Daml Script over JSON API" can {
     "Basic" should {
       "return 42" in {
         for {
@@ -440,7 +447,7 @@ final class JsonApiIt
       // fresh parties to avoid key collisions with other tests
       val party0 = "jsonMultiPartyQuery0"
       val party1 = "jsonMultiPartyQuery1"
-      // We need to call DAML script twice since we need per-party tokens for the creates
+      // We need to call Daml script twice since we need per-party tokens for the creates
       // and a single token for the query.
       for {
         clients <- getClients(parties = List(party0, party1))

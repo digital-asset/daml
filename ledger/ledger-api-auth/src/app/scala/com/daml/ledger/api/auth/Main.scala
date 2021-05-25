@@ -185,7 +185,7 @@ object Main {
       )
 
     cmd("generate-token")
-      .text("Generate a signed access token for the DAML ledger API")
+      .text("Generate a signed access token for the Daml ledger API")
       .action((_, c) => c.copy(command = Some(GenerateToken())))
       .children(
         opt[File]("output")

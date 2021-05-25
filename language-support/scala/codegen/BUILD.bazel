@@ -36,9 +36,7 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = common_scalacopts + [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
+    scalacopts = common_scalacopts,
     tags = ["maven_coordinates=com.daml:codegen-scala:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -94,9 +92,7 @@ da_scala_test_suite(
         "@maven//:org_scalatestplus_scalacheck_1_14",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    scalacopts = common_scalacopts + [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
+    scalacopts = common_scalacopts,
     deps = [
         ":codegen",
         "//daml-lf/archive:daml_lf_archive_reader",

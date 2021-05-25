@@ -49,7 +49,7 @@ object EndpointsCompanion {
     private[http] implicit val jwtWriteParsePayload: ParsePayload[JwtWritePayload] =
       new ParsePayload[JwtWritePayload] {
         override def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ JwtWritePayload = {
-          // AuthServiceJWTCodec is the JWT reader used by the sandbox and some DAML-on-X ledgers.
+          // AuthServiceJWTCodec is the JWT reader used by the sandbox and some Daml-on-X ledgers.
           // Most JWT fields are optional for the sandbox, but not for the JSON API.
           AuthServiceJWTCodec
             .readFromString(jwt.payload)
@@ -79,7 +79,7 @@ object EndpointsCompanion {
     private[http] implicit val jwtParsePayload: ParsePayload[JwtPayload] =
       new ParsePayload[JwtPayload] {
         override def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ JwtPayload = {
-          // AuthServiceJWTCodec is the JWT reader used by the sandbox and some DAML-on-X ledgers.
+          // AuthServiceJWTCodec is the JWT reader used by the sandbox and some Daml-on-X ledgers.
           // Most JWT fields are optional for the sandbox, but not for the JSON API.
           AuthServiceJWTCodec
             .readFromString(jwt.payload)

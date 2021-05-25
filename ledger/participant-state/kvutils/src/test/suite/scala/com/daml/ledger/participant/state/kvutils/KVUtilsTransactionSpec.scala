@@ -77,7 +77,7 @@ class KVUtilsTransactionSpec extends AnyWordSpec with Matchers with Inside {
           ).toImmArray,
         )
       ),
-      // Types not yet supported in DAML:
+      // Types not yet supported in Daml:
       //
       // "<party: Party>": "Value.ValueStruct(FrontStack(Ref.Name.assertFromString("party") -> bobValue).toImmArray),
       // "GenMap Party Unit": Value.ValueGenMap(FrontStack(bobValue -> ValueUnit).toImmArray),

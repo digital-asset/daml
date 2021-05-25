@@ -7,7 +7,7 @@ import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
 import com.daml.ledger.client.binding.{Primitive => P}
 
-// DAML Decimal is DECIMAL(38, 10)
+// Daml Decimal is DECIMAL(38, 10)
 object DamlDecimalGen {
 
   private val scale = 10

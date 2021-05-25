@@ -40,6 +40,7 @@ da_haskell_library(
         "unordered-containers",
         "directory",
         "extra",
+        "filelock",
         "filepath",
         "http-client",
         "http-client-tls",

@@ -91,10 +91,8 @@ da_scala_test_suite(
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
         "@maven//:org_scalaz_scalaz_core",
-    ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
     ],
     deps = [
         ":codegen-testing",

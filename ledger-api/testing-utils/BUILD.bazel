@@ -21,9 +21,6 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest",
         "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
-    scalacopts = [
-        "-P:silencer:lineContentFilters=import scala.collection.compat",
-    ],
     tags = ["maven_coordinates=com.daml:testing-utils:__VERSION__"],
     visibility = [
         "//visibility:public",

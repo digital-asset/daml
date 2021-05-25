@@ -11,74 +11,74 @@
 -- `evExpRecUpdErr1`, `evExpRecUpdErr2_1`, and `evExpRecUpdErr2_2`, for example.)
 module SemanticsEvalOrder where
 
--- @ERROR Aborted: EvTyAbsErasableErr OK
+-- @ERROR EvTyAbsErasableErr OK
 evTyAbsErasableErr = scenario do
   let x : forall a. a
       x = error "EvTyAbsErasableErr OK"
   error "EvTyAbsErasable failed"
 
--- @ERROR Aborted: overApply OK
+-- @ERROR overApply OK
 overApply = scenario do
   let f x = error "overApply OK"
   let _ = f 1 (error "overApply Failed")
   let _ = f 1 2
   pure ()
 
--- @ERROR Aborted: EvExpAppErr1 OK
+-- @ERROR EvExpAppErr1 OK
 evExpAppErr1 = scenario do
   let _ = (error "EvExpAppErr1 OK") (error "EvExpAppErr1 failed")
   pure ()
 
--- @ERROR Aborted: EvExpAppErr2 OK
+-- @ERROR EvExpAppErr2 OK
 evExpAppErr2 = scenario do
   let f _ _ = error "EvExpAppErr2 failed"
   let _ = f 1 (error "EvExpAppErr2 OK")
   pure ()
 
--- @ERROR Aborted: EvExpLetErr OK
+-- @ERROR EvExpLetErr OK
 evExpLetErr = scenario do
     let _ = error "EvExpLetErr OK"
     let _ = error "EvExpLetErr bad"
     error "EvExpLetErr failed"
 
 -- Regression test for issue #6788
--- @ERROR Aborted: multiLetEvalOrder OK
+-- @ERROR multiLetEvalOrder OK
 multiLetEvalOrder = scenario do
     let _ = error "multiLetEvalOrder OK"
         _ = error "multiLetEvalOrder failed"
     error "multiLetEvalOrder failed"
 
--- @ERROR Aborted: EvExpCaseErr OK
+-- @ERROR EvExpCaseErr OK
 evExpCaseErr = scenario do
   case error "EvExpCaseErr OK" of
     None -> error "EvExpCaseErr failed"
     Some _ -> error "EvExpCaseErr failed"
 
--- @ERROR Aborted: EvExpCase_1 OK
+-- @ERROR EvExpCase_1 OK
 evExpCase_1 = scenario do
   case None of
     None -> error "EvExpCase_1 OK"
     Some _ -> error "EvExpCase_1 failed"
 
--- @ERROR Aborted: EvExpCase_2 OK
+-- @ERROR EvExpCase_2 OK
 evExpCase_2 = scenario do
   case Some 1 of
     None -> error "EvExpCase_2 failed"
     Some _ -> error "EvExpCase_2 OK"
 
--- @ERROR Aborted: EvExpConsErr1 OK
+-- @ERROR EvExpConsErr1 OK
 evExpConsErr1 = scenario do
   pure ( error "EvExpConsErr1 OK"
       :: error "EvExpConsErr1 failed"
       :: error "EvExpConsErr1 failed")
 
--- @ERROR Aborted: EvExpConsErr2 OK
+-- @ERROR EvExpConsErr2 OK
 evExpConsErr2 = scenario do
   pure ( 10
       :: error "EvExpConsErr2 OK"
       :: error "EvExpConsErr2 failed")
 
--- @ERROR Aborted: EvExpBuiltinErr OK
+-- @ERROR EvExpBuiltinErr OK
 evExpBuiltinErr = scenario do
   let _ : Int = error "EvExpBuiltinErr OK" + error "EvExpBuiltinErr failed"
   pure ()
@@ -86,11 +86,11 @@ evExpBuiltinErr = scenario do
 
 data R1 = R1 { a: Int, b: Int }
 
--- @ERROR Aborted: EvExpRecConErr_1 OK
+-- @ERROR EvExpRecConErr_1 OK
 evExpRecConErr_1 = scenario do
   pure R1 { a = error "EvExpRecConErr_1 OK", b = error "EvExpRecConErr_1 failed" }
 
--- @ERROR Aborted: EvExpRecConErr_2 OK
+-- @ERROR EvExpRecConErr_2 OK
 evExpRecConErr_2 = scenario do
   pure R1 { b = error "EvExpRecConErr_2 failed", a = error "EvExpRecConErr_2 OK" }
 
@@ -98,25 +98,25 @@ data R2 = R2 { d: Int, c: Int }
   -- ^ Checking that there isn't a dependence on the field names.
   -- There should be a dependence on the definition order according to the LF spec.
 
--- @ERROR Aborted: EvExpRecConErr_3 OK
+-- @ERROR EvExpRecConErr_3 OK
 evExpRecConErr_3 = scenario do
   pure R2 { d = error "EvExpRecConErr_3 OK", c = error "EvExpRecConErr_3 failed" }
 
--- @ERROR Aborted: EvExpRecConErr_4 OK
+-- @ERROR EvExpRecConErr_4 OK
 evExpRecConErr_4 = scenario do
   pure R2 { c = error "EvExpRecConErr_4 failed", d = error "EvExpRecConErr_4 OK"  }
 
--- @ERROR Aborted: EvExpRecUpdErr1 OK
+-- @ERROR EvExpRecUpdErr1 OK
 evExpRecUpdErr1 = scenario do
   pure (error "EvExpRecUpdErr1 OK" : R1)
     { a = error "EvExpRecUpdErr1 failed", b = error "EvExpRecUpdErr1 failed" }
 
--- @ERROR Aborted: EvExpRecUpdErr2_1 OK
+-- @ERROR EvExpRecUpdErr2_1 OK
 evExpRecUpdErr2_1 = scenario do
   pure (R1 {a=0, b=0})
     { a = error "EvExpRecUpdErr2_1 OK", b = error "EvExpRecUpdErr2_1 failed" }
 
--- @ERROR Aborted: EvExpRecUpdErr2_2 OK
+-- @ERROR EvExpRecUpdErr2_2 OK
 evExpRecUpdErr2_2 = scenario do
   pure (R1 {a=0, b=0})
     { b = error "EvExpRecUpdErr2_2 OK", a = error "EvExpRecUpdErr2_2 failed" }
@@ -125,7 +125,7 @@ evExpRecUpdErr2_2 = scenario do
 
 -- NOTE(MH): Make sure we don't swallow record field updates if a field is
 -- updated multiple times.
--- @ERROR Aborted: EvExpRecUpdErr2_3 OK
+-- @ERROR EvExpRecUpdErr2_3 OK
 evExpRecUpdErr2_3 = scenario do
   pure (R1 {a=0, b=0})
     { a = error "EvExpRecUpdErr2_3 OK", a = error "EvExpRecUpdErr2_3 failed" }
@@ -134,54 +134,54 @@ evExpRecUpdErr2_3 = scenario do
 -- evaluation of struct fields during typeclass desugaring, and we don't have
 -- a way to construct LF structs directly.
 
--- @ERROR Aborted: EvExpFoldrErr1 OK
+-- @ERROR EvExpFoldrErr1 OK
 evExpFoldrErr1 = scenario do
   pure (foldr f 0 [1, 2])
   where
     f 2 0 = error "EvExpFoldrErr1 OK"
     f _ _ = error "EvExpFoldrErr1 failed"
 
--- @ERROR Aborted: EvExpFoldrErr2 OK
+-- @ERROR EvExpFoldrErr2 OK
 evExpFoldrErr2 = scenario do
   pure (foldr f 0 [1, 2])
   where
     f 1 = error "EvExpFoldrErr2 OK"
     f _ = error "EvExpFoldrErr2 failed"
 
--- @ERROR Aborted: EvExpFoldrErr3 OK
+-- @ERROR EvExpFoldrErr3 OK
 evExpFoldrErr3 = scenario do
   pure (foldr f identity [1] (error "EvExpFoldrErr3 failed"))
   where
     f: Int -> (Int -> Int) -> (Int -> Int)
     f _ _ = error "EvExpFoldrErr3 OK"
 
--- @ERROR Aborted: EvExpFoldlErr1 OK
+-- @ERROR EvExpFoldlErr1 OK
 evExpFoldlErr1 = scenario do
   pure (foldl f 0 [1, 2])
   where
     f 0 1 = error "EvExpFoldlErr1 OK"
     f _ _ = error "EvExpFoldlErr1 failed"
 
--- @ERROR Aborted: EvExpFoldlErr2 OK
+-- @ERROR EvExpFoldlErr2 OK
 evExpFoldlErr2 = scenario do
   pure (foldl f 0 [1, 2])
   where
     f 0 = error "EvExpFoldlErr2 OK"
     f _ = error "EvExpFoldlErr2 failed"
 
--- @ERROR Aborted: EvExpFoldlErr3 OK
+-- @ERROR EvExpFoldlErr3 OK
 evExpFoldlErr3 = scenario do
   pure (foldl f identity [1] (error "EvExpFoldlErr3 failed"))
   where
     f: (Int -> Int) -> Int -> (Int -> Int)
     f _ _ = error "EvExpFoldlErr3 OK"
 
--- @ERROR Aborted: EvExpUpPureErr OK
+-- @ERROR EvExpUpPureErr OK
 evExpUpPureErr = scenario do
   let _ : Update () = pure (error "EvExpUpPureErr OK")
   pure ()
 
--- @ERROR Aborted: EvExpUpBindErr OK
+-- @ERROR EvExpUpBindErr OK
 evExpUpBindErr = scenario do
   let _ : Update () = do
           error "EvExpUpBindErr OK"
@@ -192,19 +192,19 @@ template T
   with p : Party
   where signatory p
 
--- @ERROR Aborted: EvExpUpCreateErr OK
+-- @ERROR EvExpUpCreateErr OK
 evExpUpCreateErr = scenario do
   let _ : Update (ContractId T) = create (error "EvExpUpCreateErr OK")
   pure ()
 
--- @ERROR Aborted: EvExpUpFetchErr OK
+-- @ERROR EvExpUpFetchErr OK
 evExpUpFetchErr = scenario do
   let _ : Update T = fetch (error "EvExpUpFetchErr OK")
   pure ()
 
 -- "exercise with actors" is not testable from Daml.
 
--- @ERROR Aborted: EvExpUpExerciseWithoutActorsErr1 OK
+-- @ERROR EvExpUpExerciseWithoutActorsErr1 OK
 evExpUpExerciseWithoutActorsErr1 = scenario do
   let _ : Update () =
           exercise @T @Archive
@@ -212,7 +212,7 @@ evExpUpExerciseWithoutActorsErr1 = scenario do
               (error "EvExpUpExerciseWithoutActorsErr1 failed")
   pure ()
 
--- @ERROR Aborted: EvExpUpExerciseWithoutActorsErr2 OK
+-- @ERROR EvExpUpExerciseWithoutActorsErr2 OK
 evExpUpExerciseWithoutActorsErr2 = scenario do
   p <- getParty "Alice"
   t <- submit p $ create (T p)
@@ -228,12 +228,12 @@ template T2
     key (p,k) : (Party, Int)
     maintainer key._1
 
--- @ERROR Aborted: EvExpUpFetchByKeyErr OK
+-- @ERROR EvExpUpFetchByKeyErr OK
 evExpUpFetchByKeyErr = scenario do
   let _ = fetchByKey @T2 (error "EvExpUpFetchByKeyErr OK")
   pure ()
 
--- @ERROR Aborted: EvExpUpLookupByKeyErr OK
+-- @ERROR EvExpUpLookupByKeyErr OK
 evExpUpLookupByKeyErr = scenario do
   let _ = lookupByKey @T2 (error "EvExpUpLookupByKeyErr OK")
   pure ()
@@ -242,27 +242,27 @@ abort1 = scenario do
   let _ : Update () = abort "abort1 failed"
   pure ()
 
--- @ERROR Aborted: abort2 OK
+-- @ERROR abort2 OK
 abort2 = scenario do
   p <- getParty "Alice"
   submit p do
     abort "abort2 OK"
 
--- @ERROR Aborted: EvUpdBindErr1_1 OK
+-- @ERROR EvUpdBindErr1_1 OK
 evUpdBindErr1_1 = scenario do
   p <- getParty "Alice"
   submit p do
     abort "EvUpdBindErr1_1 OK"
     abort "EvUpdBindErr1_1 failed"
 
--- @ERROR Aborted: EvUpdBindErr1_2 OK
+-- @ERROR EvUpdBindErr1_2 OK
 evUpdBindErr1_2 = scenario do
   p <- getParty "Alice"
   submit p do
     abort "EvUpdBindErr1_2 OK"
     error "EvUpdBindErr1_2 failed"
 
--- @ERROR Aborted: EvUpdBindErr2 OK
+-- @ERROR EvUpdBindErr2 OK
 evUpdBindErr2 = scenario do
   p <- getParty "Alice"
   submit p do
@@ -270,7 +270,7 @@ evUpdBindErr2 = scenario do
     error "EvUpdBindErr2 OK"
     abort "EvUpdBindErr2 failed"
 
--- @ERROR Aborted: EvUpdBindErr3 OK
+-- @ERROR EvUpdBindErr3 OK
 evUpdBindErr3 = scenario do
   p <- getParty "Alice"
   submit p do
@@ -278,7 +278,7 @@ evUpdBindErr3 = scenario do
     abort "EvUpdBindErr3 OK"
     abort "EvUpdBindErr3 failed"
 
--- @ERROR Aborted: EvUpdCreateErr1 OK
+-- @ERROR EvUpdCreateErr1 OK
 template T_EvUpdCreateErr1
   with
     p : Party
@@ -294,7 +294,7 @@ evUpdCreateErr1 = scenario do
     create (T_EvUpdCreateErr1 p)
     error "EvUpdCreateErr1 failed (4)"
 
--- @ERROR Template pre-condition violated in: create SemanticsEvalOrder:T_EvUpdCreateFail
+-- @ERROR range=307:1-307:16; Template precondition violated
 template T_EvUpdCreateFail
   with
     p : Party
@@ -310,7 +310,7 @@ evUpdCreateFail = scenario do
     create (T_EvUpdCreateFail p)
     error "EvUpdCreateFail failed (4)"
 
--- @ERROR Aborted: EvUpdCreateErr2 OK
+-- @ERROR EvUpdCreateErr2 OK
 template T_EvUpdCreateErr2
   with
     p : Party
@@ -326,7 +326,7 @@ evUpdCreateErr2 = scenario do
     create (T_EvUpdCreateErr2 p)
     error "EvUpdCreateErr2 failed (3)"
 
--- @ERROR Aborted: EvUpdCreateErr3 OK
+-- @ERROR EvUpdCreateErr3 OK
 template T_EvUpdCreateErr3
   with
     p : Party
@@ -342,7 +342,7 @@ evUpdCreateErr3 = scenario do
     create (T_EvUpdCreateErr3 p)
     error "EvUpdCreateErr3 failed (2)"
 
--- @ERROR Aborted: EvUpdCreateErr4_1 OK
+-- @ERROR EvUpdCreateErr4_1 OK
 template T_EvUpdCreateErr4_1
   with
     p : Party
@@ -358,7 +358,7 @@ evUpdCreateErr4_1 = scenario do
     create (T_EvUpdCreateErr4_1 p)
     error "EvUpdCreateErr4_1 failed"
 
--- @ERROR Aborted: EvUpdCreateErr4_2 OK
+-- @ERROR EvUpdCreateErr4_2 OK
 template T_EvUpdCreateErr4_2
   with
     p : Party
@@ -376,7 +376,7 @@ evUpdCreateErr4_2 = scenario do
     create (T_EvUpdCreateErr4_2 p)
     error "EvUpdCreateErr4_2 failed"
 
--- @ERROR Aborted: EvUpdCreateWithKeyErr1 OK
+-- @ERROR EvUpdCreateWithKeyErr1 OK
 template T_EvUpdCreateWithKeyErr1
   with
     p : Party
@@ -394,7 +394,7 @@ evUpdCreateWithKeyErr1 = scenario do
     create (T_EvUpdCreateWithKeyErr1 p)
     error "EvUpdCreateWithKeyErr1 failed"
 
--- @ERROR Aborted: EvUpdCreateWithKeyErr2 OK
+-- @ERROR EvUpdCreateWithKeyErr2 OK
 template T_EvUpdCreateWithKeyErr2
   with
     p : Party
@@ -415,7 +415,7 @@ evUpdCreateWithKeyErr2 = scenario do
 -- | `controller P can ...` syntax adds `P` to the observers,
 -- so if `P` causes an error, this is triggered on create,
 -- instead of on exercise.
--- @ERROR Aborted: controllerCanAddsObserver OK
+-- @ERROR controllerCanAddsObserver OK
 template T_ControllerCanAddsObserver
   with
     p : Party
@@ -433,7 +433,7 @@ controllerCanAddsObserver = scenario do
 
 -- | `choice ... controller P ...` doesn't add `P` as observer.
 -- This test is here to contrast with the previous.
--- @ERROR Aborted: choiceControllerDoesntAddObserver OK
+-- @ERROR choiceControllerDoesntAddObserver OK
 template T_ChoiceControllerDoesntAddObserver
   with
     p : Party
@@ -590,7 +590,7 @@ badActorCheck = scenario do
     exercise c C_BadActorCheck
   error "BadActorCheck failed"
 
--- @ERROR Aborted: EvUpdFetchByKeyErr OK
+-- @ERROR EvUpdFetchByKeyErr OK
 template T_EvUpdFetchByKeyErr
   with
     p : Party
@@ -605,7 +605,7 @@ evUpdFetchByKeyErr = scenario do
     fetchByKey @T_EvUpdFetchByKeyErr ()
     abort "EvUpdFetchByKeyErr failed"
 
--- @ERROR Aborted: EvUpdLookupByKeyErr OK
+-- @ERROR EvUpdLookupByKeyErr OK
 template T_EvUpdLookupByKeyErr
   with
     p : Party

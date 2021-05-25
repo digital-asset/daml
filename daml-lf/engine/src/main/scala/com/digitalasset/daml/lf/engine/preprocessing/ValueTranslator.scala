@@ -86,7 +86,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                   case (BTNumeric, ValueNumeric(d)) =>
                     typeArg0 match {
                       case TNat(s) =>
-                        Numeric.fromBigDecimal(s, d).fold(fail, SValue.SNumeric)
+                        Numeric.fromBigDecimal(s, d).fold(fail, SValue.SNumeric(_))
                       case _ =>
                         typeMismatch
                     }

@@ -7,7 +7,15 @@ load(
     "da_scala_library",
     "lf_scalacopts",
 )
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_version_configuration",
+)
 
 scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -34,6 +42,7 @@ perf_runtime_deps = {
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_akka_akka_stream",
             "@maven//:com_typesafe_scala_logging_scala_logging",
+            "@maven//:io_spray_spray_json",
             "@maven//:org_scalactic_scalactic",
             "@maven//:org_scalatest_scalatest",
             "@maven//:org_scalaz_scalaz_core",
@@ -47,6 +56,9 @@ perf_runtime_deps = {
         deps = [
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
+            "@maven//:io_gatling_gatling_netty_util",
+            "@maven//:io_netty_netty_common",
+            "@maven//:io_netty_netty_transport",
             "//ledger-service/http-json:http-json-{}".format(edition),
             "//ledger-service/http-json-cli:{}".format(edition),
             "//ledger-service/http-json-testing:{}".format(edition),
@@ -61,6 +73,7 @@ perf_runtime_deps = {
             "@maven//:com_fasterxml_jackson_core_jackson_databind",
             "@maven//:io_gatling_gatling_app",
             "@maven//:io_gatling_gatling_commons",
+            "@maven//:io_gatling_gatling_commons_shared_unstable",
             "@maven//:io_gatling_gatling_core",
             "@maven//:io_gatling_gatling_http",
             "@maven//:io_gatling_gatling_http_client",
@@ -71,7 +84,13 @@ perf_runtime_deps = {
         "ce",
         "ee",
     ]
-] if scala_major_version == "2.12" else None
+] if scala_major_version == "2.13" else None
+
+daml_compile(
+    name = "LargeAcs",
+    srcs = ["daml/LargeAcs.daml"],
+    target = lf_version_configuration.get("latest"),
+)
 
 [
     da_scala_binary(
@@ -94,15 +113,13 @@ perf_runtime_deps = {
             "@maven//:org_scalaz_scalaz_core",
         ],
         scalacopts = scalacopts,
-        tags = [
-            "maven_coordinates=com.daml:http-json-perf-deploy-{}:__VERSION__".format(edition),
-            "no_scala_version_suffix",
-        ],
         visibility = ["//visibility:public"],
         runtime_deps = [
             "@maven//:ch_qos_logback_logback_classic",
+            "@maven//:io_gatling_highcharts_gatling_charts_highcharts",
         ] + perf_runtime_deps.get(edition),
         deps = [
+            "@maven//:io_gatling_highcharts_gatling_charts_highcharts",
             ":http-json-perf-{}".format(edition),
             "//language-support/scala/bindings-akka",
             "//ledger-api/rs-grpc-bridge",
@@ -125,6 +142,6 @@ perf_runtime_deps = {
         "ce",
         "ee",
     ]
-] if scala_major_version == "2.12" else None
+] if scala_major_version == "2.13" else None
 
 exports_files(["release/json-api-perf-logback.xml"])

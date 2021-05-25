@@ -22,7 +22,9 @@ import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
+import java.util.concurrent.TimeUnit
 import scala.annotation.nowarn
+import scala.concurrent.duration.FiniteDuration
 
 @nowarn("msg=parameter value config .* is never used") // possibly used in overrides
 trait ConfigProvider[ExtraConfig] {
@@ -45,6 +47,7 @@ trait ConfigProvider[ExtraConfig] {
       eventsPageSize = config.eventsPageSize,
       allowExistingSchema = participantConfig.indexerConfig.allowExistingSchema,
       enableAppendOnlySchema = config.enableAppendOnlySchema,
+      maxInputBufferSize = participantConfig.indexerConfig.maxInputBufferSize,
       inputMappingParallelism = participantConfig.indexerConfig.ingestionParallelism,
       batchingParallelism = participantConfig.indexerConfig.batchingParallelism,
       submissionBatchSize = participantConfig.indexerConfig.submissionBatchSize,
@@ -64,6 +67,10 @@ trait ConfigProvider[ExtraConfig] {
       address = participantConfig.address,
       jdbcUrl = participantConfig.serverJdbcUrl,
       databaseConnectionPoolSize = participantConfig.apiServerDatabaseConnectionPoolSize,
+      databaseConnectionTimeout = FiniteDuration(
+        participantConfig.apiServerDatabaseConnectionTimeout.toMillis,
+        TimeUnit.MILLISECONDS,
+      ),
       tlsConfig = config.tlsConfig,
       maxInboundMessageSize = config.maxInboundMessageSize,
       eventsPageSize = config.eventsPageSize,

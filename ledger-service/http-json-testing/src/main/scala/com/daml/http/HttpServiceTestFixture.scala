@@ -5,7 +5,6 @@ package com.daml.http
 
 import java.io.File
 import java.time.Instant
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -18,6 +17,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.dbbackend.ContractDao
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
 import com.daml.http.util.ClientUtil.boxedRecord
+import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.util.TestUtil.getResponseDataBytes
 import com.daml.http.util.{FutureUtil, NewBoolean}
 import com.daml.jwt.JwtSigner
@@ -35,6 +35,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.logging.LoggingContextOf
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
@@ -75,7 +76,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
   ): Future[A] = {
-
+    implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
     val applicationId = ApplicationId(testName)
 
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
@@ -127,13 +128,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     } yield a
 
     fa.transformWith { ta =>
-      Future
-        .sequence(
-          Seq(
-            httpServiceF.flatMap(_.unbind())
-          ) map (_ fallbackTo Future.unit)
-        )
-        .transform(_ => ta)
+      httpServiceF.flatMap(_.unbind()).fallbackTo(Future.unit).transform(_ => ta)
     }
   }
 
@@ -213,12 +208,14 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
 
   def jsonCodecs(
       client: DamlLedgerClient
-  )(implicit ec: ExecutionContext): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
+  )(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
     val packageService = new PackageService(
       HttpService.loadPackageStoreUpdates(client.packageClient, holderM = None)
     )
-    packageService
-      .reload(ec)
+    packageService.reload
       .flatMap(x => FutureUtil.toFuture(x))
       .map(_ => HttpService.buildJsonCodecs(packageService))
   }

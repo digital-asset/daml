@@ -13,7 +13,7 @@ template TheContract
 -- In the well-authorized t1, execution reaches the `error` function
 -- In the badly-authorized t2, the auth failure prevent the error from being reached.
 
--- @ERROR Aborted: t1 finished with no authorization failure
+-- @ERROR t1 finished with no authorization failure
 t1_create_success = scenario do
   ivy <- getParty "Ivy-t1"
   submit ivy $ do
@@ -44,7 +44,7 @@ template TheContractBuilder
 -- It is the 2nd submit which is of interest here, where mach exercises the `builder` contract created in the first submit, to contract signed by Ivy. This is possible in t3 because `builder` is signed by Ivy, but it is not well authorized in t4.
 -- Only in the well-authorized case will execution reach the `error` function.
 
--- @ERROR Aborted: t3 finished with no authorization failure
+-- @ERROR t3 finished with no authorization failure
 t3_createViaExerice_success = scenario do
   ivy <- getParty "Ivy-t3"
   mach <- getParty "Mach-t3"

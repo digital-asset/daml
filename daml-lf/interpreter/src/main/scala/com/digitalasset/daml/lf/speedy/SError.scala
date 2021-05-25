@@ -36,7 +36,7 @@ object SError {
   def crash[A](reason: String): A =
     throw SErrorCrash(reason)
 
-  /** DAML exceptions that can be caught. These include
+  /** Daml exceptions that can be caught. These include
     * arithmetic errors, call to error builtin or update
     * errors.
     */
@@ -45,11 +45,6 @@ object SError {
   /** Unhandled exceptions */
   final case class DamlEUnhandledException(exception: SException) extends SErrorDamlException {
     override def toString: String = s"Unhandled exception: $exception"
-  }
-
-  /** Arithmetic error such as division by zero */
-  final case class DamlEArithmeticError(message: String) extends SErrorDamlException {
-    override def toString: String = message
   }
 
   /** User initiated error, via e.g. 'abort' or 'assert' */

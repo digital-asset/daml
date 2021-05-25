@@ -217,7 +217,6 @@ typeOfBuiltin = \case
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
   BEAnyExceptionMessage -> pure $ TAnyException :-> TText
   BEAnyExceptionIsArithmeticError -> pure $ TAnyException :-> TBool
-  BEAnyExceptionIsContractError -> pure $ TAnyException :-> TBool
   BEEqualGeneric     -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BELessGeneric      -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BELessEqGeneric    -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
@@ -229,12 +228,12 @@ typeOfBuiltin = \case
   BEGreater   btype  -> pure $ tComparison btype
   BEGreaterEq btype  -> pure $ tComparison btype
   BEToText    btype  -> pure $ TBuiltin btype :-> TText
-  BEToTextContractId -> pure $ TForall (alpha, KStar) $ TContractId tAlpha :-> TOptional TText
-  BETextFromCodePoints -> pure $ TList TInt64 :-> TText
+  BEContractIdToText -> pure $ TForall (alpha, KStar) $ TContractId tAlpha :-> TOptional TText
+  BECodePointsToText -> pure $ TList TInt64 :-> TText
   BEPartyToQuotedText -> pure $ TParty :-> TText
-  BEPartyFromText    -> pure $ TText :-> TOptional TParty
-  BEInt64FromText    -> pure $ TText :-> TOptional TInt64
-  BEDecimalFromText  -> pure $ TText :-> TOptional TDecimal
+  BETextToParty    -> pure $ TText :-> TOptional TParty
+  BETextToInt64    -> pure $ TText :-> TOptional TInt64
+  BETextToDecimal  -> pure $ TText :-> TOptional TDecimal
   BETextToCodePoints -> pure $ TText :-> TList TInt64
   BEAddDecimal       -> pure $ tBinop TDecimal
   BESubDecimal       -> pure $ tBinop TDecimal
@@ -255,8 +254,8 @@ typeOfBuiltin = \case
   BEShiftNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tAlpha :-> TNumeric tBeta
   BEInt64ToNumeric -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha
   BENumericToInt64 -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TInt64
-  BEToTextNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TText
-  BENumericFromText -> pure $ TForall (alpha, KNat) $ TText :-> TOptional (TNumeric tAlpha)
+  BENumericToText -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TText
+  BETextToNumeric -> pure $ TForall (alpha, KNat) $ TText :-> TOptional (TNumeric tAlpha)
 
   BEScaleBigNumeric -> pure $ TBigNumeric :-> TInt64
   BEPrecisionBigNumeric -> pure $ TBigNumeric :-> TInt64
@@ -264,10 +263,9 @@ typeOfBuiltin = \case
   BESubBigNumeric -> pure $ TBigNumeric :-> TBigNumeric :-> TBigNumeric
   BEMulBigNumeric -> pure $ TBigNumeric :-> TBigNumeric :-> TBigNumeric
   BEDivBigNumeric -> pure $ TInt64 :-> TRoundingMode :-> TBigNumeric :-> TBigNumeric :-> TBigNumeric
-  BEShiftBigNumeric -> pure $ TInt64 :-> TBigNumeric :-> TBigNumeric
-  BEToNumericBigNumeric -> pure $ TForall (alpha, KNat) $ TBigNumeric :-> TNumeric tAlpha
-  BEFromNumericBigNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TBigNumeric
-  BEToTextBigNumeric -> pure $ TBigNumeric :-> TText
+  BEShiftRightBigNumeric -> pure $ TInt64 :-> TBigNumeric :-> TBigNumeric
+  BEBigNumericToNumeric -> pure $ TForall (alpha, KNat) $ TBigNumeric :-> TNumeric tAlpha
+  BENumericToBigNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TBigNumeric
 
   BEAddInt64         -> pure $ tBinop TInt64
   BESubInt64         -> pure $ tBinop TInt64

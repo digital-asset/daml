@@ -6,6 +6,7 @@ load(
     "scala_binary",
     "scala_library",
     "scala_library_suite",
+    "scala_repl",
     "scala_test",
     "scala_test_suite",
 )
@@ -29,6 +30,11 @@ load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_s
 
 def resolve_scala_deps(deps, scala_deps = [], versioned_scala_deps = {}):
     return deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
+
+def extra_scalacopts(scala_deps, plugins):
+    return (["-P:silencer:lineContentFilters=import scala.collection.compat._"] if (scala_major_version != "2.12" and
+                                                                                    silencer_plugin in plugins and
+                                                                                    "@maven//:org_scala_lang_modules_scala_collection_compat" in scala_deps) else [])
 
 version_specific = {
     "2.12": [
@@ -213,20 +219,31 @@ def _wrap_rule(
     exports = resolve_scala_deps(exports, scala_exports)
     if (len(exports) > 0):
         kwargs["exports"] = exports
+    compat_scalacopts = extra_scalacopts(scala_deps = scala_deps, plugins = plugins)
     rule(
         name = name,
-        scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
+        scalacopts = common_scalacopts + plugin_scalacopts + compat_scalacopts + scalacopts,
         plugins = common_plugins + plugins,
         deps = deps,
         runtime_deps = runtime_deps,
         **kwargs
     )
 
-def _wrap_rule_no_plugins(rule, deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], **kwargs):
+def _wrap_rule_no_plugins(
+        rule,
+        deps = [],
+        scala_deps = [],
+        versioned_scala_deps = {},
+        runtime_deps = [],
+        scala_runtime_deps = [],
+        scalacopts = [],
+        **kwargs):
     deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
     rule(
         scalacopts = common_scalacopts + scalacopts,
         deps = deps,
+        runtime_deps = runtime_deps,
         **kwargs
     )
 
@@ -497,19 +514,40 @@ Arguments:
 """
 
 def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], generated_srcs = [], **kwargs):
-    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
-
     # Limit execution to Linux and MacOS
     if is_windows == False:
+        deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+        compat_scalacopts = extra_scalacopts(scala_deps = scala_deps, plugins = plugins)
         scaladoc_jar(
             name = name + "_scaladoc",
             deps = deps,
             srcs = srcs,
-            scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
+            scalacopts = common_scalacopts + plugin_scalacopts + compat_scalacopts + scalacopts,
             plugins = common_plugins + plugins,
             generated_srcs = generated_srcs,
             tags = ["scaladoc"],
         )
+
+def _create_scala_repl(
+        name,
+        deps = [],
+        scala_deps = [],
+        versioned_scala_deps = {},
+        runtime_deps = [],
+        scala_runtime_deps = [],
+        tags = [],
+        # hiding the following from the `scala_repl` rule
+        main_class = None,
+        exports = None,
+        scala_exports = None,
+        scalac_opts = None,
+        generated_srcs = None,
+        **kwargs):
+    name = name + "_repl"
+    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
+    tags = tags + ["manual"]
+    scala_repl(name = name, deps = deps, runtime_deps = runtime_deps, tags = tags, **kwargs)
 
 def da_scala_library(name, **kwargs):
     """
@@ -527,8 +565,8 @@ def da_scala_library(name, **kwargs):
     arguments = _set_compile_jvm_flags(arguments)
     _wrap_rule(scala_library, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
-
     _create_scaladoc_jar(name = name, **arguments)
+    _create_scala_repl(name = name, **kwargs)
 
     if "tags" in arguments:
         for tag in arguments["tags"]:

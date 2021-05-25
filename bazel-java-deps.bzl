@@ -11,20 +11,18 @@ load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
 
 version_specific = {
     "2.12": [
-        # Gatling does not cross-build so this is limited to Scala 2.12. Newer
-        # versions of Gatling still don’t cross-build but they build against Scala 2.13
-        # instead so we’ll have to switch over at that point.
-        "io.gatling:gatling-app:3.3.1",
-        "io.gatling:gatling-core:3.3.1",
-        "io.gatling:gatling-commons:3.3.1",
-        "io.gatling:gatling-recorder:3.3.1",
-        "io.gatling:gatling-charts:3.3.1",
-        "io.gatling.highcharts:gatling-highcharts:3.3.1",
-        "io.gatling:gatling-http:3.3.1",
-        "io.gatling:gatling-http-client:3.3.1",
     ],
     "2.13": [
         "org.scala-lang.modules:scala-parallel-collections_2.13:1.0.0",
+        # Gatling does not cross-build so this is limited to Scala 2.13.
+        "io.gatling:gatling-app:3.5.1",
+        "io.gatling:gatling-core:3.5.1",
+        "io.gatling:gatling-commons:3.5.1",
+        "io.gatling:gatling-recorder:3.5.1",
+        "io.gatling:gatling-charts:3.5.1",
+        "io.gatling.highcharts:gatling-charts-highcharts:3.5.1",
+        "io.gatling:gatling-http:3.5.1",
+        "io.gatling:gatling-http-client:3.5.1",
     ],
 }
 
@@ -137,7 +135,8 @@ def install_java_deps():
             "javax.ws.rs:javax.ws.rs-api:2.1",
             "junit:junit:4.12",
             "junit:junit-dep:4.10",
-            "net.logstash.logback:logstash-logback-encoder:6.3",
+            "net.logstash.logback:logstash-logback-encoder:6.6",
+            "org.codehaus.janino:janino:3.1.4",
             "org.apache.commons:commons-lang3:3.9",
             "org.apache.commons:commons-text:1.4",
             "org.awaitility:awaitility:3.1.6",
@@ -162,6 +161,7 @@ def install_java_deps():
             "org.scalacheck:scalacheck_{}:1.14.0".format(scala_major_version),
             "org.scala-lang.modules:scala-collection-compat_{}:2.3.2".format(scala_major_version),
             "org.scala-lang.modules:scala-java8-compat_{}:0.9.0".format(scala_major_version),
+            "org.scalameta:munit_{}:0.7.26".format(scala_major_version),
             "org.scalactic:scalactic_{}:3.1.2".format(scala_major_version),
             "org.scalatest:scalatest_{}:3.1.2".format(scala_major_version),
             "org.scalatestplus:scalacheck-1-14_{}:3.1.4.0".format(scala_major_version),
@@ -181,7 +181,6 @@ def install_java_deps():
             "org.xerial:sqlite-jdbc:3.30.1",
             "com.fasterxml.jackson.core:jackson-core:2.12.0",
             "com.fasterxml.jackson.core:jackson-databind:2.12.0",
-            "com.softwaremill.diffx:diffx-core_{}:0.4.1".format(scala_major_version),
         ],
         fetch_sources = True,
         maven_install_json = "@com_github_digital_asset_daml//:maven_install_{}.json".format(scala_major_version),

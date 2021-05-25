@@ -8,14 +8,15 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.ws.{Message, WebSocketUpgrade}
 import akka.stream.scaladsl.Flow
 import com.daml.jwt.domain.Jwt
-import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.\/
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import EndpointsCompanion._
 import com.daml.http.domain.JwtPayload
+import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 
 object WebsocketEndpoints {
   private[http] val tokenPrefix: String = "jwt.token."
@@ -48,46 +49,74 @@ object WebsocketEndpoints {
 class WebsocketEndpoints(
     decodeJwt: ValidateJwt,
     webSocketService: WebSocketService,
-) extends StrictLogging {
+) {
 
   import WebsocketEndpoints._
 
-  lazy val transactionWebSocket: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case req @ HttpRequest(GET, Uri.Path("/v1/stream/query"), _, _, _) =>
-      Future.successful(
-        (for {
-          upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> InvalidUserInput(
-            s"Cannot upgrade client's connection to websocket"
-          )
-          _ = logger.info(s"GOT $wsProtocol")
+  private[this] val logger = ContextualizedLogger.get(getClass)
 
-          payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
-          (jwt, jwtPayload) = payload
-        } yield handleWebsocketRequest[domain.SearchForeverRequest](
-          jwt,
-          jwtPayload,
-          upgradeReq,
-          wsProtocol,
-        ))
-          .valueOr(httpResponseError)
-      )
+  def transactionWebSocket(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ) = {
+    val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
+      InstanceUUID with RequestID
+    ] => Future[HttpResponse]] = {
+      case req @ HttpRequest(GET, Uri.Path("/v1/stream/query"), _, _, _) =>
+        (
+            implicit lc =>
+              Future.successful(
+                (for {
+                  upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> InvalidUserInput(
+                    s"Cannot upgrade client's connection to websocket"
+                  )
+                  _ = logger.info(s"GOT $wsProtocol")
 
-    case req @ HttpRequest(GET, Uri.Path("/v1/stream/fetch"), _, _, _) =>
-      Future.successful(
-        (for {
-          upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> InvalidUserInput(
-            s"Cannot upgrade client's connection to websocket"
-          )
-          payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
-          (jwt, jwtPayload) = payload
-        } yield handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
-          jwt,
-          jwtPayload,
-          upgradeReq,
-          wsProtocol,
-        ))
-          .valueOr(httpResponseError)
+                  payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
+                  (jwt, jwtPayload) = payload
+                } yield handleWebsocketRequest[domain.SearchForeverRequest](
+                  jwt,
+                  jwtPayload,
+                  upgradeReq,
+                  wsProtocol,
+                ))
+                  .valueOr(httpResponseError)
+              )
+        )
+
+      case req @ HttpRequest(GET, Uri.Path("/v1/stream/fetch"), _, _, _) =>
+        (
+            implicit lc =>
+              Future.successful(
+                (for {
+                  upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> InvalidUserInput(
+                    s"Cannot upgrade client's connection to websocket"
+                  )
+                  payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
+                  (jwt, jwtPayload) = payload
+                } yield handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
+                  jwt,
+                  jwtPayload,
+                  upgradeReq,
+                  wsProtocol,
+                ))
+                  .valueOr(httpResponseError)
+              )
+        )
+    }
+    import scalaz.std.partialFunction._, scalaz.syntax.arrow._
+    (dispatch &&& { case r => r }) andThen { case (lcFhr, req) =>
+      extendWithRequestIdLogCtx(implicit lc =>
+        // TODO: Refactor this somehow into an own function
+        for {
+          _ <- Future.unit
+          _ = logger.trace(s"Incoming request on ${req.uri}")
+          t0 = System.nanoTime()
+          res <- lcFhr(lc)
+          _ = logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+        } yield res
       )
+    }
   }
 
   def handleWebsocketRequest[A: WebSocketService.StreamQueryReader](
@@ -95,7 +124,7 @@ class WebsocketEndpoints(
       jwtPayload: domain.JwtPayload,
       req: WebSocketUpgrade,
       protocol: String,
-  ): HttpResponse = {
+  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): HttpResponse = {
     val handler: Flow[Message, Message, _] =
       webSocketService.transactionMessageHandler[A](jwt, jwtPayload)
     req.handleMessages(handler, Some(protocol))

@@ -54,7 +54,7 @@ da_haskell_test(
         "//ledger/sandbox:sandbox-binary",
     ],
     # The tests throw flaky timeout errors. It looks like this comes
-    # from a fundamental issue in the Haskell bindings: They eagerly pull
+    # from a fundamental issue in the Haskell bindings: they eagerly pull
     # from streams and those stream receives have a timeout. If we create the
     # stream too early and do a bunch of other stuff in between, this will then timeout.
     # We could increase the timeout to an absurd value but that also seems silly

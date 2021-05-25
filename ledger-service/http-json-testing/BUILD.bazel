@@ -27,6 +27,7 @@ hj_scalacopts = lf_scalacopts + [
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_akka_akka_stream",
             "@maven//:io_spray_spray_json",
+            "@maven//:org_scala_lang_modules_scala_collection_compat",
             "@maven//:org_scalacheck_scalacheck",
             "@maven//:org_scalactic_scalactic",
             "@maven//:org_scalatest_scalatest",
@@ -36,9 +37,7 @@ hj_scalacopts = lf_scalacopts + [
             "@maven//:org_typelevel_cats_effect",
             "@maven//:org_typelevel_cats_free",
         ],
-        scalacopts = hj_scalacopts + [
-            "-P:silencer:lineContentFilters=import scala.collection.compat",
-        ],
+        scalacopts = hj_scalacopts,
         tags = ["maven_coordinates=com.daml:http-json-testing:__VERSION__"],
         visibility = ["//visibility:public"],
         runtime_deps = [
@@ -50,6 +49,7 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger-api/rs-grpc-bridge",
             "//ledger-service/http-json:http-json-{}".format(edition),
             "//ledger-service/http-json-cli:{}".format(edition),
+            "//ledger-service/cli-opts",
             "//ledger-service/jwt",
             "//ledger-service/utils",
             "//ledger/caching",
@@ -60,6 +60,7 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger/sandbox-classic",
             "//ledger/sandbox-common",
             "//libs-scala/auth-utils",
+            "//libs-scala/contextualized-logging",
             "//libs-scala/ports",
         ],
     )

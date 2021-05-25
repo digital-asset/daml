@@ -4,7 +4,6 @@
 package com.daml.platform.store.dao
 
 import java.util.UUID
-
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.value.Value.ContractId
@@ -15,6 +14,8 @@ import com.daml.platform.store.LfValueTranslationCache
 import org.scalatest.LoneElement
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
+
+import scala.concurrent.duration.DurationInt
 
 private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
@@ -27,6 +28,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = jdbcUrl,
         connectionPoolSize = 16,
+        connectionTimeout = 250.millis,
         eventsPageSize = eventsPageSize,
         servicesExecutionContext = executionContext,
         metrics = new Metrics(new MetricRegistry),

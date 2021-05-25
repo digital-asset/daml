@@ -8,7 +8,7 @@ import java.util
 
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SError.{DamlEArithmeticError, SError, SErrorCrash}
+import com.daml.lf.speedy.SError.{DamlEUnhandledException, SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
@@ -17,10 +17,11 @@ import com.daml.lf.value.Value
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.Inside
 
 import scala.language.implicitConversions
 
-class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
+class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with Inside {
 
   import SBuiltinTest._
 
@@ -53,8 +54,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         eval(e"ADD_INT64 $MaxInt64 1") shouldBe a[Left[_, _]]
         eval(e"ADD_INT64 $MinInt64 1") shouldBe Right(SInt64(MinInt64 + 1))
         eval(e"ADD_INT64 $MinInt64 -1") shouldBe a[Left[_, _]]
-        eval(e"ADD_INT64 $aBigOddInt64 $aBigOddInt64") shouldBe
-          Left(DamlEArithmeticError(s"Int64 overflow when adding $aBigOddInt64 to $aBigOddInt64."))
+        eval(e"ADD_INT64 $aBigOddInt64 $aBigOddInt64") shouldBe a[Left[_, _]]
       }
     }
 
@@ -64,11 +64,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         eval(e"SUB_INT64 $MaxInt64 -1") shouldBe a[Left[_, _]]
         eval(e"SUB_INT64 $MinInt64 -1") shouldBe Right(SInt64(MinInt64 + 1))
         eval(e"SUB_INT64 $MinInt64 1") shouldBe a[Left[_, _]]
-        eval(e"SUB_INT64 -$aBigOddInt64 $aBigOddInt64") shouldBe Left(
-          DamlEArithmeticError(
-            s"Int64 overflow when subtracting $aBigOddInt64 from -$aBigOddInt64."
-          )
-        )
+        eval(e"SUB_INT64 -$aBigOddInt64 $aBigOddInt64") shouldBe a[Left[_, _]]
       }
     }
 
@@ -79,23 +75,20 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         eval(e"MUL_INT64 ${1L << 32} -${1L << 31}") shouldBe Right(SInt64(1L << 63))
         eval(e"MUL_INT64 ${1L << 32} -${1L << 32}") shouldBe a[Left[_, _]]
         eval(e"MUL_INT64 ${1L << 32} -${1L << 32}") shouldBe a[Left[_, _]]
-        eval(e"MUL_INT64 $aBigOddInt64 42") shouldBe
-          Left(DamlEArithmeticError(s"Int64 overflow when multiplying $aBigOddInt64 by 42."))
+        eval(e"MUL_INT64 $aBigOddInt64 42") shouldBe a[Left[_, _]]
       }
     }
 
     "DIV_INT64" - {
       "throws an exception if it overflows" in {
         eval(e"DIV_INT64 $MaxInt64 -1") shouldBe Right(SInt64(-MaxInt64))
-        eval(e"DIV_INT64 $MinInt64 -1") shouldBe
-          Left(DamlEArithmeticError(s"Int64 overflow when dividing $MinInt64 by -1."))
+        eval(e"DIV_INT64 $MinInt64 -1") shouldBe a[Left[_, _]]
       }
 
       "throws an exception when dividing by 0" in {
         eval(e"DIV_INT64 1 $MaxInt64") shouldBe Right(SInt64(0))
         eval(e"DIV_INT64 1 0") shouldBe a[Left[_, _]]
-        eval(e"DIV_INT64 $aBigOddInt64 0") shouldBe
-          Left(DamlEArithmeticError(s"Attempt to divide $aBigOddInt64 by 0."))
+        eval(e"DIV_INT64 $aBigOddInt64 0") shouldBe a[Left[_, _]]
       }
     }
 
@@ -107,9 +100,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         eval(e"EXP_INT64 0 -1") shouldBe a[Left[_, _]]
         eval(e"EXP_INT64 10 -1") shouldBe a[Left[_, _]]
         eval(e"EXP_INT64 10 -20") shouldBe a[Left[_, _]]
-        eval(e"EXP_INT64 $aBigOddInt64 -42") shouldBe Left(
-          DamlEArithmeticError(s"Attempt to raise $aBigOddInt64 to the negative exponent -42.")
-        )
+        eval(e"EXP_INT64 $aBigOddInt64 -42") shouldBe a[Left[_, _]]
       }
 
       "throws an exception if it overflows" in {
@@ -117,9 +108,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         eval(e"EXP_INT64 ${1L << 7} 9") shouldBe a[Left[_, _]]
         eval(e"EXP_INT64 ${-(1L << 7)} 9") shouldBe Right(SInt64(1L << 63))
         eval(e"EXP_INT64 ${-(1L << 7)} 10") shouldBe a[Left[_, _]]
-        eval(e"EXP_INT64 3 $aBigOddInt64") shouldBe Left(
-          DamlEArithmeticError(s"Int64 overflow when raising 3 to the exponent $aBigOddInt64.")
-        )
+        eval(e"EXP_INT64 3 $aBigOddInt64") shouldBe a[Left[_, _]]
       }
 
       "accepts huge exponents for bases -1, 0 and, 1" in {
@@ -194,10 +183,10 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
-    "TO_TEXT_INT64" - {
+    "INT64_TO_TEXT" - {
       "return proper results" in {
         forEvery(smallInt64s) { a =>
-          eval(e"TO_TEXT_INT64 $a") shouldBe Right(SText(a.toString))
+          eval(e"INT64_TO_TEXT $a") shouldBe Right(SText(a.toString))
         }
       }
     }
@@ -243,12 +232,9 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         eval(e"$builtin @10 ${s(10, maxDecimal.negate)} ${s(10, -minPosDecimal)}") shouldBe a[
           Left[_, _]
         ]
-        eval(e"$builtin @10 ${s(10, bigBigDecimal)} ${s(10, bigBigDecimal - 1)}") shouldBe
-          Left(
-            DamlEArithmeticError(
-              s"(Numeric 10) overflow when adding ${s(10, bigBigDecimal - 1)} to ${s(10, bigBigDecimal)}."
-            )
-          )
+        eval(e"$builtin @10 ${s(10, bigBigDecimal)} ${s(10, bigBigDecimal - 1)}") shouldBe a[
+          Left[_, _]
+        ]
       }
     }
 
@@ -265,12 +251,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         )
         eval(e"$builtin @10 ${s(10, maxDecimal)} -$minPosDecimal") shouldBe a[Left[_, _]]
         eval(e"$builtin @10 ${maxDecimal.negate} ${s(10, minPosDecimal)}") shouldBe a[Left[_, _]]
-        eval(e"$builtin @10 ${-bigBigDecimal} ${s(10, bigBigDecimal)}") shouldBe
-          Left(
-            DamlEArithmeticError(
-              s"(Numeric 10) overflow when subtracting ${s(10, bigBigDecimal)} from ${s(10, -bigBigDecimal)}."
-            )
-          )
+        eval(e"$builtin @10 ${-bigBigDecimal} ${s(10, bigBigDecimal)}") shouldBe a[Left[_, _]]
       }
     }
 
@@ -291,11 +272,9 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           SNumeric(n(10, "1E27"))
         )
         eval(e"$builtin @10 @10 @10 ${tenPowerOf(14)} ${tenPowerOf(14)}") shouldBe a[Left[_, _]]
-        eval(e"$builtin @10 @10 @10 ${s(10, bigBigDecimal)} ${bigBigDecimal - 1}") shouldBe Left(
-          DamlEArithmeticError(
-            s"(Numeric 10) overflow when multiplying ${s(10, bigBigDecimal)} by ${s(10, bigBigDecimal - 1)}."
-          )
-        )
+        eval(e"$builtin @10 @10 @10 ${s(10, bigBigDecimal)} ${bigBigDecimal - 1}") shouldBe a[
+          Left[_, _]
+        ]
       }
     }
 
@@ -316,11 +295,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         eval(e"$builtin @10 @10 @10 ${tenPowerOf(17)} ${tenPowerOf(-10)}") shouldBe Right(
           SNumeric(n(10, "1E27"))
         )
-        eval(e"$builtin @10 @10 @10 ${tenPowerOf(18)} ${tenPowerOf(-10)}") shouldBe Left(
-          DamlEArithmeticError(
-            s"(Numeric 10) overflow when dividing ${tenPowerOf(18)} by ${tenPowerOf(-10)}."
-          )
-        )
+        eval(e"$builtin @10 @10 @10 ${tenPowerOf(18)} ${tenPowerOf(-10)}") shouldBe a[Left[_, _]]
       }
 
       "throws an exception when divided by 0" in {
@@ -328,10 +303,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           SNumeric(n(10, tenPowerOf(10)))
         )
         eval(e"$builtin @10 @10 @10 ${s(10, one)} ${s(10, zero)}") shouldBe a[Left[_, _]]
-        eval(e"$builtin @10 @10 @10 ${s(10, bigBigDecimal)} ${s(10, zero)}") shouldBe Left(
-          DamlEArithmeticError(s"Attempt to divide ${s(10, bigBigDecimal)} by 0.0000000000.")
-        )
-
+        eval(e"$builtin @10 @10 @10 ${s(10, bigBigDecimal)} ${s(10, zero)}") shouldBe a[Left[_, _]]
       }
     }
 
@@ -399,10 +371,10 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
-    "TO_TEXT_NUMERIC" - {
+    "NUMERIC_TO_TEXT" - {
       "returns proper results" in {
         forEvery(decimals) { a =>
-          eval(e"TO_TEXT_NUMERIC @10 ${s(10, a)}") shouldBe Right(SText(a))
+          eval(e"NUMERIC_TO_TEXT @10 ${s(10, a)}") shouldBe Right(SText(a))
         }
       }
     }
@@ -543,7 +515,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     "TEXT_TO_TEXT" - {
       "is idempotent" in {
         forEvery(strings) { s =>
-          eval(e""" TO_TEXT_TEXT "$s" """) shouldBe Right(SText(s))
+          eval(e""" TEXT_TO_TEXT "$s" """) shouldBe Right(SText(s))
         }
       }
     }
@@ -564,7 +536,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
-    "TEXT_FROM_CODE_POINTS" - {
+    "CODE_POINTS_TO_TEXT" - {
 
       "accepts legal code points" in {
         val testCases = Table(
@@ -601,7 +573,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
         forEvery(testCases)(cp =>
           eval(
-            e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}"""
+            e"""CODE_POINTS_TO_TEXT ${intList('\''.toLong, cp.toLong, '\''.toLong)}"""
           ) shouldBe Right(
             SText("'" + new String(Character.toChars(cp)) + "'")
           )
@@ -621,7 +593,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
         forEvery(testCases)(cp =>
           eval(
-            e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}"""
+            e"""CODE_POINTS_TO_TEXT ${intList('\''.toLong, cp.toLong, '\''.toLong)}"""
           ) shouldBe a[Left[_, _]]
         )
       }
@@ -642,7 +614,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         )
 
         forEvery(testCases)(cp =>
-          eval(e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp, '\''.toLong)}""") shouldBe a[
+          eval(e"""CODE_POINTS_TO_TEXT ${intList('\''.toLong, cp, '\''.toLong)}""") shouldBe a[
             Left[_, _]
           ]
         )
@@ -697,7 +669,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           )
 
         forEvery(testCases) { s =>
-          eval(e"TO_TEXT_TEXT $s") shouldBe Right(SText(s))
+          eval(e"TEXT_TO_TEXT $s") shouldBe Right(SText(s))
         }
       }
     }
@@ -730,9 +702,9 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
 
-    "TEXT_TO_DATE" - {
+    "DATE_TO_TEXT" - {
       "works as expected" in {
-        eval(e"TO_TEXT_TEXT  1879-03-14").left.map(_ => ()) shouldBe Right(SText("1879-03-14"))
+        eval(e"DATE_TO_TEXT  1879-03-14").left.map(_ => ()) shouldBe Right(SText("1879-03-14"))
       }
     }
   }
@@ -1210,43 +1182,43 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     }
 
     "Text Operations" - {
-      "TO_QUOTED_TEXT_PARTY single quotes" in {
-        eval(e"TO_QUOTED_TEXT_PARTY 'alice'") shouldBe Right(SText("'alice'"))
+      "PARTY_TO_QUOTED_TEXT single quotes" in {
+        eval(e"PARTY_TO_QUOTED_TEXT 'alice'") shouldBe Right(SText("'alice'"))
       }
 
-      "TO_TEXT_PARTY does not single quote" in {
-        eval(e"TO_TEXT_PARTY 'alice'") shouldBe Right(SText("alice"))
+      "PARTY_TO_TEXT does not single quote" in {
+        eval(e"PARTY_TO_TEXT 'alice'") shouldBe Right(SText("alice"))
       }
 
-      "FROM_TEXT_PARTY" - {
+      "TEXT_TO_PARTY" - {
         "should convert correct string" in {
-          eval(e"""FROM_TEXT_PARTY "alice" """) shouldBe Right(
+          eval(e"""TEXT_TO_PARTY "alice" """) shouldBe Right(
             SOptional(Some(SParty(Ref.Party.assertFromString("alice"))))
           )
         }
         "should not convert string with incorrect char" in {
-          eval(e"""FROM_TEXT_PARTY "bad%char" """) shouldBe Right(SOptional(None))
+          eval(e"""TEXT_TO_PARTY "bad%char" """) shouldBe Right(SOptional(None))
         }
 
         "should not convert too long string" in {
           val party255 = "p" * 255
           val party256 = party255 + "p"
-          eval(e"""FROM_TEXT_PARTY "$party255" """) shouldBe Right(
+          eval(e"""TEXT_TO_PARTY "$party255" """) shouldBe Right(
             SOptional(Some(SParty(Ref.Party.assertFromString(party255))))
           )
-          eval(e"""FROM_TEXT_PARTY "$party256" """) shouldBe Right(SOptional(None))
+          eval(e"""TEXT_TO_PARTY "$party256" """) shouldBe Right(SOptional(None))
         }
 
         "should not convert empty string" in {
-          eval(e"""FROM_TEXT_PARTY "p" """) shouldBe Right(
+          eval(e"""TEXT_TO_PARTY "p" """) shouldBe Right(
             SOptional(Some(SParty(Ref.Party.assertFromString("p"))))
           )
-          eval(e"""FROM_TEXT_PARTY "" """) shouldBe Right(SOptional(None))
+          eval(e"""TEXT_TO_PARTY "" """) shouldBe Right(SOptional(None))
         }
 
       }
 
-      "FROM_TEXT_INT64" in {
+      "TEXT_TO_INT64" in {
         val positiveTestCases =
           Table(
             "strings",
@@ -1279,16 +1251,16 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           )
 
         forEvery(positiveTestCases) { s =>
-          eval(e"""FROM_TEXT_INT64 "$s"""") shouldBe Right(SOptional(Some(SInt64(s.toLong))))
+          eval(e"""TEXT_TO_INT64 "$s"""") shouldBe Right(SOptional(Some(SInt64(s.toLong))))
         }
         forEvery(negativeTestCases) { s =>
-          eval(e"""FROM_TEXT_INT64 "$s"""") shouldBe Right(SOptional(None))
+          eval(e"""TEXT_TO_INT64 "$s"""") shouldBe Right(SOptional(None))
         }
       }
 
-      "TO_TEXT_CONTRACT_ID" - {
+      "CONTRACT_ID_TO_TEXT" - {
         "returns None on-ledger" in {
-          val f = """(\(c:(ContractId Mod:T)) -> TO_TEXT_CONTRACT_ID @Mod:T c)"""
+          val f = """(\(c:(ContractId Mod:T)) -> CONTRACT_ID_TO_TEXT @Mod:T c)"""
           evalApp(
             e"$f",
             Array(SContractId(Value.ContractId.assertFromString("#abc"))),
@@ -1296,7 +1268,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           ) shouldBe Right(SOptional(None))
         }
         "returns Some(abc) off-ledger" in {
-          val f = """(\(c:(ContractId Mod:T)) -> TO_TEXT_CONTRACT_ID @Mod:T c)"""
+          val f = """(\(c:(ContractId Mod:T)) -> CONTRACT_ID_TO_TEXT @Mod:T c)"""
           evalApp(
             e"$f",
             Array(SContractId(Value.ContractId.assertFromString("#abc"))),
@@ -1312,7 +1284,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
           (() => "1" * 10000000) -> None,
           (() => "0" * 10000000 + "1") -> Some(SInt64(1)),
         )
-        val builtin = e"""FROM_TEXT_INT64"""
+        val builtin = e"""TEXT_TO_INT64"""
 
         forEvery(testCases) { (input, output) =>
           eval(EApp(builtin, EPrimLit(PLText(input())))) shouldBe Right(
@@ -1324,7 +1296,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
     }
 
-    "FROM_TEXT_NUMERIC" in {
+    "TEXT_TO_NUMERIC" in {
       val positiveTestCases =
         Table(
           "strings" -> "canonical string",
@@ -1366,11 +1338,11 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         )
 
       forEvery(positiveTestCases) { (input, expected) =>
-        val e = e"""FROM_TEXT_NUMERIC @10 "$input""""
+        val e = e"""TEXT_TO_NUMERIC @10 "$input""""
         eval(e) shouldBe Right(SOptional(Some(SNumeric(n(10, expected)))))
       }
       forEvery(negativeTestCases) { input =>
-        eval(e"""FROM_TEXT_NUMERIC @10 "$input"""") shouldBe Right(SOptional(None))
+        eval(e"""TEXT_TO_NUMERIC @10 "$input"""") shouldBe Right(SOptional(None))
       }
     }
 
@@ -1384,13 +1356,124 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         (() => "+" + "0" * 10000000 + "2.0") -> Some(SNumeric(n(10, 2))),
         (() => "-" + "0" * 10000000 + "3.0") -> Some(SNumeric(n(10, -3))),
       )
-      val builtin = e"""FROM_TEXT_NUMERIC @10"""
+      val builtin = e"""TEXT_TO_NUMERIC @10"""
 
       forEvery(testCases) { (input, output) =>
         eval(EApp(builtin, EPrimLit(PLText(input())))) shouldBe Right(SOptional(output))
       }
     }
 
+  }
+
+  "ArithmeticBuiltins" - {
+
+    "throw DamlArithmeticException with proper name and argument" in {
+
+      import SBuiltin._
+      import Numeric.Scale.{MinValue => MinScale, MaxValue => MaxScale}
+      import java.math.BigDecimal
+
+      val TMinScale = STNat(MinScale)
+
+      val MaxNumeric0 = SNumeric(Numeric.maxValue(MinScale))
+      val MinNumeric0 = SNumeric(Numeric.minValue(MinScale))
+      val TwoNumeric0 = SNumeric(data.assertRight(Numeric.fromLong(MinScale, 2L)))
+
+      val VeryBigBigNumericA =
+        SBigNumeric.assertFromBigDecimal(
+          BigDecimal.valueOf(8).scaleByPowerOfTen(SBigNumeric.MaxScale - 1)
+        )
+      val VeryBigBigNumericB =
+        SBigNumeric.assertFromBigDecimal(
+          BigDecimal.valueOf(7).scaleByPowerOfTen(SBigNumeric.MaxScale - 1)
+        )
+      val VeryBigNegativeBigNumeric =
+        SBigNumeric.assertFromBigDecimal(
+          BigDecimal.valueOf(-7).scaleByPowerOfTen(SBigNumeric.MaxScale - 1)
+        )
+
+      val ZeroInt64 = SInt64(0L)
+      val TwoInt64 = SInt64(2L)
+      val MaxInt64 = SInt64(Long.MaxValue)
+
+      val cases = Table[SBuiltinArithmetic, Seq[SValue], String](
+        ("builtin", "args", "name"),
+        (SBAddInt64, List[SValue](MaxInt64, TwoInt64), "ADD_INT64"),
+        (SBSubInt64, List[SValue](SInt64(-2L), MaxInt64), "SUB_INT64"),
+        (SBMulInt64, List[SValue](MaxInt64, TwoInt64), "MUL_INT64"),
+        (SBDivInt64, List[SValue](MaxInt64, ZeroInt64), "DIV_INT64"),
+        (SBModInt64, List[SValue](MaxInt64, ZeroInt64), "MOD_INT64"),
+        (SBExpInt64, List[SValue](TwoInt64, MaxInt64), "EXP_INT64"),
+        (SBAddNumeric, List[SValue](TMinScale, MaxNumeric0, TwoNumeric0), "ADD_NUMERIC"),
+        (SBSubNumeric, List[SValue](TMinScale, MinNumeric0, TwoNumeric0), "SUB_NUMERIC"),
+        (
+          SBMulNumeric,
+          List[SValue](TMinScale, TMinScale, TMinScale, MaxNumeric0, MaxNumeric0),
+          "MUL_NUMERIC",
+        ),
+        (
+          SBDivNumeric,
+          List[SValue](
+            TMinScale,
+            TMinScale,
+            TMinScale,
+            TwoNumeric0,
+            SNumeric(Numeric.assertFromString("0.")),
+          ),
+          "DIV_NUMERIC",
+        ),
+        (
+          SBRoundNumeric,
+          List[SValue](STNat(MinScale), SInt64(MaxScale.toLong), MaxNumeric0),
+          "ROUND_NUMERIC",
+        ),
+        (
+          SBCastNumeric,
+          List[SValue](STNat(MinScale), STNat(MaxScale), MaxNumeric0),
+          "CAST_NUMERIC",
+        ),
+        (SBInt64ToNumeric, List[SValue](STNat(MaxScale), SInt64(10)), "INT64_TO_NUMERIC"),
+        (SBNumericToInt64, List[SValue](STNat(MinScale), MaxNumeric0), "NUMERIC_TO_INT64"),
+        (SBUnixDaysToDate, List[SValue](MaxInt64), "UNIX_DAYS_TO_DATE"),
+        (SBUnixMicrosecondsToTimestamp, List(MaxInt64), "UNIX_MICROSECONDS_TO_TIMESTAMP"),
+        (SBAddBigNumeric, List[SValue](VeryBigBigNumericA, VeryBigBigNumericB), "ADD_BIGNUMERIC"),
+        (
+          SBSubBigNumeric,
+          List[SValue](VeryBigBigNumericA, VeryBigNegativeBigNumeric),
+          "SUB_BIGNUMERIC",
+        ),
+        (SBMulBigNumeric, List[SValue](VeryBigBigNumericA, VeryBigBigNumericB), "MUL_BIGNUMERIC"),
+        (
+          SBDivBigNumeric,
+          List[SValue](
+            SInt64(0),
+            SInt64(0),
+            VeryBigBigNumericA,
+            SBigNumeric.assertFromBigDecimal(BigDecimal.ZERO),
+          ),
+          "DIV_BIGNUMERIC",
+        ),
+        (
+          SBShiftRightBigNumeric,
+          List[SValue](SInt64(-1L), VeryBigBigNumericA),
+          "SHIFT_RIGHT_BIGNUMERIC",
+        ),
+        (
+          SBBigNumericToNumeric,
+          List[SValue](TMinScale, VeryBigBigNumericA),
+          "BIGNUMERIC_TO_NUMERIC",
+        ),
+      )
+
+      forAll(cases) { (builtin, args, name) =>
+        inside(
+          evalSExpr(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).toArray), false)
+        ) {
+          case Left(DamlEUnhandledException(SArithmeticError(name_, args_)))
+              if name_ == name && (args.iterator.map(lit2string) sameElements args_.iterator) =>
+        }
+      }
+    }
   }
 
   "Error builtins" - {
@@ -1463,5 +1546,17 @@ object SBuiltinTest {
     args.add(v)
     SStruct(entryFields, args)
   }
+
+  private def lit2string(x: SValue): String =
+    x match {
+      case SBool(b) => b.toString
+      case SInt64(i) => i.toString
+      case STimestamp(t) => t.toString
+      case SDate(date) => date.toString
+      case SBigNumeric(x) => Numeric.toUnscaledString(x)
+      case SNumeric(x) => Numeric.toUnscaledString(x)
+      case STNat(n) => s"@$n"
+      case _ => sys.error(s"litToText: unexpected $x")
+    }
 
 }

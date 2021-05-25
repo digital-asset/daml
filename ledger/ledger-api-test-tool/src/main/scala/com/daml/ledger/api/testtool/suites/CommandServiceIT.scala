@@ -19,7 +19,6 @@ import com.daml.ledger.test.model.Test.Dummy._
 import com.daml.ledger.test.model.Test.DummyFactory._
 import com.daml.ledger.test.model.Test.WithObservers._
 import com.daml.ledger.test.model.Test._
-import com.softwaremill.diffx.generic.auto._
 import io.grpc.Status
 import scalaz.syntax.tag._
 
@@ -301,7 +300,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         Status.Code.INVALID_ARGUMENT,
         Some(
           Pattern.compile(
-            "Command interpretation error in LF-DAMLe: Interpretation error: Error: (User abort: Assertion failed\\.|unhandled exception: DA.Internal.Exception.Types:GeneralError@6ad87e6c\\{ message = \"Assertion failed\" \\}\\.) Details: Last location: \\[[^\\]]*\\], partial transaction: root node"
+            "Command interpretation error in LF-DAMLe: Interpretation error: Error: (User abort: Assertion failed\\.|unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"Assertion failed\" \\}\\.) Details: Last location: \\[[^\\]]*\\], partial transaction: root node"
           )
         ),
       )

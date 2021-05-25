@@ -62,6 +62,10 @@ preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
     , "DA.Stack"
     , "DA.BigNumeric"
     , "DA.Exception"
+    , "DA.Exception.GeneralError"
+    , "DA.Exception.ArithmeticError"
+    , "DA.Exception.AssertionFailed"
+    , "DA.Exception.PreconditionFailed"
 
     -- These modules need to have the record preprocessor disabled.
     , "DA.NonEmpty.Types"

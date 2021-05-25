@@ -24,9 +24,9 @@ import com.google.protobuf.timestamp.Timestamp
   *
   * Most conversion functions have a verbose flag:
   * - If verbose mode is disabled, then all resulting Api values have missing type identifiers and record field names.
-  * - If verbose mode is enabled, then type identifiers and record field names are copied from the input DAML-LF values.
+  * - If verbose mode is enabled, then type identifiers and record field names are copied from the input Daml-LF values.
   *   The caller is responsible for filling in missing type information using [[com.daml.lf.engine.ValueEnricher]],
-  *   which may involve loading DAML-LF packages.
+  *   which may involve loading Daml-LF packages.
   */
 object LfEngineToApi {
 

@@ -213,7 +213,7 @@ da_haskell_library(
     ],
 )
 
-# Generating DAML stdlib docs.
+# Generating Daml stdlib docs.
 
 filegroup(
     name = "daml-base-hoogle-template",

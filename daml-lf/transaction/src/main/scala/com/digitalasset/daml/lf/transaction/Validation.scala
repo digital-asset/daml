@@ -61,6 +61,19 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
       case _ => false
     }
 
+  private[this] def byKeyIsReplacedBy(
+      version: TransactionVersion,
+      recorded: Boolean,
+      replayed: Boolean,
+  ): Boolean = {
+    import scala.Ordering.Implicits.infixOrderingOps
+    if (version >= TransactionVersion.minByKey) {
+      recorded == replayed
+    } else {
+      true
+    }
+  }
+
   private[this] def keys[K](entries: ImmArray[(K, _)]): Iterator[K] =
     entries.iterator.map(_._1)
 
@@ -216,7 +229,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                     signatories1,
                     stakeholders1,
                     key1,
-                    byKey1 @ _,
+                    byKey1,
                     version1,
                   ),
                   Node.NodeFetch(
@@ -227,7 +240,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                     signatories2,
                     stakeholders2,
                     key2,
-                    byKey2 @ _,
+                    byKey2,
                     version2,
                   ),
                 )
@@ -237,7 +250,8 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                   (actingParties1.isEmpty || actingParties1 == actingParties2) &&
                   signatories1 == signatories2 &&
                   stakeholders1 == stakeholders2 &&
-                  (key1.isEmpty || keyIsReplayedBy(key1, key2)) =>
+                  (key1.isEmpty || keyIsReplayedBy(key1, key2)) &&
+                  byKeyIsReplacedBy(version1, byKey1, byKey2) =>
               loop(rest1, rest2, stack)
             case (
                   exe1 @ Node.NodeExercises(
@@ -254,7 +268,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                     children1 @ _,
                     exerciseResult1 @ _,
                     key1,
-                    byKey1 @ _,
+                    byKey1,
                     version1,
                   ),
                   exe2 @ Node.NodeExercises(
@@ -271,7 +285,7 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                     children2 @ _,
                     exerciseResult2 @ _,
                     key2,
-                    byKey2 @ _,
+                    byKey2,
                     version2,
                   ),
                 )
@@ -286,7 +300,8 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
                   stakeholders1 == stakeholders2 &&
                   signatories1 == signatories2 &&
                   choiceObservers1 == choiceObservers2 &&
-                  (key1.isEmpty || keyIsReplayedBy(key1, key2)) =>
+                  (key1.isEmpty || keyIsReplayedBy(key1, key2)) &&
+                  byKeyIsReplacedBy(version1, byKey1, byKey2) =>
               loop(
                 children1.iterator.to(LazyList),
                 children2.iterator.to(LazyList),
@@ -303,14 +318,12 @@ private final class Validation[Nid, Cid](implicit ECid: Equal[Cid]) {
               loop(rest1, rest2, stack)
             case (
                   Node.NodeRollback(
-                    children1,
-                    version1,
+                    children1
                   ),
                   Node.NodeRollback(
-                    children2,
-                    version2,
+                    children2
                   ),
-                ) if version1 == version2 =>
+                ) =>
               loop(
                 children1.iterator.to(LazyList),
                 children2.iterator.to(LazyList),

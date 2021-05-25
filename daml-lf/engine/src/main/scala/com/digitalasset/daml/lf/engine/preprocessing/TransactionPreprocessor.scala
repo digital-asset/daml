@@ -95,12 +95,22 @@ private[preprocessing] final class TransactionPreprocessor(
                 commandPreprocessor.unsafePreprocessCreate(create.templateId, create.arg)
               acc.update(newCids, List(create.coid), cmd)
             case exe: Node.NodeExercises[_, Cid] =>
-              val (cmd, newCids) = commandPreprocessor.unsafePreprocessExercise(
-                exe.templateId,
-                exe.targetCoid,
-                exe.choiceId,
-                exe.chosenValue,
-              )
+              val (cmd, newCids) = exe.key match {
+                case Some(key) if exe.byKey =>
+                  commandPreprocessor.unsafePreprocessExerciseByKey(
+                    exe.templateId,
+                    key.key,
+                    exe.choiceId,
+                    exe.chosenValue,
+                  )
+                case _ =>
+                  commandPreprocessor.unsafePreprocessExercise(
+                    exe.templateId,
+                    exe.targetCoid,
+                    exe.choiceId,
+                    exe.chosenValue,
+                  )
+              }
               val newLocalCids = GenTransaction(tx.nodes, ImmArray(id)).localContracts.keys
               acc.update(newCids, newLocalCids, cmd)
             case _: Node.NodeFetch[_] =>

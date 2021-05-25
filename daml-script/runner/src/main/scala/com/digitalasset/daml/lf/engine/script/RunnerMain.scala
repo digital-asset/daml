@@ -29,108 +29,109 @@ import com.daml.auth.TokenHolder
 object RunnerMain {
 
   def main(args: Array[String]): Unit = {
-
     RunnerConfig.parse(args) match {
       case None => sys.exit(1)
-      case Some(config) => {
-        val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
-          DarReader().readArchiveFromFile(config.darPath).get
-        val dar: Dar[(PackageId, Package)] = encodedDar.map { case (pkgId, pkgArchive) =>
-          Decode.readArchivePayload(pkgId, pkgArchive)
-        }
-        val scriptId: Identifier =
-          Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
-
-        val timeMode: ScriptTimeMode = config.timeMode.getOrElse(RunnerConfig.DefaultTimeMode)
-
-        implicit val system: ActorSystem = ActorSystem("ScriptRunner")
-        implicit val sequencer: ExecutionSequencerFactory =
-          new AkkaExecutionSequencerPool("ScriptRunnerPool")(system)
-        implicit val ec: ExecutionContext = system.dispatcher
-        implicit val materializer: Materializer = Materializer(system)
-
-        val inputValue = config.inputFile.map(file => {
-          val source = Source.fromFile(file)
-          val fileContent =
-            try {
-              source.mkString
-            } finally {
-              source.close()
-            }
-          fileContent.parseJson
-        })
-
-        val participantParams = config.participantConfig match {
-          case Some(file) => {
-            // We allow specifying --access-token-file/--application-id together with
-            // --participant-config and use the values as the default for
-            // all participants that do not specify an explicit token.
-            val source = Source.fromFile(file)
-            val fileContent =
-              try {
-                source.mkString
-              } finally {
-                source.close
-              }
-            val jsVal = fileContent.parseJson
-            val token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token)
-            import ParticipantsJsonProtocol._
-            jsVal
-              .convertTo[Participants[ApiParameters]]
-              .map(params =>
-                params.copy(
-                  access_token = params.access_token.orElse(token),
-                  application_id = params.application_id.orElse(config.applicationId),
-                )
-              )
-          }
-          case None =>
-            val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
-            Participants(
-              default_participant = Some(
-                ApiParameters(
-                  config.ledgerHost.get,
-                  config.ledgerPort.get,
-                  tokenHolder.flatMap(_.token),
-                  config.applicationId,
-                )
-              ),
-              participants = Map.empty,
-              party_participants = Map.empty,
-            )
-        }
-        val flow: Future[Unit] = for {
-
-          clients <-
-            if (config.jsonApi) {
-              val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-              val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
-              Runner.jsonClients(participantParams, envIface)
-            } else {
-              Runner.connect(participantParams, config.tlsConfig, config.maxInboundMessageSize)
-            }
-          result <- Runner.run(dar, scriptId, inputValue, clients, timeMode)
-          _ <- Future {
-            config.outputFile.foreach { outputFile =>
-              val jsVal = LfValueCodec.apiValueToJsValue(result.toValue)
-              val outDir = outputFile.getParentFile()
-              if (outDir != null) {
-                val _ = Files.createDirectories(outDir.toPath())
-              }
-              Files.write(outputFile.toPath, Seq(jsVal.prettyPrint).asJava)
-            }
-          }
-        } yield ()
-
-        flow.onComplete(_ =>
-          if (config.jsonApi) {
-            Http().shutdownAllConnectionPools().flatMap { case () => system.terminate() }
-          } else {
-            system.terminate()
-          }
-        )
-        Await.result(flow, Duration.Inf)
-      }
+      case Some(config) => main(config)
     }
+  }
+
+  def main(config: RunnerConfig): Unit = {
+    val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
+      DarReader().readArchiveFromFile(config.darPath).get
+    val dar: Dar[(PackageId, Package)] = encodedDar.map { case (pkgId, pkgArchive) =>
+      Decode.readArchivePayload(pkgId, pkgArchive)
+    }
+    val scriptId: Identifier =
+      Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
+
+    val timeMode: ScriptTimeMode = config.timeMode.getOrElse(RunnerConfig.DefaultTimeMode)
+
+    implicit val system: ActorSystem = ActorSystem("ScriptRunner")
+    implicit val sequencer: ExecutionSequencerFactory =
+      new AkkaExecutionSequencerPool("ScriptRunnerPool")(system)
+    implicit val ec: ExecutionContext = system.dispatcher
+    implicit val materializer: Materializer = Materializer(system)
+
+    val inputValue = config.inputFile.map(file => {
+      val source = Source.fromFile(file)
+      val fileContent =
+        try {
+          source.mkString
+        } finally {
+          source.close()
+        }
+      fileContent.parseJson
+    })
+
+    val participantParams = config.participantConfig match {
+      case Some(file) => {
+        // We allow specifying --access-token-file/--application-id together with
+        // --participant-config and use the values as the default for
+        // all participants that do not specify an explicit token.
+        val source = Source.fromFile(file)
+        val fileContent =
+          try {
+            source.mkString
+          } finally {
+            source.close
+          }
+        val jsVal = fileContent.parseJson
+        val token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token)
+        import ParticipantsJsonProtocol._
+        jsVal
+          .convertTo[Participants[ApiParameters]]
+          .map(params =>
+            params.copy(
+              access_token = params.access_token.orElse(token),
+              application_id = params.application_id.orElse(config.applicationId),
+            )
+          )
+      }
+      case None =>
+        val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
+        Participants(
+          default_participant = Some(
+            ApiParameters(
+              config.ledgerHost.get,
+              config.ledgerPort.get,
+              tokenHolder.flatMap(_.token),
+              config.applicationId,
+            )
+          ),
+          participants = Map.empty,
+          party_participants = Map.empty,
+        )
+    }
+    val flow: Future[Unit] = for {
+
+      clients <-
+        if (config.jsonApi) {
+          val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
+          val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+          Runner.jsonClients(participantParams, envIface)
+        } else {
+          Runner.connect(participantParams, config.tlsConfig, config.maxInboundMessageSize)
+        }
+      result <- Runner.run(dar, scriptId, inputValue, clients, timeMode)
+      _ <- Future {
+        config.outputFile.foreach { outputFile =>
+          val jsVal = LfValueCodec.apiValueToJsValue(result.toValue)
+          val outDir = outputFile.getParentFile()
+          if (outDir != null) {
+            val _ = Files.createDirectories(outDir.toPath())
+          }
+          Files.write(outputFile.toPath, Seq(jsVal.prettyPrint).asJava)
+        }
+      }
+    } yield ()
+
+    flow.onComplete(_ =>
+      if (config.jsonApi) {
+        Http().shutdownAllConnectionPools().flatMap { case () => system.terminate() }
+      } else {
+        system.terminate()
+      }
+    )
+    Await.result(flow, Duration.Inf)
   }
 }

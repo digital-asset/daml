@@ -84,6 +84,8 @@ private[lf] object Compiler {
   private val SBGreaterEqNumeric = SBCompareNumeric(SBGreaterEq)
   private val SBEqualNumeric = SBCompareNumeric(SBEqual)
 
+  private val SBEToTextNumeric = SEAbs(1, SEBuiltin(SBToText))
+
   private val SENat: Numeric.Scale => Some[SEValue] =
     Numeric.Scale.values.map(n => Some(SEValue(STNat(n))))
 
@@ -140,9 +142,9 @@ private[lf] final class Compiler(
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
   private[this] abstract class VarRef { def name: Name }
-  // corresponds to DAML-LF expression variable.
+  // corresponds to Daml-LF expression variable.
   private[this] case class EVarRef(name: ExprVarName) extends VarRef
-  // corresponds to DAML-LF type variable.
+  // corresponds to Daml-LF type variable.
   private[this] case class TVarRef(name: TypeVarName) extends VarRef
 
   case class Position(idx: Int)
@@ -476,6 +478,7 @@ private[lf] final class Compiler(
       case BGreaterNumeric => SBGreaterNumeric
       case BGreaterEqNumeric => SBGreaterEqNumeric
       case BEqualNumeric => SBEqualNumeric
+      case BNumericToText => SBEToTextNumeric
 
       case BTextMapEmpty => SEValue.EmptyTextMap
       case BGenMapEmpty => SEValue.EmptyGenMap
@@ -513,19 +516,18 @@ private[lf] final class Compiler(
           case BImplodeText => SBImplodeText
           case BAppendText => SBAppendText
 
-          case BToTextInt64 => SBToText
-          case BToTextNumeric => SBToTextNumeric
-          case BToTextText => SBToText
-          case BToTextTimestamp => SBToText
-          case BToTextParty => SBToText
-          case BToTextDate => SBToText
-          case BToTextContractId => SBToTextContractId
-          case BToQuotedTextParty => SBToQuotedTextParty
-          case BToTextCodePoints => SBToTextCodePoints
-          case BFromTextParty => SBFromTextParty
-          case BFromTextInt64 => SBFromTextInt64
-          case BFromTextNumeric => SBFromTextNumeric
-          case BFromTextCodePoints => SBFromTextCodePoints
+          case BInt64ToText => SBToText
+          case BTextToText => SBToText
+          case BTimestampToText => SBToText
+          case BPartyToText => SBToText
+          case BDateToText => SBToText
+          case BContractIdToText => SBContractIdToText
+          case BPartyToQuotedText => SBPartyToQuotedText
+          case BCodePointsToText => SBCodePointsToText
+          case BTextToParty => SBTextToParty
+          case BTextToInt64 => SBTextToInt64
+          case BTextToNumeric => SBTextToNumeric
+          case BTextToCodePoints => SBTextToCodePoints
 
           case BSHA256Text => SBSHA256Text
 
@@ -567,10 +569,10 @@ private[lf] final class Compiler(
           case BSubBigNumeric => SBSubBigNumeric
           case BDivBigNumeric => SBDivBigNumeric
           case BMulBigNumeric => SBMulBigNumeric
-          case BShiftBigNumeric => SBShiftBigNumeric
-          case BToBigNumericNumeric => SBToBigNumericNumeric
-          case BToNumericBigNumeric => SBToNumericBigNumeric
-          case BToTextBigNumeric => SBToText
+          case BShiftRightBigNumeric => SBShiftRightBigNumeric
+          case BNumericToBigNumeric => SBNumericToBigNumeric
+          case BBigNumericToNumeric => SBBigNumericToNumeric
+          case BBigNumericToText => SBToText
 
           // Unstable Text Primitives
           case BTextToUpper => SBTextToUpper
@@ -585,18 +587,11 @@ private[lf] final class Compiler(
           // Implemented using normal SExpr
           case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq |
               BLess | BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
-              BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
+              BGreaterEqNumeric | BEqualNumeric | BNumericToText | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
 
-          case BAnyExceptionMessage =>
-            SBAnyExceptionMessage
-          case BAnyExceptionIsArithmeticError =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
-            throw CompilationError("SBAnyExceptionIsArithmeticError not implemented")
-          case BAnyExceptionIsContractError =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
-            throw CompilationError("SBAnyExceptionIsContractError not implemented")
-
+          case BAnyExceptionMessage => SBAnyExceptionMessage
+          case BAnyExceptionIsArithmeticError => SBAnyExceptionIsArithmeticError
         })
     }
 
@@ -1144,12 +1139,6 @@ private[lf] final class Compiler(
         val newBody = closureConvert(newRemapsF ++ newRemapsA, body)
         SEMakeClo(fvs.map(remap).toArray, arity, newBody)
 
-      case x: SELoc =>
-        throw CompilationError(s"closureConvert: unexpected SELoc: $x")
-
-      case x: SEMakeClo =>
-        throw CompilationError(s"closureConvert: unexpected SEMakeClo: $x")
-
       case SEAppGeneral(fun, args) =>
         val newFun = closureConvert(remaps, fun)
         val newArgs = args.map(closureConvert(remaps, _))
@@ -1197,26 +1186,13 @@ private[lf] final class Compiler(
       case SELabelClosure(label, expr) =>
         SELabelClosure(label, closureConvert(remaps, expr))
 
-      case x: SEDamlException =>
-        throw CompilationError(s"unexpected SEDamlException: $x")
-
-      case x: SEImportValue =>
-        throw CompilationError(s"unexpected SEImportValue: $x")
-
-      case x: SEAppAtomicGeneral =>
-        throw CompilationError(s"closureConvert: unexpected: $x")
-
-      case x: SEAppAtomicSaturatedBuiltin =>
-        throw CompilationError(s"closureConvert: unexpected: $x")
-
       case SELet1General(bound, body) =>
         SELet1General(closureConvert(remaps, bound), closureConvert(shift(remaps, 1), body))
 
-      case x: SELet1Builtin =>
-        throw CompilationError(s"closureConvert: unexpected: $x")
-
-      case x: SECaseAtomic =>
-        throw CompilationError(s"closureConvert: unexpected: $x")
+      case _: SELoc | _: SEMakeClo | _: SELet1Builtin | _: SELet1BuiltinArithmetic |
+          _: SEDamlException | _: SEImportValue | _: SEAppAtomicGeneral |
+          _: SEAppAtomicSaturatedBuiltin | _: SECaseAtomic =>
+        throw CompilationError(s"closureConvert: unexpected $expr")
     }
   }
 
@@ -1264,10 +1240,6 @@ private[lf] final class Compiler(
           args.foldLeft(go(fun, bound, free))((acc, arg) => go(arg, bound, acc))
         case SEAbs(n, body) =>
           go(body, bound + n, free)
-        case x: SELoc =>
-          throw CompilationError(s"freeVars: unexpected SELoc: $x")
-        case x: SEMakeClo =>
-          throw CompilationError(s"freeVars: unexpected SEMakeClo: $x")
         case SECase(scrut, alts) =>
           alts.foldLeft(go(scrut, bound, free)) { case (acc, SCaseAlt(pat, body)) =>
             go(body, bound + patternNArgs(pat), acc)
@@ -1285,16 +1257,10 @@ private[lf] final class Compiler(
         case SEScopeExercise(body) =>
           go(body, bound, free)
 
-        case x: SEDamlException =>
-          throw CompilationError(s"unexpected SEDamlException: $x")
-        case x: SEImportValue =>
-          throw CompilationError(s"unexpected SEImportValue: $x")
-
-        case x: SEAppAtomicGeneral => throw CompilationError(s"freeVars: unexpected: $x")
-        case x: SEAppAtomicSaturatedBuiltin => throw CompilationError(s"freeVars: unexpected: $x")
-        case x: SELet1General => throw CompilationError(s"freeVars: unexpected: $x")
-        case x: SELet1Builtin => throw CompilationError(s"freeVars: unexpected: $x")
-        case x: SECaseAtomic => throw CompilationError(s"freeVars: unexpected: $x")
+        case _: SELoc | _: SEMakeClo | _: SEDamlException | _: SEImportValue |
+            _: SEAppAtomicGeneral | _: SEAppAtomicSaturatedBuiltin | _: SELet1General |
+            _: SELet1Builtin | _: SELet1BuiltinArithmetic | _: SECaseAtomic =>
+          throw CompilationError(s"freeVars: unexpected $expr")
       }
 
     go(expr, initiallyBound, Set.empty)
@@ -1320,7 +1286,7 @@ private[lf] final class Compiler(
         case SEnum(_, _, _) => ()
         case SAny(_, v) => goV(v)
         case SAnyException(_, v) => goV(v)
-        case SBuiltinException(ContractError | ArithmeticError) => ()
+        case SArithmeticError(_, _) => ()
         case _: SPAP | SToken | SStruct(_, _) =>
           throw CompilationError("validate: unexpected SEValue")
       }
@@ -1356,10 +1322,6 @@ private[lf] final class Compiler(
         case SEAppAtomicFun(fun, args) =>
           go(fun)
           args.foreach(go)
-        case x: SEVar =>
-          throw CompilationError(s"validate: SEVar encountered: $x")
-        case abs: SEAbs =>
-          throw CompilationError(s"validate: SEAbs encountered: $abs")
         case SEMakeClo(fvs, n, body) =>
           fvs.foreach(goLoc)
           goBody(0, n, fvs.length)(body)
@@ -1377,6 +1339,7 @@ private[lf] final class Compiler(
           goBody(maxS + bounds.length, maxA, maxF)(body)
         case _: SELet1General => goLets(maxS)(expr)
         case _: SELet1Builtin => goLets(maxS)(expr)
+        case _: SELet1BuiltinArithmetic => goLets(maxS)(expr)
         case SECatchSubmitMustFail(body) =>
           go(body)
         case SELocation(_, body) =>
@@ -1389,10 +1352,8 @@ private[lf] final class Compiler(
         case SEScopeExercise(body) =>
           go(body)
 
-        case x: SEDamlException =>
-          throw CompilationError(s"unexpected SEDamlException: $x")
-        case x: SEImportValue =>
-          throw CompilationError(s"unexpected SEImportValue: $x")
+        case _: SEVar | _: SEAbs | _: SEDamlException | _: SEImportValue =>
+          throw CompilationError(s"validate: unexpected $expr")
       }
       @tailrec
       def goLets(maxS: Int)(expr: SExpr): Unit = {
@@ -1402,6 +1363,9 @@ private[lf] final class Compiler(
             go(rhs)
             goLets(maxS + 1)(body)
           case SELet1Builtin(_, args, body) =>
+            args.foreach(go)
+            goLets(maxS + 1)(body)
+          case SELet1BuiltinArithmetic(_, args, body) =>
             args.foreach(go)
             goLets(maxS + 1)(body)
           case expr =>

@@ -409,7 +409,7 @@ class PlatformStore(
     val index = commandIndex.incrementAndGet()
 
     parseOpaqueIdentifier(templateId).fold({
-      val msg = s"Create contract command not sent, '$templateId' is not a valid DAML-LF identifier"
+      val msg = s"Create contract command not sent, '$templateId' is not a valid Daml-LF identifier"
       log.warning(msg)
       sender ! Failure(StoreException(msg))
     })(id => {

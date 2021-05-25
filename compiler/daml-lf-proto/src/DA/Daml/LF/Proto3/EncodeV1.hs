@@ -473,22 +473,23 @@ encodeBuiltinExpr = \case
     BEGreaterEqNumeric -> builtin P.BuiltinFunctionGEQ_NUMERIC
 
     BEToText typ -> case typ of
-      BTInt64 -> builtin P.BuiltinFunctionTO_TEXT_INT64
-      BTDecimal -> builtin P.BuiltinFunctionTO_TEXT_DECIMAL
-      BTText -> builtin P.BuiltinFunctionTO_TEXT_TEXT
-      BTTimestamp -> builtin P.BuiltinFunctionTO_TEXT_TIMESTAMP
-      BTDate -> builtin P.BuiltinFunctionTO_TEXT_DATE
-      BTParty -> builtin P.BuiltinFunctionTO_TEXT_PARTY
+      BTInt64 -> builtin P.BuiltinFunctionINT64_TO_TEXT
+      BTDecimal -> builtin P.BuiltinFunctionDECIMAL_TO_TEXT
+      BTText -> builtin P.BuiltinFunctionTEXT_TO_TEXT
+      BTTimestamp -> builtin P.BuiltinFunctionTIMESTAMP_TO_TEXT
+      BTDate -> builtin P.BuiltinFunctionDATE_TO_TEXT
+      BTParty -> builtin P.BuiltinFunctionPARTY_TO_TEXT
+      BTBigNumeric ->  builtin P.BuiltinFunctionBIGNUMERIC_TO_TEXT
       other -> error $ "BEToText unexpected type " <> show other
-    BEToTextContractId -> builtin P.BuiltinFunctionTO_TEXT_CONTRACT_ID
-    BEToTextNumeric -> builtin P.BuiltinFunctionTO_TEXT_NUMERIC
-    BETextFromCodePoints -> builtin P.BuiltinFunctionTEXT_FROM_CODE_POINTS
-    BEPartyFromText -> builtin P.BuiltinFunctionFROM_TEXT_PARTY
-    BEInt64FromText -> builtin P.BuiltinFunctionFROM_TEXT_INT64
-    BEDecimalFromText-> builtin P.BuiltinFunctionFROM_TEXT_DECIMAL
-    BENumericFromText-> builtin P.BuiltinFunctionFROM_TEXT_NUMERIC
-    BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
-    BEPartyToQuotedText -> builtin P.BuiltinFunctionTO_QUOTED_TEXT_PARTY
+    BEContractIdToText -> builtin P.BuiltinFunctionCONTRACT_ID_TO_TEXT
+    BENumericToText -> builtin P.BuiltinFunctionNUMERIC_TO_TEXT
+    BECodePointsToText -> builtin P.BuiltinFunctionCODE_POINTS_TO_TEXT
+    BETextToParty -> builtin P.BuiltinFunctionTEXT_TO_PARTY
+    BETextToInt64 -> builtin P.BuiltinFunctionTEXT_TO_INT64
+    BETextToDecimal-> builtin P.BuiltinFunctionTEXT_TO_DECIMAL
+    BETextToNumeric-> builtin P.BuiltinFunctionTEXT_TO_NUMERIC
+    BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_POINTS_TO_CODE
+    BEPartyToQuotedText -> builtin P.BuiltinFunctionPARTY_TO_QUOTED_TEXT
 
     BEAddDecimal -> builtin P.BuiltinFunctionADD_DECIMAL
     BESubDecimal -> builtin P.BuiltinFunctionSUB_DECIMAL
@@ -510,10 +511,9 @@ encodeBuiltinExpr = \case
     BESubBigNumeric -> builtin P.BuiltinFunctionSUB_BIGNUMERIC
     BEMulBigNumeric -> builtin P.BuiltinFunctionMUL_BIGNUMERIC
     BEDivBigNumeric -> builtin P.BuiltinFunctionDIV_BIGNUMERIC
-    BEShiftBigNumeric -> builtin P.BuiltinFunctionSHIFT_BIGNUMERIC
-    BEToNumericBigNumeric -> builtin P.BuiltinFunctionTO_NUMERIC_BIGNUMERIC
-    BEFromNumericBigNumeric -> builtin P.BuiltinFunctionTO_BIGNUMERIC_NUMERIC
-    BEToTextBigNumeric -> builtin P.BuiltinFunctionTO_TEXT_BIGNUMERIC
+    BEShiftRightBigNumeric -> builtin P.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC
+    BEBigNumericToNumeric -> builtin P.BuiltinFunctionBIGNUMERIC_TO_NUMERIC
+    BENumericToBigNumeric -> builtin P.BuiltinFunctionNUMERIC_TO_BIGNUMERIC
 
     BEAddInt64 -> builtin P.BuiltinFunctionADD_INT64
     BESubInt64 -> builtin P.BuiltinFunctionSUB_INT64
@@ -539,7 +539,6 @@ encodeBuiltinExpr = \case
     BEError -> builtin P.BuiltinFunctionERROR
     BEAnyExceptionMessage -> builtin P.BuiltinFunctionANY_EXCEPTION_MESSAGE
     BEAnyExceptionIsArithmeticError -> builtin P.BuiltinFunctionANY_EXCEPTION_IS_ARITHMETIC_ERROR
-    BEAnyExceptionIsContractError -> builtin P.BuiltinFunctionANY_EXCEPTION_IS_CONTRACT_ERROR
 
     BETextMapEmpty -> builtin P.BuiltinFunctionTEXTMAP_EMPTY
     BETextMapInsert -> builtin P.BuiltinFunctionTEXTMAP_INSERT

@@ -257,12 +257,48 @@ export type StreamCloseEvent = {
  * @typeparam State The accumulated state.
  */
 export interface Stream<T extends object, K, I extends string, State> {
+  /**
+   * Register a callback that will be called when the state of the stream has
+   * caught up with the Active Contract Set and is now receiving new transactions.
+   * @param type 'live'
+   * @param listener function taking the state of the stream as an argument.
+   */
   on(type: 'live', listener: (state: State) => void): void;
+  /**
+   * Register a callback that will be called when the state of the stream changes,
+   * eg. new contract creates or archives.
+   * @param type 'change'
+   * @param listener function taking the state of the stream and new events as
+   * arguments.
+   */
   on(type: 'change', listener: (state: State, events: readonly Event<T, K, I>[]) => void): void;
+  /**
+   * Register a callback that will be called when the underlying stream is closed.
+   * @param type 'close'
+   * @param listener a function taking a StreamCloseEvent as an argument.
+   */
   on(type: 'close', listener: (closeEvent: StreamCloseEvent) => void): void;
+  /**
+   * Remove the registered callback for the 'live' event.
+   * @param type 'live'
+   * @param listener function to be deregistered.
+   */
   off(type: 'live', listener: (state: State) => void): void;
+  /**
+   * Remove the registered callback for the 'change' event.
+   * @param type 'change'
+   * @param listener function to be deregistered.
+   */
   off(type: 'change', listener: (state: State, events: readonly Event<T, K, I>[]) => void): void;
+  /**
+   * Remove the registered callback for the 'close' event.
+   * @param type 'close'
+   * @param listener function to be deregistered.
+   */
   off(type: 'close', listener: (closeEvent: StreamCloseEvent) => void): void;
+  /**
+   * Close the Stream and stop receiving events.
+   */
   close(): void;
 }
 
@@ -818,7 +854,7 @@ class Ledger {
     template: Template<T, K, I>,
     key: K,
   ): Stream<T, K, I, CreateEvent<T, K, I> | null> {
-    // Note: this implmeentation is deliberately not unified with that of
+    // Note: this implementation is deliberately not unified with that of
     // `streamFetchByKeys`, because doing so would add the requirement that the
     // given key be in output format, whereas existing implementation supports
     // input format.

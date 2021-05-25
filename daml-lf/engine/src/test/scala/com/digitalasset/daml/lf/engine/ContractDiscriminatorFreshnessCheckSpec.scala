@@ -354,14 +354,16 @@ class ContractDiscriminatorFreshnessCheckSpec
         pcs = _ => None,
         keys = _ => None,
       )
-      engine.replay(
-        submitters = Set(alice),
-        tx,
-        ledgerEffectiveTime = txMeta.submissionTime,
-        participantId = participant,
-        submissionTime = txMeta.submissionTime,
-        submissionSeed = txMeta.submissionSeed.get,
-      ) shouldBe a[ResultDone[_]]
+      engine
+        .replay(
+          submitters = Set(alice),
+          tx,
+          ledgerEffectiveTime = txMeta.submissionTime,
+          participantId = participant,
+          submissionTime = txMeta.submissionTime,
+          submissionSeed = txMeta.submissionSeed.get,
+        )
+        .consume(_ => None, pkgs, _ => None, _ => VisibleByKey.Visible) shouldBe a[Right[_, _]]
     }
 
   }

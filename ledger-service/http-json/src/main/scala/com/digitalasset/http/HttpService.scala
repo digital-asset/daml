@@ -3,8 +3,6 @@
 
 package com.daml.http
 
-import java.nio.file.Path
-
 import akka.actor.{ActorSystem, Cancellable}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -22,28 +20,32 @@ import com.daml.http.json.{
 import com.daml.http.util.ApiValueToLfValueConverter
 import com.daml.http.util.FutureUtil._
 import com.daml.http.util.IdentifierConverters.apiLedgerId
+import com.daml.http.util.Logging.InstanceUUID
 import com.daml.jwt.JwtDecoder
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
-import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
 import com.daml.ledger.client.services.pkg.PackageClient
+import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
-import com.typesafe.scalalogging.StrictLogging
 import scalaz.Scalaz._
 import scalaz._
 
+import java.nio.file.Path
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-object HttpService extends StrictLogging {
+object HttpService {
+
+  private val logger = ContextualizedLogger.get(getClass)
 
   // used only to populate a required field in LedgerClientConfiguration
   private val DummyApplicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway")
@@ -68,7 +70,11 @@ object HttpService extends StrictLogging {
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
   ): Future[Error \/ ServerBinding] = {
+
+    logger.info("HTTP Server pre-startup")
+
     import startSettings._
 
     implicit val settings: ServerSettings = ServerSettings(asys).withTransparentHeadRequests(true)
@@ -146,7 +152,7 @@ object HttpService extends StrictLogging {
         LedgerClientJwt.getPackage(pkgManagementClient),
         uploadDarAndReloadPackages(
           LedgerClientJwt.uploadDar(pkgManagementClient),
-          () => packageService.reload(ec),
+          implicit lc => packageService.reload,
         ),
       )
 
@@ -242,7 +248,12 @@ object HttpService extends StrictLogging {
       } yield ()
     }
 
-  def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
+  def stop(
+      f: Future[Error \/ ServerBinding]
+  )(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): Future[Unit] = {
     logger.info("Stopping server...")
     f.collect { case \/-(a) => a.unbind().void }.join
   }
@@ -282,7 +293,11 @@ object HttpService extends StrictLogging {
   private def schedulePackageReload(
       packageService: PackageService,
       pollInterval: FiniteDuration,
-  )(implicit asys: ActorSystem, ec: ExecutionContext): Cancellable = {
+  )(implicit
+      asys: ActorSystem,
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): Cancellable = {
     val maxWait = pollInterval * 10
 
     // scheduleWithFixedDelay will wait for the previous task to complete before triggering the next one
@@ -337,7 +352,7 @@ object HttpService extends StrictLogging {
 
   private def uploadDarAndReloadPackages(
       f: LedgerClientJwt.UploadDarFile,
-      g: () => Future[PackageService.Error \/ Unit],
+      g: LoggingContextOf[InstanceUUID] => Future[PackageService.Error \/ Unit],
   )(implicit ec: ExecutionContext): LedgerClientJwt.UploadDarFile =
-    (x, y) => f(x, y).flatMap(_ => g().flatMap(toFuture(_): Future[Unit]))
+    (x, y) => implicit lc => f(x, y)(lc).flatMap(_ => g(lc).flatMap(toFuture(_): Future[Unit]))
 }

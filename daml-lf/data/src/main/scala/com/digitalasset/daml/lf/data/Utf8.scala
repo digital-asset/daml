@@ -14,12 +14,12 @@ import scala.annotation.tailrec
 import scala.collection.compat._
 import scala.jdk.CollectionConverters._
 
-// The DAML-LF strings are supposed to be UTF-8 while standard java strings are UTF16
+// The Daml-LF strings are supposed to be UTF-8 while standard java strings are UTF16
 // Note number of UTF16 operations are not Utf8 equivalent (for instance length, charAt, ordering ...)
 // This module provides UTF8 emulation functions.
 object Utf8 {
 
-  // The DAML-LF strings are supposed to be UTF-8.
+  // The Daml-LF strings are supposed to be UTF-8.
   // However standard "exploding" java/scala methods like
   // _.toList split in Character which are not Unicode codepoint.
   def explode(s: String): ImmArray[String] = {

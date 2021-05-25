@@ -7,20 +7,31 @@ locals {
   vsts_pool    = "windows-pool"
 }
 
+locals {
+  w = [
+    {
+      suffix     = "",
+      size       = 6,
+      assignment = "default",
+    },
+  ]
+}
+
 resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
+  count    = length(local.w)
   provider = google-beta
-  name     = "vsts-agent-windows"
+  name     = "vsts-agent-windows${local.w[count.index].suffix}"
 
   # keep the name short. windows hostnames are limited to 12(?) chars.
   # -5 for the random postfix:
-  base_instance_name = "vsts-win"
+  base_instance_name = "vsts-win${local.w[count.index].suffix}"
 
   region      = "us-east1"
-  target_size = 6
+  target_size = local.w[count.index].size
 
   version {
-    name              = "vsts-agent-windows"
-    instance_template = google_compute_instance_template.vsts-agent-windows.self_link
+    name              = "vsts-agent-windows${local.w[count.index].suffix}"
+    instance_template = google_compute_instance_template.vsts-agent-windows[count.index].self_link
   }
 
   update_policy {
@@ -37,7 +48,8 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
 }
 
 resource "google_compute_instance_template" "vsts-agent-windows" {
-  name_prefix  = "vsts-agent-windows-"
+  count        = length(local.w)
+  name_prefix  = "vsts-agent-windows${local.w[count.index].suffix}-"
   machine_type = "c2-standard-8"
   labels       = local.machine-labels
 
@@ -126,10 +138,12 @@ net stop winrm
 sc.exe config winrm start=auto
 net start winrm
 
+& choco install dotnetcore-2.1-sdk --no-progress --yes 2>&1 | %%{ "$_" }
+
 echo "== Installing the VSTS agent"
 
 New-Item -ItemType Directory -Path 'C:\agent'
-Set-Content -Path 'C:\agent\.capabilities' -Value 'assignment=default'
+Set-Content -Path 'C:\agent\.capabilities' -Value 'assignment=${local.w[count.index].assignment}'
 
 $MachineName = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object CSName | ForEach{ $_.CSName }
 choco install azure-pipelines-agent --no-progress --yes --params "'/Token:${local.vsts_token} /Pool:${local.vsts_pool} /Url:https://dev.azure.com/${local.vsts_account}/ /LogonAccount:$Account /LogonPassword:$Password /Work:D:\a /AgentName:$MachineName /Replace'"

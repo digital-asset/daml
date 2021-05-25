@@ -477,10 +477,10 @@ class IsNumeric t where
 
 instance NumericScale n => IsNumeric (Numeric n) where
     fromNumeric = primitive @"BECastNumeric"
-    fromBigNumeric = primitive @"BEToNumericBigNumeric"
+    fromBigNumeric = primitive @"BEBigNumericToNumeric"
 
 instance IsNumeric BigNumeric where
-    fromNumeric = primitive @"BEFromNumericBigNumeric"
+    fromNumeric = primitive @"BENumericToBigNumeric"
     fromBigNumeric x = x
 
 #endif

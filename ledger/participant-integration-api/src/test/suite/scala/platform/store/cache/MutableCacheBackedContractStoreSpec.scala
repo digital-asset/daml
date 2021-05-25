@@ -58,7 +58,7 @@ class MutableCacheBackedContractStoreSpec
   private implicit val materializer: Materializer = Materializer(actorSystem)
 
   override implicit val patienceConfig: PatienceConfig =
-    PatienceConfig(timeout = scaled(Span(500, Millis)))
+    PatienceConfig(timeout = scaled(Span(2000, Millis)), interval = scaled(Span(50, Millis)))
 
   "event stream consumption" should {
     "populate the caches from the contract state event stream" in {
