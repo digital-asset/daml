@@ -124,6 +124,6 @@ trait WriteService
     */
   def rejectSubmission(
       submitterInfo: SubmitterInfo,
-      reason: com.google.rpc.Status
+      reason: com.google.rpc.Status,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
 }

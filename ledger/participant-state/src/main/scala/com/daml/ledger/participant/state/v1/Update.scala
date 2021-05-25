@@ -209,7 +209,7 @@ object Update {
       recordTime: Timestamp,
       submitterInfo: SubmitterInfo,
       reason: com.google.rpc.status.Status,
-      cancelled: Boolean
+      cancelled: Boolean,
   ) extends Update {
     override def description: String = {
       s"Reject command ${submitterInfo.commandId}: ${reason.message}"
