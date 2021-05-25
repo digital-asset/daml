@@ -423,7 +423,7 @@ private final class SqlLedger(
               workflowId = transactionMeta.workflowId,
               transactionId = transactionId,
               ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-              offset = offset,
+              offset = CurrentOffset(offset),
               transaction = transactionCommitter.commitTransaction(transactionId, transaction),
               divulgedContracts = divulgedContracts,
               blindingInfo = blindingInfo,

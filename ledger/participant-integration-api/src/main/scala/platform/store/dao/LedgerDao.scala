@@ -330,7 +330,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
-      offset: Offset,
+      offset: OffsetStep,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
       blindingInfo: Option[BlindingInfo],
