@@ -11,7 +11,7 @@ import scala.concurrent.Future
 class MeteredStreamObserver[T](
     val streamName: String,
     logger: Logger,
-    metricsManager: ActorRef[MetricsManager.Message[T]],
+    metricsManager: ActorRef[MetricsManager.Message],
 )(implicit system: ActorSystem[_])
     extends ObserverWithResult[T, MetricsManager.Message.MetricsResult](logger) {
   import MetricsManager.Message._

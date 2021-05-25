@@ -26,7 +26,7 @@ object TransactionMetrics {
       objectives: Objectives,
   )(implicit
       system: ActorSystem[SpawnProtocol.Command]
-  ): Future[ActorRef[MetricsManager.Message[GetTransactionsResponse]]] = {
+  ): Future[ActorRef[MetricsManager.Message]] = {
     system.ask(
       SpawnProtocol.Spawn(
         behavior = MetricsManager(
@@ -47,7 +47,7 @@ object TransactionMetrics {
       objectives: Objectives,
   )(implicit
       system: ActorSystem[SpawnProtocol.Command]
-  ): Future[ActorRef[MetricsManager.Message[GetTransactionTreesResponse]]] = {
+  ): Future[ActorRef[MetricsManager.Message]] = {
     system.ask(
       SpawnProtocol.Spawn(
         behavior = MetricsManager(

@@ -11,23 +11,23 @@ import scala.concurrent.duration._
 
 object MetricsManager {
 
-  sealed trait Message[T]
+  sealed trait Message
   object Message {
     sealed trait MetricsResult
     object MetricsResult {
       final case object Ok extends MetricsResult
       final case object ObjectivesViolated extends MetricsResult
     }
-    final case class NewValue[T](value: T) extends Message[T]
-    final case class PeriodicUpdateCommand[T]() extends Message[T]
-    final case class StreamCompleted[T](replyTo: ActorRef[MetricsResult]) extends Message[T]
+    final case class NewValue[T](value: T) extends Message
+    final case class PeriodicUpdateCommand() extends Message
+    final case class StreamCompleted(replyTo: ActorRef[MetricsResult]) extends Message
   }
 
   def apply[T](
       streamName: String,
       metrics: List[Metric[T]],
       logInterval: FiniteDuration,
-  ): Behavior[Message[T]] =
+  ): Behavior[Message] =
     Behaviors.withTimers(timers =>
       new MetricsManager[T](timers, streamName, logInterval).handlingMessages(metrics)
     )
@@ -35,7 +35,7 @@ object MetricsManager {
 }
 
 class MetricsManager[T](
-    timers: TimerScheduler[MetricsManager.Message[T]],
+    timers: TimerScheduler[MetricsManager.Message],
     streamName: String,
     logInterval: FiniteDuration,
 ) {
@@ -46,19 +46,19 @@ class MetricsManager[T](
 
   private val startTime: Instant = Instant.now()
 
-  def handlingMessages(metrics: List[Metric[T]]): Behavior[Message[T]] = {
+  def handlingMessages(metrics: List[Metric[T]]): Behavior[Message] = {
     Behaviors.receive { case (context, message) =>
       message match {
         case newValue: NewValue[T] =>
           handlingMessages(metrics.map(_.onNext(newValue.value)))
 
-        case _: PeriodicUpdateCommand[T] =>
+        case _: PeriodicUpdateCommand =>
           val (newMetrics, values) = metrics.map(_.periodicValue()).unzip
           val formattedValues: List[String] = values.flatMap(_.formatted)
           context.log.info(namedMessage(formattedValues.mkString(", ")))
           handlingMessages(newMetrics)
 
-        case message: StreamCompleted[T] =>
+        case message: StreamCompleted =>
           context.log.info(namedMessage(summary(metrics, totalDurationSeconds)))
           message.replyTo ! result(metrics)
           Behaviors.stopped
