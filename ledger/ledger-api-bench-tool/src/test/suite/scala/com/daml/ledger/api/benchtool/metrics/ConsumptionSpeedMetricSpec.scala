@@ -14,24 +14,24 @@ import scala.util.Random
 class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
   ConsumptionSpeedMetric.getClass.getSimpleName should {
     "correctly handle initial state" in {
-      val metric = ConsumptionSpeedMetric.empty[String](aPositiveLong(), dummyRecordTimesFunction)
+      val metric = ConsumptionSpeedMetric.empty[String](100, dummyRecordTimesFunction)
 
       val (_, periodicValue) = metric.periodicValue()
-      val finalValue = metric.finalValue(aPositiveDouble())
+      val finalValue = metric.finalValue(1.0)
 
       periodicValue shouldBe ConsumptionSpeedMetric.Value(Some(0.0))
       finalValue shouldBe ConsumptionSpeedMetric.Value(None)
     }
 
     "compute values after processing elements" in {
-      val totalDurationSeconds: Double = aPositiveDouble()
-      val elem1: String = aString()
-      val elem2: String = aString()
+      val totalDurationSeconds: Double = 3.0
+      val elem1: String = "abc"
+      val elem2: String = "defg"
       val testNow = Clock.systemUTC().instant()
       val recordTimes1 = aRecordTimesList(testNow)
       // The assumption made here is that each consecutive element has higher record times
       val recordTimes2 = aRecordTimesList(recordTimes1.last)
-      val periodMillis = aPositiveLong()
+      val periodMillis = 100L
       def testRecordTimeFunction: String => List[Timestamp] = recordTimeFunctionFromMap(
         Map(
           elem1 -> recordTimes1,
@@ -60,12 +60,12 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
     }
 
     "correctly handle periods with a single record time" in {
-      val totalDurationSeconds: Double = aPositiveDouble()
-      val elem1: String = aString()
+      val totalDurationSeconds: Double = 3.0
+      val elem1: String = "abc"
       val testNow = Clock.systemUTC().instant()
-      val recordTimes1 = List(testNow.minusSeconds(aPositiveLong()))
+      val recordTimes1 = List(testNow.minusSeconds(11))
       // The assumption made here is that each consecutive element has higher record times
-      val periodMillis = aPositiveLong()
+      val periodMillis = 100L
       def testRecordTimeFunction: String => List[Timestamp] = recordTimeFunctionFromMap(
         Map(
           elem1 -> recordTimes1
@@ -87,14 +87,14 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
     }
 
     "correctly handle periods with no elements" in {
-      val totalDurationSeconds: Double = aPositiveDouble()
-      val elem1: String = aString()
-      val elem2: String = aString()
+      val totalDurationSeconds: Double = 3.0
+      val elem1: String = "abc"
+      val elem2: String = "defg"
       val testNow = Clock.systemUTC().instant()
       val recordTimes1 = aRecordTimesList(testNow)
       // The assumption made here is that each consecutive element has higher record times
       val recordTimes2 = aRecordTimesList(recordTimes1.last)
-      val periodMillis = aPositiveLong()
+      val periodMillis = 100L
       def testRecordTimeFunction: String => List[Timestamp] = recordTimeFunctionFromMap(
         Map(
           elem1 -> recordTimes1,
@@ -120,16 +120,16 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
     }
 
     "correctly handle multiple periods with elements" in {
-      val totalDurationSeconds: Double = aPositiveDouble()
-      val elem1: String = aString()
-      val elem2: String = aString()
-      val elem3: String = aString()
+      val totalDurationSeconds: Double = 3.0
+      val elem1: String = "abc"
+      val elem2: String = "defghj"
+      val elem3: String = "klm"
       val testNow = Clock.systemUTC().instant()
       val recordTimes1 = aRecordTimesList(testNow)
       // The assumption made here is that each consecutive element has higher record times
       val recordTimes2 = aRecordTimesList(recordTimes1.last)
       val recordTimes3 = aRecordTimesList(recordTimes2.last)
-      val periodMillis = aPositiveLong()
+      val periodMillis = 100L
       def testRecordTimeFunction: String => List[Timestamp] = recordTimeFunctionFromMap(
         Map(
           elem1 -> recordTimes1,
@@ -166,7 +166,7 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
 
   private def aRecordTimesList(beforeInstant: Instant): List[Instant] =
     (2 to 2 + Random.nextInt(10)).toList.map { _ =>
-      beforeInstant.minusSeconds(aPositiveLong())
+      beforeInstant.minusSeconds(Random.nextLong(1000))
     }.sorted
 
   private def recordTimeFunctionFromMap(
@@ -180,10 +180,5 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
     Timestamp.of(instant.getEpochSecond, instant.getNano)
 
   private def dummyRecordTimesFunction(str: String): List[Timestamp] =
-    str.map(_ => Timestamp.of(aPositiveLong(), 0)).toList
-
-  private def aString(): String = Random.nextString(Random.nextInt(50))
-  private def aPositiveInt(): Int = Random.nextInt(100000)
-  private def aPositiveLong(): Long = aPositiveInt().toLong
-  private def aPositiveDouble(): Double = Random.nextDouble() * aPositiveInt()
+    str.map(_ => Timestamp.of(100, 0)).toList
 }

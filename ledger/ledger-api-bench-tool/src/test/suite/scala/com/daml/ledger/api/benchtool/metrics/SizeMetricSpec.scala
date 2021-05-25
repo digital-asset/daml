@@ -7,26 +7,25 @@ import com.daml.ledger.api.benchtool.metrics.Metric.SizeMetric
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.util.Random
-
 class SizeMetricSpec extends AnyWordSpec with Matchers {
   SizeMetric.getClass.getSimpleName should {
     "correctly handle initial state" in {
+      val totalDurationSeconds: Double = 1.0
       val metric: SizeMetric[String] = anEmptySizeMetric()
 
       val (_, periodicValue) = metric.periodicValue()
-      val finalValue = metric.finalValue(aPositiveDouble())
+      val finalValue = metric.finalValue(totalDurationSeconds)
 
       periodicValue shouldBe SizeMetric.Value(Some(0.0))
       finalValue shouldBe SizeMetric.Value(Some(0.0))
     }
 
     "compute values after processing elements" in {
-      val periodMillis: Long = aPositiveLong()
-      val totalDurationSeconds: Double = aPositiveDouble()
+      val periodMillis: Long = 100
+      val totalDurationSeconds: Double = 5.0
       val metric: SizeMetric[String] = anEmptySizeMetric(periodMillis)
-      val elem1: String = aString()
-      val elem2: String = aString()
+      val elem1: String = "abc"
+      val elem2: String = "defghi"
 
       val (newMetric, periodicValue) = metric
         .onNext(elem1)
@@ -41,11 +40,11 @@ class SizeMetricSpec extends AnyWordSpec with Matchers {
     }
 
     "correctly handle periods with no elements" in {
-      val periodMillis: Long = aPositiveLong()
-      val totalDurationSeconds: Double = aPositiveDouble()
+      val periodMillis: Long = 100
+      val totalDurationSeconds: Double = 5.0
       val metric: SizeMetric[String] = anEmptySizeMetric(periodMillis)
-      val elem1: String = aString()
-      val elem2: String = aString()
+      val elem1: String = "abc"
+      val elem2: String = "defghi"
 
       val (newMetric, periodicValue) = metric
         .onNext(elem1)
@@ -65,12 +64,12 @@ class SizeMetricSpec extends AnyWordSpec with Matchers {
     }
 
     "correctly handle multiple periods with elements" in {
-      val periodMillis: Long = aPositiveLong()
-      val totalDurationSeconds: Double = aPositiveDouble()
+      val periodMillis: Long = 100
+      val totalDurationSeconds: Double = 5.0
       val metric: SizeMetric[String] = anEmptySizeMetric(periodMillis)
-      val elem1: String = aString()
-      val elem2: String = aString()
-      val elem3: String = aString()
+      val elem1: String = "abc"
+      val elem2: String = "defg"
+      val elem3: String = "hij"
 
       val (newMetric, periodicValue) = metric
         .onNext(elem1)
@@ -96,14 +95,9 @@ class SizeMetricSpec extends AnyWordSpec with Matchers {
   }
 
   private def testSizingFunction(value: String): Long = value.length.toLong * 12345
-  private def anEmptySizeMetric(periodMillis: Long = aPositiveLong()): SizeMetric[String] =
+  private def anEmptySizeMetric(periodMillis: Long = 100): SizeMetric[String] =
     SizeMetric.empty[String](
       periodMillis = periodMillis,
       sizingFunction = testSizingFunction,
     )
-
-  private def aString(): String = Random.nextString(Random.nextInt(50))
-  private def aPositiveInt(): Int = Random.nextInt(100000)
-  private def aPositiveLong(): Long = aPositiveInt().toLong
-  private def aPositiveDouble(): Double = Random.nextDouble() * aPositiveInt()
 }
