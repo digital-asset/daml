@@ -87,15 +87,14 @@ final class Conversions(
       case SError.DamlEMatchError(reason) =>
         setCrash(reason)
       case SError.DamlEUnhandledException(exc) =>
+        val exceptionBuilder = proto.ScenarioError.Exception.newBuilder
         exc match {
-          case SValue.SAnyException(_, sValue) =>
-            builder.setUnhandledException(convertValue(sValue.toValue))
           case error: SValue.SArithmeticError =>
-            // TODO https://github.com/digital-asset/daml/issues/8020
-            //  We should not crash here.
-            //  We however need conversion primitive for builtin exeception to be implemented.
-            setCrash(error.message)
+            exceptionBuilder.setBuiltin(error.message)
+          case SValue.SAnyException(_, sValue) =>
+            exceptionBuilder.setUser(convertValue(sValue.toValue))
         }
+        builder.setUnhandledException(exceptionBuilder)
       case SError.DamlEUserError(msg) =>
         builder.setUserError(msg)
 

@@ -204,12 +204,6 @@ prettyTraceMessage _world msg =
   --  prettyMayLocation world (traceMessageLocation msg)
   ltext (traceMessageMessage msg)
 
-pattern ValueGeneralError :: TL.Text -> Value
-pattern ValueGeneralError t <-
-    Value (Just (ValueSumRecord (Record
-        (Just (Identifier _ "DA.Exception.GeneralError:GeneralError"))
-        (V.toList -> [Field "message" (Just (Value (Just (ValueSumText t))))]))))
-
 prettyScenarioErrorError :: Maybe ScenarioErrorError -> M (Doc SyntaxClass)
 prettyScenarioErrorError Nothing = pure $ text "<missing error details>"
 prettyScenarioErrorError (Just err) =  do
@@ -217,8 +211,11 @@ prettyScenarioErrorError (Just err) =  do
   case err of
     ScenarioErrorErrorCrash reason -> pure $ text "CRASH:" <-> ltext reason
     ScenarioErrorErrorUserError reason -> pure $ text "Aborted: " <-> ltext reason
-    ScenarioErrorErrorUnhandledException (ValueGeneralError reason) -> pure $ text "Aborted: " <-> ltext reason
-    ScenarioErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' True 0 world exc
+    ScenarioErrorErrorUnhandledException (ScenarioError_Exception maybeException) ->
+      case maybeException of
+        Nothing -> pure $ text "<missing unhandled exception details>"
+        Just (ScenarioError_ExceptionErrorBuiltin message) -> pure $ text $ "Unhandled exception: " <> TL.toStrict message
+        Just (ScenarioError_ExceptionErrorUser value) -> pure $ text "Unhandled exception: " <-> prettyValue' True 0 world value
     ScenarioErrorErrorTemplatePrecondViolated ScenarioError_TemplatePreconditionViolated{..} -> do
       pure $
         "Template precondition violated in:"
