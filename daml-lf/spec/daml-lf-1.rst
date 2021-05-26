@@ -3270,7 +3270,7 @@ node that starts or ends with another rollback node.
 
 To define normalization, we need a helper function. This function takes a
 normalized transaction and tries to wrap it in a rollback node, while preserving
-normalization. This function defined recursively recursive by the following rules:
+normalization. This function is defined recursively by the following rules:
 
                                  ┌───────────────┐
   Normalized Rollback Wrapping   │ ℝ (tr₁) = tr₂ │
@@ -3293,8 +3293,8 @@ normalization. This function defined recursively recursive by the following rule
     ℝ (act₁ ⋅ tr ⋅ act₂)  =  'rollback' (act₁ ⋅ tr ⋅ act₂)
 
 
-Normalization of a transaction is then defined according to the following rules
-(where `ntr` ranges over normalized transactions):
+Normalization of a transaction is then defined according to the following rules,
+where `ntr` ranges over normalized transactions:
 
                               ┌───────────┐
   Transaction Normalization   │ tr ⇓ₜ ntr │
