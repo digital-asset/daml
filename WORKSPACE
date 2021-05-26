@@ -64,7 +64,14 @@ load("//bazel_tools:scala_version.bzl", "scala_version_configure")
 
 scala_version_configure(name = "scala_version")
 
-load("@scala_version//:index.bzl", "scala_artifacts", "scala_major_version", "scala_major_version_suffix", "scala_version")
+load(
+    "@scala_version//:index.bzl",
+    "scala_artifacts",
+    "scala_major_version",
+    "scala_major_version_suffix",
+    "scala_version",
+    "scalapb_version",
+)
 
 dadew(name = "dadew")
 
@@ -737,6 +744,24 @@ load("@io_bazel_rules_scala//testing:scalatest.bzl", "scalatest_repositories", "
 scalatest_repositories()
 
 scalatest_toolchain()
+
+http_archive(
+    name = "scalapb",
+    build_file_content = """
+proto_library(
+    name = "scalapb_proto",
+    srcs = ["protobuf/scalapb/scalapb.proto"],
+    strip_import_prefix = "protobuf/",
+    deps = [
+        "@com_google_protobuf//:descriptor_proto",
+    ],
+    visibility = ["//visibility:public"],
+)
+""",
+    sha256 = "a5395d89ad804e2bec21ed3b61e5ccd44dc48d69a660f62244c6b15d095b5ca0",
+    strip_prefix = "ScalaPB-{}".format(scalapb_version),
+    urls = ["https://github.com/scalapb/ScalaPB/archive/refs/tags/v{}.zip".format(scalapb_version)],
+)
 
 load("@io_bazel_rules_scala//jmh:jmh.bzl", "jmh_repositories")
 

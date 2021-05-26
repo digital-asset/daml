@@ -169,7 +169,10 @@ def _maven_tags(group, artifact_prefix, artifact_suffix):
         return []
 
 def _proto_scala_srcs(name, grpc):
-    return [":%s" % name] + ([
+    return [
+        ":%s" % name,
+        "//bazel_tools/scalapb:scalapb-configuration",
+    ] + ([
         "@com_github_googleapis_googleapis//google/rpc:code_proto",
         "@com_github_googleapis_googleapis//google/rpc:status_proto",
         "@com_github_grpc_grpc//src/proto/grpc/health/v1:health_proto_descriptor",

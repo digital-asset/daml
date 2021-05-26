@@ -35,6 +35,9 @@ scala_artifacts = {
     },
 }
 
+scalapb_version = "0.11.3"
+scalapb_protoc_version = "0.9.2"
+
 def _impl(ctx):
     # Generates an empty BUILD file, because we do not need to build anything.
     ctx.file(
@@ -59,12 +62,17 @@ scala_major_version = "{major}"
 scala_version_suffix = "{suffix}"
 scala_major_version_suffix = "{major_suffix}"
 scala_artifacts = {artifacts}
+
+scalapb_version = "{scalapb_version}"
+scalapb_protoc_version = "{scalapb_protoc_version}"
 """.format(
             version = version,
             major = major,
             suffix = suffix,
             major_suffix = major_suffix,
             artifacts = artifacts,
+            scalapb_version = scalapb_version,
+            scalapb_protoc_version = scalapb_protoc_version,
         ),
         executable = False,
     )
