@@ -32,7 +32,7 @@ package com.daml.ledger.api.v1;
 //     and converts the rich error details into JSON. Otherwise this might not work for
 //     errors coming from the underlying gRPC protocol.
 //     If this doesn't work, we can alternatively add a flag to all RPC requests.
-//     For transparenc, consider encoding the whole google.rpc.Status message in the message.
+//     For transparency, consider encoding the whole ``google.rpc.Status message`` in the message.
 //
 //    TODO(v2) We shoule use the same JSON encoding here as what we get from our JSON API server.
 //     We want to keep the human-readable message in one of the JSON fields.
