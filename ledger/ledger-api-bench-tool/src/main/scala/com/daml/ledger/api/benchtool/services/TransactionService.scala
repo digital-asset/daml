@@ -27,20 +27,23 @@ final class TransactionService(
   private val service: TransactionServiceGrpc.TransactionServiceStub =
     TransactionServiceGrpc.stub(channel)
 
-  def transactions(
+  def transactions[Result](
       config: Config.StreamConfig,
-      observer: ObserverWithResult[GetTransactionsResponse],
-  ): Future[Unit] = {
+      observer: ObserverWithResult[GetTransactionsResponse, Result],
+  ): Future[Result] = {
     val request = getTransactionsRequest(ledgerId, config)
     service.getTransactions(request, observer)
     logger.info("Started fetching transactions")
     observer.result
   }
 
-  def transactionTrees(
+  def transactionTrees[Result](
       config: Config.StreamConfig,
-      observer: ObserverWithResult[GetTransactionTreesResponse],
-  ): Future[Unit] = {
+      observer: ObserverWithResult[
+        GetTransactionTreesResponse,
+        Result,
+      ],
+  ): Future[Result] = {
     val request = getTransactionsRequest(ledgerId, config)
     service.getTransactionTrees(request, observer)
     logger.info("Started fetching transaction trees")
