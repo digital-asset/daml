@@ -70,6 +70,7 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
       seeding = Some(Seeding.Weak),
       engineMode = SandboxConfig.EngineMode.Dev,
       authService = authService,
+      enableAppendOnlySchema = true,
     )
 
   protected def packageFiles: List[File] = List(darFile)
