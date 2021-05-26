@@ -4,6 +4,7 @@
 package com.daml.ledger.api.benchtool.metrics
 
 import akka.actor.typed.{ActorRef, ActorSystem}
+import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import org.slf4j.Logger
 
 import scala.concurrent.Future

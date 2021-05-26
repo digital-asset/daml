@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.metrics.Metric.DelayMetric
+import com.daml.ledger.api.benchtool.metrics.DelayMetric
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
