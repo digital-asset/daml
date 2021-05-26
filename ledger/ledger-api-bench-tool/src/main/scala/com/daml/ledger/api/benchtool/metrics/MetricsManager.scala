@@ -75,7 +75,7 @@ class MetricsManager[T](
 
   // TODO: move to a separate util
   private def summary(metrics: List[Metric[T]], durationSeconds: Double): String = {
-    def indented(str: String, spaces: Int = 2): String = s"${" " * spaces}$str"
+    def indented(str: String, spaces: Int = 4): String = s"${" " * spaces}$str"
     val reports = metrics.map { metric =>
       val metricValues: List[String] = metric
         .finalValue(totalDurationSeconds)

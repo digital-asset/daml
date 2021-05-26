@@ -100,11 +100,14 @@ object TransactionMetrics {
     val reportingPeriodMillis = reportingPeriod.toMillis
     val delayObjectives =
       objectives.maxDelaySeconds.map(MaxDelay).toList
+    val consumptionSpeedObjectives =
+      objectives.minConsumptionSpeed.map(ConsumptionSpeedMetric.MinConsumptionSpeed).toList
     List[Metric[T]](
       CountMetric.empty[T](reportingPeriodMillis, countingFunction),
       SizeMetric.empty[T](reportingPeriodMillis, sizingFunction),
       DelayMetric.empty[T](recordTimeFunction, delayObjectives, Clock.systemUTC()),
-      ConsumptionSpeedMetric.empty[T](reportingPeriodMillis, recordTimeFunction),
+      ConsumptionSpeedMetric
+        .empty[T](reportingPeriodMillis, recordTimeFunction, consumptionSpeedObjectives),
     )
   }
 }

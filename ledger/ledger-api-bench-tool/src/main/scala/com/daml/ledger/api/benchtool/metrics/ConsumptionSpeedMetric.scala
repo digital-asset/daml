@@ -11,11 +11,16 @@ import java.time.Instant
 final case class ConsumptionSpeedMetric[T](
     periodMillis: Long,
     recordTimeFunction: T => Seq[Timestamp],
+    objectives: Map[ServiceLevelObjective[ConsumptionSpeedMetric.Value], Option[
+      ConsumptionSpeedMetric.Value
+    ]],
     firstRecordTime: Option[Instant] = None,
     lastRecordTime: Option[Instant] = None,
 ) extends Metric[T] {
+  import ConsumptionSpeedMetric._
 
-  override type Value = ConsumptionSpeedMetric.Value
+  override type V = Value
+  override type Objective = ServiceLevelObjective[Value]
 
   override def onNext(value: T): ConsumptionSpeedMetric[T] = {
     val recordTimes = recordTimeFunction(value)
@@ -36,32 +41,89 @@ final case class ConsumptionSpeedMetric[T](
     )
   }
 
-  override def periodicValue(): (Metric[T], ConsumptionSpeedMetric.Value) = {
-    val updatedMetric = this.copy(firstRecordTime = None, lastRecordTime = None)
-    (updatedMetric, ConsumptionSpeedMetric.Value(periodicSpeed))
+  override def periodicValue(): (Metric[T], Value) = {
+    val value = Value(periodicSpeed)
+    val updatedMetric = this.copy(
+      firstRecordTime = None,
+      lastRecordTime = None,
+      objectives = updatedObjectives(value),
+    )
+    (updatedMetric, value)
   }
 
-  override def finalValue(totalDurationSeconds: Double): ConsumptionSpeedMetric.Value =
-    ConsumptionSpeedMetric.Value(None)
+  override def finalValue(totalDurationSeconds: Double): Value =
+    Value(None)
+
+  override def violatedObjectives: Map[ServiceLevelObjective[Value], Value] =
+    objectives
+      .collect {
+        case (objective, value) if value.isDefined => objective -> value.get
+      }
 
   private def periodicSpeed: Option[Double] =
     (firstRecordTime, lastRecordTime) match {
       case (Some(first), Some(last)) =>
-        Some((last.toEpochMilli - first.toEpochMilli) * 1.0 / periodMillis)
+        Some((last.toEpochMilli - first.toEpochMilli).toDouble / periodMillis)
       case _ =>
         Some(0.0)
+    }
+
+  private def updatedObjectives(newValue: Value): Map[ServiceLevelObjective[Value], Option[Value]] =
+    objectives.map { case (objective, currentMaxValue) =>
+      if (objective.isViolatedBy(newValue)) {
+        currentMaxValue match {
+          case None =>
+            objective -> Some(newValue)
+          case Some(currentValue) =>
+            objective -> Some(Ordering[Value].min(currentValue, newValue))
+        }
+      } else {
+        objective -> currentMaxValue
+      }
     }
 }
 
 object ConsumptionSpeedMetric {
+
+  def empty[T](
+      periodMillis: Long,
+      recordTimeFunction: T => Seq[Timestamp],
+      objectives: List[ServiceLevelObjective[Value]],
+  ): ConsumptionSpeedMetric[T] =
+    ConsumptionSpeedMetric(
+      periodMillis,
+      recordTimeFunction,
+      objectives.map(objective => objective -> None).toMap,
+    )
+
   final case class Value(relativeSpeed: Option[Double]) extends MetricValue {
     override def formatted: List[String] =
       List(s"speed: ${relativeSpeed.map(rounded).getOrElse("-")} [-]")
   }
 
-  def empty[T](
-      periodMillis: Long,
-      recordTimeFunction: T => Seq[Timestamp],
-  ): ConsumptionSpeedMetric[T] =
-    ConsumptionSpeedMetric(periodMillis, recordTimeFunction)
+  object Value {
+    implicit val ordering: Ordering[Value] = (x: Value, y: Value) => {
+      (x.relativeSpeed, y.relativeSpeed) match {
+        case (Some(xx), Some(yy)) =>
+          if (xx < yy) -1
+          else if (xx > yy) 1
+          else 0
+        case (Some(_), None) => 1
+        case (None, Some(_)) => -1
+        case (None, None) => 0
+      }
+    }
+  }
+
+  // TODO: add warm-up parameter
+  final case class MinConsumptionSpeed(minSpeed: Double) extends ServiceLevelObjective[Value] {
+    override def isViolatedBy(metricValue: Value): Boolean =
+      Ordering[Value].lt(metricValue, v)
+
+    override def formatted: String =
+      s"min allowed speed: $minSpeed [-]"
+
+    private val v = Value(Some(minSpeed))
+  }
+
 }

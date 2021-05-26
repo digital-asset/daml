@@ -116,7 +116,7 @@ class MetricsManagerSpec extends ScalaTestWithActorTestKit(ManualTime.config) wi
   private case class TestMetric(
       processedElems: List[String] = List.empty
   ) extends Metric[String] {
-    override type Value = TestMetricValue
+    override type V = TestMetricValue
     override type Objective = TestObjective.type
 
     override def onNext(value: String): Metric[String] = {

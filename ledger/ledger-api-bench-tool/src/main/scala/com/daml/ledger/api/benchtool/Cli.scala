@@ -74,8 +74,14 @@ object Cli {
         def optionalStringField(fieldName: String): Either[String, Option[String]] =
           Right(m.get(fieldName))
 
-        def optionalLongField(fieldName: String): Either[String, Option[Long]] = {
-          Try(m.get(fieldName).map(_.toLong)) match {
+        def optionalLongField(fieldName: String): Either[String, Option[Long]] =
+          optionalField[Long](fieldName, _.toLong)
+
+        def optionalDoubleField(fieldName: String): Either[String, Option[Double]] =
+          optionalField[Double](fieldName, _.toDouble)
+
+        def optionalField[T](fieldName: String, f: String => T): Either[String, Option[T]] = {
+          Try(m.get(fieldName).map(f)) match {
             case Success(value) => Right(value)
             case Failure(_) => Left(s"Invalid value for field name: $fieldName")
           }
@@ -99,6 +105,7 @@ object Cli {
           beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
           maxDelaySeconds <- optionalLongField("max-delay")
+          minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
         } yield Config.StreamConfig(
           name = name,
           streamType = streamType,
@@ -107,7 +114,8 @@ object Cli {
           beginOffset = beginOffset,
           endOffset = endOffset,
           objectives = Config.StreamConfig.Objectives(
-            maxDelaySeconds = maxDelaySeconds
+            maxDelaySeconds = maxDelaySeconds,
+            minConsumptionSpeed = minConsumptionSpeed,
           ),
         )
 

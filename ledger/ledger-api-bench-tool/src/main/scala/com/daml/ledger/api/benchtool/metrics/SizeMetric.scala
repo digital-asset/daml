@@ -12,7 +12,7 @@ final case class SizeMetric[T](
     sizeRateList: List[Double] = List.empty,
 ) extends Metric[T] {
 
-  override type Value = SizeMetric.Value
+  override type V = SizeMetric.Value
 
   override def onNext(value: T): SizeMetric[T] =
     this.copy(currentSizeBytesBucket = currentSizeBytesBucket + sizingBytesFunction(value))

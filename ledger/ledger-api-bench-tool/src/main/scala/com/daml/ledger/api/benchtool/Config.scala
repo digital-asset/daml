@@ -33,7 +33,10 @@ object Config {
       case object TransactionTrees extends StreamType
     }
 
-    case class Objectives(maxDelaySeconds: Option[Long])
+    case class Objectives(
+        maxDelaySeconds: Option[Long],
+        minConsumptionSpeed: Option[Double],
+    )
   }
 
   case class Ledger(

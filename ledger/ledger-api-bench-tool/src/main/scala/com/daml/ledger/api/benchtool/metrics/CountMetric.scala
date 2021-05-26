@@ -12,7 +12,7 @@ final case class CountMetric[T](
     lastCount: Int = 0,
 ) extends Metric[T] {
 
-  override type Value = CountMetric.Value
+  override type V = CountMetric.Value
 
   override def onNext(value: T): CountMetric[T] =
     this.copy(counter = counter + countingFunction(value))

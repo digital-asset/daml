@@ -14,7 +14,7 @@ final case class DelayMetric[T](
     delaysInCurrentInterval: List[Duration] = List.empty,
 ) extends Metric[T] {
 
-  override type Value = DelayMetric.Value
+  override type V = DelayMetric.Value
   override type Objective = ServiceLevelObjective[DelayMetric.Value]
 
   override def onNext(value: T): DelayMetric[T] = {
@@ -43,7 +43,7 @@ final case class DelayMetric[T](
             case Some(currentValue) =>
               // if the new value violates objective's requirements and there is already a value that violates
               // requirements, record the maximum value of the two
-              objective -> Some(Ordering[Value].max(currentValue, newValue))
+              objective -> Some(Ordering[V].max(currentValue, newValue))
           }
         } else {
           objective -> currentViolatingValue
