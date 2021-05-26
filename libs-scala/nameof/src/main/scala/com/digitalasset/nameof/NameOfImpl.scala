@@ -3,7 +3,6 @@
 
 package com.daml.nameof
 
-import scala.language.experimental.macros
 import scala.reflect.macros.whitebox
 
 object NameOfImpl {
