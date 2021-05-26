@@ -177,9 +177,8 @@ object Metric {
     }
 
     override def periodicValue(): (Metric[T], MetricValue) = {
-      val value: Option[Double] = periodicSpeed
       val updatedMetric = this.copy(firstRecordTime = None, lastRecordTime = None)
-      (updatedMetric, ConsumptionSpeedMetric.Value(value))
+      (updatedMetric, ConsumptionSpeedMetric.Value(periodicSpeed))
     }
 
     override def finalValue(totalDurationSeconds: Double): MetricValue =
