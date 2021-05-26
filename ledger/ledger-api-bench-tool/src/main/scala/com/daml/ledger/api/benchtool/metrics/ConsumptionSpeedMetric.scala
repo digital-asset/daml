@@ -14,8 +14,8 @@ final case class ConsumptionSpeedMetric[T](
     objectives: Map[ServiceLevelObjective[ConsumptionSpeedMetric.Value], Option[
       ConsumptionSpeedMetric.Value
     ]],
-    firstRecordTime: Option[Instant] = None,
-    lastRecordTime: Option[Instant] = None,
+    previousLatest: Option[Instant] = None,
+    currentPeriodLatest: Option[Instant] = None,
 ) extends Metric[T] {
   import ConsumptionSpeedMetric._
 
@@ -24,28 +24,29 @@ final case class ConsumptionSpeedMetric[T](
 
   override def onNext(value: T): ConsumptionSpeedMetric[T] = {
     val recordTimes = recordTimeFunction(value)
-    val updatedFirstRecordTime =
-      firstRecordTime match {
+    val newPreviousLatest =
+      previousLatest match {
         case None =>
           recordTimes.headOption.map { recordTime =>
             Instant.ofEpochSecond(recordTime.seconds.toLong, recordTime.nanos.toLong)
           }
-        case recordTime => recordTime
+        case v => v
       }
-    val updatedLastRecordTime = recordTimes.lastOption.map { recordTime =>
+    val newCurrentPeriodLatest = recordTimes.lastOption.map { recordTime =>
       Instant.ofEpochSecond(recordTime.seconds.toLong, recordTime.nanos.toLong)
     }
+
     this.copy(
-      firstRecordTime = updatedFirstRecordTime,
-      lastRecordTime = updatedLastRecordTime,
+      previousLatest = newPreviousLatest,
+      currentPeriodLatest = newCurrentPeriodLatest,
     )
   }
 
   override def periodicValue(): (Metric[T], Value) = {
     val value = Value(periodicSpeed)
     val updatedMetric = this.copy(
-      firstRecordTime = None,
-      lastRecordTime = None,
+      previousLatest = if (currentPeriodLatest.isDefined) currentPeriodLatest else previousLatest,
+      currentPeriodLatest = None,
       objectives = updatedObjectives(value),
     )
     (updatedMetric, value)
@@ -61,9 +62,9 @@ final case class ConsumptionSpeedMetric[T](
       }
 
   private def periodicSpeed: Option[Double] =
-    (firstRecordTime, lastRecordTime) match {
-      case (Some(first), Some(last)) =>
-        Some((last.toEpochMilli - first.toEpochMilli).toDouble / periodMillis)
+    (previousLatest, currentPeriodLatest) match {
+      case (Some(previous), Some(current)) =>
+        Some((current.toEpochMilli - previous.toEpochMilli).toDouble / periodMillis)
       case _ =>
         Some(0.0)
     }
