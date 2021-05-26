@@ -146,15 +146,8 @@ message Commands {
   // in a definite answer or successful completion. So if a result ever reaches the application,
   // the result will be a rejection that is not marked as a definite answer.
   //
-  // The submission rank is a completion offset.
+  // The submission rank is a completion offset within the range from completion begin to completion end.
   // It must be no earlier than the offset that defines the start of the deduplication period.
-  // Otherwise, the submission is rejected with INVALID_ARGUMENT.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  //
-  // The participant or Daml ledger may reject the submission with ``OUT_OF_RANGE``
-  // if the submission rank offset is higher than the completion end.
-  // It may reject the submission with NOT_FOUND
-  // if the submission rank is too low (e.g., lower than the the completion begin).
   //
   // If omitted, the participant defaults the submission rank to the completion end.
   // Optional

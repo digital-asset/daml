@@ -20,10 +20,10 @@ package com.daml.ledger.api.v1;
 //    https://github.com/googleapis/googleapis/blob/master/google/rpc/error_details.proto#L112.
 //    Its `reason` field includes an error code.
 //    Further details on the error and information for subsequent API calls may be included in the `metadata` field.
-//    The RPC documentation may document further metadata of the error.
+//    The Ledger API RPC documentation may document further metadata of the error.
 //
 // 3. RPC requests can specify that the API-level error details of the RPC response shall be JSON-encoded in the error message
-//    instead of using the `details` field. To that end, the RPC request shall specify the ``X-Daml-Error-details-in-message``
+//    instead of using the `details` field. To that end, the RPC request shall specify the ``X-Daml-Error-Details-In-Message``
 //    HTTP/2 header in the request. If an application cannot read the error details from the trailers,
 //    e.g. because some middleware drops them, it can obtain the details by parsing the message.
 //    This flag does not affect asynchronous errors reported as part of completions.
@@ -32,12 +32,14 @@ package com.daml.ledger.api.v1;
 //     and converts the rich error details into JSON. Otherwise this might not work for
 //     errors coming from the underlying gRPC protocol.
 //     If this doesn't work, we can alternatively add a flag to all RPC requests.
+//     For transparenc, consider encoding the whole google.rpc.Status message in the message.
 //
 //    TODO(v2) We shoule use the same JSON encoding here as what we get from our JSON API server.
 //     We want to keep the human-readable message in one of the JSON fields.
 //
 // 4. For now, only ``ErrorInfo`` is used to communicate error details.
 //    Other forms of error details may be added in the future though.
+//
 //
 // Common error codes and details for all services
 // ***********************************************
@@ -64,6 +66,7 @@ package com.daml.ledger.api.v1;
 // - The server failed to produce a result within the given timeouts.
 //   For requests that change the ledger state, clients MUST assume neither
 //   that the request succeeded nor that it was rejected.
+//
 //
 // Error codes for command submissions
 // ***********************************
@@ -118,7 +121,7 @@ package com.daml.ledger.api.v1;
 //   ``ALREADY_EXISTS`` is used instead.
 //
 // ``ALREADY_EXISTS``
-// - There is a definite-answer completion for the same change ID with the same or higher same submission rank
+// - There is a definite-answer completion for the same change ID with the same or higher submission rank
 //   or an earlier accepting completion that falls into the submission’s deduplication period.
 //   The error details report the reason ``DEDUPLICATION``;
 //   if available, the metadata keys ``earlier_completion_offset`` and ``earlier_submission_id``
