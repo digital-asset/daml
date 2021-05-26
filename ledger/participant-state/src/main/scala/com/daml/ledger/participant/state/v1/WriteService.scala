@@ -83,7 +83,7 @@ trait WriteService
     * See the deduplication and rank guarantee described in [[ReadService.stateUpdates]].
     *
     * @param submitterInfo               the information provided by the submitter for
-    *                                    correlating this submission with its acceptance, rejection, or cancellation on the
+    *                                    correlating this submission with its acceptance or rejection on the
     *                                    associated [[ReadService]].
     * @param transactionMeta             the meta-data accessible to all consumers of the transaction.
     *                                    See [[TransactionMeta]] for more information.
@@ -113,7 +113,7 @@ trait WriteService
     *
     * The result is communicated asynchronously via a [[ReadService]] implementation backed by the same participant
     * state as this [[WriteService]]. Successful recording is communicated using a [[Update.CommandRejected]]
-    * with [[SubmitterInfo]] and not [[Update.CommandRejected.cancelled]].
+    * with [[SubmitterInfo]] and [[Update.CommandRejected.definiteAnswer]].
     * If the recording as a rejection fails (e.g., due to deduplication or violations of the submission rank),
     * the failure should be communicated using a [[Update.CommandRejected]] with [[SubmitterInfo]]
     * and not [[Update.CommandRejected.definiteAnswer]].
@@ -122,7 +122,7 @@ trait WriteService
     * described in [[ReadService.stateUpdates]].
     *
     * @param submitterInfo the information provided by the submitter for correlating this submission
-    *                      with its rejection or cancellation on the associated [[ReadService]].
+    *                      with its rejection on the associated [[ReadService]].
     * @param reason The rejection reason to be included in the [[Update.CommandRejected]]
     * @param telemetryContext Implicit context for tracing.
     */

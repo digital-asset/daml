@@ -260,7 +260,7 @@ object Update {
     /** The status code for the command rejection. */
     class FinalReason(val status: com.google.rpc.status.Status) extends RejectionReasonTemplate {
 
-      override def message: String         = status.message
+      override def message: String = status.message
       override def definiteAnswer: Boolean = RejectionReasonTemplate.isDefiniteAnswer(status)
     }
 
@@ -287,7 +287,7 @@ object Update {
             if (next.is(com.google.rpc.ErrorInfo.getClass)) {
               Try(next.unpack(com.google.rpc.ErrorInfo.getClass)) match {
                 case Success(errorInfo) => Some(errorInfo -> index)
-                case _: Failure[_]      => go(index + 1)
+                case _: Failure[_] => go(index + 1)
               }
             } else go(index + 1)
           } else None

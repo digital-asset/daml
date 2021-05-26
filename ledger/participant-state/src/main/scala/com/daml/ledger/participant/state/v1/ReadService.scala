@@ -74,7 +74,7 @@ trait ReadService extends ReportsHealth {
     *   of the last [[Update.ConfigurationChanged]] before the [[Update.TransactionAccepted]].
     *
     * - *command deduplication*: Let there be a [[Update.TransactionAccepted]] with [[SubmitterInfo]]
-    *   or a [[Update.CommandRejected]] with [[SubmitterInfo]] and not [[Update.CommandRejected.cancelled]] at offset `off2`
+    *   or a [[Update.CommandRejected]] with [[SubmitterInfo]] and [[Update.CommandRejected.definiteAnswer]] at offset `off2`
     *   and let `off1` be the completion offset where the [[SubmitterInfo.deduplicationPeriod]] starts.
     *   Then there is no other [[Update.TransactionAccepted]] with [[SubmitterInfo]] for the same [[SubmitterInfo.changeId]]
     *   between the offsets `off1` and `off2` inclusive.
@@ -89,7 +89,7 @@ trait ReadService extends ReportsHealth {
     *   process such resubmissions normally, subject to the submission rank guarantee listed below.
     *
     * - *submission rank*: Let there be a [[Update.TransactionAccepted]] with [[SubmitterInfo]]
-    *   or a [[Update.CommandRejected]] with [[SubmitterInfo]] and not [[Update.CommandRejected.cancelled]] at offset `off`.
+    *   or a [[Update.CommandRejected]] with [[SubmitterInfo]] and [[Update.CommandRejected.definiteAnswer]] at offset `off`.
     *   Let `rank` be the [[SubmitterInfo.submissionRank]] of the [[Update]].
     *   Then there is no other [[Update.TransactionAccepted]] or [[Update.CommandRejected]] with [[SubmitterInfo]]
     *   for the same [[SubmitterInfo.changeId]] with offset at least `off`
@@ -97,7 +97,7 @@ trait ReadService extends ReportsHealth {
     *
     *   If the [[WriteService]] detects that a command submission would violate the submission rank guarantee
     *   if accepted or rejected, it either returns a [[SubmissionResult.SynchronousError]] error or
-    *   produces a [[Update.CommandRejected]] with [[Update.CommandRejected.cancelled]].
+    *   produces a [[Update.CommandRejected]] without [[Update.CommandRejected.definiteAnswer]].
     *
     * - *finality*: If the corresponding [[WriteService]] acknowledges a submitted transaction or rejection
     *   with [[SubmissionResult.Acknowledged]], the [[ReadService]] SHOULD make sure that
