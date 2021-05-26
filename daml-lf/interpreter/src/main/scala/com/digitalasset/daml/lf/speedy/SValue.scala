@@ -206,6 +206,8 @@ object SValue {
   final case class SAnyException(ty: Type, value: SValue) extends SValue
 
   object SArithmeticError {
+    // The package ID should match the ID of the stable package daml-prim-DA-Exception-ArithmeticError
+    // See test compiler/damlc/tests/src/stable-packages.sh
     val tyCon: Ref.TypeConName = Ref.Identifier.assertFromString(
       "f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981:DA.Exception.ArithmeticError:ArithmeticError"
     )
