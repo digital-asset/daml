@@ -33,7 +33,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
@@ -47,6 +47,7 @@ import com.daml.platform.store.appendonlydao.events.{
   TransactionsReader,
 }
 import com.daml.platform.store.backend.{StorageBackend, UpdateToDBDTOV1}
+import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.{
   DeduplicationKeyMaker,
@@ -314,8 +315,9 @@ private class JdbcLedgerDao(
 
         val savepoint = conn.setSavepoint()
 
+        val offset = validateOffsetStep(offsetStep, conn)
         Try({
-          sequentialIndexer.store(conn, offsetStep.offset, Some(update))
+          sequentialIndexer.store(conn, offset, Some(update))
           PersistenceResponse.Ok
         }).recover {
           case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
@@ -323,7 +325,7 @@ private class JdbcLedgerDao(
             conn.rollback(savepoint)
             sequentialIndexer.store(
               conn,
-              offsetStep.offset,
+              offset,
               None,
             ) // we bump the offset regardless of the fact of a duplicate
             PersistenceResponse.Duplicate
@@ -338,12 +340,13 @@ private class JdbcLedgerDao(
     logger.info("Storing party entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePartyEntryDbMetrics) { implicit conn =>
       val savepoint = conn.setSavepoint()
+      val offset = validateOffsetStep(offsetStep, conn)
       partyEntry match {
         case PartyLedgerEntry.AllocationAccepted(submissionIdOpt, recordTime, partyDetails) =>
           Try({
             sequentialIndexer.store(
               conn,
-              offsetStep.offset,
+              offset,
               Some(
                 Update.PartyAddedToParticipant(
                   party = partyDetails.party,
@@ -361,14 +364,14 @@ private class JdbcLedgerDao(
                 s"Ignoring duplicate party submission with ID ${partyDetails.party} for submissionId $submissionIdOpt"
               )
               conn.rollback(savepoint)
-              sequentialIndexer.store(conn, offsetStep.offset, None)
+              sequentialIndexer.store(conn, offset, None)
               PersistenceResponse.Duplicate
           }.get
 
         case PartyLedgerEntry.AllocationRejected(submissionId, recordTime, reason) =>
           sequentialIndexer.store(
             conn,
-            offsetStep.offset,
+            offset,
             Some(
               Update.PartyAllocationRejected(
                 submissionId = submissionId,
@@ -528,9 +531,10 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeRejectionDbMetrics) { implicit conn =>
+        val offset = validateOffsetStep(offsetStep, conn)
         sequentialIndexer.store(
           conn,
-          offsetStep.offset,
+          offset,
           submitterInfo.map(someSubmitterInfo =>
             Update.CommandRejected(
               recordTime = Time.Timestamp.assertFromInstant(recordTime),
@@ -695,6 +699,7 @@ private class JdbcLedgerDao(
     logger.info("Storing package entry")
     dbDispatcher.executeSql(metrics.daml.index.db.storePackageEntryDbMetrics) {
       implicit connection =>
+        val offset = validateOffsetStep(offsetStep, connection)
         // Note on knownSince and recordTime:
         // - There are two different time values in the input: PackageDetails.knownSince and PackageUploadAccepted.recordTime
         // - There is only one time value in the intermediate values: PublicPackageUpload.recordTime
@@ -743,7 +748,7 @@ private class JdbcLedgerDao(
               rejectionReason = reason,
             )
         }
-        sequentialIndexer.store(connection, offsetStep.offset, Some(update))
+        sequentialIndexer.store(connection, offset, Some(update))
         PersistenceResponse.Ok
     }
   }
@@ -935,7 +940,7 @@ private class JdbcLedgerDao(
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
-      offset: Offset,
+      offsetStep: OffsetStep,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
       blindingInfo: Option[BlindingInfo],
@@ -946,7 +951,7 @@ private class JdbcLedgerDao(
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
         sequentialIndexer.store(
           conn,
-          offset,
+          validateOffsetStep(offsetStep, conn),
           validate(ledgerEffectiveTime, transaction, divulgedContracts) match {
             case None =>
               Some(
@@ -981,6 +986,20 @@ private class JdbcLedgerDao(
         )
         PersistenceResponse.Ok
       }
+  }
+
+  // The old indexer (com.daml.platform.indexer.JdbcIndexer) uses IncrementalOffsetStep,
+  // and we have tests in JdbcLedgerDao*Spec checking that this is handled correctly.
+  // The append-only schema and the parallel ingestion indexer doesn't use this class.
+  // TODO append-only: Remove the OffsetStep trait along with this method and all corresponding tests,
+  // and change all method signatures to use Offset instead of OffsetStep.
+  private[this] def validateOffsetStep(offsetStep: OffsetStep, conn: Connection): Offset = {
+    offsetStep match {
+      case IncrementalOffsetStep(p, o) =>
+        val actualEnd = ParametersTable.getLedgerEnd(conn)
+        if (actualEnd.compareTo(p) != 0) throw LedgerEndUpdateError(p) else o
+      case CurrentOffset(o) => o
+    }
   }
 
 }

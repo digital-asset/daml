@@ -7,7 +7,7 @@ import com.daml.platform.store.DbType
 import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.AsyncTestSuite
 
-private[dao] trait JdbcLedgerDaoBackendPostgresql
+private[dao] trait JdbcLedgerDaoBackendPostgresqlAppendOnly
     extends JdbcLedgerDaoBackend
     with PostgresAroundAll {
   this: AsyncTestSuite =>
@@ -16,5 +16,5 @@ private[dao] trait JdbcLedgerDaoBackendPostgresql
 
   override protected def jdbcUrl: String = postgresDatabase.url
 
-  override protected val enableAppendOnlySchema: Boolean = false
+  override protected val enableAppendOnlySchema: Boolean = true
 }
