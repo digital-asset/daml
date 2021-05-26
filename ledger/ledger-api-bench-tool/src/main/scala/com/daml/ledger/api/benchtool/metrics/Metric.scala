@@ -91,7 +91,7 @@ object Metric {
     }
 
     private def periodicSizeRate: Double =
-      currentSizeBytesBucket * 1000.0 / periodMillis / 1024 / 1024
+      (currentSizeBytesBucket.toDouble / periodMillis) * 1000.0 / (1024 * 1024)
   }
 
   object SizeMetric {
