@@ -991,7 +991,8 @@ private class JdbcLedgerDao(
   // The old indexer (com.daml.platform.indexer.JdbcIndexer) uses IncrementalOffsetStep,
   // and we have tests in JdbcLedgerDao*Spec checking that this is handled correctly.
   // The append-only schema and the parallel ingestion indexer doesn't use this class.
-  // TODO append-only: Remove IncrementalOffsetStep along with this method and all corresponding tests.
+  // TODO append-only: Remove the OffsetStep trait along with this method and all corresponding tests,
+  // and change all method signatures to use Offset instead of OffsetStep.
   private[this] def validateOffsetStep(offsetStep: OffsetStep, conn: Connection): Offset = {
     offsetStep match {
       case IncrementalOffsetStep(p, o) =>
