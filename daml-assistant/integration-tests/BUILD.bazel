@@ -106,6 +106,7 @@ da_haskell_library(
 da_haskell_test(
     name = "integration-tests",
     timeout = "long",
+    tags = ["cpu:2"]
     srcs = [
         "src/DA/Daml/Assistant/FreePort.hs",
         "src/DA/Daml/Assistant/IntegrationTests.hs",
