@@ -8,6 +8,7 @@ import com.daml.ledger.api.v1.value.Identifier
 import scopt.{OParser, Read}
 
 import scala.concurrent.duration.FiniteDuration
+import scala.util.{Failure, Success, Try}
 
 object Cli {
   def config(args: Array[String]): Option[Config] =
@@ -36,7 +37,7 @@ object Cli {
           s"Stream configuration."
         )
         .valueName(
-          "stream-type=<transactions|transaction-trees>,name=<streamName>,party=<party>[,begin-offset=<offset>][,end-offset=<offset>][,template-ids=<id1>|<id2>]"
+          "stream-type=<transactions|transaction-trees>,name=<streamName>,party=<party>[,begin-offset=<offset>][,end-offset=<offset>][,template-ids=<id1>|<id2>][,max-delay=<seconds>]"
         )
         .action { case (streamConfig, config) =>
           config.copy(streams = config.streams :+ streamConfig)
@@ -73,6 +74,13 @@ object Cli {
         def optionalStringField(fieldName: String): Either[String, Option[String]] =
           Right(m.get(fieldName))
 
+        def optionalLongField(fieldName: String): Either[String, Option[Long]] = {
+          Try(m.get(fieldName).map(_.toLong)) match {
+            case Success(value) => Right(value)
+            case Failure(_) => Left(s"Invalid value for field name: $fieldName")
+          }
+        }
+
         def offset(stringValue: String): LedgerOffset =
           LedgerOffset.defaultInstance.withAbsolute(stringValue)
 
@@ -90,6 +98,7 @@ object Cli {
           }
           beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
+          maxDelaySeconds <- optionalLongField("max-delay")
         } yield Config.StreamConfig(
           name = name,
           streamType = streamType,
@@ -97,6 +106,9 @@ object Cli {
           templateIds = templateIds,
           beginOffset = beginOffset,
           endOffset = endOffset,
+          objectives = Config.StreamConfig.Objectives(
+            maxDelaySeconds = maxDelaySeconds
+          ),
         )
 
         config.fold(error => throw new IllegalArgumentException(error), identity)
