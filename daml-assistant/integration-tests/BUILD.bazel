@@ -154,6 +154,7 @@ da_haskell_test(
         "vector",
     ],
     main_function = "DA.Daml.Assistant.IntegrationTests.main",
+    tags = ["cpu:2"],
     visibility = ["//visibility:public"],
     deps = [
         ":integration-test-utils",
