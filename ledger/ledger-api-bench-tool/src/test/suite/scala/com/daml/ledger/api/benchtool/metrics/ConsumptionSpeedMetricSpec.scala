@@ -166,7 +166,7 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
 
   private def aRecordTimesList(beforeInstant: Instant): List[Instant] =
     (2 to 2 + Random.nextInt(10)).toList.map { _ =>
-      beforeInstant.minusSeconds(Random.nextLong(1000))
+      beforeInstant.minusSeconds(Random.nextInt(1000).toLong)
     }.sorted
 
   private def recordTimeFunctionFromMap(
