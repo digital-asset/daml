@@ -1574,6 +1574,9 @@ private[lf] object SBuiltin {
         machine: Machine,
     ): Unit = {
       getSAnyException(args, 0) match {
+        case SArithmeticError(value) =>
+          // short cut for Arithmetic error
+          machine.returnValue = value
         case SAnyException(Ast.TTyCon(tyCon), innerValue) =>
           if (!machine.compiledPackages.packageIds.contains(tyCon.packageId))
             throw SpeedyHungry(
