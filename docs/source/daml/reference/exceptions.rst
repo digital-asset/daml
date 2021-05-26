@@ -6,9 +6,9 @@
 Exceptions
 ##########
 
-Exceptions are a Daml feature which allows provides a way to handle
+Exceptions are a Daml feature which provides a way to handle
 certain errors that arise during interpretation instead of aborting
-the transaction and rollback changes that happened before the
+the transaction, and to roll back the state changes that lead to the
 error.
 
 There are two types of errors:
@@ -38,8 +38,8 @@ User-Defined Exceptions
 .......................
 
 Users can define their own exception types which can be thrown and
-caught. The definition looks similar to templates and as for
-templates, the definition will produce a record type of the given name
+caught. The definition looks similar to templates, and just like with
+templates, the definition produces a record type of the given name
 as well as instances to make that type throwable and catchable.
 
 In addition to the record fields, exceptions also need to define a
@@ -60,7 +60,7 @@ There are two ways to throw exceptions:
    is an instance of ``ActionThrow``.
 2. Outside of ``ActionThrow`` you can throw exceptions using ``throwPure``.
 
-If both are an option, it is geenrally preferable to use ``throw``
+If both are an option, it is generally preferable to use ``throw``
 since it is easier to reason about when exactly the exception will get
 thrown.
 
