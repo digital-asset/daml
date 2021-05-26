@@ -10,7 +10,7 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.{DamlEUnhandledException, SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
+import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue, SResultNeedPackage}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value
@@ -1485,6 +1485,22 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     }
   }
 
+  "AnyExceptionMessage" - {
+
+    "request unknown packageId" in {
+      eval(
+        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @Mod:Exception (Mod:Exception {}))"""
+      ) shouldBe Right(SText("some nice error message"))
+      // FIXME: should be
+      //    e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-'Mod:Exception {}))"""
+      //   but the parser seems buggy.
+      eval(
+        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception (Mod:Exception {}))"""
+      ) shouldBe Left(SErrorCrash(s"need package '-unknown-package-'"))
+    }
+
+  }
+
 }
 
 object SBuiltinTest {
@@ -1496,6 +1512,10 @@ object SBuiltinTest {
           record MyUnit = { };
           record Tuple a b = { fst: a, snd: b };
           enum Color = Red | Green | Blue;
+          record @serializable Exception = {} ;
+          exception Exception = {
+              message \(e: Mod:Exception) -> "some nice error message"
+          } ;
         }
 
     """
@@ -1527,6 +1547,7 @@ object SBuiltinTest {
       val value = machine.run() match {
         case SResultFinalValue(v) => v
         case SResultError(err) => throw Goodbye(err)
+        case SResultNeedPackage(pkgId, _) => throw Goodbye(SErrorCrash(s"need package '$pkgId'"))
         case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
       }
 
