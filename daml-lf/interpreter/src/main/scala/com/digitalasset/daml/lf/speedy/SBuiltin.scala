@@ -1575,15 +1575,30 @@ private[lf] object SBuiltin {
 
   /** $any-exception-message :: AnyException -> Text */
   final case object SBAnyExceptionMessage extends SBuiltin(1) {
+    private def exceptionMessage(tyCon: TypeConName, value: SValue, machine: Machine) =
+      machine.ctrl = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(SEValue(value)))
+
     override private[speedy] final def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Unit = {
       getSException(args, 0) match {
-        case SAnyException(ty, innerValue) =>
-          machine.ctrl = SEApp(exceptionMessage(ty), Array(SEValue(innerValue)))
+        case SAnyException(Ast.TTyCon(tyCon), innerValue) =>
+          if (!machine.compiledPackages.packageIds.contains(tyCon.packageId))
+            throw SpeedyHungry(
+              SResultNeedPackage(
+                tyCon.packageId,
+                { packages =>
+                  machine.compiledPackages = packages
+                  exceptionMessage(tyCon, innerValue, machine)
+                },
+              )
+            )
+          exceptionMessage(tyCon, innerValue, machine)
         case exception: SArithmeticError =>
           machine.returnValue = SText(exception.message)
+        case SAnyException(ty, _) =>
+          crash(s"$ty is not a valid exception type")
       }
     }
   }
@@ -1599,13 +1614,6 @@ private[lf] object SBuiltin {
       }
     }
   }
-
-  private def exceptionMessage(ty: Ast.Type): SExpr =
-    ty match {
-      case Ast.TTyCon(tyCon) =>
-        SEVal(ExceptionMessageDefRef(tyCon))
-      case _ => crash(s"$ty is not a valid exception type")
-    }
 
   /** $to_any
     *    :: t
