@@ -583,7 +583,7 @@ enum BuiltinFunction {
   NUMERIC_TO_BIGNUMERIC = 145; // *Available in versions >= 1.13*
   BIGNUMERIC_TO_TEXT = 146; // *Available in versions >= 1.13*
 
-  // Next id is 149. 148 is ANY_EXCEPTION_MESSAGE.
+  // Next id is 148. 147 is ANY_EXCEPTION_MESSAGE.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
