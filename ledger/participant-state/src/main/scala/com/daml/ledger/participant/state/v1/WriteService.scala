@@ -107,12 +107,16 @@ trait WriteService
     *
     * This method must be thread-safe.
     *
+    * This method is used by the Ledger API server to deliver interpretation failures as definitive answers to the
+    * Ledger API client via completions; thereby allowing the Ledger API client to safely decide to not retry
+    * the command if desired.
+    *
     * The result is communicated asynchronously via a [[ReadService]] implementation backed by the same participant
     * state as this [[WriteService]]. Successful recording is communicated using a [[Update.CommandRejected]]
     * with [[SubmitterInfo]] and not [[Update.CommandRejected.cancelled]].
     * If the recording as a rejection fails (e.g., due to deduplication or violations of the submission rank),
     * the failure should be communicated using a [[Update.CommandRejected]] with [[SubmitterInfo]]
-    * and [[Update.CommandRejected.cancelled]].
+    * and not [[Update.CommandRejected.definiteAnswer]].
     *
     * Recorded rejections fall under the deduplication and submission rank guarantees
     * described in [[ReadService.stateUpdates]].

@@ -7,7 +7,8 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.transaction.BlindingInfo
 
-import scala.util.Try
+import scala.annotation.tailrec
+import scala.util.{Failure, Success, Try}
 
 /** An update to the (abstract) participant state.
   *
@@ -214,21 +215,15 @@ object Update {
       reasonTemplate: CommandRejected.RejectionReasonTemplate,
   ) extends Update {
     override def description: String = {
-      s"Reject command ${submitterInfo.commandId}${if (cancelled) " (cancelled)"}: ${reason.message}"
+      s"Reject command ${submitterInfo.commandId}${if (definiteAnswer) " (definite answer)"}: ${reason.message}"
     }
 
-    /** If false, the [[ReadService]]'s deduplication and submission rank guarantees
+    /** If true, the [[ReadService]]'s deduplication and submission rank guarantees
       * apply to this rejection. The participant state implementations should
-      * strive to set this flag to false as often as possible so that applications
+      * strive to set this flag to true as often as possible so that applications
       * get better guarantees.
       */
-    lazy val cancelled: Boolean = !reason.details.exists { any =>
-        if (any.is(com.google.rpc.ErrorInfo.class)) {
-          Try(any.unpack(com.google.rpc.ErrorInfo.class)).exists( errorInfo =>
-            errorInfo.getMetadataOrDefault("definite_answer", "false") == "true"
-          )
-        } else false
-      }
+    def definiteAnswer: Boolean = reasonTemplate.definiteAnswer
   }
 
   object CommandRejected {
@@ -237,19 +232,89 @@ object Update {
       * The indexer server should provide some details
       * before the [[FinalReason]] gives an actual gRPC status code.
       */
-    sealed trait RejectionReasonTemplate
+    sealed trait RejectionReasonTemplate {
+
+      /** Whether the rejection is a definite answer for the deduplication and rank guarantees
+        * specified for [[ReadService.stateUpdates]].
+        */
+      def definiteAnswer: Boolean
+
+      /** A human-readable description of the error */
+      def message: String
+    }
+
+    object RejectionReasonTemplate {
+      val definiteAnswerKey = "definite_answer"
+
+      def isDefiniteAnswer(status: com.google.rpc.status.Status): Boolean =
+        status.details.exists { any =>
+          if (any.is(com.google.rpc.ErrorInfo.getClass)) {
+            Try(any.unpack(com.google.rpc.ErrorInfo.getClass)).exists(isDefiniteAnswer)
+          } else false
+        }
+
+      def isDefiniteAnswer(errorInfo: com.google.rpc.ErrorInfo): Boolean =
+        errorInfo.getMetadataOrDefault(definiteAnswerKey, "false") == "true"
+    }
 
     /** The status code for the command rejection. */
-    class FinalReason(val statusCode: com.google.rpc.status.Status) extends RejectionReasonTemplate
+    class FinalReason(val status: com.google.rpc.status.Status) extends RejectionReasonTemplate {
 
-    /** The indexer shall fill in a completion offset for the completion that corresponds to the `submissionId`,
-      * by calling `provideCompletionOffset` with the completion offset. If no completion offset
+      override def message: String         = status.message
+      override def definiteAnswer: Boolean = RejectionReasonTemplate.isDefiniteAnswer(status)
+    }
+
+    /** The indexer shall fill in a completion offset for the completion that corresponds to
+      * the `submissionId` and `submissionRank` by calling `status` with the completion offset. If no completion offset
       * for the `submissionId` can be provided, [[scala.None$]] can be used instead,
       * which may lead to less informative errors.
       */
     class NeedCompletionOffsetForSubmissionId(
         val submissionId: SubmissionId,
-        val provideCompletionOffset: Option[Offset] => RejectionReasonTemplate,
-    ) extends RejectionReasonTemplate
+        val submissionRank: Offset,
+        private val completionKey: String,
+        private val incompleteStatus: com.google.rpc.status.Status,
+    ) extends RejectionReasonTemplate {
+
+      require(completionKey != RejectionReasonTemplate.definiteAnswerKey)
+
+      private val (errorInfo, errorInfoIndex): (com.google.rpc.ErrorInfo, Int) = {
+        val iterator = incompleteStatus.details.iterator()
+
+        @tailrec def go(index: Int): Option[(com.google.rpc.ErrorInfo, Int)] =
+          if (iterator.hasNext()) {
+            val next = iterator.next()
+            if (next.is(com.google.rpc.ErrorInfo.getClass)) {
+              Try(next.unpack(com.google.rpc.ErrorInfo.getClass)) match {
+                case Success(errorInfo) => Some(errorInfo -> index)
+                case _: Failure[_]      => go(index + 1)
+              }
+            } else go(index + 1)
+          } else None
+
+        go(0).getOrElse(
+          new IllegalArgumentException(
+            s"No com.google.rpc.ErrorInfo found in details for $incompleteStatus"
+          )
+        )
+      }
+
+      override def message: String = incompleteStatus.message
+
+      override def definiteAnswer: Boolean = RejectionReasonTemplate.isDefiniteAnswer(errorInfo)
+
+      def status(
+          completionOffsetForSubmissionIdAndRank: Option[Offset]
+      ): com.google.rpc.status.Status =
+        completionOffsetForSubmissionIdAndRank.fold(incompleteStatus) { completionOffset =>
+          val newErrorInfo =
+            errorInfo.copy().putMetadata(completionKey, completionOffset.toHexString)
+          val newDetails = incompleteStatus.details.updated(
+            com.google.protobuf.Any.pack(errorInfoIndex),
+            newErrorInfo,
+          )
+          incompleteStatus.withDetails(newDetails)
+        }
+    }
   }
 }
