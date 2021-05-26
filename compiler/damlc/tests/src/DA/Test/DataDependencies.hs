@@ -1245,10 +1245,11 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             ]
         writeFileUTF8 (tmpDir </> "lib" </> "Lib.daml") $ unlines
             [ "module Lib where"
-            , "import DA.Exception"
             , "import DA.Assert"
+            , "import DA.Exception"
             , "template TLib"
-            , "  with p : Party"
+            , "  with"
+            , "    p : Party"
             , "  where"
             , "    signatory p"
             , "    ensure False"
@@ -1263,13 +1264,13 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             , "libFnThatThrowsPreconditionFailed p = create (TLib p) >> pure ()"
             , ""
             , "libFnThatCatchesGeneralError : (() -> Update ()) -> Update ()"
-            , "libFnThatCatchesGeneralError m = try m () catch e: GeneralError -> pure ()"
+            , "libFnThatCatchesGeneralError m = try m () catch (e: GeneralError) -> pure ()"
             , "libFnThatCatchesArithmeticError : (() -> Update ()) -> Update ()"
-            , "libFnThatCatchesArithmeticError m = try m () catch e: ArithmeticError -> pure ()"
+            , "libFnThatCatchesArithmeticError m = try m () catch (e: ArithmeticError) -> pure ()"
             , "libFnThatCatchesAssertionFailed : (() -> Update ()) -> Update ()"
-            , "libFnThatCatchesAssertionFailed m = try m () catch e: AssertionFailed -> pure ()"
-            , "libFnThatCatchesPreconditionFailed m : (() -> Update ()) -> Update ()"
-            , "libFnThatCatchesPreconditionFailed m = try m () catch e: PreconditionFailed -> pure ()"
+            , "libFnThatCatchesAssertionFailed m = try m () catch (e: AssertionFailed) -> pure ()"
+            , "libFnThatCatchesPreconditionFailed : (() -> Update ()) -> Update ()"
+            , "libFnThatCatchesPreconditionFailed m = try m () catch (e: PreconditionFailed) -> pure ()"
             ]
         callProcessSilent damlc
             [ "build"
@@ -1290,10 +1291,12 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             ]
         writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines
             [ "module Main where"
+            , "import DA.Assert"
             , "import DA.Exception"
             , "import Lib"
             , "template TMain"
-            , "  with p : Party"
+            , "  with"
+            , "    p : Party"
             , "  where"
             , "    signatory p"
             , "    ensure False"
@@ -1308,15 +1311,15 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             , "mainFnThatThrowsPreconditionFailed p = create (TMain p) >> pure ()"
             , ""
             , "mainFnThatCatchesGeneralError : (() -> Update ()) -> Update ()"
-            , "mainFnThatCatchesGeneralError m = try m () catch e: GeneralError -> pure ()"
+            , "mainFnThatCatchesGeneralError m = try m () catch (e: GeneralError) -> pure ()"
             , "mainFnThatCatchesArithmeticError : (() -> Update ()) -> Update ()"
-            , "mainFnThatCatchesArithmeticError m = try m () catch e: ArithmeticError -> pure ()"
+            , "mainFnThatCatchesArithmeticError m = try m () catch (e: ArithmeticError) -> pure ()"
             , "mainFnThatCatchesAssertionFailed : (() -> Update ()) -> Update ()"
-            , "mainFnThatCatchesAssertionFailed m = try m () catch e: AssertionFailed -> pure ()"
-            , "mainFnThatCatchesPreconditionFailed m : (() -> Update ()) -> Update ()"
-            , "mainFnThatCatchesPreconditionFailed m = try m () catch e: PreconditionFailed -> pure ()"
+            , "mainFnThatCatchesAssertionFailed m = try m () catch (e: AssertionFailed) -> pure ()"
+            , "mainFnThatCatchesPreconditionFailed : (() -> Update ()) -> Update ()"
+            , "mainFnThatCatchesPreconditionFailed m = try m () catch (e: PreconditionFailed) -> pure ()"
             , ""
-            , "mkScenario : (() -> Update ()) -> Update ()) -> (Party -> Update ()) -> Scenario ()"
+            , "mkScenario : ((() -> Update ()) -> Update ()) -> (Party -> Update ()) -> Scenario ()"
             , "mkScenario catcher thrower = scenario do"
             , "    p <- getParty \"Alice\""
             , "    submit p (catcher (\\() -> thrower p))"
@@ -1333,6 +1336,11 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
            ]
         callProcessSilent damlc
             [ "build"
+            , "--project-root", tmpDir </> "main"
+            , "--target=1.dev"]
+        step "running damlc test"
+        callProcessSilent damlc
+            [ "test"
             , "--project-root", tmpDir </> "main"
             , "--target=1.dev"]
     ]
