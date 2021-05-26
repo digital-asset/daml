@@ -50,7 +50,6 @@ message GetActiveContractsRequest {
   // This field is a future extension point and is currently not supported.
   // Optional
   TraceContext trace_context = 1000;
-  
 }
 
 message GetActiveContractsResponse {
