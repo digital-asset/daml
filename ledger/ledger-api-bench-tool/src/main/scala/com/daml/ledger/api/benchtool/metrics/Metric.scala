@@ -32,7 +32,6 @@ object Metric {
 
   trait ServiceLevelObjective[MetricValueType <: MetricValue] {
     def isViolatedBy(metricValue: MetricValueType): Boolean
-    def maxViolatingValue(first: MetricValueType, second: MetricValueType): MetricValueType
     def formatted: String
   }
 
@@ -156,7 +155,7 @@ object Metric {
               case Some(currentValue) =>
                 // if the new value violates objective's requirements and there is already a value that violates
                 // requirements, record the maximum value of the two
-                objective -> Some(objective.maxViolatingValue(currentValue, newValue))
+                objective -> Some(Ordering[Value].max(currentValue, newValue))
             }
           } else {
             objective -> currentViolatingValue
@@ -228,9 +227,6 @@ object Metric {
     final case class MaxDelay(maxDelaySeconds: Long) extends ServiceLevelObjective[Value] {
       override def isViolatedBy(metricValue: Value): Boolean =
         metricValue.meanDelaySeconds.exists(_ > maxDelaySeconds)
-
-      override def maxViolatingValue(first: Value, second: Value): Value =
-        Ordering[Value].max(first, second)
 
       override def formatted: String =
         s"max allowed delay: $maxDelaySeconds [s]"

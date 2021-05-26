@@ -43,10 +43,9 @@ class ServiceLevelObjectiveSpec extends AnyWordSpec with Matchers with TableDriv
         (Value(None), Value(Some(randomNumber)), Value(Some(randomNumber))),
         (Value(None), Value(None), Value(None)),
       )
-      val objective = DelayMetric.MaxDelay(Random.nextLong())
 
       forAll(cases) { (first, second, expected) =>
-        objective.maxViolatingValue(first, second) shouldBe expected
+        Ordering[Value].max(first, second) shouldBe expected
       }
     }
   }
