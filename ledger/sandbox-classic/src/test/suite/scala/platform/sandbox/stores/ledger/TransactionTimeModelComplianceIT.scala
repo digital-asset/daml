@@ -52,7 +52,7 @@ class TransactionTimeModelComplianceIT
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */
   override protected def fixtureIdsEnabled: Set[BackendType] =
-    Set(BackendType.InMemory, BackendType.Postgres)
+    Set(BackendType.InMemory, BackendType.Postgres, BackendType.PostgresAppendOnly)
 
   override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
@@ -61,6 +61,14 @@ class TransactionTimeModelComplianceIT
         LedgerResource.inMemory(ledgerId, timeProvider)
       case BackendType.Postgres =>
         LedgerResource.postgres(getClass, ledgerId, timeProvider, metrics)
+      case BackendType.PostgresAppendOnly =>
+        LedgerResource.postgres(
+          getClass,
+          ledgerId,
+          timeProvider,
+          metrics,
+          enableAppendOnlySchema = true,
+        )
     }
   }
 
@@ -211,6 +219,9 @@ object TransactionTimeModelComplianceIT {
     case object InMemory extends BackendType
 
     case object Postgres extends BackendType
+
+    // TODO append-only: remove one of Postgres and PostgresAppendOnly
+    case object PostgresAppendOnly extends BackendType
 
   }
 

@@ -62,6 +62,7 @@ private[sandbox] object LedgerResource {
       timeProvider: TimeProvider,
       metrics: MetricRegistry,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
+      enableAppendOnlySchema: Boolean = false,
   )(implicit
       resourceContext: ResourceContext,
       materializer: Materializer,
@@ -92,6 +93,7 @@ private[sandbox] object LedgerResource {
           metrics = new Metrics(metrics),
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           engine = new Engine(),
+          enableAppendOnlySchema = enableAppendOnlySchema,
         )
       } yield ledger
     )
