@@ -176,7 +176,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
         )
     }
 
-  final protected def getSException(args: util.ArrayList[SValue], i: Int): SAnyException =
+  final protected def getSAnyException(args: util.ArrayList[SValue], i: Int): SAnyException =
     args.get(i) match {
       case exception: SAnyException => exception
       case otherwise =>
@@ -1514,7 +1514,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Unit = {
-      val excep = getSException(args, 0)
+      val excep = getSAnyException(args, 0)
       unwindToHandler(machine, excep)
     }
   }
@@ -1525,7 +1525,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Unit = {
-      val excep = getSException(args, 1)
+      val excep = getSAnyException(args, 1)
       val token = args.get(2)
       checkToken(token)
       args.get(0) match {
@@ -1573,7 +1573,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Unit = {
-      getSException(args, 0) match {
+      getSAnyException(args, 0) match {
         case SAnyException(Ast.TTyCon(tyCon), innerValue) =>
           if (!machine.compiledPackages.packageIds.contains(tyCon.packageId))
             throw SpeedyHungry(
@@ -1586,8 +1586,6 @@ private[lf] object SBuiltin {
               )
             )
           exceptionMessage(tyCon, innerValue, machine)
-        case exception: SArithmeticError =>
-          machine.returnValue = SText(exception.message)
         case SAnyException(ty, _) =>
           crash(s"$ty is not a valid exception type")
       }
