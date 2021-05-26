@@ -18,7 +18,7 @@ package com.daml.ledger.api.v1;
 //    following the gRPC rich error model as described at https://cloud.google.com/apis/design/errors#error_model.
 //    Error details use the `google.rpc.ErrorInfo` message defined at
 //    https://github.com/googleapis/googleapis/blob/master/google/rpc/error_details.proto#L112.
-//    Its `reason` field includes an error code.
+//    Its `reason` field includes an alphanumeric error code.
 //    Further details on the error and information for subsequent API calls may be included in the `metadata` field.
 //    The Ledger API RPC documentation may document further metadata of the error.
 //
@@ -75,7 +75,7 @@ package com.daml.ledger.api.v1;
 //
 // This applies to the services in ``command_service.proto`` and ``command_submission_service.proto``.
 // The common error codes from above also apply here.
-// The status codes in command completions as defined in ``completion.proto`` follow the same rules.
+// The status message in command completions as defined in ``completion.proto`` follow the same rules.
 //
 // Some Daml ledger implementations may produce the same error codes in further situations.
 // See the documentation of the specific Daml ledger implementation.

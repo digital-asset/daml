@@ -144,7 +144,9 @@ message Commands {
   // Suppose that the submission `sid2` has completed with a definite answer on the completion stream at offset `off2`.
   // If there is no completion for the submission `sid1` before `off2`, then the submission `sid1` will not result
   // in a definite answer or successful completion. So if a result ever reaches the application,
-  // the result will be a rejection that is not marked as a definite answer.
+  // the result will be a rejection that is not marked as a definite answer. The application
+  // can therefore assume that the change in submission `sid1` will not be applied to the 
+  // Daml ledger.
   //
   // The submission rank is a completion offset within the range from completion begin to completion end.
   // It must be no earlier than the offset that defines the start of the deduplication period.
