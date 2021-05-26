@@ -650,7 +650,7 @@ private[lf] case class PartialTransaction(
     * i.e. a exception was thrown inside the context, and the catch associated to the try context did handle it.
     */
   def rollbackTry(
-      ex: SValue.SException
+      ex: SValue.SAnyException
   ): PartialTransaction = {
     import scala.Ordering.Implicits.infixOrderingOps
     context.info match {

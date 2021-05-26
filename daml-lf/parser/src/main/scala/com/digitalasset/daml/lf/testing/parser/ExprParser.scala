@@ -311,7 +311,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "GREATER_EQ" -> BGreaterEq,
     "COERCE_CONTRACT_ID" -> BCoerceContractId,
     "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
-    "ANY_EXCEPTION_IS_ARITHMETIC_ERROR" -> BAnyExceptionIsArithmeticError,
     "SCALE_BIGNUMERIC" -> BScaleBigNumeric,
     "PRECISION_BIGNUMERIC" -> BPrecisionBigNumeric,
     "ADD_BIGNUMERIC" -> BAddBigNumeric,

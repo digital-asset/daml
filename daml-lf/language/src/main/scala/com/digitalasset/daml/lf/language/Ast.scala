@@ -441,7 +441,6 @@ object Ast {
 
   // Exceptions
   final case object BAnyExceptionMessage extends BuiltinFunction // AnyException → Text
-  final case object BAnyExceptionIsArithmeticError extends BuiltinFunction // AnyException → Bool
 
   // Numeric arithmetic
   final case object BScaleBigNumeric extends BuiltinFunction // : BigNumeric → Int64

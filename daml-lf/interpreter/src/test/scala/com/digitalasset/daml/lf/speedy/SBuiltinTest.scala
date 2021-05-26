@@ -1469,8 +1469,8 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         inside(
           evalSExpr(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).toArray), false)
         ) {
-          case Left(DamlEUnhandledException(SArithmeticError(name_, args_)))
-              if name_ == name && (args.iterator.map(lit2string) sameElements args_.iterator) =>
+          case Left(DamlEUnhandledException(SArithmeticError(SText(msg))))
+              if msg == s"ArithmeticError while evaluating ($name ${args.iterator.map(lit2string).mkString(" ")})." =>
         }
       }
     }
@@ -1492,11 +1492,17 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         e"""ANY_EXCEPTION_MESSAGE (to_any_exception @Mod:Exception (Mod:Exception {}))"""
       ) shouldBe Right(SText("some nice error message"))
       // FIXME: should be
-      //    e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-'Mod:Exception {}))"""
+      //    e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-':Mod:Exception {}))"""
       //   but the parser seems buggy.
       eval(
         e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception (Mod:Exception {}))"""
       ) shouldBe Left(SErrorCrash(s"need package '-unknown-package-'"))
+    }
+
+    s"should not request package for ArithmeticError" in {
+      eval(
+        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981':DA.Exception.ArithmeticError:ArithmeticError (DA.Exception.ArithmeticError:ArithmeticError { message = "Arithmetic error" }))"""
+      ) shouldBe Right(SText("Arithmetic error"))
     }
 
   }

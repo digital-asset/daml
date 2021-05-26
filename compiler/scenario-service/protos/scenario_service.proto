@@ -201,13 +201,6 @@ message ScenarioError {
     sfixed64 effective_at = 2;
   }
 
-  message Exception {
-    oneof error {
-      Value user = 1;
-      string builtin = 2;
-    }
-  }
-
   // The state of the ledger at the time of the error
   repeated ScenarioStep scenario_steps = 1;
   repeated Node nodes = 2;
@@ -248,7 +241,7 @@ message ScenarioError {
     string user_error = 13;
 
     // Unhandled exceptions
-    Exception unhandled_exception = 26;
+    Value unhandled_exception = 26;
 
     // Errors related to update interpretation.
     TemplatePreconditionViolated template_precond_violated = 14;
