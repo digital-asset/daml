@@ -61,6 +61,18 @@ private[platform] trait LedgerDaoTransactionsReader {
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed]
 
+  /** An unfiltered stream of generic ledger updates.
+    *
+    * Contains complete transactions used to populate the in-memory fan-out buffers for Ledger API streams serving.
+    * Aside from transactions, special marker events are introduced - [[TransactionLogUpdate.LedgerEndMarker]] -
+    * which signal to consumers that the current page request has been fully fetched
+    * (i.e. up to the previously dispatched ledger head).
+    *
+    * @param startExclusive Start (exclusive) of the stream in the form of (offset, event_sequential_id).
+    * @param endInclusive End (inclusive) of the event stream in the form of (offset, event_sequential_id).
+    * @param loggingContext The logging context.
+    * @return The Akka Source of transaction log updates.
+    */
   def getTransactionLogUpdates(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
       implicit loggingContext: LoggingContext
   ): Source[((Offset, Long), TransactionLogUpdate), NotUsed]

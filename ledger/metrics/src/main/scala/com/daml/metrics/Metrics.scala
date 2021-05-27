@@ -354,7 +354,7 @@ final class Metrics(val registry: MetricRegistry) {
       val publishConfiguration: Timer = registry.timer(Prefix :+ "publish_configuration")
 
       val decodeTransactionLogUpdate: Timer =
-        registry.timer(Prefix :+ "decode_transaction_log_update")
+        registry.timer(Prefix :+ "transaction_log_update_decode")
       val transactionLogUpdatesBufferSize: Counter =
         registry.counter(Prefix :+ "transaction_log_updates_buffer_size")
 

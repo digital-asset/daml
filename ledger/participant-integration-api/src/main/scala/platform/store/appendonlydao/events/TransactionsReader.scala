@@ -275,6 +275,7 @@ private[appendonlydao] final class TransactionsReader(
           )
           .iterator
       )
+      // Dispatch database fetches in parallel
       .mapAsync(TransactionEventsFetchParallelism) { range =>
         dispatcher.executeSql(dbMetrics.getTransactionLogUpdates) { implicit conn =>
           QueryNonPruned.executeSqlOrThrow(
@@ -286,6 +287,7 @@ private[appendonlydao] final class TransactionsReader(
         }
       }
       .flatMapConcat(v => Source.fromIterator(() => v.iterator))
+      // Decode transaction log updates in parallel
       .mapAsync(TransactionEventsFetchParallelism) { raw =>
         Timed.future(
           metrics.daml.index.decodeTransactionLogUpdate,
@@ -298,7 +300,7 @@ private[appendonlydao] final class TransactionsReader(
         original = groupContiguous(eventsSource)(by = _.transactionId)
           .map { v =>
             val tx = toTransaction(v)
-            (tx.offset, tx.lastEventSequentialId) -> tx
+            (tx.offset, tx.events.last.eventSequentialId) -> tx
           }
           .mapMaterializedValue(_ => NotUsed),
         counter = metrics.daml.index.transactionLogUpdatesBufferSize,
@@ -311,14 +313,12 @@ private[appendonlydao] final class TransactionsReader(
       events: Vector[TransactionLogUpdate.Event]
   ): TransactionLogUpdate.Transaction = {
     val first = events.head
-    val last = events.last
     TransactionLogUpdate.Transaction(
       transactionId = first.transactionId,
       commandId = first.commandId,
       workflowId = first.workflowId,
       effectiveAt = first.ledgerEffectiveTime,
       offset = first.eventOffset,
-      lastEventSequentialId = last.eventSequentialId,
       events = events,
     )
   }
@@ -525,33 +525,55 @@ private[appendonlydao] final class TransactionsReader(
 }
 
 private[appendonlydao] object TransactionsReader {
+
+  /** Splits a range of events into equally-sized sub-ranges.
+    *
+    * @param startExclusive The start exclusive of the range to be split
+    * @param endInclusive The end inclusive of the range to be split
+    * @param numberOfChunks The number of desired target sub-ranges
+    * @param minChunkSize Minimum sub-range size.
+    * @return The ordered sequence of sub-ranges with non-overlapping bounds.
+    */
   private[appendonlydao] def splitRange(
       startExclusive: Long,
       endInclusive: Long,
       numberOfChunks: Int,
       minChunkSize: Int,
-  ): Seq[EventsRange[Long]] =
+  ): Vector[EventsRange[Long]] = {
+    val rangeSize = endInclusive - startExclusive
+
     numberOfChunks match {
-      case 1 => Seq(EventsRange(startExclusive, endInclusive))
-      case invalid if invalid < 1 =>
+      case _ if numberOfChunks < 1 =>
         throw new IllegalArgumentException(
           s"You can only split a range in a strictly positive number of chunks ($numberOfChunks)"
         )
-      case _ if ((endInclusive - startExclusive) / numberOfChunks.toLong) < minChunkSize.toLong =>
-        Seq(EventsRange(startExclusive, endInclusive))
+
+      case _ if numberOfChunks == 1 || minChunkSize >= rangeSize =>
+        Vector(EventsRange(startExclusive, endInclusive))
+
+      case _ if (rangeSize / numberOfChunks.toLong) < minChunkSize.toLong =>
+        val effectiveNumberOfChunks = rangeSize / minChunkSize.toLong
+        splitUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks.toInt)
+
       case _ =>
-        val diff = endInclusive - startExclusive
-
-        if (numberOfChunks >= diff) Seq(EventsRange(startExclusive, endInclusive))
-        else {
-          val step = math.ceil(diff / numberOfChunks.toDouble).toLong
-
-          val aux = (0 until numberOfChunks - 1).map { idx =>
-            val startExclusiveChunk = startExclusive + step * idx
-            val endInclusiveChunk = startExclusiveChunk + step
-            EventsRange(startExclusiveChunk, endInclusiveChunk)
-          }
-          aux :+ EventsRange(aux.last.endInclusive, endInclusive)
-        }
+        splitUnsafe(startExclusive, endInclusive, numberOfChunks)
     }
+  }
+
+  private def splitUnsafe(
+      startExclusive: Long,
+      endInclusive: Long,
+      numberOfChunks: Int,
+  ) = {
+    val rangeSize = endInclusive - startExclusive
+    val step = math.ceil(rangeSize / numberOfChunks.toDouble).toLong
+
+    val aux = (0 until numberOfChunks - 1).map { idx =>
+      val startExclusiveChunk = startExclusive + step * idx
+      val endInclusiveChunk = startExclusiveChunk + step
+      EventsRange(startExclusiveChunk, endInclusiveChunk)
+    }.toVector
+
+    aux :+ EventsRange(aux.last.endInclusive, endInclusive)
+  }
 }

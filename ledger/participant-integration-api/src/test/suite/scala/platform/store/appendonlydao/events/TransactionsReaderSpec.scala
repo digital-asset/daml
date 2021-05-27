@@ -9,7 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 private[appendonlydao] class TransactionsReaderSpec extends AnyWordSpec with Matchers {
   "splitRange" should {
     "correctly split in equal ranges" in {
-      TransactionsReader.splitRange(100L, 200L, 4, 10) shouldBe Seq(
+      TransactionsReader.splitRange(100L, 200L, 4, 10) shouldBe Vector(
         EventsRange(100L, 125L),
         EventsRange(125L, 150L),
         EventsRange(150L, 175L),
@@ -18,21 +18,22 @@ private[appendonlydao] class TransactionsReaderSpec extends AnyWordSpec with Mat
     }
 
     "correctly split in non-equal ranges" in {
-      TransactionsReader.splitRange(100L, 200L, 3, 10) shouldBe Seq(
+      TransactionsReader.splitRange(100L, 200L, 3, 10) shouldBe Vector(
         EventsRange(100L, 134L),
         EventsRange(134L, 168L),
         EventsRange(168L, 200L),
       )
     }
 
-    "output only one range if target range below minChunkSize" in {
-      TransactionsReader.splitRange(100L, 200L, 3, 100) shouldBe Seq(
-        EventsRange(100L, 200L)
+    "output ranges of sizes at least minChunkSize" in {
+      TransactionsReader.splitRange(100L, 200L, 3, 50) shouldBe Vector(
+        EventsRange(100L, 150L),
+        EventsRange(150L, 200L),
       )
     }
 
-    "output only one range if numberOfChunks is 1" in {
-      TransactionsReader.splitRange(100L, 200L, 3, 100) shouldBe Seq(
+    "output only one range if minChunkSize is gteq to range size" in {
+      TransactionsReader.splitRange(100L, 200L, 3, 100) shouldBe Vector(
         EventsRange(100L, 200L)
       )
     }
