@@ -8,7 +8,7 @@ import java.time.Instant
 import java.util.UUID
 
 import com.daml.ledger.api.domain.PartyDetails
-import com.daml.ledger.participant.state.v1.RejectionReason
+import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
 import com.daml.lf.value.Value.ValueText
@@ -543,7 +543,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
             divulged = Set.empty,
           )
 
-        error shouldBe Some(RejectionReason.PartyNotKnownOnLedger("Some parties are unallocated"))
+        error shouldBe Some(RejectionReasonV0.PartyNotKnownOnLedger("Some parties are unallocated"))
       }
       "reject if party is used in rollback" in {
         val createWithKey = genTestCreate()
@@ -557,7 +557,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
             divulged = Set.empty,
           )
 
-        error shouldBe Some(RejectionReason.PartyNotKnownOnLedger("Some parties are unallocated"))
+        error shouldBe Some(RejectionReasonV0.PartyNotKnownOnLedger("Some parties are unallocated"))
       }
     }
   }

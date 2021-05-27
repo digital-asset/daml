@@ -462,7 +462,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
 
           offset2 should be(toOffset(2))
           inside(update2) { case CommandRejected(_, _, reason) =>
-            reason should be(a[RejectionReason.PartyNotKnownOnLedger])
+            reason should be(a[RejectionReasonV0.PartyNotKnownOnLedger])
           }
 
           offset3 should be(toOffset(3))

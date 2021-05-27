@@ -16,6 +16,7 @@ import com.daml.ledger.participant.state.v1.SubmissionResult.{
   InternalError,
   NotSupported,
   Overloaded,
+  SynchronousReject,
 }
 import com.daml.ledger.participant.state.v1.{
   Configuration,
@@ -25,7 +26,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.engine.{DuplicateContractKey, ContractNotFound, ReplayMismatch}
+import com.daml.lf.engine.{ContractNotFound, DuplicateContractKey, ReplayMismatch}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -168,6 +169,10 @@ private[apiserver] final class ApiSubmissionService private[services] (
     case Success(InternalError(reason)) =>
       logger.error(s"Internal error: $reason")
       Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
+
+    case Success(SynchronousReject(failure)) =>
+      logger.info(s"Rejected: ${failure.getStatus}")
+      Failure(failure)
 
     case Failure(error) =>
       logger.info(s"Rejected: ${error.getMessage}")

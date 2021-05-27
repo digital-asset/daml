@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
   outOfTimeBoundsEntryToUpdate,
 }
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, Update}
+import com.daml.ledger.participant.state.v1.{Configuration, RejectionReasonV0, Update}
 import com.daml.lf.data.Time.Timestamp
 import com.google.protobuf.Empty
 import org.scalatest.prop.TableDrivenPropertyChecks._
@@ -116,7 +116,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         case Some(Update.CommandRejected(recordTime, submitterInfo, reason)) =>
           recordTime shouldBe aRecordTime
           submitterInfo shouldBe Conversions.parseSubmitterInfo(someSubmitterInfo)
-          reason shouldBe a[RejectionReason.InvalidLedgerTime]
+          reason shouldBe a[RejectionReasonV0.InvalidLedgerTime]
           ()
         case _ => fail()
       }
