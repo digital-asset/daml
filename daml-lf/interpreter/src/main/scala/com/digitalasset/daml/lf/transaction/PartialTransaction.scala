@@ -70,27 +70,32 @@ private[lf] object PartialTransaction {
     */
   final case class Context(
       info: ContextInfo,
+      minChildVersion: TxVersion,
       children: BackStack[NodeId],
       nextActionChildIdx: Int,
   ) {
-    def addActionChild(child: NodeId): Context =
-      Context(info, children :+ child, nextActionChildIdx + 1)
+    def addActionChild(child: NodeId, version: TxVersion): Context = {
+      Context(info, minChildVersion min version, children :+ child, nextActionChildIdx + 1)
+    }
     def addRollbackChild(child: NodeId, nextActionChildIdx: Int): Context =
-      Context(info, children :+ child, nextActionChildIdx)
+      Context(info, minChildVersion, children :+ child, nextActionChildIdx)
     // This function may be costly, it must be call at most once for each node.
     def nextActionChildSeed: crypto.Hash = info.actionChildSeed(nextActionChildIdx)
   }
 
   object Context {
 
+    def apply(info: ContextInfo): Context =
+      Context(info, TxVersion.VDev, BackStack.empty, 0)
+
     def apply(initialSeeds: InitialSeeding): Context =
       initialSeeds match {
         case InitialSeeding.TransactionSeed(seed) =>
-          Context(new SeededTransactionRootContext(seed), BackStack.empty, 0)
+          Context(new SeededTransactionRootContext(seed))
         case InitialSeeding.RootNodeSeeds(seeds) =>
-          Context(new SeededPartialTransactionRootContext(seeds), BackStack.empty, 0)
+          Context(new SeededPartialTransactionRootContext(seeds))
         case InitialSeeding.NoSeed =>
-          Context(NoneSeededTransactionRootContext, BackStack.empty, 0)
+          Context(NoneSeededTransactionRootContext)
       }
   }
 
@@ -341,6 +346,7 @@ private[lf] case class PartialTransaction(
       val discriminator =
         crypto.Hash.deriveContractDiscriminator(actionNodeSeed, submissionTime, stakeholders)
       val cid = Value.ContractId.V1(discriminator)
+      val version = packageToTransactionVersion(templateId.packageId)
       val createNode = Node.NodeCreate(
         cid,
         templateId,
@@ -350,12 +356,12 @@ private[lf] case class PartialTransaction(
         signatories,
         stakeholders,
         key,
-        packageToTransactionVersion(templateId.packageId),
+        version,
       )
       val nid = NodeId(nextNodeIdx)
       val ptx = copy(
         nextNodeIdx = nextNodeIdx + 1,
-        context = context.addActionChild(nid),
+        context = context.addActionChild(nid, version),
         nodes = nodes.updated(nid, createNode),
         actionNodeSeeds = actionNodeSeeds :+ (nid -> actionNodeSeed),
         localContracts = localContracts + cid,
@@ -436,6 +442,7 @@ private[lf] case class PartialTransaction(
       byKey: Boolean,
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
+    val version = packageToTransactionVersion(templateId.packageId)
     val node = Node.NodeFetch(
       coid,
       templateId,
@@ -445,12 +452,12 @@ private[lf] case class PartialTransaction(
       stakeholders,
       key,
       byKey,
-      packageToTransactionVersion(templateId.packageId),
+      version,
     )
     mustBeActive(
       coid,
       templateId,
-      insertLeafNode(node),
+      insertLeafNode(node, version),
     ).noteAuthFails(nid, CheckAuthorization.authorizeFetch(node), auth)
   }
 
@@ -462,14 +469,15 @@ private[lf] case class PartialTransaction(
       result: Option[Value.ContractId],
   ): PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
+    val version = packageToTransactionVersion(templateId.packageId)
     val node = Node.NodeLookupByKey(
       templateId,
       optLocation,
       key,
       result,
-      packageToTransactionVersion(templateId.packageId),
+      version,
     )
-    insertLeafNode(node)
+    insertLeafNode(node, version)
       .noteAuthFails(nid, CheckAuthorization.authorizeLookupByKey(node), auth)
   }
 
@@ -523,7 +531,7 @@ private[lf] case class PartialTransaction(
           templateId,
           copy(
             nextNodeIdx = nextNodeIdx + 1,
-            context = Context(ec, BackStack.empty, 0),
+            context = Context(ec),
             // important: the semantics of Daml dictate that contracts are immediately
             // inactive as soon as you exercise it. therefore, mark it as consumed now.
             consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
@@ -553,6 +561,7 @@ private[lf] case class PartialTransaction(
   def endExercises(value: Value[Value.ContractId]): PartialTransaction =
     context.info match {
       case ec: ExercisesContextInfo =>
+        val version = packageToTransactionVersion(ec.templateId.packageId)
         val exerciseNode = Node.NodeExercises(
           targetCoid = ec.targetId,
           templateId = ec.templateId,
@@ -568,11 +577,11 @@ private[lf] case class PartialTransaction(
           exerciseResult = Some(value),
           key = ec.contractKey,
           byKey = ec.byKey,
-          version = packageToTransactionVersion(ec.templateId.packageId),
+          version = version,
         )
         val nodeId = ec.nodeId
         copy(
-          context = ec.parent.addActionChild(nodeId),
+          context = ec.parent.addActionChild(nodeId, version min context.minChildVersion),
           nodes = nodes.updated(nodeId, exerciseNode),
           actionNodeSeeds = actionNodeSeeds :+ (nodeId -> ec.actionNodeSeed),
         )
@@ -585,6 +594,7 @@ private[lf] case class PartialTransaction(
   def abortExercises: PartialTransaction =
     context.info match {
       case ec: ExercisesContextInfo =>
+        val version = packageToTransactionVersion(ec.templateId.packageId)
         val exerciseNode = Node.NodeExercises(
           targetCoid = ec.targetId,
           templateId = ec.templateId,
@@ -600,12 +610,12 @@ private[lf] case class PartialTransaction(
           exerciseResult = None,
           key = ec.contractKey,
           byKey = ec.byKey,
-          version = packageToTransactionVersion(ec.templateId.packageId),
+          version = version,
         )
         val nodeId = ec.nodeId
         val actionNodeSeed = context.nextActionChildSeed
         copy(
-          context = ec.parent.addActionChild(nodeId),
+          context = ec.parent.addActionChild(nodeId, version min context.minChildVersion),
           nodes = nodes.updated(nodeId, exerciseNode),
           actionNodeSeeds = actionNodeSeeds :+ (nodeId -> actionNodeSeed),
         )
@@ -620,7 +630,7 @@ private[lf] case class PartialTransaction(
     val info = TryContextInfo(nid, context, activeState)
     copy(
       nextNodeIdx = nextNodeIdx + 1,
-      context = Context(info, BackStack.empty, context.nextActionChildIdx),
+      context = Context(info).copy(nextActionChildIdx = context.nextActionChildIdx),
     )
   }
 
@@ -650,44 +660,21 @@ private[lf] case class PartialTransaction(
   /** Close a try context, by catching an exception,
     * i.e. a exception was thrown inside the context, and the catch associated to the try context did handle it.
     */
-  def rollbackTry(ex: SValue.SAny): PartialTransaction =
+  def rollbackTry(ex: SValue.SAny): PartialTransaction = {
+    if (context.minChildVersion < TxVersion.minExceptions) {
+      throw DamlEUnhandledException(ex)
+    }
     context.info match {
       case info: TryContextInfo =>
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        //  in the case of there being no children we can simple drop the entire rollback node.
+        // In the case of there being no children we could drop the entire rollback node.
+        // But we do that in a later normalization phase, not here.
         val rollbackNode = Node.NodeRollback(context.children.toImmArray)
-        if (smallestContainedVersion(rollbackNode) < TxVersion.minExceptions) {
-          throw DamlEUnhandledException(ex)
-        }
         copy(
           context = info.parent.addRollbackChild(info.nodeId, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),
         ).resetActiveState(info.beginState)
       case _ => throw new RuntimeException("rollbackTry called in non-catch context")
     }
-
-  private def smallestContainedVersion(top: Node): TxVersion = {
-    // This is somewhat inefficient. We are retraversing everything under the rollback node. We could instead keep track of the minimum below each subtree as we build up the transaction and avoid retraversing anything.
-    def loop(smallest0: TxVersion, todo: List[Node]): TxVersion = {
-      todo match {
-        case Nil => smallest0
-        case node :: todo =>
-          node match {
-            case Node.NodeRollback(children) =>
-              val more = children.toList.map(nodes(_))
-              loop(smallest0, more ++ todo)
-            case act: Node.LeafOnlyActionNode[_] =>
-              val smallest = smallest0 min act.version
-              loop(smallest, todo)
-            case exe: Node.NodeExercises[_, _] =>
-              val more = exe.children.toList.map(nodes(_))
-              val smallest = smallest0 min exe.version
-              loop(smallest, more ++ todo)
-          }
-      }
-    }
-    val max = TxVersion.VDev
-    loop(max, List(top))
   }
 
   /** Note that the transaction building failed due to an authorization failure */
@@ -724,11 +711,12 @@ private[lf] case class PartialTransaction(
     }
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
-  def insertLeafNode(node: LeafNode): PartialTransaction = {
+  def insertLeafNode(node: LeafNode, version: TxVersion): PartialTransaction = {
+    val _ = version
     val nid = NodeId(nextNodeIdx)
     copy(
       nextNodeIdx = nextNodeIdx + 1,
-      context = context.addActionChild(nid),
+      context = context.addActionChild(nid, version),
       nodes = nodes.updated(nid, node),
     )
   }
