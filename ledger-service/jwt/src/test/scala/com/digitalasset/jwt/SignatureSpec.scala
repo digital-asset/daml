@@ -8,11 +8,15 @@ import java.security.interfaces.{ECPrivateKey, ECPublicKey, RSAPrivateKey, RSAPu
 import java.security.spec.ECGenParameterSpec
 
 import com.auth0.jwt.algorithms.Algorithm
+import org.scalactic.source
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import scalaz.{\/, Show}
 import scalaz.syntax.show._
 
 class SignatureSpec extends AnyWordSpec with Matchers {
+
+  import SignatureSpec._
 
   "Jwt" when {
 
@@ -24,18 +28,13 @@ class SignatureSpec extends AnyWordSpec with Matchers {
         val jwtPayload = """{"dummy":"dummy"}"""
         val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
 
-        val success = for {
-          signedJwt <- JwtSigner.HMAC256
-            .sign(jwt, secret)
-            .leftMap(e => fail(e.shows))
-          verifier <- HMAC256Verifier(secret)
-            .leftMap(e => fail(e.shows))
-          verifiedJwt <- verifier
-            .verify(signedJwt)
-            .leftMap(e => fail(e.shows))
-        } yield verifiedJwt
-
-        success.isRight shouldBe true
+        val signedJwt = JwtSigner.HMAC256
+          .sign(jwt, secret)
+          .assertRight
+        val verifier = HMAC256Verifier(secret).assertRight
+        verifier
+          .verify(signedJwt)
+          .assertRight
       }
 
       "fail with an invalid secret" in {
@@ -44,17 +43,16 @@ class SignatureSpec extends AnyWordSpec with Matchers {
         val jwtPayload = """{"dummy":"dummy"}"""
         val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
 
-        val success = for {
-          signedJwt <- JwtSigner.HMAC256
+        val success = {
+          val signedJwt = JwtSigner.HMAC256
             .sign(jwt, secret)
-            .leftMap(e => fail(e.shows))
-          verifier <- HMAC256Verifier("invalid " + secret)
-            .leftMap(e => fail(e.shows))
-          error <- verifier
+            .assertRight
+          val verifier = HMAC256Verifier("invalid " + secret).assertRight
+          verifier
             .verify(signedJwt)
             .swap
             .leftMap(jwt => fail(s"JWT $jwt was unexpectedly verified"))
-        } yield error
+        }
 
         success.isRight shouldBe true
       }
@@ -73,18 +71,13 @@ class SignatureSpec extends AnyWordSpec with Matchers {
         val jwtPayload = """{"dummy":"dummy"}"""
         val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
 
-        val success = for {
-          signedJwt <- JwtSigner.RSA256
-            .sign(jwt, privateKey)
-            .leftMap(e => fail(e.shows))
-          verifier <- RSA256Verifier(publicKey)
-            .leftMap(e => fail(e.shows))
-          verifiedJwt <- verifier
-            .verify(signedJwt)
-            .leftMap(e => fail(e.shows))
-        } yield verifiedJwt
-
-        success.isRight shouldBe true
+        val signedJwt = JwtSigner.RSA256
+          .sign(jwt, privateKey)
+          .assertRight
+        val verifier = RSA256Verifier(publicKey).assertRight
+        verifier
+          .verify(signedJwt)
+          .assertRight
       }
 
       "fail with an invalid key" in {
@@ -100,19 +93,14 @@ class SignatureSpec extends AnyWordSpec with Matchers {
         val jwtPayload = """{"dummy":"dummy"}"""
         val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
 
-        val success = for {
-          signedJwt <- JwtSigner.RSA256
-            .sign(jwt, privateKey)
-            .leftMap(e => fail(e.shows))
-          verifier <- RSA256Verifier(publicKey)
-            .leftMap(e => fail(e.shows))
-          error <- verifier
-            .verify(signedJwt)
-            .swap
-            .leftMap(jwt => fail(s"JWT $jwt was unexpectedly verified"))
-        } yield error
-
-        success.isRight shouldBe true
+        val signedJwt = JwtSigner.RSA256
+          .sign(jwt, privateKey)
+          .assertRight
+        val verifier = RSA256Verifier(publicKey).assertRight
+        verifier
+          .verify(signedJwt)
+          .swap
+          .leftMap(jwt => fail(s"JWT $jwt was unexpectedly verified"))
       }
     }
 
@@ -129,19 +117,14 @@ class SignatureSpec extends AnyWordSpec with Matchers {
         val jwtHeader = """{"alg": "ES256", "typ": "JWT"}"""
         val jwtPayload = """{"dummy":"dummy"}"""
         val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
-        val success = for {
-          signedJwt <- JwtSigner.ECDSA
-            .sign(jwt, privateKey, Algorithm.ECDSA256(null, _))
-            .leftMap(e => fail(e.shows))
 
-          verifier <- ECDSAVerifier(Algorithm.ECDSA256(publicKey, null))
-            .leftMap(e => fail(e.shows))
-          verifiedJwt <- verifier
-            .verify(signedJwt)
-            .leftMap(e => fail(e.shows))
-        } yield verifiedJwt
-
-        success.isRight shouldBe true
+        val signedJwt = JwtSigner.ECDSA
+          .sign(jwt, privateKey, Algorithm.ECDSA256(null, _))
+          .assertRight
+        val verifier = ECDSAVerifier(Algorithm.ECDSA256(publicKey, null)).assertRight
+        verifier
+          .verify(signedJwt)
+          .assertRight
       }
       "fail with a invalid key" in {
         val kpg = java.security.KeyPairGenerator.getInstance("EC")
@@ -157,17 +140,16 @@ class SignatureSpec extends AnyWordSpec with Matchers {
         val jwtHeader = """{"alg": "ES256", "typ": "JWT"}"""
         val jwtPayload = """{"dummy":"dummy"}"""
         val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
-        val success = for {
-          signedJwt <- JwtSigner.ECDSA
+        val success = {
+          val signedJwt = JwtSigner.ECDSA
             .sign(jwt, privateKey1, Algorithm.ECDSA256(null, _))
-            .leftMap(e => fail(e.shows))
-          verifier <- ECDSAVerifier(Algorithm.ECDSA256(publicKey2, null))
-            .leftMap(e => fail(e.shows))
-          error <- verifier
+            .assertRight
+          val verifier = ECDSAVerifier(Algorithm.ECDSA256(publicKey2, null)).assertRight
+          verifier
             .verify(signedJwt)
             .swap
             .leftMap(jwt => fail(s"JWT $jwt was unexpectedly verified"))
-        } yield error
+        }
 
         success.isRight shouldBe true
       }
@@ -185,19 +167,14 @@ class SignatureSpec extends AnyWordSpec with Matchers {
         val jwtHeader = """{"alg": "ES512", "typ": "JWT"}"""
         val jwtPayload = """{"dummy":"dummy"}"""
         val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
-        val success = for {
-          signedJwt <- JwtSigner.ECDSA
-            .sign(jwt, privateKey, Algorithm.ECDSA512(null, _))
-            .leftMap(e => fail(e.shows))
+        val signedJwt = JwtSigner.ECDSA
+          .sign(jwt, privateKey, Algorithm.ECDSA512(null, _))
+          .assertRight
 
-          verifier <- ECDSAVerifier(Algorithm.ECDSA512(publicKey, null))
-            .leftMap(e => fail(e.shows))
-          verifiedJwt <- verifier
-            .verify(signedJwt)
-            .leftMap(e => fail(e.shows))
-        } yield verifiedJwt
-
-        success.isRight shouldBe true
+        val verifier = ECDSAVerifier(Algorithm.ECDSA512(publicKey, null)).assertRight
+        verifier
+          .verify(signedJwt)
+          .assertRight
       }
       "fail with a invalid key" in {
         val kpg = java.security.KeyPairGenerator.getInstance("EC")
@@ -213,21 +190,29 @@ class SignatureSpec extends AnyWordSpec with Matchers {
         val jwtHeader = """{"alg": "ES512", "typ": "JWT"}"""
         val jwtPayload = """{"dummy":"dummy"}"""
         val jwt = domain.DecodedJwt[String](jwtHeader, jwtPayload)
-        val success = for {
-          signedJwt <- JwtSigner.ECDSA
+        val success = {
+          val signedJwt = JwtSigner.ECDSA
             .sign(jwt, privateKey1, Algorithm.ECDSA512(null, _))
-            .leftMap(e => fail(e.shows))
-          verifier <- ECDSAVerifier(Algorithm.ECDSA512(publicKey2, null))
-            .leftMap(e => fail(e.shows))
-          error <- verifier
+            .assertRight
+          val verifier = ECDSAVerifier(Algorithm.ECDSA512(publicKey2, null)).assertRight
+          verifier
             .verify(signedJwt)
             .swap
             .leftMap(jwt => fail(s"JWT $jwt was unexpectedly verified"))
-        } yield error
+        }
 
         success.isRight shouldBe true
       }
     }
 
   }
+}
+
+object SignatureSpec {
+
+  private implicit final class AssertRight[E, A](private val ea: E \/ A) extends AnyVal {
+    def assertRight(implicit E: Show[E], pos: source.Position) =
+      ea.valueOr(e => org.scalatest.Assertions.fail(e.shows))
+  }
+
 }
