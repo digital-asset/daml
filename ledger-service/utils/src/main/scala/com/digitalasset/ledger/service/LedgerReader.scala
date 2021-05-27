@@ -39,14 +39,14 @@ object LedgerReader {
       diffIds = newPackageIds.filterNot(loadedPackageIds): List[String] // keeping the order
       result <-
         if (diffIds.isEmpty) UpToDate
-        else load(client, diffIds, token)
+        else load[Option[PackageStore]](client, diffIds, token)
     } yield result
 
-  private def load(
+  private def load[PS >: Some[PackageStore]](
       client: PackageClient,
       packageIds: List[String],
       token: Option[String],
-  ): Future[Error \/ Some[PackageStore]] =
+  ): Future[Error \/ PS] =
     packageIds
       .traverse(client.getPackage(_, token))
       .map(createPackageStoreFromArchives)

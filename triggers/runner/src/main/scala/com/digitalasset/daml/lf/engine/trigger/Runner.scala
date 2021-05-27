@@ -269,8 +269,9 @@ class Runner(
       machine.setExpressionToEvaluate(se)
       Machine.stepToValue(machine)
     }
-    @tailrec def go(v: SValue): SValue \/ (SubmitRequest, SValue) = {
-      val resumed = unrollFree(v) match {
+    type Termination = SValue \/ (SubmitRequest, SValue)
+    @tailrec def go(v: SValue): Termination = {
+      val resumed: Termination Either SValue = unrollFree(v) match {
         case Right(Right(vvv @ (variant, vv))) =>
           vvv.match2 {
             case "GetTime" /*(Time -> a)*/ => { case DamlFun(timeA) =>
@@ -283,7 +284,7 @@ class Runner(
                 Left(
                   \/-(
                     (submitRequest, evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))))
-                  )
+                  ): Termination
                 )
             }
             case _ =>
