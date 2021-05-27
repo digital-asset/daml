@@ -126,7 +126,7 @@ def install_java_deps():
             "io.netty:netty-resolver:{}".format(netty_version),
             "io.netty:netty-tcnative-boringssl-static:2.0.36.Final",
             # protobuf
-            "com.google.protobuf:protobuf-java:3.17.0",
+            "com.google.protobuf:protobuf-java:3.17.1",
             #scalapb
             "com.thesamet.scalapb:compilerplugin_{}:{}".format(scala_major_version, scalapb_version),
             "com.thesamet.scalapb:lenses_{}:{}".format(scala_major_version, scalapb_version),
