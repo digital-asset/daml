@@ -38,7 +38,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.concurrent.duration._
 
 class TransactionTimeModelComplianceIT
-  extends AsyncWordSpec
+    extends AsyncWordSpec
     with AkkaBeforeAndAfterAll
     with MultiResourceBase[BackendType, Ledger]
     with SuiteResourceManagementAroundEach
@@ -73,11 +73,11 @@ class TransactionTimeModelComplianceIT
   private[this] val submissionSeed = crypto.Hash.hashPrivateKey(this.getClass.getName)
 
   private[this] def publishConfig(
-    ledger: Ledger,
-    recordTime: Instant,
-    generation: Long,
-    minSkew: JDuration,
-    maxSkew: JDuration,
+      ledger: Ledger,
+      recordTime: Instant,
+      generation: Long,
+      minSkew: JDuration,
+      maxSkew: JDuration,
   ) = {
     val config = Configuration(
       generation = generation,
