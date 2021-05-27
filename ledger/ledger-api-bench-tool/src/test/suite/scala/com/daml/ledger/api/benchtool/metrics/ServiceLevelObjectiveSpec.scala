@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.metrics.Metric.DelayMetric
+import com.daml.ledger.api.benchtool.metrics.{DelayMetric, MaxDelay}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
@@ -17,7 +17,7 @@ class ServiceLevelObjectiveSpec extends AnyWordSpec with Matchers with TableDriv
       val randomValue = Random.nextInt(10000).toLong
       val randomSmaller = randomValue - 1
       val randomLarger = randomValue + 1
-      val maxDelay = DelayMetric.MaxDelay(randomValue)
+      val maxDelay = MaxDelay(randomValue)
       val cases = Table(
         ("Metric value", "Expected violated"),
         (Value(None), false),

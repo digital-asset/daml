@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.metrics.Metric.DelayMetric
+import com.daml.ledger.api.benchtool.metrics.{DelayMetric, MaxDelay}
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -188,7 +188,7 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
           elem4 -> List(recordTime4),
         )
       )
-      val expectedViolatedObjective = DelayMetric.MaxDelay(maxAllowedDelaySeconds)
+      val expectedViolatedObjective = MaxDelay(maxAllowedDelaySeconds)
       val clock = Clock.fixed(testNow, ZoneId.of("UTC"))
       val metric: DelayMetric[String] =
         DelayMetric.empty[String](

@@ -4,7 +4,7 @@
 package com.daml.ledger.api.benchtool.services
 
 import com.daml.ledger.api.benchtool.Config
-import com.daml.ledger.api.benchtool.metrics.ObserverWithResult
+import com.daml.ledger.api.benchtool.util.ObserverWithResult
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.api.v1.transaction_service.{

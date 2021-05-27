@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.metrics.Metric.CountMetric
+import com.daml.ledger.api.benchtool.metrics.CountMetric
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

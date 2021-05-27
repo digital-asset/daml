@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.api.benchtool.metrics
+package com.daml.ledger.api.benchtool.util
 
 import io.grpc.stub.StreamObserver
 import org.slf4j.Logger
