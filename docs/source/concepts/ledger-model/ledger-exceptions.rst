@@ -122,6 +122,84 @@ And the third:
 
 As you can see, in each of these continuities, no contract was consumed twice.
 
+Transaction Normalization
++++++++++++++++++++++++++
+
+The same "before-after" relation can be represented in more than one way using
+rollback nodes. For example, the following three transactions have the same
+"before-after" relation among their ledger actions (A and B):
+
+.. https://lucid.app/lucidchart/3aa5922f-ec30-4896-8bbc-56703549c7e5/edit
+.. image:: ./images/exception-normalization-1.svg
+   :align: center
+   :width: 80%
+
+Because of this, these three transactions are equivalent.
+More generally, two transactions are equivalent if:
+
+- The transactions are the same when you ignore all rollback nodes. That is,
+  if you remove every rollback node and absorb its children into its parent,
+  then two transactions are the same. Equivalently, the transactions have
+  the same ledger actions with the same prefix order and subaction relation.
+
+- The transactions have the same "before-after" relation between their actions.
+
+- The trensactions have the same set of rolled back actions. That is, they have
+  the same set of actions directly or indirectly under a rollback node.
+
+For all three transactions above, the "transaction tree ignoring rollbacks"
+consists of just the top-level actions A and B, the actions A and B are not
+related by the "before-after" relation, and both A and B are rolled back.
+Thus all three transactions are equivalent.
+
+**Transaction normalization** is the process by which equivalent transactions
+are converted into the same transaction. In the case above, all three
+transactions become the transaction in the middle when normalized.
+
+.. https://lucid.app/lucidchart/8a5a09a1-5473-4abf-a72a-57bf03b56794/edit
+.. image:: ./images/exception-normalization-2.svg
+   :align: center
+   :width: 80%
+
+To normalize a transaction, we apply three rules across the whole transaction:
+
+- If a rollback node starts with another rollback node, for instance:
+
+  .. code-block:: none
+
+    'Rollback' [ 'Rollback' tx , node1, ..., nodeN ]
+
+  Then we re-associate the rollback nodes, bringing the inner rollback node out:
+
+  .. code-block:: none
+
+    'Rollback' tx, 'Rollback' [ node1, ..., nodeN ]
+
+  We repeat this step until each rollback does not start with another rollback node.
+
+- If a rollback node ends with another rollback node, for instance:
+
+  .. code-block:: none
+
+    'Rollback' [ node1, ..., nodeN, 'Rollback' [ node1', ..., nodeM' ] ]
+
+  Then we flatten the inner rollback node into its parent:
+
+  .. code-block:: none
+
+    'Rollback' [ node1, ..., nodeN, node1', ..., nodeM' ]
+
+- If a rollback node is empty, we drop it.
+
+In the end, a normalized transaction cannot contain any rollback node that starts
+or ends with another rollback node, nor may it contain any empty rollback nodes.
+The normalization process minimizes the number of rollback nodes and their depth
+needed to represent the transaction.
+
+To reduce the potential for information leaks, the ledger model must only
+contain normalized transactions. This also applies to projected transactions.
+An unnormalized transaction is always invalid.
+
 Authorization
 +++++++++++++
 
@@ -160,102 +238,24 @@ example, we need `p` to be able to verify that a rolled back exercise
 (to which they are an informee) is conformant, but we also need `p` to
 know that the exercise was rolled back.
 
-Before we define projection, we first define the simpler notion of
-**raw projection**. In a raw projection for `p`, we proceed with projection
-for `p` as defined in the previous sections, and when we encounter a rollback
-node we replace it with the projection for `p` of all of its children.
+We adjust the definition of projection as follows:
 
-This would be the notion of projection we would get if we did not want to
-preserve any of the rollback structure. This raw projection preserves the
-"prefix order" relation on the projected actions, but it forgets the
-"before-after" relation on these actions, and it forgets which actions
-were rolled back.
+1. For a ledger action, the projection for `p` is the same as it was before.
+   That is, if `p` is an informee of the action, then the entire subtree is
+   preserved. Otherwise the action is dropped, and the action's consequences
+   are projected for `p`.
 
-If we could preserve the "after" relation, and the set of rolled back
-actions, we would have a suitable notion of projection. This observation
-forms the basis for the definition that follows. Here are our goals for
-defining projection in the presence of rollbacks nodes:
+2. For a rollback node, the projection for `p` consists of the projection
+   for `p` of its children, wrapped up in a new rollback node. In other
+   words, projection happens under the rollback node, but the node is
+   preserved.
 
-1. The projection for `p` should have the same set of ledger actions as the
-   raw projection for `p`. More formally, the projection for `p` should
-   have the same raw projection for `p` as the original transaction.
-
-2. If `act1` and `act2` are actions in the projection for `p`, then
-   `act2` comes after `act1` in the projection for `p` if and only if
-   `act2` comes after `act1` in the original transaction. In other words,
-   the "after" relation, when restricted to actions in the projection
-   for `p`, should be preserved under projection for `p`.
-
-3. If `act` is an action in the projection for `p`, and `act` was rolled
-   back in the original transaction, then `act` is still rolled back
-   in the projection for `p`. In other words, the set of rolled back
-   actions, when restricted to actions in the projection for `p`, should
-   be preserved under projection for `p`. We say an action is "rolled back"
-   if its parent is a rollback node, or its grandparent, or its
-   great-grandparent, etc.
-
-Additionally, we do not want to leak unnecessary information when projecting
-a transaction. For example, there may be many ways to generate the same
-"after" relation and the same set of rolled back nodes when projecting, and
-these different ways could correspond to different transactions that `p` is
-not supposed to know about. To prevent this, we also introduce a privacy
-requirement:
-
-4. If two transactions share the same raw projection for `p`, and the same
-   "after" relation and set of rolled back actions, when restricted to the
-   actions in the raw projection for `p`, then they should have the same
-   projection for `p`. Additionally, the projection for `p` should not have
-   any redundant rollback nodes, it should be minimal.
-
-Having laid out our requirements, we are now ready to define projection!
-Here's the definitien:
-
-Projection for `p` proceeds as defined in the previous sections, but when
-we reach a rollback node, we first project the subtransaction contained
-in the rollback node. Then, we wrap the projected subtransaction in a new
-rollback node, and we try to "normalize" the result. Normalization involves
-the following steps:
-
-- If the projected rollback node starts with another rollback node, for instance:
-
-  .. code-block:: none
-
-    'Rollback' [ 'Rollback' tx , node1, ..., nodeN ]
-
-  Then we re-associate the rollback nodes, bringing the inner rollback node out:
-
-  .. code-block:: none
-
-    'Rollback' tx, 'Rollback' [ node1, ..., nodeN ]
-
-  We repeat this step until the projected rollback does not start with another
-  rollback node.
-
-- If the projected rollback node ends with another rollback node, for instance:
-
-  .. code-block:: none
-
-    'Rollback' [ node1, ..., nodeN, 'Rollback' [ node1', ..., nodeM' ] ]
-
-  Then we flatten the inner rollback node into its parent:
-
-  .. code-block:: none
-
-    'Rollback' [ node1, ..., nodeN, node1', ..., nodeM' ]
-
-- If the projected rollback node is empty, we drop it.
-
-Note that all of these transformations preserve the "before-after" relation among
-actions in the transaction tree, as well as the set of rolled back actions.
-They only affect the structure of the transaction by reducing the amount of
-variation that may occur in a projected rollback node. Thus, our privacy
-requirement is satisfied, as well as our requirements to preserve the
-"after" relation and the set of rolled back actions.
+After applying this process, the transaction must be normalized.
 
 Consider the deeply nested example from before. To calculate the projection
 for Bank1, we note that the only visible action is the bottom left exercise.
 Removing the actions that Bank1 isn't an informee of, this results in a
-transaction containing a rollback node containing a rollback node containing
+transaction containing a rollback node, containing a rollback node, containing
 an exercise. After normalization, this becomes a simple rollback node
 containing an exercise. See below:
 
@@ -309,5 +309,4 @@ Thus the final transaction looks like this:
 Note that rollback nodes are only created if an exception is *caught*. An
 uncaught exception will result in an error, not a transaction.
 
-In addition, empty rollback nodes are not desirable, so if the generated
-rollback node would contain an empty transaction, it is dropped.
+After execution of the Daml code, the generated transaction is normalized.
