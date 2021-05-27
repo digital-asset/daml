@@ -112,11 +112,4 @@ object DelayMetric {
     }
   }
 
-  final case class MaxDelay(maxDelaySeconds: Long) extends ServiceLevelObjective[Value] {
-    override def isViolatedBy(metricValue: Value): Boolean =
-      metricValue.meanDelaySeconds.exists(_ > maxDelaySeconds)
-
-    override def formatted: String =
-      s"max allowed delay: $maxDelaySeconds [s]"
-  }
 }
