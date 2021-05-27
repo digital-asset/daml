@@ -187,7 +187,7 @@ We further assume that the application persists its intended ledger changes and 
 It also maintains a watermark of the changes that have either been applied or rejected and will not be retried and the time when it has advanced the watermark.
 The application keeps track of the in-flight command submissions via their submission IDs, but need not persist them.
 
-#. After starting up, the application submits a dummy command with a fresh command ID and submission ID (e.g., a random UUID), but no submission rank or deduplication period.
+#. After starting up, the application submits a no-op command with a fresh command ID and submission ID (e.g., a random UUID), but no submission rank or deduplication period.
    This should generate a definite-answer completion with a completion offset ``off_start``.
    The application can use the command service for the submission and extract the completion offset from the successful response or the error details of a rejection.   
    If the submission fails without generating a completion offset, the application should repeat this step until it receives such a fresh completion offset.
@@ -212,8 +212,8 @@ The application keeps track of the in-flight command submissions via their submi
    - ``NOT_FOUND`` for the deduplication start:
      The specified deduplication period is too long.
      The application should find a shorter deduplication time that is still safe.
-     Alternatively, the application can resubmit the change ID with a dummy command instead of the intended ledger change;
-     when it receives a definite answer for the dummy and there are no other submissions with a higher submission rank,
+     Alternatively, the application can resubmit the change ID with a no-op command instead of the intended ledger change;
+     when it receives a definite answer for the no-op command submission and there are no other submissions with a higher submission rank,
      it can conclude that the actual ledger change will not be applied.
 
    - ``OUT_OF_RANGE`` for the deduplication start:
@@ -221,8 +221,9 @@ The application keeps track of the in-flight command submissions via their submi
      Resubmit with an earlier deduplication start.
 
    - ``OUT_OF_RANGE`` for the submission rank:
-     This should happen only when the application uses a completion offset obtained from one participant for a submission on another participant.
+     This should happen only when the application uses a completion offset obtained from one participant (instance) for a submission on another participant.
      The application should not mix completion offsets from different participants.
+     If this happens during fail-over from one participant instance to another, the application should retry.
 
    - ``ALREADY_EXISTS`` with reason ``DEDUPLICATION``:
      The error details contain the offset and submission id of the earlier completion.
