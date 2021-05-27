@@ -38,7 +38,7 @@ import org.scalatest.matchers.should.Matchers
 import scala.concurrent.duration._
 
 class TransactionTimeModelComplianceIT
-    extends AsyncWordSpec
+  extends AsyncWordSpec
     with AkkaBeforeAndAfterAll
     with MultiResourceBase[BackendType, Ledger]
     with SuiteResourceManagementAroundEach
@@ -48,7 +48,7 @@ class TransactionTimeModelComplianceIT
     with OptionValues
     with MetricsAround {
 
-  override def timeLimit: Span = scaled(30.seconds)
+  override def timeLimit: Span = scaled(1.minute)
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */
   override protected def fixtureIdsEnabled: Set[BackendType] =
@@ -60,18 +60,24 @@ class TransactionTimeModelComplianceIT
       case BackendType.InMemory =>
         LedgerResource.inMemory(ledgerId, timeProvider)
       case BackendType.Postgres =>
-        LedgerResource.postgres(getClass, ledgerId, timeProvider, metrics)
+        LedgerResource.postgres(
+          getClass,
+          ledgerId,
+          timeProvider,
+          metrics,
+          enableAppendOnlySchema = true,
+        )
     }
   }
 
   private[this] val submissionSeed = crypto.Hash.hashPrivateKey(this.getClass.getName)
 
   private[this] def publishConfig(
-      ledger: Ledger,
-      recordTime: Instant,
-      generation: Long,
-      minSkew: JDuration,
-      maxSkew: JDuration,
+    ledger: Ledger,
+    recordTime: Instant,
+    generation: Long,
+    minSkew: JDuration,
+    maxSkew: JDuration,
   ) = {
     val config = Configuration(
       generation = generation,
