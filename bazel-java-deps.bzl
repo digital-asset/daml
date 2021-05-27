@@ -7,7 +7,16 @@
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
 load("@rules_jvm_external//:specs.bzl", "maven")
-load("@scala_version//:index.bzl", "scala_major_version", "scala_version")
+load(
+    "@scala_version//:index.bzl",
+    "scala_major_version",
+    "scala_version",
+)
+load(
+    "//bazel_tools:scalapb.bzl",
+    "scalapb_protoc_version",
+    "scalapb_version",
+)
 
 version_specific = {
     "2.12": [
@@ -120,13 +129,14 @@ def install_java_deps():
             "io.netty:netty-resolver:{}".format(netty_version),
             "io.netty:netty-tcnative-boringssl-static:2.0.36.Final",
             # protobuf
-            "com.google.protobuf:protobuf-java:3.14.0",
+            "com.google.protobuf:protobuf-java:3.17.1",
             #scalapb
-            "com.thesamet.scalapb:compilerplugin_{}:0.9.0".format(scala_major_version),
-            "com.thesamet.scalapb:lenses_{}:0.9.0".format(scala_major_version),
-            "com.thesamet.scalapb:protoc-bridge_{}:0.7.8".format(scala_major_version),
-            "com.thesamet.scalapb:scalapb-runtime_{}:0.9.0".format(scala_major_version),
-            "com.thesamet.scalapb:scalapb-runtime-grpc_{}:0.9.0".format(scala_major_version),
+            "com.thesamet.scalapb:compilerplugin_{}:{}".format(scala_major_version, scalapb_version),
+            "com.thesamet.scalapb:lenses_{}:{}".format(scala_major_version, scalapb_version),
+            "com.thesamet.scalapb:protoc-bridge_{}:{}".format(scala_major_version, scalapb_protoc_version),
+            "com.thesamet.scalapb:protoc-gen_{}:{}".format(scala_major_version, scalapb_protoc_version),
+            "com.thesamet.scalapb:scalapb-runtime_{}:{}".format(scala_major_version, scalapb_version),
+            "com.thesamet.scalapb:scalapb-runtime-grpc_{}:{}".format(scala_major_version, scalapb_version),
             # ---- end of grpc-protobuf-netty block
             "io.reactivex.rxjava2:rxjava:2.2.1",
             "io.spray:spray-json_{}:1.3.5".format(scala_major_version),
