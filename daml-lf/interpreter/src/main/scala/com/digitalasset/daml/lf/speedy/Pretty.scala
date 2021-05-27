@@ -61,7 +61,7 @@ private[lf] object Pretty {
     ex match {
       case DamlEFailedAuthorization(nid, fa) =>
         text(prettyFailedAuthorization(nid, fa))
-      case DamlEUnhandledException(SAnyException(_, value)) =>
+      case DamlEUnhandledException(SAny(_, value)) =>
         text(s"Unhandled exception:") & prettyValue(true)(value.toValue)
       case DamlEUserError(message) =>
         text(s"User abort: $message")

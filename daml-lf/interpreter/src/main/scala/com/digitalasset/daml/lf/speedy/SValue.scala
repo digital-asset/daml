@@ -68,8 +68,6 @@ sealed trait SValue {
         throw SErrorCrash("SValue.toValue: unexpected SAny")
       case SBigNumeric(_) =>
         throw SErrorCrash("SValue.toValue: unexpected SBigNumeric")
-      case SAnyException(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SAnyException")
       case STypeRep(_) =>
         throw SErrorCrash("SValue.toValue: unexpected STypeRep")
       case STNat(_) =>
@@ -109,8 +107,6 @@ sealed trait SValue {
         )
       case SAny(ty, value) =>
         SAny(ty, value.mapContractId(f))
-      case SAnyException(ty, value) =>
-        SAnyException(ty, value.mapContractId(f))
     }
 }
 
@@ -202,8 +198,20 @@ object SValue {
       SMap(isTextMap: Boolean, entries.iterator)
   }
 
+  // represents Any And AnyException
   final case class SAny(ty: Type, value: SValue) extends SValue
-  final case class SAnyException(ty: Type, value: SValue) extends SValue
+
+  object SAnyException {
+    def apply(tyCon: Ref.TypeConName, value: SRecord): SAny = SAny(TTyCon(tyCon), value)
+
+    def unapply(any: SAny): Option[SRecord] =
+      any match {
+        case SAny(TTyCon(tyCon0), record @ SRecord(tyCon1, _, _)) if tyCon0 == tyCon1 =>
+          Some(record)
+        case _ =>
+          None
+      }
+  }
 
   object SArithmeticError {
     // The package ID should match the ID of the stable package daml-prim-DA-Exception-ArithmeticError
@@ -213,20 +221,18 @@ object SValue {
     )
     val typ: Type = TTyCon(tyCon)
     val fields: ImmArray[Ref.Name] = ImmArray(Ref.Name.assertFromString("message"))
-    def apply(builtinName: String, args: ImmArray[String]): SAnyException = {
+    def apply(builtinName: String, args: ImmArray[String]): SAny = {
       val array = new util.ArrayList[SValue](1)
       array.add(
         SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
       )
-      SAnyException(typ, SRecord(tyCon, fields, array))
+      SAny(typ, SRecord(tyCon, fields, array))
     }
     // Assumes excep is properly typed
-    def unapply(excep: SAnyException): Option[SValue] =
+    def unapply(excep: SAny): Option[SValue] =
       excep match {
-        case SAnyException(`typ`, SRecord(_, _, args)) =>
-          Some(args.get(0))
-        case _ =>
-          None
+        case SAnyException(SRecord(`tyCon`, _, args)) => Some(args.get(0))
+        case _ => None
       }
   }
 

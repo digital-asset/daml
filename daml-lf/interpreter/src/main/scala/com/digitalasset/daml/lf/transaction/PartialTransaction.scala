@@ -21,6 +21,7 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value
 
 import scala.collection.immutable.HashMap
+import scala.Ordering.Implicits.infixOrderingOps
 
 private[lf] object PartialTransaction {
 
@@ -649,10 +650,7 @@ private[lf] case class PartialTransaction(
   /** Close a try context, by catching an exception,
     * i.e. a exception was thrown inside the context, and the catch associated to the try context did handle it.
     */
-  def rollbackTry(
-      ex: SValue.SAnyException
-  ): PartialTransaction = {
-    import scala.Ordering.Implicits.infixOrderingOps
+  def rollbackTry(ex: SValue.SAny): PartialTransaction =
     context.info match {
       case info: TryContextInfo =>
         // TODO https://github.com/digital-asset/daml/issues/8020
@@ -667,11 +665,9 @@ private[lf] case class PartialTransaction(
         ).resetActiveState(info.beginState)
       case _ => throw new RuntimeException("rollbackTry called in non-catch context")
     }
-  }
 
   private def smallestContainedVersion(top: Node): TxVersion = {
     // This is somewhat inefficient. We are retraversing everything under the rollback node. We could instead keep track of the minimum below each subtree as we build up the transaction and avoid retraversing anything.
-    import scala.Ordering.Implicits.infixOrderingOps
     def loop(smallest0: TxVersion, todo: List[Node]): TxVersion = {
       todo match {
         case Nil => smallest0
