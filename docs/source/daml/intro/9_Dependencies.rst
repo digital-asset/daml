@@ -1,7 +1,7 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-8 Working with Dependencies
+9 Working with Dependencies
 ===========================
 
 The application from Chapter 7 is a complete and secure model for atomic swaps of assets, but there is plenty of room for improvement. However, one can't implement all feature before going live with an application so it's important to understand way to change already running code. There are fundamentally two types of change one may want to make:
@@ -18,7 +18,7 @@ Upgrades are covered in their own section outside this introduction to Daml: :do
 Since we are extending chapter 7, the setup for this chapter is slightly more complex:
 
 #. In a base directory, load the chapter 7 project using ``daml new 7Composing --template daml-intro-7``. The directory ``7Composing`` here is important as it'll be referenced by the other project we are creating.
-#. In the same directory, load the chapter 8 project using ``daml new 8Dependencies --template daml-intro-8``.
+#. In the same directory, load the chapter 8 project using ``daml new 9Dependencies --template daml-intro-9``.
 
 ``8Dependencies`` contains a new module ``Intro.Asset.MultiTrade`` and a corresponding test module ``Test.Intro.Asset.MultiTrade``.
 
@@ -69,7 +69,7 @@ However, as you can see above, this information isn't preserved. Furthermore, pr
 
 For an extension model like this one, ``data-dependencies`` are appropriate so the chapter 8 project includes the chapter 7 that way.
 
-.. literalinclude:: daml/daml-intro-8/daml.yaml.template
+.. literalinclude:: daml/daml-intro-9/daml.yaml.template
   :language: yaml
   :start-after:   - daml-stdlib
   :end-before: sandbox-options:
@@ -88,4 +88,4 @@ Similarly, we included ``Trade`` in the same project as ``Asset`` in chapter 7, 
 Next up
 -------
 
-The ``MultiTrade`` model has more complex control flow and data handling than previous models. In :doc:`9_Functional101` you'll learn how to write more advanced logic: control flow, folds, common typeclasses, custom functions, and the Standard Library. We'll be using the same projects so don't delete your chapter 7 and 8 folders just yet.
+The ``MultiTrade`` model has more complex control flow and data handling than previous models. In :doc:`10_Functional101` you'll learn how to write more advanced logic: control flow, folds, common typeclasses, custom functions, and the Standard Library. We'll be using the same projects so don't delete your chapter 7 and 8 folders just yet.
