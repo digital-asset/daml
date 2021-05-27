@@ -302,4 +302,4 @@ This is because the ``create`` action of these contracts are in the transitive c
 Next up
 -------
 
-The model presented here is safe and sound so we could deploy it to production and start trading. But the journey doesn't stop there. In :doc:`9_Dependencies` you will learn how to extend an already running application to enhance it with new features. In that context you'll learn a bit more about the architecture of Daml, about dependencies, and identifiers.
+In :doc:`8_Exceptions`, we will learn about how errors in your model can be handled in Daml.

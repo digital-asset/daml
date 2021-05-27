@@ -528,7 +528,10 @@ daml_test(
     name = "daml-intro-daml-test",
     srcs = glob(
         ["source/daml/intro/daml/**/*.daml"],
-        exclude = ["source/daml/intro/daml/daml-intro-9/**"],
+        exclude = [
+            "source/daml/intro/daml/daml-intro-8/**",
+            "source/daml/intro/daml/daml-intro-9/**",
+        ],
     ),
     deps = ["//daml-script/daml:daml-script.dar"],
 )
@@ -538,6 +541,13 @@ daml_test(
     srcs = glob(["source/daml/intro/daml/daml-intro-9/**/*.daml"]),
     data_deps = [":daml-intro-7.dar"],
     deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_test(
+    name = "daml-intro-8-daml-test",
+    srcs = glob(["source/daml/intro/daml/daml-intro-8/**/*.daml"]),
+    target = "1.dev",
+    deps = ["//daml-script/daml:daml-script-1.dev.dar"],
 )
 
 daml_build_test(
