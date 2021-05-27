@@ -45,6 +45,14 @@ powerTest = scenario do
   let
     sqrt2 = 1.4142135623 : Decimal
   assert(abs(sqrt2 - 2.0 ** 0.5) <= 0.0000000001)
+  assert(abs(0 ** 0) == 1.0)
+  assert(abs(42 ** 0) == 1.0)
+
+sqrtTest = scenario do
+  let
+    sqrt2 = 1.4142135623 : Decimal
+  assert(abs(sqrt2 - sqrt(2.0)) <= 0.0000000001)
+  assert(sqrt(0.0) == 0.0)
 
 trigTest = scenario do
   let

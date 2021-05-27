@@ -25,7 +25,9 @@ infixr 8 **
 
 -- | Take a power of a number Example: `2.0 ** 3.0 == 8.0`.
 (**) : Decimal -> Decimal -> Decimal
-x ** y = exp (y * log x)
+x ** y
+  | y == 0.0 = 1.0
+  | otherwise = exp (y * log x)
 
 -- | Calculate the square root of a Decimal.
 --
