@@ -133,22 +133,132 @@ Command deduplication
 
 The interaction of a Daml application with the ledger is inherently asynchronous: applications send commands to the ledger, and some time later they see the effect of that command on the ledger.
 
-There are several things that can fail during this time window: the application can crash, the participant node can crash, messages can be lost on the network, or the ledger may be just slow to respond due to a high load.
+There are several things that can fail during this time window: the application can crash, the participant node can crash, messages can be lost on the network, messages can overtake each other, or the ledger may be just slow to respond due to a high load.
 
-If you want to make sure that a command is not executed twice, your application needs to robustly handle all the various failure scenarios.
-Daml ledgers provide a mechanism for :ref:`command deduplication <command-submission-service-deduplication>` to help deal with this problem.
+If you want to make sure that a command is applied to the ledger at most, your application needs to robustly handle all the failure scenarios.
+Daml ledgers provide a mechanism for :ref:`command deduplication and submission ranking <command-submission-service-deduplication>` to help deal with this problem.
 
-For each command application provide a command ID and an optional parameter that specifies the deduplication time. If the latter parameter is not specified in the command submission itself, the ledger will fall back to using the configured maximum deduplication time.
-The ledger will then guarantee that commands for the same submitting party and command ID will be ignored within the deduplication time window.
+An application can provide for each command the following parameters:
 
-To use command deduplication, you should:
+- A :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`.
+  The command ID, the application ID, and the set of submitting parties together form the change ID,
+  which uniquely identifies the intended ledger change.
+- An optional :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>` to uniquely identify the submission among all (re)submissions with the same change ID.
+- An optional :ref:`submission rank <com.daml.ledger.api.v1.Commands.submission_rank>` to rank the submissions with the same change ID.
+- An optional :ref:`deduplication period <com.daml.ledger.api.v1.Commands.deduplication>` during which command submissions with the same change ID are deduplicated.
 
-- Use generous values for the deduplication time. It should be large enough such that you can assume the command was permanently lost if the deduplication time has passed and you still don’t observe any effect of the command on the ledger (i.e. you don't see a transaction with the command ID via the :ref:`transaction service <transaction-service>`).
-- Make sure you set command IDs deterministically, that is to say: the "same" command must use the same command ID. This is useful for the recovery procedure after an application crash/restart, in which the application inspects the state of the ledger (e.g. via the :ref:`Active contracts service <active-contract-service>`) and sends commands to the ledger. When using deterministic command IDs, any commands that had been sent before the application restart will be discarded by the ledger to avoid duplicate submissions.
-- If you are not sure whether a command was submitted successfully, just resubmit it. If the new command was submitted within the deduplication time window, the duplicate submission will safely be ignored. If the deduplication time window has passed, you can assume the command was lost or rejected and a new submission is justified.
+The change ID, submission ID, and the submission rank are included in the completion event to correlate the event to the command submission.
+Their guarantees are described in the :ref:`Ledger API Services <command-submission-service-deduplication>` section.
+We now look at how applications should set these parameters in different scenarios.
 
 
-For more details on command deduplication, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
+No deduplication needed
+=======================
+
+Some applications do not need command deduplication, say because the Daml models already prevent duplication.
+
+* Set a fresh command ID for each submission, e.g., a random UUID.
+* Omit the submission ID, submission rank, and deduplication period.
+  The participant or ledger sets them at their discretion.
+  Under unlucky circumstances, such a submission may result in a ``NOT_FOUND`` or ``OUT_OF_RANGE`` error due to inappropriate choices for the submission rank and deduplication period.
+  If so, the application should resubmit the command.
+
+If the application receives a ``DEADLINE_EXCEEDED`` response or no response at all, then it must not make any assumptions about the command being applied or not until a completion event for the change ID appears on the completion stream.
+Yet, if the submission is actually lost, no such completion event will ever appear.
+To obtain finality, the application may resubmit the command and rely on its own mechanisms (e.g. in the Daml model) to avoid prevent duplication.
+
+
+Bounded network delays and clock skews
+======================================
+
+In this scenario, the application wants to have its intended ledger changes applied at most once and it wants finality about whether they were applied.
+We assume bounds on the following:
+
+* The clock skews between application, participant and ledger.
+  
+* The message delay on the network from the application to the participant and the latency for processing a submission.
+
+* The downtime or failover time of the application system, the particpant, and the ledger.
+
+Commands may be duplicated and finality violated if the actual skews and delays exceed the bounds.
+Finality may not be acheiveable if unhealthy conditions persist for longer than the :ref:`max deduplication time <com.daml.ledger.api.v1.LedgerConfiguration.max_deduplication_time>`.
+
+We further assume that the application persists its intended ledger changes and whether it has decided to not retry a change.
+It also maintains a watermark of the changes that have either been applied or rejected and will not be retried and the time when it has advanced the watermark.
+The application keeps track of the in-flight command submissions via their submission IDs, but need not persist them.
+
+#. After starting up, the application submits a dummy command with a fresh command ID and submission ID (e.g., a random UUID), but no submission rank or deduplication period.
+   This should generate a definite-answer completion with a completion offset ``off_start``.
+   The application can use the command service for the submission and extract the completion offset from the successful response or the error details of a rejection.   
+   If the submission fails without generating a completion offset, the application should repeat this step until it receives such a fresh completion offset.
+
+#. All subsequent command submission should use a submission rank that is between ``off_start`` and the current completion end.
+   To that end, we assume that the application maintains a running completion offset ``off_running``.
+   It is initialized to ``off_start`` and need not be persisted.
+   Whenever the application observes a completion offset on the completion stream or as part of an RPC response from the command service,
+   it advances ``off_running`` to the observed offset.
+
+#. Starting above the watermark, the application (re)submits the persisted changes and new incoming changes.
+   
+   - The command ID is derived deterministically from the intended change, e.g., using a hash function.
+   - A fresh submission ID is set (e.g., a random UUID).
+     Each resubmission should use a fresh submission ID.
+   - The submission rank is set to ``off_running``.
+   - The deduplication period should start before the first time that the application might have submitted the command.
+     This can be approximated by the watermark's time minus the processing latency, clock skews, and message delays.
+   
+   The following errors around command deduplication should be dealt with (see ``error.proto`` for details on the errors):
+
+   - ``NOT_FOUND`` for the deduplication start:
+     The specified deduplication period is too long.
+     The application should find a shorter deduplication time that is still safe.
+     Alternatively, the application can resubmit the change ID with a dummy command instead of the intended ledger change;
+     when it receives a definite answer for the dummy and there are no other submissions with a higher submission rank,
+     it can conclude that the actual ledger change will not be applied.
+
+   - ``OUT_OF_RANGE`` for the deduplication start:
+     The deduplication start lies in the future.
+     Resubmit with an earlier deduplication start.
+
+   - ``OUT_OF_RANGE`` for the submission rank:
+     This should happen only when the application uses a completion offset obtained from one participant for a submission on another participant.
+     The application should not mix completion offsets from different participants.
+
+   - ``ALREADY_EXISTS`` with reason ``DEDUPLICATION``:
+     The error details contain the offset and submission id of the earlier completion.
+     There is no need to retry as the reaction to the earlier submission should have dealt with the intended ledger change.
+
+   - ``ABORTED`` with reason ``ALREADY_IN_FLIGHT``:
+     There is already another submission with the same change ID in flight, whose submission ID can be found in the error details.
+     If no completion event appears for the other submission in a while, the application should retry the current submission,
+     as the in-flight submission might have led to a rejection RPC response that got lost.
+
+   - ``FAILED_PRECONDITION`` with reason ``RANK_TOO_LOW``:
+     There is another command submission for the same change ID with a higher submission rank, whose submission ID and rank can be found in the error details.
+     Resubmit with a fresh submission ID and a higher submission rank.
+   
+   When the submission results in a rejected completion that is not marked as a definite answer,
+   the application should analyse the cause of the error. To obtain finality, it should adjust the command submission if necessary and resubmit
+   until it receives a definite answer.
+
+   When the application receives a definite-answer rejection, and there are no in-flight submissions with a higher submission rank for the change ID,
+   it can decide whether it wants to resubmit the change. If not, the application can conclude that the change will not be applied to the ledger and
+   check whether the watermark can be increased.
+
+   When the application receives an accepting completion, it should check whether the watermark can be increased.
+
+
+The asynchronous case
+=====================
+
+This scenario differs from the previous one in that no bound on message delays, processing latencies, and clock skews need to be known.
+So the choice of the deduplication start changes; the rest stays the same.
+
+We assume that the application has a local clock.
+When it observes a completion offset for the first time, it persistently associates the offset with the clock's time.
+So observation times increase with the offsets.
+The application also persists with every intended ledger changes when it has persisted them.
+Then, the deduplication offset is chosen such that the time associated with the offset is before the time associated with the intended ledger change.
 
 
 .. _failing-over-between-ledger-api-endpoints:

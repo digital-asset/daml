@@ -3,6 +3,7 @@
 
 .. _ledger-api-services:
    
+
 The Ledger API services
 #######################
 
@@ -56,10 +57,14 @@ A call to the command submission service will return as soon as the ledger serve
 
 The on-ledger effect of the command execution will be reported via the `transaction service <#transaction-service>`__, described below. The completion status of the command is reported via the `command completion service <#command-completion-service>`__. Your application should receive completions, correlate them with command submission, and handle errors and failed commands. Alternatively, you can use the `command service <#command-service>`__, which conveniently wraps the command submission and completion services.
 
-Commands can be labeled with two application-specific IDs, both of which are returned in completion events:
+Commands can be labeled with three application-specific IDs, which are all returned in completion events:
 
-- A :ref:`commandId <com.daml.ledger.api.v1.Commands.command_id>`, returned to the submitting application only. It is generally used to implement this correlation between commands and completions. 
-- A :ref:`workflowId <com.daml.ledger.api.v1.Commands.workflow_id>`, returned as part of the resulting transaction to all applications receiving it. It can be used to track workflows between parties, consisting of several transactions.
+- A :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>`, returned to the submitting application only.
+  It is generally used to implement the correlation between individual command submissions and their completions.
+- A :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`, returned to the submitting application only.
+  :ref:`Command deduplication <command-submission-service-deduplication>` uses the command ID to identify resubmissions of intended ledger changes.
+- A :ref:`workflow ID <com.daml.ledger.api.v1.Commands.workflow_id>`, returned as part of the resulting transaction to all applications receiving it. It can be used to track workflows between parties, consisting of several transactions.
+
 
 For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandSubmissionService>`.
 
@@ -68,20 +73,64 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 Command deduplication
 ---------------------
 
-The command submission service deduplicates submitted commands based on the submitting :ref:`party <com.daml.ledger.api.v1.Commands.party>` and :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`:
+The command submission service deduplicates command submissions based on the change ID.
+The change ID consists of the following:
 
-- Applications can provide a :ref:`deduplication time <com.daml.ledger.api.v1.Commands.deduplication_time>` for each command. If this parameter is not set, the default maximum deduplication time is used.
-- A command submission is considered a duplicate submission if the ledger server receives the command within the deduplication time of a previous command with the same command ID from the same submitting party.
-- Duplicate command submissions will be ignored until either the deduplication time of the original command has elapsed or the original submission was rejected (i.e. the command failed and resulted in a rejected transaction), whichever comes first.
-- Command deduplication is only *guaranteed* to work if all commands are submitted to the same participant. Ledgers are free to perform additional command deduplication across participants. Consult the respective ledger's manual for more details.
-- A command submission will return:
+* The :ref:`application ID <com.daml.ledger.api.v1.Commands.application_id>`
+* The :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`
+* The set of submitting parties, i.e., the union of :ref:`party <com.daml.ledger.api.v1.Commands.party>` and :ref:`actAs <com.daml.ledger.api.v1.Commands.actAs>`
 
-  - The result of the submission (``Empty`` or a gRPC error), if the command was submitted outside of the deduplication time of a previous command with the same command ID on the same participant.
-  - The status error ``ALREADY_EXISTS``, if the command was discarded by the ledger server because it was sent within the deduplication time of a previous command with the same command ID.
+Command deduplication obeys the following rules:
 
-- If the ledger provides additional command deduplication across participants, the initial command submission might be successful, but ultimately the command can be rejected if the deduplication check fails on the ledger.
+#. Applications can specify the start of the :ref:`deduplication period <com.daml.ledger.api.v1.Commands.deduplication>` for each command submission.
+   If this parameter is not set, the participant chooses the start at its discretion.
+   
+#. **Deduplication guarantee:**
+   A command submission is considered a duplicate submission if another command with the same change ID is already in flight or there is an accepting command completion since the start of the deduplication period with the same change ID.
+   Ledgers are free to extend the deduplication period beyond the start of the deduplication period.
+   Commands with rejected completions do not trigger deduplication.
 
-For details on how to use command deduplication, see the :ref:`Application Architecture Guide <command-deduplication>`.
+#. A duplicate command submission leads to an error as an RPC response or in a completion with the status codes ``ABORTED`` for in-flight conflicts and ``ALREADY_EXISTS`` for already accepted commands.
+   The error details contain information about the conflicting command submission.
+
+#. The deduplication rules are bound to the completions on the participant to which the commands are submitted.
+   If a command submission leads to a completion, then the participant to which the command was submitted will output the completion for the submitting parties.
+   So deduplication is guaranteed to work as expected if all commands are submitted to the same participant.
+   Some ledgers output completions also on other participants; commands are then deduplicated across all such participants.
+   Consult the respective ledger's manual for more details.
+
+#. The participant or ledger rejects a command submission with ``OUT_OF_RANGE`` or ``NOT_FOUND`` if the deduplication start is too old or in the future, respectively.
+
+Rejected completions do not trigger deduplication so that applications can resubmit their ledger change with the same change ID.
+Yet, command submissions may arrive or be processed out of order.
+So when a command resubmission is rejected for some reason unrelated to command deduplication, an earlier submission may still be on the way.
+When this earlier submission is processed later, deduplication does not apply and the earlier command submission may be accepted afterwards.
+So when the application receives the rejected completion for the later submission,
+it must not conclude that the earlier submission was lost or will be rejected too.
+
+To enable such conclusions, applications can rank their submissions with the same change ID.
+Submission ranking obeys the following rules:
+
+#. Applications can specify the :ref:`submission rank <com.daml.ledger.api.v1.Commands.submission_rank>` for each command submission.
+   Submission ranks are ledger offsets of the completion stream.
+   If this parameter is omitted, the participant chooses the end of the completion stream when it processes the submission.
+   The completion event for the command submission contains the :ref:`submission rank <com.daml.ledger.api.v1.Completion.submission_rank>`.
+
+#. Completions on the completion stream can be marked as a **definite answer**:
+   - An accepting completion is always definite answers.
+   - A rejecting completion is a definite answer if the error details contain the metadata key ``definite_answer`` with value ``true``.
+
+#. **Rank guarantee**:
+   If the completion stream contains a definite answer with submission rank ``off`` for a given change ID,
+   then there will not be a later completion for the same change ID whose submission rank is less than or equal to ``off``.
+
+#. When the application receives a definite-answer rejection,
+   it knows that all submissions for the same change ID with lower rank will not be accepted either.
+   So if it knows that there are no submissions for the same change ID with higher rank in flight,
+   it can decide to not resubmit the commands and conclude that the change will never be applied to the ledger with this ID.
+
+
+For details on how to use command deduplication and submission ranking, see the :ref:`Application Architecture Guide <command-deduplication>`.
 
 .. _command-completion-service:
 
@@ -209,7 +258,7 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 .. _version-service:
 
 Version service
-============================
+===============
 
 Use the **version service** to retrieve information about the Ledger API version.
 
@@ -218,7 +267,7 @@ For full details, see :ref:`the proto documentation for the service <com.daml.le
 .. _ledger-api-testing-services:
 
 Pruning service
-============================
+===============
 
 Use the **pruning service** to prune archived contracts and transactions before or at a given offset.
 
