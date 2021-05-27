@@ -23,15 +23,16 @@ import com.daml.ledger.api.validation.CommandsValidator
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.CommandClientConfiguration
 import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.util.Ctx
 import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import org.slf4j.{Logger, LoggerFactory}
+import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Try
-import scalaz.syntax.tag._
 
 /** Enables easy access to command services and high level operations on top of them.
   *
@@ -57,16 +58,20 @@ final class CommandClient(
       submitRequest: SubmitRequest,
       token: Option[String] = None,
   ): Future[Empty] =
-    submit(token)(submitRequest)
+    submit(token)(submitRequest)(NoOpTelemetryContext)
 
-  private def submit(token: Option[String])(submitRequest: SubmitRequest): Future[Empty] = {
+  private def submit(
+      token: Option[String]
+  )(submitRequest: SubmitRequest)(implicit telemetryContext: TelemetryContext): Future[Empty] = {
     logger.debug(
       "Invoking grpc-submission on commandId={}",
       submitRequest.commands.map(_.commandId).getOrElse("no-command-id"),
     )
-    LedgerClient
-      .stub(commandSubmissionService, token)
-      .submit(submitRequest)
+    telemetryContext.runInOpenTelemetryScope {
+      LedgerClient
+        .stub(commandSubmissionService, token)
+        .submit(submitRequest)
+    }
   }
 
   /** Submits and tracks a single command. High frequency usage is discouraged as it causes a dedicated completion
@@ -76,6 +81,7 @@ final class CommandClient(
       mat: Materializer
   ): Future[Completion] = {
     implicit val executionContext: ExecutionContextExecutor = mat.executionContext
+    implicit val telemetryContext: NoOpTelemetryContext.type = NoOpTelemetryContext
     val effectiveActAs = CommandsValidator.effectiveSubmitters(submitRequest.getCommands).actAs
     for {
       tracker <- trackCommandsUnbounded[Unit](effectiveActAs.toList, token)
@@ -97,6 +103,7 @@ final class CommandClient(
   ): Future[
     Flow[Ctx[Context, SubmitRequest], Ctx[Context, Completion], Materialized[NotUsed, Context]]
   ] = {
+    implicit val telemetryContext: NoOpTelemetryContext.type = NoOpTelemetryContext
     for {
       tracker <- trackCommandsUnbounded[Context](parties, token)
     } yield {
@@ -113,7 +120,8 @@ final class CommandClient(
     * @param parties Commands that have a submitting party which is not part of this collection will fail the stream.
     */
   def trackCommandsUnbounded[Context](parties: Seq[String], token: Option[String] = None)(implicit
-      ec: ExecutionContext
+      ec: ExecutionContext,
+      telemetryContext: TelemetryContext,
   ): Future[
     Flow[Ctx[Context, SubmitRequest], Ctx[Context, Completion], Materialized[NotUsed, Context]]
   ] =
@@ -124,7 +132,10 @@ final class CommandClient(
         .via(commandUpdaterFlow[Context])
         .viaMat(
           CommandTrackerFlow[Context, NotUsed](
-            CommandSubmissionFlow[(Context, String)](submit(token), config.maxParallelSubmissions),
+            CommandSubmissionFlow[(Context, String)](
+              submit(token),
+              config.maxParallelSubmissions,
+            ),
             offset => completionSource(parties, offset, token),
             ledgerEnd.getOffset,
             () => config.defaultDeduplicationTime,
@@ -186,6 +197,7 @@ final class CommandClient(
   def submissionFlow[Context](
       token: Option[String] = None
   ): Flow[Ctx[Context, SubmitRequest], Ctx[Context, Try[Empty]], NotUsed] = {
+    implicit val telemetryContext: NoOpTelemetryContext.type = NoOpTelemetryContext
     Flow[Ctx[Context, SubmitRequest]]
       .via(commandUpdaterFlow)
       .via(CommandSubmissionFlow[Context](submit(token), config.maxParallelSubmissions))
