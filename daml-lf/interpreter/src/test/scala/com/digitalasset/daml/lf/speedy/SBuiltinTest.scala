@@ -1491,17 +1491,14 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       eval(
         e"""ANY_EXCEPTION_MESSAGE (to_any_exception @Mod:Exception (Mod:Exception {}))"""
       ) shouldBe Right(SText("some nice error message"))
-      // FIXME: should be
-      //    e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-':Mod:Exception {}))"""
-      //   but the parser seems buggy.
       eval(
-        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception (Mod:Exception {}))"""
+        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-':Mod:Exception {}))"""
       ) shouldBe Left(SErrorCrash(s"need package '-unknown-package-'"))
     }
 
     s"should not request package for ArithmeticError" in {
       eval(
-        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981':DA.Exception.ArithmeticError:ArithmeticError (DA.Exception.ArithmeticError:ArithmeticError { message = "Arithmetic error" }))"""
+        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981':DA.Exception.ArithmeticError:ArithmeticError ('f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981':DA.Exception.ArithmeticError:ArithmeticError { message = "Arithmetic error" }))"""
       ) shouldBe Right(SText("Arithmetic error"))
     }
 

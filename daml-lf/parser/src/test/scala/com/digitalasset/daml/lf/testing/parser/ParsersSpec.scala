@@ -247,17 +247,29 @@ class ParsersSpec extends AnyWordSpec with ScalaCheckPropertyChecks with Matcher
           x,
         "Mod:v" ->
           v,
+        "'-pkgId-':Mod:v" ->
+          v,
         "Mod:R {}" ->
           ERecCon(TypeConApp(R.tycon, ImmArray.empty), ImmArray.empty),
         "Mod:R @Int64 @Bool {f1 = 1, f2 = False}" ->
           ERecCon(RIntBool, ImmArray(n"f1" -> e"1", n"f2" -> e"False")),
+        "'-pkgId-':Mod:R @Int64 @Bool {f1 = 1, f2 = False}" ->
+          ERecCon(RIntBool, ImmArray(n"f1" -> e"1", n"f2" -> e"False")),
         "Mod:R @Int64 @Bool {f1} x" ->
+          ERecProj(RIntBool, n"f1", e"x"),
+        "'-pkgId-':Mod:R @Int64 @Bool {f1} x" ->
           ERecProj(RIntBool, n"f1", e"x"),
         "Mod:R @Int64 @Bool {x with f1 = 1}" ->
           ERecUpd(RIntBool, n"f1", e"x", e"1"),
+        "'-pkgId-':Mod:R @Int64 @Bool {x with f1 = 1}" ->
+          ERecUpd(RIntBool, n"f1", e"x", e"1"),
         "Mod:R:V @Int64 @Bool 1" ->
           EVariantCon(RIntBool, n"V", e"1"),
+        "'-pkgId-':Mod:R:V @Int64 @Bool 1" ->
+          EVariantCon(RIntBool, n"V", e"1"),
         "Mod:R:C" ->
+          EEnumCon(R.tycon, n"C"),
+        "'-pkgId-':Mod:R:C" ->
           EEnumCon(R.tycon, n"C"),
         "< f1 =2, f2=False >" ->
           EStructCon(ImmArray(n"f1" -> e"2", n"f2" -> e"False")),
