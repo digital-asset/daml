@@ -95,6 +95,7 @@ private[sandbox] object LedgerResource {
           engine = new Engine(),
           enableAppendOnlySchema = enableAppendOnlySchema,
         )
-      } yield ledger
+      } yield ledger,
+      acquisitionTimeout = 1.minute,
     )
 }

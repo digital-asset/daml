@@ -48,7 +48,7 @@ class TransactionTimeModelComplianceIT
     with OptionValues
     with MetricsAround {
 
-  override def timeLimit: Span = scaled(60.seconds)
+  override def timeLimit: Span = scaled(1.minute)
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */
   override protected def fixtureIdsEnabled: Set[BackendType] =
