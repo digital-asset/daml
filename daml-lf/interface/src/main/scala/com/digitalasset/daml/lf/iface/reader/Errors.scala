@@ -156,11 +156,4 @@ object Errors {
       )
       .suml
   }
-
-  private[this] implicit final class `scalaz ==>> future`[A, B](private val self: A ==>> B)
-      extends AnyVal {
-    // added (more efficiently) in scalaz 7.3
-    def foldMapWithKey[C: Monoid](f: (A, B) => C): C =
-      self.foldlWithKey(mzero[C])((c, a, b) => c |+| f(a, b))
-  }
 }
