@@ -38,8 +38,8 @@ service CommandService {
 message SubmitAndWaitRequest {
 
   // The commands to be submitted.
-  // The field `submission_id` should not be set.
-  // The `CommandService` sets or modifies it.
+  // The field ``submission_id`` should not be set.
+  // The ``CommandService`` sets or modifies it.
   // Required
   Commands commands = 1;
 
@@ -65,7 +65,7 @@ message SubmitAndWaitForTransactionIdResponse {
   // The completion offset for the submission that triggered this response
   // This offset can be used as the submission rank for subsequent command submissions.
   // Optional
-  // TODO(v2) Make it required for responses with status code `OK` once all Daml ledgers support it.
+  // TODO(v2) Make it required for responses with status code ``OK`` once all Daml ledgers support it.
   string completion_offset = 2;
 }
 
@@ -77,7 +77,7 @@ message SubmitAndWaitForTransactionResponse {
   // The completion offset for the submission that triggered this response
   // This offset can be used as the submission rank for subsequent command submissions.
   // Optional
-  // TODO(v2) Make it required for responses with status code `OK` once all Daml ledgers support it.
+  // TODO(v2) Make it required for responses with status code ``OK`` once all Daml ledgers support it.
   string completion_offset = 2;
 }
 

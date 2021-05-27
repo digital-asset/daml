@@ -11,19 +11,19 @@ package com.daml.ledger.api.v1;
 // 1. We use gRPC status codes to report synchronous success and failures
 //    coming from the underlying gRPC protocol or the API-level request processing.
 //    Asynchronous API-level errors are reported over a completion stream like the command completion stream,
-//    which themselves include a `google.rpc.Status` message to indicate the status.
-//    The status code `OK` denotes success.
+//    which themselves include a ``google.rpc.Status`` message to indicate the status.
+//    The status code ``OK`` denotes success.
 //
-// 2. Error reporting includes relevant error details in the `details` field of the status message,
+// 2. Error reporting includes relevant error details in the ``details`` field of the status message,
 //    following the gRPC rich error model as described at https://cloud.google.com/apis/design/errors#error_model.
 //    Error details use the `google.rpc.ErrorInfo` message defined at
 //    https://github.com/googleapis/googleapis/blob/master/google/rpc/error_details.proto#L112.
-//    Its `reason` field includes an alphanumeric error code.
-//    Further details on the error and information for subsequent API calls may be included in the `metadata` field.
+//    Its ``reason`` field includes an alphanumeric error code.
+//    Further details on the error and information for subsequent API calls may be included in the ``metadata`` field.
 //    The Ledger API RPC documentation may document further metadata of the error.
 //
 // 3. RPC requests can specify that the API-level error details of the RPC response shall be JSON-encoded in the error message
-//    instead of using the `details` field. To that end, the RPC request shall specify the ``X-Daml-Error-Details-In-Message``
+//    instead of using the ``details`` field. To that end, the RPC request shall specify the ``X-Daml-Error-Details-In-Message``
 //    HTTP/2 header in the request. If an application cannot read the error details from the trailers,
 //    e.g. because some middleware drops them, it can obtain the details by parsing the message.
 //    This flag does not affect asynchronous errors reported as part of completions.
@@ -85,7 +85,7 @@ package com.daml.ledger.api.v1;
 //    the metadata key ``completion_offset`` contains the corresponding completion offset.
 //    This offset can be used as a submission rank in later calls.
 // 2. If the completion event at the offset is a definite answer,
-//    the metadata key ''definite_answer`` is set to ``true``.
+//    the metadata key ``definite_answer`` is set to ``true``.
 //
 // ``UNAVAILABLE``:
 // - The participant is not yet ready to submit commands or if the service has been shut down.

@@ -24,7 +24,7 @@ message Completion {
   //
   // If the status code is ``OK``, this completion is always a definite answer for the deduplication and rank guarantees
   // described in ``commands.proto``. Otherwise, this completion is only a definite answer if the error details
-  // contain the metadata key `definite_answer` with value `true`.
+  // contain the metadata key ``definite_answer`` with value ``true``.
   //
   // Optional
   google.rpc.Status status = 2;
@@ -41,7 +41,7 @@ message Completion {
   string application_id = 6;
 
   // The set of parties on whose behalf the commands were executed.
-  // Contains the union of `party` and `act_as` from ``commands.proto``.
+  // Contains the union of ``party`` and ``act_as`` from ``commands.proto``.
   // The order of the parties need not be the same as in the submission.
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
   // Optional for historic completions where this data is not available.

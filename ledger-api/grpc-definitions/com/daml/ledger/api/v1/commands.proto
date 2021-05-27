@@ -60,8 +60,8 @@ message Commands {
 
   // Specifies the deduplication period for the change ID.
   // Deduplication provides the following deduplication guarantee:
-  // If the completion for this submission is a definite answer, say at the completion offset `off`,
-  // then there is no accepting completion for the same change ID between the start of the deduplication period and `off`.
+  // If the completion for this submission is a definite answer, say at the completion offset ``off``,
+  // then there is no accepting completion for the same change ID between the start of the deduplication period and ``off``.
   //
   // The participant or Daml ledger may reject the submission with ``OUT_OF_RANGE``
   // if the deduplication period starts in the future (e.g., by specifying an offset that is higher than the completion end).
@@ -88,7 +88,7 @@ message Commands {
     google.protobuf.Timestamp deduplication_start = 15;
 
     // Specifies the length of the deduplication period.
-    // The participant or Daml ledger converts the duration into a timestamp `deduplication_start` since
+    // The participant or Daml ledger converts the duration into a timestamp ``deduplication_start`` since
     // by subtracting the duration from its local clock at some point during processing the submission.
     //
     // Must be non-negative.
@@ -138,14 +138,17 @@ message Commands {
   string submission_id = 17;
 
   // Applications can rank their submissions with the same change ID.
-  // This allows the participants and Daml ledger to detect when one submission has been overtaken by a later resubmission.
+  // This allows the participants and Daml ledger to detect when one submission has been overtaken
+  // by a later resubmission.
+  //
   // The participant and Daml ledger provide the following rank guarantee:
-  // Let there be two submissions for the same change ID with submission ranks `rank1 <= rank2` and submission IDs `sid1` and `sid2`.
-  // Suppose that the submission `sid2` has completed with a definite answer on the completion stream at offset `off2`.
-  // If there is no completion for the submission `sid1` before `off2`, then the submission `sid1` will not result
+  // Let there be two submissions for the same change ID with submission ranks ``rank1 <= rank2``
+  // and submission IDs ``sid1`` and ``sid2``. Suppose that the submission `sid2` has completed
+  // with a definite answer on the completion stream at offset ``off2``.
+  // If there is no completion for the submission ``sid1`` before ``off2``, then the submission ``sid1`` will not result
   // in a definite answer or successful completion. So if a result ever reaches the application,
   // the result will be a rejection that is not marked as a definite answer. The application
-  // can therefore assume that the change in submission `sid1` will not be applied to the 
+  // can therefore assume that the change in submission ``sid1`` will not be applied to the
   // Daml ledger.
   //
   // The submission rank is a completion offset within the range from completion begin to completion end.
