@@ -12,12 +12,8 @@ import akka.actor.testkit.typed.scaladsl.{
 }
 import akka.actor.typed.{ActorRef, Behavior}
 import com.daml.ledger.api.benchtool.metrics.MetricsManager.Message
-import com.daml.ledger.api.benchtool.metrics.{
-  Metric,
-  MetricValue,
-  MetricsManager,
-  ServiceLevelObjective,
-}
+import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
+import com.daml.ledger.api.benchtool.metrics.{Metric, MetricValue, MetricsManager}
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.concurrent.duration._

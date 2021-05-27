@@ -4,12 +4,12 @@
 package com.daml.ledger.api.benchtool
 
 import com.daml.ledger.api.benchtool.metrics.ConsumptionSpeedMetric
+import com.daml.ledger.api.benchtool.metrics.objectives.MinConsumptionSpeed
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.{Clock, Instant}
-
 import scala.language.existentials
 
 class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
@@ -250,7 +250,7 @@ class ConsumptionSpeedMetricSpec extends AnyWordSpec with Matchers {
         )
       )
 
-      val objective = ConsumptionSpeedMetric.MinConsumptionSpeed(minAllowedSpeed)
+      val objective = MinConsumptionSpeed(minAllowedSpeed)
       val metric: ConsumptionSpeedMetric[String] =
         ConsumptionSpeedMetric.empty[String](
           periodMillis = periodMillis,

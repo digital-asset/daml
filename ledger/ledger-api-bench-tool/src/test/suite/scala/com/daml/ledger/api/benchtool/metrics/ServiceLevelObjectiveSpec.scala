@@ -3,7 +3,8 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.metrics.{ConsumptionSpeedMetric, DelayMetric, MaxDelay}
+import com.daml.ledger.api.benchtool.metrics.objectives.{MaxDelay, MinConsumptionSpeed}
+import com.daml.ledger.api.benchtool.metrics.{ConsumptionSpeedMetric, DelayMetric}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
@@ -54,7 +55,7 @@ class ServiceLevelObjectiveSpec extends AnyWordSpec with Matchers with TableDriv
     "correctly report violation" in {
       import ConsumptionSpeedMetric.Value
       val objectiveSpeed = Random.nextDouble()
-      val objective = ConsumptionSpeedMetric.MinConsumptionSpeed(objectiveSpeed)
+      val objective = MinConsumptionSpeed(objectiveSpeed)
       val lowerSpeed = objectiveSpeed - 1.0
       val higherSpeed = objectiveSpeed + 1.0
       val cases = Table(

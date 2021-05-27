@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
+import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
+
 trait Metric[Elem] {
 
   type V <: MetricValue

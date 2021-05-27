@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
+import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 import com.google.protobuf.timestamp.Timestamp
 
 import java.time.{Clock, Duration, Instant}

@@ -6,6 +6,7 @@ package com.daml.ledger.api.benchtool.metrics
 import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
 import akka.util.Timeout
 import com.daml.ledger.api.benchtool.Config.StreamConfig.Objectives
+import com.daml.ledger.api.benchtool.metrics.objectives.{MaxDelay, MinConsumptionSpeed}
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
@@ -101,7 +102,7 @@ object TransactionMetrics {
     val delayObjectives =
       objectives.maxDelaySeconds.map(MaxDelay).toList
     val consumptionSpeedObjectives =
-      objectives.minConsumptionSpeed.map(ConsumptionSpeedMetric.MinConsumptionSpeed).toList
+      objectives.minConsumptionSpeed.map(MinConsumptionSpeed).toList
     List[Metric[T]](
       CountMetric.empty[T](reportingPeriodMillis, countingFunction),
       SizeMetric.empty[T](reportingPeriodMillis, sizingFunction),

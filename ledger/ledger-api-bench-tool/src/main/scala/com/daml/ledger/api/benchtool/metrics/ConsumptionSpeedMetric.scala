@@ -4,6 +4,7 @@
 package com.daml.ledger.api.benchtool.metrics
 
 import com.daml.ledger.api.benchtool.metrics.Metric.rounded
+import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 import com.google.protobuf.timestamp.Timestamp
 
 import java.time.Instant
@@ -114,17 +115,6 @@ object ConsumptionSpeedMetric {
         case (None, None) => 0
       }
     }
-  }
-
-  // TODO: add warm-up parameter
-  final case class MinConsumptionSpeed(minSpeed: Double) extends ServiceLevelObjective[Value] {
-    override def isViolatedBy(metricValue: Value): Boolean =
-      Ordering[Value].lt(metricValue, v)
-
-    override def formatted: String =
-      s"min allowed speed: $minSpeed [-]"
-
-    private val v = Value(Some(minSpeed))
   }
 
 }

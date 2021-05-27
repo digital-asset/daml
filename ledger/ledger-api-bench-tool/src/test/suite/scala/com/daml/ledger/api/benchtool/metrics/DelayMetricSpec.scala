@@ -3,13 +3,13 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.metrics.{DelayMetric, MaxDelay}
+import com.daml.ledger.api.benchtool.metrics.DelayMetric
+import com.daml.ledger.api.benchtool.metrics.objectives.MaxDelay
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.{Clock, Duration, Instant, ZoneId}
-
 import scala.language.existentials
 
 class DelayMetricSpec extends AnyWordSpec with Matchers {
