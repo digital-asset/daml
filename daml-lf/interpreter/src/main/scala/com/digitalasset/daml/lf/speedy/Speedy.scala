@@ -17,7 +17,6 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin.checkAborted
-import com.daml.lf.speedy.SValue.SAnyException
 import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
@@ -1125,8 +1124,7 @@ private[lf] object Speedy {
       case SValue.SContractId(_) | SValue.SDate(_) | SValue.SNumeric(_) | SValue.SInt64(_) |
           SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
           SValue.SMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
-          SValue.STNat(_) | SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken |
-          SValue.SAnyException(_, _) =>
+          SValue.STNat(_) | SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken =>
         crash("Match on non-matchable value")
     }
 
@@ -1367,7 +1365,7 @@ private[lf] object Speedy {
     * producing a text message.
     * In addition to exception handlers, we also stop unwinding at submitMustFail.
     */
-  private[speedy] def unwindToHandler(machine: Machine, excep: SAnyException): Unit = {
+  private[speedy] def unwindToHandler(machine: Machine, excep: SValue.SAny): Unit = {
     @tailrec def unwind(): Option[Either[KTryCatchHandler, KCatchSubmitMustFail]] = {
       if (machine.kontDepth() == 0) {
         None

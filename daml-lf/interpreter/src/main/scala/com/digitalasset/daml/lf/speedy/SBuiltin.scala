@@ -176,9 +176,18 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
         )
     }
 
-  final protected def getSAnyException(args: util.ArrayList[SValue], i: Int): SAnyException =
+  final protected def getSAny(args: util.ArrayList[SValue], i: Int): SAny =
     args.get(i) match {
-      case exception: SAnyException => exception
+      case any: SAny => any
+      case otherwise =>
+        throw SErrorCrash(
+          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SException but got $otherwise"
+        )
+    }
+
+  final protected def getSAnyException(args: util.ArrayList[SValue], i: Int): SRecord =
+    args.get(i) match {
+      case SAnyException(exception) => exception
       case otherwise =>
         throw SErrorCrash(
           s"${getClass.getSimpleName}: type mismatch of argument $i: expect SException but got $otherwise"
@@ -424,8 +433,8 @@ private[lf] object SBuiltin {
       case SBigNumeric(x) => Numeric.toUnscaledString(x)
       case SNumeric(x) => Numeric.toUnscaledString(x)
       case STNat(n) => s"@$n"
-      case _: SContractId | SToken | _: SAny | _: SAnyException | _: SEnum | _: SList | _: SMap |
-          _: SOptional | _: SPAP | _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
+      case _: SContractId | SToken | _: SAny | _: SEnum | _: SList | _: SMap | _: SOptional |
+          _: SPAP | _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
         crash(s"litToText: unexpected $x")
     }
 
@@ -1514,7 +1523,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Unit = {
-      val excep = getSAnyException(args, 0)
+      val excep = getSAny(args, 0)
       unwindToHandler(machine, excep)
     }
   }
@@ -1525,7 +1534,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Unit = {
-      val excep = getSAnyException(args, 1)
+      val excep = getSAny(args, 1)
       val token = args.get(2)
       checkToken(token)
       args.get(0) match {
@@ -1546,24 +1555,6 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $to-any-exception :: exception-type -> AnyException */
-  final case class SBToAnyException(ty: Ast.Type) extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      SAnyException(ty, args.get(0))
-    }
-  }
-
-  /** $from-any-exception :: AnyException -> any-exception */
-  final case class SBFromAnyException(expectedTy: Ast.Type) extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case SAnyException(actualTy, v) =>
-          SOptional(if (actualTy == expectedTy) Some(v) else None)
-        case v => crash(s"FromAnyException applied to non-AnyException: $v")
-      }
-    }
-  }
-
   /** $any-exception-message :: AnyException -> Text */
   final case object SBAnyExceptionMessage extends SBuiltin(1) {
     private def exceptionMessage(tyCon: TypeConName, value: SValue, machine: Machine) =
@@ -1573,25 +1564,21 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Unit = {
-      getSAnyException(args, 0) match {
-        case SArithmeticError(value) =>
-          // short cut for Arithmetic error
-          machine.returnValue = value
-        case SAnyException(Ast.TTyCon(tyCon), innerValue) =>
-          if (!machine.compiledPackages.packageIds.contains(tyCon.packageId))
-            throw SpeedyHungry(
-              SResultNeedPackage(
-                tyCon.packageId,
-                { packages =>
-                  machine.compiledPackages = packages
-                  exceptionMessage(tyCon, innerValue, machine)
-                },
-              )
-            )
-          exceptionMessage(tyCon, innerValue, machine)
-        case SAnyException(ty, _) =>
-          crash(s"$ty is not a valid exception type")
-      }
+      val exception = getSAnyException(args, 0)
+      val tyCon = exception.id
+      if (tyCon == SArithmeticError.tyCon)
+        machine.returnValue = exception.values.get(0)
+      else if (!machine.compiledPackages.packageIds.contains(exception.id.packageId))
+        throw SpeedyHungry(
+          SResultNeedPackage(
+            tyCon.packageId,
+            { packages =>
+              machine.compiledPackages = packages
+              exceptionMessage(tyCon, exception, machine)
+            },
+          )
+        )
+      exceptionMessage(tyCon, exception, machine)
     }
   }
 
@@ -1611,11 +1598,8 @@ private[lf] object SBuiltin {
     */
   final case class SBFromAny(expectedTy: Ast.Type) extends SBuiltinPure(1) {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case SAny(actualTy, v) =>
-          SOptional(if (actualTy == expectedTy) Some(v) else None)
-        case v => crash(s"FromAny applied to non-Any: $v")
-      }
+      val any = getSAny(args, 0)
+      if (any.ty == expectedTy) SOptional(Some(any.value)) else SValue.SValue.None
     }
   }
 

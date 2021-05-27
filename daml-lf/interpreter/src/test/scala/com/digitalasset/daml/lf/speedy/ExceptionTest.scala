@@ -150,7 +150,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
           data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:$id")
         )
         .map(tyCon =>
-          SValue.SAnyException(
+          SValue.SAny(
             TTyCon(tyCon),
             SValue.SRecord(tyCon, data.ImmArray.empty, new util.ArrayList()),
           )
@@ -551,7 +551,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       val id = "M:AnException"
       val tyCon =
         data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:$id")
-      SValue.SAnyException(
+      SValue.SAny(
         TTyCon(tyCon),
         SValue.SRecord(tyCon, data.ImmArray.empty, new util.ArrayList()),
       )
