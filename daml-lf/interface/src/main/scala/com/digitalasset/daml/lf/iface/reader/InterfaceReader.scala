@@ -13,6 +13,7 @@ import scalaz.syntax.foldable0._
 import scalaz.syntax.traverse0._
 import scalaz.std.list._
 import scalaz.std.option._
+import scalaz.std.string._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{PackageId, QualifiedName}
@@ -48,7 +49,10 @@ object InterfaceReader {
       Semigroup.firstSemigroup
 
     def treeReport(errors: Errors[ErrorLoc, InterfaceReader.InvalidDataTypeDefinition]): Cord =
-      stringReport(errors)(_.fold(prop => cord".${prop.name}", ixName => cord"'$ixName'"), _.error)
+      stringReport(errors)(
+        _.fold(prop => cord".${prop.name}", ixName => cord"'$ixName'"),
+        e => Cord(e.error),
+      )
   }
 
   private[reader] final case class State(

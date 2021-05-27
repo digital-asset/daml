@@ -709,7 +709,9 @@ private object OracleQueries extends Queries {
   }
 
   private[this] def pathSteps(path: JsonPath): Cord =
-    path.elems.foldMap(_.fold(k => (".\"": Cord) ++ k :- '"', (_: _0.type) => "[0]"))
+    path.elems.foldMap(
+      _.fold(k => cord"""."${(k: Ref.Name): String}"""", (_: _0.type) => Cord("[0]"))
+    )
 
   // I cannot believe this function exists in 2021
   // None if literal is too long
@@ -750,7 +752,7 @@ private object OracleQueries extends Queries {
     predExtension.cata(
       { case (pred, extension) =>
         sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++
-          oracleShortPathEscape(opath ++ pred) ++ extension ++ sql")"
+          oracleShortPathEscape(opath ++ Cord(pred)) ++ extension ++ sql")"
       },
       sql"JSON_EQUAL(JSON_QUERY(" ++ contractColumnName ++ sql", " ++
         oracleShortPathEscape(opath) ++ sql" RETURNING CLOB), $literal)",

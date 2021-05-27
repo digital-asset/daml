@@ -152,7 +152,7 @@ object Errors {
     errors
       .fold[Vector[Cord]](
         e => Vector(msg(e)),
-        _ foldMapWithKey ((l, cs) => loc(l) +: cs.map("  " +: _)),
+        _ foldMapWithKey ((l, cs) => loc(l) +: cs.map(Cord("  ") ++ _)),
       )
       .suml
   }
