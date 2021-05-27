@@ -84,7 +84,8 @@ package com.daml.ledger.api.v1;
 // 1. If the error is reported outside of the completion event (e.g., via the command service),
 //    the metadata key ``completion_offset`` contains the corresponding completion offset.
 //    This offset can be used as a submission rank in later calls.
-// 2. If the completion event at the offset is a definite answer,
+// 2. If the completion event at the offset is a definite answer for the deduplication
+//    and rank guarantees described in ``commands.proto``,
 //    the metadata key ``definite_answer`` is set to ``true``.
 //
 // ``UNAVAILABLE``:

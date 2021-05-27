@@ -14,6 +14,11 @@ option java_package = "com.daml.ledger.api.v1";
 option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 
 // A completion represents the status of a submitted command on the ledger: it can be successful or failed.
+//
+// A completion is a definite answer  for the deduplication and rank guarantees described in ``commands.proto``
+// if one of the following holds:
+// - The status code is ``OK``.
+// - The error details in the ``status`` contain the metadata key ``definite_answer`` with value ``true``.
 message Completion {
   // The ID of the succeeded or failed command.
   // Must be a valid LedgerString (as described in ``value.proto``).
@@ -21,10 +26,6 @@ message Completion {
   string command_id = 1;
 
   // Identifies the exact type of the error (as described in ``error.proto``).
-  //
-  // If the status code is ``OK``, this completion is always a definite answer for the deduplication and rank guarantees
-  // described in ``commands.proto``. Otherwise, this completion is only a definite answer if the error details
-  // contain the metadata key ``definite_answer`` with value ``true``.
   //
   // Optional
   google.rpc.Status status = 2;
