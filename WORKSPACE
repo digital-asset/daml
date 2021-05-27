@@ -70,7 +70,6 @@ load(
     "scala_major_version",
     "scala_major_version_suffix",
     "scala_version",
-    "scalapb_version",
 )
 
 dadew(name = "dadew")
@@ -725,10 +724,7 @@ load("@io_bazel_rules_scala//:scala_config.bzl", "scala_config")
 
 scala_config(scala_version)
 
-load(
-    "@io_bazel_rules_scala//scala:scala.bzl",
-    "scala_repositories",
-)
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repositories")
 
 scala_repositories(
     fetch_sources = True,
@@ -744,6 +740,8 @@ load("@io_bazel_rules_scala//testing:scalatest.bzl", "scalatest_repositories", "
 scalatest_repositories()
 
 scalatest_toolchain()
+
+load("//bazel_tools:scalapb.bzl", "scalapb_version")
 
 http_archive(
     name = "scalapb",

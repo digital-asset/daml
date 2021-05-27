@@ -11,6 +11,9 @@ load(
     "@scala_version//:index.bzl",
     "scala_major_version",
     "scala_version",
+)
+load(
+    "//bazel_tools:scalapb.bzl",
     "scalapb_protoc_version",
     "scalapb_version",
 )
