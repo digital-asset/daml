@@ -17,8 +17,9 @@ import org.scalatest.time.{Millis, Span}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+// This file is identical to com.daml.platform.sandbox.ScenarioLoadingITDivulgence,
+// except that it overrides config such that the append-only schema is used.
 // TODO append-only: Remove this class once the mutating schema is removed
-@SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
 class ScenarioLoadingITDivulgence
     extends AnyWordSpec
     with Matchers

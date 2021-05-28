@@ -16,7 +16,6 @@ import org.scalatest.time.{Millis, Span}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-@SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
 class ScenarioLoadingITDivulgence
     extends AnyWordSpec
     with Matchers

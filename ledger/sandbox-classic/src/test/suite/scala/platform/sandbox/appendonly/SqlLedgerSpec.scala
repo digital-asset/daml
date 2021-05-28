@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.sandbox.stores.ledger.sql
+package com.daml.platform.sandbox.appendonly
 
 import java.io.File
 import java.time.Instant
@@ -27,7 +27,8 @@ import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.MetricsAround
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.Ledger
-import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
+import com.daml.platform.sandbox.appendonly.SqlLedgerSpec._
+import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
 import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
@@ -41,6 +42,8 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 import scala.util.{Success, Try}
 
+// This file is identical to com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec,
+// except that it changes createSqlLedger() such that the append-only schema is used.
 // TODO append-only: Remove this class once the mutating schema is removed
 final class SqlLedgerSpec
     extends AsyncWordSpec

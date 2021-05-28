@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.sandbox.stores.ledger
+package com.daml.platform.sandbox.appendonly
 
 import java.time.{Instant, Duration => JDuration}
 import java.util.UUID
@@ -27,7 +27,8 @@ import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.crypto
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.platform.sandbox.stores.ledger.TransactionTimeModelComplianceIT._
+import com.daml.platform.sandbox.stores.ledger.Ledger
+import com.daml.platform.sandbox.appendonly.TransactionTimeModelComplianceIT._
 import com.daml.platform.sandbox.{LedgerResource, MetricsAround}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
@@ -37,6 +38,9 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.duration._
 
+// This file is identical to com.daml.platform.sandbox.stores.ledger.TransactionTimeModelComplianceIT,
+// except that it changes fixtureIdsEnabled and constructResource() such that only the append-only schema is used.
+// TODO append-only: Remove this class once the mutating schema is removed
 class TransactionTimeModelComplianceIT
     extends AsyncWordSpec
     with AkkaBeforeAndAfterAll
@@ -52,7 +56,7 @@ class TransactionTimeModelComplianceIT
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */
   override protected def fixtureIdsEnabled: Set[BackendType] =
-    Set(BackendType.InMemory, BackendType.Postgres)
+    Set(BackendType.Postgres)
 
   override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
