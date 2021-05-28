@@ -11,6 +11,9 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{LoneElement, OptionValues}
 
+// These tests use lookups of the contract state at a specific event sequential ID, an operation that
+// is not supported by the old mutating schema.
+// TODO append-only: Merge this class with JdbcLedgerDaoContractsSpec
 private[dao] trait JdbcLedgerDaoContractsAppendOnlySpec extends LoneElement with OptionValues {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
@@ -23,10 +26,10 @@ private[dao] trait JdbcLedgerDaoContractsAppendOnlySpec extends LoneElement with
       (_, tx) <- store(singleCreate(create(_, signatories = Set(alice))))
       contractId = nonTransient(tx).loneElement
       _ <- store(singleNonConsumingExercise(contractId))
-      eventSeqIdAtCreate <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
+      (_, eventSeqIdAtCreate) <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
       _ <- store(txArchiveContract(alice, (contractId, None)))
       eventSeqIdAfterArchive <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
-      queryAfterCreate <- contractsReader.lookupContractState(contractId, eventSeqIdAtCreate._2)
+      queryAfterCreate <- contractsReader.lookupContractState(contractId, eventSeqIdAtCreate)
       queryAfterArchive <- contractsReader.lookupContractState(
         contractId,
         eventSeqIdAfterArchive._2,
@@ -61,11 +64,11 @@ private[dao] trait JdbcLedgerDaoContractsAppendOnlySpec extends LoneElement with
       key = GlobalKey.assertBuild(someTemplateId, aTextValue)
       contractId = nonTransient(tx).loneElement
       _ <- store(singleNonConsumingExercise(contractId))
-      eventSeqIdAtCreate <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
+      (_, eventSeqIdAtCreate) <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
       _ <- store(txArchiveContract(alice, (contractId, None)))
-      eventSeqIdAfterArchive <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
-      queryAfterCreate <- contractsReader.lookupKeyState(key, eventSeqIdAtCreate._2)
-      queryAfterArchive <- contractsReader.lookupKeyState(key, eventSeqIdAfterArchive._2)
+      (_, eventSeqIdAfterArchive) <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
+      queryAfterCreate <- contractsReader.lookupKeyState(key, eventSeqIdAtCreate)
+      queryAfterArchive <- contractsReader.lookupKeyState(key, eventSeqIdAfterArchive)
     } yield {
       queryAfterCreate match {
         case LedgerDaoContractsReader.KeyAssigned(fetchedContractId, stakeholders) =>
