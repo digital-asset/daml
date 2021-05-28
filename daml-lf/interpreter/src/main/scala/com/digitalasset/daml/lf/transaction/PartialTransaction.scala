@@ -37,9 +37,14 @@ private[lf] object PartialTransaction {
 
   sealed abstract class ContextInfo {
     val actionChildSeed: Int => crypto.Hash
+    // This is None for root actions since
+    // PartialTransaction does not keep track of committers.
+    def authorizers: Option[Set[Party]]
   }
 
-  sealed abstract class RootContextInfo extends ContextInfo
+  sealed abstract class RootContextInfo extends ContextInfo {
+    override val authorizers: Option[Set[Party]] = None
+  }
 
   private[PartialTransaction] final class SeededTransactionRootContext(seed: crypto.Hash)
       extends RootContextInfo {
@@ -133,6 +138,7 @@ private[lf] object PartialTransaction {
   ) extends ContextInfo {
     val actionNodeSeed = parent.nextActionChildSeed
     val actionChildSeed = crypto.Hash.deriveNodeSeed(actionNodeSeed, _)
+    override val authorizers: Option[Set[Party]] = Some(actingParties union signatories)
   }
 
   final case class ActiveLedgerState(
@@ -146,6 +152,9 @@ private[lf] object PartialTransaction {
       // beginState stores the consumed contracts at the beginning of
       // the try so that we can restore them on rollback.
       beginState: ActiveLedgerState,
+      // Set to the authorizers (the union of signatories & actors) of the nearest
+      // parent exercise or None if there is no parent exercise.
+      authorizers: Option[Set[Party]],
   ) extends ContextInfo {
     val actionChildSeed: NodeIdx => crypto.Hash = parent.info.actionChildSeed
   }
@@ -617,7 +626,7 @@ private[lf] case class PartialTransaction(
     */
   def beginTry: PartialTransaction = {
     val nid = NodeId(nextNodeIdx)
-    val info = TryContextInfo(nid, context, activeState)
+    val info = TryContextInfo(nid, context, activeState, authorizers = context.info.authorizers)
     copy(
       nextNodeIdx = nextNodeIdx + 1,
       context = Context(info, BackStack.empty, context.nextActionChildIdx),
