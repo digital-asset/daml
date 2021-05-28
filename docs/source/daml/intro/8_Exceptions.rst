@@ -5,7 +5,7 @@
 ====================
 
 The default behavior in Daml is to abort the transaction on any error
-and rollback all changes that have happened until then. However, this
+and roll back all changes that have happened until then. However, this
 is not always appropriate. In some cases, it makes sense to recover
 from an error and continue the transaction instead of aborting it.
 
