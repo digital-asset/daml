@@ -3,19 +3,21 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
+import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
+
 trait Metric[Elem] {
 
-  type Value <: MetricValue
+  type V <: MetricValue
 
-  type Objective <: ServiceLevelObjective[Value]
+  type Objective <: ServiceLevelObjective[V]
 
   def onNext(value: Elem): Metric[Elem]
 
-  def periodicValue(): (Metric[Elem], Value)
+  def periodicValue(): (Metric[Elem], V)
 
-  def finalValue(totalDurationSeconds: Double): Value
+  def finalValue(totalDurationSeconds: Double): V
 
-  def violatedObjectives: Map[Objective, Value] = Map.empty
+  def violatedObjectives: Map[Objective, V] = Map.empty
 
   def name: String = getClass.getSimpleName
 

@@ -12,12 +12,8 @@ import akka.actor.testkit.typed.scaladsl.{
 }
 import akka.actor.typed.{ActorRef, Behavior}
 import com.daml.ledger.api.benchtool.metrics.MetricsManager.Message
-import com.daml.ledger.api.benchtool.metrics.{
-  Metric,
-  MetricValue,
-  MetricsManager,
-  ServiceLevelObjective,
-}
+import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
+import com.daml.ledger.api.benchtool.metrics.{Metric, MetricValue, MetricsManager}
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.concurrent.duration._
@@ -116,7 +112,7 @@ class MetricsManagerSpec extends ScalaTestWithActorTestKit(ManualTime.config) wi
   private case class TestMetric(
       processedElems: List[String] = List.empty
   ) extends Metric[String] {
-    override type Value = TestMetricValue
+    override type V = TestMetricValue
     override type Objective = TestObjective.type
 
     override def onNext(value: String): Metric[String] = {
