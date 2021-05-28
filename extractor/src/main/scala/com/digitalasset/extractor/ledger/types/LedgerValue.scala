@@ -30,13 +30,13 @@ object LedgerValue {
 
   final implicit class ApiValueSumOps(val apiValueSum: api.value.Value.Sum) extends AnyVal {
     def convert: String \/ LedgerValue = apiValueSum match {
-      case Sum.Variant(apiVariant) => convertVariant(apiVariant)
-      case Sum.Enum(apiEnum) => convertEnum(apiEnum)
-      case Sum.List(apiList) => convertList(apiList)
-      case Sum.Record(apiRecord) => convertRecord(apiRecord)
-      case Sum.Optional(apiOptional) => convertOptional(apiOptional)
-      case Sum.Map(map) => convertTextMap(map)
-      case Sum.GenMap(entries) => convertGenMap(entries)
+      case Sum.Variant(apiVariant) => convertVariant(apiVariant).widen
+      case Sum.Enum(apiEnum) => convertEnum(apiEnum).widen
+      case Sum.List(apiList) => convertList(apiList).widen
+      case Sum.Record(apiRecord) => convertRecord(apiRecord).widen
+      case Sum.Optional(apiOptional) => convertOptional(apiOptional).widen
+      case Sum.Map(map) => convertTextMap(map).widen
+      case Sum.GenMap(entries) => convertGenMap(entries).widen
       case Sum.Bool(value) => V.ValueBool(value).right
       case Sum.ContractId(value) => V.ValueContractId(value).right
       case Sum.Int64(value) => V.ValueInt64(value).right
@@ -89,7 +89,8 @@ object LedgerValue {
     for {
       entries <- apiMap.entries.toList.traverse {
         case api.value.Map.Entry(k, Some(v)) => v.sum.convert.map(k -> _)
-        case api.value.Map.Entry(_, None) => -\/("value field of Map.Entry must be defined")
+        case api.value.Map.Entry(_, None) =>
+          -\/[String, (String, LedgerValue)]("value field of Map.Entry must be defined")
       }
       map <- SortedLookupList.fromImmArray(ImmArray(entries)).disjunction
     } yield V.ValueTextMap(map)

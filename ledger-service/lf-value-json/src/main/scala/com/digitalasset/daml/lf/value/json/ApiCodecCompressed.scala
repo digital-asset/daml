@@ -122,7 +122,7 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
   ): V[Cid] = {
     (prim.typ, value).match2 {
       case Model.DamlLfPrimType.Int64 => {
-        case JsString(v) => V.ValueInt64(assertDE(v.parseLong.leftMap(_.getMessage).toEither))
+        case JsString(v) => V.ValueInt64(assertDE(v.parseLong.toEither))
         case JsNumber(v) if v.isValidLong => V.ValueInt64(v.toLongExact)
       }
       case Model.DamlLfPrimType.Text => { case JsString(v) => V.ValueText(v) }

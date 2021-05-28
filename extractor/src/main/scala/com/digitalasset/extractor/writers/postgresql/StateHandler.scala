@@ -89,7 +89,9 @@ object StateHandler {
       version match {
         case 1 => decodeStatus(statusString)
         case _ =>
-          "Invalid version found in the `state` table. The table's content is probably tempered with.".left
+          -\/[String, Status](
+            "Invalid version found in the `state` table. The table's content is probably tempered with."
+          )
       }
     }).value
   }

@@ -174,7 +174,7 @@ private[trigger] object UnfoldState {
       new FanOutShape2(split.in, as.out, bs.out)
     }
 
-  private[this] type FoldL[T, -A, +B] = (T, A) => UnfoldState[T, B]
+  private[this] type FoldL[T, -A, B] = (T, A) => UnfoldState[T, B]
 
   private[this] def statefulMapConcatFun[T, A, B](f: FoldL[T, A, B]): T \/ A => Iterable[T \/ B] = {
     var mcFun: A => Iterable[T \/ B] = null

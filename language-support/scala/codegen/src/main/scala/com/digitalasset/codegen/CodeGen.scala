@@ -26,7 +26,8 @@ import scalaz.std.string._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.option._
 import scalaz.syntax.bind._
-import scalaz.syntax.traverse1._
+import scalaz.syntax.traverse._
+import scalaz.syntax.traverse10._
 
 import scala.collection.compat._
 import scala.util.{Failure, Success}
@@ -128,14 +129,14 @@ object CodeGen {
   }
 
   private def decodeInterface(p: Payload): String \/ Interface =
-    \/.fromTryCatchNonFatal {
+    \/.attempt {
       val packageId: PackageId = p._1
       logger.info(s"decoding archive with Package ID: $packageId")
       val (errors, out) = Interface.read(p)
-      if (!errors.empty) {
-        \/.left(formatDecodeErrors(packageId, errors))
-      } else \/.right(out)
-    }.leftMap(_.getLocalizedMessage).join
+      (if (!errors.empty) {
+         -\/(formatDecodeErrors(packageId, errors))
+       } else \/-(out)): String \/ Interface
+    }(_.getLocalizedMessage).join
 
   private def formatDecodeErrors(
       packageId: PackageId,
@@ -223,10 +224,12 @@ object CodeGen {
     val treeified: Namespace[String, Option[lf.HierarchicalOutput.TemplateOrDatatype]] =
       Namespace.fromHierarchy {
         def widenDDT[R, V](iddt: Iterable[ScopedDataType.DT[R, V]]) = iddt
+        import lf.DamlDataTypeGen.DataType
+        type SrcV = DefTemplateWithRecord.FWT \/ DataType
         val ntdRights =
           (widenDDT(unassociatedRecords ++ enums) ++ splattedVariants)
-            .map(sdt => (sdt.name, \/-(sdt)))
-        val tmplLefts = templateIds.transform((_, v) => -\/(v))
+            .map(sdt => (sdt.name, \/-(sdt): SrcV))
+        val tmplLefts = templateIds.transform((_, v) => -\/(v): SrcV)
 
         (ntdRights ++ tmplLefts) map { case (ddtIdent @ Identifier(_, qualName), body) =>
           (qualName.module.segments.toList ++ qualName.name.segments.toList, (ddtIdent, body))
@@ -235,14 +238,16 @@ object CodeGen {
 
     // fold up the tree to discover the hierarchy's roots, each of which produces a file
     val (treeErrors, topFiles) = lf.HierarchicalOutput.discoverFiles(treeified, util)
-    val filePlans = topFiles.map { case (fil, trees) => \/-((None, fil, trees)) } ++ treeErrors
-      .map(-\/(_))
+    val filePlans = topFiles.map { case (fil, trees) =>
+      \/-((None, fil, trees)): FilePlan
+    } ++ treeErrors
+      .map(e => -\/(_): FilePlan)
 
     // Finally we generate the "event decoder" and "package ID source"
     val specials =
       Seq(lf.EventDecoderGen.generate(util, templateIds.keySet), lf.PackageIDsGen.generate(util))
 
-    val specialPlans = specials map { case (fp, t) => \/-((None, fp, t)) }
+    val specialPlans = specials map { case (fp, t) => \/-((None, fp, t)): FilePlan }
 
     filePlans ++ specialPlans
   }

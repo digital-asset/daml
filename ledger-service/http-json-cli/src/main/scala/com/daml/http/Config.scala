@@ -89,10 +89,10 @@ private[http] abstract class ConfigCompanion[A](name: String) {
   import scalaz.syntax.std.string._
 
   protected def parseBoolean(k: String)(v: String): String \/ Boolean =
-    v.parseBoolean.leftMap(e => s"$k=$v must be a boolean value: ${e.description}").disjunction
+    v.parseBoolean.leftMap(e => s"$k=$v must be a boolean value: ${e: String}").toDisjunction
 
   protected def parseLong(k: String)(v: String): String \/ Long =
-    v.parseLong.leftMap(e => s"$k=$v must be a int value: ${e.description}").disjunction
+    v.parseLong.leftMap(e => s"$k=$v must be a int value: ${e: String}").toDisjunction
 
   protected def requiredDirectoryField(m: Map[String, String])(k: String): Either[String, File] =
     requiredField(m)(k).flatMap(directory)

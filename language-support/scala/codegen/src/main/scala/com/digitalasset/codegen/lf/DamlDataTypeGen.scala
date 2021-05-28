@@ -624,7 +624,7 @@ object DamlDataTypeGen {
 
   private def tupleUp[A](fieldNames: Seq[A]): Option[TupleNesting[A]] = {
     import scalaz.IList
-    IList(fieldNames: _*).toNel.map(xs => LFUtil.tupleNesting(xs, RootMax, SubtreesMax))
+    IList(fieldNames: _*).toNel.map(xs => LFUtil.tupleNesting(xs, RootMax, SubtreesMax)).toOption
   }
 
   private def shapeTuple(ns: TupleNesting[TermName]): Tree =
