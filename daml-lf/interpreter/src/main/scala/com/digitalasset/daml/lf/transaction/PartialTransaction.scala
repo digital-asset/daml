@@ -673,7 +673,8 @@ private[lf] case class PartialTransaction(
         // But we do that in a later normalization phase, not here.
         val rollbackNode = Node.NodeRollback(context.children.toImmArray)
         copy(
-          context = info.parent.addRollbackChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
+          context = info.parent
+            .addRollbackChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),
         ).resetActiveState(info.beginState)
       case _ => throw new RuntimeException("rollbackTry called in non-catch context")
