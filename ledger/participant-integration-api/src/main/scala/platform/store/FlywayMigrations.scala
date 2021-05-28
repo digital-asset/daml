@@ -91,7 +91,6 @@ private[platform] object FlywayMigrations {
         .configure()
         .locations(
           "classpath:com/daml/platform/db/migration/" + dbType.name,
-          "classpath:com/daml/platform/db/migration/" + dbType.name + "-appendonly",
           "classpath:db/migration/" + dbType.name,
           "classpath:db/migration/" + dbType.name + "-appendonly",
         )
