@@ -7,7 +7,15 @@ load(
     "da_scala_library",
     "lf_scalacopts",
 )
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
 load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_version_configuration",
+)
 
 scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -34,6 +42,7 @@ perf_runtime_deps = {
             "@maven//:com_typesafe_akka_akka_http_core",
             "@maven//:com_typesafe_akka_akka_stream",
             "@maven//:com_typesafe_scala_logging_scala_logging",
+            "@maven//:io_spray_spray_json",
             "@maven//:org_scalactic_scalactic",
             "@maven//:org_scalatest_scalatest",
             "@maven//:org_scalaz_scalaz_core",
@@ -76,6 +85,12 @@ perf_runtime_deps = {
         "ee",
     ]
 ] if scala_major_version == "2.13" else None
+
+daml_compile(
+    name = "LargeAcs",
+    srcs = ["daml/LargeAcs.daml"],
+    target = lf_version_configuration.get("latest"),
+)
 
 [
     da_scala_binary(

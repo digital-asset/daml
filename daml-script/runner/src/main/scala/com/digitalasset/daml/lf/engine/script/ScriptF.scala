@@ -18,17 +18,7 @@ import com.daml.lf.language.Ast.{TemplateChoiceSignature, Type}
 import com.daml.lf.speedy.SError.DamlEUserError
 import com.daml.lf.speedy.SExpr.{SEApp, SEValue}
 import com.daml.lf.speedy.{SExpr, SValue}
-import com.daml.lf.speedy.SValue.{
-  SAnyException,
-  SInt64,
-  SList,
-  SOptional,
-  SParty,
-  SRecord,
-  SText,
-  STimestamp,
-  SUnit,
-}
+import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -54,7 +44,7 @@ object ScriptF {
       )
 
   final case class Catch(act: SValue, handle: SValue) extends ScriptF
-  final case class Throw(exc: SAnyException) extends ScriptF
+  final case class Throw(exc: SAny) extends ScriptF
 
   sealed trait Cmd extends ScriptF {
     def stackTrace: StackTrace
@@ -661,7 +651,7 @@ object ScriptF {
 
   private def parseThrow(v: SValue): Either[String, Throw] = {
     v match {
-      case SRecord(_, _, JavaList(exc: SAnyException)) =>
+      case SRecord(_, _, JavaList(exc: SAny)) =>
         Right(Throw(exc))
       case _ => Left(s"Expected Throw payload but got $v")
     }

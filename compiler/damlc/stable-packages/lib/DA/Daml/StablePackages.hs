@@ -38,8 +38,8 @@ allStablePackages =
     , daSetTypes
     , daExceptionGeneralError
     , daExceptionArithmeticError
-    , daExceptionContractError
     , daExceptionAssertionFailed
+    , daExceptionPreconditionFailed
     ]
 
 allStablePackagesForVersion :: Version -> [Package]
@@ -553,11 +553,11 @@ daExceptionGeneralError = builtinExceptionPackage "GeneralError"
 daExceptionArithmeticError :: Package
 daExceptionArithmeticError = builtinExceptionPackage "ArithmeticError"
 
-daExceptionContractError :: Package
-daExceptionContractError = builtinExceptionPackage "ContractError"
-
 daExceptionAssertionFailed :: Package
 daExceptionAssertionFailed = builtinExceptionPackage "AssertionFailed"
+
+daExceptionPreconditionFailed :: Package
+daExceptionPreconditionFailed = builtinExceptionPackage "PreconditionFailed"
 
 builtinExceptionPackage :: T.Text -> Package
 builtinExceptionPackage name = Package

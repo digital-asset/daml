@@ -240,7 +240,7 @@ message ScenarioError {
     // Error was raised via the error builtin
     string user_error = 13;
 
-    // Unhandled exception
+    // Unhandled exceptions
     Value unhandled_exception = 26;
 
     // Errors related to update interpretation.

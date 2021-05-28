@@ -216,7 +216,7 @@ object KeyValueConsumption {
       recordTime: Timestamp,
       rejEntry: DamlTransactionRejectionEntry,
   ): List[Update] = {
-    def wrap(reason: RejectionReason) =
+    def wrap(reason: RejectionReasonV0) =
       List(
         Update.CommandRejected(
           recordTime = recordTime,
@@ -227,23 +227,23 @@ object KeyValueConsumption {
 
     rejEntry.getReasonCase match {
       case DamlTransactionRejectionEntry.ReasonCase.DISPUTED =>
-        wrap(RejectionReason.Disputed(rejEntry.getDisputed.getDetails))
+        wrap(RejectionReasonV0.Disputed(rejEntry.getDisputed.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.INCONSISTENT =>
-        wrap(RejectionReason.Inconsistent(rejEntry.getInconsistent.getDetails))
+        wrap(RejectionReasonV0.Inconsistent(rejEntry.getInconsistent.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
-        wrap(RejectionReason.ResourcesExhausted(rejEntry.getResourcesExhausted.getDetails))
+        wrap(RejectionReasonV0.ResourcesExhausted(rejEntry.getResourcesExhausted.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
         List()
       case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
-        wrap(RejectionReason.PartyNotKnownOnLedger(rejEntry.getPartyNotKnownOnLedger.getDetails))
+        wrap(RejectionReasonV0.PartyNotKnownOnLedger(rejEntry.getPartyNotKnownOnLedger.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT =>
         wrap(
-          RejectionReason.SubmitterCannotActViaParticipant(
+          RejectionReasonV0.SubmitterCannotActViaParticipant(
             rejEntry.getSubmitterCannotActViaParticipant.getDetails
           )
         )
       case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>
-        wrap(RejectionReason.InvalidLedgerTime(rejEntry.getInvalidLedgerTime.getDetails))
+        wrap(RejectionReasonV0.InvalidLedgerTime(rejEntry.getInvalidLedgerTime.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
         //TODO: Replace with "Unknown reason" error code or something similar
         throw Err.InternalError("transactionRejectionEntryToUpdate: REASON_NOT_SET!")
@@ -320,7 +320,7 @@ object KeyValueConsumption {
           case _ =>
             "Record time outside of valid range"
         }
-        val rejectionReason = RejectionReason.InvalidLedgerTime(reason)
+        val rejectionReason = RejectionReasonV0.InvalidLedgerTime(reason)
         Some(
           Update.CommandRejected(
             recordTime = recordTime,

@@ -10,6 +10,7 @@ da_scala_binary(
     scala_deps = [
         "@maven//:com_thesamet_scalapb_compilerplugin",
         "@maven//:com_thesamet_scalapb_protoc_bridge",
+        "@maven//:com_thesamet_scalapb_protoc_gen",
     ],
     visibility = ["//visibility:public"],
     deps = [

@@ -444,7 +444,6 @@ decodeBuiltinFunction = pure . \case
 
   LF1.BuiltinFunctionERROR          -> BEError
   LF1.BuiltinFunctionANY_EXCEPTION_MESSAGE -> BEAnyExceptionMessage
-  LF1.BuiltinFunctionANY_EXCEPTION_IS_ARITHMETIC_ERROR -> BEAnyExceptionIsArithmeticError
 
   LF1.BuiltinFunctionTEXTMAP_EMPTY      -> BETextMapEmpty
   LF1.BuiltinFunctionTEXTMAP_INSERT     -> BETextMapInsert

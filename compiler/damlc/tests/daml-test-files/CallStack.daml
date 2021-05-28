@@ -1,4 +1,4 @@
--- @ERROR Aborted: CallStack (from HasCallStack):
+-- @ERROR CallStack (from HasCallStack):
 module CallStack where
 
 -- Main test case is in the Shake test suite. This just makes sure

@@ -969,7 +969,7 @@ private class JdbcLedgerDao(
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
-      offset: Offset,
+      offset: OffsetStep,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
       blindingInfo: Option[BlindingInfo],
@@ -980,7 +980,7 @@ private class JdbcLedgerDao(
       workflowId = workflowId,
       transactionId = transactionId,
       ledgerEffectiveTime = ledgerEffectiveTime,
-      offset = offset,
+      offset = offset.offset,
       transaction = transaction,
       divulgedContracts = divulgedContracts,
       blindingInfo = blindingInfo,
@@ -991,7 +991,7 @@ private class JdbcLedgerDao(
       transactionId,
       recordTime,
       ledgerEffectiveTime,
-      CurrentOffset(offset),
+      offset,
       transaction,
       divulgedContracts,
     )
@@ -1203,7 +1203,7 @@ private[platform] object JdbcLedgerDao {
         reason: RejectionReason,
     ): SimpleSql[Row] = {
       SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
-        .toArray[String]}, ${submitterInfo.commandId}, ${reason.value()}, ${reason.description})"
+        .toArray[String]}, ${submitterInfo.commandId}, ${reason.code.value}, ${reason.description})"
     }
 
     protected[JdbcLedgerDao] def escapeReservedWord(word: String): String
@@ -1393,7 +1393,7 @@ private[platform] object JdbcLedgerDao {
     ): SimpleSql[Row] = {
       import com.daml.platform.store.OracleArrayConversions._
       SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
-        .toArray[String]}, ${submitterInfo.commandId}, ${reason.value()}, ${reason.description})"
+        .toArray[String]}, ${submitterInfo.commandId}, ${reason.code.value()}, ${reason.description})"
     }
 
     // spaces which are subsequently trimmed left only for readability

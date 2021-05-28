@@ -23,6 +23,7 @@ object Config {
       templateIds: Option[List[Identifier]],
       beginOffset: Option[LedgerOffset],
       endOffset: Option[LedgerOffset],
+      objectives: StreamConfig.Objectives,
   )
 
   object StreamConfig {
@@ -31,6 +32,11 @@ object Config {
       case object Transactions extends StreamType
       case object TransactionTrees extends StreamType
     }
+
+    case class Objectives(
+        maxDelaySeconds: Option[Long],
+        minConsumptionSpeed: Option[Double],
+    )
   }
 
   case class Ledger(

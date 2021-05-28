@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.{
 }
 import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.KeyMonotonicityValidation.checkContractKeysCausalMonotonicity
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
-import com.daml.ledger.participant.state.v1.RejectionReason
+import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 
@@ -114,7 +114,7 @@ private[transaction] object ContractKeysValidation {
           recordTime,
           transactionCommitter.buildRejectionLogEntry(
             transactionEntry,
-            RejectionReason.Inconsistent(message),
+            RejectionReasonV0.Inconsistent(message),
           ),
         )
     }

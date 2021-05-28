@@ -6,6 +6,7 @@ load(
     "scala_binary",
     "scala_library",
     "scala_library_suite",
+    "scala_macro_library",
     "scala_repl",
     "scala_test",
     "scala_test_suite",
@@ -564,6 +565,34 @@ def da_scala_library(name, **kwargs):
     arguments.update(kwargs)
     arguments = _set_compile_jvm_flags(arguments)
     _wrap_rule(scala_library, name, **arguments)
+    _create_scala_source_jar(name = name, **arguments)
+    _create_scaladoc_jar(name = name, **arguments)
+    _create_scala_repl(name = name, **kwargs)
+
+    if "tags" in arguments:
+        for tag in arguments["tags"]:
+            if tag.startswith("maven_coordinates="):
+                pom_file(
+                    name = name + "_pom",
+                    target = ":" + name,
+                )
+                break
+
+def da_scala_macro_library(name, **kwargs):
+    """
+    Define a Scala macro library.
+
+    Applies common Scala options defined in `bazel_tools/scala.bzl`.
+    And forwards to `scala_macro_library` from `rules_scala`.
+    Refer to the [`rules_scala` documentation][rules_scala_macro_library_docs].
+
+    [rules_scala_macro_library_docs]: https://github.com/bazelbuild/rules_scala/blob/master/docs/scala_macro_library.md
+    """
+    arguments = {}
+    arguments.update(default_compile_arguments)
+    arguments.update(kwargs)
+    arguments = _set_compile_jvm_flags(arguments)
+    _wrap_rule(scala_macro_library, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
     _create_scaladoc_jar(name = name, **arguments)
     _create_scala_repl(name = name, **kwargs)

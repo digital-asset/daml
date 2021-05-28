@@ -4,25 +4,30 @@
 package com.daml.ledger.api.benchtool.metrics
 
 import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}
-import akka.actor.typed.{Behavior, SpawnProtocol}
+import akka.actor.typed.{ActorRef, Behavior, SpawnProtocol}
 
 import java.time.Instant
 import scala.concurrent.duration._
 
 object MetricsManager {
 
-  sealed trait Message[T]
+  sealed trait Message
   object Message {
-    final case class NewValue[T](value: T) extends Message[T]
-    final case class StreamCompleted[T]() extends Message[T]
-    final case class PeriodicUpdateCommand[T]() extends Message[T]
+    sealed trait MetricsResult
+    object MetricsResult {
+      final case object Ok extends MetricsResult
+      final case object ObjectivesViolated extends MetricsResult
+    }
+    final case class NewValue[T](value: T) extends Message
+    final case class PeriodicUpdateCommand() extends Message
+    final case class StreamCompleted(replyTo: ActorRef[MetricsResult]) extends Message
   }
 
   def apply[T](
       streamName: String,
       metrics: List[Metric[T]],
       logInterval: FiniteDuration,
-  ): Behavior[Message[T]] =
+  ): Behavior[Message] =
     Behaviors.withTimers(timers =>
       new MetricsManager[T](timers, streamName, logInterval).handlingMessages(metrics)
     )
@@ -30,7 +35,7 @@ object MetricsManager {
 }
 
 class MetricsManager[T](
-    timers: TimerScheduler[MetricsManager.Message[T]],
+    timers: TimerScheduler[MetricsManager.Message],
     streamName: String,
     logInterval: FiniteDuration,
 ) {
@@ -41,31 +46,55 @@ class MetricsManager[T](
 
   private val startTime: Instant = Instant.now()
 
-  def handlingMessages(metrics: List[Metric[T]]): Behavior[Message[T]] = {
+  def handlingMessages(metrics: List[Metric[T]]): Behavior[Message] = {
     Behaviors.receive { case (context, message) =>
       message match {
         case newValue: NewValue[T] =>
           handlingMessages(metrics.map(_.onNext(newValue.value)))
 
-        case _: PeriodicUpdateCommand[T] =>
-          val (newMetrics, updates) = metrics.map(_.periodicUpdate()).unzip
-          context.log.info(namedMessage(updates.mkString(", ")))
+        case _: PeriodicUpdateCommand =>
+          val (newMetrics, values) = metrics.map(_.periodicValue()).unzip
+          val formattedValues: List[String] = values.flatMap(_.formatted)
+          context.log.info(namedMessage(formattedValues.mkString(", ")))
           handlingMessages(newMetrics)
 
-        case _: StreamCompleted[T] =>
+        case message: StreamCompleted =>
           context.log.info(namedMessage(summary(metrics, totalDurationSeconds)))
+          message.replyTo ! result(metrics)
           Behaviors.stopped
       }
     }
   }
 
+  private def result(metrics: List[Metric[T]]): MetricsResult = {
+    val atLeastOneObjectiveViolated = metrics.exists(_.violatedObjectives.nonEmpty)
+
+    if (atLeastOneObjectiveViolated) MetricsResult.ObjectivesViolated
+    else MetricsResult.Ok
+  }
+
+  // TODO: move to a separate util
   private def summary(metrics: List[Metric[T]], durationSeconds: Double): String = {
-    val reports = metrics.flatMap { metric =>
-      metric.completeInfo(durationSeconds) match {
-        case Nil => Nil
-        case results => List(s"""${metric.name}:
-                                |${results.map(r => s"  $r").mkString("\n")}""".stripMargin)
-      }
+    def indented(str: String, spaces: Int = 4): String = s"${" " * spaces}$str"
+    val reports = metrics.map { metric =>
+      val metricValues: List[String] = metric
+        .finalValue(totalDurationSeconds)
+        .formatted
+        .map(indented(_))
+
+      val violatedObjectives: List[String] =
+        (metric.violatedObjectives.map { case (objective, value) =>
+          s"objective: ${objective.formatted} - value: ${value.formatted.mkString(", ")}"
+        }.toList match {
+          case Nil => Nil
+          case elems => "!!! OBJECTIVES NOT MET !!!" :: elems
+        }).map(indented(_))
+
+      val all: String = (metricValues ::: violatedObjectives)
+        .mkString("\n")
+
+      s"""${metric.name}:
+         |$all""".stripMargin
     }
     val reportWidth = 80
     val bar = "=" * reportWidth

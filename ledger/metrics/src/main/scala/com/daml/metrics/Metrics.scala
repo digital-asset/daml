@@ -353,6 +353,11 @@ final class Metrics(val registry: MetricRegistry) {
       val uploadPackages: Timer = registry.timer(Prefix :+ "upload_packages")
       val publishConfiguration: Timer = registry.timer(Prefix :+ "publish_configuration")
 
+      val decodeTransactionLogUpdate: Timer =
+        registry.timer(Prefix :+ "transaction_log_update_decode")
+      val transactionLogUpdatesBufferSize: Counter =
+        registry.counter(Prefix :+ "transaction_log_updates_buffer_size")
+
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
         private val Prefix: MetricName = index.Prefix :+ "db"
@@ -424,6 +429,9 @@ final class Metrics(val registry: MetricRegistry) {
           "store_party_entry"
         ) // FIXME Base name conflicts with storePartyEntry
         val loadPartyEntries: DatabaseMetrics = createDbMetrics("load_party_entries")
+        val getTransactionLogUpdates: DatabaseMetrics = createDbMetrics(
+          "get_transaction_log_updates"
+        )
 
         object storeTransactionDbMetrics
             extends DatabaseMetrics(registry, Prefix, "store_ledger_entry") {
@@ -636,6 +644,14 @@ final class Metrics(val registry: MetricRegistry) {
         val deduplicateCommand: Timer = registry.timer(Prefix :+ "deduplicate_command")
         val stopDeduplicateCommand: Timer = registry.timer(Prefix :+ "stop_deduplicating_command")
         val prune: Timer = registry.timer(Prefix :+ "prune")
+
+        object streamsBuffer {
+          private val Prefix: MetricName = index.Prefix :+ "streams_buffer"
+
+          def push(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "push")
+          def slice(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "slice")
+          def prune(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "prune")
+        }
       }
 
       object read {

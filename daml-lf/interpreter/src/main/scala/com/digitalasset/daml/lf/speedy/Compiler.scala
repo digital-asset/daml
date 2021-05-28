@@ -455,11 +455,11 @@ private[lf] final class Compiler(
       case ETypeRep(typ) =>
         SEValue(STypeRep(typ))
       case EToAnyException(ty, e) =>
-        SBToAnyException(ty)(compile(e))
+        SBToAny(ty)(compile(e))
       case EFromAnyException(ty, e) =>
-        SBFromAnyException(ty)(compile(e))
+        SBFromAny(ty)(compile(e))
       case EThrow(_, ty, e) =>
-        SBThrow(SBToAnyException(ty)(compile(e)))
+        SBThrow(SBToAny(ty)(compile(e)))
       case EExperimental(name, _) =>
         SBExperimental(name)
 
@@ -591,7 +591,6 @@ private[lf] final class Compiler(
             throw CompilationError(s"unexpected $bf")
 
           case BAnyExceptionMessage => SBAnyExceptionMessage
-          case BAnyExceptionIsArithmeticError => SBAnyExceptionIsArithmeticError
         })
     }
 
@@ -1285,8 +1284,6 @@ private[lf] final class Compiler(
         case SVariant(_, _, _, value) => goV(value)
         case SEnum(_, _, _) => ()
         case SAny(_, v) => goV(v)
-        case SAnyException(_, v) => goV(v)
-        case SArithmeticError(_, _) => ()
         case _: SPAP | SToken | SStruct(_, _) =>
           throw CompilationError("validate: unexpected SEValue")
       }

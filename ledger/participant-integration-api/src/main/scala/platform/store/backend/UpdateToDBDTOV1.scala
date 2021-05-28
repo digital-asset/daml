@@ -9,7 +9,6 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId, Update}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
-import com.daml.platform.store.Conversions
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.dao.DeduplicationKeyMaker
@@ -31,7 +30,7 @@ object UpdateToDBDTOV1 {
             submitters = u.submitterInfo.actAs.toSet,
             command_id = u.submitterInfo.commandId,
             transaction_id = None,
-            status_code = Some(Conversions.participantRejectionReasonToErrorCode(u.reason).value()),
+            status_code = Some(u.reason.code.value()),
             status_message = Some(u.reason.description),
           ),
           DBDTOV1.CommandDeduplication(

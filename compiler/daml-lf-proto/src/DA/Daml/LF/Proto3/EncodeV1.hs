@@ -538,7 +538,6 @@ encodeBuiltinExpr = \case
 
     BEError -> builtin P.BuiltinFunctionERROR
     BEAnyExceptionMessage -> builtin P.BuiltinFunctionANY_EXCEPTION_MESSAGE
-    BEAnyExceptionIsArithmeticError -> builtin P.BuiltinFunctionANY_EXCEPTION_IS_ARITHMETIC_ERROR
 
     BETextMapEmpty -> builtin P.BuiltinFunctionTEXTMAP_EMPTY
     BETextMapInsert -> builtin P.BuiltinFunctionTEXTMAP_INSERT

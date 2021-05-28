@@ -5,15 +5,19 @@ package com.daml.protoc.plugins.akka
 
 import com.google.protobuf.Descriptors.{MethodDescriptor, ServiceDescriptor}
 import scalapb.compiler.FunctionalPrinter.PrinterEndo
-import scalapb.compiler._
+import scalapb.compiler.{DescriptorImplicits, FunctionalPrinter, StreamType}
 
-final class AkkaGrpcServicePrinter(service: ServiceDescriptor, params: GeneratorParams)
-    extends DescriptorImplicits(params, Seq(service.getFile)) {
-  private[this] val killSwitchName = s""""${service.getName}KillSwitch ${System.nanoTime()}""""
+final class AkkaGrpcServicePrinter(
+    service: ServiceDescriptor
+)(implicit descriptorImplicits: DescriptorImplicits) {
+  import descriptorImplicits._
 
-  private[this] def observer(typeParam: String): String = s"$streamObserver[$typeParam]"
+  private val streamObserver = "_root_.io.grpc.stub.StreamObserver"
+  private val killSwitchName = s""""${service.getName}KillSwitch ${System.nanoTime()}""""
 
-  private[this] def serviceMethodSignature(method: MethodDescriptor): PrinterEndo = { p =>
+  private def observer(typeParam: String): String = s"$streamObserver[$typeParam]"
+
+  private def serviceMethodSignature(method: MethodDescriptor): PrinterEndo = { p =>
     method.streamType match {
       case StreamType.Unary => p
       case StreamType.ClientStreaming => p
@@ -49,7 +53,7 @@ final class AkkaGrpcServicePrinter(service: ServiceDescriptor, params: Generator
     }
   }
 
-  private[this] def traitBody: PrinterEndo = {
+  private def traitBody: PrinterEndo = {
     val endos: PrinterEndo = { p =>
       p.call(service.methods.map(m => serviceMethodSignature(m)): _*)
     }
@@ -75,7 +79,6 @@ final class AkkaGrpcServicePrinter(service: ServiceDescriptor, params: Generator
       .outdent
       .add("}")
   }
-  private[this] val streamObserver = "_root_.io.grpc.stub.StreamObserver"
 
   def printService(printer: FunctionalPrinter): Option[FunctionalPrinter] = {
 
@@ -84,7 +87,7 @@ final class AkkaGrpcServicePrinter(service: ServiceDescriptor, params: Generator
     if (hasStreamingEndpoint) Some {
       printer
         .add(
-          "package " + service.getFile.scalaPackageName,
+          "package " + service.getFile.scalaPackage.fullName,
           "",
           s"trait ${service.name}AkkaGrpc extends ${service.getName}Grpc.${service.getName} with AutoCloseable {",
         )

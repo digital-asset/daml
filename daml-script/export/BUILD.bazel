@@ -1,6 +1,7 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@build_environment//:configuration.bzl", "ghc_version")
 load(
     "//bazel_tools/client_server:client_server_build.bzl",
     "client_server_build",
@@ -175,8 +176,8 @@ client_server_build(
 # documentation import markers and normalizes the actual output by adding a
 # newline to the last line if missing.
 #
-# Normalizes the data-dependencies by replacing package-id hashes with a
-# placeholder and Windows path separators by Unix separators.
+# Normalizes the data-dependencies by replacing the SDK version, package-id
+# hashes with a placeholder, and Windows path separators by Unix separators.
 sh_inline_test(
     name = "example-export-compare",
     cmd = """\
@@ -188,21 +189,23 @@ ACTUAL_ARGS=$$(canonicalize_rlocation $(rootpath :example-export/args.json))
 ACTUAL_YAML=$$(canonicalize_rlocation $(rootpath :example-export/daml.yaml))
 # Normalize the expected file by removing the copyright header and any documentation import markers.
 # Normalize the actual output by adding a newline to the last line if missing.
-$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;/^-- EXPORT/d' $$EXPECTED_EXPORT) <($(POSIX_SED) '$$a\\' $$ACTUAL_EXPORT) || {
+$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;/^-- EXPORT/d' $$EXPECTED_EXPORT) <($(POSIX_SED) '$$a\\' $$ACTUAL_EXPORT) || {{
   echo "$$EXPECTED_EXPORT did not match $$ACTUAL_EXPORT"
   exit 1
-}
-$(POSIX_DIFF) -Naur --strip-trailing-cr $$EXPECTED_ARGS <($(POSIX_SED) '$$a\\' $$ACTUAL_ARGS) || {
+}}
+$(POSIX_DIFF) -Naur --strip-trailing-cr $$EXPECTED_ARGS <($(POSIX_SED) '$$a\\' $$ACTUAL_ARGS) || {{
   echo "$$EXPECTED_ARGS did not match $$ACTUAL_ARGS"
   exit 1
-}
+}}
 # Normalize the expected file by removing the copyright header and any documentation import markers.
-# Normalize the data-dependencies by replacing package-id hashes with a placeholder and Windows path separators by Unix separators.
-$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;s/[0-9a-f]\\{64\\}/HASH/' $$EXPECTED_YAML) <($(POSIX_SED) 's/[0-9a-f]\\{64\\}/HASH/;s,\\\\,/,g;$$a\\' $$ACTUAL_YAML) || {
+# Normalize the data-dependencies by replacing the SDK version, package-id hashes with a placeholder, and Windows path separators by Unix separators.
+$(POSIX_DIFF) -Naur --strip-trailing-cr <($(POSIX_SED) '1,3d;s/[0-9a-f]\\{{64\\}}/HASH/;s/daml-\\(script\\|stdlib\\)-0\\.0\\.0/daml-\\1-{ghc_version}/' $$EXPECTED_YAML) <($(POSIX_SED) 's/[0-9a-f]\\{{64\\}}/HASH/;s,\\\\,/,g;$$a\\' $$ACTUAL_YAML) || {{
   echo "$$EXPECTED_YAML did not match $$ACTUAL_YAML"
   exit 1
-}
-""",
+}}
+""".format(
+        ghc_version = ghc_version,
+    ),
     data = [
         ":example-export/Export.daml",
         ":example-export/args.json",

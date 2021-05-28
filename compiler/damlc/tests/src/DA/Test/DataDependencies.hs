@@ -579,6 +579,10 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "type BigConstraint a b c = (Show a, Show b, Show c, Additive c)"
               , "bigConstraintFn : BigConstraint a b c => a -> b -> c -> c -> Text"
               , "bigConstraintFn x y z w = show x <> show y <> show (z + w)"
+              -- nested constraint tuples
+              , "type NestedConstraintTuple a b c d = (BigConstraint a b c, Show d)"
+              , "nestedConstraintTupleFn : NestedConstraintTuple a b c d => a -> b -> c -> d -> Text"
+              , "nestedConstraintTupleFn x y z w = show x <> show y <> show z <> show w"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -598,7 +602,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
           createDirectoryIfMissing True (projb </> "src")
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "module B where"
-              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, RR(RR), P(P), AnyWrapper(..), FunT(..), OptionalT(..), ActionTrans(..), usesHasField, usesHasFieldEmpty, constraintTupleFn, bigConstraintFn )"
+              , "import A"
               , "import DA.Assert"
               , "import DA.Record"
               , ""
@@ -653,6 +657,17 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "useConstraintTupleFn x = constraintTupleFn x"
               , "useBigConstraintFn : Text"
               , "useBigConstraintFn = bigConstraintFn True \"Hello\" 10 20"
+              -- regression test for issue: https://github.com/digital-asset/daml/issues/9689
+              -- Using constraint synonym defined in data-dependency
+              , "newBigConstraintFn : BigConstraint a b c => a -> b -> c -> Text"
+              , "newBigConstraintFn x y z = show x <> show y <> show z"
+              , "useNewBigConstraintFn : Text"
+              , "useNewBigConstraintFn = newBigConstraintFn 10 \"Hello\" 20"
+              -- Using nested constraint tuple
+              , "useNestedConstraintTupleFn : Text"
+              , "useNestedConstraintTupleFn = nestedConstraintTupleFn 10 20 30 40"
+              , "nestedConstraintTupleFn2 : NestedConstraintTuple a b c d => a -> b -> c -> d -> Text"
+              , "nestedConstraintTupleFn2 x y z w = show x <> show y <> show z <> show w"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1230,6 +1245,117 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             ]
         callProcessSilent damlc
             [ "build"
+            , "--project-root", tmpDir </> "main"
+            , "--target=1.dev"]
+
+    , testCaseSteps "Standard library exceptions" $ \step -> withTempDir $ \tmpDir -> do
+        step "building project to be imported via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "lib")
+        writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: lib"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (tmpDir </> "lib" </> "Lib.daml") $ unlines
+            [ "module Lib where"
+            , "import DA.Assert"
+            , "import DA.Exception"
+            , "template TLib"
+            , "  with"
+            , "    p : Party"
+            , "  where"
+            , "    signatory p"
+            , "    ensure False"
+            , ""
+            , "libFnThatThrowsGeneralError : Party -> Update ()"
+            , "libFnThatThrowsGeneralError _ = error \"thrown from lib\""
+            , "libFnThatThrowsArithmeticError : Party -> Update ()"
+            , "libFnThatThrowsArithmeticError _ = pure (1 / 0) >> pure ()"
+            , "libFnThatThrowsAssertionFailed : Party -> Update ()"
+            , "libFnThatThrowsAssertionFailed _ = assert False"
+            , "libFnThatThrowsPreconditionFailed : Party -> Update ()"
+            , "libFnThatThrowsPreconditionFailed p = create (TLib p) >> pure ()"
+            , ""
+            , "libFnThatCatchesGeneralError : (() -> Update ()) -> Update ()"
+            , "libFnThatCatchesGeneralError m = try m () catch (e: GeneralError) -> pure ()"
+            , "libFnThatCatchesArithmeticError : (() -> Update ()) -> Update ()"
+            , "libFnThatCatchesArithmeticError m = try m () catch (e: ArithmeticError) -> pure ()"
+            , "libFnThatCatchesAssertionFailed : (() -> Update ()) -> Update ()"
+            , "libFnThatCatchesAssertionFailed m = try m () catch (e: AssertionFailed) -> pure ()"
+            , "libFnThatCatchesPreconditionFailed : (() -> Update ()) -> Update ()"
+            , "libFnThatCatchesPreconditionFailed m = try m () catch (e: PreconditionFailed) -> pure ()"
+            ]
+        callProcessSilent damlc
+            [ "build"
+            , "--project-root", tmpDir </> "lib"
+            , "-o", tmpDir </> "lib" </> "lib.dar"
+            , "--target=1.dev"]
+
+        step "building project that imports it via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "main")
+        writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: main"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: "
+            , "  - " <> (tmpDir </> "lib" </> "lib.dar")
+            ]
+        writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "import DA.Assert"
+            , "import DA.Exception"
+            , "import Lib"
+            , "template TMain"
+            , "  with"
+            , "    p : Party"
+            , "  where"
+            , "    signatory p"
+            , "    ensure False"
+            , ""
+            , "mainFnThatThrowsGeneralError : Party -> Update ()"
+            , "mainFnThatThrowsGeneralError _ = error \"thrown from main\""
+            , "mainFnThatThrowsArithmeticError : Party -> Update ()"
+            , "mainFnThatThrowsArithmeticError _ = pure (1 / 0) >> pure ()"
+            , "mainFnThatThrowsAssertionFailed : Party -> Update ()"
+            , "mainFnThatThrowsAssertionFailed _ = assert False"
+            , "mainFnThatThrowsPreconditionFailed : Party -> Update ()"
+            , "mainFnThatThrowsPreconditionFailed p = create (TMain p) >> pure ()"
+            , ""
+            , "mainFnThatCatchesGeneralError : (() -> Update ()) -> Update ()"
+            , "mainFnThatCatchesGeneralError m = try m () catch (e: GeneralError) -> pure ()"
+            , "mainFnThatCatchesArithmeticError : (() -> Update ()) -> Update ()"
+            , "mainFnThatCatchesArithmeticError m = try m () catch (e: ArithmeticError) -> pure ()"
+            , "mainFnThatCatchesAssertionFailed : (() -> Update ()) -> Update ()"
+            , "mainFnThatCatchesAssertionFailed m = try m () catch (e: AssertionFailed) -> pure ()"
+            , "mainFnThatCatchesPreconditionFailed : (() -> Update ()) -> Update ()"
+            , "mainFnThatCatchesPreconditionFailed m = try m () catch (e: PreconditionFailed) -> pure ()"
+            , ""
+            , "mkScenario : ((() -> Update ()) -> Update ()) -> (Party -> Update ()) -> Scenario ()"
+            , "mkScenario catcher thrower = scenario do"
+            , "    p <- getParty \"Alice\""
+            , "    submit p (catcher (\\() -> thrower p))"
+            , ""
+            , "libThrow1 = mkScenario mainFnThatCatchesGeneralError libFnThatThrowsGeneralError"
+            , "libThrow2 = mkScenario mainFnThatCatchesArithmeticError libFnThatThrowsArithmeticError"
+            , "libThrow3 = mkScenario mainFnThatCatchesAssertionFailed libFnThatThrowsAssertionFailed"
+            , "libThrow4 = mkScenario mainFnThatCatchesPreconditionFailed libFnThatThrowsPreconditionFailed"
+            , ""
+            , "libCatch1 = mkScenario libFnThatCatchesGeneralError mainFnThatThrowsGeneralError"
+            , "libCatch2 = mkScenario libFnThatCatchesArithmeticError mainFnThatThrowsArithmeticError"
+            , "libCatch3 = mkScenario libFnThatCatchesAssertionFailed mainFnThatThrowsAssertionFailed"
+            , "libCatch4 = mkScenario libFnThatCatchesPreconditionFailed mainFnThatThrowsPreconditionFailed"
+           ]
+        callProcessSilent damlc
+            [ "build"
+            , "--project-root", tmpDir </> "main"
+            , "--target=1.dev"]
+        step "running damlc test"
+        callProcessSilent damlc
+            [ "test"
             , "--project-root", tmpDir </> "main"
             , "--target=1.dev"]
     ]

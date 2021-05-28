@@ -35,7 +35,7 @@ import com.daml.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry,
 }
-import com.daml.platform.store.interfaces.LedgerDaoContractsReader
+import com.daml.platform.store.interfaces.{LedgerDaoContractsReader, TransactionLogUpdate}
 
 import scala.concurrent.Future
 
@@ -60,6 +60,22 @@ private[platform] trait LedgerDaoTransactionsReader {
   )(implicit
       loggingContext: LoggingContext
   ): Source[(Offset, GetTransactionTreesResponse), NotUsed]
+
+  /** An unfiltered stream of generic ledger updates.
+    *
+    * Contains complete transactions used to populate the in-memory fan-out buffers for Ledger API streams serving.
+    * Aside from transactions, special marker events are introduced - [[TransactionLogUpdate.LedgerEndMarker]] -
+    * which signal to consumers that the current page request has been fully fetched
+    * (i.e. up to the previously dispatched ledger head).
+    *
+    * @param startExclusive Start (exclusive) of the stream in the form of (offset, event_sequential_id).
+    * @param endInclusive End (inclusive) of the event stream in the form of (offset, event_sequential_id).
+    * @param loggingContext The logging context.
+    * @return The Akka Source of transaction log updates.
+    */
+  def getTransactionLogUpdates(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
+      implicit loggingContext: LoggingContext
+  ): Source[((Offset, Long), TransactionLogUpdate), NotUsed]
 
   def lookupTransactionTreeById(
       transactionId: TransactionId,
@@ -330,7 +346,7 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
-      offset: Offset,
+      offset: OffsetStep,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
       blindingInfo: Option[BlindingInfo],

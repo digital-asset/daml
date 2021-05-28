@@ -13,7 +13,7 @@ import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetSt
 import com.daml.platform.store.Conversions.{OffsetToStatement, ledgerString, offset, participantId}
 import com.daml.scalautil.Statement.discard
 
-private[dao] object ParametersTable {
+private[store] object ParametersTable {
 
   private val TableName: String = "parameters"
   private val LedgerIdColumnName: String = "ledger_id"

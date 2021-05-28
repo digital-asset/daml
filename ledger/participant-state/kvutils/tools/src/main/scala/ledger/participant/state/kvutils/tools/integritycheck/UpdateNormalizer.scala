@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
-import com.daml.ledger.participant.state.v1.{RejectionReason, Update}
+import com.daml.ledger.participant.state.v1.{RejectionReasonV0, Update}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.kv.TransactionNormalizer
 import com.daml.lf.transaction.CommittedTransaction
@@ -52,18 +52,20 @@ object RejectionReasonDescriptionNormalizer extends UpdateNormalizer {
   override def normalize(update: Update): Update = update match {
     case commandRejected @ Update.CommandRejected(_, _, reason) =>
       val newReason = reason match {
-        case RejectionReason.Disputed(_) =>
-          RejectionReason.Disputed("")
-        case RejectionReason.Inconsistent(_) =>
-          RejectionReason.Inconsistent("")
-        case RejectionReason.InvalidLedgerTime(_) =>
-          RejectionReason.InvalidLedgerTime("")
-        case RejectionReason.PartyNotKnownOnLedger(_) =>
-          RejectionReason.PartyNotKnownOnLedger("")
-        case RejectionReason.ResourcesExhausted(_) =>
-          RejectionReason.ResourcesExhausted("")
-        case RejectionReason.SubmitterCannotActViaParticipant(_) =>
-          RejectionReason.SubmitterCannotActViaParticipant("")
+        case RejectionReasonV0.Disputed(_) =>
+          RejectionReasonV0.Disputed("")
+        case RejectionReasonV0.Inconsistent(_) =>
+          RejectionReasonV0.Inconsistent("")
+        case RejectionReasonV0.InvalidLedgerTime(_) =>
+          RejectionReasonV0.InvalidLedgerTime("")
+        case RejectionReasonV0.PartyNotKnownOnLedger(_) =>
+          RejectionReasonV0.PartyNotKnownOnLedger("")
+        case RejectionReasonV0.ResourcesExhausted(_) =>
+          RejectionReasonV0.ResourcesExhausted("")
+        case RejectionReasonV0.SubmitterCannotActViaParticipant(_) =>
+          RejectionReasonV0.SubmitterCannotActViaParticipant("")
+        // don't map non V0 errors
+        case x => x
       }
       commandRejected.copy(reason = newReason)
     case _ => update

@@ -235,9 +235,9 @@ main =
                 expectScriptFailure rs (vr "testNotVisible") $ \r ->
                   matchRegex r "Attempt to fetch or exercise a contract not visible to the reading parties"
                 expectScriptFailure rs (vr "testError") $ \r ->
-                  matchRegex r "Aborted:  errorCrash"
+                  matchRegex r "errorCrash"
                 expectScriptFailure rs (vr "testAbort") $ \r ->
-                  matchRegex r "Aborted:  abortCrash"
+                  matchRegex r "abortCrash"
                 expectScriptFailure rs (vr "testPartialSubmit") $ \r ->
                   matchRegex r  $ T.unlines
                     [ "Scenario execution failed on commit at Test:57:3:"

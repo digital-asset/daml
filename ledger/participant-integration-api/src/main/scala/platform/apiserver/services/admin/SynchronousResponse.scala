@@ -52,6 +52,8 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
               Future.failed(ErrorFactories.aborted("Request timed out"))
             }
             .flatten
+        case r @ SubmissionResult.SynchronousReject(_) =>
+          Future.failed(r.failure)
         case r @ SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted(r.description))
         case r @ SubmissionResult.InternalError(_) =>

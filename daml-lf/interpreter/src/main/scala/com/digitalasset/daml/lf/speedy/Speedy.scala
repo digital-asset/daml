@@ -12,7 +12,6 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
-import com.daml.lf.speedy.PartialTransaction.ExercisesContextInfo
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -319,12 +318,7 @@ private[lf] object Speedy {
 
     private[lf] def contextActors: Set[Party] =
       withOnLedger("ptx") { onLedger =>
-        onLedger.ptx.context.info match {
-          case ctx: ExercisesContextInfo =>
-            ctx.actingParties union ctx.signatories
-          case _ =>
-            onLedger.committers
-        }
+        onLedger.ptx.context.info.authorizers.getOrElse(onLedger.committers)
       }
 
     private[lf] def auth: Authorize = Authorize(this.contextActors)
@@ -1124,8 +1118,7 @@ private[lf] object Speedy {
       case SValue.SContractId(_) | SValue.SDate(_) | SValue.SNumeric(_) | SValue.SInt64(_) |
           SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
           SValue.SMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
-          SValue.STNat(_) | SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken |
-          SValue.SArithmeticError(_, _) | SValue.SAnyException(_, _) =>
+          SValue.STNat(_) | SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken =>
         crash("Match on non-matchable value")
     }
 
@@ -1359,15 +1352,6 @@ private[lf] object Speedy {
     }
   }
 
-  private[speedy] def throwUnhandledException(payload: SValue) = {
-    payload match {
-      case exec: SValue.SException =>
-        throw DamlEUnhandledException(exec)
-      case v =>
-        crash(s"throwUnhandledException, applied to non-AnyException: $v")
-    }
-  }
-
   /** unwindToHandler is called when an exception is thrown by the builtin SBThrow or
     * re-thrown by the builtin SBTryHandler. If a catch-handler is found, we initiate
     * execution of the handler code (which might decide to re-throw). Otherwise we call
@@ -1375,7 +1359,7 @@ private[lf] object Speedy {
     * producing a text message.
     * In addition to exception handlers, we also stop unwinding at submitMustFail.
     */
-  private[speedy] def unwindToHandler(machine: Machine, payload: SValue): Unit = {
+  private[speedy] def unwindToHandler(machine: Machine, excep: SValue.SAny): Unit = {
     @tailrec def unwind(): Option[Either[KTryCatchHandler, KCatchSubmitMustFail]] = {
       if (machine.kontDepth() == 0) {
         None
@@ -1400,7 +1384,7 @@ private[lf] object Speedy {
         kh.restore()
         machine.popTempStackToBase()
         machine.ctrl = kh.handler
-        machine.pushEnv(payload) // payload on stack where handler expects it
+        machine.pushEnv(excep) // payload on stack where handler expects it
       case Some(Right(mustFail @ _)) =>
         machine.restoreBase(mustFail.envSize)
         machine.returnValue = SValue.SValue.True
@@ -1408,7 +1392,7 @@ private[lf] object Speedy {
         machine.kontStack.clear()
         machine.env.clear()
         machine.envBase = 0
-        throwUnhandledException(payload)
+        throw DamlEUnhandledException(excep)
     }
   }
 

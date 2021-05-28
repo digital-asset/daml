@@ -15,17 +15,17 @@ module DA.Internal.Exception where
 module DA.Internal.Exception
     ( module DA.Internal.Exception
     , AnyException
-    , GeneralError    (GeneralError)
+    , GeneralError (GeneralError)
     , ArithmeticError (ArithmeticError)
-    , ContractError   (ContractError)
     , AssertionFailed (AssertionFailed)
+    , PreconditionFailed (PreconditionFailed)
     ) where
 
 import GHC.Types
-import DA.Exception.GeneralError    ( GeneralError    (GeneralError) )
+import DA.Exception.GeneralError ( GeneralError (GeneralError) )
 import DA.Exception.ArithmeticError ( ArithmeticError (ArithmeticError) )
-import DA.Exception.ContractError   ( ContractError   (ContractError) )
 import DA.Exception.AssertionFailed ( AssertionFailed (AssertionFailed) )
+import DA.Exception.PreconditionFailed  ( PreconditionFailed   (PreconditionFailed) )
 import DA.Internal.LF
 import DA.Internal.Prelude
 import DA.Internal.Record
@@ -115,28 +115,24 @@ instance HasToAnyException ArithmeticError where
     toAnyException = primitive @"EToAnyException"
 
 instance HasFromAnyException ArithmeticError where
-    fromAnyException e
-        | primitive @"BEAnyExceptionIsArithmeticError" e =
-            Some (ArithmeticError (message e))
-        | otherwise =
-            primitive @"EFromAnyException" e
+    fromAnyException = primitive @"EFromAnyException"
 
 --------------------------------------------------------------
 
-instance HasField "message" ContractError Text where
-    getField (ContractError m) = m
-    setField m (ContractError _) = ContractError m
+instance HasField "message" PreconditionFailed Text where
+    getField (PreconditionFailed m) = m
+    setField m (PreconditionFailed _) = PreconditionFailed m
 
-instance HasThrow ContractError where
+instance HasThrow PreconditionFailed where
     throwPure = primitive @"EThrow"
 
-instance HasMessage ContractError where
-    message (ContractError m) = m
+instance HasMessage PreconditionFailed where
+    message (PreconditionFailed m) = m
 
-instance HasToAnyException ContractError where
+instance HasToAnyException PreconditionFailed where
     toAnyException = primitive @"EToAnyException"
 
-instance HasFromAnyException ContractError where
+instance HasFromAnyException PreconditionFailed where
     fromAnyException e =
       primitive @"EFromAnyException" e
 
