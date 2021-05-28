@@ -13,7 +13,6 @@ import java.time.Instant
 import java.util.UUID
 
 import scalaz.{-\/, Functor, \/, \/-}
-import scalaz.\/.fromTryCatchThrowable
 import scalaz.std.option._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.functor._
@@ -509,23 +508,23 @@ class Runner(
     Flow fromGraph graph
   }
 
+  private[this] def catchIAE[A](a: => A): Option[A] =
+    try Some(a)
+    catch { case _: IllegalArgumentException => None }
+
   private[this] def hideIrrelevantMsgs: Flow[TriggerMsg, TriggerMsg, NotUsed] =
     Flow[TriggerMsg].mapConcat[TriggerMsg] {
       case msg @ CompletionMsg(c) =>
         // This happens for invalid UUIDs which we might get for
         // completions not emitted by the trigger.
-        val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
-          UUID.fromString(c.commandId)
-        ).toOption
+        val ouuid = catchIAE(UUID.fromString(c.commandId))
         ouuid.flatMap { uuid =>
           useCommandId(uuid, SeenMsgs.Completion) option msg
         }.toList
       case msg @ TransactionMsg(t) =>
         // This happens for invalid UUIDs which we might get for
         // transactions not emitted by the trigger.
-        val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
-          UUID.fromString(t.commandId)
-        ).toOption
+        val ouuid = catchIAE(UUID.fromString(t.commandId))
         List(ouuid flatMap { uuid =>
           useCommandId(uuid, SeenMsgs.Transaction) option msg
         } getOrElse TransactionMsg(t.copy(commandId = "")))
