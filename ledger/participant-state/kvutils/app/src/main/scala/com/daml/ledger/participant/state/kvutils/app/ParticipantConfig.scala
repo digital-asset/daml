@@ -20,7 +20,6 @@ final case class ParticipantConfig(
     port: Port,
     portFile: Option[Path],
     serverJdbcUrl: String,
-    maxCommandsInFlight: Option[Int],
     managementServiceTimeout: Duration = ParticipantConfig.DefaultManagementServiceTimeout,
     indexerConfig: ParticipantIndexerConfig,
     apiServerDatabaseConnectionPoolSize: Int =

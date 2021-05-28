@@ -71,6 +71,7 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//libs-scala/postgresql-testing",
