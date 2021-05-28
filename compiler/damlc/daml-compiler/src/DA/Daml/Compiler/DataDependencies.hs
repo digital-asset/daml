@@ -229,8 +229,17 @@ emitHsDecl decl = Gen $ modify' (\gs -> gs { gsExtraDecls = decl : gsExtraDecls 
 freshInt :: Gen Int
 freshInt = Gen $ state (\gs -> (gsFreshCounter gs, gs { gsFreshCounter = gsFreshCounter gs + 1 }))
 
-freshTypeName :: Gen (Located RdrName)
-freshTypeName = mkRdrName . ("T__DataDependencies__" <>) . T.pack . show <$> freshInt
+freshTypeName :: Env -> Gen (Located RdrName)
+freshTypeName env = mkRdrName . (prefix <>) . T.pack . show <$> freshInt
+    where
+        prefix :: T.Text
+        prefix = T.concat
+            [ "T__DataDependencies__"
+            , LF.unPackageId (configSelfPkgId (envConfig env))
+            , "__"
+            , T.intercalate "_" (LF.unModuleName (LF.moduleName (envMod env)))
+            , "__"
+            ]
 
 -- | Extract all data definitions from a daml-lf module and generate
 -- a haskell source file from it.
@@ -297,13 +306,7 @@ generateSrcFromLf env = noLoc mod
     classReexportMap :: MS.Map LF.TypeSynName (LF.PackageId, Gen (LIE GhcPs))
     classReexportMap = MS.fromList $ do
         synDef@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
-        guard $ case synType of
-            LF.TStruct _ -> True
-            -- Type classes with no fields are translated to TUnit
-            -- since LF structs need to have a non-zero number of
-            -- fields.
-            LF.TUnit -> True
-            _ -> False
+        guard $ isJust (getTypeClassFields synType)
         LF.TypeSynName [name] <- [synName]
         Just (pkgId, depDef) <- [envLookupDepClass synName env]
         guard (safeToReexport env synDef depDef)
@@ -320,10 +323,7 @@ generateSrcFromLf env = noLoc mod
     classDecls :: [Gen (LHsDecl GhcPs)]
     classDecls = do
         defTypeSyn@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
-        fields <- case synType of
-            LF.TStruct fields -> [fields]
-            LF.TUnit -> [[]]
-            _ -> []
+        Just fields <- [getTypeClassFields synType]
         LF.TypeSynName [name] <- [synName]
         guard (synName `MS.notMember` classReexportMap)
         guard (shouldExposeDefTypeSyn defTypeSyn)
@@ -395,10 +395,7 @@ generateSrcFromLf env = noLoc mod
     synonymDecls :: [Gen (LHsDecl GhcPs)]
     synonymDecls = do
         defTypeSyn@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
-        guard $ case synType of
-            LF.TStruct _ -> False
-            LF.TUnit -> False
-            _ -> True
+        Nothing <- [getTypeClassFields synType]
         LF.TypeSynName [name] <- [synName]
         guard (shouldExposeDefTypeSyn defTypeSyn)
         let occName = mkOccName tcName (T.unpack name)
@@ -612,6 +609,22 @@ generateSrcFromLf env = noLoc mod
         , modRefModule /= LF.ModuleName ["CurrentSdk", "GHC", "Prim"]
         ]
 
+getTypeClassFields :: LF.Type -> Maybe [(LF.FieldName, LF.Type)]
+getTypeClassFields = \case
+    LF.TStruct fields | all isTypeClassField fields -> Just fields
+    LF.TUnit -> Just []
+        -- Type classes with no fields are translated to TUnit
+        -- since LF structs need to have a non-zero number of
+        -- fields.
+    _ -> Nothing
+
+isTypeClassField :: (LF.FieldName, LF.Type) -> Bool
+isTypeClassField = \case
+    (fieldName, LF.TUnit LF.:-> _) ->
+        isSuperClassField fieldName || isJust (getClassMethodName fieldName)
+    _ ->
+        False
+
 mkConRdr :: Env -> Module -> OccName -> RdrName
 mkConRdr env thisModule
  | envQualifyThisModule env = mkOrig thisModule
@@ -760,7 +773,7 @@ convType env reexported =
             HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
 
         ty1 LF.:-> ty2 -> do
-            ty1' <- convType env reexported ty1
+            ty1' <- convTypeLiftingConstraintTuples ty1
             ty2' <- convType env reexported ty2
             pure $ if isConstraint ty1
                 then HsQualTy noExt (noLoc [noLoc ty1']) (noLoc ty2')
@@ -803,29 +816,11 @@ convType env reexported =
             binder <- convTyVarBinder env forallBinder
             body <- convType env reexported forallBody
             pure . HsParTy noExt . noLoc $ HsForAllTy noExt [binder] (noLoc body)
+
         ty@(LF.TStruct fls)
             | isConstraint ty -> do
-                -- A constraint tuple. We need to lift it up to a type synonym,
-                -- otherwise GHC will treat it as a regular constraint.
-                -- See issue https://github.com/digital-asset/daml/issues/9663
-                let freeVars = map LF.unTypeVarName . Set.toList $ LF.freeVars ty
-                fieldTys <- mapM (convType env reexported . snd) fls
-                tupleTyName <- freshTypeName
-                emitHsDecl . noLoc . TyClD noExt $ SynDecl
-                    { tcdSExt = noExt
-                    , tcdLName = tupleTyName
-                    , tcdTyVars = HsQTvs noExt $ map mkUserTyVar freeVars
-                    , tcdFixity = Prefix
-                    , tcdRhs = noLoc $ HsTupleTy noExt HsConstraintTuple (map noLoc fieldTys)
-                    }
-                pure $ foldl'
-                    (\ accum freeVar ->
-                        HsParTy noExt
-                        . noLoc . HsAppTy noExt (noLoc accum)
-                        . noLoc . HsTyVar noExt NotPromoted
-                        $ mkRdrName freeVar )
-                    (HsTyVar noExt NotPromoted tupleTyName)
-                    freeVars
+                fieldTys <- mapM (convTypeLiftingConstraintTuples . snd) fls
+                pure $ HsTupleTy noExt HsConstraintTuple (map noLoc fieldTys)
 
             | otherwise ->
                 error ("Unexpected: Bare LF struct type that does not represent constraint tuple in data-dependencies. " <> show ty)
@@ -833,6 +828,35 @@ convType env reexported =
         LF.TNat n -> pure $
             HsTyLit noExt (HsNumTy NoSourceText (LF.fromTypeLevelNat n))
   where
+    convTypeLiftingConstraintTuples :: LF.Type -> Gen (HsType GhcPs)
+    convTypeLiftingConstraintTuples = \case
+        ty@(LF.TStruct fls) | isConstraint ty -> do
+            -- A constraint tuple. We need to lift it up to a type synonym
+            -- when it occurs in a function domain, otherwise GHC will
+            -- expand it out as a regular constraint.
+            -- See issue https://github.com/digital-asset/daml/issues/9663
+            let freeVars = map LF.unTypeVarName . Set.toList $ LF.freeVars ty
+            fieldTys <- mapM (convTypeLiftingConstraintTuples . snd) fls
+            tupleTyName <- freshTypeName env
+            emitHsDecl . noLoc . TyClD noExt $ SynDecl
+                { tcdSExt = noExt
+                , tcdLName = tupleTyName
+                , tcdTyVars = HsQTvs noExt $ map mkUserTyVar freeVars
+                , tcdFixity = Prefix
+                , tcdRhs = noLoc $ HsTupleTy noExt HsConstraintTuple (map noLoc fieldTys)
+                }
+            pure $ foldl'
+                (\ accum freeVar ->
+                    HsParTy noExt
+                    . noLoc . HsAppTy noExt (noLoc accum)
+                    . noLoc . HsTyVar noExt NotPromoted
+                    $ mkRdrName freeVar )
+                (HsTyVar noExt NotPromoted tupleTyName)
+                freeVars
+
+        ty ->
+            convType env reexported ty
+
     mkTuple :: Int -> Gen (HsType GhcPs)
     mkTuple i =
         pure $ HsTyVar noExt NotPromoted $
