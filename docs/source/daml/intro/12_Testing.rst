@@ -1,7 +1,7 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-11 Testing Daml Contracts
+12 Testing Daml Contracts
 =========================
 
 This chapter is all about testing and debugging the Daml contracts you've built using the tools from chapters 1-10. You've already met Daml Script as a way of testing your code inside the IDE. In this chapter you'll learn about more ways to test with Daml Script and its other uses, as well as other tools you can use for testing and debugging. You'll also learn about a few error cases that are most likely to crop up only in actual distributed testing, and which need some care to avoid. Specifically we will cover:
@@ -12,7 +12,7 @@ This chapter is all about testing and debugging the Daml contracts you've built 
 
 Note that this section only covers testing your Daml contracts. For more holistic application testing, please refer to :doc:`/getting-started/testing`.
 
-If you no longer have your projects set up, please follow the setup instructions in :doc:`8_Dependencies` to get hold of the code for this chapter. There is no code specific to this chapter.
+If you no longer have your projects set up, please follow the setup instructions in :doc:`9_Dependencies` to get hold of the code for this chapter. There is no code specific to this chapter.
 
 Daml Test Tooling
 -----------------

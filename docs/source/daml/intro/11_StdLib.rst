@@ -1,10 +1,10 @@
 .. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-10 Intro to the Daml Standard Library
+11 Intro to the Daml Standard Library
 =====================================
 
-In chapters :doc:`3_Data` and :doc:`9_Functional101` you learnt how to define your own data types and functions. But of course you don't have to implement everything from scratch. Daml comes with the Daml Standard Library which contains types, functions, and typeclasses that cover a large range of use-cases. In this chapter, you'll get an overview of the essentials, but also learn how to browse and search this library to find functions. Being proficient with the Standard Library will make you considerably more efficient writing Daml code. Specifically, this chapter covers:
+In chapters :doc:`3_Data` and :doc:`10_Functional101` you learnt how to define your own data types and functions. But of course you don't have to implement everything from scratch. Daml comes with the Daml Standard Library which contains types, functions, and typeclasses that cover a large range of use-cases. In this chapter, you'll get an overview of the essentials, but also learn how to browse and search this library to find functions. Being proficient with the Standard Library will make you considerably more efficient writing Daml code. Specifically, this chapter covers:
 
 - The Prelude
 - Important types from the Standard Library, and associated functions and typeclasses
@@ -16,7 +16,7 @@ To go in depth on some of these topics, the literature referenced in :ref:`haske
 
 .. note::
 
-  There is a project template ``daml-intro-10`` for this chapter, but it only contains a single source file with the code snippets embedded in this section.
+  There is a project template ``daml-intro-11`` for this chapter, but it only contains a single source file with the code snippets embedded in this section.
 
 The Prelude
 -----------
@@ -43,19 +43,19 @@ An example of a relatively wide Tuple can be found in the test modules of the ch
 ``Test.Intro.Asset.TradeSetup.tradeSetup`` returns the allocated parties and active contracts in a long tuple.
 ``Test.Intro.Asset.MultiTrade.testMultiTrade`` puts them back into scope using pattern matching.
 
-.. literalinclude:: daml/daml-intro-8/daml/Test/Intro/Asset/TradeSetup.daml
+.. literalinclude:: daml/daml-intro-9/daml/Test/Intro/Asset/TradeSetup.daml
   :language: daml
   :start-after: -- TUPLE_RETURN_BEGIN
   :end-before: -- TUPLE_RETURN_END
 
-.. literalinclude:: daml/daml-intro-8/daml/Test/Intro/Asset/MultiTrade.daml
+.. literalinclude:: daml/daml-intro-9/daml/Test/Intro/Asset/MultiTrade.daml
   :language: daml
   :start-after: -- TUPLE_USE_BEGIN
   :end-before: -- TUPLE_USE_END
 
 Tuples, like lists have some syntactic magic. Both the types as well as the constructors for tuples are ``(,,,)`` where the number of commas determines the arity of the tuple. Type and data constructor can be applied with values inside the brackets, or outside, and partial application is possible:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-11/daml/Main.daml
   :language: daml
   :start-after: -- TUPLE_DEMO_BEGIN
   :end-before: -- TUPLE_DEMO_END
@@ -81,7 +81,7 @@ The ``Optional`` type represents a value that may be missing. It's the closest t
 
 In Daml the same thing would be expressed as
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-11/daml/Main.daml
   :language: daml
   :start-after: -- OPT_BEGIN
   :end-before: -- OPT_END
@@ -102,14 +102,14 @@ You've seen typeclasses in use all the way from :doc:`3_Data`. It's now time to 
 
 Typeclasses are declared using the ``class`` keyword:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-11/daml/Main.daml
   :language: daml
   :start-after: -- CLASS_BEGIN
   :end-before: -- CLASS_END
 
 This is akin to an interface declaration of an interface with a getter and setter for a quantity. To *implement* this interface, you need to define instances of this typeclass:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-11/daml/Main.daml
   :language: daml
   :start-after: -- INSTANCE_BEGIN
   :end-before: -- INSTANCE_END
@@ -197,7 +197,7 @@ Searching for functions by Name
 
 Say you come across some functions you haven't seen before, like the ones in the ``ensure`` clause of the ``MultiTrade``.
 
-.. literalinclude:: daml/daml-intro-8/daml/Intro/Asset/MultiTrade.daml
+.. literalinclude:: daml/daml-intro-9/daml/Intro/Asset/MultiTrade.daml
   :language: daml
   :start-after: -- ENSURE_BEGIN
   :end-before: -- ENSURE_END
@@ -235,10 +235,9 @@ You may notice that in the search results you also get some hits that don't ment
 
 The reason is that there is an instance for ``Foldable [a]``.
 
-Let's try another search. Suppose you didn't want the first element, but the one at index ``n``. Remember that ``(!!)`` operator from :doc:`9_Functional101`? There are now two possible signatures we could search for:  ``[a] -> Int -> a`` and ``Int -> [a] -> a``. Try searching for both. You'll see that the search returns ``(!!)`` in both cases. You don't have to worry about the order of arguments.
+Let's try another search. Suppose you didn't want the first element, but the one at index ``n``. Remember that ``(!!)`` operator from :doc:`10_Functional101`? There are now two possible signatures we could search for:  ``[a] -> Int -> a`` and ``Int -> [a] -> a``. Try searching for both. You'll see that the search returns ``(!!)`` in both cases. You don't have to worry about the order of arguments.
 
 Next up
 -------
 
-There's little more to learn about writing Daml at this point that isn't best learnt by practice and consulting reference material for both Daml and Haskell. To finish off this course, you'll learn a little more about your options for testing and interacting with Daml code in :doc:`11_Testing`, and about the operational semantics of some keywords and common associated failures.
-
+There's little more to learn about writing Daml at this point that isn't best learnt by practice and consulting reference material for both Daml and Haskell. To finish off this course, you'll learn a little more about your options for testing and interacting with Daml code in :doc:`12_Testing`, and about the operational semantics of some keywords and common associated failures.
