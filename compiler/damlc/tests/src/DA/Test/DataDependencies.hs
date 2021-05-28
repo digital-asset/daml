@@ -582,7 +582,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               -- nested constraint tuples
               , "type NestedConstraintTuple a b c d = (BigConstraint a b c, Show d)"
               , "nestedConstraintTupleFn : NestedConstraintTuple a b c d => a -> b -> c -> d -> Text"
-              , "nestedConstraintTupleFn x y z w = show x <> show y <> show z <> show z"
+              , "nestedConstraintTupleFn x y z w = show x <> show y <> show z <> show w"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -667,7 +667,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "useNestedConstraintTupleFn : Text"
               , "useNestedConstraintTupleFn = nestedConstraintTupleFn 10 20 30 40"
               , "nestedConstraintTupleFn2 : NestedConstraintTuple a b c d => a -> b -> c -> d -> Text"
-              , "nestedConstraintTupleFn2 x y z w = show x <> show y <> show z <> show z"
+              , "nestedConstraintTupleFn2 x y z w = show x <> show y <> show z <> show w"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion

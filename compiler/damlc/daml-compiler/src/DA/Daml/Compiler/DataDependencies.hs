@@ -613,6 +613,9 @@ getTypeClassFields :: LF.Type -> Maybe [(LF.FieldName, LF.Type)]
 getTypeClassFields = \case
     LF.TStruct fields | all isTypeClassField fields -> Just fields
     LF.TUnit -> Just []
+        -- Type classes with no fields are translated to TUnit
+        -- since LF structs need to have a non-zero number of
+        -- fields.
     _ -> Nothing
 
 isTypeClassField :: (LF.FieldName, LF.Type) -> Bool
