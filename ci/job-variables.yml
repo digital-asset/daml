@@ -1,0 +1,8 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+variables:
+  - name: pipeline_timestamp
+    value: $[ format('{0:yyyy}-{0:MM}-{0:dd}T{0:HH}:{0:mm}:{0:ss}.{0:fffffff}', pipeline.startTime) ]
+  - name: pipeline_id
+    value: $(pipeline_timestamp)-$(System.JobDisplayName)-$(System.JobId)-$(System.JobAttempt)

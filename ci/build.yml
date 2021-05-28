@@ -65,11 +65,23 @@ jobs:
   dependsOn:
     - da_ghc_lib
     - check_for_release
+    - git_sha
   variables:
-    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    - name: release_sha
+      value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    - name: release_tag
+      value: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+    - name: trigger_sha
+      value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+    - name: is_release
+      value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    - name: git_branch_sha
+      value: $[ dependencies.git_sha.outputs['out.branch'] ]
+    - name: git_main_sha
+      value: $[ dependencies.git_sha.outputs['out.main'] ]
+    - name: git_fork_point_sha
+      value: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+    - template: job-variables.yml
   timeoutInMinutes: 360
   pool:
     name: 'ubuntu_20_04'
@@ -88,6 +100,7 @@ jobs:
         release_tag: $(release_tag)
         name: 'linux'
         is_release: variables.is_release
+    - template: upload-bazel-metrics.yml
     - bash: |
         set -euo pipefail
         eval "$(./dev-env/bin/dade-assist)"
@@ -114,11 +127,23 @@ jobs:
   dependsOn:
     - da_ghc_lib
     - check_for_release
+    - git_sha
   variables:
-    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    is_release: $[ eq(dependencies.check_for_release.outputs['out.is_release'], 'true') ]
+    - name: release_sha
+      value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    - name: release_tag
+      value: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+    - name: trigger_sha
+      value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+    - name: is_release
+      value: $[ eq(dependencies.check_for_release.outputs['out.is_release'], 'true') ]
+    - name: git_branch_sha
+      value: $[ dependencies.git_sha.outputs['out.branch'] ]
+    - name: git_main_sha
+      value: $[ dependencies.git_sha.outputs['out.main'] ]
+    - name: git_fork_point_sha
+      value: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+    - template: job-variables.yml
   timeoutInMinutes: 360
   pool:
     name: 'ubuntu_20_04'
@@ -138,6 +163,7 @@ jobs:
         name: 'linux-scala-2.12'
         is_release: variables.is_release
         scala_version: "2.12.13"
+    - template: upload-bazel-metrics.yml
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
@@ -147,15 +173,27 @@ jobs:
   dependsOn:
     - da_ghc_lib
     - check_for_release
+    - git_sha
   timeoutInMinutes: 360
   pool:
     name: macOS-pool
     demands: assignment -equals default
   variables:
-    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    - name: release_sha
+      value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    - name: release_tag
+      value: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+    - name: trigger_sha
+      value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+    - name: is_release
+      value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    - name: git_branch_sha
+      value: $[ dependencies.git_sha.outputs['out.branch'] ]
+    - name: git_main_sha
+      value: $[ dependencies.git_sha.outputs['out.main'] ]
+    - name: git_fork_point_sha
+      value: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+    - template: job-variables.yml
   steps:
     - template: report-start.yml
     - template: clear-shared-segments-macos.yml
@@ -171,6 +209,7 @@ jobs:
         release_tag: $(release_tag)
         name: macos
         is_release: variables.is_release
+    - template: upload-bazel-metrics.yml
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
@@ -185,13 +224,26 @@ jobs:
     - da_ghc_lib
     - check_for_release
     - patch_bazel_windows
+    - git_sha
   variables:
-    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
-    skip_tests: $[ and(eq(variables.is_release, 'true'),
+    - name: release_sha
+      value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    - name: release_tag
+      value: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+    - name: trigger_sha
+      value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+    - name: is_release
+      value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    - name: skip_tests
+      value: $[ and(eq(variables.is_release, 'true'),
                        eq(variables['Build.SourceBranchName'], 'main')) ]
+    - name: git_branch_sha
+      value: $[ dependencies.git_sha.outputs['out.branch'] ]
+    - name: git_main_sha
+      value: $[ dependencies.git_sha.outputs['out.main'] ]
+    - name: git_fork_point_sha
+      value: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+    - template: job-variables.yml
   timeoutInMinutes: 360
   pool:
     name: 'windows-pool'
@@ -215,6 +267,7 @@ jobs:
         # and then splice that in via a template parameter.
         skip_tests: $(skip_tests)
         is_release: variables.is_release
+    - template: upload-bazel-metrics.yml
     - task: PublishBuildArtifacts@1
       condition: succeededOrFailed()
       inputs:
