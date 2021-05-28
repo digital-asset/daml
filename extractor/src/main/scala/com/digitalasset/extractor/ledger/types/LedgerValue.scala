@@ -8,7 +8,12 @@ import api.value.Value.Sum
 import RecordField._
 
 import scalaz.{Optional => _, _}
-import Scalaz._
+import scalaz.std.either._
+import scalaz.std.list._
+import scalaz.std.option._
+import scalaz.syntax.bifoldable._
+import scalaz.syntax.std.either._
+import scalaz.syntax.traverse._
 import com.daml.lf.{data => lfdata}
 import lfdata.{FrontStack, ImmArray, Ref, SortedLookupList}
 import com.daml.lf.value.{Value => V}
@@ -123,5 +128,9 @@ object LedgerValue {
         } yield Ref.Identifier(pkgId, Ref.QualifiedName(mod, ent))
       }
       .disjunction
+  }
+
+  private[this] implicit final class `either covariant`[A](private val self: A) extends AnyVal {
+    def right[L, U >: A]: L \/ U = \/-(self)
   }
 }
