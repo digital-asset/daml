@@ -33,6 +33,7 @@ object CommandSubmissionFlow {
                   Ctx(
                     context,
                     tryResponse,
+                    telemetryMetadata,
                   )
                 )
               }(DirectExecutionContext)
