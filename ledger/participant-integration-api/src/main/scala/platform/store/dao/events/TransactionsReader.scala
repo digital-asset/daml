@@ -30,6 +30,7 @@ import com.daml.platform.store.dao.{
   LedgerDaoTransactionsReader,
   PaginatingAsyncStream,
 }
+import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.utils.Telemetry
 import com.daml.telemetry
 import com.daml.telemetry.{SpanAttribute, Spans}
@@ -297,13 +298,6 @@ private[dao] final class TransactionsReader(
       .watchTermination()(endSpanOnTermination(span))
   }
 
-  override def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
-      implicit loggingContext: LoggingContext
-  ): Source[((Offset, Long), ContractStateEvent), NotUsed] =
-    throw new UnsupportedOperationException(
-      "The operation is not supported in the current version."
-    )
-
   private def nextPageRange[E](endEventSeqId: (Offset, Long))(
       a: EventsTable.Entry[E]
   ): EventsRange[(Offset, Long)] =
@@ -390,4 +384,21 @@ private[dao] final class TransactionsReader(
     }
     mat
   }
+
+  override def getContractStateEvents(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
+      implicit loggingContext: LoggingContext
+  ): Source[((Offset, Long), ContractStateEvent), NotUsed] =
+    throw new UnsupportedOperationException(
+      "getContractStateEvents not supported in the current schema version."
+    )
+
+  override def getTransactionLogUpdates(
+      startExclusive: (Offset, Long),
+      endInclusive: (Offset, Long),
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[((Offset, Long), TransactionLogUpdate), NotUsed] =
+    throw new UnsupportedOperationException(
+      "getTransactionLogUpdates not supported in the current schema version."
+    )
 }
