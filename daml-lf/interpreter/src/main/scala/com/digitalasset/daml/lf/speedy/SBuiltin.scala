@@ -44,112 +44,87 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
     */
   private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit
 
+  private def unexpectedType(i: Int, expected: String, found: SValue) =
+    crash(
+      s"${getClass.getSimpleName}: type mismatch of argument $i: expect $expected but got $found"
+    )
+
   final protected def getSBool(args: util.ArrayList[SValue], i: Int): Boolean =
     args.get(i) match {
       case SBool(value) => value
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SBool but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "SBool", otherwise)
     }
 
   final protected def getSInt64(args: util.ArrayList[SValue], i: Int): Long =
     args.get(i) match {
       case SInt64(value) => value
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SInt64 but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "SInt64", otherwise)
     }
 
   final protected def getSText(args: util.ArrayList[SValue], i: Int): String =
     args.get(i) match {
       case SText(value) => value
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SText but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "SText", otherwise)
     }
 
   final protected def getSNumeric(args: util.ArrayList[SValue], i: Int): Numeric =
     args.get(i) match {
       case SNumeric(value) => value
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SNumeric but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "SNumeric", otherwise)
     }
 
   final protected def getSDate(args: util.ArrayList[SValue], i: Int): Time.Date =
     args.get(i) match {
       case SDate(value) => value
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SDate but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "SDate", otherwise)
     }
 
-  final protected def getSTimeStamp(args: util.ArrayList[SValue], i: Int): Time.Timestamp =
+  final protected def getSTimestamp(args: util.ArrayList[SValue], i: Int): Time.Timestamp =
     args.get(i) match {
       case STimestamp(value) => value
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect STimestamp but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "STimestamp", otherwise)
     }
 
   final protected def getSTNat(args: util.ArrayList[SValue], i: Int): Numeric.Scale =
     args.get(i) match {
       case STNat(x) => x
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect STNat but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "STNat", otherwise)
     }
 
   final protected def getSParty(args: util.ArrayList[SValue], i: Int): Party =
     args.get(i) match {
       case SParty(value) => value
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SParty but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "SParty", otherwise)
     }
 
   final protected def getSContractId(args: util.ArrayList[SValue], i: Int): V.ContractId =
     args.get(i) match {
       case SContractId(value) => value
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SContractId but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "SContractId", otherwise)
     }
 
   final protected def getSBigNumeric(args: util.ArrayList[SValue], i: Int): java.math.BigDecimal =
     args.get(i) match {
       case SBigNumeric(value) => value
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SBigNumeric but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "SBigNumeric", otherwise)
     }
 
   final protected def getSList(args: util.ArrayList[SValue], i: Int): FrontStack[SValue] =
     args.get(i) match {
       case SList(value) => value
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SList but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "SList", otherwise)
+    }
+
+  final protected def getSOptional(args: util.ArrayList[SValue], i: Int): Option[SValue] =
+    args.get(i) match {
+      case SOptional(value) => value
+      case otherwise => unexpectedType(i, "SOptional", otherwise)
     }
 
   final protected def getSMap(args: util.ArrayList[SValue], i: Int): SMap =
     args.get(i) match {
       case genMap: SMap => genMap
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SMap but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "SMap", otherwise)
     }
 
   final protected def getSMapKey(args: util.ArrayList[SValue], i: Int): SValue = {
@@ -161,38 +136,33 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
   final protected def getSRecord(args: util.ArrayList[SValue], i: Int): SRecord =
     args.get(i) match {
       case record: SRecord => record
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SRecord but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "SRecord", otherwise)
     }
 
   final protected def getSStruct(args: util.ArrayList[SValue], i: Int): SStruct =
     args.get(i) match {
       case struct: SStruct => struct
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SStruct but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "SStruct", otherwise)
     }
 
   final protected def getSAny(args: util.ArrayList[SValue], i: Int): SAny =
     args.get(i) match {
       case any: SAny => any
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SException but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "SAny", otherwise)
     }
 
   final protected def getSAnyException(args: util.ArrayList[SValue], i: Int): SRecord =
     args.get(i) match {
       case SAnyException(exception) => exception
-      case otherwise =>
-        throw SErrorCrash(
-          s"${getClass.getSimpleName}: type mismatch of argument $i: expect SException but got $otherwise"
-        )
+      case otherwise => unexpectedType(i, "Exception", otherwise)
     }
+
+  final protected def checkToken(args: util.ArrayList[SValue], i: Int): Unit =
+    args.get(i) match {
+      case SToken => ()
+      case otherwise => unexpectedType(i, "SToken", otherwise)
+    }
+
 }
 
 private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltin(arity) {
@@ -382,7 +352,7 @@ private[lf] object SBuiltin {
   }
 
   final case object SBShiftNumeric extends SBuiltinPure(3) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SNumeric = {
       val inputScale = getSTNat(args, 0)
       val outputScale = getSTNat(args, 1)
       val x = getSNumeric(args, 2)
@@ -396,28 +366,23 @@ private[lf] object SBuiltin {
   // Text functions
   //
   final case object SBExplodeText extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
       SList(FrontStack(Utf8.explode(getSText(args, 0)).map(SText)))
   }
 
   final case object SBImplodeText extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case SList(xs) =>
-          val ts = xs.map {
-            case SText(t) => t
-            case v =>
-              throw SErrorCrash(s"type mismatch implodeText: expected SText, got $v")
-          }
-          SText(Utf8.implode(ts.toImmArray))
-        case _ =>
-          throw SErrorCrash(s"type mismatch implodeText: $args")
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
+      val xs = getSList(args, 0)
+      val ts = xs.map {
+        case SText(t) => t
+        case v => crash(s"type mismatch implodeText: expected SText, got $v")
       }
+      SText(Utf8.implode(ts.toImmArray))
     }
   }
 
   final case object SBAppendText extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
       SText(getSText(args, 0) + getSText(args, 1))
   }
 
@@ -439,15 +404,12 @@ private[lf] object SBuiltin {
     }
 
   final case object SBToText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
       SText(litToText(args.get(0)))
   }
 
   final case object SBContractIdToText extends SBuiltin(1) {
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Unit = {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val coid = getSContractId(args, 0).coid
       machine.ledgerMode match {
         case OffLedger =>
@@ -459,19 +421,19 @@ private[lf] object SBuiltin {
   }
 
   final case object SBPartyToQuotedText extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
       SText(s"'${getSParty(args, 0): String}'")
   }
 
   final case object SBCodePointsToText extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
       val codePoints = getSList(args, 0).map(_.asInstanceOf[SInt64].value)
       SText(Utf8.pack(codePoints.toImmArray))
     }
   }
 
   final case object SBTextToParty extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
       Party.fromString(getSText(args, 0)) match {
         case Left(_) => SV.None
         case Right(p) => SOptional(Some(SParty(p)))
@@ -482,7 +444,7 @@ private[lf] object SBuiltin {
   final case object SBTextToInt64 extends SBuiltinPure(1) {
     private val pattern = """[+-]?\d+""".r.pattern
 
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
       val s = getSText(args, 0)
       if (pattern.matcher(s).matches())
         try {
@@ -504,7 +466,7 @@ private[lf] object SBuiltin {
     private val validFormat =
       """([+-]?)0*(\d+)(\.(\d*[1-9]|0)0*)?""".r
 
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
       val scale = getSTNat(args, 0)
       val string = getSText(args, 1)
       string match {
@@ -532,7 +494,7 @@ private[lf] object SBuiltin {
   }
 
   final case object SBTextToCodePoints extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList = {
       val string = getSText(args, 0)
       val codePoints = Utf8.unpack(string)
       SList(FrontStack(codePoints.map(SInt64)))
@@ -540,15 +502,12 @@ private[lf] object SBuiltin {
   }
 
   final case object SBSHA256Text extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
       SText(Utf8.sha256(getSText(args, 0)))
   }
 
   final case object SBFoldl extends SBuiltin(3) {
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Unit = {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val func = args.get(0)
       val init = args.get(1)
       val list = getSList(args, 2)
@@ -586,10 +545,7 @@ private[lf] object SBuiltin {
   // However, this would be a breaking change compared to the aforementioned
   // implementation of `foldr`.
   final case object SBFoldr extends SBuiltin(3) {
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Unit = {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val func = args.get(0).asInstanceOf[SPAP]
       val init = args.get(1)
       val list = getSList(args, 2)
@@ -611,37 +567,37 @@ private[lf] object SBuiltin {
 
   final case object SBMapToList extends SBuiltinPure(1) {
 
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
       SValue.toList(getSMap(args, 0).entries)
   }
 
   final case object SBMapInsert extends SBuiltinPure(3) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SMap =
       getSMap(args, 2).insert(getSMapKey(args, 0), args.get(1))
   }
 
   final case object SBMapLookup extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional =
       SOptional(getSMap(args, 1).entries.get(getSMapKey(args, 0)))
   }
 
   final case object SBMapDelete extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SMap =
       getSMap(args, 1).delete(getSMapKey(args, 0))
   }
 
   final case object SBMapKeys extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
       SList(ImmArray(getSMap(args, 0).entries.keys) ++: FrontStack.empty)
   }
 
   final case object SBMapValues extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
       SList(ImmArray(getSMap(args, 0).entries.values) ++: FrontStack.empty)
   }
 
   final case object SBMapSize extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 =
       SInt64(getSMap(args, 0).entries.size.toLong)
   }
 
@@ -665,7 +621,7 @@ private[lf] object SBuiltin {
   }
 
   final case object SBDateToUnixDays extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 =
       SInt64(getSDate(args, 0).days.toLong)
   }
 
@@ -677,8 +633,8 @@ private[lf] object SBuiltin {
   }
 
   final case object SBTimestampToUnixMicroseconds extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
-      SInt64(getSTimeStamp(args, 0).micros)
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 =
+      SInt64(getSTimestamp(args, 0).micros)
   }
 
   final case object SBUnixMicrosecondsToTimestamp
@@ -693,13 +649,13 @@ private[lf] object SBuiltin {
   // Equality and comparisons
   //
   final case object SBEqual extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
       SBool(svalue.Equality.areEqual(args.get(0), args.get(1)))
     }
   }
 
   sealed abstract class SBCompare(pred: Int => Boolean) extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
       SBool(pred(svalue.Ordering.compare(args.get(0), args.get(1))))
     }
   }
@@ -711,20 +667,20 @@ private[lf] object SBuiltin {
 
   /** $consMany[n] :: a -> ... -> List a -> List a */
   final case class SBConsMany(n: Int) extends SBuiltinPure(1 + n) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
       SList(ImmArray(args.subList(0, n).asScala) ++: getSList(args, n))
   }
 
   /** $cons :: a -> List a -> List a */
   final case object SBCons extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList = {
       SList(args.get(0) +: getSList(args, 1))
     }
   }
 
   /** $some :: a -> Optional a */
   final case object SBSome extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
       SOptional(Some(args.get(0)))
     }
   }
@@ -732,14 +688,14 @@ private[lf] object SBuiltin {
   /** $rcon[R, fields] :: a -> b -> ... -> R */
   final case class SBRecCon(id: Identifier, fields: ImmArray[Name])
       extends SBuiltinPure(fields.length) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
       SRecord(id, fields, args)
     }
   }
 
   /** $rupd[R, field] :: R -> a -> R */
   final case class SBRecUpd(id: Identifier, field: Int) extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
       val record = getSRecord(args, 0)
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
@@ -753,7 +709,7 @@ private[lf] object SBuiltin {
   /** $rupdmulti[R, [field_1, ..., field_n]] :: R -> a_1 -> ... -> a_n -> R */
   final case class SBRecUpdMulti(id: Identifier, updateFields: ImmArray[Int])
       extends SBuiltinPure(1 + updateFields.length) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
       val record = getSRecord(args, 0)
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
@@ -770,7 +726,7 @@ private[lf] object SBuiltin {
 
   /** $rproj[R, field] :: R -> a */
   final case class SBRecProj(id: Identifier, field: Int) extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue =
       getSRecord(args, 0).values.get(field)
   }
 
@@ -780,7 +736,7 @@ private[lf] object SBuiltin {
   final case class SBStructCon(inputFieldsOrder: Struct[Int])
       extends SBuiltinPure(inputFieldsOrder.size) {
     private[this] val fieldNames = inputFieldsOrder.mapValues(_ => ())
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SStruct = {
       val sortedFields = new util.ArrayList[SValue](inputFieldsOrder.size)
       inputFieldsOrder.values.foreach(i => sortedFields.add(args.get(i)))
       SStruct(fieldNames, sortedFields)
@@ -789,7 +745,7 @@ private[lf] object SBuiltin {
 
   /** $tproj[fieldIndex] :: Struct -> a */
   final case class SBStructProj(fieldIndex: Int) extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue =
       getSStruct(args, 0).values.get(fieldIndex)
   }
 
@@ -797,7 +753,7 @@ private[lf] object SBuiltin {
   // This is a slower version of `SBStructProj` for the case when we didn't run
   // the Daml-LF type checker and hence didn't infer the field index.
   final case class SBStructProjByName(field: Ast.FieldName) extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
       val struct = getSStruct(args, 0)
       struct.values.get(struct.fieldNames.indexOf(field))
     }
@@ -805,7 +761,7 @@ private[lf] object SBuiltin {
 
   /** $tupd[fieldIndex] :: Struct -> a -> Struct */
   final case class SBStructUpd(fieldIndex: Int) extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SStruct = {
       val struct = getSStruct(args, 0)
       val values2 = struct.values.clone.asInstanceOf[util.ArrayList[SValue]]
       values2.set(fieldIndex, args.get(1))
@@ -817,7 +773,7 @@ private[lf] object SBuiltin {
   // This is a slower version of `SBStructUpd` for the case when we didn't run
   // the Daml-LF type checker and hence didn't infer the field index.
   final case class SBStructUpdByName(field: Ast.FieldName) extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SStruct = {
       val struct = getSStruct(args, 0)
       val values2 = struct.values.clone.asInstanceOf[util.ArrayList[SValue]]
       values2.set(struct.fieldNames.indexOf(field), args.get(1))
@@ -828,7 +784,7 @@ private[lf] object SBuiltin {
   /** $vcon[V, variant] :: a -> V */
   final case class SBVariantCon(id: Identifier, variant: Ast.VariantConName, constructorRank: Int)
       extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SVariant = {
       SVariant(id, variant, constructorRank, args.get(0))
     }
   }
@@ -919,7 +875,7 @@ private[lf] object SBuiltin {
     *    -> Unit
     */
   final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SUnit.type = {
       if (!getSBool(args, 1))
         throw DamlETemplatePreconditionViolated(
           templateId = templateId,
@@ -939,7 +895,7 @@ private[lf] object SBuiltin {
     *    -> ContractId arg
     */
   final case class SBUCreate(templateId: TypeConName) extends OnLedgerBuiltin(5) {
-    override protected final def execute(
+    override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -993,7 +949,7 @@ private[lf] object SBuiltin {
       byKey: Boolean,
   ) extends OnLedgerBuiltin(4) {
 
-    override protected final def execute(
+    override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1040,7 +996,7 @@ private[lf] object SBuiltin {
       templateId: TypeConName
   ) extends OnLedgerBuiltin(2) {
     private[this] val typ = Ast.TTyCon(templateId)
-    override protected final def execute(
+    override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1112,14 +1068,14 @@ private[lf] object SBuiltin {
     */
   final case class SBUInsertFetchNode(templateId: TypeConName, byKey: Boolean)
       extends OnLedgerBuiltin(1) {
-    override protected final def execute(
+    override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
     ): Unit = {
       val coid = getSContractId(args, 0)
       val cached =
-        onLedger.cachedContracts.get(coid).getOrElse(crash(s"Contract $coid is missing from cache"))
+        onLedger.cachedContracts.getOrElse(coid, crash(s"Contract $coid is missing from cache"))
       val signatories = cached.signatories
       val observers = cached.observers
       val key = cached.key
@@ -1148,7 +1104,7 @@ private[lf] object SBuiltin {
     *    -> ()
     */
   final case class SBUInsertLookupNode(templateId: TypeConName) extends OnLedgerBuiltin(2) {
-    override protected final def execute(
+    override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1341,26 +1297,21 @@ private[lf] object SBuiltin {
 
   /** $getTime :: Token -> Timestamp */
   final case object SBGetTime extends SBuiltin(1) {
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Unit = {
-      checkToken(args.get(0))
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      checkToken(args, 0)
       // $ugettime :: Token -> Timestamp
-      throw SpeedyHungry(
-        SResultNeedTime(timestamp => machine.returnValue = STimestamp(timestamp))
-      )
+      throw SpeedyHungry(SResultNeedTime(timestamp => machine.returnValue = STimestamp(timestamp)))
     }
   }
 
   /** $beginCommit :: Party -> Token -> () */
   final case class SBSBeginCommit(optLocation: Option[Location]) extends OnLedgerBuiltin(2) {
-    override protected final def execute(
+    override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
     ): Unit = {
-      checkToken(args.get(1))
+      checkToken(args, 1)
       onLedger.cachedContracts = Map.empty
       onLedger.globalDiscriminators = Set.empty
       onLedger.committers = extractParties(args.get(0))
@@ -1371,17 +1322,17 @@ private[lf] object SBuiltin {
 
   /** $endCommit[mustFail?] :: result -> Token -> () */
   final case class SBSEndCommit(mustFail: Boolean) extends OnLedgerBuiltin(2) {
-    override protected final def execute(
+    override protected def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
     ): Unit = {
-      checkToken(args.get(1))
+      checkToken(args, 1)
       if (mustFail) executeMustFail(args, machine, onLedger)
       else executeCommit(args, machine, onLedger)
     }
 
-    private[this] final def executeMustFail(
+    private[this] def executeMustFail(
         args: util.ArrayList[SValue],
         machine: Machine,
         onLedger: OnLedger,
@@ -1394,30 +1345,26 @@ private[lf] object SBuiltin {
       val ptxOld = onLedger.ptx
       val commitLocationOld = onLedger.commitLocation
 
-      args.get(0) match {
-        case SBool(true) =>
-          // update expression threw an exception. we're
-          // now done.
-          machine.clearCommit
-          machine.returnValue = SV.Unit
-          throw SpeedyHungry(SResultScenarioInsertMustFail(committerOld, commitLocationOld))
-
-        case SBool(false) =>
-          ptxOld.finish match {
-            case PartialTransaction.CompleteTransaction(tx) =>
-              // Transaction finished successfully. It might still
-              // fail when committed, so tell the scenario runner to
-              // do that.
-              machine.returnValue = SV.Unit
-              throw SpeedyHungry(
-                SResultScenarioMustFail(tx, committerOld, _ => machine.clearCommit)
-              )
-            case PartialTransaction.IncompleteTransaction(_) =>
-              machine.clearCommit
-              machine.returnValue = SV.Unit
-          }
-        case v =>
-          crash(s"endCommit: expected bool, got: $v")
+      if (getSBool(args, 0)) {
+        // update expression threw an exception. we're
+        // now done.
+        machine.clearCommit
+        machine.returnValue = SV.Unit
+        throw SpeedyHungry(SResultScenarioInsertMustFail(committerOld, commitLocationOld))
+      } else {
+        ptxOld.finish match {
+          case PartialTransaction.CompleteTransaction(tx) =>
+            // Transaction finished successfully. It might still
+            // fail when committed, so tell the scenario runner to
+            // do that.
+            machine.returnValue = SV.Unit
+            throw SpeedyHungry(
+              SResultScenarioMustFail(tx, committerOld, _ => machine.clearCommit)
+            )
+          case PartialTransaction.IncompleteTransaction(_) =>
+            machine.clearCommit
+            machine.returnValue = SV.Unit
+        }
       }
     }
 
@@ -1441,33 +1388,26 @@ private[lf] object SBuiltin {
           )
         case PartialTransaction.IncompleteTransaction(ptx) =>
           checkAborted(ptx)
-          crash("IMPOSSIBLE: PartialTransaction.finish failed, but transaction was not aborted")
+          crash("PartialTransaction.finish failed, but transaction was not aborted")
       }
   }
 
   /** $pure :: a -> Token -> a */
   final case object SBSPure extends SBuiltin(2) {
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Unit = {
-      checkToken(args.get(1))
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      checkToken(args, 1)
       machine.returnValue = args.get(0)
     }
   }
 
   /** $pass :: Int64 -> Token -> Timestamp */
   final case object SBSPass extends SBuiltin(2) {
-    override private[speedy] final def execute(
+    override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Unit = {
-      checkToken(args.get(1))
-      val relTime = args.get(0) match {
-        case SInt64(t) => t
-        case v =>
-          crash(s"expected timestamp, got: $v")
-      }
+      checkToken(args, 1)
+      val relTime = getSInt64(args, 0)
       throw SpeedyHungry(
         SResultScenarioPassTime(
           relTime,
@@ -1479,50 +1419,39 @@ private[lf] object SBuiltin {
 
   /** $getParty :: Text -> Token -> Party */
   final case object SBSGetParty extends SBuiltin(2) {
-    override private[speedy] final def execute(
+    override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Unit = {
-      checkToken(args.get(1))
-      args.get(0) match {
-        case SText(name) =>
-          throw SpeedyHungry(
-            SResultScenarioGetParty(name, party => machine.returnValue = SParty(party))
-          )
-        case v =>
-          crash(s"invalid argument to GetParty: $v")
-      }
+      checkToken(args, 1)
+      val name = getSText(args, 0)
+      throw SpeedyHungry(
+        SResultScenarioGetParty(name, party => machine.returnValue = SParty(party))
+      )
     }
   }
 
   /** $trace :: Text -> a -> a */
   final case object SBTrace extends SBuiltin(2) {
-    override private[speedy] final def execute(
+    override private[speedy] def execute(
         args: util.ArrayList[SValue],
         machine: Machine,
     ): Unit = {
-      args.get(0) match {
-        case SText(message) =>
-          machine.traceLog.add(message, machine.lastLocation)
-          machine.returnValue = args.get(1)
-        case v =>
-          crash(s"invalid argument to trace: $v")
-      }
+      val message = getSText(args, 0)
+      machine.traceLog.add(message, machine.lastLocation)
+      machine.returnValue = args.get(1)
     }
   }
 
   /** $error :: Text -> a */
   final case object SBError extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): Nothing =
       throw DamlEUserError(getSText(args, 0))
   }
 
   /** $throw :: AnyException -> a */
   final case object SBThrow extends SBuiltin(1) {
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Unit = {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val excep = getSAny(args, 0)
       unwindToHandler(machine, excep)
     }
@@ -1530,27 +1459,19 @@ private[lf] object SBuiltin {
 
   /** $try-handler :: Optional (Token -> a) -> AnyException -> Token -> a (or re-throw) */
   final case object SBTryHandler extends SBuiltin(3) {
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Unit = {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val opt = getSOptional(args, 0)
       val excep = getSAny(args, 1)
-      val token = args.get(2)
-      checkToken(token)
-      args.get(0) match {
-        case SOptional(opt) =>
-          machine.withOnLedger("SBTryHandler") { onLedger =>
-            opt match {
-              case None =>
-                onLedger.ptx = onLedger.ptx.abortTry
-                unwindToHandler(machine, excep) //re-throw
-              case Some(handler) =>
-                onLedger.ptx = onLedger.ptx.rollbackTry(excep)
-                machine.enterApplication(handler, Array(SEValue(token)))
-            }
-          }
-        case v =>
-          crash(s"invalid argument to SBTryHandler (expected SOptional): $v")
+      checkToken(args, 2)
+      machine.withOnLedger("SBTryHandler") { onLedger =>
+        opt match {
+          case None =>
+            onLedger.ptx = onLedger.ptx.abortTry
+            unwindToHandler(machine, excep) //re-throw
+          case Some(handler) =>
+            onLedger.ptx = onLedger.ptx.rollbackTry(excep)
+            machine.enterApplication(handler, Array(SEValue(SToken)))
+        }
       }
     }
   }
@@ -1560,10 +1481,7 @@ private[lf] object SBuiltin {
     private def exceptionMessage(tyCon: TypeConName, value: SValue, machine: Machine) =
       machine.ctrl = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(SEValue(value)))
 
-    override private[speedy] final def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-    ): Unit = {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val exception = getSAnyException(args, 0)
       val tyCon = exception.id
       if (tyCon == SArithmeticError.tyCon)
@@ -1587,7 +1505,7 @@ private[lf] object SBuiltin {
     *    -> Any (where t = ty)
     */
   final case class SBToAny(ty: Ast.Type) extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
       SAny(ty, args.get(0))
     }
   }
@@ -1597,7 +1515,7 @@ private[lf] object SBuiltin {
     *    -> Optional t (where t = expectedType)
     */
   final case class SBFromAny(expectedTy: Ast.Type) extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
       val any = getSAny(args, 0)
       if (any.ty == expectedTy) SOptional(Some(any.value)) else SValue.SValue.None
     }
@@ -1606,182 +1524,116 @@ private[lf] object SBuiltin {
   // Unstable text primitives.
 
   /** $text_to_upper :: Text -> Text */
-  final case object SBTextToUpper extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case SText(t) =>
-          SText(t.toUpperCase(util.Locale.ROOT))
-        // TODO [FM]: replace with ASCII-specific function, or not
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextoUpper, expected Text got $x")
-      }
+  case object SBTextToUpper extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
+      val t = getSText(args, 0)
+      // TODO [FM]: replace with ASCII-specific function, or not
+      SText(t.toUpperCase(util.Locale.ROOT))
     }
   }
 
   /** $text_to_lower :: Text -> Text */
-  final case object SBTextToLower extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case SText(t) =>
-          SText(t.toLowerCase(util.Locale.ROOT))
-        // TODO [FM]: replace with ASCII-specific function, or not
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextToLower, expected Text got $x")
-      }
+  case object SBTextToLower extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
+      val t = getSText(args, 0)
+      // TODO [FM]: replace with ASCII-specific function, or not
+      SText(t.toLowerCase(util.Locale.ROOT))
     }
   }
 
   /** $text_slice :: Int -> Int -> Text -> Text */
-  final case object SBTextSlice extends SBuiltinPure(3) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case SInt64(from) =>
-          args.get(1) match {
-            case SInt64(to) =>
-              args.get(2) match {
-                case SText(t) =>
-                  val length = t.codePointCount(0, t.length).toLong
-                  if (to <= 0 || from >= length || to <= from) {
-                    SText("")
-                  } else {
-                    val rfrom = from.max(0).toInt
-                    val rto = to.min(length).toInt
-                    // NOTE [FM]: We use toInt only after ensuring the indices are
-                    // between 0 and length, inclusive. Calling toInt prematurely
-                    // would mean dropping the high order bits indiscriminitely,
-                    // so for instance (0x100000000L).toInt == 0, resulting in an
-                    // empty string below even though `to` was larger than length.
-                    val ifrom = t.offsetByCodePoints(0, rfrom)
-                    val ito = t.offsetByCodePoints(ifrom, rto - rfrom)
-                    SText(t.slice(ifrom, ito))
-                  }
-                case x =>
-                  throw SErrorCrash(s"type mismatch SBTextSlice, expected Text got $x")
-              }
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextSlice, expected Int64 got $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextSlice, expected Int64 got $x")
+  case object SBTextSlice extends SBuiltinPure(3) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
+      val from = getSInt64(args, 0)
+      val to = getSInt64(args, 1)
+      val t = getSText(args, 2)
+      val length = t.codePointCount(0, t.length).toLong
+      if (to <= 0 || from >= length || to <= from) {
+        SText("")
+      } else {
+        val rfrom = from.max(0).toInt
+        val rto = to.min(length).toInt
+        // NOTE [FM]: We use toInt only after ensuring the indices are
+        // between 0 and length, inclusive. Calling toInt prematurely
+        // would mean dropping the high order bits indiscriminitely,
+        // so for instance (0x100000000L).toInt == 0, resulting in an
+        // empty string below even though `to` was larger than length.
+        val ifrom = t.offsetByCodePoints(0, rfrom)
+        val ito = t.offsetByCodePoints(ifrom, rto - rfrom)
+        SText(t.slice(ifrom, ito))
       }
     }
   }
 
   /** $text_slice_index :: Text -> Text -> Optional Int */
-  final case object SBTextSliceIndex extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case SText(slice) =>
-          args.get(1) match {
-            case SText(t) =>
-              val n = t.indexOfSlice(slice) // n is -1 if slice is not found.
-              if (n < 0) {
-                SOptional(None)
-              } else {
-                val rn =
-                  t.codePointCount(0, n).toLong // we want to return the number of codepoints!
-                SOptional(Some(SInt64(rn)))
-              }
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextSliceIndex, expected Text got $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextSliceIndex, expected Text got $x")
+  case object SBTextSliceIndex extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
+      val slice = getSText(args, 0)
+      val t = getSText(args, 1)
+      val n = t.indexOfSlice(slice) // n is -1 if slice is not found.
+      if (n < 0) {
+        SOptional(None)
+      } else {
+        val rn = t.codePointCount(0, n).toLong // we want to return the number of codepoints!
+        SOptional(Some(SInt64(rn)))
       }
     }
   }
 
   /** $text_contains_only :: Text -> Text -> Bool */
-  final case object SBTextContainsOnly extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case SText(alphabet) =>
-          args.get(1) match {
-            case SText(t) =>
-              val alphabetSet = alphabet.codePoints().iterator().asScala.toSet
-              val result = t.codePoints().iterator().asScala.forall(alphabetSet.contains(_))
-              SBool(result)
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextContainsOnly, expected Text got $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextContainsOnly, expected Text got $x")
-      }
+  case object SBTextContainsOnly extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
+      val alphabet = getSText(args, 0)
+      val t = getSText(args, 1)
+      val alphabetSet = alphabet.codePoints().iterator().asScala.toSet
+      val result = t.codePoints().iterator().asScala.forall(alphabetSet.contains)
+      SBool(result)
     }
   }
 
   /** $text_replicate :: Int -> Text -> Text */
-  final case object SBTextReplicate extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case SInt64(n) =>
-          args.get(1) match {
-            case SText(t) =>
-              if (n < 0) {
-                SText("")
-              } else {
-                val rn = n.min(Int.MaxValue.toLong).toInt
-                SText(t * rn)
-              }
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextReplicate, expected Text got $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextReplicate, expected Int64 got $x")
+  case object SBTextReplicate extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
+      val n = getSInt64(args, 0)
+      val t = getSText(args, 1)
+      if (n < 0) {
+        SText("")
+      } else {
+        val rn = n.min(Int.MaxValue.toLong).toInt
+        SText(t * rn)
       }
     }
   }
 
   /** $text_split_on :: Text -> Text -> List Text */
-  final case object SBTextSplitOn extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case SText(pattern) =>
-          args.get(1) match {
-            case SText(t) =>
-              val seq: Seq[SValue] =
-                // Java will produce a two-element list for this with the second
-                // element being the empty string.
-                if (pattern.isEmpty) {
-                  Seq(SText(t))
-                } else {
-                  // We do not want to do a regex match so we use Pattern.quote
-                  // and we want to keep empty strings, so we use -1 as the second argument.
-                  t.split(Pattern.quote(pattern), -1).map(SText).toSeq
-                }
-              SList(FrontStack(seq))
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextSplitOn, expected Text got $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextSplitOn, expected Text got $x")
-      }
+  case object SBTextSplitOn extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList = {
+      val pattern = getSText(args, 0)
+      val t = getSText(args, 1)
+      val xs =
+        // Java will produce a two-element list for this with the second
+        // element being the empty string.
+        if (pattern.isEmpty) {
+          FrontStack(SText(t))
+        } else {
+          // We do not want to do a regex match so we use Pattern.quote
+          // and we want to keep empty strings, so we use -1 as the second argument.
+          t.split(Pattern.quote(pattern), -1).iterator.map(SText).to(FrontStack)
+        }
+      SList(xs)
     }
   }
 
   /** $text_intercalate :: Text -> List Text -> Text */
   final case object SBTextIntercalate extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      args.get(0) match {
-        case SText(sep) =>
-          args.get(1) match {
-            case SList(vs) =>
-              val xs = vs.map { (v: SValue) =>
-                v match {
-                  case SText(t) => t
-                  case x =>
-                    throw SErrorCrash(
-                      s"type mismatch SBTextIntercalate, expected Text in list, got $x"
-                    )
-                }
-              }
-              SText(xs.iterator.mkString(sep))
-            case x =>
-              throw SErrorCrash(s"type mismatch SBTextIntercalate, expected List got $x")
-          }
-        case x =>
-          throw SErrorCrash(s"type mismatch SBTextIntercalate, expected Text got $x")
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
+      val sep = getSText(args, 0)
+      val vs = getSList(args, 1)
+      val xs = vs.map {
+        case SText(t) => t
+        case x => crash(s"type mismatch SBTextIntercalate, expected Text in list, got $x")
       }
+      SText(xs.iterator.mkString(sep))
     }
   }
 
@@ -1825,13 +1677,6 @@ private[lf] object SBuiltin {
         ()
     }
 
-  private[this] def checkToken(v: SValue): Unit =
-    v match {
-      case SToken => ()
-      case _ =>
-        crash(s"value not a token: $v")
-    }
-
   private[this] def extractParties(v: SValue): TreeSet[Party] =
     v match {
       case SList(vs) =>
@@ -1856,19 +1701,15 @@ private[lf] object SBuiltin {
   ): Node.KeyWithMaintainers[V[Nothing]] =
     v match {
       case SStruct(_, vals) =>
-        rightOrCrash(
-          for {
-            keyVal <- vals
-              .get(keyIdx)
-              .toValue
-              .ensureNoCid
-              .left
-              .map(coid => s"Contract IDs are not supported in contract keys: $coid")
-          } yield Node.KeyWithMaintainers(
-            key = keyVal,
-            maintainers = extractParties(vals.get(maintainerIdx)),
-          )
-        )
+        vals.get(keyIdx).toValue.ensureNoCid match {
+          case Right(keyVal) =>
+            Node.KeyWithMaintainers(
+              key = keyVal,
+              maintainers = extractParties(vals.get(maintainerIdx)),
+            )
+          case Left(coid) =>
+            crash(s"Contract IDs are not supported in contract keys: $coid")
+        }
       case _ => crash(s"Invalid key with maintainers: $v")
     }
 
@@ -1913,8 +1754,4 @@ private[lf] object SBuiltin {
         )
       case _ => crash(s"Invalid cached contract: $v")
     }
-
-  private[this] def rightOrCrash[A](either: Either[String, A]) =
-    either.fold(crash, identity)
-
 }
