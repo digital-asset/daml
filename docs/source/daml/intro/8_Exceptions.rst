@@ -22,7 +22,7 @@ back ledger actions that have happened up to this point: If a contract
 got created before we hit the error, there is no way to undo this.
 
 Exceptions provide a way to handle certain types of errors in a
-non-invasive way and allow to rollback parts of the transaction that
+non-invasive way and to roll back parts of the transaction that
 lead up to this error. All of that still happens within the same
 transaction and is thereby atomic contrary to handling the error
 outside of Daml.
