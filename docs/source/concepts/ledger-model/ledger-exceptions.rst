@@ -76,8 +76,8 @@ Consistency
 In the previous section on :ref:`consistency <da-model-consistency>`,
 we defined a "before-after" relation on ledger actions. This notion needs
 to be revised in the presence of rollback nodes. It is no longer enough to
-traverse the transaction tree in prefix order, because the actions under a
-rollback cannot affect actions that appear later in the transaction tree.
+perform a preorder traversal of the transaction tree, because the actions under a
+rollback node cannot affect actions that appear later in the transaction tree.
 
 For example, a contract may be consumed by an exercise under a rollback node,
 and immediately again after the rollback node. This is allowed because the
@@ -89,7 +89,7 @@ back, and then by a "cancel" exercise.
 So, we now define the "before-after" relation as a partial order, rather than a
 total order, on all the actions of a transaction. This relation is defined
 as follows: `act1` comes before `act2` (equivalently, `act2` comes after `act1`)
-if and only if `act1` appears before `act2` in a prefix traversal of the
+if and only if `act1` appears before `act2` in a preorder traversal of the
 transaction tree, and any rollback nodes that are ancestors of `act1` are
 also ancestors of `act2`.
 
@@ -127,7 +127,7 @@ Transaction Normalization
 
 The same "before-after" relation can be represented in more than one way using
 rollback nodes. For example, the following three transactions have the same
-"before-after" relation among their ledger actions (A and B):
+"before-after" relation among their ledger actions (`act1`, `act2`, and `act3`):
 
 .. https://lucid.app/lucidchart/3aa5922f-ec30-4896-8bbc-56703549c7e5/edit
 .. image:: ./images/exception-normalization-1.svg
@@ -140,17 +140,17 @@ More generally, two transactions are equivalent if:
 - The transactions are the same when you ignore all rollback nodes. That is,
   if you remove every rollback node and absorb its children into its parent,
   then two transactions are the same. Equivalently, the transactions have
-  the same ledger actions with the same prefix order and subaction relation.
+  the same ledger actions with the same preorder traversal and subaction relation.
 
 - The transactions have the same "before-after" relation between their actions.
 
-- The trensactions have the same set of rolled back actions. That is, they have
+- The transactions have the same set of rolled back actions. That is, they have
   the same set of actions directly or indirectly under a rollback node.
 
 For all three transactions above, the "transaction tree ignoring rollbacks"
-consists of just the top-level actions A and B, the actions A and B are not
-related by the "before-after" relation, and both A and B are rolled back.
-Thus all three transactions are equivalent.
+consists only of top-level actions (`act1`, `act2`, and `act3`), the
+"before-after" relation only says that `act2` comes before `act3`,
+and all actions are rolled back. Thus all three transactions are equivalent.
 
 **Transaction normalization** is the process by which equivalent transactions
 are converted into the same transaction. In the case above, all three
@@ -161,35 +161,38 @@ transactions become the transaction in the middle when normalized.
    :align: center
    :width: 80%
 
-To normalize a transaction, we apply three rules across the whole transaction:
+To normalize a transaction, we apply three rules repeatedly across the whole transaction:
 
-- If a rollback node starts with another rollback node, for instance:
+1. If a rollback node is empty, we drop it.
 
-  .. code-block:: none
+2. If a rollback node starts with another rollback node, for instance:
 
-    'Rollback' [ 'Rollback' tx , node1, ..., nodeN ]
+   .. code-block:: none
 
-  Then we re-associate the rollback nodes, bringing the inner rollback node out:
+     'Rollback' [ 'Rollback' tx , node1, ..., nodeN ]
 
-  .. code-block:: none
+   Then we re-associate the rollback nodes, bringing the inner rollback node out:
 
-    'Rollback' tx, 'Rollback' [ node1, ..., nodeN ]
+   .. code-block:: none
 
-  We repeat this step until each rollback does not start with another rollback node.
+     'Rollback' tx, 'Rollback' [ node1, ..., nodeN ]
 
-- If a rollback node ends with another rollback node, for instance:
+3. If a rollback node ends with another rollback node, for instance:
 
-  .. code-block:: none
+   .. code-block:: none
 
-    'Rollback' [ node1, ..., nodeN, 'Rollback' [ node1', ..., nodeM' ] ]
+     'Rollback' [ node1, ..., nodeN, 'Rollback' [ node1', ..., nodeM' ] ]
 
-  Then we flatten the inner rollback node into its parent:
+   Then we flatten the inner rollback node into its parent:
 
-  .. code-block:: none
+   .. code-block:: none
 
-    'Rollback' [ node1, ..., nodeN, node1', ..., nodeM' ]
+     'Rollback' [ node1, ..., nodeN, node1', ..., nodeM' ]
 
-- If a rollback node is empty, we drop it.
+In the example above, using rule 3 we can turn the left transaction into the middle
+transaction, and using rule 2 we can turn the right transaction into the middle
+transaction. None of these rules apply to the middle transaction, so it is already
+normalized.
 
 In the end, a normalized transaction cannot contain any rollback node that starts
 or ends with another rollback node, nor may it contain any empty rollback nodes.
