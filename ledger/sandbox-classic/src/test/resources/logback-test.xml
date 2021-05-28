@@ -9,11 +9,21 @@
         <test>com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec</test>
     </appender>
 
+    <!-- TODO append-only: remove duplicated definitions from this file -->
+    <appender name="SqlLedgerSpecAppendOnlyAppender" class="com.daml.platform.testing.LogCollector">
+        <test>com.daml.platform.sandbox.appendonly.SqlLedgerSpec</test>
+    </appender>
+
     <logger name="com.daml.platform.sandbox.stores.ledger.sql.SqlLedger" level="INFO">
         <appender-ref ref="SqlLedgerSpecAppender" />
+        <appender-ref ref="SqlLedgerSpecAppendOnlyAppender" />
     </logger>
 
     <logger name="com.daml.platform.store.dao.HikariConnection" level="INFO">
         <appender-ref ref="SqlLedgerSpecAppender" />
+    </logger>
+
+    <logger name="com.daml.platform.store.appendonlydao.HikariConnection" level="INFO">
+        <appender-ref ref="SqlLedgerSpecAppendOnlyAppender" />
     </logger>
 </configuration>

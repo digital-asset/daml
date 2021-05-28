@@ -226,7 +226,7 @@ final class SqlLedgerSpec
         _ <- createSqlLedger(validatePartyAllocation = false)
       } yield {
         val hikariDataSourceLogs =
-          LogCollector.read[this.type]("com.daml.platform.store.dao.HikariConnection")
+          LogCollector.read[this.type]("com.daml.platform.store.appendonlydao.HikariConnection")
         hikariDataSourceLogs should contain(
           Level.INFO -> "Creating Hikari connections with synchronous commit ON"
         )
