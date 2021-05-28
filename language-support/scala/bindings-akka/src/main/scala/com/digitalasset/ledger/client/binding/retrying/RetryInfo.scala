@@ -22,12 +22,12 @@ case class RetryInfo[C](
 object RetryInfo {
 
   def wrap[C](timeProvider: TimeProvider)(request: In[C]): In[RetryInfo[C]] = request match {
-    case Ctx(context, submitRequest) =>
+    case Ctx(context, submitRequest, _) =>
       Ctx(RetryInfo(submitRequest, 0, timeProvider.getCurrentTime, context), submitRequest)
   }
 
   def unwrap[C](request: Out[RetryInfo[C]]): Out[C] = request match {
-    case Ctx(RetryInfo(_, _, _, context), completion) =>
+    case Ctx(RetryInfo(_, _, _, context), completion, _) =>
       Ctx(context, completion)
   }
 

@@ -186,7 +186,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
       import CommandTracker.nonTerminalCodes
 
       private def handleSubmitResponse(submitResponse: Ctx[(Context, String), Try[Empty]]) = {
-        val Ctx((_, commandId), value) = submitResponse
+        val Ctx((_, commandId), value, _) = submitResponse
         value match {
           case Failure(GrpcException(status @ GrpcStatus(code, _), _)) if !nonTerminalCodes(code) =>
             getOutputForTerminalStatusCode(commandId, GrpcStatus.toProto(status))

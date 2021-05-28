@@ -5,7 +5,11 @@ package com.daml.util
 
 /** Ctx wraps a value with some contextual information.
   */
-final case class Ctx[+Context, +Value](context: Context, value: Value) {
+final case class Ctx[+Context, +Value](
+    context: Context,
+    value: Value,
+    telemetryMetadata: Map[String, String] = Map.empty,
+) {
 
   def map[T](transform: Value => T): Ctx[Context, T] = Ctx(context, transform(value))
 
