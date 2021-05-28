@@ -117,7 +117,7 @@ Submission ranking obeys the following rules:
    The completion event for the command submission contains the :ref:`submission rank <com.daml.ledger.api.v1.Completion.submission_rank>`.
 
 #. Completions on the completion stream can be marked as a **definite answer**:
-   - An accepting completion is always definite answers.
+   - An accepting completion is always a definite answer.
    - A rejecting completion is a definite answer if the error details contain the metadata key ``definite_answer`` with value ``true``.
 
 #. **Rank guarantee**:
@@ -127,7 +127,7 @@ Submission ranking obeys the following rules:
 #. When the application receives a definite-answer rejection,
    it knows that all submissions for the same change ID with lower rank will not be accepted either.
    So if it knows that there are no submissions for the same change ID with higher rank in flight,
-   it can decide to not resubmit the commands and conclude that the change will never be applied to the ledger with this ID.
+   it can decide to not resubmit the commands and conclude that the change with this ID will never be applied to the ledger.
 
 
 For details on how to use command deduplication and submission ranking, see the :ref:`Application Architecture Guide <command-deduplication>`.

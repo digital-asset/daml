@@ -135,7 +135,7 @@ The interaction of a Daml application with the ledger is inherently asynchronous
 
 There are several things that can fail during this time window: the application can crash, the participant node can crash, messages can be lost on the network, messages can overtake each other, or the ledger may be just slow to respond due to a high load.
 
-If you want to make sure that a command is applied to the ledger at most, your application needs to robustly handle all the failure scenarios.
+If you want to make sure that a command is applied to the ledger at most once, your application needs to robustly handle all the failure scenarios.
 Daml ledgers provide a mechanism for :ref:`command deduplication and submission ranking <command-submission-service-deduplication>` to help deal with this problem.
 
 An application can provide for each command the following parameters:
@@ -165,7 +165,7 @@ Some applications do not need command deduplication, say because the Daml models
 
 If the application receives a ``DEADLINE_EXCEEDED`` response or no response at all, then it must not make any assumptions about the command being applied or not until a completion event for the change ID appears on the completion stream.
 Yet, if the submission is actually lost, no such completion event will ever appear.
-To obtain finality, the application may resubmit the command and rely on its own mechanisms (e.g. in the Daml model) to avoid prevent duplication.
+To obtain finality, the application may resubmit the command and rely on its own mechanisms (e.g. in the Daml model) to prevent duplication.
 
 
 Bounded network delays and clock skews
@@ -181,7 +181,7 @@ We assume bounds on the following:
 * The downtime or failover time of the application system, the particpant, and the ledger.
 
 Commands may be duplicated and finality violated if the actual skews and delays exceed the bounds.
-Finality may not be acheiveable if unhealthy conditions persist for longer than the :ref:`max deduplication time <com.daml.ledger.api.v1.LedgerConfiguration.max_deduplication_time>`.
+Finality may not be achieveable if unhealthy conditions persist for longer than the :ref:`max deduplication time <com.daml.ledger.api.v1.LedgerConfiguration.max_deduplication_time>`.
 
 We further assume that the application persists its intended ledger changes and whether it has decided to not retry a change.
 It also maintains a watermark of the changes that have either been applied or rejected and will not be retried and the time when it has advanced the watermark.
@@ -189,11 +189,11 @@ The application keeps track of the in-flight command submissions via their submi
 
 #. After starting up, the application submits a no-op command with a fresh command ID and submission ID (e.g., a random UUID), but no submission rank or deduplication period.
    This should generate a definite-answer completion with a completion offset ``off_start``.
-   The application can use the command service for the submission and extract the completion offset from the successful response or the error details of a rejection.   
+   The application can use the synchronous command service for the submission and extract the completion offset from the successful response or the error details of a rejection.   
    If the submission fails without generating a completion offset, the application should repeat this step until it receives such a fresh completion offset.
 
 #. All subsequent command submission should use a submission rank that is between ``off_start`` and the current completion end.
-   To that end, we assume that the application maintains a running completion offset ``off_running``.
+   To that end, we assume that the application maintains a running completion offset ``off_running``, which is always the latest observed completion offset.
    It is initialized to ``off_start`` and need not be persisted.
    Whenever the application observes a completion offset on the completion stream or as part of an RPC response from the command service,
    it advances ``off_running`` to the observed offset.
