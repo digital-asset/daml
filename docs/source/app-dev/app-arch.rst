@@ -189,11 +189,11 @@ The application keeps track of the in-flight command submissions via their submi
 
 #. After starting up, the application submits a dummy command with a fresh command ID and submission ID (e.g., a random UUID), but no submission rank or deduplication period.
    This should generate a definite-answer completion with a completion offset ``off_start``.
-   The application can use the command service for the submission and extract the completion offset from the successful response or the error details of a rejection.   
+   The application can use the synchronous command service for the submission and extract the completion offset from the successful response or the error details of a rejection.   
    If the submission fails without generating a completion offset, the application should repeat this step until it receives such a fresh completion offset.
 
 #. All subsequent command submission should use a submission rank that is between ``off_start`` and the current completion end.
-   To that end, we assume that the application maintains a running completion offset ``off_running``.
+   To that end, we assume that the application maintains a running completion offset ``off_running``, which is always the latest observed completion offset.
    It is initialized to ``off_start`` and need not be persisted.
    Whenever the application observes a completion offset on the completion stream or as part of an RPC response from the command service,
    it advances ``off_running`` to the observed offset.
