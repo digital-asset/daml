@@ -70,15 +70,16 @@ private[lf] object PartialTransaction {
     */
   final case class Context(
       info: ContextInfo,
-      minChildVersion: TxVersion,
+      minChildVersion: TxVersion, // tracks the minimum version of any child within `children`
       children: BackStack[NodeId],
       nextActionChildIdx: Int,
   ) {
+    // when we add a child node we must pass the minimum-version contained in that child
     def addActionChild(child: NodeId, version: TxVersion): Context = {
       Context(info, minChildVersion min version, children :+ child, nextActionChildIdx + 1)
     }
-    def addRollbackChild(child: NodeId, nextActionChildIdx: Int): Context =
-      Context(info, minChildVersion, children :+ child, nextActionChildIdx)
+    def addRollbackChild(child: NodeId, version: TxVersion, nextActionChildIdx: Int): Context =
+      Context(info, minChildVersion min version, children :+ child, nextActionChildIdx)
     // This function may be costly, it must be call at most once for each node.
     def nextActionChildSeed: crypto.Hash = info.actionChildSeed(nextActionChildIdx)
   }
@@ -86,6 +87,7 @@ private[lf] object PartialTransaction {
   object Context {
 
     def apply(info: ContextInfo): Context =
+      // An empty context, with no children; minChildVersion is set to the max-int.
       Context(info, TxVersion.VDev, BackStack.empty, 0)
 
     def apply(initialSeeds: InitialSeeding): Context =
@@ -661,6 +663,7 @@ private[lf] case class PartialTransaction(
     * i.e. a exception was thrown inside the context, and the catch associated to the try context did handle it.
     */
   def rollbackTry(ex: SValue.SAny): PartialTransaction = {
+    // we must never create a rollback containing a node with a version pre-dating exceptions
     if (context.minChildVersion < TxVersion.minExceptions) {
       throw DamlEUnhandledException(ex)
     }
@@ -670,7 +673,7 @@ private[lf] case class PartialTransaction(
         // But we do that in a later normalization phase, not here.
         val rollbackNode = Node.NodeRollback(context.children.toImmArray)
         copy(
-          context = info.parent.addRollbackChild(info.nodeId, context.nextActionChildIdx),
+          context = info.parent.addRollbackChild(info.nodeId, context.minChildVersion, context.nextActionChildIdx),
           nodes = nodes.updated(info.nodeId, rollbackNode),
         ).resetActiveState(info.beginState)
       case _ => throw new RuntimeException("rollbackTry called in non-catch context")
