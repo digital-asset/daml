@@ -579,6 +579,10 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "type BigConstraint a b c = (Show a, Show b, Show c, Additive c)"
               , "bigConstraintFn : BigConstraint a b c => a -> b -> c -> c -> Text"
               , "bigConstraintFn x y z w = show x <> show y <> show (z + w)"
+              -- nested constraint tuples
+              , "type NestedConstraintTuple a b c d = (BigConstraint a b c, Show d)"
+              , "nestedConstraintTupleFn : NestedConstraintTuple a b c d => a -> b -> c -> d -> Text"
+              , "nestedConstraintTupleFn x y z w = show x <> show y <> show z <> show z"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -598,7 +602,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
           createDirectoryIfMissing True (projb </> "src")
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "module B where"
-              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, RR(RR), P(P), AnyWrapper(..), FunT(..), OptionalT(..), ActionTrans(..), usesHasField, usesHasFieldEmpty, constraintTupleFn, bigConstraintFn )"
+              , "import A"
               , "import DA.Assert"
               , "import DA.Record"
               , ""
@@ -653,6 +657,17 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "useConstraintTupleFn x = constraintTupleFn x"
               , "useBigConstraintFn : Text"
               , "useBigConstraintFn = bigConstraintFn True \"Hello\" 10 20"
+              -- regression test for issue: https://github.com/digital-asset/daml/issues/9689
+              -- Using constraint synonym defined in data-dependency
+              , "newBigConstraintFn : BigConstraint a b c => a -> b -> c -> Text"
+              , "newBigConstraintFn x y z = show x <> show y <> show z"
+              , "useNewBigConstraintFn : Text"
+              , "useNewBigConstraintFn = newBigConstraintFn 10 \"Hello\" 20"
+              -- Using nested constraint tuple
+              , "useNestedConstraintTupleFn : Text"
+              , "useNestedConstraintTupleFn = nestedConstraintTupleFn 10 20 30 40"
+              , "nestedConstraintTupleFn2 : NestedConstraintTuple a b c d => a -> b -> c -> d -> Text"
+              , "nestedConstraintTupleFn2 x y z w = show x <> show y <> show z <> show z"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
