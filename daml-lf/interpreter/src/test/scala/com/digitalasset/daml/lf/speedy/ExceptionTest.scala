@@ -7,7 +7,7 @@ package speedy
 import java.util
 
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.{Party, PackageId}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.speedy.Compiler.FullStackTrace
@@ -637,4 +637,173 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     Speedy.Machine.fromScenarioExpr(pkgs1, transactionSeed, e).run()
   }
 
+  "rollback of creates (mixed versions)" should {
+
+    val party = Party.assertFromString("Alice")
+
+    val oldPid: PackageId = Ref.PackageId.assertFromString("OldPackage")
+    val newPid: PackageId = Ref.PackageId.assertFromString("Newpackage")
+
+    val oldPackage = {
+      implicit val defaultParserParameters: ParserParameters[this.type] = {
+        ParserParameters(
+          defaultPackageId = oldPid,
+          languageVersion = LanguageVersion.v1_11, //version pre-dating exceptions
+        )
+      }
+      p"""
+      module OldM {
+        record @serializable OldT = { party: Party } ;
+        template (record : OldT) = {
+          precondition True,
+          signatories Cons @Party [OldM:OldT {party} record] (Nil @Party),
+          observers Nil @Party,
+          agreement "Agreement",
+          choices {}
+        };
+      } """
+    }
+    val newPackage = {
+      implicit val defaultParserParameters: ParserParameters[this.type] = {
+        ParserParameters(
+          defaultPackageId = newPid,
+          languageVersion = LanguageVersion.v1_dev,
+        )
+      }
+      p"""
+      module NewM {
+        record @serializable AnException = { } ;
+        exception AnException = { message \(e: NewM:AnException) -> "AnException" };
+
+        record @serializable NewT = { party: Party } ;
+        template (record : NewT) = {
+          precondition True,
+          signatories Cons @Party [NewM:NewT {party} record] (Nil @Party),
+          observers Nil @Party,
+          agreement "Agreement",
+          choices {
+
+            choice MyChoiceCreateJustNew (self) (i : Unit) : Unit
+            , controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+            to
+              ubind
+                new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
+                new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record }
+              in upure @Unit (),
+
+            choice MyChoiceCreateOldAndNew (self) (i : Unit) : Unit
+            , controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+            to
+              ubind
+                new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
+                old: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = NewM:NewT {party} record };
+                new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record }
+              in upure @Unit (),
+
+            choice MyChoiceCreateOldAndNewThenThrow (self) (i : Unit) : Unit
+            , controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+            to
+              ubind
+                new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
+                old: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = NewM:NewT {party} record };
+                new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
+                u: Unit <- throw @(Update Unit) @NewM:AnException (NewM:AnException {})
+              in upure @Unit ()
+          }
+        };
+
+        val causeRollback : Party -> Update Unit = \(party: Party) ->
+            ubind
+              // OK TO CREATE AN OLD VERSION CREATE OUT SIDE THE SCOPE OF THE ROLLBACK
+              x1: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = party };
+              u1: Unit <-
+                try @Unit
+                  ubind
+                    x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
+                    u: Unit <- exercise @NewM:NewT MyChoiceCreateJustNew x2 ()
+                  in throw @(Update Unit) @NewM:AnException (NewM:AnException {})
+                catch e -> Some @(Update Unit) (upure @Unit ())
+              ;
+              x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
+            in upure @Unit ();
+
+        val causeUncatchable : Party -> Update Unit = \(party: Party) ->
+            ubind
+              u1: Unit <-
+                try @Unit
+                  ubind
+                    x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
+                    // THIS EXERCISE CREATES AN OLD VERSION CONTRACT, AND SO CANNOT BE NESTED IN A ROLLBACK
+                    u: Unit <- exercise @NewM:NewT MyChoiceCreateOldAndNew x2 ()
+                  in throw @(Update Unit) @NewM:AnException (NewM:AnException {})
+                catch e -> Some @(Update Unit) (upure @Unit ())
+              ;
+              x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
+            in upure @Unit ();
+
+        val causeUncatchable2 : Party -> Update Unit = \(party: Party) ->
+            ubind
+              u1: Unit <-
+                try @Unit
+                  ubind
+                    x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
+                    // THIS EXERCISE CREATES AN OLD VERSION CONTRACT, THEN THROWS, AND SO CANNOT BE NESTED IN A ROLLBACK
+                    u: Unit <- exercise @NewM:NewT MyChoiceCreateOldAndNewThenThrow x2 ()
+                  in upure @Unit ()
+                catch e -> Some @(Update Unit) (upure @Unit ())
+              ;
+              x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
+            in upure @Unit ();
+
+      } """
+    }
+    val pkgs = {
+      val rawPkgs: Map[PackageId, GenPackage[Expr]] = Map(
+        oldPid -> oldPackage,
+        newPid -> newPackage,
+      )
+      data.assertRight(
+        PureCompiledPackages(rawPkgs, Compiler.Config.Dev.copy(stacktracing = FullStackTrace))
+      )
+    }
+
+    implicit val defaultParserParameters: ParserParameters[this.type] = {
+      ParserParameters(
+        defaultPackageId = newPid,
+        languageVersion = LanguageVersion.v1_dev,
+      )
+    }
+
+    val anException = {
+      val id = "NewM:AnException"
+      val tyCon =
+        data.Ref.Identifier.assertFromString(s"$newPid:$id")
+      SValue.SAny(
+        TTyCon(tyCon),
+        SValue.SRecord(tyCon, data.ImmArray.empty, new util.ArrayList()),
+      )
+    }
+
+    def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
+
+    val causeRollback: Expr = EApp(e"NewM:causeRollback", EPrimLit(PLParty(party)))
+    val causeUncatchable: Expr = EApp(e"NewM:causeUncatchable", EPrimLit(PLParty(party)))
+    val causeUncatchable2: Expr = EApp(e"NewM:causeUncatchable2", EPrimLit(PLParty(party)))
+
+    "create rollback when old contacts are not within try-catch context" in {
+      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, causeRollback, party).run()
+      res shouldBe SResultFinalValue(SUnit)
+    }
+
+    "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {
+      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, causeUncatchable, party).run()
+      res shouldBe SResultError(DamlEUnhandledException(anException))
+    }
+
+    "causes uncatchable exception when an old contract is within a new-exercise which aborts" in {
+      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, causeUncatchable2, party).run()
+      res shouldBe SResultError(DamlEUnhandledException(anException))
+    }
+
+  }
 }
