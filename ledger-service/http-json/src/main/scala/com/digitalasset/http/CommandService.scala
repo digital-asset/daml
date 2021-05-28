@@ -4,7 +4,6 @@
 package com.daml.http
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.http.ErrorMessages.cannotResolveTemplateId
 import com.daml.http.domain.{
   ActiveContract,
   Contract,
@@ -13,6 +12,7 @@ import com.daml.http.domain.{
   ExerciseCommand,
   ExerciseResponse,
   JwtWritePayload,
+  TemplateId,
 }
 import com.daml.http.util.ClientUtil.uniqueCommandId
 import com.daml.http.util.FutureUtil._
@@ -33,7 +33,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 class CommandService(
-    resolveTemplateId: PackageService.ResolveTemplateId,
     submitAndWaitForTransaction: LedgerClientJwt.SubmitAndWaitForTransaction,
     submitAndWaitForTransactionTree: LedgerClientJwt.SubmitAndWaitForTransactionTree,
 )(implicit ec: ExecutionContext) {
@@ -43,14 +42,14 @@ class CommandService(
   def create(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: CreateCommand[lav1.value.Record],
+      input: CreateCommand[lav1.value.Record, TemplateId.RequiredPkg],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ActiveContract[lav1.value.Value]] = {
     logger.trace("sending create command to ledger")
+    val command = createCommand(input)
+    val request = submitAndWaitRequest(jwtPayload, input.meta, command)
     val et: ET[ActiveContract[lav1.value.Value]] = for {
-      command <- either(createCommand(input))
-      request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- rightT(logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request)))
       contract <- either(exactlyOneActiveContract(response))
     } yield contract
@@ -82,14 +81,14 @@ class CommandService(
   def createAndExercise(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value],
+      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value, TemplateId.RequiredPkg],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
     logger.trace("sending create and exercise command to ledger")
+    val command = createAndExerciseCommand(input)
+    val request = submitAndWaitRequest(jwtPayload, input.meta, command)
     val et: ET[ExerciseResponse[lav1.value.Value]] = for {
-      command <- either(createAndExerciseCommand(input))
-      request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- rightT(
         logResult(Symbol("createAndExercise"), submitAndWaitForTransactionTree(jwt, request))
       )
@@ -111,11 +110,9 @@ class CommandService(
   }
 
   private def createCommand(
-      input: CreateCommand[lav1.value.Record]
-  ): Error \/ lav1.commands.Command.Command.Create = {
-    resolveTemplateId(input.templateId)
-      .toRightDisjunction(Error(Symbol("createCommand"), cannotResolveTemplateId(input.templateId)))
-      .map(tpId => Commands.create(refApiIdentifier(tpId), input.payload))
+      input: CreateCommand[lav1.value.Record, TemplateId.RequiredPkg]
+  ): lav1.commands.Command.Command.Create = {
+    Commands.create(refApiIdentifier(input.templateId), input.payload)
   }
 
   private def exerciseCommand(
@@ -139,15 +136,14 @@ class CommandService(
     }
 
   private def createAndExerciseCommand(
-      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value]
-  ): Error \/ lav1.commands.Command.Command.CreateAndExercise =
-    resolveTemplateId(input.templateId)
-      .toRightDisjunction(
-        Error(Symbol("createAndExerciseCommand"), cannotResolveTemplateId(input.templateId))
-      )
-      .map(tpId =>
-        Commands
-          .createAndExercise(refApiIdentifier(tpId), input.payload, input.choice, input.argument)
+      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value, TemplateId.RequiredPkg]
+  ): lav1.commands.Command.Command.CreateAndExercise =
+    Commands
+      .createAndExercise(
+        refApiIdentifier(input.templateId),
+        input.payload,
+        input.choice,
+        input.argument,
       )
 
   private def submitAndWaitRequest(
