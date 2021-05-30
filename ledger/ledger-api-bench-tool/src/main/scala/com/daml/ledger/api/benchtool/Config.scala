@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.benchtool
 
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.Identifier
 
@@ -11,6 +12,7 @@ import scala.concurrent.duration._
 case class Config(
     ledger: Config.Ledger,
     concurrency: Config.Concurrency,
+    tls: TlsConfiguration,
     streams: List[Config.StreamConfig],
     reportingPeriod: FiniteDuration,
 )
@@ -60,6 +62,7 @@ object Config {
         keepAliveTime = 30,
         maxQueueLength = 10000,
       ),
+      tls = TlsConfiguration.Empty.copy(enabled = false),
       streams = List.empty[Config.StreamConfig],
       reportingPeriod = 5.seconds,
     )

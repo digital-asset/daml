@@ -12,13 +12,14 @@ import com.daml.ledger.api.benchtool.metrics.{
 }
 import com.daml.ledger.api.benchtool.services.{LedgerIdentityService, TransactionService}
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.{
@@ -56,7 +57,7 @@ object LedgerApiBenchTool {
 
     val resources = for {
       executorService <- threadPoolExecutorOwner(config.concurrency)
-      channel <- channelOwner(config.ledger, executorService)
+      channel <- channelOwner(config.ledger, config.tls, executorService)
       system <- actorSystemResourceOwner()
     } yield (channel, system)
 
@@ -112,8 +113,14 @@ object LedgerApiBenchTool {
     }
   }
 
-  // TODO: add TLS compatible with the ledger-api-test-tool
-  private def channelOwner(ledger: Config.Ledger, executor: Executor): ResourceOwner[Channel] = {
+  private def channelOwner(
+      ledger: Config.Ledger,
+      tls: TlsConfiguration,
+      executor: Executor,
+  ): ResourceOwner[Channel] = {
+    logger.info(
+      s"Setting up a managed channel to a ledger at: ${ledger.hostname}:${ledger.port}..."
+    )
     val MessageChannelSizeBytes: Int = 32 * 1024 * 1024 // 32 MiB
     val ShutdownTimeout: FiniteDuration = 5.seconds
 
@@ -122,6 +129,16 @@ object LedgerApiBenchTool {
       .executor(executor)
       .maxInboundMessageSize(MessageChannelSizeBytes)
       .usePlaintext()
+
+    if (tls.enabled) {
+      tls.client.map { sslContext =>
+        logger.info(s"Setting up a managed channel with transport security...")
+        channelBuilder
+          .useTransportSecurity()
+          .sslContext(sslContext)
+          .negotiationType(NegotiationType.TLS)
+      }
+    }
 
     ResourceOwner.forChannel(channelBuilder, ShutdownTimeout)
   }
