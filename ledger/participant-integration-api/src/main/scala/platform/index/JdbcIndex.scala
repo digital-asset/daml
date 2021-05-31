@@ -34,6 +34,8 @@ private[platform] object JdbcIndex {
       maxContractStateCacheSize: Long,
       maxContractKeyStateCacheSize: Long,
       enableMutableContractStateCache: Boolean,
+      maxTransactionsInMemoryFanOutBufferSize: Long,
+      enableInMemoryFanOutForLedgerApi: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext): ResourceOwner[IndexService] =
     new ReadOnlySqlLedger.Owner(
       serverRole = serverRole,
@@ -50,7 +52,9 @@ private[platform] object JdbcIndex {
       maxContractStateCacheSize = maxContractStateCacheSize,
       maxContractKeyStateCacheSize = maxContractKeyStateCacheSize,
       enableMutableContractStateCache = enableMutableContractStateCache,
+      enableInMemoryFanOutForLedgerApi = enableInMemoryFanOutForLedgerApi,
       participantId = participantId,
+      maxTransactionsInMemoryFanOutBufferSize = maxTransactionsInMemoryFanOutBufferSize,
     ).map { ledger =>
       new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger, metrics), participantId)
     }

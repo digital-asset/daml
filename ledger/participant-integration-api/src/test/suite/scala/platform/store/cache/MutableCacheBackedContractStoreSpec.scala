@@ -13,6 +13,7 @@ import akka.stream.scaladsl.Source
 import akka.stream.{BoundedSourceQueue, Materializer}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -73,15 +74,13 @@ class MutableCacheBackedContractStoreSpec
         .queue[ContractStateEvent](16)
         .preMaterialize()
 
-      val store =
-        contractStore(
+      for {
+        store <- contractStore(
           cachesSize = 2L,
           ContractsReaderFixture(),
           capture_signalLedgerHead,
           (_, _) => source,
-        )
-
-      for {
+        ).asFuture
         c1 <- createdEvent(cId_1, contract1, Some(someKey), Set(charlie), 1L, t1)
         _ <- eventually {
           store.contractsCache.get(cId_1) shouldBe Some(Active(contract1, Set(charlie), t1))
@@ -154,15 +153,13 @@ class MutableCacheBackedContractStoreSpec
         case _ => Source.empty
       }
 
-      val store =
-        contractStore(
+      for {
+        store <- contractStore(
           cachesSize = 2L,
           ContractsReaderFixture(),
           _ => (),
           sourceSubscriptionFixture,
-        )
-
-      for {
+        ).asFuture
         _ <- eventually {
           store.contractsCache.get(cId_1) shouldBe Some(Archived(Set(charlie)))
           store.contractsCache.get(cId_2) shouldBe Some(Active(contract2, Set(alice), t2))
@@ -176,10 +173,9 @@ class MutableCacheBackedContractStoreSpec
   "lookupActiveContract" should {
     "read-through the contract state cache" in {
       val spyContractsReader = spy(ContractsReaderFixture())
-      val store = contractStore(cachesSize = 1L, spyContractsReader)
-      store.cacheIndex.set(unusedOffset, 1L)
-
       for {
+        store <- contractStore(cachesSize = 1L, spyContractsReader).asFuture
+        _ = store.cacheIndex.set(unusedOffset, 1L)
         cId2_lookup <- store.lookupActiveContract(Set(alice), cId_2)
         another_cId2_lookup <- store.lookupActiveContract(Set(alice), cId_2)
 
@@ -209,9 +205,8 @@ class MutableCacheBackedContractStoreSpec
     }
 
     "present the contract state if visible at specific cache offsets (with no cache)" in {
-      val store = contractStore(cachesSize = 0L)
-
       for {
+        store <- contractStore(cachesSize = 0L).asFuture
         cId1_lookup0 <- store.lookupActiveContract(Set(alice), cId_1)
         cId2_lookup0 <- store.lookupActiveContract(Set(bob), cId_2)
 
@@ -240,10 +235,10 @@ class MutableCacheBackedContractStoreSpec
   "lookupContractKey" should {
     "read-through the key state cache" in {
       val spyContractsReader = spy(ContractsReaderFixture())
-      val store = contractStore(cachesSize = 1L, spyContractsReader)
       val unassignedKey = globalKey("unassigned")
 
       for {
+        store <- contractStore(cachesSize = 1L, spyContractsReader).asFuture
         assigned_firstLookup <- store.lookupContractKey(Set(alice), someKey)
         assigned_secondLookup <- store.lookupContractKey(Set(alice), someKey)
 
@@ -265,8 +260,8 @@ class MutableCacheBackedContractStoreSpec
     }
 
     "present the key state if visible at specific cache offsets (with no cache)" in {
-      val store = contractStore(cachesSize = 0L)
       for {
+        store <- contractStore(cachesSize = 0L).asFuture
         key_lookup0 <- store.lookupContractKey(Set(alice), someKey)
 
         _ = store.cacheIndex.set(unusedOffset, 1L)
@@ -290,9 +285,9 @@ class MutableCacheBackedContractStoreSpec
 
   "lookupMaximumLedgerTime" should {
     "return the maximum ledger time with cached values" in {
-      val store = contractStore(cachesSize = 2L)
-      store.cacheIndex.set(unusedOffset, 2L)
       for {
+        store <- contractStore(cachesSize = 2L).asFuture
+        _ = store.cacheIndex.set(unusedOffset, 2L)
         // populate the cache
         _ <- store.lookupActiveContract(Set(bob), cId_2)
         _ <- store.lookupActiveContract(Set(bob), cId_3)
@@ -303,17 +298,21 @@ class MutableCacheBackedContractStoreSpec
     }
 
     "fail if one of the contract ids doesn't have an associated active contract" in {
-      val store = contractStore(cachesSize = 0L)
-      store.cacheIndex.set(unusedOffset, 2L)
       recoverToSucceededIf[ContractNotFound] {
-        store.lookupMaximumLedgerTime(Set(cId_1, cId_2)).map(_ => succeed)
+        for {
+          store <- contractStore(cachesSize = 0L).asFuture
+          _ = store.cacheIndex.set(unusedOffset, 2L)
+          _ <- store.lookupMaximumLedgerTime(Set(cId_1, cId_2))
+        } yield succeed
       }
     }
 
     "fail if the requested contract id set is empty" in {
-      val store = contractStore(cachesSize = 0L)
       recoverToSucceededIf[EmptyContractIds] {
-        store.lookupMaximumLedgerTime(Set.empty).map(_ => succeed)
+        for {
+          store <- contractStore(cachesSize = 0L).asFuture
+          _ <- store.lookupMaximumLedgerTime(Set.empty)
+        } yield succeed
       }
     }
   }
@@ -390,16 +389,26 @@ object MutableCacheBackedContractStoreSpec {
       signalNewLedgerHead: Offset => Unit = _ => (),
       sourceSubscriber: (Offset, EventSequentialId) => Source[ContractStateEvent, NotUsed] =
         (_: Offset, _: EventSequentialId) => Source.empty,
-  )(implicit loggingContext: LoggingContext, materializer: Materializer) =
-    MutableCacheBackedContractStore(
-      readerFixture,
-      signalNewLedgerHead,
-      sourceSubscriber,
-      new Metrics(new MetricRegistry),
-      maxContractsCacheSize = cachesSize,
-      maxKeyCacheSize = cachesSize,
-      minBackoffStreamRestart = 10.millis,
-    )(materializer, scala.concurrent.ExecutionContext.global, loggingContext)
+  )(implicit loggingContext: LoggingContext, materializer: Materializer) = {
+
+    {
+      MutableCacheBackedContractStore.ownerWithSubscription(
+        subscribeToContractStateEvents = sourceSubscriber,
+        minBackoffStreamRestart = 10.millis,
+        contractsReader = readerFixture,
+        signalNewLedgerHead = signalNewLedgerHead,
+        metrics = new Metrics(new MetricRegistry),
+        maxContractsCacheSize = cachesSize,
+        maxKeyCacheSize = cachesSize,
+      )(
+        materializer,
+        loggingContext,
+        scala.concurrent.ExecutionContext.global,
+        ResourceContext(scala.concurrent.ExecutionContext.global),
+      )
+
+    }
+  }
 
   case class ContractsReaderFixture() extends LedgerDaoContractsReader {
     override def lookupKeyState(key: Key, validAt: Long)(implicit

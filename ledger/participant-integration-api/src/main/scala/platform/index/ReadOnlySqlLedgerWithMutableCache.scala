@@ -18,9 +18,10 @@ import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.index.ReadOnlySqlLedgerWithMutableCache.DispatcherLagMeter
 import com.daml.platform.store.appendonlydao.EventSequentialId
-import com.daml.platform.store.cache.MutableCacheBackedContractStore
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.SignalNewLedgerHead
+import com.daml.platform.store.cache.{EventsBuffer, MutableCacheBackedContractStore}
 import com.daml.platform.store.dao.LedgerReadDao
+import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
@@ -34,6 +35,8 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
       metrics: Metrics,
       maxContractStateCacheSize: Long,
       maxContractKeyStateCacheSize: Long,
+      maxTransactionsInMemoryFanOutBufferSize: Long,
+      enableInMemoryFanOutForLedgerApi: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedgerWithMutableCache] {
 
@@ -44,7 +47,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         (ledgerEndOffset, ledgerEndSequentialId) <- Resource.fromFuture(
           ledgerDao.lookupLedgerEndOffsetAndSequentialId()
         )
-        contractStateEventsDispatcher <- dispatcherOffsetSeqIdOwner(
+        prefetchingDispatcher <- dispatcherOffsetSeqIdOwner(
           ledgerEndOffset,
           ledgerEndSequentialId,
         ).acquire()
@@ -54,61 +57,16 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
             metrics.daml.execution.cache.dispatcherLag
           )
         )
-        contractStore <- contractStoreOwner(dispatcherLagMeter, contractStateEventsDispatcher)
         ledger <- ledgerOwner(
-          contractStateEventsDispatcher,
+          prefetchingDispatcher,
           generalDispatcher,
-          contractStore,
           dispatcherLagMeter,
         )
-          .acquire()
       } yield ledger
-
-    private def ledgerOwner(
-        contractStateEventsDispatcher: Dispatcher[(Offset, Long)],
-        generalDispatcher: Dispatcher[Offset],
-        contractStore: MutableCacheBackedContractStore,
-        dispatcherLagger: DispatcherLagMeter,
-    ) = {
-      ResourceOwner
-        .forCloseable(() =>
-          new ReadOnlySqlLedgerWithMutableCache(
-            ledgerId,
-            ledgerDao,
-            contractStore,
-            contractStateEventsDispatcher,
-            generalDispatcher,
-            dispatcherLagger,
-          )
-        )
-    }
-
-    private def contractStoreOwner(
-        signalNewLedgerHead: SignalNewLedgerHead,
-        contractStateEventsDispatcher: Dispatcher[(Offset, Long)],
-    )(implicit
-        context: ResourceContext
-    ) =
-      MutableCacheBackedContractStore.owner(
-        contractsReader = ledgerDao.contractsReader,
-        signalNewLedgerHead = signalNewLedgerHead,
-        subscribeToContractStateEvents = (offset: Offset, eventSequentialId: Long) =>
-          contractStateEventsDispatcher
-            .startingAt(
-              offset -> eventSequentialId,
-              RangeSource(
-                ledgerDao.transactionsReader.getContractStateEvents(_, _)
-              ),
-            )
-            .map(_._2),
-        metrics = metrics,
-        maxContractsCacheSize = maxContractStateCacheSize,
-        maxKeyCacheSize = maxContractKeyStateCacheSize,
-      )
 
     private def dispatcherOffsetSeqIdOwner(ledgerEnd: Offset, evtSeqId: Long) = {
       Dispatcher.owner(
-        name = "contract-state-events",
+        name = "transaction-log-updates",
         zeroIndex = (Offset.beforeBegin, EventSequentialId.beforeBegin),
         headAtInitialization = (ledgerEnd, evtSeqId),
       )
@@ -120,6 +78,110 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         zeroIndex = Offset.beforeBegin,
         headAtInitialization = ledgerEnd,
       )
+
+    private def ledgerOwner(
+        cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],
+        generalDispatcher: Dispatcher[Offset],
+        dispatcherLagMeter: DispatcherLagMeter,
+    )(implicit
+        resourceContext: ResourceContext
+    ) =
+      if (enableInMemoryFanOutForLedgerApi)
+        ledgerWithMutableCacheAndInMemoryFanOut(
+          cacheUpdatesDispatcher,
+          generalDispatcher,
+          dispatcherLagMeter,
+        )
+      else
+        ledgerWithMutableCache(cacheUpdatesDispatcher, generalDispatcher, dispatcherLagMeter)
+
+    private def ledgerWithMutableCache(
+        cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],
+        generalDispatcher: Dispatcher[Offset],
+        dispatcherLagMeter: DispatcherLagMeter,
+    )(implicit resourceContext: ResourceContext) =
+      for {
+        contractStore <- MutableCacheBackedContractStore
+          .ownerWithSubscription(
+            subscribeToContractStateEvents = (offset, eventSequentialId) =>
+              cacheUpdatesDispatcher
+                .startingAt(
+                  offset -> eventSequentialId,
+                  RangeSource(
+                    ledgerDao.transactionsReader.getContractStateEvents(_, _)
+                  ),
+                )
+                .map(_._2),
+            contractsReader = ledgerDao.contractsReader,
+            signalNewLedgerHead = dispatcherLagMeter,
+            metrics = metrics,
+            maxContractsCacheSize = maxContractStateCacheSize,
+            maxKeyCacheSize = maxContractKeyStateCacheSize,
+          )
+        ledger <- ResourceOwner
+          .forCloseable(() =>
+            new ReadOnlySqlLedgerWithMutableCache(
+              ledgerId,
+              ledgerDao,
+              contractStore,
+              cacheUpdatesDispatcher,
+              generalDispatcher,
+              dispatcherLagMeter,
+            )
+          )
+          .acquire()
+      } yield ledger
+
+    private def ledgerWithMutableCacheAndInMemoryFanOut(
+        cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],
+        generalDispatcher: Dispatcher[Offset],
+        dispatcherLagMeter: DispatcherLagMeter,
+    )(implicit resourceContext: ResourceContext) = {
+      // TODO: in-memory fan-out - wire-up prunning to transactionsBuffer
+      val transactionsBuffer = new EventsBuffer[Offset, TransactionLogUpdate](
+        maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
+        metrics = metrics,
+        bufferQualifier = "transactions",
+        isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
+      )
+      for {
+        contractStore <- MutableCacheBackedContractStore.owner(
+          contractsReader = ledgerDao.contractsReader,
+          signalNewLedgerHead = dispatcherLagMeter,
+          metrics = metrics,
+          maxContractsCacheSize = maxContractStateCacheSize,
+          maxKeyCacheSize = maxContractKeyStateCacheSize,
+        )
+        _ <- ResourceOwner
+          .forCloseable(() =>
+            BuffersUpdater(
+              subscribeToTransactionLogUpdates = (offset, eventSequentialId) =>
+                cacheUpdatesDispatcher
+                  .startingAt(
+                    offset -> eventSequentialId,
+                    RangeSource(
+                      ledgerDao.transactionsReader.getTransactionLogUpdates(_, _)
+                    ),
+                  ),
+              updateTransactionsBuffer = transactionsBuffer.push,
+              updateMutableCache = contractStore.push,
+            )
+          )
+          .acquire()
+        ledger <- ResourceOwner
+          .forCloseable(() =>
+            new ReadOnlySqlLedgerWithMutableCache(
+              ledgerId,
+              ledgerDao,
+              contractStore,
+              cacheUpdatesDispatcher,
+              generalDispatcher,
+              dispatcherLagMeter,
+            )
+          )
+          .acquire()
+      } yield ledger
+    }
   }
 
   /** Computes the lag between the contract state events dispatcher and the general dispatcher.
