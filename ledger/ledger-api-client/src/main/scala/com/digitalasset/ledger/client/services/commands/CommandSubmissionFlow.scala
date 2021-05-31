@@ -7,12 +7,10 @@ import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
-import com.daml.telemetry.DefaultTelemetry
 import com.daml.util.Ctx
 import com.google.protobuf.empty.Empty
 
 import scala.concurrent.Future
-import scala.jdk.CollectionConverters._
 import scala.util.{Success, Try}
 
 object CommandSubmissionFlow {
@@ -23,9 +21,8 @@ object CommandSubmissionFlow {
   ): Flow[Ctx[Context, SubmitRequest], Ctx[Context, Try[Empty]], NotUsed] = {
     Flow[Ctx[Context, SubmitRequest]]
       .log("submission at client", _.value.commands.fold("")(_.commandId))
-      .mapAsyncUnordered(maxInFlight) { case Ctx(context, request, telemetryMetadata) =>
-        DefaultTelemetry
-          .contextFromMetadata(Some(telemetryMetadata.asJava))
+      .mapAsyncUnordered(maxInFlight) { case Ctx(context, request, telemetryContext) =>
+        telemetryContext
           .runInOpenTelemetryScope {
             submit(request)
               .transform { tryResponse =>
@@ -33,7 +30,7 @@ object CommandSubmissionFlow {
                   Ctx(
                     context,
                     tryResponse,
-                    telemetryMetadata,
+                    telemetryContext,
                   )
                 )
               }(DirectExecutionContext)

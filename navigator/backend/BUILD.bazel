@@ -84,6 +84,7 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/metrics",
         "//libs-scala/build-info",
         "//libs-scala/grpc-utils",
         "//libs-scala/scala-utils",
