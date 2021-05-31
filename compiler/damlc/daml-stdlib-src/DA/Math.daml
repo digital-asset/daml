@@ -37,7 +37,9 @@ x ** y
 -- 1.2
 -- ```
 sqrt : Decimal -> Decimal
-sqrt x = x ** 0.5
+sqrt x
+  | x < 0.0 = error "sqrt is defined only for non-negative numbers"
+  | otherwise = x ** 0.5
 
 -- | The exponential function. Example: `exp 0.0 == 1.0`
 exp : Decimal -> Decimal
@@ -50,7 +52,9 @@ exp x
 
 -- | The natural logarithm. Example: `log 10.0 == 2.30258509299`
 log : Decimal -> Decimal
-log x = logt10k x / 10000.0
+log x
+  | x <= 0.0 = error "logarithm is defined only for positive numbers"
+  | otherwise = logt10k x / 10000.0
 
 -- | The logarithm of a number to a given base. Example: `log 10.0 100.0 == 2.0`
 logBase : Decimal -> Decimal -> Decimal
