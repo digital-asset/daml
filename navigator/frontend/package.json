@@ -85,7 +85,6 @@
     "redux-thunk": "^2.3.0",
     "route-parser": "0.0.5",
     "styled-components": "^5.1.1",
-    "subscriptions-transport-ws": "^0.9.18",
     "typescript-collections": "^1.3.3",
     "uuidjs": "^4.2.6",
     "whatwg-fetch": "^3.5.0"
@@ -96,6 +95,6 @@
     "**/selfsigned": "^1.10.8",
     "**/ssri": "^8.0.1",
     "**/hosted-git-info": "^4.0.2",
-    "**/multicast-dns": "^7.2.3"
+    "**/ws": "^7.4.6"
   }
 }
