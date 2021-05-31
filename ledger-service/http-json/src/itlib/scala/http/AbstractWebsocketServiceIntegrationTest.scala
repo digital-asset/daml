@@ -997,9 +997,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
               result = contracts
                 .map(_._2.asJsObject.fields("currency").asInstanceOf[JsString].value)
                 .groupBy(identity)
-                .view
-                .mapValues(_.size)
-                .toMap
+                .map { case (k, vs) => k -> vs.size }
               ContractDelta(Vector(), _, _) <- readOne
               _ = println("*" * 80)
               _ = println(contracts)

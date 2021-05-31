@@ -263,7 +263,9 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
         deserializationError(
           s"unsupported query fields $extras; likely should be within 'query' subobject"
         )
-      val extraFields = jsv.asJsObject.fields.view.filterKeys(validExtraFields).toMap
+      val extraFields = jsv.asJsObject.fields.filter { case (fieldName, _) =>
+        validExtraFields(fieldName)
+      }
       val nonEmptyTids = tids.headOption.cata(
         h => OneAnd(h, tids - h),
         deserializationError("search requires at least one item in 'templateIds'"),
