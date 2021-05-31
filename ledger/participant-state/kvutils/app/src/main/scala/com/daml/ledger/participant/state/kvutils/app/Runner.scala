@@ -156,7 +156,7 @@ final class Runner[T <: ReadWriteService, Extra](
                 new StandaloneApiServer(
                   ledgerId = config.ledgerId,
                   config = factory.apiServerConfig(participantConfig, config),
-                  commandConfig = factory.commandConfig(participantConfig, config),
+                  commandConfig = config.commandConfig,
                   partyConfig = factory.partyConfig(config),
                   ledgerConfig = factory.ledgerConfig(config),
                   optWriteService = Some(writeService),
