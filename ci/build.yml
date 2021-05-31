@@ -374,9 +374,9 @@ jobs:
         CMP="$(semver compare "$RELEASE_TAG" '1.11.0-snapshot.20210212.6300.0.ad161d7f')"
 
         if [[ $CMP == '1' || "$RELEASE_TAG" == '0.0.0' ]]; then
-            setvar scala_2_13 true
+            setvar scala_2_12 false
         else
-            setvar scala_2_13 false
+            setvar scala_2_12 true
         fi
       name: out
 
