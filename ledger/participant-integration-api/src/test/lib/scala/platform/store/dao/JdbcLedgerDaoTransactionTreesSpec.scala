@@ -116,7 +116,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
 
   it should "return the expected transaction tree for a correct request (create, exercise)" in {
     for {
-      (offset, tx) <- store(fullyTransient)
+      (offset, tx) <- store(fullyTransient())
       result <- ledgerDao.transactionsReader
         .lookupTransactionTreeById(tx.transactionId, tx.actAs.toSet)
     } yield {
@@ -281,7 +281,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       (_, t1) <- store(singleCreate)
       (_, t2) <- store(singleCreate)
       (_, t3) <- store(singleExercise(nonTransient(t2).loneElement))
-      (_, t4) <- store(fullyTransient)
+      (_, t4) <- store(fullyTransient())
       to <- ledgerDao.lookupLedgerEnd()
     } yield (from, to, Seq(t1, t2, t3, t4))
 
