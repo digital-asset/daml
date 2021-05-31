@@ -20,7 +20,7 @@ import com.daml.lf
 import com.daml.http.ContractsService.SearchResult
 import com.daml.http.EndpointsCompanion._
 import com.daml.scalautil.Statement.discard
-import com.daml.http.domain.{JwtPayload, JwtWritePayload}
+import com.daml.http.domain.{JwtPayload, JwtWritePayload, TemplateId}
 import com.daml.http.json._
 import com.daml.http.util.Collections.toNonEmptySet
 import com.daml.http.util.FutureUtil.{either, eitherT}
@@ -126,7 +126,7 @@ class Endpoints(
 
       cmd <- either(
         decoder.decodeCreateCommand(reqBody).liftErr(InvalidUserInput)
-      ): ET[domain.CreateCommand[ApiRecord]]
+      ): ET[domain.CreateCommand[ApiRecord, TemplateId.RequiredPkg]]
 
       ac <- eitherT(
         handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd))
@@ -174,7 +174,7 @@ class Endpoints(
 
       cmd <- either(
         decoder.decodeCreateAndExerciseCommand(reqBody).liftErr(InvalidUserInput)
-      ): ET[domain.CreateAndExerciseCommand[ApiRecord, ApiValue]]
+      ): ET[domain.CreateAndExerciseCommand[ApiRecord, ApiValue, TemplateId.RequiredPkg]]
 
       resp <- eitherT(
         handleFutureEitherFailure(commandService.createAndExercise(jwt, jwtPayload, cmd))

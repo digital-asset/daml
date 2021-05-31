@@ -90,7 +90,6 @@ final class FailureTests
   }
 
   "Command submission timeouts" in withHttpService { (uri, encoder, _, client) =>
-    import encoder.implicits._
     import json.JsonProtocol._
     for {
       p <- allocateParty(client, "Alice")
@@ -103,7 +102,9 @@ final class FailureTests
       _ = status shouldBe StatusCodes.OK
       // Client -> Server connection
       _ = proxy.toxics().timeout("timeout", ToxicDirection.UPSTREAM, 0)
-      body <- FutureUtil.toFuture(SprayJson.encode1(accountCreateCommand(p, "24"))): Future[JsValue]
+      body <- FutureUtil.toFuture(
+        encoder.encodeCreateCommand(accountCreateCommand(p, "24"))
+      ): Future[JsValue]
       (status, output) <- postJsonStringRequestEncoded(
         uri.withPath(Uri.Path("/v1/create")),
         body.compactPrint,

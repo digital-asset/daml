@@ -167,7 +167,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   }
 
   protected def postCreateCommand(
-      cmd: domain.CreateCommand[v.Record],
+      cmd: domain.CreateCommand[v.Record, OptionalPkg],
       encoder: DomainJsonEncoder,
       uri: Uri,
       headers: List[HttpHeader] = headersWithAuth,
@@ -175,7 +175,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     HttpServiceTestFixture.postCreateCommand(cmd, encoder, uri, headers)
 
   protected def postArchiveCommand(
-      templateId: domain.TemplateId.OptionalPkg,
+      templateId: OptionalPkg,
       contractId: domain.ContractId,
       encoder: DomainJsonEncoder,
       uri: Uri,
@@ -185,7 +185,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected def lookupContractAndAssert(contractLocator: domain.ContractLocator[JsValue])(
       contractId: ContractId,
-      create: domain.CreateCommand[v.Record],
+      create: domain.CreateCommand[v.Record, OptionalPkg],
       encoder: DomainJsonEncoder,
       uri: Uri,
   ): Future[Assertion] =
@@ -206,10 +206,13 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected def removeRecordId(a: v.Record): v.Record = a.copy(recordId = None)
 
+  protected def removePackageId(tmplId: domain.TemplateId.RequiredPkg): OptionalPkg =
+    tmplId.copy(packageId = None)
+
   protected def iouCreateCommand(
       amount: String = "999.9900000000",
       currency: String = "USD",
-  ): domain.CreateCommand[v.Record] = {
+  ): domain.CreateCommand[v.Record, OptionalPkg] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
     val arg = v.Record(
       fields = List(
@@ -239,7 +242,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected def iouCreateAndExerciseTransferCommand(
       amount: String = "999.9900000000",
       currency: String = "USD",
-  ): domain.CreateAndExerciseCommand[v.Record, v.Value] = {
+  ): domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
     val payload = v.Record(
       fields = List(
@@ -400,7 +403,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected def assertActiveContract(
       decoder: DomainJsonDecoder,
       actual: domain.ActiveContract[JsValue],
-      create: domain.CreateCommand[v.Record],
+      create: domain.CreateCommand[v.Record, OptionalPkg],
       exercise: domain.ExerciseCommand[v.Value, _],
   ): Assertion = {
 
@@ -429,13 +432,16 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected def assertActiveContract(
       jsVal: JsValue
-  )(command: domain.CreateCommand[v.Record], encoder: DomainJsonEncoder): Assertion = {
+  )(
+      command: domain.CreateCommand[v.Record, OptionalPkg],
+      encoder: DomainJsonEncoder,
+  ): Assertion = {
 
     import encoder.implicits._
 
-    val expected: domain.CreateCommand[JsValue] =
+    val expected: domain.CreateCommand[JsValue, OptionalPkg] =
       command
-        .traverse(SprayJson.encode[v.Record])
+        .traversePayload(SprayJson.encode[v.Record](_))
         .getOrElse(fail(s"Failed to encode command: $command"))
 
     inside(SprayJson.decode[domain.ActiveContract[JsValue]](jsVal)) { case \/-(activeContract) =>
@@ -445,7 +451,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   protected def assertTemplateId(
       actual: domain.TemplateId.RequiredPkg,
-      expected: domain.TemplateId.OptionalPkg,
+      expected: OptionalPkg,
   ): Assertion = {
     expected.packageId.foreach(x => actual.packageId shouldBe x)
     actual.moduleName shouldBe expected.moduleName
@@ -486,7 +492,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   }
 
   protected def searchExpectOk(
-      commands: List[domain.CreateCommand[v.Record]],
+      commands: List[domain.CreateCommand[v.Record, OptionalPkg]],
       query: JsObject,
       uri: Uri,
       encoder: DomainJsonEncoder,
@@ -496,7 +502,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   }
 
   protected def search(
-      commands: List[domain.CreateCommand[v.Record]],
+      commands: List[domain.CreateCommand[v.Record, OptionalPkg]],
       query: JsObject,
       uri: Uri,
       encoder: DomainJsonEncoder,
@@ -544,12 +550,13 @@ abstract class AbstractHttpServiceIntegrationTest
 
   }
 
-  protected val searchDataSet: List[domain.CreateCommand[v.Record]] = List(
-    iouCreateCommand(amount = "111.11", currency = "EUR"),
-    iouCreateCommand(amount = "222.22", currency = "EUR"),
-    iouCreateCommand(amount = "333.33", currency = "GBP"),
-    iouCreateCommand(amount = "444.44", currency = "BTC"),
-  )
+  protected val searchDataSet: List[domain.CreateCommand[v.Record, OptionalPkg]] =
+    List(
+      iouCreateCommand(amount = "111.11", currency = "EUR"),
+      iouCreateCommand(amount = "222.22", currency = "EUR"),
+      iouCreateCommand(amount = "333.33", currency = "GBP"),
+      iouCreateCommand(amount = "444.44", currency = "BTC"),
+    )
 
   "query GET" in withHttpService { (uri: Uri, encoder, _) =>
     searchDataSet.traverse(c => postCreateCommand(c, encoder, uri)).flatMap { rs =>
@@ -814,7 +821,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "create IOU" in withHttpService { (uri, encoder, _) =>
-    val command: domain.CreateCommand[v.Record] = iouCreateCommand()
+    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand()
 
     postCreateCommand(command, encoder, uri).flatMap { case (status, output) =>
       status shouldBe StatusCodes.OK
@@ -826,10 +833,9 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "create IOU should fail if authorization header is missing" in withHttpService {
     (uri, encoder, _) =>
-      import encoder.implicits._
-
-      val command: domain.CreateCommand[v.Record] = iouCreateCommand()
-      val input: JsValue = SprayJson.encode1(command).valueOr(e => fail(e.shows))
+      val command: domain.CreateCommand[v.Record, OptionalPkg] =
+        iouCreateCommand()
+      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
       postJsonRequest(uri.withPath(Uri.Path("/v1/create")), input, List()).flatMap {
         case (status, output) =>
@@ -842,10 +848,8 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "create IOU should support extra readAs parties" in withHttpService { (uri, encoder, _) =>
-    import encoder.implicits._
-
-    val command: domain.CreateCommand[v.Record] = iouCreateCommand()
-    val input: JsValue = SprayJson.encode1(command).valueOr(e => fail(e.shows))
+    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand()
+    val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
     postJsonRequest(
       uri.withPath(Uri.Path("/v1/create")),
@@ -861,26 +865,24 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "create IOU with unsupported templateId should return proper error" in withHttpService {
     (uri, encoder, _) =>
-      import encoder.implicits._
-
-      val command: domain.CreateCommand[v.Record] =
+      val command: domain.CreateCommand[v.Record, OptionalPkg] =
         iouCreateCommand().copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
-      val input: JsValue = SprayJson.encode1(command).valueOr(e => fail(e.shows))
+      val input: JsValue = encoder.encodeCreateCommand(command).valueOr(e => fail(e.shows))
 
       postJsonRequest(uri.withPath(Uri.Path("/v1/create")), input).flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.BadRequest
           assertStatus(output, StatusCodes.BadRequest)
-          val unknownTemplateId: domain.TemplateId.OptionalPkg =
+          val unknownTemplateId: OptionalPkg =
             domain.TemplateId(None, command.templateId.moduleName, command.templateId.entityName)
           expectedOneErrorMessage(output) should include(
-            s"Cannot resolve template ID, given: ${unknownTemplateId: domain.TemplateId.OptionalPkg}"
+            s"Cannot resolve template ID, given: ${unknownTemplateId: OptionalPkg}"
           )
       }: Future[Assertion]
   }
 
   "exercise IOU_Transfer" in withHttpService { (uri, encoder, decoder) =>
-    val create: domain.CreateCommand[v.Record] = iouCreateCommand()
+    val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand()
     postCreateCommand(create, encoder, uri)
       .flatMap { case (createStatus, createOutput) =>
         createStatus shouldBe StatusCodes.OK
@@ -907,12 +909,10 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "create-and-exercise IOU_Transfer" in withHttpService { (uri, encoder, _) =>
-    import encoder.implicits._
-
-    val cmd: domain.CreateAndExerciseCommand[v.Record, v.Value] =
+    val cmd: domain.CreateAndExerciseCommand[v.Record, v.Value, OptionalPkg] =
       iouCreateAndExerciseTransferCommand()
 
-    val json: JsValue = SprayJson.encode2(cmd).valueOr(e => fail(e.shows))
+    val json: JsValue = encoder.encodeCreateAndExerciseCommand(cmd).valueOr(e => fail(e.shows))
 
     postJsonRequest(uri.withPath(Uri.Path("/v1/create-and-exercise")), json)
       .flatMap { case (status, output) =>
@@ -940,7 +940,7 @@ abstract class AbstractHttpServiceIntegrationTest
 
   private def assertExerciseResponseNewActiveContract(
       exerciseResponse: JsValue,
-      createCmd: domain.CreateCommand[v.Record],
+      createCmd: domain.CreateCommand[v.Record, OptionalPkg],
       exerciseCmd: domain.ExerciseCommand[v.Value, domain.EnrichedContractId],
       decoder: DomainJsonDecoder,
       uri: Uri,
@@ -984,7 +984,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "exercise Archive" in withHttpService { (uri, encoder, _) =>
-    val create: domain.CreateCommand[v.Record] = iouCreateCommand()
+    val create: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand()
     postCreateCommand(create, encoder, uri)
       .flatMap { case (createStatus, createOutput) =>
         createStatus shouldBe StatusCodes.OK
@@ -1087,16 +1087,15 @@ abstract class AbstractHttpServiceIntegrationTest
       encoder: DomainJsonEncoder,
       decoder: DomainJsonDecoder,
   ): Assertion = {
-    import encoder.implicits._
     import json.JsonProtocol._
     import util.ErrorOps._
 
-    val command0: domain.CreateCommand[v.Record] = iouCreateCommand()
+    val command0: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand()
 
     val x = for {
-      jsVal <- SprayJson.encode1(command0).liftErr(JsonError)
+      jsVal <- encoder.encodeCreateCommand(command0).liftErr(JsonError)
       command1 <- decoder.decodeCreateCommand(jsVal)
-    } yield command1.map(removeRecordId) should ===(command0)
+    } yield command1.bimap(removeRecordId, removePackageId) should ===(command0)
 
     x.fold(e => fail(e.shows), identity)
   }
@@ -1315,7 +1314,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "fetch by contractId" in withHttpService { (uri, encoder, _) =>
-    val command: domain.CreateCommand[v.Record] = iouCreateCommand()
+    val command: domain.CreateCommand[v.Record, OptionalPkg] = iouCreateCommand()
 
     postCreateCommand(command, encoder, uri).flatMap { case (status, output) =>
       status shouldBe StatusCodes.OK
@@ -1348,7 +1347,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "fetch by key" in withHttpService { (uri, encoder, _) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
-    val command: domain.CreateCommand[v.Record] =
+    val command: domain.CreateCommand[v.Record, OptionalPkg] =
       accountCreateCommand(owner, accountNumber)
 
     postCreateCommand(command, encoder, uri).flatMap { case (status, output) =>
@@ -1366,7 +1365,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "commands/exercise Archive by key" in withHttpService { (uri, encoder, _) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
-    val create: domain.CreateCommand[v.Record] =
+    val create: domain.CreateCommand[v.Record, OptionalPkg] =
       accountCreateCommand(owner, accountNumber)
 
     val keyRecord = v.Record(
@@ -1457,7 +1456,7 @@ abstract class AbstractHttpServiceIntegrationTest
     val accountNumber = "abc123"
     val now = TimestampConversion.instantToMicros(Instant.now)
     val nowStr = TimestampConversion.microsToInstant(now).toString
-    val command: domain.CreateCommand[v.Record] =
+    val command: domain.CreateCommand[v.Record, OptionalPkg] =
       accountCreateCommand(owner, accountNumber, now)
 
     val packageId: Ref.PackageId = MetadataReader

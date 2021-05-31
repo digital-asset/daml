@@ -333,8 +333,9 @@ conformance_test(
     server = ":conformance-test-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
         "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
     ],
     tags = [],
     test_tool_args = [
@@ -348,8 +349,9 @@ conformance_test(
     server = ":conformance-test-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
         "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
     ],
     tags = [],
     test_tool_args = [
@@ -364,8 +366,9 @@ conformance_test(
     server = ":conformance-test-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
         "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
     ],
     tags = [],
     test_tool_args = [

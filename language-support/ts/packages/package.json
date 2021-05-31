@@ -9,7 +9,7 @@
     "react": "^16.12.0",
     "react-test-renderer": "^16.12.0",
     "typescript": "~3.9.7",
-    "ws": "^7.2.1"
+    "ws": "^7.4.6"
   },
   "devDependencies": {
     "@bazel/hide-bazel-files": "1.7.0",
