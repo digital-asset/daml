@@ -144,13 +144,13 @@ More generally, two transactions are equivalent if:
 
 - The transactions have the same "before-after" relation between their actions.
 
-- The transactions have the same set of "rollback roots".
-  A rollback root is an action whose parent is a rollback node.
+- The transactions have the same set of "rollback children".
+  A "rollback child" is an action whose direct parent is a rollback node.
 
 For all three transactions above, the "transaction tree ignoring rollbacks"
 consists only of top-level actions (`act1`, `act2`, and `act3`), the
 "before-after" relation only says that `act2` comes before `act3`,
-and all three actions are rollback roots. Thus all three transactions
+and all three actions are rollback children. Thus all three transactions
 are equivalent.
 
 **Transaction normalization** is the process by which equivalent transactions
