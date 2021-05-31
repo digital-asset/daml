@@ -1,0 +1,17 @@
+diff --git a/nixpkgs/toolchains/cc.nix b/nixpkgs/toolchains/cc.nix
+index 17ced5b..1d48847 100644
+--- a/nixpkgs/toolchains/cc.nix
++++ b/nixpkgs/toolchains/cc.nix
+@@ -166,7 +166,11 @@ in
+       )
+       LINK_FLAGS=(
+         $(
+-          if [[ -x ${cc}/bin/ld.gold ]]; then echo -fuse-ld=gold; fi
++          if [[ -x ${cc}/bin/ld.lld ]]; then
++             echo -fuse-ld=lld
++          elif [[ -x ${cc}/bin/ld.gold ]]; then
++             echo -fuse-ld=gold
++          fi
+           add_linker_option_if_supported -Wl,-no-as-needed -no-as-needed
+           add_linker_option_if_supported -Wl,-z,relro,-z,now -z
+         )

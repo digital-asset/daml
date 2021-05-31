@@ -80,7 +80,7 @@ def daml_deps():
                 # reportedly solves the issue. See
                 # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
                 "@daml//bazel_tools:nixpkgs-disable-http2.patch",
-                "@daml//bazel_tools:rules-nixpkgs-llvm-cov.patch",
+                "@daml//bazel_tools:rules-nixpkgs-lld.patch",
             ],
             patch_args = ["-p1"],
         )

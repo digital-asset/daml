@@ -27,6 +27,8 @@ let cc-darwin =
       ln -sf $i $out/bin
     done
 
+    ln -sf ${llvmPackages.lld}/bin/ld.lld $out/bin/ld.lld
+
     # Override cc
     rm $out/bin/cc $out/bin/clang $out/bin/clang++
 
@@ -53,6 +55,8 @@ let cc-darwin =
     do
       ln -sf $i $out/bin
     done
+
+    ln -sf ${llvmPackages.lld}/bin/ld.lld $out/bin/ld.lld
 
     # Override gcc
     rm $out/bin/cc $out/bin/gcc $out/bin/g++

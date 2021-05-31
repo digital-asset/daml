@@ -35,8 +35,8 @@ rules_scala_sha256 = "95054009fd938ac7ef53a20619f94a5408d8ae74eb5b318cd150a3ecb1
 
 rules_haskell_version = "60ed30aab00e9ffa2e2fe19e59f7de885f029556"
 rules_haskell_sha256 = "a9c94b1fb61e1e341b7544305e9b0a359594779f797fddfcfcd447709c7c9820"
-rules_nixpkgs_version = "0dd4c8a085b108592b0193ad1e237e2e07f715ac"
-rules_nixpkgs_sha256 = "f2073135db911ee94b70da1e2288dd2445976a1b20a1edfe67773b29751f50a9"
+rules_nixpkgs_version = "a388ab60dea07c3fc182453e89ff1a67c9d3eba6"
+rules_nixpkgs_sha256 = "6bedf80d6cb82d3f1876e27f2ff9a2cc814d65f924deba14b49698bb1fb2a7f7"
 buildifier_version = "4.0.0"
 buildifier_sha256 = "0d3ca4ed434958dda241fb129f77bd5ef0ce246250feed2d5a5470c6f29a77fa"
 zlib_version = "1.2.11"
@@ -112,8 +112,7 @@ def daml_deps():
                 # reportedly solves the issue. See
                 # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
                 "@com_github_digital_asset_daml//bazel_tools:nixpkgs-disable-http2.patch",
-                # Already upstreamed to rules-nixpkgs. Remove on next upgrade.
-                "@com_github_digital_asset_daml//bazel_tools:rules-nixpkgs-llvm-cov.patch",
+                "@com_github_digital_asset_daml//bazel_tools:rules-nixpkgs-lld.patch",
             ],
             patch_args = ["-p1"],
         )
