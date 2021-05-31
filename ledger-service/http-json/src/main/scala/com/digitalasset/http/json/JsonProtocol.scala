@@ -271,8 +271,9 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
     domain.CommandMeta
   )
 
-  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsValue]] = jsonFormat3(
-    domain.CreateCommand[JsValue]
+  implicit val CreateCommandFormat
+      : RootJsonFormat[domain.CreateCommand[JsValue, domain.TemplateId.OptionalPkg]] = jsonFormat3(
+    domain.CreateCommand[JsValue, domain.TemplateId.OptionalPkg]
   )
 
   implicit val ExerciseCommandFormat
@@ -310,9 +311,10 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
       }
     }
 
-  implicit val CreateAndExerciseCommandFormat
-      : RootJsonFormat[domain.CreateAndExerciseCommand[JsValue, JsValue]] =
-    jsonFormat5(domain.CreateAndExerciseCommand[JsValue, JsValue])
+  implicit val CreateAndExerciseCommandFormat: RootJsonFormat[
+    domain.CreateAndExerciseCommand[JsValue, JsValue, domain.TemplateId.OptionalPkg]
+  ] =
+    jsonFormat5(domain.CreateAndExerciseCommand[JsValue, JsValue, domain.TemplateId.OptionalPkg])
 
   implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
     jsonFormat2(domain.ExerciseResponse[JsValue])
