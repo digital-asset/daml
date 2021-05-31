@@ -2,48 +2,44 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.metrics
-
-import com.daml.ledger.api.benchtool.metrics.Metric.rounded
+import java.time.Duration
 
 final case class SizeMetric[T](
-    periodMillis: Long,
     sizingBytesFunction: T => Long,
     currentSizeBytesBucket: Long = 0,
     sizeRateList: List[Double] = List.empty,
 ) extends Metric[T] {
+  import SizeMetric._
 
-  override type V = SizeMetric.Value
+  override type V = Value
 
   override def onNext(value: T): SizeMetric[T] =
     this.copy(currentSizeBytesBucket = currentSizeBytesBucket + sizingBytesFunction(value))
 
-  override def periodicValue(): (Metric[T], SizeMetric.Value) = {
-    val sizeRate = periodicSizeRate
+  override def periodicValue(periodDuration: Duration): (Metric[T], Value) = {
+    val sizeRate = periodicSizeRate(periodDuration)
     val updatedMetric = this.copy(
       currentSizeBytesBucket = 0,
       sizeRateList = sizeRate :: sizeRateList,
     ) // ok to prepend because the list is used only to calculate mean value so the order doesn't matter
-    (updatedMetric, SizeMetric.Value(sizeRate))
+    (updatedMetric, Value(sizeRate))
   }
 
-  override def finalValue(totalDurationSeconds: Double): SizeMetric.Value = {
+  override def finalValue(totalDuration: Duration): Value = {
     val value = sizeRateList match {
       case Nil => 0.0
       case rates => rates.sum / rates.length
     }
-    SizeMetric.Value(value)
+    Value(value)
   }
 
-  private def periodicSizeRate: Double =
-    (currentSizeBytesBucket.toDouble / periodMillis) * 1000.0 / (1024 * 1024)
+  private def periodicSizeRate(periodDuration: Duration): Double =
+    (currentSizeBytesBucket.toDouble / periodDuration.toMillis) * 1000.0 / (1024 * 1024)
 }
 
 object SizeMetric {
-  final case class Value(megabytesPerSecond: Double) extends MetricValue {
-    override def formatted: List[String] =
-      List(s"size rate: ${rounded(megabytesPerSecond)} [MB/s]")
-  }
+  final case class Value(megabytesPerSecond: Double) extends MetricValue
 
-  def empty[T](periodMillis: Long, sizingFunction: T => Long): SizeMetric[T] =
-    SizeMetric[T](periodMillis, sizingFunction)
+  def empty[T](sizingFunction: T => Long): SizeMetric[T] =
+    SizeMetric[T](sizingFunction)
 }

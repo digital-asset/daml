@@ -15,18 +15,20 @@ import scala.language.existentials
 class DelayMetricSpec extends AnyWordSpec with Matchers {
   DelayMetric.getClass.getSimpleName should {
     "correctly handle initial state" in {
+      val periodDuration: Duration = Duration.ofMillis(100)
       val metric: DelayMetric[String] = anEmptyDelayMetric(Clock.systemUTC())
 
-      val (_, periodicValue) = metric.periodicValue()
-      val totalDurationSeconds: Double = 1.0
-      val finalValue = metric.finalValue(totalDurationSeconds)
+      val (_, periodicValue) = metric.periodicValue(periodDuration)
+      val totalDuration: Duration = Duration.ofSeconds(1)
+      val finalValue = metric.finalValue(totalDuration)
 
       periodicValue shouldBe DelayMetric.Value(None)
       finalValue shouldBe DelayMetric.Value(None)
     }
 
     "compute values after processing elements" in {
-      val totalDurationSeconds: Double = 5.0
+      val periodDuration: Duration = Duration.ofMillis(100)
+      val totalDuration: Duration = Duration.ofSeconds(5)
       val elem1: String = "abc"
       val elem2: String = "defgh"
       val testNow = Clock.systemUTC().instant()
@@ -46,15 +48,14 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
       val metric: DelayMetric[String] =
         DelayMetric.empty[String](
           recordTimeFunction = testRecordTimeFunction,
-          objectives = List.empty,
           clock = clock,
         )
 
       val (newMetric, periodicValue) = metric
         .onNext(elem1)
         .onNext(elem2)
-        .periodicValue()
-      val finalValue = newMetric.finalValue(totalDurationSeconds)
+        .periodicValue(periodDuration)
+      val finalValue = newMetric.finalValue(totalDuration)
 
       val expectedMean = (delay1 + delay2 + delay3) / 3
       periodicValue shouldBe DelayMetric.Value(Some(expectedMean))
@@ -62,7 +63,8 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
     }
 
     "correctly handle periods with no elements" in {
-      val totalDurationSeconds: Double = 5.0
+      val periodDuration: Duration = Duration.ofMillis(100)
+      val totalDuration: Duration = Duration.ofSeconds(5)
       val elem1: String = "abc"
       val elem2: String = "defg"
       val testNow = Clock.systemUTC().instant()
@@ -79,24 +81,24 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
       val metric: DelayMetric[String] =
         DelayMetric.empty[String](
           recordTimeFunction = testRecordTimeFunction,
-          objectives = List.empty,
           clock = clock,
         )
 
       val (newMetric, periodicValue) = metric
         .onNext(elem1)
         .onNext(elem2)
-        .periodicValue()
+        .periodicValue(periodDuration)
         ._1
-        .periodicValue()
-      val finalValue = newMetric.finalValue(totalDurationSeconds)
+        .periodicValue(periodDuration)
+      val finalValue = newMetric.finalValue(totalDuration)
 
       periodicValue shouldBe DelayMetric.Value(None)
       finalValue shouldBe DelayMetric.Value(None)
     }
 
     "correctly handle multiple periods with elements" in {
-      val totalDurationSeconds: Double = 5.0
+      val periodDuration: Duration = Duration.ofMillis(100)
+      val totalDuration: Duration = Duration.ofSeconds(5)
       val elem1: String = "abc"
       val elem2: String = "defg"
       val elem3: String = "hij"
@@ -119,20 +121,19 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
       val metric: DelayMetric[String] =
         DelayMetric.empty[String](
           recordTimeFunction = testRecordTimeFunction,
-          objectives = List.empty,
           clock = clock,
         )
 
       val (newMetric, periodicValue) = metric
         .onNext(elem1)
         .onNext(elem2)
-        .periodicValue()
+        .periodicValue(periodDuration)
         ._1
-        .periodicValue()
+        .periodicValue(periodDuration)
         ._1
         .onNext(elem3)
-        .periodicValue()
-      val finalValue = newMetric.finalValue(totalDurationSeconds)
+        .periodicValue(periodDuration)
+      val finalValue = newMetric.finalValue(totalDuration)
 
       val expectedMean = (delay4 + delay5) / 2
       periodicValue shouldBe DelayMetric.Value(Some(expectedMean))
@@ -140,6 +141,7 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
     }
 
     "compute violated max delay SLO with the most extreme value" in {
+      val periodDuration: Duration = Duration.ofMillis(100)
       val maxAllowedDelaySeconds: Long = 1000
       val elem1: String = "abc"
       val elem2: String = "defg"
@@ -193,27 +195,27 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
       val metric: DelayMetric[String] =
         DelayMetric.empty[String](
           recordTimeFunction = testRecordTimeFunction,
-          objectives = List(expectedViolatedObjective),
           clock = clock,
+          objective = Some(expectedViolatedObjective),
         )
 
       val violatedObjectives =
         metric
           .onNext(elem1)
-          .periodicValue()
+          .periodicValue(periodDuration)
           ._1
           .onNext(elem2)
-          .periodicValue()
+          .periodicValue(periodDuration)
           ._1
           .onNext(elem3)
-          .periodicValue()
+          .periodicValue(periodDuration)
           ._1
           .onNext(elem4)
-          .periodicValue()
+          .periodicValue(periodDuration)
           ._1
-          .violatedObjectives
+          .violatedObjective
 
-      violatedObjectives shouldBe Map(
+      violatedObjectives shouldBe Some(
         expectedViolatedObjective -> DelayMetric.Value(Some(maxDelay))
       )
     }
@@ -239,5 +241,5 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
     str.map(_ => Timestamp.of(100, 0)).toList
 
   private def anEmptyDelayMetric(clock: Clock): DelayMetric[String] =
-    DelayMetric.empty[String](dummyRecordTimesFunction, List.empty, clock)
+    DelayMetric.empty[String](dummyRecordTimesFunction, clock)
 }
