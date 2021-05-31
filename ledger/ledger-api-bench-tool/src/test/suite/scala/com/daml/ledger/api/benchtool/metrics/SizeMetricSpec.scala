@@ -7,56 +7,59 @@ import com.daml.ledger.api.benchtool.metrics.SizeMetric
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.time.Duration
+
 class SizeMetricSpec extends AnyWordSpec with Matchers {
   SizeMetric.getClass.getSimpleName should {
     "correctly handle initial state" in {
-      val totalDurationSeconds: Double = 1.0
+      val totalDuration: Duration = Duration.ofSeconds(1)
+      val periodDuration: Duration = Duration.ofMillis(100)
       val metric: SizeMetric[String] = anEmptySizeMetric()
 
-      val (_, periodicValue) = metric.periodicValue()
-      val finalValue = metric.finalValue(totalDurationSeconds)
+      val (_, periodicValue) = metric.periodicValue(periodDuration)
+      val finalValue = metric.finalValue(totalDuration)
 
       periodicValue shouldBe SizeMetric.Value(0.0)
       finalValue shouldBe SizeMetric.Value(0.0)
     }
 
     "compute values after processing elements" in {
-      val periodMillis: Long = 100
-      val totalDurationSeconds: Double = 5.0
-      val metric: SizeMetric[String] = anEmptySizeMetric(periodMillis)
+      val periodDuration: Duration = Duration.ofMillis(100)
+      val totalDuration: Duration = Duration.ofSeconds(5)
+      val metric: SizeMetric[String] = anEmptySizeMetric()
       val elem1: String = "abc"
       val elem2: String = "defghi"
 
       val (newMetric, periodicValue) = metric
         .onNext(elem1)
         .onNext(elem2)
-        .periodicValue()
-      val finalValue = newMetric.finalValue(totalDurationSeconds)
+        .periodicValue(periodDuration)
+      val finalValue = newMetric.finalValue(totalDuration)
 
       val totalSizeMegabytes =
         (testSizingFunction(elem1) + testSizingFunction(elem2)).toDouble / 1024 / 1024
-      periodicValue shouldBe SizeMetric.Value(totalSizeMegabytes * 1000.0 / periodMillis)
-      finalValue shouldBe SizeMetric.Value(totalSizeMegabytes * 1000.0 / periodMillis)
+      periodicValue shouldBe SizeMetric.Value(totalSizeMegabytes * 1000.0 / periodDuration.toMillis)
+      finalValue shouldBe SizeMetric.Value(totalSizeMegabytes * 1000.0 / periodDuration.toMillis)
     }
 
     "correctly handle periods with no elements" in {
-      val periodMillis: Long = 100
-      val totalDurationSeconds: Double = 5.0
-      val metric: SizeMetric[String] = anEmptySizeMetric(periodMillis)
+      val periodDuration: Duration = Duration.ofMillis(100)
+      val totalDuration: Duration = Duration.ofSeconds(5)
+      val metric: SizeMetric[String] = anEmptySizeMetric()
       val elem1: String = "abc"
       val elem2: String = "defghi"
 
       val (newMetric, periodicValue) = metric
         .onNext(elem1)
         .onNext(elem2)
-        .periodicValue()
+        .periodicValue(periodDuration)
         ._1
-        .periodicValue()
-      val finalValue = newMetric.finalValue(totalDurationSeconds)
+        .periodicValue(periodDuration)
+      val finalValue = newMetric.finalValue(totalDuration)
 
       val firstPeriodMegabytes =
         (testSizingFunction(elem1) + testSizingFunction(elem2)).toDouble / 1024 / 1024
-      val firstPeriodMean = firstPeriodMegabytes * 1000.0 / periodMillis
+      val firstPeriodMean = firstPeriodMegabytes * 1000.0 / periodDuration.toMillis
       val secondPeriodMean = 0.0
       val totalMean = (firstPeriodMean + secondPeriodMean) / 2
       periodicValue shouldBe SizeMetric.Value(secondPeriodMean)
@@ -64,9 +67,9 @@ class SizeMetricSpec extends AnyWordSpec with Matchers {
     }
 
     "correctly handle multiple periods with elements" in {
-      val periodMillis: Long = 100
-      val totalDurationSeconds: Double = 5.0
-      val metric: SizeMetric[String] = anEmptySizeMetric(periodMillis)
+      val periodDuration: Duration = Duration.ofMillis(100)
+      val totalDuration: Duration = Duration.ofSeconds(5)
+      val metric: SizeMetric[String] = anEmptySizeMetric()
       val elem1: String = "abc"
       val elem2: String = "defg"
       val elem3: String = "hij"
@@ -74,20 +77,20 @@ class SizeMetricSpec extends AnyWordSpec with Matchers {
       val (newMetric, periodicValue) = metric
         .onNext(elem1)
         .onNext(elem2)
-        .periodicValue()
+        .periodicValue(periodDuration)
         ._1
-        .periodicValue()
+        .periodicValue(periodDuration)
         ._1
         .onNext(elem3)
-        .periodicValue()
-      val finalValue = newMetric.finalValue(totalDurationSeconds)
+        .periodicValue(periodDuration)
+      val finalValue = newMetric.finalValue(totalDuration)
 
       val firstPeriodMegabytes =
         (testSizingFunction(elem1) + testSizingFunction(elem2)).toDouble / 1024 / 1024
-      val firstPeriodMean = firstPeriodMegabytes * 1000.0 / periodMillis
+      val firstPeriodMean = firstPeriodMegabytes * 1000.0 / periodDuration.toMillis
       val secondPeriodMean = 0.0
       val thirdPeriodMegabytes = testSizingFunction(elem3).toDouble / 1024 / 1024
-      val thirdPeriodMean = thirdPeriodMegabytes * 1000.0 / periodMillis
+      val thirdPeriodMean = thirdPeriodMegabytes * 1000.0 / periodDuration.toMillis
       val totalMean = (firstPeriodMean + secondPeriodMean + thirdPeriodMean) / 3
       periodicValue shouldBe SizeMetric.Value(thirdPeriodMean)
       finalValue shouldBe SizeMetric.Value(totalMean)
@@ -95,9 +98,6 @@ class SizeMetricSpec extends AnyWordSpec with Matchers {
   }
 
   private def testSizingFunction(value: String): Long = value.length.toLong * 12345
-  private def anEmptySizeMetric(periodMillis: Long = 100): SizeMetric[String] =
-    SizeMetric.empty[String](
-      periodMillis = periodMillis,
-      sizingFunction = testSizingFunction,
-    )
+  private def anEmptySizeMetric(): SizeMetric[String] =
+    SizeMetric.empty[String](sizingFunction = testSizingFunction)
 }

@@ -11,8 +11,5 @@ final case class MinConsumptionSpeed(minSpeed: Double)
   override def isViolatedBy(metricValue: ConsumptionSpeedMetric.Value): Boolean =
     Ordering[ConsumptionSpeedMetric.Value].lt(metricValue, v)
 
-  override def formatted: String =
-    s"min allowed speed: $minSpeed [-]"
-
   private val v = ConsumptionSpeedMetric.Value(Some(minSpeed))
 }

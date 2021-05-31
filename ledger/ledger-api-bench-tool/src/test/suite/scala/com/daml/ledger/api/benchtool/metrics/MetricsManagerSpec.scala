@@ -14,8 +14,10 @@ import akka.actor.typed.{ActorRef, Behavior}
 import com.daml.ledger.api.benchtool.metrics.MetricsManager.Message
 import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 import com.daml.ledger.api.benchtool.metrics.{Metric, MetricValue, MetricsManager}
+import com.daml.ledger.api.benchtool.util.MetricReporter
 import org.scalatest.wordspec.AnyWordSpecLike
 
+import java.time.Duration
 import scala.concurrent.duration._
 import scala.util.Random
 
@@ -94,19 +96,31 @@ class MetricsManagerSpec extends ScalaTestWithActorTestKit(ManualTime.config) wi
       streamName = "testStream",
       metrics = List(TestMetric()),
       logInterval = logInterval,
+      reporter = TestReporter,
     )
 
-  private case class TestMetricValue(value: String) extends MetricValue {
-    override def formatted: List[String] = List(value)
-  }
+  private case class TestMetricValue(value: String) extends MetricValue
 
   private case object TestObjective extends ServiceLevelObjective[TestMetricValue] {
     val TestViolatingValue = "BOOM"
 
     override def isViolatedBy(metricValue: TestMetricValue): Boolean =
       metricValue.value == TestViolatingValue
+  }
 
-    override def formatted: String = "testObjective"
+  private object TestReporter extends MetricReporter {
+    override def formattedValues(values: List[MetricValue]): String =
+      values
+        .map { case v: TestMetricValue =>
+          v.value
+        }
+        .mkString(", ")
+
+    override def finalReport(
+        streamName: String,
+        metrics: List[Metric[_]],
+        duration: Duration,
+    ): String = ""
   }
 
   private case class TestMetric(
@@ -119,19 +133,19 @@ class MetricsManagerSpec extends ScalaTestWithActorTestKit(ManualTime.config) wi
       this.copy(processedElems = processedElems :+ value)
     }
 
-    override def periodicValue(): (Metric[String], TestMetricValue) = {
+    override def periodicValue(periodDuration: Duration): (Metric[String], TestMetricValue) = {
       (this, TestMetricValue(s"PERIODIC: ${processedElems.mkString("-")}"))
     }
 
-    override def finalValue(totalDurationSeconds: Double): TestMetricValue = {
+    override def finalValue(totalDuration: Duration): TestMetricValue = {
       TestMetricValue(s"FINAL: ${processedElems.mkString("-")}")
     }
 
-    override def violatedObjectives: Map[TestObjective.type, TestMetricValue] =
+    override def violatedObjective: Option[(TestObjective.type, TestMetricValue)] =
       if (processedElems.contains(TestObjective.TestViolatingValue))
-        Map(TestObjective -> TestMetricValue(TestObjective.TestViolatingValue))
+        Some(TestObjective -> TestMetricValue(TestObjective.TestViolatingValue))
       else
-        Map.empty
+        None
 
   }
 

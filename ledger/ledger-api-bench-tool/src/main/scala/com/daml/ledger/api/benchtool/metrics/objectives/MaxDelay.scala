@@ -8,7 +8,4 @@ import com.daml.ledger.api.benchtool.metrics.DelayMetric
 final case class MaxDelay(maxDelaySeconds: Long) extends ServiceLevelObjective[DelayMetric.Value] {
   override def isViolatedBy(metricValue: DelayMetric.Value): Boolean =
     metricValue.meanDelaySeconds.exists(_ > maxDelaySeconds)
-
-  override def formatted: String =
-    s"max allowed delay: $maxDelaySeconds [s]"
 }
