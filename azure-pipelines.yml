@@ -49,7 +49,8 @@ jobs:
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                  eq(variables['Build.SourceBranchName'], 'main'))
   pool:
-    vmImage: "Ubuntu-16.04"
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
   variables:
     release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
     release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
