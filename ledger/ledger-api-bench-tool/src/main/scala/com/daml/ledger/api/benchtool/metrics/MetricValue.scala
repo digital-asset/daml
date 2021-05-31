@@ -3,6 +3,4 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
-trait MetricValue {
-  def formatted: List[String]
-}
+trait MetricValue

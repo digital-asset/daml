@@ -7,5 +7,4 @@ import com.daml.ledger.api.benchtool.metrics.MetricValue
 
 trait ServiceLevelObjective[MetricValueType <: MetricValue] {
   def isViolatedBy(metricValue: MetricValueType): Boolean
-  def formatted: String
 }

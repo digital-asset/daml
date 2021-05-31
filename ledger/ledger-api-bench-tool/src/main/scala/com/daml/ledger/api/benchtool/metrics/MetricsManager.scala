@@ -5,6 +5,7 @@ package com.daml.ledger.api.benchtool.metrics
 
 import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior, SpawnProtocol}
+import com.daml.ledger.api.benchtool.util.{MetricReporter, TimeUtil}
 
 import java.time.Instant
 import scala.concurrent.duration._
@@ -27,10 +28,13 @@ object MetricsManager {
       streamName: String,
       metrics: List[Metric[T]],
       logInterval: FiniteDuration,
+      reporter: MetricReporter,
   ): Behavior[Message] =
-    Behaviors.withTimers(timers =>
-      new MetricsManager[T](timers, streamName, logInterval).handlingMessages(metrics)
-    )
+    Behaviors.withTimers { timers =>
+      val startTime: Instant = Instant.now()
+      new MetricsManager[T](timers, streamName, logInterval, reporter, startTime)
+        .handlingMessages(metrics, startTime)
+    }
 
 }
 
@@ -38,28 +42,38 @@ class MetricsManager[T](
     timers: TimerScheduler[MetricsManager.Message],
     streamName: String,
     logInterval: FiniteDuration,
+    reporter: MetricReporter,
+    startTime: Instant,
 ) {
   import MetricsManager._
   import MetricsManager.Message._
 
   timers.startTimerWithFixedDelay(PeriodicUpdateCommand(), logInterval)
 
-  private val startTime: Instant = Instant.now()
-
-  def handlingMessages(metrics: List[Metric[T]]): Behavior[Message] = {
+  def handlingMessages(metrics: List[Metric[T]], lastPeriodicCheck: Instant): Behavior[Message] = {
     Behaviors.receive { case (context, message) =>
       message match {
         case newValue: NewValue[T] =>
-          handlingMessages(metrics.map(_.onNext(newValue.value)))
+          handlingMessages(metrics.map(_.onNext(newValue.value)), lastPeriodicCheck)
 
         case _: PeriodicUpdateCommand =>
-          val (newMetrics, values) = metrics.map(_.periodicValue()).unzip
-          val formattedValues: List[String] = values.flatMap(_.formatted)
-          context.log.info(namedMessage(formattedValues.mkString(", ")))
-          handlingMessages(newMetrics)
+          val currentTime = Instant.now()
+          val (newMetrics, values) = metrics
+            .map(_.periodicValue(TimeUtil.durationBetween(lastPeriodicCheck, currentTime)))
+            .unzip
+          context.log.info(namedMessage(reporter.formattedValues(values)))
+          handlingMessages(newMetrics, currentTime)
 
         case message: StreamCompleted =>
-          context.log.info(namedMessage(summary(metrics, totalDurationSeconds)))
+          context.log.info(
+            namedMessage(
+              reporter.finalReport(
+                streamName = streamName,
+                metrics = metrics,
+                duration = totalDuration,
+              )
+            )
+          )
           message.replyTo ! result(metrics)
           Behaviors.stopped
       }
@@ -67,49 +81,16 @@ class MetricsManager[T](
   }
 
   private def result(metrics: List[Metric[T]]): MetricsResult = {
-    val atLeastOneObjectiveViolated = metrics.exists(_.violatedObjectives.nonEmpty)
+    val atLeastOneObjectiveViolated = metrics.exists(_.violatedObjective.nonEmpty)
 
     if (atLeastOneObjectiveViolated) MetricsResult.ObjectivesViolated
     else MetricsResult.Ok
   }
 
-  // TODO: move to a separate util
-  private def summary(metrics: List[Metric[T]], durationSeconds: Double): String = {
-    def indented(str: String, spaces: Int = 4): String = s"${" " * spaces}$str"
-    val reports = metrics.map { metric =>
-      val metricValues: List[String] = metric
-        .finalValue(totalDurationSeconds)
-        .formatted
-        .map(indented(_))
-
-      val violatedObjectives: List[String] =
-        (metric.violatedObjectives.map { case (objective, value) =>
-          s"objective: ${objective.formatted} - value: ${value.formatted.mkString(", ")}"
-        }.toList match {
-          case Nil => Nil
-          case elems => "!!! OBJECTIVES NOT MET !!!" :: elems
-        }).map(indented(_))
-
-      val all: String = (metricValues ::: violatedObjectives)
-        .mkString("\n")
-
-      s"""${metric.name}:
-         |$all""".stripMargin
-    }
-    val reportWidth = 80
-    val bar = "=" * reportWidth
-    s"""
-       |$bar
-       |Stream: $streamName
-       |Total duration: $durationSeconds [s]
-       |${reports.mkString("\n")}
-       |$bar""".stripMargin
-  }
-
   private def namedMessage(message: String) = s"[$streamName] $message"
 
-  private def totalDurationSeconds: Double =
-    (Instant.now().toEpochMilli - startTime.toEpochMilli) / 1000.0
+  private def totalDuration: java.time.Duration =
+    TimeUtil.durationBetween(startTime, Instant.now())
 }
 
 object Creator {
