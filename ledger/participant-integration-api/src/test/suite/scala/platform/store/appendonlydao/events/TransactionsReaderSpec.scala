@@ -32,6 +32,12 @@ private[appendonlydao] class TransactionsReaderSpec extends AnyWordSpec with Mat
       )
     }
 
+    "output only one range if minChunkSize greater than half the range" in {
+      TransactionsReader.splitRange(100L, 200L, 3, 51) shouldBe Vector(
+        EventsRange(100L, 200L)
+      )
+    }
+
     "output only one range if minChunkSize is gteq to range size" in {
       TransactionsReader.splitRange(100L, 200L, 3, 100) shouldBe Vector(
         EventsRange(100L, 200L)

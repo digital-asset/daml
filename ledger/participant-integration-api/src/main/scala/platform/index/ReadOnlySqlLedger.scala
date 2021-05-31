@@ -51,6 +51,8 @@ private[platform] object ReadOnlySqlLedger {
       maxContractStateCacheSize: Long,
       maxContractKeyStateCacheSize: Long,
       enableMutableContractStateCache: Boolean,
+      maxTransactionsInMemoryFanOutBufferSize: Long,
+      enableInMemoryFanOutForLedgerApi: Boolean,
       participantId: v1.ParticipantId,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedger] {
@@ -70,6 +72,8 @@ private[platform] object ReadOnlySqlLedger {
           metrics,
           maxContractStateCacheSize,
           maxContractKeyStateCacheSize,
+          maxTransactionsInMemoryFanOutBufferSize,
+          enableInMemoryFanOutForLedgerApi,
         )
       else
         new ReadOnlySqlLedgerWithTranslationCache.Owner(

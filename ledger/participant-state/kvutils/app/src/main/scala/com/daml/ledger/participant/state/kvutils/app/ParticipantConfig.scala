@@ -28,6 +28,8 @@ final case class ParticipantConfig(
     apiServerDatabaseConnectionTimeout: Duration = DefaultApiServerDatabaseConnectionTimeout,
     maxContractStateCacheSize: Long = ParticipantConfig.DefaultMaxContractStateCacheSize,
     maxContractKeyStateCacheSize: Long = ParticipantConfig.DefaultMaxContractKeyStateCacheSize,
+    maxTransactionsInMemoryFanOutBufferSize: Long =
+      ParticipantConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize,
 )
 
 object ParticipantConfig {
@@ -40,6 +42,8 @@ object ParticipantConfig {
   // this pool is used for all data access for the ledger api (command submission, transaction service, ...)
   val DefaultApiServerDatabaseConnectionPoolSize = 16
 
-  val DefaultMaxContractStateCacheSize: Long = 100000
-  val DefaultMaxContractKeyStateCacheSize: Long = 100000
+  val DefaultMaxContractStateCacheSize: Long = 100000L
+  val DefaultMaxContractKeyStateCacheSize: Long = 100000L
+
+  val DefaultMaxTransactionsInMemoryFanOutBufferSize: Long = 1000L
 }

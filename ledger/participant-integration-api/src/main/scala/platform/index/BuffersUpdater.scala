@@ -1,0 +1,168 @@
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.platform.index
+
+import java.util.concurrent.atomic.AtomicReference
+
+import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
+import akka.stream._
+import akka.{Done, NotUsed}
+import com.daml.ledger.participant.state.v1.Offset
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.index.BuffersUpdater._
+import com.daml.platform.store.appendonlydao.EventSequentialId
+import com.daml.platform.store.appendonlydao.events.{Contract, Key, Party}
+import com.daml.platform.store.dao.events.ContractStateEvent
+import com.daml.platform.store.interfaces.TransactionLogUpdate
+import com.daml.scalautil.Statement.discard
+
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success}
+import scala.util.control.NonFatal
+
+/** Creates and manages a subscription to a transaction log updates source
+  * (see [[com.daml.platform.store.dao.LedgerDaoTransactionsReader.getTransactionLogUpdates]]
+  * and uses for updating:
+  *    * The transactions buffer used for in-memory Ledger API serving.
+  *    * The mutable contract state cache.
+  *
+  * @param subscribeToTransactionLogUpdates Subscribe to the transaction log updates stream starting at a specific
+  *                                         `(Offset, EventSequentialId)`.
+  * @param updateTransactionsBuffer Trigger externally the update of the transactions buffer.
+  * @param toContractStateEvents Converts [[TransactionLogUpdate]]s to [[ContractStateEvent]]s.
+  * @param updateMutableCache Trigger externally the update of the mutable contract state cache.
+  *                           (see [[com.daml.platform.store.cache.MutableCacheBackedContractStore]])
+  * @param minBackoffStreamRestart Minimum back-off before restarting the transaction log updates stream.
+  * @param mat The Akka materializer.
+  * @param loggingContext The logging context.
+  * @param executionContext The execution context.
+  */
+private[index] class BuffersUpdater(
+    subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
+    updateTransactionsBuffer: (Offset, TransactionLogUpdate) => Unit,
+    toContractStateEvents: TransactionLogUpdate => Iterator[ContractStateEvent],
+    updateMutableCache: ContractStateEvent => Unit,
+    minBackoffStreamRestart: FiniteDuration,
+    sysExitWithCode: Int => Unit,
+)(implicit mat: Materializer, loggingContext: LoggingContext, executionContext: ExecutionContext)
+    extends AutoCloseable {
+
+  private val logger = ContextualizedLogger.get(getClass)
+
+  private[index] val updaterIndex = new AtomicReference(
+    Offset.beforeBegin -> EventSequentialId.beforeBegin
+  )
+
+  private val (transactionLogUpdatesKillSwitch, transactionLogUpdatesDone) =
+    RestartSource
+      .withBackoff(
+        RestartSettings(
+          minBackoff = minBackoffStreamRestart,
+          maxBackoff = 10.seconds,
+          randomFactor = 0.0,
+        )
+      )(() => subscribeToTransactionLogUpdates.tupled(updaterIndex.get))
+      .map { case ((offset, eventSequentialId), update) =>
+        updateCaches(offset, update)
+        updaterIndex.set(offset -> eventSequentialId)
+      }
+      .mapError { case NonFatal(e) =>
+        logger.error("Error encountered when updating caches", e)
+        e
+      }
+      .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+      .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
+      .run()
+
+  transactionLogUpdatesDone.onComplete {
+    // AbruptStageTerminationException is propagated even when streams materializer/actorSystem are terminated normally
+    case Success(_) | Failure(_: AbruptStageTerminationException) =>
+      logger.info(s"Finished transaction log updates stream")
+    case Failure(ex) =>
+      logger.error(
+        "The transaction log updates stream encountered a non-recoverable error and will shutdown",
+        ex,
+      )
+      sysExitWithCode(1)
+  }
+
+  private def updateCaches(
+      offset: Offset,
+      transactionLogUpdate: TransactionLogUpdate,
+  ): Unit = {
+    updateTransactionsBuffer(offset, transactionLogUpdate)
+
+    toContractStateEvents(transactionLogUpdate)
+      .foreach { contractStateEvent =>
+        updateMutableCache(contractStateEvent)
+        contractStateEvent
+      }
+  }
+
+  override def close(): Unit = {
+    transactionLogUpdatesKillSwitch.shutdown()
+
+    discard(Await.ready(transactionLogUpdatesDone, 10.seconds))
+  }
+}
+
+private[index] object BuffersUpdater {
+  type SubscribeToTransactionLogUpdates =
+    (Offset, Long) => Source[((Offset, Long), TransactionLogUpdate), NotUsed]
+
+  def apply(
+      subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
+      updateTransactionsBuffer: (Offset, TransactionLogUpdate) => Unit,
+      updateMutableCache: ContractStateEvent => Unit,
+  )(implicit
+      mat: Materializer,
+      loggingContext: LoggingContext,
+      executionContext: ExecutionContext,
+  ): BuffersUpdater = new BuffersUpdater(
+    subscribeToTransactionLogUpdates = subscribeToTransactionLogUpdates,
+    updateTransactionsBuffer = updateTransactionsBuffer,
+    toContractStateEvents = convertToContractStateEvents,
+    updateMutableCache = updateMutableCache,
+    minBackoffStreamRestart = 100.millis,
+    sys.exit(_),
+  )
+
+  private[index] def convertToContractStateEvents(
+      tx: TransactionLogUpdate
+  ): Iterator[ContractStateEvent] =
+    tx match {
+      case tx: TransactionLogUpdate.Transaction =>
+        tx.events.iterator.collect {
+          case createdEvent: TransactionLogUpdate.CreatedEvent =>
+            ContractStateEvent.Created(
+              contractId = createdEvent.contractId,
+              contract = Contract(
+                template = createdEvent.templateId,
+                arg = createdEvent.createArgument,
+                agreementText = createdEvent.createAgreementText.getOrElse(""),
+              ),
+              globalKey = createdEvent.contractKey.map(k =>
+                Key.assertBuild(createdEvent.templateId, k.value)
+              ),
+              ledgerEffectiveTime = createdEvent.ledgerEffectiveTime,
+              stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
+              eventOffset = createdEvent.eventOffset,
+              eventSequentialId = createdEvent.eventSequentialId,
+            )
+          case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
+            ContractStateEvent.Archived(
+              contractId = exercisedEvent.contractId,
+              globalKey = exercisedEvent.contractKey.map(k =>
+                Key.assertBuild(exercisedEvent.templateId, k.value)
+              ),
+              stakeholders = exercisedEvent.flatEventWitnesses.map(Party.assertFromString),
+              eventOffset = exercisedEvent.eventOffset,
+              eventSequentialId = exercisedEvent.eventSequentialId,
+            )
+        }
+      case TransactionLogUpdate.LedgerEndMarker(eventOffset, eventSequentialId) =>
+        Iterator(ContractStateEvent.LedgerEndMarker(eventOffset, eventSequentialId))
+    }
+}

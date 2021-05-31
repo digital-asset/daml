@@ -548,19 +548,19 @@ private[appendonlydao] object TransactionsReader {
           s"You can only split a range in a strictly positive number of chunks ($numberOfChunks)"
         )
 
-      case _ if numberOfChunks == 1 || minChunkSize >= rangeSize =>
+      case _ if numberOfChunks == 1 || minChunkSize > (rangeSize / 2L) =>
         Vector(EventsRange(startExclusive, endInclusive))
 
       case _ if (rangeSize / numberOfChunks.toLong) < minChunkSize.toLong =>
         val effectiveNumberOfChunks = rangeSize / minChunkSize.toLong
-        splitUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks.toInt)
+        splitRangeUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks.toInt)
 
       case _ =>
-        splitUnsafe(startExclusive, endInclusive, numberOfChunks)
+        splitRangeUnsafe(startExclusive, endInclusive, numberOfChunks)
     }
   }
 
-  private def splitUnsafe(
+  private def splitRangeUnsafe(
       startExclusive: Long,
       endInclusive: Long,
       numberOfChunks: Int,
