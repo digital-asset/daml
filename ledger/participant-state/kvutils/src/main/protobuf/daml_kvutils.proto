@@ -64,8 +64,7 @@ message DamlSubmission {
 
     // Report the rejection of a command by the Ledger API server in a way
     // that triggers the deduplication logic and generates a completion with
-    // its own offset. This entry is either added to the ledger as-is or
-    // converted to a 'Duplicate' rejection in case it is deduplicated.
+    // its own offset.
     DamlTransactionRejectionEntry transaction_rejection_entry = 7;
   }
   bytes submission_seed = 6;
@@ -153,7 +152,7 @@ message DamlSubmitterInfo {
 
   reserved 4; // was maximum_record_time
 
-  // Timestamp until which the ledger SHOULD deduplicate this submission.
+  // Timestamp until which the ledger MUST deduplicate this submission.
   // Measured against the ledger's clock.
   google.protobuf.Timestamp deduplicate_until = 5;
 
@@ -161,7 +160,7 @@ message DamlSubmitterInfo {
   // Ledger API clients.
   string submission_id = 6;
 
-  // Rank of the submission, which is used to allow for safe retries. See
+  // Rank of the submission, which is used to allow for safely stopping retrying. See
   // DamlCommandDedupValue for details on the deduplication logic.
   bytes submission_rank = 7;
 }
@@ -436,14 +435,11 @@ message DamlCommandDedupKey {
 // submission that was validated, and cancels any further submissions with the
 // same rank instead of executing them.
 //
-// See TODO: add link to docs for
-// guidance on how applications should manage submission ranks when retrying.
-//
 // DamlCommandDedupValues are tagged with an expiry date to allow ledgers to
 // reclaim storage space by deleting them. The expiry date is provided either
 // directly or indirectly by Ledger API clients. They are expected to provide
 // a close, but not too close expiry data, so that ledger can reclaim storage
-// space quickly without the clients experiencing duplicate submissions.
+// space timely without the clients experiencing duplicate submissions.
 message DamlCommandDedupValue {
   reserved 1; // was record_time
 
@@ -478,7 +474,6 @@ enum CommandSubmissionResult {
   // of their rank, will be rejected as 'Duplicate'.
   COMMAND_SUBMISSION_RESULT_ACCEPTED = 2;
 }
-
 
 
 message DamlSubmissionDedupKey {
@@ -628,11 +623,11 @@ message InvalidLedgerTime {
 // The committer has already seen a command/submission with the same deduplication
 // key during its implementation specific deduplication window.
 message Duplicate {
-  // Error details are only set for methods that do not provide a
-  // duplicate_info.
-  string details = 1;
-
   oneof duplicate_info {
+    // Error details for deduplication provided by the legacy deduplication method.
+    string legacy_deduplication_details = 1; // was 'details'
+    
+    // Error information provided by the rank-based deduplication method.
     RankBasedDuplicateInfo rank_based_duplicate_info = 2;
   }
 }
