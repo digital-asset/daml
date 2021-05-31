@@ -16,6 +16,7 @@ option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "google/rpc/status.proto";
 import "com/daml/daml_lf_dev/daml_lf.proto";
 import "com/daml/lf/transaction.proto";
 import "com/daml/lf/value.proto";
@@ -62,10 +63,11 @@ message DamlSubmission {
     DamlConfigurationSubmission configuration_submission = 4;
     DamlPartyAllocationEntry party_allocation_entry = 5;
 
-    // Report the rejection of a command by the Ledger API server in a way
+    // Report the rejection of a submission by the Ledger API server in a way
     // that triggers the deduplication logic and generates a completion with
-    // its own offset.
-    DamlTransactionRejectionEntry transaction_rejection_entry = 7;
+    // its own offset. Note that this entry in itself can be rejected by the 
+    // committer due to deduplication or config generation checks.
+    DamlRejectSubmissionEntry reject_submission_entry = ;
   }
   bytes submission_seed = 6;
 }
@@ -121,6 +123,12 @@ message DamlLogEntry {
     // A rejection of a pre-executed submission because of out-of-time-bounds.
     DamlOutOfTimeBoundsEntry out_of_time_bounds_entry = 10;
 
+    // A generic rejection from the Ledger API server that stores a gRPC Status Code
+    DamlRejectSubmissionEntry reject_submission_entry = 11;
+
+    // A rejection by the committer of a rejection submission entry.
+    DamlRejectSubmissionRejectionEntry reject_submission_rejection_entry = 12;
+
     // A log entry whose purpose is to transmit a current record time for pre-executed submissions.
     google.protobuf.Empty time_update_entry = 101;
   }
@@ -156,13 +164,19 @@ message DamlSubmitterInfo {
   // Measured against the ledger's clock.
   google.protobuf.Timestamp deduplicate_until = 5;
 
+  // The generation of the ledger configuration used to build this submission.
+  // Used to reject submissions if the configuration at commit time is different
+  // from the one of the configuration at submission time.
+  // Optional.
+  uint64 ledger_configuration_generation = 6;
+
   // Identity of the submission. This should always be freshly allocated by
   // Ledger API clients.
-  string submission_id = 6;
+  string submission_id = 7;
 
   // Rank of the submission, which is used to allow for safely stopping retrying. See
   // DamlCommandDedupValue for details on the deduplication logic.
-  bytes submission_rank = 7;
+  bytes submission_rank = 8;
 }
 
 // Daml transaction entry, used in both `DamlSubmission` and `DamlLogEntry`.
@@ -243,6 +257,7 @@ message DamlTransactionRejectionEntry {
     PartyNotKnownOnLedger party_not_known_on_ledger = 7;
     SubmitterCannotActViaParticipant submitter_cannot_act_via_participant = 8;
     InvalidLedgerTime invalid_ledger_time = 9;
+    GenerationMismatch generation_mismatch = 10;
   }
 }
 
@@ -318,7 +333,11 @@ message DamlConfigurationRejectionEntry {
 
   oneof reason {
     ParticipantNotAuthorized participant_not_authorized = 4;
+
+    // The existing configuration's generation not equal to the new
+    // configuration generation minus one.
     GenerationMismatch generation_mismatch = 5;
+
     Invalid invalid_configuration = 6;
     TimedOut timed_out = 7;
     Duplicate duplicate_submission = 8;
@@ -382,9 +401,38 @@ message DamlPartyAllocationRejectionEntry {
 message DamlOutOfTimeBoundsEntry {
   // We don't expect entry.recordTime to be present.
   DamlLogEntry entry = 1;
+
+  // Optional. Only set for the legacy deduplication code.
   google.protobuf.Timestamp duplicate_until = 2;
+
   google.protobuf.Timestamp too_early_until = 3;
   google.protobuf.Timestamp too_late_from = 4;
+}
+
+// A generic rejection entry that is used by the Ledger API server to reject
+// commands with an explicit completion that satisfies the rank-based deduplication
+// guarantees.
+//
+// Do not use this entry to signal rejections raised by the KV utils code, as otherwise
+// we risk loosing control over the different status codes that can be encountered
+// in historic log entries.
+message DamlRejectSubmissionEntry {
+  DamlSubmitterInfo submitter_info = 1;
+  google.rpc.Status status = 2;
+}
+
+// A committer-generated rejection of a Ledger API server's DamlRejectSubmissionEntry request to generate a
+// LogEntry to reject a submission.
+// We use DamlRejectSubmissionRejectionEntry to signal committer issued rejections due to rank-based deduplication 
+// and configuration generation checks.
+// Effectively, this message changes the rejection reason of the Ledger-API-server-submitted rejection.
+message DamlRejectSubmissionRejectionEntry {
+  DamlSubmitterInfo submitter_info = 1;
+
+  oneof reason {
+    Duplicate duplicate_submission = 2;
+    GenerationMismatch generation_mismatch = 3;
+  } 
 }
 
 // Daml state key. [[KeyValueCommitting]] produces effects that are committed
@@ -422,7 +470,10 @@ message DamlStateValue {
 message DamlCommandDedupKey {
   // Intents are namespaced to the list of submitting parties.
   repeated string submitters = 1;
-  reserved 2; // was application_id
+
+  // Submitter provided application identifiers.
+  // Optional. Provided for rank-based deduplication.
+  reserved string application_id = 2;
 
   // An identifier for the intent.
   string command_id = 3;
@@ -452,11 +503,16 @@ message DamlCommandDedupValue {
 
   // The identity of the submission whose rank and result is stored.
   // This identity is typically a UUID provided by Ledger API clients.
+  // Optional. Provided for rank-based deduplication.
   string submission_id = 5;
+
   // The rank of the submission whose result is stored. Ranks are compared in
   // lexicographic order.
+  // Optional.Provided for rank-based deduplication.
   bytes submission_rank = 4;
+
   // The result of the submission.
+  // Optional. Provided for rank-based deduplication.
   CommandSubmissionResult submission_result = 3;
 }
 
@@ -669,9 +725,7 @@ message ParticipantNotAuthorized {
   string details = 1;
 }
 
-// A mismatch in the configuration generation, that is, the
-// new configuration did not carry a generation that was one
-// larger than previous generation.
+// A mismatch in the configuration generation.
 message GenerationMismatch {
   int64 expected_generation = 1;
 }
