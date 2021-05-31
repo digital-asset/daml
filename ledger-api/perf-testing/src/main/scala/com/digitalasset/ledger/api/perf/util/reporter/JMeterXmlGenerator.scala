@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.perf.util.reporter
@@ -11,7 +11,7 @@ import org.scalameter.utils.Tree
 import org.scalameter.{CurveData, Parameters}
 import org.w3c.dom.{Document, Element}
 
-import scala.collection.breakOut
+import scala.collection.compat._
 
 private[reporter] object JMeterXmlGenerator {
 
@@ -33,9 +33,11 @@ private[reporter] object JMeterXmlGenerator {
       val doc = newDocBuilder.parse(file) // Will throw on failure.
       Option(doc.getDocumentElement)
         .filter(_.getNodeName == rootElementName)
-        .fold(sys.error(
-          s"Cannot append to malformed XML. Root element '$rootElementName' was not found in file '${file.getAbsolutePath}'."))(
-          addMeasurementsToDocument(results, doc, _))
+        .fold(
+          sys.error(
+            s"Cannot append to malformed XML. Root element '$rootElementName' was not found in file '${file.getAbsolutePath}'."
+          )
+        )(addMeasurementsToDocument(results, doc, _))
     } else {
       newDocument(results)
     }
@@ -45,7 +47,8 @@ private[reporter] object JMeterXmlGenerator {
   private def addMeasurementsToDocument[T: Numeric](
       results: Tree[CurveData[T]],
       doc: Document,
-      root: Element) = {
+      root: Element,
+  ) = {
     val reportGenerationTime: String = Clock.systemUTC().millis().toString
     val measurementXmlGenerator = new MeasurementXmlGenerator[T](doc, reportGenerationTime)
     for {
@@ -73,7 +76,10 @@ private[reporter] object JMeterXmlGenerator {
 
         node.setAttribute(label, s"$testName$paramsStr")
         node.setAttribute(timestamp, generationTime)
-        node.setAttribute(time, implicitly[Numeric[T]].toLong(measurement).toString) //No floating point results observed among samples
+        node.setAttribute(
+          time,
+          implicitly[Numeric[T]].toLong(measurement).toString,
+        ) //No floating point results observed among samples
         node.setAttribute(responseCode, resp.code)
         node.setAttribute(responseMessage, resp.message)
         node.setAttribute(success, resp.success)
@@ -85,10 +91,11 @@ private[reporter] object JMeterXmlGenerator {
     }
 
     private def paramSuffix(parameters: Parameters): String = {
-      val filtered: Vector[String] = parameters.axisData
-        .map {
-          case (key, value) => s"${key.fullName}:$value"
-        }(breakOut)
+      val filtered: Vector[String] = parameters.axisData.view
+        .map { case (key, value) =>
+          s"${key.fullName}:$value"
+        }
+        .to(Vector)
 
       if (filtered.isEmpty) ""
       else

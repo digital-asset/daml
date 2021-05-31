@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR range=1:1-100001:1; Missing module name
+-- @ERROR range=1:1-2:1; Missing module name
 
 
 

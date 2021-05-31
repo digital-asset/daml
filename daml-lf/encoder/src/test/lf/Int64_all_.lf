@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 module Int64Mod {
@@ -13,5 +13,7 @@ module Int64Mod {
     choices {
     }
   };
+
+  val equal: Int64 -> Int64 -> Bool = EQUAL @Int64;
 
 }

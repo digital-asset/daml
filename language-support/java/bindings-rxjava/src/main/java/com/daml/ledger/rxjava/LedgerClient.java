@@ -1,33 +1,29 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava;
 
-/**
- * Contains the set of services provided by a Ledger implementation
- */
+/** Contains the set of services provided by a Ledger implementation */
 public interface LedgerClient {
 
-    /**
-     * @return The identifier of the Ledger connected to this {@link LedgerClient}
-     */
-    String getLedgerId();
+  /** @return The identifier of the Ledger connected to this {@link LedgerClient} */
+  String getLedgerId();
 
-    ActiveContractsClient getActiveContractSetClient();
+  ActiveContractsClient getActiveContractSetClient();
 
-    TransactionsClient getTransactionsClient();
+  TransactionsClient getTransactionsClient();
 
-    CommandClient getCommandClient();
+  CommandClient getCommandClient();
 
-    CommandCompletionClient getCommandCompletionClient();
+  CommandCompletionClient getCommandCompletionClient();
 
-    CommandSubmissionClient getCommandSubmissionClient();
+  CommandSubmissionClient getCommandSubmissionClient();
 
-    LedgerIdentityClient getLedgerIdentityClient();
+  LedgerIdentityClient getLedgerIdentityClient();
 
-    PackageClient getPackageClient();
+  PackageClient getPackageClient();
 
-    LedgerConfigurationClient getLedgerConfigurationClient();
+  LedgerConfigurationClient getLedgerConfigurationClient();
 
-    TimeClient getTimeClient();
+  TimeClient getTimeClient();
 }

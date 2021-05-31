@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -11,14 +11,15 @@ import com.google.protobuf.ByteString
 import scalaz.Order
 
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
+import scala.collection.compat._
+import scala.jdk.CollectionConverters._
 
-// The DAML-LF strings are supposed to be UTF-8 while standard java strings are UTF16
+// The Daml-LF strings are supposed to be UTF-8 while standard java strings are UTF16
 // Note number of UTF16 operations are not Utf8 equivalent (for instance length, charAt, ordering ...)
 // This module provides UTF8 emulation functions.
 object Utf8 {
 
-  // The DAML-LF strings are supposed to be UTF-8.
+  // The Daml-LF strings are supposed to be UTF-8.
   // However standard "exploding" java/scala methods like
   // _.toList split in Character which are not Unicode codepoint.
   def explode(s: String): ImmArray[String] = {
@@ -70,14 +71,16 @@ object Utf8 {
   }
 
   def unpack(s: String): ImmArray[Long] =
-    ImmArray(s.codePoints().iterator().asScala.map(_.toLong).toIterable)
+    ImmArray(s.codePoints().iterator().asScala.map(_.toLong).iterator.to(Iterable))
 
   @throws[IllegalArgumentException]
   def pack(codePoints: ImmArray[Long]): String = {
     val builder = new StringBuilder()
     for (cp <- codePoints) {
-      if (Character.MIN_VALUE <= cp && cp < Character.MIN_SURROGATE ||
-        Character.MAX_SURROGATE < cp && cp <= Character.MAX_VALUE) {
+      if (
+        Character.MIN_VALUE <= cp && cp < Character.MIN_SURROGATE ||
+        Character.MAX_SURROGATE < cp && cp <= Character.MAX_VALUE
+      ) {
         // cp is a legal code point from the Basic Multilingual Plan,
         // then it needs only one UTF16 Char to be encoded.
         builder += cp.toChar

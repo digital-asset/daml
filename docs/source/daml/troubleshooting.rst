@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Troubleshooting
@@ -11,9 +11,9 @@ Error: "<X> is not authorized to commit an update"
 
 This error occurs when there are multiple obligables on a contract.
 
-A cornerstone of DAML is that you cannot create a contract that will force some other party (or parties) into an obligation. This error means that a party is trying to do something that would force another parties into an agreement without their consent.
+A cornerstone of Daml is that you cannot create a contract that will force some other party (or parties) into an obligation. This error means that a party is trying to do something that would force another parties into an agreement without their consent.
 
-To solve this, make sure each party is entering into the contract freely by exercising a choice. A good way of ensuring this is the "initial and accept" pattern: see the DAML patterns for more details.
+To solve this, make sure each party is entering into the contract freely by exercising a choice. A good way of ensuring this is the "initial and accept" pattern: see the Daml patterns for more details.
 
 .. _faqs-serial-arg:
 
@@ -32,8 +32,8 @@ Hovering over the compilation error displays:
 
   [Type checker] Argument expands to non-serializable type Party -> Party.
 
-Modelling questions
-*******************
+Modeling questions
+******************
 
 .. _faqs-proposal:
 
@@ -44,7 +44,7 @@ To enter into an agreement, create a contract from a template that has explicit 
 
 You'll need to use a series of contracts that give each party the chance to consent, via a contract choice.
 
-Because of the rules that DAML enforces, it is not possible for a single party to create an instance of a multi-party agreement. This is because such a creation would force the other parties into that agreement, without giving them a choice to enter it or not.
+Because of the rules that Daml enforces, it is not possible for a single party to create an instance of a multi-party agreement. This is because such a creation would force the other parties into that agreement, without giving them a choice to enter it or not.
 
 .. _faqs-rights:
 
@@ -58,7 +58,7 @@ Use a contract choice to model a right. A party exercises that right by exercisi
 How to void a contract
 ======================
 
-To allow voiding a contract, provide a choice that does not create any new contracts. DAML contracts are archived (but not deleted) when a consuming choice is made - so exercising the choice effectively voids the contract.
+To allow voiding a contract, provide a choice that does not create any new contracts. Daml contracts are archived (but not deleted) when a consuming choice is made - so exercising the choice effectively voids the contract.
 
 However, you should bear in mind who is allowed to void a contract, especially without the re-sought consent of the other signatories.
 
@@ -67,9 +67,9 @@ However, you should bear in mind who is allowed to void a contract, especially w
 How to represent off-ledger parties
 ===================================
 
-You'd need to do this if you can't set up all parties as ledger participants, because the DAML ``Party`` type gets associated with a cryptographic key and can so only be used with parties that have been set up accordingly.
+You'd need to do this if you can't set up all parties as ledger participants, because the Daml ``Party`` type gets associated with a cryptographic key and can so only be used with parties that have been set up accordingly.
 
-To model off-ledger parties in DAML, they must be represented on-ledger by a participant who can sign on their behalf. You could represent them with an ordinary ``Text`` argument.
+To model off-ledger parties in Daml, they must be represented on-ledger by a participant who can sign on their behalf. You could represent them with an ordinary ``Text`` argument.
 
 This isn't very private, so you could use a numeric ID/an accountId to identify the off-ledger client.
 
@@ -91,7 +91,7 @@ If you want to ensure that a party takes some action within a given time period.
 
 For example: an Invoice that must be paid by a certain date, with a penalty (could be something like an added interest charge or a penalty fee). To do this, you could have a time-limited Penalty choice that can only be exercised *after* the time period has expired.
 
-However, note that the penalty action can only ever create another contract on the ledger, which represents an agreement between all parties that the initial contract has been breached. Ultimately, the recourse for any breach is legal action of some kind. What DAML provides is provable violation of the agreement.
+However, note that the penalty action can only ever create another contract on the ledger, which represents an agreement between all parties that the initial contract has been breached. Ultimately, the recourse for any breach is legal action of some kind. What Daml provides is provable violation of the agreement.
 
 .. _faqs-optional:
 

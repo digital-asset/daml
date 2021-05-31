@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -9,6 +9,7 @@ import java.time.Duration
 
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 
 case class RunnerConfig(
     darPath: File,
@@ -53,12 +54,16 @@ object RunnerConfig {
     opt[String]("ledger-host")
       .optional()
       .action((t, c) => c.copy(ledgerHost = Some(t)))
-      .text("Ledger hostname")
+      .text(
+        "Ledger hostname. If --json-api is specified, this is used to connect to the JSON API and must include the protocol, e.g. \"http://localhost\"."
+      )
 
     opt[Int]("ledger-port")
       .optional()
       .action((t, c) => c.copy(ledgerPort = Some(t)))
-      .text("Ledger port")
+      .text(
+        "Ledger port. If --json-api is specified, this is the port used to connect to the JSON API."
+      )
 
     opt[File]("participant-config")
       .optional()
@@ -99,28 +104,35 @@ object RunnerConfig {
       .action { (f, c) =>
         c.copy(accessTokenFile = Some(Paths.get(f)))
       }
-      .text("File from which the access token will be read, required to interact with an authenticated ledger")
+      .text(
+        "File from which the access token will be read, required to interact with an authenticated ledger or the JSON API."
+      )
 
     TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
-      c.copy(tlsConfig = f(c.tlsConfig)))
+      c.copy(tlsConfig = f(c.tlsConfig))
+    )
 
     opt[Unit]("json-api")
       .action { (_, c) =>
         c.copy(jsonApi = true)
       }
-      .text("Run DAML Script via the HTTP JSON API instead of via gRPC.")
+      .text(
+        "Run Daml Script via the HTTP JSON API instead of via gRPC; use --ledger-host and --ledger-port for JSON API host and port. The JSON API requires an access token."
+      )
 
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
       .optional()
       .text(
-        s"Optional max inbound message size in bytes. Defaults to $DefaultMaxInboundMessageSize")
+        s"Optional max inbound message size in bytes. Defaults to $DefaultMaxInboundMessageSize"
+      )
 
     opt[String]("application-id")
       .action((x, c) => c.copy(applicationId = Some(ApplicationId(x))))
       .optional()
       .text(
-        s"Application ID used to interact with the ledger. Defaults to ${Runner.DEFAULT_APPLICATION_ID}")
+        s"Application ID used to interact with the ledger. Defaults to ${Runner.DEFAULT_APPLICATION_ID}"
+      )
 
     help("help").text("Print this usage text")
 
@@ -144,7 +156,8 @@ object RunnerConfig {
   ): RunnerConfig = {
     if (config.timeMode.exists(_ != timeMode)) {
       throw new IllegalStateException(
-        "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+        "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous."
+      )
     }
     config.copy(timeMode = Some(timeMode))
   }
@@ -167,6 +180,6 @@ object RunnerConfig {
         jsonApi = false,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         applicationId = None,
-      )
+      ),
     )
 }

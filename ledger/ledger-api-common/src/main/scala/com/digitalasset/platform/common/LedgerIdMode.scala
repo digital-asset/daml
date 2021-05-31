@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.common
@@ -18,16 +18,14 @@ object LedgerIdMode {
   def dynamic: LedgerIdMode =
     Dynamic
 
-  /**
-    * The ledger ID is provided by the user or test fixture,
+  /** The ledger ID is provided by the user or test fixture,
     * and the Ledger API endpoint behind it is expected to use it.
     */
   final case class Static(ledgerId: LedgerId) extends LedgerIdMode {
     override def or(other: => LedgerId): LedgerId = ledgerId
   }
 
-  /**
-    * The ledger ID is selected by the ledger.
+  /** The ledger ID is selected by the ledger.
     * Typically, it will be random if the ledger and the participant are unified, or pre-existing
     * if the ledger is separate. With this option, Sandbox will generate a new ledger ID on first
     * run.

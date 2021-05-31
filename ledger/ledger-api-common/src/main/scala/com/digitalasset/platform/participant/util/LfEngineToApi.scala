@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.participant.util
@@ -18,6 +18,16 @@ import com.daml.ledger.api.v1.{value => api}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 
+/** Translates [[com.daml.lf.value.Value]] values to [[com.daml.ledger.api.v1.value]] values.
+  *
+  * All conversion functions are pure and total.
+  *
+  * Most conversion functions have a verbose flag:
+  * - If verbose mode is disabled, then all resulting Api values have missing type identifiers and record field names.
+  * - If verbose mode is enabled, then type identifiers and record field names are copied from the input Daml-LF values.
+  *   The caller is responsible for filling in missing type information using [[com.daml.lf.engine.ValueEnricher]],
+  *   which may involve loading Daml-LF packages.
+  */
 object LfEngineToApi {
 
   private[this] type LfValue[+Cid] = Lf[Cid]
@@ -26,7 +36,7 @@ object LfEngineToApi {
     api.Identifier(
       identifier.packageId,
       identifier.qualifiedName.module.toString(),
-      identifier.qualifiedName.name.toString()
+      identifier.qualifiedName.name.toString(),
     )
   }
 
@@ -36,12 +46,14 @@ object LfEngineToApi {
 
   def lfVersionedValueToApiRecord(
       verbose: Boolean,
-      recordValue: Lf.VersionedValue[Lf.ContractId]): Either[String, api.Record] =
+      recordValue: Lf.VersionedValue[Lf.ContractId],
+  ): Either[String, api.Record] =
     lfValueToApiRecord(verbose, recordValue.value)
 
   def lfValueToApiRecord(
       verbose: Boolean,
-      recordValue: LfValue[Lf.ContractId]): Either[String, api.Record] = {
+      recordValue: LfValue[Lf.ContractId],
+  ): Either[String, api.Record] = {
     recordValue match {
       case Lf.ValueRecord(tycon, fields) =>
         val fs = fields.foldLeft[Either[String, Vector[api.RecordField]]](Right(Vector.empty)) {
@@ -69,16 +81,19 @@ object LfEngineToApi {
       lf: Option[Lf.VersionedValue[Lf.ContractId]],
   ): Either[String, Option[api.Value]] =
     lf.fold[Either[String, Option[api.Value]]](Right(None))(
-      lfVersionedValueToApiValue(verbose, _).map(Some(_)))
+      lfVersionedValueToApiValue(verbose, _).map(Some(_))
+    )
 
   def lfVersionedValueToApiValue(
       verbose: Boolean,
-      value: Lf.VersionedValue[Lf.ContractId]): Either[String, api.Value] =
+      value: Lf.VersionedValue[Lf.ContractId],
+  ): Either[String, api.Value] =
     lfValueToApiValue(verbose, value.value)
 
   def lfValueToApiValue(
       verbose: Boolean,
-      value0: LfValue[Lf.ContractId]): Either[String, api.Value] =
+      value0: LfValue[Lf.ContractId],
+  ): Either[String, api.Value] =
     value0 match {
       case Lf.ValueUnit => Right(api.Value(api.Value.Sum.Unit(Empty())))
       case Lf.ValueNumeric(d) =>
@@ -92,9 +107,12 @@ object LfEngineToApi {
       case Lf.ValueText(t) => Right(api.Value(api.Value.Sum.Text(t)))
       case Lf.ValueOptional(o) => // TODO DEL-7054 add test coverage
         o.fold[Either[String, api.Value]](
-          Right(api.Value(api.Value.Sum.Optional(api.Optional.defaultInstance))))(v =>
+          Right(api.Value(api.Value.Sum.Optional(api.Optional.defaultInstance)))
+        )(v =>
           lfValueToApiValue(verbose, v).map(c =>
-            api.Value(api.Value.Sum.Optional(api.Optional(Some(c))))))
+            api.Value(api.Value.Sum.Optional(api.Optional(Some(c))))
+          )
+        )
       case Lf.ValueTextMap(m) =>
         m.toImmArray.reverse
           .foldLeft[Either[String, List[api.Map.Entry]]](Right(List.empty)) {
@@ -125,8 +143,10 @@ object LfEngineToApi {
               api.Variant(
                 tycon.filter(_ => verbose).map(toApiIdentifier),
                 variant,
-                Some(x)
-              )))
+                Some(x),
+              )
+            )
+          )
         }
       case Lf.ValueEnum(tyCon, value) =>
         Right(
@@ -134,8 +154,11 @@ object LfEngineToApi {
             api.Value.Sum.Enum(
               api.Enum(
                 tyCon.filter(_ => verbose).map(toApiIdentifier),
-                value
-              ))))
+                value,
+              )
+            )
+          )
+        )
       case Lf.ValueRecord(tycon, fields) =>
         fields.toSeq.traverseEitherStrictly { field =>
           lfValueToApiValue(verbose, field._2) map { x =>
@@ -144,7 +167,7 @@ object LfEngineToApi {
                 field._1.getOrElse("")
               else
                 "",
-              Some(x)
+              Some(x),
             )
           }
         } map { apiFields =>
@@ -155,35 +178,39 @@ object LfEngineToApi {
                   tycon.map(toApiIdentifier)
                 else
                   None,
-                apiFields
-              )))
+                apiFields,
+              )
+            )
+          )
         }
     }
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: KeyWithMaintainers[Lf.VersionedValue[Lf.ContractId]]): Either[String, api.Value] =
+      lf: KeyWithMaintainers[Lf.VersionedValue[Lf.ContractId]],
+  ): Either[String, api.Value] =
     lfVersionedValueToApiValue(verbose, lf.key)
 
   def lfContractKeyToApiValue(
       verbose: Boolean,
-      lf: Option[KeyWithMaintainers[Lf.VersionedValue[Lf.ContractId]]])
-    : Either[String, Option[api.Value]] =
+      lf: Option[KeyWithMaintainers[Lf.VersionedValue[Lf.ContractId]]],
+  ): Either[String, Option[api.Value]] =
     lf.fold[Either[String, Option[api.Value]]](Right(None))(
-      lfContractKeyToApiValue(verbose, _).map(Some(_)))
+      lfContractKeyToApiValue(verbose, _).map(Some(_))
+    )
 
   def lfNodeCreateToEvent(
       verbose: Boolean,
       trId: Ref.LedgerString,
       nodeId: NodeId,
-      node: NodeCreate.WithTxValue[Lf.ContractId],
+      node: NodeCreate[Lf.ContractId],
   ): Either[String, Event] =
     for {
-      arg <- lfValueToApiRecord(verbose, node.coinst.arg.value)
-      key <- lfContractKeyToApiValue(verbose, node.key)
-    } yield
-      Event(
-        Event.Event.Created(CreatedEvent(
+      arg <- lfValueToApiRecord(verbose, node.coinst.arg)
+      key <- lfContractKeyToApiValue(verbose, node.versionedKey)
+    } yield Event(
+      Event.Event.Created(
+        CreatedEvent(
           eventId = EventId(trId, nodeId).toLedgerString,
           contractId = node.coid.coid,
           templateId = Some(toApiIdentifier(node.coinst.template)),
@@ -193,12 +220,14 @@ object LfEngineToApi {
           signatories = node.signatories.toSeq,
           observers = node.stakeholders.diff(node.signatories).toSeq,
           agreementText = Some(node.coinst.agreementText),
-        )))
+        )
+      )
+    )
 
   def lfNodeExercisesToEvent(
       trId: Ref.LedgerString,
       nodeId: NodeId,
-      node: NodeExercises.WithTxValue[NodeId, Lf.ContractId],
+      node: NodeExercises[NodeId, Lf.ContractId],
   ): Either[String, Event] =
     Either.cond(
       node.consuming,
@@ -209,23 +238,24 @@ object LfEngineToApi {
             contractId = node.targetCoid.coid,
             templateId = Some(toApiIdentifier(node.templateId)),
             witnessParties = node.stakeholders.toSeq,
-          ))
+          )
+        )
       ),
-      "illegal conversion of non-consuming exercise to archived event"
+      "illegal conversion of non-consuming exercise to archived event",
     )
 
   def lfNodeCreateToTreeEvent(
       verbose: Boolean,
       eventId: EventId,
       witnessParties: Set[Ref.Party],
-      node: NodeCreate.WithTxValue[Lf.ContractId],
+      node: NodeCreate[Lf.ContractId],
   ): Either[String, TreeEvent] =
     for {
-      arg <- lfValueToApiRecord(verbose, node.coinst.arg.value)
-      key <- lfContractKeyToApiValue(verbose, node.key)
-    } yield
-      TreeEvent(
-        TreeEvent.Kind.Created(CreatedEvent(
+      arg <- lfValueToApiRecord(verbose, node.coinst.arg)
+      key <- lfContractKeyToApiValue(verbose, node.versionedKey)
+    } yield TreeEvent(
+      TreeEvent.Kind.Created(
+        CreatedEvent(
           eventId = eventId.toLedgerString,
           contractId = node.coid.coid,
           templateId = Some(toApiIdentifier(node.coinst.template)),
@@ -235,36 +265,41 @@ object LfEngineToApi {
           signatories = node.signatories.toSeq,
           observers = node.stakeholders.diff(node.signatories).toSeq,
           agreementText = Some(node.coinst.agreementText),
-        )))
+        )
+      )
+    )
 
   def lfNodeExercisesToTreeEvent(
       verbose: Boolean,
       trId: Ref.LedgerString,
       eventId: EventId,
       witnessParties: Set[Ref.Party],
-      node: NodeExercises.WithTxValue[NodeId, Lf.ContractId],
+      node: NodeExercises[NodeId, Lf.ContractId],
       filterChildren: NodeId => Boolean,
   ): Either[String, TreeEvent] =
     for {
-      arg <- lfVersionedValueToApiValue(verbose, node.chosenValue)
-      result <- lfVersionedValueToApiValue(verbose, node.exerciseResult)
+      arg <- lfVersionedValueToApiValue(verbose, node.versionedChosenValue)
+      result <- lfVersionedValueToApiValue(verbose, node.versionedExerciseResult)
     } yield {
       TreeEvent(
-        TreeEvent.Kind.Exercised(ExercisedEvent(
-          eventId = eventId.toLedgerString,
-          contractId = node.targetCoid.coid,
-          templateId = Some(toApiIdentifier(node.templateId)),
-          choice = node.choiceId,
-          choiceArgument = Some(arg),
-          actingParties = node.actingParties.toSeq,
-          consuming = node.consuming,
-          witnessParties = witnessParties.toSeq,
-          childEventIds = node.children.iterator
-            .filter(filterChildren)
-            .map(EventId(trId, _).toLedgerString)
-            .toSeq,
-          exerciseResult = result,
-        )))
+        TreeEvent.Kind.Exercised(
+          ExercisedEvent(
+            eventId = eventId.toLedgerString,
+            contractId = node.targetCoid.coid,
+            templateId = Some(toApiIdentifier(node.templateId)),
+            choice = node.choiceId,
+            choiceArgument = Some(arg),
+            actingParties = node.actingParties.toSeq,
+            consuming = node.consuming,
+            witnessParties = witnessParties.toSeq,
+            childEventIds = node.children.iterator
+              .filter(filterChildren)
+              .map(EventId(trId, _).toLedgerString)
+              .toSeq,
+            exerciseResult = result,
+          )
+        )
+      )
     }
 
   @throws[RuntimeException]

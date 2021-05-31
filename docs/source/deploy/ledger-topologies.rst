@@ -1,9 +1,9 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _daml-ledger-topologies:
 
-DAML Ledger Topologies
+Daml Ledger Topologies
 ######################
 
 The Ledger API provides parties with an abstraction of a virtual shared ledger, visualized as follows.
@@ -36,7 +36,7 @@ The simplest global state topology is the one where the virtual shared ledger is
    :width: 80%
    :align: center
 
-The :ref:`DAML Sandbox <sandbox-manual>` uses this topology.
+The :ref:`Daml Sandbox <sandbox-manual>` uses this topology.
 While simple to deploy and operate, the single-machine setup also has downsides:
 
 1. it provides no scaling
@@ -59,7 +59,7 @@ The first four problems can be solved or mitigated as follows:
 
 #. trust for privacy through TEEs that restrict data access by hardware means.
 
-The remainder of the section discusses these solutions and their implementations in the different DAML ledgers.
+The remainder of the section discusses these solutions and their implementations in the different Daml ledgers.
 The last problem, interoperability, is inherent when the two deployments are operated by different trust domains: by definition, a topology in which no single trust domain would hold the entire ledger is not a global state topology.
 
 .. _scaling-daml-ledgers:
@@ -82,7 +82,7 @@ Reading can be scaled out by building caches of the ledger contents; as the proj
 To ensure ledger integrity, the writing component must preserve the ledger's :ref:`validity conditions <da-model-validity>`.
 Writing can thus be further split up into three sub-components, one for each of the three validity conditions:
 
-1. :ref:`model conformance <da-model-conformance>` checks (i.e., DAML intepretation),
+1. :ref:`model conformance <da-model-conformance>` checks (i.e., Daml interpretation),
 #. :ref:`authorization <da-model-authorization>` checks, and
 #. :ref:`consistency <da-model-consistency>` checks.
 
@@ -91,7 +91,7 @@ Thus, such checks can be parallelized and scaled out.
 The consistency check cannot be done in isolation and requires synchronization.
 However, to improve scaling, it can internally still use some form of sharding, together with a commit protocol.
 
-For example, the next versions of DAML on `Amazon Aurora <https://aws.amazon.com/rds/aurora/>`__ and on `Hyperledger Fabric <https://www.hyperledger.org/projects/fabric>`__ will use such partitioned topologies.
+For example, the next versions of Daml on `Amazon Aurora <https://aws.amazon.com/rds/aurora/>`__ and on `Hyperledger Fabric <https://www.hyperledger.org/projects/fabric>`__ will use such partitioned topologies.
 The next image shows an extreme version of this partitioning, where each party is served by a separate system node running all the parallelizable functions.
 The writing subsystem is split into two stages.
 The first stage checks conformance and authorization, and can be arbitrarily replicated, while the second stage is centralized and checks consistency.
@@ -135,7 +135,7 @@ The resulting topology is visualized below.
 .. image:: ./images/ledger-topologies/replicated-committer-topology.svg
    :align: center
 
-DAML on `VMware Concord <https://blogs.vmware.com/blockchain>`__ and DAML on `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__ are examples of such a replicated setup.
+Daml on `VMware Concord <https://blogs.vmware.com/blockchain>`__ and Daml on `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__ are examples of such a replicated setup.
 
 Trusted Execution Environments
 ==============================
@@ -165,7 +165,7 @@ The implementations might still rely on trusted third parties to facilitate the 
 The required trust in terms of privacy and integrity, however, can generally be lower than in global state topologies.
 Moreover, unlike the previous topologies, they support interoperability: even if two transactions are committed with the help of disjoint sets of trusted third parties, their :ref:`output contracts <def-output-contract>` can in general still be used within the same atomic transaction.
 The exact trust assumptions and the degree of supported interoperability are implementation-dependent.
-`Canton <http://canton.io>`__ and DAML on `R3 Corda <https://www.corda.net>`__ are two such implementations.
+`Canton <http://canton.io>`__ and Daml on `R3 Corda <https://www.corda.net>`__ are two such implementations.
 The main drawback of this topology is that availability can be influenced by the participant nodes.
 In particular, transactions cannot be committed if they use data that is only stored on unresponsive nodes.
 Spreading the data among additional trusted entities can mitigate the problem.

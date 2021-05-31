@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store
@@ -17,7 +17,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
@@ -67,16 +67,17 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
 
   def lookupContract(
       contractId: Value.ContractId,
-      forParty: Party
-  )(implicit loggingContext: LoggingContext)
-    : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
+      forParties: Set[Party],
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
 
   def lookupMaximumLedgerTime(
-      contractIds: Set[ContractId],
+      contractIds: Set[ContractId]
   )(implicit loggingContext: LoggingContext): Future[Option[Instant]]
 
-  def lookupKey(key: GlobalKey, forParty: Party)(
-      implicit loggingContext: LoggingContext,
+  def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
+      loggingContext: LoggingContext
   ): Future[Option[ContractId]]
 
   def lookupFlatTransactionById(
@@ -90,40 +91,40 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]]
 
   // Party management
-  def getParties(parties: Seq[Party])(
-      implicit loggingContext: LoggingContext,
+  def getParties(parties: Seq[Party])(implicit
+      loggingContext: LoggingContext
   ): Future[List[PartyDetails]]
 
   def listKnownParties()(implicit loggingContext: LoggingContext): Future[List[PartyDetails]]
 
-  def partyEntries(startExclusive: Offset)(
-      implicit loggingContext: LoggingContext,
+  def partyEntries(startExclusive: Offset)(implicit
+      loggingContext: LoggingContext
   ): Source[(Offset, PartyLedgerEntry), NotUsed]
 
   // Package management
-  def listLfPackages()(
-      implicit loggingContext: LoggingContext,
+  def listLfPackages()(implicit
+      loggingContext: LoggingContext
   ): Future[Map[PackageId, PackageDetails]]
 
-  def getLfArchive(packageId: PackageId)(
-      implicit loggingContext: LoggingContext,
+  def getLfArchive(packageId: PackageId)(implicit
+      loggingContext: LoggingContext
   ): Future[Option[Archive]]
 
-  def getLfPackage(packageId: PackageId)(
-      implicit loggingContext: LoggingContext,
+  def getLfPackage(packageId: PackageId)(implicit
+      loggingContext: LoggingContext
   ): Future[Option[Ast.Package]]
 
-  def packageEntries(startExclusive: Offset)(
-      implicit loggingContext: LoggingContext,
+  def packageEntries(startExclusive: Offset)(implicit
+      loggingContext: LoggingContext
   ): Source[(Offset, PackageLedgerEntry), NotUsed]
 
   // Configuration management
-  def lookupLedgerConfiguration()(
-      implicit loggingContext: LoggingContext,
+  def lookupLedgerConfiguration()(implicit
+      loggingContext: LoggingContext
   ): Future[Option[(Offset, Configuration)]]
 
   def configurationEntries(
-      startExclusive: Offset,
+      startExclusive: Offset
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed]
 
   /** Deduplicates commands.
@@ -140,8 +141,7 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult]
 
-  /**
-    * Stops deduplicating the given command.
+  /** Stops deduplicating the given command.
     *
     * Note: The deduplication cache is used by the submission service,
     * it does not modify any on-ledger data.
@@ -151,8 +151,7 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
       submitters: List[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Unit]
 
-  /**
-    * Remove all expired deduplication entries. This method has to be called
+  /** Remove all expired deduplication entries. This method has to be called
     * periodically to ensure that the deduplication cache does not grow unboundedly.
     *
     * @param currentTime The current time. This should use the same source of time as
@@ -165,11 +164,10 @@ private[platform] trait ReadOnlyLedger extends ReportsHealth with AutoCloseable 
     * it does not modify any on-ledger data.
     */
   def removeExpiredDeduplicationData(
-      currentTime: Instant,
+      currentTime: Instant
   )(implicit loggingContext: LoggingContext): Future[Unit]
 
-  /**
-    * Performs participant ledger pruning up to and including the specified offset.
+  /** Performs participant ledger pruning up to and including the specified offset.
     */
   def prune(pruneUpToInclusive: Offset)(implicit loggingContext: LoggingContext): Future[Unit]
 }

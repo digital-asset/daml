@@ -1,12 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.db.migration.postgres
 
 import java.io.ByteArrayInputStream
 
-import com.daml.platform.store.serialization.ValueSerializer
-import com.daml.platform.db.migration.translation.ContractSerializer
+import com.daml.platform.db.migration.translation.{ContractSerializer, ValueSerializer}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 private[migration] class V26_1__Fill_create_argument extends BaseJavaMigration {
@@ -22,6 +21,8 @@ private[migration] class V26_1__Fill_create_argument extends BaseJavaMigration {
   private val UPDATE_PARTICIPANT_CONTRACTS =
     "update participant_contracts set create_argument = ?, template_id = ? where contract_id = ?"
 
+  private val BATCH_SIZE = 500
+
   override def migrate(context: Context): Unit = {
     val conn = context.getConnection
     var loadContracts: java.sql.Statement = null
@@ -30,6 +31,7 @@ private[migration] class V26_1__Fill_create_argument extends BaseJavaMigration {
     try {
       updateParticipantContracts = conn.prepareStatement(UPDATE_PARTICIPANT_CONTRACTS)
       loadContracts = conn.createStatement()
+      loadContracts.setFetchSize(BATCH_SIZE)
       rows = loadContracts.executeQuery(SELECT_CONTRACT_DATA)
 
       while (rows.next()) {
@@ -45,7 +47,9 @@ private[migration] class V26_1__Fill_create_argument extends BaseJavaMigration {
           new ByteArrayInputStream(
             ValueSerializer.serializeValue(
               createArgument,
-              s"failed to serialize create argument for contract $contractId"))
+              s"failed to serialize create argument for contract $contractId",
+            )
+          )
         updateParticipantContracts.setBinaryStream(1, createArgumentBytes)
         updateParticipantContracts.setString(2, templateId.toString)
         updateParticipantContracts.setString(3, contractId)

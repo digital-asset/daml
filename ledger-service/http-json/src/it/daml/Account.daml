@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -15,6 +15,16 @@ template Account with
     signatory owner
 
     key (owner, number) : (Party, Text)
+    maintainer key._1
+
+template SharedAccount with
+    owners : [Party]
+    number : Text
+    status : AccountStatus
+  where
+    signatory owners
+
+    key (owners, number) : ([Party], Text)
     maintainer key._1
 
 data Foo = Bar Int | Baz BazRecord | Qux

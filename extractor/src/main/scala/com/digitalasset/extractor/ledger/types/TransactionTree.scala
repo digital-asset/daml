@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.ledger.types
@@ -34,24 +34,26 @@ final case class TransactionTree(
 
 object TransactionTree {
   private val effectiveAtLens =
-    ReqFieldLens.create[api.transaction.TransactionTree, PTimeStamp]('effectiveAt)
+    ReqFieldLens.create[api.transaction.TransactionTree, PTimeStamp](Symbol("effectiveAt"))
 
   final implicit class ApiTransactionOps(val apiTransaction: api.transaction.TransactionTree)
       extends AnyVal {
     private def filteredEvents(
         parties: Set[String],
-        templateIds: Set[api.value.Identifier]): List[(String, api.transaction.TreeEvent.Kind)] = {
+        templateIds: Set[api.value.Identifier],
+    ): List[(String, api.transaction.TreeEvent.Kind)] = {
       val events = ListBuffer.empty[(String, api.transaction.TreeEvent.Kind)]
       foreach {
         case (id, ev) if TransactionTreeTrimmer.shouldKeep(parties, templateIds)(ev) =>
           events += ((id, ev))
         case _ =>
       }
-      events.result
+      events.result()
     }
     def convert(
         parties: Set[String],
-        templateIds: Set[api.value.Identifier]): String \/ TransactionTree =
+        templateIds: Set[api.value.Identifier],
+    ): String \/ TransactionTree =
       for {
         apiEffectiveAt <- effectiveAtLens(apiTransaction)
         effectiveAt = TimestampConversion.toInstant(apiEffectiveAt)
@@ -59,15 +61,14 @@ object TransactionTree {
           .filteredEvents(parties, templateIds)
           .traverse(kv => kv._2.kind.convert.map(kv._1 -> _))
         kept = events.map(_._1).toSet
-      } yield
-        TransactionTree(
-          apiTransaction.transactionId,
-          apiTransaction.workflowId,
-          effectiveAt,
-          apiTransaction.offset,
-          events,
-          apiTransaction.rootEventIds.filter(kept)
-        )
+      } yield TransactionTree(
+        apiTransaction.transactionId,
+        apiTransaction.workflowId,
+        effectiveAt,
+        apiTransaction.offset,
+        events,
+        apiTransaction.rootEventIds.filter(kept),
+      )
     // pre-order traversal over the transaction tree. This is the equivalent of
     // the traversal in com.daml.lf.transaction for the client side.
     private def foreach(f: (String, api.transaction.TreeEvent.Kind) => Unit): Unit = {

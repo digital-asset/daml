@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -6,7 +6,8 @@ package com.daml.lf.validation
 import com.daml.lf.data.Ref.Name
 import com.daml.lf.language.Ast._
 import com.daml.lf.validation.Util._
-import com.daml.lf.validation.traversable.TypeTraversable
+import com.daml.lf.validation.iterable.TypeIterable
+import scala.collection.compat.immutable.LazyList
 
 private[validation] object TypeSubst {
 
@@ -32,7 +33,7 @@ private[validation] object TypeSubst {
     }
 
   private def freshTypeVarName(fv: Set[TypeVarName]): TypeVarName =
-    Stream
+    LazyList
       .from(0)
       .map(i => Name.assertFromString("$freshVar" + i.toString))
       .filterNot(fv.contains)(0)
@@ -58,7 +59,7 @@ private[validation] object TypeSubst {
     case TVar(name) =>
       acc + name
     case otherwise @ _ =>
-      (TypeTraversable(typ) foldLeft acc)(freeVars)
+      (TypeIterable(typ) foldLeft acc)(freeVars)
   }
 
   private def freeVars(subst: Map[TypeVarName, Type]): Set[TypeVarName] =

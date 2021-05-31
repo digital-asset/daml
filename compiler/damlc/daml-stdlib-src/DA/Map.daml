@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -11,7 +11,10 @@ module DA.Map where
 
 #else
 
--- | This module exports the generic map type `Map k v` and associated
+
+-- | Note: This is only supported in DAML-LF 1.11 or later.
+--
+-- This module exports the generic map type `Map k v` and associated
 -- functions. This module should be imported qualified, for example:
 --
 -- ```
@@ -37,8 +40,9 @@ module DA.Map where
 -- This includes all built-in types that aren't function types, such as
 -- `Int`, `Text`, `Bool`, `(a, b)` assuming `a` and `b` have default
 -- `Ord` instances, `Optional t` and `[t]` assuming `t` has a
--- default `Ord` instance, and `Map k v` assuming `k` and `v` have
--- default `Ord` instances.
+-- default `Ord` instance, `Map k v` assuming `k` and `v` have
+-- default `Ord` instances, and `Set k` assuming `k` has a
+-- default `Ord` instance.
 module DA.Map
     ( Map
     , empty
@@ -78,8 +82,8 @@ fromList list = foldl (\acc (key, value) -> insert key value acc) empty list
 --
 -- ```
 -- >>> fromListWith (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])]
--- Map [("A", [1, 2, 3]), ("B", [2, 1])]
--- >>> fromListWith (++) [] == (M.empty : Map Text [Int])
+-- fromList [("A", [1, 2, 3]), ("B", [2, 1])]
+-- >>> fromListWith (++) [] == (empty : Map Text [Int])
 -- True
 -- ```
 fromListWith : Ord k => (v -> v -> v) -> [(k, v)] -> Map k v

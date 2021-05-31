@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: updates
@@ -142,7 +142,7 @@ abort
 
 - ``abort`` function.
 - Fails the transaction - nothing in it will be committed to the ledger.
-- ``errorMessage`` is of type ``Text``. Use the error message to provide more context to an external system (e.g., it gets displayed in DAML Studio scenario results).
+- ``errorMessage`` is of type ``Text``. Use the error message to provide more context to an external system (e.g., it gets displayed in Daml Studio scenario results).
 - You could use ``assert False`` as an alternative.
 
 .. _daml-ref-assert:

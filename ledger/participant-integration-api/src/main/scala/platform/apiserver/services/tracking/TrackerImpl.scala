@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.tracking
@@ -24,29 +24,29 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
-/**
-  * Tracks SubmitAndWaitRequests.
+/** Tracks SubmitAndWaitRequests.
   * @param queue The input queue to the tracking flow.
   */
 private[services] final class TrackerImpl(
     queue: SourceQueueWithComplete[TrackerImpl.QueueInput],
-    done: Future[Done])(
-    implicit loggingContext: LoggingContext,
+    done: Future[Done],
+)(implicit
+    loggingContext: LoggingContext
 ) extends Tracker {
 
   import TrackerImpl.logger
 
-  override def track(request: SubmitAndWaitRequest)(
-      implicit ec: ExecutionContext,
+  override def track(request: SubmitAndWaitRequest)(implicit
+      ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Completion] = {
     logger.trace("Tracking command")
-    val promise = Promise[Completion]
+    val promise = Promise[Completion]()
     submitNewRequest(request, promise)
   }
 
-  private def submitNewRequest(request: SubmitAndWaitRequest, promise: Promise[Completion])(
-      implicit ec: ExecutionContext,
+  private def submitNewRequest(request: SubmitAndWaitRequest, promise: Promise[Completion])(implicit
+      ec: ExecutionContext
   ): Future[Completion] = {
     queue
       .offer(
@@ -54,8 +54,10 @@ private[services] final class TrackerImpl(
           promise,
           SubmitRequest(
             request.commands,
-            request.traceContext
-          )))
+            request.traceContext,
+          ),
+        )
+      )
       .andThen {
         HandleOfferResult.completePromise(promise)
       }
@@ -79,7 +81,8 @@ private[services] object TrackerImpl {
       tracker: Flow[
         Ctx[Promise[Completion], SubmitRequest],
         Ctx[Promise[Completion], Completion],
-        Materialized[NotUsed, Promise[Completion]]],
+        Materialized[NotUsed, Promise[Completion]],
+      ],
       inputBufferSize: Int,
       capacityCounter: Counter,
       lengthCounter: Counter,
@@ -94,26 +97,27 @@ private[services] object TrackerImpl {
         delayTimer,
       )
       .viaMat(tracker)(Keep.both)
-      .toMat(Sink.foreach {
-        case Ctx(promise, result) =>
-          result match {
-            case compl @ Completion(_, Some(Status(Code.OK.value, _, _)), _, _) =>
-              logger.trace("Completing promise with success")
-              promise.trySuccess(compl)
-            case Completion(_, statusO, _, _) =>
-              val status = statusO
-                .map(
-                  status =>
-                    GrpcStatus
-                      .fromCodeValue(status.code)
-                      .withDescription(status.message))
-                .getOrElse(GrpcStatus.INTERNAL
-                  .withDescription("Missing status in completion response."))
+      .toMat(Sink.foreach { case Ctx(promise, result) =>
+        result match {
+          case compl @ Completion(_, Some(Status(Code.OK.value, _, _, _)), _, _) =>
+            logger.trace("Completing promise with success")
+            promise.trySuccess(compl)
+          case Completion(_, statusO, _, _) =>
+            val status = statusO
+              .map(status =>
+                GrpcStatus
+                  .fromCodeValue(status.code)
+                  .withDescription(status.message)
+              )
+              .getOrElse(
+                GrpcStatus.INTERNAL
+                  .withDescription("Missing status in completion response.")
+              )
 
-              logger.trace(s"Completing promise with failure: $status")
-              promise.tryFailure(status.asException())
-          }
-          ()
+            logger.trace(s"Completing promise with failure: $status")
+            promise.tryFailure(status.asException())
+        }
+        ()
       })(Keep.both)
       .run()
 
@@ -132,8 +136,13 @@ private[services] object TrackerImpl {
         // no error expected here -- if there is one, we're at a total loss.
         // FIXME(mthvedt): we should shut down everything in this case.
         _.get.values
-          .foreach(_.failure(new ApiException(
-            GrpcStatus.INTERNAL.withDescription(promiseCancellationDescription).withCause(error))))
+          .foreach(
+            _.failure(
+              new ApiException(
+                GrpcStatus.INTERNAL.withDescription(promiseCancellationDescription).withCause(error)
+              )
+            )
+          )
       )(DirectExecutionContext)
     }(DirectExecutionContext)
 

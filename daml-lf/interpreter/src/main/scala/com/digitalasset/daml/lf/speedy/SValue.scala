@@ -1,7 +1,8 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 import java.util
 
@@ -11,8 +12,10 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.SErrorCrash
 import com.daml.lf.value.{Value => V}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
+import scala.collection.compat._
 import scala.collection.immutable.TreeMap
+import scala.util.hashing.MurmurHash3
 
 /** Speedy values. These are the value types recognized by the
   * machine. In addition to the usual types present in the LF value,
@@ -39,7 +42,7 @@ sealed trait SValue {
           ImmArray(
             fields.toSeq
               .zip(svalues.asScala)
-              .map({ case (fld, sv) => (Some(fld), sv.toValue) }),
+              .map({ case (fld, sv) => (Some(fld), sv.toValue) })
           ),
         )
       case SVariant(id, variant, _, sv) =>
@@ -50,19 +53,21 @@ sealed trait SValue {
         V.ValueList(lst.map(_.toValue))
       case SOptional(mbV) =>
         V.ValueOptional(mbV.map(_.toValue))
-      case SGenMap(true, entries) =>
+      case SMap(true, entries) =>
         V.ValueTextMap(SortedLookupList(entries.map {
           case (SText(t), v) => t -> v.toValue
           case (_, _) => throw SErrorCrash("SValue.toValue: TextMap with non text key")
         }))
-      case SGenMap(false, entries) =>
-        V.ValueGenMap(ImmArray(entries.map { case (k, v) => k.toValue -> v.toValue }))
+      case SMap(false, entries) =>
+        V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
       case SContractId(coid) =>
         V.ValueContractId(coid)
       case SStruct(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SStruct")
       case SAny(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SAny")
+      case SBigNumeric(_) =>
+        throw SErrorCrash("SValue.toValue: unexpected SBigNumeric")
       case STypeRep(_) =>
         throw SErrorCrash("SValue.toValue: unexpected STypeRep")
       case STNat(_) =>
@@ -95,8 +100,8 @@ sealed trait SValue {
         SList(lst.map(_.mapContractId(f)))
       case SOptional(mbV) =>
         SOptional(mbV.map(_.mapContractId(f)))
-      case SGenMap(isTextMap, value) =>
-        SGenMap(
+      case SMap(isTextMap, value) =>
+        SMap(
           isTextMap,
           value.iterator.map { case (k, v) => k.mapContractId(f) -> v.mapContractId(f) },
         )
@@ -148,8 +153,8 @@ object SValue {
       id: Identifier,
       variant: VariantConName,
       constructorRank: Int,
-      value: SValue)
-      extends SValue
+      value: SValue,
+  ) extends SValue
 
   final case class SEnum(id: Identifier, constructor: Name, constructorRank: Int) extends SValue
 
@@ -157,43 +162,145 @@ object SValue {
 
   final case class SList(list: FrontStack[SValue]) extends SValue
 
-  // We make the constructor private to ensure entries are sorted according `SGenMap Ordering`
-  final case class SGenMap private (textMap: Boolean, entries: TreeMap[SValue, SValue])
+  // We make the constructor private to ensure entries are sorted according `SMap Ordering`
+  final case class SMap private (isTextMap: Boolean, entries: TreeMap[SValue, SValue])
       extends SValue
-      with NoCopy
+      with NoCopy {
 
-  object SGenMap {
-    implicit def `SGenMap Ordering`: Ordering[SValue] = svalue.Ordering
+    def insert(key: SValue, value: SValue): SMap =
+      SMap(isTextMap, entries.updated(key, value))
+
+    def delete(key: SValue): SMap =
+      SMap(isTextMap, entries - key)
+
+  }
+
+  object SMap {
+    implicit def `SMap Ordering`: Ordering[SValue] = svalue.Ordering
 
     @throws[SErrorCrash]
     // crashes if `k` contains type abstraction, function, Partially applied built-in or updates
     def comparable(k: SValue): Unit = {
-      `SGenMap Ordering`.compare(k, k)
+      `SMap Ordering`.compare(k, k)
       ()
     }
 
-    def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SGenMap = {
-      type O[_] = TreeMap[SValue, SValue]
-      SGenMap(isTextMap, entries.map { case p @ (k, _) => comparable(k); p }.to[O])
+    def apply(isTextMap: Boolean, entries: Iterator[(SValue, SValue)]): SMap = {
+      SMap(
+        isTextMap,
+        implicitly[Factory[(SValue, SValue), TreeMap[SValue, SValue]]].fromSpecific(entries.map {
+          case p @ (k, _) => comparable(k); p
+        }),
+      )
     }
 
-    def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SGenMap =
-      SGenMap(isTextMap: Boolean, entries.iterator)
+    def apply(isTextMap: Boolean, entries: (SValue, SValue)*): SMap =
+      SMap(isTextMap: Boolean, entries.iterator)
   }
 
+  // represents Any And AnyException
   final case class SAny(ty: Type, value: SValue) extends SValue
 
-  // Corresponds to a DAML-LF Nat type reified as a Speedy value.
+  object SAnyException {
+    def apply(tyCon: Ref.TypeConName, value: SRecord): SAny = SAny(TTyCon(tyCon), value)
+
+    def unapply(any: SAny): Option[SRecord] =
+      any match {
+        case SAny(TTyCon(tyCon0), record @ SRecord(tyCon1, _, _)) if tyCon0 == tyCon1 =>
+          Some(record)
+        case _ =>
+          None
+      }
+  }
+
+  object SArithmeticError {
+    // The package ID should match the ID of the stable package daml-prim-DA-Exception-ArithmeticError
+    // See test compiler/damlc/tests/src/stable-packages.sh
+    val tyCon: Ref.TypeConName = Ref.Identifier.assertFromString(
+      "f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981:DA.Exception.ArithmeticError:ArithmeticError"
+    )
+    val typ: Type = TTyCon(tyCon)
+    val fields: ImmArray[Ref.Name] = ImmArray(Ref.Name.assertFromString("message"))
+    def apply(builtinName: String, args: ImmArray[String]): SAny = {
+      val array = new util.ArrayList[SValue](1)
+      array.add(
+        SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
+      )
+      SAny(typ, SRecord(tyCon, fields, array))
+    }
+    // Assumes excep is properly typed
+    def unapply(excep: SAny): Option[SValue] =
+      excep match {
+        case SAnyException(SRecord(`tyCon`, _, args)) => Some(args.get(0))
+        case _ => None
+      }
+  }
+
+  // Corresponds to a Daml-LF Nat type reified as a Speedy value.
   // It is currently used to track at runtime the scale of the
   // Numeric builtin's arguments/output. Should never be translated
-  // back to DAML-LF expressions / values.
+  // back to Daml-LF expressions / values.
   final case class STNat(n: Numeric.Scale) extends SValue
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified
   // with SValue and we can remove one layer of indirection.
   sealed trait SPrimLit extends SValue with Equals
   final case class SInt64(value: Long) extends SPrimLit
+  // TODO https://github.com/digital-asset/daml/issues/8719
+  //  try to factorize SNumeric and SBigNumeric
+  //  note it seems that scale is relevant in SNumeric but lost in SBigNumeric
   final case class SNumeric(value: Numeric) extends SPrimLit
+  object SNumeric {
+    def fromBigDecimal(scale: Numeric.Scale, x: java.math.BigDecimal) =
+      Numeric.fromBigDecimal(scale, x) match {
+        case Right(value) =>
+          Right(SNumeric(value))
+        case Left(_) =>
+          overflowUnderflow
+      }
+  }
+  final class SBigNumeric private (val value: java.math.BigDecimal) extends SPrimLit {
+    override def canEqual(that: Any): Boolean = that match {
+      case _: SBigNumeric => true
+      case _ => false
+    }
+
+    override def equals(obj: Any): Boolean = obj match {
+      case that: SBigNumeric => this.value == that.value
+      case _ => false
+    }
+
+    override def hashCode(): Int = MurmurHash3.mix(getClass.hashCode(), value.hashCode())
+
+    override def toString: String = s"SBigNumeric($value)"
+  }
+  object SBigNumeric {
+    val MaxPrecision = 1 << 16
+    val MaxScale = MaxPrecision / 2
+    val MinScale = -MaxPrecision / 2 + 1
+
+    def unapply(value: SBigNumeric): Some[java.math.BigDecimal] =
+      Some(value.value)
+
+    def fromBigDecimal(x: java.math.BigDecimal): Either[String, SBigNumeric] = {
+      val norm = x.stripTrailingZeros()
+      if (norm.scale <= MaxScale && norm.precision - norm.scale <= MaxScale)
+        Right(new SBigNumeric(norm))
+      else
+        overflowUnderflow
+    }
+
+    def fromNumeric(x: Numeric) =
+      new SBigNumeric(x.stripTrailingZeros())
+
+    def assertFromBigDecimal(x: java.math.BigDecimal): SBigNumeric =
+      data.assertRight(fromBigDecimal(x))
+
+    val Zero: SBigNumeric = new SBigNumeric(java.math.BigDecimal.ZERO)
+
+    def checkScale(s: Long): Either[String, Int] =
+      Either.cond(test = s.abs <= MaxScale, right = s.toInt, left = "invalide scale")
+  }
   final case class SText(value: String) extends SPrimLit
   final case class STimestamp(value: Time.Timestamp) extends SPrimLit
   final case class SParty(value: Party) extends SPrimLit
@@ -214,8 +321,8 @@ object SValue {
     val False = new SBool(false)
     val EmptyList = SList(FrontStack.empty)
     val None = SOptional(Option.empty)
-    val EmptyTextMap = SGenMap(true)
-    val EmptyGenMap = SGenMap(false)
+    val EmptyTextMap = SMap(true)
+    val EmptyGenMap = SMap(false)
     val Token = SToken
   }
 
@@ -246,7 +353,15 @@ object SValue {
   }
 
   def toList(entries: TreeMap[SValue, SValue]): SList =
-    SList(FrontStack(entries.iterator.map { case (k, v) => entry(k, v) }.to[ImmArray]))
+    SList(
+      FrontStack(
+        entries.iterator
+          .map { case (k, v) =>
+            entry(k, v)
+          }
+          .to(ImmArray)
+      )
+    )
 
   private def mapArrayList(
       as: util.ArrayList[SValue],
@@ -258,5 +373,7 @@ object SValue {
     }
     bs
   }
+
+  private[this] val overflowUnderflow = Left("overflow/underflow")
 
 }

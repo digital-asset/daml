@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -9,5 +9,5 @@ module DA.Internal.Erased
 
 import GHC.Types()
 
--- | Erased type used for kinds not supported by DAML-LF.
+-- | Erased type used for kinds not supported by Daml-LF.
 data Erased

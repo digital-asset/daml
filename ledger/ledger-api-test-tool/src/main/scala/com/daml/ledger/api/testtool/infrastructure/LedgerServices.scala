@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
@@ -29,23 +29,55 @@ import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
-import io.grpc.Channel
+import io.grpc.{Channel, ClientInterceptor}
 import io.grpc.health.v1.health.HealthGrpc
 import io.grpc.health.v1.health.HealthGrpc.Health
 
-private[infrastructure] final class LedgerServices(channel: Channel) {
-  val activeContracts: ActiveContractsService = ActiveContractsServiceGrpc.stub(channel)
-  val command: CommandService = CommandServiceGrpc.stub(channel)
-  val commandCompletion: CommandCompletionService = CommandCompletionServiceGrpc.stub(channel)
-  val commandSubmission: CommandSubmissionService = CommandSubmissionServiceGrpc.stub(channel)
-  val configuration: LedgerConfigurationService = LedgerConfigurationServiceGrpc.stub(channel)
-  val health: Health = HealthGrpc.stub(channel)
-  val identity: LedgerIdentityService = LedgerIdentityServiceGrpc.stub(channel)
-  val partyManagement: PartyManagementService = PartyManagementServiceGrpc.stub(channel)
-  val packageManagement: PackageManagementService = PackageManagementServiceGrpc.stub(channel)
-  val configManagement: ConfigManagementService = ConfigManagementServiceGrpc.stub(channel)
-  val participantPruning: ParticipantPruningService = ParticipantPruningServiceGrpc.stub(channel)
-  val packages: PackageService = PackageServiceGrpc.stub(channel)
-  val transaction: TransactionService = TransactionServiceGrpc.stub(channel)
-  val time: TimeService = TimeServiceGrpc.stub(channel)
+private[infrastructure] final class LedgerServices(
+    participant: Channel,
+    commandInterceptors: Seq[ClientInterceptor],
+) {
+
+  val activeContracts: ActiveContractsService =
+    ActiveContractsServiceGrpc.stub(participant)
+
+  val command: CommandService =
+    CommandServiceGrpc.stub(participant).withInterceptors(commandInterceptors: _*)
+
+  val commandCompletion: CommandCompletionService =
+    CommandCompletionServiceGrpc.stub(participant)
+
+  val commandSubmission: CommandSubmissionService =
+    CommandSubmissionServiceGrpc.stub(participant).withInterceptors(commandInterceptors: _*)
+
+  val configuration: LedgerConfigurationService =
+    LedgerConfigurationServiceGrpc.stub(participant)
+
+  val health: Health =
+    HealthGrpc.stub(participant)
+
+  val identity: LedgerIdentityService =
+    LedgerIdentityServiceGrpc.stub(participant)
+
+  val partyManagement: PartyManagementService =
+    PartyManagementServiceGrpc.stub(participant)
+
+  val packageManagement: PackageManagementService =
+    PackageManagementServiceGrpc.stub(participant)
+
+  val configManagement: ConfigManagementService =
+    ConfigManagementServiceGrpc.stub(participant)
+
+  val participantPruning: ParticipantPruningService =
+    ParticipantPruningServiceGrpc.stub(participant)
+
+  val packages: PackageService =
+    PackageServiceGrpc.stub(participant)
+
+  val transaction: TransactionService =
+    TransactionServiceGrpc.stub(participant)
+
+  val time: TimeService =
+    TimeServiceGrpc.stub(participant)
+
 }

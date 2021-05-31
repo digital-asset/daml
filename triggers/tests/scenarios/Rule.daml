@@ -1,12 +1,16 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE CPP #-}
 
 module Rule where
 
 import DA.Action
 import DA.Assert
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+import qualified DA.Map as Map
+#else
 import qualified DA.Next.Map as Map
+#endif
 import Daml.Trigger
 import Daml.Trigger.Assert
 import qualified Daml.Script as Script
@@ -32,6 +36,8 @@ instance CanAbort (TriggerA s) where
   abort = error
 instance ActionFail (TriggerA s) where
   fail = error
+instance CanAssert (TriggerA s) where
+  assertFail = error
 
 trigger : Trigger Int
 trigger = Trigger with

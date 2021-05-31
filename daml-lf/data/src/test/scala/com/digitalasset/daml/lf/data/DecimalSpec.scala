@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -25,7 +25,8 @@ class DecimalSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
         "1.234",
         "12.34",
         "00000",
-        "01")
+        "01",
+      )
 
       val signs = Table("sign", "", "+", "-")
 
@@ -42,7 +43,7 @@ class DecimalSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
       val testCases = Table("strings", "a", "decimal", "0x00", "1E10", "2-1", "2+2", "2*3", "55/11")
 
       forEvery(testCases) { testCase =>
-        Decimal.fromString(testCase) shouldBe 'left
+        Decimal.fromString(testCase) shouldBe a[Left[_, _]]
       }
 
     }
@@ -67,7 +68,7 @@ class DecimalSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
       forEvery(signs) { sign =>
         forEvery(testCases) { testCase =>
           val decimal = sign + testCase
-          Decimal.fromString(decimal) shouldBe 'left
+          Decimal.fromString(decimal) shouldBe a[Left[_, _]]
         }
       }
     }
@@ -81,10 +82,10 @@ class DecimalSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
         "..1",
         "112..123",
         "0.0.",
-        ".1."
+        ".1.",
       )
 
-      forEvery(testCases)(testCase => Decimal.fromString(testCase) shouldBe 'left)
+      forEvery(testCases)(testCase => Decimal.fromString(testCase) shouldBe a[Left[_, _]])
 
     }
 
@@ -94,7 +95,7 @@ class DecimalSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
         "decimal without sign",
         "1",
         "123",
-        "12.34"
+        "12.34",
       )
 
       val signs = Table("sign", "++", "-+", "+-", "--", "+++", "-+-")
@@ -102,7 +103,7 @@ class DecimalSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
       forEvery(signs) { sign =>
         forEvery(testCases) { testCase =>
           val decimal = sign + testCase
-          Decimal.fromString(decimal) shouldBe 'left
+          Decimal.fromString(decimal) shouldBe a[Left[_, _]]
         }
       }
 
@@ -132,9 +133,10 @@ class DecimalSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChec
       )
 
       forEvery(negativeTestCases)(testCase =>
-        Decimal.fromString(testCase) shouldBe Right(d(testCase)))
+        Decimal.fromString(testCase) shouldBe Right(d(testCase))
+      )
 
-      forEvery(positiveTestCases)(testCase => Decimal.fromString(testCase) shouldBe 'left)
+      forEvery(positiveTestCases)(testCase => Decimal.fromString(testCase) shouldBe a[Left[_, _]])
     }
 
   }

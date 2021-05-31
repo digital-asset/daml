@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Setting JAVA_HOME and PATH variables
@@ -24,48 +24,47 @@ If you have downloaded and installed the SDK using our `Windows installer <https
 
 Mac OS
 ******
-We'll explain here how to set up ``JAVA_HOME`` and ``PATH`` variables on Mac OS with ``zsh`` shell.
-If you are using ``bash`` all of the instructions are quite similar, except that you will be doing all of the changes
-in the ``.bash_profile`` file.
 
-Setting the JAVA_HOME variable
-==============================
-Run the following command in your terminal::
+First, you need to figure out whether you are running Bash or zsh. To do that, open a Terminal and run::
+
+        echo $SHELL
+
+This should return either ``/bin/bash``, in which case you are running Bash, or
+``/bin/zsh``, in which case you are running zsh. We provide instructions for
+both, but you only need to follow the instructions for the one you are using.
+
+If you get any other output, you have a non-standard setup. If you're not sure
+how to set up environment variables in your setup, please come and ask on the
+`Daml forum <https://discuss.daml.com>`_ and we will be happy to help.
+
+Open a terminal and run the following commands. Typos are a big problem here so
+copy/paste one line at a time if possible. None of these should produce any
+output on success. If you are running **bash**, run::
+
+        echo 'export JAVA_HOME="$(/usr/libexec/java_home)"' >> ~/.bash_profile
+        echo 'export PATH="$HOME/.daml/bin:$PATH"' >> ~/.bash_profile
+
+If you are running **zsh**, run::
 
         echo 'export JAVA_HOME="$(/usr/libexec/java_home)"' >> ~/.zprofile
-
-Setting the PATH variable
-=========================
-The installer will ask you and set the ``PATH`` variable for you. If you want to set your ``PATH`` variable
-manually instead, run the following command in your terminal::
-
         echo 'export PATH="$HOME/.daml/bin:$PATH"' >> ~/.zprofile
 
-Verifying the changes
-=====================
-
-In order for the changes to take effect you will need to restart your computer, or, if you're using
-the macOS Terminal app, you only need to quit the Terminal app (Command+Q in the Terminal window) and
-reopen it. Afterward, please follow the instructions below to verify that everything was set
-up correctly.
-
-Please verify the JAVA_HOME variable by running::
+For both shells, the above will update the configuration for future, newly
+opened terminals, but will not affect any exsting one. To test the
+configuration of ``JAVA_HOME`` (on either shell), open a new terminal and run::
 
         echo $JAVA_HOME
 
-You should see the path to the JDK installation, which is something like
-``/Library/Java/JavaVirtualMachines/jdk_version_number/Contents/Home``.
+You should see the path to the JDK installation, which is something like ``/Library/Java/JavaVirtualMachines/jdk_version_number/Contents/Home``.
 
-Next, please verify the PATH variable by running::
+Next, please verify the ``PATH`` variable by running (again, on either shell)::
 
-        echo $PATH
+        daml version
 
-You should see a series of paths which includes the path to the SDK,
-which is something like ``/Users/your_username/.daml/bin``.
+You should see a the header ``SDK versions:`` followed by a list of installed (or available) SDK versions (possibly a list of just one if you just installed).
 
-If you do not see the changes, you may be using ``bash`` as your default shell instead of ``zsh``.
-Please try these instructions again, but replace the ``~/.zprofile`` with ``~/.bash_profile`` in
-the commands above.
+If you do not see the expected outputs, please contact us on the `Daml forum <https://discuss.daml.com>`_ and we will be happy to help.
+
 
 Linux
 *****

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -9,7 +9,7 @@ import com.daml.lf.data.{Decimal, ImmArray, Numeric, Ref, SortedLookupList, Time
 import ImmArray.ImmArraySeq
 import com.daml.lf.iface
 import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, ValueAddend => VA}
+import com.daml.lf.value.test.TypedValueGenerators.{genAddendNoListMap, RNil, ValueAddend => VA}
 
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalactic.source
@@ -18,7 +18,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import scalaz.Order
+import scalaz.{\/, Order}
 import spray.json._
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -31,29 +31,59 @@ class ValuePredicateTest
   import ValuePredicateTest._
   type Cid = V.ContractId
   private[this] implicit val arbCid: Arbitrary[Cid] = Arbitrary(
-    Gen.alphaStr map (t => V.ContractId.V0 assertFromString ('#' +: t)))
+    Gen.alphaStr map (t => V.ContractId.V0 assertFromString ('#' +: t))
+  )
   // only V0 supported in this test atm
   private[this] implicit val ordCid: Order[Cid] = Order[V.ContractId.V0] contramap (inside(_) {
     case a0 @ V.ContractId.V0(_) => a0
   })
 
+  import Ref.QualifiedName.{assertFromString => qn}
+
+  private[this] val dummyPackageId = Ref.PackageId assertFromString "dummy-package-id"
+
+  private[this] val (tuple3Id, (tuple3DDT, tuple3VA)) = {
+    import shapeless.syntax.singleton._
+    val sig = Symbol("_1") ->> VA.int64 ::
+      Symbol("_2") ->> VA.text ::
+      Symbol("_3") ->> VA.bool ::
+      RNil
+    val id = Ref.Identifier(dummyPackageId, qn("Foo:Tuple3"))
+    (id, VA.record(id, sig))
+  }
+
+  private[this] def eitherT = {
+    import shapeless.syntax.singleton._
+    val sig = Symbol("Left") ->> VA.int64 ::
+      Symbol("Right") ->> VA.text ::
+      RNil
+    val id = Ref.Identifier(dummyPackageId, qn("Foo:Either"))
+    (id, VA.variant(id, sig))
+  }
   private[this] val dummyId = Ref.Identifier(
-    Ref.PackageId assertFromString "dummy-package-id",
-    Ref.QualifiedName assertFromString "Foo:Bar")
+    dummyPackageId,
+    qn("Foo:Bar"),
+  )
   private[this] val dummyFieldName = Ref.Name assertFromString "foo"
   private[this] val dummyTypeCon = iface.TypeCon(iface.TypeConName(dummyId), ImmArraySeq.empty)
+  private[this] val (eitherId, (eitherDDT, eitherVA)) = eitherT
   private[this] def valueAndTypeInObject(
       v: V[Cid],
-      ty: iface.Type): (V[Cid], ValuePredicate.TypeLookup) =
+      ty: iface.Type,
+  ): (V[Cid], ValuePredicate.TypeLookup) =
     (V.ValueRecord(Some(dummyId), ImmArray((Some(dummyFieldName), v))), typeInObject(ty))
   private[this] def typeInObject(ty: iface.Type): ValuePredicate.TypeLookup =
     Map(
       dummyId -> iface
-        .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty))))).lift
+        .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty)))),
+      eitherId -> eitherDDT,
+      tuple3Id -> tuple3DDT,
+    ).lift
 
   "fromJsObject" should {
-    def c[M](query: String, ty: VA)(expected: ty.Inj[Cid], shouldMatch: M)(
-        implicit pos: source.Position) =
+    def c[M](query: String, ty: VA)(expected: ty.Inj[Cid], shouldMatch: M)(implicit
+        pos: source.Position
+    ) =
       (pos.lineNumber, query.parseJson, ty, ty.inj(expected), shouldMatch)
 
     object VAs {
@@ -116,32 +146,40 @@ class ValuePredicateTest
       c("""{"%gt": "bar", "%lt": "foo"}""", VA.text)("baz", true),
       c("""{"%gte": "1980-01-01", "%lt": "2000-01-01"}""", VA.date)(
         Time.Date assertFromString "1986-06-21",
-        true),
+        true,
+      ),
       c("""{"%gte": "1980-01-01T00:00:00Z", "%lt": "2000-01-01T00:00:00Z"}""", VA.timestamp)(
         Time.Timestamp assertFromString "1986-06-21T00:00:00Z",
-        true),
+        true,
+      ),
     )
 
     val failures = Table(
       ("line#", "query", "type", "expected", "error message"),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(
         SortedLookupList(Map("a" -> 1, "b" -> 2)),
-        "PrimTypeTextMap not supported"),
+        "PrimTypeTextMap not supported",
+      ),
       c("""{"b": 2, "a": 1}""", VA.map(VA.int64))(
         SortedLookupList(Map("a" -> 1, "b" -> 2)),
-        "PrimTypeTextMap not supported"),
+        "PrimTypeTextMap not supported",
+      ),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(
         SortedLookupList(Map("a" -> 1, "c" -> 2)),
-        "PrimTypeTextMap not supported"),
+        "PrimTypeTextMap not supported",
+      ),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(
         SortedLookupList(Map()),
-        "PrimTypeTextMap not supported"),
+        "PrimTypeTextMap not supported",
+      ),
       c("""{"a": 1}""", VA.map(VA.int64))(
         SortedLookupList(Map("a" -> 1, "b" -> 2)),
-        "PrimTypeTextMap not supported"),
+        "PrimTypeTextMap not supported",
+      ),
       c("""{}""", VA.map(VA.int64))(
         SortedLookupList(Map("a" -> 1, "b" -> 2)),
-        "PrimTypeTextMap not supported"),
+        "PrimTypeTextMap not supported",
+      ),
       c("""{}""", VA.genMap(VA.int64, VA.int64))(Map(), "PrimTypeGenMap not supported"),
       c("[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3), "PrimTypeList not supported"),
       c("[1, 2, 3]", VA.list(VA.int64))(Vector(3, 2, 1), "PrimTypeList not supported"),
@@ -172,7 +210,7 @@ class ValuePredicateTest
         val vp = ValuePredicate.fromJsObject(
           Map((dummyFieldName: String) -> query),
           dummyTypeCon,
-          defs
+          defs,
         )
         vp.toFunPredicate(wrappedExpected) shouldBe shouldMatch
     }
@@ -184,7 +222,7 @@ class ValuePredicateTest
           ValuePredicate.fromJsObject(
             Map((dummyFieldName: String) -> query),
             dummyTypeCon,
-            defs
+            defs,
           )
         }
         ex.getMessage should include(shouldMatch)
@@ -192,7 +230,8 @@ class ValuePredicateTest
 
     "examine all sorts of primitives literally, except lists and maps" in forAll(
       genAddendNoListMap,
-      minSuccessful(100)) { va =>
+      minSuccessful(100),
+    ) { va =>
       import va.injshrink
       implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb
       forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
@@ -208,32 +247,80 @@ class ValuePredicateTest
     val sqlWheres = {
       import doobie.implicits._, dbbackend.Queries.Implicits._
       Table(
-        ("query", "type", "sql"),
-        ("42", VA.int64, sql"payload = ${s"""{"$dummyFieldName":42}""".parseJson}::jsonb"),
+        ("query", "type", "postgresql", "oraclesql"),
+        (
+          "42",
+          VA.int64,
+          sql"payload = ${s"""{"$dummyFieldName":42}""".parseJson}::jsonb",
+          sql"JSON_EQUAL(JSON_QUERY(payload, '$$' RETURNING CLOB), ${s"""{"$dummyFieldName":42}""".parseJson})",
+        ),
+        (
+          """{"_2": "hi there", "_3": false}""",
+          tuple3VA,
+          sql"payload @> ${"""{"foo":{"_2":"hi there","_3":false}}""".parseJson}::jsonb",
+          sql"""JSON_EXISTS(payload, '$$."foo"."_2"?(@ == $$X)' PASSING ${"hi there"} AS X)"""
+            ++ sql""" AND JSON_EXISTS(payload, '$$."foo"."_3"?(@ == false)')""",
+        ),
+        (
+          "{}",
+          tuple3VA,
+          sql"payload @> ${"""{"foo":{}}""".parseJson}::jsonb",
+          sql"""JSON_EXISTS(payload, '$$."foo"?(@ != null)')""",
+        ),
         (
           """{"%lte": 42}""",
           VA.int64,
-          sql"payload->${"foo": String} <= ${JsNumber(42): JsValue}::jsonb AND payload @> ${JsObject(): JsValue}::jsonb"),
+          sql"payload->${"foo": String} <= ${JsNumber(42): JsValue}::jsonb AND payload @> ${JsObject(): JsValue}::jsonb",
+          sql"""JSON_EXISTS(payload, '$$."foo"?(@ <= $$X)' PASSING ${42L} AS X) AND 1 = 1""",
+        ),
+        (
+          """{"tag": "Left", "value": "42"}""",
+          eitherVA,
+          sql"payload = ${"""{"foo": {"tag": "Left", "value": 42}}""".parseJson}::jsonb",
+          sql"JSON_EQUAL(JSON_QUERY(payload, '$$' RETURNING CLOB), ${s"""{"foo": {"tag": "Left", "value": 42}}""".parseJson})",
+        ),
+        (
+          """{"tag": "Left", "value": {"%lte": 42}}""",
+          eitherVA,
+          sql"payload->${"foo"}->${"value"} <= ${"42".parseJson}::jsonb AND payload @> ${"""{"foo": {"tag": "Left"}}""".parseJson}::jsonb",
+          sql"""JSON_EXISTS(payload, '$$."foo"."value"?(@ <= $$X)' PASSING ${42L} AS X)"""
+            ++ sql""" AND JSON_EXISTS(payload, '$$."foo"."tag"?(@ == $$X)' PASSING ${"Left"} AS X)""",
+        ),
       )
     }
 
-    "compile to SQL" in forEvery(sqlWheres) { (query, va, sql: doobie.Fragment) =>
+    "compile to SQL" in forEvery(sqlWheres) { (query, va, postgreSql, oracleSql) =>
       val defs = typeInObject(va.t)
       val vp = ValuePredicate.fromJsObject(
         Map((dummyFieldName: String) -> query.parseJson),
         dummyTypeCon,
-        defs)
-      val frag = vp.toSqlWhereClause
-      frag.toString should ===(sql.toString)
-      import language.reflectiveCalls
-      frag.asInstanceOf[{ def elems: FragmentElems }].elems should ===(
-        sql.asInstanceOf[{ def elems: FragmentElems }].elems)
+        defs,
+      )
+      forEvery(
+        Table(
+          "backend" -> "sql",
+          dbbackend.SupportedJdbcDriver.Postgres -> postgreSql,
+          dbbackend.SupportedJdbcDriver.Oracle -> oracleSql,
+        )
+      ) { (backend, sql: doobie.Fragment) =>
+        // we aren't running the SQL, just looking at it
+        implicit val sjd: dbbackend.SupportedJdbcDriver = backend
+        val frag = vp.toSqlWhereClause
+        frag.toString should ===(sql.toString)
+        fragmentElems(frag) should ===(fragmentElems(sql))
+      }
     }
   }
 }
 
 object ValuePredicateTest {
-  import cats.data.Chain, doobie.util.fragment.Elem
+  import cats.data.Chain, doobie.util.fragment.{Elem, Fragment}
 
-  private type FragmentElems = Chain[Elem]
+  private def fragmentElems(frag: Fragment): Chain[Any \/ Option[Any]] = {
+    import language.reflectiveCalls, Elem.{Arg, Opt}
+    frag.asInstanceOf[{ def elems: Chain[Elem] }].elems.map {
+      case Arg(a, _) => \/.left(a)
+      case Opt(o, _) => \/.right(o)
+    }
+  }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.indexer
@@ -9,7 +9,6 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.Scheduler
 import akka.pattern.after
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
@@ -17,23 +16,22 @@ import scala.concurrent.duration.{Duration, DurationLong, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
-/**
-  * A helper that restarts an indexer whenever an error occurs.
+/** A helper that restarts an indexer whenever an error occurs.
   *
   * @param scheduler    Used to schedule the restart operation.
   * @param restartDelay Time to wait before restarting the indexer after a failure
   */
 private[indexer] final class RecoveringIndexer(
     scheduler: Scheduler,
+    executionContext: ExecutionContext,
     restartDelay: FiniteDuration,
 )(implicit loggingContext: LoggingContext) {
-  private implicit val executionContext: ExecutionContext = DirectExecutionContext
+  private implicit val ec: ExecutionContext = executionContext
   private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
   private val logger = ContextualizedLogger.get(this.getClass)
   private val clock = Clock.systemUTC()
 
-  /**
-    * Starts an indexer, and restarts it after the given delay whenever an error occurs.
+  /** Starts an indexer, and restarts it after the given delay whenever an error occurs.
     *
     * @param subscribe A function that creates a new indexer and calls subscribe() on it.
     * @return A future that completes with [[akka.Done]] when the indexer finishes processing all read service updates.
@@ -111,7 +109,8 @@ private[indexer] final class RecoveringIndexer(
             case Failure(exception) =>
               logger.error(
                 s"Error while running indexer, restart scheduled after $restartDelay",
-                exception)
+                exception,
+              )
               currentSubscription
                 .release()
                 .recover { case _ => () } // releasing may yield the same error as above
@@ -121,7 +120,8 @@ private[indexer] final class RecoveringIndexer(
           logger
             .error(
               s"Error while starting indexer, restart scheduled after $restartDelay",
-              exception)
+              exception,
+            )
           resubscribe(currentSubscription)
           ()
       }
@@ -130,17 +130,16 @@ private[indexer] final class RecoveringIndexer(
       subscription
         .get()
         .asFuture
-        .transform(_ => Success(complete.future)))(
-      _ => {
-        logger.info("Stopping Indexer Server")
-        subscription
-          .getAndSet(null)
-          .release()
-          .flatMap(_ => complete.future)
-          .map(_ => {
-            logger.info("Stopped Indexer Server")
-          })
-      },
-    )
+        .transform(_ => Success(complete.future))
+    )(_ => {
+      logger.info("Stopping Indexer Server")
+      subscription
+        .getAndSet(null)
+        .release()
+        .flatMap(_ => complete.future)
+        .map(_ => {
+          logger.info("Stopped Indexer Server")
+        })
+    })
   }
 }

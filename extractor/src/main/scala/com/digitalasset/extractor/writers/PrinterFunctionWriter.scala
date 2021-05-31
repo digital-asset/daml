@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.writers
@@ -9,8 +9,7 @@ import com.daml.extractor.ledger.types.{Event, TransactionTree}
 import com.daml.extractor.writers.Writer.RefreshPackages
 
 import scala.concurrent.Future
-import scalaz._
-import Scalaz._
+import scalaz.{\/, \/-}
 
 trait PrinterFunctionWriter { self: Writer =>
 
@@ -22,7 +21,7 @@ trait PrinterFunctionWriter { self: Writer =>
 
   def init(): Future[Unit] = {
     printer("==============")
-    printer("DAML Extractor")
+    printer("Daml Extractor")
     printer("==============")
 
     Future.unit
@@ -42,7 +41,7 @@ trait PrinterFunctionWriter { self: Writer =>
     printer(s"Events:")
     transaction.events.map(_._2).foreach(printEvent)
 
-    Future.successful(().right)
+    Future.successful(\/-(()))
   }
 
   def getLastOffset: Future[Option[String]] = Future.successful(None)

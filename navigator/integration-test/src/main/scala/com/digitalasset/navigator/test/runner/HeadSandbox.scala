@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.test.runner
@@ -10,15 +10,13 @@ import scala.concurrent.duration._
 import scala.sys.process.{Process, ProcessLogger}
 import scala.util.Success
 
-/**
-  * Run the HEAD version of the Sandbox from source.
+/** Run the HEAD version of the Sandbox from source.
   *
   * Note: This will break if the relative location of the Navigator and Sandbox source code changes
   */
 object HeadSandbox {
 
-  /**
-    * A logger that forwards all output to the default system output,
+  /** A logger that forwards all output to the default system output,
     * while scanning it for signs of life from the sandbox.
     */
   class SandboxLogger extends ProcessLogger {
@@ -64,7 +62,8 @@ object HeadSandbox {
     val logger = new SandboxLogger
     val sandbox = Process(
       Seq("sbt", s"sandbox/run ${darFile.getAbsolutePath} --port $port --scenario $scenario"),
-      new File("../../../ledger"))
+      new File("../../../ledger"),
+    )
       .run(logger)
 
     // Sbt takes a long time to compile and start up, longer than Navigator keeps trying to connect.
@@ -76,7 +75,6 @@ object HeadSandbox {
     }
 
     sys addShutdownHook shutdown(())
-    _ =>
-      shutdown(())
+    _ => shutdown(())
   }
 }

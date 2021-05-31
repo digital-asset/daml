@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.TypeChecker.Error(
@@ -69,8 +69,12 @@ data UnserializabilityReason
   | URNumericOutOfRange !Natural
   | URTypeLevelNat
   | URAny -- ^ It contains a value of type Any.
+  | URRoundingMode -- ^ It contains a value of type RoundingMode
+  | URBigNumeric -- ^ It contains a value of type BigBumeric
+  | URAnyException -- ^ It contains a value of type AnyException.
   | URTypeRep -- ^ It contains a value of type TypeRep.
   | URTypeSyn  -- ^ It contains a type synonym.
+  | URExperimental -- ^ It contains a experimental type
 
 data Error
   = EUnknownTypeVar        !TypeVarName
@@ -195,8 +199,12 @@ instance Pretty UnserializabilityReason where
     URNumericOutOfRange n -> "Numeric scale " <> integer (fromIntegral n) <> " is out of range (needs to be between 0 and 38)"
     URTypeLevelNat -> "type-level nat"
     URAny -> "Any"
+    URAnyException -> "AnyException"
     URTypeRep -> "TypeRep"
     URTypeSyn -> "type synonym"
+    URRoundingMode -> "RoundingMode"
+    URBigNumeric -> "BigNumeric"
+    URExperimental -> "experimental type"
 
 instance Pretty Error where
   pPrint = \case

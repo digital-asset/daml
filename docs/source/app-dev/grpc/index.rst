@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _grpc:
@@ -13,7 +13,7 @@ If you're not familiar with gRPC and protobuf, we strongly recommend following t
 Getting started
 ***************
 
-You can get the protobufs from a `GitHub release <protobufs_>`_, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions>`__.
+You can get the protobufs from a `GitHub release <protobufs_>`_, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/main/ledger-api/grpc-definitions>`__.
 
 Protobuf reference documentation
 ********************************
@@ -32,14 +32,14 @@ We have an example project demonstrating the use of the Ledger API with gRPC. To
 About the example project
 =========================
 
-The example shows very simply how two parties can interact via a ledger, using two DAML contract templates, ``Ping`` and ``Pong``.
+The example shows very simply how two parties can interact via a ledger, using two Daml contract templates, ``Ping`` and ``Pong``.
 
 The logic of the application goes like this:
 
 #. The application injects a contract of type ``Ping`` for ``Alice``.
 #. ``Alice`` sees this contract and exercises the consuming choice ``RespondPong`` to create a contract of type ``Pong`` for ``Bob``.
 #. ``Bob`` sees this contract and exercises the consuming choice ``RespondPing``  to create a contract of type ``Ping`` for ``Alice``.
-#. Points 2 and 3 are repeated until the maximum number of contracts defined in the DAML is reached.
+#. Points 2 and 3 are repeated until the maximum number of contracts defined in the Daml is reached.
 
 The entry point for the Java code is the main class ``src/main/java/examples/pingpong/grpc/PingPongGrpcMain.java``. Look at it to see how connect to and interact with a ledger using gRPC.
 
@@ -58,10 +58,10 @@ The first line shows:
 
 This example subscribes to transactions for a single party, as different parties typically live on different participant nodes. However, if you have multiple parties registered on the same node, or are running an application against the Sandbox, you can subscribe to transactions for multiple parties in a single subscription by putting multiple entries into the ``filters_by_party`` field of the ``TransactionFilter`` message. Subscribing to transactions for an unknown party will result in an error.
 
-DAML types and protobuf
+Daml types and protobuf
 ***********************
 
-For information on how DAML types and contracts are represented by the Ledger API as protobuf messages, see :doc:`/app-dev/grpc/daml-to-ledger-api`.
+For information on how Daml types and contracts are represented by the Ledger API as protobuf messages, see :doc:`/app-dev/grpc/daml-to-ledger-api`.
 
 Error handling
 **************

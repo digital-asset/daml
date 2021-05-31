@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -41,6 +41,7 @@ service CommandSubmissionService {
   // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
   // - ``RESOURCE_EXHAUSTED``: if the participant or the ledger is overloaded. Clients should back off exponentially and retry.
+  // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources
   rpc Submit (SubmitRequest) returns (google.protobuf.Empty);
 
 }

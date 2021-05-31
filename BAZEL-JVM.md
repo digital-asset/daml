@@ -161,11 +161,14 @@ symbols are replaced by `_` characters. E.g. the artifact
 `org.scalaz:scalaz-core_2.12:7.2.24` is available as
 `@maven//:org_scalaz_scalaz_core_2_12`.
 
-Adding, changing, or removing a Maven dependency requires two steps: First, you
-need to modify the `artifacts` attribute to `maven_install`, second, you need
-to execute `bazel run @unpinned_maven//:pin` to update `maven_install.json`.
-You should also run `@unpinned_maven//:pin` if you change other attributes to
-`maven_install`.
+Adding, changing, or removing a Maven dependency requires two steps:
+First, you need to modify the `artifacts` attribute to
+`maven_install`, second, you need to execute `bazel run
+@unpinned_maven//:pin` to update `maven_install.json`.  You should
+also run `@unpinned_maven//:pin` if you change other attributes to
+`maven_install`. You need to run this once per Scala version with the
+default being 2.13 so run it again for 2.12:
+``DAML_SCALA_VERSION=2.12.13 bazel run @unpinned_maven//:pin``.
 
 Refer to the [`rules_jvm_external` documentation][rules_jvm_external] for
 further information.
@@ -639,11 +642,11 @@ files.
 [scalafmt]: https://github.com/scalameta/scalafmt
 [scala_format_test]: https://github.com/DACH-NY/da/blob/e904c8eac1427633ef20b6106906a59f590de5a6/bazel_tools/scalafmt/scalafmt.bzl#L31
 
-### DAML
+### Daml
 
 The SBT build of the `ledger-client` component defines a custom SBT plugin for
-handling DAML code. It covers compilation to LF, packaging to DAR, Scala code
-generation, and executing the DAML sandbox. This plugin was ported to Bazel as
+handling Daml code. It covers compilation to LF, packaging to DAR, Scala code
+generation, and executing the Daml sandbox. This plugin was ported to Bazel as
 a set of custom Bazel rules defined in [`rules_daml`][rules_daml]. Refer to the
 [user guide][bazel_user_guide] or the [API docs][bazel-api-documentation] for
 details.

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -84,7 +84,6 @@ object Version {
     *        i.e. whether the contract currently associated with a contract key was created in a transaction with
     *        ledger_effective_time <= the ledger_effective_time of the transaction under validation.
     *      * Remove fields record_time from DamlCommandDedupValue and DamlSubmissionDedupValue.
-    *
     */
   val version: Long = 5
 }

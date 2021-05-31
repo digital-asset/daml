@@ -1,0 +1,81 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+    "da_scala_test_suite",
+)
+
+da_scala_binary(
+    name = "ledger-api-bench-tool",
+    srcs = [],
+    main_class = "com.daml.ledger.api.benchtool.LedgerApiBenchTool",
+    resources = [
+        "src/main/resources/logback.xml",
+    ],
+    tags = [
+        "fat_jar",
+        "maven_coordinates=com.daml:ledger-api-bench-tool:__VERSION__",
+        "no_scala_version_suffix",
+    ],
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        ":ledger-api-bench-tool-lib",
+    ],
+)
+
+da_scala_library(
+    name = "ledger-api-bench-tool-lib",
+    srcs = glob(["src/main/scala/com/daml/ledger/api/benchtool/**/*.scala"]),
+    resources = [],
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_lihaoyi_fansi",
+        "@maven//:com_lihaoyi_pprint",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_actor_typed",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/scala/bindings",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-resources",
+        "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_test_suite(
+    name = "ledger-api-bench-tool-tests",
+    size = "medium",
+    srcs = glob(
+        ["src/test/suite/**/*.scala"],
+    ),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_actor_typed",
+        "@maven//:com_typesafe_akka_akka_actor_testkit_typed",
+        "@maven//:org_scalatest_scalatest",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        ":ledger-api-bench-tool-lib",
+        "//language-support/scala/bindings",
+        "@maven//:com_typesafe_config",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+    ],
+)

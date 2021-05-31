@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE DerivingStrategies #-}
 module TsCodeGenMain (main) where
@@ -325,6 +325,7 @@ renderTemplateNamespace TemplateNamespace{..} = T.unlines $ concat
     , [ "  export type CreateEvent = damlLedger.CreateEvent" <> tParams [tnsName, tK, tI]
       , "  export type ArchiveEvent = damlLedger.ArchiveEvent" <> tParams [tnsName, tI]
       , "  export type Event = damlLedger.Event" <> tParams [tnsName, tK, tI]
+      , "  export type QueryResult = damlLedger.QueryResult" <> tParams [tnsName, tK, tI]
       , "}"
       ]
     ]

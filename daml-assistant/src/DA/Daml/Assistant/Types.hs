@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -11,9 +11,9 @@ module DA.Daml.Assistant.Types
 
 import DA.Daml.Project.Types
 import qualified Data.Text as T
-import Data.Aeson (FromJSON)
 import Data.Text (Text, pack, unpack)
 import Data.Maybe
+import Network.HTTP.Types.Header
 import Options.Applicative.Extended (YesNoAuto (..))
 import Control.Exception.Safe
 
@@ -50,6 +50,7 @@ assistantErrorDetails msg details =
 
 data Env = Env
     { envDamlPath      :: DamlPath
+    , envCachePath :: CachePath
     , envDamlAssistantPath :: DamlAssistantPath
     , envDamlAssistantSdkVersion :: Maybe DamlAssistantSdkVersion
     , envProjectPath   :: Maybe ProjectPath
@@ -97,11 +98,13 @@ data InstallOptions = InstallOptions
     , iZshCompletions :: ZshCompletions -- ^ install Zsh completions for the daml assistant
     } deriving (Eq, Show)
 
--- | An install URL is a fully qualified HTTP[S] URL to an SDK release tarball. For example:
+-- | An install locations is a pair of fully qualified HTTP[S] URL to an SDK release tarball and headers
+-- required to access that URL. For example:
 -- "https://github.com/digital-asset/daml/releases/download/v0.11.1/daml-sdk-0.11.1-macos.tar.gz"
-newtype InstallURL = InstallURL
-    { unwrapInstallURL :: Text
-    } deriving (Eq, Show, FromJSON)
+data InstallLocation = InstallLocation
+    { ilUrl :: Text
+    , ilHeaders :: RequestHeaders
+    } deriving (Eq, Show)
 
 newtype RawInstallTarget = RawInstallTarget String deriving (Eq, Show)
 newtype ForceInstall = ForceInstall { unForceInstall :: Bool } deriving (Eq, Show)

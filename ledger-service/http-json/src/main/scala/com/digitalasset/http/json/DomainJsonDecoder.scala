@@ -1,10 +1,10 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.json
 
 import com.daml.http.ErrorMessages.cannotResolveTemplateId
-import com.daml.http.domain.HasTemplateId
+import com.daml.http.domain.{HasTemplateId, TemplateId}
 import com.daml.http.json.JsValueToApiValueConverter.mustBeApiRecord
 import com.daml.http.{PackageService, domain}
 import com.daml.ledger.api.{v1 => lav1}
@@ -15,35 +15,39 @@ import scalaz.syntax.traverse._
 import scalaz.{Traverse, \/, \/-}
 import spray.json.{JsValue, JsonReader}
 
-import scala.language.higherKinds
-
 class DomainJsonDecoder(
     resolveTemplateId: PackageService.ResolveTemplateId,
     resolveTemplateRecordType: PackageService.ResolveTemplateRecordType,
     resolveChoiceArgType: PackageService.ResolveChoiceArgType,
     resolveKeyType: PackageService.ResolveKeyType,
     jsValueToApiValue: (domain.LfType, JsValue) => JsonError \/ lav1.value.Value,
-    jsValueToLfValue: (domain.LfType, JsValue) => JsonError \/ domain.LfValue
+    jsValueToLfValue: (domain.LfType, JsValue) => JsonError \/ domain.LfValue,
 ) {
 
   import com.daml.http.util.ErrorOps._
 
-  def decodeCreateCommand(a: JsValue)(implicit ev1: JsonReader[domain.CreateCommand[JsValue]])
-    : JsonError \/ domain.CreateCommand[lav1.value.Record] = {
+  def decodeCreateCommand(a: JsValue)(implicit
+      ev1: JsonReader[domain.CreateCommand[JsValue, TemplateId.OptionalPkg]]
+  ): JsonError \/ domain.CreateCommand[lav1.value.Record, TemplateId.RequiredPkg] = {
     val err = "DomainJsonDecoder_decodeCreateCommand"
     for {
       fj <- SprayJson
-        .decode[domain.CreateCommand[JsValue]](a)
+        .decode[domain.CreateCommand[JsValue, TemplateId.OptionalPkg]](a)
         .liftErrS(err)(JsonError)
 
-      payloadT <- templateRecordType(fj.templateId)
+      tmplId <- templateId_(fj.templateId)
 
-      fv <- fj.traverse(x => jsValueToApiValue(payloadT, x).flatMap(mustBeApiRecord))
+      payloadT <- templateRecordType(tmplId)
+
+      fv <- fj
+        .copy(templateId = tmplId)
+        .traversePayload(x => jsValueToApiValue(payloadT, x).flatMap(mustBeApiRecord))
     } yield fv
   }
 
   def decodeUnderlyingValues[F[_]: Traverse: domain.HasTemplateId](
-      fa: F[JsValue]): JsonError \/ F[lav1.value.Value] = {
+      fa: F[JsValue]
+  ): JsonError \/ F[lav1.value.Value] = {
     for {
       damlLfId <- lookupLfType(fa)
       apiValue <- fa.traverse(jsValue => jsValueToApiValue(damlLfId, jsValue))
@@ -51,7 +55,8 @@ class DomainJsonDecoder(
   }
 
   def decodeUnderlyingValuesToLf[F[_]: Traverse: domain.HasTemplateId](
-      fa: F[JsValue]): JsonError \/ F[domain.LfValue] = {
+      fa: F[JsValue]
+  ): JsonError \/ F[domain.LfValue] = {
     for {
       lfType <- lookupLfType(fa)
       lfValue <- fa.traverse(jsValue => jsValueToLfValue(lfType, jsValue))
@@ -68,15 +73,17 @@ class DomainJsonDecoder(
     } yield lfType
   }
 
-  def decodeContractLocator(a: JsValue)(implicit ev: JsonReader[domain.ContractLocator[JsValue]])
-    : JsonError \/ domain.ContractLocator[domain.LfValue] =
+  def decodeContractLocator(a: JsValue)(implicit
+      ev: JsonReader[domain.ContractLocator[JsValue]]
+  ): JsonError \/ domain.ContractLocator[domain.LfValue] =
     SprayJson
       .decode[domain.ContractLocator[JsValue]](a)
       .liftErrS("DomainJsonDecoder_decodeContractLocator")(JsonError)
       .flatMap(decodeContractLocatorUnderlyingValue)
 
   private def decodeContractLocatorUnderlyingValue(
-      a: domain.ContractLocator[JsValue]): JsonError \/ domain.ContractLocator[domain.LfValue] =
+      a: domain.ContractLocator[JsValue]
+  ): JsonError \/ domain.ContractLocator[domain.LfValue] =
     a match {
       case k: domain.EnrichedContractKey[JsValue] =>
         decodeUnderlyingValuesToLf[domain.EnrichedContractKey](k)
@@ -84,31 +91,36 @@ class DomainJsonDecoder(
         \/-(c)
     }
 
-  def decodeExerciseCommand(a: JsValue)(
-      implicit ev1: JsonReader[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]])
-    : JsonError \/ domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]] =
+  def decodeExerciseCommand(a: JsValue)(implicit
+      ev1: JsonReader[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]]
+  ): JsonError \/ domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]] =
     for {
       cmd0 <- SprayJson
         .decode[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]](a)
         .liftErrS("DomainJsonDecoder_decodeExerciseCommand")(JsonError)
 
-      lfType <- lookupLfType[domain.ExerciseCommand[+?, domain.ContractLocator[_]]](cmd0)(
-        domain.ExerciseCommand.hasTemplateId)
+      lfType <- lookupLfType[domain.ExerciseCommand[+*, domain.ContractLocator[_]]](cmd0)(
+        domain.ExerciseCommand.hasTemplateId
+      )
 
       cmd1 <- cmd0.bitraverse(
         arg => jsValueToLfValue(lfType, arg),
-        ref => decodeContractLocatorUnderlyingValue(ref)
+        ref => decodeContractLocatorUnderlyingValue(ref),
       ): JsonError \/ domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]]
 
     } yield cmd1
 
-  def decodeCreateAndExerciseCommand(a: JsValue)(
-      implicit ev1: JsonReader[domain.CreateAndExerciseCommand[JsValue, JsValue]])
-    : JsonError \/ domain.CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value] = {
+  def decodeCreateAndExerciseCommand(a: JsValue)(implicit
+      ev1: JsonReader[domain.CreateAndExerciseCommand[JsValue, JsValue, TemplateId.OptionalPkg]]
+  ): JsonError \/ domain.CreateAndExerciseCommand[
+    lav1.value.Record,
+    lav1.value.Value,
+    TemplateId.RequiredPkg,
+  ] = {
     val err = "DomainJsonDecoder_decodeCreateAndExerciseCommand"
     for {
       fjj <- SprayJson
-        .decode[domain.CreateAndExerciseCommand[JsValue, JsValue]](a)
+        .decode[domain.CreateAndExerciseCommand[JsValue, JsValue, TemplateId.OptionalPkg]](a)
         .liftErrS(err)(JsonError)
 
       tId <- templateId_(fjj.templateId)
@@ -117,12 +129,9 @@ class DomainJsonDecoder(
 
       argT <- resolveChoiceArgType(tId, fjj.choice).liftErr(JsonError)
 
-      fvv <- fjj.bitraverse(
-        x => jsValueToApiValue(payloadT, x).flatMap(mustBeApiRecord),
-        x => jsValueToApiValue(argT, x)
-      )
-
-    } yield fvv
+      payload <- jsValueToApiValue(payloadT, fjj.payload).flatMap(mustBeApiRecord)
+      argument <- jsValueToApiValue(argT, fjj.argument)
+    } yield fjj.copy(payload = payload, argument = argument, templateId = tId)
   }
 
   private def templateId_(
@@ -143,12 +152,12 @@ class DomainJsonDecoder(
         .flatMap(jsObj => jsValueToApiValue(lfType, jsObj).flatMap(mustBeApiRecord))
         .valueOr(e => spray.json.deserializationError(e.shows))
 
-  def templateRecordType(id: domain.TemplateId.OptionalPkg): JsonError \/ domain.LfType =
-    templateId_(id).flatMap(resolveTemplateRecordType(_).liftErr(JsonError))
+  def templateRecordType(id: domain.TemplateId.RequiredPkg): JsonError \/ domain.LfType =
+    resolveTemplateRecordType(id).liftErr(JsonError)
 
   def choiceArgType(
       id: domain.TemplateId.OptionalPkg,
-      choice: domain.Choice
+      choice: domain.Choice,
   ): JsonError \/ domain.LfType =
     templateId_(id).flatMap(resolveChoiceArgType(_, choice).liftErr(JsonError))
 

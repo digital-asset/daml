@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.grpc.adapter.client.rs
@@ -85,7 +85,8 @@ trait PublisherCreation {
                       }
                     } else {
                       throw new RuntimeException(
-                        "Stopping emission of elements due to test termination") with NoStackTrace
+                        "Stopping emission of elements due to test termination"
+                      ) with NoStackTrace
                     }
                   })
               }(ec)
@@ -110,7 +111,8 @@ trait PublisherCreation {
 
     val stub: BiConsumer[Long, StreamObserver[Long]] = { (_, responseObserver) =>
       responseObserver.onError(
-        new RuntimeException("Exception created to test failed Publisher") with NoStackTrace)
+        new RuntimeException("Exception created to test failed Publisher") with NoStackTrace
+      )
     }
     new ClientPublisher[Long, Long](1L, stub, TestExecutionSequencerFactory.instance)
   }

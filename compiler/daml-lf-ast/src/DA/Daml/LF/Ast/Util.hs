@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE PatternSynonyms #-}
@@ -159,7 +159,7 @@ infixr 1 :->
 pattern (:->) :: Type -> Type -> Type
 pattern a :-> b = TArrow `TApp` a `TApp` b
 
-pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAny, TNat10, TTypeRep, TAnyException, TGeneralError, TArithmeticError, TContractError :: Type
+pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAny, TNat10, TTypeRep, TAnyException, TRoundingMode, TBigNumeric :: Type
 pattern TUnit       = TBuiltin BTUnit
 pattern TBool       = TBuiltin BTBool
 pattern TInt64      = TBuiltin BTInt64
@@ -173,10 +173,9 @@ pattern TDate       = TBuiltin BTDate
 pattern TArrow      = TBuiltin BTArrow
 pattern TAny        = TBuiltin BTAny
 pattern TTypeRep    = TBuiltin BTTypeRep
+pattern TRoundingMode = TBuiltin BTRoundingMode
+pattern TBigNumeric  = TBuiltin BTBigNumeric
 pattern TAnyException = TBuiltin BTAnyException
-pattern TGeneralError = TBuiltin BTGeneralError
-pattern TArithmeticError = TBuiltin BTArithmeticError
-pattern TContractError = TBuiltin BTContractError
 
 pattern TList, TOptional, TTextMap, TUpdate, TScenario, TContractId, TNumeric :: Type -> Type
 pattern TList typ = TApp (TBuiltin BTList) typ

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main (main) where
@@ -17,14 +17,14 @@ main = do
 
 installer :: FilePath -> FilePath -> Action SectionId
 installer sdkDir logo = do
-    name "DAML Connect SDK"
+    name "Daml Connect SDK"
     outFile "daml-sdk-installer.exe"
     installIcon (fromString logo)
     requestExecutionLevel User
     unsafeInjectGlobal "!insertmacro MUI_PAGE_WELCOME"
     page InstFiles
     page $ Finish finishOptions
-        { finLinkText = "Open the DAML Quickstart guide"
+        { finLinkText = "Open the Daml Quickstart guide"
         , finLink = "https://docs.daml.com/getting-started/quickstart.html"
         }
     section "" [] $ do
@@ -32,7 +32,7 @@ installer sdkDir logo = do
         -- that nsis will cleanup automatically.
         unsafeInject "InitPluginsDir"
         iff_ (fileExists "$APPDATA/daml") $ do
-            answer <- messageBox [MB_YESNO] "DAML Connect SDK is already installed. Do you want to remove the installed SDKs before installing this one?"
+            answer <- messageBox [MB_YESNO] "Daml Connect SDK is already installed. Do you want to remove the installed SDKs before installing this one?"
             iff (answer %== "YES")
                 (rmdir [Recursive] "$APPDATA/daml")
                 (abort "Existing installation detected.")

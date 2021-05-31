@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.commands
@@ -28,6 +28,7 @@ import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code._
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
+import io.grpc.{Status => GrpcStatus}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
@@ -47,7 +48,7 @@ class CommandTrackerFlowTest
   type C[Value] = Ctx[(Int, String), Value]
 
   private val allSubmissionsSuccessful
-    : Flow[Ctx[(Int, String), SubmitRequest], Ctx[(Int, String), Try[Empty]], NotUsed] =
+      : Flow[Ctx[(Int, String), SubmitRequest], Ctx[(Int, String), Try[Empty]], NotUsed] =
     Flow[C[SubmitRequest]].map {
       _.map(_ => Success(Empty.defaultInstance))
     }
@@ -60,28 +61,40 @@ class CommandTrackerFlowTest
   private val mrt = Instant.EPOCH.plus(shortDuration)
   private val commandId = "commandId"
   private val context = 1
-  private val submitRequest = Ctx(
+  private val submitRequest = newSubmitRequest(commandId)
+  private def newSubmitRequest(commandId: String, dedupTime: Option[JDuration] = None) = Ctx(
     context,
-    SubmitRequest(Some(Commands(commandId = commandId)))
+    SubmitRequest(
+      Some(
+        Commands(
+          commandId = commandId,
+          deduplicationTime =
+            dedupTime.map(t => com.google.protobuf.duration.Duration(t.getSeconds)),
+        )
+      )
+    ),
   )
 
   private case class Handle(
       submissions: TestPublisher.Probe[Ctx[Int, SubmitRequest]],
       completions: TestSubscriber.Probe[Ctx[Int, Completion]],
       whatever: Future[Map[String, Int]],
-      completionsStreamMock: CompletionStreamMock)
+      completionsStreamMock: CompletionStreamMock,
+  )
 
   private class CompletionStreamMock() {
 
     case class State(
         queue: SourceQueueWithComplete[CompletionStreamElement],
-        startOffset: LedgerOffset)
+        startOffset: LedgerOffset,
+    )
 
     private implicit val ec = DirectExecutionContext
     private val stateRef = new AtomicReference[Promise[State]](Promise[State]())
 
     def createCompletionsSource(
-        ledgerOffset: LedgerOffset): Source[CompletionStreamElement, NotUsed] = {
+        ledgerOffset: LedgerOffset
+    ): Source[CompletionStreamElement, NotUsed] = {
       val (queue, completionSource) =
         Source
           .queue[CompletionStreamElement](Int.MaxValue, OverflowStrategy.backpressure)
@@ -106,12 +119,7 @@ class CommandTrackerFlowTest
 
   }
 
-  // XXX SC remove in Scala 2.13; see notes in ConfSpec
-  import scala.collection.GenTraversable, org.scalatest.enablers.Containing
-  private[this] implicit def `fixed sig containingNatureOfGenTraversable`[
-      E: org.scalactic.Equality,
-      TRAV]: Containing[TRAV with GenTraversable[E]] =
-    Containing.containingNatureOfGenTraversable[E, GenTraversable]
+  import Compat._
 
   "Command tracking flow" when {
 
@@ -142,7 +150,8 @@ class CommandTrackerFlowTest
         whenReady(unhandledF) { unhandled =>
           unhandled should have size 1
           unhandled should contain(
-            submitRequest.value.commands.value.commandId -> submitRequest.context)
+            submitRequest.value.commands.value.commandId -> submitRequest.context
+          )
         }
       }
     }
@@ -155,8 +164,7 @@ class CommandTrackerFlowTest
           runCommandTrackingFlow(allSubmissionsSuccessful)
         val otherCommandId = "otherId"
 
-        submissions.sendNext(submitRequest.map(request =>
-          request.copy(commands = request.commands.map(_.copy(commandId = otherCommandId)))))
+        submissions.sendNext(newSubmitRequest(otherCommandId))
 
         results.cancel()
         whenReady(unhandledF) { unhandled =>
@@ -205,13 +213,14 @@ class CommandTrackerFlowTest
           Completion(
             commandId,
             Some(Status(Code.RESOURCE_EXHAUSTED.value)),
-            traceContext = submitRequest.value.traceContext)
+            traceContext = submitRequest.value.traceContext,
+          )
 
         results.expectNext(Ctx(context, failureCompletion))
         succeed
       }
 
-      "swallow error ifnot terminal" in {
+      "swallow error if not terminal" in {
 
         val Handle(submissions, results, _, completionStreamMock) =
           runCommandTrackingFlow(Flow[C[SubmitRequest]].map {
@@ -226,7 +235,8 @@ class CommandTrackerFlowTest
           Completion(
             commandId,
             Some(Status(Code.ABORTED.value)),
-            traceContext = submitRequest.value.traceContext)
+            traceContext = submitRequest.value.traceContext,
+          )
         completionStreamMock.send(CompletionStreamElement.CompletionElement(completion))
         results.requestNext().value shouldEqual completion
         succeed
@@ -245,7 +255,8 @@ class CommandTrackerFlowTest
           Completion(
             commandId,
             Some(Status(Code.ABORTED.value)),
-            traceContext = submitRequest.value.traceContext)
+            traceContext = submitRequest.value.traceContext,
+          )
         completionStreamMock.send(CompletionStreamElement.CompletionElement(completion))
         results.requestNext().value shouldEqual completion
       }
@@ -262,7 +273,8 @@ class CommandTrackerFlowTest
         submissions.sendNext(submitRequest)
 
         completionStreamMock.send(
-          CompletionStreamElement.CheckpointElement(Checkpoint(Some(fromInstant(mrt)))))
+          CompletionStreamElement.CheckpointElement(Checkpoint(Some(fromInstant(mrt))))
+        )
 
         results.expectNoMessage(1.second)
         succeed
@@ -289,6 +301,64 @@ class CommandTrackerFlowTest
         results.expectNext(Ctx(context, Completion(commandId, Some(Status()))))
         succeed
       }
+
+      "after the timeout" in {
+        val Handle(submissions, results, _, completionStreamMock) =
+          runCommandTrackingFlow(allSubmissionsSuccessful)
+        val timedOutCommandId = "timedOutCommandId"
+        val submitRequestShortDedupTime = newSubmitRequest(timedOutCommandId, Some(shortDuration))
+        submissions.sendNext(submitRequestShortDedupTime)
+
+        results.expectNext(
+          shortDuration.getSeconds.seconds * 3,
+          Ctx(
+            context,
+            Completion(
+              timedOutCommandId,
+              Some(Status(GrpcStatus.ABORTED.getCode.value(), "Timeout")),
+            ),
+          ),
+        )
+
+        // since the command timed out before, the tracker shouldn't send the completion through
+        completionStreamMock.send(successfulCompletion(timedOutCommandId))
+        results.request(1)
+        results.expectNoMessage()
+        succeed
+      }
+
+      "after another command has timed out" in {
+        val Handle(submissions, results, _, completionStreamMock) =
+          runCommandTrackingFlow(allSubmissionsSuccessful)
+        val timedOutCommandId = "timedOutCommandId"
+        val submitRequestShortDedupTime = newSubmitRequest(timedOutCommandId, Some(shortDuration))
+
+        // we send 2 requests
+        submissions.sendNext(submitRequestShortDedupTime)
+        submissions.sendNext(submitRequest)
+
+        // the tracker observes the timeout before the completion, thus "consuming" the pull on the result output
+        results.expectNext(
+          3.seconds,
+          Ctx(
+            context,
+            Completion(
+              timedOutCommandId,
+              Some(Status(GrpcStatus.ABORTED.getCode.value(), "Timeout")),
+            ),
+          ),
+        )
+        // we now receive a completion
+        completionStreamMock.send(successfulCompletion(commandId))
+        // because the out-of-band timeout completion consumed the previous pull on `results`,
+        // we don't expect a message until we request one.
+        // The order below is important to reproduce the issue described in DPP-285.
+        results.expectNoMessage()
+        results.request(1)
+        results.expectNext(Ctx(context, Completion(commandId, Some(Status()))))
+        succeed
+      }
+
     }
 
     "duplicate completion arrives for a particular command" should {
@@ -322,7 +392,8 @@ class CommandTrackerFlowTest
           Completion(
             commandId,
             Some(Status(Code.INVALID_ARGUMENT.value)),
-            traceContext = submitRequest.value.traceContext)
+            traceContext = submitRequest.value.traceContext,
+          )
         completionStreamMock.send(CompletionStreamElement.CompletionElement(failureCompletion))
 
         results.expectNext(Ctx(context, failureCompletion))
@@ -370,8 +441,9 @@ class CommandTrackerFlowTest
           for {
             _ <- completionStreamMock.breakCompletionsStream()
             offset3 <- completionStreamMock.getLastOffset
-            _ <- if (offset3 != checkPointOffset) breakUntilOffsetArrives()
-            else Future.unit
+            _ <-
+              if (offset3 != checkPointOffset) breakUntilOffsetArrives()
+              else Future.unit
           } yield ()
 
         def sendCommand(commandId: String) = {
@@ -385,7 +457,10 @@ class CommandTrackerFlowTest
                 Completion(
                   commandId,
                   Some(Status()),
-                  traceContext = submitRequest.value.traceContext)))
+                  traceContext = submitRequest.value.traceContext,
+                ),
+              )
+            )
           } yield ()
         }
 
@@ -429,14 +504,17 @@ class CommandTrackerFlowTest
     CompletionStreamElement.CheckpointElement(
       Checkpoint(
         Some(Timestamp(0, 0)),
-        Some(ledgerOffset)
-      ))
+        Some(ledgerOffset),
+      )
+    )
 
   private def runCommandTrackingFlow(
       submissionFlow: Flow[
         Ctx[(Int, String), SubmitRequest],
         Ctx[(Int, String), Try[Empty]],
-        NotUsed]) = {
+        NotUsed,
+      ]
+  ) = {
 
     val completionsMock = new CompletionStreamMock()
 

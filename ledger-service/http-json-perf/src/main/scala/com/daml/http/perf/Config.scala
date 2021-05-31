@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.perf
@@ -10,8 +10,11 @@ import com.daml.jwt.domain.Jwt
 import scalaz.{Applicative, Traverse}
 import scopt.RenderingMode
 
+import Config.QueryStoreIndex
+import com.daml.http.dbbackend.ContractDao.supportedJdbcDriverNames
+import com.daml.runtime.JdbcDrivers.availableJdbcDriverNames
+
 import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.language.higherKinds
 
 private[perf] final case class Config[+S](
     scenario: S,
@@ -19,7 +22,7 @@ private[perf] final case class Config[+S](
     jwt: Jwt,
     reportsDir: File,
     maxDuration: Option[FiniteDuration],
-    queryStoreIndex: Boolean,
+    queryStoreIndex: QueryStoreIndex,
 ) {
   override def toString: String =
     s"Config(" +
@@ -28,7 +31,7 @@ private[perf] final case class Config[+S](
       s", jwt=..." + // don't print the JWT
       s", reportsDir=${reportsDir: File}" +
       s", maxDuration=${this.maxDuration: Option[FiniteDuration]}" +
-      s", queryStoreIndex=${this.queryStoreIndex: Boolean}" +
+      s", queryStoreIndex=${this.queryStoreIndex: QueryStoreIndex}" +
       ")"
 }
 
@@ -40,17 +43,19 @@ private[perf] object Config {
       jwt = Jwt(""),
       reportsDir = new File(""),
       maxDuration = None,
-      queryStoreIndex = false)
+      queryStoreIndex = QueryStoreIndex.No,
+    )
 
   implicit val configInstance: Traverse[Config] = new Traverse[Config] {
-    override def traverseImpl[G[_]: Applicative, A, B](fa: Config[A])(
-        f: A => G[B]): G[Config[B]] = {
+    override def traverseImpl[G[_]: Applicative, A, B](
+        fa: Config[A]
+    )(f: A => G[B]): G[Config[B]] = {
       import scalaz.syntax.functor._
-      f(fa.scenario).map(b => Empty.copy(scenario = b))
+      f(fa.scenario).map(b => fa.copy(scenario = b))
     }
   }
 
-  def parseConfig(args: Seq[String]): Option[Config[String]] =
+  def parseConfig(args: collection.Seq[String]): Option[Config[String]] =
     configParser.parse(args, Config.Empty)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -78,10 +83,12 @@ private[perf] object Config {
         .validate(validateJwt)
         .text("JWT token to use when connecting to JSON API.")
 
-      opt[Boolean]("query-store-index")
+      opt[QueryStoreIndex]("query-store-index")
         .action((x, c) => c.copy(queryStoreIndex = x))
         .optional()
-        .text("Enables JSON API query store index. Default is false, disabled.")
+        .text(
+          s"Enables JSON API query store index ${QueryStoreIndex.allowedHelp}. Default is no, disabled."
+        )
 
       opt[File]("reports-dir")
         .action((x, c) => c.copy(reportsDir = x))
@@ -91,7 +98,9 @@ private[perf] object Config {
       opt[Duration]("max-duration")
         .action((x, c) => c.copy(maxDuration = Some(FiniteDuration(x.length, x.unit))))
         .optional()
-        .text(s"Optional maximum perf test duration. Default value infinity. Examples: 500ms, 5s, 10min, 1h, 1d.")
+        .text(
+          s"Optional maximum perf test duration. Default value infinity. Examples: 500ms, 5s, 10min, 1h, 1d."
+        )
     }
 
   private def validateJwt(s: String): Either[String, Unit] = {
@@ -101,8 +110,32 @@ private[perf] object Config {
       .decode(Jwt(s))
       .bimap(
         error => error.shows,
-        _ => ()
+        _ => (),
       )
       .toEither
+  }
+
+  sealed abstract class QueryStoreIndex extends Product with Serializable
+  object QueryStoreIndex {
+    case object No extends QueryStoreIndex
+    case object Postgres extends QueryStoreIndex
+    case object Oracle extends QueryStoreIndex
+
+    val names: Map[String, QueryStoreIndex] = Map("no" -> No, "postgres" -> Postgres) ++ (
+      if (supportedJdbcDriverNames(availableJdbcDriverNames)("oracle.jdbc.OracleDriver"))
+        Seq("oracle" -> Oracle)
+      else Seq.empty
+    )
+
+    private[Config] val allowedHelp = names.keys.mkString("{", ", ", "}")
+
+    implicit val scoptRead: scopt.Read[QueryStoreIndex] = scopt.Read.reads { s =>
+      names.getOrElse(
+        s.toLowerCase(java.util.Locale.ROOT),
+        throw new IllegalArgumentException(
+          s"$s is not a query store index; only $allowedHelp allowed"
+        ),
+      )
+    }
   }
 }

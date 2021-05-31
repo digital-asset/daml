@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ConstraintKinds #-}
@@ -249,6 +249,7 @@ decodeDefException LF1.DefException{..} =
   DefException
     <$> traverse decodeLocation defExceptionLocation
     <*> decodeDottedNameId TypeConName defExceptionNameInternedDname
+    <*> mayDecode "exceptionMessage" defExceptionMessage decodeExpr
 
 decodeDefDataType :: LF1.DefDataType -> Decode DefDataType
 decodeDefDataType LF1.DefDataType{..} =
@@ -399,21 +400,22 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionGREATER_DATE -> BEGreater BTDate
   LF1.BuiltinFunctionGREATER_PARTY -> BEGreater BTParty
 
-  LF1.BuiltinFunctionTO_TEXT_INT64 -> BEToText BTInt64
-  LF1.BuiltinFunctionTO_TEXT_DECIMAL -> BEToText BTDecimal
-  LF1.BuiltinFunctionTO_TEXT_NUMERIC -> BEToTextNumeric
-  LF1.BuiltinFunctionTO_TEXT_TEXT -> BEToText BTText
-  LF1.BuiltinFunctionTO_TEXT_TIMESTAMP -> BEToText BTTimestamp
-  LF1.BuiltinFunctionTO_TEXT_PARTY -> BEToText BTParty
-  LF1.BuiltinFunctionTO_TEXT_DATE -> BEToText BTDate
-  LF1.BuiltinFunctionTO_TEXT_CONTRACT_ID -> BEToTextContractId
-  LF1.BuiltinFunctionTEXT_FROM_CODE_POINTS -> BETextFromCodePoints
-  LF1.BuiltinFunctionFROM_TEXT_PARTY -> BEPartyFromText
-  LF1.BuiltinFunctionFROM_TEXT_INT64 -> BEInt64FromText
-  LF1.BuiltinFunctionFROM_TEXT_DECIMAL -> BEDecimalFromText
-  LF1.BuiltinFunctionFROM_TEXT_NUMERIC -> BENumericFromText
-  LF1.BuiltinFunctionTEXT_TO_CODE_POINTS -> BETextToCodePoints
-  LF1.BuiltinFunctionTO_QUOTED_TEXT_PARTY -> BEPartyToQuotedText
+  LF1.BuiltinFunctionINT64_TO_TEXT -> BEToText BTInt64
+  LF1.BuiltinFunctionDECIMAL_TO_TEXT -> BEToText BTDecimal
+  LF1.BuiltinFunctionNUMERIC_TO_TEXT -> BENumericToText
+  LF1.BuiltinFunctionTEXT_TO_TEXT -> BEToText BTText
+  LF1.BuiltinFunctionTIMESTAMP_TO_TEXT -> BEToText BTTimestamp
+  LF1.BuiltinFunctionPARTY_TO_TEXT -> BEToText BTParty
+  LF1.BuiltinFunctionDATE_TO_TEXT -> BEToText BTDate
+  LF1.BuiltinFunctionCONTRACT_ID_TO_TEXT -> BEContractIdToText
+  LF1.BuiltinFunctionBIGNUMERIC_TO_TEXT -> BEToText BTBigNumeric
+  LF1.BuiltinFunctionCODE_POINTS_TO_TEXT -> BECodePointsToText
+  LF1.BuiltinFunctionTEXT_TO_PARTY -> BETextToParty
+  LF1.BuiltinFunctionTEXT_TO_INT64 -> BETextToInt64
+  LF1.BuiltinFunctionTEXT_TO_DECIMAL -> BETextToDecimal
+  LF1.BuiltinFunctionTEXT_TO_NUMERIC -> BETextToNumeric
+  LF1.BuiltinFunctionTEXT_POINTS_TO_CODE -> BETextToCodePoints
+  LF1.BuiltinFunctionPARTY_TO_QUOTED_TEXT -> BEPartyToQuotedText
 
   LF1.BuiltinFunctionADD_DECIMAL   -> BEAddDecimal
   LF1.BuiltinFunctionSUB_DECIMAL   -> BESubDecimal
@@ -441,14 +443,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionAPPEND_TEXT    -> BEAppendText
 
   LF1.BuiltinFunctionERROR          -> BEError
-  LF1.BuiltinFunctionTHROW -> BEThrow
   LF1.BuiltinFunctionANY_EXCEPTION_MESSAGE -> BEAnyExceptionMessage
-  LF1.BuiltinFunctionGENERAL_ERROR_MESSAGE -> BEGeneralErrorMessage
-  LF1.BuiltinFunctionARITHMETIC_ERROR_MESSAGE -> BEArithmeticErrorMessage
-  LF1.BuiltinFunctionCONTRACT_ERROR_MESSAGE -> BEContractErrorMessage
-  LF1.BuiltinFunctionMAKE_GENERAL_ERROR -> BEMakeGeneralError
-  LF1.BuiltinFunctionMAKE_ARITHMETIC_ERROR -> BEMakeArithmeticError
-  LF1.BuiltinFunctionMAKE_CONTRACT_ERROR -> BEMakeContractError
 
   LF1.BuiltinFunctionTEXTMAP_EMPTY      -> BETextMapEmpty
   LF1.BuiltinFunctionTEXTMAP_INSERT     -> BETextMapInsert
@@ -492,6 +487,15 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionTEXT_SPLIT_ON -> BETextSplitOn
   LF1.BuiltinFunctionTEXT_INTERCALATE -> BETextIntercalate
 
+  LF1.BuiltinFunctionSCALE_BIGNUMERIC -> BEScaleBigNumeric
+  LF1.BuiltinFunctionPRECISION_BIGNUMERIC -> BEPrecisionBigNumeric
+  LF1.BuiltinFunctionADD_BIGNUMERIC -> BEAddBigNumeric
+  LF1.BuiltinFunctionSUB_BIGNUMERIC -> BESubBigNumeric
+  LF1.BuiltinFunctionMUL_BIGNUMERIC -> BEMulBigNumeric
+  LF1.BuiltinFunctionDIV_BIGNUMERIC -> BEDivBigNumeric
+  LF1.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC -> BEShiftRightBigNumeric
+  LF1.BuiltinFunctionBIGNUMERIC_TO_NUMERIC -> BEBigNumericToNumeric
+  LF1.BuiltinFunctionNUMERIC_TO_BIGNUMERIC -> BENumericToBigNumeric
 
 decodeLocation :: LF1.Location -> Decode SourceLoc
 decodeLocation (LF1.Location mbModRef mbRange) = do
@@ -604,13 +608,19 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     return (EFromAny type' expr)
   LF1.ExprSumTypeRep typ ->
     ETypeRep <$> decodeType typ
-  LF1.ExprSumMakeAnyException LF1.Expr_MakeAnyException {..} -> EMakeAnyException
-    <$> mayDecode "expr_MakeAnyExceptionType" expr_MakeAnyExceptionType decodeType
-    <*> mayDecode "expr_MakeAnyExceptionMessage" expr_MakeAnyExceptionMessage decodeExpr
-    <*> mayDecode "expr_MakeAnyExceptionExpr" expr_MakeAnyExceptionExpr decodeExpr
+  LF1.ExprSumToAnyException LF1.Expr_ToAnyException {..} -> EToAnyException
+    <$> mayDecode "expr_ToAnyExceptionType" expr_ToAnyExceptionType decodeType
+    <*> mayDecode "expr_ToAnyExceptionExpr" expr_ToAnyExceptionExpr decodeExpr
   LF1.ExprSumFromAnyException LF1.Expr_FromAnyException {..} -> EFromAnyException
     <$> mayDecode "expr_FromAnyExceptionType" expr_FromAnyExceptionType decodeType
     <*> mayDecode "expr_FromAnyExceptionExpr" expr_FromAnyExceptionExpr decodeExpr
+  LF1.ExprSumThrow LF1.Expr_Throw {..} -> EThrow
+    <$> mayDecode "expr_ThrowReturnType" expr_ThrowReturnType decodeType
+    <*> mayDecode "expr_ThrowExceptionType" expr_ThrowExceptionType decodeType
+    <*> mayDecode "expr_ThrowExceptionExpr" expr_ThrowExceptionExpr decodeExpr
+  LF1.ExprSumExperimental (LF1.Expr_Experimental name mbType) -> do
+    ty <- mayDecode "expr_Experimental" mbType decodeType
+    pure $ EExperimental (decodeString name) ty
 
 decodeUpdate :: LF1.Update -> Decode Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
@@ -750,6 +760,17 @@ decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumPartyStr p -> pure $ BEParty $ PartyLiteral $ decodeString p
   LF1.PrimLitSumPartyInternedStr strId -> BEParty . PartyLiteral . fst <$> lookupString strId
   LF1.PrimLitSumDate days -> pure $ BEDate days
+  LF1.PrimLitSumRoundingMode enum -> case enum of
+    Proto.Enumerated (Right mode) -> pure $ case mode of
+       LF1.PrimLit_RoundingModeUP -> BERoundingMode LitRoundingUp
+       LF1.PrimLit_RoundingModeDOWN -> BERoundingMode LitRoundingDown
+       LF1.PrimLit_RoundingModeCEILING -> BERoundingMode LitRoundingCeiling
+       LF1.PrimLit_RoundingModeFLOOR -> BERoundingMode LitRoundingFloor
+       LF1.PrimLit_RoundingModeHALF_UP -> BERoundingMode LitRoundingHalfUp
+       LF1.PrimLit_RoundingModeHALF_DOWN -> BERoundingMode LitRoundingHalfDown
+       LF1.PrimLit_RoundingModeHALF_EVEN -> BERoundingMode LitRoundingHalfEven
+       LF1.PrimLit_RoundingModeUNNECESSARY -> BERoundingMode LitRoundingUnnecessary
+    Proto.Enumerated (Left idx) -> throwError (UnknownEnum "PrimLitSumRoundingMode" idx)
 
 decodeDecimalLit :: T.Text -> Decode BuiltinExpr
 decodeDecimalLit (T.unpack -> str) = case readMaybe str of
@@ -791,10 +812,9 @@ decodePrim = pure . \case
   LF1.PrimTypeARROW -> BTArrow
   LF1.PrimTypeANY -> BTAny
   LF1.PrimTypeTYPE_REP -> BTTypeRep
+  LF1.PrimTypeROUNDING_MODE -> BTRoundingMode
+  LF1.PrimTypeBIGNUMERIC -> BTBigNumeric
   LF1.PrimTypeANY_EXCEPTION -> BTAnyException
-  LF1.PrimTypeGENERAL_ERROR -> BTGeneralError
-  LF1.PrimTypeARITHMETIC_ERROR -> BTArithmeticError
-  LF1.PrimTypeCONTRACT_ERROR -> BTContractError
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =

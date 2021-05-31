@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.test.config
@@ -13,7 +13,7 @@ final case class Arguments(
     navigatorDir: String = "",
     startComponents: Boolean = false,
     browserStackUser: String = "",
-    browserStackKey: String = ""
+    browserStackKey: String = "",
 )
 
 object Arguments extends LazyLogging {
@@ -27,12 +27,14 @@ object Arguments extends LazyLogging {
 
       opt[String]("daml-path")
         .text(
-          "the path to the daml file picked up by the sandbox - if sandbox command is not provided")
+          "the path to the daml file picked up by the sandbox - if sandbox command is not provided"
+        )
         .action((damlPath, arguments) => arguments.copy(damlPath = damlPath))
 
       opt[String]("nav-conf-path")
         .text(
-          "the path to the navigator config file picked up by the backend - if navigator command is not provided")
+          "the path to the navigator config file picked up by the backend - if navigator command is not provided"
+        )
         .action((navConfPAth, arguments) => arguments.copy(navConfPAth = navConfPAth))
 
       opt[String]("navigator-dir")
@@ -41,8 +43,9 @@ object Arguments extends LazyLogging {
 
       opt[String]("browserstack-user")
         .text("username to run BrowserStack Automate tests")
-        .action(
-          (browserStackUser, arguments) => arguments.copy(browserStackUser = browserStackUser))
+        .action((browserStackUser, arguments) =>
+          arguments.copy(browserStackUser = browserStackUser)
+        )
 
       opt[String]("browserstack-key")
         .text("api key to run BrowserStack Automate tests")
@@ -63,5 +66,5 @@ object Arguments extends LazyLogging {
   }
 
   def showUsage(): Unit =
-    argumentParser.showUsage()
+    argumentParser.displayToOut(argumentParser.usage)
 }

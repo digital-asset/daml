@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator
@@ -8,7 +8,7 @@ import com.daml.lf.data.{
   FrontStack,
   ImmArray,
   SortedLookupList,
-  Ref => DamlLfRef
+  Ref => DamlLfRef,
 }
 import com.daml.navigator.model._
 import com.daml.lf.{iface => DamlLfIface}
@@ -19,12 +19,11 @@ import scala.language.implicitConversions
 
 case class DamlConstants()
 
-/**
-  * DAML related constants usable in tests
+/** Daml related constants usable in tests
   */
 case object DamlConstants {
   // ------------------------------------------------------------------------------------------------------------------
-  // DAML-LF: Ids
+  // Daml-LF: Ids
   // ------------------------------------------------------------------------------------------------------------------
   val packageId0 = DamlLfRef.PackageId.assertFromString("hash")
 
@@ -32,15 +31,15 @@ case object DamlConstants {
     packageId0,
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
-      DamlLfDottedName.assertFromString(name)
-    )
+      DamlLfDottedName.assertFromString(name),
+    ),
   )
   val ref0: DamlLfIdentifier = defRef("T0")
   val ref1: DamlLfIdentifier = defRef("T1")
   val ref2: DamlLfIdentifier = defRef("T2")
 
   // ------------------------------------------------------------------------------------------------------------------
-  // DAML-LF: simple types
+  // Daml-LF: simple types
   // ------------------------------------------------------------------------------------------------------------------
   val simpleTextT = DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq())
   val simpleInt64T = DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq())
@@ -66,10 +65,11 @@ case object DamlConstants {
   val simpleTimestampV = V.ValueTimestamp.fromIso8601("2019-01-28T12:44:33.22Z")
   val simpleOptionalV = V.ValueOptional(Some(V.ValueText("foo")))
   val simpleTextMapV = V.ValueTextMap(
-    SortedLookupList(Map("1" -> V.ValueInt64(1), "2" -> V.ValueInt64(2), "3" -> V.ValueInt64(3))))
+    SortedLookupList(Map("1" -> V.ValueInt64(1), "2" -> V.ValueInt64(2), "3" -> V.ValueInt64(3)))
+  )
 
   // ------------------------------------------------------------------------------------------------------------------
-  // DAML-LF: empty record
+  // Daml-LF: empty record
   // ------------------------------------------------------------------------------------------------------------------
   val emptyRecordId: DamlLfIdentifier = defRef("EmptyRecord")
   val emptyRecordGD = DamlLfRecord(DamlLfImmArraySeq())
@@ -79,18 +79,19 @@ case object DamlConstants {
   val emptyRecordV = V.ValueRecord(Some(emptyRecordId), ImmArray.empty)
 
   // ------------------------------------------------------------------------------------------------------------------
-  // DAML-LF: simple record (data SimpleRecord a b = {fA: a, fB: b})
+  // Daml-LF: simple record (data SimpleRecord a b = {fA: a, fB: b})
   // ------------------------------------------------------------------------------------------------------------------
   val simpleRecordId: DamlLfIdentifier = defRef("SimpleRecord")
   val simpleRecordGD = DamlLfRecord(
     DamlLfImmArraySeq(
       name("fA") -> DamlLfTypeVar("a"),
-      name("fB") -> DamlLfTypeVar("b")
-    ))
+      name("fB") -> DamlLfTypeVar("b"),
+    )
+  )
   val simpleRecordGC = DamlLfDefDataType(DamlLfImmArraySeq("a", "b"), simpleRecordGD)
   val simpleRecordTC = DamlLfTypeCon(
     DamlLfTypeConName(simpleRecordId),
-    DamlLfImmArraySeq(simpleTextT, simpleInt64T)
+    DamlLfImmArraySeq(simpleTextT, simpleInt64T),
   )
   val simpleRecordT = simpleRecordTC.instantiate(simpleRecordGC).asInstanceOf[DamlLfRecord]
   def simpleRecordV =
@@ -98,28 +99,30 @@ case object DamlConstants {
       Some(simpleRecordId),
       ImmArray(
         (Some(name("fA")), V.ValueText("foo")),
-        (Some(name("fB")), V.ValueInt64(100))
-      ))
+        (Some(name("fB")), V.ValueInt64(100)),
+      ),
+    )
 
   // ------------------------------------------------------------------------------------------------------------------
-  // DAML-LF: simple variant (data DamlLfVariant a b = fA a | fB b)
+  // Daml-LF: simple variant (data DamlLfVariant a b = fA a | fB b)
   // ------------------------------------------------------------------------------------------------------------------
   val simpleVariantId: DamlLfIdentifier = defRef("SimpleVariant")
   val simpleVariantGD = DamlLfVariant(
     DamlLfImmArraySeq(
       name("fA") -> DamlLfTypeVar("a"),
-      name("fB") -> DamlLfTypeVar("b")
-    ))
+      name("fB") -> DamlLfTypeVar("b"),
+    )
+  )
   val simpleVariantGC = DamlLfDefDataType(DamlLfImmArraySeq("a", "b"), simpleVariantGD)
   val simpleVariantTC = DamlLfTypeCon(
     DamlLfTypeConName(simpleVariantId),
-    DamlLfImmArraySeq(simpleTextT, simpleInt64T)
+    DamlLfImmArraySeq(simpleTextT, simpleInt64T),
   )
   val simpleVariantT = simpleVariantTC.instantiate(simpleVariantGC).asInstanceOf[DamlLfVariant]
   def simpleVariantV = V.ValueVariant(Some(simpleVariantId), "fA", V.ValueText("foo"))
 
   // ------------------------------------------------------------------------------------------------------------------
-  // DAML-LF: recursive type (data Tree = Leaf a | Node {left: Tree a, right: Tree a})
+  // Daml-LF: recursive type (data Tree = Leaf a | Node {left: Tree a, right: Tree a})
   // ------------------------------------------------------------------------------------------------------------------
   val treeNodeId: DamlLfIdentifier = defRef("TreeNode")
   val treeId: DamlLfIdentifier = defRef("Tree")
@@ -128,15 +131,18 @@ case object DamlConstants {
     DamlLfImmArraySeq(
       name("left") -> DamlLfTypeCon(
         DamlLfTypeConName(treeId),
-        DamlLfImmArraySeq(DamlLfTypeVar("a"))),
+        DamlLfImmArraySeq(DamlLfTypeVar("a")),
+      ),
       name("right") -> DamlLfTypeCon(
         DamlLfTypeConName(treeId),
-        DamlLfImmArraySeq(DamlLfTypeVar("a")))
-    ))
+        DamlLfImmArraySeq(DamlLfTypeVar("a")),
+      ),
+    )
+  )
   val treeNodeGC = DamlLfDefDataType(DamlLfImmArraySeq("a"), treeNodeGD)
   val treeNodeTC = DamlLfTypeCon(
     DamlLfTypeConName(treeNodeId),
-    DamlLfImmArraySeq(simpleTextT)
+    DamlLfImmArraySeq(simpleTextT),
   )
   val treeNodeT = treeNodeTC.instantiate(treeNodeGC).asInstanceOf[DamlLfRecord]
 
@@ -145,12 +151,14 @@ case object DamlConstants {
       name("Leaf") -> DamlLfTypeVar("a"),
       name("Node") -> DamlLfTypeCon(
         DamlLfTypeConName(treeNodeId),
-        DamlLfImmArraySeq(DamlLfTypeVar("a")))
-    ))
+        DamlLfImmArraySeq(DamlLfTypeVar("a")),
+      ),
+    )
+  )
   val treeGC = DamlLfDefDataType(DamlLfImmArraySeq("a"), treeGD)
   val treeTC = DamlLfTypeCon(
     DamlLfTypeConName(treeId),
-    DamlLfImmArraySeq(simpleTextT)
+    DamlLfImmArraySeq(simpleTextT),
   )
 
   val treeLeftV = V.ValueVariant(
@@ -160,9 +168,9 @@ case object DamlConstants {
       Some(treeNodeId),
       ImmArray(
         Some(name("left")) -> V.ValueVariant(Some(treeId), "Leaf", V.ValueText("LL")),
-        Some(name("right")) -> V.ValueVariant(Some(treeId), "Leaf", V.ValueText("LR"))
-      )
-    )
+        Some(name("right")) -> V.ValueVariant(Some(treeId), "Leaf", V.ValueText("LR")),
+      ),
+    ),
   )
 
   val treeRightV = V.ValueVariant(
@@ -172,9 +180,9 @@ case object DamlConstants {
       Some(treeNodeId),
       ImmArray(
         Some(name("left")) -> V.ValueVariant(Some(treeId), "Leaf", V.ValueText("RL")),
-        Some(name("right")) -> V.ValueVariant(Some(treeId), "Leaf", V.ValueText("RR"))
-      )
-    )
+        Some(name("right")) -> V.ValueVariant(Some(treeId), "Leaf", V.ValueText("RR")),
+      ),
+    ),
   )
 
   val treeV = V.ValueVariant(
@@ -182,8 +190,8 @@ case object DamlConstants {
     "Node",
     V.ValueRecord(
       Some(treeNodeId),
-      ImmArray(Some(name("left")) -> treeLeftV, Some(name("right")) -> treeRightV)
-    )
+      ImmArray(Some(name("left")) -> treeLeftV, Some(name("right")) -> treeRightV),
+    ),
   )
 
   val colorGD = DamlLfEnum(DamlLfImmArraySeq(name("Red"), name("Green"), name("Blue")))
@@ -191,12 +199,12 @@ case object DamlConstants {
   val colorId: DamlLfIdentifier = defRef("Color")
   val redTC = DamlLfTypeCon(
     DamlLfTypeConName(colorId),
-    DamlLfImmArraySeq.empty
+    DamlLfImmArraySeq.empty,
   )
   val redV = V.ValueEnum(Some(colorId), "Red")
 
   // ------------------------------------------------------------------------------------------------------------------
-  // DAML-LF: complex record containing all DAML types
+  // Daml-LF: complex record containing all Daml types
   // ------------------------------------------------------------------------------------------------------------------
   val complexRecordId: DamlLfIdentifier = defRef("ComplexRecord")
   val complexRecordGD = DamlLfRecord(
@@ -217,8 +225,9 @@ case object DamlConstants {
       name("fOptOptText") -> simpleOptionalT(simpleOptionalT(simpleTextT)),
       name("fMap") -> simpleTextMapT(simpleInt64T),
       name("fVariant") -> simpleVariantTC,
-      name("fRecord") -> simpleRecordTC
-    ))
+      name("fRecord") -> simpleRecordTC,
+    )
+  )
   val complexRecordGC = DamlLfDefDataType(DamlLfImmArraySeq(), complexRecordGD)
   val complexRecordTC = DamlLfTypeCon(DamlLfTypeConName(complexRecordId), DamlLfImmArraySeq())
   val complexRecordT = complexRecordTC.instantiate(complexRecordGC).asInstanceOf[DamlLfRecord]
@@ -243,14 +252,17 @@ case object DamlConstants {
         "fMap",
         V.ValueTextMap(
           SortedLookupList(
-            Map("1" -> V.ValueInt64(1), "2" -> V.ValueInt64(2), "3" -> V.ValueInt64(3))))),
+            Map("1" -> V.ValueInt64(1), "2" -> V.ValueInt64(2), "3" -> V.ValueInt64(3))
+          )
+        ),
+      ),
       ("fVariant", simpleVariantV),
-      ("fRecord", simpleRecordV)
-    ).map { case (k, v) => (Some(name(k)), v) }
+      ("fRecord", simpleRecordV),
+    ).map { case (k, v) => (Some(name(k)), v) },
   )
 
   // ------------------------------------------------------------------------------------------------------------------
-  // DAML-LF: package mockup
+  // Daml-LF: package mockup
   // ------------------------------------------------------------------------------------------------------------------
   val allTypes: Map[DamlLfIdentifier, DamlLfDefDataType] = Map(
     emptyRecordId -> emptyRecordGC,
@@ -259,10 +271,10 @@ case object DamlConstants {
     complexRecordId -> complexRecordGC,
     treeId -> treeGC,
     treeNodeId -> treeNodeGC,
-    colorId -> colorGC
+    colorId -> colorGC,
   )
 
-  // Note: these templates may not be valid DAML templates
+  // Note: these templates may not be valid Daml templates
   val simpleRecordTemplateId: DamlLfIdentifier = defRef("SimpleRecordTemplate")
   private val ChoiceUnit = DamlLfRef.Name.assertFromString("unit")
   private val choiceText = DamlLfRef.Name.assertFromString("text")
@@ -276,10 +288,10 @@ case object DamlConstants {
         ChoiceUnit -> DamlLfIface.TemplateChoice(simpleUnitT, false, simpleUnitT),
         choiceText -> DamlLfIface.TemplateChoice(simpleTextT, false, simpleUnitT),
         choiceNonconsuming -> DamlLfIface.TemplateChoice(simpleUnitT, true, simpleUnitT),
-        ChoiceReplace -> DamlLfIface.TemplateChoice(simpleRecordTC, false, simpleUnitT)
+        ChoiceReplace -> DamlLfIface.TemplateChoice(simpleRecordTC, false, simpleUnitT),
       ),
-      None
-    )
+      None,
+    ),
   )
   val complexRecordTemplate = DamlLfIface.InterfaceType.Template(
     complexRecordT,
@@ -288,10 +300,10 @@ case object DamlConstants {
         ChoiceUnit -> DamlLfIface.TemplateChoice(simpleUnitT, false, simpleUnitT),
         choiceText -> DamlLfIface.TemplateChoice(simpleTextT, false, simpleUnitT),
         choiceNonconsuming -> DamlLfIface.TemplateChoice(simpleUnitT, true, simpleUnitT),
-        ChoiceReplace -> DamlLfIface.TemplateChoice(complexRecordTC, false, simpleUnitT)
+        ChoiceReplace -> DamlLfIface.TemplateChoice(complexRecordTC, false, simpleUnitT),
       ),
-      None
-    )
+      None,
+    ),
   )
   val treeNodeTemplate = DamlLfIface.InterfaceType.Template(
     treeNodeT,
@@ -300,10 +312,10 @@ case object DamlConstants {
         ChoiceUnit -> DamlLfIface.TemplateChoice(simpleUnitT, false, simpleUnitT),
         choiceText -> DamlLfIface.TemplateChoice(simpleTextT, false, simpleUnitT),
         choiceNonconsuming -> DamlLfIface.TemplateChoice(simpleUnitT, true, simpleUnitT),
-        ChoiceReplace -> DamlLfIface.TemplateChoice(treeNodeTC, false, simpleUnitT)
+        ChoiceReplace -> DamlLfIface.TemplateChoice(treeNodeTC, false, simpleUnitT),
       ),
-      None
-    )
+      None,
+    ),
   )
 
   def complexGenMapT(keyTyp: DamlLfIface.Type, valueTyp: DamlLfIface.Type) =
@@ -313,7 +325,7 @@ case object DamlConstants {
     ImmArray(
       treeV -> V.ValueInt64(1),
       treeLeftV -> V.ValueInt64(2),
-      treeRightV -> V.ValueInt64(3)
+      treeRightV -> V.ValueInt64(3),
     )
   )
 
@@ -327,14 +339,18 @@ case object DamlConstants {
       treeNodeId.qualifiedName -> DamlLfIface.InterfaceType.Normal(treeNodeGC),
       simpleRecordTemplateId.qualifiedName -> simpleRecordTemplate,
       complexRecordId.qualifiedName -> complexRecordTemplate,
-      treeNodeId.qualifiedName -> treeNodeTemplate
-    )
+      treeNodeId.qualifiedName -> treeNodeTemplate,
+    ),
   )
 
-  private implicit def name(s: String): DamlLfRef.Name =
+  private[navigator] implicit def name(s: String): DamlLfRef.Name =
     DamlLfRef.Name.assertFromString(s)
 
   @throws[IllegalArgumentException]
-  private[navigator] def singletonRecord(label: String, value: ApiValue): ApiRecord =
-    V.ValueRecord(None, ImmArray((Some(name(label)), value)))
+  private[navigator] def record(fields: (String, ApiValue)*): ApiRecord =
+    V.ValueRecord(
+      None,
+      fields.iterator.map { case (label, value) => Some(name(label)) -> value }.to(ImmArray),
+    )
+
 }

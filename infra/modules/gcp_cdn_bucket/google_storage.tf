@@ -1,8 +1,8 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 data "google_project" "current" {
-  project_id = "${var.project}"
+  project_id = var.project
 }
 
 locals {
@@ -17,16 +17,16 @@ locals {
 }
 
 resource "google_storage_bucket" "default" {
-  project = "${var.project}"
-  name    = "${var.name}"
-  labels  = "${var.labels}"
+  project = var.project
+  name    = var.name
+  labels  = var.labels
 
   # SLA is enough for a cache and is cheaper than MULTI_REGIONAL
   # see https://cloud.google.com/storage/docs/storage-classes
   storage_class = "REGIONAL"
 
   # Use a normal region since the storage_class is regional
-  location = "${var.region}"
+  location = var.region
 
   # cleanup the cache after ${var.cache_retention_days} days
   lifecycle_rule {
@@ -35,7 +35,7 @@ resource "google_storage_bucket" "default" {
     }
 
     condition {
-      age = "${var.cache_retention_days}" # days
+      age = var.cache_retention_days # days
     }
   }
 
@@ -50,7 +50,7 @@ resource "google_storage_bucket" "default" {
 }
 
 resource "google_storage_bucket_acl" "default" {
-  bucket      = "${google_storage_bucket.default.name}"
+  bucket      = google_storage_bucket.default.name
   default_acl = "publicread"
-  role_entity = ["${local.default_role_entities}"]
+  role_entity = local.default_role_entities
 }

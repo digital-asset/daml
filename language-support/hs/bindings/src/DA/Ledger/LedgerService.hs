@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Abstraction for LedgerService, which can be composed monadically.
@@ -8,7 +8,6 @@ module DA.Ledger.LedgerService (
     askTimeout,
     ) where
 
-import Control.Monad.Fail (MonadFail)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Reader (MonadReader,local,asks)
 import Control.Monad.Trans.Reader (ReaderT(..))

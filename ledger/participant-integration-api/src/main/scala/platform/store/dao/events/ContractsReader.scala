@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -6,161 +6,158 @@ package com.daml.platform.store.dao.events
 import java.io.InputStream
 import java.time.Instant
 
-import anorm.SqlParser.{binaryStream, str}
-import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation}
+import anorm.SqlParser._
+import anorm.{RowParser, SqlParser, SqlStringInterpolation}
 import com.codahale.metrics.Timer
-import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
 import com.daml.platform.store.dao.DbDispatcher
-import com.daml.platform.store.serialization.ValueSerializer
+import com.daml.platform.store.dao.events.SqlFunctions.{
+  H2SqlFunctions,
+  OracleSqlFunctions,
+  PostgresSqlFunctions,
+}
+import com.daml.platform.store.dao.events.ContractsReader._
+import com.daml.platform.store.interfaces.LedgerDaoContractsReader
+import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
-  * @see [[ContractsTable]]
-  */
-private[dao] sealed abstract class ContractsReader(
+private[dao] sealed class ContractsReader(
     val committedContracts: PostCommitValidationData,
     dispatcher: DbDispatcher,
     metrics: Metrics,
-    lfValueTranslationCache: LfValueTranslation.Cache,
+    sqlFunctions: SqlFunctions,
 )(implicit ec: ExecutionContext)
-    extends ContractStore {
+    extends LedgerDaoContractsReader {
 
-  import ContractsReader._
+  override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[Instant]] =
+    Timed.future(
+      metrics.daml.index.db.lookupMaximumLedgerTime,
+      dispatcher
+        .executeSql(metrics.daml.index.db.lookupMaximumLedgerTimeDbMetrics) { implicit connection =>
+          committedContracts.lookupMaximumLedgerTime(ids)
+        }
+        .map(_.get),
+    )
 
-  private val contractRowParser: RowParser[(String, InputStream)] =
-    str("template_id") ~ binaryStream("create_argument") map SqlParser.flatten
+  override def lookupContractKey(
+      key: Key,
+      readers: Set[Party],
+  )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] =
+    Timed.future(
+      metrics.daml.index.db.lookupKey, {
+        val stakeholdersWhere =
+          sqlFunctions.arrayIntersectionWhereClause("create_stakeholders", readers)
 
-  private val contractWithoutValueRowParser: RowParser[String] =
-    str("template_id")
+        dispatcher.executeSql(metrics.daml.index.db.lookupContractByKeyDbMetrics) {
+          implicit connection =>
+            SQL"""select pc.contract_id from #$contractsTable
+                 where #$stakeholdersWhere and contract_witness in ($readers)
+                 and create_key_hash = ${key.hash}
+                 #${sqlFunctions.limitClause(1)}"""
+              .as(contractId("contract_id").singleOpt)
+        }
+      },
+    )
 
-  private val translation: LfValueTranslation =
-    new LfValueTranslation(lfValueTranslationCache)
-
-  protected def lookupContractKeyQuery(submitter: Party, key: Key): SimpleSql[Row]
-
-  /** Lookup of a contract in the case the contract value is not already known */
-  private def lookupActiveContractAndLoadArgument(
-      submitter: Party,
+  override def lookupActiveContractAndLoadArgument(
+      readers: Set[Party],
       contractId: ContractId,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
-    dispatcher
-      .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
-        SQL"select participant_contracts.contract_id, template_id, create_argument from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
-          .as(contractRowParser.singleOpt)
-      }
-      .map(_.map {
-        case (templateId, createArgument) =>
+    Timed.future(
+      metrics.daml.index.db.lookupActiveContract,
+      dispatcher
+        .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
+          SQL"""select pc.contract_id, template_id, create_argument, create_argument_compression from #$contractsTable where contract_witness in ($readers) and pc.contract_id = $contractId #${sqlFunctions
+            .limitClause(1)}"""
+            .as(contractRowParser.singleOpt)
+        }
+        .map(_.map { case (templateId, createArgument, createArgumentCompression) =>
           toContract(
             contractId = contractId,
             templateId = templateId,
             createArgument = createArgument,
+            createArgumentCompression =
+              Compression.Algorithm.assertLookup(createArgumentCompression),
+            decompressionTimer =
+              metrics.daml.index.db.lookupActiveContractDbMetrics.compressionTimer,
             deserializationTimer =
               metrics.daml.index.db.lookupActiveContractDbMetrics.translationTimer,
           )
-      })
+        }),
+    )
 
-  /** Lookup of a contract in the case the contract value is already known (loaded from a cache) */
-  private def lookupActiveContractWithCachedArgument(
-      submitter: Party,
+  override def lookupActiveContractWithCachedArgument(
+      readers: Set[Party],
       contractId: ContractId,
       createArgument: Value,
   )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
-    dispatcher
-      .executeSql(metrics.daml.index.db.lookupActiveContractWithCachedArgumentDbMetrics) {
-        implicit connection =>
-          SQL"select participant_contracts.contract_id, template_id from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
+    Timed.future(
+      metrics.daml.index.db.lookupActiveContract,
+      dispatcher
+        .executeSql(metrics.daml.index.db.lookupActiveContractDbMetrics) { implicit connection =>
+          SQL"select contract_id, template_id from #$contractsTable where contract_witness in ($readers) and pc.contract_id = $contractId #${sqlFunctions
+            .limitClause(1)}"
             .as(contractWithoutValueRowParser.singleOpt)
-      }
-      .map(
-        _.map(
-          templateId =>
+        }
+        .map(
+          _.map(templateId =>
             toContract(
               templateId = templateId,
               createArgument = createArgument,
-          )))
+            )
+          )
+        ),
+    )
 
-  override def lookupActiveContract(
-      submitter: Party,
-      contractId: ContractId,
-  )(implicit loggingContext: LoggingContext): Future[Option[Contract]] =
-    // Depending on whether the contract argument is cached or not, submit a different query to the database
-    translation.cache.contracts
-      .getIfPresent(LfValueTranslation.ContractCache.Key(contractId)) match {
-      case Some(createArgument) =>
-        lookupActiveContractWithCachedArgument(submitter, contractId, createArgument.argument)
-      case None =>
-        lookupActiveContractAndLoadArgument(submitter, contractId)
+  override def lookupKeyState(key: Key, validAt: Long)(implicit
+      loggingContext: LoggingContext
+  ): Future[KeyState] = {
+    val _ = (key, validAt)
+    Future.failed(NotSupportedError("lookupKeyState"))
+  }
 
-    }
-
-  override def lookupContractKey(
-      submitter: Party,
-      key: Key,
-  )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] =
-    dispatcher.executeSql(metrics.daml.index.db.lookupContractByKey) { implicit connection =>
-      lookupContractKeyQuery(submitter, key).as(contractId("contract_id").singleOpt)
-    }
-
-  override def lookupMaximumLedgerTime(ids: Set[ContractId])(
-      implicit loggingContext: LoggingContext,
-  ): Future[Option[Instant]] =
-    dispatcher
-      .executeSql(metrics.daml.index.db.lookupMaximumLedgerTimeDbMetrics) { implicit connection =>
-        committedContracts.lookupMaximumLedgerTime(ids)
-      }
-      .map(_.get)
-
+  override def lookupContractState(contractId: ContractId, before: Long)(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[ContractState]] = {
+    val _ = (contractId, before)
+    Future.failed(NotSupportedError("lookupContractState"))
+  }
 }
 
 private[dao] object ContractsReader {
+  private val contractsTable =
+    "participant_contracts pc JOIN participant_contract_witnesses pcw ON pcw.contract_id = pc.contract_id"
+  private val contractWithoutValueRowParser: RowParser[String] =
+    str("template_id")
+  private val contractRowParser: RowParser[(String, InputStream, Option[Int])] =
+    str("template_id") ~ binaryStream("create_argument") ~ int(
+      "create_argument_compression"
+    ).? map SqlParser.flatten
 
   private[dao] def apply(
       dispatcher: DbDispatcher,
       dbType: DbType,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
   )(implicit ec: ExecutionContext): ContractsReader = {
-    val table = ContractsTable(dbType)
-    dbType match {
-      case DbType.Postgres => new Postgresql(table, dispatcher, metrics, lfValueTranslationCache)
-      case DbType.H2Database => new H2Database(table, dispatcher, metrics, lfValueTranslationCache)
+    def sqlFunctions = dbType match {
+      case DbType.Postgres => PostgresSqlFunctions
+      case DbType.H2Database => H2SqlFunctions
+      case DbType.Oracle => OracleSqlFunctions
     }
+    new ContractsReader(
+      committedContracts = ContractsTable(dbType),
+      dispatcher = dispatcher,
+      metrics = metrics,
+      sqlFunctions = sqlFunctions,
+    )
   }
-
-  private final class Postgresql(
-      table: ContractsTable,
-      dispatcher: DbDispatcher,
-      metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
-  )(implicit ec: ExecutionContext)
-      extends ContractsReader(table, dispatcher, metrics, lfValueTranslationCache) {
-    override protected def lookupContractKeyQuery(
-        submitter: Party,
-        key: Key,
-    ): SimpleSql[Row] =
-      SQL"select participant_contracts.contract_id from #$contractsTable where $submitter =ANY(create_stakeholders) and contract_witness = $submitter and create_key_hash = ${key.hash}"
-  }
-
-  private final class H2Database(
-      table: ContractsTable,
-      dispatcher: DbDispatcher,
-      metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
-  )(implicit ec: ExecutionContext)
-      extends ContractsReader(table, dispatcher, metrics, lfValueTranslationCache) {
-    override protected def lookupContractKeyQuery(
-        submitter: Party,
-        key: Key,
-    ): SimpleSql[Row] =
-      SQL"select participant_contracts.contract_id from #$contractsTable where array_contains(create_stakeholders, $submitter) and contract_witness = $submitter and create_key_hash = ${key.hash}"
-  }
-
-  private val contractsTable = "participant_contracts natural join participant_contract_witnesses"
 
   // The contracts table _does not_ store agreement texts as they are
   // unnecessary for interpretation and validation. The contracts returned
@@ -169,19 +166,29 @@ private[dao] object ContractsReader {
       contractId: ContractId,
       templateId: String,
       createArgument: InputStream,
+      createArgumentCompression: Compression.Algorithm,
+      decompressionTimer: Timer,
       deserializationTimer: Timer,
-  ): Contract =
-    Contract(
-      template = Identifier.assertFromString(templateId),
-      arg = Timed.value(
+  ): Contract = {
+    val decompressed =
+      Timed.value(
+        timer = decompressionTimer,
+        value = createArgumentCompression.decompress(createArgument),
+      )
+    val deserialized =
+      Timed.value(
         timer = deserializationTimer,
         value = ValueSerializer.deserializeValue(
-          stream = createArgument,
+          stream = decompressed,
           errorContext = s"Failed to deserialize create argument for contract ${contractId.coid}",
         ),
-      ),
-      agreementText = ""
+      )
+    Contract(
+      template = Identifier.assertFromString(templateId),
+      arg = deserialized,
+      agreementText = "",
     )
+  }
 
   private def toContract(
       templateId: String,
@@ -190,6 +197,9 @@ private[dao] object ContractsReader {
     Contract(
       template = Identifier.assertFromString(templateId),
       arg = createArgument,
-      agreementText = ""
+      agreementText = "",
     )
+
+  case class NotSupportedError(methodName: String)
+      extends RuntimeException(s"Method $methodName not supported on the legacy index schema")
 }

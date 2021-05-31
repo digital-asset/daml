@@ -2,13 +2,13 @@
 
 Some notes on the files you find here.
 
-  - `daml.json` defines the syntax highlighting rules used before DAML
+  - `daml.json` defines the syntax highlighting rules used before Daml
     1.2 (`daml.configuration.json` in the parent directory
     configuration properties);
   - `daml12.tmLanguage.xml` defines the syntax highlight rules used
-    starting with DAML 1.2;
+    starting with Daml 1.2;
     - These rules are in fact general Haskell syntax highlighting
-      rules augmented with DAML specific keywords;
+      rules augmented with Daml specific keywords;
     - `daml12.tmLanguage.xml` was produced from the file
       `daml12.tmLanguage` by means of the VS-code extension,
       ["TextMate

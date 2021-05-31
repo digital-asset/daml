@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+# The usage of this script is documented in /release/RELEASE.md
 
 set -euo pipefail
 
@@ -83,6 +84,8 @@ $0 check
         Checks that each line of the LATEST file is well-formed.
 
 Any other invocation will display this help message.
+
+For further details, see the documentation in /release/RELEASE.md
 EOF
 }
 
@@ -93,7 +96,7 @@ fi
 
 commit_belongs_to_release_branch() {
     git branch --all --format='%(refname:short)' --contains="$1" \
-      | grep -q -E '^origin/(master$|release/)'
+      | grep -q -E '^origin/(main$|release/)'
 }
 
 new_snapshot () {

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services.reset
@@ -29,7 +29,7 @@ abstract class ResetServiceDatabaseIT extends ResetServiceITBase with SandboxFix
 
         val ignored = Set(
           "flyway_schema_history", // this is not touched by resets, it's used for migrations
-          "packages" // preserved by the reset to match the compiled packages still loaded in the engine
+          "packages", // preserved by the reset to match the compiled packages still loaded in the engine
         )
 
         for {
@@ -92,7 +92,7 @@ object ResetServiceDatabaseIT {
 
   // Very naive helper, supposed to be used exclusively for testing
   private def runQuery[A](dbInfoOwner: ResourceOwner[DbInfo])(
-      sql: DbType => Connection => A,
+      sql: DbType => Connection => A
   )(implicit resourceContext: ResourceContext): Future[A] = {
     val dbTypeAndConnection =
       for {
@@ -100,8 +100,8 @@ object ResetServiceDatabaseIT {
         _ <- ResourceOwner.forTry[Class[_]](() => Try(Class.forName(dbInfo.dbType.driver)))
         connection <- ResourceOwner.forCloseable(() => DriverManager.getConnection(dbInfo.jdbcUrl))
       } yield (dbInfo.dbType, connection)
-    dbTypeAndConnection.use {
-      case (dbType, connection) => Future.fromTry(Try(sql(dbType)(connection)))
+    dbTypeAndConnection.use { case (dbType, connection) =>
+      Future.fromTry(Try(sql(dbType)(connection)))
     }
   }
 
@@ -113,13 +113,17 @@ object ResetServiceDatabaseIT {
       case DbType.H2Database =>
         SQL"select table_name from information_schema.tables where table_schema <> 'INFORMATION_SCHEMA'"
           .as(str("table_name").*)(connection)
+      case DbType.Oracle =>
+        SQL"select * from USER_TABLES"
+          .as(str("table_name").*)(connection)
     }
 
   private def countRows(tableName: String)(connection: Connection): Int =
     SQL(s"select count(*) as no_rows from $tableName").as(int("no_rows").single)(connection)
 
-  private def countRowsOfAllTables(ignored: Set[String])(dbType: DbType)(
-      connection: Connection): Map[String, Int] =
+  private def countRowsOfAllTables(
+      ignored: Set[String]
+  )(dbType: DbType)(connection: Connection): Map[String, Int] =
     listTables(dbType)(connection).collect {
       case table if !ignored(table) => table.toLowerCase -> countRows(table)(connection)
     }.toMap

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.json
@@ -28,7 +28,10 @@ object HttpCodec {
           StatusCodes.BadRequest,
           ResponseFormats.errorsJsObject(
             StatusCodes.BadRequest,
-            s"JSON parser error: ${e.msg}" +: unfoldCauses(e.cause).map(_.description): _*)))
+            s"JSON parser error: ${e.msg}" +: unfoldCauses(e.cause).map(_.description): _*
+          ),
+        )
+      )
   }
 
   private[this] def unfoldCauses(t: Throwable): Seq[Throwable] =

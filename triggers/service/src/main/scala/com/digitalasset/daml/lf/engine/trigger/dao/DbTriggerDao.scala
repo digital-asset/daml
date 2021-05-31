@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger.dao
@@ -7,7 +7,6 @@ import java.util.UUID
 import java.util.concurrent.Executors.newWorkStealingPool
 
 import cats.effect.{Blocker, ContextShift, IO}
-import cats.syntax.apply._
 import cats.syntax.functor._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
@@ -17,13 +16,13 @@ import com.daml.lf.engine.trigger.{JdbcConfig, RunningTrigger}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
-import doobie.postgres.implicits._
 import doobie.util.{Get, log}
 import doobie.{Fragment, Put, Transactor}
 import scalaz.Tag
 import java.io.{Closeable, IOException}
 
-import com.daml.lf.engine.trigger.Tagged.{AccessToken, RefreshToken}
+import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
+import com.daml.doobie.logging.Slf4jLogHandler
 import javax.sql.DataSource
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,9 +34,10 @@ object Connection {
 
   private[dao] type T = Transactor.Aux[IO, _ <: DataSource with Closeable]
 
-  private[dao] def connect(c: JdbcConfig, poolSize: PoolSize)(
-      implicit ec: ExecutionContext,
-      cs: ContextShift[IO]): (DataSource with Closeable, T) = {
+  private[dao] def connect(c: JdbcConfig, poolSize: PoolSize)(implicit
+      ec: ExecutionContext,
+      cs: ContextShift[IO],
+  ): (DataSource with Closeable, T) = {
     val ds = dataSource(c, poolSize)
     (
       ds,
@@ -45,9 +45,9 @@ object Connection {
         .fromDataSource[IO](
           ds,
           connectEC = ec,
-          blocker = Blocker liftExecutorService newWorkStealingPool(poolSize))(
-          IO.ioConcurrentEffect(cs),
-          cs))
+          blocker = Blocker liftExecutorService newWorkStealingPool(poolSize),
+        )(IO.ioConcurrentEffect(cs), cs),
+    )
   }
 
   type PoolSize = Int
@@ -68,8 +68,14 @@ object Connection {
   }
 }
 
-final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Connection.T)
-    extends RunningTriggerDao {
+abstract class DbTriggerDao protected (
+    dataSource: DataSource with Closeable,
+    xa: Connection.T,
+    migrationsDir: String,
+) extends RunningTriggerDao {
+
+  protected implicit def uuidPut: Put[UUID]
+  protected implicit def uuidGet: Get[UUID]
 
   implicit val partyPut: Put[Party] = Tag.subst(implicitly[Put[String]])
 
@@ -92,9 +98,9 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
   implicit val identifierGet: Get[Identifier] =
     implicitly[Get[String]].map(Identifier.assertFromString(_))
 
-  private implicit val logHandler: log.LogHandler = log.LogHandler.jdkLogHandler
+  private implicit val logHandler: log.LogHandler = Slf4jLogHandler(classOf[DbTriggerDao])
 
-  private[this] val flywayMigrations = new DbFlywayMigrations(dataSource)
+  private[this] val flywayMigrations = new DbFlywayMigrations(dataSource, migrationsDir)
 
   private def createTables: ConnectionIO[Unit] =
     flywayMigrations.migrate()
@@ -130,7 +136,8 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
   private def setRunningTriggerToken(
       triggerInstance: UUID,
       accessToken: AccessToken,
-      refreshToken: Option[RefreshToken]) = {
+      refreshToken: Option[RefreshToken],
+  ) = {
     val update: Fragment =
       sql"""
         update running_triggers
@@ -159,14 +166,10 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   // Insert a package to the `dalfs` table. Do nothing if the package already exists.
   // We specify this in the `insert` since `packageId` is the primary key on the table.
-  private def insertPackage(
+  protected def insertPackage(
       packageId: PackageId,
-      pkg: DamlLf.ArchivePayload): ConnectionIO[Unit] = {
-    val insert: Fragment = sql"""
-      insert into dalfs values (${packageId.toString}, ${pkg.toByteArray}) on conflict do nothing
-    """
-    insert.update.run.void
-  }
+      pkg: DamlLf.ArchivePayload,
+  ): ConnectionIO[Unit]
 
   private def selectPackages: ConnectionIO[List[(String, Array[Byte])]] = {
     val select: Fragment = sql"select * from dalfs order by package_id"
@@ -175,7 +178,8 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   private def parsePackage(
       pkgIdString: String,
-      pkgPayload: Array[Byte]): Either[String, (PackageId, DamlLf.ArchivePayload)] =
+      pkgPayload: Array[Byte],
+  ): Either[String, (PackageId, DamlLf.ArchivePayload)] =
     for {
       pkgId <- PackageId.fromString(pkgIdString)
       cos = Reader.damlLfCodedInputStreamFromBytes(pkgPayload)
@@ -197,52 +201,51 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   // Drop all tables and other objects associated with the database.
   // Only used between tests for now.
-  private def dropTables: ConnectionIO[Unit] = {
-    val dropFlywayHistory: Fragment = sql"drop table flyway_schema_history"
-    val dropTriggerTable: Fragment = sql"drop table running_triggers"
-    val dropDalfTable: Fragment = sql"drop table dalfs"
-    (dropFlywayHistory.update.run
-      *> dropTriggerTable.update.run
-      *> dropDalfTable.update.run).void
-  }
+  private def dropTables: ConnectionIO[Unit] = flywayMigrations.clean()
 
   final class DatabaseError(errorContext: String, e: Throwable)
       extends RuntimeException(errorContext + "\n" + e.toString)
 
-  private def run[T](query: ConnectionIO[T], errorContext: String = "")(
-      implicit ec: ExecutionContext): Future[T] = {
-    query.transact(xa).unsafeToFuture.recoverWith {
-      case NonFatal(e) => Future.failed(new DatabaseError(errorContext, e))
+  private def run[T](query: ConnectionIO[T], errorContext: String = "")(implicit
+      ec: ExecutionContext
+  ): Future[T] = {
+    query.transact(xa).unsafeToFuture().recoverWith { case NonFatal(e) =>
+      Future.failed(new DatabaseError(errorContext, e))
     }
   }
 
   override def addRunningTrigger(t: RunningTrigger)(implicit ec: ExecutionContext): Future[Unit] =
     run(insertRunningTrigger(t))
 
-  override def getRunningTrigger(triggerInstance: UUID)(
-      implicit ec: ExecutionContext): Future[Option[RunningTrigger]] =
+  override def getRunningTrigger(triggerInstance: UUID)(implicit
+      ec: ExecutionContext
+  ): Future[Option[RunningTrigger]] =
     run(queryRunningTrigger(triggerInstance))
 
   override def updateRunningTriggerToken(
       triggerInstance: UUID,
       accessToken: AccessToken,
-      refreshToken: Option[RefreshToken])(implicit ec: ExecutionContext): Future[Unit] =
+      refreshToken: Option[RefreshToken],
+  )(implicit ec: ExecutionContext): Future[Unit] =
     run(setRunningTriggerToken(triggerInstance, accessToken, refreshToken))
 
-  override def removeRunningTrigger(triggerInstance: UUID)(
-      implicit ec: ExecutionContext): Future[Boolean] =
+  override def removeRunningTrigger(triggerInstance: UUID)(implicit
+      ec: ExecutionContext
+  ): Future[Boolean] =
     run(deleteRunningTrigger(triggerInstance))
 
-  override def listRunningTriggers(party: Party)(
-      implicit ec: ExecutionContext): Future[Vector[UUID]] = {
+  override def listRunningTriggers(
+      party: Party
+  )(implicit ec: ExecutionContext): Future[Vector[UUID]] = {
     // Note(RJR): Postgres' ordering of UUIDs is different to Scala/Java's.
     // We sort them after the query to be consistent with the ordering when not using a database.
     run(selectRunningTriggers(party)).map(_.sorted)
   }
 
   // Write packages to the `dalfs` table so we can recover state after a shutdown.
-  override def persistPackages(dar: Dar[(PackageId, DamlLf.ArchivePayload)])(
-      implicit ec: ExecutionContext): Future[Unit] = {
+  override def persistPackages(
+      dar: Dar[(PackageId, DamlLf.ArchivePayload)]
+  )(implicit ec: ExecutionContext): Future[Unit] = {
     import cats.implicits._ // needed for traverse
     val insertAll = dar.all.traverse_((insertPackage _).tupled)
     run(insertAll)
@@ -250,14 +253,14 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   class InvalidPackage(s: String) extends RuntimeException(s"Invalid package: $s")
 
-  def readPackages(
-      implicit ec: ExecutionContext): Future[List[(PackageId, DamlLf.ArchivePayload)]] = {
+  def readPackages(implicit
+      ec: ExecutionContext
+  ): Future[List[(PackageId, DamlLf.ArchivePayload)]] = {
     import cats.implicits._ // needed for traverse
     run(selectPackages, "Failed to read packages from database").flatMap(
-      _.traverse {
-        case (pkgId, pkg) =>
-          parsePackage(pkgId, pkg)
-            .fold(err => Future.failed(new InvalidPackage(err)), Future.successful(_))
+      _.traverse { case (pkgId, pkg) =>
+        parsePackage(pkgId, pkg)
+          .fold(err => Future.failed(new InvalidPackage(err)), Future.successful(_))
       }
     )
   }
@@ -276,19 +279,70 @@ final class DbTriggerDao private (dataSource: DataSource with Closeable, xa: Con
 
   @throws[IOException]
   override def close() =
-    destroyPermanently() fold ({
-      case e: IOException => throw e
-      case e => throw new IOException(e)
-    }, identity)
+    destroyPermanently().fold(
+      {
+        case e: IOException => throw e
+        case e => throw new IOException(e)
+      },
+      identity,
+    )
+}
+
+final class DbTriggerDaoPostgreSQL(dataSource: DataSource with Closeable, xa: Connection.T)
+    extends DbTriggerDao(dataSource, xa, "postgres") {
+  import doobie.postgres.implicits._
+
+  override val uuidPut: Put[UUID] = implicitly
+  override val uuidGet: Get[UUID] = implicitly
+
+  override def insertPackage(
+      packageId: PackageId,
+      pkg: DamlLf.ArchivePayload,
+  ): ConnectionIO[Unit] = {
+    val insert: Fragment = sql"""
+      insert into dalfs values (${packageId.toString}, ${pkg.toByteArray}) on conflict do nothing
+    """
+    insert.update.run.void
+  }
+}
+
+final class DbTriggerDaoOracle(dataSource: DataSource with Closeable, xa: Connection.T)
+    extends DbTriggerDao(dataSource, xa, "oracle") {
+  override val uuidPut: Put[UUID] = Put[String].contramap(_.toString)
+  override val uuidGet: Get[UUID] = Get[String].map(UUID.fromString(_))
+
+  override def insertPackage(
+      packageId: PackageId,
+      pkg: DamlLf.ArchivePayload,
+  ): ConnectionIO[Unit] = {
+    val insert: Fragment = sql"""
+      insert /*+  ignore_row_on_dupkey_index ( dalfs ( package_id ) ) */
+      into dalfs values (${packageId.toString}, ${pkg.toByteArray})
+    """
+    insert.update.run.void
+  }
 }
 
 object DbTriggerDao {
   import Connection.PoolSize, PoolSize.Production
 
-  def apply(c: JdbcConfig, poolSize: PoolSize = Production)(
-      implicit ec: ExecutionContext): DbTriggerDao = {
+  private val supportedJdbcDrivers
+      : Map[String, (DataSource with Closeable, Connection.T) => DbTriggerDao] = Map(
+    "org.postgresql.Driver" -> ((d, xa) => new DbTriggerDaoPostgreSQL(d, xa)),
+    "oracle.jdbc.OracleDriver" -> ((d, xa) => new DbTriggerDaoOracle(d, xa)),
+  )
+
+  def supportedJdbcDriverNames(available: Set[String]): Set[String] =
+    supportedJdbcDrivers.keySet intersect available
+
+  def apply(c: JdbcConfig, poolSize: PoolSize = Production)(implicit
+      ec: ExecutionContext
+  ): DbTriggerDao = {
     implicit val cs: ContextShift[IO] = IO.contextShift(ec)
     val (ds, conn) = Connection.connect(c, poolSize)
-    new DbTriggerDao(ds, conn)
+    val driver = supportedJdbcDrivers
+      .get(c.driver)
+      .getOrElse(throw new IllegalArgumentException(s"Unsupported JDBC driver ${c.driver}"))
+    driver(ds, conn)
   }
 }

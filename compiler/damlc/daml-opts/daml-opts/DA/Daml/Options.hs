@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
@@ -23,6 +23,7 @@ module DA.Daml.Options
     , dataDependableExtensions
     ) where
 
+import Control.Applicative ((<|>))
 import Control.Exception
 import Control.Exception.Safe (handleIO)
 import Control.Concurrent.Extra
@@ -31,7 +32,6 @@ import qualified CmdLineParser as Cmd (warnMsg)
 import Data.IORef
 import Data.List.Extra
 import Data.Maybe (fromMaybe, mapMaybe)
-import DynFlags (parseDynamicFilePragma)
 import qualified EnumSet as ES
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
@@ -67,7 +67,7 @@ toCompileOpts :: Options -> Ghcide.IdeReportProgress -> Ghcide.IdeOptions
 toCompileOpts options@Options{..} reportProgress =
     Ghcide.IdeOptions
       { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor dataDependableExtensions (optUnitId options)
-      , optGhcSession = getDamlGhcSession options
+      , optGhcSession = getDamlGhcSession
       , optPkgLocationOpts = Ghcide.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
@@ -117,8 +117,8 @@ damlKeywords =
   , "preconsuming", "postconsuming", "with", "choice", "template", "key", "maintainer"
   ]
 
-getDamlGhcSession :: Options -> Action (FilePath -> Action HscEnvEq)
-getDamlGhcSession _options@Options{..} = do
+getDamlGhcSession :: Action (FilePath -> Action HscEnvEq)
+getDamlGhcSession = do
     findProjectRoot <- liftIO $ memoIO findProjectRoot
     pure $ \file -> do
         mbRoot <- liftIO (findProjectRoot file)
@@ -270,6 +270,7 @@ xExtensionsSet =
   , PackageImports
     -- our changes
   , DamlSyntax
+  , OverloadedRecordUpdate
   ]
 
 -- | Extensions which we support with data-dependencies.
@@ -290,11 +291,19 @@ dataDependableExtensions = ES.fromList $ xExtensionsSet ++
     -- data-dependencies to work, except for putting them into the files used
     -- for reconstructing the interfaces, which we already do
   , TypeOperators, UndecidableInstances
+    -- TypeOperators implies ExplicitNamespaces, hence warning on the latter
+    -- would be silly
+  , ExplicitNamespaces
     -- there's no way for our users to actually use this and listing it here
     -- removes a lot of warning from out stdlib, script and trigger builds
     -- NOTE: This should not appear on any list of extensions that are
     -- compatible with data-dependencies since this would spur wrong hopes.
   , Cpp
+  , OverloadedRecordUpdate
+  , OverloadedLists
+    -- Pure syntactic sugar so no reason to disallow this. Note that
+    -- we always turn on RebindableSyntax so this does not rely
+    -- on the IsList typeclass which in turn uses a type family.
   ]
 
 -- | Language settings _disabled_ ($-XNo...$) in the DAML-1.2 compilation
@@ -353,8 +362,8 @@ wOptsUnset =
 
 newtype GhcVersionHeader = GhcVersionHeader FilePath
 
-adjustDynFlags :: Options -> GhcVersionHeader -> FilePath -> DynFlags -> DynFlags
-adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir dflags
+adjustDynFlags :: Options -> GhcVersionHeader -> FilePath -> Maybe FilePath -> DynFlags -> DynFlags
+adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir defaultCppPath dflags
   =
   -- Generally, the lexer's "haddock mode" is disabled (`Haddock
   -- False` is the default option. In this case, we run the lexer in
@@ -387,7 +396,7 @@ adjustDynFlags options@Options{..} (GhcVersionHeader versionHeader) tmpDir dflag
   where
     apply f xs d = foldl' f d xs
     alterSettings f d = d { settings = f (settings d) }
-    addCppFlags = case optCppPath of
+    addCppFlags = case optCppPath <|> defaultCppPath of
         Nothing -> id
         Just cppPath -> alterSettings $ \s -> s
             { sPgm_P = (cppPath, [])
@@ -430,7 +439,21 @@ setImports :: [FilePath] -> DynFlags -> DynFlags
 setImports paths dflags = dflags { importPaths = paths }
 
 locateGhcVersionHeader :: IO GhcVersionHeader
-locateGhcVersionHeader = GhcVersionHeader <$> locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
+locateGhcVersionHeader = GhcVersionHeader <$> do
+    resourcesDir <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
+    isDirectory <- doesDirectoryExist resourcesDir
+    let path | isDirectory = resourcesDir </> "ghcversion.h"
+             | otherwise = resourcesDir
+    pure path
+
+locateCppPath :: IO (Maybe FilePath)
+locateCppPath = do
+    resourcesDir <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "hpp")
+    isDirectory <- doesDirectoryExist resourcesDir
+    let path | isDirectory = resourcesDir </> "hpp"
+             | otherwise = resourcesDir
+    exists <- doesFileExist path
+    pure (guard exists >> Just path)
 
 -- | Configures the @DynFlags@ for this session to DAML-1.2
 --  compilation:
@@ -443,7 +466,8 @@ setupDamlGHC :: GhcMonad m => Maybe NormalizedFilePath -> Options -> m ()
 setupDamlGHC mbProjectRoot options@Options{..} = do
   tmpDir <- liftIO getTemporaryDirectory
   versionHeader <- liftIO locateGhcVersionHeader
-  modifyDynFlags $ adjustDynFlags options versionHeader tmpDir
+  defaultCppPath <- liftIO locateCppPath
+  modifyDynFlags $ adjustDynFlags options versionHeader tmpDir defaultCppPath
 
   unless (null optGhcCustomOpts) $ do
     damlDFlags <- getSessionDynFlags

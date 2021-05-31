@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 object Versions {
@@ -13,7 +13,7 @@ object Versions {
     .getOrElse(
       sdkVersionFromFile(new java.io.File("daml.yaml")).fold(
         error => { println(errorMsg); throw error },
-        identity
+        identity,
       )
     )
 
@@ -25,7 +25,8 @@ object Versions {
     import scala.util.Try
     for {
       str <- Try(sbt.IO.read(file)).toEither.left.map(e =>
-        ParsingFailure(s"Cannot read file: $file", e))
+        ParsingFailure(s"Cannot read file: $file", e)
+      )
       yaml <- parser.parse(str)
       version <- yaml.hcursor.downField("sdk-version").as[String]
     } yield version

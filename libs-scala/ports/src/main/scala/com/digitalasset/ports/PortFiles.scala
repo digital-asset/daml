@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ports
@@ -7,7 +7,7 @@ import java.nio.file.{Files, Path}
 
 import scalaz.{Show, \/}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object PortFiles {
   sealed abstract class Error extends Serializable with Product
@@ -23,17 +23,15 @@ object PortFiles {
     }
   }
 
-  /**
-    * Creates a port file and requests that the created file be deleted when the virtual machine terminates.
+  /** Creates a port file and requests that the created file be deleted when the virtual machine terminates.
     * See [[java.io.File#deleteOnExit()]].
     */
   def write(path: Path, port: Port): Error \/ Unit =
-    \/.fromTryCatchNonFatal {
-      writeUnsafe(path, port)
-    }.leftMap {
-      case _: java.nio.file.FileAlreadyExistsException => FileAlreadyExists(path)
-      case e => CannotWriteToFile(path, e.toString)
-    }
+    \/.attempt(writeUnsafe(path, port))(identity)
+      .leftMap {
+        case _: java.nio.file.FileAlreadyExistsException => FileAlreadyExists(path)
+        case e => CannotWriteToFile(path, e.toString)
+      }
 
   private def writeUnsafe(path: Path, port: Port): Unit = {
     val lines: java.lang.Iterable[String] = List(port.value.toString).asJava

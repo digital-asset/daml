@@ -1,41 +1,52 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
+load("//daml-lf/language:daml-lf.bzl", "lf_docs_version")
 load("//rules_daml:daml.bzl", "daml_doc_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools/packaging:packaging.bzl", "package_app")
+load("//bazel_tools/runfiles:defs.bzl", "add_data")
 load(":util.bzl", "ghc_pkg")
 
-da_haskell_binary(
-    name = "damlc",
-    srcs = ["exe/Main.hs"],
+damlc_data = [
+    "//compiler/damlc/daml-ide-core:dlint.yaml",
+    "@static_asset_d3plus//:js/d3.min.js",
+    "@static_asset_d3plus//:js/d3plus.min.js",
+    ghc_pkg,
+    "//compiler/damlc:ghcversion",
+    "//compiler/damlc:hpp",
+    "//compiler/damlc/pkg-db",
+    "//compiler/damlc/stable-packages",
+    "//compiler/repl-service/server:repl_service_jar",
+    "//compiler/scenario-service/server:scenario_service_jar",
+]
 
-    # We need to tell the linker to statically link pthread on Windows
-    # otherwise the library is not found at runtime.
-    compiler_flags = [
-        "-optl-static",
-        "-optl-pthread",
-    ] if is_windows else [],
+add_data(
+    name = "damlc-compile-only",
     data = [
-        "//compiler/damlc/daml-ide-core:dlint.yaml",
-        "@static_asset_d3plus//:js/d3.min.js",
-        "@static_asset_d3plus//:js/d3plus.min.js",
         ghc_pkg,
         "//compiler/damlc:ghcversion",
+        "//compiler/damlc:hpp",
         "//compiler/damlc/pkg-db",
-        "//compiler/damlc/stable-packages",
-        "//compiler/repl-service/server:repl_service_jar",
-        "//compiler/scenario-service/server:scenario_service_jar",
     ],
-    hackage_deps = [
-        "base",
-    ],
-    src_strip_prefix = "exe",
+    executable = ":damlc-bootstrap",
     visibility = ["//visibility:public"],
-    deps = [
-        ":damlc-lib",
-    ],
+)
+
+add_data(
+    name = "damlc",
+    data = damlc_data,
+    executable = ":damlc-bootstrap",
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_repl(
+    name = "damlc@ghci",
+    data = damlc_data,
+    repl_ghci_commands = [":m Main"],
+    visibility = ["//visibility:public"],
+    deps = [":damlc-bootstrap"],
 )
 
 genrule(
@@ -46,7 +57,18 @@ genrule(
         echo > $(OUTS)
     """,
     tools = [],
-    visibility = ["__pkg__"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "hpp-rule",
+    srcs = ["@stackage-exe//hpp"],
+    outs = ["hpp"],
+    cmd = """
+        cp $(location @stackage-exe//hpp) $(OUTS)
+    """,
+    tools = [],
+    visibility = ["//visibility:public"],
 )
 
 # damlc without runfiles. We use that to build the daml-prim and daml-stdlib
@@ -63,6 +85,7 @@ da_haskell_binary(
     ] if is_windows else [],
     data = [
         "//compiler/damlc:ghcversion",
+        "//compiler/damlc:hpp",
         "//compiler/damlc/stable-packages",
     ],
     hackage_deps = [
@@ -81,6 +104,8 @@ package_app(
     resources = [
         ":daml-base-anchors.json",
         ":ghc-pkg-dist",
+        "//compiler/damlc:ghcversion",
+        "//compiler/damlc:hpp",
         "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
@@ -100,7 +125,7 @@ package_app(
     # bin/ghc-pkg is actually a wrapper script on Unix systems so it is
     # important that we use lib/ghc-$VERSION/bin/ghc-pkg instead which is the
     # actual executable.
-    binary = "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.6.5/bin/ghc-pkg",
+    binary = "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.10.4/bin/ghc-pkg",
     visibility = ["//visibility:public"],
 )
 
@@ -108,30 +133,32 @@ da_haskell_library(
     name = "damlc-lib",
     srcs = glob(["lib/**/*.hs"]),
     extra_srcs = [
-        "//compiler/daml-licenses/licenses:licensing.md",
+        "//:NOTICES",
     ],
     hackage_deps = [
-        "data-default",
-        "aeson-pretty",
         "aeson",
+        "aeson-pretty",
         "ansi-wl-pprint",
         "base",
+        "base64",
+        "base64-bytestring",
         "bytestring",
         "containers",
         "cryptonite",
+        "data-default",
         "directory",
         "either",
         "extra",
         "file-embed",
         "filepath",
+        "ghcide",
         "ghc-lib",
         "ghc-lib-parser",
-        "ghcide",
         "gitrev",
         "haskell-lsp",
         "haskell-lsp-types",
-        "lens-aeson",
         "lens",
+        "lens-aeson",
         "memory",
         "mtl",
         "network",
@@ -143,20 +170,20 @@ da_haskell_library(
         "safe-exceptions",
         "shake",
         "split",
+        "tasty",
         "tasty-ant-xml",
         "tasty-hunit",
-        "tasty",
         "temporary",
         "text",
         "transformers",
+        "uniplate",
+        "unordered-containers",
         "utf8-string",
         "vector",
         "xml",
         "yaml",
         "zip",
         "zip-archive",
-        "unordered-containers",
-        "uniplate",
     ] + ([] if is_windows else ["unix"]),
     src_strip_prefix = "lib",
     visibility = ["//visibility:public"],
@@ -179,13 +206,14 @@ da_haskell_library(
         "//compiler/scenario-service/client",
         "//compiler/scenario-service/protos:scenario_service_haskell_proto",
         "//daml-assistant:daml-project-config",
+        "//daml-assistant/daml-helper:daml-helper-lib",
         "//daml-lf/archive:daml_lf_dev_archive_haskell_proto",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )
 
-# Generating DAML stdlib docs.
+# Generating Daml stdlib docs.
 
 filegroup(
     name = "daml-base-hoogle-template",
@@ -220,12 +248,11 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-prim \
             --format=Json \
-            --cpp $(location @stackage-exe//hpp) \
+            --target={} \
             $(locations //compiler/damlc/daml-prim-src)
-    """,
+    """.format(lf_docs_version),
     tools = [
         "//compiler/damlc",
-        "@stackage-exe//hpp",
     ],
     visibility = ["//visibility:public"],
 )
@@ -239,12 +266,11 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-stdlib \
             --format=Json \
-            --cpp $(location @stackage-exe//hpp) \
+            --target={} \
             $(locations //compiler/damlc/daml-stdlib-src)
-    """,
+    """.format(lf_docs_version),
     tools = [
         "//compiler/damlc",
-        "@stackage-exe//hpp",
     ],
     visibility = ["//visibility:public"],
 )
@@ -276,9 +302,10 @@ genrule(
             --base-url=https://docs.daml.com/daml/stdlib \\
             --output-hoogle=$(location :daml-base-hoogle.txt) \\
             --output-anchor=$(location :daml-base-anchors.json) \\
+            --target={} \\
             $(location :daml-stdlib.json) $(location :daml-prim.json)
         $(execpath //bazel_tools/sh:mktgz) $(location :daml-base-rst.tar.gz) daml-base-rst
-    """,
+    """.format(lf_docs_version),
     tools = [
         "//bazel_tools/sh:mktgz",
         "//compiler/damlc",
@@ -293,6 +320,7 @@ daml_doc_test(
     flags = ["--no-dflags-check"],
     ignored_srcs = [
         "LibraryModules.daml",
+        "DA/Experimental/Example.daml",
         "DA/Time/Types.daml",
     ],
 )

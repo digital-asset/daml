@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.oauth2.api
@@ -22,13 +22,15 @@ object Request {
       redirectUri: Uri, // optional in oauth but we require it
       scope: Option[String],
       state: Option[String],
-      audience: Option[Uri]) { // required by auth0 to obtain an access_token
+      audience: Option[Uri],
+  ) { // required by auth0 to obtain an access_token
     def toQuery: Query = {
       var params: Seq[(String, String)] =
         Seq(
           ("response_type", responseType),
           ("client_id", clientId),
-          ("redirect_uri", redirectUri.toString))
+          ("redirect_uri", redirectUri.toString),
+        )
       scope.foreach { scope =>
         params ++= Seq(("scope", scope))
       }
@@ -48,7 +50,8 @@ object Request {
       code: String,
       redirectUri: Uri,
       clientId: String,
-      clientSecret: String)
+      clientSecret: String,
+  )
 
   object Token {
     implicit val marshalRequestEntity: Marshaller[Token, RequestEntity] =
@@ -78,7 +81,8 @@ object Request {
       grantType: String,
       refreshToken: String,
       clientId: String,
-      clientSecret: String)
+      clientSecret: String,
+  )
 
   object Refresh {
     implicit val marshalRequestEntity: Marshaller[Refresh, RequestEntity] =
@@ -118,7 +122,8 @@ object Response {
       error: String,
       errorDescription: Option[String],
       errorUri: Option[Uri],
-      state: Option[String]) {
+      state: Option[String],
+  ) {
     def toQuery: Query = {
       var params: Seq[(String, String)] = Seq("error" -> error)
       errorDescription.foreach(x => params ++= Seq("error_description" -> x))
@@ -134,7 +139,8 @@ object Response {
       tokenType: String,
       expiresIn: Option[Int],
       refreshToken: Option[String],
-      scope: Option[String]) {
+      scope: Option[String],
+  ) {
     def toCookieValue: String = {
       import JsonProtocol._
       Base64.getUrlEncoder().encodeToString(this.toJson.compactPrint.getBytes)
@@ -162,12 +168,23 @@ object JsonProtocol extends DefaultJsonProtocol {
     }
     def write(uri: Uri) = JsString(uri.toString)
   }
-  implicit val tokenRespFormat: RootJsonFormat[Response.Token] =
+  implicit val tokenRespFormat: RootJsonFormat[Response.Token] = {
     jsonFormat(
       Response.Token.apply,
       "access_token",
       "token_type",
       "expires_in",
       "refresh_token",
-      "scope")
+      "scope",
+    )
+  }
+  implicit val errorRespFormat: RootJsonFormat[Response.Error] = {
+    jsonFormat(
+      Response.Error.apply,
+      "error",
+      "error_description",
+      "error_uri",
+      "state",
+    )
+  }
 }

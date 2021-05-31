@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store
@@ -19,10 +19,10 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.CommandDeduplicationResult
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, ContractStore}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
@@ -44,6 +44,7 @@ import scala.util.Try
 private[platform] abstract class BaseLedger(
     val ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
+    contractStore: ContractStore,
     dispatcher: Dispatcher[Offset],
 ) extends ReadOnlyLedger {
 
@@ -51,10 +52,10 @@ private[platform] abstract class BaseLedger(
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
-  override def lookupKey(key: GlobalKey, forParty: Party)(
-      implicit loggingContext: LoggingContext,
+  override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
+      loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
-    ledgerDao.lookupKey(key, forParty)
+    contractStore.lookupContractKey(forParties, key)
 
   override def flatTransactions(
       startExclusive: Option[Offset],
@@ -65,7 +66,7 @@ private[platform] abstract class BaseLedger(
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(ledgerDao.transactionsReader.getFlatTransactions(_, _, filter, verbose)),
-      endInclusive
+      endInclusive,
     )
 
   override def transactionTrees(
@@ -73,13 +74,15 @@ private[platform] abstract class BaseLedger(
       endInclusive: Option[Offset],
       requestingParties: Set[Party],
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext)
-    : Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(
-        ledgerDao.transactionsReader.getTransactionTrees(_, _, requestingParties, verbose)),
-      endInclusive
+        ledgerDao.transactionsReader.getTransactionTrees(_, _, requestingParties, verbose)
+      ),
+      endInclusive,
     )
 
   override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset = dispatcher.getHead()
@@ -93,24 +96,26 @@ private[platform] abstract class BaseLedger(
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId.unwrap, parties)),
-      endInclusive
+      endInclusive,
     )
 
   override def activeContracts(
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext)
-    : (Source[GetActiveContractsResponse, NotUsed], Offset) = {
+  )(implicit
+      loggingContext: LoggingContext
+  ): (Source[GetActiveContractsResponse, NotUsed], Offset) = {
     val activeAt = ledgerEnd()
     (ledgerDao.transactionsReader.getActiveContracts(activeAt, filter, verbose), activeAt)
   }
 
   override def lookupContract(
       contractId: ContractId,
-      forParty: Party
-  )(implicit loggingContext: LoggingContext)
-    : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
-    ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty)
+      forParties: Set[Party],
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
+    contractStore.lookupActiveContract(forParties, contractId)
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,
@@ -125,55 +130,56 @@ private[platform] abstract class BaseLedger(
     ledgerDao.transactionsReader.lookupTransactionTreeById(transactionId, requestingParties)
 
   override def lookupMaximumLedgerTime(
-      contractIds: Set[ContractId],
+      contractIds: Set[ContractId]
   )(implicit loggingContext: LoggingContext): Future[Option[Instant]] =
-    ledgerDao.lookupMaximumLedgerTime(contractIds)
+    contractStore.lookupMaximumLedgerTime(contractIds)
 
-  override def getParties(parties: Seq[Party])(
-      implicit loggingContext: LoggingContext,
+  override def getParties(parties: Seq[Party])(implicit
+      loggingContext: LoggingContext
   ): Future[List[domain.PartyDetails]] =
     ledgerDao.getParties(parties)
 
-  override def listKnownParties()(
-      implicit loggingContext: LoggingContext,
+  override def listKnownParties()(implicit
+      loggingContext: LoggingContext
   ): Future[List[domain.PartyDetails]] =
     ledgerDao.listKnownParties()
 
-  override def partyEntries(startExclusive: Offset)(
-      implicit loggingContext: LoggingContext,
+  override def partyEntries(startExclusive: Offset)(implicit
+      loggingContext: LoggingContext
   ): Source[(Offset, PartyLedgerEntry), NotUsed] =
     dispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getPartyEntries))
 
-  override def listLfPackages()(
-      implicit loggingContext: LoggingContext,
+  override def listLfPackages()(implicit
+      loggingContext: LoggingContext
   ): Future[Map[PackageId, v2.PackageDetails]] =
-    ledgerDao.listLfPackages
+    ledgerDao.listLfPackages()
 
-  override def getLfArchive(packageId: PackageId)(
-      implicit loggingContext: LoggingContext,
+  override def getLfArchive(packageId: PackageId)(implicit
+      loggingContext: LoggingContext
   ): Future[Option[DamlLf.Archive]] =
     ledgerDao.getLfArchive(packageId)
 
-  override def getLfPackage(packageId: PackageId)(
-      implicit loggingContext: LoggingContext,
+  override def getLfPackage(packageId: PackageId)(implicit
+      loggingContext: LoggingContext
   ): Future[Option[Ast.Package]] =
     ledgerDao
       .getLfArchive(packageId)
       .flatMap(archiveO =>
-        Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2))))(DEC)
+        Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2)))
+      )(DEC)
 
-  override def packageEntries(startExclusive: Offset)(
-      implicit loggingContext: LoggingContext,
+  override def packageEntries(startExclusive: Offset)(implicit
+      loggingContext: LoggingContext
   ): Source[(Offset, PackageLedgerEntry), NotUsed] =
     dispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getPackageEntries))
 
-  override def lookupLedgerConfiguration()(
-      implicit loggingContext: LoggingContext,
+  override def lookupLedgerConfiguration()(implicit
+      loggingContext: LoggingContext
   ): Future[Option[(Offset, Configuration)]] =
     ledgerDao.lookupLedgerConfiguration()
 
-  override def configurationEntries(startExclusive: Offset)(
-      implicit loggingContext: LoggingContext,
+  override def configurationEntries(startExclusive: Offset)(implicit
+      loggingContext: LoggingContext
   ): Source[(Offset, ConfigurationEntry), NotUsed] =
     dispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getConfigurationEntries))
 
@@ -185,18 +191,19 @@ private[platform] abstract class BaseLedger(
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
     ledgerDao.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil)
 
-  override def removeExpiredDeduplicationData(currentTime: Instant)(
-      implicit loggingContext: LoggingContext,
+  override def removeExpiredDeduplicationData(currentTime: Instant)(implicit
+      loggingContext: LoggingContext
   ): Future[Unit] =
     ledgerDao.removeExpiredDeduplicationData(currentTime)
 
-  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Party])(
-      implicit loggingContext: LoggingContext,
+  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Party])(implicit
+      loggingContext: LoggingContext
   ): Future[Unit] =
     ledgerDao.stopDeduplicatingCommand(commandId, submitters)
 
-  override def prune(pruneUpToInclusive: Offset)(
-      implicit loggingContext: LoggingContext): Future[Unit] =
+  override def prune(pruneUpToInclusive: Offset)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] =
     ledgerDao.prune(pruneUpToInclusive)
 
   override def close(): Unit = ()

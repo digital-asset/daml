@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.jwt
@@ -13,8 +13,7 @@ import com.google.common.cache.{Cache, CacheBuilder}
 import scalaz.{-\/, Show, \/}
 import scalaz.syntax.show._
 
-/**
-  * A JWK verifier, where the public keys are automatically fetched from the given JWKS URL.
+/** A JWK verifier, where the public keys are automatically fetched from the given JWKS URL.
   *
   * In JWKS, each key ID uniquely identifies a public key.
   * The keys are kept in cache, in order to prevent having to do a remove network access for each token validation.
@@ -44,8 +43,8 @@ class JwksVerifier(
   private[this] val http =
     new UrlJwkProvider(
       url,
-      new Integer(connectionTimeoutUnit.toMillis(connectionTimeout).toInt),
-      new Integer(readTimeoutUnit.toMillis(readTimeout).toInt),
+      Integer.valueOf(connectionTimeoutUnit.toMillis(connectionTimeout).toInt),
+      Integer.valueOf(readTimeoutUnit.toMillis(readTimeout).toInt),
     )
 
   private[this] val cache: Cache[String, JwtVerifier] = CacheBuilder
@@ -61,20 +60,21 @@ class JwksVerifier(
   }
 
   /** Looks up the verifier for the given keyId from the local cache.
-    * On a cache miss, creates a new verifier by fetching the public key from the JWKS URL. */
+    * On a cache miss, creates a new verifier by fetching the public key from the JWKS URL.
+    */
   private[this] def getCachedVerifier(keyId: String): Error \/ JwtVerifier = {
     if (keyId == null)
-      -\/(Error('getCachedVerifier, "No Key ID found"))
+      -\/(Error(Symbol("getCachedVerifier"), "No Key ID found"))
     else
       \/.fromTryCatchNonFatal(
         cache.get(keyId, () => getVerifier(keyId).fold(e => sys.error(e.shows), x => x))
-      ).leftMap(e => Error('getCachedVerifier, e.getMessage))
+      ).leftMap(e => Error(Symbol("getCachedVerifier"), e.getMessage))
   }
 
   def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String] = {
     for {
       keyId <- \/.fromTryCatchNonFatal(com.auth0.jwt.JWT.decode(jwt.value).getKeyId)
-        .leftMap(e => Error('verify, e.getMessage))
+        .leftMap(e => Error(Symbol("verify"), e.getMessage))
       verifier <- getCachedVerifier(keyId)
       decoded <- verifier.verify(jwt)
     } yield decoded

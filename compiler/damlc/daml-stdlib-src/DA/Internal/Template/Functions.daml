@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -10,7 +10,7 @@
 -- which provides functions and typeclasses.
 -- DA.Internal.Template ends up in its own module with
 -- a fixed package id so that the hash of the types does not change.
--- | MOVE Prelude DAML-LF primitives, just templates/contracts
+-- | MOVE Prelude Daml-LF primitives, just templates/contracts
 module DA.Internal.Template.Functions where
 
 #ifdef DAML_ANY_TYPE
@@ -75,19 +75,19 @@ class HasArchive t where
   -- | Archive the contract with the given contract ID.
   archive : ContractId t -> Update ()
 
--- | Exposes `templateTypeRep` function in DAML-LF 1.7 or later.
+-- | Exposes `templateTypeRep` function in Daml-LF 1.7 or later.
 -- Part of the `Template` constraint.
 class HasTemplateTypeRep t where
   -- | HIDE
   _templateTypeRep : proxy t -> TypeRep
 
--- | Exposes `toAnyTemplate` function in DAML-LF 1.7 or later.
+-- | Exposes `toAnyTemplate` function in Daml-LF 1.7 or later.
 -- Part of the `Template` constraint.
 class HasToAnyTemplate t where
   -- | HIDE
   _toAnyTemplate : t -> Any
 
--- | Exposes `fromAnyTemplate` function in DAML-LF 1.7 or later.
+-- | Exposes `fromAnyTemplate` function in Daml-LF 1.7 or later.
 -- Part of the `Template` constraint.
 class HasFromAnyTemplate t where
   -- | HIDE
@@ -110,13 +110,13 @@ class HasExercise t c r | t c -> r where
   -- | Exercise a choice on the contract with the given contract ID.
   exercise : ContractId t -> c -> Update r
 
--- | Exposes `toAnyChoice` function for DAML-LF 1.7 or later.
+-- | Exposes `toAnyChoice` function for Daml-LF 1.7 or later.
 -- Part of the `Choice` constraint.
 class HasToAnyChoice t c r | t c -> r where
   -- | HIDE
   _toAnyChoice : proxy t -> c -> Any
 
--- | Exposes `fromAnyChoice` function for DAML-LF 1.7 or later.
+-- | Exposes `fromAnyChoice` function for Daml-LF 1.7 or later.
 -- Part of the `Choice` constraint.
 class HasFromAnyChoice t c r | t c -> r where
   -- | HIDE
@@ -178,13 +178,13 @@ class HasMaintainer t k | t -> k where
 maintainer : forall t k. HasMaintainer t k => k -> [Party]
 maintainer = _maintainer ([] : [t])
 
--- | Exposes `toAnyContractKey` function in DAML-LF 1.7 or later.
+-- | Exposes `toAnyContractKey` function in Daml-LF 1.7 or later.
 -- Part of the `TemplateKey` constraint.
 class HasToAnyContractKey t k | t -> k where
   -- | HIDE
   _toAnyContractKey : proxy t -> k -> Any
 
--- | Exposes `fromAnyContractKey` function in DAML-LF 1.7 or later.
+-- | Exposes `fromAnyContractKey` function in Daml-LF 1.7 or later.
 -- Part of the `TemplateKey` constraint.
 class HasFromAnyContractKey t k | t -> k where
   -- | HIDE
@@ -224,24 +224,23 @@ instance IsParties (Optional Party) where
 
 #ifdef DAML_GENERIC_COMPARISON && DAML_ANY_TYPE
 
--- We do not have a general Eq instance for Any since Any is not exposed
--- to users directly and that instance will crash on some values but
--- we can have total Eq instances for AnyTemplate, AnyChoice and AnyContractKey
--- since those are guaranteed to be serializable.
-eqAny : Any -> Any -> Bool
-eqAny = primitive @"BEEqual"
-
 instance Eq AnyTemplate where
-  AnyTemplate a == AnyTemplate b = eqAny a b
+  (==) = primitive @"BEEqual"
 
 instance Eq AnyChoice where
-  AnyChoice aAny aRep == AnyChoice bAny bRep =
-    eqAny aAny bAny && aRep == bRep
+  (==) = primitive @"BEEqual"
 
 instance Eq AnyContractKey where
-  AnyContractKey aAny aRep == AnyContractKey bAny bRep =
-    eqAny aAny bAny && aRep == bRep
+  (==) = primitive @"BEEqual"
 
+instance Ord AnyTemplate where
+  (<=) = primitive @"BELessEq"
+
+instance Ord AnyChoice where
+  (<=) = primitive @"BELessEq"
+
+instance Ord AnyContractKey where
+  (<=) = primitive @"BELessEq"
 #endif
 
 #ifdef DAML_TYPE_REP
@@ -261,14 +260,14 @@ deriving instance Ord TemplateTypeRep
 
 -- | Wrap the template in `AnyTemplate`.
 --
--- Only available for DAML-LF 1.7 or later.
+-- Only available for Daml-LF 1.7 or later.
 toAnyTemplate : HasToAnyTemplate t => t -> AnyTemplate
 toAnyTemplate x = AnyTemplate (_toAnyTemplate x)
 
 -- | Extract the underlying template from `AnyTemplate` if the type matches
 -- or return `None`.
 --
--- Only available for DAML-LF 1.7 or later.
+-- Only available for Daml-LF 1.7 or later.
 fromAnyTemplate : HasFromAnyTemplate t => AnyTemplate -> Optional t
 fromAnyTemplate (AnyTemplate x) = _fromAnyTemplate x
 
@@ -277,7 +276,7 @@ fromAnyTemplate (AnyTemplate x) = _fromAnyTemplate x
 -- You must pass the template type `t` using an explicit type application.
 -- For example `toAnyChoice @Account Withdraw`.
 --
--- Only available for DAML-LF 1.7 or later.
+-- Only available for Daml-LF 1.7 or later.
 toAnyChoice : forall t c r. (HasTemplateTypeRep t, HasToAnyChoice t c r) => c -> AnyChoice
 toAnyChoice c =
   AnyChoice
@@ -290,7 +289,7 @@ toAnyChoice c =
 -- You must pass the template type `t` using an explicit type application.
 -- For example `fromAnyChoice @Account choice`.
 --
--- Only available for DAML-LF 1.7 or later.
+-- Only available for Daml-LF 1.7 or later.
 fromAnyChoice : forall t c r. (HasTemplateTypeRep t, HasFromAnyChoice t c r) => AnyChoice -> Optional c
 fromAnyChoice (AnyChoice any typeRep)
   | Some c <- _fromAnyChoice ([] : [t]) any
@@ -302,7 +301,7 @@ fromAnyChoice (AnyChoice any typeRep)
 -- You must pass the template type `t` using an explicit type application.
 -- For example `toAnyContractKey @Proposal k`.
 --
--- Only available for DAML-LF 1.7 or later.
+-- Only available for Daml-LF 1.7 or later.
 toAnyContractKey : forall t k. (HasTemplateTypeRep t, HasToAnyContractKey t k) => k -> AnyContractKey
 toAnyContractKey k =
   AnyContractKey
@@ -315,7 +314,7 @@ toAnyContractKey k =
 -- You must pass the template type `t` using an explicit type application.
 -- For example `fromAnyContractKey @Proposal k`.
 --
--- Only available for DAML-LF 1.7 or later.
+-- Only available for Daml-LF 1.7 or later.
 fromAnyContractKey : forall t k. (HasTemplateTypeRep t, HasFromAnyContractKey t k) => AnyContractKey -> Optional k
 fromAnyContractKey (AnyContractKey any rep)
   | Some k <- _fromAnyContractKey ([] : [t]) any

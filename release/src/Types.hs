@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ConstraintKinds  #-}
@@ -13,6 +13,8 @@ module Types (
     MavenCoords(..),
     MavenUploadConfig(..),
     MonadCI,
+    IncludeDocs(..),
+    IncludeTypescript(..),
     OS(..),
     PerformUpload(..),
     (#),
@@ -108,6 +110,12 @@ type GitRev = Text
 newtype PerformUpload = PerformUpload{getPerformUpload :: Bool}
     deriving (Eq, Show)
 
+-- | Whether documentation should be included as well.
+-- This is useful to disable if you run this via daml-sdk-head where you often
+-- don’t care about documentation.
+newtype IncludeDocs = IncludeDocs{includeDocs :: Bool}
+    deriving (Eq, Show)
+
 newtype MavenAllowUnsecureTls = MavenAllowUnsecureTls { getAllowUnsecureTls :: Bool }
     deriving (Eq, Show, FromJSON)
 
@@ -128,3 +136,7 @@ instance FromJSON MavenUploadConfig where
         <*> o .: "password"
         <*> (fromMaybe (MavenAllowUnsecureTls False) <$> o .:? "allowUnsecureTls")
         <*> o .: "signingKey"
+
+-- | Whether typescript packages should also be built and uploaded.
+newtype IncludeTypescript = IncludeTypescript { getIncludeTypescript :: Bool}
+  deriving (Eq, Show)

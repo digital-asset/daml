@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
@@ -20,6 +20,8 @@ module DA.Service.Logger.Impl.GCP
     , GCPState(..)
     , initialiseGcpState
     , setOptIn
+    , isOptedIn
+    , isOptedOut
     , logOptOut
     , logIgnored
     , logMetaData
@@ -45,6 +47,7 @@ import System.FilePath
 import System.Info
 import System.Timeout
 import System.Random
+import System.IO.Extra
 import qualified DA.Service.Logger as Lgr
 import qualified DA.Service.Logger.Impl.Pure as Lgr.Pure
 import DA.Daml.Project.Consts
@@ -53,7 +56,6 @@ import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString as BS
 import Data.String
-import Control.Applicative
 import Data.Time as Time
 import Data.UUID (UUID)
 import qualified Data.UUID as UUID
@@ -75,6 +77,7 @@ newtype GCPTag = GCPTag { unGCPTag :: String }
 -- | Configuration for setting up GCP logger.
 data GCPConfig = GCPConfig
     { gcpConfigTag :: GCPTag
+    , gcpConfigCachePath :: Maybe FilePath
     , gcpConfigDamlPath :: Maybe FilePath
     }
 
@@ -86,7 +89,7 @@ data GCPState = GCPState
     -- has been sent successfully.
     , gcpSessionID :: UUID
     -- ^ Identifier for the current session
-    , gcpDamlDir :: FilePath
+    , gcpCacheDir :: FilePath
     -- ^ Directory where we store various files such as the amount of
     -- data sent so far.
     , gcpSentDataFileLock :: Lock
@@ -119,16 +122,16 @@ requestTimeout = 5_000_000
 
 sentDataFile :: GCPState -> FilePath
 sentDataFile GCPState{..} =
-    gcpDamlDir </> (".sent_data_" <> unGCPTag gcpTag)
+    gcpCacheDir </> (".sent_data_" <> unGCPTag gcpTag)
 
 machineIDFile :: GCPState -> FilePath
-machineIDFile GCPState{gcpDamlDir} = gcpDamlDir </> ".machine_id"
+machineIDFile GCPState{gcpCacheDir} = gcpCacheDir </> ".machine_id"
 
 optedOutFile :: GCPState -> FilePath
-optedOutFile GCPState{gcpDamlDir} = gcpDamlDir </> ".opted_out"
+optedOutFile GCPState{gcpCacheDir} = gcpCacheDir </> ".opted_out"
 
 optedInFile :: GCPState -> FilePath
-optedInFile GCPState{gcpDamlDir} = gcpDamlDir </> ".opted_in"
+optedInFile GCPState{gcpCacheDir} = gcpCacheDir </> ".opted_in"
 
 noSentData :: IO SentData
 noSentData = SentData <$> today <*> pure (SentBytes 0)
@@ -158,14 +161,27 @@ validateSentData = \case
       then pure sentData
       else noSentData
 
-initialiseGcpState :: GCPConfig -> Lgr.Handle IO -> IO GCPState
-initialiseGcpState GCPConfig{..} gcpFallbackLogger = do
+initialiseGcpState :: GCPConfig -> Lgr.Handle IO -> IO (Maybe GCPState)
+initialiseGcpState GCPConfig {..} gcpFallbackLogger = do
+    gcpCacheDirM <- getCacheDir gcpConfigCachePath
+    -- copy machine_id file to cache directory to preserve statistics.
+    let damlPathAndCachePathM = do
+            cachePath <- gcpCacheDirM
+            damlPath <- gcpConfigDamlPath
+            Just (cachePath, damlPath)
+    forM_ damlPathAndCachePathM $ \(cachePath, damlPath) -> do
+        let machineIdPath = damlPath </> ".machine_id"
+        let newMachineIdPath = cachePath </> ".machine_id"
+        hasMachineId <- doesFileExist machineIdPath
+        hasNewMachineId <- doesFileExist newMachineIdPath
+        when (hasMachineId && not hasNewMachineId) $ do
+          copyFile machineIdPath newMachineIdPath
+          removeFile machineIdPath
     gcpLogChan <- newTChanIO
     gcpSessionID <- randomIO
-    gcpDamlDir <- getDamlDir gcpConfigDamlPath
     gcpSentDataFileLock <- newLock
     let gcpTag = gcpConfigTag
-    pure GCPState {..}
+    pure $ fmap (\gcpCacheDir -> GCPState {..}) gcpCacheDirM
 
 -- | Read everything from the chan that you can within a single transaction.
 drainChan :: TChan a -> IO [a]
@@ -178,25 +194,28 @@ withGcpLogger
     :: GCPConfig
     -> (Lgr.Priority -> Bool) -- ^ if this is true log to GCP
     -> Lgr.Handle IO
-    -> (GCPState -> Lgr.Handle IO -> IO a)
+    -> (Maybe GCPState -> Lgr.Handle IO -> IO a)
     -- ^ We give access to both the GCPState as well as the modified logger
     -- since the GCPState can be useful to bypass the message filter, e.g.,
     -- for metadata messages which have info prio.
     -> IO a
 withGcpLogger config p hnd f = do
-    gcpState <- initialiseGcpState config hnd
-    let logger = hnd
-            { Lgr.logJson = newLogJson gcpState
-            }
-    let worker = forever $ mask_ $ do
-            -- We mask to avoid messages getting lost.
-            entry <- atomically (readTChan (gcpLogChan gcpState))
-            sendLogs gcpState [entry]
-    (withAsync worker $ \_ -> do
-        f gcpState logger) `finally` do
-        logs <- drainChan (gcpLogChan gcpState)
-        sendLogs gcpState logs
-        Lgr.logJson hnd Lgr.Info ("Flushed " <> show (length logs) <> " logs")
+    gcpStateM <- initialiseGcpState config hnd
+    case gcpStateM of
+      Just gcpState -> do
+            let logger = hnd
+                    { Lgr.logJson = newLogJson gcpState
+                    }
+            let worker = forever $ mask_ $ do
+                    -- We mask to avoid messages getting lost.
+                    entry <- atomically (readTChan (gcpLogChan gcpState))
+                    sendLogs gcpState [entry]
+            (withAsync worker $ \_ -> do
+                f (Just gcpState) logger) `finally` do
+                logs <- drainChan (gcpLogChan gcpState)
+                sendLogs gcpState logs
+                Lgr.logJson hnd Lgr.Info ("Flushed " <> show (length logs) <> " logs")
+      Nothing -> f Nothing hnd
   where
       newLogJson ::
           HasCallStack =>
@@ -364,6 +383,12 @@ setOptIn gcp = do
     writeFile fpIn ""
     removePathForcibly fpOut
 
+isOptedIn :: FilePath -> IO Bool
+isOptedIn cache = doesPathExist $ cache </> ".opted_in"
+
+isOptedOut :: FilePath -> IO Bool
+isOptedOut cache = doesPathExist $ cache </> ".opted_out"
+
 -- | If it hasn't already been done log that the user has opted out of telemetry.
 logOptOut :: GCPState -> IO ()
 logOptOut gcp = do
@@ -399,17 +424,21 @@ today = Time.utctDay <$> getCurrentTime
 maxDataPerDay :: SentBytes
 maxDataPerDay = SentBytes (8 * 2 ^ (20 :: Int))
 
--- | The DAML home folder, getting this ensures the folder exists
-getDamlDir :: Maybe FilePath -> IO FilePath
-getDamlDir damlPathM = do
-    dh <- lookupEnv damlPathEnvVar
-    dir <- case damlPathM <|> dh of
-        Nothing -> fallback
-        Just "" -> fallback
-        Just var -> pure var
-    createDirectoryIfMissing True dir
-    pure dir
-    where fallback = getAppUserDataDirectory "daml"
+-- | Get the cache folder. Returns Nothing if the cache folder is not writable or not available.
+getCacheDir :: Maybe FilePath -> IO (Maybe FilePath)
+getCacheDir cachePathM =
+    case cachePathM of
+        Nothing -> pure Nothing
+        Just cachePath -> do
+            errOrVoid <- tryIO $ createDirectoryIfMissing True cachePath
+            case errOrVoid of
+                Left _err -> pure Nothing
+                Right () -> do
+                    perms <- getPermissions cachePath
+                    pure $
+                        if writable perms
+                            then Just cachePath
+                            else Nothing
 
 -- | Get the file for recording the sent data and acquire the corresponding lock.
 withSentDataFile :: GCPState -> (FilePath -> IO a) -> IO a
@@ -453,7 +482,7 @@ sendData gcp sendRequest payload = withSentDataFile gcp $ \sentDataFile -> do
 --------------------------------------------------------------------------------
 -- | These are not in the test suite because it hits an external endpoint
 test :: IO ()
-test = withGcpLogger (GCPConfig "test" Nothing) (Lgr.Error ==) Lgr.Pure.makeNopHandle $ \_gcp hnd -> do
+test = withTempDir $ \tmpDir -> withGcpLogger (GCPConfig "test" (Just tmpDir) Nothing) (Lgr.Error ==) Lgr.Pure.makeNopHandle $ \_gcp hnd -> do
     let lg = Lgr.logError hnd
     let (ls :: [T.Text]) = replicate 13 "I like short songs!"
     mapM_ lg ls

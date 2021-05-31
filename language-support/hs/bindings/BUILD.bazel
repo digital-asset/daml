@@ -1,9 +1,9 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//rules_daml:daml.bzl", "daml_compile")
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin")
 
 da_haskell_library(
     name = "hs-ledger",
@@ -53,7 +53,13 @@ da_haskell_test(
         ":for-upload.dar",
         "//ledger/sandbox:sandbox-binary",
     ],
-    # The tests are flaky probably due to issues in gRPC-haskell.
+    # The tests throw flaky timeout errors. It looks like this comes
+    # from a fundamental issue in the Haskell bindings: they eagerly pull
+    # from streams and those stream receives have a timeout. If we create the
+    # stream too early and do a bunch of other stuff in between, this will then timeout.
+    # We could increase the timeout to an absurd value but that also seems silly
+    # and affects other operations as well so for now, we still keep it flaky
+    # and try not to cry.
     flaky = True,
     hackage_deps = [
         "aeson",
@@ -80,6 +86,9 @@ da_haskell_test(
     ],
     main_function = "DA.Ledger.Tests.main",
     src_strip_prefix = "test",
+    # We spin up Sandbox as a separate process, so
+    # try not to overload the machine.
+    tags = ["cpu:2"] + (["manual"] if is_darwin else []),
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",

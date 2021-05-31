@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.api.v1.event
@@ -8,7 +8,7 @@ import com.daml.ledger.api.v1.event.{CreatedEvent, Event, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.TreeEvent
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.{
   Created => TreeCreated,
-  Exercised => TreeExercised
+  Exercised => TreeExercised,
 }
 import com.daml.ledger.api.v1.value.Identifier
 
@@ -91,7 +91,8 @@ object EventOps {
       event.kind.fold(
         exercise =>
           TreeEvent(TreeExercised(exercise.copy(childEventIds = exercise.childEventIds.filter(f)))),
-        create => TreeEvent(TreeCreated(create)))
+        create => TreeEvent(TreeCreated(create)),
+      )
     def witnessParties: Seq[String] = event.kind.fold(_.witnessParties, _.witnessParties)
     def modifyWitnessParties(f: Seq[String] => Seq[String]): TreeEvent =
       event.kind.fold(

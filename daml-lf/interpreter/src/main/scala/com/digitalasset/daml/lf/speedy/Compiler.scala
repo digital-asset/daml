@@ -1,26 +1,25 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package speedy
 
+import java.util
+
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
+import com.daml.lf.speedy.Anf.flattenToAnf
+import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.Anf.flattenToAnf
-import com.daml.lf.speedy.Profile.LabelModule
-import com.daml.lf.transaction.VersionTimeline
 import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
 import org.slf4j.LoggerFactory
 
-import scala.annotation.tailrec
-import java.util
-
-import com.github.ghik.silencer.silent
+import scala.annotation.{nowarn, tailrec}
+import scala.reflect.ClassTag
 
 /** Compiles LF expressions into Speedy expressions.
   * This includes:
@@ -62,13 +61,13 @@ private[lf] object Compiler {
 
   object Config {
     val Default = Config(
-      allowedLanguageVersions = VersionTimeline.stableLanguageVersions,
+      allowedLanguageVersions = LanguageVersion.StableVersions,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
     )
     val Dev = Config(
-      allowedLanguageVersions = VersionTimeline.devLanguageVersions,
+      allowedLanguageVersions = LanguageVersion.DevVersions,
       packageValidation = FullPackageValidation,
       profiling = NoProfile,
       stacktracing = NoStackTrace,
@@ -85,6 +84,8 @@ private[lf] object Compiler {
   private val SBGreaterEqNumeric = SBCompareNumeric(SBGreaterEq)
   private val SBEqualNumeric = SBCompareNumeric(SBEqual)
 
+  private val SBEToTextNumeric = SEAbs(1, SEBuiltin(SBToText))
+
   private val SENat: Numeric.Scale => Some[SEValue] =
     Numeric.Scale.values.map(n => Some(SEValue(STNat(n))))
 
@@ -100,8 +101,8 @@ private[lf] object Compiler {
   ): Either[String, Map[SDefinitionRef, SDefinition]] = {
     val compiler = new Compiler(signatures, compilerConfig)
     try {
-      Right(packages.foldLeft(Map.empty[SDefinitionRef, SDefinition]) {
-        case (acc, (pkgId, pkg)) => acc ++ compiler.unsafeCompilePackage(pkgId, pkg)
+      Right(packages.foldLeft(Map.empty[SDefinitionRef, SDefinition]) { case (acc, (pkgId, pkg)) =>
+        acc ++ compiler.unsafeCompilePackage(pkgId, pkg)
       })
     } catch {
       case CompilationError(msg) => Left(s"Compilation Error: $msg")
@@ -110,11 +111,22 @@ private[lf] object Compiler {
     }
   }
 
+  // Hand-implemented `map` uses less stack.
+  private def mapToArray[A, B: ClassTag](input: ImmArray[A])(f: A => B): Array[B] = {
+    val output = Array.ofDim[B](input.length)
+    var i = 0
+    input.foreach { value =>
+      output(i) = f(value)
+      i += 1
+    }
+    output
+  }
+
 }
 
 private[lf] final class Compiler(
     signatures: PackageId PartialFunction PackageSignature,
-    config: Compiler.Config
+    config: Compiler.Config,
 ) {
 
   import Compiler._
@@ -130,9 +142,9 @@ private[lf] final class Compiler(
   private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
   private[this] abstract class VarRef { def name: Name }
-  // corresponds to DAML-LF expression variable.
+  // corresponds to Daml-LF expression variable.
   private[this] case class EVarRef(name: ExprVarName) extends VarRef
-  // corresponds to DAML-LF type variable.
+  // corresponds to Daml-LF type variable.
   private[this] case class TVarRef(name: TypeVarName) extends VarRef
 
   case class Position(idx: Int)
@@ -217,19 +229,23 @@ private[lf] final class Compiler(
       case otherwise => SEAbs(1, otherwise)
     }
 
-  private[this] def labeledUnaryFunction(label: String)(body: Position => SExpr): SExpr =
+  private[this] def labeledUnaryFunction[L: Profile.LabelModule.Allowed](label: L with AnyRef)(
+      body: Position => SExpr
+  ): SExpr =
     unaryFunction(pos => withLabel(label, body(pos)))
 
   private[this] def topLevelFunction[SDefRef <: SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef,
-      arity: Int)(
-      body: List[Position] => SExpr
+      arity: Int,
+  )(
+      body: PartialFunction[List[Position], SExpr]
   ): (SDefRef, SDefinition) =
     ref ->
       SDefinition(
         unsafeClosureConvert(
-          SEAbs(arity, withLabel(ref, body(List.fill(arity)(nextPosition()))))
-        ))
+          withLabel(ref, SEAbs(arity, body(List.fill(arity)(nextPosition()))))
+        )
+      )
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -260,6 +276,11 @@ private[lf] final class Compiler(
   ): Iterable[(SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(SDefinitionRef, SDefinition)]
 
+    module.exceptions.foreach { case (defName, GenDefException(message)) =>
+      val ref = ExceptionMessageDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
+      builder += (ref -> SDefinition(withLabel(ref, unsafeCompile(message))))
+    }
+
     module.definitions.foreach {
       case (defName, DValue(_, _, body, _)) =>
         val ref = LfDefRef(Identifier(pkgId, QualifiedName(module.name, defName)))
@@ -267,21 +288,24 @@ private[lf] final class Compiler(
       case _ =>
     }
 
-    module.templates.foreach {
-      case (tmplName, tmpl) =>
-        val identifier = Identifier(pkgId, QualifiedName(module.name, tmplName))
-        builder += compileCreate(identifier, tmpl)
-        builder += compileFetch(identifier, tmpl)
+    module.templates.foreach { case (tmplName, tmpl) =>
+      val identifier = Identifier(pkgId, QualifiedName(module.name, tmplName))
+      builder += compileCreate(identifier, tmpl)
+      builder += compileFetch(identifier, tmpl)
+      builder += compileKey(identifier, tmpl)
+      builder += compileSignatories(identifier, tmpl)
+      builder += compileObservers(identifier, tmpl)
 
-        tmpl.choices.values.foreach(builder += compileChoice(identifier, tmpl, _))
+      tmpl.choices.values.foreach(builder += compileChoice(identifier, tmpl, _))
 
-        tmpl.key.foreach { tmplKey =>
-          builder += compileFetchByKey(identifier, tmpl, tmplKey)
-          builder += compileLookupByKey(identifier, tmplKey)
-          tmpl.choices.values.foreach(
-            builder +=
-              compileChoiceByKey(identifier, tmpl, tmplKey, _))
-        }
+      tmpl.key.foreach { tmplKey =>
+        builder += compileFetchByKey(identifier, tmpl, tmplKey)
+        builder += compileLookupByKey(identifier, tmplKey)
+        tmpl.choices.values.foreach(
+          builder +=
+            compileChoiceByKey(identifier, tmpl, tmplKey, _)
+        )
+      }
     }
 
     builder.result()
@@ -332,7 +356,7 @@ private[lf] final class Compiler(
 
     val t2 = Time.Timestamp.now()
     logger.trace(
-      s"compilePackage: $pkgId ready, typecheck=${(t1.micros - t0.micros) / 1000}ms, compile=${(t2.micros - t1.micros) / 1000}ms",
+      s"compilePackage: $pkgId ready, typecheck=${(t1.micros - t0.micros) / 1000}ms, compile=${(t2.micros - t1.micros) / 1000}ms"
     )
 
     result
@@ -366,7 +390,7 @@ private[lf] final class Compiler(
         compileERecCon(tApp, fields)
       case ERecProj(tapp, field, record) =>
         SBRecProj(tapp.tycon, lookupRecordIndex(tapp, field))(
-          compile(record),
+          compile(record)
         )
       case erecupd: ERecUpd =>
         compileERecUpd(erecupd)
@@ -375,7 +399,7 @@ private[lf] final class Compiler(
           Struct.assertFromSeq(fields.iterator.map(_._1).zipWithIndex.toSeq)
         SEApp(
           SEBuiltin(SBStructCon(fieldsInputOrder)),
-          fields.iterator.map { case (_, e) => compile(e) }.toArray
+          mapToArray(fields) { case (_, e) => compile(e) },
         )
       case structProj: EStructProj =>
         structProj.fieldIndex match {
@@ -430,6 +454,15 @@ private[lf] final class Compiler(
         SBFromAny(ty)(compile(e))
       case ETypeRep(typ) =>
         SEValue(STypeRep(typ))
+      case EToAnyException(ty, e) =>
+        SBToAny(ty)(compile(e))
+      case EFromAnyException(ty, e) =>
+        SBFromAny(ty)(compile(e))
+      case EThrow(_, ty, e) =>
+        SBThrow(SBToAny(ty)(compile(e)))
+      case EExperimental(name, _) =>
+        SBExperimental(name)
+
     }
 
   @inline
@@ -445,6 +478,7 @@ private[lf] final class Compiler(
       case BGreaterNumeric => SBGreaterNumeric
       case BGreaterEqNumeric => SBGreaterEqNumeric
       case BEqualNumeric => SBEqualNumeric
+      case BNumericToText => SBEToTextNumeric
 
       case BTextMapEmpty => SEValue.EmptyTextMap
       case BGenMapEmpty => SEValue.EmptyGenMap
@@ -482,19 +516,18 @@ private[lf] final class Compiler(
           case BImplodeText => SBImplodeText
           case BAppendText => SBAppendText
 
-          case BToTextInt64 => SBToText
-          case BToTextNumeric => SBToTextNumeric
-          case BToTextText => SBToText
-          case BToTextTimestamp => SBToText
-          case BToTextParty => SBToText
-          case BToTextDate => SBToText
-          case BToTextContractId => SBToTextContractId
-          case BToQuotedTextParty => SBToQuotedTextParty
-          case BToTextCodePoints => SBToTextCodePoints
-          case BFromTextParty => SBFromTextParty
-          case BFromTextInt64 => SBFromTextInt64
-          case BFromTextNumeric => SBFromTextNumeric
-          case BFromTextCodePoints => SBFromTextCodePoints
+          case BInt64ToText => SBToText
+          case BTextToText => SBToText
+          case BTimestampToText => SBToText
+          case BPartyToText => SBToText
+          case BDateToText => SBToText
+          case BContractIdToText => SBContractIdToText
+          case BPartyToQuotedText => SBPartyToQuotedText
+          case BCodePointsToText => SBCodePointsToText
+          case BTextToParty => SBTextToParty
+          case BTextToInt64 => SBTextToInt64
+          case BTextToNumeric => SBTextToNumeric
+          case BTextToCodePoints => SBTextToCodePoints
 
           case BSHA256Text => SBSHA256Text
 
@@ -515,20 +548,31 @@ private[lf] final class Compiler(
 
           // TextMap
 
-          case BTextMapInsert => SBGenMapInsert
-          case BTextMapLookup => SBGenMapLookup
-          case BTextMapDelete => SBGenMapDelete
-          case BTextMapToList => SBGenMapToList
-          case BTextMapSize => SBGenMapSize
+          case BTextMapInsert => SBMapInsert
+          case BTextMapLookup => SBMapLookup
+          case BTextMapDelete => SBMapDelete
+          case BTextMapToList => SBMapToList
+          case BTextMapSize => SBMapSize
 
           // GenMap
 
-          case BGenMapInsert => SBGenMapInsert
-          case BGenMapLookup => SBGenMapLookup
-          case BGenMapDelete => SBGenMapDelete
-          case BGenMapKeys => SBGenMapKeys
-          case BGenMapValues => SBGenMapValues
-          case BGenMapSize => SBGenMapSize
+          case BGenMapInsert => SBMapInsert
+          case BGenMapLookup => SBMapLookup
+          case BGenMapDelete => SBMapDelete
+          case BGenMapKeys => SBMapKeys
+          case BGenMapValues => SBMapValues
+          case BGenMapSize => SBMapSize
+
+          case BScaleBigNumeric => SBScaleBigNumeric
+          case BPrecisionBigNumeric => SBPrecisionBigNumeric
+          case BAddBigNumeric => SBAddBigNumeric
+          case BSubBigNumeric => SBSubBigNumeric
+          case BDivBigNumeric => SBDivBigNumeric
+          case BMulBigNumeric => SBMulBigNumeric
+          case BShiftRightBigNumeric => SBShiftRightBigNumeric
+          case BNumericToBigNumeric => SBNumericToBigNumeric
+          case BBigNumericToNumeric => SBBigNumericToNumeric
+          case BBigNumericToText => SBToText
 
           // Unstable Text Primitives
           case BTextToUpper => SBTextToUpper
@@ -541,10 +585,12 @@ private[lf] final class Compiler(
           case BTextIntercalate => SBTextIntercalate
 
           // Implemented using normal SExpr
-          case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq | BLess |
-              BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
-              BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
+          case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq |
+              BLess | BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
+              BGreaterEqNumeric | BEqualNumeric | BNumericToText | BTextMapEmpty | BGenMapEmpty =>
             throw CompilationError(s"unexpected $bf")
+
+          case BAnyExceptionMessage => SBAnyExceptionMessage
         })
     }
 
@@ -565,6 +611,7 @@ private[lf] final class Compiler(
       case PLTimestamp(ts) => STimestamp(ts)
       case PLParty(p) => SParty(p)
       case PLDate(d) => SDate(d)
+      case PLRoundingMode(roundingMode) => SInt64(roundingMode.ordinal.toLong)
     })
 
   // ERecUpd(_, f2, ERecUpd(_, f1, e0, e1), e2) => (e0, [f1, f2], [e1, e2])
@@ -604,8 +651,8 @@ private[lf] final class Compiler(
         compile(updates.head),
       )
     } else {
-      SBRecUpdMulti(tapp.tycon, fields.map(lookupRecordIndex(tapp, _)).toArray)(
-        (record :: updates).map(compile): _*,
+      SBRecUpdMulti(tapp.tycon, fields.map(lookupRecordIndex(tapp, _)).to(ImmArray))(
+        (record :: updates).map(compile): _*
       )
     }
   }
@@ -614,51 +661,51 @@ private[lf] final class Compiler(
   private[this] def compileECase(scrut: Expr, alts: ImmArray[CaseAlt]): SExpr =
     SECase(
       compile(scrut),
-      alts.iterator.map {
-        case CaseAlt(pat, expr) =>
-          pat match {
-            case CPVariant(tycon, variant, binder) =>
-              val variantDef =
-                lookupVariant(tycon).getOrElse(throw CompilationError(s"variant $tycon not found"))
-              withBinders(binder) { _ =>
-                SCaseAlt(
-                  SCPVariant(tycon, variant, variantDef.constructorRank(variant)),
-                  compile(expr),
-                )
-              }
-
-            case CPEnum(tycon, constructor) =>
-              val enumDef =
-                lookupEnum(tycon).getOrElse(throw CompilationError(s"enum $tycon not found"))
+      mapToArray(alts) { case CaseAlt(pat, expr) =>
+        pat match {
+          case CPVariant(tycon, variant, binder) =>
+            val variantDef =
+              lookupVariant(tycon).getOrElse(throw CompilationError(s"variant $tycon not found"))
+            withBinders(binder) { _ =>
               SCaseAlt(
-                SCPEnum(tycon, constructor, enumDef.constructorRank(constructor)),
+                SCPVariant(tycon, variant, variantDef.constructorRank(variant)),
                 compile(expr),
               )
+            }
 
-            case CPNil =>
-              SCaseAlt(SCPNil, compile(expr))
+          case CPEnum(tycon, constructor) =>
+            val enumDef =
+              lookupEnum(tycon).getOrElse(throw CompilationError(s"enum $tycon not found"))
+            SCaseAlt(
+              SCPEnum(tycon, constructor, enumDef.constructorRank(constructor)),
+              compile(expr),
+            )
 
-            case CPCons(head, tail) =>
-              withBinders(head, tail) { _ =>
-                SCaseAlt(SCPCons, compile(expr))
-              }
+          case CPNil =>
+            SCaseAlt(SCPNil, compile(expr))
 
-            case CPPrimCon(pc) =>
-              SCaseAlt(SCPPrimCon(pc), compile(expr))
+          case CPCons(head, tail) =>
+            withBinders(head, tail) { _ =>
+              SCaseAlt(SCPCons, compile(expr))
+            }
 
-            case CPNone =>
-              SCaseAlt(SCPNone, compile(expr))
+          case CPPrimCon(pc) =>
+            SCaseAlt(SCPPrimCon(pc), compile(expr))
 
-            case CPSome(body) =>
-              withBinders(body) { _ =>
-                SCaseAlt(SCPSome, compile(expr))
-              }
+          case CPNone =>
+            SCaseAlt(SCPNone, compile(expr))
 
-            case CPDefault =>
-              SCaseAlt(SCPDefault, compile(expr))
-          }
-      }.toArray,
+          case CPSome(body) =>
+            withBinders(body) { _ =>
+              SCaseAlt(SCPSome, compile(expr))
+            }
+
+          case CPDefault =>
+            SCaseAlt(SCPDefault, compile(expr))
+        }
+      },
     )
+
   @inline
   private[this] def compileELet(elet: ELet) =
     withEnv { _ =>
@@ -699,6 +746,18 @@ private[lf] final class Compiler(
         LookupByKeyDefRef(templateId)(compile(key))
       case UpdateFetchByKey(RetrieveByKey(templateId, key)) =>
         FetchByKeyDefRef(templateId)(compile(key))
+
+      case UpdateTryCatch(_, body, binder, handler) =>
+        unaryFunction { tokenPos =>
+          SETryCatch(
+            app(compile(body), svar(tokenPos)),
+            withEnv { _ =>
+              val binderPos = nextPosition()
+              addExprVar(binder, binderPos)
+              SBTryHandler(compile(handler), svar(binderPos), svar(tokenPos))
+            },
+          )
+        }
     }
 
   @tailrec
@@ -770,7 +829,7 @@ private[lf] final class Compiler(
     withEnv { _ =>
       let(compile(partyE)) { partyPos =>
         let(compile(updateE)) { updatePos =>
-          labeledUnaryFunction("submit") { tokenPos =>
+          labeledUnaryFunction(Profile.SubmitLabel) { tokenPos =>
             let(SBSBeginCommit(optLoc)(svar(partyPos), svar(tokenPos))) { _ =>
               let(app(svar(updatePos), svar(tokenPos))) { resultPos =>
                 SBSEndCommit(mustFail = false)(svar(resultPos), svar(tokenPos))
@@ -788,11 +847,12 @@ private[lf] final class Compiler(
     //       <r> = $catch ([update] <token>) true false
     //   in $endCommit(mustFail = true) <r> <token>
     withEnv { _ =>
-      labeledUnaryFunction("submitMustFail") { tokenPos =>
+      labeledUnaryFunction(Profile.SubmitMustFailLabel) { tokenPos =>
         let(SBSBeginCommit(optLoc)(compile(party), svar(tokenPos))) { _ =>
-          let(SECatch(app(compile(update), svar(tokenPos)), SEValue.True, SEValue.False)) {
-            resultPos =>
-              SBSEndCommit(mustFail = true)(svar(resultPos), svar(tokenPos))
+          let(
+            SECatchSubmitMustFail(app(compile(update), svar(tokenPos)))
+          ) { resultPos =>
+            SBSEndCommit(mustFail = true)(svar(resultPos), svar(tokenPos))
           }
         }
       }
@@ -800,13 +860,13 @@ private[lf] final class Compiler(
 
   @inline
   private[this] def compileGetParty(expr: Expr): SExpr =
-    labeledUnaryFunction("getParty") { tokenPos =>
+    labeledUnaryFunction(Profile.GetPartyLabel) { tokenPos =>
       SBSGetParty(compile(expr), svar(tokenPos))
     }
 
   @inline
   private[this] def compilePass(time: Expr): SExpr =
-    labeledUnaryFunction("pass") { tokenPos =>
+    labeledUnaryFunction(Profile.PassLabel) { tokenPos =>
       SBSPass(compile(time), svar(tokenPos))
     }
 
@@ -820,13 +880,17 @@ private[lf] final class Compiler(
       app(compile(expr), svar(tokenPos))
     }
 
-  private val SEDropSecondArgument = unaryFunction(firstPos => unaryFunction(_ => svar(firstPos)))
-
   private[this] def compilePure(body: Expr): SExpr =
     // pure <E>
     // =>
     // ((\x token -> x) <E>)
-    app(SEDropSecondArgument, compile(body))
+    withEnv { _ =>
+      let(compile(body)) { bodyPos =>
+        unaryFunction { tokenPos =>
+          SBSPure(svar(bodyPos), svar(tokenPos))
+        }
+      }
+    }
 
   private[this] def compileBlock(bindings: ImmArray[Binding], body: Expr): SExpr =
     // do
@@ -884,37 +948,33 @@ private[lf] final class Compiler(
       choiceArgPos: Position,
       cidPos: Position,
       mbKey: Option[Position], // defined for byKey operation
-      tokenPos: Position
-  ) =
-    let(SBUFetch(tmplId)(svar(cidPos))) { tmplArgPos =>
+      tokenPos: Position,
+  ) = {
+    let(
+      SBUFetch(
+        tmplId
+      )(svar(cidPos), mbKey.fold(SEValue.None: SExpr)(pos => SBSome(svar(pos))))
+    ) { tmplArgPos =>
       addExprVar(tmpl.param, tmplArgPos)
       let(
         SBUBeginExercise(tmplId, choice.name, choice.consuming, byKey = mbKey.isDefined)(
           svar(choiceArgPos),
-          svar(cidPos),
-          compile(tmpl.signatories),
-          compile(tmpl.observers), //
-          {
+          svar(cidPos), {
             addExprVar(choice.argBinder._1, choiceArgPos)
             compile(choice.controllers)
-          }, //
-          {
+          }, {
             choice.choiceObservers match {
               case Some(observers) => compile(observers)
               case None => SEValue.EmptyList
             }
           },
-          mbKey.fold(compileKeyWithMaintainers(tmpl.key))(pos => SBSome(svar(pos))),
         )
       ) { _ =>
         addExprVar(choice.selfBinder, cidPos)
-        let(app(compile(choice.update), svar(tokenPos))) { retValuePos =>
-          let(SBUEndExercise(tmplId)(svar(retValuePos))) { _ =>
-            svar(retValuePos)
-          }
-        }
+        SEScopeExercise(app(compile(choice.update), svar(tokenPos)))
       }
     }
+  }
 
   private[this] def compileChoice(
       tmplId: TypeConName,
@@ -1068,23 +1128,15 @@ private[lf] final class Compiler(
 
       case SEAbs(arity, body) =>
         val fvs = freeVars(body, arity).toList.sorted
-        val newRemapsF: Map[Int, SELoc] = fvs.zipWithIndex.map {
-          case (orig, i) =>
-            (orig + arity) -> SELocF(i)
+        val newRemapsF: Map[Int, SELoc] = fvs.zipWithIndex.map { case (orig, i) =>
+          (orig + arity) -> SELocF(i)
         }.toMap
-        val newRemapsA = (1 to arity).map {
-          case i =>
-            i -> SELocA(arity - i)
+        val newRemapsA = (1 to arity).map { case i =>
+          i -> SELocA(arity - i)
         }
         // The keys in newRemapsF and newRemapsA are disjoint
         val newBody = closureConvert(newRemapsF ++ newRemapsA, body)
         SEMakeClo(fvs.map(remap).toArray, arity, newBody)
-
-      case x: SELoc =>
-        throw CompilationError(s"closureConvert: unexpected SELoc: $x")
-
-      case x: SEMakeClo =>
-        throw CompilationError(s"closureConvert: unexpected SEMakeClo: $x")
 
       case SEAppGeneral(fun, args) =>
         val newFun = closureConvert(remaps, fun)
@@ -1099,52 +1151,47 @@ private[lf] final class Compiler(
       case SECase(scrut, alts) =>
         SECase(
           closureConvert(remaps, scrut),
-          alts.map {
-            case SCaseAlt(pat, body) =>
-              val n = patternNArgs(pat)
-              SCaseAlt(
-                pat,
-                closureConvert(shift(remaps, n), body),
-              )
+          alts.map { case SCaseAlt(pat, body) =>
+            val n = patternNArgs(pat)
+            SCaseAlt(
+              pat,
+              closureConvert(shift(remaps, n), body),
+            )
           },
         )
 
       case SELet(bounds, body) =>
-        SELet(bounds.zipWithIndex.map {
-          case (b, i) =>
+        SELet(
+          bounds.zipWithIndex.map { case (b, i) =>
             closureConvert(shift(remaps, i), b)
-        }, closureConvert(shift(remaps, bounds.length), body))
-
-      case SECatch(body, handler, fin) =>
-        SECatch(
-          closureConvert(remaps, body),
-          closureConvert(remaps, handler),
-          closureConvert(remaps, fin),
+          },
+          closureConvert(shift(remaps, bounds.length), body),
         )
+
+      case SECatchSubmitMustFail(body) =>
+        SECatchSubmitMustFail(
+          closureConvert(remaps, body)
+        )
+
+      case SETryCatch(body, handler) =>
+        SETryCatch(
+          closureConvert(remaps, body),
+          closureConvert(shift(remaps, 1), handler),
+        )
+
+      case SEScopeExercise(body) =>
+        SEScopeExercise(closureConvert(remaps, body))
 
       case SELabelClosure(label, expr) =>
         SELabelClosure(label, closureConvert(remaps, expr))
 
-      case x: SEDamlException =>
-        throw CompilationError(s"unexpected SEDamlException: $x")
-
-      case x: SEImportValue =>
-        throw CompilationError(s"unexpected SEImportValue: $x")
-
-      case x: SEAppAtomicGeneral =>
-        throw CompilationError(s"closureConvert: unexpected: $x")
-
-      case x: SEAppAtomicSaturatedBuiltin =>
-        throw CompilationError(s"closureConvert: unexpected: $x")
-
       case SELet1General(bound, body) =>
         SELet1General(closureConvert(remaps, bound), closureConvert(shift(remaps, 1), body))
 
-      case x: SELet1Builtin =>
-        throw CompilationError(s"closureConvert: unexpected: $x")
-
-      case x: SECaseAtomic =>
-        throw CompilationError(s"closureConvert: unexpected: $x")
+      case _: SELoc | _: SEMakeClo | _: SELet1Builtin | _: SELet1BuiltinArithmetic |
+          _: SEDamlException | _: SEImportValue | _: SEAppAtomicGeneral |
+          _: SEAppAtomicSaturatedBuiltin | _: SECaseAtomic =>
+        throw CompilationError(s"closureConvert: unexpected $expr")
     }
   }
 
@@ -1173,7 +1220,8 @@ private[lf] final class Compiler(
 
   /** Compute the free variables in a speedy expression.
     * The returned free variables are de bruijn indices
-    * adjusted to the stack of the caller. */
+    * adjusted to the stack of the caller.
+    */
   private[this] def freeVars(expr: SExpr, initiallyBound: Int): Set[Int] = {
     def go(expr: SExpr, bound: Int, free: Set[Int]): Set[Int] =
       expr match {
@@ -1191,32 +1239,27 @@ private[lf] final class Compiler(
           args.foldLeft(go(fun, bound, free))((acc, arg) => go(arg, bound, acc))
         case SEAbs(n, body) =>
           go(body, bound + n, free)
-        case x: SELoc =>
-          throw CompilationError(s"freeVars: unexpected SELoc: $x")
-        case x: SEMakeClo =>
-          throw CompilationError(s"freeVars: unexpected SEMakeClo: $x")
         case SECase(scrut, alts) =>
-          alts.foldLeft(go(scrut, bound, free)) {
-            case (acc, SCaseAlt(pat, body)) => go(body, bound + patternNArgs(pat), acc)
+          alts.foldLeft(go(scrut, bound, free)) { case (acc, SCaseAlt(pat, body)) =>
+            go(body, bound + patternNArgs(pat), acc)
           }
         case SELet(bounds, body) =>
           bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
             case (acc, (expr, idx)) => go(expr, bound + idx, acc)
           }
-        case SECatch(body, handler, fin) =>
-          go(body, bound, go(handler, bound, go(fin, bound, free)))
+        case SECatchSubmitMustFail(body) =>
+          go(body, bound, free)
         case SELabelClosure(_, expr) =>
           go(expr, bound, free)
-        case x: SEDamlException =>
-          throw CompilationError(s"unexpected SEDamlException: $x")
-        case x: SEImportValue =>
-          throw CompilationError(s"unexpected SEImportValue: $x")
+        case SETryCatch(body, handler) =>
+          go(body, bound, go(handler, 1 + bound, free))
+        case SEScopeExercise(body) =>
+          go(body, bound, free)
 
-        case x: SEAppAtomicGeneral => throw CompilationError(s"freeVars: unexpected: $x")
-        case x: SEAppAtomicSaturatedBuiltin => throw CompilationError(s"freeVars: unexpected: $x")
-        case x: SELet1General => throw CompilationError(s"freeVars: unexpected: $x")
-        case x: SELet1Builtin => throw CompilationError(s"freeVars: unexpected: $x")
-        case x: SECaseAtomic => throw CompilationError(s"freeVars: unexpected: $x")
+        case _: SELoc | _: SEMakeClo | _: SEDamlException | _: SEImportValue |
+            _: SEAppAtomicGeneral | _: SEAppAtomicSaturatedBuiltin | _: SELet1General |
+            _: SELet1Builtin | _: SELet1BuiltinArithmetic | _: SECaseAtomic =>
+          throw CompilationError(s"freeVars: unexpected $expr")
       }
 
     go(expr, initiallyBound, Set.empty)
@@ -1232,11 +1275,10 @@ private[lf] final class Compiler(
         case _: SPrimLit | STNat(_) | STypeRep(_) =>
         case SList(a) => a.iterator.foreach(goV)
         case SOptional(x) => x.foreach(goV)
-        case SGenMap(_, entries) =>
-          entries.foreach {
-            case (k, v) =>
-              goV(k)
-              goV(v)
+        case SMap(_, entries) =>
+          entries.foreach { case (k, v) =>
+            goV(k)
+            goV(v)
           }
         case SRecord(_, _, args) => args.forEach(goV)
         case SVariant(_, _, _, value) => goV(value)
@@ -1277,41 +1319,38 @@ private[lf] final class Compiler(
         case SEAppAtomicFun(fun, args) =>
           go(fun)
           args.foreach(go)
-        case x: SEVar =>
-          throw CompilationError(s"validate: SEVar encountered: $x")
-        case abs: SEAbs =>
-          throw CompilationError(s"validate: SEAbs encountered: $abs")
         case SEMakeClo(fvs, n, body) =>
           fvs.foreach(goLoc)
           goBody(0, n, fvs.length)(body)
         case SECaseAtomic(scrut, alts) => go(SECase(scrut, alts))
         case SECase(scrut, alts) =>
           go(scrut)
-          alts.foreach {
-            case SCaseAlt(pat, body) =>
-              val n = patternNArgs(pat)
-              goBody(maxS + n, maxA, maxF)(body)
+          alts.foreach { case SCaseAlt(pat, body) =>
+            val n = patternNArgs(pat)
+            goBody(maxS + n, maxA, maxF)(body)
           }
         case SELet(bounds, body) =>
-          bounds.zipWithIndex.foreach {
-            case (rhs, i) =>
-              goBody(maxS + i, maxA, maxF)(rhs)
+          bounds.zipWithIndex.foreach { case (rhs, i) =>
+            goBody(maxS + i, maxA, maxF)(rhs)
           }
           goBody(maxS + bounds.length, maxA, maxF)(body)
         case _: SELet1General => goLets(maxS)(expr)
         case _: SELet1Builtin => goLets(maxS)(expr)
-        case SECatch(body, handler, fin) =>
+        case _: SELet1BuiltinArithmetic => goLets(maxS)(expr)
+        case SECatchSubmitMustFail(body) =>
           go(body)
-          go(handler)
-          go(fin)
         case SELocation(_, body) =>
           go(body)
         case SELabelClosure(_, expr) =>
           go(expr)
-        case x: SEDamlException =>
-          throw CompilationError(s"unexpected SEDamlException: $x")
-        case x: SEImportValue =>
-          throw CompilationError(s"unexpected SEImportValue: $x")
+        case SETryCatch(body, handler) =>
+          go(body)
+          goBody(maxS + 1, maxA, maxF)(handler)
+        case SEScopeExercise(body) =>
+          go(body)
+
+        case _: SEVar | _: SEAbs | _: SEDamlException | _: SEImportValue =>
+          throw CompilationError(s"validate: unexpected $expr")
       }
       @tailrec
       def goLets(maxS: Int)(expr: SExpr): Unit = {
@@ -1321,6 +1360,9 @@ private[lf] final class Compiler(
             go(rhs)
             goLets(maxS + 1)(body)
           case SELet1Builtin(_, args, body) =>
+            args.foreach(go)
+            goLets(maxS + 1)(body)
+          case SELet1BuiltinArithmetic(_, args, body) =>
             args.foreach(go)
             goLets(maxS + 1)(body)
           case expr =>
@@ -1333,22 +1375,24 @@ private[lf] final class Compiler(
     expr0
   }
 
-  @silent("parameter value tokenPos in method compileFetchBody is never used")
+  @nowarn("msg=parameter value tokenPos in method compileFetchBody is never used")
   private[this] def compileFetchBody(tmplId: Identifier, tmpl: Template)(
       cidPos: Position,
       mbKey: Option[Position], //defined for byKey operation
       tokenPos: Position,
   ) =
     withEnv { _ =>
-      let(SBUFetch(tmplId)(svar(cidPos))) { tmplArgPos =>
+      let(
+        SBUFetch(
+          tmplId
+        )(svar(cidPos), mbKey.fold(SEValue.None: SExpr)(pos => SBSome(svar(pos))))
+      ) { tmplArgPos =>
         addExprVar(tmpl.param, tmplArgPos)
         let(
           SBUInsertFetchNode(tmplId, byKey = mbKey.isDefined)(
-            svar(cidPos),
-            compile(tmpl.signatories),
-            compile(tmpl.observers),
-            mbKey.fold(compileKeyWithMaintainers(tmpl.key))(p => SBSome(svar(p))),
-          )) { _ =>
+            svar(cidPos)
+          )
+        ) { _ =>
           svar(tmplArgPos)
         }
       }
@@ -1356,39 +1400,66 @@ private[lf] final class Compiler(
 
   private[this] def compileFetch(
       tmplId: Identifier,
-      tmpl: Template): (SDefinitionRef, SDefinition) =
+      tmpl: Template,
+  ): (SDefinitionRef, SDefinition) =
     // compile a template to
     // FetchDefRef(tmplId) = \ <coid> <token> ->
     //   let <tmplArg> = $fetch(tmplId) <coid>
     //       _ = $insertFetch(tmplId, false) coid [tmpl.signatories] [tmpl.observers] [tmpl.key]
     //   in <tmplArg>
-    topLevelFunction(FetchDefRef(tmplId), 2) {
-      case List(cidPos, tokenPos) =>
-        compileFetchBody(tmplId, tmpl)(cidPos, None, tokenPos)
+    topLevelFunction(FetchDefRef(tmplId), 2) { case List(cidPos, tokenPos) =>
+      compileFetchBody(tmplId, tmpl)(cidPos, None, tokenPos)
+    }
+
+  private[this] def compileKey(
+      tmplId: Identifier,
+      tmpl: Template,
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(KeyDefRef(tmplId), 1) { case List(tmplArgPos) =>
+      addExprVar(tmpl.param, tmplArgPos)
+      compileKeyWithMaintainers(tmpl.key)
+    }
+
+  private[this] def compileSignatories(
+      tmplId: Identifier,
+      tmpl: Template,
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(SignatoriesDefRef(tmplId), 1) { case List(tmplArgPos) =>
+      addExprVar(tmpl.param, tmplArgPos)
+      compile(tmpl.signatories)
+    }
+
+  private[this] def compileObservers(
+      tmplId: Identifier,
+      tmpl: Template,
+  ): (SDefinitionRef, SDefinition) =
+    topLevelFunction(ObserversDefRef(tmplId), 1) { case List(tmplArgPos) =>
+      addExprVar(tmpl.param, tmplArgPos)
+      compile(tmpl.observers)
     }
 
   private[this] def compileCreate(
       tmplId: Identifier,
-      tmpl: Template): (SDefinitionRef, SDefinition) =
+      tmpl: Template,
+  ): (SDefinitionRef, SDefinition) =
     // Translates 'create Foo with <params>' into:
     // CreateDefRef(tmplId) = \ <tmplArg> <token> ->
     //   let _ = $checkPreconf(tmplId)(<tmplArg> [tmpl.precond]
     //   in $create <tmplArg> [tmpl.agreementText] [tmpl.signatories] [tmpl.observers] [tmpl.key]
-    topLevelFunction(CreateDefRef(tmplId), 2) {
-      case List(tmplArgPos, tokenPos @ _) =>
-        addExprVar(tmpl.param, tmplArgPos)
-        // We check precondition in a separated builtin to prevent
-        // further evaluation of agreement, signatories, observers and key
-        // in case of failed precondition.
-        let(SBCheckPrecond(tmplId)(svar(tmplArgPos), compile(tmpl.precond))) { _ =>
-          SBUCreate(tmplId)(
-            svar(tmplArgPos),
-            compile(tmpl.agreementText),
-            compile(tmpl.signatories),
-            compile(tmpl.observers),
-            compileKeyWithMaintainers(tmpl.key),
-          )
-        }
+    topLevelFunction(CreateDefRef(tmplId), 2) { case List(tmplArgPos, tokenPos @ _) =>
+      addExprVar(tmpl.param, tmplArgPos)
+      // We check precondition in a separated builtin to prevent
+      // further evaluation of agreement, signatories, observers and key
+      // in case of failed precondition.
+      let(SBCheckPrecond(tmplId)(svar(tmplArgPos), compile(tmpl.precond))) { _ =>
+        SBUCreate(tmplId)(
+          svar(tmplArgPos),
+          compile(tmpl.agreementText),
+          compile(tmpl.signatories),
+          compile(tmpl.observers),
+          compileKeyWithMaintainers(tmpl.key),
+        )
+      }
     }
 
   private[this] def compileExercise(
@@ -1425,7 +1496,7 @@ private[lf] final class Compiler(
       choiceId: ChoiceName,
       choiceArg: SValue,
   ): SExpr =
-    labeledUnaryFunction(s"createAndExercise @${tmplId.qualifiedName} ${choiceId}") { tokenPos =>
+    labeledUnaryFunction(Profile.CreateAndExerciseLabel(tmplId, choiceId)) { tokenPos =>
       let(CreateDefRef(tmplId)(SEValue(createArg), svar(tokenPos))) { cidPos =>
         app(
           compileExercise(
@@ -1434,7 +1505,7 @@ private[lf] final class Compiler(
             choiceId = choiceId,
             argument = SEValue(choiceArg),
           ),
-          svar(tokenPos)
+          svar(tokenPos),
         )
       }
     }
@@ -1449,15 +1520,14 @@ private[lf] final class Compiler(
     //        <mbCid> = $lookupKey(tmplId) <keyWithM>
     //        _ = $insertLookup(tmplId> <keyWithM> <mbCid>
     //    in <mbCid>
-    topLevelFunction(LookupByKeyDefRef(tmplId), 2) {
-      case List(keyPos, tokenPos @ _) =>
-        let(encodeKeyWithMaintainers(keyPos, tmplKey)) { keyWithMPos =>
-          let(SBULookupKey(tmplId)(svar(keyWithMPos))) { maybeCidPos =>
-            let(SBUInsertLookupNode(tmplId)(svar(keyWithMPos), svar(maybeCidPos))) { _ =>
-              svar(maybeCidPos)
-            }
+    topLevelFunction(LookupByKeyDefRef(tmplId), 2) { case List(keyPos, tokenPos @ _) =>
+      let(encodeKeyWithMaintainers(keyPos, tmplKey)) { keyWithMPos =>
+        let(SBULookupKey(tmplId)(svar(keyWithMPos))) { maybeCidPos =>
+          let(SBUInsertLookupNode(tmplId)(svar(keyWithMPos), svar(maybeCidPos))) { _ =>
+            svar(maybeCidPos)
           }
         }
+      }
     }
 
   private[this] val FetchByKeyResult =
@@ -1476,16 +1546,14 @@ private[lf] final class Compiler(
     //        <contract> = $fetch(tmplId) <coid>
     //        _ = $insertFetch <coid> <signatories> <observers> (Some <keyWithM> )
     //    in { contractId: ContractId Foo, contract: Foo }
-    topLevelFunction(FetchByKeyDefRef(tmplId), 2) {
-      case List(keyPos, tokenPos) =>
-        let(encodeKeyWithMaintainers(keyPos, tmplKey)) { keyWithMPos =>
-          let(SBUFetchKey(tmplId)(svar(keyWithMPos))) { cidPos =>
-            let(compileFetchBody(tmplId, tmpl)(cidPos, Some(keyWithMPos), tokenPos)) {
-              contractPos =>
-                FetchByKeyResult(svar(cidPos), svar(contractPos))
-            }
+    topLevelFunction(FetchByKeyDefRef(tmplId), 2) { case List(keyPos, tokenPos) =>
+      let(encodeKeyWithMaintainers(keyPos, tmplKey)) { keyWithMPos =>
+        let(SBUFetchKey(tmplId)(svar(keyWithMPos))) { cidPos =>
+          let(compileFetchBody(tmplId, tmpl)(cidPos, Some(keyWithMPos), tokenPos)) { contractPos =>
+            FetchByKeyResult(svar(cidPos), svar(contractPos))
           }
         }
+      }
     }
 
   private[this] def compileCommand(cmd: Command): SExpr = cmd match {

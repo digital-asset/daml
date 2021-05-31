@@ -1,8 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.resources
 
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.{Executors, TimeUnit}
 
 import com.daml.logging.ContextualizedLogger
@@ -10,7 +11,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.resources.ProgramResource._
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.{NoStackTrace, NonFatal}
 
@@ -20,13 +21,18 @@ final class ProgramResource[Context: HasExecutionContext, T](
 ) {
   private val logger = ContextualizedLogger.get(getClass)
 
-  private val executorService = Executors.newCachedThreadPool()
+  private val executorService = {
+    val counter = new AtomicLong(0L)
+    Executors.newCachedThreadPool((runnable: Runnable) =>
+      new Thread(runnable, s"program-resource-pool-${counter.incrementAndGet()}")
+    )
+  }
 
   def run(newContext: ExecutionContext => Context): Unit = {
     newLoggingContext { implicit loggingContext =>
       val resource = {
         implicit val context: Context = newContext(ExecutionContext.fromExecutor(executorService))
-        Try(owner.acquire()).fold(Resource.failed, identity)
+        Try(owner.acquire()).fold(exception => PureResource(Future.failed(exception)), identity)
       }
 
       def stop(): Unit = {
@@ -52,7 +58,8 @@ final class ProgramResource[Context: HasExecutionContext, T](
           case _: SuppressedStartupException =>
           case _: StartupException =>
             logger.error(
-              s"Shutting down because of an initialization error.\n${exception.getMessage}")
+              s"Shutting down because of an initialization error.\n${exception.getMessage}"
+            )
           case NonFatal(_) =>
             logger.error("Shutting down because of an initialization error.", exception)
         }
@@ -71,4 +78,5 @@ object ProgramResource {
   trait SuppressedStartupException {
     self: Exception =>
   }
+
 }

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -12,15 +12,15 @@ da_scala_library(
     srcs = glob([
         "src/main/scala/com/digitalasset/assistant/**/*.scala",
     ]),
+    scala_deps = [
+        "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_yaml",
+        "@maven//:org_typelevel_cats_core",
+    ],
     tags = ["maven_coordinates=com.daml:daml-sdk-project-config:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
-    ],
-    deps = [
-        "@maven//:io_circe_circe_core_2_12",
-        "@maven//:io_circe_circe_yaml_2_12",
-        "@maven//:org_typelevel_cats_core_2_12",
     ],
 )
 
@@ -31,8 +31,10 @@ da_scala_test_suite(
         "src/test/**/*Spec.scala",
         "src/test/**/*Test.scala",
     ]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+    ],
     deps = [
         ":scala-daml-project-config",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )

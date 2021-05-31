@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,7 +6,9 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "silencer_plugin",
 )
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
@@ -16,7 +18,15 @@ da_scala_library(
     name = "gatling-utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = scalacopts,
     tags = ["maven_coordinates=com.daml:gatling-utils:__VERSION__"],
@@ -26,14 +36,13 @@ da_scala_library(
     ],
     deps = [
         "//libs-scala/scala-utils",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:io_gatling_gatling_app",
         "@maven//:io_gatling_gatling_core",
-        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:io_netty_netty_common",
+        "@maven//:io_netty_netty_transport",
         "@maven//:org_slf4j_slf4j_api",
     ],
-)
+) if scala_major_version == "2.13" else None
 
 filegroup(
     name = "test-simulation-logs",
@@ -48,17 +57,15 @@ da_scala_test(
         ":test-simulation-logs",
     ],
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+    ],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = scalacopts,
     deps = [
         ":gatling-utils",
         "//bazel_tools/runfiles:scala_runfiles",
-        "//libs-scala/scalatest-utils",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
     ],
-)
+) if scala_major_version == "2.13" else None

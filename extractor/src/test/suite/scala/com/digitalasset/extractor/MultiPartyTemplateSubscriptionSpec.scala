@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor
@@ -38,7 +38,8 @@ class MultiPartyTemplateSubscriptionSpec
       parties = OneAnd(alice, List(bob)),
       templateConfigs = Set(
         TemplateConfig("TransactionExample", "RightOfUseOffer"),
-        TemplateConfig("TransactionExample", "RightOfUseAgreement"))
+        TemplateConfig("TransactionExample", "RightOfUseAgreement"),
+      ),
     )
   }
 
@@ -47,18 +48,16 @@ class MultiPartyTemplateSubscriptionSpec
   }
 
   "Exercises" should "be extracted" in {
-    inside(getExercises) {
-      case List(e) =>
-        e.template should ===("TransactionExample:RightOfUseOffer")
-        e.choice should ===("Accept")
+    inside(getExercises) { case List(e) =>
+      e.template should ===("TransactionExample:RightOfUseOffer")
+      e.choice should ===("Accept")
     }
   }
 
   "Contracts" should "be extracted" in {
-    inside(getContracts) {
-      case List(a1, a2) =>
-        a1.template should ===("TransactionExample:RightOfUseOffer")
-        a2.template should ===("TransactionExample:RightOfUseAgreement")
+    inside(getContracts) { case List(a1, a2) =>
+      a1.template should ===("TransactionExample:RightOfUseOffer")
+      a2.template should ===("TransactionExample:RightOfUseAgreement")
     }
   }
 }

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Compiler.Dar
     ( createDarFile
@@ -122,7 +122,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                  opts <- lift getIdeOptions
                  lfVersion <- lift getDamlLfVersion
                  pkg <- case optShakeFiles opts of
-                     Nothing -> mergePkgs pName pVersion lfVersion <$> usesE GeneratePackage files
+                     Nothing -> mergePkgs pName pVersion lfVersion . map fst <$> usesE GeneratePackage files
                      Just _ -> generateSerializedPackage pName pVersion files
 
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
@@ -189,7 +189,7 @@ writeIfacesAndHie ::
 writeIfacesAndHie ifDir files =
     runMaybeT $ do
         tcms <- usesE TypeCheck files
-        fmap concat $ forM (zip files tcms) $ \(file, tcm) -> do
+        fmap concat $ forM (zip files tcms) $ \(file, (tcm, _mapping)) -> do
             session <- lift $ hscEnv <$> use_ GhcSession file
             liftIO $ writeTcm session tcm
   where
@@ -225,7 +225,7 @@ getSrcRoot fileOrDir = do
   if isDir
       then pure fileOrDir'
       else do
-          pm <- useE GetParsedModule fileOrDir'
+          (pm, _mapping) <- useE GetParsedModule fileOrDir'
           Just root <- pure $ moduleImportPath fileOrDir' pm
           pure $ toNormalizedFilePath' root
 

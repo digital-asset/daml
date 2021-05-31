@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _json-api:
@@ -38,7 +38,7 @@ We welcome feedback about the JSON API on
 Running the JSON API
 ********************
 
-Start a DAML Ledger
+Start a Daml Ledger
 ===================
 
 You can run the JSON API alongside any ledger exposing the gRPC Ledger API you want. If you don't have an existing ledger, you can start an in-memory sandbox:
@@ -117,7 +117,7 @@ The JSON API essentially performs two separate tasks:
 1. It talks to the Ledger API to get data it needs to operate, for this you need to *provide an access token* if your Ledger requires authorization. Learn more in the :doc:`/app-dev/authorization` docs.
 2. It accepts requests from Parties and passes them on to the Ledger API, for this each party needs to provide an *access token with each request* it sends to the JSON API.
 
-.. note:: By default, the DAML Sandbox does not does not require access tokens. In this case, you can omit the token used by the JSON API to request packages. However, you still need to provide a party-specific access token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
+.. note:: By default, the Daml Sandbox does not does not require access tokens. In this case, you can omit the token used by the JSON API to request packages. However, you still need to provide a party-specific access token when submitting commands or queries as a party. The token will not be validated in this case but it will be decoded to extract information like the party submitting the command.
 
 Internal Access Token
 ---------------------
@@ -142,11 +142,11 @@ If the token cannot be read from the provided path or the Ledger API reports an 
 Party-specific Access Tokens
 ----------------------------
 
-Party-specific requests, i.e., command submissions and queries, require a JWT with some additional restrictions compared to the format :doc:`described in the Token Payload section here </tools/sandbox>`. For command submissions, ``actAs`` must contain exactly one party and ``readAs`` can contain 0 or more parties. Queries require at least one party in either ``actAs`` or ``readAs`` (note that before SDK 1.7.0, every request required exactly one party). In addition to that, the application id and ledger id are mandatory. HTTP requests pass the token in a header, while WebSocket requests pass the token in a subprotocol.
+Party-specific requests, i.e., command submissions and queries, require a JWT with some additional restrictions compared to the format :doc:`described in the Token Payload section here </tools/sandbox>`. For command submissions, ``actAs`` must contain at least one party and ``readAs`` can contain 0 or more parties. Queries require at least one party in either ``actAs`` or ``readAs`` (note that before SDK 1.7.0, every request required exactly one party and before SDK 1.8.0 actAs was limited to exactly one party). In addition to that, the application id and ledger id are mandatory. HTTP requests pass the token in a header, while WebSocket requests pass the token in a subprotocol.
 
 .. note:: While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it, and all data contained within the request, on to the Ledger API's AuthService which will then determine if the token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id and party so it requires that you use the JWT format documented below.
 
-For a ledger without authorization, e.g., the default configuration of DAML Sandbox, you can use https://jwt.io (or the JWT library of your choice) to generate your
+For a ledger without authorization, e.g., the default configuration of Daml Sandbox, you can use https://jwt.io (or the JWT library of your choice) to generate your
 token.  You can use an arbitrary secret here. The default "header" is fine.  Under "Payload", fill in:
 
 .. code-block:: json
@@ -159,7 +159,7 @@ token.  You can use an arbitrary secret here. The default "header" is fine.  Und
       }
     }
 
-The value of the ``ledgerId`` field has to match the ``ledgerId`` of your underlying DAML Ledger.
+The value of the ``ledgerId`` field has to match the ``ledgerId`` of your underlying Daml Ledger.
 For the Sandbox this corresponds to the ``--ledgerid MyLedger`` flag.
 
 .. note:: The value of ``applicationId`` will be used for commands submitted using that token.
@@ -383,7 +383,7 @@ Where:
   + ``"<package ID>:<module>:<entity>"`` or
   + ``"<module>:<entity>"`` if contract template can be uniquely identified by its module and entity name.
 
-- ``payload`` field contains contract fields as defined in the DAML template and formatted according to :doc:`lf-value-specification`.
+- ``payload`` field contains contract fields as defined in the Daml template and formatted according to :doc:`lf-value-specification`.
 
 .. _create-response:
 
@@ -481,7 +481,7 @@ Where:
 
 - ``templateId`` -- contract template identifier, same as in :ref:`create request <create-request>`,
 - ``contractId`` -- contract identifier, the value from the  :ref:`create response <create-response>`,
-- ``choice`` -- DAML contract choice, that is being exercised,
+- ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
 
 .. _exercise-response:
@@ -581,7 +581,7 @@ Where:
 
 - ``templateId`` -- contract template identifier, same as in :ref:`create request <create-request>`,
 - ``key`` -- contract key, formatted according to the :doc:`lf-value-specification`,
-- ``choice`` -- DAML contract choice, that is being exercised,
+- ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s), empty, because ``Archive`` does not take any.
 
 HTTP Response
@@ -622,8 +622,8 @@ HTTP Request
 Where:
 
 - ``templateId`` -- the initial contract template identifier, in the same format as in the :ref:`create request <create-request>`,
-- ``payload`` -- the initial contract fields as defined in the DAML template and formatted according to :doc:`lf-value-specification`,
-- ``choice`` -- DAML contract choice, that is being exercised,
+- ``payload`` -- the initial contract fields as defined in the Daml template and formatted according to :doc:`lf-value-specification`,
+- ``choice`` -- Daml contract choice, that is being exercised,
 - ``argument`` -- contract choice argument(s).
 
 HTTP Response
@@ -1008,7 +1008,7 @@ Please note that the order of the party objects in the response is not guarantee
 
 Where
 
-- ``identifier`` -- a stable unique identifier of a DAML party,
+- ``identifier`` -- a stable unique identifier of a Daml party,
 - ``displayName`` -- optional human readable name associated with the party. Might not be unique,
 - ``isLocal`` -- true if party is hosted by the backing participant.
 
@@ -1508,13 +1508,13 @@ A status code of ``200`` indicates a successful liveness check.
 This is an unauthenticated endpoint intended to be used as a liveness
 probe.
 
-Readyness check
+Readiness check
 ===============
 
 - URL: ``/readyz``
 - Method: ``GET``
 
-A status code of ``200`` indicates a successful readyness check.
+A status code of ``200`` indicates a successful readiness check.
 
 This is an unauthenticated endpoint intended to be used as a liveness
 probe. It validates both the ledger connection as well as the database

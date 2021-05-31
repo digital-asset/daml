@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -8,9 +8,10 @@ import java.time.Instant
 import java.util.UUID
 
 import com.daml.ledger.api.domain.PartyDetails
-import com.daml.ledger.participant.state.v1.RejectionReason
+import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.{TransactionBuilder => TxBuilder}
+import com.daml.lf.value.Value.ValueText
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -115,7 +116,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = TxBuilder.justCommitted(createContract, TxBuilder.fetch(createContract)),
+            transaction = TxBuilder.justCommitted(createContract, txBuilder.fetch(createContract)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -130,7 +131,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = TxBuilder.justCommitted(TxBuilder.fetch(divulgedContract)),
+            transaction = TxBuilder.justCommitted(txBuilder.fetch(divulgedContract)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set(divulgedContract.coid),
           )
@@ -145,7 +146,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = TxBuilder.justCommitted(TxBuilder.fetch(missingCreate)),
+            transaction = TxBuilder.justCommitted(txBuilder.fetch(missingCreate)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -161,7 +162,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         val error =
           store.validate(
             transaction = TxBuilder
-              .justCommitted(createContract, TxBuilder.lookupByKey(createContract, found = true)),
+              .justCommitted(createContract, txBuilder.lookupByKey(createContract, found = true)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -177,7 +178,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         val error =
           store.validate(
             transaction =
-              TxBuilder.justCommitted(TxBuilder.lookupByKey(missingCreate, found = true)),
+              TxBuilder.justCommitted(txBuilder.lookupByKey(missingCreate, found = true)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -198,13 +199,93 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         val error =
           store.validate(
             transaction =
-              TxBuilder.justCommitted(TxBuilder.lookupByKey(missingContract, found = false)),
+              TxBuilder.justCommitted(txBuilder.lookupByKey(missingContract, found = false)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
 
         error shouldBe None
 
+      }
+
+      "accept a create in a rollback node" in {
+        val createContract = genTestCreate()
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(createContract, rollback)
+
+        val error = store.validate(
+          transaction = builder.buildCommitted(),
+          transactionLedgerEffectiveTime = Instant.now(),
+          divulged = Set.empty,
+        )
+
+        error shouldBe None
+      }
+
+      "accept a create after a rolled back create with the same key" in {
+        val createContract = genTestCreate()
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(createContract, rollback)
+        builder.add(createContract)
+
+        val error = store.validate(
+          transaction = builder.buildCommitted(),
+          transactionLedgerEffectiveTime = Instant.now(),
+          divulged = Set.empty,
+        )
+
+        error shouldBe None
+      }
+
+      "reject a create in a rollback after a create with the same key" in {
+        val createContract = genTestCreate()
+        val builder = TxBuilder()
+        builder.add(createContract)
+        val rollback = builder.add(builder.rollback())
+        builder.add(createContract, rollback)
+
+        val error = store.validate(
+          transaction = builder.buildCommitted(),
+          transactionLedgerEffectiveTime = Instant.now(),
+          divulged = Set.empty,
+        )
+
+        error shouldBe Some(DuplicateKey)
+      }
+
+      "reject a create after a rolled back archive of a contract with the same key" in {
+        val createContract = genTestCreate()
+        val builder = TxBuilder()
+        builder.add(createContract)
+        val rollback = builder.add(builder.rollback())
+        builder.add(genTestExercise(createContract), rollback)
+        builder.add(createContract)
+
+        val error = store.validate(
+          transaction = builder.buildCommitted(),
+          transactionLedgerEffectiveTime = Instant.now(),
+          divulged = Set.empty,
+        )
+
+        error shouldBe Some(DuplicateKey)
+      }
+
+      "accept a failed lookup in a rollback" in {
+        val createContract = genTestCreate()
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(builder.lookupByKey(createContract, found = false), rollback)
+
+        val error =
+          store.validate(
+            transaction = builder.buildCommitted(),
+            transactionLedgerEffectiveTime = Instant.now(),
+            divulged = Set.empty,
+          )
+
+        error shouldBe None
       }
 
     }
@@ -222,7 +303,8 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
             id = committedContract.coid.coid,
             ledgerEffectiveTime = committedContractLedgerEffectiveTime,
             key = committedContract.key.map(x =>
-              GlobalKey.assertBuild(committedContract.coinst.template, x.key))
+              GlobalKey.assertBuild(committedContract.coinst.template, x.key)
+            ),
           ),
         ),
         validatePartyAllocation = false,
@@ -276,7 +358,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = TxBuilder.justCommitted(TxBuilder.fetch(committedContract)),
+            transaction = TxBuilder.justCommitted(txBuilder.fetch(committedContract)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
           )
@@ -289,7 +371,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = TxBuilder.justCommitted(TxBuilder.fetch(committedContract)),
+            transaction = TxBuilder.justCommitted(txBuilder.fetch(committedContract)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
             divulged = Set.empty,
           )
@@ -308,7 +390,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         val error =
           store.validate(
             transaction =
-              TxBuilder.justCommitted(TxBuilder.lookupByKey(committedContract, found = true)),
+              TxBuilder.justCommitted(txBuilder.lookupByKey(committedContract, found = true)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
           )
@@ -322,7 +404,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
         val error =
           store.validate(
             transaction =
-              TxBuilder.justCommitted(TxBuilder.lookupByKey(committedContract, found = false)),
+              TxBuilder.justCommitted(txBuilder.lookupByKey(committedContract, found = false)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
           )
@@ -336,6 +418,73 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
       }
 
+      "reject a create in a rollback" in {
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(committedContract, rollback)
+
+        val error =
+          store.validate(
+            transaction = builder.buildCommitted(),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            divulged = Set.empty,
+          )
+
+        error shouldBe Some(DuplicateKey)
+      }
+
+      "reject a failed lookup in a rollback" in {
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(builder.lookupByKey(committedContract, found = false), rollback)
+
+        val error =
+          store.validate(
+            transaction = builder.buildCommitted(),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            divulged = Set.empty,
+          )
+
+        error shouldBe Some(
+          MismatchingLookup(
+            result = Some(committedContract.coid),
+            expectation = None,
+          )
+        )
+
+      }
+
+      "accept a successful lookup in a rollback" in {
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(builder.lookupByKey(committedContract, found = true), rollback)
+
+        val error =
+          store.validate(
+            transaction = builder.buildCommitted(),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            divulged = Set.empty,
+          )
+
+        error shouldBe None
+
+      }
+
+      "reject a create after a rolled back archive" in {
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(genTestExercise(committedContract), rollback)
+        builder.add(committedContract)
+
+        val error =
+          store.validate(
+            transaction = builder.buildCommitted(),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            divulged = Set.empty,
+          )
+        error shouldBe Some(DuplicateKey)
+
+      }
     }
 
     "run with one divulged contract" should {
@@ -368,7 +517,7 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
         val error =
           store.validate(
-            transaction = TxBuilder.justCommitted(TxBuilder.fetch(divulgedContract)),
+            transaction = TxBuilder.justCommitted(txBuilder.fetch(divulgedContract)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
           )
@@ -394,7 +543,21 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
             divulged = Set.empty,
           )
 
-        error shouldBe Some(RejectionReason.PartyNotKnownOnLedger("Some parties are unallocated"))
+        error shouldBe Some(RejectionReasonV0.PartyNotKnownOnLedger("Some parties are unallocated"))
+      }
+      "reject if party is used in rollback" in {
+        val createWithKey = genTestCreate()
+        val builder = TxBuilder()
+        val rollback = builder.add(builder.rollback())
+        builder.add(createWithKey, rollback)
+        val error =
+          store.validate(
+            transaction = builder.buildCommitted(),
+            transactionLedgerEffectiveTime = Instant.now(),
+            divulged = Set.empty,
+          )
+
+        error shouldBe Some(RejectionReasonV0.PartyNotKnownOnLedger("Some parties are unallocated"))
       }
     }
   }
@@ -402,18 +565,20 @@ final class PostCommitValidationSpec extends AnyWordSpec with Matchers {
 
 object PostCommitValidationSpec {
 
+  val txBuilder = new TxBuilder()
+
   private def genTestCreate(): TxBuilder.Create =
-    TxBuilder.create(
+    txBuilder.create(
       id = s"#${UUID.randomUUID}",
       template = "foo:bar:baz",
       argument = TxBuilder.record("field" -> "value"),
       signatories = Seq("Alice"),
       observers = Seq.empty,
-      key = Some("key"),
+      key = Some(ValueText("key")),
     )
 
   private def genTestExercise(create: TxBuilder.Create): TxBuilder.Exercise =
-    TxBuilder.exercise(
+    txBuilder.exercise(
       contract = create,
       choice = "SomeChoice",
       consuming = true,
@@ -432,15 +597,17 @@ object PostCommitValidationSpec {
 
   private final case class ContractStoreFixture private (
       contracts: Set[ContractFixture],
-      parties: List[PartyDetails])
-      extends PostCommitValidationData {
+      parties: List[PartyDetails],
+  ) extends PostCommitValidationData {
 
-    override def lookupContractKeyGlobally(key: Key)(
-        implicit connection: Connection = null): Option[ContractId] =
+    override def lookupContractKeyGlobally(key: Key)(implicit
+        connection: Connection = null
+    ): Option[ContractId] =
       contracts.find(c => c.key.contains(key)).map(_.id)
 
-    override def lookupMaximumLedgerTime(ids: Set[ContractId])(
-        implicit connection: Connection = null): Try[Option[Instant]] = {
+    override def lookupMaximumLedgerTime(
+        ids: Set[ContractId]
+    )(implicit connection: Connection = null): Try[Option[Instant]] = {
       val lookup = contracts.collect {
         case c if ids.contains(c.id) => c.ledgerEffectiveTime
       }
@@ -448,8 +615,9 @@ object PostCommitValidationSpec {
       else Success(lookup.fold[Option[Instant]](None)(pickTheGreatest))
     }
 
-    override def lookupParties(parties: Seq[Party])(
-        implicit connection: Connection): List[PartyDetails] =
+    override def lookupParties(
+        parties: Seq[Party]
+    )(implicit connection: Connection): List[PartyDetails] =
       this.parties.filter { party =>
         parties.contains(party.party)
       }
@@ -460,7 +628,7 @@ object PostCommitValidationSpec {
 
   private def notFound(contractIds: Set[ContractId]): Throwable =
     new IllegalArgumentException(
-      s"One or more of the following contract identifiers has been found: ${contractIds.map(_.coid).mkString(", ")}"
+      s"One or more of the following contract identifiers has not been found: ${contractIds.map(_.coid).mkString(", ")}"
     )
 
   private def noCommittedContract(parties: List[PartyDetails]): ContractStoreFixture =
@@ -469,7 +637,7 @@ object PostCommitValidationSpec {
   private def committedContracts(
       parties: List[PartyDetails],
       contractFixture: ContractFixture,
-      contractFixtures: ContractFixture*,
+      contractFixtures: ContractFixture*
   ): ContractStoreFixture =
     ContractStoreFixture((contractFixture +: contractFixtures).toSet, parties)
 

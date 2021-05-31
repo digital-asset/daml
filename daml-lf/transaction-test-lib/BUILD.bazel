@@ -1,19 +1,33 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "lf_scalacopts",
+    "silencer_plugin",
 )
+load("@scala_version//:index.bzl", "scala_version_suffix")
 
 da_scala_library(
     name = "transaction-test-lib",
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        silencer_plugin,
     ],
-    scalacopts = lf_scalacopts,
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
+    scalacopts = lf_scalacopts + [
+        "-P:silencer:lineContentFilters=import elt.injshrink",
+        # Forced upon us by Shrink
+        "-P:silencer:lineContentFilters=Stream.empty",
+    ],
     tags = ["maven_coordinates=com.daml:daml-lf-transaction-test-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
@@ -22,10 +36,6 @@ da_scala_library(
         "//daml-lf/interface",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
     ],
 )

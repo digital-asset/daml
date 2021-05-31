@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Cli.Damlc.Packaging
@@ -7,12 +7,11 @@ module DA.Cli.Damlc.Packaging
   , getUnitId
   ) where
 
-import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
+import Control.Exception.Safe (tryAny)
 import Control.Lens (toListOf)
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
 import Data.Either.Combinators
 import Data.Graph
 import Data.List.Extra
@@ -27,6 +26,7 @@ import Development.IDE.Core.Service (runActionSync)
 import Development.IDE.GHC.Util (hscEnv)
 import Development.IDE.Types.Location
 import "ghc-lib-parser" DynFlags (DynFlags)
+import GHC.Fingerprint
 import "ghc-lib-parser" HscTypes as GHC
 import "ghc-lib-parser" Module (UnitId, unitIdString)
 import qualified Module as GHC
@@ -34,8 +34,8 @@ import qualified "ghc-lib-parser" Packages as GHC
 import System.Directory.Extra
 import System.Exit
 import System.FilePath
-import System.Info.Extra
 import System.IO.Extra
+import System.Info.Extra
 import System.Process (callProcess)
 import "ghc-lib-parser" UniqSet
 
@@ -43,13 +43,12 @@ import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Base
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DataDependencies as DataDeps
-import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
-import DA.Daml.Compiler.DecodeDar (DecodedDar(..), DecodedDalf(..), decodeDar, decodeDalf)
+import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
-import DA.Daml.Package.Config
+import DA.Cli.Damlc.DependencyDb
 import qualified DA.Pretty
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
@@ -69,123 +68,116 @@ import SdkVersion
 --   ledger. Based on the DAML-LF we generate dummy interface files
 --   and then remap references to those dummy packages to the original DAML-LF
 --   package id.
-createProjectPackageDb :: NormalizedFilePath -> Options -> PackageSdkVersion -> MS.Map UnitId GHC.ModuleName -> [FilePath] -> [FilePath] -> IO ()
-createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkVersion thisSdkVer) modulePrefixes deps dataDeps
-  | null dataDeps && all (`elem` basePackages) deps =
-    -- Initializing the package db is expensive since it requires calling GenerateStablePackages and GeneratePackageMap.
-    --Therefore we only do it if we actually have a dependency.
-    clearPackageDb
-  | otherwise = do
-    clearPackageDb
-    deps <- expandSdkPackages (optDamlLfVersion opts) (filter (`notElem` basePackages) deps)
-    depsExtracted <- mapM extractDar deps
-
-    let uniqSdkVersions = nubSort $ thisSdkVer : map edSdkVersions depsExtracted
-    let depsSdkVersions = map edSdkVersions depsExtracted
-    unless (all (== thisSdkVer) depsSdkVersions) $
-           fail $
-           "Package dependencies from different SDK versions: " ++
-           intercalate ", " uniqSdkVersions
-
-    -- Register deps at the very beginning. This allows data-dependencies to
-    -- depend on dependencies which is necessary so that we can reconstruct typeclass
-    -- instances for a typeclass defined in a library.
-    -- It does mean that we can’t have a dependency from a dependency on a
-    -- data-dependency but that seems acceptable.
-    -- See https://github.com/digital-asset/daml/issues/4218 for more details.
-    -- TODO Enforce this with useful error messages
-    forM_ depsExtracted $
-        -- We only have the interface files for the main DALF in a `dependency` so we
-        -- also only extract the main dalf.
-        \ExtractedDar{..} -> installDar dbPath edConfFiles edMain edSrcs
-
-    loggerH <- getLogger opts "generate package maps"
-    mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
-        (,) <$> useNoFileE GenerateStablePackages
-            <*> useE GeneratePackageMap projectRoot
-    (stablePkgs, PackageMap dependenciesInPkgDb) <- maybe (fail "Failed to generate package info") pure mbRes
-    let stablePkgIds :: Set LF.PackageId
-        stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
-    let dependenciesInPkgDbIds =
-            Set.fromList $ map LF.dalfPackageId $ MS.elems dependenciesInPkgDb
-
-    -- Now handle data-dependencies.
-    darsFromDataDependencies <- getDarsFromDataDependencies dependenciesInPkgDbIds dataDeps
-    let dalfsFromDataDependencies = concatMap dalfs darsFromDataDependencies
-
-    -- All transitive packages from DARs specified in  `dependencies`.
-    -- This is only used for unit-id collision checks
-    -- and dependencies on newer LF versions.
-    darsFromDependencies <- getDarsFromDependencies dependenciesInPkgDbIds depsExtracted
-    let dalfsFromDependencies = concatMap dalfs darsFromDependencies
-
-    let dependencyInfo = DependencyInfo
-            { dependenciesInPkgDb
-            , dalfsFromDependencies
-            , dalfsFromDataDependencies
-            , mainUnitIds =
-                  map (decodedUnitId . mainDalf)
-                      (darsFromDataDependencies ++ darsFromDependencies)
-            }
-
-    -- We perform this check before checking for unit id collisions
-    -- since it provides a more useful error message.
-    whenLeft
-        (checkForIncompatibleLfVersions (optDamlLfVersion opts) dependencyInfo)
-        exitWithError
-    whenLeft
-        (checkForUnitIdConflicts dependencyInfo)
-        exitWithError
-
-    -- We run the checks for duplicate unit ids before
-    -- to avoid blowing up GHC when setting up the GHC session.
-    exposedModules <- getExposedModules opts projectRoot
-
-    let (depGraph, vertexToNode) = buildLfPackageGraph dalfsFromDataDependencies stablePkgs dependenciesInPkgDb
+createProjectPackageDb :: NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
+createProjectPackageDb projectRoot (disableScenarioService -> opts) modulePrefixes
+  = do
+    (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot depsDir
+    when needsReinitalization $ do
+      clearPackageDb
 
 
-    validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes (dalfsFromDependencies <> dalfsFromDataDependencies))
+      -- Register deps at the very beginning. This allows data-dependencies to
+      -- depend on dependencies which is necessary so that we can reconstruct typeclass
+      -- instances for a typeclass defined in a library.
+      -- It does mean that we can’t have a dependency from a dependency on a
+      -- data-dependency but that seems acceptable.
+      -- See https://github.com/digital-asset/daml/issues/4218 for more details.
+      -- TODO Enforce this with useful error messages
+      registerDepsInPkgDb depsDir dbPath
 
-    -- Iterate over the dependency graph in topological order.
-    -- We do a topological sort on the transposed graph which ensures that
-    -- the packages with no dependencies come first and we
-    -- never process a package without first having processed its dependencies.
-    forM_ (topSort $ transposeG depGraph) $ \vertex ->
-      let (pkgNode, pkgId) = vertexToNode vertex in
-      -- stable packages are mapped to the current version of daml-prim/daml-stdlib
-      -- so we don’t need to generate interface files for them.
-      unless (pkgId `Set.member` stablePkgIds || pkgId `Set.member` dependenciesInPkgDbIds) $ do
-        let unitIdStr = unitIdString $ unitId pkgNode
-        let pkgIdStr = T.unpack $ LF.unPackageId pkgId
-        let (pkgName, mbPkgVersion) = LF.splitUnitId (unitId pkgNode)
-        let deps =
-                [ (unitId depPkgNode, dalfPackage depPkgNode)
-                | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
-                , pkgId /= depPkgId
-                , not (depPkgId `Set.member` stablePkgIds)
-                ]
-        let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
-        createDirectoryIfMissing True workDir
-        -- write the dalf package
-        BS.writeFile (workDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes (dalfPackage pkgNode)
+      loggerH <- getLogger opts "generate package maps"
+      mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
+          (,) <$> useNoFileE GenerateStablePackages
+              <*> (fst <$> useE GeneratePackageMap projectRoot)
+      (stablePkgs, PackageMap dependenciesInPkgDb) <- maybe (fail "Failed to generate package info") pure mbRes
+      let stablePkgIds :: Set LF.PackageId
+          stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
+      let dependenciesInPkgDbIds =
+              Set.fromList $ map LF.dalfPackageId $ MS.elems dependenciesInPkgDb
 
-        generateAndInstallIfaceFiles
-            (LF.extPackagePkg $ LF.dalfPackagePkg $ dalfPackage pkgNode)
-            (stubSources pkgNode)
-            opts
-            workDir
-            dbPath
-            projectPackageDatabase
-            pkgId
-            pkgName
-            mbPkgVersion
-            deps
-            dependenciesInPkgDb
-            exposedModules
+      -- This is only used for unit-id collision checks and dependencies on newer LF versions.
+      dalfsFromDependencyFps <- queryDalfs (Just [depMarker]) depsDir
+      dalfsFromDependencies <- forM dalfsFromDependencyFps $ decodeDalf_ dependenciesInPkgDbIds
+      dalfsFromDataDependencyFps <- queryDalfs (Just [dataDepMarker]) depsDir
+      dalfsFromDataDependencies <- forM dalfsFromDataDependencyFps $ decodeDalf_ dependenciesInPkgDbIds
+      mainDalfFps <- queryDalfs (Just [mainMarker]) depsDir
+      mainDalfs <- forM mainDalfFps $ decodeDalf_ dependenciesInPkgDbIds
 
-    writeMetadata projectRoot (PackageDbMetadata (mainUnitIds dependencyInfo) validatedModulePrefixes)
+      let dependencyInfo = DependencyInfo
+              { dependenciesInPkgDb
+              , dalfsFromDependencies
+              , dalfsFromDataDependencies
+              , mainUnitIds = map decodedUnitId mainDalfs
+              }
+
+      -- We perform these check before checking for unit id collisions
+      -- since it provides a more useful error message.
+      whenLeft
+          (checkForInconsistentLfVersions (optDamlLfVersion opts) dependencyInfo)
+          exitWithError
+      whenLeft
+          (checkForIncompatibleLfVersions (optDamlLfVersion opts) dependencyInfo)
+          exitWithError
+      whenLeft
+          (checkForUnitIdConflicts dependencyInfo)
+          exitWithError
+
+      -- We run the checks for duplicate unit ids before
+      -- to avoid blowing up GHC when setting up the GHC session.
+      exposedModules <- getExposedModules opts projectRoot
+
+      let (depGraph, vertexToNode) = buildLfPackageGraph dalfsFromDataDependencies stablePkgs dependenciesInPkgDb
+
+
+      validatedModulePrefixes <- either exitWithError pure (prefixModules modulePrefixes (dalfsFromDependencies <> dalfsFromDataDependencies))
+
+      -- Iterate over the dependency graph in topological order.
+      -- We do a topological sort on the transposed graph which ensures that
+      -- the packages with no dependencies come first and we
+      -- never process a package without first having processed its dependencies.
+      forM_ (topSort $ transposeG depGraph) $ \vertex ->
+        let (pkgNode, pkgId) = vertexToNode vertex in
+        -- stable packages are mapped to the current version of daml-prim/daml-stdlib
+        -- so we don’t need to generate interface files for them.
+        unless (pkgId `Set.member` stablePkgIds || pkgId `Set.member` dependenciesInPkgDbIds) $ do
+          let unitIdStr = unitIdString $ unitId pkgNode
+          let pkgIdStr = T.unpack $ LF.unPackageId pkgId
+          let (pkgName, mbPkgVersion) = LF.splitUnitId (unitId pkgNode)
+          let deps =
+                  [ (unitId depPkgNode, dalfPackage depPkgNode)
+                  | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
+                  , pkgId /= depPkgId
+                  , not (depPkgId `Set.member` stablePkgIds)
+                  ]
+          let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
+          let dalfDir = dbPath </> pkgIdStr
+          createDirectoryIfMissing True workDir
+          createDirectoryIfMissing True dalfDir
+          BS.writeFile (dalfDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes $ dalfPackage pkgNode
+
+          generateAndInstallIfaceFiles
+              (LF.extPackagePkg $ LF.dalfPackagePkg $ dalfPackage pkgNode)
+              (stubSources pkgNode)
+              opts
+              workDir
+              dbPath
+              projectPackageDatabase
+              pkgId
+              pkgName
+              mbPkgVersion
+              deps
+              dependenciesInPkgDb
+              exposedModules
+
+      writeMetadata
+          projectRoot
+          (PackageDbMetadata (mainUnitIds dependencyInfo) validatedModulePrefixes depsFingerprint)
   where
     dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
+    depsDir = dependenciesDir opts projectRoot
+    decodeDalf_ pkgIds dalf = do
+        bs <- BS.readFile dalf
+        either fail pure $ decodeDalf pkgIds dalf bs
     clearPackageDb = do
         -- Since we reinitialize the whole package db during `daml init` anyway,
         -- we clear the package db before to avoid
@@ -193,6 +185,21 @@ createProjectPackageDb projectRoot (disableScenarioService -> opts) (PackageSdkV
         -- reinitializing everything, we probably want to change this.
         removePathForcibly dbPath
         createDirectoryIfMissing True $ dbPath </> "package.conf.d"
+
+-- | Compute the hash over all dependencies and compare it to the one stored in the metadata file in
+-- the package db to decide whether to run reinitialization or not.
+dbNeedsReinitialization ::
+       NormalizedFilePath -> FilePath -> IO (Bool, Fingerprint)
+dbNeedsReinitialization projectRoot depsDir = do
+    allDeps <- listFilesRecursive depsDir
+    fileFingerprints <- mapM getFileHash allDeps
+    let depsFingerprint = fingerprintFingerprints fileFingerprints
+    -- Read the metadata of an already existing package database and see if wee need to reinitialize.
+    errOrmetaData <- tryAny $ readMetadata projectRoot
+    pure $
+        case errOrmetaData of
+            Left _err -> (True, depsFingerprint)
+            Right metaData -> (fingerprintDependencies metaData /= depsFingerprint, depsFingerprint)
 
 disableScenarioService :: Options -> Options
 disableScenarioService opts = opts
@@ -279,8 +286,47 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
     BS.writeFile (dbPath </> "package.conf.d" </> cfPath) cfBs
     recachePkgDb dbPath
 
+-- | Fake settings, we need those to make ghc-pkg happy.
+--
+-- As a long-term solution, it might make sense to clone ghc-pkg
+-- and strip it down to only the functionality we need. A lot of this
+-- is rather sketchy in the context of daml.
+settings :: [(T.Text, T.Text)]
+settings =
+  [ ("target arch", "ArchUnknown")
+  , ("target os", "OSUnknown")
+  , ("target word size", "8")
+  , ("Unregisterised", "YES")
+  , ("target has GNU nonexec stack", "YES")
+  , ("target has .ident directive", "YES")
+  , ("target has subsections via symbols", "YES")
+  , ("cross compiling", "NO")
+  ]
+
+-- Register a dar dependency in the package database
+registerDepsInPkgDb :: FilePath -> FilePath -> IO ()
+registerDepsInPkgDb depsPath dbPath = do
+    mains <- queryDalfs (Just [mainMarker, depMarker]) depsPath
+    let dirs = map takeDirectory mains
+    forM_ dirs $ \dir -> do
+      files <- listFilesRecursive dir
+      copyFiles dir [f | f <- files, takeExtension f `elem` [".daml", ".hie", ".hi"] ] dbPath
+      copyFiles dir [f | f <- files, "conf" `isExtensionOf` f] (dbPath </> "package.conf.d")
+    copyFiles depsPath mains dbPath
+    -- Note that we're not copying the `dalfs` directory, because we also only have interface files
+    -- for the mains.
+    recachePkgDb dbPath
+
+copyFiles :: FilePath -> [FilePath] -> FilePath -> IO ()
+copyFiles from srcs to = do
+      forM_ srcs $ \src -> do
+        let fp = to </> makeRelative from src
+        createDirectoryIfMissing True (takeDirectory fp)
+        copyFile src fp
+
 recachePkgDb :: FilePath -> IO ()
 recachePkgDb dbPath = do
+    T.writeFileUtf8 (dbPath </> "settings") $ T.pack $ show settings
     ghcPkgPath <- getGhcPkgPath
     callProcess
         (ghcPkgPath </> exe "ghc-pkg")
@@ -303,6 +349,10 @@ baseImports =
            , "DA.Types"
            , "DA.Internal.Erased"
            , "DA.Internal.PromotedText"
+           , "DA.Exception.GeneralError"
+           , "DA.Exception.ArithmeticError"
+           , "DA.Exception.AssertionFailed"
+           , "DA.Exception.PreconditionFailed"
            , "GHC.Err"
            , "Data.String"
            ]
@@ -321,6 +371,7 @@ baseImports =
           , "DA.Internal.Down"
           , "DA.NonEmpty.Types"
           , "DA.Semigroup.Types"
+          , "DA.Set.Types"
           , "DA.Monoid.Types"
           , "DA.Logic.Types"
           , "DA.Validation.Types"
@@ -341,37 +392,7 @@ getUnitId thisUnitId pkgMap =
                  "Unknown package id: " <> (T.unpack $ LF.unPackageId pId)) $
             MS.lookup pId pkgMap
 
--- Install a dar in the package database
-installDar ::
-       FilePath
-    -> [ZipArchive.Entry]
-    -> ZipArchive.Entry
-    -> [ZipArchive.Entry]
-    -> IO ()
-installDar dbPath confFiles dalf srcs = do
-    let path = dbPath </> ZipArchive.eRelativePath dalf
-    createDirectoryIfMissing True (takeDirectory path)
-    BSL.writeFile path (ZipArchive.fromEntry dalf)
-    forM_ confFiles $ \conf ->
-        BSL.writeFile
-            (dbPath </> "package.conf.d" </>
-             (takeFileName $ ZipArchive.eRelativePath conf))
-            (ZipArchive.fromEntry conf)
-    forM_ srcs $ \src -> do
-        let path = dbPath </> ZipArchive.eRelativePath src
-        write path (ZipArchive.fromEntry src)
-    ghcPkgPath <- getGhcPkgPath
-    callProcess
-        (ghcPkgPath </> exe "ghc-pkg")
-        [ "recache"
-              -- ghc-pkg insists on using a global package db and will try
-              -- to find one automatically if we don’t specify it here.
-        , "--global-package-db=" ++ (dbPath </> "package.conf.d")
-        , "--expand-pkgroot"
-        ]
-  where
-    write fp bs =
-        createDirectoryIfMissing True (takeDirectory fp) >> BSL.writeFile fp bs
+
 
 -- | Write generated source files
 writeSrc :: (NormalizedFilePath, String) -> IO ()
@@ -385,7 +406,7 @@ getGhcPkgPath :: IO FilePath
 getGhcPkgPath =
     if isWindows
         then locateRunfiles "rules_haskell_ghc_windows_amd64/bin"
-        else locateRunfiles "ghc_nix/lib/ghc-8.6.5/bin"
+        else locateRunfiles "ghc_nix/lib/ghc-8.10.4/bin"
 
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a
@@ -497,10 +518,38 @@ data DependencyInfo = DependencyInfo
   -- Note that for data-dependencies it is sufficient to list a DAR without
   -- listing all of its dependencies.
   , mainUnitIds :: [UnitId]
-  -- ^ Unit id of the main DALFs specified in dependencies and
-  -- data-dependencies. This will be used to generate the --package
-  -- flags which define which packages are exposed by default.
+  -- ^ Unit id of the main DALFs specified in dependencies and the main DALFs
+  -- of DARs specified in data-dependencies. This will be used to generate the
+  -- --package flags which define which packages are exposed by default.
   }
+
+showDeps :: [((LF.PackageId, UnitId), LF.Version)] -> String
+showDeps deps =
+    intercalate
+        ", "
+        [ T.unpack (LF.unPackageId pkgId) <> " (" <> unitIdString unitId <> "): " <>
+        DA.Pretty.renderPretty ver
+        | ((pkgId, unitId), ver) <- deps
+        ]
+
+checkForInconsistentLfVersions :: LF.Version -> DependencyInfo -> Either String ()
+checkForInconsistentLfVersions lfTarget DependencyInfo{dalfsFromDependencies, mainUnitIds}
+  | null inconsistentLfDeps = Right ()
+  | otherwise = Left $ concat
+        [ "Targeted LF version "
+        , DA.Pretty.renderPretty lfTarget
+        , " but dependencies have different LF versions: "
+        , showDeps inconsistentLfDeps
+        ]
+  where
+    inconsistentLfDeps =
+        [ ((LF.dalfPackageId decodedDalfPkg, decodedUnitId), ver)
+        | DecodedDalf {..} <- dalfsFromDependencies
+        , let mainUnitIdsSet = Set.fromList mainUnitIds
+        , decodedUnitId `Set.member` mainUnitIdsSet
+        , let ver = LF.packageLfVersion $ LF.extPackagePkg $ LF.dalfPackagePkg decodedDalfPkg
+        , ver /= lfTarget
+        ]
 
 checkForIncompatibleLfVersions :: LF.Version -> DependencyInfo -> Either String ()
 checkForIncompatibleLfVersions lfTarget DependencyInfo{dalfsFromDependencies, dalfsFromDataDependencies}
@@ -509,11 +558,7 @@ checkForIncompatibleLfVersions lfTarget DependencyInfo{dalfsFromDependencies, da
         [ "Targeted LF version "
         , DA.Pretty.renderPretty lfTarget
         , " but dependencies have newer LF versions: "
-        , intercalate ", "
-              [ T.unpack (LF.unPackageId pkgId) <>
-                " (" <> unitIdString unitId <> "): " <> DA.Pretty.renderPretty ver
-              | ((pkgId, unitId), ver) <- incompatibleLfDeps
-              ]
+        , showDeps incompatibleLfDeps
         ]
   where
     incompatibleLfDeps =
@@ -562,7 +607,7 @@ getExposedModules opts projectRoot = do
     hscEnv <-
         (maybe (exitWithError "Failed to list exposed modules") (pure . hscEnv) =<<) $
         withDamlIdeState opts logger diagnosticsLogger $ \ide ->
-        runActionSync ide $ runMaybeT $ useE GhcSession projectRoot
+        runActionSync ide $ runMaybeT $ fst <$> useE GhcSession projectRoot
     pure $! exposedModulesFromDynFlags $ hsc_dflags hscEnv
   where
     exposedModulesFromDynFlags :: DynFlags -> MS.Map UnitId (UniqSet GHC.ModuleName)
@@ -571,26 +616,6 @@ getExposedModules opts projectRoot = do
         map (\pkgConf -> (getUnitId pkgConf, mkUniqSet $ map fst $ GHC.exposedModules pkgConf)) $
         GHC.listPackageConfigMap df
     getUnitId = GHC.DefiniteUnitId . GHC.DefUnitId . GHC.unitId
-
--- | data-dependencies accept both DAR files as well as DALFs. The latter
--- is only used in tests and should probably go away at some point.
--- We treat a DALF as a DAR with only that DALF in the main DALF list.
-getDarsFromDataDependencies :: Set LF.PackageId -> [FilePath] -> IO [DecodedDar]
-getDarsFromDataDependencies dependenciesInPkgDb files = do
-    dars <- forM fpDars $ \file -> do
-        extractedDar <- extractDar file
-        either fail pure (decodeDar dependenciesInPkgDb extractedDar)
-    dalfs <-
-        forM fpDalfs $ \fp -> do
-            bs <- BS.readFile fp
-            decodedDalf <- either fail pure $ decodeDalf dependenciesInPkgDb fp bs
-            pure (DecodedDar decodedDalf [decodedDalf])
-    pure (dars ++ dalfs)
-    where (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) files
-
-getDarsFromDependencies :: Set LF.PackageId -> [ExtractedDar] -> IO [DecodedDar]
-getDarsFromDependencies dependenciesInPkgDb depsExtracted =
-    either fail pure $ mapM (decodeDar dependenciesInPkgDb) depsExtracted
 
 -- | Given the prefixes declared in daml.yaml
 -- and the list of decoded dalfs, validate that

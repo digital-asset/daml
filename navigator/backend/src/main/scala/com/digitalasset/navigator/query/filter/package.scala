@@ -1,16 +1,16 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.query
 
+import com.daml.lf.value.json.ApiValueImplicits._
+import com.daml.lf.value.{Value => V}
 import com.daml.navigator.dotnot._
 import com.daml.navigator.model._
-import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.json.ApiValueImplicits._
-import com.github.ghik.silencer.silent
 import scalaz.Tag
 import scalaz.syntax.tag._
 
+import scala.annotation.nowarn
 import scala.util.{Failure, Success, Try}
 
 package object filter {
@@ -37,7 +37,8 @@ package object filter {
       rootParam: DamlLfType,
       cursor: PropertyCursor,
       expectedValue: String,
-      ps: DamlLfTypeLookup): Either[DotNotFailure, Boolean] = {
+      ps: DamlLfTypeLookup,
+  ): Either[DotNotFailure, Boolean] = {
 
     @annotation.tailrec
     def loop(parameter: DamlLfType, cursor: PropertyCursor): Either[DotNotFailure, Boolean] =
@@ -47,14 +48,14 @@ package object filter {
             (ps(tc.name.identifier).map(tc.instantiate(_)), cursor.next) match {
               case (Some(DamlLfRecord(fields)), Some(nextCursor)) =>
                 fields
-                  .collectFirst {
-                    case (nextCursor.current, fType) => fType -> nextCursor
+                  .collectFirst { case (nextCursor.current, fType) =>
+                    fType -> nextCursor
                   }
                   .toLeft(false)
               case (Some(DamlLfVariant(fields)), Some(nextCursor)) =>
                 fields
-                  .collectFirst {
-                    case (nextCursor.current, fType) => fType -> nextCursor
+                  .collectFirst { case (nextCursor.current, fType) =>
+                    fType -> nextCursor
                   }
                   .toLeft(false)
               case (Some(DamlLfEnum(constructors)), _) =>
@@ -99,34 +100,41 @@ package object filter {
       rootArgument: Option[ApiValue],
       cursor: PropertyCursor,
       expectedValue: String,
-      ps: DamlLfTypeLookup): Either[DotNotFailure, Boolean] =
+      ps: DamlLfTypeLookup,
+  ): Either[DotNotFailure, Boolean] =
     rootArgument.fold[Either[DotNotFailure, Boolean]](Right(false))(
-      checkValue(_, cursor, expectedValue, ps))
+      checkValue(_, cursor, expectedValue, ps)
+    )
 
-  @silent(" ps .* is never used") // conform to opaque's signature
+  @nowarn("msg=parameter value ps .* is never used") // conform to opaque's signature
   def checkValue(
       rootArgument: ApiValue,
       cursor: PropertyCursor,
       expectedValue: String,
-      ps: DamlLfTypeLookup): Either[DotNotFailure, Boolean] = {
+      ps: DamlLfTypeLookup,
+  ): Either[DotNotFailure, Boolean] = {
 
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, Boolean] =
       argument match {
-        case V.ValueContractId(value) if cursor.isLast =>
-          Right(checkContained(value, expectedValue))
-        case V.ValueInt64(value) if cursor.isLast =>
-          Right(checkContained(value.toString, expectedValue))
-        case V.ValueNumeric(value) if cursor.isLast =>
-          Right(checkContained(value.toUnscaledString, expectedValue))
-        case V.ValueText(value) if cursor.isLast => Right(checkContained(value, expectedValue))
-        case V.ValueParty(value) if cursor.isLast => Right(checkContained(value, expectedValue))
-        case V.ValueBool(value) if cursor.isLast =>
-          Right(checkContained(value.toString, expectedValue))
-        case V.ValueUnit if cursor.isLast => Right(expectedValue == "")
-        case t: V.ValueTimestamp if cursor.isLast =>
-          Right(checkContained(t.toIso8601, expectedValue))
-        case t: V.ValueDate if cursor.isLast => Right(checkContained(t.toIso8601, expectedValue))
+        case V.ValueContractId(value) =>
+          cursor.ensureLast("ContractId")(checkContained(value, expectedValue))
+        case V.ValueInt64(value) =>
+          cursor.ensureLast("Int64")(checkContained(value.toString, expectedValue))
+        case V.ValueNumeric(value) =>
+          cursor.ensureLast("Numeric")(checkContained(value.toUnscaledString, expectedValue))
+        case V.ValueText(value) =>
+          cursor.ensureLast("Text")(checkContained(value, expectedValue))
+        case V.ValueParty(value) =>
+          cursor.ensureLast("Party")(checkContained(value, expectedValue))
+        case V.ValueBool(value) =>
+          cursor.ensureLast("Bool")(checkContained(value.toString, expectedValue))
+        case V.ValueUnit =>
+          cursor.ensureLast("Unit")(expectedValue == "")
+        case t: V.ValueTimestamp =>
+          cursor.ensureLast("Timestamp")(checkContained(t.toIso8601, expectedValue))
+        case t: V.ValueDate =>
+          cursor.ensureLast("Date")(checkContained(t.toIso8601, expectedValue))
         case V.ValueRecord(_, fields) =>
           cursor.next match {
             case None => Right(false)
@@ -200,6 +208,7 @@ package object filter {
                       loop(entries(index)._1, nextNextCursor)
                     case Some(nextNextCursor) if nextNextCursor.current == "value" =>
                       loop(entries(index)._2, nextNextCursor)
+                    case Some(_) => Left(UnknownProperty("genmap", nextCursor, expectedValue))
                     case None =>
                       Right(false)
                   }
@@ -215,11 +224,13 @@ package object filter {
 
   lazy val parameterFilter =
     opaque[DamlLfType, Boolean, DamlLfTypeLookup]("parameter")((t, c, e, p) =>
-      checkParameter(t, c, e, p))
+      checkParameter(t, c, e, p)
+    )
 
   lazy val parameterIdFilter =
     opaque[DamlLfIdentifier, Boolean, DamlLfTypeLookup]("parameter")((id, c, e, p) =>
-      checkParameter(DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq()), c, e, p))
+      checkParameter(DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq()), c, e, p)
+    )
 
   lazy val argumentFilter =
     opaque[ApiValue, Boolean, DamlLfTypeLookup]("argument")(checkValue)
@@ -239,7 +250,8 @@ package object filter {
       .const(true)
       .onAnyValue
       .perform[String]((template, topLevelDecl) =>
-        checkContained(template.topLevelDecl, topLevelDecl))
+        checkContained(template.topLevelDecl, topLevelDecl)
+      )
       .onBranch("parameter", _.id, parameterIdFilter)
       .onBranch("choices", _.choices, choicesFilter)
   //  .onStar(check all fields)
@@ -265,14 +277,16 @@ package object filter {
       .const(true)
       .onAnyValue
       .perform[String]((contract, signatory) =>
-        contract.signatories.map(Tag.unwrap).exists(checkContained(_, signatory)))
+        contract.signatories.map(Tag.unwrap).exists(checkContained(_, signatory))
+      )
       .onTree
       .onLeaf("observers")
       .onValue("*")
       .const(true)
       .onAnyValue
       .perform[String]((contract, observer) =>
-        contract.observers.map(Tag.unwrap).exists(checkContained(_, observer)))
+        contract.observers.map(Tag.unwrap).exists(checkContained(_, observer))
+      )
       .onTree
   //  .onStar(check all fields)
 
@@ -305,14 +319,16 @@ package object filter {
       .onValue("*")
       .const(true)
       .onAnyValue
-      .perform[String](
-        (command, index) => checkContained(command.index.toString, index.toLowerCase))
+      .perform[String]((command, index) =>
+        checkContained(command.index.toString, index.toLowerCase)
+      )
       .onLeaf("platformTime")
       .onValue("*")
       .const(true)
       .onAnyValue
       .perform[String]((command, time) =>
-        checkContained(command.platformTime.toString, time.toLowerCase))
+        checkContained(command.platformTime.toString, time.toLowerCase)
+      )
       .onLeaf("workflowId")
       .onValue("*")
       .const(true)

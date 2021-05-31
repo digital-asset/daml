@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -75,6 +75,7 @@ class  Show a  where
     show x          = shows x ""
     showList ls   s = showList__ shows ls s
 
+shows : Show a => a -> ShowS
 shows x = showsPrec (I# 0#) x
 
 showList__ : (a -> ShowS) ->  [a] -> ShowS
@@ -115,10 +116,25 @@ instance Show Int where
 
 #ifdef DAML_NUMERIC
 instance Show (Numeric n) where
-  show = primitive @"BEToTextNumeric"
+  show = primitive @"BENumericToText"
 #else
 instance Show Decimal where
   show = primitive @"BEToText"
+#endif
+
+#ifdef DAML_BIGNUMERIC
+instance Show BigNumeric where
+  show = primitive @"BEToText"
+instance Show RoundingMode where
+  show = \case
+    RoundingUp -> "RoundingUp"
+    RoundingDown -> "RoundingDown"
+    RoundingCeiling -> "RoundingCeiling"
+    RoundingFloor -> "RoundingFloor"
+    RoundingHalfUp -> "RoundingHalfUp"
+    RoundingHalfDown -> "RoundingHalfDown"
+    RoundingHalfEven -> "RoundingHalfEven"
+    RoundingUnnecessary -> "RoundingUnnecessary"
 #endif
 
 instance Show Text where
@@ -170,3 +186,5 @@ instance (Show a, Show b, Show c, Show d, Show e) => Show (a,b,c,d,e) where
     . showString ","
     . shows e
     . showString ")"
+
+-- Deliberately not supporting larger sizes. Do not add support for them.

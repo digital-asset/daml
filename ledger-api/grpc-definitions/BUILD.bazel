@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
@@ -61,6 +61,7 @@ genrule(
     tools = [
         "@proto3_suite//:compile-proto-file",
     ],
+    visibility = ["//visibility:public"],
 )
 
 google_rpc_src = "external/com_github_googleapis_googleapis"
@@ -83,6 +84,7 @@ genrule(
     tools = [
         "@proto3_suite//:compile-proto-file",
     ],
+    visibility = ["//visibility:public"],
 )
 
 filegroup(
@@ -221,7 +223,9 @@ da_haskell_library(
     srcs = [
         ":all-ledger-api-haskellpb-sources",
     ],
-    compiler_flags = ["-O0"],
+    compiler_flags = [
+        "-O0",
+    ],
     hackage_deps = [
         "base",
         "bytestring",

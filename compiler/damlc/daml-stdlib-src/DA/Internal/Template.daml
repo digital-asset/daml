@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -6,7 +6,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | MOVE Prelude DAML-LF primitives, just templates/contracts
+-- | MOVE Prelude Daml-LF primitives, just templates/contracts
 module DA.Internal.Template where
 
 -- This module should only define stable types.

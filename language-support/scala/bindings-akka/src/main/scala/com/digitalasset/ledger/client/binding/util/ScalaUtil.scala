@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.util
@@ -17,15 +17,14 @@ object ScalaUtil {
     def timeout(
         name: String,
         failTimeout: FiniteDuration = 1.minute,
-        warnTimeout: FiniteDuration = 30.seconds)(
-        implicit ec: ExecutionContext,
-        scheduler: ScheduledExecutorService): Future[T] = {
+        warnTimeout: FiniteDuration = 30.seconds,
+    )(implicit ec: ExecutionContext, scheduler: ScheduledExecutorService): Future[T] = {
 
-      val promise = Promise[T]
+      val promise = Promise[T]()
 
       @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
       val warningTask = schedule(warnTimeout) {
-        logger.warn("Function {} takes more than {}", name, warnTimeout)
+        logger.warn("Function {} takes more than {}", name, warnTimeout: Any)
       }
 
       val errorTask = schedule(failTimeout) {
@@ -43,8 +42,9 @@ object ScalaUtil {
       promise.future
     }
 
-    private def schedule(timeout: FiniteDuration)(f: => Unit)(
-        implicit scheduler: ScheduledExecutorService): ScheduledFuture[_] = {
+    private def schedule(
+        timeout: FiniteDuration
+    )(f: => Unit)(implicit scheduler: ScheduledExecutorService): ScheduledFuture[_] = {
 
       val runnable = new Runnable {
         override def run(): Unit = f
@@ -53,9 +53,10 @@ object ScalaUtil {
       scheduler.schedule(runnable, timeout.toMillis, TimeUnit.MILLISECONDS)
     }
 
-    def timeoutWithDefaultWarn(name: String, failTimeout: FiniteDuration)(
-        implicit ec: ExecutionContext,
-        scheduler: ScheduledExecutorService): Future[T] = timeout(name, failTimeout, 10.seconds)
+    def timeoutWithDefaultWarn(name: String, failTimeout: FiniteDuration)(implicit
+        ec: ExecutionContext,
+        scheduler: ScheduledExecutorService,
+    ): Future[T] = timeout(name, failTimeout, 10.seconds)
 
   }
 

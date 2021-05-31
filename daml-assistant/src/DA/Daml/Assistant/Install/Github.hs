@@ -1,24 +1,20 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
 -- | Discover releases from the digital-asset/daml github.
 module DA.Daml.Assistant.Install.Github
-    ( versionURL
-    , getLatestVersion
+    ( versionLocation
+    , tagToVersion
+    , osName
     ) where
 
 import DA.Daml.Assistant.Types
-import DA.Daml.Assistant.Util
 import Data.Aeson
-import Network.HTTP.Client
-import Network.HTTP.Client.TLS
 import Control.Exception.Safe
-import Control.Monad
 import Data.Either.Extra
 import qualified System.Info
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
 
 -- | General git tag. We only care about the tags of the form "v<VERSION>"
 -- where <VERSION> is an SDK version. For example, "v0.11.1".
@@ -42,37 +38,6 @@ tagToVersion (Tag t) =
         else
             Left "Tag must start with v followed by semantic version."
 
--- | Get the version of the latest stable (i.e. non-prerelease) release.
--- We avoid the Github API because of very low rate limits. As such, we
--- discover the latest version by parsing an HTTP redirect. We make a
--- request to:
---
---     https://github.com/digital-asset/daml/releases/latest
---
--- Which always redirects to the latest stable release, for example:
---
---     https://github.com/digital-asset/daml/releases/tag/v0.12.3
---
--- So we take that URL to get the tag, and from there the version of
--- the latest stable release.
-getLatestVersion :: IO SdkVersion
-getLatestVersion = requiredAny "Failed to get latest SDK version from Github." $ do
-    manager <- newTlsManager
-    request <- parseRequest "HEAD https://github.com/digital-asset/daml/releases/latest"
-    finalRequest <- withResponseHistory request manager $ pure . hrFinalRequest
-
-    let pathText = T.decodeUtf8 (path finalRequest)
-        (parent, tag) = T.breakOnEnd "/" pathText
-        prefix = "/digital-asset/daml/releases/tag/"
-
-    when (parent /= prefix) $ do
-        throwIO $ assistantErrorBecause
-            "Failed to get latest SDK version from GitHub."
-            ("Unexpected final HTTP redirect location.\n    Expected: " <> prefix <> "TAG\n    Got: " <> pathText)
-
-    fromRightM throwIO (tagToVersion (Tag tag))
-
-
 -- | OS-specific part of the asset name.
 osName :: Text
 osName = case System.Info.os of
@@ -81,14 +46,17 @@ osName = case System.Info.os of
     "mingw32" -> "windows"
     p -> error ("daml: Unknown operating system " ++ p)
 
--- | Install URL for particular version.
-versionURL :: SdkVersion -> InstallURL
-versionURL v = InstallURL $ T.concat
-    [ "https://github.com/digital-asset/daml/releases/download/"
-    , unTag (versionToTag v)
-    , "/daml-sdk-"
-    , versionToText v
-    , "-"
-    , osName
-    , ".tar.gz"
-    ]
+-- | Install location for particular version.
+versionLocation :: SdkVersion -> InstallLocation
+versionLocation v = InstallLocation
+    { ilUrl = T.concat
+        [ "https://github.com/digital-asset/daml/releases/download/"
+        , unTag (versionToTag v)
+        , "/daml-sdk-"
+        , versionToText v
+        , "-"
+        , osName
+        , ".tar.gz"
+        ]
+    , ilHeaders = []
+    }

@@ -1,7 +1,7 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML Documentation
+Daml Documentation
 ##################
 
 .. toctree::
@@ -28,12 +28,11 @@ DAML Documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Writing DAML
+   :caption: Writing Daml
 
    daml/intro/0_Intro.rst
    daml/reference/index
    daml/stdlib/index
-   daml/testing-scenarios
    daml/troubleshooting
    /daml/patterns
 
@@ -46,17 +45,20 @@ DAML Documentation
    app-dev/app-arch
    app-dev/bindings-ts/index
    json-api/index
-   DAML Script <daml-script/index>
-   DAML REPL <daml-repl/index>
+   Daml Script <daml-script/index>
+   Daml REPL <daml-repl/index>
    upgrade/index
    app-dev/authorization
    app-dev/ledger-api
+   triggers/index
+   tools/trigger-service/index
+   tools/auth-middleware/index
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Deploying to DAML ledgers
+   :caption: Deploying to Daml ledgers
 
    deploy/index
    deploy/generic_ledger
@@ -66,7 +68,7 @@ DAML Documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Operating DAML
+   :caption: Operating Daml
 
    ops/index
 
@@ -81,6 +83,7 @@ DAML Documentation
    tools/sandbox
    tools/navigator/index
    tools/codegen
+   tools/profiler
 
 .. toctree::
    :titlesonly:
@@ -108,19 +111,18 @@ DAML Documentation
    :hidden:
    :caption: Early Access Features
 
-   tools/navigator/console
    tools/extractor
+   tools/export/index
    daml-integration-kit/index
-   triggers/index
    tools/visual
-   tools/trigger-service
    concepts/interoperability
+   tools/non-repudiation
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: DAML Ecosystem
+   :caption: Daml Ecosystem
 
    support/overview
    support/releases

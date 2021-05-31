@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api
@@ -8,36 +8,40 @@ import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
-import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateWriterSpec._
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope}
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.{
   DefaultStateKeySerializationStrategy,
-  StateKeySerializationStrategy
+  StateKeySerializationStrategy,
 }
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.metrics.Metrics
-import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers._
-import org.mockito.Mockito.{times, verify, when}
-import org.mockito.MockitoSugar._
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
+import org.mockito.captor.{ArgCaptor, Captor}
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.Future
 
-class KeyValueParticipantStateWriterSpec extends AnyWordSpec with Matchers {
+class KeyValueParticipantStateWriterSpec
+    extends AnyWordSpec
+    with Matchers
+    with MockitoSugar
+    with ArgumentMatchersSugar {
+
+  import KeyValueParticipantStateWriterSpec._
+
   "participant state writer" should {
     "submit a transaction" in {
-      val transactionCaptor = captor[Bytes]
-      val correlationIdCaptor = captor[String]
-      val metadataCaptor = captor[CommitMetadata]
+      val transactionCaptor = ArgCaptor[Raw.Envelope]
+      val correlationIdCaptor = ArgCaptor[String]
+      val metadataCaptor = ArgCaptor[CommitMetadata]
       val writer = createWriter(transactionCaptor, metadataCaptor, correlationIdCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
       val recordTime = newRecordTime()
@@ -47,64 +51,75 @@ class KeyValueParticipantStateWriterSpec extends AnyWordSpec with Matchers {
         submitterInfo(recordTime, aParty, expectedCorrelationId),
         transactionMeta(recordTime),
         TransactionBuilder.EmptySubmitted,
-        anInterpretationCost)
+        anInterpretationCost,
+      )
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
-      verifyEnvelope(transactionCaptor.getValue)(_.hasTransactionEntry)
-      correlationIdCaptor.getValue should be(expectedCorrelationId)
-      val actualCommitMetadata = metadataCaptor.getValue
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+        any[TelemetryContext]
+      )
+      verifyEnvelope(transactionCaptor.value)(_.hasTransactionEntry)
+      correlationIdCaptor.value should be(expectedCorrelationId)
+      val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.estimatedInterpretationCost shouldBe defined
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
       actualCommitMetadata.outputKeys(aSerializationStrategy) should not be empty
     }
 
     "upload a package" in {
-      val packageUploadCaptor = captor[Bytes]
-      val metadataCaptor = captor[CommitMetadata]
+      val packageUploadCaptor = ArgCaptor[Raw.Envelope]
+      val metadataCaptor = ArgCaptor[CommitMetadata]
       val writer = createWriter(packageUploadCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
-      verifyEnvelope(packageUploadCaptor.getValue)(_.hasPackageUploadEntry)
-      val actualCommitMetadata = metadataCaptor.getValue
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+        any[TelemetryContext]
+      )
+      verifyEnvelope(packageUploadCaptor.value)(_.hasPackageUploadEntry)
+      val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
       actualCommitMetadata.outputKeys(aSerializationStrategy) should not be empty
     }
 
     "submit a configuration" in {
-      val configurationCaptor = captor[Bytes]
-      val metadataCaptor = captor[CommitMetadata]
+      val configurationCaptor = ArgCaptor[Raw.Envelope]
+      val metadataCaptor = ArgCaptor[CommitMetadata]
       val writer = createWriter(configurationCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
-      verifyEnvelope(configurationCaptor.getValue)(_.hasConfigurationSubmission)
-      val actualCommitMetadata = metadataCaptor.getValue
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+        any[TelemetryContext]
+      )
+      verifyEnvelope(configurationCaptor.value)(_.hasConfigurationSubmission)
+      val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
       actualCommitMetadata.outputKeys(aSerializationStrategy) should not be empty
     }
 
     "allocate a party without hint" in {
-      val partyAllocationCaptor = captor[Bytes]
-      val metadataCaptor = captor[CommitMetadata]
+      val partyAllocationCaptor = ArgCaptor[Raw.Envelope]
+      val metadataCaptor = ArgCaptor[CommitMetadata]
       val writer = createWriter(partyAllocationCaptor, metadataCaptor)
       val instance = new KeyValueParticipantStateWriter(writer, newMetrics())
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
 
-      verify(writer, times(1)).commit(anyString(), any[Bytes], any[CommitMetadata])
-      verifyEnvelope(partyAllocationCaptor.getValue)(_.hasPartyAllocationEntry)
-      val actualCommitMetadata = metadataCaptor.getValue
+      verify(writer, times(1)).commit(any[String], any[Raw.Envelope], any[CommitMetadata])(
+        any[TelemetryContext]
+      )
+      verifyEnvelope(partyAllocationCaptor.value)(_.hasPartyAllocationEntry)
+      val actualCommitMetadata = metadataCaptor.value
       actualCommitMetadata.inputKeys(aSerializationStrategy) should not be empty
       actualCommitMetadata.outputKeys(aSerializationStrategy) should not be empty
     }
   }
 
-  private def verifyEnvelope(written: Bytes)(assertion: DamlSubmission => Boolean): Assertion =
+  private def verifyEnvelope(
+      written: Raw.Envelope
+  )(assertion: DamlSubmission => Boolean): Assertion =
     Envelope.openSubmission(written) match {
       case Right(value) => assert(assertion(value) === true)
       case _ => fail()
@@ -112,6 +127,10 @@ class KeyValueParticipantStateWriterSpec extends AnyWordSpec with Matchers {
 }
 
 object KeyValueParticipantStateWriterSpec {
+
+  import MockitoSugar._
+
+  private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
 
   private val aParty = Ref.Party.assertFromString("aParty")
 
@@ -130,21 +149,24 @@ object KeyValueParticipantStateWriterSpec {
     DefaultStateKeySerializationStrategy
 
   private def createWriter(
-      envelopeCaptor: ArgumentCaptor[Bytes],
-      metadataCaptor: ArgumentCaptor[CommitMetadata],
-      correlationIdCaptor: ArgumentCaptor[String] = captor[String]): LedgerWriter = {
+      envelopeCaptor: Captor[Raw.Envelope],
+      metadataCaptor: Captor[CommitMetadata],
+      correlationIdCaptor: Captor[String] = ArgCaptor[String],
+  ): LedgerWriter = {
     val writer = mock[LedgerWriter]
     when(
-      writer
-        .commit(correlationIdCaptor.capture(), envelopeCaptor.capture(), metadataCaptor.capture()))
+      writer.commit(correlationIdCaptor.capture, envelopeCaptor.capture, metadataCaptor.capture)(
+        ArgCaptor[TelemetryContext]
+      )
+    )
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     writer
   }
 
   private def submitterInfo(recordTime: Timestamp, party: Ref.Party, commandId: String) =
-    SubmitterInfo.withSingleSubmitter(
-      submitter = party,
+    SubmitterInfo(
+      actAs = List(party),
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
       deduplicateUntil = recordTime.addMicros(Duration.ofDays(1).toNanos / 1000).toInstant,
@@ -155,10 +177,11 @@ object KeyValueParticipantStateWriterSpec {
     workflowId = Some(Ref.LedgerString.assertFromString("tests")),
     submissionTime = let.addMicros(1000),
     submissionSeed = crypto.Hash.assertFromString(
-      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
+      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    ),
     optUsedPackages = Some(Set.empty),
     optNodeSeeds = None,
-    optByKeyNodes = None
+    optByKeyNodes = None,
   )
 
   private def newMetrics(): Metrics = new Metrics(new MetricRegistry)

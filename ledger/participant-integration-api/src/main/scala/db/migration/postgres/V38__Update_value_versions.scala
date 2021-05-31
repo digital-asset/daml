@@ -1,8 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform
-package db.migration.postgres
+package db.migration
+package postgres
 
 import java.sql.{Connection, ResultSet}
 
@@ -13,13 +14,13 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
 
   import com.daml.lf
   import lf.value.Value.ContractId
-  import store.serialization.ValueSerializer
+  import translation.ValueSerializer
 
   private[this] type Value = lf.value.Value.VersionedValue[ContractId]
 
-  private[this] val batchSize = 1000
+  private[this] val BATCH_SIZE = 1000
 
-  private[this] val stableValueVersion = lf.value.ValueVersion("6")
+  private[this] val stableValueVersion = lf.transaction.TransactionVersion.V10
   private[this] val stableValueVersionAsInt = stableValueVersion.protoValue.toInt
 
   private[this] val SELECT_EVENTS =
@@ -70,16 +71,16 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
   private[this] def updateAndSerialize(
       nameValue: (String, Option[Value]),
       tableName: String,
-      rowKey: String
+      rowKey: String,
   ): NamedParameter = {
     val (label, oldValue) = nameValue
     val newValue =
-      oldValue.map(
-        value =>
-          ValueSerializer.serializeValue(
-            value = value.copy(stableValueVersion),
-            errorContext = s"failed to serialize $label for $tableName $rowKey",
-        ))
+      oldValue.map(value =>
+        ValueSerializer.serializeValue(
+          value = value.copy(stableValueVersion),
+          errorContext = s"failed to serialize $label for $tableName $rowKey",
+        )
+      )
     NamedParameter(label, newValue)
   }
 
@@ -102,21 +103,26 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
       rowType: String,
       rowKeyLabel: String,
       valueLabels: List[String],
-  )(implicit connection: Connection): Stream[List[NamedParameter]] = {
-    val rows: ResultSet = connection.createStatement().executeQuery(sqlQuery)
-    def updates: Stream[List[NamedParameter]] =
-      if (rows.next())
-        readAndUpdate(rows, rowType, rowKeyLabel, valueLabels) #:: updates
-      else
-        Stream.empty
+  )(implicit connection: Connection): Iterator[List[NamedParameter]] = {
+    val stat = connection.createStatement()
+    stat.setFetchSize(BATCH_SIZE)
+    val rows: ResultSet = stat.executeQuery(sqlQuery)
+    def updates: Iterator[List[NamedParameter]] = new Iterator[List[NamedParameter]] {
+      override def hasNext: Boolean = {
+        rows.next()
+      }
+
+      override def next(): List[NamedParameter] =
+        readAndUpdate(rows, rowType, rowKeyLabel, valueLabels)
+    }
     updates.filter(_.nonEmpty)
   }
 
   private[this] def save(
       sqlUpdate: String,
-      statements: Stream[List[NamedParameter]]
+      parameters: Iterator[List[NamedParameter]],
   )(implicit connection: Connection): Unit =
-    statements.grouped(batchSize).foreach { batch =>
+    parameters.grouped(BATCH_SIZE).foreach { case batch =>
       BatchSql(
         sqlUpdate,
         batch.head,
@@ -135,8 +141,8 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
         rowType = "event",
         rowKeyLabel = "event_id",
         valueLabels =
-          List("create_argument", "create_key_value", "exercise_argument", "exercise_result")
-      )
+          List("create_argument", "create_key_value", "exercise_argument", "exercise_result"),
+      ),
     )
 
     save(
@@ -146,7 +152,7 @@ private[migration] final class V38__Update_value_versions extends BaseJavaMigrat
         rowType = "contract",
         rowKeyLabel = "contract_id",
         valueLabels = List("create_argument"),
-      )
+      ),
     )
   }
 

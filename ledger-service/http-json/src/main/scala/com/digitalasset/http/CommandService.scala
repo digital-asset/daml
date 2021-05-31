@@ -1,10 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.http.ErrorMessages.cannotResolveTemplateId
 import com.daml.http.domain.{
   ActiveContract,
   Contract,
@@ -12,16 +11,18 @@ import com.daml.http.domain.{
   CreateCommand,
   ExerciseCommand,
   ExerciseResponse,
-  JwtWritePayload
+  JwtWritePayload,
+  TemplateId,
 }
 import com.daml.http.util.ClientUtil.uniqueCommandId
 import com.daml.http.util.FutureUtil._
 import com.daml.http.util.IdentifierConverters.refApiIdentifier
+import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.http.util.{Commands, Transactions}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
-import com.typesafe.scalalogging.StrictLogging
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
@@ -32,38 +33,44 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 class CommandService(
-    resolveTemplateId: PackageService.ResolveTemplateId,
     submitAndWaitForTransaction: LedgerClientJwt.SubmitAndWaitForTransaction,
     submitAndWaitForTransactionTree: LedgerClientJwt.SubmitAndWaitForTransactionTree,
-)(implicit ec: ExecutionContext)
-    extends StrictLogging {
+)(implicit ec: ExecutionContext) {
 
   import CommandService._
 
-  def create(jwt: Jwt, jwtPayload: JwtWritePayload, input: CreateCommand[lav1.value.Record])
-    : Future[Error \/ ActiveContract[lav1.value.Value]] = {
-
+  def create(
+      jwt: Jwt,
+      jwtPayload: JwtWritePayload,
+      input: CreateCommand[lav1.value.Record, TemplateId.RequiredPkg],
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[Error \/ ActiveContract[lav1.value.Value]] = {
+    logger.trace("sending create command to ledger")
+    val command = createCommand(input)
+    val request = submitAndWaitRequest(jwtPayload, input.meta, command)
     val et: ET[ActiveContract[lav1.value.Value]] = for {
-      command <- either(createCommand(input))
-      request = submitAndWaitRequest(jwtPayload, input.meta, command)
-      response <- rightT(logResult('create, submitAndWaitForTransaction(jwt, request)))
+      response <- rightT(logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request)))
       contract <- either(exactlyOneActiveContract(response))
     } yield contract
-
     et.run
   }
 
   def exercise(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef])
-    : Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
-
+      input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef],
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
+    logger.trace("sending exercise command to ledger")
     val command = exerciseCommand(input)
     val request = submitAndWaitRequest(jwtPayload, input.meta, command)
 
     val et: ET[ExerciseResponse[lav1.value.Value]] = for {
-      response <- rightT(logResult('exercise, submitAndWaitForTransactionTree(jwt, request)))
+      response <- rightT(
+        logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request))
+      )
       exerciseResult <- either(exerciseResult(response))
       contracts <- either(contracts(response))
     } yield ExerciseResponse(exerciseResult, contracts)
@@ -74,14 +81,17 @@ class CommandService(
   def createAndExercise(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
-      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value])
-    : Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
-
+      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value, TemplateId.RequiredPkg],
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
+    logger.trace("sending create and exercise command to ledger")
+    val command = createAndExerciseCommand(input)
+    val request = submitAndWaitRequest(jwtPayload, input.meta, command)
     val et: ET[ExerciseResponse[lav1.value.Value]] = for {
-      command <- either(createAndExerciseCommand(input))
-      request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- rightT(
-        logResult('createAndExercise, submitAndWaitForTransactionTree(jwt, request)))
+        logResult(Symbol("createAndExercise"), submitAndWaitForTransactionTree(jwt, request))
+      )
       exerciseResult <- either(exerciseResult(response))
       contracts <- either(contracts(response))
     } yield ExerciseResponse(exerciseResult, contracts)
@@ -89,7 +99,9 @@ class CommandService(
     et.run
   }
 
-  private def logResult[A](op: Symbol, fa: Future[A]): Future[A] = {
+  private def logResult[A](op: Symbol, fa: Future[A])(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[A] = {
     fa.onComplete {
       case Failure(e) => logger.error(s"$op failure", e)
       case Success(a) => logger.debug(s"$op success: $a")
@@ -98,43 +110,47 @@ class CommandService(
   }
 
   private def createCommand(
-      input: CreateCommand[lav1.value.Record]): Error \/ lav1.commands.Command.Command.Create = {
-    resolveTemplateId(input.templateId)
-      .toRightDisjunction(Error('createCommand, cannotResolveTemplateId(input.templateId)))
-      .map(tpId => Commands.create(refApiIdentifier(tpId), input.payload))
+      input: CreateCommand[lav1.value.Record, TemplateId.RequiredPkg]
+  ): lav1.commands.Command.Command.Create = {
+    Commands.create(refApiIdentifier(input.templateId), input.payload)
   }
 
   private def exerciseCommand(
-      input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef]): lav1.commands.Command.Command =
+      input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef]
+  ): lav1.commands.Command.Command =
     input.reference match {
       case -\/((templateId, contractKey)) =>
         Commands.exerciseByKey(
           templateId = refApiIdentifier(templateId),
           contractKey = contractKey,
           choice = input.choice,
-          argument = input.argument)
+          argument = input.argument,
+        )
       case \/-((templateId, contractId)) =>
         Commands.exercise(
           templateId = refApiIdentifier(templateId),
           contractId = contractId,
           choice = input.choice,
-          argument = input.argument)
+          argument = input.argument,
+        )
     }
 
   private def createAndExerciseCommand(
-      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value])
-    : Error \/ lav1.commands.Command.Command.CreateAndExercise =
-    resolveTemplateId(input.templateId)
-      .toRightDisjunction(
-        Error('createAndExerciseCommand, cannotResolveTemplateId(input.templateId)))
-      .map(tpId =>
-        Commands
-          .createAndExercise(refApiIdentifier(tpId), input.payload, input.choice, input.argument))
+      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value, TemplateId.RequiredPkg]
+  ): lav1.commands.Command.Command.CreateAndExercise =
+    Commands
+      .createAndExercise(
+        refApiIdentifier(input.templateId),
+        input.payload,
+        input.choice,
+        input.argument,
+      )
 
   private def submitAndWaitRequest(
       jwtPayload: JwtWritePayload,
       meta: Option[domain.CommandMeta],
-      command: lav1.commands.Command.Command): lav1.command_service.SubmitAndWaitRequest = {
+      command: lav1.commands.Command.Command,
+  ): lav1.command_service.SubmitAndWaitRequest = {
 
     val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
 
@@ -143,46 +159,60 @@ class CommandService(
       jwtPayload.applicationId,
       commandId,
       jwtPayload.actAs,
-      command
+      jwtPayload.readAs,
+      command,
     )
   }
 
   private def exactlyOneActiveContract(
-      response: lav1.command_service.SubmitAndWaitForTransactionResponse)
-    : Error \/ ActiveContract[lav1.value.Value] =
+      response: lav1.command_service.SubmitAndWaitForTransactionResponse
+  ): Error \/ ActiveContract[lav1.value.Value] =
     activeContracts(response).flatMap {
       case Seq(x) => \/-(x)
       case xs @ _ =>
-        -\/(Error('exactlyOneActiveContract, s"Expected exactly one active contract, got: $xs"))
+        -\/(
+          Error(
+            Symbol("exactlyOneActiveContract"),
+            s"Expected exactly one active contract, got: $xs",
+          )
+        )
     }
 
-  private def activeContracts(response: lav1.command_service.SubmitAndWaitForTransactionResponse)
-    : Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] =
+  private def activeContracts(
+      response: lav1.command_service.SubmitAndWaitForTransactionResponse
+  ): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
-        Error('activeContracts, s"Received response without transaction: $response"))
+        Error(Symbol("activeContracts"), s"Received response without transaction: $response")
+      )
       .flatMap(activeContracts)
 
   private def activeContracts(
-      tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
+      tx: lav1.transaction.Transaction
+  ): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
     Transactions
       .allCreatedEvents(tx)
       .traverse(ActiveContract.fromLedgerApi(_))
-      .leftMap(e => Error('activeContracts, e.shows))
+      .leftMap(e => Error(Symbol("activeContracts"), e.shows))
   }
 
-  private def contracts(response: lav1.command_service.SubmitAndWaitForTransactionTreeResponse)
-    : Error \/ List[Contract[lav1.value.Value]] =
+  private def contracts(
+      response: lav1.command_service.SubmitAndWaitForTransactionTreeResponse
+  ): Error \/ List[Contract[lav1.value.Value]] =
     response.transaction
-      .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
+      .toRightDisjunction(
+        Error(Symbol("contracts"), s"Received response without transaction: $response")
+      )
       .flatMap(contracts)
 
   private def contracts(
-      tx: lav1.transaction.TransactionTree): Error \/ List[Contract[lav1.value.Value]] =
-    Contract.fromTransactionTree(tx).leftMap(e => Error('contracts, e.shows)).map(_.toList)
+      tx: lav1.transaction.TransactionTree
+  ): Error \/ List[Contract[lav1.value.Value]] =
+    Contract.fromTransactionTree(tx).leftMap(e => Error(Symbol("contracts"), e.shows)).map(_.toList)
 
-  private def exerciseResult(a: lav1.command_service.SubmitAndWaitForTransactionTreeResponse)
-    : Error \/ lav1.value.Value = {
+  private def exerciseResult(
+      a: lav1.command_service.SubmitAndWaitForTransactionTreeResponse
+  ): Error \/ lav1.value.Value = {
     val result: Option[lav1.value.Value] = for {
       transaction <- a.transaction: Option[lav1.transaction.TransactionTree]
       exercised <- firstExercisedEvent(transaction): Option[lav1.event.ExercisedEvent]
@@ -191,8 +221,10 @@ class CommandService(
 
     result.toRightDisjunction(
       Error(
-        'choiceArgument,
-        s"Cannot get exerciseResult from the first ExercisedEvent of gRPC response: ${a.toString}"))
+        Symbol("choiceArgument"),
+        s"Cannot get exerciseResult from the first ExercisedEvent of gRPC response: ${a.toString}",
+      )
+    )
   }
 
   private def firstExercisedEvent(
@@ -216,4 +248,6 @@ object CommandService {
   private type ET[A] = EitherT[Future, Error, A]
 
   type ExerciseCommandRef = domain.ResolvedContractRef[lav1.value.Value]
+
+  private val logger = ContextualizedLogger.get(classOf[CommandService])
 }

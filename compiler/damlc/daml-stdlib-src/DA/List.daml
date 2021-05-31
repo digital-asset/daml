@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | List
@@ -175,7 +175,7 @@ groupOn f (x::xs) =
     in  (x :: ys) :: groupOn f zs
 
 -- | `dedup l` removes duplicate elements from a list. In particular,
--- it keeps only the first occurence of each element. It is a
+-- it keeps only the first occurrence of each element. It is a
 -- special case of `dedupBy`, which allows the programmer to supply
 -- their own equality test.
 -- `dedup` is called `nub` in Haskell.

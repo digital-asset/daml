@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -36,7 +36,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
         e"""
         (\ (a: Int64) (b: Int64) -> SUB_INT64 a b) 88 33
       """,
-        pkgs
+        pkgs,
         // Test should fail if we get the order of the function arguments wrong.
       ) shouldEqual Right(SInt64(55))
     }
@@ -50,7 +50,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
         let b : Int64 = 33 in
         SUB_INT64 a b
       """,
-        pkgs
+        pkgs,
         // Test should fail if we access the stack with incorrect indexing.
       ) shouldEqual Right(SInt64(55))
     }
@@ -64,7 +64,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
          let b : Int64 = 33 in
          (\ (x: Unit) -> SUB_INT64 a b) ()) 88
       """,
-        pkgs
+        pkgs,
         // Test should fail if we index free-variables of a closure incorrectly.
       ) shouldEqual Right(SInt64(55))
     }
@@ -120,9 +120,9 @@ class SpeedyTest extends AnyWordSpec with Matchers {
             SStruct(
               Struct.assertFromNameSeq(List(n"x1", n"x2")),
               ArrayList(SInt64(7), SList(FrontStack(SInt64(11), SInt64(13)))),
-            ),
-          ),
-        ),
+            )
+          )
+        )
       )
     }
 
@@ -133,7 +133,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
 
     "works as expected on Variants" in {
       eval(e"""Matcher:variant @Int64 (Mod:Tree:Leaf @Int64 23)""", pkgs) shouldEqual Right(
-        SInt64(23),
+        SInt64(23)
       )
       eval(
         e"""Matcher:variant @Int64 (Mod:Tree:Node @Int64 (Mod:Tree.Node @Int64 {left = Mod:Tree:Leaf @Int64 27, right = Mod:Tree:Leaf @Int64 29 }))""",
@@ -191,7 +191,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
               ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
             ),
-          ),
+          )
         )
     }
     "succeed on record type with parameters" in {
@@ -207,7 +207,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
               ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
             ),
-          ),
+          )
         )
       eval(e"""to_any @(Test:T3 Text) (Test:T3 @Text {party = 'Alice'})""", anyPkgs) shouldEqual
         Right(
@@ -221,7 +221,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
               ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
             ),
-          ),
+          )
         )
     }
   }
@@ -229,11 +229,14 @@ class SpeedyTest extends AnyWordSpec with Matchers {
   "from_any" should {
 
     "throw an exception on Int64" in {
-      eval(e"""from_any @Test:T1 1""", anyPkgs) shouldBe 'left
+      eval(e"""from_any @Test:T1 1""", anyPkgs) shouldBe a[Left[_, _]]
     }
 
     "return Some(tpl) if template type matches" in {
-      eval(e"""from_any @Test:T1 (to_any @Test:T1 (Test:T1 {party = 'Alice'}))""", anyPkgs) shouldEqual
+      eval(
+        e"""from_any @Test:T1 (to_any @Test:T1 (Test:T1 {party = 'Alice'}))""",
+        anyPkgs,
+      ) shouldEqual
         Right(
           SOptional(
             Some(
@@ -241,15 +244,18 @@ class SpeedyTest extends AnyWordSpec with Matchers {
                 Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
                 ImmArray(Name.assertFromString("party")),
                 ArrayList(SParty(Party.assertFromString("Alice"))),
-              ),
-            ),
-          ),
+              )
+            )
+          )
         )
     }
 
     "return None if template type does not match" in {
-      eval(e"""from_any @Test:T2 (to_any @Test:T1 (Test:T1 {party = 'Alice'}))""", anyPkgs) shouldEqual Right(
-        SOptional(None),
+      eval(
+        e"""from_any @Test:T2 (to_any @Test:T1 (Test:T1 {party = 'Alice'}))""",
+        anyPkgs,
+      ) shouldEqual Right(
+        SOptional(None)
       )
     }
     "return Some(v) if type parameter is the same" in {
@@ -263,9 +269,9 @@ class SpeedyTest extends AnyWordSpec with Matchers {
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
               ImmArray(Name.assertFromString("party")),
               ArrayList(SParty(Party.assertFromString("Alice"))),
-            ),
-          ),
-        ),
+            )
+          )
+        )
       )
     }
     "return None if type parameter is different" in {
@@ -282,10 +288,10 @@ class SpeedyTest extends AnyWordSpec with Matchers {
       eval(e"""type_rep @Test:T1""", anyPkgs) shouldEqual Right(STypeRep(t"Test:T1"))
       eval(e"""type_rep @Test2:T2""", anyPkgs) shouldEqual Right(STypeRep(t"Test2:T2"))
       eval(e"""type_rep @(Mod:Tree (List Text))""", anyPkgs) shouldEqual Right(
-        STypeRep(t"Mod:Tree (List Text)"),
+        STypeRep(t"Mod:Tree (List Text)")
       )
       eval(e"""type_rep @((ContractId Mod:T) -> Mod:Color)""", anyPkgs) shouldEqual Right(
-        STypeRep(t"(ContractId Mod:T) -> Mod:Color"),
+        STypeRep(t"(ContractId Mod:T) -> Mod:Color")
       )
     }
 
@@ -318,7 +324,11 @@ class SpeedyTest extends AnyWordSpec with Matchers {
               SEVal(LfDefRef(qualify("M:origin"))),
               SEAppAtomicSaturatedBuiltin(
                 SBRecUpd(qualify("M:Point"), 0),
-                Array(SELocS(1), SEValue(SInt64(1)))))))
+                Array(SELocS(1), SEValue(SInt64(1))),
+              ),
+            )
+          )
+        )
 
     }
 
@@ -328,7 +338,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
           SRecord(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
-            ArrayList(SInt64(1), SInt64(0))
+            ArrayList(SInt64(1), SInt64(0)),
           )
         )
     }
@@ -341,13 +351,13 @@ class SpeedyTest extends AnyWordSpec with Matchers {
             SELet1General(
               SEVal(LfDefRef(qualify("M:origin"))),
               SEAppAtomicSaturatedBuiltin(
-                SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                SBRecUpdMulti(qualify("M:Point"), ImmArray(0, 1)),
                 Array(
                   SELocS(1),
                   SEValue(SInt64(1)),
                   SEValue(SInt64(2)),
                 ),
-              )
+              ),
             )
           )
         )
@@ -382,13 +392,14 @@ class SpeedyTest extends AnyWordSpec with Matchers {
               SELocation(
                 mkLocation(0),
                 SEAppAtomicSaturatedBuiltin(
-                  SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                  SBRecUpdMulti(qualify("M:Point"), ImmArray(0, 1)),
                   Array(
                     SELocS(1),
                     SEValue(SInt64(3)),
                     SEValue(SInt64(4)),
                   ),
-                )),
+                ),
+              ),
             )
           )
         )
@@ -420,17 +431,17 @@ class SpeedyTest extends AnyWordSpec with Matchers {
                     SELet1General(
                       SEAppAtomicGeneral(SELocS(1), Array(SEValue(SInt64(4)))),
                       SEAppAtomicSaturatedBuiltin(
-                        SBRecUpdMulti(qualify("M:Point"), Array(0, 1)),
+                        SBRecUpdMulti(qualify("M:Point"), ImmArray(0, 1)),
                         Array(
                           SELocS(5),
                           SELocS(3),
                           SELocS(1),
-                        )
-                      )
-                    )
-                  )
-                )
-              )
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             )
           )
         )
@@ -454,14 +465,14 @@ class SpeedyTest extends AnyWordSpec with Matchers {
             SELet1General(
               SEVal(LfDefRef(qualify("M:origin"))),
               SEAppAtomicSaturatedBuiltin(
-                SBRecUpdMulti(qualify("M:Point"), Array(0, 1, 0)),
+                SBRecUpdMulti(qualify("M:Point"), ImmArray(0, 1, 0)),
                 Array(
                   SELocS(1),
                   SEValue(SInt64(1)),
                   SEValue(SInt64(2)),
                   SEValue(SInt64(3)),
                 ),
-              )
+              ),
             )
           )
         )
@@ -476,21 +487,6 @@ class SpeedyTest extends AnyWordSpec with Matchers {
             ArrayList(SInt64(3), SInt64(2)),
           )
         )
-    }
-  }
-
-  "profiler" should {
-    "evaluate arguments before open event" in {
-      val events = profile(e"""
-        let f: Int64 -> Int64 = \(x: Int64) -> ADD_INT64 x 1 in
-        let g: Int64 -> Int64 = \(x: Int64) -> ADD_INT64 x 2 in
-        f (g 1)
-      """)
-      events should have size 4
-      events.get(0) should matchPattern { case Profile.Event(true, "g", _) => }
-      events.get(1) should matchPattern { case Profile.Event(false, "g", _) => }
-      events.get(2) should matchPattern { case Profile.Event(true, "f", _) => }
-      events.get(3) should matchPattern { case Profile.Event(false, "f", _) => }
     }
   }
 }
@@ -511,19 +507,6 @@ object SpeedyTest {
       case Goodbye(err) => Left(err)
     }
   }
-  private val noPackages =
-    PureCompiledPackages(
-      Map.empty,
-      Map.empty,
-      Compiler.Config.Default
-        .copy(profiling = Compiler.FullProfile, stacktracing = Compiler.FullStackTrace)
-    )
-
-  private def profile(e: Expr): java.util.ArrayList[Profile.Event] = {
-    val machine = Speedy.Machine.fromPureExpr(noPackages, e)
-    machine.run()
-    machine.profile.events
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private implicit def resultEq: Equality[Either[SError, SValue]] = {
@@ -536,7 +519,8 @@ object SpeedyTest {
     val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
     Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId, pkg)
     data.assertRight(
-      PureCompiledPackages(rawPkgs, Compiler.Config.Default.copy(stacktracing = FullStackTrace)))
+      PureCompiledPackages(rawPkgs, Compiler.Config.Default.copy(stacktracing = FullStackTrace))
+    )
   }
 
   private def intList(xs: Long*): String =

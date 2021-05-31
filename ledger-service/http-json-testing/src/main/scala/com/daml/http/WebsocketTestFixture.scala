@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -25,12 +25,8 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.syntax.std.option._
 import scalaz.std.vector._
-import scalaz.std.option._
-import scalaz.std.vector._
-import scalaz.syntax.std.option._
-import scalaz.syntax.tag._
-import scalaz.syntax.traverse._
 
+import scala.collection.compat._
 import scala.concurrent.Future
 
 private[http] object WebsocketTestFixture extends StrictLogging with Assertions {
@@ -47,12 +43,14 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
   private[http] case class SimpleScenario(
       id: String,
       path: Uri.Path,
-      input: Source[Message, NotUsed])
+      input: Source[Message, NotUsed],
+  )
 
   private[http] final case class ShouldHaveEnded(
       liveStartOffset: domain.Offset,
       msgCount: Int,
-      lastSeenOffset: domain.Offset)
+      lastSeenOffset: domain.Offset,
+  )
 
   private[http] object ContractDelta {
     private val tagKeys = Set("created", "archived", "error")
@@ -64,21 +62,20 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
       for {
         JsObject(eventsWrapper) <- Some(jsv)
         JsArray(sums) <- eventsWrapper.get("events")
-        pairs = sums collect { case JsObject(fields) => fields.filterKeys(tagKeys).head }
+        pairs = sums collect { case JsObject(fields) => fields.view.filterKeys(tagKeys).toMap.head }
         if pairs.length == sums.length
         sets = pairs groupBy (_._1)
-        creates = sets.getOrElse("created", Vector()) collect {
-          case (_, JsObject(fields)) => fields
+        creates = sets.getOrElse("created", Vector()) collect { case (_, JsObject(fields)) =>
+          fields
         }
 
         createPairs = creates collect (Function unlift { add =>
           (add get "contractId" collect { case JsString(v) => v }) tuple (add get "payload")
         }): Vector[(String, JsValue)]
 
-        archives = sets.getOrElse("archived", Vector()) collect {
-          case (_, adata) =>
-            import json.JsonProtocol.ArchivedContractFormat
-            adata.convertTo[domain.ArchivedContract]
+        archives = sets.getOrElse("archived", Vector()) collect { case (_, adata) =>
+          import json.JsonProtocol.ArchivedContractFormat
+          adata.convertTo[domain.ArchivedContract]
         }: Vector[domain.ArchivedContract]
 
         offset = eventsWrapper
@@ -163,11 +160,14 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
       if (size > 1 && x > 1)
         Gen.frequency(
           (1, Gen const Leaf(x)),
-          (8 min size, Gen.chooseNum(1: Amount, x - 1) flatMap { split =>
-            Gen zip (genSplit(split, size / 2), genSplit(x - split, size / 2)) map {
-              case (l, r) => Node(x, l, r)
-            }
-          })
+          (
+            8 min size,
+            Gen.chooseNum(1: Amount, x - 1) flatMap { split =>
+              Gen.zip(genSplit(split, size / 2), genSplit(x - split, size / 2)) map { case (l, r) =>
+                Node(x, l, r)
+              }
+            },
+          ),
         )
       else Gen const Leaf(x)
   }
@@ -176,14 +176,15 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
       jwt: Jwt,
       serviceUri: Uri,
       query: String,
-      offset: Option[domain.Offset] = None)(implicit asys: ActorSystem): Source[Message, NotUsed] =
+      offset: Option[domain.Offset] = None,
+  )(implicit asys: ActorSystem): Source[Message, NotUsed] =
     singleClientWSStream(jwt, "query", serviceUri, query, offset)
 
   def singleClientFetchStream(
       jwt: Jwt,
       serviceUri: Uri,
       request: String,
-      offset: Option[domain.Offset] = None
+      offset: Option[domain.Offset] = None,
   )(implicit asys: ActorSystem): Source[Message, NotUsed] =
     singleClientWSStream(jwt, "fetch", serviceUri, request, offset)
 
@@ -192,21 +193,24 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
       path: String,
       serviceUri: Uri,
       query: String,
-      offset: Option[domain.Offset]
+      offset: Option[domain.Offset],
   )(implicit asys: ActorSystem): Source[Message, NotUsed] = {
 
     import spray.json._, json.JsonProtocol._
     val uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path(s"/v1/stream/$path"))
     logger.info(
-      s"---- singleClientWSStream uri: ${uri.toString}, query: $query, offset: ${offset.toString}")
+      s"---- singleClientWSStream uri: ${uri.toString}, query: $query, offset: ${offset.toString}"
+    )
     val webSocketFlow =
       Http().webSocketClientFlow(WebSocketRequest(uri = uri, subprotocol = validSubprotocol(jwt)))
     offset
       .cata(
         off =>
           Source.fromIterator(() =>
-            Seq(Map("offset" -> off.unwrap).toJson.compactPrint, query).iterator),
-        Source single query)
+            Seq(Map("offset" -> off.unwrap).toJson.compactPrint, query).iterator
+          ),
+        Source single query,
+      )
       .map(TextMessage(_))
       // akka-http will cancel the whole stream once the input ends so we use
       // Source.maybe to keep the input open.
@@ -250,8 +254,8 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
 
   def isAbsoluteOffsetTick(x: EventsBlock): Boolean = {
     val hasAbsoluteOffset = x.offset
-      .collect {
-        case JsString(offset) => offset.length > 0
+      .collect { case JsString(offset) =>
+        offset.length > 0
       }
       .getOrElse(false)
 
@@ -288,16 +292,17 @@ private[http] object WebsocketTestFixture extends StrictLogging with Assertions 
 
   final class MultipleJsValuesMatcher(right: Seq[JsValue]) extends Matcher[Seq[JsValue]] {
     override def apply(left: Seq[JsValue]): MatchResult = {
-      val result = left.length == right.length && (left, right).zipped.forall {
-        case (l, r) => matchJsValue(r)(l).matches
+      val result = left.length == right.length && left.lazyZip(right).forall { case (l, r) =>
+        matchJsValue(r)(l).matches
       }
       MatchResult(result, s"$left did not match $right", s"$left matched $right")
     }
   }
 
-  def parseResp(
-      implicit ec: ExecutionContext,
-      fm: Materializer): Flow[Message, JsValue, NotUsed] = {
+  def parseResp(implicit
+      ec: ExecutionContext,
+      fm: Materializer,
+  ): Flow[Message, JsValue, NotUsed] = {
     import spray.json._
     Flow[Message]
       .mapAsync(1) {

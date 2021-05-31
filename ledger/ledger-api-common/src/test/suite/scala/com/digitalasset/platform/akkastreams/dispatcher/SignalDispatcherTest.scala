@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.akkastreams.dispatcher
@@ -46,7 +46,7 @@ class SignalDispatcherTest
     "output multiple signals when they arrive" in { sut =>
       val count = 10
       val result = sut.subscribe(false).take(count.toLong).runWith(Sink.seq).map(_ => succeed)
-      1.to(count).foreach(_ => sut.signal)
+      1.to(count).foreach(_ => sut.signal())
       result
     }
 
@@ -58,7 +58,7 @@ class SignalDispatcherTest
       s.cancel()
       await("Cancellation handling")
         .atMost(Duration.TEN_SECONDS)
-        .until(() => new lang.Boolean(sut.getRunningState.isEmpty))
+        .until(() => lang.Boolean.valueOf(sut.getRunningState.isEmpty))
       sut.getRunningState shouldBe empty
     }
 

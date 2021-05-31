@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
@@ -32,8 +32,7 @@ object Identification {
     "omega",
   )
 
-  /**
-    * E.g.
+  /** E.g.
     *
     * val ids = circularWithIndex(Vector("a", "b", "c"))
     *
@@ -50,8 +49,7 @@ object Identification {
       case (alphabet, index) => alphabet.map(letter => s"$letter$index")
     })
 
-  /**
-    * E.g.
+  /** E.g.
     *
     * val ids = indexSuffix("prefix")
     *
@@ -62,8 +60,7 @@ object Identification {
   def indexSuffix(template: String): () => String =
     synchronizedProvider(Iterator.from(0).map(n => s"$template-$n"))
 
-  /**
-    * Rules out race conditions when accessing an iterator
+  /** Rules out race conditions when accessing an iterator
     */
   private def synchronizedProvider[A](it: Iterator[A]): () => A =
     () => it.synchronized(it.next())

@@ -1,12 +1,13 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
-  DamlPartyAllocationRejectionEntry
+  DamlPartyAllocationRejectionEntry,
 }
+import com.daml.logging.LoggingContext
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -18,6 +19,8 @@ class KVUtilsPartySpec extends AnyWordSpec with Matchers {
 
   import KVTest._
   import TestHelpers._
+
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   "party allocation" should {
     val p0 = mkParticipantId(0)
@@ -84,7 +87,7 @@ class KVUtilsPartySpec extends AnyWordSpec with Matchers {
       }
     }
 
-    "update metrics" in KVTest.runTestWithSimplePackage() {
+    "update metrics" in KVTest.runTest {
       for {
         //Submit party twice to force one acceptance and one rejection on duplicate
         _ <- submitPartyAllocation("submission-1", "alice", p0)

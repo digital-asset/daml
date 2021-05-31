@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,11 +6,11 @@ load(
     "daml_package_db",
     "daml_package_rule",
 )
-load("//compiler/damlc:util.bzl", "DAML_LF_VERSIONS")
+load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS")
 
 daml_package_db(
     name = "package_db_for_daml-prim",
-    daml_lf_versions = DAML_LF_VERSIONS,
+    daml_lf_versions = COMPILER_LF_VERSIONS,
     pkgs = [],
     visibility = ["//visibility:public"],
 )
@@ -25,7 +25,7 @@ daml_package_db(
         pkg_root = "compiler/damlc/daml-prim-src",
         visibility = ["//visibility:public"],
     )
-    for ver in DAML_LF_VERSIONS
+    for ver in COMPILER_LF_VERSIONS
 ]
 
 [
@@ -39,21 +39,21 @@ daml_package_db(
         pkg_root = "compiler/damlc/daml-stdlib-src",
         visibility = ["//visibility:public"],
     )
-    for ver in DAML_LF_VERSIONS
+    for ver in COMPILER_LF_VERSIONS
 ]
 
 daml_package_db(
     name = "package_db_for_daml-stdlib",
-    daml_lf_versions = DAML_LF_VERSIONS,
-    pkgs = [":daml-prim-{}".format(ver) for ver in DAML_LF_VERSIONS],
+    daml_lf_versions = COMPILER_LF_VERSIONS,
+    pkgs = [":daml-prim-{}".format(ver) for ver in COMPILER_LF_VERSIONS],
     visibility = ["//visibility:public"],
 )
 
 daml_package_db(
     name = "pkg-db",
-    daml_lf_versions = DAML_LF_VERSIONS,
+    daml_lf_versions = COMPILER_LF_VERSIONS,
     pkgs =
-        [":daml-prim-{}".format(ver) for ver in DAML_LF_VERSIONS] +
-        [":daml-stdlib-{}".format(ver) for ver in DAML_LF_VERSIONS],
+        [":daml-prim-{}".format(ver) for ver in COMPILER_LF_VERSIONS] +
+        [":daml-stdlib-{}".format(ver) for ver in COMPILER_LF_VERSIONS],
     visibility = ["//visibility:public"],
 )

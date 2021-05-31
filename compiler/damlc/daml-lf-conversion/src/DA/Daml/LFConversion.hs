@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
@@ -8,7 +8,7 @@
 
 -- | Useful references:
 --
--- * DAML-LF AST: https://github.com/DACH-NY/da/blob/master/compiler/daml-lf-ast/src/DA/Daml/LF/Ast/Base.hs
+-- * DAML-LF AST: https://github.com/digital-asset/daml/blob/main/compiler/daml-lf-ast/src/DA/Daml/LF/Ast/Base.hs
 -- * GHC Syntax: https://hackage.haskell.org/package/ghc-8.4.1/docs/CoreSyn.html#t:Expr
 --
 -- The conversion works element by element, in a fairly direct way, apart from the exceptions
@@ -76,6 +76,9 @@
 module DA.Daml.LFConversion
     ( convertModule
     , sourceLocToRange
+    , convertRationalBigNumeric -- exposed for festing
+    , runConvertM -- exposed for testing
+    , ConversionEnv(..) -- exposed for testing
     ) where
 
 import           DA.Daml.LFConversion.Primitives
@@ -90,7 +93,6 @@ import           Development.IDE.GHC.Util
 import           Control.Lens
 import           Control.Monad.Except
 import           Control.Monad.Extra
-import Control.Monad.Fail
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
@@ -109,7 +111,7 @@ import           Data.Tuple.Extra
 import           Data.Ratio
 import           "ghc-lib" GHC
 import           "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
-import           "ghc-lib-parser" InstEnv (ClsInst(..), OverlapFlag(..), OverlapMode(..))
+import           "ghc-lib-parser" InstEnv (ClsInst(..))
 import           "ghc-lib-parser" Pair hiding (swap)
 import           "ghc-lib-parser" PrelNames
 import           "ghc-lib-parser" TysPrim
@@ -170,6 +172,7 @@ data Env = Env
     -- packages does not cause performance issues.
     ,envLfVersion :: LF.Version
     ,envTemplateBinds :: MS.Map TypeConName TemplateBinds
+    ,envExceptionBinds :: MS.Map TypeConName ExceptionBinds
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envIsGenerated :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
@@ -328,6 +331,21 @@ convertRationalNumericMono env scale num denom
         double = (fromInteger num / fromInteger denom) :: Double
         maxPower = fromIntegral numericMaxPrecision - scale
 
+-- | Convert a rational into a BigNumeric expression. Currently only supports
+-- values that will fit in a Numeric.
+convertRationalBigNumeric :: Integer -> Integer -> ConvertM LF.Expr
+convertRationalBigNumeric num denom = case numericFromRational rational of
+    Left _ -> invalid
+    Right n ->
+        let scale = numericScale n
+        in pure (EBuiltin BENumericToBigNumeric
+            `ETyApp` TNat (typeLevelNat scale)
+            `ETmApp` EBuiltin (BENumeric n))
+
+    where
+        rational = num % denom
+        invalid = unsupported "Large BigNumeric (larger than Numeric) literals are not currently supported. Please construct the number from smaller literals" ()
+
 data TemplateBinds = TemplateBinds
     { tbTyCon :: Maybe GHC.TyCon
     , tbSignatory :: Maybe (GHC.Expr Var)
@@ -338,15 +356,16 @@ data TemplateBinds = TemplateBinds
     , tbKeyType :: Maybe GHC.Type
     , tbKey :: Maybe (GHC.Expr Var)
     , tbMaintainer :: Maybe (GHC.Expr Var)
+    , tbShow :: Maybe GHC.Var
     }
 
 emptyTemplateBinds :: TemplateBinds
 emptyTemplateBinds = TemplateBinds
     Nothing Nothing Nothing Nothing Nothing Nothing
-    Nothing Nothing Nothing
+    Nothing Nothing Nothing Nothing
 
 scrapeTemplateBinds :: [(Var, GHC.Expr Var)] -> MS.Map TypeConName TemplateBinds
-scrapeTemplateBinds binds = MS.map ($ emptyTemplateBinds) $ MS.fromListWith (.)
+scrapeTemplateBinds binds = MS.filter (isJust . tbTyCon) $ MS.map ($ emptyTemplateBinds) $ MS.fromListWith (.)
     [ (mkTypeCon [getOccText (GHC.tyConName tpl)], fn)
     | (name, expr) <- binds
     , Just (tpl, fn) <- pure $ case name of
@@ -364,7 +383,22 @@ scrapeTemplateBinds binds = MS.map ($ emptyTemplateBinds) $ MS.fromListWith (.)
             Just (tpl, \tb -> tb { tbKeyType = Just key, tbKey = Just expr })
         HasMaintainerDFunId tpl _key ->
             Just (tpl, \tb -> tb { tbMaintainer = Just expr })
+        ShowDFunId tpl ->
+            Just (tpl, \tb -> tb { tbShow = Just name })
         _ -> Nothing
+    ]
+
+data ExceptionBinds = ExceptionBinds
+    { ebTyCon :: GHC.TyCon
+    , ebMessage :: GHC.Expr Var
+    }
+
+scrapeExceptionBinds :: [(Var, GHC.Expr Var)] -> MS.Map TypeConName ExceptionBinds
+scrapeExceptionBinds binds = MS.fromList
+    [ ( mkTypeCon [getOccText (GHC.tyConName exn)]
+      , ExceptionBinds { ebTyCon = exn, ebMessage = msg } )
+    | (HasMessageDFunId exn, msg) <- binds
+    , hasDamlExceptionCtx exn
     ]
 
 type ModInstanceInfo = MS.Map DFunId OverlapMode
@@ -386,7 +420,8 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
     definitions <- concatMapM (\bind -> resetFreshVarCounters >> convertBind env bind) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     templates <- convertTemplateDefs env
-    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ definitions))
+    exceptions <- convertExceptionDefs env
+    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ templates ++ exceptions ++ definitions))
     where
         ghcModName = GHC.moduleName $ cm_module x
         thisUnitId = GHC.moduleUnitId $ cm_module x
@@ -409,6 +444,11 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
             , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _], _]) <- [varType name]
             ]
         templateBinds = scrapeTemplateBinds binds
+        exceptionBinds
+            | lfVersion `supports` featureExceptions =
+                scrapeExceptionBinds binds
+            | otherwise =
+                MS.empty
 
         env = Env
           { envLFModuleName = lfModName
@@ -419,6 +459,7 @@ convertModule lfVersion pkgMap stablePackages isGenerated file x details = runCo
           , envStablePackages = stablePackages
           , envLfVersion = lfVersion
           , envTemplateBinds = templateBinds
+          , envExceptionBinds = exceptionBinds
           , envChoiceData = choiceData
           , envIsGenerated = isGenerated
           , envTypeVars = MS.empty
@@ -647,7 +688,7 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
         let tplParam = this
         tplSignatories <- useSingleMethodDict env fSignatory (`ETmApp` EVar this)
         tplObservers <- useSingleMethodDict env fObserver (`ETmApp` EVar this)
-        tplPrecondition <- useSingleMethodDict env fEnsure (`ETmApp` EVar this)
+        tplPrecondition <- useSingleMethodDict env fEnsure (wrapPrecondition . (`ETmApp` EVar this))
         tplAgreement <- useSingleMethodDict env fAgreement (`ETmApp` EVar this)
         tplChoices <- convertChoices env tplTypeCon tbinds
         tplKey <- convertTemplateKey env tplTypeCon tbinds
@@ -655,6 +696,31 @@ convertTemplate env tplTypeCon tbinds@TemplateBinds{..}
 
     | otherwise =
         unhandled "Missing required instances in template definition." (show tplTypeCon)
+
+  where
+    wrapPrecondition b
+        | envLfVersion env`supports` featureExceptions
+        = case tbShow of
+            Nothing ->
+                error ("Missing Show instance for template: " <> show tplTypeCon)
+            Just showDict ->
+                ECase b
+                    [ CaseAlternative (CPBool True) ETrue
+                    , CaseAlternative (CPBool False)
+                        $ EThrow TBool (TCon preconditionFailedTypeCon)
+                        $ mkPreconditionFailed
+                        $ EBuiltin BEAppendText
+                            `ETmApp` EBuiltin (BEText "Template precondition violated: " )
+                            `ETmApp`
+                                (EStructProj (FieldName "m_show")
+                                    (EVal (Qualified PRSelf (envLFModuleName env) (convVal showDict)))
+                                `ETmApp` EUnit
+                                `ETmApp` EVar this)
+                    ]
+
+        | otherwise
+        = b
+
 
 convertTemplateKey :: Env -> LF.TypeConName -> TemplateBinds -> ConvertM (Maybe TemplateKey)
 convertTemplateKey env tname TemplateBinds{..}
@@ -671,6 +737,19 @@ convertTemplateKey env tname TemplateBinds{..}
 
     | otherwise
     = pure Nothing
+
+convertExceptionDefs :: Env -> ConvertM [Definition]
+convertExceptionDefs env =
+    forM (MS.toList (envExceptionBinds env)) $ \(ename, ebinds) -> do
+        resetFreshVarCounters
+        DException <$> convertDefException env ename ebinds
+
+convertDefException :: Env -> LF.TypeConName -> ExceptionBinds -> ConvertM DefException
+convertDefException env exnName ExceptionBinds{..} = do
+    let exnLocation = convNameLoc (GHC.tyConName ebTyCon)
+    withRange exnLocation $ do
+        exnMessage <- useSingleMethodDict env ebMessage id
+        pure DefException {..}
 
 -- | Convert the method from a single method type class dictionary
 -- (such as those used in template desugaring), and then fmap over it
@@ -824,7 +903,12 @@ convertBind env (name, x)
 -- during conversion to DAML-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
-internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Map", "Any", "TypeRep"]
+internalTypes = mkUniqSet
+    [ "Scenario", "Update", "ContractId", "Time", "Date", "Party"
+    , "Pair", "TextMap", "Map", "Any", "TypeRep"
+    , "AnyException"
+    , "Experimental"
+    ]
 
 consumingTypes :: UniqSet FastString
 consumingTypes = mkUniqSet ["Consuming", "PreConsuming", "PostConsuming", "NonConsuming"]
@@ -909,6 +993,10 @@ convertExpr env0 e = do
         = fmap (, args) $ convertRationalDecimal env top bot
     go env (VarIn GHC_Real "fromRational") (LType (isNumLitTy -> Just n) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ convertRationalNumericMono env n top bot
+    go env (VarIn GHC_Real "fromRational") (LType (TypeCon (NameIn GHC_Types "Numeric") [isNumLitTy -> Just n]) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
+        = fmap (, args) $ convertRationalNumericMono env n top bot
+    go env (VarIn GHC_Real "fromRational") (LType (TypeCon (NameIn GHC_Types "BigNumeric") []) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
+        = fmap (, args) $ convertRationalBigNumeric top bot
     go env (VarIn GHC_Real "fromRational") (LType scaleTyCoRep : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = unsupported ("Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (" ++ show (fromRational (top % bot) :: Decimal.Decimal) ++ " : Numeric 10)") ()
     go env (VarIn GHC_Num "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
@@ -1073,6 +1161,10 @@ convertExpr env0 e = do
             pure (ESome t x, args)
 
     go env (VarIn GHC_Tuple "()") args = pure (EUnit, args)
+
+    go env (VarIn GHC_Types (RoundingModeName roundingModeLit)) args =
+        pure (EBuiltin (BERoundingMode roundingModeLit), args)
+
     go env (VarIn GHC_Types "True") args = pure (mkBool True, args)
     go env (VarIn GHC_Types "False") args = pure (mkBool False, args)
     go env (VarIn GHC_Types "I#") args = pure (mkIdentity TInt64, args)
@@ -1128,8 +1220,9 @@ convertExpr env0 e = do
             let fldName = fldNames !! fldIndex
             recTyp <- convertType env (varType bind)
             pure $ mkDictProj env (fromTCon recTyp) fldName scrutinee' `ETmApp` EUnit
-    go env o@(Case scrutinee bind _ [alt@(DataAlt con, vs, x)]) args = fmap (, args) $ do
+    go env o@(Case scrutinee bind resultType [alt@(DataAlt con, vs, x)]) args = fmap (, args) $ do
         convertType env (varType bind) >>= \case
+            -- opaque types have no patterns that can be matched
             TText -> asLet
             TDecimal -> asLet
             TNumeric _ -> asLet
@@ -1153,31 +1246,95 @@ convertExpr env0 e = do
                     bind' <- convertExpr env (Var bind)
                     ty <- convertType env $ varType bind
                     alt' <- convertAlt env ty alt
-                    pure $ ECase bind' [alt']
+                    resultType' <- convertType env resultType
+                    pure $ mkCase env ty resultType' bind' [alt']
 
       where
         asLet = convertLet env bind scrutinee $ \env -> convertExpr env x
-    go env (Case scrutinee bind typ []) args = fmap (, args) $ do
-        -- GHC only generates empty case alternatives if it is sure the scrutinee will fail, LF doesn't support empty alternatives
-        scrutinee' <- convertExpr env scrutinee
-        typ' <- convertType env typ
-        bind' <- convVarWithType env bind
-        pure $
-          ELet (Binding bind' scrutinee') $
-          ECase (EVar $ convVar bind) [CaseAlternative CPDefault $ EBuiltin BEError `ETyApp` typ' `ETmApp` EBuiltin (BEText "Unreachable")]
-    go env (Case scrutinee bind _ (defaultLast -> alts)) args = fmap (, args) $ do
+    go env (Case scrutinee bind resultType (defaultLast -> alts)) args = fmap (, args) $ do
         scrutinee' <- convertExpr env scrutinee
         bindTy <- convertType env $ varType bind
         alts' <- mapM (convertAlt env bindTy) alts
         bind' <- convVarWithType env bind
-        if isDeadOcc (occInfo (idInfo bind))
-          then pure $ ECase scrutinee' alts'
-          else pure $
+        resultType' <- convertType env resultType
+        if isDeadOcc (occInfo (idInfo bind)) && all isNormalCaseAlternative alts'
+        then pure $ mkCase env bindTy resultType' scrutinee' alts'
+        else pure $
             ELet (Binding bind' scrutinee') $
-            ECase (EVar $ convVar bind) alts'
+            mkCase env bindTy resultType' (EVar $ convVar bind) alts'
     go env (Let (Rec xs) _) args = unsupported "Local variables defined recursively - recursion can only happen at the top level" $ map fst xs
     go env o@(Coercion _) args = unhandled "Coercion" o
     go _ x args = unhandled "Expression" x
+
+-- | Represents a generalised case pattern for a generalised case alternative.
+data GeneralisedCasePattern
+    = GCPEquality LF.Expr
+        -- ^ Pattern matching via built-in equality.
+    | GCPNormal CasePattern
+        -- ^ Normal case alternative that is directly supported by LF.
+        -- This includes the default case (CPDefault).
+    deriving (Eq, Ord)
+
+-- | Generalised case alternative
+data GeneralisedCaseAlternative = GCA GeneralisedCasePattern LF.Expr
+    deriving (Eq, Ord)
+
+-- | Is this a normal case alternative?
+isNormalCaseAlternative :: GeneralisedCaseAlternative -> Bool
+isNormalCaseAlternative = \case
+    GCA (GCPNormal _) _ -> True
+    _ -> False
+
+-- | Represents the body of a generalised case expression.
+data GeneralisedCaseBody
+    = GCBExpr LF.Expr
+        -- ^ Expression representing the generalised case.
+    | GCBAlts [CaseAlternative]
+        -- ^ Alternatives for a regular case statement.
+
+-- | Make a case expression from GeneralisedCaseAlternatives.
+--
+-- The scrutinee will be evaluated multiple times unless all the
+-- case alternatives are normal case alternatives. So to prevent
+-- this, this function should only be used when either the scrutinee
+-- is inert (e.g. a bound variable), or all the alternatives are
+-- normal case alternatives ('GCANormal').
+mkCase :: Env -> LF.Type -> LF.Type -> LF.Expr -> [GeneralisedCaseAlternative] -> LF.Expr
+mkCase env scrutineeType resultType scrutinee galts =
+    finalize (foldr addCaseAlternative (GCBAlts []) galts)
+  where
+    finalize :: GeneralisedCaseBody -> LF.Expr
+    finalize = \case
+        GCBExpr e -> e
+        GCBAlts [] ->
+            ECase scrutinee
+                [ CaseAlternative CPDefault
+                $ EBuiltin BEError
+                    `ETyApp` resultType
+                    `ETmApp` EBuiltin (BEText "Unreachable") ]
+                -- GHC only generates empty case alternatives if it is sure the scrutinee will fail.
+                -- LF doesn't support empty alternatives, so we turn this into a non-empty alternative.
+        GCBAlts alts ->
+            ECase scrutinee alts
+
+    addCaseAlternative :: GeneralisedCaseAlternative -> GeneralisedCaseBody -> GeneralisedCaseBody
+    addCaseAlternative (GCA (GCPNormal pattern) rhs) (GCBAlts alts) =
+        GCBAlts (CaseAlternative pattern rhs : alts)
+    addCaseAlternative (GCA (GCPNormal pattern) rhs) (GCBExpr e) =
+        GCBAlts [CaseAlternative pattern rhs, CaseAlternative CPDefault e]
+    addCaseAlternative (GCA (GCPEquality expr) rhs) elseBranch =
+        GCBExpr (mkIf (mkScrutineeEquality expr) rhs (finalize elseBranch))
+
+    mkScrutineeEquality :: LF.Expr -> LF.Expr
+    mkScrutineeEquality pattern
+        | TBuiltin scrutineeBuiltinType <- scrutineeType
+        = mkBuiltinEqual (envLfVersion env) scrutineeBuiltinType `ETmApp` scrutinee `ETmApp` pattern
+
+        | envLfVersion env `supports` featureGenericComparison
+        = EBuiltin BEEqualGeneric `ETyApp` scrutineeType `ETmApp` scrutinee `ETmApp` pattern
+
+        | otherwise
+        = error "mkScrutineeEquality: No built-in equality exists for target LF version and type."
 
 -- | Is this a constraint tuple?
 isConstraintTupleTyCon :: TyCon -> Bool
@@ -1361,20 +1518,27 @@ convertUnitId _thisUnitId pkgMap unitId = case unitId of
     Just DalfPackage{..} -> pure $ LF.PRImport dalfPackageId
     Nothing -> unknown unitId pkgMap
 
-convertAlt :: Env -> LF.Type -> Alt Var -> ConvertM CaseAlternative
-convertAlt env ty (DEFAULT, [], x) = CaseAlternative CPDefault <$> convertExpr env x
+convertAlt :: Env -> LF.Type -> Alt Var -> ConvertM GeneralisedCaseAlternative
+convertAlt env ty (DEFAULT, [], x) = GCA (GCPNormal CPDefault) <$> convertExpr env x
 convertAlt env ty (DataAlt con, [], x)
-    | NameIn GHC_Types "True" <- con = CaseAlternative (CPBool True) <$> convertExpr env x
-    | NameIn GHC_Types "False" <- con = CaseAlternative (CPBool False) <$> convertExpr env x
-    | NameIn GHC_Types "[]" <- con = CaseAlternative CPNil <$> convertExpr env x
-    | NameIn GHC_Tuple "()" <- con = CaseAlternative CPUnit <$> convertExpr env x
+    | NameIn GHC_Types "True" <- con = GCA (GCPNormal (CPBool True)) <$> convertExpr env x
+    | NameIn GHC_Types "False" <- con = GCA (GCPNormal (CPBool False)) <$> convertExpr env x
+    | NameIn GHC_Types "[]" <- con = GCA (GCPNormal CPNil) <$> convertExpr env x
+    | NameIn GHC_Tuple "()" <- con = GCA (GCPNormal CPUnit) <$> convertExpr env x
     | NameIn DA_Internal_Prelude "None" <- con
-    = CaseAlternative CPNone <$> convertExpr env x
+    = GCA (GCPNormal CPNone) <$> convertExpr env x
+
+    -- Rounding mode constructors do not have built-in LF support for pattern matching,
+    -- but we get the same result with equality tests.
+    | NameIn GHC_Types (RoundingModeName roundingModeLit) <- con
+    = GCA (GCPEquality (EBuiltin (BERoundingMode roundingModeLit))) <$> convertExpr env x
+
 convertAlt env ty (DataAlt con, [a,b], x)
-    | NameIn GHC_Types ":" <- con = CaseAlternative (CPCons (convVar a) (convVar b)) <$> convertExpr env x
+    | NameIn GHC_Types ":" <- con
+    = GCA (GCPNormal (CPCons (convVar a) (convVar b))) <$> convertExpr env x
 convertAlt env ty (DataAlt con, [a], x)
     | NameIn DA_Internal_Prelude "Some" <- con
-    = CaseAlternative (CPSome (convVar a)) <$> convertExpr env x
+    = GCA (GCPNormal (CPSome (convVar a))) <$> convertExpr env x
 
 convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
     let patTypeCon = tcon
@@ -1383,7 +1547,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
 
     case classifyDataCon con of
         EnumCon ->
-            CaseAlternative (CPEnum patTypeCon patVariant) <$> convertExpr env x
+            GCA (GCPNormal (CPEnum patTypeCon patVariant)) <$> convertExpr env x
 
         SimpleVariantCon -> do
             when (length vs /= dataConRepArity con) $
@@ -1392,7 +1556,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
                 unsupported "Data constructor with multiple unnamed fields" alt
 
             let patBinder = maybe vArg convVar (listToMaybe vs)
-            CaseAlternative CPVariant{..} <$> convertExpr env x
+            GCA (GCPNormal CPVariant{..}) <$> convertExpr env x
 
         SimpleRecordCon ->
             unhandled "unreachable case -- convertAlt with simple record constructor" ()
@@ -1405,7 +1569,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
                 Just vsFlds -> do
                     x' <- convertExpr env x
                     projBinds <- mkProjBindings env (EVar vArg) (TypeConApp (synthesizeVariantRecord patVariant <$> tcon) targs) vsFlds x'
-                    pure $ CaseAlternative CPVariant{..} projBinds
+                    pure $ GCA (GCPNormal CPVariant{..}) projBinds
 
 convertAlt _ _ x = unsupported "Case alternative of this form" x
 
@@ -1648,8 +1812,9 @@ convertTyCon env t
                 if envLfVersion env `supports` featureNumeric
                     then pure TNumeric10
                     else pure TDecimal
+            "BigNumeric" -> pure TBigNumeric
+            "RoundingMode" -> pure TRoundingMode
             _ -> defaultTyCon
-    -- TODO(DEL-6953): We need to add a condition on the package name as well.
     | NameIn DA_Internal_LF n <- t =
         case n of
             "Scenario" -> pure (TBuiltin BTScenario)
@@ -1674,6 +1839,7 @@ convertTyCon env t
                 pure $ if envLfVersion env `supports` featureTypeRep
                     then TTypeRep
                     else TUnit
+            "AnyException" -> pure (TBuiltin BTAnyException)
             _ -> defaultTyCon
     | NameIn DA_Internal_Prelude "Optional" <- t = pure (TBuiltin BTOptional)
     | otherwise = defaultTyCon
@@ -1876,6 +2042,7 @@ convVar = mkVar . varPrettyPrint
 
 convVarWithType :: Env -> Var -> ConvertM (ExprVarName, LF.Type)
 convVarWithType env v = (convVar v,) <$> convertType env (varType v)
+
 convVal :: Var -> ExprValName
 convVal = mkVal . varPrettyPrint
 

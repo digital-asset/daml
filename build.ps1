@@ -14,6 +14,8 @@ if (!(Test-Path .\.bazelrc.local)) {
 
 $ARTIFACT_DIRS = if ("$env:BUILD_ARTIFACTSTAGINGDIRECTORY") { $env:BUILD_ARTIFACTSTAGINGDIRECTORY } else { Get-Location }
 
+mkdir -p ${ARTIFACT_DIRS}/logs
+
 # If a previous build was forcefully terminated, then stack's lock file might
 # not have been cleaned up properly leading to errors of the form
 #
@@ -53,8 +55,10 @@ bazel shutdown
 # It isn’t clear where exactly those errors are coming from.
 bazel fetch @nodejs_dev_env//...
 
-bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log //...
+bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/build_execution_windows.log //...
 
 bazel shutdown
 
-bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log //...
+if ($env:SKIP_TESTS = "False") {
+    bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/test_execution_windows.log //...
+}

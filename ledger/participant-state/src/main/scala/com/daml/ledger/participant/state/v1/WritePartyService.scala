@@ -1,15 +1,16 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
 
 import java.util.concurrent.CompletionStage
 
+import com.daml.telemetry.TelemetryContext
+
 /** An interface for on-boarding parties via a participant. */
 trait WritePartyService {
 
-  /**
-    * Adds a new party to the set managed by the ledger.
+  /** Adds a new party to the set managed by the ledger.
     *
     * Caller specifies a party identifier suggestion, the actual identifier
     * allocated might be different and is implementation specific.
@@ -23,17 +24,16 @@ trait WritePartyService {
     * message. See the comments on [[ReadService.stateUpdates]] and [[Update]] for
     * further details.
     *
-    * @param hint         : A party identifier suggestion
-    *
-    * @param displayName  : A human readable name of the new party
-    *
-    * @param submissionId: Client picked submission identifier for matching the responses with the request.
+    * @param hint             A party identifier suggestion
+    * @param displayName      A human readable name of the new party
+    * @param submissionId     Client picked submission identifier for matching the responses with the request.
+    * @param telemetryContext An implicit context for tracing.
     *
     * @return an async result of a SubmissionResult
     */
   def allocateParty(
       hint: Option[Party],
       displayName: Option[String],
-      submissionId: SubmissionId
-  ): CompletionStage[SubmissionResult]
+      submissionId: SubmissionId,
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
 }

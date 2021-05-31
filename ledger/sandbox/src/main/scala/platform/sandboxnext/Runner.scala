@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandboxnext
@@ -6,6 +6,7 @@ package com.daml.platform.sandboxnext
 import java.io.File
 import java.time.{Clock, Instant}
 import java.util.UUID
+import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -28,6 +29,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.language.LanguageVersion
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.platform.apiserver._
@@ -36,21 +38,23 @@ import com.daml.platform.configuration.PartyConfiguration
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
 import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.LfValueTranslationCache
 import com.daml.ports.Port
 import com.daml.resources.ResettableResourceOwner
+import com.daml.telemetry.{DefaultTelemetry, SpanKind, SpanName}
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future, Promise}
+
 import scala.util.Try
 
-/**
-  * Runs Sandbox with a KV SQL ledger backend.
+/** Runs Sandbox with a KV SQL ledger backend.
   *
   * Known issues:
   *   - does not support implicit party allocation
@@ -65,12 +69,17 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
   }
 
   private[this] val engine = {
-    val engineConfig =
-      (if (config.devMode) EngineConfig.Dev else EngineConfig.Stable)
-        .copy(
-          profileDir = config.profileDir,
-          stackTraceMode = config.stackTraces,
-        )
+    val languageVersions =
+      config.engineMode match {
+        case EngineMode.Dev => LanguageVersion.DevVersions
+        case EngineMode.EarlyAccess => LanguageVersion.EarlyAccessVersions
+        case EngineMode.Stable => LanguageVersion.StableVersions
+      }
+    val engineConfig = EngineConfig(
+      allowedLanguageVersions = languageVersions,
+      profileDir = config.profileDir,
+      stackTraceMode = config.stackTraces,
+    )
     new Engine(engineConfig)
   }
 
@@ -78,7 +87,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       String,
       String,
       String,
-      StartupMode) =
+      StartupMode,
+  ) =
     config.jdbcUrl match {
       case Some(url) if url.startsWith("jdbc:postgresql:") =>
         ("PostgreSQL", url, url, StartupMode.MigrateAndStart)
@@ -86,11 +96,12 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
         ("in-memory", InMemoryLedgerJdbcUrl, url, StartupMode.MigrateAndStart)
       case Some(url) if url.startsWith("jdbc:h2:") =>
         throw new InvalidDatabaseException(
-          "This version of Sandbox does not support file-based H2 databases. Please use SQLite instead.")
+          "This version of Sandbox does not support file-based H2 databases. Please use SQLite instead."
+        )
       case Some(url) if url.startsWith("jdbc:sqlite:") =>
         ("SQLite", url, InMemoryIndexJdbcUrl, StartupMode.MigrateAndStart)
-      case Some(url) =>
-        throw new InvalidDatabaseException(s"Unknown database: $url")
+      case Some(_) =>
+        throw new InvalidDatabaseException(s"Unknown database")
       case None =>
         ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.MigrateAndStart)
     }
@@ -114,7 +125,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           config.metricsReporter,
           config.metricsReportingInterval,
         )
-        lfValueTranslationCache = LfValueTranslation.Cache.newInstrumentedInstance(
+        lfValueTranslationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
           eventConfiguration = config.lfValueTranslationEventCacheConfiguration,
           contractConfiguration = config.lfValueTranslationContractCacheConfiguration,
           metrics = metrics,
@@ -126,150 +137,172 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           (Option[Port], StartupMode),
         ](
           initialValue = (None, startupMode),
-          owner = reset => {
-            case (currentPort, startupMode) =>
-              val isReset = startupMode == StartupMode.ResetAndStart
-              val ledgerId = specifiedLedgerId.getOrElse(UUID.randomUUID().toString)
-              val timeServiceBackend = timeProviderType match {
-                case TimeProviderType.Static =>
-                  Some(TimeServiceBackend.simple(Instant.EPOCH))
-                case TimeProviderType.WallClock =>
-                  None
-              }
-              for {
-                readerWriter <- new SqlLedgerReaderWriter.Owner(
-                  ledgerId = ledgerId,
-                  participantId = config.participantId,
-                  metrics = metrics,
-                  jdbcUrl = ledgerJdbcUrl,
-                  resetOnStartup = isReset,
-                  timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
-                  seedService = SeedService(config.seeding.get),
-                  stateValueCache = caching.WeightedCache.from(
-                    caching.WeightedCache.Configuration(
-                      maximumWeight = MaximumStateValueCacheSize,
-                    )),
-                  engine = engine
-                )
-                ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
-                readService = new TimedReadService(ledger, metrics)
-                writeService = new TimedWriteService(ledger, metrics)
-                healthChecks = new HealthChecks(
-                  "read" -> readService,
-                  "write" -> writeService,
-                )
-                ledgerId <- ResourceOwner.forFuture(() =>
-                  readService.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
-                _ <- if (isReset) {
+          owner = reset => { case (currentPort, startupMode) =>
+            val isReset = startupMode == StartupMode.ResetAndStart
+            val ledgerId = specifiedLedgerId.getOrElse(UUID.randomUUID().toString)
+            val timeServiceBackend = timeProviderType match {
+              case TimeProviderType.Static =>
+                Some(TimeServiceBackend.simple(Instant.EPOCH))
+              case TimeProviderType.WallClock =>
+                None
+            }
+            for {
+              readerWriter <- new SqlLedgerReaderWriter.Owner(
+                ledgerId = ledgerId,
+                participantId = config.participantId,
+                metrics = metrics,
+                jdbcUrl = ledgerJdbcUrl,
+                resetOnStartup = isReset,
+                timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
+                seedService = SeedService(config.seeding.get),
+                stateValueCache = caching.WeightedCache.from(
+                  caching.WeightedCache.Configuration(
+                    maximumWeight = MaximumStateValueCacheSize
+                  )
+                ),
+                engine = engine,
+              )
+              ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
+              readService = new TimedReadService(ledger, metrics)
+              writeService = new TimedWriteService(ledger, metrics)
+              healthChecks = new HealthChecks(
+                "read" -> readService,
+                "write" -> writeService,
+              )
+              ledgerId <- ResourceOwner.forFuture(() =>
+                readService.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId)
+              )
+              _ <-
+                if (isReset) {
                   ResourceOwner.unit
                 } else {
                   ResourceOwner
                     .forFuture(() =>
-                      Future.sequence(config.damlPackages.map(uploadDar(_, writeService))))
+                      Future.sequence(config.damlPackages.map(uploadDar(_, writeService)))
+                    )
                     .map(_ => ())
                 }
-                _ <- new StandaloneIndexerServer(
-                  readService = readService,
-                  config = IndexerConfig(
-                    participantId = config.participantId,
-                    jdbcUrl = indexJdbcUrl,
-                    startupMode =
-                      if (isReset) IndexerStartupMode.ResetAndStart
-                      else IndexerStartupMode.MigrateAndStart,
-                    eventsPageSize = config.eventsPageSize,
-                    allowExistingSchema = true,
-                  ),
-                  metrics = metrics,
-                  lfValueTranslationCache = lfValueTranslationCache,
-                )
-                authService = config.authService.getOrElse(AuthServiceWildcard)
-                promise = Promise[Unit]
-                resetService = {
-                  val clock = Clock.systemUTC()
-                  val authorizer =
-                    new Authorizer(() => clock.instant(), ledgerId, config.participantId)
-                  new SandboxResetService(
-                    domain.LedgerId(ledgerId),
-                    () => {
-                      // Don't block the reset request; just wait until the services are closed.
-                      // Otherwise we end up in deadlock, because the server won't shut down until
-                      // all requests are completed.
-                      reset()
-                      promise.future
-                    },
-                    authorizer
-                  )
-                }
-                apiServer <- new StandaloneApiServer(
-                  ledgerId = ledgerId,
-                  config = ApiServerConfig(
-                    participantId = config.participantId,
-                    archiveFiles = if (isReset) List.empty else config.damlPackages,
-                    // Re-use the same port when resetting the server.
-                    port = currentPort.getOrElse(config.port),
-                    address = config.address,
-                    jdbcUrl = indexJdbcUrl,
-                    tlsConfig = config.tlsConfig,
-                    maxInboundMessageSize = config.maxInboundMessageSize,
-                    eventsPageSize = config.eventsPageSize,
-                    portFile = config.portFile,
-                    seeding = config.seeding.get,
-                    managementServiceTimeout = config.managementServiceTimeout,
-                  ),
-                  engine = engine,
-                  commandConfig = config.commandConfig,
-                  partyConfig = PartyConfiguration.default.copy(
-                    implicitPartyAllocation = config.implicitPartyAllocation,
-                  ),
-                  ledgerConfig = config.ledgerConfig,
-                  optWriteService = Some(writeService),
-                  authService = authService,
-                  healthChecks = healthChecks,
-                  metrics = metrics,
-                  timeServiceBackend = timeServiceBackend,
-                  otherServices = List(resetService),
-                  otherInterceptors = List(resetService),
-                  lfValueTranslationCache = lfValueTranslationCache,
-                )
-                _ = promise.completeWith(apiServer.servicesClosed())
-              } yield {
-                Banner.show(Console.out)
-                logger.withoutContext.info(
-                  "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
-                  BuildInfo.Version,
-                  ledgerId,
-                  apiServer.port.toString,
-                  config.damlPackages,
-                  timeProviderType.description,
-                  ledgerType,
-                  authService.getClass.getSimpleName,
-                  config.seeding.get.name,
-                  if (config.stackTraces) "" else ", stack traces = no",
-                  config.profileDir match {
-                    case None => ""
-                    case Some(profileDir) => s", profile directory = $profileDir"
+              servicesExecutionContext <- ResourceOwner
+                .forExecutorService(() => Executors.newWorkStealingPool())
+                .map(ExecutionContext.fromExecutorService)
+              _ <- new StandaloneIndexerServer(
+                readService = readService,
+                config = IndexerConfig(
+                  participantId = config.participantId,
+                  jdbcUrl = indexJdbcUrl,
+                  // sandbox in-memory mode via H2 only supports a single database connection
+                  databaseConnectionPoolSize = 1,
+                  startupMode =
+                    if (isReset) IndexerStartupMode.ResetAndStart
+                    else IndexerStartupMode.MigrateAndStart,
+                  eventsPageSize = config.eventsPageSize,
+                  allowExistingSchema = true,
+                ),
+                servicesExecutionContext = servicesExecutionContext,
+                metrics = metrics,
+                lfValueTranslationCache = lfValueTranslationCache,
+              )
+              authService = config.authService.getOrElse(AuthServiceWildcard)
+              promise = Promise[Unit]()
+              resetService = {
+                val clock = Clock.systemUTC()
+                val authorizer =
+                  new Authorizer(() => clock.instant(), ledgerId, config.participantId)
+                new SandboxResetService(
+                  domain.LedgerId(ledgerId),
+                  () => {
+                    // Don't block the reset request; just wait until the services are closed.
+                    // Otherwise we end up in deadlock, because the server won't shut down until
+                    // all requests are completed.
+                    reset()
+                    promise.future
                   },
+                  authorizer,
                 )
-                apiServer
               }
+              apiServer <- new StandaloneApiServer(
+                ledgerId = ledgerId,
+                config = ApiServerConfig(
+                  participantId = config.participantId,
+                  archiveFiles = if (isReset) List.empty else config.damlPackages,
+                  // Re-use the same port when resetting the server.
+                  port = currentPort.getOrElse(config.port),
+                  address = config.address,
+                  jdbcUrl = indexJdbcUrl,
+                  // 16 DB connections has been shown to be sufficient for applications running on the sandbox
+                  databaseConnectionPoolSize = 16,
+                  databaseConnectionTimeout = config.databaseConnectionTimeout,
+                  tlsConfig = config.tlsConfig,
+                  maxInboundMessageSize = config.maxInboundMessageSize,
+                  eventsPageSize = config.eventsPageSize,
+                  portFile = config.portFile,
+                  seeding = config.seeding.get,
+                  managementServiceTimeout = config.managementServiceTimeout,
+                  // TODO append-only: augment the following defaults for enabling the features for sandbox next
+                  enableAppendOnlySchema = false,
+                  maxContractStateCacheSize = 0L,
+                  maxContractKeyStateCacheSize = 0L,
+                  enableMutableContractStateCache = false,
+                ),
+                engine = engine,
+                commandConfig = config.commandConfig,
+                partyConfig = PartyConfiguration.default.copy(
+                  implicitPartyAllocation = config.implicitPartyAllocation
+                ),
+                ledgerConfig = config.ledgerConfig,
+                optWriteService = Some(writeService),
+                authService = authService,
+                healthChecks = healthChecks,
+                metrics = metrics,
+                timeServiceBackend = timeServiceBackend,
+                otherServices = List(resetService),
+                otherInterceptors = List(resetService),
+                servicesExecutionContext = servicesExecutionContext,
+                lfValueTranslationCache = lfValueTranslationCache,
+              )
+              _ = promise.completeWith(apiServer.servicesClosed())
+            } yield {
+              Banner.show(Console.out)
+              logger.withoutContext.info(
+                "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
+                BuildInfo.Version,
+                ledgerId,
+                apiServer.port.toString,
+                config.damlPackages,
+                timeProviderType.description,
+                ledgerType,
+                authService.getClass.getSimpleName,
+                config.seeding.get.name,
+                if (config.stackTraces) "" else ", stack traces = no",
+                config.profileDir match {
+                  case None => ""
+                  case Some(profileDir) => s", profile directory = $profileDir"
+                },
+              )
+              apiServer
+            }
           },
           resetOperation =
-            apiServer => Future.successful((Some(apiServer.port), StartupMode.ResetAndStart))
+            apiServer => Future.successful((Some(apiServer.port), StartupMode.ResetAndStart)),
         )
       } yield apiServer.port
 
       owner.acquire()
     }
 
-  private def uploadDar(from: File, to: WritePackagesService)(
-      implicit executionContext: ExecutionContext
-  ): Future[Unit] = {
-    val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
-    for {
-      dar <- Future(
-        DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from).get)
-      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
-    } yield ()
+  private def uploadDar(from: File, to: WritePackagesService)(implicit
+      executionContext: ExecutionContext
+  ): Future[Unit] = DefaultTelemetry.runFutureInSpan(SpanName.RunnerUploadDar, SpanKind.Internal) {
+    implicit telemetryContext =>
+      val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
+      for {
+        dar <- Future(
+          DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
+            .readArchiveFromFile(from)
+            .get
+        )
+        _ <- to.uploadPackages(submissionId, dar.all, None).toScala
+      } yield ()
   }
 }
 

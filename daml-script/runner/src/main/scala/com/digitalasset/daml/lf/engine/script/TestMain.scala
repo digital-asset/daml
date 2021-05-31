@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script
@@ -16,6 +16,7 @@ import com.daml.lf.PureCompiledPackages
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.lf.language.Ast.Package
 import com.daml.platform.sandbox.SandboxServer
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -39,10 +40,11 @@ object TestMain extends StrictLogging {
   // and doesn’t work for tests that access things like listKnownParties.
   // Once we have a mechanism to mark tests as exclusive and control the concurrency
   // limit we can think about running tests in parallel again.
-  def sequentialTraverse[A, B](seq: Seq[A])(f: A => Future[B])(
-      implicit ec: ExecutionContext): Future[Seq[B]] =
-    seq.foldLeft(Future.successful(Seq.empty[B])) {
-      case (acc, nxt) => acc.flatMap(bs => f(nxt).map(b => bs :+ b))
+  def sequentialTraverse[A, B](
+      seq: Seq[A]
+  )(f: A => Future[B])(implicit ec: ExecutionContext): Future[Seq[B]] =
+    seq.foldLeft(Future.successful(Seq.empty[B])) { case (acc, nxt) =>
+      acc.flatMap(bs => f(nxt).map(b => bs :+ b))
     }
 
   def main(args: Array[String]): Unit = {
@@ -52,8 +54,8 @@ object TestMain extends StrictLogging {
       case Some(config) =>
         val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
           DarReader().readArchiveFromFile(config.darPath).get
-        val dar: Dar[(PackageId, Package)] = encodedDar.map {
-          case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
+        val dar: Dar[(PackageId, Package)] = encodedDar.map { case (pkgId, pkgArchive) =>
+          Decode.readArchivePayload(pkgId, pkgArchive)
         }
 
         val system: ActorSystem = ActorSystem("ScriptTest")
@@ -66,11 +68,12 @@ object TestMain extends StrictLogging {
         val (participantParams, participantCleanup) = config.participantConfig match {
           case Some(file) =>
             val source = Source.fromFile(file)
-            val fileContent = try {
-              source.mkString
-            } finally {
-              source.close
-            }
+            val fileContent =
+              try {
+                source.mkString
+              } finally {
+                source.close
+              }
             val jsVal = fileContent.parseJson
             import ParticipantsJsonProtocol._
             (jsVal.convertTo[Participants[ApiParameters]], () => Future.unit)
@@ -98,24 +101,24 @@ object TestMain extends StrictLogging {
               Participants(
                 default_participant = Some(apiParameters),
                 participants = Map.empty,
-                party_participants = Map.empty),
+                party_participants = Map.empty,
+              ),
               cleanup,
             )
         }
 
         val darMap = dar.all.toMap
-        val compiledPackages = PureCompiledPackages(darMap).right.get
+        val compiledPackages = PureCompiledPackages(darMap).toOption.get
         val testScripts: Map[Ref.Identifier, Script.Action] = dar.main._2.modules.flatMap {
           case (moduleName, module) =>
-            module.definitions.collect(Function.unlift {
-              case (name, _) =>
-                val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
-                Script.fromIdentifier(compiledPackages, id) match {
-                  // We exclude generated identifiers starting with `$`.
-                  case Right(script: Script.Action) if !name.dottedName.startsWith("$") =>
-                    Some((id, script))
-                  case _ => None
-                }
+            module.definitions.collect(Function.unlift { case (name, _) =>
+              val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
+              Script.fromIdentifier(compiledPackages, id) match {
+                // We exclude generated identifiers starting with `$`.
+                case Right(script: Script.Action) if !name.dottedName.startsWith("$") =>
+                  Some((id, script))
+                case _ => None
+              }
             })
         }
 
@@ -147,8 +150,8 @@ object TestMain extends StrictLogging {
                   println(s"${id.qualifiedName} SUCCESS")
               }
               // Do not abort in case of failure, but complete all test runs.
-              testRun.recover {
-                case _ => ()
+              testRun.recover { case _ =>
+                ()
               }
           }
         } yield success.get()

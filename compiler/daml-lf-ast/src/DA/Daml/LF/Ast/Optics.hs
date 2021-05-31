@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -25,6 +25,7 @@ import Control.Lens.Ast
 import Control.Lens.MonoTraversal
 import Data.Functor.Foldable (cata, embed)
 import qualified Data.NameMap as NM
+import qualified Data.Text as T
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat
@@ -185,6 +186,7 @@ instance MonoTraversable ModuleRef FeatureFlags
 instance MonoTraversable ModuleRef Module
 instance MonoTraversable ModuleRef PackageMetadata
 instance MonoTraversable ModuleRef Package
+instance MonoTraversable ModuleRef T.Text where monoTraverse _ = pure
 
 exprPartyLiteral
   :: forall f. Applicative f

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE DefaultSignatures #-}
 
@@ -10,11 +10,11 @@ module DA.Action.State.Class
 -- | Action `m` has a state variable of type `s`.
 --
 -- Rules:
---   get *> ma  =  ma
---   ma <* get  =  ma
---   put a >>= get   =  put a $> a
---   put a *> put b  =  put b
---   (,) <$> get <*> get  =  get <&> \a -> (a, a)
+--   * `get *> ma  =  ma`
+--   * `ma <* get  =  ma`
+--   * `put a >>= get   =  put a $> a`
+--   * `put a *> put b  =  put b`
+--   * `(,) <$> get <*> get  =  get <&> \a -> (a, a)`
 --
 -- Informally, these rules mean it behaves like an ordinary assignable variable:
 -- it doesn't magically change value by looking at it, if you put a value there

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Helper.Test.Deployment (main) where
@@ -6,7 +6,7 @@ module DA.Daml.Helper.Test.Deployment (main) where
 import Control.Exception
 import qualified Data.UUID.V4 as UUID
 import System.Directory.Extra (withCurrentDirectory)
-import System.Environment.Blank (setEnv)
+import System.Environment.Blank (setEnv, unsetEnv)
 import System.Exit
 import System.FilePath ((</>))
 import System.IO.Extra (withTempDir,writeFileUTF8)
@@ -14,16 +14,13 @@ import System.Process
 import Test.Tasty (TestTree,defaultMain,testGroup)
 import Test.Tasty.HUnit
 import qualified "zip-archive" Codec.Archive.Zip as Zip
-import qualified Data.Aeson as Aeson
 import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Map as Map
 import qualified Data.Text as T
-import qualified Web.JWT as JWT
 
 import DA.Bazel.Runfiles (mainWorkspace,locateRunfiles,exe)
 import DA.Daml.LF.Reader (Dalfs(..),readDalfs)
 import DA.Test.Process (callProcessSilent)
-import DA.Test.Sandbox (mbSharedSecret,withSandbox,defaultSandboxConf)
+import DA.Test.Sandbox (mbSharedSecret,withSandbox,defaultSandboxConf, makeSignedJwt)
 import DA.Test.Util
 import SdkVersion (sdkVersion)
 import qualified DA.Daml.LF.Ast as LF
@@ -61,7 +58,7 @@ authenticationTests Tools{..} =
             withCurrentDirectory deployDir $ do
               let tokenFile = deployDir </> "secretToken.jwt"
               -- The trailing newline is not required but we want to test that it is supported.
-              writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret <> "\n")
+              writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret [] <> "\n")
               callProcessSilent damlHelper
                 [ "ledger", "list-parties"
                 , "--access-token-file", tokenFile
@@ -73,26 +70,38 @@ authenticationTests Tools{..} =
             withCurrentDirectory deployDir $ do
               let tokenFile = deployDir </> "secretToken.jwt"
               -- The trailing newline is not required but we want to test that it is supported.
-              writeFileUTF8 tokenFile (makeSignedJwt sharedSecret <> "\n")
+              writeFileUTF8 tokenFile (makeSignedJwt sharedSecret [] <> "\n")
               callProcessSilent damlHelper
                 [ "ledger", "list-parties"
                 , "--access-token-file", tokenFile
                 , "--host", "localhost", "--port", show port
                 ]
+    , testCase "ledger.access-token-file field in daml.yaml" $ do
+          port <- getSandboxPort
+          withTempDir $ \deployDir -> do
+            withCurrentDirectory deployDir $ do
+              writeMinimalProject
+              let tokenFile = deployDir </> "secretToken.jwt"
+              -- The trailing newline is not required but we want to test that it is supported.
+              writeFileUTF8 tokenFile (makeSignedJwt sharedSecret [] <> "\n")
+              appendFile "daml.yaml" $ unlines
+                ["ledger:"
+                , "  access-token-file: " <> tokenFile
+                ]
+              writeFileUTF8 tokenFile (makeSignedJwt sharedSecret [] <> "\n")
+              setEnv "DAML_PROJECT" deployDir True
+              callProcessSilent damlHelper
+                [ "ledger", "list-parties"
+                , "--host", "localhost", "--port", show port
+                ]
+              unsetEnv "DAML_PROJECT"
+
     ]
   where
     sharedSecret = "TheSharedSecret"
 
-makeSignedJwt :: String -> String
-makeSignedJwt sharedSecret = do
-  let urc = JWT.ClaimsMap $ Map.fromList [ ("admin", Aeson.Bool True)]
-  let cs = mempty { JWT.unregisteredClaims = urc }
-  let key = JWT.hmacSecret $ T.pack sharedSecret
-  let text = JWT.encodeSigned key mempty cs
-  T.unpack text
-
 unauthenticatedTests :: Tools -> TestTree
-unauthenticatedTests tools@Tools{..} = do
+unauthenticatedTests tools = do
     withSandbox defaultSandboxConf $ \getSandboxPort ->
         testGroup "unauthenticated"
             [ fetchTest tools getSandboxPort

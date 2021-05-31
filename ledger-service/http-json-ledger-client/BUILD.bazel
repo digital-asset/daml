@@ -1,0 +1,59 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+)
+
+da_scala_library(
+    name = "base",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+    ],
+    deps = [
+        "//daml-lf/data",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/http-json-cli:base",
+        "//ledger-service/utils",
+        "//ledger/ledger-api-common",
+        "//libs-scala/timer-utils",
+    ],
+)
+
+deps = {
+    "ce": [],
+    "ee": [
+        "//runtime-components/non-repudiation-client",
+    ],
+}
+
+[
+    da_scala_library(
+        name = edition,
+        srcs = glob(["{}/src/main/scala/**/*.scala".format(edition)]),
+        scala_deps = [
+            "@maven//:org_scalaz_scalaz_core",
+            "@maven//:com_typesafe_scala_logging_scala_logging",
+        ],
+        visibility = ["//visibility:public"],
+        exports = [":base"],
+        deps = deps.get(edition) + [
+            ":base",
+            "//ledger/ledger-api-client",
+            "//ledger/ledger-api-common",
+            "//ledger-api/rs-grpc-bridge",
+            "//ledger-service/http-json-cli:{}".format(edition),
+            "@maven//:io_grpc_grpc_api",
+            "@maven//:io_grpc_grpc_core",
+            "@maven//:io_grpc_grpc_netty",
+        ],
+    )
+    for edition in [
+        "ce",
+        "ee",
+    ]
+]

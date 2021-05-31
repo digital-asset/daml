@@ -1,0 +1,22 @@
+{
+    "homepage": "https://www.visualstudio.com/downloads/",
+    "description": "Microsoft Visual C++ Redistributable for Visual Studio 2005/2008/2010/2012/2013/2015-2019.",
+    "version": "14.28.29325.2",
+    "license": {
+        "identifier": "Freeware",
+        "url": "https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/default.aspx"
+    },
+    "url": [
+        "https://download.visualstudio.microsoft.com/download/pr/89a3b9df-4a09-492e-8474-8f92c115c51d/B1A32C71A6B7D5978904FB223763263EA5A7EB23B2C44A0D60E90D234AD99178/VC_redist.x64.exe",
+        "https://download.visualstudio.microsoft.com/download/pr/8ecb9800-52fd-432d-83ee-d6e037e96cc2/50A3E92ADE4C2D8F310A2812D46322459104039B9DEADBD7FDD483B5C697C0C8/VC_redist.x86.exe"
+    ],
+    "hash": [
+        "b1a32c71a6b7d5978904fb223763263ea5a7eb23b2c44a0d60e90d234ad99178",
+        "50a3e92ade4c2d8f310a2812d46322459104039b9deadbd7fdd483b5c697c0c8"
+    ],
+    "post_install": [
+        "Invoke-ExternalCommand -FilePath \"$dir\\VC_redist.x64.exe\" -ArgumentList \"/fo /quiet /norestart\" -RunAs | Out-Null",
+        "Invoke-ExternalCommand -FilePath \"$dir\\VC_redist.x86.exe\" -ArgumentList \"/fo /quiet /norestart\" -RunAs | Out-Null"
+    ],
+    "notes": "You can now remove all vcredist installers with 'scoop uninstall vcredist vcredist2005 vcredist2008 vcredist2010 vcredist2012 vcredist2013'"
+}

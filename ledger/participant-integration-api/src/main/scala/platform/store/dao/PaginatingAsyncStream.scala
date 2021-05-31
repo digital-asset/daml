@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -11,8 +11,7 @@ import scala.concurrent.Future
 
 private[platform] object PaginatingAsyncStream {
 
-  /**
-    * Concatenates the results of multiple asynchronous calls into
+  /** Concatenates the results of multiple asynchronous calls into
     * a single [[Source]], injecting the offset of the next page to
     * retrieve for every call.
     *
@@ -45,8 +44,7 @@ private[platform] object PaginatingAsyncStream {
       .flatMapConcat(Source(_))
   }
 
-  /**
-    * Concatenates the results of multiple asynchronous calls into
+  /** Concatenates the results of multiple asynchronous calls into
     * a single [[Source]], passing the last seen event's offset to the
     * next iteration query, so it can continue reading events from this point.
     *
@@ -75,7 +73,9 @@ private[platform] object PaginatingAsyncStream {
           query(offset).map { result =>
             val nextPageOffset: Option[Off] = result.lastOption.map(getOffset)
             Some((nextPageOffset, result))
-          }(DirectExecutionContext) // run in the same thread as the query, avoid context switch for a cheap operation
+          }(
+            DirectExecutionContext
+          ) // run in the same thread as the query, avoid context switch for a cheap operation
       }
       .flatMapConcat(Source(_))
   }

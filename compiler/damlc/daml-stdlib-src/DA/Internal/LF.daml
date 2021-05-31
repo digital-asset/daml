@@ -1,11 +1,11 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS -Wno-unused-binds #-} -- the opaque constructors are not exported
 
--- | MOVE Prelude DAML-LF types and primitives, apart from templates/contracts.
+-- | MOVE Prelude Daml-LF types and primitives, apart from templates/contracts.
 module DA.Internal.LF
   ( Party
   , getParty
@@ -45,22 +45,26 @@ module DA.Internal.LF
   -- If this is not supported by the target LF version, we compile it to ().
   , Any
   , TypeRep
+
+  #ifdef DAML_EXCEPTIONS
+  , AnyException
+  #endif
   ) where
 
 import GHC.Stack.Types (HasCallStack)
 import GHC.Types (Opaque, Symbol, primitive, magic)
 import DA.Internal.Prelude
 
--- This module should not define any new types. It should only provide the DAML equivalent for LF
+-- This module should not define any new types. It should only provide the Daml equivalent for LF
 -- builtins using Opaque.
 
 -- | The `Party` type represents a party to a contract.
 data Party =
   Party Opaque
--- Note that before DAML-LF 1.2 BEToText added single quotes around the party.
+-- Note that before Daml-LF 1.2 BEToText added single quotes around the party.
 -- now it does not, and the old behavior has been renamed BEPartyToQuotedText.
 -- Since we want this to work with both versions, keep the old behavior.
-instance Show Party where show = primitive @"BEPartyToQuotedText"
+instance Show Party where show party = "'" <> partyToText party <> "'"
 instance Eq Party where (==) = primitive @"BEEqual"
 instance Ord Party where
   (<) = primitive @"BELess"
@@ -75,7 +79,7 @@ partyToText : Party -> Text
 partyToText = primitive @"BEToText"
 
 -- | Converts a `Text` to `Party`. It returns `None` if the provided text contains
--- any forbidden characters. See DAML-LF spec for a specification on which characters
+-- any forbidden characters. See Daml-LF spec for a specification on which characters
 -- are allowed in parties. Note that this function accepts text _without_
 -- single quotes.
 --
@@ -92,9 +96,9 @@ partyToText = primitive @"BEToText"
 -- ∀ txt p. partyFromText txt = Some p ==> partyToText p = txt
 -- ```
 --
--- This function will crash at runtime if you compile DAML to DAML-LF < 1.2.
+-- This function will crash at runtime if you compile Daml to Daml-LF < 1.2.
 partyFromText : Text -> Optional Party
-partyFromText = primitive @"BEPartyFromText"
+partyFromText = primitive @"BETextToParty"
 
 -- | Get the party with the given name. Party names must be non-empty and only
 -- contain alphanumeric charaters, space, `-` (dash) or `_` (underscore).
@@ -142,15 +146,15 @@ instance Ord (ContractId a) where
   (>=) = primitive @"BEGreaterEq"
 #endif
 instance Show (ContractId a) where
-#ifdef DAML_TO_TEXT_CONTRACT_ID
-  show cid = case primitive @"BEToTextContractId" cid of
+#ifdef DAML_CONTRACT_ID_TO_TEXT
+  show cid = case primitive @"BEContractIdToText" cid of
     None -> "<contract-id>"
     Some t -> t
 #else
   show _ = "<contract-id>"
 #endif
 
--- | HIDE This is currently used in the internals of DAML script and DAML triggers
+-- | HIDE This is currently used in the internals of Daml script and Daml triggers
 -- but not really something that we want to expose to users.
 coerceContractId : ContractId a -> ContractId b
 coerceContractId = primitive @"BECoerceContractId"
@@ -171,12 +175,16 @@ instance Action Update where
     (>>=) = primitive @"UBind"
 
 instance ActionFail Update where
+#ifdef DAML_EXCEPTIONS
+    fail m = pure () >>= \_ -> error m
+#else
     fail = primitive @"UAbort"
+#endif
 
 -- | The `HasTime` class is for where the time is available: `Scenario` and `Update`.
 class HasTime m where
     -- | Get the current time.
-    getTime : m Time
+    getTime : HasCallStack => m Time
 
 instance HasTime Update where
     getTime = primitive @"UGetTime"
@@ -239,11 +247,11 @@ infixr 0 `submitMustFail`
 scenario : Scenario a -> Scenario a
 scenario = identity
 
--- | HIDE A dummy type for the DAML-LF structural record type
+-- | HIDE A dummy type for the Daml-LF structural record type
 -- `<f1: a1, f2: a2>`.
 data Pair (f1 : Symbol) (f2 : Symbol) a1 a2 = Pair Opaque
 
--- | HIDE Function to turn a DAML-LF structural record type into a DAML pair.
+-- | HIDE Function to turn a Daml-LF structural record type into a Daml pair.
 unpackPair : forall f1 f2 a1 a2. Pair f1 f2 a1 a2 -> (a1, a2)
 unpackPair = magic @"unpackPair"
 
@@ -266,4 +274,11 @@ instance Ord TypeRep where
   (<) = primitive @"BELess"
   (>) = primitive @"BEGreater"
 #endif -- DAML_GENERIC_COMPARISON
+#endif
+
+#ifdef DAML_EXCEPTIONS
+
+-- | A wrapper for all exception types.
+data AnyException = AnyException Opaque
+
 #endif

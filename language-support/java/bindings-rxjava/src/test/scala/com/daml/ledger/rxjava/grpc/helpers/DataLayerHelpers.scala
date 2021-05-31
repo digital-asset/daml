@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
 import com.daml.ledger.api.v1.testing.time_service.GetTimeResponse
 import com.google.protobuf.timestamp.Timestamp
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 trait DataLayerHelpers {
 
@@ -25,12 +25,12 @@ trait DataLayerHelpers {
       "",
       "workflowId",
       Seq[CreatedEvent](),
-      None
+      None,
     )
   }
 
   def genGetTimeResponse: GetTimeResponse = {
-    new GetTimeResponse(Some(Timestamp(1l, 2)))
+    new GetTimeResponse(Some(Timestamp(1L, 2)))
   }
 
   def genCommands(commands: List[Command], party: Option[String] = None): SubmitCommandsRequest = {
@@ -42,7 +42,8 @@ trait DataLayerHelpers {
       Optional.empty(),
       Optional.empty(),
       Optional.empty(),
-      commands.asJava)
+      commands.asJava,
+    )
   }
   def genLedgerOffset(absVal: String): LedgerOffset =
     new LedgerOffset(Absolute(absVal))
@@ -54,5 +55,6 @@ trait DataLayerHelpers {
 
   def filterFor(party: String): FiltersByParty =
     new FiltersByParty(
-      Map(party -> new InclusiveFilter(Set.empty[Identifier].asJava).asInstanceOf[Filter]).asJava)
+      Map(party -> new InclusiveFilter(Set.empty[Identifier].asJava).asInstanceOf[Filter]).asJava
+    )
 }

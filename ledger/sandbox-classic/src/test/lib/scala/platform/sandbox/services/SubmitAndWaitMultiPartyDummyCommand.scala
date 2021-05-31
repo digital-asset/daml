@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services
@@ -24,9 +24,11 @@ trait SubmitAndWaitMultiPartyDummyCommand extends TestCommands { self: ServiceCa
         s"$serviceCallName-${UUID.randomUUID}",
         party,
         actAs,
-        readAs)
+        readAs,
+      )
         .update(_.commands.applicationId := serviceCallName)
-        .commands)
+        .commands
+    )
 
   private def service(token: Option[String]) =
     stub(CommandServiceGrpc.stub(channel), token)

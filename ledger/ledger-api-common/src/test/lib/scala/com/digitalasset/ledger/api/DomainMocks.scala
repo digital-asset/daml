@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api
@@ -15,7 +15,8 @@ object DomainMocks {
 
   val identifier = Ref.Identifier(
     Ref.PackageId.assertFromString("package"),
-    Ref.QualifiedName.assertFromString("module:entity"))
+    Ref.QualifiedName.assertFromString("module:entity"),
+  )
 
   val commandId = CommandId(Ref.LedgerString.assertFromString("commandId"))
 
@@ -38,7 +39,7 @@ object DomainMocks {
     private val invalidPartyString = "p@rty"
     val invalidApiParty = Value(Sum.Party(invalidPartyString))
     val invalidPartyMsg =
-      """Invalid argument: non expected character 0x40 in DAML LF Party "p@rty""""
+      """Invalid argument: non expected character 0x40 in Daml-LF Party "p@rty""""
   }
 
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.validation
@@ -7,18 +7,18 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.dec.DirectExecutionContext
 import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 import org.slf4j.{Logger, LoggerFactory}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 //TODO: this class is only needed by DamlOnXCommandCompletionService.scala. Must be deleted once that's gone!
 class CommandCompletionServiceValidation(
     val service: CommandCompletionService with AutoCloseable,
-    val ledgerId: LedgerId)
+    val ledgerId: LedgerId,
+)(implicit executionContext: ExecutionContext)
     extends CommandCompletionService
     with FieldValidations
     with GrpcApiService
@@ -29,7 +29,8 @@ class CommandCompletionServiceValidation(
 
   override def completionStream(
       request: CompletionStreamRequest,
-      responseObserver: StreamObserver[CompletionStreamResponse]): Unit = {
+      responseObserver: StreamObserver[CompletionStreamResponse],
+  ): Unit = {
     val validation = for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       _ <- requireNonEmptyString(request.applicationId, "application_id")
@@ -38,7 +39,7 @@ class CommandCompletionServiceValidation(
 
     validation.fold(
       exception => responseObserver.onError(exception),
-      value => service.completionStream(value, responseObserver)
+      value => service.completionStream(value, responseObserver),
     )
   }
 
@@ -48,5 +49,5 @@ class CommandCompletionServiceValidation(
   }
 
   override def bindService(): ServerServiceDefinition =
-    CommandCompletionServiceGrpc.bindService(this, DirectExecutionContext)
+    CommandCompletionServiceGrpc.bindService(this, executionContext)
 }

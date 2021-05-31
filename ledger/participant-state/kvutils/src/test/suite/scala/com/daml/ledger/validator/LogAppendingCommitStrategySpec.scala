@@ -1,41 +1,48 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.participant.state.kvutils.Envelope
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
+import com.daml.ledger.validator.ArgumentMatchers.anyExecutionContext
 import com.daml.ledger.validator.LogAppendingCommitStrategySpec._
 import com.daml.ledger.validator.TestHelper._
 import com.google.protobuf.ByteString
-import org.mockito.ArgumentMatchers
-import org.mockito.ArgumentMatchers._
-import org.mockito.MockitoSugar
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-final class LogAppendingCommitStrategySpec extends AsyncWordSpec with Matchers with MockitoSugar {
+final class LogAppendingCommitStrategySpec
+    extends AsyncWordSpec
+    with Matchers
+    with MockitoSugar
+    with ArgumentMatchersSugar {
   "commit" should {
     "return index from appendToLog" in {
       val mockLedgerStateOperations = mock[LedgerStateOperations[Long]]
       val expectedIndex = 1234L
-      when(mockLedgerStateOperations.appendToLog(any[Key](), any[Value]())(any[ExecutionContext]()))
-        .thenReturn(Future.successful(expectedIndex))
+      when(
+        mockLedgerStateOperations.appendToLog(
+          any[Raw.LogEntryId],
+          any[Raw.Envelope],
+        )(anyExecutionContext)
+      ).thenReturn(Future.successful(expectedIndex))
       val instance =
         new LogAppendingCommitStrategy[Long](
           mockLedgerStateOperations,
-          DefaultStateKeySerializationStrategy)
+          DefaultStateKeySerializationStrategy,
+        )
 
       instance
         .commit(aParticipantId, "a correlation ID", aLogEntryId(), aLogEntry, Map.empty, Map.empty)
         .map { actualIndex =>
-          verify(mockLedgerStateOperations, times(1)).appendToLog(any[Key](), any[Value]())(
-            any[ExecutionContext]())
+          verify(mockLedgerStateOperations, times(1))
+            .appendToLog(any[Raw.LogEntryId], any[Raw.Envelope])(anyExecutionContext)
           verify(mockLedgerStateOperations, times(0))
-            .writeState(any[Seq[(Key, Value)]]())(any[ExecutionContext]())
+            .writeState(any[Iterable[Raw.StateEntry]])(anyExecutionContext)
           actualIndex should be(expectedIndex)
         }
     }
@@ -43,19 +50,25 @@ final class LogAppendingCommitStrategySpec extends AsyncWordSpec with Matchers w
     "write keys serialized according to strategy" in {
       val mockLedgerStateOperations = mock[LedgerStateOperations[Long]]
       when(
-        mockLedgerStateOperations.writeState(any[Iterable[(Key, Value)]])(any[ExecutionContext]()))
+        mockLedgerStateOperations.writeState(any[Iterable[Raw.StateEntry]])(anyExecutionContext)
+      )
         .thenReturn(Future.unit)
-      when(mockLedgerStateOperations.appendToLog(any[Key], any[Value])(any[ExecutionContext]()))
-        .thenReturn(Future.successful(0L))
+      when(
+        mockLedgerStateOperations.appendToLog(
+          any[Raw.LogEntryId],
+          any[Raw.Envelope],
+        )(anyExecutionContext)
+      ).thenReturn(Future.successful(0L))
       val mockStateKeySerializationStrategy = mock[StateKeySerializationStrategy]
-      val expectedStateKey = ByteString.copyFromUtf8("some key")
+      val expectedStateKey = Raw.StateKey(ByteString.copyFromUtf8("some key"))
       when(mockStateKeySerializationStrategy.serializeStateKey(aStateKey))
         .thenReturn(expectedStateKey)
       val expectedOutputStateBytes = Map(expectedStateKey -> Envelope.enclose(aStateValue))
       val instance =
         new LogAppendingCommitStrategy[Long](
           mockLedgerStateOperations,
-          mockStateKeySerializationStrategy)
+          mockStateKeySerializationStrategy,
+        )
 
       instance
         .commit(
@@ -64,11 +77,12 @@ final class LogAppendingCommitStrategySpec extends AsyncWordSpec with Matchers w
           aLogEntryId(),
           aLogEntry,
           Map.empty,
-          Map(aStateKey -> aStateValue))
+          Map(aStateKey -> aStateValue),
+        )
         .map { _: Long =>
           verify(mockStateKeySerializationStrategy, times(1)).serializeStateKey(aStateKey)
           verify(mockLedgerStateOperations, times(1))
-            .writeState(ArgumentMatchers.eq(expectedOutputStateBytes))(any[ExecutionContext]())
+            .writeState(eqTo(expectedOutputStateBytes))(anyExecutionContext)
           succeed
         }
     }

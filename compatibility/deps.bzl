@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 #
@@ -60,6 +60,7 @@ def daml_deps():
                 "@daml//bazel_tools:haskell-strict-source-names.patch",
                 "@daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
                 "@daml//bazel_tools:haskell-windows-extra-libraries.patch",
+                "@daml//bazel_tools:haskell-cc-wrapper-windows.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -71,6 +72,16 @@ def daml_deps():
             strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version,
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
+            patches = [
+                # On CI and locally we observe occasional segmantation faults
+                # of nix. A known issue since Nix 2.2.2 is that HTTP2 support
+                # can cause such segmentation faults. Since Nix 2.3.2 it is
+                # possible to disable HTTP2 via a command-line flag, which
+                # reportedly solves the issue. See
+                # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
+                "@daml//bazel_tools:nixpkgs-disable-http2.patch",
+                "@daml//bazel_tools:rules-nixpkgs-llvm-cov.patch",
+            ],
             patch_args = ["-p1"],
         )
 

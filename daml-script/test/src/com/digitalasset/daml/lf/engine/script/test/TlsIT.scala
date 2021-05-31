@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -9,8 +9,7 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.lf.data.Ref._
-import com.daml.lf.engine.script.ScriptTimeMode
-import org.scalatest._
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -33,7 +32,7 @@ final class TlsIT
     super.config
       .copy(tlsConfig = Some(TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)))
 
-  "DAML Script against ledger with TLS" can {
+  "Daml Script against ledger with TLS" can {
     "test0" should {
       "create and accept Proposal" in {
         for {
@@ -42,8 +41,9 @@ final class TlsIT
               enabled = true,
               keyCertChainFile = clientCrt,
               keyFile = clientPem,
-              trustCertCollectionFile = caCrt
-            ))
+              trustCertCollectionFile = caCrt,
+            )
+          )
           _ <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test0"),

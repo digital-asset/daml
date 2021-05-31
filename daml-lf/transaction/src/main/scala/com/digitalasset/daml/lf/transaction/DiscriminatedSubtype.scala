@@ -1,9 +1,7 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.transaction
-
-import scala.language.higherKinds
 
 sealed abstract class DiscriminatedSubtype[X] {
   type T <: X

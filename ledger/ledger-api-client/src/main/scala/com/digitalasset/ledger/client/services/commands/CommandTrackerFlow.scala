@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.commands
@@ -21,8 +21,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.util.Try
 
-/**
-  * Tracks commands and emits results upon their completion or timeout.
+/** Tracks commands and emits results upon their completion or timeout.
   * The outbound data is minimal, users must put whatever else they need into the context objects.
   */
 object CommandTrackerFlow {
@@ -31,21 +30,21 @@ object CommandTrackerFlow {
 
   final case class Materialized[SubmissionMat, Context](
       submissionMat: SubmissionMat,
-      trackingMat: Future[immutable.Map[String, Context]])
+      trackingMat: Future[immutable.Map[String, Context]],
+  )
 
   def apply[Context, SubmissionMat](
-      commandSubmissionFlow: Flow[
-        Ctx[(Context, String), SubmitRequest],
-        Ctx[(Context, String), Try[Empty]],
-        SubmissionMat],
+      commandSubmissionFlow: Flow[Ctx[(Context, String), SubmitRequest], Ctx[(Context, String), Try[
+        Empty
+      ]], SubmissionMat],
       createCommandCompletionSource: LedgerOffset => Source[CompletionStreamElement, NotUsed],
       startingOffset: LedgerOffset,
       maxDeduplicationTime: () => JDuration,
       backOffDuration: FiniteDuration = 1.second,
-  ): Flow[
-    Ctx[Context, SubmitRequest],
-    Ctx[Context, Completion],
-    Materialized[SubmissionMat, Context]] = {
+  ): Flow[Ctx[Context, SubmitRequest], Ctx[Context, Completion], Materialized[
+    SubmissionMat,
+    Context,
+  ]] = {
 
     val trackerExternal = new CommandTracker[Context](maxDeduplicationTime)
 
@@ -58,7 +57,8 @@ object CommandTrackerFlow {
         val wrapCompletion = builder.add(Flow[CompletionStreamElement].map(Right.apply))
 
         val merge = builder.add(
-          Merge[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]](2, false))
+          Merge[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]](2, false)
+        )
 
         val startAt = builder.add(Source.single(startingOffset))
         val concat = builder.add(Concat[LedgerOffset](2))
@@ -66,19 +66,22 @@ object CommandTrackerFlow {
         val completionFlow = builder.add(
           Flow[LedgerOffset]
             .buffer(1, OverflowStrategy.dropHead) // storing the last offset
-            .expand(offset => Iterator.iterate(offset)(identity)) // so we always have an element to fetch
+            .expand(offset =>
+              Iterator.iterate(offset)(identity)
+            ) // so we always have an element to fetch
             .flatMapConcat(
               createCommandCompletionSource(_).recoverWithRetries(
-                1, {
-                  case e =>
-                    logger.warn(
-                      s"Completion Stream failed with an error. Trying to recover in ${backOffDuration} ..",
-                      e)
-                    Source.empty
-                    delayedEmptySource(backOffDuration)
-                }
+                1,
+                { case e =>
+                  logger.warn(
+                    s"Completion Stream failed with an error. Trying to recover in ${backOffDuration} ..",
+                    e,
+                  )
+                  delayedEmptySource(backOffDuration)
+                },
               )
-            ))
+            )
+        )
 
         // format: OFF
         startAt.out       ~> concat
@@ -95,7 +98,8 @@ object CommandTrackerFlow {
   }
 
   private def delayedEmptySource(
-      delay: FiniteDuration): Source[CompletionStreamElement, NotUsed] = {
+      delay: FiniteDuration
+  ): Source[CompletionStreamElement, NotUsed] = {
     Source
       .single(1)
       .delay(delay, DelayOverflowStrategy.backpressure)

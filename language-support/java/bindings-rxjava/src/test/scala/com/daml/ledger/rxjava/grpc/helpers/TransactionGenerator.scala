@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
@@ -19,13 +19,14 @@ import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.{Timestamp => ScalaTimestamp}
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Product",
-    "org.wartremover.warts.Serializable"
-  ))
+    "org.wartremover.warts.Serializable",
+  )
+)
 object TransactionGenerator {
 
   implicit def noShrink[A]: Shrink[A] = Shrink.shrinkAny
@@ -40,21 +41,19 @@ object TransactionGenerator {
   val timestampGen: Gen[(ScalaTimestamp, Instant)] = for {
     seconds <- Gen.posNum[Long]
     nanos <- Gen.posNum[Int]
-  } yield
-    (
-      ScalaTimestamp(seconds, nanos),
-      Instant.ofEpochSecond(seconds, nanos.toLong)
-    )
+  } yield (
+    ScalaTimestamp(seconds, nanos),
+    Instant.ofEpochSecond(seconds, nanos.toLong),
+  )
 
   val identifierGen: Gen[(Identifier, data.Identifier)] = for {
     packageId <- nonEmptyId
     moduleName <- nonEmptyId
     entityName <- nonEmptyId
-  } yield
-    (
-      Identifier(packageId, moduleName = moduleName, entityName = entityName),
-      new data.Identifier(packageId, moduleName, entityName)
-    )
+  } yield (
+    Identifier(packageId, moduleName = moduleName, entityName = entityName),
+    new data.Identifier(packageId, moduleName, entityName),
+  )
 
   def recordFieldGen(withLabel: Boolean, height: Int): Gen[(RecordField, data.Record.Field)] =
     for {
@@ -63,7 +62,7 @@ object TransactionGenerator {
     } yield {
       (
         RecordField(label, Some(scalaValue)),
-        if (withLabel) new data.Record.Field(label, javaValue) else new data.Record.Field(javaValue)
+        if (withLabel) new data.Record.Field(label, javaValue) else new data.Record.Field(javaValue),
       )
     }
 
@@ -74,14 +73,13 @@ object TransactionGenerator {
       withLabel <- Arbitrary.arbBool.arbitrary
       fields <- Gen.listOfN(fieldsSize, recordFieldGen(withLabel, newHeight))
       (scalaFields, javaFields) = fields.unzip
-    } yield
-      (
-        Record(recordId.map(_._1), scalaFields),
-        recordId match {
-          case Some((_, javaRecordId)) => new data.Record(javaRecordId, javaFields.asJava)
-          case None => new data.Record(javaFields.asJava)
-        }
-      )
+    } yield (
+      Record(recordId.map(_._1), scalaFields),
+      recordId match {
+        case Some((_, javaRecordId)) => new data.Record(javaRecordId, javaFields.asJava)
+        case None => new data.Record(javaFields.asJava)
+      },
+    )
 
   private def splitSizeAndHeight(height: Int) =
     for {
@@ -92,9 +90,10 @@ object TransactionGenerator {
     } yield (size, newHeight)
 
   def valueGen(height: Int): Gen[(Value, data.Value)] =
-    if (height <= 0) unitValueGen.map {
-      case (scalaUnit, javaUnit) => (Value(scalaUnit), javaUnit)
-    } else
+    if (height <= 0) unitValueGen.map { case (scalaUnit, javaUnit) =>
+      (Value(scalaUnit), javaUnit)
+    }
+    else
       Gen
         .oneOf(
           unitValueGen,
@@ -108,10 +107,10 @@ object TransactionGenerator {
           timestampValueGen,
           partyValueGen,
           boolValueGen,
-          dateValueGen
+          dateValueGen,
         )
-        .map {
-          case (scalaValue, javaValue) => (Value(scalaValue), javaValue)
+        .map { case (scalaValue, javaValue) =>
+          (Value(scalaValue), javaValue)
         }
 
   def recordValueGen(height: Int): Gen[(Sum.Record, data.Record)] = recordGen(height).map {
@@ -123,14 +122,13 @@ object TransactionGenerator {
       variantId <- Gen.option(identifierGen)
       contructor <- nonEmptyId
       (scalaValue, javaValue) <- valueGen(height)
-    } yield
-      (
-        Sum.Variant(Variant(variantId.map(_._1), contructor, Some(scalaValue))),
-        variantId match {
-          case Some((_, javaVariantId)) => new data.Variant(javaVariantId, contructor, javaValue)
-          case None => new data.Variant(contructor, javaValue)
-        }
-      )
+    } yield (
+      Sum.Variant(Variant(variantId.map(_._1), contructor, Some(scalaValue))),
+      variantId match {
+        case Some((_, javaVariantId)) => new data.Variant(javaVariantId, contructor, javaValue)
+        case None => new data.Variant(contructor, javaValue)
+      },
+    )
 
   val contractIdValueGen: Gen[(Sum.ContractId, data.ContractId)] = nonEmptyId.map { contractId =>
     (Sum.ContractId(contractId), new data.ContractId(contractId))
@@ -187,43 +185,42 @@ object TransactionGenerator {
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
     signatories <- Gen.listOf(nonEmptyId)
     observers <- Gen.listOf(nonEmptyId)
-  } yield
-    (
-      Created(
-        CreatedEvent(
-          eventId,
-          contractId,
-          Some(scalaTemplateId),
-          contractKey.map(_._1),
-          Some(scalaRecord),
-          signatories ++ observers,
-          signatories,
-          observers,
-          agreementText
-        )),
-      new data.CreatedEvent(
-        (signatories ++ observers).asJava,
+  } yield (
+    Created(
+      CreatedEvent(
         eventId,
-        javaTemplateId,
         contractId,
-        javaRecord,
-        agreementText.map(Optional.of[String]).getOrElse(Optional.empty()),
-        contractKey.fold(Optional.empty[data.Value])(c => Optional.of[data.Value](c._2)),
-        signatories.toSet.asJava,
-        observers.toSet.asJava
+        Some(scalaTemplateId),
+        contractKey.map(_._1),
+        Some(scalaRecord),
+        signatories ++ observers,
+        signatories,
+        observers,
+        agreementText,
       )
-    )
+    ),
+    new data.CreatedEvent(
+      (signatories ++ observers).asJava,
+      eventId,
+      javaTemplateId,
+      contractId,
+      javaRecord,
+      agreementText.map(Optional.of[String]).getOrElse(Optional.empty()),
+      contractKey.fold(Optional.empty[data.Value])(c => Optional.of[data.Value](c._2)),
+      signatories.toSet.asJava,
+      observers.toSet.asJava,
+    ),
+  )
 
   val archivedEventGen: Gen[(Archived, data.ArchivedEvent)] = for {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
     (scalaTemplateId, javaTemplateId) <- identifierGen
     parties <- Gen.listOf(nonEmptyId)
-  } yield
-    (
-      Archived(ArchivedEvent(eventId, contractId, Some(scalaTemplateId), parties)),
-      new data.ArchivedEvent(parties.asJava, eventId, javaTemplateId, contractId)
-    )
+  } yield (
+    Archived(ArchivedEvent(eventId, contractId, Some(scalaTemplateId), parties)),
+    new data.ArchivedEvent(parties.asJava, eventId, javaTemplateId, contractId),
+  )
 
   val exercisedEventGen: Gen[(Exercised, data.ExercisedEvent)] = for {
     eventId <- nonEmptyId
@@ -236,38 +233,39 @@ object TransactionGenerator {
     (scalaChildren, javaChildren) <- eventsGen
     witnessParties <- Gen.listOf(nonEmptyId)
     (scalaExerciseResult, javaExerciseResult) <- Gen.sized(valueGen)
-  } yield
-    (
-      Exercised(
-        ExercisedEvent(
-          eventId,
-          contractId,
-          Some(scalaTemplateId),
-          choice,
-          Some(scalaChoiceArgument),
-          actingParties,
-          consuming,
-          witnessParties,
-          Nil,
-          Some(scalaExerciseResult)
-        )),
-      new data.ExercisedEvent(
-        witnessParties.asJava,
+  } yield (
+    Exercised(
+      ExercisedEvent(
         eventId,
-        javaTemplateId,
         contractId,
+        Some(scalaTemplateId),
         choice,
-        javaChoiceArgument,
-        actingParties.asJava,
+        Some(scalaChoiceArgument),
+        actingParties,
         consuming,
-        Collections.emptyList(),
-        javaExerciseResult
+        witnessParties,
+        Nil,
+        Some(scalaExerciseResult),
       )
-    )
+    ),
+    new data.ExercisedEvent(
+      witnessParties.asJava,
+      eventId,
+      javaTemplateId,
+      contractId,
+      choice,
+      javaChoiceArgument,
+      actingParties.asJava,
+      consuming,
+      Collections.emptyList(),
+      javaExerciseResult,
+    ),
+  )
 
   val eventGen: Gen[(Event, data.Event)] =
-    Gen.oneOf(createdEventGen, archivedEventGen).map {
-      case (scalaEvent, javaEvent) => (Event(scalaEvent), javaEvent)
+    Gen.oneOf[(Event.Event, data.Event)](createdEventGen, archivedEventGen).map {
+      case (scalaEvent, javaEvent) =>
+        (Event(scalaEvent), javaEvent)
     }
 
   def eventsGen: Gen[(List[Event], util.List[data.Event])] = eventGen.map {
@@ -281,11 +279,10 @@ object TransactionGenerator {
     (scalaTimestamp, javaTimestamp) <- timestampGen
     (scalaEvents, javaEvents) <- eventsGen
     offset <- Gen.numStr
-  } yield
-    (
-      LedgerItem(transactionId, commandId, workflowId, scalaTimestamp, scalaEvents, offset, None),
-      new data.Transaction(transactionId, commandId, workflowId, javaTimestamp, javaEvents, offset)
-    )
+  } yield (
+    LedgerItem(transactionId, commandId, workflowId, scalaTimestamp, scalaEvents, offset, None),
+    new data.Transaction(transactionId, commandId, workflowId, javaTimestamp, javaEvents, offset),
+  )
 
   val transactionTreeGen: Gen[(LedgerItem, data.TransactionTree)] = for {
     transactionId <- nonEmptyId
@@ -294,18 +291,18 @@ object TransactionGenerator {
     (scalaTimestamp, javaTimestamp) <- timestampGen
     (scalaEvents, javaEvents) <- eventsGen
     offset <- Gen.numStr
-  } yield
-    (
-      LedgerItem(transactionId, commandId, workflowId, scalaTimestamp, scalaEvents, offset, None),
-      new data.TransactionTree(
-        transactionId,
-        commandId,
-        workflowId,
-        javaTimestamp,
-        Collections.emptyMap(),
-        Collections.emptyList(),
-        offset)
-    )
+  } yield (
+    LedgerItem(transactionId, commandId, workflowId, scalaTimestamp, scalaEvents, offset, None),
+    new data.TransactionTree(
+      transactionId,
+      commandId,
+      workflowId,
+      javaTimestamp,
+      Collections.emptyMap(),
+      Collections.emptyList(),
+      offset,
+    ),
+  )
 
   val ledgerContentGen: Gen[(List[LedgerItem], List[data.Transaction])] =
     Gen.listOf(transactionGen).map(_.unzip)

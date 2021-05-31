@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.writers.postgresql
@@ -19,8 +19,7 @@ import io.circe.parser._
 import scalaz._
 import Scalaz._
 
-/**
-  * Handles state so Extractor knows where it left off when restarted
+/** Handles state so Extractor knows where it left off when restarted
   */
 object StateHandler {
 
@@ -29,27 +28,28 @@ object StateHandler {
       from: LedgerOffset,
       to: SnapshotEndSetting,
       party: String,
-      templateConfigs: List[TemplateConfig])
+      templateConfigs: List[TemplateConfig],
+  )
 
   case class Status(
       ledgerId: String,
       startUpParameters: StartUpParameters,
       multiTableState: MultiTableState,
-      witnessedPackages: Set[String]
+      witnessedPackages: Set[String],
   )
 
   implicit val statusEncoder: Encoder[Status] = Encoder.forProduct4(
     "ledgerId",
     "startUpParameters",
     "multiTableState",
-    "witnessedPackages"
+    "witnessedPackages",
   )(s => (s.ledgerId, s.startUpParameters, s.multiTableState, s.witnessedPackages))
 
   implicit val statusDecoder: Decoder[Status] = Decoder.forProduct4(
     "ledgerId",
     "startUpParameters",
     "multiTableState",
-    "witnessedPackages"
+    "witnessedPackages",
   )(Status.apply)
 
   import Queries._
@@ -68,13 +68,13 @@ object StateHandler {
       config: ExtractorConfig,
       target: PostgreSQLTarget,
       multiTableState: MultiTableState,
-      witnessedPackages: Set[String]
+      witnessedPackages: Set[String],
   ): ConnectionIO[Unit] = {
     val currentState = Status(
       ledgerId,
       extractStartUpParams(config, target),
       multiTableState,
-      witnessedPackages
+      witnessedPackages,
     )
 
     setState("currentStatus", currentState.asJson.noSpaces).update.run *>
@@ -96,13 +96,14 @@ object StateHandler {
 
   private def extractStartUpParams(
       config: ExtractorConfig,
-      target: PostgreSQLTarget): StartUpParameters = {
+      target: PostgreSQLTarget,
+  ): StartUpParameters = {
     StartUpParameters(
       target.copy(connectUrl = "**masked**", user = "**masked**", password = "**masked**"),
       config.from,
       config.to,
       config.partySpec,
-      config.templateConfigs.toList.sorted
+      config.templateConfigs.toList.sorted,
     )
   }
 
@@ -114,58 +115,57 @@ object StateHandler {
       previousStatus: Status,
       ledgerId: String,
       config: ExtractorConfig,
-      target: PostgreSQLTarget
+      target: PostgreSQLTarget,
   ): String \/ Status = {
     val result = for {
       _ <- validateLedgerId(
         previousStatus.ledgerId,
-        ledgerId
+        ledgerId,
       )
       _ <- validateParam(
         previousStatus.startUpParameters.from,
         config.from,
-        "snapshot start"
+        "snapshot start",
       )
       _ <- validateParam(
         previousStatus.startUpParameters.to,
         config.to,
-        "snapshot end"
+        "snapshot end",
       )
       _ <- validateParam(
         previousStatus.startUpParameters.party,
         config.partySpec,
-        "`--party`"
+        "`--party`",
       )
       _ <- validateParam(
         previousStatus.startUpParameters.templateConfigs,
         config.templateConfigs.toList.sorted,
-        "`--templates`"
+        "`--templates`",
       )
       _ <- validateParam(
         previousStatus.startUpParameters.target.outputFormat,
         target.outputFormat,
-        "`--output-format`"
+        "`--output-format`",
       )
       _ <- validateParam(
         previousStatus.startUpParameters.target.schemaPerPackage,
         target.schemaPerPackage,
-        "`--schema-per-package`"
+        "`--schema-per-package`",
       )
       _ <- validateParam(
         previousStatus.startUpParameters.target.mergeIdentical,
         target.mergeIdentical,
-        "`--merge-identical`"
+        "`--merge-identical`",
       )
       _ <- validateParam(
         previousStatus.startUpParameters.target.stripPrefix,
         target.stripPrefix,
-        "`--strip-prefix`"
+        "`--strip-prefix`",
       )
     } yield previousStatus
 
-    result.leftMap(
-      e =>
-        s"Current startup parameters are incompatible with the ones used when Extractor was first started:\n${e}"
+    result.leftMap(e =>
+      s"Current startup parameters are incompatible with the ones used when Extractor was first started:\n${e}"
     )
   }
 
@@ -182,7 +182,7 @@ object StateHandler {
       previous,
       current,
       s"The current ${name} parameter `${current}` is not equal " +
-        s"to the one that was used when extraction started: `${previous}`"
+        s"to the one that was used when extraction started: `${previous}`",
     )
   }
 
@@ -191,6 +191,6 @@ object StateHandler {
       previous,
       current,
       s"The current ledger id `${current}` is not equal " +
-        s"to the one previously extracted from: `${previous}`"
+        s"to the one previously extracted from: `${previous}`",
     )
 }

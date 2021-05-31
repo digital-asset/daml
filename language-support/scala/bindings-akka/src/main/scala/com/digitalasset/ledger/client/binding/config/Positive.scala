@@ -1,12 +1,14 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.config
 
 import pureconfig.ConfigConvert
 
+import scala.annotation.nowarn
 import scala.util.{Failure, Success, Try}
 
+@nowarn("msg=parameter value evidence.* is never used")
 class Positive[T: Numeric] private (val value: T) {
   override def toString: String = value.toString
 }
@@ -28,11 +30,14 @@ object Positive {
 
   private def convertPositive[T: Numeric](readStr: String => T) = {
 
-    ConfigConvert.viaStringTry[Positive[T]]({ s =>
-      for {
-        number <- Try(readStr(s))
-        positive <- apply(number)
-      } yield positive
-    }, _.toString)
+    ConfigConvert.viaStringTry[Positive[T]](
+      { s =>
+        for {
+          number <- Try(readStr(s))
+          positive <- apply(number)
+        } yield positive
+      },
+      _.toString,
+    )
   }
 }

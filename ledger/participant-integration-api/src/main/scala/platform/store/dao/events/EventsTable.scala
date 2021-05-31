@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -15,13 +15,13 @@ import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.transaction.{
   TreeEvent,
   Transaction => ApiTransaction,
-  TransactionTree => ApiTransactionTree
+  TransactionTree => ApiTransactionTree,
 }
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
@@ -35,7 +35,7 @@ private[events] abstract class EventsTable {
   def toExecutables(
       tx: TransactionIndexing.TransactionInfo,
       info: TransactionIndexing.EventsInfo,
-      compressed: TransactionIndexing.Serialized,
+      compressed: TransactionIndexing.Compressed.Events,
   ): EventsTable.Batches
 
 }
@@ -60,28 +60,35 @@ private[events] object EventsTable {
       array[String]("event_witnesses")
 
   type CreatedEventRow =
-    SharedRow ~ InputStream ~ Array[String] ~ Array[String] ~ Option[String] ~ Option[InputStream]
+    SharedRow ~ InputStream ~ Option[Int] ~ Array[String] ~ Array[String] ~ Option[String] ~
+      Option[InputStream] ~ Option[Int]
 
   val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
       binaryStream("create_argument") ~
+      int("create_argument_compression").? ~
       array[String]("create_signatories") ~
       array[String]("create_observers") ~
       str("create_agreement_text").? ~
-      binaryStream("create_key_value").?
+      binaryStream("create_key_value").? ~
+      int("create_key_value_compression").?
 
   type ExercisedEventRow =
-    SharedRow ~ Boolean ~ String ~ InputStream ~ Option[InputStream] ~ Array[String] ~ Array[String]
+    SharedRow ~ Boolean ~ String ~ InputStream ~ Option[Int] ~ Option[InputStream] ~ Option[Int] ~
+      Array[String] ~ Array[String]
 
-  val exercisedEventRow: RowParser[ExercisedEventRow] =
+  val exercisedEventRow: RowParser[ExercisedEventRow] = {
+    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
     sharedRow ~
       bool("exercise_consuming") ~
       str("exercise_choice") ~
       binaryStream("exercise_argument") ~
+      int("exercise_argument_compression").? ~
       binaryStream("exercise_result").? ~
+      int("exercise_result_compression").? ~
       array[String]("exercise_actors") ~
       array[String]("exercise_child_event_ids")
-
+  }
   type ArchiveEventRow = SharedRow
 
   val archivedEventRow: RowParser[ArchiveEventRow] = sharedRow
@@ -90,10 +97,11 @@ private[events] object EventsTable {
     def execute()(implicit connection: Connection): Unit
   }
 
-  def apply(dbType: DbType): EventsTable =
+  def apply(dbType: DbType, idempotentInserts: Boolean): EventsTable =
     dbType match {
-      case DbType.Postgres => EventsTablePostgresql
+      case DbType.Postgres => EventsTablePostgresql(idempotentInserts)
       case DbType.H2Database => EventsTableH2Database
+      case DbType.Oracle => EventsTableOracle
     }
 
   final case class Entry[+E](
@@ -131,17 +139,17 @@ private[events] object EventsTable {
       }
 
     def toGetTransactionsResponse(
-        events: Vector[Entry[Event]],
+        events: Vector[Entry[Event]]
     ): List[GetTransactionsResponse] =
       flatTransaction(events).toList.map(tx => GetTransactionsResponse(Seq(tx)))
 
     def toGetFlatTransactionResponse(
-        events: Vector[Entry[Event]],
+        events: Vector[Entry[Event]]
     ): Option[GetFlatTransactionResponse] =
       flatTransaction(events).map(tx => GetFlatTransactionResponse(Some(tx)))
 
     def toGetActiveContractsResponse(
-        events: Vector[Entry[Event]],
+        events: Vector[Entry[Event]]
     ): Vector[GetActiveContractsResponse] = {
       events.map {
         case entry if entry.event.isCreated =>
@@ -159,7 +167,7 @@ private[events] object EventsTable {
     }
 
     private def treeOf(
-        events: Vector[Entry[TreeEvent]],
+        events: Vector[Entry[TreeEvent]]
     ): (Map[String, TreeEvent], Vector[String]) = {
 
       // The identifiers of all visible events in this transactions, preserving
@@ -187,7 +195,7 @@ private[events] object EventsTable {
     }
 
     private def transactionTree(
-        events: Vector[Entry[TreeEvent]],
+        events: Vector[Entry[TreeEvent]]
     ): Option[ApiTransactionTree] =
       events.headOption.map { first =>
         val (eventsById, rootEventIds) = treeOf(events)
@@ -204,12 +212,12 @@ private[events] object EventsTable {
       }
 
     def toGetTransactionTreesResponse(
-        events: Vector[Entry[TreeEvent]],
+        events: Vector[Entry[TreeEvent]]
     ): List[GetTransactionTreesResponse] =
       transactionTree(events).toList.map(tx => GetTransactionTreesResponse(Seq(tx)))
 
     def toGetTransactionResponse(
-        events: Vector[Entry[TreeEvent]],
+        events: Vector[Entry[TreeEvent]]
     ): Option[GetTransactionResponse] =
       transactionTree(events).map(tx => GetTransactionResponse(Some(tx)))
 

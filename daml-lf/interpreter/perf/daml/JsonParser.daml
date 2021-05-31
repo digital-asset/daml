@@ -1,10 +1,10 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wall -Wno-name-shadowing #-}
 
 -- This is not an industial strength JSON parser! (Although it is fairly complete)
--- The DAML code is written for sole intent of having a semi-realistic computationally heavy exmaple.
+-- The Daml code is written for sole intent of having a semi-realistic computationally heavy exmaple.
 -- The JSON parser is based on the Crockford grammar: https://www.json.org/json-en.html
 -- The parser is written using parser-combinators, following:
 --   "Parser combinators need four values to report errors", Andrew Partridge & David Wright

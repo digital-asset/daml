@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.json
@@ -20,8 +20,9 @@ class JsonConvertersSpec extends AnyWordSpec with Matchers {
       tycon = None,
       fields = ImmArray(
         (Some(id("foo")), V.ValueText("bar")),
-        (Some(id("baz")), V.ValueInt64(1253049))
-      ))
+        (Some(id("baz")), V.ValueInt64(1253049)),
+      ),
+    )
     val oneMissingLabel = sampleRecord.copy(fields = sampleRecord.fields map {
       case (Some("foo"), v) => (None, v)
       case o => o

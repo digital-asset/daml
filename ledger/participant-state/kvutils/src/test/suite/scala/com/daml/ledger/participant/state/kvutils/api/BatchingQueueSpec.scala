@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api
@@ -33,20 +33,21 @@ class BatchingQueueSpec
       val correlatedSubmission = createCorrelatedSubmission("1")
       val queue = DefaultBatchingQueue(
         maxQueueSize = 10,
-        maxBatchSizeBytes = correlatedSubmission.getSerializedSize / 2L, // To force emitting the batch right away.
+        maxBatchSizeBytes =
+          correlatedSubmission.getSerializedSize / 2L, // To force emitting the batch right away.
         maxWaitDuration = 1.millis,
-        maxConcurrentCommits = 1
+        maxConcurrentCommits = 1,
       ).run { _ =>
         throw new RuntimeException("kill the queue")
       }
 
-      queue.alive should be(true)
+      queue.state should be(RunningBatchingQueueState.Alive)
       for {
         res <- queue.offer(correlatedSubmission)
       } yield {
         res should be(SubmissionResult.Acknowledged)
         eventually {
-          queue.alive should be(false)
+          queue.state should be(RunningBatchingQueueState.Failed)
         }
       }
     }
@@ -55,16 +56,17 @@ class BatchingQueueSpec
       val correlatedSubmission = createCorrelatedSubmission("1")
       val queue = DefaultBatchingQueue(
         maxQueueSize = 10,
-        maxBatchSizeBytes = correlatedSubmission.getSerializedSize / 2L, // To force emitting the batch right away.
+        maxBatchSizeBytes =
+          correlatedSubmission.getSerializedSize / 2L, // To force emitting the batch right away.
         maxWaitDuration = 1.millis,
-        maxConcurrentCommits = 1
+        maxConcurrentCommits = 1,
       ).run { _ =>
         Future.unit
       }
-      queue.alive should be(true)
-      queue.close()
-      eventually {
-        queue.alive should be(false)
+      queue.state should be(RunningBatchingQueueState.Alive)
+      val wait = queue.stop()
+      wait.map { _ =>
+        queue.state should be(RunningBatchingQueueState.Complete)
       }
     }
 
@@ -76,7 +78,8 @@ class BatchingQueueSpec
         maxQueueSize = 1,
         maxBatchSizeBytes = 1024L,
         maxWaitDuration = maxWaitDuration,
-        maxConcurrentCommits = 1)
+        maxConcurrentCommits = 1,
+      )
       queue.run(mockCommit)
       verify(mockCommit, Mockito.timeout(10 * maxWaitDuration.toMillis).times(0))
         .apply(any[Seq[CorrelatedSubmission]]())
@@ -91,7 +94,8 @@ class BatchingQueueSpec
           maxQueueSize = 10,
           maxBatchSizeBytes = 1024,
           maxWaitDuration = maxWait,
-          maxConcurrentCommits = 1)
+          maxConcurrentCommits = 1,
+        )
           .run { batch =>
             batches += batch
             Future.unit
@@ -114,8 +118,8 @@ class BatchingQueueSpec
       } yield {
         res1 should be(SubmissionResult.Acknowledged)
         res2 should be(SubmissionResult.Acknowledged)
-        batches should contain only (Seq(correlatedSubmission1), Seq(correlatedSubmission2))
-        queue.alive should be(true)
+        batches should contain.only(Seq(correlatedSubmission1), Seq(correlatedSubmission2))
+        queue.state should be(RunningBatchingQueueState.Alive)
       }
     }
 
@@ -126,7 +130,7 @@ class BatchingQueueSpec
           maxQueueSize = 1,
           maxBatchSizeBytes = 1L,
           maxWaitDuration = 1.millis,
-          maxConcurrentCommits = 1
+          maxConcurrentCommits = 1,
         ).run(_ => Future.never)
 
       for {
@@ -149,7 +153,7 @@ class BatchingQueueSpec
     "commit batch after maxBatchSizeBytes exceeded" in {
       val correlatedSubmission1 = createCorrelatedSubmission("1")
       val correlatedSubmission2 = createCorrelatedSubmission("2")
-      val batches = mutable.ListBuffer.empty[Seq[CorrelatedSubmission]]
+      val batches = mutable.Buffer.empty[Seq[CorrelatedSubmission]]
 
       val maxWaitDuration = 500.millis
 
@@ -159,7 +163,7 @@ class BatchingQueueSpec
           maxQueueSize = 10,
           maxBatchSizeBytes = correlatedSubmission1.getSerializedSize + 1L,
           maxWaitDuration = maxWaitDuration,
-          maxConcurrentCommits = 1
+          maxConcurrentCommits = 1,
         ).run { batch =>
           {
             batches += batch
@@ -169,25 +173,24 @@ class BatchingQueueSpec
 
       for {
         res1 <- queue.offer(correlatedSubmission1)
-        // Batch not yet full, hence should not be emitted yet.
+        _ = res1 should be(SubmissionResult.Acknowledged)
+        // The batch is not yet full, so should not be emitted yet.
         _ = {
           batches.size should be(0)
         }
         res2 <- queue.offer(correlatedSubmission2)
-        // Batch now full, so it should have been immediately emitted.
-        _ = {
-          batches.size should be(1)
-        }
+        _ = res2 should be(SubmissionResult.Acknowledged)
       } yield {
-        // Wait for the second batch to be emitted due to wait exceeding.
-        eventually(Timeout(1.second)) {
-          batches.size should be(2)
+        // The batch is now full, so it will be emitted immediately, without the second submission.
+        eventually(Timeout(maxWaitDuration / 2)) {
+          batches should be(Seq(Seq(correlatedSubmission1)))
+        }
+        // After the wait timeout, the second batch will be emitted with the second submission.
+        eventually(Timeout(maxWaitDuration * 2)) {
+          batches should be(Seq(Seq(correlatedSubmission1), Seq(correlatedSubmission2)))
         }
 
-        res1 should be(SubmissionResult.Acknowledged)
-        res2 should be(SubmissionResult.Acknowledged)
-        batches.reverse should contain only (Seq(correlatedSubmission1), Seq(correlatedSubmission2))
-        queue.alive should be(true)
+        queue.state should be(RunningBatchingQueueState.Alive)
       }
     }
   }

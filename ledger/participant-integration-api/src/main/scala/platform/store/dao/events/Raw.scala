@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -9,48 +9,62 @@ import com.daml.ledger.api.v1.event.{
   ArchivedEvent => PbArchivedEvent,
   CreatedEvent => PbCreatedEvent,
   Event => PbFlatEvent,
-  ExercisedEvent => PbExercisedEvent
+  ExercisedEvent => PbExercisedEvent,
 }
 import com.daml.ledger.api.v1.transaction.{TreeEvent => PbTreeEvent}
+import com.daml.logging.LoggingContext
 import com.daml.platform.participant.util.LfEngineToApi
+import com.daml.platform.store.serialization.Compression
 
-/**
-  * An event as it's fetched from the participant index, before
+import scala.collection.compat.immutable.ArraySeq
+import scala.concurrent.{ExecutionContext, Future}
+
+/** An event as it's fetched from the participant index, before
   * the deserialization the values contained therein. Allows to
   * wrap events from the database while delaying deserialization
   * so that it doesn't happen on the database thread pool.
   */
 private[events] sealed trait Raw[+E] {
 
-  /**
-    * Fill the blanks left in the raw event by running
+  /** Fill the blanks left in the raw event by running
     * the deserialization on contained values.
     *
     * @param lfValueTranslation The delegate in charge of applying deserialization
     * @param verbose If true, field names of records will be included
     */
-  def applyDeserialization(lfValueTranslation: LfValueTranslation, verbose: Boolean): E
+  def applyDeserialization(
+      lfValueTranslation: LfValueTranslation,
+      verbose: Boolean,
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Future[E]
 
 }
 
 private[events] object Raw {
 
-  /**
-    * Since created events can be both a flat event or a tree event
+  /** Since created events can be both a flat event or a tree event
     * we share common code between the two variants here. What's left
     * out is wrapping the result in the proper envelope.
     */
   private[events] sealed abstract class Created[E](
       val partial: PbCreatedEvent,
       val createArgument: InputStream,
+      val createArgumentCompression: Compression.Algorithm,
       val createKeyValue: Option[InputStream],
+      val createKeyValueCompression: Compression.Algorithm,
   ) extends Raw[E] {
     protected def wrapInEvent(event: PbCreatedEvent): E
+
     final override def applyDeserialization(
         lfValueTranslation: LfValueTranslation,
         verbose: Boolean,
-    ): E =
-      wrapInEvent(lfValueTranslation.deserialize(this, verbose))
+    )(implicit
+        ec: ExecutionContext,
+        loggingContext: LoggingContext,
+    ): Future[E] =
+      lfValueTranslation.deserialize(this, verbose).map(wrapInEvent)
   }
 
   private object Created {
@@ -58,10 +72,10 @@ private[events] object Raw {
         eventId: String,
         contractId: String,
         templateId: Identifier,
-        createSignatories: Array[String],
-        createObservers: Array[String],
+        createSignatories: ArraySeq[String],
+        createObservers: ArraySeq[String],
         createAgreementText: Option[String],
-        eventWitnesses: Array[String],
+        eventWitnesses: ArraySeq[String],
     ): PbCreatedEvent =
       PbCreatedEvent(
         eventId = eventId,
@@ -83,8 +97,16 @@ private[events] object Raw {
     final class Created private[Raw] (
         raw: PbCreatedEvent,
         createArgument: InputStream,
+        createArgumentCompression: Compression.Algorithm,
         createKeyValue: Option[InputStream],
-    ) extends Raw.Created[PbFlatEvent](raw, createArgument, createKeyValue)
+        createKeyValueCompression: Compression.Algorithm,
+    ) extends Raw.Created[PbFlatEvent](
+          raw,
+          createArgument,
+          createArgumentCompression,
+          createKeyValue,
+          createKeyValueCompression,
+        )
         with FlatEvent {
       override protected def wrapInEvent(event: PbCreatedEvent): PbFlatEvent =
         PbFlatEvent(PbFlatEvent.Event.Created(event))
@@ -96,11 +118,13 @@ private[events] object Raw {
           contractId: String,
           templateId: Identifier,
           createArgument: InputStream,
-          createSignatories: Array[String],
-          createObservers: Array[String],
+          createArgumentCompression: Option[Int],
+          createSignatories: ArraySeq[String],
+          createObservers: ArraySeq[String],
           createAgreementText: Option[String],
           createKeyValue: Option[InputStream],
-          eventWitnesses: Array[String],
+          createKeyValueCompression: Option[Int],
+          eventWitnesses: ArraySeq[String],
       ): Raw.FlatEvent.Created =
         new Raw.FlatEvent.Created(
           raw = Raw.Created(
@@ -110,24 +134,28 @@ private[events] object Raw {
             createSignatories = createSignatories,
             createObservers = createObservers,
             createAgreementText = createAgreementText,
-            eventWitnesses = eventWitnesses
+            eventWitnesses = eventWitnesses,
           ),
           createArgument = createArgument,
+          createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),
           createKeyValue = createKeyValue,
+          createKeyValueCompression = Compression.Algorithm.assertLookup(createKeyValueCompression),
         )
     }
 
-    /**
-      * Archived events don't actually have anything to deserialize
+    /** Archived events don't actually have anything to deserialize
       */
     final class Archived private[Raw] (
-        raw: PbArchivedEvent,
+        raw: PbArchivedEvent
     ) extends FlatEvent {
       override def applyDeserialization(
           lfValueTranslation: LfValueTranslation,
           verbose: Boolean,
-      ): PbFlatEvent =
-        PbFlatEvent(PbFlatEvent.Event.Archived(raw))
+      )(implicit
+          ec: ExecutionContext,
+          loggingContext: LoggingContext,
+      ): Future[PbFlatEvent] =
+        Future.successful(PbFlatEvent(PbFlatEvent.Event.Archived(raw)))
     }
 
     object Archived {
@@ -135,7 +163,7 @@ private[events] object Raw {
           eventId: String,
           contractId: String,
           templateId: Identifier,
-          eventWitnesses: Array[String],
+          eventWitnesses: ArraySeq[String],
       ): Raw.FlatEvent.Archived =
         new Raw.FlatEvent.Archived(
           raw = PbArchivedEvent(
@@ -157,8 +185,16 @@ private[events] object Raw {
     final class Created(
         raw: PbCreatedEvent,
         createArgument: InputStream,
+        createArgumentCompression: Compression.Algorithm,
         createKeyValue: Option[InputStream],
-    ) extends Raw.Created[PbTreeEvent](raw, createArgument, createKeyValue)
+        createKeyValueCompression: Compression.Algorithm,
+    ) extends Raw.Created[PbTreeEvent](
+          raw,
+          createArgument,
+          createArgumentCompression,
+          createKeyValue,
+          createKeyValueCompression,
+        )
         with TreeEvent {
       override protected def wrapInEvent(event: PbCreatedEvent): PbTreeEvent =
         PbTreeEvent(PbTreeEvent.Kind.Created(event))
@@ -170,11 +206,13 @@ private[events] object Raw {
           contractId: String,
           templateId: Identifier,
           createArgument: InputStream,
-          createSignatories: Array[String],
-          createObservers: Array[String],
+          createArgumentCompression: Option[Int],
+          createSignatories: ArraySeq[String],
+          createObservers: ArraySeq[String],
           createAgreementText: Option[String],
           createKeyValue: Option[InputStream],
-          eventWitnesses: Array[String],
+          createKeyValueCompression: Option[Int],
+          eventWitnesses: ArraySeq[String],
       ): Raw.TreeEvent.Created =
         new Raw.TreeEvent.Created(
           raw = Raw.Created(
@@ -184,23 +222,33 @@ private[events] object Raw {
             createSignatories = createSignatories,
             createObservers = createObservers,
             createAgreementText = createAgreementText,
-            eventWitnesses = eventWitnesses
+            eventWitnesses = eventWitnesses,
           ),
           createArgument = createArgument,
+          createArgumentCompression = Compression.Algorithm.assertLookup(createArgumentCompression),
           createKeyValue = createKeyValue,
+          createKeyValueCompression = Compression.Algorithm.assertLookup(createKeyValueCompression),
         )
     }
 
     final class Exercised(
         val partial: PbExercisedEvent,
         val exerciseArgument: InputStream,
+        val exerciseArgumentCompression: Compression.Algorithm,
         val exerciseResult: Option[InputStream],
+        val exerciseResultCompression: Compression.Algorithm,
     ) extends TreeEvent {
       override def applyDeserialization(
           lfValueTranslation: LfValueTranslation,
           verbose: Boolean,
-      ): PbTreeEvent =
-        PbTreeEvent(PbTreeEvent.Kind.Exercised(lfValueTranslation.deserialize(this, verbose)))
+      )(implicit
+          ec: ExecutionContext,
+          loggingContext: LoggingContext,
+      ): Future[PbTreeEvent] =
+        lfValueTranslation
+          .deserialize(this, verbose)
+          .map(event => PbTreeEvent(PbTreeEvent.Kind.Exercised(event)))
+
     }
 
     object Exercised {
@@ -211,10 +259,12 @@ private[events] object Raw {
           exerciseConsuming: Boolean,
           exerciseChoice: String,
           exerciseArgument: InputStream,
+          exerciseArgumentCompression: Option[Int],
           exerciseResult: Option[InputStream],
-          exerciseActors: Array[String],
-          exerciseChildEventIds: Array[String],
-          eventWitnesses: Array[String],
+          exerciseResultCompression: Option[Int],
+          exerciseActors: ArraySeq[String],
+          exerciseChildEventIds: ArraySeq[String],
+          eventWitnesses: ArraySeq[String],
       ): Raw.TreeEvent.Exercised =
         new Raw.TreeEvent.Exercised(
           partial = PbExercisedEvent(
@@ -230,7 +280,10 @@ private[events] object Raw {
             exerciseResult = null,
           ),
           exerciseArgument = exerciseArgument,
+          exerciseArgumentCompression =
+            Compression.Algorithm.assertLookup(exerciseArgumentCompression),
           exerciseResult = exerciseResult,
+          exerciseResultCompression = Compression.Algorithm.assertLookup(exerciseResultCompression),
         )
     }
   }

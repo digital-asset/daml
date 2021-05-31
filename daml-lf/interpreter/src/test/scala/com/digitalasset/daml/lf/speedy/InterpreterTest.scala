@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -23,7 +23,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
-  private val noPackages: PureCompiledPackages = PureCompiledPackages(Map.empty).right.get
+  private val noPackages: PureCompiledPackages = PureCompiledPackages(Map.empty).toOption.get
 
   private def runExpr(e: Expr): SValue = {
     val machine = Speedy.Machine.fromPureExpr(noPackages, e)
@@ -100,17 +100,17 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
 
     val testCases = Table(
       "input" -> "output",
-      e"""(/\ (n: nat). FROM_TEXT_NUMERIC @n "0") @1""" ->
+      e"""(/\ (n: nat). TEXT_TO_NUMERIC @n "0") @1""" ->
         result("0.0"),
-      e"""(/\ (n: nat). /\ (n: nat). FROM_TEXT_NUMERIC @n "1") @2 @3 """ ->
+      e"""(/\ (n: nat). /\ (n: nat). TEXT_TO_NUMERIC @n "1") @2 @3 """ ->
         result("1.000"),
-      e"""(/\ (n: nat). /\ (n: nat). \(n: Text) -> FROM_TEXT_NUMERIC @n n) @4 @5 "2"""" ->
+      e"""(/\ (n: nat). /\ (n: nat). \(n: Text) -> TEXT_TO_NUMERIC @n n) @4 @5 "2"""" ->
         result("2.00000"),
-      e"""(/\ (n: nat). \(n: Text) -> /\ (n: nat). FROM_TEXT_NUMERIC @n n) @6 "3" @7""" ->
+      e"""(/\ (n: nat). \(n: Text) -> /\ (n: nat). TEXT_TO_NUMERIC @n n) @6 "3" @7""" ->
         result("3.0000000"),
-      e"""(\(n: Text) -> /\ (n: nat). /\ (n: nat). FROM_TEXT_NUMERIC @n n) "4" @8 @9""" ->
+      e"""(\(n: Text) -> /\ (n: nat). /\ (n: nat). TEXT_TO_NUMERIC @n n) "4" @8 @9""" ->
         result("4.000000000"),
-      e"""(\(n: Text) -> /\ (n: *). /\ (n: nat). FROM_TEXT_NUMERIC @n n) "5" @Text @10""" ->
+      e"""(\(n: Text) -> /\ (n: *). /\ (n: nat). TEXT_TO_NUMERIC @n n) "5" @Text @10""" ->
         result("5.0000000000"),
     )
 
@@ -119,7 +119,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
     }
 
     a[Compiler.CompilationError] shouldBe thrownBy(
-      runExpr(e"""(/\ (n: nat). /\ (n: *). FROM_TEXT_NUMERIC @n n) @4 @Text"""),
+      runExpr(e"""(/\ (n: nat). /\ (n: *). TEXT_TO_NUMERIC @n n) @4 @Text""")
     )
   }
 
@@ -163,7 +163,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
       log.add("test", None)
       val iter = log.iterator
       iter.hasNext shouldBe true
-      iter.next shouldBe (("test", None))
+      iter.next() shouldBe (("test", None))
       iter.hasNext shouldBe false
     }
     "overflow" in {
@@ -173,9 +173,9 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
       log.add("test3", None) // should replace "test1"
       val iter = log.iterator
       iter.hasNext shouldBe true
-      iter.next shouldBe (("test2", None))
+      iter.next() shouldBe (("test2", None))
       iter.hasNext shouldBe true
-      iter.next shouldBe (("test3", None))
+      iter.next() shouldBe (("test3", None))
       iter.hasNext shouldBe false
     }
   }
@@ -193,39 +193,41 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
             Package(
               List(
                 Module(
-                  modName,
-                  Map(
+                  name = modName,
+                  definitions = Map(
                     DottedName.assertFromString("bar") ->
-                      DValue(TBuiltin(BTBool), true, ETrue, false),
+                      DValue(TBuiltin(BTBool), true, ETrue, false)
                   ),
-                  Map.empty,
-                  FeatureFlags.default,
-                ),
+                  templates = Map.empty,
+                  exceptions = Map.empty,
+                  featureFlags = FeatureFlags.default,
+                )
               ),
               Set.empty[PackageId],
               LanguageVersion.default,
               None,
-            ),
-        ),
-      ).right.get
+            )
+        )
+      ).toOption.get
     val pkgs3 = PureCompiledPackages(
       Map(
         dummyPkg ->
           Package(
             List(
               Module(
-                modName,
-                Map.empty,
-                Map.empty,
-                FeatureFlags.default,
-              ),
+                name = modName,
+                definitions = Map.empty,
+                templates = Map.empty,
+                exceptions = Map.empty,
+                featureFlags = FeatureFlags.default,
+              )
             ),
             Set.empty[PackageId],
             LanguageVersion.default,
             None,
-          ),
-      ),
-    ).right.get
+          )
+      )
+    ).toOption.get
 
     "succeeds" in {
       val machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref))

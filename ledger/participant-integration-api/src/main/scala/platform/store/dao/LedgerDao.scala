@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -8,39 +8,113 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.WorkflowId
 import com.daml.ledger.api.domain.{CommandId, LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.ReportsHealth
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1.{
-  CommittedTransaction,
-  Configuration,
-  DivulgedContract,
-  Offset,
-  RejectionReason,
-  SubmitterInfo,
-  TransactionId
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse,
 }
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.{ApplicationId, WorkflowId}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.transaction.{BlindingInfo, GlobalKey}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext
-import com.daml.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
+import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
+import com.daml.platform.store.dao.events.{FilterRelation, TransactionsWriter}
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
-  PartyLedgerEntry
+  PartyLedgerEntry,
 }
+import com.daml.platform.store.interfaces.{LedgerDaoContractsReader, TransactionLogUpdate}
 
 import scala.concurrent.Future
 
-private[platform] trait LedgerReadDao extends ReportsHealth {
+private[platform] trait LedgerDaoTransactionsReader {
+  def getFlatTransactions(
+      startExclusive: Offset,
+      endInclusive: Offset,
+      filter: FilterRelation,
+      verbose: Boolean,
+  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed]
 
-  def maxConcurrentConnections: Int
+  def lookupFlatTransactionById(
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
+  )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]]
+
+  def getTransactionTrees(
+      startExclusive: Offset,
+      endInclusive: Offset,
+      requestingParties: Set[Party],
+      verbose: Boolean,
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed]
+
+  /** An unfiltered stream of generic ledger updates.
+    *
+    * Contains complete transactions used to populate the in-memory fan-out buffers for Ledger API streams serving.
+    * Aside from transactions, special marker events are introduced - [[TransactionLogUpdate.LedgerEndMarker]] -
+    * which signal to consumers that the current page request has been fully fetched
+    * (i.e. up to the previously dispatched ledger head).
+    *
+    * @param startExclusive Start (exclusive) of the stream in the form of (offset, event_sequential_id).
+    * @param endInclusive End (inclusive) of the event stream in the form of (offset, event_sequential_id).
+    * @param loggingContext The logging context.
+    * @return The Akka Source of transaction log updates.
+    */
+  def getTransactionLogUpdates(startExclusive: (Offset, Long), endInclusive: (Offset, Long))(
+      implicit loggingContext: LoggingContext
+  ): Source[((Offset, Long), TransactionLogUpdate), NotUsed]
+
+  def lookupTransactionTreeById(
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
+  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]]
+
+  def getActiveContracts(
+      activeAt: Offset,
+      filter: FilterRelation,
+      verbose: Boolean,
+  )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed]
+
+  /** A stream of updates to contracts' states read from the index database.
+    *
+    * @param startExclusive Start (exclusive) of the stream in the form of (offset, event_sequential_id)
+    * @param endInclusive End (inclusive) of the event stream in the form of (offset, event_sequential_id)
+    * @param loggingContext
+    * @return
+    */
+  def getContractStateEvents(
+      startExclusive: (Offset, Long),
+      endInclusive: (Offset, Long),
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[((Offset, Long), ContractStateEvent), NotUsed]
+}
+
+private[platform] trait LedgerDaoCommandCompletionsReader {
+  def getCommandCompletions(
+      startExclusive: Offset,
+      endInclusive: Offset,
+      applicationId: ApplicationId,
+      parties: Set[Ref.Party],
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[(Offset, CompletionStreamResponse), NotUsed]
+}
+
+private[platform] trait LedgerReadDao extends ReportsHealth {
 
   /** Looks up the ledger id */
   def lookupLedgerId()(implicit loggingContext: LoggingContext): Future[Option[LedgerId]]
@@ -50,22 +124,17 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   /** Looks up the current ledger end */
   def lookupLedgerEnd()(implicit loggingContext: LoggingContext): Future[Offset]
 
+  /** Looks up the current ledger end as the offset and event sequential id */
+  def lookupLedgerEndOffsetAndSequentialId()(implicit
+      loggingContext: LoggingContext
+  ): Future[(Offset, Long)]
+
   /** Looks up the current external ledger end offset */
   def lookupInitialLedgerEnd()(implicit loggingContext: LoggingContext): Future[Option[Offset]]
 
-  /** Looks up an active or divulged contract if it is visible for the given party. Archived contracts must not be returned by this method */
-  def lookupActiveOrDivulgedContract(contractId: ContractId, forParty: Party)(
-      implicit loggingContext: LoggingContext,
-  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
-
-  /** Returns the largest ledger time of any of the given contracts */
-  def lookupMaximumLedgerTime(
-      contractIds: Set[ContractId],
-  )(implicit loggingContext: LoggingContext): Future[Option[Instant]]
-
   /** Looks up the current ledger configuration, if it has been set. */
-  def lookupLedgerConfiguration()(
-      implicit loggingContext: LoggingContext,
+  def lookupLedgerConfiguration()(implicit
+      loggingContext: LoggingContext
   ): Future[Option[(Offset, Configuration)]]
 
   /** Returns a stream of configuration entries. */
@@ -74,22 +143,15 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed]
 
-  def transactionsReader: TransactionsReader
+  def transactionsReader: LedgerDaoTransactionsReader
 
-  /**
-    * Looks up a Contract given a contract key and a party
-    *
-    * @param key the contract key to query
-    * @param forParty the party for which the contract must be visible
-    * @return the optional ContractId
-    */
-  def lookupKey(key: GlobalKey, forParty: Party)(
-      implicit loggingContext: LoggingContext,
-  ): Future[Option[ContractId]]
+  def contractsReader: LedgerDaoContractsReader
+
+  def completions: LedgerDaoCommandCompletionsReader
 
   /** Returns a list of party details for the parties specified. */
-  def getParties(parties: Seq[Party])(
-      implicit loggingContext: LoggingContext,
+  def getParties(parties: Seq[Party])(implicit
+      loggingContext: LoggingContext
   ): Future[List[PartyDetails]]
 
   /** Returns a list of all known parties. */
@@ -97,17 +159,17 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
 
   def getPartyEntries(
       startExclusive: Offset,
-      endInclusive: Offset
+      endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed]
 
-  /** Returns a list of all known DAML-LF packages */
-  def listLfPackages()(
-      implicit loggingContext: LoggingContext,
+  /** Returns a list of all known Daml-LF packages */
+  def listLfPackages()(implicit
+      loggingContext: LoggingContext
   ): Future[Map[PackageId, PackageDetails]]
 
-  /** Returns the given DAML-LF archive */
-  def getLfArchive(packageId: PackageId)(
-      implicit loggingContext: LoggingContext,
+  /** Returns the given Daml-LF archive */
+  def getLfArchive(packageId: PackageId)(implicit
+      loggingContext: LoggingContext
   ): Future[Option[Archive]]
 
   /** Returns a stream of package upload entries.
@@ -117,8 +179,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       startExclusive: Offset,
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed]
-
-  def completions: CommandCompletionsReader
 
   /** Deduplicates commands.
     *
@@ -135,8 +195,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult]
 
-  /**
-    * Remove all expired deduplication entries. This method has to be called
+  /** Remove all expired deduplication entries. This method has to be called
     * periodically to ensure that the deduplication cache does not grow unboundedly.
     *
     * @param currentTime The current time. This should use the same source of time as
@@ -147,11 +206,10 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     *         call deduplicateCommand().
     */
   def removeExpiredDeduplicationData(
-      currentTime: Instant,
+      currentTime: Instant
   )(implicit loggingContext: LoggingContext): Future[Unit]
 
-  /**
-    * Stops deduplicating the given command. This method should be called after
+  /** Stops deduplicating the given command. This method should be called after
     * a command is rejected by the submission service, or after a transaction is
     * rejected by the ledger. Without removing deduplication entries for failed
     * commands, applications would have to wait for the end of the (long) deduplication
@@ -166,8 +224,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       submitters: List[Ref.Party],
   )(implicit loggingContext: LoggingContext): Future[Unit]
 
-  /**
-    * Prunes participant events and completions in archived history and remembers largest
+  /** Prunes participant events and completions in archived history and remembers largest
     * pruning offset processed thus far.
     *
     * @param pruneUpToInclusive offset up to which to prune archived history inclusively
@@ -177,19 +234,18 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
 }
 
 private[platform] trait LedgerWriteDao extends ReportsHealth {
-  def maxConcurrentConnections: Int
 
-  /**
-    * Initializes the ledger. Must be called only once.
+  /** Initializes the ledger. Must be called only once.
     *
     * @param ledgerId the ledger id to be stored
     */
   def initializeLedger(ledgerId: LedgerId)(implicit loggingContext: LoggingContext): Future[Unit]
 
-  def initializeParticipantId(participantId: ParticipantId)(
-      implicit loggingContext: LoggingContext,
+  def initializeParticipantId(participantId: ParticipantId)(implicit
+      loggingContext: LoggingContext
   ): Future[Unit]
 
+  // TODO append-only: cleanup
   def prepareTransactionInsert(
       submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
@@ -199,28 +255,47 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
       blindingInfo: Option[BlindingInfo],
-  )(implicit loggingContext: LoggingContext): TransactionsWriter.PreparedInsert
+  ): TransactionsWriter.PreparedInsert
 
+  // TODO append-only: cleanup
   def storeTransaction(
       preparedInsert: PreparedInsert,
       submitterInfo: Option[SubmitterInfo],
       transactionId: TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
-      offset: Offset,
+      offsetStep: OffsetStep,
       transaction: CommittedTransaction,
       divulged: Iterable[DivulgedContract],
-      blindingInfo: Option[BlindingInfo],
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
+
+  // TODO append-only: cleanup
+  def storeTransactionState(preparedInsert: PreparedInsert)(implicit
+      loggingContext: LoggingContext
+  ): Future[PersistenceResponse]
+
+  // TODO append-only: cleanup
+  def storeTransactionEvents(preparedInsert: PreparedInsert)(implicit
+      loggingContext: LoggingContext
+  ): Future[PersistenceResponse]
+
+  // TODO append-only: cleanup
+  def completeTransaction(
+      submitterInfo: Option[SubmitterInfo],
+      transactionId: TransactionId,
+      recordTime: Instant,
+      offsetStep: OffsetStep,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
   def storeRejection(
       submitterInfo: Option[SubmitterInfo],
       recordTime: Instant,
-      offset: Offset,
+      offsetStep: OffsetStep,
       reason: RejectionReason,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
-  /**
+  /** !!! Please kindly not use this.
+    * !!! This method is solely for supporting sandbox-classic. Targeted for removal as soon sandbox classic is removed.
     * Stores the initial ledger state, e.g., computed by the scenario loader.
     * Must be called at most once, before any call to storeLedgerEntry.
     *
@@ -229,42 +304,54 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
     */
   def storeInitialState(
       ledgerEntries: Vector[(Offset, LedgerEntry)],
-      newLedgerEnd: Offset
+      newLedgerEnd: Offset,
   )(implicit loggingContext: LoggingContext): Future[Unit]
 
-  /**
-    * Stores a party allocation or rejection thereof.
+  /** Stores a party allocation or rejection thereof.
     *
-    * @param offset       the offset to store the party entry
+    * @param offsetStep  Pair of previous offset and the offset to store the party entry at
     * @param partyEntry  the PartyEntry to be stored
     * @return Ok when the operation was successful otherwise a Duplicate
     */
-  def storePartyEntry(offset: Offset, partyEntry: PartyLedgerEntry)(
-      implicit loggingContext: LoggingContext,
+  def storePartyEntry(offsetStep: OffsetStep, partyEntry: PartyLedgerEntry)(implicit
+      loggingContext: LoggingContext
   ): Future[PersistenceResponse]
 
-  /**
-    * Store a configuration change or rejection.
+  /** Store a configuration change or rejection.
     */
   def storeConfigurationEntry(
-      offset: Offset,
+      offsetStep: OffsetStep,
       recordedAt: Instant,
       submissionId: String,
       configuration: Configuration,
-      rejectionReason: Option[String]
+      rejectionReason: Option[String],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
-  /**
-    * Store a DAML-LF package upload result.
+  /** Store a Daml-LF package upload result.
     */
   def storePackageEntry(
-      offset: Offset,
+      offsetStep: OffsetStep,
       packages: List[(Archive, PackageDetails)],
-      optEntry: Option[PackageLedgerEntry]
+      optEntry: Option[PackageLedgerEntry],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset()(implicit loggingContext: LoggingContext): Future[Unit]
+
+  /** This is a combined store transaction method to support sandbox-classic and tests
+    * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
+    */
+  def storeTransaction(
+      submitterInfo: Option[SubmitterInfo],
+      workflowId: Option[WorkflowId],
+      transactionId: TransactionId,
+      ledgerEffectiveTime: Instant,
+      offset: OffsetStep,
+      transaction: CommittedTransaction,
+      divulgedContracts: Iterable[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
+      recordTime: Instant,
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse]
 
 }
 

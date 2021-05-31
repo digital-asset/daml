@@ -1,0 +1,187 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Exceptions where
+
+import DA.Assert
+import DA.Exception (throw)
+
+exception E
+  where
+    message "E"
+
+template K
+  with
+    p : Party
+    v : Int
+    t : Text
+  where
+    signatory p
+    key (p, v) : (Party, Int)
+    maintainer key._1
+
+data Rollback = NoException | Throw
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+    nonconsuming choice RollbackArchiveTransient : ()
+      with
+        i : Int
+      controller p
+      do cid <- create (K p i "")
+         try (archive cid >> throw E)
+         catch
+           E -> pure ()
+         archive cid
+
+    nonconsuming choice ArchiveTransient : ()
+      with
+        i : Int
+      controller p
+      do cid <- create (K p i "")
+         try archive cid >> pure ()
+         catch
+           E -> pure ()
+         archive cid
+
+    nonconsuming choice RollbackArchiveNonTransient : ()
+      with
+        cid : ContractId K
+      controller p
+      do try archive cid >> throw E
+         catch
+           E -> pure ()
+         archive cid
+
+    nonconsuming choice ArchiveNonTransient : ()
+      with
+        cid : ContractId K
+      controller p
+      do try archive cid >> pure ()
+         catch
+           E -> pure ()
+         archive cid
+
+    nonconsuming choice RollbackKey : ()
+      with
+        i : Int
+      controller p
+      do cid <- create (K p i "before")
+         try do
+           archive cid
+           create (K p i "rollback")
+           throw E
+         catch
+           E -> pure ()
+         (_, k) <- fetchByKey @K (p, i)
+         k === K p i "before"
+
+    nonconsuming choice Key : ()
+      with
+        i : Int
+      controller p
+      do cid <- create (K p i "before")
+         try archive cid >> create (K p i "rollback") >> pure ()
+         catch
+           E -> pure ()
+         (_, k) <- fetchByKey @K (p, i)
+         k === K p i "rollback"
+
+-- This template is used to test that the
+-- engine only ever looks up a global key once.
+-- All choices should succeed under the assumption
+-- that there is one global contract with key (p, 0)
+template GlobalLookups
+  with
+    p : Party
+  where
+    signatory p
+
+    let k = (p, 0)
+
+    choice LookupTwice : ()
+      controller p
+      do Some _ <- lookupByKey @K k
+         Some _ <- lookupByKey @K k
+         pure ()
+
+    choice LookupAfterCreate : ()
+      controller p
+      do cid <- create (K p 0 "")
+         Some cid' <- lookupByKey @K k
+         cid === cid'
+         pure ()
+
+    choice LookupAfterCreateArchive : ()
+      controller p
+      do cid <- create (K p 0 "")
+         Some cid' <- lookupByKey @K k
+         cid === cid'
+         pure ()
+
+    choice LookupAfterFetch : ()
+      with
+        cid : ContractId K
+      controller p
+      do -- Fetch does not bring key in scope.
+         c <- fetch cid
+         key c === k
+         Some _ <- lookupByKey @K k
+         pure ()
+
+    choice LookupAfterArchive : ()
+      with
+        cid : ContractId K
+      controller p
+      do -- Archive does not bring key in scope.
+         c <- fetch cid
+         key c === k
+         archive cid
+         None <- lookupByKey @K k
+         pure ()
+
+    -- Note that this will be rejected by
+    -- the unique contract key check in the ledger
+    -- but not by the engine.
+    choice LookupAfterRollbackCreate : ()
+      controller p
+      do try do
+           cid <- create (K p 0 "")
+           throw E
+         catch
+           E -> pure ()
+         None <- lookupByKey @K k
+         pure ()
+
+    choice LookupAfterRollbackLookup : ()
+      controller p
+      do try do
+           cid <- lookupByKey @K k
+           throw E
+         catch
+           E -> pure ()
+         Some _ <- lookupByKey @K k
+         pure ()
+
+    choice LookupAfterArchiveAfterRollbackLookup : ()
+      with
+        cid : ContractId K
+      controller p
+      do try do
+           -- this updates globalKeyInputs
+           Some cid' <- lookupByKey @K k
+           cid === cid'
+           throw E
+         catch
+           E -> pure ()
+         c <- fetch cid
+         key c === k
+         -- keys is empty here so archive does not drop it.
+         archive cid
+         -- this one needs to check activeness for an entry in globalKeyInputs
+         None <- lookupByKey @K k
+         pure ()

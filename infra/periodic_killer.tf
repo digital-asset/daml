@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # This file defines a machine meant to destroy/recreate all our CI nodes every
@@ -31,16 +31,16 @@ locals {
 }
 
 resource "google_project_iam_member" "periodic-killer" {
-  count  = "${length(local.accounts_that_can_kill_machines)}"
-  role   = "${google_project_iam_custom_role.periodic-killer.id}"
-  member = "${local.accounts_that_can_kill_machines[count.index]}"
+  count  = length(local.accounts_that_can_kill_machines)
+  role   = google_project_iam_custom_role.periodic-killer.id
+  member = local.accounts_that_can_kill_machines[count.index]
 }
 
 resource "google_compute_instance" "periodic-killer" {
   name         = "periodic-killer"
   machine_type = "g1-small"
   zone         = "us-east4-a"
-  labels       = "${local.machine-labels}"
+  labels       = local.machine-labels
 
   boot_disk {
     initialize_params {
@@ -56,7 +56,7 @@ resource "google_compute_instance" "periodic-killer" {
   }
 
   service_account {
-    email  = "${google_service_account.periodic-killer.email}"
+    email  = google_service_account.periodic-killer.email
     scopes = ["cloud-platform"]
   }
   allow_stopping_for_update = true

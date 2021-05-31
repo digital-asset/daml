@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.admin
@@ -12,7 +12,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
   GetParticipantIdRequest,
   GetPartiesRequest,
   ListKnownPartiesRequest,
-  PartyDetails => ApiPartyDetails
+  PartyDetails => ApiPartyDetails,
 }
 import com.daml.ledger.client.LedgerClient
 import scalaz.OneAnd
@@ -25,7 +25,8 @@ object PartyManagementClient {
     PartyDetails(
       Party.assertFromString(d.party),
       if (d.displayName.isEmpty) None else Some(d.displayName),
-      d.isLocal)
+      d.isLocal,
+    )
 
   private val getParticipantIdRequest = GetParticipantIdRequest()
 
@@ -38,8 +39,9 @@ object PartyManagementClient {
   }
 }
 
-final class PartyManagementClient(service: PartyManagementServiceStub)(
-    implicit ec: ExecutionContext) {
+final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
+    ec: ExecutionContext
+) {
 
   def getParticipantId(token: Option[String] = None): Future[ParticipantId] =
     LedgerClient
@@ -51,20 +53,22 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(
     LedgerClient
       .stub(service, token)
       .listKnownParties(PartyManagementClient.listKnownPartiesRequest)
-      .map(_.partyDetails.map(PartyManagementClient.details)(collection.breakOut))
+      .map(_.partyDetails.view.map(PartyManagementClient.details).toList)
 
   def getParties(
       parties: OneAnd[Set, Ref.Party],
-      token: Option[String] = None): Future[List[PartyDetails]] =
+      token: Option[String] = None,
+  ): Future[List[PartyDetails]] =
     LedgerClient
       .stub(service, token)
       .getParties(PartyManagementClient.getPartiesRequest(parties))
-      .map(_.partyDetails.map(PartyManagementClient.details)(collection.breakOut))
+      .map(_.partyDetails.view.map(PartyManagementClient.details).toList)
 
   def allocateParty(
       hint: Option[String],
       displayName: Option[String],
-      token: Option[String] = None): Future[PartyDetails] =
+      token: Option[String] = None,
+  ): Future[PartyDetails] =
     LedgerClient
       .stub(service, token)
       .allocateParty(new AllocatePartyRequest(hint.getOrElse(""), displayName.getOrElse("")))

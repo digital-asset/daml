@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds          #-}
@@ -36,7 +36,7 @@ infixr 1 `KArrow`
 -- > [a-zA-Z0-9]+
 newtype PackageId = PackageId{unPackageId :: T.Text}
     deriving stock (Eq, Data, Generic, Ord, Show)
-    deriving newtype (Hashable, NFData, ToJSON, ToJSONKey)
+    deriving newtype (Hashable, NFData, ToJSON, ToJSONKey, FromJSON)
 
 -- | Name for a module. Must match the regex
 --
@@ -179,10 +179,9 @@ data BuiltinType
   | BTArrow
   | BTAny
   | BTTypeRep
+  | BTRoundingMode
+  | BTBigNumeric
   | BTAnyException
-  | BTGeneralError
-  | BTArithmeticError
-  | BTContractError
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Type as used in typed binders.
@@ -221,6 +220,17 @@ data TypeConApp = TypeConApp
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
+data RoundingModeLiteral =
+      LitRoundingUp
+    | LitRoundingDown
+    | LitRoundingCeiling
+    | LitRoundingFloor
+    | LitRoundingHalfUp
+    | LitRoundingHalfDown
+    | LitRoundingHalfEven
+    | LitRoundingUnnecessary
+    deriving (Eq, Data, Generic, NFData, Ord, Show)
+
 -- | Builtin operation or literal.
 data BuiltinExpr
   -- Literals
@@ -233,17 +243,11 @@ data BuiltinExpr
   | BEDate       !Int32          -- :: Date, days since unix epoch
   | BEUnit                       -- :: Unit
   | BEBool       !Bool           -- :: Bool
+  | BERoundingMode !RoundingModeLiteral -- :: RoundingMode
 
   -- Exceptions
-  | BEError                      -- :: ∀a. Text -> a
-  | BEThrow                      -- :: ∀a. AnyException -> a
-  | BEAnyExceptionMessage        -- :: AnyException -> Text
-  | BEGeneralErrorMessage        -- :: GeneralError -> Text
-  | BEArithmeticErrorMessage     -- :: ArithmeticError -> Text
-  | BEContractErrorMessage       -- :: ContractError -> Text
-  | BEMakeGeneralError           -- :: Text -> GeneralError
-  | BEMakeArithmeticError        -- :: Text -> ArithmeticError
-  | BEMakeContractError          -- :: Text -> ContractError
+  | BEError                          -- :: ∀a. Text -> a
+  | BEAnyExceptionMessage            -- :: AnyException -> Text
 
   -- Polymorphic functions
   | BEEqualGeneric               -- :: ∀t. t -> t -> Bool
@@ -258,7 +262,7 @@ data BuiltinExpr
   | BEGreater    !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BEToText     !BuiltinType    -- :: t -> Text, where t is one of the builtin types
                                  -- {Int64, Decimal, Text, Timestamp, Date, Party}
-  | BEToTextContractId           -- :: forall t. ContractId t -> Option Text
+  | BEContractIdToText           -- :: forall t. ContractId t -> Option Text
 
   -- Decimal arithmetic
   | BEAddDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow
@@ -273,7 +277,7 @@ data BuiltinExpr
   | BELessEqNumeric              -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
   | BEGreaterEqNumeric           -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
   | BEGreaterNumeric             -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
-  | BEToTextNumeric              -- :: ∀(s:nat). Numeric s -> Text
+  | BENumericToText              -- :: ∀(s:nat). Numeric s -> Text
   | BEAddNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
   | BESubNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
   | BEMulNumeric                 -- :: ∀(s1:nat). ∀(s2:nat). ∀(s3:nat). Numeric s1 -> Numeric s2 -> Numeric s3, crashes on overflow and underflow, automatically rounds to even (see <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>)
@@ -329,13 +333,24 @@ data BuiltinExpr
   | BEAppendText                 -- :: Text -> Text -> Text
   | BEImplodeText                -- :: List Text -> Text
   | BESha256Text                 -- :: Text -> Text
-  | BEPartyFromText              -- :: Text -> Optional Party
-  | BEInt64FromText              -- :: Text -> Optional Int64
-  | BEDecimalFromText            -- :: Text -> Optional Decimal
-  | BENumericFromText            -- :: ∀(s:nat). Text -> Optional (Numeric s)
+  | BETextToParty              -- :: Text -> Optional Party
+  | BETextToInt64              -- :: Text -> Optional Int64
+  | BETextToDecimal            -- :: Text -> Optional Decimal
+  | BETextToNumeric            -- :: ∀(s:nat). Text -> Optional (Numeric s)
   | BETextToCodePoints           -- :: Text -> List Int64
-  | BETextFromCodePoints         -- :: List Int64 -> Text
+  | BECodePointsToText         -- :: List Int64 -> Text
   | BEPartyToQuotedText          -- :: Party -> Text
+
+  -- BigNumeric operations
+  | BEScaleBigNumeric            -- :: BigNumeric -> Int64
+  | BEPrecisionBigNumeric        -- :: BigNumeric -> Int64
+  | BEAddBigNumeric              -- :: BigNumeric -> BigNumeric -> BigNumeric
+  | BESubBigNumeric              -- :: BigNumeric -> BigNumeric -> BigNumeric
+  | BEMulBigNumeric              -- :: BigNumeric -> BigNumeric -> BigNumeric
+  | BEDivBigNumeric              -- :: Int64 -> RoundingMode -> BigNumeric -> BigNumeric -> BigNumeric
+  | BEShiftRightBigNumeric            -- :: Int64 -> BigNumeric -> BigNumeric
+  | BEBigNumericToNumeric        -- :: ∀(s:nat). BigNumeric -> Numeric s
+  | BENumericToBigNumeric      -- :: ∀(s:nat). Numeric s -> BigNumeric
 
   | BETrace                      -- :: forall a. Text -> a -> a
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool
@@ -516,15 +531,20 @@ data Expr
     }
   | ETypeRep !Type
   -- | Construct an 'AnyException' value from a value of an exception type.
-  | EMakeAnyException
-    { makeAnyExceptionType :: !Type
-    , makeAnyExceptionMessage :: !Expr
-    , makeAnyExceptionValue :: !Expr
+  | EToAnyException
+    { toAnyExceptionType :: !Type
+    , toAnyExceptionValue :: !Expr
     }
   -- | Convert 'AnyException' back to its underlying value, if possible.
   | EFromAnyException
     { fromAnyExceptionType :: !Type
     , fromAnyExceptionValue :: !Expr
+    }
+  -- | Throw an exception.
+  | EThrow
+    { throwReturnType :: !Type
+    , throwExceptionType :: !Type
+    , throwExceptionValue :: !Expr
     }
   -- | Update expression.
   | EUpdate !Update
@@ -532,6 +552,8 @@ data Expr
   | EScenario !Scenario
   -- | An expression annotated with a source location.
   | ELocation !SourceLoc !Expr
+  -- | Experimental Expression Hook
+  | EExperimental !T.Text !Type
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Pattern matching alternative.
@@ -831,6 +853,7 @@ data Template = Template
 data DefException = DefException
   { exnLocation :: !(Maybe SourceLoc)
   , exnName :: !TypeConName
+  , exnMessage :: !Expr
   }
   deriving (Eq, Data, Generic, NFData, Show)
 

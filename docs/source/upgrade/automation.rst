@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _upgrade-automation:
@@ -7,8 +7,8 @@ Automating the Upgrade Process
 ##############################
 
 In this section, we are going to automate the upgrade of our carbon certificate
-process using :doc:`DAML Script</daml-script/index>` and
-:doc:`DAML Triggers </triggers/index>`. Note that automation for upgrades is
+process using :doc:`Daml Script</daml-script/index>` and
+:doc:`Daml Triggers </triggers/index>`. Note that automation for upgrades is
 specific to an individual application, just like the upgrade models.
 Nevertheless, we have found that the pattern shown here
 occurs frequently.
@@ -38,19 +38,19 @@ There are three kinds of actions performed during the upgrade:
 Given those constraints, we are going to use the following tools for
 the upgrade:
 
-#. A DAML script that will be executed once by Alice and creates an
+#. A Daml script that will be executed once by Alice and creates an
    ``UpgradeCarbonCertProposal`` contract for each owner.
 #. Navigator to accept the ``UpgradeCarbonCertProposal`` as Bob. While we
-   could also use a DAML script to accept the proposal, this step will
+   could also use a Daml script to accept the proposal, this step will
    often be exposed as part of a web UI so doing it interactively in
    Navigator resembles that workflow more closely.
-#. A long-running DAML trigger that upgrades all ``CarbonCert`` contracts
+#. A long-running Daml trigger that upgrades all ``CarbonCert`` contracts
    for which there is a corresponding ``UpgradeCarbonCertAgreement``.
 
-Implementation of the DAML Script
+Implementation of the Daml Script
 =================================
 
-In our DAML Script, we are first going to query the ACS (Active Contract Set) to find all
+In our Daml Script, we are first going to query the ACS (Active Contract Set) to find all
 ``CarbonCert`` contracts issued by us. Next, we are going to extract the
 owner of each of those contracts and remove any duplicates coming from
 multiple certificates issued to the same owner. Finally, we iterate over the
@@ -61,7 +61,7 @@ owners and create an ``UpgradeCarbonCertAgreement`` contract for each owner.
    :start-after: -- INITIATE_UPGRADE_BEGIN
    :end-before: -- INITIATE_UPGRADE_END
 
-Implementation of the DAML Trigger
+Implementation of the Daml Trigger
 ==================================
 
 Our trigger does not need any custom user state and no heartbeat so
@@ -93,7 +93,7 @@ certificates of that owner.
 Deploying and Executing the Upgrade
 ===================================
 
-Now that we defined our DAML script and our trigger, it is time to use
+Now that we defined our Daml script and our trigger, it is time to use
 them! If you still have Sandbox running from the previous section,
 stop it to clear out all data before continuing.
 
@@ -106,7 +106,7 @@ and ``carbon-2.0.0``.
    $ cd example/carbon-upgrade
    $ daml sandbox .daml/dist/carbon-upgrade-1.0.0.dar
 
-To simplify the setup here, we use a DAML script to create 3 parties
+To simplify the setup here, we use a Daml script to create 3 parties
 Alice, Bob and Charlie and two ``CarbonCert`` contracts issues by Alice, one
 owned by Bob and one owned by Charlie.
 

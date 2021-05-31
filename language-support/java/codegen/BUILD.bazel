@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -8,6 +8,7 @@ load(
     "da_scala_test",
     "scala_source_jar",
     "scaladoc_jar",
+    "silencer_plugin",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -20,9 +21,9 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
+    "COMPILER_LF_VERSIONS",
     "LF_VERSIONS",
-    "lf_latest_version",
-    "lf_stable_version",
+    "lf_version_configuration",
 )
 load(
     "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
@@ -41,8 +42,17 @@ da_scala_binary(
 da_scala_library(
     name = "lib",
     srcs = glob(["src/main/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
     resources = [
         "src/main/resources/logback.xml",
+    ],
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -55,11 +65,8 @@ da_scala_library(
         "//language-support/java/bindings:bindings-java",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
-        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_squareup_javapoet",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -73,6 +80,16 @@ da_scala_test(
     data = [":test-daml.dar"],
     resource_strip_prefix = "language-support/java/codegen/src/test/resources/",
     resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalatest_scalatest",
+    ],
+    versioned_scala_deps = {
+        "2.12": [
+            "@maven//:org_scalaz_scalaz_core",
+            "@maven//:org_scala_lang_modules_scala_collection_compat",
+        ],
+    },
     deps = [
         ":lib",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -85,9 +102,6 @@ da_scala_test(
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_squareup_javapoet",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -125,13 +139,6 @@ scala_source_jar(
     srcs = [],
 )
 
-test_daml_lf_target_versions = [
-    "1.6",
-    "1.7",
-    "1.8",
-    "1.dev",
-]
-
 [
     [
         dar_to_java(
@@ -156,19 +163,12 @@ test_daml_lf_target_versions = [
             ],
         ),
     ]
-    for target in test_daml_lf_target_versions
+    for target in COMPILER_LF_VERSIONS
 ]
 
 ########################################################
 ####  Integration Tests
 ########################################################
-
-it_daml_lf_target_versions = [
-    "1.6",
-    "1.7",
-    "1.8",
-    "1.dev",
-]
 
 daml_compile(
     name = "integration-tests-model-1_6",
@@ -177,7 +177,10 @@ daml_compile(
             "src/it/daml/Tests/*.daml",
             "src/it/daml/Tests/Lib1_6.daml",
         ],
-        exclude = ["src/it/daml/Tests/NumericTest.daml"],
+        exclude = [
+            "src/it/daml/Tests/NumericTest.daml",
+            "src/it/daml/Tests/GenMapTest.daml",
+        ],
     ),
     target = "1.6",
 )
@@ -188,6 +191,9 @@ daml_compile(
         [
             "src/it/daml/Tests/*.daml",
             "src/it/daml/Tests/Lib1_7.daml",
+        ],
+        exclude = [
+            "src/it/daml/Tests/GenMapTest.daml",
         ],
     ),
     target = "1.7",
@@ -200,12 +206,48 @@ daml_compile(
             "src/it/daml/Tests/*.daml",
             "src/it/daml/Tests/Lib1_8.daml",
         ],
+        exclude = [
+            "src/it/daml/Tests/GenMapTest.daml",
+        ],
     ),
     target = "1.8",
 )
 
 daml_compile(
-    name = "integration-tests-model-dev",
+    name = "integration-tests-model-1_11",
+    srcs = glob(
+        [
+            "src/it/daml/Tests/*.daml",
+            "src/it/daml/Tests/Lib1_111.daml",
+        ],
+    ),
+    target = "1.11",
+)
+
+daml_compile(
+    name = "integration-tests-model-1_12",
+    srcs = glob(
+        [
+            "src/it/daml/Tests/*.daml",
+            "src/it/daml/Tests/Lib1_112.daml",
+        ],
+    ),
+    target = "1.12",
+)
+
+daml_compile(
+    name = "integration-tests-model-1_13",
+    srcs = glob(
+        [
+            "src/it/daml/Tests/*.daml",
+            "src/it/daml/Tests/Lib1_113.daml",
+        ],
+    ),
+    target = "1.13",
+)
+
+daml_compile(
+    name = "integration-tests-model-1_dev",
     srcs = glob(
         [
             "src/it/daml/Tests/*.daml",
@@ -220,10 +262,10 @@ daml_compile(
         #
         #
         # Compile the DAR files with and without a package to allow
-        # DAML-LF version agnostic tests to be run using generated
-        # Java classes with the same qualified name, while the DAML-LF
+        # Daml-LF version agnostic tests to be run using generated
+        # Java classes with the same qualified name, while the Daml-LF
         # specific tests run using Java classes generated with a
-        # package name qualified by the DAML-LF version.
+        # package name qualified by the Daml-LF version.
         #
         dar_to_java(
             name = "integration-tests-model-%s" % target,
@@ -248,7 +290,7 @@ daml_compile(
             ],
         ),
     ]
-    for target in LF_VERSIONS
+    for target in COMPILER_LF_VERSIONS
 ]
 
 ########################################################
@@ -258,7 +300,7 @@ daml_compile(
 daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
-    target = lf_stable_version,
+    target = lf_version_configuration.get("stable"),
 )
 
 dar_to_java(
@@ -274,7 +316,14 @@ da_scala_test(
     ],
     resource_strip_prefix = "language-support/java/codegen/src/ledger-tests/resources/",
     resources = ["src/ledger-tests/resources/logback-test.xml"],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     tags = ["exclusive"],
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     deps = [
         ":ledger-tests-model.jar",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -297,8 +346,6 @@ da_scala_test(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_reactivex_rxjava2_rxjava",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

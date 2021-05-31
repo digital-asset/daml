@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -6,7 +6,6 @@ package value
 
 import com.daml.lf.data.Bytes
 
-import scala.language.higherKinds
 import scala.util.control.NoStackTrace
 
 sealed abstract class CidMapper[-A1, +A2, In, Out] {
@@ -57,20 +56,20 @@ trait CidContainer[+A] {
 
   protected def self: A
 
-  final def ensureNoCid[B](
-      implicit checker: NoCidChecker[A, B]
+  final def ensureNoCid[B](implicit
+      checker: NoCidChecker[A, B]
   ): Either[Value.ContractId, B] =
     checker.traverse[Value.ContractId](Left(_))(self)
 
-  final def assertNoCid[B](message: Value.ContractId => String)(
-      implicit checker: NoCidChecker[A, B]
+  final def assertNoCid[B](message: Value.ContractId => String)(implicit
+      checker: NoCidChecker[A, B]
   ): B =
     data.assertRight(ensureNoCid.left.map(message))
 
   // Sets the suffix of any the V1 ContractId `coid` of the container that are not already suffixed.
   // Uses `f(coid.discriminator)` as suffix.
-  final def suffixCid[B](f: crypto.Hash => Bytes)(
-      implicit suffixer: CidSuffixer[A, B]
+  final def suffixCid[B](f: crypto.Hash => Bytes)(implicit
+      suffixer: CidSuffixer[A, B]
   ): Either[String, B] = {
     suffixer.traverse[String] {
       case Value.ContractId.V1(discriminator, Bytes.Empty) =>
@@ -92,21 +91,21 @@ trait CidContainer1[F[_]] {
 
   private[lf] def foreach1[A](f: A => Unit): F[A] => Unit
 
-  protected final def cidMapperInstance[A1, A2, In, Out](
-      implicit mapper: CidMapper[A1, A2, In, Out]
+  protected final def cidMapperInstance[A1, A2, In, Out](implicit
+      mapper: CidMapper[A1, A2, In, Out]
   ): CidMapper[F[A1], F[A2], In, Out] =
     new CidMapper[F[A1], F[A2], In, Out] {
       override def map(f: In => Out): F[A1] => F[A2] =
         map1[A1, A2](mapper.map(f))
     }
 
-  final implicit def noCidCheckerInstance[A1, A2](
-      implicit checker1: NoCidChecker[A1, A2],
+  final implicit def noCidCheckerInstance[A1, A2](implicit
+      checker1: NoCidChecker[A1, A2]
   ): NoCidChecker[F[A1], F[A2]] =
     cidMapperInstance[A1, A2, Value.ContractId, Nothing]
 
-  final implicit def cidSuffixerInstance[A1, A2](
-      implicit resolver1: CidSuffixer[A1, A2],
+  final implicit def cidSuffixerInstance[A1, A2](implicit
+      resolver1: CidSuffixer[A1, A2]
   ): CidSuffixer[F[A1], F[A2]] =
     cidMapperInstance
 
@@ -126,8 +125,8 @@ trait CidContainer2[F[_, _]] {
       f2: B => Unit,
   ): F[A, B] => Unit
 
-  protected final def cidMapperInstance[A1, B1, A2, B2, In, Out](
-      implicit mapper1: CidMapper[A1, A2, In, Out],
+  protected final def cidMapperInstance[A1, B1, A2, B2, In, Out](implicit
+      mapper1: CidMapper[A1, A2, In, Out],
       mapper2: CidMapper[B1, B2, In, Out],
   ): CidMapper[F[A1, B1], F[A2, B2], In, Out] =
     new CidMapper[F[A1, B1], F[A2, B2], In, Out] {
@@ -136,8 +135,8 @@ trait CidContainer2[F[_, _]] {
       }
     }
 
-  final implicit def cidSuffixerInstance[A1, B1, A2, B2](
-      implicit suffixer1: CidSuffixer[A1, A2],
+  final implicit def cidSuffixerInstance[A1, B1, A2, B2](implicit
+      suffixer1: CidSuffixer[A1, A2],
       suffixer2: CidSuffixer[B1, B2],
   ): CidSuffixer[F[A1, B1], F[A2, B2]] =
     cidMapperInstance
@@ -160,8 +159,8 @@ trait CidContainer3[F[_, _, _]] {
       f3: C => Unit,
   ): F[A, B, C] => Unit
 
-  protected final def cidMapperInstance[A1, B1, C1, A2, B2, C2, In, Out](
-      implicit mapper1: CidMapper[A1, A2, In, Out],
+  protected final def cidMapperInstance[A1, B1, C1, A2, B2, C2, In, Out](implicit
+      mapper1: CidMapper[A1, A2, In, Out],
       mapper2: CidMapper[B1, B2, In, Out],
       mapper3: CidMapper[C1, C2, In, Out],
   ): CidMapper[F[A1, B1, C1], F[A2, B2, C2], In, Out] =
@@ -171,8 +170,8 @@ trait CidContainer3[F[_, _, _]] {
       }
     }
 
-  final implicit def cidSuffixerInstance[A1, B1, C1, A2, B2, C2](
-      implicit suffixer1: CidSuffixer[A1, A2],
+  final implicit def cidSuffixerInstance[A1, B1, C1, A2, B2, C2](implicit
+      suffixer1: CidSuffixer[A1, A2],
       suffixer2: CidSuffixer[B1, B2],
       suffixer3: CidSuffixer[C1, C2],
   ): CidSuffixer[F[A1, B1, C1], F[A2, B2, C2]] =

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -11,9 +11,28 @@ script_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart 
     "NonUnitStatements",
 ]]
 
+test_script_sources = [
+    "src/main/scala/com/digitalasset/daml/lf/engine/script/TestMain.scala",
+]
+
 da_scala_library(
     name = "script-runner-lib",
-    srcs = glob(["src/main/scala/**/*.scala"]),
+    srcs = glob(
+        ["src/main/scala/**/*.scala"],
+        exclude = test_script_sources,
+    ),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http_spray_json",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_parsing",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_paiges_core",
+    ],
     scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
     deps = [
@@ -33,28 +52,56 @@ da_scala_library(
         "//ledger-service/cli-opts",
         "//ledger-service/jwt",
         "//ledger-service/lf-value-json",
-        "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-resources",
-        "//ledger/participant-integration-api",
-        "//ledger/participant-state",
-        "//ledger/sandbox-classic",
-        "//ledger/sandbox-common",
         "//libs-scala/auth-utils",
-        "//libs-scala/ports",
-        "//libs-scala/resources",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_akka_akka_http_2_12",
-        "@maven//:com_typesafe_akka_akka_http_core_2_12",
-        "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_typelevel_paiges_core_2_12",
+        "//libs-scala/scala-utils",
     ],
 )
+
+# Spun out into a separate library to avoid pulling in a sandbox
+# dependency where we don’t need it.
+[
+    da_scala_library(
+        name = "script-test-lib-{}".format(edition),
+        srcs = test_script_sources,
+        scala_deps = [
+            "@maven//:com_typesafe_akka_akka_stream",
+            "@maven//:io_spray_spray_json",
+            "@maven//:org_scalaz_scalaz_core",
+        ],
+        scalacopts = script_scalacopts,
+        visibility = ["//visibility:public"],
+        deps = [
+            ":script-runner-lib",
+            "//daml-lf/archive:daml_lf_archive_reader",
+            "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+            "//daml-lf/data",
+            "//daml-lf/interpreter",
+            "//daml-lf/language",
+            "//daml-lf/transaction",
+            "//language-support/scala/bindings",
+            "//language-support/scala/bindings-akka",
+            "//ledger-api/rs-grpc-bridge",
+            "//ledger/caching",
+            "//ledger/ledger-api-auth",
+            "//ledger/ledger-api-client",
+            "//ledger/ledger-api-common",
+            "//ledger/ledger-resources",
+            "//ledger/participant-integration-api",
+            "//ledger/participant-state",
+            "//ledger/sandbox-classic:sandbox-classic-{}".format(edition),
+            "//ledger/sandbox-common",
+            "//libs-scala/ports",
+            "//libs-scala/resources",
+        ],
+    )
+    for edition in [
+        "ce",
+        "ee",
+    ]
+]
 
 da_scala_binary(
     name = "script-runner",
@@ -68,9 +115,10 @@ da_scala_binary(
 da_scala_binary(
     name = "test-runner",
     main_class = "com.daml.lf.engine.script.TestMain",
+    resources = glob(["src/main/resources/**/*"]),
     scalacopts = script_scalacopts,
     visibility = ["//visibility:public"],
-    deps = [":script-runner-lib"],
+    deps = [":script-test-lib-ce"],
 )
 
 exports_files(["src/main/resources/logback.xml"])

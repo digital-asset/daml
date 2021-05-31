@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.validation
@@ -14,7 +14,9 @@ trait ErrorFactories {
   def ledgerIdMismatch(expected: LedgerId, received: LedgerId): StatusRuntimeException =
     grpcError(
       Status.NOT_FOUND.withDescription(
-        s"Ledger ID '${received.unwrap}' not found. Actual Ledger ID is '${expected.unwrap}'."))
+        s"Ledger ID '${received.unwrap}' not found. Actual Ledger ID is '${expected.unwrap}'."
+      )
+    )
 
   def missingField(fieldName: String): StatusRuntimeException =
     grpcError(Status.INVALID_ARGUMENT.withDescription(s"Missing field: $fieldName"))
@@ -40,6 +42,7 @@ trait ErrorFactories {
   def unimplemented(description: String): StatusRuntimeException =
     grpcError(Status.UNIMPLEMENTED.withDescription(description))
 
+  // permission denied is intentionally without description to ensure we don't leak security relevant information by accident
   def permissionDenied(): StatusRuntimeException =
     grpcError(Status.PERMISSION_DENIED)
 

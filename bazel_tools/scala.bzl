@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,6 +6,8 @@ load(
     "scala_binary",
     "scala_library",
     "scala_library_suite",
+    "scala_macro_library",
+    "scala_repl",
     "scala_test",
     "scala_test_suite",
 )
@@ -16,6 +18,7 @@ load(
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_suffix", "scala_version_suffix")
 
 # This file defines common Scala compiler flags and plugins used throughout
 # this repository. The initial set of flags is taken from the ledger-client
@@ -26,7 +29,34 @@ load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 # Use the macros `da_scala_*` defined in this file, instead of the stock rules
 # `scala_*` from `rules_scala` in order for these default flags to take effect.
 
-common_scalacopts = [
+def resolve_scala_deps(deps, scala_deps = [], versioned_scala_deps = {}):
+    return deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
+
+def extra_scalacopts(scala_deps, plugins):
+    return (["-P:silencer:lineContentFilters=import scala.collection.compat._"] if (scala_major_version != "2.12" and
+                                                                                    silencer_plugin in plugins and
+                                                                                    "@maven//:org_scala_lang_modules_scala_collection_compat" in scala_deps) else [])
+
+version_specific = {
+    "2.12": [
+        # these two flags turn on source-incompatible enhancements that are always
+        # on in Scala 2.13.  Despite the naming, though, the most impactful and
+        # 2.13-like change is -Ypartial-unification.  -Xsource:2.13 only turns on
+        # some minor, but in one specific case (scala/bug#10283) essential bug fixes
+        "-Xsource:2.13",
+        "-Ypartial-unification",
+        # adapted args is a deprecated feature:
+        # `def foo(a: (A, B))` can be called with `foo(a, b)`.
+        # properly it should be `foo((a,b))`
+        "-Yno-adapted-args",
+        "-Xlint:unsound-match",
+        "-Xlint:by-name-right-associative",  # will never be by-name if used correctly
+        "-Xfuture",
+        "-language:higherKinds",
+    ],
+}
+
+common_scalacopts = version_specific.get(scala_major_version, []) + [
     # doesn't allow advance features of the language without explict import
     # (higherkinds, implicits)
     "-feature",
@@ -39,19 +69,11 @@ common_scalacopts = [
     "-unchecked",
     # warn if using deprecated stuff
     "-deprecation",
-    "-Xfuture",
-    # these two flags turn on source-incompatible enhancements that are always
-    # on in Scala 2.13.  Despite the naming, though, the most impactful and
-    # 2.13-like change is -Ypartial-unification.  -Xsource:2.13 only turns on
-    # some minor, but in one specific case (scala/bug#10283) essential bug fixes
-    "-Xsource:2.13",
-    "-Ypartial-unification",
     # better error reporting for pureconfig
     "-Xmacro-settings:materialize-derivations",
     "-Xfatal-warnings",
     # catch missing string interpolators
     "-Xlint:missing-interpolator",
-    "-Xlint:by-name-right-associative",  # will never be by-name if used correctly
     "-Xlint:constant",  # / 0
     "-Xlint:doc-detached",  # floating Scaladoc comment
     "-Xlint:inaccessible",  # method uses invisible types
@@ -61,31 +83,36 @@ common_scalacopts = [
     "-Xlint:poly-implicit-overload",  # implicit conversions don't mix with overloads
     "-Xlint:private-shadow",  # name shadowing
     "-Xlint:type-parameter-shadow",  # name shadowing
-    "-Xlint:unsound-match",
-    # adapted args is a deprecated feature:
-    # `def foo(a: (A, B))` can be called with `foo(a, b)`.
-    # properly it should be `foo((a,b))`
-    "-Yno-adapted-args",
     "-Ywarn-dead-code",
     # Warn about implicit conversion between numerical types
     "-Ywarn-numeric-widen",
     # Gives a warning for functions declared as returning Unit, but the body returns a value
     "-Ywarn-value-discard",
-    "-Ywarn-unused-import",
+    "-Ywarn-unused:imports",
+    # Allow `@nowarn` annotations that allegedly do nothing (necessary because of false positives)
+    "-Ywarn-unused:-nowarn",
     "-Ywarn-unused",
 ]
 
 plugin_deps = [
-    "@maven//:org_wartremover_wartremover_2_12_12",
+    "@maven//:org_wartremover_wartremover_{}".format(scala_version_suffix),
 ]
 
 common_plugins = [
-    "@maven//:org_wartremover_wartremover_2_12_12",
+    "@maven//:org_wartremover_wartremover_{}".format(scala_version_suffix),
 ]
+
+version_specific_warts = {
+    "2.12": [
+        # On 2.13, this also triggers in string interpolation
+        # https://github.com/wartremover/wartremover/issues/447
+        "StringPlusAny",
+    ],
+}
 
 plugin_scalacopts = [
     "-Xplugin-require:wartremover",
-] + ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
+] + ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in version_specific_warts.get(scala_major_version, []) + [
     # This lists all wartremover linting passes.
     # "Any",
     "AnyVal",
@@ -116,7 +143,6 @@ plugin_scalacopts = [
     # "Recursion",
     "Return",
     "Serializable",
-    "StringPlusAny",
     # "Throw",
     # "ToString",
     # "TraversableOps",
@@ -139,8 +165,7 @@ default_compile_arguments = {
     "unused_dependency_checker_mode": "error",
 }
 
-silencer_plugin = "@maven//:com_github_ghik_silencer_plugin_2_12_12"
-silencer_lib = "@maven//:com_github_ghik_silencer_lib_2_12_12"
+silencer_plugin = "@maven//:com_github_ghik_silencer_plugin_{}".format(scala_version_suffix)
 
 default_initial_heap_size = "128m"
 default_max_heap_size = "1g"
@@ -183,23 +208,43 @@ def _wrap_rule(
         plugins = [],
         generated_srcs = [],  # hiding from the underlying rule
         deps = [],
-        silent_annotations = False,
+        scala_deps = [],
+        versioned_scala_deps = {},
+        runtime_deps = [],
+        scala_runtime_deps = [],
+        exports = [],
+        scala_exports = [],
         **kwargs):
-    if silent_annotations:
-        scalacopts = ["-P:silencer:checkUnused"] + scalacopts
-        plugins = [silencer_plugin] + plugins
-        deps = [silencer_lib] + deps
+    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
+    exports = resolve_scala_deps(exports, scala_exports)
+    if (len(exports) > 0):
+        kwargs["exports"] = exports
+    compat_scalacopts = extra_scalacopts(scala_deps = scala_deps, plugins = plugins)
     rule(
         name = name,
-        scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
+        scalacopts = common_scalacopts + plugin_scalacopts + compat_scalacopts + scalacopts,
         plugins = common_plugins + plugins,
         deps = deps,
+        runtime_deps = runtime_deps,
         **kwargs
     )
 
-def _wrap_rule_no_plugins(rule, scalacopts = [], **kwargs):
+def _wrap_rule_no_plugins(
+        rule,
+        deps = [],
+        scala_deps = [],
+        versioned_scala_deps = {},
+        runtime_deps = [],
+        scala_runtime_deps = [],
+        scalacopts = [],
+        **kwargs):
+    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
     rule(
         scalacopts = common_scalacopts + scalacopts,
+        deps = deps,
+        runtime_deps = runtime_deps,
         **kwargs
     )
 
@@ -384,8 +429,9 @@ def _scaladoc_jar_impl(ctx):
         args = ctx.actions.args()
         args.add_all(["-d", outdir.path])
         args.add_all("-doc-root-content", root_content)
-        args.add("-classpath")
-        args.add_joined(classpath, join_with = ":")
+        if classpath != []:
+            args.add("-classpath")
+            args.add_joined(classpath, join_with = ":")
         args.add_joined(pluginPaths, join_with = ",", format_joined = "-Xplugin:%s")
         args.add_all(common_scalacopts)
         args.add_all(ctx.attr.scalacopts)
@@ -468,23 +514,41 @@ Arguments:
   doctitle: title for Scalaadoc's index.html. Typically the name of the library
 """
 
-def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scalacopts = [], generated_srcs = [], silent_annotations = False, **kwargs):
+def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], generated_srcs = [], **kwargs):
     # Limit execution to Linux and MacOS
     if is_windows == False:
-        if silent_annotations:
-            # as with _wrap_rule
-            scalacopts = ["-P:silencer:checkUnused"] + scalacopts
-            plugins = [silencer_plugin] + plugins
-            deps = [silencer_lib] + deps
+        deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+        compat_scalacopts = extra_scalacopts(scala_deps = scala_deps, plugins = plugins)
         scaladoc_jar(
             name = name + "_scaladoc",
             deps = deps,
-            plugins = plugins,
             srcs = srcs,
-            scalacopts = scalacopts,
+            scalacopts = common_scalacopts + plugin_scalacopts + compat_scalacopts + scalacopts,
+            plugins = common_plugins + plugins,
             generated_srcs = generated_srcs,
             tags = ["scaladoc"],
         )
+
+def _create_scala_repl(
+        name,
+        deps = [],
+        scala_deps = [],
+        versioned_scala_deps = {},
+        runtime_deps = [],
+        scala_runtime_deps = [],
+        tags = [],
+        # hiding the following from the `scala_repl` rule
+        main_class = None,
+        exports = None,
+        scala_exports = None,
+        scalac_opts = None,
+        generated_srcs = None,
+        **kwargs):
+    name = name + "_repl"
+    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
+    tags = tags + ["manual"]
+    scala_repl(name = name, deps = deps, runtime_deps = runtime_deps, tags = tags, **kwargs)
 
 def da_scala_library(name, **kwargs):
     """
@@ -503,6 +567,7 @@ def da_scala_library(name, **kwargs):
     _wrap_rule(scala_library, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
     _create_scaladoc_jar(name = name, **arguments)
+    _create_scala_repl(name = name, **kwargs)
 
     if "tags" in arguments:
         for tag in arguments["tags"]:
@@ -513,7 +578,35 @@ def da_scala_library(name, **kwargs):
                 )
                 break
 
-def da_scala_library_suite(name, **kwargs):
+def da_scala_macro_library(name, **kwargs):
+    """
+    Define a Scala macro library.
+
+    Applies common Scala options defined in `bazel_tools/scala.bzl`.
+    And forwards to `scala_macro_library` from `rules_scala`.
+    Refer to the [`rules_scala` documentation][rules_scala_macro_library_docs].
+
+    [rules_scala_macro_library_docs]: https://github.com/bazelbuild/rules_scala/blob/master/docs/scala_macro_library.md
+    """
+    arguments = {}
+    arguments.update(default_compile_arguments)
+    arguments.update(kwargs)
+    arguments = _set_compile_jvm_flags(arguments)
+    _wrap_rule(scala_macro_library, name, **arguments)
+    _create_scala_source_jar(name = name, **arguments)
+    _create_scaladoc_jar(name = name, **arguments)
+    _create_scala_repl(name = name, **kwargs)
+
+    if "tags" in arguments:
+        for tag in arguments["tags"]:
+            if tag.startswith("maven_coordinates="):
+                pom_file(
+                    name = name + "_pom",
+                    target = ":" + name,
+                )
+                break
+
+def da_scala_library_suite(name, scaladoc = True, **kwargs):
     """
     Define a suite of Scala libraries as a single target.
 
@@ -528,7 +621,8 @@ def da_scala_library_suite(name, **kwargs):
     arguments = _set_compile_jvm_flags(arguments)
     _wrap_rule(scala_library_suite, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
-    _create_scaladoc_jar(name = name, **arguments)
+    if scaladoc == True:
+        _create_scaladoc_jar(name = name, **arguments)
 
     if "tags" in arguments:
         for tag in arguments["tags"]:
@@ -606,5 +700,13 @@ def da_scala_test_suite(initial_heap_size = default_initial_heap_size, max_heap_
 
 # TODO make the jmh rule work with plugins -- probably
 # just a matter of passing the flag in
-def da_scala_benchmark_jmh(**kwargs):
-    _wrap_rule_no_plugins(scala_benchmark_jmh, **kwargs)
+def da_scala_benchmark_jmh(
+        deps = [],
+        scala_deps = [],
+        versioned_scala_deps = {},
+        runtime_deps = [],
+        scala_runtime_deps = [],
+        **kwargs):
+    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
+    _wrap_rule_no_plugins(scala_benchmark_jmh, deps, runtime_deps, **kwargs)

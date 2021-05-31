@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -58,10 +58,59 @@ TOOLS_INSTALL
 echo "Done installing tools through Homebrew."
 
 # create /nix partition
-hdiutil create -size 20g -fs 'Case-sensitive APFS' -volname Nix -type SPARSE /System/Volumes/Data/Nix.dmg
+hdiutil create -size 60g -fs 'Case-sensitive APFS' -volname Nix -type SPARSE /System/Volumes/Data/Nix.dmg
 hdiutil attach /System/Volumes/Data/Nix.dmg.sparseimage -mountpoint /nix
 
 echo "Created /nix partition."
+
+## cache
+
+CACHE_SCRIPT=/Users/vsts/reset_caches.sh
+
+cat <<'RESET_CACHES' > $CACHE_SCRIPT
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+reset_cache() {
+    local file mount_point
+    file=$1
+    mount_point=$2
+
+    echo "Cleaning up '$mount_point'..."
+    if [ -d "$mount_point" ]; then
+        for pid in $(pgrep -a -f bazel | awk '{print $1}'); do
+            echo "Killing $pid..."
+            kill -s KILL $pid
+        done
+        for pid in $(lsof $mount_point | sed 1d | awk '{print $2}' | sort -u); do
+            echo "Killing $pid..."
+            kill -s KILL $pid
+        done
+        if hdiutil info | grep $mount_point; then
+            hdiutil detach "$mount_point"
+        fi
+        rm -rf $mount_point
+    fi
+
+    rm -f "${file}.sparseimage"
+    hdiutil create -size 200g -fs 'Case-sensitive APFS' -volname "$file" -type SPARSE "$file"
+    mkdir -p $mount_point
+    hdiutil attach "${file}.sparseimage" -mountpoint "$mount_point"
+    echo "Done."
+}
+
+reset_cache /var/tmp/bazel_cache.dmg /var/tmp/_bazel_vsts
+reset_cache /var/tmp/disk_cache.dmg /Users/vsts/.bazel-cache
+RESET_CACHES
+chown vsts:staff $CACHE_SCRIPT
+chmod +x $CACHE_SCRIPT
+
+su -l vsts <<END
+/Users/vsts/reset_caches.sh
+END
+
+echo "created cache partitions"
 
 # Note: installing Nix in single-user mode with /nix already existing and
 # writeable does not require sudoer access

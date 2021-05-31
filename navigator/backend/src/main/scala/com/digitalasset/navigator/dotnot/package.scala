@@ -1,10 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator
 
-/**
-  * dotnot(ation) is a simple library to implement a string-based dot-notation system
+/** dotnot(ation) is a simple library to implement a string-based dot-notation system
   * to access properties. A property is something in dot notation `branch1.branch2.leaf`
   * similar to the dot-notation in scala to reference a field.
   *
@@ -35,8 +34,8 @@ package dotnot {
       target: String,
       expectedType: String,
       cursor: PropertyCursor,
-      value: String)
-      extends DotNotFailure
+      value: String,
+  ) extends DotNotFailure
   final case class UnknownProperty(target: String, cursor: PropertyCursor, value: String)
       extends DotNotFailure
   final case class MatchNotFoundForValue(target: String, cursor: PropertyCursor, value: String)
@@ -69,8 +68,7 @@ package dotnot {
     def onLeaf(name: String): OnLeaf[T, R, C] =
       onLeafP(equalsTo(name))
 
-    /**
-      * Match a branch by predicate on the name and delegate handling the subtree from that branch
+    /** Match a branch by predicate on the name and delegate handling the subtree from that branch
       *
       * @param nameMatcher matcher of the branch name
       * @param project the projection from the parent model of type `T` to the child model
@@ -80,7 +78,8 @@ package dotnot {
     def onBranchP[P](
         nameMatcher: NameMatcher,
         project: T => P,
-        delegate: OnTreeReady[P, R, C]): OnTreeReady[T, R, C] = {
+        delegate: OnTreeReady[P, R, C],
+    ): OnTreeReady[T, R, C] = {
       val action: (T, PropertyCursor, String, C) => Either[DotNotFailure, R] =
         (t: T, cursor: PropertyCursor, value: String, context: C) => {
           cursor.next match {
@@ -99,23 +98,24 @@ package dotnot {
     def onBranch[P](
         name: String,
         project: T => P,
-        delegate: OnTreeReady[P, R, C]): OnTreeReady[T, R, C] =
+        delegate: OnTreeReady[P, R, C],
+    ): OnTreeReady[T, R, C] =
       if (name == "*") {
         onBranchP[P](constTrue, project, delegate)
       } else {
         onBranchP[P](equalsTo(name), project, delegate)
       }
 
-    /**
-      * Given a collection, match one the first element `e` with `getName(e)` equal to
+    /** Given a collection, match one the first element `e` with `getName(e)` equal to
       * the value currently pointed by the cursor and then delegate handling that element
       * to `delegate`
       *
       * @param getName a function to read the name of `E`
       * @param delegate the dotnot handler for `e`
       */
-    def onElements[E](getName: E => String, delegate: OnTreeReady[E, R, C])(
-        implicit ev: T <:< Traversable[E]): OnTreeReady[T, R, C] = {
+    def onElements[E](getName: E => String, delegate: OnTreeReady[E, R, C])(implicit
+        ev: T <:< Iterable[E]
+    ): OnTreeReady[T, R, C] = {
       val action: (T, PropertyCursor, String, C) => Either[DotNotFailure, R] =
         (t: T, cursor: PropertyCursor, value: String, context: C) => {
           cursor.next match {
@@ -157,8 +157,8 @@ package dotnot {
   final case class OnTreeReady[T, R, C](
       target: String,
       nameMatcherToActions: Vector[NameMatcherToAction[T, R, C]],
-      default: Option[Action[T, R, C]])
-      extends OnTreeBase[T, R, C] {
+      default: Option[Action[T, R, C]],
+  ) extends OnTreeBase[T, R, C] {
 
     override def onTree: OnTreeReady[T, R, C] = this
 
@@ -173,7 +173,8 @@ package dotnot {
     def onValueP(valueMatcher: ValueMatcher): OnValue[T, R, C] =
       OnValue[T, R, C](
         OnLeafReady(onTreeOld, leafMatcher, valueMatcherToActions, default),
-        valueMatcher)
+        valueMatcher,
+      )
 
     def onValue(value: String): OnValue[T, R, C] =
       onValueP(equalsTo(value))
@@ -192,8 +193,8 @@ package dotnot {
       onTreeOld: OnTreeReady[T, R, C],
       leafMatcher: NameMatcher,
       valueMatcherToActions: Vector[ValueMatcherToAction[T, R, C]],
-      default: Option[Action[T, R, C]])
-      extends OnLeafBase[T, R, C]
+      default: Option[Action[T, R, C]],
+  ) extends OnLeafBase[T, R, C]
       with OnTreeBase[T, R, C] {
 
     override def target: String = onTreeOld.target
@@ -221,7 +222,7 @@ package dotnot {
     def perform[K](f: (T, K) => R)(implicit readK: Read[K]): OnLeafReady[T, R, C] = {
       val action: Action[T, R, C] = (t: T, cursor: PropertyCursor, value: String, _: C) => {
         if (cursor.isLast) {
-          Right(f(t, readK.from(value).right.get))
+          Right(f(t, readK.from(value).toOption.get))
         } else {
           Left(MustBeLastPart(onLeaf.onTreeOld.target, cursor, value))
         }
@@ -241,15 +242,13 @@ package object dotnot {
   type ValueMatcher = String => Boolean
   type Action[T, R, C] = (T, PropertyCursor, String, C) => Either[DotNotFailure, R]
 
-  /**
-    * Create a dot-notation handler for a type `T` with name `name` and with return
+  /** Create a dot-notation handler for a type `T` with name `name` and with return
     * type from the leafs of type `R`
     */
   def root[T, R, C](name: String): OnTree[T, R, C] =
     OnTree[T, R, C](name)
 
-  /**
-    * Utility method that creates a "opaque" dot-notation handler, which is
+  /** Utility method that creates a "opaque" dot-notation handler, which is
     * a handler that bypass the library and uses the given function `f` to
     * access the underlying structure of type `T` and to produce a result of
     * type `R`.

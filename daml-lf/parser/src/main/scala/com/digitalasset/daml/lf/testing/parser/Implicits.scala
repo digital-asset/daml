@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing
@@ -11,7 +11,7 @@ object Implicits {
 
   implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
     defaultPackageId,
-    defaultLanguageVersion
+    defaultLanguageVersion,
   )
 
   implicit class SyntaxHelper(val sc: StringContext) extends AnyVal {

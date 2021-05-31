@@ -1,6 +1,6 @@
 # Bazel User Guide
 
-This document explains how to use the Bazel build system on the DAML repository
+This document explains how to use the Bazel build system on the Daml repository
 from a users perspective. I.e. assuming the project you are working on has
 already been ported to Bazel.
 
@@ -13,7 +13,7 @@ project to Bazel.
 ## Setup
 
 This section goes through the required steps for a basic but fully functioning
-setup of the Bazel build system for work on the DAML repository. Additional setup
+setup of the Bazel build system for work on the Daml repository. Additional setup
 as for the IntelliJ integration is listed in its own section below.
 
 ### Bazel Executable
@@ -92,7 +92,7 @@ details depend on the rule in question.
 
 The following rules are commonly used in this repository. For Scala projects
 `da_scala_library`, `da_scala_test_suite`, `da_scala_binary`. For Java projects
-`java_library`, `java_test_suite`, `java_binary`. For DAML projects `daml`.
+`java_library`, `java_test_suite`, `java_binary`. For Daml projects `daml`.
 
 Labels can point to a specific target, or to a set of targets using a
 wild-card. The following wild-card patterns are recognized.
@@ -154,11 +154,23 @@ page][intellij_plugin_jetbrains].
 [intellij_plugin_install]: https://ij.bazel.build/docs/bazel-plugin.html#getting-started
 [intellij_plugin_jetbrains]: https://plugins.jetbrains.com/plugin/8609-bazel
 
+#### Side note: code formatting
+
+While not relevant to setup IntelliJ to work with Bazel, if you plan to work on Java
+code you are also advised to install the [google-java-format plugin][intellij_plugin_javafmt].
+This plugin integrates the IntelliJ code formatting actions with the
+[Google Java Style Guide][google_java_style_guide], which is enforced on CI with
+the [google-java-format tool][google_java_format_tool].
+
+[intellij_plugin_javafmt]: https://plugins.jetbrains.com/plugin/8527-google-java-format
+[google_java_style_guide]: https://google.github.io/styleguide/javaguide.html
+[google_java_format_tool]: https://github.com/google/google-java-format
+
 ### Importing a project
 
 To import a Bazel project into IntelliJ select "Import Bazel Project" in the
 welcome dialog, or `File > Import Bazel Project` in the editor window. In the
-import dialog under "Workspace:" enter the path to the DAML repository root.
+import dialog under "Workspace:" enter the path to the Daml repository root.
 
 The Bazel IntelliJ integration uses a *project view* file to define the list of
 directories and targets to make accessible in IntelliJ and to control other
@@ -240,21 +252,21 @@ additional_languages:
 
 Click "Next" once you are ready. You will be able to modify the project view
 file whenever you like, so don't worry too much.
- 
-The first import of the project might fail due to a resolution error of the 
+
+The first import of the project might fail due to a resolution error of the
 `bazel` binary. In order to solve this, configure the Bazel plugin settings
-with the location of the `bazel` binary, 
-by setting _Preferences_ → _Bazel Settings_ → _Bazel binary location_ 
+with the location of the `bazel` binary,
+by setting _Preferences_ → _Bazel Settings_ → _Bazel binary location_
 to `./dev-env/bin/bazel`.
 
-Now, re-trigger a sync of the workspace (IntelliJ Action: 
+Now, re-trigger a sync of the workspace (IntelliJ Action:
 _Sync project with BUILD files_). This process will take a while.
 
 [intellij_project_view]: https://ij.bazel.build/docs/project-views.html
 
 ### Configuring the JDK in IntelliJ
 
-DAML downloads the version of the JDK it uses from Nix. A symlink will be
+Daml downloads the version of the JDK it uses from Nix. A symlink will be
 created by the dev-env utilities (make sure you've set these up) in
 _dev-env/jdk_.
 
@@ -264,11 +276,11 @@ TO configure IntelliJ to use this JDK:
 2. Under _Platform Settings_, select _SDKs_.
 3. Press the _plus_ button and select "Add JDK".
 4. Choose the _dev-env/jdk_ directory.
-5. Name it "DAML JDK" or something similar.
+5. Name it "Daml JDK" or something similar.
 6. Ensure there's sources attached under the _Sourcepath_ tab. If not, add them.
    Press the _plus_ button and select _dev-env/jdk/lib/openjdk/src.zip_.
 7. Open _Project Settings_ →  _Project_.
-8. Select the DAML JDK from the _Project SDK_ list.
+8. Select the Daml JDK from the _Project SDK_ list.
 
 ### Overview over Bazel IntelliJ Integration
 
@@ -328,8 +340,8 @@ or "OK" to add the run configuration.
 #### Attaching sources to scala library
 
 If you do not have the Scala library sources linked (you only see the decompiled
- sources), you can attach it manually by selecting the `Choose sources...` 
- button on the yellow bar at the top, and selecting `scala-library...-src.jar`. 
+ sources), you can attach it manually by selecting the `Choose sources...`
+ button on the yellow bar at the top, and selecting `scala-library...-src.jar`.
 
 ### Known Issues
 
@@ -450,6 +462,14 @@ detailed information.
 
     ```
     bazel run //ledger/sandbox:sandbox-binary -- --help
+    ```
+
+### Running a REPL
+
+- Run a Scala REPL which has the library on the classpath:
+
+    ```
+    bazel run //ledger/ledger-on-memory:ledger-on-memory_repl
     ```
 
 ### Querying Targets
@@ -619,7 +639,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
 )
 ```
-To build this single target from the root of the DAML repository, the
+To build this single target from the root of the Daml repository, the
 command would be:
 ```
 bazel build //compiler/damlc/daml-compiler
@@ -753,7 +773,7 @@ More comprehensive documentation on the `bazel` command can be found
 If your work goes beyond simply adding targets to existing
 `BUILD.bazel` files and involves things like defining toolchains and
 external dependencies, then [this
-document](https://github.com/digital-asset/daml/blob/master/BAZEL-haskell.md)
+document](https://github.com/digital-asset/daml/blob/main/BAZEL-haskell.md)
 is for you!
 
 ## Scala in Bazel
@@ -897,18 +917,18 @@ the target `foo_deploy.jar` next to the regular `foo.jar` target. Building the
 `foo_deploy.jar` target will generate a self-contained fat JAR suitable to be
 passed to `java -jar`.
 
-### DAML Packages
+### Daml Packages
 
-DAML package targets are defined using the `daml` rule loaded from
+Daml package targets are defined using the `daml` rule loaded from
 `//rules_daml:daml.bzl`. To explain it we will take an example instance and
 describe the individual attributes.
 
 ```
 daml(
   name = "it-daml",
-  # The main DAML file. This file will be passed to damlc.
+  # The main Daml file. This file will be passed to damlc.
   main_src = "src/it/resources/TestAll.daml",
-  # Other DAML files that may be imported by the main DAML file.
+  # Other Daml files that may be imported by the main Daml file.
   srcs = glob(["src/it/resources/**/*.daml"]),
   # The directory prefix under which to create the DAR tree.
   target_dir = "target/scala-2.12/resource_managed/it/dars",
@@ -923,7 +943,7 @@ daml(
 )
 ```
 
-This will compile and package the DAML code into a DAR file under the following
+This will compile and package the Daml code into a DAR file under the following
 target, where `<group-dir>` is the `group` attribute with `.` replaced by `/`.
 
 ```
@@ -951,10 +971,10 @@ For example:
 it-daml.srcjar
 ```
 
-### DAML Executables
+### Daml Executables
 
 The rule `daml_binary` is provided to generate executable targets that execute
-the DAML sandbox on a given DAR package. For example:
+the Daml sandbox on a given DAR package. For example:
 
 ```
 daml_binary(
@@ -964,7 +984,7 @@ daml_binary(
 ```
 
 Such a target can then be executed as follows, where arguments after `--` are
-passed to the DAML sandbox.
+passed to the Daml sandbox.
 
 ```
 bazel run //ledger-client/nanobot-sample-app:ping-pong-exec -- --help
@@ -989,7 +1009,9 @@ resolution and import the required artifacts into the Bazel build.
 
 The resolved versions are pinned in the file `maven_install.json`. Execute
 `bazel run @unpinned_maven//:pin` when you wish to update or add a new
-dependency. See [`rules_jvm_external`][rules_jvm_external] for details.
+dependency. You also need to run this a second time to update the deps for 2.12
+`DAML_SCALA_VERSION=2.12.13 bazel run @unpinned_maven//:pin`.
+See [`rules_jvm_external`][rules_jvm_external] for details.
 
 [rules_jvm_external]: https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
 
@@ -1004,7 +1026,7 @@ For an example, please see `compiler/daml-extension/BUILD.bazel`.
 
 ## Protocol buffers in Bazel
 
-We use protocol buffers for DAML-LF and the Ledger API. The DAML-LF protocol
+We use protocol buffers for Daml-LF and the Ledger API. The Daml-LF protocol
 buffer build rules can be found from //daml-lf/archive/BUILD.bazel.
 It produces bindings for Java and Haskell (via proto3-suite).
 

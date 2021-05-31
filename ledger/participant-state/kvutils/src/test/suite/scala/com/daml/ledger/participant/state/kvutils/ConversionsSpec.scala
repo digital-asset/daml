@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -6,15 +6,15 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Conversions.{
   commandDedupKey,
   decodeBlindingInfo,
-  encodeBlindingInfo
+  encodeBlindingInfo,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlSubmitterInfo,
-  DamlTransactionBlindingInfo
+  DamlTransactionBlindingInfo,
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlTransactionBlindingInfo.{
   DisclosureEntry,
-  DivulgenceEntry
+  DivulgenceEntry,
 }
 import com.daml.lf.crypto
 import com.daml.lf.crypto.Hash
@@ -25,9 +25,8 @@ import com.daml.lf.value.Value.ContractId
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.immutable.ListSet
-import scala.collection.JavaConverters._
 import scala.collection.immutable.{ListMap, ListSet}
+import scala.jdk.CollectionConverters._
 
 class ConversionsSpec extends AnyWordSpec with Matchers {
   "Conversions" should {

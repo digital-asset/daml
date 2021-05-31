@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.codegen.exception
@@ -9,7 +9,7 @@ sealed abstract class CodeGenException(error: String) extends RuntimeException(e
 /** Error while decoding the package or extracting the interface */
 final case class PackageInterfaceException(error: String) extends CodeGenException(error)
 
-/** An unsupported DAML type has been found in a template */
+/** An unsupported Daml type has been found in a template */
 final case class UnsupportedDamlTypeException(typeName: String)
     extends CodeGenException(s"Unsupported daml type '$typeName'")
 

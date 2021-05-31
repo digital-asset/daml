@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -18,7 +18,7 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "lf_stable_version",
+    "lf_version_configuration",
 )
 
 da_java_library(
@@ -59,6 +59,14 @@ da_scala_library(
             "src/test/**/*Test.scala",
         ],
     ),
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     deps = [
         ":bindings-rxjava",
         "//daml-lf/data",
@@ -73,9 +81,6 @@ da_scala_library(
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_reactivex_rxjava2_rxjava",
         "@maven//:org_reactivestreams_reactive_streams",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -92,6 +97,15 @@ da_scala_test_suite(
     resources = [
         ":src/test/resources/logback-test.xml",
     ],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+    ],
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     deps = [
         ":bindings-integration-tests-model-latest.jar",
         ":bindings-java-tests-lib",
@@ -108,10 +122,6 @@ da_scala_test_suite(
         "@maven//:io_reactivex_rxjava2_rxjava",
         "@maven//:org_pcollections_pcollections",
         "@maven//:org_reactivestreams_reactive_streams",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -119,7 +129,7 @@ da_scala_test_suite(
 daml_compile(
     name = "bindings-integration-tests-model-latest",
     srcs = ["src/main/daml/TemplateUtils.daml"],
-    target = lf_stable_version,
+    target = lf_version_configuration.get("latest"),
 )
 
 dar_to_java(

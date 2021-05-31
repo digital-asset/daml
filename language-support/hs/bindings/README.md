@@ -56,7 +56,7 @@ Also, in the instructions below we export the `daml-ledger` package to `/tmp` wh
     eval $(dev-env/bin/dade-assist)
     language-support/hs/bindings/export-package.sh /tmp
 
-## Write a DAML Ledger App in Haskell (or copy one!), and build it
+## Write a Daml Ledger App in Haskell (or copy one!), and build it
 
     cd /tmp
     cp -rp /tmp/daml/language-support/hs/bindings/examples/nim nim

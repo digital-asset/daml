@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -73,14 +73,14 @@ object PlaySpeedy {
     println("Loading dar...")
     val packages = UniversalArchiveReader().readFile(darFile).get
     val packagesMap =
-      packages.all.map {
-        case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+      packages.all.map { case (pkgId, pkgArchive) =>
+        Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
       }.toMap
 
     println(s"Compiling packages... ${config.stacktracing}")
     val compiledPackages: CompiledPackages = PureCompiledPackages(
       packagesMap,
-      Compiler.Config.Default.copy(stacktracing = config.stacktracing)
+      Compiler.Config.Default.copy(stacktracing = config.stacktracing),
     ) match {
       case Right(x) => x
       case Left(x) =>
@@ -93,7 +93,8 @@ object PlaySpeedy {
         val ref: DefinitionRef =
           Identifier(
             packages.main._1,
-            QualifiedName.assertFromString(s"${base}:${config.funcName}"))
+            QualifiedName.assertFromString(s"${base}:${config.funcName}"),
+          )
         val func = SEVal(LfDefRef(ref))
         val arg = SEValue(SInt64(config.argValue))
         SEApp(func, Array(arg))

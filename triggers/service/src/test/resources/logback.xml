@@ -1,7 +1,7 @@
 <configuration>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg %replace(, context: %marker){', context: $', ''} %n</pattern>
         </encoder>
     </appender>
 
@@ -11,7 +11,7 @@
     <logger name="io.grpc.netty" level="WARN">
         <appender-ref ref="stderr-appender"/>
     </logger>
-    <logger name="com.daml.lf.engine.trigger" level="DEBUG">
+    <logger name="com.daml.lf.engine.trigger" level="INFO">
         <appender-ref ref="stderr-appender"/>
     </logger>
     <root level="INFO">

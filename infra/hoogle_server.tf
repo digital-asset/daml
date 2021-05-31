@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 resource "google_compute_network" "hoogle" {
@@ -7,7 +7,7 @@ resource "google_compute_network" "hoogle" {
 
 resource "google_compute_firewall" "hoogle" {
   name        = "hoogle-firewall"
-  network     = "${google_compute_network.hoogle.name}"
+  network     = google_compute_network.hoogle.name
   target_tags = ["hoogle"]
 
   source_ranges = ["130.211.0.0/22", "35.191.0.0/16"]
@@ -18,16 +18,50 @@ resource "google_compute_firewall" "hoogle" {
   }
 }
 
+resource "google_compute_firewall" "hoogle-ssh" {
+  count   = 0
+  name    = "hoogle-ssh"
+  network = google_compute_network.hoogle.name
+  log_config {
+    metadata = "INCLUDE_ALL_METADATA"
+  }
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+  source_ranges = [
+    "35.194.81.56/32",  # North Virginia
+    "35.189.40.124/32", # Sydney
+    "35.198.147.95/32", # Frankfurt
+  ]
+}
+
+locals {
+  h_clusters = [
+    {
+      suffix         = "-blue",
+      ubuntu_version = "2004",
+      size           = 0,
+    },
+    {
+      suffix         = "-green",
+      ubuntu_version = "2004",
+      size           = 3,
+    }
+  ]
+}
+
 resource "google_compute_instance_template" "hoogle" {
-  name_prefix  = "hoogle-"
+  count        = length(local.h_clusters)
+  name_prefix  = "hoogle${local.h_clusters[count.index].suffix}-"
   machine_type = "n1-standard-1"
   tags         = ["hoogle"]
-  labels       = "${local.machine-labels}"
+  labels       = local.machine-labels
 
   disk {
     boot         = true
     disk_size_gb = 20
-    source_image = "ubuntu-os-cloud/ubuntu-1604-lts"
+    source_image = "ubuntu-os-cloud/ubuntu-${local.h_clusters[count.index].ubuntu_version}-lts"
   }
 
   metadata_startup_script = <<STARTUP
@@ -70,42 +104,51 @@ useradd hoogle
 mkdir /home/hoogle
 chown hoogle:hoogle /home/hoogle
 cd /home/hoogle
-curl -sSL https://get.haskellstack.org/ | sh
-runuser -u hoogle bash <<HOOGLE_SETUP
-git clone https://github.com/ndmitchell/hoogle.git
-cd hoogle
-git checkout 73fa6b5c156e0015e135a564e2821719611abe03
-stack init --resolver=lts-14.7
-stack build
-stack install
-export PATH=/home/hoogle/.local/bin:$PATH
-mkdir daml
-curl https://docs.daml.com/hoogle_db/base.txt --output daml/base.txt
-hoogle generate --database=daml.hoo --local=daml
-nohup hoogle server --database=daml.hoo --log=.log.txt --port=8080 >> out.txt &
-HOOGLE_SETUP
-cat > /home/hoogle/refresh-db.sh <<CRON
+mkdir /nix
+chown hoogle:hoogle /nix
+runuser -l hoogle <<'HOOGLE_SETUP'
+curl -sSfL https://nixos.org/nix/install | sh
+. /home/hoogle/.nix-profile/etc/profile.d/nix.sh
+# Feel free to bump the commit, this was the latest
+# # at the time of creation.
+NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/c50e680b03adecae01fdd1ea4e44c82e641de0cf.tar.gz
+cat << EOF > /home/hoogle/hoogle_overlay.nix
+super:
+{
+  haskellPackages = super.haskellPackages.override {
+    overrides = haskellSelf: haskellSuper: {
+      hoogle = super.haskell.lib.appendPatch haskellSuper.hoogle
+        (super.fetchurl {
+          url = "https://patch-diff.githubusercontent.com/raw/ndmitchell/hoogle/pull/367.patch";
+          sha256 = "1p0xdnfjicl5zp6g0fkqjk9mgm6fqzl7sz0v5m51chzd7lwx181y";
+        });
+    };
+  };
+}
+EOF
+HOOGLE_PATH=$(nix-build --no-out-link -E '((import /home/hoogle/hoogle_overlay.nix) (import <nixpkgs> {})).haskellPackages.hoogle')
+mkdir -p /home/hoogle/.local/bin
+ln -s $HOOGLE_PATH/bin/hoogle /home/hoogle/.local/bin/hoogle
+cat > /home/hoogle/refresh-db.sh <<MAKE_DB
 #!/usr/bin/env bash
-set -euxo pipefail
+set -euo pipefail
 log() {
   echo "[\$(date -Is)] \$1" >> /home/hoogle/cron_log.txt
 }
 log "Checking for new DAML version..."
-cd /home/hoogle/hoogle
+cd /home/hoogle
 mkdir new-daml
-if ! curl --fail -s https://docs.daml.com/hoogle_db/base.txt --output new-daml/base.txt; then
-  curl -s https://docs.daml.com/hoogle_db.tar.gz --output db.tar.gz
-  tar xzf db.tar.gz -C new-daml --strip-components=1
-fi
+curl -s https://docs.daml.com/hoogle_db.tar.gz --output db.tar.gz
+tar xzf db.tar.gz -C new-daml --strip-components=1
 if ! diff -rq daml new-daml; then
   log "New version detected. Creating database..."
   rm -rf daml
   mv new-daml daml
-  rm daml.hoo
+  rm -f daml.hoo
   /home/hoogle/.local/bin/hoogle generate --database=daml.hoo --local=daml
   log "Killing running instance..."
-  killall hoogle
-  log "Stating new server..."
+  killall hoogle || true
+  log "Starting new server..."
   nohup /home/hoogle/.local/bin/hoogle server --database=daml.hoo --log=.log.txt --port=8080 >> out.txt &
   log "New server started."
 else
@@ -113,15 +156,18 @@ else
   rm -rf new-daml
 fi
 log "Done."
-CRON
+MAKE_DB
 chmod +x /home/hoogle/refresh-db.sh
-chown hoogle:hoogle /home/hoogle/refresh-db.sh
-echo "*/5 * * * * /home/hoogle/refresh-db.sh" | crontab -u hoogle -
+./refresh-db.sh
+echo "*/5 * * * * /home/hoogle/refresh-db.sh" | crontab -
+echo "Successfully ran startup script."
+tail -f cron_log.txt
+HOOGLE_SETUP
 STARTUP
 
   network_interface {
-    network       = "${google_compute_network.hoogle.name}"
-    access_config = {}
+    network = google_compute_network.hoogle.name
+    access_config {}
   }
 
   service_account {
@@ -141,15 +187,16 @@ STARTUP
 }
 
 resource "google_compute_instance_group_manager" "hoogle" {
-  provider           = "google-beta"
-  name               = "hoogle"
-  base_instance_name = "hoogle"
-  zone               = "${local.zone}"
-  target_size        = "3"
+  provider           = google-beta
+  count              = length(local.h_clusters)
+  name               = "hoogle${local.h_clusters[count.index].suffix}"
+  base_instance_name = "hoogle${local.h_clusters[count.index].suffix}"
+  zone               = local.zone
+  target_size        = local.h_clusters[count.index].size
 
   version {
-    name              = "hoogle"
-    instance_template = "${google_compute_instance_template.hoogle.self_link}"
+    name              = "hoogle${local.h_clusters[count.index].suffix}"
+    instance_template = google_compute_instance_template.hoogle[count.index].self_link
   }
 
   named_port {
@@ -163,10 +210,10 @@ resource "google_compute_instance_group_manager" "hoogle" {
   }
 
   auto_healing_policies {
-    health_check = "${google_compute_health_check.hoogle-https.self_link}"
+    health_check = google_compute_health_check.hoogle-https.self_link
 
     # Compiling hoogle takes some time
-    initial_delay_sec = 2500
+    initial_delay_sec = 600
   }
 
   update_policy {
@@ -193,28 +240,31 @@ resource "google_compute_health_check" "hoogle-http" {
 
 resource "google_compute_backend_service" "hoogle-http" {
   name          = "hoogle-http"
-  health_checks = ["${google_compute_health_check.hoogle-http.self_link}"]
+  health_checks = [google_compute_health_check.hoogle-http.self_link]
   port_name     = "http"
 
-  backend {
-    group = "${google_compute_instance_group_manager.hoogle.instance_group}"
+  dynamic backend {
+    for_each = local.h_clusters
+    content {
+      group = google_compute_instance_group_manager.hoogle[backend.key].instance_group
+    }
   }
 }
 
 resource "google_compute_url_map" "hoogle-http" {
   name            = "hoogle-http"
-  default_service = "${google_compute_backend_service.hoogle-http.self_link}"
+  default_service = google_compute_backend_service.hoogle-http.self_link
 }
 
 resource "google_compute_target_http_proxy" "hoogle-http" {
   name    = "hoogle-http"
-  url_map = "${google_compute_url_map.hoogle-http.self_link}"
+  url_map = google_compute_url_map.hoogle-http.self_link
 }
 
 resource "google_compute_global_forwarding_rule" "hoogle_http" {
   name       = "hoogle-http"
-  target     = "${google_compute_target_http_proxy.hoogle-http.self_link}"
-  ip_address = "${google_compute_global_address.hoogle.address}"
+  target     = google_compute_target_http_proxy.hoogle-http.self_link
+  ip_address = google_compute_global_address.hoogle.address
   port_range = "80"
 }
 
@@ -230,33 +280,36 @@ resource "google_compute_health_check" "hoogle-https" {
 
 resource "google_compute_backend_service" "hoogle-https" {
   name          = "hoogle-https"
-  health_checks = ["${google_compute_health_check.hoogle-https.self_link}"]
+  health_checks = [google_compute_health_check.hoogle-https.self_link]
   port_name     = "https"
 
-  backend {
-    group = "${google_compute_instance_group_manager.hoogle.instance_group}"
+  dynamic backend {
+    for_each = local.h_clusters
+    content {
+      group = google_compute_instance_group_manager.hoogle[backend.key].instance_group
+    }
   }
 }
 
 resource "google_compute_url_map" "hoogle-https" {
   name            = "hoogle-https"
-  default_service = "${google_compute_backend_service.hoogle-https.self_link}"
+  default_service = google_compute_backend_service.hoogle-https.self_link
 }
 
 resource "google_compute_target_https_proxy" "hoogle-https" {
   name    = "hoogle-https"
-  url_map = "${google_compute_url_map.hoogle-https.self_link}"
+  url_map = google_compute_url_map.hoogle-https.self_link
 
-  ssl_certificates = ["${local.ssl_certificate_hoogle}"]
+  ssl_certificates = [local.ssl_certificate_hoogle]
 }
 
 resource "google_compute_global_forwarding_rule" "hoogle_https" {
   name       = "hoogle-https"
-  target     = "${google_compute_target_https_proxy.hoogle-https.self_link}"
-  ip_address = "${google_compute_global_address.hoogle.address}"
+  target     = google_compute_target_https_proxy.hoogle-https.self_link
+  ip_address = google_compute_global_address.hoogle.address
   port_range = "443"
 }
 
 output "hoogle_address" {
-  value = "${google_compute_global_address.hoogle.address}"
+  value = google_compute_global_address.hoogle.address
 }

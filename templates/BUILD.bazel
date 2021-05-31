@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -57,7 +57,7 @@ genrule(
         "//docs:daml-patterns",
         "//docs:copy-trigger-template",
         "//docs:script-example-template",
-        "//language-support/scala/examples:quickstart-scala-dir",
+        "//language-support/scala/examples:quickstart-scala.tar",
     ],
     outs = ["templates-tarball.tar.gz"],
     cmd = """
@@ -90,7 +90,7 @@ EOF
         tar xf $(location //docs:quickstart-java.tar.gz) --strip-components=1 -C $$OUT/quickstart-java
 
         # quickstart-scala template
-        cp -r $(location //language-support/scala/examples:quickstart-scala-dir)/* $$OUT/quickstart-scala/
+        tar xf $(location //language-support/scala/examples:quickstart-scala.tar) --strip-components=1 -C $$OUT/quickstart-scala/
 
         # daml intro templates
         tar xf $(location //docs:daml-intro-templates) -C $$OUT

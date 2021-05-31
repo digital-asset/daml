@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -21,9 +21,17 @@ repl_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart fo
 da_scala_binary(
     name = "repl-service-raw",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    main_class = "com.daml.lf.repl.ReplServiceMain",
+    main_class = "com.daml.lf.speedy.repl.ReplServiceMain",
     resources = ["src/main/resources/logback.xml"],
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = repl_scalacopts,
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -42,13 +50,10 @@ da_scala_binary(
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
         "//libs-scala/scala-utils",
-        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_stub",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

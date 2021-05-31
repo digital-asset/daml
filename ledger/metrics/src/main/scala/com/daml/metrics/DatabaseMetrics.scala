@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.metrics
@@ -15,6 +15,7 @@ class DatabaseMetrics private[metrics] (
   val waitTimer: Timer = registry.timer(dbPrefix :+ "wait")
   val executionTimer: Timer = registry.timer(dbPrefix :+ "exec")
   val translationTimer: Timer = registry.timer(dbPrefix :+ "translation")
+  val compressionTimer: Timer = registry.timer(dbPrefix :+ "compression")
   val commitTimer: Timer = registry.timer(dbPrefix :+ "commit")
   val queryTimer: Timer = registry.timer(dbPrefix :+ "query")
 }

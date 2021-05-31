@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -34,7 +34,8 @@ class FrontStackSpec
     "more than 2 elements are provided" should {
       "behave the same as prepend" in forAll { (x: Int, y: Int, z: Int, rest: Seq[Int]) =>
         FrontStack(x, y, z, rest: _*) should ===(
-          ImmArray(Seq(x, y, z) ++ rest) ++: FrontStack.empty)
+          ImmArray(Seq(x, y, z) ++ rest) ++: FrontStack.empty
+        )
       }
     }
 
@@ -53,7 +54,7 @@ class FrontStackSpec
 
   "toImmArray" should {
     "yield same elements as iterator" in forAll { fs: FrontStack[Int] =>
-      fs.toImmArray should ===(fs.iterator.to[ImmArray])
+      fs.toImmArray should ===(fs.iterator.to(ImmArray))
     }
   }
 

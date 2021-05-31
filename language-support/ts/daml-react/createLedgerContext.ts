@@ -1,9 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import React, {useContext, useEffect, useMemo, useState } from 'react';
 import { ContractId,Party, Template } from '@daml/types';
-import Ledger, { CreateEvent, Query, Stream, StreamCloseEvent } from '@daml/ledger';
+import Ledger, { CreateEvent, Query, Stream, StreamCloseEvent, QueryResult } from '@daml/ledger';
+
+export { QueryResult } from '@daml/ledger';
 
 /**
  * @internal
@@ -16,7 +18,7 @@ type DamlLedgerState = {
 }
 
 /**
- * React props to initiate a connect to a DAML ledger.
+ * React props to initiate a connect to a Daml ledger.
  */
 export type LedgerProps = {
   token: string;
@@ -24,20 +26,6 @@ export type LedgerProps = {
   wsBaseUrl?: string;
   party: Party;
   reconnectThreshold?: number;
-}
-
-/**
- * The result of a ``query`` against the ledger.
- *
- * @typeparam T The contract template type of the query.
- * @typeparam K The contract key type of the query.
- * @typeparam I The template id type.
- */
-export type QueryResult<T extends object, K, I extends string> = {
-  /** Contracts matching the query. */
-  contracts: readonly CreateEvent<T, K, I>[];
-  /** Indicator for whether the query is executing. */
-  loading: boolean;
 }
 
 /**
@@ -69,7 +57,7 @@ export type FetchByKeysResult<T extends object, K, I extends string> = {
 }
 
 /**
- * A LedgerContext is a React context that stores information about a DAML Ledger
+ * A LedgerContext is a React context that stores information about a Daml Ledger
  * and hooks necessary to use it.
  */
 export type LedgerContext = {

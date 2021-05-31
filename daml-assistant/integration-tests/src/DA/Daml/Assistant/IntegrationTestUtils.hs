@@ -1,15 +1,16 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Assistant.IntegrationTestUtils (withSdkResource, throwError) where
 
 import Conduit hiding (connect)
-import Control.Monad.Fail (MonadFail)
+import Control.Monad (forM_)
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import qualified Data.Conduit.Zlib as Zlib
 import Data.List.Extra
 import qualified Data.Text as T
 import System.Environment.Blank
 import System.FilePath
+import System.Directory.Extra
 import System.IO.Extra
 import System.Info.Extra
 import Test.Tasty
@@ -26,19 +27,28 @@ withSdkResource f =
     withTempDirResource $ \getDir ->
     withResource (installSdk =<< getDir) restoreEnv (const $ f getDir)
   where installSdk targetDir = do
-            releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
+            releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball-ce.tar.gz")
             oldPath <- getSearchPath
+            withTempDir $ \cacheDir -> do
             withTempDir $ \extractDir -> do
                 runConduitRes
                     $ sourceFileBS releaseTarball
                     .| Zlib.ungzip
                     .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError extractDir)
                 setEnv "DAML_HOME" targetDir True
+                setPermissions cacheDir emptyPermissions
+                setEnv "DAML_CACHE" cacheDir True
                 if isWindows
                     then callProcessSilent
                         (extractDir </> "daml" </> damlInstallerName)
                         ["install", "--install-assistant=yes", "--set-path=no", extractDir]
                     else callCommandSilent $ extractDir </> "install.sh"
+                -- We restrict the permissions of the DAML_HOME directory to make sure everything
+                -- still works when the directory is read-only.
+                allFiles <- listFilesRecursive targetDir
+                forM_ allFiles $ \file -> do
+                  getPermissions file >>= \p -> setPermissions file $ p {writable = False}
+                setPermissions targetDir emptyPermissions {executable = True}
             setEnv "PATH" (intercalate [searchPathSeparator] ((targetDir </> "bin") : oldPath)) True
             pure oldPath
         restoreEnv oldPath = do

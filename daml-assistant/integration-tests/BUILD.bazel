@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
@@ -135,6 +135,7 @@ da_haskell_test(
         "extra",
         "filepath",
         "http-client",
+        "monad-loops",
         "http-types",
         "jwt",
         "lens",
@@ -142,6 +143,7 @@ da_haskell_test(
         "network",
         "process",
         "safe",
+        "stm",
         "tar",
         "tar-conduit",
         "tasty",
@@ -152,6 +154,7 @@ da_haskell_test(
         "vector",
     ],
     main_function = "DA.Daml.Assistant.IntegrationTests.main",
+    tags = ["cpu:2"],
     visibility = ["//visibility:public"],
     deps = [
         ":integration-test-utils",
@@ -195,25 +198,6 @@ da_haskell_library(
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
-)
-
-da_haskell_test(
-    name = "create-daml-app-tests",
-    timeout = "long",
-    srcs = ["src/DA/Daml/Assistant/CreateDamlAppTestsMain.hs"],
-    args = [
-        "$(location @nodejs//:npm_bin)",
-        "$(location @nodejs//:node_bin)",
-    ],
-    data = [
-        "@nodejs//:node_bin",
-        "@nodejs//:npm_bin",
-    ],
-    hackage_deps = ["base"],
-    main_function = "DA.Daml.Assistant.CreateDamlAppTestsMain.main",
-    # Exclusive until we stop hardcoding port numbers in index.test.ts
-    tags = ["exclusive"],
-    deps = [":create-daml-app-tests-lib"],
 )
 
 da_haskell_test(

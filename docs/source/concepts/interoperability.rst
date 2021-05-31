@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
    
 .. _interoperable-ledgers:
@@ -6,10 +6,10 @@
 Ledger Interoperability
 #######################
 
-Certain DAML ledgers can interoperate with other DAML ledgers.
+Certain Daml ledgers can interoperate with other Daml ledgers.
 That is, the contracts created on one ledger can be used and archived in transactions on other ledgers.
 Some Participant Nodes can connect to multiple ledgers and provide their parties unified access to those ledgers via the :ref:`Ledger API <ledger-api-services>`.
-For example, when an organization initially deploys two workflows to two DAML ledgers, it can later compose those workflows into a larger workflow that spans both ledgers.
+For example, when an organization initially deploys two workflows to two Daml ledgers, it can later compose those workflows into a larger workflow that spans both ledgers.
 
 Interoperability may limit the visibility a Participant Node has into a party's ledger projection, i.e., its :ref:`local ledger <local-ledger>`, when the party is hosted on multiple Participant Nodes.
 These limitations influence what parties can observe via the Ledger API of each Participant Node.
@@ -20,12 +20,12 @@ The presentation assumes that you are familiar with the following concepts:
 
 * The :ref:`Ledger API <ledger-api-services>`
 
-* The :ref:`DAML Ledger Model <da-ledgers>`
+* The :ref:`Daml Ledger Model <da-ledgers>`
 
 * :ref:`Local ledgers and causality graphs <local-ledger>`
 
 .. note::
-   Interoperability for DAML ledgers is under active development.
+   Interoperability for Daml ledgers is under active development.
    This document describes the vision for interoperability
    and gives an idea of how the Ledger API services may change and what guarantees are provided.
    The described services and guarantees may change without notice as the interoperability implementation proceeds.
@@ -40,7 +40,7 @@ Interoperability examples
 Topology
 ========
 
-Participant Nodes connect to DAML ledgers and parties access projections of these ledgers via the Ledger API.
+Participant Nodes connect to Daml ledgers and parties access projections of these ledgers via the Ledger API.
 The following picture shows such a setup.
 
 .. https://app.lucidchart.com/documents/edit/6b818d37-cf4c-4513-9d31-d68acddf4533
@@ -53,15 +53,15 @@ The following picture shows such a setup.
 
 The components in this diagram are the following:
 
-* There is a set of interoperable **DAML ledgers**: Ledger 1 (green) and Ledger 2 (yellow).
+* There is a set of interoperable **Daml ledgers**: Ledger 1 (green) and Ledger 2 (yellow).
 
-* Each **Participant Node** is connected to a subset of the DAML ledgers.
+* Each **Participant Node** is connected to a subset of the Daml ledgers.
   
   - Participant Nodes 1 and 3 are connected to Ledger 1 and 2.
   - Participant Node 2 is connected to Ledger 1 only.
 
-* Participant Nodes host parties on a subset of the DAML ledgers they are connected to.
-  A Participant Node provides a party access to the DAML ledgers that it hosts the party on.
+* Participant Nodes host parties on a subset of the Daml ledgers they are connected to.
+  A Participant Node provides a party access to the Daml ledgers that it hosts the party on.
 
   - Participant Node 1 hosts Alice on Ledger 1 and 2.
   - Participant Node 2 hosts Alice on Ledger 1.
@@ -73,7 +73,7 @@ Aggregation at the participant
 ==============================
 
 The Participant Node assembles the updates from these ledgers and outputs them via the party's Transaction Service and Active Contract Service.
-When a Participant Node hosts a party only on a subset of the interoperable DAML ledgers,
+When a Participant Node hosts a party only on a subset of the interoperable Daml ledgers,
 then the transaction and active contract services of the Participant Node are derived only from those ledgers.
 
 For example, in the :ref:`above topology <multiple-ledgers>`, when a transaction creates a contract with stakeholder Alice on Ledger 2,
@@ -130,9 +130,9 @@ In contrast, `P1` need not output the **Enter** and **Leave** actions at all in 
 Cross-ledger transactions
 =========================
 
-With interoperability, a cross-ledger transaction can be committed on several interoperable DAML ledgers simultaneously.
+With interoperability, a cross-ledger transaction can be committed on several interoperable Daml ledgers simultaneously.
 Such a cross-ledger transaction avoids some of the synchronization overhead of **Enter** and **Leave** actions.
-When a cross-ledger transaction uses contracts from several DAML ledgers,
+When a cross-ledger transaction uses contracts from several Daml ledgers,
 stakeholders may witness actions on their contracts that are actually not visible on the Participant Node.
 
 For example, suppose that the :ref:`split paint counteroffer workflow <split-counteroffer-ledger>` from the causality examples is committed as follows:
@@ -161,15 +161,15 @@ Multi-ledger causality graphs
 
 This section generalizes :ref:`causality graphs <causality-graph>` to the interoperability setting.
 
-Every active DAML contract resides on at most one DAML ledger.
-Any use of a contract must be committed on the DAML ledger where it resides.
-Initially, when the contract is created, it takes up residence on the DAML ledger on which the **Create** action is committed.
-To use contracts residing on different DAML ledgers, cross-ledger transactions are committed on several DAML ledgers.
+Every active Daml contract resides on at most one Daml ledger.
+Any use of a contract must be committed on the Daml ledger where it resides.
+Initially, when the contract is created, it takes up residence on the Daml ledger on which the **Create** action is committed.
+To use contracts residing on different Daml ledgers, cross-ledger transactions are committed on several Daml ledgers.
 
-However, cross-ledger transactions incur overheads and if a contract is frequently used on a DAML ledger that is not its residence, the interoperability protocol can migrate the contract to the other DAML ledger.
-The process of the contract giving up residence on the origin DAML ledger and taking up residence on the target DAML ledger is called a **contract transfer**.
+However, cross-ledger transactions incur overheads and if a contract is frequently used on a Daml ledger that is not its residence, the interoperability protocol can migrate the contract to the other Daml ledger.
+The process of the contract giving up residence on the origin Daml ledger and taking up residence on the target Daml ledger is called a **contract transfer**.
 The **Enter** and **Leave** events on the transaction stream originate from such contract transfers, as will be explained below.
-Moreover, contract transfers are synchronization points between the origin and target DAML ledgers and therefore affect the ordering guarantees.
+Moreover, contract transfers are synchronization points between the origin and target Daml ledgers and therefore affect the ordering guarantees.
 We therefore generalize causality graphs for interoperability.
 
 Definition »Transfer action«
@@ -182,7 +182,7 @@ Transfer actions do not appear in transactions though.
 So a transaction action cannot have a transfer action as a consequence and transfer actions do not have consequences at all.
 
 Definition »Multi-Ledger causality graph«
-  A **multi-ledger causality graph** `G` for a set `Y` of DAML ledgers is a finite, transitively closed, directed acyclic graph.
+  A **multi-ledger causality graph** `G` for a set `Y` of Daml ledgers is a finite, transitively closed, directed acyclic graph.
   The vertices are either transactions or transfer actions.
   Every action is possibly annotated with an **incoming ledger** and an **outgoing ledger** from `Y` according to the following table:
 
@@ -242,7 +242,7 @@ The last transaction `tx4` is a cross-ledger transaction because its actions hav
    :align: center
    :width: 100%
 
-   Multi-Ledger causality graph for the split paint counteroffer workflow on two DAML ledgers
+   Multi-Ledger causality graph for the split paint counteroffer workflow on two Daml ledgers
 
 
 Consistency
@@ -251,8 +251,8 @@ Consistency
 Definition »Ledger trace«
   A **ledger trace** is a finite list of pairs `(a`:sub:`i`\ `, b`:sub:`i`\ `)`
   such that `b`:sub:`i - 1` = `a`:sub:`i` for all `i` > 0.
-  Here `a`:sub:`i` and `b`:sub:`i` identify DAML ledgers or are the special value `NONE`,
-  which is different from all DAML ledger identifiers.
+  Here `a`:sub:`i` and `b`:sub:`i` identify Daml ledgers or are the special value `NONE`,
+  which is different from all Daml ledger identifiers.
 
  
 Definition »Multi-Ledger causal consistency for a contract«
@@ -271,11 +271,11 @@ Definition »Multi-Ledger causal consistency for a contract«
 
   #. For every maximal chain in `X` (i.e., maximal totally ordered subset of `X`), the sequence of `(`\ incoming ledger, outgoing ledger\ `)` pairs is a ledger trace, using `NONE` if the action does not have an incoming or outgoing ledger annotation.
 
-The first three conditions mimick the conditions of :ref:`causal consistency <def-causal-consistency-contract>` for ordinary causality graphs.
+The first three conditions mimic the conditions of :ref:`causal consistency <def-causal-consistency-contract>` for ordinary causality graphs.
 They ensure that **Create** actions come first and consuming **Exercise** actions last.
 An **Enter** action takes the role of a **Create** if there is no **Create**.
 The fourth condition ensures that all transfer actions are synchronization points for a contract.
-The last condition about ledger traces ensures that contracts reside on only one DAML ledger and all usages happen on the ledger of residence.
+The last condition about ledger traces ensures that contracts reside on only one Daml ledger and all usages happen on the ledger of residence.
 In particular, the next contract action after a **Leave** must be an **Enter**.
 
 For example, the above :ref:`multi-ledger causality graph with transfer actions <interoperable-causality-graph-linear>` is multi-ledger consistent for `c`.
@@ -343,7 +343,7 @@ If the original causality graph is `X`\ -consistent, then so is the topological 
 From multi-ledger causality graphs to ledgers
 =============================================
 
-Multi-Ledger causality graphs `G` are linked to ledgers `L` in the DAML Ledger Model via topological sort and reduction.
+Multi-Ledger causality graphs `G` are linked to ledgers `L` in the Daml Ledger Model via topological sort and reduction.
 
 * Given a multi-ledger causality graph `G`,
   drop the incoming and outgoing ledger annotations and all transfer vertices,
@@ -373,7 +373,7 @@ Definition »Y-labelled action«
   if its incoming or outgoing ledger annotation is an element of `Y`.
 
 Definition »Ledger-aware projection for transactions«
-  Let `Y` be a set of DAML ledgers and `tx` a transaction whose actions are annotated with incoming and outgoing ledgers.
+  Let `Y` be a set of Daml ledgers and `tx` a transaction whose actions are annotated with incoming and outgoing ledgers.
   Let `Act` be the set of `Y`\ -labelled subactions of `tx` that the party `P` is an informee of.
   The **ledger-aware projection** of `tx` for `P` on `Y` (`P`-**projection on** `Y`) consists of all the maximal elements of `Act` (w.r.t. the subaction relation) in execution order.
 
@@ -403,12 +403,12 @@ Definition »Projection for transfer actions«
 
 Definition »Multi-Ledger consistency for a party«
   An multi-ledger causality graph `G` is **consistent for a party** `P` on a set of ledgers `Y` (`P`\ -**consistent** on `Y`)
-  if `G` is multi-ledger consistent on the set of `Y`\ -labelled actions in `G` of which `P` is an informee.
+  if `G` is multi-ledger consistent on the set of `Y`\ -labelled actions in `G` of which `P` is a stakeholder informee.
 
 The notions of `X`-minimality and `X`-reduction extend to a party `P` on a set `Y` of ledgers accordingly.
 
 Definition »Ledger-aware projection for multi-ledger causality graphs«
-  Let `G` be a multi-ledger consistent causality graph and `Y` be a set of DAML ledgers.
+  Let `G` be a multi-ledger consistent causality graph and `Y` be a set of Daml ledgers.
   The **projection** of `G` to party `P` on `Y` (`P`\ -**projection** on `Y`) is the `P`\ -reduction on `Y` of the following causality graph `G'`, which is `P`\ -consistent on `Y`:
 
   * The vertices of `G'` are the vertices of `G` projected to `P` on `Y`, excluding empty projections.
@@ -472,6 +472,6 @@ The flat transaction stream contains precisely the ``CreatedEvent``\ s, ``Archiv
 Similarly, the active contract service provides the set of contracts that are active at the returned offset according to the flat transaction stream.
 That is, the contract state changes of all events from the transaction event stream are taken into account in the provided set of contracts.
 
-The :ref:`ordering guarantees <ordering-guarantees>` for single DAML ledgers extend accordingly.
-In particular, interoperability ensures that all local ledgers are projections of a virtual shared multi-ledger causality graph that connects to the DAML Ledger Model as described above.
+The :ref:`ordering guarantees <ordering-guarantees>` for single Daml ledgers extend accordingly.
+In particular, interoperability ensures that all local ledgers are projections of a virtual shared multi-ledger causality graph that connects to the Daml Ledger Model as described above.
 The ledger validity guarantees therefore extend via the local ledgers to the Ledger API.

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver
@@ -50,7 +50,8 @@ final class MetricsInterceptorSpec
     serverWithMetrics(metrics, new AkkaImplementation).use { channel =>
       for {
         _ <- Future.sequence(
-          (1 to 3).map(reqInt => HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt))))
+          (1 to 3).map(reqInt => HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt)))
+        )
       } yield {
         eventually {
           metrics.registry.timer("daml.lapi.hello_service.single").getCount shouldBe 3
@@ -82,7 +83,8 @@ final class MetricsInterceptorSpec
     serverWithMetrics(metrics, new DelayedHelloService(1.second)).use { channel =>
       for {
         _ <- new StreamConsumer[HelloResponse](observer =>
-          HelloServiceGrpc.stub(channel).serverStreaming(HelloRequest(reqInt = 3), observer)).all()
+          HelloServiceGrpc.stub(channel).serverStreaming(HelloRequest(reqInt = 3), observer)
+        ).all()
       } yield {
         eventually {
           val metric = metrics.registry.timer("daml.lapi.hello_service.server_streaming")
@@ -124,8 +126,8 @@ object MetricsInterceptorSpec {
         })(server => Future(server.shutdown().awaitTermination()))
     }
 
-  private final class DelayedHelloService(delay: FiniteDuration)(
-      implicit executionSequencerFactory: ExecutionSequencerFactory,
+  private final class DelayedHelloService(delay: FiniteDuration)(implicit
+      executionSequencerFactory: ExecutionSequencerFactory,
       materializer: Materializer,
   ) extends HelloService
       with Responding
@@ -146,7 +148,8 @@ object MetricsInterceptorSpec {
         .single(request)
         .via(Flow[HelloRequest].mapConcat(responses))
         .mapAsync(1)(response =>
-          after(delay, materializer.system.scheduler)(Future.successful(response)))
+          after(delay, materializer.system.scheduler)(Future.successful(response))
+        )
         .runWith(ServerAdapter.toSink(responseObserver))
       ()
     }

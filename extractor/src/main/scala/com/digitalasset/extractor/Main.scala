@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor
@@ -8,7 +8,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 object Main extends App with StrictLogging {
 
-  logger.info("Starting DAML Extractor...")
+  logger.info("Starting Daml Extractor...")
   logger.trace("Parsing config...")
 
   private val (config, target) = ConfigParser.parse(args).getOrElse {

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
@@ -11,28 +11,28 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlOutOfTimeBoundsEntry,
   DamlStateKey,
   DamlStateValue,
-  DamlSubmission
+  DamlSubmission,
 }
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
-import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.kvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import org.slf4j.{Logger, LoggerFactory}
 
 /** A committer either processes or pre-executes a submission, with its inputs into an ordered set of output state and
   * a log entry or multiple log entries in case of pre-execution.
   * It is parametrized by the committer's partial result `PartialResult`.
   *
   * A committer implementation defines an initial partial result with init and `steps` to process the submission
-  * into a set of DAML state outputs and a log entry. The main rationale behind this abstraction is to provide uniform
-  * approach to implementing a kvutils committer that shares the handling of input and output DAML state, rejecting
+  * into a set of Daml state outputs and a log entry. The main rationale behind this abstraction is to provide uniform
+  * approach to implementing a kvutils committer that shares the handling of input and output Daml state, rejecting
   * a submission, logging and metrics.
   *
   * Each step is invoked with [[CommitContext]], that allows it to [[CommitContext.get]] and [[CommitContext.set]]
-  * DAML state, and the partial result from previous step.
+  * Daml state, and the partial result from previous step.
   * When processing a submission for pre-execution, a committer produces the following set of results:
   *   - a set of output states and a log entry to be applied in case of no conflicts and/or time-out,
   *   - a record time window within which the submission is considered valid and a deduplication
@@ -52,18 +52,6 @@ import org.slf4j.{Logger, LoggerFactory}
   * @see [[com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult]]
   */
 private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
-  protected final type Step = (CommitContext, PartialResult) => StepResult[PartialResult]
-
-  protected final val logger: Logger = LoggerFactory.getLogger(getClass)
-
-  protected val committerName: String
-
-  protected def steps: Iterable[(StepInfo, Step)]
-
-  /** The initial internal state passed to first step. */
-  protected def init(ctx: CommitContext, submission: DamlSubmission): PartialResult
-
-  protected val metrics: Metrics
 
   // These are lazy because they rely on `committerName`, which is defined in the subclass and
   // therefore not set at object initialization.
@@ -71,10 +59,24 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   private lazy val preExecutionRunTimer: Timer =
     metrics.daml.kvutils.committer.preExecutionRunTimer(committerName)
   private lazy val stepTimers: Map[StepInfo, Timer] =
-    steps.map {
-      case (info, _) =>
-        info -> metrics.daml.kvutils.committer.stepTimer(committerName, info)
+    steps.map { case (info, _) =>
+      info -> metrics.daml.kvutils.committer.stepTimer(committerName, info)
     }.toMap
+
+  protected val committerName: String
+
+  /** Extra logging context, extracted from the state at each step. */
+  protected def extraLoggingContext(result: PartialResult): Map[String, String]
+
+  /** The initial internal state passed to first step. */
+  protected def init(
+      ctx: CommitContext,
+      submission: DamlSubmission,
+  )(implicit loggingContext: LoggingContext): PartialResult
+
+  protected def steps: Iterable[(StepInfo, CommitStep[PartialResult])]
+
+  protected val metrics: Metrics
 
   /** A committer can `run` a submission and produce a log entry and output states. */
   def run(
@@ -82,7 +84,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMap,
-  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
+  )(implicit loggingContext: LoggingContext): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runTimer.time { () =>
       val commitContext = CommitContext(inputState, recordTime, participantId)
       val logEntry = runSteps(commitContext, submission)
@@ -93,7 +95,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       submission: DamlSubmission,
       participantId: ParticipantId,
       inputState: DamlStateMap,
-  ): PreExecutionResult =
+  )(implicit loggingContext: LoggingContext): PreExecutionResult =
     preExecutionRunTimer.time { () =>
       val commitContext = CommitContext(inputState, recordTime = None, participantId)
       preExecute(submission, commitContext)
@@ -102,7 +104,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   private[committer] def preExecute(
       submission: DamlSubmission,
       commitContext: CommitContext,
-  ): PreExecutionResult = {
+  )(implicit loggingContext: LoggingContext): PreExecutionResult = {
     val successfulLogEntry = runSteps(commitContext, submission)
     PreExecutionResult(
       readSet = commitContext.getAccessedInputKeys.toSet,
@@ -112,7 +114,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       minimumRecordTime = commitContext.minimumRecordTime
         .map(Timestamp.assertFromInstant),
       maximumRecordTime = commitContext.maximumRecordTime
-        .map(Timestamp.assertFromInstant)
+        .map(Timestamp.assertFromInstant),
     )
   }
 
@@ -137,20 +139,27 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       .orElse {
         // In case no min & max record time is set we won't be checking time bounds at post-execution
         // so the contents of this log entry does not matter.
-        PartialFunction.condOpt((commitContext.minimumRecordTime, commitContext.maximumRecordTime)) {
-          case (None, None) => DamlLogEntry.getDefaultInstance
+        PartialFunction.condOpt(
+          (commitContext.minimumRecordTime, commitContext.maximumRecordTime)
+        ) { case (None, None) =>
+          DamlLogEntry.getDefaultInstance
         }
       }
-      .getOrElse(throw new IllegalArgumentException(
-        "Committer did not set an out-of-time-bounds log entry"))
+      .getOrElse(
+        throw new IllegalArgumentException("Committer did not set an out-of-time-bounds log entry")
+      )
 
   private[committer] def runSteps(
       commitContext: CommitContext,
-      submission: DamlSubmission): DamlLogEntry =
+      submission: DamlSubmission,
+  )(implicit loggingContext: LoggingContext): DamlLogEntry =
     steps.foldLeft[StepResult[PartialResult]](StepContinue(init(commitContext, submission))) {
       case (state, (info, step)) =>
         state match {
-          case StepContinue(state) => stepTimers(info).time(() => step(commitContext, state))
+          case StepContinue(state) =>
+            withEnrichedLoggingContext(extraLoggingContext(state)) { implicit loggingContext =>
+              stepTimers(info).time(() => step(commitContext, state))
+            }
           case result @ StepStop(_) => result
         }
     } match {
@@ -160,28 +169,32 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 }
 
 object Committer {
-  type StepInfo = String
+  private final val logger = ContextualizedLogger.get(getClass)
 
   def getCurrentConfiguration(
       defaultConfig: Configuration,
       commitContext: CommitContext,
-      logger: Logger): (Option[DamlConfigurationEntry], Configuration) =
+  )(implicit loggingContext: LoggingContext): (Option[DamlConfigurationEntry], Configuration) =
     commitContext
       .get(Conversions.configurationStateKey)
       .flatMap { v =>
         val entry = v.getConfigurationEntry
         Configuration
           .decode(entry.getConfiguration)
-          .fold({ err =>
-            logger.error(s"Failed to parse configuration: $err, using default configuration.")
-            None
-          }, conf => Some(Some(entry) -> conf))
+          .fold(
+            { err =>
+              logger.error(s"Failed to parse configuration: $err, using default configuration.")
+              None
+            },
+            conf => Some(Some(entry) -> conf),
+          )
       }
       .getOrElse(None -> defaultConfig)
 
   def buildLogEntryWithOptionalRecordTime(
       recordTime: Option[Timestamp],
-      addSubmissionSpecificEntry: DamlLogEntry.Builder => DamlLogEntry.Builder): DamlLogEntry = {
+      addSubmissionSpecificEntry: DamlLogEntry.Builder => DamlLogEntry.Builder,
+  ): DamlLogEntry = {
     val logEntryBuilder = DamlLogEntry.newBuilder
     addSubmissionSpecificEntry(logEntryBuilder)
     setRecordTimeIfAvailable(recordTime, logEntryBuilder)
@@ -190,7 +203,9 @@ object Committer {
 
   private def setRecordTimeIfAvailable(
       recordTime: Option[Timestamp],
-      logEntryBuilder: DamlLogEntry.Builder): DamlLogEntry.Builder =
+      logEntryBuilder: DamlLogEntry.Builder,
+  ): DamlLogEntry.Builder =
     recordTime.fold(logEntryBuilder)(timestamp =>
-      logEntryBuilder.setRecordTime(buildTimestamp(timestamp)))
+      logEntryBuilder.setRecordTime(buildTimestamp(timestamp))
+    )
 }

@@ -11,7 +11,7 @@ For testing against a released SDK, you can skip past the package.json step and 
 
 
 First, build the SDK from head using the `daml-sdk-head` command.
-This gives an executable DAML assistant called `daml-head` in your path.
+This gives an executable Daml assistant called `daml-head` in your path.
 
 Next, instantiate the `create-daml-app` template as follows:
 

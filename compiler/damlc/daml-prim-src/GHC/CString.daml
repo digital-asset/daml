@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MagicHash #-}
@@ -6,7 +6,7 @@
 -- | HIDE
 
 -- An internal module based on ghc's base.GHC.CString. It is used for string
--- literals by ghc. All definitions are removed during conversion to DAML-LF.
+-- literals by ghc. All definitions are removed during conversion to Daml-LF.
 module GHC.CString
   ( unpackCString#
   , unpackCStringUtf8#

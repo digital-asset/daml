@@ -1,7 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver
+
+import java.util.concurrent.Executors
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.grpc.sampleservice.implementations.ReferenceImplementation
@@ -9,7 +11,7 @@ import com.daml.ledger.client.GrpcChannel
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.metrics.Metrics
@@ -20,6 +22,8 @@ import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+
+import scala.collection.compat.immutable.LazyList
 
 final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResourceContext {
   "a GRPC server" should {
@@ -49,7 +53,8 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
 
     "fail with a nice exception, even when the text is quite long" in {
       val length = 2 * 1024
-      val exceptionMessage = "There was an error. " + Stream.continually("x").take(length).mkString
+      val exceptionMessage =
+        "There was an error. " + LazyList.continually("x").take(length).mkString
 
       resources().use { channel =>
         val helloService = HelloServiceGrpc.stub(channel)
@@ -67,7 +72,7 @@ final class GrpcServerSpec extends AsyncWordSpec with Matchers with TestResource
       val length = 1024 * 1024
       val exceptionMessage =
         "There was an error. " +
-          Stream.continually("x").take(length).mkString +
+          LazyList.continually("x").take(length).mkString +
           " And then some extra text that won't be sent."
 
       resources().use { channel =>
@@ -99,17 +104,13 @@ object GrpcServerSpec {
 
   private def resources(): ResourceOwner[ManagedChannel] =
     for {
-      eventLoopGroups <- new ServerEventLoopGroups.Owner(
-        classOf[GrpcServerSpec].getSimpleName,
-        workerParallelism = sys.runtime.availableProcessors(),
-        bossParallelism = 1,
-      )
-      server <- new GrpcServer.Owner(
+      executor <- ResourceOwner.forExecutorService(() => Executors.newSingleThreadExecutor())
+      server <- GrpcServer.owner(
         address = None,
         desiredPort = Port.Dynamic,
         maxInboundMessageSize = maxInboundMessageSize,
         metrics = new Metrics(new MetricRegistry),
-        eventLoopGroups = eventLoopGroups,
+        servicesExecutor = executor,
         services = Seq(new ReferenceImplementation),
       )
       channel <- new GrpcChannel.Owner(Port(server.getPort), clientConfiguration)

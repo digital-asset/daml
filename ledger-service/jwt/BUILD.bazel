@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -12,6 +12,11 @@ load(
 da_scala_library(
     name = "jwt",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:jwt:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -22,10 +27,7 @@ da_scala_library(
         "//daml-lf/data",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_auth0_jwks_rsa",
-        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_guava_guava",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -34,6 +36,11 @@ da_scala_binary(
     name = "jwt-bin",
     srcs = glob(["src/main/scala/**/*.scala"]),
     main_class = "com.daml.jwt.Main",
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
     runtime_deps = [
         ":jwt",
@@ -43,10 +50,7 @@ da_scala_binary(
         "//daml-lf/data",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_auth0_jwks_rsa",
-        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_google_guava_guava",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -56,12 +60,14 @@ da_scala_test(
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
     resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
     deps = [
         ":jwt",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

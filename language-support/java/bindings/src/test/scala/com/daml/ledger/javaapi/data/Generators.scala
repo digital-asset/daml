@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data
@@ -9,29 +9,29 @@ import com.daml.ledger.api.v1._
 import com.google.protobuf.Empty
 import org.scalacheck.{Arbitrary, Gen}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object Generators {
 
   def valueGen: Gen[ValueOuterClass.Value] =
-    Gen.sized(
-      height =>
-        if (height <= 0) unitValueGen
-        else
-          Gen.oneOf(
-            recordValueGen,
-            variantValueGen,
-            contractIdValueGen,
-            listValueGen,
-            int64ValueGen,
-            decimalValueGen,
-            textValueGen,
-            timestampValueGen,
-            partyValueGen,
-            boolValueGen,
-            unitValueGen,
-            dateValueGen
-        ))
+    Gen.sized(height =>
+      if (height <= 0) unitValueGen
+      else
+        Gen.oneOf(
+          recordValueGen,
+          variantValueGen,
+          contractIdValueGen,
+          listValueGen,
+          int64ValueGen,
+          decimalValueGen,
+          textValueGen,
+          timestampValueGen,
+          partyValueGen,
+          boolValueGen,
+          unitValueGen,
+          dateValueGen,
+        )
+    )
 
   def recordGen: Gen[ValueOuterClass.Record] =
     for {
@@ -42,7 +42,8 @@ object Generators {
           newHeight = height / size
           withLabel <- Arbitrary.arbBool.arbitrary
           recordFields <- Gen.listOfN(size, Gen.resize(newHeight, recordFieldGen(withLabel)))
-        } yield recordFields)
+        } yield recordFields
+      )
     } yield {
       val builder = ValueOuterClass.Record.newBuilder()
       recordId.foreach(builder.setRecordId)
@@ -53,7 +54,8 @@ object Generators {
   def recordValueGen: Gen[ValueOuterClass.Value] = recordGen.map(valueFromRecord)
 
   def valueFromRecord(
-      record: ValueOuterClass.Record): com.daml.ledger.api.v1.ValueOuterClass.Value = {
+      record: ValueOuterClass.Record
+  ): com.daml.ledger.api.v1.ValueOuterClass.Value = {
     ValueOuterClass.Value.newBuilder().setRecord(record).build()
   }
 
@@ -62,13 +64,12 @@ object Generators {
       moduleName <- Gen.nonEmptyListOf(Gen.alphaChar).map(_.mkString)
       entityName <- Gen.nonEmptyListOf(Gen.alphaChar).map(_.mkString)
       packageId <- Gen.nonEmptyListOf(Gen.alphaChar).map(_.mkString)
-    } yield
-      ValueOuterClass.Identifier
-        .newBuilder()
-        .setModuleName(moduleName)
-        .setEntityName(entityName)
-        .setPackageId(packageId)
-        .build()
+    } yield ValueOuterClass.Identifier
+      .newBuilder()
+      .setModuleName(moduleName)
+      .setEntityName(entityName)
+      .setPackageId(packageId)
+      .build()
 
   def recordLabelGen: Gen[String] =
     for {
@@ -95,13 +96,12 @@ object Generators {
       variantId <- identifierGen
       constructor <- Arbitrary.arbString.arbitrary
       value <- valueGen
-    } yield
-      ValueOuterClass.Variant
-        .newBuilder()
-        .setVariantId(variantId)
-        .setConstructor(constructor)
-        .setValue(value)
-        .build()
+    } yield ValueOuterClass.Variant
+      .newBuilder()
+      .setVariantId(variantId)
+      .setConstructor(constructor)
+      .setValue(value)
+      .build()
 
   def variantValueGen: Gen[ValueOuterClass.Value] =
     variantGen.map(ValueOuterClass.Value.newBuilder().setVariant(_).build())
@@ -123,13 +123,14 @@ object Generators {
     Gen
       .sized(height =>
         for {
-          size <- Gen.size.flatMap(maxSize =>
-            if (maxSize >= 1) Gen.chooseNum(1, maxSize) else Gen.const(1))
+          size <- Gen.size
+            .flatMap(maxSize => if (maxSize >= 1) Gen.chooseNum(1, maxSize) else Gen.const(1))
           newHeight = height / size
           list <- Gen
             .listOfN(size, Gen.resize(newHeight, valueGen))
             .map(_.asJava)
-        } yield list)
+        } yield list
+      )
       .map(ValueOuterClass.List.newBuilder().addAllElements(_).build())
 
   def listValueGen: Gen[ValueOuterClass.Value] =
@@ -137,18 +138,17 @@ object Generators {
 
   def textMapGen: Gen[ValueOuterClass.Map] =
     Gen
-      .sized(
-        height =>
-          for {
-            size <- Gen.size.flatMap(maxSize =>
-              if (maxSize >= 1) Gen.chooseNum(1, maxSize) else Gen.const(1))
-            newHeight = height / size
-            keys <- Gen.listOfN(size, Arbitrary.arbString.arbitrary)
-            values <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
-          } yield
-            (keys zip values).map {
-              case (k, v) => ValueOuterClass.Map.Entry.newBuilder().setKey(k).setValue(v).build()
-          })
+      .sized(height =>
+        for {
+          size <- Gen.size
+            .flatMap(maxSize => if (maxSize >= 1) Gen.chooseNum(1, maxSize) else Gen.const(1))
+          newHeight = height / size
+          keys <- Gen.listOfN(size, Arbitrary.arbString.arbitrary)
+          values <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
+        } yield (keys zip values).map { case (k, v) =>
+          ValueOuterClass.Map.Entry.newBuilder().setKey(k).setValue(v).build()
+        }
+      )
       .map(x => ValueOuterClass.Map.newBuilder().addAllEntries(x.asJava).build())
 
   def textMapValueGen: Gen[ValueOuterClass.Value] =
@@ -156,18 +156,17 @@ object Generators {
 
   def genMapGen: Gen[ValueOuterClass.GenMap] =
     Gen
-      .sized(
-        height =>
-          for {
-            size <- Gen.size.flatMap(maxSize =>
-              if (maxSize >= 1) Gen.chooseNum(1, maxSize) else Gen.const(1))
-            newHeight = height / size
-            keys <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
-            values <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
-          } yield
-            (keys zip values).map {
-              case (k, v) => ValueOuterClass.GenMap.Entry.newBuilder().setKey(k).setValue(v).build()
-          })
+      .sized(height =>
+        for {
+          size <- Gen.size
+            .flatMap(maxSize => if (maxSize >= 1) Gen.chooseNum(1, maxSize) else Gen.const(1))
+          newHeight = height / size
+          keys <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
+          values <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
+        } yield (keys zip values).map { case (k, v) =>
+          ValueOuterClass.GenMap.Entry.newBuilder().setKey(k).setValue(v).build()
+        }
+      )
       .map(x => ValueOuterClass.GenMap.newBuilder().addAllEntries(x.asJava).build())
 
   def genMapValueGen: Gen[ValueOuterClass.Value] =
@@ -181,13 +180,15 @@ object Generators {
 
   def timestampValueGen: Gen[ValueOuterClass.Value] =
     instantGen.map(instant =>
-      ValueOuterClass.Value.newBuilder().setTimestamp(instant.toEpochMilli * 1000).build())
+      ValueOuterClass.Value.newBuilder().setTimestamp(instant.toEpochMilli * 1000).build()
+    )
 
   def instantGen: Gen[Instant] =
     Gen
       .chooseNum(
         Instant.parse("0001-01-01T00:00:00Z").toEpochMilli,
-        Instant.parse("9999-12-31T23:59:59.999999Z").toEpochMilli)
+        Instant.parse("9999-12-31T23:59:59.999999Z").toEpochMilli,
+      )
       .map(Instant.ofEpochMilli)
 
   def partyValueGen: Gen[ValueOuterClass.Value] =
@@ -206,7 +207,8 @@ object Generators {
 
   def decimalValueGen: Gen[ValueOuterClass.Value] =
     Arbitrary.arbBigDecimal.arbitrary.map(d =>
-      ValueOuterClass.Value.newBuilder().setNumeric(d.bigDecimal.toPlainString).build())
+      ValueOuterClass.Value.newBuilder().setNumeric(d.bigDecimal.toPlainString).build()
+    )
 
   def eventGen: Gen[EventOuterClass.Event] =
     for {
@@ -233,17 +235,16 @@ object Generators {
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       signatories <- Gen.listOf(Gen.asciiPrintableStr)
       observers <- Gen.listOf(Gen.asciiPrintableStr)
-    } yield
-      EventOuterClass.CreatedEvent
-        .newBuilder()
-        .setContractId(contractId)
-        .setTemplateId(templateId)
-        .setCreateArguments(createArgument)
-        .setEventId(eventId)
-        .addAllWitnessParties(witnessParties.asJava)
-        .addAllSignatories(signatories.asJava)
-        .addAllObservers(observers.asJava)
-        .build()
+    } yield EventOuterClass.CreatedEvent
+      .newBuilder()
+      .setContractId(contractId)
+      .setTemplateId(templateId)
+      .setCreateArguments(createArgument)
+      .setEventId(eventId)
+      .addAllWitnessParties(witnessParties.asJava)
+      .addAllSignatories(signatories.asJava)
+      .addAllObservers(observers.asJava)
+      .build()
 
   val archivedEventGen: Gen[EventOuterClass.ArchivedEvent] =
     for {
@@ -252,14 +253,13 @@ object Generators {
       eventId <- Arbitrary.arbString.arbitrary
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
 
-    } yield
-      EventOuterClass.ArchivedEvent
-        .newBuilder()
-        .setContractId(contractId)
-        .setTemplateId(templateId)
-        .setEventId(eventId)
-        .addAllWitnessParties(witnessParties.asJava)
-        .build()
+    } yield EventOuterClass.ArchivedEvent
+      .newBuilder()
+      .setContractId(contractId)
+      .setTemplateId(templateId)
+      .setEventId(eventId)
+      .addAllWitnessParties(witnessParties.asJava)
+      .build()
 
   val exercisedEventGen: Gen[EventOuterClass.ExercisedEvent] =
     for {
@@ -272,28 +272,26 @@ object Generators {
       isConsuming <- Arbitrary.arbBool.arbitrary
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       exerciseResult <- valueGen
-    } yield
-      EventOuterClass.ExercisedEvent
-        .newBuilder()
-        .setContractId(contractId)
-        .setTemplateId(templateId)
-        .addAllActingParties(actingParties.asJava)
-        .setChoice(choice)
-        .setChoiceArgument(choiceArgument)
-        .setConsuming(isConsuming)
-        .setEventId(eventId)
-        .addAllWitnessParties(witnessParties.asJava)
-        .setExerciseResult(exerciseResult)
-        .build()
+    } yield EventOuterClass.ExercisedEvent
+      .newBuilder()
+      .setContractId(contractId)
+      .setTemplateId(templateId)
+      .addAllActingParties(actingParties.asJava)
+      .setChoice(choice)
+      .setChoiceArgument(choiceArgument)
+      .setConsuming(isConsuming)
+      .setEventId(eventId)
+      .addAllWitnessParties(witnessParties.asJava)
+      .setExerciseResult(exerciseResult)
+      .build()
 
   def transactionFilterGen: Gen[TransactionFilterOuterClass.TransactionFilter] =
     for {
       filtersByParty <- Gen.mapOf(partyWithFiltersGen)
-    } yield
-      TransactionFilterOuterClass.TransactionFilter
-        .newBuilder()
-        .putAllFiltersByParty(filtersByParty.asJava)
-        .build()
+    } yield TransactionFilterOuterClass.TransactionFilter
+      .newBuilder()
+      .putAllFiltersByParty(filtersByParty.asJava)
+      .build()
 
   def partyWithFiltersGen: Gen[(String, TransactionFilterOuterClass.Filters)] =
     for {
@@ -304,63 +302,60 @@ object Generators {
   def filtersGen: Gen[TransactionFilterOuterClass.Filters] =
     for {
       inclusive <- inclusiveGen
-    } yield
-      TransactionFilterOuterClass.Filters
-        .newBuilder()
-        .setInclusive(inclusive)
-        .build()
+    } yield TransactionFilterOuterClass.Filters
+      .newBuilder()
+      .setInclusive(inclusive)
+      .build()
 
   def inclusiveGen: Gen[TransactionFilterOuterClass.InclusiveFilters] =
     for {
       templateIds <- Gen.listOf(identifierGen)
-    } yield
-      TransactionFilterOuterClass.InclusiveFilters
-        .newBuilder()
-        .addAllTemplateIds(templateIds.asJava)
-        .build()
+    } yield TransactionFilterOuterClass.InclusiveFilters
+      .newBuilder()
+      .addAllTemplateIds(templateIds.asJava)
+      .build()
 
   def getActiveContractRequestGen: Gen[ActiveContractsServiceOuterClass.GetActiveContractsRequest] =
     for {
       ledgerId <- Arbitrary.arbString.arbitrary
       transactionFilter <- transactionFilterGen
       verbose <- Arbitrary.arbBool.arbitrary
-    } yield
-      ActiveContractsServiceOuterClass.GetActiveContractsRequest
-        .newBuilder()
-        .setLedgerId(ledgerId)
-        .setFilter(transactionFilter)
-        .setVerbose(verbose)
-        .build()
+    } yield ActiveContractsServiceOuterClass.GetActiveContractsRequest
+      .newBuilder()
+      .setLedgerId(ledgerId)
+      .setFilter(transactionFilter)
+      .setVerbose(verbose)
+      .build()
 
   val createCommandGen: Gen[CommandsOuterClass.Command] =
     for {
       templateId <- identifierGen
       record <- recordGen
-    } yield
-      CommandsOuterClass.Command
-        .newBuilder()
-        .setCreate(
-          CommandsOuterClass.CreateCommand
-            .newBuilder()
-            .setTemplateId(templateId)
-            .setCreateArguments(record))
-        .build()
+    } yield CommandsOuterClass.Command
+      .newBuilder()
+      .setCreate(
+        CommandsOuterClass.CreateCommand
+          .newBuilder()
+          .setTemplateId(templateId)
+          .setCreateArguments(record)
+      )
+      .build()
 
   val exerciseCommandGen: Gen[CommandsOuterClass.Command] =
     for {
       templateId <- identifierGen
       choiceName <- Arbitrary.arbString.arbitrary
       value <- valueGen
-    } yield
-      CommandsOuterClass.Command
-        .newBuilder()
-        .setExercise(
-          CommandsOuterClass.ExerciseCommand
-            .newBuilder()
-            .setTemplateId(templateId)
-            .setChoice(choiceName)
-            .setChoiceArgument(value))
-        .build()
+    } yield CommandsOuterClass.Command
+      .newBuilder()
+      .setExercise(
+        CommandsOuterClass.ExerciseCommand
+          .newBuilder()
+          .setTemplateId(templateId)
+          .setChoice(choiceName)
+          .setChoiceArgument(value)
+      )
+      .build()
 
   val createAndExerciseCommandGen: Gen[CommandsOuterClass.Command] =
     for {
@@ -368,17 +363,17 @@ object Generators {
       record <- recordGen
       choiceName <- Arbitrary.arbString.arbitrary
       value <- valueGen
-    } yield
-      CommandsOuterClass.Command
-        .newBuilder()
-        .setCreateAndExercise(
-          CommandsOuterClass.CreateAndExerciseCommand
-            .newBuilder()
-            .setTemplateId(templateId)
-            .setCreateArguments(record)
-            .setChoice(choiceName)
-            .setChoiceArgument(value))
-        .build()
+    } yield CommandsOuterClass.Command
+      .newBuilder()
+      .setCreateAndExercise(
+        CommandsOuterClass.CreateAndExerciseCommand
+          .newBuilder()
+          .setTemplateId(templateId)
+          .setCreateArguments(record)
+          .setChoice(choiceName)
+          .setChoiceArgument(value)
+      )
+      .build()
 
   val commandGen: Gen[CommandsOuterClass.Command] =
     Gen.oneOf(createCommandGen, exerciseCommandGen, createAndExerciseCommandGen)

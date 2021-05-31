@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.db.migration.postgres
@@ -17,6 +17,8 @@ private[migration] class V29__Fix_participant_events extends BaseJavaMigration {
   val SELECT_TRANSACTIONS =
     "select * from ledger_entries where typ='transaction' order by ledger_offset asc"
 
+  val BATCH_SIZE = 500
+
   override def migrate(context: Context): Unit = {
     val conn = context.getConnection
 
@@ -25,6 +27,7 @@ private[migration] class V29__Fix_participant_events extends BaseJavaMigration {
     conn.commit()
 
     val loadTransactions = conn.createStatement()
+    loadTransactions.setFetchSize(BATCH_SIZE)
     val rows = loadTransactions.executeQuery(SELECT_TRANSACTIONS)
 
     def getNonEmptyString(name: String): Option[String] =

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
@@ -8,14 +8,14 @@ import java.time.Instant
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Err}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time.Timestamp
-import org.slf4j.LoggerFactory
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
-import scala.collection.generic.CanBuildFrom
+import scala.collection.compat._
 import scala.collection.mutable
 
 /** Commit context provides access to state inputs, commit parameters (e.g. record time) and
@@ -26,7 +26,7 @@ private[kvutils] case class CommitContext(
     recordTime: Option[Timestamp],
     participantId: ParticipantId,
 ) {
-  private[this] val logger = LoggerFactory.getLogger(this.getClass)
+  private[this] val logger = ContextualizedLogger.get(getClass)
 
   // NOTE(JM): The outputs must be iterable in deterministic order, hence we
   // keep track of insertion order.
@@ -46,7 +46,9 @@ private[kvutils] case class CommitContext(
 
   def preExecute: Boolean = recordTime.isEmpty
 
-  /** Retrieve value from output state, or if not found, from input state. */
+  /** Retrieve value from output state, or if not found, from input state.
+    * Throws an exception if the key is not found in either.
+    */
   def get(key: DamlStateKey): Option[DamlStateValue] =
     outputs.get(key).orElse {
       val value = inputs.getOrElse(key, throw Err.MissingInputState(key))
@@ -54,20 +56,25 @@ private[kvutils] case class CommitContext(
       value
     }
 
-  /** Reads key from input state.  Records the key as being accessed even if it's not available. */
+  /** Reads key from input state.
+    * Throws an exception if the key is not specified in the input state.
+    */
   def read(key: DamlStateKey): Option[DamlStateValue] = {
+    val value = inputs.getOrElse(key, throw Err.MissingInputState(key))
     accessedInputKeys += key
-    inputs.get(key).flatten
+    value
   }
 
   /** Generates a collection from the inputs as determined by a partial function.
-    * Records all keys in the input as being accessed. */
+    * Records all keys in the input as being accessed.
+    */
   def collectInputs[B, That](
-      partialFunction: PartialFunction[(DamlStateKey, Option[DamlStateValue]), B])(
-      implicit bf: CanBuildFrom[Map[DamlStateKey, Option[DamlStateValue]], B, That]): That = {
-    val result = inputs.collect(partialFunction)
+      partialFunction: PartialFunction[(DamlStateKey, Option[DamlStateValue]), B]
+  )(implicit factory: Factory[B, That]): That = {
+    val builder = factory.newBuilder
+    builder ++= inputs.view.collect(partialFunction)
     inputs.keys.foreach(accessedInputKeys.add)
-    result
+    builder.result()
   }
 
   /** Set a value in the output state. */
@@ -85,12 +92,14 @@ private[kvutils] case class CommitContext(
   }
 
   /** Get the final output state, in insertion order. */
-  def getOutputs: Iterable[(DamlStateKey, DamlStateValue)] =
+  def getOutputs(implicit
+      loggingContext: LoggingContext
+  ): Iterable[(DamlStateKey, DamlStateValue)] =
     outputOrder
       .map(key => key -> outputs(key))
       .filterNot {
         case (key, value) if inputAlreadyContains(key, value) =>
-          logger.trace("Identical output found for key {}", key)
+          logger.trace(s"Identical output found for key $key")
           true
         case _ => false
       }

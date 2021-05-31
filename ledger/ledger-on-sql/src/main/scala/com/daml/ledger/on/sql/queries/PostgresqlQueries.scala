@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql.queries
@@ -9,8 +9,8 @@ import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.LedgerId
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 import scala.util.Try
 
@@ -24,15 +24,15 @@ final class PostgresqlQueries(override protected implicit val connection: Connec
       .as(str("ledger_id").single)
   }
 
-  override def insertRecordIntoLog(key: Key, value: Value): Try[Index] = Try {
+  override def insertRecordIntoLog(key: Raw.LogEntryId, value: Raw.Envelope): Try[Index] = Try {
     SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES ($key, $value) RETURNING sequence_no"
       .as(long("sequence_no").single)
   }
 
   override protected val updateStateQuery: String =
-    s"INSERT INTO $StateTable VALUES ({key}, {value}) ON CONFLICT(key) DO UPDATE SET value = {value}"
+    s"INSERT INTO $StateTable (key, key_hash, value) VALUES ({key}, {key_hash}, {value}) ON CONFLICT(key_hash) DO UPDATE SET value = {value}"
 
-  override final def truncate(): Try[Unit] = Try {
+  override def truncate(): Try[Unit] = Try {
     SQL"truncate #$StateTable".executeUpdate()
     SQL"truncate #$LogTable".executeUpdate()
     SQL"truncate #$MetaTable".executeUpdate()

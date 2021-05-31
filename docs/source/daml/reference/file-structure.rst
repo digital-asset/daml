@@ -1,17 +1,17 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Reference: DAML file structure
+Reference: Daml file structure
 ##############################
 
-This page gives reference information on the structure of DAML files outside of :doc:`templates <templates>`.
+This page gives reference information on the structure of Daml files outside of :doc:`templates <templates>`.
 
 File structure
 **************
 
 - This file's module name (``module NameOfThisFile where``).
 
-  Part of a hierarchical module system to facilitate code reuse. Must be the same as the DAML file name, without the file extension.
+  Part of a hierarchical module system to facilitate code reuse. Must be the same as the Daml file name, without the file extension.
 
   For a file with path ``./Scenarios/Demo.daml``, use ``module Scenarios.Demo where``.
 
@@ -28,11 +28,11 @@ Imports
 Libraries
 *********
 
-A DAML library is a collection of related DAML modules.
+A Daml library is a collection of related Daml modules.
 
-Define a DAML library using a ``LibraryModules.daml`` file: a normal DAML file that imports the root modules of the library. The library consists of the ``LibraryModules.daml`` file and all its dependencies, found by recursively following the imports of each module.
+Define a Daml library using a ``LibraryModules.daml`` file: a normal Daml file that imports the root modules of the library. The library consists of the ``LibraryModules.daml`` file and all its dependencies, found by recursively following the imports of each module.
 
-Errors are reported in DAML Studio on a per-library basis. This means that breaking changes on shared DAML modules are displayed even when the files are not explicitly open.
+Errors are reported in Daml Studio on a per-library basis. This means that breaking changes on shared Daml modules are displayed even when the files are not explicitly open.
 
 Comments
 ********
@@ -47,6 +47,6 @@ Contract identifiers
 When an instance of a template (that is, a contract) is added to the ledger, it's assigned a unique identifier, of type ``ContractId <name of template>``.
 
 The runtime representation of these identifiers depends on the execution
-environment: a contract identifier from the Sandbox may look different to ones on other DAML Ledgers.
+environment: a contract identifier from the Sandbox may look different to ones on other Daml Ledgers.
 
 You can use ``==`` and ``/=`` on contract identifiers of the same type.

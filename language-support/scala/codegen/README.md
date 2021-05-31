@@ -1,14 +1,14 @@
-# Developer's guide to DAML Scala code generator
+# Developer's guide to Daml Scala code generator
 
 For the User's guide to the Scala code generator see:
 `docs/daml-scala-code-gen-user-guide.rst`
 
 ## Introduction
 
-The DAML Scala code generator produces wrapper classes that correspond to DAML
-contract templates and DAML user defined types (records/variants that are the
-right hand side of a DAML type synonym). They are intended to be used by application
-developers and they provide the same level of type safety as the DAML langauge
+The Daml Scala code generator produces wrapper classes that correspond to Daml
+contract templates and Daml user defined types (records/variants that are the
+right hand side of a Daml type synonym). They are intended to be used by application
+developers and they provide the same level of type safety as the Daml langauge
 itself.
 
 ## Working with Scala macros

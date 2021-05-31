@@ -1,16 +1,16 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
 package encoding
 
 import com.daml.ledger.client.binding.{Primitive => P}
-
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import com.github.ghik.silencer.silent
 
-@silent(" exer .* is never used") // testing typechecking only
+import scala.annotation.nowarn
+
+@nowarn("msg=local method exer .* is never used") // testing typechecking only
 class ExerciseOnSpec extends AnyWordSpec with Matchers {
   import ExerciseOnSpec._
 
@@ -27,7 +27,7 @@ class ExerciseOnSpec extends AnyWordSpec with Matchers {
 
     "select an instance, even if singleton type" in {
       def exer(id: Sth.ContractId) =
-        Sth.`Sth syntax`[id.type](id).exerciseFoo(owner)
+        Sth.`Sth syntax`(id).exerciseFoo(owner)
     }
 
     "still select an instance if imported" in {
@@ -36,7 +36,8 @@ class ExerciseOnSpec extends AnyWordSpec with Matchers {
     }
 
     "discriminate among template types" in {
-      import LfTypeEncodingSpec.CallablePayout, Sth._
+      import LfTypeEncodingSpec.CallablePayout
+      import Sth._
       def exer(id: CallablePayout.ContractId) =
         id: `Sth syntax`[CallablePayout.ContractId]
       // ^ works, but...
@@ -83,8 +84,10 @@ object ExerciseOnSpec {
       * behave. Do *not* import `Sth syntax`; the whole point is to make sure
       * this all works without doing that.
       */
-    implicit final class `Sth syntax`[+` ExOn`](private val id: ` ExOn`) extends AnyVal {
-      @silent("(controller|exOn) .* is never used") // used only for arg typechecking
+    implicit final class `Sth syntax`[+ ` ExOn`](private val id: ` ExOn`) extends AnyVal {
+      @nowarn(
+        "msg=parameter value (controller| exOn) .* is never used"
+      ) // used only for arg typechecking
       def exerciseFoo(controller: P.Party)(implicit ` exOn`: ExerciseOn[` ExOn`, Sth]): Unit = ()
     }
   }

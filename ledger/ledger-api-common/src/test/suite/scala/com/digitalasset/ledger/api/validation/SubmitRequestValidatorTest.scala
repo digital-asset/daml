@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.validation
@@ -19,7 +19,7 @@ import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
-import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE, UNIMPLEMENTED}
+import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE}
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scalaz.syntax.tag._
@@ -42,12 +42,18 @@ class SubmitRequestValidatorTest
     val deduplicationTime = new Duration().withSeconds(10)
     val command =
       Command(
-        Command.Command.Create(CreateCommand(
-          Some(Identifier("package", moduleName = "module", entityName = "entity")),
-          Some(Record(
+        Command.Command.Create(
+          CreateCommand(
             Some(Identifier("package", moduleName = "module", entityName = "entity")),
-            Seq(RecordField("something", Some(Value(Value.Sum.Bool(true)))))))
-        )))
+            Some(
+              Record(
+                Some(Identifier("package", moduleName = "module", entityName = "entity")),
+                Seq(RecordField("something", Some(Value(Value.Sum.Bool(true))))),
+              )
+            ),
+          )
+        )
+      )
 
     val commands = Commands(
       ledgerId = ledgerId.unwrap,
@@ -75,39 +81,45 @@ class SubmitRequestValidatorTest
       workflowId = Some(workflowId),
       applicationId = applicationId,
       commandId = commandId,
-      submitter = DomainMocks.party,
+      actAs = Set(DomainMocks.party),
+      readAs = Set.empty,
       submittedAt = submittedAt,
       deduplicateUntil = deduplicateUntil,
       commands = LfCommands(
-        Set(DomainMocks.party),
         ImmArray(
           LfCreateCommand(
             Ref.Identifier(
               Ref.PackageId.assertFromString("package"),
               Ref.QualifiedName(
                 Ref.ModuleName.assertFromString("module"),
-                Ref.DottedName.assertFromString("entity"))),
+                Ref.DottedName.assertFromString("entity"),
+              ),
+            ),
             Lf.ValueRecord(
               Option(
                 Ref.Identifier(
                   Ref.PackageId.assertFromString("package"),
                   Ref.QualifiedName(
                     Ref.ModuleName.assertFromString("module"),
-                    Ref.DottedName.assertFromString("entity")))),
-              ImmArray((Option(Ref.Name.assertFromString("something")), Lf.ValueTrue))
-            )
-          )),
+                    Ref.DottedName.assertFromString("entity"),
+                  ),
+                )
+              ),
+              ImmArray((Option(Ref.Name.assertFromString("something")), Lf.ValueTrue)),
+            ),
+          )
+        ),
         Time.Timestamp.assertFromInstant(ledgerTime),
-        workflowId.unwrap
-      )
+        workflowId.unwrap,
+      ),
     )
   }
 
   private[this] def withLedgerTime(commands: ApiCommands, let: Instant): ApiCommands =
     commands.copy(
       commands = commands.commands.copy(
-        ledgerEffectiveTime = Time.Timestamp.assertFromInstant(let),
-      ),
+        ledgerEffectiveTime = Time.Timestamp.assertFromInstant(let)
+      )
     )
 
   val commandsValidator = new CommandsValidator(ledgerId)
@@ -123,9 +135,10 @@ class SubmitRequestValidatorTest
             api.commands.withCommands(Seq.empty),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime)),
+            Some(internal.maxDeduplicationTime),
+          ),
           INVALID_ARGUMENT,
-          "Missing field: commands"
+          "Missing field: commands",
         )
       }
 
@@ -136,9 +149,10 @@ class SubmitRequestValidatorTest
               api.commands.withLedgerId(""),
               internal.ledgerTime,
               internal.submittedAt,
-              Some(internal.maxDeduplicationTime)),
+              Some(internal.maxDeduplicationTime),
+            ),
           INVALID_ARGUMENT,
-          "Missing field: ledger_id"
+          "Missing field: ledger_id",
         )
       }
 
@@ -147,10 +161,13 @@ class SubmitRequestValidatorTest
           api.commands.withWorkflowId(""),
           internal.ledgerTime,
           internal.submittedAt,
-          Some(internal.maxDeduplicationTime)) shouldEqual Right(
+          Some(internal.maxDeduplicationTime),
+        ) shouldEqual Right(
           internal.emptyCommands.copy(
             workflowId = None,
-            commands = internal.emptyCommands.commands.copy(commandsReference = "")))
+            commands = internal.emptyCommands.commands.copy(commandsReference = ""),
+          )
+        )
       }
 
       "not allow missing applicationId" in {
@@ -159,9 +176,10 @@ class SubmitRequestValidatorTest
             api.commands.withApplicationId(""),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime)),
+            Some(internal.maxDeduplicationTime),
+          ),
           INVALID_ARGUMENT,
-          "Missing field: application_id"
+          "Missing field: application_id",
         )
       }
 
@@ -171,9 +189,10 @@ class SubmitRequestValidatorTest
             api.commands.withCommandId(""),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime)),
+            Some(internal.maxDeduplicationTime),
+          ),
           INVALID_ARGUMENT,
-          "Missing field: command_id"
+          "Missing field: command_id",
         )
       }
 
@@ -184,36 +203,32 @@ class SubmitRequestValidatorTest
               api.commands.withParty(""),
               internal.ledgerTime,
               internal.submittedAt,
-              Some(internal.maxDeduplicationTime)),
+              Some(internal.maxDeduplicationTime),
+            ),
           INVALID_ARGUMENT,
-          """Missing field: party or act_as"""
+          """Missing field: party or act_as""",
         )
       }
 
-      "not allow multiple submitters" in {
-        requestMustFailWith(
-          commandsValidator
-            .validateCommands(
-              api.commands.withParty("alice").addActAs("bob"),
-              internal.ledgerTime,
-              internal.submittedAt,
-              Some(internal.maxDeduplicationTime)),
-          UNIMPLEMENTED,
-          "Multi-party submissions are not supported",
-        )
-      }
-
-      "not allow readAs parties" in {
-        requestMustFailWith(
-          commandsValidator
-            .validateCommands(
-              api.commands.withParty("charlie").addReadAs("bob"),
-              internal.ledgerTime,
-              internal.submittedAt,
-              Some(internal.maxDeduplicationTime)),
-          UNIMPLEMENTED,
-          "Multi-party submissions are not supported",
-        )
+      "correctly read and deduplicate multiple submitters" in {
+        val result = commandsValidator
+          .validateCommands(
+            api.commands
+              .withParty("alice")
+              .addActAs("bob")
+              .addReadAs("alice")
+              .addReadAs("charlie")
+              .addReadAs("bob"),
+            internal.ledgerTime,
+            internal.submittedAt,
+            Some(internal.maxDeduplicationTime),
+          )
+        inside(result) { case Right(cmd) =>
+          // actAs parties are gathered from "party" and "readAs" fields
+          cmd.actAs shouldEqual Set("alice", "bob")
+          // readAs should exclude all parties that are already actAs parties
+          cmd.readAs shouldEqual Set("charlie")
+        }
       }
 
       "tolerate a single submitter specified in the actAs fields" in {
@@ -222,7 +237,8 @@ class SubmitRequestValidatorTest
             api.commands.withParty("").addActAs(api.submitter),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime)) shouldEqual Right(internal.emptyCommands)
+            Some(internal.maxDeduplicationTime),
+          ) shouldEqual Right(internal.emptyCommands)
       }
 
       "tolerate a single submitter specified in party, actAs, and readAs fields" in {
@@ -231,7 +247,7 @@ class SubmitRequestValidatorTest
             api.commands.withParty(api.submitter).addActAs(api.submitter).addReadAs(api.submitter),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime)
+            Some(internal.maxDeduplicationTime),
           ) shouldEqual Right(internal.emptyCommands)
       }
 
@@ -239,10 +255,11 @@ class SubmitRequestValidatorTest
         val minLedgerTimeAbs = internal.ledgerTime.plus(internal.timeDelta)
         commandsValidator.validateCommands(
           api.commands.copy(
-            minLedgerTimeAbs = Some(TimestampConversion.fromInstant(minLedgerTimeAbs))),
+            minLedgerTimeAbs = Some(TimestampConversion.fromInstant(minLedgerTimeAbs))
+          ),
           internal.ledgerTime,
           internal.submittedAt,
-          Some(internal.maxDeduplicationTime)
+          Some(internal.maxDeduplicationTime),
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
@@ -250,10 +267,11 @@ class SubmitRequestValidatorTest
         val minLedgerTimeAbs = internal.ledgerTime.plus(internal.timeDelta)
         commandsValidator.validateCommands(
           api.commands.copy(
-            minLedgerTimeRel = Some(DurationConversion.toProto(internal.timeDelta))),
+            minLedgerTimeRel = Some(DurationConversion.toProto(internal.timeDelta))
+          ),
           internal.ledgerTime,
           internal.submittedAt,
-          Some(internal.maxDeduplicationTime)
+          Some(internal.maxDeduplicationTime),
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
@@ -263,9 +281,10 @@ class SubmitRequestValidatorTest
             api.commands.copy(deduplicationTime = Some(Duration.of(-1, 0))),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime)),
+            Some(internal.maxDeduplicationTime),
+          ),
           INVALID_ARGUMENT,
-          "Invalid field deduplication_time: Duration must be positive"
+          "Invalid field deduplication_time: Duration must be positive",
         )
       }
 
@@ -276,10 +295,11 @@ class SubmitRequestValidatorTest
             api.commands.copy(deduplicationTime = Some(Duration.of(manySeconds, 0))),
             internal.ledgerTime,
             internal.submittedAt,
-            Some(internal.maxDeduplicationTime)),
+            Some(internal.maxDeduplicationTime),
+          ),
           INVALID_ARGUMENT,
           s"Invalid field deduplication_time: The given deduplication time of ${java.time.Duration
-            .ofSeconds(manySeconds)} exceeds the maximum deduplication time of ${internal.maxDeduplicationTime}"
+            .ofSeconds(manySeconds)} exceeds the maximum deduplication time of ${internal.maxDeduplicationTime}",
         )
       }
 
@@ -288,9 +308,12 @@ class SubmitRequestValidatorTest
           api.commands.copy(deduplicationTime = None),
           internal.ledgerTime,
           internal.submittedAt,
-          Some(internal.maxDeduplicationTime)) shouldEqual Right(
+          Some(internal.maxDeduplicationTime),
+        ) shouldEqual Right(
           internal.emptyCommands.copy(
-            deduplicateUntil = internal.submittedAt.plus(internal.maxDeduplicationTime)))
+            deduplicateUntil = internal.submittedAt.plus(internal.maxDeduplicationTime)
+          )
+        )
       }
 
       "not allow missing ledger configuration" in {
@@ -298,7 +321,7 @@ class SubmitRequestValidatorTest
           commandsValidator
             .validateCommands(api.commands, internal.ledgerTime, internal.submittedAt, None),
           UNAVAILABLE,
-          "The ledger configuration is not available."
+          "The ledger configuration is not available.",
         )
       }
 
@@ -319,14 +342,15 @@ class SubmitRequestValidatorTest
     "validating party values" should {
       "convert valid party" in {
         validateValue(DomainMocks.values.validApiParty) shouldEqual Right(
-          DomainMocks.values.validLfParty)
+          DomainMocks.values.validLfParty
+        )
       }
 
       "reject non valid party" in {
         requestMustFailWith(
           validateValue(DomainMocks.values.invalidApiParty),
           INVALID_ARGUMENT,
-          DomainMocks.values.invalidPartyMsg
+          DomainMocks.values.invalidPartyMsg,
         )
       }
     }
@@ -352,8 +376,10 @@ class SubmitRequestValidatorTest
             val s = sign + absoluteValue
             val input = Value(Sum.Numeric(s))
             val expected =
-              Lf.ValueNumeric(Numeric
-                .assertFromBigDecimal(Numeric.Scale.assertFromInt(expectedScale), BigDecimal(s)))
+              Lf.ValueNumeric(
+                Numeric
+                  .assertFromBigDecimal(Numeric.Scale.assertFromInt(expectedScale), BigDecimal(s))
+              )
             validateValue(input) shouldEqual Right(expected)
           }
         }
@@ -367,7 +393,7 @@ class SubmitRequestValidatorTest
             "absolute values" -> "scale",
             "1" + "0" * 38 -> 0,
             "1" + "0" * 28 + "." + "0" * 10 + "1" -> 11,
-            "1" + "0" * 27 + "." + "0" * 11 + "1" -> 12
+            "1" + "0" * 27 + "." + "0" * 11 + "1" -> 12,
           )
 
         forEvery(signs) { sign =>
@@ -377,7 +403,7 @@ class SubmitRequestValidatorTest
             requestMustFailWith(
               validateValue(input),
               INVALID_ARGUMENT,
-              s"""Invalid argument: Could not read Numeric string "$s""""
+              s"""Invalid argument: Could not read Numeric string "$s"""",
             )
           }
         }
@@ -406,7 +432,7 @@ class SubmitRequestValidatorTest
             requestMustFailWith(
               validateValue(input),
               INVALID_ARGUMENT,
-              s"""Invalid argument: Could not read Numeric string "$s""""
+              s"""Invalid argument: Could not read Numeric string "$s"""",
             )
           }
         }
@@ -436,11 +462,10 @@ class SubmitRequestValidatorTest
           Time.Timestamp.MaxValue.micros -> Time.Timestamp.MaxValue,
         )
 
-        forEvery(testCases) {
-          case (long, timestamp) =>
-            val input = Value(Sum.Timestamp(long))
-            val expected = Lf.ValueTimestamp(timestamp)
-            validateValue(input) shouldEqual Right(expected)
+        forEvery(testCases) { case (long, timestamp) =>
+          val input = Value(Sum.Timestamp(long))
+          val expected = Lf.ValueTimestamp(timestamp)
+          validateValue(input) shouldEqual Right(expected)
         }
       }
 
@@ -450,14 +475,15 @@ class SubmitRequestValidatorTest
           Long.MinValue,
           Time.Timestamp.MinValue.micros - 1,
           Time.Timestamp.MaxValue.micros + 1,
-          Long.MaxValue)
+          Long.MaxValue,
+        )
 
         forEvery(testCases) { long =>
           val input = Value(Sum.Timestamp(long))
           requestMustFailWith(
             validateValue(input),
             INVALID_ARGUMENT,
-            s"Invalid argument: out of bound Timestamp $long"
+            s"Invalid argument: out of bound Timestamp $long",
           )
         }
       }
@@ -472,11 +498,10 @@ class SubmitRequestValidatorTest
           Time.Date.MaxValue.days -> Time.Date.MaxValue,
         )
 
-        forEvery(testCases) {
-          case (int, date) =>
-            val input = Value(Sum.Date(int))
-            val expected = Lf.ValueDate(date)
-            validateValue(input) shouldEqual Right(expected)
+        forEvery(testCases) { case (int, date) =>
+          val input = Value(Sum.Date(int))
+          val expected = Lf.ValueDate(date)
+          validateValue(input) shouldEqual Right(expected)
         }
       }
 
@@ -486,14 +511,15 @@ class SubmitRequestValidatorTest
           Int.MinValue,
           Time.Date.MinValue.days - 1,
           Time.Date.MaxValue.days + 1,
-          Int.MaxValue)
+          Int.MaxValue,
+        )
 
         forEvery(testCases) { int =>
           val input = Value(Sum.Date(int))
           requestMustFailWith(
             validateValue(input),
             INVALID_ARGUMENT,
-            s"Invalid argument: out of bound Date $int"
+            s"Invalid argument: out of bound Date $int",
           )
         }
       }
@@ -517,11 +543,14 @@ class SubmitRequestValidatorTest
         val record =
           Value(
             Sum.Record(
-              Record(Some(api.identifier), Seq(RecordField(api.label, Some(Value(api.int64)))))))
+              Record(Some(api.identifier), Seq(RecordField(api.label, Some(Value(api.int64)))))
+            )
+          )
         val expected =
           Lf.ValueRecord(
             Some(DomainMocks.identifier),
-            ImmArray(Some(DomainMocks.label) -> DomainMocks.values.int64))
+            ImmArray(Some(DomainMocks.label) -> DomainMocks.values.int64),
+          )
         validateValue(record) shouldEqual Right(expected)
       }
 
@@ -557,7 +586,8 @@ class SubmitRequestValidatorTest
         val expected = Lf.ValueVariant(
           Some(DomainMocks.identifier),
           DomainMocks.values.constructor,
-          DomainMocks.values.int64)
+          DomainMocks.values.int64,
+        )
         validateValue(variant) shouldEqual Right(expected)
       }
 
@@ -600,11 +630,14 @@ class SubmitRequestValidatorTest
       "reject lists containing invalid values" in {
         val input = Value(
           Sum.List(
-            ApiList(Seq(DomainMocks.values.validApiParty, DomainMocks.values.invalidApiParty))))
+            ApiList(Seq(DomainMocks.values.validApiParty, DomainMocks.values.invalidApiParty))
+          )
+        )
         requestMustFailWith(
           validateValue(input),
           INVALID_ARGUMENT,
-          DomainMocks.values.invalidPartyMsg)
+          DomainMocks.values.invalidPartyMsg,
+        )
       }
     }
 
@@ -627,7 +660,8 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           validateValue(input),
           INVALID_ARGUMENT,
-          DomainMocks.values.invalidPartyMsg)
+          DomainMocks.values.invalidPartyMsg,
+        )
       }
     }
 
@@ -642,8 +676,8 @@ class SubmitRequestValidatorTest
         val entries = ImmArray(1 until 5).map { x =>
           Utf8.sha256(x.toString) -> x.toLong
         }
-        val apiEntries = entries.map {
-          case (k, v) => ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
+        val apiEntries = entries.map { case (k, v) =>
+          ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
         }
         val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
         val lfEntries = entries.map { case (k, v) => k -> Lf.ValueInt64(v) }
@@ -657,26 +691,29 @@ class SubmitRequestValidatorTest
         val entries = ImmArray(1 +: (1 until 5)).map { x =>
           Utf8.sha256(x.toString) -> x.toLong
         }
-        val apiEntries = entries.map {
-          case (k, v) => ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
+        val apiEntries = entries.map { case (k, v) =>
+          ApiMap.Entry(k, Some(Value(Sum.Int64(v))))
         }
         val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
         requestMustFailWith(
           validateValue(input),
           INVALID_ARGUMENT,
-          s"Invalid argument: key ${Utf8.sha256("1")} duplicated when trying to build map")
+          s"Invalid argument: key ${Utf8.sha256("1")} duplicated when trying to build map",
+        )
       }
 
       "reject maps containing invalid value" in {
         val apiEntries =
           List(
             ApiMap.Entry("1", Some(DomainMocks.values.validApiParty)),
-            ApiMap.Entry("2", Some(DomainMocks.values.invalidApiParty)))
+            ApiMap.Entry("2", Some(DomainMocks.values.invalidApiParty)),
+          )
         val input = Value(Sum.Map(ApiMap(apiEntries)))
         requestMustFailWith(
           validateValue(input),
           INVALID_ARGUMENT,
-          DomainMocks.values.invalidPartyMsg)
+          DomainMocks.values.invalidPartyMsg,
+        )
       }
     }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql
@@ -34,8 +34,8 @@ object MainWithEphemeralDirectory {
         config: Config[ExtraConfig],
         participantConfig: ParticipantConfig,
         engine: Engine,
-    )(
-        implicit materializer: Materializer,
+    )(implicit
+        materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ReadWriteService] =
       new Owner(config, participantConfig, engine)

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandboxnext.services.configuration
@@ -8,7 +8,7 @@ import java.time.Duration
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundEach
 import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
-  CompletionEndRequest
+  CompletionEndRequest,
 }
 import com.daml.platform.ApiOffset
 import com.daml.platform.sandbox.SandboxBackend
@@ -30,13 +30,13 @@ final class ConfigurationServiceWithEmptyLedgerIT
     with TestCommands
     with SuiteResourceManagementAroundEach {
 
-  // Start with no DAML packages and a large configuration delay, such that we can test the API's
+  // Start with no Daml packages and a large configuration delay, such that we can test the API's
   // behavior on an empty index.
   override protected def config: SandboxConfig =
     super.config.copy(
       damlPackages = List.empty,
       ledgerConfig = super.config.ledgerConfig.copy(
-        initialConfigurationSubmitDelay = Duration.ofDays(5),
+        initialConfigurationSubmitDelay = Duration.ofDays(5)
       ),
       implicitPartyAllocation = false,
     )

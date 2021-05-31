@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
@@ -7,9 +7,11 @@ package testing
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.language.{LanguageVersion => LV}
 import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 
+import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.language.implicitConversions
@@ -52,7 +54,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       val builder = PLF.Package.newBuilder()
       pkg.modules.sortByKey.values.foreach(m => builder.addModules(encodeModule(m)))
 
-      if (!versionIsOlderThan(LV.Features.packageMetadata))
+      if (LV.Features.packageMetadata <= languageVersion)
         pkg.metadata.foreach { metadata =>
           val metadataBuilder = PLF.PackageMetadata.newBuilder
           metadataBuilder.setNameInternedStr(stringsTable.insert(metadata.name))
@@ -71,7 +73,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
 
       def addDefinition(
           builder: PLF.Module.Builder,
-          nameWithDefinition: (DottedName, Definition)
+          nameWithDefinition: (DottedName, Definition),
       ): PLF.Module.Builder = {
         val (name, definition) = nameWithDefinition
         definition match {
@@ -95,11 +97,13 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           .setDontDiscloseNonConsumingChoicesToObservers(true)
       )
       builder.accumulateLeft(module.definitions.sortByKey)(addDefinition)
-      builder.accumulateLeft(module.templates.sortByKey)(_ addTemplates _)
+      builder.accumulateLeft(module.templates.sortByKey) { (a, b) => a.addTemplates(b) }
+      builder.accumulateLeft(module.exceptions.sortByKey) { (a, b) => a.addExceptions(b) }
       builder.build()
     }
 
-    /** * Encode Reference ***/
+    /** * Encode Reference **
+      */
     private val unit = PLF.Unit.newBuilder().build()
 
     private val protoSelfPgkId = PLF.PackageRef.newBuilder().setSelf(unit).build()
@@ -142,17 +146,19 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       b.build()
     }
 
-    /** * Encoding of Kinds ***/
+    /** * Encoding of Kinds **
+      */
     private val kStar =
       PLF.Kind.newBuilder().setStar(PLF.Unit.newBuilder()).build()
     private val kNat =
       PLF.Kind.newBuilder().setNat(PLF.Unit.newBuilder()).build()
-    private val KArrows = RightRecMatcher[Kind, Kind]({
-      case KArrow(param, result) => (param, result)
+    private val KArrows = RightRecMatcher[Kind, Kind]({ case KArrow(param, result) =>
+      (param, result)
     })
 
     private implicit def encodeKind(k: Kind): PLF.Kind =
-      k match {
+      // KArrows breaks the exhaustiveness checker.
+      (k: @unchecked) match {
         case KArrows(params, result) =>
           expect(result == KStar)
           PLF.Kind
@@ -171,10 +177,11 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           kNat
       }
 
-    /** * Encoding of types ***/
+    /** * Encoding of types **
+      */
     private val builtinTypeInfoMap =
       DecodeV1.builtinTypeInfos
-        .filterNot(info => versionIsOlderThan(info.minVersion))
+        .filter(info => info.minVersion <= languageVersion)
         .map(info => info.bTyp -> info)
         .toMap
 
@@ -198,8 +205,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     private val TForalls = RightRecMatcher[(TypeVarName, Kind), Type]({
       case TForall(binder, body) => binder -> body
     })
-    private val TApps = LeftRecMatcher[Type, Type]({
-      case TApp(fun, arg) => fun -> arg
+    private val TApps = LeftRecMatcher[Type, Type]({ case TApp(fun, arg) =>
+      fun -> arg
     })
 
     private def ignoreOneDecimalScaleParameter(typs: ImmArray[Type]): ImmArray[Type] =
@@ -210,7 +217,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       }
 
     private implicit def encodeType(typ: Type): PLF.Type =
-      if (versionIsOlderThan(LV.Features.internedTypes))
+      if (languageVersion < LV.Features.internedTypes)
         encodeTypeBuilder(typ).build()
       else
         PLF.Type.newBuilder().setInterned(typeTable.insert(typ)).build()
@@ -225,7 +232,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       // Be warned: Both the use of the unapply pattern TForalls and the pattern
       //    case TBuiltin(BTArrow) if versionIsOlderThan(LV.Features.arrowType) =>
       // cause scala's exhaustivty checking to be disabled in the following match.
-      typ match {
+      (typ: @unchecked) match {
         case TVar(varName) =>
           val b = PLF.Type.Var.newBuilder()
           setString(varName, b.setVarStr, b.setVarInternedStr)
@@ -236,25 +243,29 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setNat(n.toLong)
         case TTyCon(tycon) =>
           builder.setCon(
-            PLF.Type.Con.newBuilder().setTycon(tycon).accumulateLeft(args)(_ addArgs _))
+            PLF.Type.Con.newBuilder().setTycon(tycon).accumulateLeft(args)(_ addArgs _)
+          )
         case TBuiltin(bType) =>
           val (proto, typs) =
-            if (bType == BTNumeric && versionIsOlderThan(LV.Features.numeric))
+            if (bType == BTNumeric && (languageVersion < LV.Features.numeric))
               PLF.PrimType.DECIMAL -> ignoreOneDecimalScaleParameter(args)
             else
               builtinTypeInfoMap(bType).proto -> args
           builder.setPrim(
-            PLF.Type.Prim.newBuilder().setPrim(proto).accumulateLeft(typs)(_ addArgs _))
+            PLF.Type.Prim.newBuilder().setPrim(proto).accumulateLeft(typs)(_ addArgs _)
+          )
         case TApp(_, _) =>
           sys.error("unexpected error")
         case TForalls(binders, body) =>
           expect(args.isEmpty)
           builder.setForall(
-            PLF.Type.Forall.newBuilder().accumulateLeft(binders)(_ addVars _).setBody(body))
+            PLF.Type.Forall.newBuilder().accumulateLeft(binders)(_ addVars _).setBody(body)
+          )
         case TStruct(fields) =>
           expect(args.isEmpty)
           builder.setStruct(
-            PLF.Type.Struct.newBuilder().accumulateLeft(fields.toImmArray)(_ addFields _))
+            PLF.Type.Struct.newBuilder().accumulateLeft(fields.toImmArray)(_ addFields _)
+          )
         case TSynApp(name, args) =>
           val b = PLF.Type.Syn.newBuilder()
           b.setTysyn(name)
@@ -263,13 +274,13 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       }
     }
 
-    /** * Encoding Expression ***/
+    /** * Encoding Expression **
+      */
     private val builtinFunctionInfos =
       DecodeV1.builtinFunctionInfos
-        .filterNot(
-          info =>
-            versionIsOlderThan(info.minVersion) &&
-              info.maxVersion.forall(v => !versionIsOlderThan(v)))
+        .filter(info =>
+          info.minVersion <= languageVersion && info.maxVersion.forall(languageVersion < _)
+        )
 
     private val directBuiltinFunctionMap =
       builtinFunctionInfos
@@ -347,7 +358,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setPure(PLF.Pure.newBuilder().setType(typ).setExpr(expr))
         case UpdateBlock(binding, body) =>
           builder.setBlock(
-            PLF.Block.newBuilder().accumulateLeft(binding)(_ addBindings _).setBody(body))
+            PLF.Block.newBuilder().accumulateLeft(binding)(_ addBindings _).setBody(body)
+          )
         case UpdateCreate(templateId, arg) =>
           builder.setCreate(PLF.Update.Create.newBuilder().setTemplate(templateId).setExpr(arg))
         case UpdateFetch(templateId, contractId) =>
@@ -375,6 +387,13 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setLookupByKey(rbk)
         case UpdateEmbedExpr(typ, body) =>
           builder.setEmbedExpr(PLF.Update.EmbedExpr.newBuilder().setType(typ).setBody(body))
+        case UpdateTryCatch(retTy, tryExpr, binder, catchExpr) =>
+          val b = PLF.Update.TryCatch.newBuilder()
+          b.setReturnType(retTy)
+          b.setTryExpr(tryExpr)
+          b.setVarInternedStr(stringsTable.insert(binder))
+          b.setCatchExpr(catchExpr)
+          builder.setTryCatch(b)
       }
       builder.build()
     }
@@ -386,13 +405,16 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setPure(PLF.Pure.newBuilder().setType(typ).setExpr(expr))
         case ScenarioBlock(binding, body) =>
           builder.setBlock(
-            PLF.Block.newBuilder().accumulateLeft(binding)(_ addBindings _).setBody(body))
+            PLF.Block.newBuilder().accumulateLeft(binding)(_ addBindings _).setBody(body)
+          )
         case ScenarioCommit(party, update, retType) =>
           builder.setCommit(
-            PLF.Scenario.Commit.newBuilder().setParty(party).setExpr(update).setRetType(retType))
+            PLF.Scenario.Commit.newBuilder().setParty(party).setExpr(update).setRetType(retType)
+          )
         case ScenarioMustFailAt(party, update, retType) =>
           builder.setMustFailAt(
-            PLF.Scenario.Commit.newBuilder().setParty(party).setExpr(update).setRetType(retType))
+            PLF.Scenario.Commit.newBuilder().setParty(party).setExpr(update).setRetType(retType)
+          )
         case ScenarioPass(relTime) =>
           builder.setPass(relTime)
         case ScenarioGetTime =>
@@ -418,7 +440,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         case PLInt64(value) =>
           builder.setInt64(value)
         case PLNumeric(value) =>
-          if (versionIsOlderThan(LV.Features.numeric)) {
+          if (languageVersion < LV.Features.numeric) {
             assert(value.scale == Decimal.scale)
             builder.setDecimalStr(Numeric.toUnscaledString(value))
           } else
@@ -431,6 +453,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           setString(party, builder.setPartyStr, builder.setPartyInternedStr)
         case PLDate(date) =>
           builder.setDate(date.days)
+        case PLRoundingMode(rounding) =>
+          builder.setRoundingModeValue(rounding.ordinal())
       }
       builder.build()
     }
@@ -471,23 +495,24 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       builder.build()
     }
 
-    private val EApps = LeftRecMatcher[Expr, Expr]({
-      case EApp(fun, arg) => fun -> arg
+    private val EApps = LeftRecMatcher[Expr, Expr]({ case EApp(fun, arg) =>
+      fun -> arg
     })
-    private val ETyApps = LeftRecMatcher[Expr, Type]({
-      case ETyApp(exp, typ) => exp -> typ
+    private val ETyApps = LeftRecMatcher[Expr, Type]({ case ETyApp(exp, typ) =>
+      exp -> typ
     })
-    private val EAbss = RightRecMatcher[(ExprVarName, Type), Expr]({
-      case EAbs(binder, body, _) => binder -> body
+    private val EAbss = RightRecMatcher[(ExprVarName, Type), Expr]({ case EAbs(binder, body, _) =>
+      binder -> body
     })
-    private val ETyAbss = RightRecMatcher[(TypeVarName, Kind), Expr]({
-      case ETyAbs(binder, body) => binder -> body
+    private val ETyAbss = RightRecMatcher[(TypeVarName, Kind), Expr]({ case ETyAbs(binder, body) =>
+      binder -> body
     })
 
     private def encodeExprBuilder(expr0: Expr): PLF.Expr.Builder = {
       val builder = PLF.Expr.newBuilder()
 
-      expr0 match {
+      // EAbss breaks the exhaustiveness checker.
+      (expr0: @unchecked) match {
         case EVar(value) =>
           setString(value, builder.setVarStr, builder.setVarInternedStr)
         case EVal(value) =>
@@ -500,7 +525,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setPrimLit(primLit)
         case ERecCon(tyCon, fields) =>
           builder.setRecCon(
-            PLF.Expr.RecCon.newBuilder().setTycon(tyCon).accumulateLeft(fields)(_ addFields _))
+            PLF.Expr.RecCon.newBuilder().setTycon(tyCon).accumulateLeft(fields)(_ addFields _)
+          )
         case ERecProj(tycon, field, expr) =>
           val b = PLF.Expr.RecProj.newBuilder()
           b.setTycon(tycon)
@@ -527,7 +553,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           builder.setEnumCon(b.build())
         case EStructCon(fields) =>
           builder.setStructCon(
-            PLF.Expr.StructCon.newBuilder().accumulateLeft(fields)(_ addFields _))
+            PLF.Expr.StructCon.newBuilder().accumulateLeft(fields)(_ addFields _)
+          )
         case EStructProj(field, expr) =>
           val b = PLF.Expr.StructProj.newBuilder()
           setString(field, b.setFieldStr, b.setFieldInternedStr)
@@ -548,17 +575,21 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               builder.setBuiltin(indirectBuiltinFunctionMap(builtin)(typs).proto)
             case _ =>
               builder.setTyApp(
-                PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs0)(_ addTypes _))
+                PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs0)(_ addTypes _)
+              )
           }
         case ETyApps(expr, typs) =>
           builder.setTyApp(
-            PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs)(_ addTypes _))
+            PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs)(_ addTypes _)
+          )
         case EAbss(binders, body) =>
           builder.setAbs(
-            PLF.Expr.Abs.newBuilder().accumulateLeft(binders)(_ addParam _).setBody(body))
+            PLF.Expr.Abs.newBuilder().accumulateLeft(binders)(_ addParam _).setBody(body)
+          )
         case ETyAbss(binders, body) =>
           builder.setTyAbs(
-            PLF.Expr.TyAbs.newBuilder().accumulateLeft(binders)(_ addParam _).setBody(body))
+            PLF.Expr.TyAbs.newBuilder().accumulateLeft(binders)(_ addParam _).setBody(body)
+          )
         case ECase(scrut, alts) =>
           builder.setCase(PLF.Case.newBuilder().setScrut(scrut).accumulateLeft(alts)(_ addAlts _))
         case ELet(binding, body) =>
@@ -576,7 +607,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .newBuilder()
               .setType(typ)
               .accumulateLeft(front)(_ addFront _)
-              .setTail(tail))
+              .setTail(tail)
+          )
         case ENone(typ) =>
           builder.setOptionalNone(PLF.Expr.OptionalNone.newBuilder().setType(typ))
         case ESome(typ, x) =>
@@ -596,6 +628,18 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         case ETypeRep(ty) =>
           assertSince(LV.Features.typeRep, "Expr.TypeRep")
           builder.setTypeRep(ty)
+        case EThrow(retTy, excTy, exc) =>
+          assertSince(LV.Features.exceptions, "Expr.Throw")
+          builder.setThrow(
+            PLF.Expr.Throw
+              .newBuilder()
+              .setReturnType(retTy)
+              .setExceptionType(excTy)
+              .setExceptionExpr(exc)
+          )
+        case EExperimental(name, ty) =>
+          assertSince(LV.v1_dev, "Expr.experimental")
+          builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))
       }
       builder
     }
@@ -610,10 +654,12 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       dataType.cons match {
         case DataRecord(fields) =>
           builder.setRecord(
-            PLF.DefDataType.Fields.newBuilder().accumulateLeft(fields)(_ addFields _))
+            PLF.DefDataType.Fields.newBuilder().accumulateLeft(fields)(_ addFields _)
+          )
         case DataVariant(variants) =>
           builder.setVariant(
-            PLF.DefDataType.Fields.newBuilder().accumulateLeft(variants)(_ addFields _))
+            PLF.DefDataType.Fields.newBuilder().accumulateLeft(variants)(_ addFields _)
+          )
         case DataEnum(constructors) =>
           assertSince(LV.Features.enum, "DefDataType.Enum")
           val b = PLF.DefDataType.EnumConstructors.newBuilder()
@@ -622,6 +668,16 @@ private[daml] class EncodeV1(minor: LV.Minor) {
           )
           builder.setEnum(b)
       }
+      builder.build()
+    }
+
+    private implicit def encodeException(
+        nameWithDef: (DottedName, DefException)
+    ): PLF.DefException = {
+      val (dottedName, exception) = nameWithDef
+      val builder = PLF.DefException.newBuilder()
+      builder.setNameInternedDname(dottedNameTable.insert(dottedName))
+      builder.setMessage(exception.message)
       builder.build()
     }
 
@@ -635,7 +691,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     }
 
     private implicit def encodeNameWithType(
-        nameWithType: (DottedName, Type)): PLF.DefValue.NameWithType = {
+        nameWithType: (DottedName, Type)
+    ): PLF.DefValue.NameWithType = {
       val (name, typ) = nameWithType
       val b = PLF.DefValue.NameWithType.newBuilder
       setDottedName(name, b.addNameDname, b.setNameInternedDname)
@@ -662,6 +719,14 @@ private[daml] class EncodeV1(minor: LV.Minor) {
       setString(name, b.setNameStr, b.setNameInternedStr)
       b.setConsuming(choice.consuming)
       b.setControllers(choice.controllers)
+      choice.choiceObservers match {
+        case Some(value) =>
+          assertSince(LV.Features.choiceObservers, "TemplateChoice.observer")
+          b.setObservers(value)
+        case None if languageVersion >= LV.Features.choiceObservers =>
+          b.setObservers(ENil(AstUtil.TParty))
+        case _ =>
+      }
       b.setArgBinder(choice.argBinder._1 -> choice.argBinder._2)
       b.setRetType(choice.returnType)
       b.setUpdate(choice.update)
@@ -678,7 +743,8 @@ private[daml] class EncodeV1(minor: LV.Minor) {
         .build()
 
     private implicit def encodeTemplate(
-        nameWithTemplate: (DottedName, Template)): PLF.DefTemplate = {
+        nameWithTemplate: (DottedName, Template)
+    ): PLF.DefTemplate = {
       val (name, template) = nameWithTemplate
       val b = PLF.DefTemplate.newBuilder()
       setDottedName_(name, b.setTyconDname, b.setTyconInternedDname)
@@ -693,7 +759,7 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     }
 
     private def setString[X](s: String, setDirect: String => X, setThroughTable: Int => X) = {
-      if (versionIsOlderThan(LV.Features.internedStrings))
+      if (languageVersion < LV.Features.internedStrings)
         setDirect(s)
       else
         setThroughTable(stringsTable.insert(s))
@@ -703,8 +769,9 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     private def setDottedName[X](
         name: Ref.DottedName,
         addDirect: String => X,
-        setThroughTable: Int => X) = {
-      if (versionIsOlderThan(LV.Features.internedDottedNames))
+        setThroughTable: Int => X,
+    ) = {
+      if (languageVersion < LV.Features.internedDottedNames)
         name.segments.map(addDirect)
       else
         setThroughTable(dottedNameTable.insert(name))
@@ -714,10 +781,12 @@ private[daml] class EncodeV1(minor: LV.Minor) {
     private def setDottedName_[X](
         name: Ref.DottedName,
         addDirect: PLF.DottedName => X,
-        setThroughTable: Int => X) = {
-      if (versionIsOlderThan(LV.Features.internedDottedNames))
+        setThroughTable: Int => X,
+    ) = {
+      if (languageVersion < LV.Features.internedDottedNames)
         addDirect(
-          PLF.DottedName.newBuilder().accumulateLeft(name.segments)(_ addSegments _).build())
+          PLF.DottedName.newBuilder().accumulateLeft(name.segments)(_ addSegments _).build()
+        )
       else
         setThroughTable(dottedNameTable.insert(name))
       ()
@@ -725,12 +794,9 @@ private[daml] class EncodeV1(minor: LV.Minor) {
 
   }
 
-  private def versionIsOlderThan(minVersion: LV): Boolean =
-    LV.ordering.lt(languageVersion, minVersion)
-
   private def assertSince(minVersion: LV, description: String): Unit =
-    if (versionIsOlderThan(minVersion))
-      throw EncodeError(s"$description is not supported by DAML-LF 1.$minor")
+    if (languageVersion < minVersion)
+      throw EncodeError(s"$description is not supported by Daml-LF 1.$minor")
 
 }
 
@@ -747,7 +813,7 @@ object EncodeV1 {
       @tailrec
       private def go(
           x: L,
-          stack: FrontStack[R] = FrontStack.empty
+          stack: FrontStack[R] = FrontStack.empty,
       ): Option[(L, ImmArray[R])] =
         if (split.isDefinedAt(x)) {
           val (left, right) = split(x)
@@ -775,7 +841,7 @@ object EncodeV1 {
       @tailrec
       private def go(
           stack: BackStack[L] = BackStack.empty,
-          x: R
+          x: R,
       ): Option[(ImmArray[L], R)] =
         if (split.isDefinedAt(x)) {
           val (left, right) = split(x)

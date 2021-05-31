@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.model
@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 import com.daml.lf.{iface => DamlLfIface}
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.navigator.config.UserConfig
+import scala.collection.compat.immutable.LazyList
 import scalaz.Tag
 
 case class State(ledger: Ledger, packageRegistry: PackageRegistry)
@@ -17,14 +18,16 @@ class PartyState(val config: UserConfig) {
   val name = config.party
   val useDatabase = config.useDatabase
   private val stateRef: AtomicReference[State] = new AtomicReference(
-    State(Ledger(name, None, useDatabase), new PackageRegistry))
+    State(Ledger(name, None, useDatabase), new PackageRegistry)
+  )
 
   def ledger: Ledger = stateRef.get.ledger
   def packageRegistry: PackageRegistry = stateRef.get.packageRegistry
 
   def addLatestTransaction(tx: Transaction): Unit = {
     stateRef.updateAndGet(state =>
-      state.copy(ledger = state.ledger.withTransaction(tx, packageRegistry)))
+      state.copy(ledger = state.ledger.withTransaction(tx, packageRegistry))
+    )
     ()
   }
 
@@ -40,7 +43,8 @@ class PartyState(val config: UserConfig) {
 
   def addPackages(packs: List[DamlLfIface.Interface]): Unit = {
     stateRef.updateAndGet(state =>
-      state.copy(packageRegistry = packageRegistry.withPackages(packs)))
+      state.copy(packageRegistry = packageRegistry.withPackages(packs))
+    )
     ()
   }
 
@@ -53,5 +57,5 @@ class PartyState(val config: UserConfig) {
 
   override def toString: String = "Party(" + name.toString + ")"
 
-  def contracts(): Stream[Contract] = this.ledger.allContracts(this.packageRegistry)
+  def contracts(): LazyList[Contract] = this.ledger.allContracts(this.packageRegistry)
 }

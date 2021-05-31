@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
@@ -57,7 +57,9 @@ class AnfTest extends AnyWordSpec with Matchers {
           binop(
             SBSubInt64,
             app(arg0, binop(SBAddInt64, arg1, num1)),
-            app(arg0, binop(SBAddInt64, arg1, num2))))
+            app(arg0, binop(SBAddInt64, arg1, num2)),
+          ),
+        )
       val expected =
         lam(
           2,
@@ -71,7 +73,11 @@ class AnfTest extends AnyWordSpec with Matchers {
                 SBAddInt64,
                 arg1,
                 num2,
-                let1(appa(arg0, stack1), binopa(SBSubInt64, stack3, stack1))))))
+                let1(appa(arg0, stack1), binopa(SBSubInt64, stack3, stack1)),
+              ),
+            ),
+          ),
+        )
       testTransform(original, expected)
     }
   }
@@ -104,14 +110,18 @@ class AnfTest extends AnyWordSpec with Matchers {
           app2(
             arg0,
             app(arg1, binop(SBSubInt64, arg3, num1)),
-            app(arg1, binop(SBSubInt64, arg3, num2))))
+            app(arg1, binop(SBSubInt64, arg3, num2)),
+          ),
+        )
       val expected =
         lam(
           2,
           app2n(
             arg0,
             let1b2(SBSubInt64, arg3, num1, appa(arg1, stack1)),
-            let1b2(SBSubInt64, arg3, num2, appa(arg1, stack1))))
+            let1b2(SBSubInt64, arg3, num2, appa(arg1, stack1)),
+          ),
+        )
       testTransform(original, expected)
     }
   }
@@ -151,7 +161,9 @@ class AnfTest extends AnyWordSpec with Matchers {
             SBEqual,
             arg1,
             num0,
-            itea(stack1, num1, let1b2(SBDivInt64, num1, arg1, appa(arg0, stack1)))))
+            itea(stack1, num1, let1b2(SBDivInt64, num1, arg1, appa(arg0, stack1))),
+          ),
+        )
       testTransform(original, expected)
     }
   }
@@ -163,7 +175,8 @@ class AnfTest extends AnyWordSpec with Matchers {
       val expected =
         lam(
           2,
-          let1(clo1(arg0, 1, let1(appa(free0, arg0), appa(free0, stack1))), appa(arg1, stack1)))
+          let1(clo1(arg0, 1, let1(appa(free0, arg0), appa(free0, stack1))), appa(arg1, stack1)),
+        )
       testTransform(original, expected)
     }
   }
@@ -190,6 +203,9 @@ class AnfTest extends AnyWordSpec with Matchers {
 
   private def binop(op: SBuiltinPure, x: SExpr, y: SExpr): SExpr = SEApp(SEBuiltin(op), Array(x, y))
 
+  private def binop(op: SBuiltinArithmetic, x: SExpr, y: SExpr): SExpr =
+    SEApp(SEBuiltin(op), Array(x, y))
+
   private def ite(i: SExpr, t: SExpr, e: SExpr): SExpr =
     SECase(i, Array(SCaseAlt(patTrue, t), SCaseAlt(patFalse, e)))
 
@@ -200,10 +216,18 @@ class AnfTest extends AnyWordSpec with Matchers {
   private def let1b2(op: SBuiltinPure, arg1: SExprAtomic, arg2: SExprAtomic, body: SExpr): SExpr =
     SELet1Builtin(op, Array(arg1, arg2), body)
 
+  private def let1b2(
+      op: SBuiltinArithmetic,
+      arg1: SExprAtomic,
+      arg2: SExprAtomic,
+      body: SExpr,
+  ): SExpr =
+    SELet1BuiltinArithmetic(op, Array(arg1, arg2), body)
+
   private def appa(func: SExprAtomic, arg: SExprAtomic): SExpr =
     SEAppAtomicGeneral(func, Array(arg))
 
-  private def binopa(op: SBuiltinPure, x: SExprAtomic, y: SExprAtomic): SExpr =
+  private def binopa(op: SBuiltinArithmetic, x: SExprAtomic, y: SExprAtomic): SExpr =
     SEAppAtomicSaturatedBuiltin(op, Array(x, y))
 
   private def itea(i: SExprAtomic, t: SExpr, e: SExpr): SExpr =

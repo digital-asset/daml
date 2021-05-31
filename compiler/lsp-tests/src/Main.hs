@@ -1,19 +1,19 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
 module Main (main) where
 
 import Control.Applicative.Combinators
-import Control.Lens hiding (List)
+import Control.Lens hiding (List, children)
 import Control.Monad
 import Control.Monad.IO.Class
 import DA.Bazel.Runfiles
 import Data.Aeson (toJSON)
 import Data.Char (toLower)
+import Data.Either
 import Data.Foldable (toList)
 import Data.List.Extra
-import Data.Maybe
 import qualified Data.Text as T
 import qualified Language.Haskell.LSP.Test as LspTest
 import Language.Haskell.LSP.Types
@@ -52,7 +52,8 @@ main = do
             | isWindows = pure ()
             | otherwise = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=yes") fullCaps' dir s
     defaultMain $ testGroup "LSP"
-        [ diagnosticTests run runScenarios
+        [ symbolsTests run
+        , diagnosticTests run runScenarios
         , requestTests run runScenarios
         , scenarioTests runScenarios
         , scriptTests damlcPath scriptDarPath
@@ -335,7 +336,7 @@ requestTests run _runScenarios = testGroup "requests"
                     , "Main.add"
                     , ": Int -> Int -> Int"
                     , "```"
-                    , "*\t*\t*"
+                    , "* * *"
                     , "*Defined at " <> T.pack fp <> ":3:1*"
                     ]
               , _range = Just $ Range (Position 8 17) (Position 8 20)
@@ -355,7 +356,7 @@ requestTests run _runScenarios = testGroup "requests"
                     , ": NumericScale n"
                     , "=> Numeric n"
                     , "```"
-                    , "*\t*\t*"
+                    , "* * *"
                     ]
               , _range = Just $ Range (Position 1 27) (Position 1 30)
               }
@@ -397,6 +398,28 @@ requestTests run _runScenarios = testGroup "requests"
           -- answerFromTest
           locs <- getDefinitions main' (Position 2 8)
           liftIO $ locs @?= [Location (test ^. uri) (Range (Position 1 0) (Position 1 14))]
+
+          -- introduce syntax error
+          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 6 6) (Position 6 6))) Nothing "+\n"]
+          expectDiagnostics [("Main.daml", [(DsError, (6, 6), "Parse error")])]
+
+          -- everything should still work because we use stale information.
+          -- thisIsAParam
+          locs <- getDefinitions main' (Position 3 24)
+          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 3 4) (Position 3 16))]
+          -- letParam
+          locs <- getDefinitions main' (Position 4 37)
+          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 4 16) (Position 4 24))]
+          -- import Test
+          locs <- getDefinitions main' (Position 1 10)
+          liftIO $ locs @?= [Location (test ^. uri) (Range (Position 0 0) (Position 0 0))]
+          -- use of `bar` in template
+          locs <- getDefinitions main' (Position 14 20)
+          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 2 0) (Position 2 3))]
+          -- answerFromTest
+          locs <- getDefinitions main' (Position 2 8)
+          liftIO $ locs @?= [Location (test ^. uri) (Range (Position 1 0) (Position 1 14))]
+
           closeDoc main'
           closeDoc test
     ]
@@ -567,7 +590,7 @@ executeCommandTests run _ = testGroup "execute command"
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
            "daml/damlVisualize"  (Just (List [Aeson.String $ T.pack escapedFp])) Nothing
         let expectedDotString = "digraph G {\ncompound=true;\nrankdir=LR;\nsubgraph cluster_Coin{\nn0[label=Create][color=green]; \nn1[label=Archive][color=red]; \nn2[label=Delete][color=red]; \nlabel=<<table align = \"left\" border=\"0\" cellborder=\"0\" cellspacing=\"1\">\n<tr><td align=\"center\"><b>Coin</b></td></tr><tr><td align=\"left\">owner</td></tr> \n</table>>;color=blue\n}\n}\n"
-        liftIO $ assertEqual "Visulization command" (Just expectedDotString) (_result actualDotString)
+        liftIO $ assertEqual "Visulization command" (Right expectedDotString) (_result actualDotString)
         closeDoc main'
     , testCase "Invalid commands result in error"  $ run $ do
         main' <- openDoc' "Empty.daml" damlId $ T.unlines
@@ -576,14 +599,12 @@ executeCommandTests run _ = testGroup "execute command"
         Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
            "daml/NoCommand"  (Just (List [Aeson.String $ T.pack escapedFp])) Nothing
-        liftIO $ _result actualDotString @?= Nothing
-        liftIO $ assertBool "Expected response error but got Nothing" (isJust $ _error actualDotString)
+        liftIO $ assertBool "Expected response error but got success" (isLeft $ _result actualDotString)
         closeDoc main'
     , testCase "Visualization command with no arguments" $ run $ do
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
            "daml/damlVisualize"  Nothing Nothing
-        liftIO $ _result actualDotString @?= Nothing
-        liftIO $ assertBool "Expected response error but got Nothing" (isJust $ _error actualDotString)
+        liftIO $ assertBool "Expected response error but got Nothing" (isLeft $ _result actualDotString)
     ]
 
 -- | Do extreme things to the compiler service.
@@ -709,6 +730,34 @@ regressionTests run _runScenarios = testGroup "regression"
         liftIO $ completions @?= [mkModuleCompletion "DA.Internal.RebindableSyntax" & detail .~ Nothing]
   ]
 
+symbolsTests :: (Session () -> IO ()) -> TestTree
+symbolsTests run =
+    testGroup
+        "getDocumentSymbols"
+        [ testCase "no internal imports for empty module" $
+          run $ do
+              foo <- openDoc' "Foo.daml" damlId $ T.unlines ["module Foo where"]
+              syms <- getDocumentSymbols foo
+              liftIO $ preview (_Left . _head . children . _Just) syms @?= Just (List [])
+        , testCase "no internal imports for module with one template" $
+          run $ do
+              foo <-
+                  openDoc' "Foo.daml" damlId $
+                  T.unlines
+                      [ "module Foo where"
+                      , "template T with p1 : Party where"
+                      , "  signatory p1"
+                      , "  choice A : ()"
+                      , "      with p : Party"
+                      , "    controller p"
+                      , "      do return ()"
+                      ]
+              syms <- getDocumentSymbols foo
+              liftIO $
+                  fmap (length . toList) (preview (_Left . _head . children . _Just) syms) @?=
+                  Just 2
+        ]
+
 completionTests
     :: (Session () -> IO ())
     -> (Session () -> IO ())
@@ -774,7 +823,7 @@ defaultCompletion label = CompletionItem
           , _commitCharacters = Nothing
           , _command = Nothing
           , _xdata = Nothing
-          , _tags = List []
+          , _tags = Nothing
           }
 
 mkTypeCompletion :: T.Text -> CompletionItem
@@ -885,7 +934,7 @@ multiPackageTests damlc
                       , "a"
                       , ": A"
                       , "```"
-                        , "*\t*\t*"
+                        , "* * *"
                         , "*Defined at " <> T.pack fpA <> ":3:1*"
                       ]
                 , _range = Just $ Range (Position 2 0) (Position 2 1)

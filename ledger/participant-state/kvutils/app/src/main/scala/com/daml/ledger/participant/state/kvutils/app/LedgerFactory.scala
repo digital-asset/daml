@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.app
@@ -16,13 +16,17 @@ import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
-  PartyConfiguration
+  PartyConfiguration,
 }
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
 
-@com.github.ghik.silencer.silent(" config .* is never used") // possibly used in overrides
+import java.util.concurrent.TimeUnit
+import scala.annotation.nowarn
+import scala.concurrent.duration.FiniteDuration
+
+@nowarn("msg=parameter value config .* is never used") // possibly used in overrides
 trait ConfigProvider[ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
 
@@ -33,40 +37,62 @@ trait ConfigProvider[ExtraConfig] {
 
   def indexerConfig(
       participantConfig: ParticipantConfig,
-      config: Config[ExtraConfig]): IndexerConfig =
+      config: Config[ExtraConfig],
+  ): IndexerConfig =
     IndexerConfig(
       participantConfig.participantId,
       jdbcUrl = participantConfig.serverJdbcUrl,
+      databaseConnectionPoolSize = participantConfig.indexerConfig.databaseConnectionPoolSize,
       startupMode = IndexerStartupMode.MigrateAndStart,
       eventsPageSize = config.eventsPageSize,
-      allowExistingSchema = participantConfig.allowExistingSchemaForIndex,
+      allowExistingSchema = participantConfig.indexerConfig.allowExistingSchema,
+      enableAppendOnlySchema = config.enableAppendOnlySchema,
+      maxInputBufferSize = participantConfig.indexerConfig.maxInputBufferSize,
+      inputMappingParallelism = participantConfig.indexerConfig.ingestionParallelism,
+      batchingParallelism = participantConfig.indexerConfig.batchingParallelism,
+      submissionBatchSize = participantConfig.indexerConfig.submissionBatchSize,
+      tailingRateLimitPerSecond = participantConfig.indexerConfig.tailingRateLimitPerSecond,
+      batchWithinMillis = participantConfig.indexerConfig.batchWithinMillis,
+      enableCompression = participantConfig.indexerConfig.enableCompression,
     )
 
   def apiServerConfig(
       participantConfig: ParticipantConfig,
-      config: Config[ExtraConfig]): ApiServerConfig =
+      config: Config[ExtraConfig],
+  ): ApiServerConfig =
     ApiServerConfig(
       participantId = participantConfig.participantId,
       archiveFiles = config.archiveFiles.map(_.toFile).toList,
       port = participantConfig.port,
       address = participantConfig.address,
       jdbcUrl = participantConfig.serverJdbcUrl,
+      databaseConnectionPoolSize = participantConfig.apiServerDatabaseConnectionPoolSize,
+      databaseConnectionTimeout = FiniteDuration(
+        participantConfig.apiServerDatabaseConnectionTimeout.toMillis,
+        TimeUnit.MILLISECONDS,
+      ),
       tlsConfig = config.tlsConfig,
       maxInboundMessageSize = config.maxInboundMessageSize,
       eventsPageSize = config.eventsPageSize,
       portFile = participantConfig.portFile,
       seeding = config.seeding,
       managementServiceTimeout = participantConfig.managementServiceTimeout,
+      enableAppendOnlySchema = config.enableAppendOnlySchema,
+      maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
+      maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
+      enableMutableContractStateCache = config.enableMutableContractStateCache,
     )
 
   def commandConfig(
       participantConfig: ParticipantConfig,
-      config: Config[ExtraConfig]): CommandConfiguration = {
+      config: Config[ExtraConfig],
+  ): CommandConfiguration = {
     val defaultMaxCommandsInFlight = CommandConfiguration.default.maxCommandsInFlight
 
     CommandConfiguration.default.copy(
       maxCommandsInFlight =
         participantConfig.maxCommandsInFlight.getOrElse(defaultMaxCommandsInFlight),
+      retentionPeriod = config.trackerRetentionPeriod,
     )
   }
 
@@ -146,18 +172,17 @@ object LedgerFactory {
         config: Config[Unit],
         participantConfig: ParticipantConfig,
         engine: Engine,
-    )(
-        implicit materializer: Materializer,
+    )(implicit
+        materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[KeyValueParticipantState] =
       for {
         readerWriter <- owner(config, participantConfig, engine)
-      } yield
-        new KeyValueParticipantState(
-          readerWriter,
-          readerWriter,
-          createMetrics(participantConfig, config),
-        )
+      } yield new KeyValueParticipantState(
+        readerWriter,
+        readerWriter,
+        createMetrics(participantConfig, config),
+      )
 
     def owner(
         value: Config[Unit],

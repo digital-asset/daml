@@ -1,19 +1,19 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.transaction
 
 import com.daml.lf.data.Ref.Party
 
-/** Trait for extracting information from an abstract node.
+/** Trait for extracting information from an abstract action node.
   * Used for sharing the implementation of common computations
   * over nodes and transactions.
   *
   * External codebases use these utilities on transaction and
-  * node implementations that are not the one defined by [[Node]]
+  * node implementations that are not the one defined by [[ActionNode]]
   * and hence the need for the indirection.
   */
-trait NodeInfo {
+trait ActionNodeInfo {
 
   /** Compute the informees of a node based on the ledger model definition.
     *
@@ -28,15 +28,14 @@ trait NodeInfo {
     * The usage of this method must thus be restricted to:
     * 1. settings where no fetch nodes appear (for example, the `validate` method of DAMLe, which uses it on root
     *    nodes, which are guaranteed never to contain a fetch node)
-    * 2. DAML ledger implementations that do not store or process any transactions with version < 5
-    *
+    * 2. Daml ledger implementations that do not store or process any transactions with version < 5
     */
   def requiredAuthorizers: Set[Party]
 }
 
-object NodeInfo {
+object ActionNodeInfo {
 
-  trait Create extends NodeInfo {
+  trait Create extends ActionNodeInfo {
     def signatories: Set[Party]
     def stakeholders: Set[Party]
 
@@ -44,7 +43,7 @@ object NodeInfo {
     final def informeesOfNode: Set[Party] = stakeholders
   }
 
-  trait Fetch extends NodeInfo {
+  trait Fetch extends ActionNodeInfo {
     def signatories: Set[Party]
     def stakeholders: Set[Party]
     def actingParties: Set[Party]
@@ -56,7 +55,7 @@ object NodeInfo {
 
   }
 
-  trait Exercise extends NodeInfo {
+  trait Exercise extends ActionNodeInfo {
 
     def consuming: Boolean
     def signatories: Set[Party]
@@ -64,7 +63,7 @@ object NodeInfo {
     def actingParties: Set[Party]
     def choiceObservers: Set[Party]
 
-    final def requiredAuthorizers(): Set[Party] = actingParties
+    final def requiredAuthorizers: Set[Party] = actingParties
 
     final def informeesOfNode: Set[Party] =
       if (consuming)
@@ -73,11 +72,11 @@ object NodeInfo {
         signatories | actingParties | choiceObservers
   }
 
-  trait LookupByKey extends NodeInfo {
+  trait LookupByKey extends ActionNodeInfo {
     def keyMaintainers: Set[Party]
     def hasResult: Boolean
 
-    final def requiredAuthorizers(): Set[Party] = keyMaintainers
+    final def requiredAuthorizers: Set[Party] = keyMaintainers
     final def informeesOfNode: Set[Party] =
       // TODO(JM): In the successful case the informees should be the
       // signatories of the fetch contract. The signatories should be

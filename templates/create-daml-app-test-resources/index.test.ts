@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // Keep in sync with compatibility/bazel_tools/create-daml-app/index.test.ts
@@ -49,7 +49,7 @@ const removeFile = async (path: string) => {
   }
 }
 
-// Start the DAML and UI processes before the tests begin.
+// Start the Daml and UI processes before the tests begin.
 // To reduce test times, we reuse the same processes between all the tests.
 // This means we need to use a different set of parties and a new browser page for each test.
 beforeAll(async () => {

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
@@ -14,18 +14,19 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 import org.scalatest.ParallelTestExecution
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestExecution {
-
-  import com.daml.lf.testing.parser.Implicits._
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private[this] def encodePackage[P](pkg: Ast.Package) =
     Encode.encodeArchive(
@@ -72,7 +73,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         metadata ( 'Quantum' : '0.0.1' )
 
         module Chromodynamics {
-          record Charge = { value: '${libraryPackageId}':Color:Primary } ;
+          record Charge = { value: '$libraryPackageId':Color:Primary } ;
         }
       """
   )
@@ -91,18 +92,24 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     restart()
 
     // simulate restart of the participant node
-    def restart() = this.synchronized {
-      engine = new Engine(EngineConfig.Dev.copy(packageValidation = false))
+    def restart(): Unit = this.synchronized {
+      engine = new Engine(
+        EngineConfig(
+          allowedLanguageVersions = LanguageVersion.DevVersions,
+          packageValidation = false,
+        )
+      )
       packageCommitter = new PackageCommitter(engine, metrics, validationMode, preloadingMode)
     }
 
-    def submit(submission: DamlSubmission) = {
+    def submit(submission: DamlSubmission): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
       val result @ (log2, output1) =
         packageCommitter.run(
           Some(com.daml.lf.data.Time.Timestamp.now()),
           submission,
           participantId,
-          wrapMap(state))
+          Compat.wrapMap(state),
+        )
       if (log2.hasPackageUploadRejectionEntry)
         assert(output1.isEmpty)
       else
@@ -123,14 +130,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       )
       .build()
 
-  private[this] def wrapMap[K, V](m: Map[K, V]): Map[K, Option[V]] = new Map[K, Option[V]] {
-    override def +[V1 >: Option[V]](kv: (K, V1)): Map[K, V1] = ???
-    override def get(key: K): Option[Option[V]] = Some(m.get(key))
-    override def iterator: Iterator[(K, Option[V])] = ???
-    override def -(key: K): Map[K, Option[V]] = ???
-  }
-
-  private[this] val emptyState = wrapMap(Map.empty[DamlStateKey, DamlStateValue])
+  private[this] val emptyState = Compat.wrapMap(Map.empty[DamlStateKey, DamlStateValue])
 
   private[this] def details(rejection: DamlPackageUploadRejectionEntry) = {
     import DamlPackageUploadRejectionEntry.ReasonCase._
@@ -158,12 +158,13 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
 
   private[this] def shouldSucceed(output: (DamlLogEntry, Map[DamlStateKey, DamlStateValue])) = {
     output._1.hasPackageUploadRejectionEntry shouldBe false
-    output._2 shouldBe 'nonEmpty
+    output._2 shouldBe Symbol("nonEmpty")
   }
 
   private[this] def shouldSucceedWith(
       output: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]),
-      committedPackages: Set[Ref.PackageId]) = {
+      committedPackages: Set[Ref.PackageId],
+  ) = {
     shouldSucceed(output)
     val archives = output._1.getPackageUploadEntry.getArchivesList
     archives.size() shouldBe committedPackages.size
@@ -180,7 +181,8 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
         Some(theRecordTime),
         submission1,
         participantId,
-        emptyState)
+        emptyState,
+      )
       shouldSucceed(output)
       output._1.hasRecordTime shouldBe true
       output._1.getRecordTime shouldBe buildTimestamp(theRecordTime)
@@ -203,7 +205,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     }
   }
 
-  private[this] def lenientValidationTests(newCommitter: => CommitterWrapper) = {
+  private[this] def lenientValidationTests(newCommitter: => CommitterWrapper): Unit = {
 
     import DamlPackageUploadRejectionEntry.ReasonCase._
 
@@ -260,7 +262,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       shouldFailWith(
         committer.submit(submission1),
         INVALID_PACKAGE,
-        s"${pkgId1} appears more than once",
+        s"$pkgId1 appears more than once",
       )
     }
 
@@ -273,7 +275,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       shouldFailWith(
         committer.submit(submission1),
         INVALID_PACKAGE,
-        s"${pkgId1} appears more than once",
+        s"$pkgId1 appears more than once",
       )
 
       // when archive1 and archive2 are known
@@ -281,7 +283,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       shouldFailWith(
         committer.submit(submission1),
         INVALID_PACKAGE,
-        s"${pkgId1} appears more than once",
+        s"$pkgId1 appears more than once",
       )
     }
 
@@ -320,7 +322,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
 
   }
 
-  private[this] def strictValidationTests(newCommitter: => CommitterWrapper) = {
+  private[this] def strictValidationTests(newCommitter: => CommitterWrapper): Unit = {
 
     import DamlPackageUploadRejectionEntry.ReasonCase._
 
@@ -405,7 +407,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       val committer = new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.No)
       shouldSucceedWith(committer.submit(buildSubmission(archive1)), Set(pkgId1))
       Thread.sleep(1000)
-      committer.engine.compiledPackages().packageIds shouldBe 'empty
+      committer.engine.compiledPackages().packageIds shouldBe Symbol("empty")
     }
   }
 
@@ -413,7 +415,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
     def newCommitter =
       new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.Asynchronous)
 
-    def waitWhile(cond: => Boolean) =
+    def waitWhile(cond: => Boolean): Unit =
       // wait up to 16s
       Iterator.iterate(16L)(_ * 2).takeWhile(_ <= 8192 && cond).foreach(Thread.sleep)
 
@@ -495,9 +497,10 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
 
   "buildLogEntry" should {
 
-    val anEmptyResult = DamlPackageUploadEntry.newBuilder
-      .setSubmissionId("an ID")
-      .setParticipantId("a participant") -> Map.empty[Ref.PackageId, Ast.Package]
+    val anEmptyResult = PackageCommitter.Result(
+      DamlPackageUploadEntry.newBuilder.setSubmissionId("an ID").setParticipantId("a participant"),
+      Map.empty,
+    )
 
     def newCommitter = new CommitterWrapper(PackageValidationMode.No, PackagePreloadingMode.No)
 
@@ -511,8 +514,8 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       context.outOfTimeBoundsLogEntry.foreach { actual =>
         actual.hasRecordTime shouldBe false
         actual.hasPackageUploadRejectionEntry shouldBe true
-        actual.getPackageUploadRejectionEntry.getSubmissionId shouldBe anEmptyResult._1.getSubmissionId
-        actual.getPackageUploadRejectionEntry.getParticipantId shouldBe anEmptyResult._1.getParticipantId
+        actual.getPackageUploadRejectionEntry.getSubmissionId shouldBe anEmptyResult.uploadEntry.getSubmissionId
+        actual.getPackageUploadRejectionEntry.getParticipantId shouldBe anEmptyResult.uploadEntry.getParticipantId
       }
     }
 

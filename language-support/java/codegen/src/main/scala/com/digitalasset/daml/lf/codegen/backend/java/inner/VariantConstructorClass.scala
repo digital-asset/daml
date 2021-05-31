@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -12,7 +12,7 @@ import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object VariantConstructorClass extends StrictLogging {
 
@@ -22,7 +22,8 @@ object VariantConstructorClass extends StrictLogging {
       constructorName: String,
       javaName: String,
       body: Type,
-      packagePrefixes: Map[PackageId, String]): TypeSpec = {
+      packagePrefixes: Map[PackageId, String],
+  ): TypeSpec = {
     TrackLineage.of("variant constructor", constructorName) {
       logger.info("Start")
 
@@ -38,7 +39,7 @@ object VariantConstructorClass extends StrictLogging {
       val conversionMethods = distinctTypeVars(body, typeArgs).flatMap { params =>
         List(
           toValue(constructorName, params, body, variantFieldName, packagePrefixes),
-          fromValue(constructorName, params, className, body, packagePrefixes)
+          fromValue(constructorName, params, className, body, packagePrefixes),
         )
       }
 
@@ -48,8 +49,11 @@ object VariantConstructorClass extends StrictLogging {
         .addTypeVariables(typeArgs.map(TypeVariableName.get).asJava)
         .superclass(variant)
         .addField(javaType, variantFieldName, Modifier.PUBLIC, Modifier.FINAL)
-        .addMethod(ConstructorGenerator.generateConstructor(
-          IndexedSeq(FieldInfo("body", body, variantFieldName, javaType))))
+        .addMethod(
+          ConstructorGenerator.generateConstructor(
+            IndexedSeq(FieldInfo("body", body, variantFieldName, javaType))
+          )
+        )
         .addMethods(conversionMethods.asJava)
         .addMethods(ObjectMethods(className.rawType, typeArgs, Vector(variantFieldName)).asJava)
         .build()
@@ -61,7 +65,8 @@ object VariantConstructorClass extends StrictLogging {
       typeArgs: IndexedSeq[String],
       body: Type,
       fieldName: String,
-      packagePrefixes: Map[PackageId, String]) = {
+      packagePrefixes: Map[PackageId, String],
+  ) = {
     val extractorParameters = ToValueExtractorParameters.generate(typeArgs)
 
     MethodSpec
@@ -78,7 +83,8 @@ object VariantConstructorClass extends StrictLogging {
             body,
             CodeBlock.of("this.$L", fieldName),
             newNameGenerator,
-            packagePrefixes)
+            packagePrefixes,
+          ),
       )
       .build()
   }
@@ -88,7 +94,8 @@ object VariantConstructorClass extends StrictLogging {
       typeParameters: IndexedSeq[String],
       className: TypeName,
       fieldType: Type,
-      packagePrefixes: Map[PackageId, String]) = {
+      packagePrefixes: Map[PackageId, String],
+  ) = {
     val valueParam = ParameterSpec.builder(classOf[Value], "value$").build()
 
     val converterParams =
@@ -102,8 +109,15 @@ object VariantConstructorClass extends StrictLogging {
       .addParameter(valueParam)
       .addParameters(converterParams.asJava)
       .addCode(FromValueGenerator.variantCheck(constructor, "value$", "variantValue$"))
-      .addStatement(FromValueGenerator
-        .generateFieldExtractor(fieldType, "body", CodeBlock.of("variantValue$$"), packagePrefixes))
+      .addStatement(
+        FromValueGenerator
+          .generateFieldExtractor(
+            fieldType,
+            "body",
+            CodeBlock.of("variantValue$$"),
+            packagePrefixes,
+          )
+      )
       .addStatement("return new $T(body)", className)
       .build()
   }

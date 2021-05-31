@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
@@ -7,6 +7,7 @@ genrule(
     name = "test-certificates",
     srcs = [
         ":openssl-template.cnf",
+        ":openssl-alternative-template.cnf",
     ],
     outs = [
         "openssl.cnf",
@@ -29,6 +30,12 @@ genrule(
         "client-revoked.pem",
         "client-revoked.csr",
         "client-revoked.crt",
+        "openssl-alternative.cnf",
+        "index_alternative.txt",
+        "serial_alternative",
+        "ca_alternative.key",
+        "ca_alternative.crt",
+        "ca_alternative.pem",
     ],
     cmd = """
 set -eou pipefail
@@ -121,6 +128,31 @@ $(location @openssl_dev_env//:openssl) verify -CAfile $(location ca.crt) \
     $(location client-revoked.crt)
 # Revoke
 $(location @openssl_dev_env//:openssl) ca -batch -config $(location openssl.cnf) -revoke $(location client-revoked.crt)
+
+
+# Configure alternative CA for 'invalid certificate' scenarios
+NEWCERTS_ALTERNATIVE_DIR=$$ABSOLUTE_OUT/newcerts_alternative
+
+# Generate SSL config from the template
+cat $(location openssl-alternative-template.cnf) | sed -e "s;<ROOTDIR>;$$ABSOLUTE_OUT;g" > $(location openssl-alternative.cnf)
+
+# Setup directories
+mkdir NEWCERTS_ALTERNATIVE_DIR
+touch $(location index_alternative.txt)
+echo 1000 > $(location serial_alternative)
+
+# Generate Root Alternative CA private key
+$(location @openssl_dev_env//:openssl) genrsa -out $(location ca_alternative.key) 4096
+chmod 400 $(location ca_alternative.key)
+$(location @openssl_dev_env//:openssl) pkey -in $(location ca_alternative.key) -out $(location ca_alternative.pem)
+# Create Root Certificate (self-signed)
+$(location @openssl_dev_env//:openssl) req -config $(location openssl-alternative.cnf) \
+    -key $(location ca_alternative.key) \
+    -new -x509 -days 7300 -sha256 -extensions v3_ca \
+    -subj '/CN=0.0.0.0.ca' \
+    -out $(location ca_alternative.crt)
+# Dump out cert details
+$(location @openssl_dev_env//:openssl) x509 -noout -text -in $(location ca_alternative.crt)
 
     """,
     tools = [

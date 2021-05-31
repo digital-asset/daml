@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java
@@ -25,7 +25,7 @@ class JavaEscaperSpec extends AnyFlatSpec with Matchers {
   }
 
   // TODO(mp): use property-based testing
-  it should "escape dollars in DAML identifiers" in {
+  it should "escape dollars in Daml identifiers" in {
     JavaEscaper.escapeString("foo$") shouldEqual "foo$$"
   }
 }

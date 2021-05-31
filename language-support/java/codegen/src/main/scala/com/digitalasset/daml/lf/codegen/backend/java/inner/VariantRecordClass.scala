@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -8,7 +8,7 @@ import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 private[inner] object VariantRecordClass extends StrictLogging {
 
@@ -17,7 +17,8 @@ private[inner] object VariantRecordClass extends StrictLogging {
       fields: Fields,
       name: String,
       superclass: TypeName,
-      packagePrefixes: Map[PackageId, String]): TypeSpec.Builder =
+      packagePrefixes: Map[PackageId, String],
+  ): TypeSpec.Builder =
     TrackLineage.of("variant-record", name) {
       logger.info("Start")
       val className = ClassName.bestGuess(name)
@@ -33,7 +34,9 @@ private[inner] object VariantRecordClass extends StrictLogging {
             fields,
             className.parameterized(typeParameters),
             typeParameters,
-            packagePrefixes).asJava)
+            packagePrefixes,
+          ).asJava
+        )
       logger.debug("End")
       builder
     }

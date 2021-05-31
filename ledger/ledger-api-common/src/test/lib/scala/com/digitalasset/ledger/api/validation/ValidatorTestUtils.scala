@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.validation
@@ -37,22 +37,29 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
   protected def hasExpectedFilters(req: transaction.GetTransactionsRequest) = {
     val filtersByParty = req.filter.filtersByParty
     filtersByParty should have size 1
-    inside(filtersByParty.headOption.value) {
-      case (p, filters) =>
-        p shouldEqual party
-        filters shouldEqual domain.Filters(
-          Some(domain.InclusiveFilters(Set(Ref.Identifier(
-            Ref.PackageId.assertFromString(packageId),
-            Ref.QualifiedName(
-              Ref.DottedName.assertFromString(includedModule),
-              Ref.DottedName.assertFromString(includedTemplate))
-          )))))
+    inside(filtersByParty.headOption.value) { case (p, filters) =>
+      p shouldEqual party
+      filters shouldEqual domain.Filters(
+        Some(
+          domain.InclusiveFilters(
+            Set(
+              Ref.Identifier(
+                Ref.PackageId.assertFromString(packageId),
+                Ref.QualifiedName(
+                  Ref.DottedName.assertFromString(includedModule),
+                  Ref.DottedName.assertFromString(includedTemplate),
+                ),
+              )
+            )
+          )
+        )
+      )
     }
   }
 
   protected def hasExpectedTraceContext(req: transaction.GetTransactionsRequest) = {
-    inside(req.traceContext.value) {
-      case e => isExpectedTraceContext(e)
+    inside(req.traceContext.value) { case e =>
+      isExpectedTraceContext(e)
     }
   }
 
@@ -67,7 +74,8 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
   protected def requestMustFailWith(
       request: Future[_],
       code: Code,
-      description: String): Future[Assertion] = {
+      description: String,
+  ): Future[Assertion] = {
     val f = request.map(Right(_)).recover { case ex: StatusRuntimeException => Left(ex) }
     f.map(inside(_)(isError(code, description)))
   }
@@ -75,15 +83,16 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
   protected def requestMustFailWith(
       request: Either[StatusRuntimeException, _],
       code: Code,
-      description: String): Assertion = {
+      description: String,
+  ): Assertion = {
     inside(request)(isError(code, description))
   }
-  protected def isError(expectedCode: Code, expectedDescription: String)
-    : PartialFunction[Either[StatusRuntimeException, _], Assertion] = {
-
-    case Left(err) =>
-      err.getStatus should have('code (expectedCode))
-      err.getStatus should have('description (expectedDescription))
+  protected def isError(
+      expectedCode: Code,
+      expectedDescription: String,
+  ): PartialFunction[Either[StatusRuntimeException, _], Assertion] = { case Left(err) =>
+    err.getStatus should have(Symbol("code")(expectedCode))
+    err.getStatus should have(Symbol("description")(expectedDescription))
 
   }
 

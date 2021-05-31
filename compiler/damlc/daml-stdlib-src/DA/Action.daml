@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Action
@@ -30,7 +30,7 @@ when p s  = if p then s else pure ()
 -- | The reverse of `when`.
 --
 -- This function has short-circuiting semantics, i.e., when both arguments are
--- present and the first arguments evaluates to `False`, the second argument
+-- present and the first arguments evaluates to `True`, the second argument
 -- is not evaluated at all.
 unless : Applicative f => Bool -> f () -> f ()
 unless p s  = if p then pure () else s

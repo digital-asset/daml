@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -10,6 +10,11 @@ da_scala_library(
     name = "participant-state-index",
     srcs = glob(["src/main/scala/com/daml/ledger/participant/state/index/v2/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     tags = ["maven_coordinates=com.daml:participant-state-index:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -26,8 +31,5 @@ da_scala_library(
         "//ledger/participant-state",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

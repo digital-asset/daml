@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.perf.scenario
@@ -11,8 +11,7 @@ object Checks {
 
   def printResponseCheck[R]: Check[R] = new PrintResponseCheck[R]
 
-  /**
-    * Useful for debugging.
+  /** Useful for debugging.
     *
     * @tparam R response type
     */
@@ -20,7 +19,8 @@ object Checks {
     override def check(
         response: R,
         session: Session,
-        preparedCache: java.util.Map[Any, Any]): validation.Validation[CheckResult] = {
+        preparedCache: java.util.Map[Any, Any],
+    ): validation.Validation[CheckResult] = {
       println(s"Response: $response")
       validation.Success(CheckResult(None, None))
     }

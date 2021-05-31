@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -90,7 +90,7 @@ sdkCommandArgsParser info = fromM (go (unwrapSdkCommandArgs $ sdkCommandArgs inf
 commandParser :: [SdkCommandInfo] -> Parser Command
 commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
     [ subparser -- visible commands
-        $  builtin "version" "Display DAML version information" mempty (Version <$> versionParser <**> helper)
+        $  builtin "version" "Display Daml version information" mempty (Version <$> versionParser <**> helper)
         <> builtin "install" "Install the specified SDK version" mempty (Install <$> installParser <**> helper)
         <> builtin "uninstall" "Uninstall the specified SDK version" mempty (Uninstall <$> uninstallParser <**> helper)
         <> foldMap dispatch visible
@@ -105,19 +105,19 @@ versionParser :: Parser VersionOptions
 versionParser = VersionOptions
     <$> flagYesNoAuto "all" False "Display all available versions." idm
     <*> flagYesNoAuto "snapshots" False "Display all available snapshot versions." idm
-    <*> flagYesNoAuto "assistant" False "Display DAML assistant version." idm
+    <*> flagYesNoAuto "assistant" False "Display Daml assistant version." idm
 
 installParser :: Parser InstallOptions
 installParser = InstallOptions
     <$> optional (RawInstallTarget <$> argument str (metavar "TARGET" <> completeWith ["latest"] <> help "The SDK version to install. Use 'latest' to download and install the latest stable SDK version available. Run 'daml install' to see the full set of options."))
     <*> flagYesNoAuto "snapshots" False "Pick up snapshot versions with daml install latest." idm
-    <*> (InstallAssistant <$> flagYesNoAuto' "install-assistant" "Install associated DAML assistant version. Can be set to \"yes\" (always installs), \"no\" (never installs), or \"auto\" (installs if newer). Default is \"auto\"." idm)
+    <*> (InstallAssistant <$> flagYesNoAuto' "install-assistant" "Install associated Daml assistant version. Can be set to \"yes\" (always installs), \"no\" (never installs), or \"auto\" (installs if newer). Default is \"auto\"." idm)
     <*> iflag ActivateInstall "activate" hidden "Activate installed version of daml"
     <*> iflag ForceInstall "force" (short 'f') "Overwrite existing installation"
     <*> iflag QuietInstall "quiet" (short 'q') "Don't display installation messages"
     <*> fmap SetPath (flagYesNoAuto' "set-path" "Adjust PATH automatically" idm)
-    <*> fmap BashCompletions (flagYesNoAuto' "bash-completions" "Install bash completions for DAML assistant. Default is yes for linux and mac, no for windows." idm)
-    <*> fmap ZshCompletions (flagYesNoAuto' "zsh-completions" "Install Zsh completions for DAML assistant. Default is yes for linux and mac, no for windows." idm)
+    <*> fmap BashCompletions (flagYesNoAuto' "bash-completions" "Install bash completions for Daml assistant. Default is yes for linux and mac, no for windows." idm)
+    <*> fmap ZshCompletions (flagYesNoAuto' "zsh-completions" "Install Zsh completions for Daml assistant. Default is yes for linux and mac, no for windows." idm)
     where
         iflag p name opts desc = fmap p (switch (long name <> help desc <> opts))
 
@@ -136,7 +136,7 @@ defaultCompleter = mkCompleter $ \word -> do
 -- The implementation here is a variant of optparse-applicative’s `bashCompleter`.
   let cmd = unwords ["compgen", "-o", "bashdefault", "-o", "default", "--", requote word]
   result <- tryIO $ readProcess "bash" ["-c", cmd] ""
-  return . lines . either (const []) id $ result
+  return . lines . fromRight [] $ result
 
 -- | Strongly quote the string we pass to compgen.
 --

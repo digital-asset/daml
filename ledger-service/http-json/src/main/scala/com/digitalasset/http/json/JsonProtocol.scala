@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.json
@@ -36,7 +36,7 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
         JsString(obj.coid)
       override def read(json: JsValue) = json match {
         case JsString(s) =>
-          ContractId fromString s fold (deserializationError(_), identity)
+          ContractId.fromString(s).fold(deserializationError(_), identity)
         case _ => deserializationError("ContractId must be a string")
       }
     }
@@ -77,13 +77,15 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
   object LfValueCodec
       extends ApiCodecCompressed[ContractId](
         encodeDecimalAsString = true,
-        encodeInt64AsString = true)
+        encodeInt64AsString = true,
+      )
 
   // DB *must not* use stringly ints or decimals; see ValuePredicate Range comments
   object LfValueDatabaseCodec
       extends ApiCodecCompressed[ContractId](
         encodeDecimalAsString = false,
-        encodeInt64AsString = false) {
+        encodeInt64AsString = false,
+      ) {
     private[http] def asLfValueCodec(jv: JsValue): JsValue = jv match {
       case JsObject(fields) => JsObject(fields transform ((_, v) => asLfValueCodec(v)))
       case JsArray(elements) => JsArray(elements map asLfValueCodec)
@@ -137,7 +139,8 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
 
   private[this] def decodeContractRef(
       fields: Map[String, JsValue],
-      what: String): domain.InputContractRef[JsValue] =
+      what: String,
+  ): domain.InputContractRef[JsValue] =
     (fields get "templateId", fields get "key", fields get "contractId") match {
       case (Some(templateId), Some(key), None) =>
         -\/((templateId.convertTo[domain.TemplateId.OptionalPkg], key))
@@ -160,19 +163,21 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
   private[this] val contractIdAtOffsetKey = "contractIdAtOffset"
 
   implicit val InitialContractKeyStreamRequest
-    : RootJsonReader[domain.ContractKeyStreamRequest[Unit, JsValue]] = { jsv =>
+      : RootJsonReader[domain.ContractKeyStreamRequest[Unit, JsValue]] = { jsv =>
     val ekey = jsv.convertTo[domain.EnrichedContractKey[JsValue]]
     jsv match {
       case JsObject(fields) if fields contains contractIdAtOffsetKey =>
         deserializationError(
-          s"$contractIdAtOffsetKey is not allowed for WebSocket streams starting at the beginning")
+          s"$contractIdAtOffsetKey is not allowed for WebSocket streams starting at the beginning"
+        )
       case _ =>
     }
     domain.ContractKeyStreamRequest((), ekey)
   }
 
   implicit val ResumingContractKeyStreamRequest: RootJsonReader[
-    domain.ContractKeyStreamRequest[Option[Option[domain.ContractId]], JsValue]] = { jsv =>
+    domain.ContractKeyStreamRequest[Option[Option[domain.ContractId]], JsValue]
+  ] = { jsv =>
     val off = jsv match {
       case JsObject(fields) => fields get contractIdAtOffsetKey map (_.convertTo[Option[String]])
       case _ => None
@@ -211,7 +216,8 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
               domain.Contract(\/-(ActiveContractFormat.read(active)))
             case _ =>
               deserializationError(
-                s"Contract must be either {$archivedKey: obj} or {$activeKey: obj}, got: $fields")
+                s"Contract must be either {$archivedKey: obj} or {$activeKey: obj}, got: $fields"
+              )
           }
         case _ => deserializationError("Contract must be an object")
       }
@@ -236,21 +242,22 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
   implicit val GetActiveContractsRequestFormat: RootJsonReader[domain.GetActiveContractsRequest] = {
     case class GACR(
         templateIds: Set[domain.TemplateId.OptionalPkg],
-        query: Option[Map[String, JsValue]])
+        query: Option[Map[String, JsValue]],
+    )
     val validKeys = Set("templateIds", "query")
     implicit val primitive: JsonReader[GACR] = jsonFormat2(GACR.apply)
-    jsv =>
-      {
-        val GACR(tids, q) = jsv.convertTo[GACR]
-        val extras = jsv.asJsObject.fields.keySet diff validKeys
-        if (extras.nonEmpty)
-          deserializationError(
-            s"unsupported query fields ${extras}; likely should be within 'query' subobject")
-        tids.headOption.cata(
-          h => domain.GetActiveContractsRequest(OneAnd(h, tids - h), q getOrElse Map.empty),
-          deserializationError("search requires at least one item in 'templateIds'")
+    jsv => {
+      val GACR(tids, q) = jsv.convertTo[GACR]
+      val extras = jsv.asJsObject.fields.keySet diff validKeys
+      if (extras.nonEmpty)
+        deserializationError(
+          s"unsupported query fields ${extras}; likely should be within 'query' subobject"
         )
-      }
+      tids.headOption.cata(
+        h => domain.GetActiveContractsRequest(OneAnd(h, tids - h), q getOrElse Map.empty),
+        deserializationError("search requires at least one item in 'templateIds'"),
+      )
+    }
   }
 
   implicit val SearchForeverRequestFormat: RootJsonReader[domain.SearchForeverRequest] = {
@@ -261,16 +268,20 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
   }
 
   implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat1(
-    domain.CommandMeta)
+    domain.CommandMeta
+  )
 
-  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsValue]] = jsonFormat3(
-    domain.CreateCommand[JsValue])
+  implicit val CreateCommandFormat
+      : RootJsonFormat[domain.CreateCommand[JsValue, domain.TemplateId.OptionalPkg]] = jsonFormat3(
+    domain.CreateCommand[JsValue, domain.TemplateId.OptionalPkg]
+  )
 
   implicit val ExerciseCommandFormat
-    : RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] =
+      : RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] =
     new RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] {
       override def write(
-          obj: domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]): JsValue = {
+          obj: domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]
+      ): JsValue = {
 
         val reference: JsObject =
           ContractLocatorFormat.write(obj.reference).asJsObject("reference must be an object")
@@ -284,7 +295,8 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
       }
 
       override def read(
-          json: JsValue): domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]] = {
+          json: JsValue
+      ): domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]] = {
         val reference = ContractLocatorFormat.read(json)
         val choice = fromField[domain.Choice](json, "choice")
         val argument = fromField[JsValue](json, "argument")
@@ -294,13 +306,15 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
           reference = reference,
           choice = choice,
           argument = argument,
-          meta = meta)
+          meta = meta,
+        )
       }
     }
 
-  implicit val CreateAndExerciseCommandFormat
-    : RootJsonFormat[domain.CreateAndExerciseCommand[JsValue, JsValue]] =
-    jsonFormat5(domain.CreateAndExerciseCommand[JsValue, JsValue])
+  implicit val CreateAndExerciseCommandFormat: RootJsonFormat[
+    domain.CreateAndExerciseCommand[JsValue, JsValue, domain.TemplateId.OptionalPkg]
+  ] =
+    jsonFormat5(domain.CreateAndExerciseCommand[JsValue, JsValue, domain.TemplateId.OptionalPkg])
 
   implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
     jsonFormat2(domain.ExerciseResponse[JsValue])
@@ -324,7 +338,8 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
           UnknownPartiesFormat.read(json)
         case _ =>
           deserializationError(
-            s"Expected JsObject(unknownTemplateIds | unknownParties -> JsArray(...)), got: $json")
+            s"Expected JsObject(unknownTemplateIds | unknownParties -> JsArray(...)), got: $json"
+          )
       }
 
       override def write(obj: domain.ServiceWarning): JsValue = obj match {
@@ -337,10 +352,12 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
     jsonFormat1(domain.AsyncWarningsWrapper)
 
   implicit val UnknownTemplateIdsFormat: RootJsonFormat[domain.UnknownTemplateIds] = jsonFormat1(
-    domain.UnknownTemplateIds)
+    domain.UnknownTemplateIds
+  )
 
   implicit val UnknownPartiesFormat: RootJsonFormat[domain.UnknownParties] = jsonFormat1(
-    domain.UnknownParties)
+    domain.UnknownParties
+  )
 
   implicit def OkResponseFormat[R: JsonFormat]: RootJsonFormat[domain.OkResponse[R]] =
     jsonFormat3(domain.OkResponse[R])

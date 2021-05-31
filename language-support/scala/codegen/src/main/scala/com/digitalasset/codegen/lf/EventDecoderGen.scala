@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.codegen.lf
@@ -10,8 +10,7 @@ import com.daml.lf.data.Ref._
 
 import scala.reflect.runtime.universe._
 
-/**
-  *  This object is used for generating code that decodes incoming CreatedEvent`s
+/**  This object is used for generating code that decodes incoming CreatedEvent`s
   *  from the Ledger Client API.
   *
   *  The decoder will take a CreatedEvent and return a value of type of one of the Ref

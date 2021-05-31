@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator
@@ -24,7 +24,8 @@ class SessionJsonProtocolTest extends AnyFlatSpec with Matchers {
     val userJson = JsObject(
       "id" -> JsString("id"),
       "party" -> JsString("party"),
-      "canAdvanceTime" -> JsBoolean(true))
+      "canAdvanceTime" -> JsBoolean(true),
+    )
     userWriter.write(user) shouldEqual userJson
   }
 
@@ -33,12 +34,14 @@ class SessionJsonProtocolTest extends AnyFlatSpec with Matchers {
       id = "id",
       party = new PartyState(UserConfig(party, Some("role"), false)),
       role = Some("role"),
-      canAdvanceTime = false)
+      canAdvanceTime = false,
+    )
     val userJson = JsObject(
       "id" -> JsString("id"),
       "role" -> JsString("role"),
       "party" -> JsString("party"),
-      "canAdvanceTime" -> JsBoolean(false))
+      "canAdvanceTime" -> JsBoolean(false),
+    )
     userWriter.write(user) shouldEqual userJson
   }
 }

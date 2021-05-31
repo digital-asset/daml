@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.testing
@@ -7,8 +7,7 @@ import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{Future, Promise}
 
-/**
-  * Implementation of [[StreamObserver]] designed to expose a finite amount of items
+/** Implementation of [[StreamObserver]] designed to expose a finite amount of items
   *
   * THIS WILL NEVER COMPLETE IF FED AN UNBOUND STREAM!!!
   */

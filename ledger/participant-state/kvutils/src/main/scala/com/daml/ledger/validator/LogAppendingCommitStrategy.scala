@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator
@@ -7,10 +7,10 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
-import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
+import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1.ParticipantId
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,7 +30,8 @@ class LogAppendingCommitStrategy[Index](
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
       outputState: Map[DamlStateKey, DamlStateValue],
       writeSetBuilder: Option[SubmissionAggregator.WriteSetBuilder] = None,
-  ): Future[Index] =
+  ): Future[Index] = {
+    val rawLogEntryId = Raw.LogEntryId(entryId)
     for {
       (serializedKeyValuePairs, envelopedLogEntry) <- inParallel(
         Future(stateSerializationStrategy.serializeStateUpdates(outputState)),
@@ -45,10 +46,11 @@ class LogAppendingCommitStrategy[Index](
         Future {
           writeSetBuilder.foreach { builder =>
             builder ++= serializedKeyValuePairs
-            builder += entryId.toByteString -> envelopedLogEntry
+            builder += rawLogEntryId -> envelopedLogEntry
           }
         },
-        ledgerStateOperations.appendToLog(entryId.toByteString, envelopedLogEntry),
+        ledgerStateOperations.appendToLog(rawLogEntryId, envelopedLogEntry),
       )
     } yield index
+  }
 }

@@ -1,5 +1,5 @@
 
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -61,6 +61,8 @@ service PartyManagementService {
   // canton: completely different globally unique identifier is allocated.
   // Behind the scenes calls to an internal protocol are made. As that protocol
   // is richer than the surface protocol, the arguments take implicit values
+  // The party identifier suggestion must be a valid party name. Party names are required to be non-empty US-ASCII strings built from letters, digits, space,
+  // colon, minus and underscore limited to 255 chars
   rpc AllocateParty (AllocatePartyRequest) returns (AllocatePartyResponse);
 }
 
@@ -76,7 +78,7 @@ message GetParticipantIdResponse {
 
 message GetPartiesRequest {
 
-  // The stable, unique identifier of the DAML parties.
+  // The stable, unique identifier of the Daml parties.
   // Must be valid PartyIdStrings (as described in ``value.proto``).
   // Required
   repeated string parties = 1;
@@ -84,7 +86,7 @@ message GetPartiesRequest {
 
 message GetPartiesResponse {
 
-  // The details of the requested DAML parties by the participant, if known.
+  // The details of the requested Daml parties by the participant, if known.
   // The party details may not be in the same order as requested.
   // Required
   repeated PartyDetails party_details = 1;
@@ -95,7 +97,7 @@ message ListKnownPartiesRequest {
 
 message ListKnownPartiesResponse {
 
-  // The details of all DAML parties hosted by the participant.
+  // The details of all Daml parties known by the participant.
   // Required
   repeated PartyDetails party_details = 1;
 }
@@ -121,7 +123,7 @@ message AllocatePartyResponse {
 
 message PartyDetails {
 
-  // The stable unique identifier of a DAML party.
+  // The stable unique identifier of a Daml party.
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   string party = 1;

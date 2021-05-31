@@ -1,18 +1,18 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _upgrade-overview:
 
-Upgrading DAML applications
+Upgrading Daml applications
 ###########################
 
 .. toctree::
    :hidden:
 
-**Note:** Cross-SDK upgrades require DAML-LF 1.8 or newer.
+**Note:** Cross-SDK upgrades require Daml-LF 1.8 or newer.
 This is the default starting from SDK 1.0. For older releases add
 ``build-options: ["--target=1.8"]`` to your ``daml.yaml`` to select
-DAML-LF 1.8.
+Daml-LF 1.8.
 
 In applications backed by a centralized database controlled by a
 single operator, it is possible to upgrade an application in a single
@@ -49,26 +49,26 @@ While upgrading this centralized database is simple and convenient,
 its data entries lack any kind of signature and hence proof of
 authenticity. The data consumers need to trust the operator.
 
-In contrast, DAML templates always have at least one signatory. The
-consequence is that the upgrade process for a DAML application needs
+In contrast, Daml templates always have at least one signatory. The
+consequence is that the upgrade process for a Daml application needs
 to be different.
 
-DAML upgrade overview
+Daml upgrade overview
 =====================
 
-In a DAML application running on a distributed ledger, the signatories
+In a Daml application running on a distributed ledger, the signatories
 of a contract have agreed to one specific version of a template.
 Changing the definition of a template, e.g., by extending it with a
 new data field or choice without agreement from its signatories would
-completely break the authorization guarantees provided by DAML.
+completely break the authorization guarantees provided by Daml.
 
-Therefore, DAML takes a different approach to upgrades and
+Therefore, Daml takes a different approach to upgrades and
 extensions. Rather than having a separate concept of data migration
-that sidesteps the fundamental guarantees provided by DAML, *upgrades
-are expressed as DAML contracts*. This means that the same guarantees
-and rules that apply to other DAML contracts also apply to upgrades.
+that sidesteps the fundamental guarantees provided by Daml, *upgrades
+are expressed as Daml contracts*. This means that the same guarantees
+and rules that apply to other Daml contracts also apply to upgrades.
 
-In a DAML application, it thus makes sense to think of upgrades as an
+In a Daml application, it thus makes sense to think of upgrades as an
 *extension of an existing application* instead of an operation that
 replaces existing contracts with a newer version. The existing
 templates stay on the ledger and can still be used. Contracts of
@@ -82,7 +82,7 @@ Structuring upgrade contracts
 
 Upgrade contracts are specific to the templates that are being
 upgraded. But most of them share common patterns. Here is the
-implementation of the above ``carbon_certs`` schema in DAML. We have
+implementation of the above ``carbon_certs`` schema in Daml. We have
 some prescience that there will be future versions of *CarbonCert*,
 and so place the definition of ``CarbonCert`` in a module named
 ``CarbonV1``
@@ -149,7 +149,7 @@ First we'll need a sandbox ledger to which we can deploy.
    $ daml sandbox --port 6865
 
 Now we'll setup the project for the original version of our
-certificate. The project contains the DAML for just the ``CarbonCert``
+certificate. The project contains the Daml for just the ``CarbonCert``
 template, along with a ``CarbonCertProposal`` template which will
 allow us to issue some coins in the example below.
 
@@ -237,7 +237,7 @@ be: ``../carbon-1.0.0/.daml/dist/carbon-1.0.0.dar``.
   :start-after: # BEGIN
   :end-before: # END
 
-The DAML for the upgrade contracts imports the modules for both the new
+The Daml for the upgrade contracts imports the modules for both the new
 and old certificate versions.
 
 

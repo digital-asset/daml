@@ -1,11 +1,15 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 steps:
+  - template: bash-lib.yml
+    parameters:
+      var_name: bash-lib
   - bash: |
       set -euo pipefail
-      echo "##vso[task.setvariable variable=time;isOutput=true]$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")"
-      echo "##vso[task.setvariable variable=machine;isOutput=true]$(Agent.MachineName)"
+      source $(bash-lib)
+      setvar time "$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")"
+      setvar machine "$(Agent.MachineName)"
     condition: always()
     name: start
 

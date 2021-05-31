@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.refinements
@@ -19,7 +19,9 @@ class CompositeCommandAdapterUT extends AnyWordSpec with Matchers {
       val commands =
         Seq(
           Command(
-            Create(CreateCommand(Some(Identifier("packageId", "moduleName", "templateId")), None))))
+            Create(CreateCommand(Some(Identifier("packageId", "moduleName", "templateId")), None))
+          )
+        )
 
       val submittedTraceContext = Some(TraceContext(1, 2, 3, Some(4L), true))
       val compositeCommand = CompositeCommand(
@@ -27,7 +29,7 @@ class CompositeCommandAdapterUT extends AnyWordSpec with Matchers {
         Party("party"),
         CommandId("commandId"),
         WorkflowId("workflowId"),
-        submittedTraceContext
+        submittedTraceContext,
       )
 
       val submitRequest = CompositeCommandAdapter(
@@ -36,7 +38,8 @@ class CompositeCommandAdapterUT extends AnyWordSpec with Matchers {
       ).transform(compositeCommand)
 
       submitRequest.commands shouldBe Some(
-        Commands("ledgerId", "workflowId", "applicationId", "commandId", "party", commands))
+        Commands("ledgerId", "workflowId", "applicationId", "commandId", "party", commands)
+      )
 
       submitRequest.traceContext shouldBe submittedTraceContext
     }

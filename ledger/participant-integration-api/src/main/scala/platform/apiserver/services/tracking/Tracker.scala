@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.tracking
@@ -11,8 +11,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[tracking] trait Tracker extends AutoCloseable {
 
-  def track(request: SubmitAndWaitRequest)(
-      implicit ec: ExecutionContext,
+  def track(request: SubmitAndWaitRequest)(implicit
+      ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Completion]
 
@@ -28,8 +28,8 @@ private[tracking] object Tracker {
 
     def getLastSubmission: Long = lastSubmission
 
-    override def track(request: SubmitAndWaitRequest)(
-        implicit ec: ExecutionContext,
+    override def track(request: SubmitAndWaitRequest)(implicit
+        ec: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[Completion] = {
       lastSubmission = System.nanoTime()

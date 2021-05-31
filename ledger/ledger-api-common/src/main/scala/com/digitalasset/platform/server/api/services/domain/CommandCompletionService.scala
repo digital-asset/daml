@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.services.domain
@@ -15,7 +15,8 @@ import scala.concurrent.Future
 trait CommandCompletionService {
 
   def completionStreamSource(
-      request: CompletionStreamRequest): Source[CompletionStreamResponse, NotUsed]
+      request: CompletionStreamRequest
+  ): Source[CompletionStreamResponse, NotUsed]
 
   def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute]
 

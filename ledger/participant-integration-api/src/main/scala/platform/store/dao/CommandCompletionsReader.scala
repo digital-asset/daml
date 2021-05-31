@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -22,20 +22,21 @@ private[dao] final class CommandCompletionsReader(
     dbType: DbType,
     metrics: Metrics,
     executionContext: ExecutionContext,
-) {
+) extends LedgerDaoCommandCompletionsReader {
 
   private val sqlFunctions = SqlFunctions(dbType)
 
   private def offsetFor(response: CompletionStreamResponse): Offset =
     ApiOffset.assertFromString(response.checkpoint.get.offset.get.getAbsolute)
 
-  def getCommandCompletions(
+  override def getCommandCompletions(
       startExclusive: Offset,
       endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party],
-  )(implicit loggingContext: LoggingContext)
-    : Source[(Offset, CompletionStreamResponse), NotUsed] = {
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[(Offset, CompletionStreamResponse), NotUsed] = {
     val query = CommandCompletionsTable.prepareGet(
       startExclusive = startExclusive,
       endInclusive = endInclusive,
@@ -51,10 +52,11 @@ private[dao] final class CommandCompletionsReader(
               query.as(CommandCompletionsTable.parser.*),
               startExclusive,
               pruned =>
-                s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}"
+                s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}",
             )
           }
-          .flatMap(_.fold(Future.failed, Future.successful))(executionContext))
+          .flatMap(_.fold(Future.failed, Future.successful))(executionContext)
+      )
       .mapConcat(_.map(response => offsetFor(response) -> response))
   }
 

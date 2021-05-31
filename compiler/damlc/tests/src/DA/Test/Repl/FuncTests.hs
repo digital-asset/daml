@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.Repl.FuncTests (main) where
 
@@ -8,6 +8,7 @@ import Control.Exception
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
+import DA.Cli.Damlc.DependencyDb
 import DA.Daml.Compiler.Repl
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ReplClient as ReplClient
@@ -95,7 +96,13 @@ initPackageConfig scriptDar dars = do
         ] ++ ["- " <> show dar | dar <- dars]
     withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
         dir <- getCurrentDirectory
-        createProjectPackageDb (toNormalizedFilePath' dir) options pSdkVersion pModulePrefixes pDependencies pDataDependencies
+        installDependencies
+            (toNormalizedFilePath' dir)
+            options
+            pSdkVersion
+            pDependencies
+            pDataDependencies
+        createProjectPackageDb (toNormalizedFilePath' dir) options pModulePrefixes
 
 drainHandle :: Handle -> Chan String -> IO ()
 drainHandle handle chan = forever $ do
@@ -113,7 +120,7 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , matchServiceOutput "^.*: \\[\\]$"
           , input "_ <- submit alice $ createCmd (T alice alice)"
           , input "debug =<< query @T alice"
-          , matchServiceOutput "^.*: \\[\\(<contract-id>,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
+          , matchServiceOutput "^.*: \\[\\([0-9a-f]+,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           ]
     , testInteraction' "propose and accept"
           [ input "alice <- allocateParty \"Alice\""
@@ -121,11 +128,11 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "_ <- submit alice $ createCmd (TProposal alice bob)"
           , input "props <- query @TProposal bob"
           , input "debug props"
-          , matchServiceOutput "^.*: \\[\\(<contract-id>,TProposal {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
+          , matchServiceOutput "^.*: \\[\\([0-9a-f]+,TProposal {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           , input "forA props $ \\(prop, _) -> submit bob $ exerciseCmd prop Accept"
-          , matchOutput "^\\[<contract-id>\\]$"
+          , matchOutput "^\\[[0-9a-f]+\\]$"
           , input "debug =<< query @T bob"
-          , matchServiceOutput "^.*: \\[\\(<contract-id>,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
+          , matchServiceOutput "^.*: \\[\\([0-9a-f]+,T {proposer = '[^']+', accepter = '[^']+'}.*\\)\\]$"
           , input "debug =<< query @TProposal bob"
           , matchServiceOutput "^.*: \\[\\]$"
           ]
@@ -183,7 +190,7 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           [ input "alice <- allocateParty \"Alice\""
           , input "bob <- allocateParty \"Bob\""
           , input "submit alice (createCmd (T alice bob))"
-          , matchServiceOutput "^.*Submit failed.*requires authorizers.*but only.*were given.*$"
+          , matchServiceOutput "^.*requires authorizers.*but only.*were given.*$"
           , input "debug 1"
           , matchServiceOutput "^.*: 1"
           ]
@@ -337,6 +344,22 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input "y <- pure $ Colliding.NameCollision 42"
           , input "y"
           , matchOutput "NameCollision {field = 42}"
+          ]
+    , testInteraction' "long type"
+      -- Test types which will result in line breaks when prettyprinted
+          [ input "let y = ReplTest.NameCollision \"eau\""
+          , input "let x = \\f g h -> f (g (h (ReplTest.NameCollision \"a\"))) (g (ReplTest.NameCollision \"b\")) : Script ()"
+          , input "1"
+          , matchOutput "1"
+          ]
+    , testInteraction' "closure"
+          [ input "import qualified DA.Map as Map"
+          , input "let m = Map.fromList [(1, 2)]"
+          , input "m"
+          , matchOutput "Map \\[\\(1,2\\)\\]"
+          , input "let lookup1 k = Map.lookup k m"
+          , input "lookup1 1"
+          , matchOutput "^Some 2$"
           ]
     ]
   where

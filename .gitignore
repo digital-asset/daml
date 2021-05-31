@@ -22,7 +22,6 @@ target
 !/bazel-java-deps.bzl
 /compatibility/bazel-*
 !/compatibility/bazel-haskell-deps.bzl
-/compatibility/.bazelrc
 /compatibility/head_sdk/
 .bazelrc.local
 .bazelproject

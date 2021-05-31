@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -555,6 +555,17 @@ template MapText
     where
       signatory party
 
+-- test that Set doesn't name-collide
+data Set a = Set { runSet : a }
+  deriving (Eq, Show)
+
+template SetInt
+   with
+      party: Party
+      aSet: Set Int
+   where
+      signatory party
+
 data ContractIdNT a = ContractIdNT with unContractIdNT : ContractId a
   deriving (Eq, Show)
 
@@ -565,3 +576,12 @@ template SelfContractIdReferent
      where
        signatory party
 
+data JustMap a b = JustMap { unwrap : Map a b }
+  deriving (Eq, Show)
+
+template JustMapUser
+    with
+       party: Party
+       aMap: JustMap Int Int
+    where
+      signatory party

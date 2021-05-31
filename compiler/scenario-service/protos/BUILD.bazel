@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
@@ -67,6 +67,7 @@ genrule(
 da_haskell_library(
     name = "scenario_service_haskell_proto",
     srcs = [":scenario_service_haskell_proto_src"],
+    compiler_flags = ["-Wno-deriving-defaults"],
     hackage_deps = [
         "base",
         "bytestring",

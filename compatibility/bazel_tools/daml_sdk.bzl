@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows", "os_name")
@@ -68,6 +68,10 @@ def _daml_sdk_impl(ctx):
     ctx.extract(
         "ledger-api-test-tool.jar",
         output = "extracted-test-tool",
+        # We cannot fully extract the JAR because there are files
+        # that clash on case insensitive file systems. Luckily, we only
+        # need the DAR so this is not an issue.
+        stripPrefix = "ledger/test-common",
     )
 
     if ctx.attr.create_daml_app_patch:
@@ -162,7 +166,7 @@ cc_binary(
 # are used by the ledger API test tool.
 filegroup(
     name = "dar-files",
-    srcs = glob(["extracted-test-tool/ledger/test-common/**"], exclude = ["**/*-dev.dar"]),
+    srcs = glob(["extracted-test-tool/**/*.dar"], exclude = ["**/*-dev.dar"]),
 )
 exports_files(["daml-types.tgz", "daml-ledger.tgz", "daml-react.tgz", "create_daml_app.patch"])
 """.format(version = ctx.attr.version),

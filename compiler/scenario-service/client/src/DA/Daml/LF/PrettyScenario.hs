@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE PatternSynonyms #-}
 
@@ -8,6 +8,7 @@ module DA.Daml.LF.PrettyScenario
   , prettyScenarioError
   , prettyBriefScenarioError
   , renderScenarioResult
+  , renderScenarioError
   , lookupDefLocation
   , scenarioNotInFileNote
   , fileWScenarioNoLongerCompilesNote
@@ -114,18 +115,17 @@ lookupModule world mbPkgId modName = do
 
 parseNodeId :: NodeId -> [Integer]
 parseNodeId =
-    fmap (fromMaybe 0 . readMaybe . TL.unpack)
+    fmap (fromMaybe 0 . readMaybe . dropHash . TL.unpack)
   . TL.splitOn ":"
   . nodeIdId
+  where
+    dropHash s = fromMaybe s $ stripPrefix "#" s
 
 prettyScenarioResult
   :: LF.World -> ScenarioResult -> Doc SyntaxClass
 prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime traceLog) =
   let ppSteps = runM nodes world (vsep <$> mapM prettyScenarioStep (V.toList steps))
-      isActive Node{..} = case nodeNode of
-        Just NodeNodeCreate{} -> isNothing nodeConsumedBy
-        _ -> False
-      sortNodeIds = sortBy (\a b -> compare (parseNodeId a) (parseNodeId b))
+      sortNodeIds = sortOn parseNodeId
       ppActive =
           fcommasep
         $ map prettyNodeIdLink
@@ -211,9 +211,10 @@ prettyScenarioErrorError (Just err) =  do
   case err of
     ScenarioErrorErrorCrash reason -> pure $ text "CRASH:" <-> ltext reason
     ScenarioErrorErrorUserError reason -> pure $ text "Aborted: " <-> ltext reason
+    ScenarioErrorErrorUnhandledException exc -> pure $ text "Unhandled exception: " <-> prettyValue' True 0 world exc
     ScenarioErrorErrorTemplatePrecondViolated ScenarioError_TemplatePreconditionViolated{..} -> do
       pure $
-        "Template pre-condition violated in:"
+        "Template precondition violated in:"
           $$ nest 2
           (   "create"
           <-> prettyMay "<missing template id>" (prettyDefName world) scenarioError_TemplatePreconditionViolatedTemplateId
@@ -301,12 +302,13 @@ prettyScenarioErrorError (Just err) =  do
       pure $ "Tried to allocate a party that already exists: " <-> ltext name
     ScenarioErrorErrorScenarioContractNotVisible ScenarioError_ContractNotVisible{..} ->
       pure $ vcat
-        [ "Attempt to fetch or exercise a contract not visible to the committer."
+        [ "Attempt to fetch or exercise a contract not visible to the reading parties."
         , label_ "Contract: "
             $ prettyMay "<missing contract>"
                 (prettyContractRef world)
                 scenarioError_ContractNotVisibleContractRef
-        , label_ "Committer:" $ prettyMay "<missing party>" prettyParty scenarioError_ContractNotVisibleCommitter
+        , label_ "actAs:" $ prettyParties scenarioError_ContractNotVisibleActAs
+        , label_ "readAs:" $ prettyParties scenarioError_ContractNotVisibleReadAs
         , label_ "Disclosed to:"
             $ prettyParties scenarioError_ContractNotVisibleObservers
         ]
@@ -321,7 +323,8 @@ prettyScenarioErrorError (Just err) =  do
             $ prettyMay "<missing key>"
                 (prettyValue' False 0 world)
                 scenarioError_ContractKeyNotVisibleKey
-        , label_ "Committer:" $ prettyMay "<missing party>" prettyParty scenarioError_ContractKeyNotVisibleCommitter
+        , label_ "actAs:" $ prettyParties scenarioError_ContractKeyNotVisibleActAs
+        , label_ "readAs:" $ prettyParties scenarioError_ContractKeyNotVisibleReadAs
         , label_ "Stakeholders:"
             $ prettyParties scenarioError_ContractKeyNotVisibleStakeholders
         ]
@@ -413,14 +416,15 @@ prettyScenarioStep (ScenarioStep stepId (Just step)) = do
     ScenarioStepStepCommit (ScenarioStep_Commit txId (Just tx) mbLoc) ->
       prettyCommit txId mbLoc tx
 
-    ScenarioStepStepAssertMustFail (ScenarioStep_AssertMustFail (Just actor) time txId mbLoc) ->
+    ScenarioStepStepAssertMustFail (ScenarioStep_AssertMustFail actAs readAs time txId mbLoc) ->
       pure
           $ idSC ("n" <> TE.show txId) (keyword_ "TX")
         <-> prettyTxId txId
         <-> prettyTimestamp time
          $$ (nest 3
              $   keyword_ "mustFailAt"
-             <-> prettyParty actor
+             <-> label_ "actAs:" (braces $ prettyParties actAs)
+             <-> label_ "readAs:" (braces $ prettyParties readAs)
              <-> parens (prettyMayLocation world mbLoc)
             )
 
@@ -539,6 +543,13 @@ ltext = text . TL.toStrict
 mapV :: (a -> b) -> V.Vector a -> [b]
 mapV f = map f . V.toList
 
+prettyChildren :: V.Vector NodeId -> M (Doc SyntaxClass)
+prettyChildren cs
+  | V.null cs = pure mempty
+  | otherwise = do
+        children <- mapM (lookupNode >=> prettyNode) (V.toList cs)
+        pure $ keyword_ "children:" $$ vsep children
+
 prettyNodeNode :: NodeNode -> M (Doc SyntaxClass)
 prettyNodeNode nn = do
   world <- askWorld
@@ -565,13 +576,7 @@ prettyNodeNode nn = do
                   node_FetchTemplateId
 
     NodeNodeExercise Node_Exercise{..} -> do
-      ppChildren <-
-        if V.null node_ExerciseChildren
-        then pure mempty
-        else
-              (keyword_ "children:" $$) . vsep
-          <$> mapM (lookupNode >=> prettyNode) (V.toList node_ExerciseChildren)
-
+      ppChildren <- prettyChildren node_ExerciseChildren
       pure
         $   fcommasep (mapV prettyParty node_ExerciseActingParties)
         <-> ( -- group to align "exercises" and "with"
@@ -604,6 +609,10 @@ prettyNodeNode nn = do
           $$ if TL.null node_LookupByKeyContractId
             then text "not found"
             else text "found:" <-> text (TL.toStrict node_LookupByKeyContractId)
+
+    NodeNodeRollback Node_Rollback{..} -> do
+        ppChildren <- prettyChildren node_RollbackChildren
+        pure $ keyword_ "rollback" $$ ppChildren
 
 isUnitValue :: Maybe Value -> Bool
 isUnitValue (Just (Value (Just ValueSumUnit{}))) = True
@@ -650,7 +659,6 @@ prettyNode Node{..}
     meta p       = text "│  " <-> p
     archivedSC = annotateSC PredicateSC -- Magenta
 
-
 prettyPartialTransaction :: PartialTransaction -> M (Doc SyntaxClass)
 prettyPartialTransaction PartialTransaction{..} = do
   world <- askWorld
@@ -666,7 +674,7 @@ prettyPartialTransaction PartialTransaction{..} = do
           text "Failed exercise"
             <-> parens (prettyMayLocation world exerciseContextExerciseLocation) <> ":"
             $$ nest 2 (
-                keyword_ "exercise"
+                keyword_ "exercises"
             <-> prettyMay "<missing template id>"
                   (\tid ->
                       prettyChoiceId world tid exerciseContextChoiceId)
@@ -814,14 +822,19 @@ data Table = Table
     , tRows :: [NodeInfo]
     }
 
+isActive :: Node -> Bool
+isActive Node{..} = case nodeNode of
+    Just NodeNodeCreate{} -> isNothing nodeConsumedBy && isNothing nodeRolledbackBy
+    _ -> False
+
 nodeInfo :: Node -> Maybe NodeInfo
-nodeInfo Node{..} = do
+nodeInfo node@Node{..} = do
     NodeNodeCreate create <- nodeNode
     niNodeId <- nodeNodeId
     inst <- node_CreateContractInstance create
     niTemplateId <- contractInstanceTemplateId inst
     niValue <- contractInstanceValue inst
-    let niActive = isNothing nodeConsumedBy
+    let niActive = isActive node
     let niSignatories = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateSignatories create)
     let niStakeholders = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateStakeholders create)
     let (nodeWitnesses, nodeDivulgences) = partition disclosureExplicit $ V.toList nodeDisclosures
@@ -896,11 +909,11 @@ renderTable world Table{..} = H.div H.! A.class_ active $ do
     where
         active = if any niActive tRows then "active" else "archived"
 
-renderTableView :: LF.World -> ScenarioResult -> Maybe H.Html
-renderTableView world ScenarioResult{..} =
-    let nodes = mapMaybe nodeInfo (V.toList scenarioResultNodes)
-        tables = groupTables nodes
-    in if null nodes then Nothing else Just $ H.div H.! A.class_ "table" $ foldMap (renderTable world) tables
+renderTableView :: LF.World -> V.Vector Node -> Maybe H.Html
+renderTableView world nodes =
+    let nodeInfos = mapMaybe nodeInfo (V.toList nodes)
+        tables = groupTables nodeInfos
+    in if null nodeInfos then Nothing else Just $ H.div H.! A.class_ "table" $ foldMap (renderTable world) tables
 
 renderTransactionView :: LF.World -> ScenarioResult -> H.Html
 renderTransactionView world res =
@@ -914,28 +927,55 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
             H.style $ H.text Pretty.highlightStylesheet
             H.script "" H.! A.src "$webviewSrc"
             H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
-        let tableView = renderTableView world res
+        let tableView = renderTableView world (scenarioResultNodes res)
         let transView = renderTransactionView world res
-        let noteView = H.div H.! A.class_ "note" H.! A.id "note" $ H.toHtml $ T.pack " "
-        case tableView of
-            Nothing -> H.body H.! A.class_ "hide_note" $ do
-                noteView
-                transView
-            Just tbl -> H.body H.! A.class_ "hide_archived hide_transaction hide_note hidden_disclosure" $ do
-                H.div $ do
-                    H.button H.! A.onclick "toggle_view();" $ do
-                        H.span H.! A.class_ "table" $ H.text "Show transaction view"
-                        H.span H.! A.class_ "transaction" $ H.text "Show table view"
-                    H.text " "
-                    H.span H.! A.class_ "table" $ do
-                        H.input H.! A.type_ "checkbox" H.! A.id "show_archived" H.! A.onchange "show_archived_changed();"
-                        H.label H.! A.for "show_archived" $ "Show archived"
-                    H.span H.! A.class_ "table" $ do
-                        H.input H.! A.type_ "checkbox" H.! A.id "show_detailed_disclosure" H.! A.onchange "toggle_detailed_disclosure();"
-                        H.label H.! A.for "show_detailed_disclosure" $ "Show detailed disclosure"
-                noteView
-                tbl
-                transView
+        renderViews SuccessView tableView transView
+
+renderScenarioError :: LF.World -> ScenarioError -> T.Text
+renderScenarioError world err = TL.toStrict $ Blaze.renderHtml $ do
+    H.docTypeHtml $ do
+        H.head $ do
+            H.style $ H.text Pretty.highlightStylesheet
+            H.script "" H.! A.src "$webviewSrc"
+            H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
+        let tableView = do
+                table <- renderTableView world (scenarioErrorNodes err)
+                pure $ H.div H.! A.class_ "table" $ do
+                  Pretty.renderHtml 128 $ annotateSC ErrorSC "Scenario execution failed, displaying state before failing transaction"
+                  table
+        let transView =
+                let doc = prettyScenarioError world err
+                in H.div H.! A.class_ "da-code transaction" $ Pretty.renderHtml 128 doc
+        renderViews ErrorView tableView transView
+
+data ViewType = SuccessView | ErrorView
+
+renderViews :: ViewType -> Maybe H.Html -> H.Html -> H.Html
+renderViews viewType tableView transView =
+    case tableView of
+        Nothing -> H.body H.! A.class_ "hide_note" $ do
+            noteView
+            transView
+        Just tbl -> H.body H.! A.class_ ("hide_archived hide_note hidden_disclosure" <> extraClasses) $ do
+            H.div $ do
+                H.button H.! A.onclick "toggle_view();" $ do
+                    H.span H.! A.class_ "table" $ H.text "Show transaction view"
+                    H.span H.! A.class_ "transaction" $ H.text "Show table view"
+                H.text " "
+                H.span H.! A.class_ "table" $ do
+                    H.input H.! A.type_ "checkbox" H.! A.id "show_archived" H.! A.onchange "show_archived_changed();"
+                    H.label H.! A.for "show_archived" $ "Show archived"
+                H.span H.! A.class_ "table" $ do
+                    H.input H.! A.type_ "checkbox" H.! A.id "show_detailed_disclosure" H.! A.onchange "toggle_detailed_disclosure();"
+                    H.label H.! A.for "show_detailed_disclosure" $ "Show detailed disclosure"
+            noteView
+            tbl
+            transView
+  where
+    noteView = H.div H.! A.class_ "note" H.! A.id "note" $ H.toHtml $ T.pack " "
+    extraClasses = case viewType of
+        SuccessView -> " hide_transaction" -- default to table view
+        ErrorView -> " hide_table" -- default to transaction view
 
 scenarioNotInFileNote :: T.Text -> T.Text
 scenarioNotInFileNote file = htmlNote $ T.pack $

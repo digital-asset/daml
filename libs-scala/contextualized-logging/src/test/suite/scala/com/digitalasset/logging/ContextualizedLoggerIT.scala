@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.logging
@@ -25,7 +25,8 @@ private final case class Entry(
     level: String,
     a: Option[String],
     b: Option[String],
-    c: Option[String])
+    c: Option[String],
+)
 
 final class ContextualizedLoggerIT extends AnyFlatSpec with Matchers {
 
@@ -38,9 +39,12 @@ final class ContextualizedLoggerIT extends AnyFlatSpec with Matchers {
         logger.error("2")
         withEnrichedLoggingContext("b" -> "2") { implicit loggingContext =>
           logger.error("3")
-          Await.result(withEnrichedLoggingContext("c" -> "3") { implicit loggingContext =>
-            Future(logger.error("4"))(concurrent.ExecutionContext.global)
-          }, 10.seconds)
+          Await.result(
+            withEnrichedLoggingContext("c" -> "3") { implicit loggingContext =>
+              Future(logger.error("4"))(concurrent.ExecutionContext.global)
+            },
+            10.seconds,
+          )
           logger.info("3")
         }
         logger.info("2")
@@ -58,11 +62,11 @@ final class ContextualizedLoggerIT extends AnyFlatSpec with Matchers {
 
     log map decode[Entry] should contain theSameElementsAs Seq(
       Right(Entry("1", "ERROR", None, None, None)),
-      Right(Entry("2 (context: {a=1})", "ERROR", Some("1"), None, None)),
-      Right(Entry("3 (context: {a=1, b=2})", "ERROR", Some("1"), Some("2"), None)),
-      Right(Entry("4 (context: {a=1, b=2, c=3})", "ERROR", Some("1"), Some("2"), Some("3"))),
-      Right(Entry("3 (context: {a=1, b=2})", "INFO", Some("1"), Some("2"), None)),
-      Right(Entry("2 (context: {a=1})", "INFO", Some("1"), None, None)),
+      Right(Entry("2", "ERROR", Some("1"), None, None)),
+      Right(Entry("3", "ERROR", Some("1"), Some("2"), None)),
+      Right(Entry("4", "ERROR", Some("1"), Some("2"), Some("3"))),
+      Right(Entry("3", "INFO", Some("1"), Some("2"), None)),
+      Right(Entry("2", "INFO", Some("1"), None, None)),
       Right(Entry("1", "INFO", None, None, None)),
     )
 
@@ -77,12 +81,12 @@ final class ContextualizedLoggerIT extends AnyFlatSpec with Matchers {
 
     log should contain theSameElementsAs Seq(
       "1",
-      "2 (context: {a=1})",
-      "3 (context: {a=1, b=2})",
-      "4 (context: {a=1, b=2, c=3})",
-      "3 (context: {a=1, b=2})",
-      "2 (context: {a=1})",
-      "1"
+      "2",
+      "3",
+      "4",
+      "3",
+      "2",
+      "1",
     )
 
   }
@@ -96,7 +100,7 @@ object ContextualizedLoggerIT {
     val contextualizedLogger = ContextualizedLogger.createFor(logger)
     t(contextualizedLogger)
     output.close()
-    output.toString.split(System.lineSeparator())
+    output.toString.split(System.lineSeparator()).toIndexedSeq
   }
 
   private[this] def setupLogger(encoder: Encoder[ILoggingEvent]): (Logger, OutputStream) = {

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -6,6 +6,7 @@ package com.daml.lf.data
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+@deprecated("GenMaps are no longer insert-ordered; use a regular Map instead", since = "1.13.0")
 class InsertOrdMapTest extends AnyWordSpec with Matchers {
   "toSeq" should {
     "preserve order" in {
@@ -20,7 +21,8 @@ class InsertOrdMapTest extends AnyWordSpec with Matchers {
       InsertOrdMap(1 -> "a", 2 -> "b").updated(3, "c").toSeq shouldEqual Seq(
         1 -> "a",
         2 -> "b",
-        3 -> "c")
+        3 -> "c",
+      )
     }
 
     "insert without changing order if key is present" in {

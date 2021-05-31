@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -24,7 +24,10 @@ da_haskell_library(
         "tasty",
         "tasty-hunit",
         "text",
+        "unliftio",
+        "unliftio-core",
         "unordered-containers",
+        "vector",
     ],
     visibility = ["//visibility:public"],
     deps = [

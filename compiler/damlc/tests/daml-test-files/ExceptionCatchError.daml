@@ -1,0 +1,38 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF 1.dev
+
+-- | Test that error (and related primitives) throw a GeneralError.
+module ExceptionCatchError where
+
+import DA.Assert
+import DA.Exception
+
+test1 = scenario do
+    p <- getParty "Alice"
+    submit p do
+        try do
+            error "hello"
+        catch
+            GeneralError msg ->
+                msg === "hello"
+
+
+test2 = scenario do
+    p <- getParty "Alice"
+    submit p do
+        try do
+            abort "foo"
+        catch
+            GeneralError msg ->
+                msg === "foo"
+
+test3 = scenario do
+    p <- getParty "Alice"
+    submit p do
+        try do
+            fail "bar"
+        catch
+            GeneralError msg ->
+                msg === "bar"

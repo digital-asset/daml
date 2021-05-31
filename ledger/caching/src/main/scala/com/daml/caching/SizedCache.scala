@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.caching
@@ -8,19 +8,21 @@ import com.github.benmanes.caffeine.{cache => caffeine}
 
 object SizedCache {
 
-  def from[Key <: AnyRef, Value <: AnyRef](configuration: Configuration): Cache[Key, Value] =
+  def from[Key <: AnyRef, Value <: AnyRef](
+      configuration: Configuration
+  ): ConcurrentCache[Key, Value] =
     from(configuration, None)
 
   def from[Key <: AnyRef, Value <: AnyRef](
       configuration: Configuration,
       metrics: CacheMetrics,
-  ): Cache[Key, Value] =
+  ): ConcurrentCache[Key, Value] =
     from(configuration, Some(metrics))
 
   private def from[Key <: AnyRef, Value <: AnyRef](
       configuration: Configuration,
       metrics: Option[CacheMetrics],
-  ): Cache[Key, Value] =
+  ): ConcurrentCache[Key, Value] =
     configuration match {
       case Configuration(maximumSize) if maximumSize <= 0 =>
         Cache.none

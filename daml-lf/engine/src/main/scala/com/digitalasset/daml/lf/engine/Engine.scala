@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,19 +8,19 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.ledger.CheckAuthorizationMode
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SExpr}
+import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SExpr}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{NodeId, SubmittedTransaction, Transaction => Tx}
+import com.daml.lf.transaction.{SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
 import java.nio.file.Files
 
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.validation.Validation
+import com.daml.lf.value.Value.ContractId
 
-/**
-  * Allows for evaluating [[Commands]] and validating [[Transaction]]s.
+/** Allows for evaluating [[Commands]] and validating [[Transaction]]s.
   * <p>
   *
   * This class does not dereference contract ids or package ids on its own.
@@ -49,7 +49,7 @@ import com.daml.lf.validation.Validation
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-class Engine(val config: EngineConfig = EngineConfig.Stable) {
+class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableVersions)) {
 
   config.profileDir.foreach(Files.createDirectories(_))
 
@@ -59,11 +59,10 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
 
   def info = new EngineInfo(config)
 
-  /**
-    * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
+  /** Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
     * <ul>
     * <li> `ResultDone(tx)` if `cmds` could be successfully executed, where `tx` is the resulting transaction.
-    *      The transaction `tx` conforms to the DAML model consisting of the packages that have been supplied via
+    *      The transaction `tx` conforms to the Daml model consisting of the packages that have been supplied via
     *      `ResultNeedPackage.resume` to this [[Engine]].
     *      The transaction `tx` is internally consistent.
     * </li>
@@ -73,11 +72,10 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     * <li> `ResultNeedPackage(packageId, resume)` if the package referenced by `packageId` is needed to execute `cmds`.
     * </li>
     * <li> `ResultError` if the execution of `cmds` fails.
-    *      The execution may fail due to an error during DAML evaluation (e.g. execution of "abort") or
+    *      The execution may fail due to an error during Daml evaluation (e.g. execution of "abort") or
     *      because the caller has not provided a required contract instance or package.
     * </li>
     * </ul>
-    *
     *
     * [[transactionSeed]] is the master hash used to derive node and contractId discriminator.
     * If left undefined, no discriminator will be generated.
@@ -87,6 +85,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     * The resulting transaction is annotated with packages required to validate it.
     */
   def submit(
+      submitters: Set[Party],
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
@@ -94,39 +93,35 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     val submissionTime = cmds.ledgerEffectiveTime
     preprocessor
       .preprocessCommands(cmds.commands)
-      .flatMap {
-        case (processedCmds, globalCids) =>
-          interpretCommands(
-            validating = false,
-            submitters = cmds.submitters,
-            commands = processedCmds,
-            ledgerTime = cmds.ledgerEffectiveTime,
-            submissionTime = submissionTime,
-            seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-            globalCids,
-          ) map {
-            case (tx, meta) =>
-              // Annotate the transaction with the package dependencies. Since
-              // all commands are actions on a contract template, with a fully typed
-              // argument, we only need to consider the templates mentioned in the command
-              // to compute the full dependencies.
-              val deps = processedCmds.foldLeft(Set.empty[PackageId]) { (pkgIds, cmd) =>
-                val pkgId = cmd.templateId.packageId
-                val transitiveDeps =
-                  compiledPackages
-                    .getPackageDependencies(pkgId)
-                    .getOrElse(sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
-                (pkgIds + pkgId) union transitiveDeps
-              }
-              tx -> meta.copy(submissionSeed = Some(submissionSeed), usedPackages = deps)
+      .flatMap { case (processedCmds, globalCids) =>
+        interpretCommands(
+          validating = false,
+          submitters = submitters,
+          commands = processedCmds,
+          ledgerTime = cmds.ledgerEffectiveTime,
+          submissionTime = submissionTime,
+          seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
+          globalCids,
+        ) map { case (tx, meta) =>
+          // Annotate the transaction with the package dependencies. Since
+          // all commands are actions on a contract template, with a fully typed
+          // argument, we only need to consider the templates mentioned in the command
+          // to compute the full dependencies.
+          val deps = processedCmds.foldLeft(Set.empty[PackageId]) { (pkgIds, cmd) =>
+            val pkgId = cmd.templateId.packageId
+            val transitiveDeps =
+              compiledPackages
+                .getPackageDependencies(pkgId)
+                .getOrElse(sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
+            (pkgIds + pkgId) union transitiveDeps
           }
+          tx -> meta.copy(submissionSeed = Some(submissionSeed), usedPackages = deps)
+        }
       }
   }
 
-  /**
-    * Behaves like `submit`, but it takes a GenNode argument instead of a Commands argument.
+  /** Behaves like `submit`, but it takes a GenNode argument instead of a Commands argument.
     * That is, it can be used to reinterpret partially an already interpreted transaction (since it consists of GenNodes).
-    *
     *
     * [[nodeSeed]] is the seed of the Create and Exercise node as generated during submission.
     * If undefined the contract IDs are derive using V0 scheme.
@@ -137,25 +132,23 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     */
   def reinterpret(
       submitters: Set[Party],
-      node: GenNode.WithTxValue[NodeId, Value.ContractId],
+      command: Command,
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
-      checkAuthorization: CheckAuthorizationMode = CheckAuthorizationMode.On,
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
-      commandWithCids <- preprocessor.translateNode(node)
-      (command, globalCids) = commandWithCids
+      commandWithCids <- preprocessor.preprocessCommand(command)
+      (speedyCommand, globalCids) = commandWithCids
       // reinterpret is never used for submission, only for validation.
       result <- interpretCommands(
         validating = true,
         submitters = submitters,
-        commands = ImmArray(command),
+        commands = ImmArray(speedyCommand),
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
         globalCids = globalCids,
-        checkAuthorization = checkAuthorization,
       )
       (tx, meta) = result
     } yield (tx, meta)
@@ -183,8 +176,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
 
     } yield result
 
-  /**
-    * Check if the given transaction is a valid result of some single-submitter command.
+  /** Check if the given transaction is a valid result of some single-submitter command.
     *
     * Formally, for all tx, pcs, pkgs, keys:
     *   evaluate(validate(tx, ledgerEffectiveTime)) == ResultDone(()) <==> exists cmds. evaluate(submit(cmds)) = tx
@@ -217,28 +209,33 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         submissionSeed,
       )
       (rtx, _) = result
-      validationResult <- Tx
-        .isReplayedBy(tx, rtx)
-        .fold(e => ResultError(ReplayMismatch(e)), _ => ResultDone.Unit)
+      validationResult <-
+        transaction.Validation
+          .isReplayedBy(tx, rtx)
+          .fold(e => ResultError(ReplayMismatch(e)), _ => ResultDone.Unit)
     } yield validationResult
   }
 
-  private def loadPackages(pkgIds: List[PackageId]): Result[Unit] =
+  private[engine] def loadPackages(pkgIds: List[PackageId]): Result[Unit] =
     pkgIds.dropWhile(compiledPackages.signatures.isDefinedAt) match {
       case pkgId :: rest =>
-        ResultNeedPackage(pkgId, {
-          case Some(pkg) =>
-            compiledPackages.addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
-          case None =>
-            ResultError(Error(s"package $pkgId not found"))
-        })
+        ResultNeedPackage(
+          pkgId,
+          {
+            case Some(pkg) =>
+              compiledPackages.addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
+            case None =>
+              ResultError(Error(s"package $pkgId not found"))
+          },
+        )
       case Nil =>
         ResultDone.Unit
     }
 
   @inline
-  private[lf] def runSafely[X](handleMissingDependencies: => Result[Unit])(
-      run: => Result[X]): Result[X] = {
+  private[lf] def runSafely[X](
+      handleMissingDependencies: => Result[Unit]
+  )(run: => Result[X]): Result[X] = {
     def start: Result[X] =
       try {
         run
@@ -257,7 +254,6 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
     * (a subtransaction can be authorized by multiple parties).
     *
     * [[seeding]] is seeding used to derive node seed and contractId discriminator.
-    *
     */
   private[engine] def interpretCommands(
       validating: Boolean,
@@ -268,7 +264,6 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
       globalCids: Set[Value.ContractId],
-      checkAuthorization: CheckAuthorizationMode = CheckAuthorizationMode.On,
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     runSafely(
       loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
@@ -282,7 +277,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         globalCids = globalCids,
         committers = submitters,
         validating = validating,
-        checkAuthorization = checkAuthorization,
+        contractKeyUniqueness = config.contractKeyUniqueness,
       )
       interpretLoop(machine, ledgerTime)
     }
@@ -291,19 +286,25 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
       machine: Machine,
-      time: Time.Timestamp
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("DAML Engine") { onLedger =>
+      time: Time.Timestamp,
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
     var finished: Boolean = false
     while (!finished) {
       machine.run() match {
         case SResultFinalValue(_) => finished = true
 
+        case SResultError(SError.DamlEDuplicateContractKey(key)) =>
+          // Special-cased because duplicate key errors
+          // produce a different gRPC error code.
+          return ResultError(DuplicateContractKey(key))
+
         case SResultError(err) =>
           return ResultError(
             Error(
               s"Interpretation error: ${Pretty.prettyError(err, onLedger.ptx).render(80)}",
-              s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptx.nodesToString}"
-            ))
+              s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptx.nodesToString}",
+            )
+          )
 
         case SResultNeedPackage(pkgId, callback) =>
           return Result.needPackage(
@@ -313,15 +314,16 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
                 callback(compiledPackages)
                 interpretLoop(machine, time)
               }
-            }
+            },
           )
 
         case SResultNeedContract(contractId, _, _, _, cbPresent) =>
           return Result.needContract(
-            contractId, { coinst =>
+            contractId,
+            { coinst =>
               cbPresent(coinst)
               interpretLoop(machine, time)
-            }
+            },
           )
 
         case SResultNeedTime(callback) =>
@@ -335,7 +337,16 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
               if (cb(SKeyLookupResult(result)))
                 interpretLoop(machine, time)
               else
-                ResultError(Error(s"dependency error: couldn't find key ${gk.globalKey}"))
+                ResultError(Error(s"dependency error: couldn't find key ${gk.globalKey}")),
+          )
+
+        case SResultNeedLocalKeyVisible(stakeholders, _, cb) =>
+          return ResultNeedLocalKeyVisible(
+            stakeholders,
+            result => {
+              cb(result.toSVisibleByKey)
+              interpretLoop(machine, time)
+            },
           )
 
         case _: SResultScenarioCommit =>
@@ -352,22 +363,19 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       }
     }
 
-    onLedger.ptx.finish(
-      compiledPackages.packageLanguageVersion,
-    ) match {
+    onLedger.ptx.finish match {
       case PartialTransaction.CompleteTransaction(tx) =>
         val meta = Tx.Metadata(
           submissionSeed = None,
           submissionTime = onLedger.ptx.submissionTime,
           usedPackages = Set.empty,
           dependsOnTime = onLedger.dependsOnTime,
-          nodeSeeds = onLedger.ptx.nodeSeeds.toImmArray,
+          nodeSeeds = onLedger.ptx.actionNodeSeeds.toImmArray,
         )
         config.profileDir.foreach { dir =>
-          val hash = meta.nodeSeeds(0)._2.toHexString
           val desc = Engine.profileDesc(tx)
-          machine.profile.name = s"$desc-${hash.substring(0, 6)}"
-          val profileFile = dir.resolve(s"${meta.submissionTime}-$desc-$hash.json")
+          machine.profile.name = s"${meta.submissionTime}-$desc"
+          val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
           machine.profile.writeSpeedscopeJson(profileFile)
         }
         ResultDone((tx, meta))
@@ -396,13 +404,13 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
 
   /** This method checks a set of packages is self-consistent (it
     * contains all its dependencies), contains only well-formed
-    * packages (See daml LF spec for more details) and uses only the
+    * packages (See Daml-LF spec for more details) and uses only the
     * allowed language versions (as described by the engine
     * config).
     * This is not affected by [[config.packageValidation]] flag.
     * Package in [[pkgIds]] but not in [[pkgs]] are assumed to be
     * preloaded.
-    * */
+    */
   def validatePackages(
       pkgIds: Set[PackageId],
       pkgs: Map[PackageId, Package],
@@ -423,7 +431,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
         Either.cond(
           unknownPackages.isEmpty,
           (),
-          Error(s"Unknown packages ${unknownPackages.mkString(", ")}")
+          Error(s"Unknown packages ${unknownPackages.mkString(", ")}"),
         )
       }
       _ <- {
@@ -433,12 +441,13 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
           (),
           Error(
             s"The set of packages ${pkgIds.mkString("{'", "', '", "'}")} is not self consistent, the missing dependencies are ${missingDeps
-              .mkString("{'", "', '", "'}")}.")
+              .mkString("{'", "', '", "'}")}."
+          ),
         )
       }
       _ <- {
         pkgs.iterator
-        // we trust already loaded packages
+          // we trust already loaded packages
           .collect {
             case (pkgId, pkg) if !compiledPackages.signatures.isDefinedAt(pkgId) =>
               Validation.checkPackage(allSignatures, pkgId, pkg)
@@ -448,6 +457,9 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
 
     } yield ()
   }
+
+  private[engine] def enrich(typ: Type, value: Value[ContractId]): Result[Value[ContractId]] =
+    preprocessor.translateValue(typ, value).map(_.toValue)
 
 }
 
@@ -461,24 +473,28 @@ object Engine {
       submissionTime: Time.Timestamp,
   ): InitialSeeding =
     InitialSeeding.TransactionSeed(
-      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime))
+      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
+    )
 
   private def profileDesc(tx: Tx.Transaction): String = {
     if (tx.roots.length == 1) {
       val makeDesc = (kind: String, tmpl: Ref.Identifier, extra: Option[String]) =>
         s"$kind:${tmpl.qualifiedName.name}${extra.map(extra => s":$extra").getOrElse("")}"
       tx.nodes.get(tx.roots(0)).toList.head match {
-        case create: NodeCreate[_, _] => makeDesc("create", create.coinst.template, None)
-        case exercise: NodeExercises[_, _, _] =>
-          makeDesc("exercise", exercise.templateId, Some(exercise.choiceId.toString))
-        case fetch: NodeFetch[_, _] => makeDesc("fetch", fetch.templateId, None)
-        case lookup: NodeLookupByKey[_, _] => makeDesc("lookup", lookup.templateId, None)
+        case _: NodeRollback[_] => "rollback"
+        case create: NodeCreate[_] => makeDesc("create", create.coinst.template, None)
+        case exercise: NodeExercises[_, _] =>
+          makeDesc("exercise", exercise.templateId, Some(exercise.choiceId))
+        case fetch: NodeFetch[_] => makeDesc("fetch", fetch.templateId, None)
+        case lookup: NodeLookupByKey[_] => makeDesc("lookup", lookup.templateId, None)
       }
     } else {
       s"compound:${tx.roots.length}"
     }
   }
 
-  def DevEngine(): Engine = new Engine(EngineConfig.Dev)
+  def DevEngine(): Engine = new Engine(new EngineConfig(LanguageVersion.DevVersions))
+
+  def StableEngine(): Engine = new Engine()
 
 }

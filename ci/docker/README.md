@@ -7,12 +7,12 @@ overwrite the one on Docker Hub should they differ.
 
 -->
 
-# Dockerized DAML SDK
+# Dockerized Daml SDK
 
 > This image is not supported for production use-cases. Please contact Digital
 > Asset to obtain supported production-ready artifacts.
 
-Digital Asset's [DAML SDK](https://docs.daml.com/) in a can.
+Digital Asset's [Daml Connect SDK](https://docs.daml.com/) in a can.
 
 ## Tags
 
@@ -36,19 +36,19 @@ repository key of
 ## Quick start
 
 * Ensure Docker is [installed](https://www.docker.com/get-started)
-* Check out existing demo DAML project (or use your own):
+* Check out existing demo Daml project (or use your own):
   ```
   git clone https://github.com/digital-asset/ex-bond-trading.git
   cd ex-bond-trading
   ```
-* Run DAML scenarios:
+* Run Daml scenarios:
   ```
   DOCKER_CONTENT_TRUST=1 docker run --rm -it -v $PWD:/data digitalasset/daml-sdk:$SDK_VERSION bash -c "cd \$(mktemp -d) && cp -r /data/* ./ && DAML_SDK_VERSION=$SDK_VERSION daml test"
   ```
 
 > Note: This image is primarily intended for CI workflows, where the benefits
 > of caching Docker images can outweigh the awkwardness of the above command.
-> For local development, we strongly recommend installing the DAML SDK on the
+> For local development, we strongly recommend installing the Daml Connect SDK on the
 > host development machine instead, by running `curl https://get.daml.com |
 > bash`. For production use-cases, we strongly recommend using a supported
 > production binary, which can be obtained by contacting Digital Asset.

@@ -1,7 +1,7 @@
 
 -- | This module checks that what is considered a value in
--- the operational semantics of DAML-LF matches what is
--- treated as a value in DAML.
+-- the operational semantics of Daml-LF matches what is
+-- treated as a value in Daml.
 --
 -- According to the spec, a value is "an expression which does not
 -- need to be evaluated further". Any unevaluated subexpressions
@@ -13,7 +13,7 @@
 -- * updates with 'bind' or 'embed_expr'
 -- * scenarios with 'sbind' or 'sembed_expr'
 --
--- Where we can, we test this from DAML by using values with
+-- Where we can, we test this from Daml by using values with
 -- embedded error expressions. The value should evaluate without
 -- raising an error.
 --
@@ -42,6 +42,6 @@ main = scenario do
     let _ : Scenario () = do
         _ <- pure ()
         error "ValScenarioBind"
-    -- cannot test ValScenarioEmbedExpr from DAML, since
+    -- cannot test ValScenarioEmbedExpr from Daml, since
     -- the compiler does not generate it.
     pure ()

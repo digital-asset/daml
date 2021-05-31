@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api
@@ -10,7 +10,7 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReader.offsetForUpdate
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReaderSpec._
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, OffsetBuilder}
+import com.daml.ledger.participant.state.kvutils.{Envelope, OffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, Update}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
@@ -76,7 +76,8 @@ class KeyValueParticipantStateReaderSpec
     "remove third component of input offset when streaming from underlying reader" in {
       val reader = readerStreamingFrom(
         offset = Some(toOffset(1, 2)),
-        LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry))
+        LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry),
+      )
       val instance = createInstance(reader)
       val stream = instance.stateUpdates(Some(toOffset(1, 2, 3)))
 
@@ -90,7 +91,7 @@ class KeyValueParticipantStateReaderSpec
       val reader = readerStreamingFrom(
         offset = None,
         LedgerRecord(toOffset(1), aLogEntryId(1), aWrappedLogEntry),
-        LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry)
+        LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry),
       )
       for (updateGenerator <- Seq(zeroUpdateGenerator, singleUpdateGenerator)) {
         val instance = createInstance(reader, updateGenerator)
@@ -108,7 +109,7 @@ class KeyValueParticipantStateReaderSpec
       val reader = readerStreamingFrom(
         offset = None,
         LedgerRecord(toOffset(1, 11), aLogEntryId(1), aWrappedLogEntry),
-        LedgerRecord(toOffset(2, 22), aLogEntryId(2), aWrappedLogEntry)
+        LedgerRecord(toOffset(2, 22), aLogEntryId(2), aWrappedLogEntry),
       )
       val instance = createInstance(reader, twoUpdatesGenerator)
       val stream = instance.stateUpdates(None)
@@ -119,7 +120,8 @@ class KeyValueParticipantStateReaderSpec
           toOffset(1, 11, 0),
           toOffset(1, 11, 1),
           toOffset(2, 22, 0),
-          toOffset(2, 22, 1))
+          toOffset(2, 22, 1),
+        )
       }
     }
 
@@ -127,12 +129,13 @@ class KeyValueParticipantStateReaderSpec
       val records = List(
         LedgerRecord(toOffset(1), aLogEntryId(1), aWrappedLogEntry),
         LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry),
-        LedgerRecord(toOffset(3), aLogEntryId(3), aWrappedLogEntry)
+        LedgerRecord(toOffset(3), aLogEntryId(3), aWrappedLogEntry),
       )
 
       def getInstance(
           offset: Option[Offset],
-          items: LedgerRecord*): KeyValueParticipantStateReader =
+          items: LedgerRecord*
+      ): KeyValueParticipantStateReader =
         createInstance(readerStreamingFrom(offset = offset, items: _*))
 
       val instances = records.tails.flatMap {
@@ -146,20 +149,20 @@ class KeyValueParticipantStateReaderSpec
           Seq(None, Some(toOffset(1)), Some(toOffset(2)), Some(toOffset(3)))
             .map(offset => offsetsFrom(instances(offset).stateUpdates(offset)))
         )
-        .map {
-          case Seq(all, afterFirst, beforeLast, afterLast) =>
-            all should have size 3
-            afterFirst should have size 2
-            beforeLast should have size 1
-            afterLast should have size 0
+        .map { case Seq(all, afterFirst, beforeLast, afterLast) =>
+          all should have size 3
+          afterFirst should have size 2
+          beforeLast should have size 1
+          afterLast should have size 0
         }
     }
 
     "throw in case of an invalid log entry received" in {
-      val anInvalidEnvelope = ByteString.copyFrom(Array[Byte](0, 1, 2))
+      val anInvalidEnvelope = Raw.Envelope(ByteString.copyFrom(Array[Byte](0, 1, 2)))
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelope))
+        LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelope),
+      )
       val instance = createInstance(reader)
 
       offsetsFrom(instance.stateUpdates(None)).failed.map { _ =>
@@ -171,7 +174,8 @@ class KeyValueParticipantStateReaderSpec
       val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue)
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelopeMessage))
+        LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelopeMessage),
+      )
       val instance = createInstance(reader)
 
       offsetsFrom(instance.stateUpdates(None)).failed.map { _ =>
@@ -183,7 +187,8 @@ class KeyValueParticipantStateReaderSpec
       val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue)
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelopeMessage))
+        LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelopeMessage),
+      )
       val instance = createInstance(reader, failOnUnexpectedEvent = false)
 
       offsetsFrom(instance.stateUpdates(None)).map { offsets =>
@@ -199,7 +204,8 @@ class KeyValueParticipantStateReaderSpec
         offsetForUpdate(offsetFromRecord, subOffset, 2) shouldBe OffsetBuilder.fromLong(
           1,
           2,
-          subOffset)
+          subOffset,
+        )
       }
       succeed
     }
@@ -224,38 +230,43 @@ object KeyValueParticipantStateReaderSpec {
   private val aLogEntry = DamlLogEntry
     .newBuilder()
     .setPartyAllocationEntry(
-      DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId("aParticipant"))
+      DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId("aParticipant")
+    )
     .setRecordTime(com.google.protobuf.Timestamp.newBuilder.setSeconds(1234))
     .build()
 
   private val aWrappedLogEntry = Envelope.enclose(aLogEntry)
 
   private val zeroUpdateGenerator
-    : (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] = (_, _, _) => List.empty
+      : (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] = (_, _, _) => List.empty
 
   private val singleUpdateGenerator
-    : (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] = (_, _, _) =>
+      : (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] = (_, _, _) =>
     List(
       Update.PartyAddedToParticipant(
         Ref.Party.assertFromString("aParty"),
         "a party",
         ParticipantId.assertFromString("aParticipant"),
         Timestamp.now(),
-        submissionId = None))
+        submissionId = None,
+      )
+    )
 
   private val twoUpdatesGenerator
-    : (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] =
+      : (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update] =
     (entryId, entry, recordTime) =>
       singleUpdateGenerator(entryId, entry, recordTime) ::: singleUpdateGenerator(
         entryId,
         entry,
-        recordTime)
+        recordTime,
+      )
 
-  private def aLogEntryId(index: Int): Bytes =
-    DamlLogEntryId.newBuilder
-      .setEntryId(ByteString.copyFrom(s"id-$index".getBytes))
-      .build
-      .toByteString
+  private def aLogEntryId(index: Int): Raw.LogEntryId =
+    Raw.LogEntryId(
+      DamlLogEntryId.newBuilder
+        .setEntryId(ByteString.copyFrom(s"id-$index".getBytes))
+        .build
+    )
 
   private def readerStreamingFrom(offset: Option[Offset], items: LedgerRecord*): LedgerReader = {
     val reader = mock[LedgerReader]
@@ -283,6 +294,7 @@ object KeyValueParticipantStateReaderSpec {
       .setParty(
         DamlPartyAllocation.newBuilder
           .setParticipantId("aParticipantId")
-          .setDisplayName("participant"))
+          .setDisplayName("participant")
+      )
       .build
 }

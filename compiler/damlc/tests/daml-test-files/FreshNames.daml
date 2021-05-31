@@ -1,5 +1,5 @@
 -- Test that we don't use the hard coded variable names `v1`, `v2`, ... during
--- the conversion of some builtins to DAML-LF.
+-- the conversion of some builtins to Daml-LF.
 module FreshNames where
 
 import DA.Assert

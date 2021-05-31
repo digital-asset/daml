@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.codegen
@@ -27,7 +27,7 @@ object CodegenMain {
         scalaCodegen(args.tail)
       case Some(FrontEndConfig(None)) | None =>
         println("\n")
-        cliConfigParser.showUsage()
+        cliConfigParser.displayToOut(cliConfigParser.usage)
         UsageError
     }
     sys.exit(exitCode.code)
@@ -47,7 +47,7 @@ object CodegenMain {
     configO match {
       case None =>
         println("\n")
-        Conf.parser.showUsage
+        Conf.parser.displayToOut(Conf.parser.usage)
         UsageError
       case Some(conf) =>
         Try(generate(conf)) match {
@@ -71,15 +71,16 @@ object CodegenMain {
       }
     }
 
-  private def parseFrontEndConfig(args: Seq[String]): Option[FrontEndConfig] = args match {
-    case h +: _ => cliConfigParser.parse(Seq(h), FrontEndConfig(None))
-    case _ => None
-  }
+  private def parseFrontEndConfig(args: collection.Seq[String]): Option[FrontEndConfig] =
+    args match {
+      case h +: _ => cliConfigParser.parse(Seq(h), FrontEndConfig(None))
+      case _ => None
+    }
 
   private val cliConfigParser = new scopt.OptionParser[FrontEndConfig]("codegen-front-end") {
     head("Codegen front end")
 
-    override def showUsageOnError = false
+    override val showUsageOnError = Some(false)
 
     help("help").text("Prints this usage text")
     note("\n")

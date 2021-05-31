@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.json
@@ -8,8 +8,7 @@ import com.daml.navigator.json.Util._
 import com.daml.navigator.{model => Model}
 import spray.json._
 
-/**
-  * An encoding of DAML-LF types.
+/** An encoding of Daml-LF types.
   *
   * The types are encoded as-is (no type variables substitution, no type reference resolution).
   */
@@ -65,19 +64,19 @@ object DamlLfCodec {
     JsObject(
       propType -> JsString(tagTypeCon),
       propName -> damlLfIdentifierToJsValue(id),
-      propArgs -> JsArray(value.typArgs.map(damlLfTypeToJsValue).toVector)
+      propArgs -> JsArray(value.typArgs.map(damlLfTypeToJsValue).toVector),
     )
   }
 
   def damlLfTypeVarToJsValue(value: Model.DamlLfTypeVar): JsValue = JsObject(
     propType -> JsString(tagTypeVar),
-    propName -> JsString(value.name)
+    propName -> JsString(value.name),
   )
 
   def damlLfPrimToJsValue(value: Model.DamlLfTypePrim): JsValue = JsObject(
     propType -> JsString(tagTypePrim),
     propName -> damlLfPrimTypeToJsValue(value.typ),
-    propArgs -> JsArray(value.typArgs.map(damlLfTypeToJsValue).toVector)
+    propArgs -> JsArray(value.typArgs.map(damlLfTypeToJsValue).toVector),
   )
 
   def damlLfPrimTypeToJsValue(value: Model.DamlLfPrimType): JsString = value match {
@@ -97,13 +96,13 @@ object DamlLfCodec {
 
   def damlLfNumericToJsValue(typeNum: Model.DamlLfTypeNumeric): JsValue = JsObject(
     propType -> JsString(tagTypeNumeric),
-    propScale -> JsNumber(typeNum.scale)
+    propScale -> JsNumber(typeNum.scale),
   )
 
   def damlLfIdentifierToJsValue(value: Model.DamlLfIdentifier): JsValue = JsObject(
     propName -> JsString(value.qualifiedName.name.toString()),
     propModule -> JsString(value.qualifiedName.module.toString()),
-    propPackage -> JsString(value.packageId)
+    propPackage -> JsString(value.packageId),
   )
 
   def damlLfDataTypeToJsValue(value: Model.DamlLfDataType): JsValue = value match {
@@ -113,7 +112,8 @@ object DamlLfCodec {
         propFields -> JsArray(
           r.fields
             .map(f => JsObject(propName -> JsString(f._1), propValue -> damlLfTypeToJsValue(f._2)))
-            .toVector)
+            .toVector
+        ),
       )
     case v: Model.DamlLfVariant =>
       JsObject(
@@ -121,18 +121,19 @@ object DamlLfCodec {
         propFields -> JsArray(
           v.fields
             .map(f => JsObject(propName -> JsString(f._1), propValue -> damlLfTypeToJsValue(f._2)))
-            .toVector)
+            .toVector
+        ),
       )
     case e: Model.DamlLfEnum =>
       JsObject(
         propType -> JsString(tagTypeEnum),
-        propConstructors -> JsArray(e.constructors.map(JsString(_)).toVector)
+        propConstructors -> JsArray(e.constructors.map(JsString(_)).toVector),
       )
   }
 
   def damlLfDefDataTypeToJsValue(value: Model.DamlLfDefDataType): JsValue = JsObject(
     propType -> damlLfDataTypeToJsValue(value.dataType),
-    propVars -> JsArray(value.typeVars.map(JsString(_)).toVector)
+    propVars -> JsArray(value.typeVars.map(JsString(_)).toVector),
   )
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -144,16 +145,19 @@ object DamlLfCodec {
       case `tagTypeCon` =>
         Model.DamlLfTypeCon(
           Model.DamlLfTypeConName(
-            jsValueToDamlLfIdentifier(anyField(value, propName, "DamlLfTypeCon"))),
+            jsValueToDamlLfIdentifier(anyField(value, propName, "DamlLfTypeCon"))
+          ),
           Model.DamlLfImmArraySeq(
-            arrayField(value, propArgs, "DamlLfTypeCon").map(jsValueToDamlLfType): _*)
+            arrayField(value, propArgs, "DamlLfTypeCon").map(jsValueToDamlLfType): _*
+          ),
         )
       case `tagTypeVar` => Model.DamlLfTypeVar(nameField(value, propName, "DamlLfTypeVar"))
       case `tagTypePrim` =>
         Model.DamlLfTypePrim(
           jsValueToDamlLfPrimType(strField(value, propName, "DamlLfTypePrim")),
           Model.DamlLfImmArraySeq(
-            arrayField(value, propArgs, "DamlLfTypePrim").map(jsValueToDamlLfType): _*)
+            arrayField(value, propArgs, "DamlLfTypePrim").map(jsValueToDamlLfType): _*
+          ),
         )
       case `tagTypeNumeric` =>
         DamlLfNumeric.Scale
@@ -181,28 +185,33 @@ object DamlLfCodec {
         val fields = arrayField(value, propFields, "DamlLfRecord")
         Model.DamlLfRecord(
           Model.DamlLfImmArraySeq(
-            fields.map(
-              f =>
-                (
-                  nameField(f, propName, "DamlLfRecord"),
-                  jsValueToDamlLfType(anyField(f, propValue, "DamlLfRecord")))): _*)
+            fields.map(f =>
+              (
+                nameField(f, propName, "DamlLfRecord"),
+                jsValueToDamlLfType(anyField(f, propValue, "DamlLfRecord")),
+              )
+            ): _*
+          )
         )
       case `tagTypeVariant` =>
         val constructors = arrayField(value, propFields, "DamlLfVariant")
         Model.DamlLfVariant(
           Model.DamlLfImmArraySeq(
-            constructors.map(
-              f =>
-                (
-                  nameField(f, propName, "DamlLfVariant"),
-                  jsValueToDamlLfType(anyField(f, propValue, "DamlLfVariant")))): _*)
+            constructors.map(f =>
+              (
+                nameField(f, propName, "DamlLfVariant"),
+                jsValueToDamlLfType(anyField(f, propValue, "DamlLfVariant")),
+              )
+            ): _*
+          )
         )
       case `tagTypeEnum` =>
         val constructors = arrayField(value, propConstructors, "DamlLfEnum")
         Model.DamlLfEnum(Model.DamlLfImmArraySeq(constructors: _*).map(asName(_, "DamlLfEnum")))
       case t =>
         deserializationError(
-          s"Can't read ${value.prettyPrint} as DamlLfDataType, unknown type '$t'")
+          s"Can't read ${value.prettyPrint} as DamlLfDataType, unknown type '$t'"
+        )
     }
 
   def jsValueToDamlLfDefDataType(value: JsValue): Model.DamlLfDefDataType = {
@@ -218,8 +227,8 @@ object DamlLfCodec {
       DamlLfRef.PackageId.assertFromString(strField(value, propPackage, "DamlLfIdentifier")),
       Model.DamlLfQualifiedName(
         Model.DamlLfDottedName.assertFromString(strField(value, propModule, "DamlLfIdentifier")),
-        Model.DamlLfDottedName.assertFromString(strField(value, propName, "DamlLfIdentifier"))
-      )
+        Model.DamlLfDottedName.assertFromString(strField(value, propName, "DamlLfIdentifier")),
+      ),
     )
 
   // ------------------------------------------------------------------------------------------------------------------

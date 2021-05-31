@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.services.grpc
@@ -63,7 +63,8 @@ final class GrpcHealthServiceSpec
           "component A" -> healthyComponent,
           "component B" -> healthyComponent,
           "component C" -> healthyComponent,
-        ))
+        )
+      )
 
       for {
         response <- service.check(HealthCheckRequest())
@@ -78,7 +79,8 @@ final class GrpcHealthServiceSpec
           "component A" -> healthyComponent,
           "component B" -> unhealthyComponent,
           "component C" -> healthyComponent,
-        ))
+        )
+      )
 
       for {
         response <- service.check(HealthCheckRequest())
@@ -113,7 +115,8 @@ final class GrpcHealthServiceSpec
           "component A" -> healthyComponent,
           "component B" -> healthyComponent,
           "component C" -> unhealthyComponent,
-        ))
+        )
+      )
 
       for {
         response <- service.check(HealthCheckRequest("component B"))
@@ -128,7 +131,8 @@ final class GrpcHealthServiceSpec
           "component A" -> unhealthyComponent,
           "component B" -> healthyComponent,
           "component C" -> healthyComponent,
-        ))
+        )
+      )
 
       for {
         response <- service.check(HealthCheckRequest("component A"))
@@ -167,20 +171,23 @@ final class GrpcHealthServiceSpec
       componentBHealth = Healthy
       eventually {
         responseObserver.elements should be(
-          Vector(servingResponse, notServingResponse, servingResponse))
+          Vector(servingResponse, notServingResponse, servingResponse)
+        )
       }
 
       componentAHealth = Unhealthy
       eventually {
         responseObserver.elements should be(
-          Vector(servingResponse, notServingResponse, servingResponse, notServingResponse))
+          Vector(servingResponse, notServingResponse, servingResponse, notServingResponse)
+        )
       }
 
       // this won't emit a new response, because the overall health of the system didn't change.
       componentCHealth = Unhealthy
       eventually {
         responseObserver.elements should be(
-          Vector(servingResponse, notServingResponse, servingResponse, notServingResponse))
+          Vector(servingResponse, notServingResponse, servingResponse, notServingResponse)
+        )
       }
 
       componentCHealth = Healthy
@@ -193,7 +200,8 @@ final class GrpcHealthServiceSpec
             servingResponse,
             notServingResponse,
             servingResponse,
-          ))
+          )
+        )
       }
       succeed
     }
@@ -246,14 +254,16 @@ final class GrpcHealthServiceSpec
       componentCHealth = Healthy
       eventually {
         responseObserver.elements should be(
-          Vector(servingResponse, notServingResponse, servingResponse))
+          Vector(servingResponse, notServingResponse, servingResponse)
+        )
       }
 
       // this component won't affect the health of component C
       componentAHealth = Healthy
       eventually {
         responseObserver.elements should be(
-          Vector(servingResponse, notServingResponse, servingResponse))
+          Vector(servingResponse, notServingResponse, servingResponse)
+        )
       }
       succeed
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -11,10 +11,10 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueConsumption.{
   TimeBounds,
   logEntryToUpdate,
-  outOfTimeBoundsEntryToUpdate
+  outOfTimeBoundsEntryToUpdate,
 }
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, Update}
+import com.daml.ledger.participant.state.v1.{Configuration, RejectionReasonV0, Update}
 import com.daml.lf.data.Time.Timestamp
 import com.google.protobuf.Empty
 import org.scalatest.prop.TableDrivenPropertyChecks._
@@ -39,14 +39,16 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
   "logEntryToUpdate" should {
     "throw in case no record time is available from the log entry or input argument" in {
       assertThrows[Err](
-        logEntryToUpdate(aLogEntryId, aLogEntryWithoutRecordTime, recordTimeForUpdate = None))
+        logEntryToUpdate(aLogEntryId, aLogEntryWithoutRecordTime, recordTimeForUpdate = None)
+      )
     }
 
     "use log entry's record time instead of one provided as input" in {
       val actual :: Nil = logEntryToUpdate(
         aLogEntryId,
         aLogEntryWithRecordTime,
-        recordTimeForUpdate = Some(aRecordTime))
+        recordTimeForUpdate = Some(aRecordTime),
+      )
 
       actual.recordTime shouldBe aRecordTimeFromLogEntry
     }
@@ -74,7 +76,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
 
   case class Assertions(
       verify: Option[Update] => Unit = verifyNoUpdateIsGenerated,
-      throwsInternalError: Boolean = false
+      throwsInternalError: Boolean = false,
   )
 
   "outOfTimeBoundsEntryToUpdate" should {
@@ -85,22 +87,26 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           TimeBounds(deduplicateUntil = Some(aRecordTime)),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
-          Assertions()),
+          Assertions(),
+        ),
         (
           TimeBounds(deduplicateUntil = Some(aRecordTime)),
           aRecordTime,
           PACKAGE_UPLOAD_REJECTION_ENTRY,
-          Assertions()),
+          Assertions(),
+        ),
         (
           TimeBounds(deduplicateUntil = Some(aRecordTime)),
           aRecordTime,
           CONFIGURATION_REJECTION_ENTRY,
-          Assertions()),
+          Assertions(),
+        ),
         (
           TimeBounds(deduplicateUntil = Some(aRecordTime)),
           aRecordTime,
           PARTY_ALLOCATION_REJECTION_ENTRY,
-          Assertions())
+          Assertions(),
+        ),
       )
       runAll(testCases)
     }
@@ -110,43 +116,50 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         case Some(Update.CommandRejected(recordTime, submitterInfo, reason)) =>
           recordTime shouldBe aRecordTime
           submitterInfo shouldBe Conversions.parseSubmitterInfo(someSubmitterInfo)
-          reason shouldBe a[RejectionReason.InvalidLedgerTime]
+          reason shouldBe a[RejectionReasonV0.InvalidLedgerTime]
           ()
-        case _ => fail
+        case _ => fail()
       }
       val testCases = Table(
         ("Time Bounds", "Record Time", "Log Entry Type", "Assertions"),
         (
           TimeBounds(
-            tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1)))),
+            tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1)))
+          ),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
-          Assertions(verify = verifyCommandRejection)),
+          Assertions(verify = verifyCommandRejection),
+        ),
         (
           TimeBounds(
-            tooEarlyUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1)))),
+            tooEarlyUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1)))
+          ),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
-          Assertions(verify = verifyCommandRejection)),
+          Assertions(verify = verifyCommandRejection),
+        ),
         (
           TimeBounds(tooLateFrom = Some(aRecordTime)),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
-          Assertions()),
+          Assertions(),
+        ),
         (
           TimeBounds(tooEarlyUntil = Some(aRecordTime)),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
-          Assertions()),
+          Assertions(),
+        ),
         // Record time within time bounds.
         (
           TimeBounds(
             tooEarlyUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1))),
-            tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1)))
+            tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1))),
           ),
           aRecordTime,
           TRANSACTION_REJECTION_ENTRY,
-          Assertions())
+          Assertions(),
+        ),
       )
       runAll(testCases)
     }
@@ -154,55 +167,64 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
     "generate a rejection entry for a configuration if record time is out of time bounds" in {
       def verifyConfigurationRejection(actual: Option[Update]): Unit = actual match {
         case Some(
-            Update.ConfigurationChangeRejected(
-              recordTime,
-              submissionId,
-              participantId,
-              proposedConfiguration,
-              rejectionReason)) =>
+              Update.ConfigurationChangeRejected(
+                recordTime,
+                submissionId,
+                participantId,
+                proposedConfiguration,
+                rejectionReason,
+              )
+            ) =>
           recordTime shouldBe aRecordTime
           submissionId shouldBe aConfigurationRejectionEntry.getSubmissionId
           participantId shouldBe aConfigurationRejectionEntry.getParticipantId
           proposedConfiguration shouldBe Configuration
             .decode(aConfigurationRejectionEntry.getConfiguration)
-            .getOrElse(fail)
+            .getOrElse(fail())
           rejectionReason should include("Configuration change timed out")
           ()
-        case _ => fail
+        case _ => fail()
       }
       val testCases = Table(
         ("Time Bounds", "Record Time", "Log Entry Type", "Assertions"),
         (
           TimeBounds(
-            tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1)))),
+            tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1)))
+          ),
           aRecordTime,
           CONFIGURATION_REJECTION_ENTRY,
-          Assertions(verify = verifyConfigurationRejection)),
+          Assertions(verify = verifyConfigurationRejection),
+        ),
         (
           TimeBounds(
-            tooEarlyUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1)))),
+            tooEarlyUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1)))
+          ),
           aRecordTime,
           CONFIGURATION_REJECTION_ENTRY,
-          Assertions(verify = verifyConfigurationRejection)),
+          Assertions(verify = verifyConfigurationRejection),
+        ),
         (
           TimeBounds(tooLateFrom = Some(aRecordTime)),
           aRecordTime,
           CONFIGURATION_REJECTION_ENTRY,
-          Assertions()),
+          Assertions(),
+        ),
         (
           TimeBounds(tooEarlyUntil = Some(aRecordTime)),
           aRecordTime,
           CONFIGURATION_REJECTION_ENTRY,
-          Assertions()),
+          Assertions(),
+        ),
         // Record time within time bounds.
         (
           TimeBounds(
             tooEarlyUntil = Some(Timestamp.assertFromInstant(aRecordTimeInstant.minusMillis(1))),
-            tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1)))
+            tooLateFrom = Some(Timestamp.assertFromInstant(aRecordTimeInstant.plusMillis(1))),
           ),
           aRecordTime,
           CONFIGURATION_REJECTION_ENTRY,
-          Assertions())
+          Assertions(),
+        ),
       )
       runAll(testCases)
     }
@@ -213,7 +235,7 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         (TimeBounds(), aRecordTime, TRANSACTION_REJECTION_ENTRY, Assertions()),
         (TimeBounds(), aRecordTime, PACKAGE_UPLOAD_REJECTION_ENTRY, Assertions()),
         (TimeBounds(), aRecordTime, CONFIGURATION_REJECTION_ENTRY, Assertions()),
-        (TimeBounds(), aRecordTime, PARTY_ALLOCATION_REJECTION_ENTRY, Assertions())
+        (TimeBounds(), aRecordTime, PARTY_ALLOCATION_REJECTION_ENTRY, Assertions()),
       )
       runAll(testCases)
     }
@@ -229,20 +251,23 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
           TimeBounds(),
           aRecordTime,
           OUT_OF_TIME_BOUNDS_ENTRY,
-          Assertions(throwsInternalError = true))
+          Assertions(throwsInternalError = true),
+        ),
       )
       runAll(testCases)
     }
   }
 
   private def runAll(
-      table: TableFor4[TimeBounds, Timestamp, DamlLogEntry.PayloadCase, Assertions]): Unit = {
+      table: TableFor4[TimeBounds, Timestamp, DamlLogEntry.PayloadCase, Assertions]
+  ): Unit = {
     forAll(table) {
       (
           timeBounds: TimeBounds,
           recordTime: Timestamp,
           logEntryType: DamlLogEntry.PayloadCase,
-          assertions: Assertions) =>
+          assertions: Assertions,
+      ) =>
         val inputEntry = buildOutOfTimeBoundsEntry(timeBounds, logEntryType)
         if (assertions.throwsInternalError) {
           assertThrows[Err.InternalError](outOfTimeBoundsEntryToUpdate(recordTime, inputEntry))
@@ -256,7 +281,8 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
 
   private def buildOutOfTimeBoundsEntry(
       timeBounds: TimeBounds,
-      logEntryType: DamlLogEntry.PayloadCase): DamlOutOfTimeBoundsEntry = {
+      logEntryType: DamlLogEntry.PayloadCase,
+  ): DamlOutOfTimeBoundsEntry = {
     val builder = DamlOutOfTimeBoundsEntry.newBuilder
     timeBounds.tooEarlyUntil.foreach(value => builder.setTooEarlyUntil(buildTimestamp(value)))
     timeBounds.tooLateFrom.foreach(value => builder.setTooLateFrom(buildTimestamp(value)))
@@ -304,7 +330,8 @@ class KeyValueConsumptionSpec extends AnyWordSpec with Matchers {
         builder.setPartyAllocationEntry(DamlPartyAllocationEntry.getDefaultInstance)
       case PARTY_ALLOCATION_REJECTION_ENTRY =>
         builder.setPartyAllocationRejectionEntry(
-          DamlPartyAllocationRejectionEntry.getDefaultInstance)
+          DamlPartyAllocationRejectionEntry.getDefaultInstance
+        )
       case OUT_OF_TIME_BOUNDS_ENTRY =>
         builder.setOutOfTimeBoundsEntry(DamlOutOfTimeBoundsEntry.getDefaultInstance)
       case TIME_UPDATE_ENTRY =>

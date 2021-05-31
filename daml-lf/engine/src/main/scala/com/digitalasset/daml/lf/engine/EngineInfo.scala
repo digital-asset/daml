@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -20,15 +20,14 @@ class EngineInfo(config: EngineConfig) {
     val allowedLangVersions =
       allLangVersions.filter(config.allowedLanguageVersions.contains)
 
-    s"DAML LF Engine supports LF versions: ${formatLangVersions(allowedLangVersions)}"
+    s"Daml-LF Engine supports LF versions: ${formatLangVersions(allowedLangVersions)}"
   }
 
   private[this] def formatLangVersions(versions: Iterable[LV]) =
     versions
-      .map {
-        case LV(major, minor) =>
-          val ap = minor.toProtoIdentifier
-          s"${major.pretty}${if (ap.isEmpty) "" else s".$ap"}"
+      .map { case LV(major, minor) =>
+        val ap = minor.toProtoIdentifier
+        s"${major.pretty}${if (ap.isEmpty) "" else s".$ap"}"
       }
       .mkString(", ")
 

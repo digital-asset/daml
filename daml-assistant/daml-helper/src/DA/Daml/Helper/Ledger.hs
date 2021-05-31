@@ -1,11 +1,13 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
 
 module DA.Daml.Helper.Ledger (
     LedgerFlags(..),
+    RemoteDalf(..),
     defaultLedgerFlags,
+    getDefaultArgs,
     LedgerApi(..),
     L.ClientSSLConfig(..),
     L.ClientSSLKeyCertPair(..),
@@ -16,12 +18,21 @@ module DA.Daml.Helper.Ledger (
     runLedgerAllocateParties,
     runLedgerUploadDar,
     runLedgerFetchDar,
+    runLedgerExport,
     runLedgerNavigator,
+    runLedgerReset,
+    runLedgerGetDalfs,
+    runLedgerListPackages,
+    runLedgerListPackages0,
+    -- exported for testing
+    downloadAllReachablePackages
     ) where
 
 import Control.Exception (SomeException(..), catch)
+import Control.Applicative ((<|>))
 import Control.Lens (toListOf)
 import Control.Monad.Extra hiding (fromMaybeM)
+import Control.Monad.IO.Class (liftIO)
 import Data.Aeson ((.=))
 import qualified Data.Aeson as A
 import Data.Aeson.Text
@@ -31,23 +42,27 @@ import qualified Data.ByteString.Lazy as BSL
 import Data.List.Extra
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
 import Data.Maybe
 import Data.String (IsString, fromString)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TL
+import qualified Data.UUID as UUID
+import qualified Data.UUID.V4 as UUID
 import GHC.Generics
 import Network.GRPC.Unsafe.ChannelArgs (Arg(..))
 import Network.HTTP.Simple
 import Network.HTTP.Types (statusCode)
 import Numeric.Natural
-import System.Environment
+import System.Directory
 import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Process.Typed
 
+import Com.Daml.Ledger.Api.V1.TransactionFilter
 import DA.Daml.Compiler.Dar (createArchive, createDarFile)
 import DA.Daml.Helper.Util
 import qualified DA.Daml.LF.Ast as LF
@@ -56,7 +71,6 @@ import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 import DA.Daml.Package.Config (PackageSdkVersion(..))
 import DA.Daml.Project.Util (fromMaybeM)
 import qualified DA.Ledger as L
-import DA.Ledger (Party(..), PartyDetails(..))
 import qualified SdkVersion
 
 data LedgerApi
@@ -70,7 +84,7 @@ data LedgerFlags = LedgerFlags
   , fTimeout :: L.TimeoutSeconds
   -----------------------------------------
   -- The following values get defaults from the project config by
-  -- running `getDefaultArgs`
+  -- running `getDefaultLedgerFlags`
   , fHostM :: Maybe String
   , fPortM :: Maybe Int
   , fTokFileM :: Maybe FilePath
@@ -116,7 +130,8 @@ getDefaultArgs LedgerFlags { fApi
                            } = do
   host <- fromMaybeM getProjectLedgerHost fHostM
   port <- fromMaybeM getProjectLedgerPort fPortM
-  tokM <- getTokFromFile fTokFileM
+  pTokFileM <- getProjectLedgerAccessToken
+  tokM <- getTokFromFile (fTokFileM <|> pTokFileM)
   return $
     LedgerArgs
       { api = fApi
@@ -222,11 +237,11 @@ runLedgerListParties flags (JsonFlag json) = do
     if json then do
         TL.putStrLn . encodeToLazyText . A.toJSON $
             [ A.object
-                [ "party" .= TL.toStrict (unParty party)
+                [ "party" .= TL.toStrict (L.unParty party)
                 , "display_name" .= TL.toStrict displayName
                 , "is_local" .= isLocal
                 ]
-            | PartyDetails {..} <- xs
+            | L.PartyDetails {..} <- xs
             ]
     else if null xs then
         putStrLn "no parties are known"
@@ -248,13 +263,14 @@ runLedgerFetchDar flags pidString saveAs = do
 -- | Reconstruct a DAR file by downloading packages from a ledger. Returns how many packages fetched.
 fetchDar :: LedgerArgs -> LF.PackageId -> FilePath -> IO Int
 fetchDar args rootPid saveAs = do
-  pkgs <- downloadAllReachablePackages args rootPid
-  let rootPkg = pkgs Map.! rootPid
+  pkgs <- downloadAllReachablePackages (downloadPackage args) [rootPid] []
+  let rootPkg = fromMaybe (error "damlc: fetchDar: internal error") $ pkgs Map.! rootPid
+  -- It's always a `Just` because we exclude no package ids.
   let (dalf,pkgId) = LFArchive.encodeArchiveAndHash rootPkg
   let dalfDependencies :: [(T.Text,BS.ByteString,LF.PackageId)] =
         [ (txt,bs,pkgId)
-        | (pid,pkg) <- Map.toList (Map.delete rootPid pkgs)
-        , let txt = recoverPackageName pkg ("dep",pid)
+        | (pid,Just pkg) <- Map.toList (Map.delete rootPid pkgs)
+        , let txt = recoverPackageName pkg pid
         , let (bsl,pkgId) = LFArchive.encodeArchiveAndHash pkg
         , let bs = BSL.toStrict bsl
         ]
@@ -269,29 +285,50 @@ fetchDar args rootPid saveAs = do
   createDarFile saveAs za
   return $ Map.size pkgs
 
-recoverPackageName :: LF.Package -> (String,LF.PackageId) -> T.Text
-recoverPackageName pkg (tag,pid)= do
+recoverPackageName :: LF.Package -> LF.PackageId -> T.Text
+recoverPackageName pkg pid= do
   let LF.Package {packageMetadata} = pkg
   case packageMetadata of
     Just LF.PackageMetadata{packageName} -> LF.unPackageName packageName
     -- fallback, manufacture a name from the pid
-    Nothing -> T.pack (tag <> "-" <> T.unpack (LF.unPackageId pid))
+    Nothing -> LF.unPackageId pid
 
 -- | Download all Packages reachable from a PackageId; fail if any don't exist or can't be decoded.
-downloadAllReachablePackages :: LedgerArgs -> LF.PackageId -> IO (Map LF.PackageId LF.Package)
-downloadAllReachablePackages args pid = loop Map.empty [pid]
+downloadAllReachablePackages ::
+       (LF.PackageId -> IO LF.Package)
+    -- ^ An IO action to download a package.
+    -> [LF.PackageId]
+    -- ^ The roots of the dependency tree we want to download.
+    -> [LF.PackageId]
+    -- ^ Exclude these package ids from downloading, because they are already present.
+    -> IO (Map LF.PackageId (Maybe LF.Package))
+    -- ^ Return a map of dependency package ids and maybe the downloaded package or Nothing, if the
+    -- package is needed but already present.
+downloadAllReachablePackages downloadPkg pids exclPids =
+    loop Map.empty (Set.fromList pids)
   where
-    loop :: Map LF.PackageId LF.Package -> [LF.PackageId] -> IO (Map LF.PackageId LF.Package)
-    loop acc = \case
-      [] -> return acc
-      pid:morePids ->
-        if pid `Map.member` acc
-        then loop acc morePids
-        else do
-          pkg <- downloadPackage args pid
-          loop (Map.insert pid pkg acc) (packageRefs pkg ++ morePids)
-
-    packageRefs pkg = nubSort [ pid | LF.PRImport pid <- toListOf LF.packageRefs pkg ]
+    loop ::
+           Map LF.PackageId (Maybe LF.Package)
+        -> Set.Set LF.PackageId
+        -> IO (Map LF.PackageId (Maybe LF.Package))
+    loop acc pkgIds = do
+        case Set.minView pkgIds of
+            Nothing -> return acc
+            Just (pid, morePids) ->
+                if pid `Map.member` acc
+                    then loop acc morePids
+                    else do
+                        if pid `Set.member` Set.fromList exclPids
+                            then loop (Map.insert pid Nothing acc) morePids
+                            else do
+                                pkg <- downloadPkg pid
+                                loop
+                                    (Map.insert pid (Just pkg) acc)
+                                    (packageRefs pkg `Set.union` morePids)
+      where
+        packageRefs pkg =
+            Set.fromList
+                [pid | LF.PRImport pid <- toListOf LF.packageRefs pkg, not $ pid `Map.member` acc]
 
 -- | Download the Package identified by a PackageId; fail if it doesn't exist or can't be decoded.
 downloadPackage :: LedgerArgs -> LF.PackageId -> IO LF.Package
@@ -319,23 +356,88 @@ downloadPackage args pid = do
     convPid :: LF.PackageId -> L.PackageId
     convPid (LF.PackageId text) = L.PackageId $ TL.fromStrict text
 
-listParties :: LedgerArgs -> IO [PartyDetails]
+data RemoteDalf = RemoteDalf
+    { remoteDalfName :: Maybe LF.PackageName
+    , remoteDalfVersion :: Maybe LF.PackageVersion
+    , remoteDalfBs :: BS.ByteString
+    , remoteDalfIsMain :: Bool
+    , remoteDalfPkgId :: LF.PackageId
+    }
+-- | Fetch remote packages.
+runLedgerGetDalfs ::
+       LedgerFlags
+    -> [LF.PackageId]
+       -- ^ Packages to be fetched.
+    -> [LF.PackageId]
+       -- ^ Packages that should _not_ be fetched because they are already present.
+    -> IO [RemoteDalf]
+       -- ^ Returns the fetched packages.
+runLedgerGetDalfs lflags pkgIds exclPkgIds
+    | null pkgIds = pure []
+    | otherwise = do
+        args <- getDefaultArgs lflags
+        m <- downloadAllReachablePackages (downloadPackage args) pkgIds exclPkgIds
+        pure
+            [ RemoteDalf {..}
+            | (_pid, Just pkg) <- Map.toList m
+            , let (bsl, pid) = LFArchive.encodeArchiveAndHash pkg
+            , let LF.Package {packageMetadata} = pkg
+            , let remoteDalfPkgId = pid
+            , let remoteDalfName = LF.packageName <$> packageMetadata
+            , let remoteDalfBs = BSL.toStrict bsl
+            , let remoteDalfIsMain = pid `Set.member` Set.fromList pkgIds
+            , let remoteDalfVersion = LF.packageVersion <$> packageMetadata
+            ]
+
+runLedgerListPackages :: LedgerFlags -> IO [LF.PackageId]
+runLedgerListPackages lflags = do
+    args <- getDefaultArgs lflags
+    case api args of
+      Grpc ->
+        runWithLedgerArgs args $ do
+            lid <- L.getLedgerIdentity
+            pkgIds <- L.listPackages lid
+            pure [LF.PackageId $ TL.toStrict $ L.unPackageId pid | pid <- pkgIds]
+      HttpJson -> httpJsonRequest args "GET" "/v1/packages" id
+
+-- | Same as runLedgerListPackages, but print output.
+runLedgerListPackages0 :: LedgerFlags -> IO ()
+runLedgerListPackages0 flags = do
+    pkgs <- runLedgerListPackages flags
+    rdalfs <- runLedgerGetDalfs flags pkgs []
+    putStrLn "Available packages: "
+    putStrLn $
+        unlines $
+        map T.unpack $
+        [ LF.unPackageId remoteDalfPkgId <> " " <> suffix nameM versionM
+        | RemoteDalf {..} <- rdalfs
+        , nameM <- [remoteDalfName]
+        , versionM <- [remoteDalfVersion]
+        ]
+  where
+    suffix (Just name) (Just version) =
+        "(" <> LF.unPackageName name <> "-" <> LF.unPackageVersion version <> ")"
+    suffix (Just name) Nothing = "(" <> LF.unPackageName name <> ")"
+    suffix Nothing (Just _version) = ""
+    suffix Nothing Nothing = ""
+
+listParties :: LedgerArgs -> IO [L.PartyDetails]
 listParties args =
   case api args of
     Grpc -> runWithLedgerArgs args L.listKnownParties
     HttpJson -> httpJsonRequest args "GET" "/v1/parties" id
 
-lookupParty :: LedgerArgs -> String -> IO (Maybe Party)
+lookupParty :: LedgerArgs -> String -> IO (Maybe L.Party)
 lookupParty args name = do
     xs <- listParties args
     let text = TL.pack name
-    let pred PartyDetails{displayName,party} = if text == displayName then Just party else Nothing
+    let pred L.PartyDetails{displayName,party} = if text == displayName then Just party else Nothing
     return $ firstJust pred xs
 
-allocateParty :: LedgerArgs -> String -> IO Party
+allocateParty :: LedgerArgs -> String -> IO L.Party
 allocateParty args name = do
   let text = TL.pack name
-  PartyDetails {party} <-
+  L.PartyDetails {party} <-
     case api args of
       Grpc ->
         runWithLedgerArgs args $
@@ -345,6 +447,79 @@ allocateParty args name = do
         setRequestBodyJSON $ AllocatePartyRequest {identifierHint = text, displayName = text}
   return party
 
+runLedgerReset :: LedgerFlags -> IO ()
+runLedgerReset flags = do
+  putStrLn "Resetting ledger."
+  args <- getDefaultArgs flags
+  reset args
+
+reset :: LedgerArgs -> IO ()
+reset args = do
+  case api args of
+    Grpc ->
+      runWithLedgerArgs args $ do
+        parties <- map L.party <$> L.listKnownParties
+        unless (null parties) $ do
+          ledgerId <- L.getLedgerIdentity
+          activeContracts <-
+            L.getActiveContracts
+              ledgerId
+              (TransactionFilter $
+               Map.fromList [(L.unParty p, Just $ Filters Nothing) | p <- parties])
+              (L.Verbosity False)
+          let chunks = chunksOf 100 activeContracts
+          forM_ chunks $ \chunk -> do
+            cmdId <- liftIO UUID.nextRandom
+            let cmds =
+                  L.Commands
+                    { coms =
+                        [ L.ExerciseCommand
+                          { tid = tid
+                          , cid = cid
+                          , choice = L.Choice "Archive"
+                          , arg = L.VRecord $ L.Record Nothing []
+                          }
+                        | (_offset, _mbWid, events) <- chunk
+                        , L.CreatedEvent {cid, tid} <- events
+                        ]
+                    , lid = ledgerId
+                    , wid = Nothing
+                    , aid = L.ApplicationId "ledger-reset"
+                    , cid = L.CommandId $ TL.fromStrict $ UUID.toText cmdId
+                    , actAs = parties
+                    , readAs = []
+                    , dedupTime = Nothing
+                    , minLeTimeAbs = Nothing
+                    , minLeTimeRel = Nothing
+                    }
+            errOrEmpty <- L.submit cmds
+            case errOrEmpty of
+              Left err -> liftIO $ putStrLn $ "Failed to archive active contracts: " <> err
+              Right () -> pure ()
+    HttpJson ->
+      fail
+        "The reset command is currently not available for the HTTP JSON API. Please use the gRPC API."
+
+-- | Run export against configured ledger.
+runLedgerExport :: LedgerFlags -> [String] -> IO ()
+runLedgerExport flags remainingArguments = do
+    logbackArg <- getLogbackArg (damlSdkJarFolder </> "export-logback.xml")
+    let isHelp = any (\x -> x `elem` ["-h", "--help"]) remainingArguments
+    ledgerFlags <- if isHelp then
+        -- Don't use getDefaultArgs here so that --help can be used outside a daml project.
+        pure []
+      else do
+        args <- getDefaultArgs flags
+        -- TODO[AH]: Use parties from daml.yaml by default.
+        -- TODO[AH]: Use SDK version from daml.yaml by default.
+        pure ["--host", host args, "--port", show (port args)]
+    withJar
+      damlSdkJar
+      [logbackArg]
+      ("export" : remainingArguments ++ ledgerFlags) $ \ph -> do
+        exitCode <- waitExitCode ph
+        exitWith exitCode
+
 -- | Run navigator against configured ledger. We supply Navigator with
 -- the list of parties from the ledger, but in the future Navigator
 -- should fetch the list of parties itself.
@@ -353,40 +528,22 @@ runLedgerNavigator flags remainingArguments = do
     args <- getDefaultArgs flags
     logbackArg <- getLogbackArg (damlSdkJarFolder </> "navigator-logback.xml")
     putStrLn $ "Opening navigator at " <> showHostAndPort args
-    partyDetails <- listParties args
-
-    withTempDir $ \confDir -> do
-        let navigatorConfPath = confDir </> "ui-backend.conf"
-            navigatorArgs = concat
-                [ ["server"]
-                , [host args, show (port args)]
-                , remainingArguments
-                ]
-
-        writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig partyDetails)
-        unsetEnv "DAML_PROJECT" -- necessary to prevent config contamination
-        withJar damlSdkJar [logbackArg] ("navigator" : navigatorArgs ++ ["-c", confDir </> "ui-backend.conf"]) $ \ph -> do
-            exitCode <- waitExitCode ph
-            exitWith exitCode
-
-  where
-    navigatorConfig :: [PartyDetails] -> T.Text
-    navigatorConfig partyDetails = T.unlines . concat $
-        [ ["users", "  {"]
-        , [ T.concat
-            [ "    "
-            , T.pack . show $
-                if TL.null displayName
-                    then unParty party
-                    else displayName
-            , " { party = "
-            , T.pack (show (unParty party))
-            , " }"
+    let navigatorArgs = concat
+            [ ["server"]
+            , [host args, show (port args)]
+            , ["--ignore-project-parties"]
+            , remainingArguments
             ]
-          | PartyDetails{..} <- partyDetails
-          ]
-        , ["  }"]
-        ]
+    -- We write an empty ui-backend.conf file for backward compatibility. Otherwise navigator will
+    -- not start outside a project file.
+    let dummyNavigatorConf = "ui-backend.conf"
+    unlessM (doesFileExist dummyNavigatorConf) $ writeFile dummyNavigatorConf ""
+    withJar
+      damlSdkJar
+      [logbackArg]
+      ("navigator" : navigatorArgs) $ \ph -> do
+        exitCode <- waitExitCode ph
+        exitWith exitCode
 
 --
 -- Interface with the Haskell bindings

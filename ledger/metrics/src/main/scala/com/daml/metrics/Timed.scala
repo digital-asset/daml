@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.metrics
@@ -48,7 +48,8 @@ object Timed {
   def timedAndTrackedCompletionStage[T](
       timer: Timer,
       meter: Meter,
-      future: => CompletionStage[T]): CompletionStage[T] = {
+      future: => CompletionStage[T],
+  ): CompletionStage[T] = {
     Timed.completionStage(timer, trackedCompletionStage(meter, future))
   }
 
@@ -88,10 +89,9 @@ object Timed {
     val ctx = timer.time()
     source
       .watchTermination()(Keep.both[Mat, Future[Done]])
-      .mapMaterializedValue {
-        case (mat, done) =>
-          done.onComplete(_ => ctx.stop())(DirectExecutionContext)
-          mat
+      .mapMaterializedValue { case (mat, done) =>
+        done.onComplete(_ => ctx.stop())(DirectExecutionContext)
+        mat
       }
   }
 

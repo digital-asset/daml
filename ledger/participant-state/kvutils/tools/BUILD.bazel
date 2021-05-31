@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -8,34 +8,42 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "silencer_plugin",
 )
+load("@os_info//:os_info.bzl", "is_windows")
+load("@scala_version//:index.bzl", "scala_major_version")
 
 da_scala_library(
     name = "tools",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
     tags = ["maven_coordinates=com.daml:participant-state-kvutils-tools:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
-        "//daml-lf/engine",
+        "//daml-lf/kv-transaction-support",
+        "//daml-lf/transaction",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
-        "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
-        "@maven//:com_github_scopt_scopt_2_12",
+        "//libs-scala/resources-grpc",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
@@ -45,24 +53,40 @@ da_scala_test(
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
     resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_testkit",
+        "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     deps = [
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
+        "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-integration-api",
+        "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_grpc_grpc_api",
         "@maven//:org_mockito_mockito_core",
-        "@maven//:org_mockito_mockito_scala_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-    ],
+    ] + (["@maven//:com_google_protobuf_protobuf_java"] if scala_major_version == "2.13" else []),
 )
 
 da_scala_binary(
     name = "integrity-check",
     srcs = glob(["integrity-check/src/main/scala/ledger/participant/state/kvutils/tools/integritycheck/**/*.scala"]),
     main_class = "com.daml.ledger.participant.state.kvutils.tools.integritycheck.Main",
-    resources = glob(["src/main/resources/*"]),
+    resources = glob(["integrity-check/src/main/resources/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
     visibility = [
         "//visibility:public",
     ],
@@ -70,6 +94,8 @@ da_scala_binary(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
+        "//daml-lf/data",
+        "//daml-lf/engine",
         "//ledger/ledger-api-health",
         "//ledger/ledger-on-memory",
         "//ledger/metrics",
@@ -78,9 +104,6 @@ da_scala_binary(
         "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
         "//ledger/participant-state/kvutils/tools",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 
@@ -88,33 +111,41 @@ da_scala_test(
     name = "integrity-check-tests",
     size = "small",
     srcs = glob(["integrity-check/src/test/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalatest_scalatest",
+    ],
     deps = [
         ":integrity-check",
         "//daml-lf/data",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
         "//ledger/ledger-api-health",
         "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/tools",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
-da_scala_benchmark_jmh(
-    name = "benchmark-replay",
-    srcs = glob(["engine-benchmark/src/benchmark/scala/**/*"]),
-    max_heap_size = "4g",
-    scalacopts = lf_scalacopts,
+da_scala_library(
+    name = "engine-replay",
+    srcs = glob(["engine-replay/src/replay/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
@@ -123,6 +154,90 @@ da_scala_benchmark_jmh(
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
+
+da_scala_benchmark_jmh(
+    name = "engine-replay-benchmark",
+    srcs = glob(["engine-replay/src/benchmark/**/*.scala"]),
+    max_heap_size = "4g",
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    deps = [
+        ":engine-replay",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+    ],
+)
+
+da_scala_binary(
+    name = "engine-replay-profile",
+    srcs = glob(["engine-replay/src/profile/**/*.scala"]),
+    main_class = "com.daml.ledger.participant.state.kvutils.tools.engine.replay.ReplayProfile",
+    max_heap_size = "4g",
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+    ],
+    deps = [
+        ":engine-replay",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+    ],
+)
+
+sh_test(
+    name = "engine-replay-profile-test",
+    srcs = ["src/test/sh/profile.sh"],
+    args = [
+        "$(location :engine-replay-profile)",
+        "$(location //ledger/participant-state/kvutils:reference-ledger-export.out)",
+        "$(location //ledger/test-common:model-tests-stable.dar)",
+        "$(location @jq_dev_env//:jq)",
+    ],
+    data = [
+        ":engine-replay-profile",
+        "//ledger/participant-state/kvutils:reference-ledger-export.out",
+        # Use dev to test --adapt to a different ledger API version.
+        "//ledger/test-common:model-tests-stable.dar",
+        "@jq_dev_env//:jq",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+) if not is_windows else None
+
+da_scala_benchmark_jmh(
+    name = "benchmark-codec",
+    srcs = glob(["codec-benchmark/src/benchmark/scala/**/*.scala"]),
+    data = [
+        "//ledger/participant-state/kvutils:reference-ledger-export.out",
+    ] if not is_windows else [],
+    max_heap_size = "4g",
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
+    scalacopts = lf_scalacopts,
+    tags = [
+        "manual",
+    ],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction:transaction_proto_java",
+        "//daml-lf/transaction:value_proto_java",
+        "//ledger/participant-state/kvutils",
+        "@maven//:com_google_protobuf_protobuf_java",
+    ],
+) if scala_major_version == "2.12" else None

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator
@@ -29,6 +29,7 @@ import com.daml.navigator.model.{Ledger, PackageRegistry, PartyState}
 import com.daml.navigator.store.Store
 import com.daml.navigator.store.Store._
 import com.daml.navigator.store.platform.PlatformStore
+import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.LazyLogging
 import org.slf4j.LoggerFactory
 import sangria.schema._
@@ -39,8 +40,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Base abstract class for UI backends.
+/** Base abstract class for UI backends.
   *
   * A new UI backend can be implemented by extending [[UIBackend]] and by providing
   * the [[customEndpoints]], [[customRoutes]], [[applicationInfo]] definitions.
@@ -64,7 +64,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       arguments: Arguments,
       graphQL: GraphQLHandler,
       info: InfoHandler,
-      getAppState: () => Future[ApplicationStateInfo]): Route = {
+      getAppState: () => Future[ApplicationStateInfo],
+  ): Route = {
 
     def openSession(userId: String, userConfig: UserConfig, state: PartyState): Route = {
       val sessionId = UUID.randomUUID().toString
@@ -78,7 +79,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         cookies
           .filter(_.name == "session-id")
           .flatMap(cookiePair =>
-            Session.current(cookiePair.value).map(cookiePair.value -> _).toList)
+            Session.current(cookiePair.value).map(cookiePair.value -> _).toList
+          )
           .headOption
       case _ =>
         None
@@ -137,20 +139,24 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
                                   openSession(request.userId, info.state.config, info.state)
                                 case Store.PartyActorUnresponsive =>
                                   complete(
-                                    SignIn(SignInSelect(partyActors.keySet), Some(Unresponsive)))
+                                    SignIn(SignInSelect(partyActors.keySet), Some(Unresponsive))
+                                  )
                               }
                             case None =>
                               logger.error(
-                                s"Attempt to signin with non-existent user ${request.userId}")
+                                s"Attempt to signin with non-existent user ${request.userId}"
+                              )
                               complete(
-                                SignIn(SignInSelect(partyActors.keySet), Some(InvalidCredentials)))
+                                SignIn(SignInSelect(partyActors.keySet), Some(InvalidCredentials))
+                              )
                           }
                         case ApplicationStateFailed(
-                            _,
-                            _,
-                            _,
-                            _,
-                            GrpcException.PERMISSION_DENIED()) =>
+                              _,
+                              _,
+                              _,
+                              _,
+                              GrpcException.PERMISSION_DENIED(),
+                            ) =>
                           logger.warn("Attempt to sign in without valid token")
                           complete(SignIn(SignInSelect(Set.empty), Some(InvalidCredentials)))
                         case ApplicationStateFailed(_, _, _, _, _) =>
@@ -194,35 +200,36 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
                   }
               }
           } ~ {
-          arguments.assets match {
-            case None =>
-              // Serve assets from resource directory at /assets
-              pathPrefix("assets") {
-                // Webpack makes sure all files use content hashing
-                immutableResource { withoutFileETag { getFromResourceDirectory("frontend") } }
-              } ~
-                // Serve index on root and anything else to allow History API to behave
-                // as expected on reloading.
-                versionETag {
-                  mutableResource { withoutFileETag { getFromResource("frontend/index.html") } }
-                }
-            case Some(folder) =>
-              // Serve assets under /assets
-              pathPrefix("assets") {
-                mutableResource { getFromDirectory(folder) }
-              } ~
-                // Serve index on root and anything else to allow History API to behave
-                // as expected on reloading.
-                mutableResource { getFromFile(folder + "/index.html") }
+            arguments.assets match {
+              case None =>
+                // Serve assets from resource directory at /assets
+                pathPrefix("assets") {
+                  // Webpack makes sure all files use content hashing
+                  immutableResource { withoutFileETag { getFromResourceDirectory("frontend") } }
+                } ~
+                  // Serve index on root and anything else to allow History API to behave
+                  // as expected on reloading.
+                  versionETag {
+                    mutableResource { withoutFileETag { getFromResource("frontend/index.html") } }
+                  }
+              case Some(folder) =>
+                // Serve assets under /assets
+                pathPrefix("assets") {
+                  mutableResource { getFromDirectory(folder) }
+                } ~
+                  // Serve index on root and anything else to allow History API to behave
+                  // as expected on reloading.
+                  mutableResource { getFromFile(folder + "/index.html") }
+            }
           }
-        }
       }
     }
   }
 
   // Factored out for integration tests
-  private[navigator] def setup(arguments: Arguments, config: Config)(
-      implicit system: ActorSystem) = {
+  private[navigator] def setup(arguments: Arguments, config: Config)(implicit
+      system: ActorSystem
+  ) = {
     import system.dispatcher
     // Read from the access token file or crash
     val token =
@@ -243,19 +250,25 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         token,
         arguments.time,
         applicationInfo,
-        arguments.ledgerInboundMessageSizeMax
-      ))
+        arguments.ledgerInboundMessageSizeMax,
+      )
+    )
     // If no parties are specified, we periodically poll from the party management service.
     // If parties are specified, we only use those. This allows users to use custom display names
     // if they are non-unique or use only a subset of parties for performance reasons.
     // Currently, we subscribe to all available parties. We could change that to do it lazily only on login
     // but given that Navigator is only a development tool that might not be worth the complexity.
-    val partyRefresh: Option[Cancellable] = if (config.users.isEmpty) {
-      Some(system.scheduler.scheduleWithFixedDelay(Duration.Zero, 1.seconds, store, UpdateParties))
-    } else {
-      config.users.foreach { case (displayName, config) => store ! Subscribe(displayName, config) }
-      None
-    }
+    val partyRefresh: Option[Cancellable] =
+      if (config.users.isEmpty || arguments.ignoreProjectParties) {
+        Some(
+          system.scheduler.scheduleWithFixedDelay(Duration.Zero, 1.seconds, store, UpdateParties)
+        )
+      } else {
+        config.users.foreach { case (displayName, config) =>
+          store ! Subscribe(displayName, config)
+        }
+        None
+      }
 
     def graphQL: GraphQLHandler = DefaultGraphQLHandler(customEndpoints, Some(store))
     def info: InfoHandler = DefaultInfoHandler(arguments, store)
@@ -272,7 +285,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
 
     implicit val system: ActorSystem = ActorSystem("da-ui-backend")
 
-    val (graphQL, info, store, getAppState, partyRefresh) = setup(arguments, config)
+    val (graphQL, info, store @ _, getAppState, partyRefresh) = setup(arguments, config)
 
     val stopServer = if (arguments.startWebServer) {
       val binding = Http()
@@ -281,21 +294,21 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         .bind(getRoute(system, arguments, graphQL, info, getAppState))
       logger.info(s"DA UI backend server listening on port ${arguments.port}")
       println(s"Frontend running at http://localhost:${arguments.port}.")
-      () =>
-        Try(Await.result(binding, 10.seconds).unbind())
+      () => Try(Await.result(binding, 10.seconds).unbind())
     } else { () =>
       ()
     }
 
     val stopAkka = () => Try(Await.result(system.terminate(), 10.seconds))
 
-    if (arguments.startConsole) {
-      console.Console.run(arguments, config, store, graphQL, applicationInfo)
-      // Stop the web server, then the Akka system consuming the ledger API
-      stopServer()
-      partyRefresh.foreach(_.cancel)
-      stopAkka()
-      ()
+    discard {
+      sys.addShutdownHook {
+        // Stop the web server, then the Akka system consuming the ledger API
+        stopServer()
+        partyRefresh.foreach(_.cancel())
+        stopAkka()
+        ()
+      }
     }
   }
 
@@ -320,7 +333,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         dumpGraphQLSchema()
       case CreateConfig =>
         userFacingLogger.info(
-          s"Creating a configuration template file at ${navigatorConfigFile.path.toAbsolutePath()}")
+          s"Creating a configuration template file at ${navigatorConfigFile.path.toAbsolutePath()}"
+        )
         Config.writeTemplateToPath(navigatorConfigFile.path, args.useDatabase)
       case RunServer =>
         Config.load(navigatorConfigFile, args.useDatabase) match {
@@ -345,8 +359,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
   }
 }
 
-/**
-  * A custom endpoint for a backend to serve data of type `T`.
+/** A custom endpoint for a backend to serve data of type `T`.
   *
   * Note that two `CustomEndpoint`s are considered equal if their `endpointName`s are the same to simplify
   * registering new `CustomEndpoint`s and validate them

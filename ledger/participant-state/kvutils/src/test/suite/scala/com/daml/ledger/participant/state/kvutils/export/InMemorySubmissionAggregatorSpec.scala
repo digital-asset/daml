@@ -1,14 +1,14 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.export
 
 import java.time.Instant
 
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.google.protobuf.ByteString
-import org.mockito.Mockito
-import org.mockito.MockitoSugar
+import org.mockito.{Mockito, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -18,7 +18,7 @@ final class InMemorySubmissionAggregatorSpec extends AnyWordSpec with Matchers w
       val submissionInfo = SubmissionInfo(
         ParticipantId.assertFromString("participant-id"),
         "correlation ID",
-        ByteString.copyFromUtf8("the envelope"),
+        Raw.Envelope(ByteString.copyFromUtf8("the envelope")),
         Instant.now(),
       )
       val writer = mock[LedgerDataWriter]
@@ -43,6 +43,6 @@ final class InMemorySubmissionAggregatorSpec extends AnyWordSpec with Matchers w
     }
   }
 
-  private def keyValuePairOf(key: String, value: String): (ByteString, ByteString) =
-    ByteString.copyFromUtf8(key) -> ByteString.copyFromUtf8(value)
+  private def keyValuePairOf(key: String, value: String): Raw.StateEntry =
+    Raw.StateKey(ByteString.copyFromUtf8(key)) -> Raw.Envelope(ByteString.copyFromUtf8(value))
 }

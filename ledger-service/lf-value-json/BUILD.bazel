@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -15,6 +15,10 @@ load(
 da_scala_library(
     name = "lf-value-json",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:lf-value-json:__VERSION__"],
     visibility = [
@@ -24,8 +28,6 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -41,6 +43,14 @@ da_scala_test(
     data = [
         ":JsonEncodingTest.dar",
     ],
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
     deps = [
         ":lf-value-json",
@@ -50,11 +60,5 @@ da_scala_test(
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//ledger-service/utils",
-        "@maven//:com_chuusai_shapeless_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

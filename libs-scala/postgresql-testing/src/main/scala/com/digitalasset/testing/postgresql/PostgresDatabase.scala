@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.testing.postgresql
@@ -17,8 +17,11 @@ final case class PostgresDatabase private[postgresql] (
 
   def password: String = server.password
 
+  def urlWithoutCredentials: String =
+    s"jdbc:postgresql://$hostName:$port/$databaseName"
+
   def url: String =
-    s"jdbc:postgresql://$hostName:$port/$databaseName?user=$userName&password=$password"
+    s"$urlWithoutCredentials?user=$userName&password=$password"
 
   override def toString: String = url
 }

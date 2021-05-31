@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.util.akkastreams
@@ -9,8 +9,7 @@ import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, InHa
 
 import scala.concurrent.{Future, Promise}
 
-/**
-  * Takes the input data, applies the provided transformation function, and completes its materialized value with it.
+/** Takes the input data, applies the provided transformation function, and completes its materialized value with it.
   */
 class ExtractMaterializedValue[T, Mat](toMaterialized: T => Option[Mat])
     extends GraphStageWithMaterializedValue[FlowShape[T, T], Future[Mat]] {
@@ -19,7 +18,8 @@ class ExtractMaterializedValue[T, Mat](toMaterialized: T => Option[Mat])
   val outlet: Outlet[T] = Outlet[T]("out")
 
   override def createLogicAndMaterializedValue(
-      inheritedAttributes: Attributes): (GraphStageLogic, Future[Mat]) = {
+      inheritedAttributes: Attributes
+  ): (GraphStageLogic, Future[Mat]) = {
     val promise = Promise[Mat]()
 
     val logic = new GraphStageLogic(shape) {
@@ -37,10 +37,13 @@ class ExtractMaterializedValue[T, Mat](toMaterialized: T => Option[Mat])
           }
 
           private def setSimplerHandler(): Unit = {
-            setHandler(inlet, new InHandler {
-              override def onPush(): Unit =
-                push(outlet, grab(inlet))
-            })
+            setHandler(
+              inlet,
+              new InHandler {
+                override def onPush(): Unit =
+                  push(outlet, grab(inlet))
+              },
+            )
           }
 
           override def onUpstreamFailure(ex: Throwable): Unit = {
@@ -50,10 +53,11 @@ class ExtractMaterializedValue[T, Mat](toMaterialized: T => Option[Mat])
 
           override def onUpstreamFinish(): Unit = {
             promise.tryFailure(
-              new RuntimeException("Upstream completed before matching element arrived."))
+              new RuntimeException("Upstream completed before matching element arrived.")
+            )
             super.onUpstreamFinish()
           }
-        }
+        },
       )
 
       setHandler(
@@ -63,10 +67,11 @@ class ExtractMaterializedValue[T, Mat](toMaterialized: T => Option[Mat])
 
           override def onDownstreamFinish(cause: Throwable): Unit = {
             promise.tryFailure(
-              new RuntimeException("Downstream completed before matching element arrived."))
+              new RuntimeException("Downstream completed before matching element arrived.")
+            )
             super.onDownstreamFinish(cause)
           }
-        }
+        },
       )
 
     }

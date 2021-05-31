@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
@@ -9,6 +9,14 @@ steps:
     set -euo pipefail
     TMP=$(mktemp)
     cat > $TMP <<'END'
+    escape_slack() {
+      local r
+      r="$1"
+      r="${r//&/&amp;}"
+      r="${r//>/&gt;}"
+      r="${r//</&lt;}"
+      echo "$r"
+    }
     get_gh_auth_header() {
         # Credentials are persisted in a different way on GCP and Azure nodes.
         if header=$(git config 'http.https://github.com/digital-asset/daml.extraheader'); then
@@ -21,6 +29,29 @@ steps:
             # https://username:password@github.com/:user/:repo.git
             echo "Authorization: basic $(git config remote.origin.url | grep -o '://.*:.*@' | cut -c4- | rev | cut -c2- | rev | tr -d '\n' | base64 -w0)"
         fi
+    }
+    open_pr() {
+      local branch title
+      branch="$1"
+      title="$2"
+      git branch -D $branch || true
+      git checkout -b $branch
+      git -c user.name="Azure Pipelines DAML Build" \
+          -c user.email="support@digitalasset.com" \
+          commit \
+          -m "$(printf "$title\n\nCHANGELOG_BEGIN\nCHANGELOG_END\n")"
+      git push origin $branch:$branch
+      jq -n --arg title "$title" \
+            --arg branch "$branch" \
+            '{"title": $title, "head": $branch, "base": "main"}' \
+        | curl -H "Content-Type: application/json" \
+               -H "$(get_gh_auth_header)" \
+               --fail \
+               --silent \
+               --include \
+               --location \
+               -d @- \
+               https://api.github.com/repos/digital-asset/daml/pulls
     }
     user_slack_handle() {
         local email sha
@@ -50,9 +81,11 @@ steps:
         key=$(mktemp)
         # There may already be a trap; this will save it
         restore_trap=$(trap -p EXIT)
-        cleanup="rm -rf $key ~/.config/gcloud"
-        trap "$cleanup" EXIT
+        config_dir=$(mktemp -d)
+        cleanup="rm -rf $key $config_dir"
+        trap "$cleanup; $restore_trap" EXIT
         echo "$cred" > $key
+        export CLOUDSDK_CONFIG="$config_dir"
         gcloud auth activate-service-account --key-file=$key
 
         BOTO_CONFIG=/dev/null gsutil $cmd "${args[@]}"
@@ -76,27 +109,27 @@ steps:
     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
-    AD4WIQRJEajf6Xas36BxMNvoNywMHHNMUQUCXN2xqwIbAwUJA8JnAAULCQgHAgYV
-    CgkICwIEFgIDAQIeAQIXgAAKCRDoNywMHHNMUeVdCACAEwJ9f0DAKkhwQcg1RG4O
-    RiyWZ7h0nC4XSdmDUe5RhcrU8xUhiyYqKFVCRtYC0BILC/7bQCJcQUkvUH+hY5rK
-    MZM+jeBDLZToEQaZgytkyvRPzaKKx6LrvbGLoOyBgFGi9X9a5thXrAZaKN8Cgp2d
-    0OFDXMi+ep+x0hbmlxtPYhHXcdr2u/BwT1nsEVZn1uTefwcfom8aKw3uOmLQdE+2
-    5eM4GvLC7sJvrlbNLt0FCbty3hvdfINrIOEPj5yjguY4kKewzfZTG7ygccJQ4eyh
-    8HnPFcuBJCCGwOsFsccViX5wevijfGie9tyVeLGZdV2k6aElWDuRVRWKQtrfL0Xk
+    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
-    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
-    JKX1t3MFLLpYQbaNwBgA
-    =5Xfu
+    2cgYp1UDgf9FrKvkuir70dg75qSrPRwvFghrABEBAAGJATwEGAEIACYCGwwWIQRJ
+    Eajf6Xas36BxMNvoNywMHHNMUQUCYHxZ3AUJB2EPMQAKCRDoNywMHHNMUYXRB/0b
+    Ln55mfnhJUFwaL49Le5I74EoL4vCAya6aDDVx/C7PJlVfr+cXZi9gNJn9RTAjCz3
+    4yQeg3AFhqvTK/bEH7RvAfqeUf8TqPjI/qDacSFDhZjdsg3GMDolXp0oubp9mN+Y
+    JFowLzulJ7DXFVyICozuWeixcjtKzlePX0GW80kcPzXCNwukcMrwCf45+OzF6YMb
+    yA2FyBmjjgAlHKM/oUapVoD2hmO3ptC5CAkfslxrsIUAfoStez9MrGoX1JOCu4qm
+    aODLV3Mlty4HhdtO2o+Akh6ay5fnrXQ5r2kGa1ICrfoFFKs7oWpSDbsTsgQKexFC
+    rLmmBKjG6RQfWJyVSUc8
+    =pVlb
     -----END PGP PUBLIC KEY BLOCK-----
     PUB_KEY
         gpg_dir=$(mktemp -d)
@@ -111,6 +144,12 @@ steps:
         rm -rf $gpg_dir $key
         return $res
     }
+    setvar() {
+      echo "Setting '$1' to '$2'"
+      echo "##vso[task.setvariable variable=$1;isOutput=true]$2"
+    }
+
     END
     echo "##vso[task.setvariable variable=${{parameters.var_name}}]$TMP"
   displayName: install Bash lib
+  condition: always()

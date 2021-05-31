@@ -1,10 +1,10 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package = "com.daml.lf.repl";
+option java_package = "com.daml.lf.speedy.repl";
 option java_outer_classname = "ReplServiceProto";
 
 package replservice;

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
@@ -7,11 +7,17 @@ da_scala_binary(
     name = "compiler_plugin",
     srcs = glob(["*.scala"]),
     main_class = "com.daml.protoc.plugins.akka.AkkaStreamCompilerPlugin",
+    scala_deps = [
+        "@maven//:com_thesamet_scalapb_compilerplugin",
+        "@maven//:com_thesamet_scalapb_protoc_bridge",
+        "@maven//:com_thesamet_scalapb_protoc_gen",
+    ],
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     visibility = ["//visibility:public"],
     deps = [
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_thesamet_scalapb_compilerplugin_2_12",
-        "@maven//:com_thesamet_scalapb_protoc_bridge_2_12",
     ],
 )
 

@@ -1,8 +1,8 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools:testing.bzl", "create_daml_app_codegen", "create_daml_app_dar", "sdk_platform_test")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
+load("//bazel_tools:testing.bzl", "create_daml_app_codegen", "create_daml_app_dar", "daml_lf_compatible", "sdk_platform_test")
 load(
     "//bazel_tools/daml_script:daml_script.bzl",
     "daml_script_dar",
@@ -52,13 +52,34 @@ config_setting(
     for sdk_version in sdk_versions
 ]
 
+# Instead of testing the full cartesian product of all SDK versions with
+# all platform (~= Sandbox/JSON API) versions, we test the latest version of
+# each with all versions of the other. This gives us a reasonable feedback
+# with regards to maintaining backwards-compatibility without causing the
+# test runs to grow quadratically.
+head = "0.0.0"
+
+# Missing on purpose: do not test the latest SDK with the latest platform
+# That is not a compatibility test, it's just testing the main branch. ;)
+
+# Test all old platform versions with the latest SDK
 [
     sdk_platform_test(
         platform_version = platform_version,
+        sdk_version = head,
+    )
+    for platform_version in platform_versions
+    if platform_version != head and daml_lf_compatible(head, platform_version)
+]
+
+# Test all old SDK versions with the latest platform
+[
+    sdk_platform_test(
+        platform_version = head,
         sdk_version = sdk_version,
     )
     for sdk_version in sdk_versions
-    for platform_version in platform_versions
+    if sdk_version != head and daml_lf_compatible(sdk_version, head)
 ]
 
 [
@@ -111,8 +132,9 @@ migration_test(
     # Exclusive due to hardcoded postgres ports.
     tags = [
         "exclusive",
-        "head-quick",
-    ],
+    ] +
+    # These tests are fairly slow so on PRs we only run them on Linux
+    (["head-quick"] if is_linux else []),
     versions = stable_versions,
 ) if not is_windows else None
 

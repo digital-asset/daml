@@ -1,10 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
 
-/**
-  * The simplified AST for the speedy interpreter.
+/** The simplified AST for the speedy interpreter.
   *
   * This reduces the number of binding forms by moving update and scenario
   * expressions into builtins.
@@ -13,6 +12,7 @@ import java.util
 
 import com.daml.lf.language.Ast._
 import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
@@ -58,7 +58,7 @@ object SExpr {
     * stored in 'cached'.
     */
   final case class SEVal(
-      ref: SDefinitionRef,
+      ref: SDefinitionRef
   ) extends SExpr {
 
     // The variable `_cached` is used to cache the evaluation of the
@@ -105,7 +105,8 @@ object SExpr {
   object SEValue extends SValueContainer[SEValue]
 
   /** Function application:
-    General case: 'fun' and 'args' are any kind of expression */
+    *    General case: 'fun' and 'args' are any kind of expression
+    */
   final case class SEAppGeneral(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Unit = {
       machine.pushKont(KArg(machine, args))
@@ -114,7 +115,8 @@ object SExpr {
   }
 
   /** Function application:
-    Special case: 'fun' is an atomic expression. */
+    *    Special case: 'fun' is an atomic expression.
+    */
   final case class SEAppAtomicFun(fun: SExprAtomic, args: Array[SExpr])
       extends SExpr
       with SomeArrayEquals {
@@ -141,7 +143,8 @@ object SExpr {
   }
 
   /** Function application: ANF case: 'fun' is builtin; 'args' are atomic expressions.  Size
-    * of `args' matches the builtin arity. */
+    * of `args' matches the builtin arity.
+    */
   final case class SEAppAtomicSaturatedBuiltin(builtin: SBuiltin, args: Array[SExprAtomic])
       extends SExpr
       with SomeArrayEquals {
@@ -208,9 +211,9 @@ object SExpr {
   }
 
   /** SELoc -- Reference to the runtime location of a variable.
-
-    This is the closure-converted form of SEVar. There are three sub-forms, with sufffix:
-    S/A/F, indicating [S]tack, [A]argument, or [F]ree variable captured by a closure.
+    *
+    *    This is the closure-converted form of SEVar. There are three sub-forms, with sufffix:
+    *    S/A/F, indicating [S]tack, [A]argument, or [F]ree variable captured by a closure.
     */
   sealed abstract class SELoc extends SExprAtomic
 
@@ -296,11 +299,40 @@ object SExpr {
     }
   }
 
+  /** A (single) let-expression with an unhungry, saturated builtin-application as RHS */
+  final case class SELet1BuiltinArithmetic(
+      builtin: SBuiltinArithmetic,
+      args: Array[SExprAtomic],
+      body: SExpr,
+  ) extends SExpr
+      with SomeArrayEquals {
+    def execute(machine: Machine): Unit = {
+      val arity = builtin.arity
+      val actuals = new util.ArrayList[SValue](arity)
+      var i = 0
+      while (i < arity) {
+        val arg = args(i)
+        val v = arg.lookupValue(machine)
+        actuals.add(v)
+        i += 1
+      }
+      builtin.compute(actuals) match {
+        case Some(value) =>
+          machine.pushEnv(value) //use pushEnv not env.add so instrumentation is updated
+          machine.ctrl = body
+        case None =>
+          unwindToHandler(machine, builtin.buildException(actuals))
+      }
+    }
+  }
+
   object SELet1 {
     def apply(rhs: SExpr, body: SExpr): SExpr = {
       rhs match {
         case SEAppAtomicSaturatedBuiltin(builtin: SBuiltinPure, args) =>
           SELet1Builtin(builtin, args, body)
+        case SEAppAtomicSaturatedBuiltin(builtin: SBuiltinArithmetic, args) =>
+          SELet1BuiltinArithmetic(builtin, args, body)
         case _ => SELet1General(rhs, body)
       }
     }
@@ -326,16 +358,15 @@ object SExpr {
     }
   }
 
-  /** A catch expression. This is used internally solely for the purpose of implementing
+  /** catch-submit-must-fail. This is used internally solely for the purpose of implementing
     * mustFailAt. If the evaluation of 'body' causes an exception of type 'DamlException'
-    * (see SError), then the environment and continuation stacks are reset and 'handler'
-    * is executed. If the evaluation is successful, then the 'fin' expression is evaluated.
-    * This is on purpose very limited, with no mechanism to inspect the exception, nor a way
-    * to access the value returned from 'body'.
+    * (see SError), then 'True' is returned. If the evaluation is successful, then 'False'
+    * is returned.  This is on purpose very limited, with no mechanism to inspect the
+    * exception, nor a way to access the value returned from 'body'.
     */
-  final case class SECatch(body: SExpr, handler: SExpr, fin: SExpr) extends SExpr {
+  final case class SECatchSubmitMustFail(body: SExpr) extends SExpr {
     def execute(machine: Machine): Unit = {
-      machine.pushKont(KCatch(machine, handler, fin))
+      machine.pushKont(KCatchSubmitMustFail(machine))
       machine.ctrl = body
     }
   }
@@ -365,9 +396,28 @@ object SExpr {
     }
   }
 
-  final case class SEImportValue(value: V[V.ContractId]) extends SExpr {
+  final case class SEImportValue(typ: Ast.Type, value: V[V.ContractId]) extends SExpr {
     def execute(machine: Machine): Unit = {
-      machine.importValue(value)
+      machine.importValue(typ, value)
+    }
+  }
+
+  /** Exception handler */
+  final case class SETryCatch(body: SExpr, handler: SExpr) extends SExpr {
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KTryCatchHandler(machine, handler))
+      machine.ctrl = body
+      machine.withOnLedger("SETryCatch") { onLedger =>
+        onLedger.ptx = onLedger.ptx.beginTry
+      }
+    }
+  }
+
+  /** Exercise scope (begin..end) */
+  final case class SEScopeExercise(body: SExpr) extends SExpr {
+    def execute(machine: Machine): Unit = {
+      machine.pushKont(KCloseExercise(machine))
+      machine.ctrl = body
     }
   }
 
@@ -397,7 +447,8 @@ object SExpr {
   final case object SCPSome extends SCasePat
 
   /** Case alternative. If the 'pattern' matches, then the environment is accordingly
-    * extended and 'body' is evaluated. */
+    * extended and 'body' is evaluated.
+    */
   final case class SCaseAlt(pattern: SCasePat, body: SExpr)
 
   sealed abstract class SDefinitionRef extends Product with Serializable {
@@ -418,6 +469,10 @@ object SExpr {
   final case class FetchDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class FetchByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
   final case class LookupByKeyDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class ExceptionMessageDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class KeyDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class SignatoriesDefRef(ref: DefinitionRef) extends SDefinitionRef
+  final case class ObserversDefRef(ref: DefinitionRef) extends SDefinitionRef
 
   //
   // List builtins (equalList) are implemented as recursive
@@ -466,7 +521,9 @@ object SExpr {
               SELocA(2),
               Array(
                 SCaseAlt(SCPNil, SEValue.True), // nil -> True
-                SCaseAlt(SCPDefault, SEValue.False))) // default -> False
+                SCaseAlt(SCPDefault, SEValue.False),
+              ),
+            ), // default -> False
           ),
           SCaseAlt( // cons x xss ->
             SCPCons,
@@ -481,7 +538,9 @@ object SExpr {
                       SELocA(0), // f
                       Array(
                         SELocS(2), // y
-                        SELocS(4))), // x
+                        SELocS(4),
+                      ),
+                    ), // x
                     SECaseAtomic( // case (f y x) of
                       SELocS(1),
                       Array(
@@ -492,17 +551,19 @@ object SExpr {
                             Array(
                               SELocA(0), // f
                               SELocS(2), // yss
-                              SELocS(4))) // xss
+                              SELocS(4),
+                            ),
+                          ), // xss
                         ),
-                        SCaseAlt(SCPPrimCon(PCFalse), SEValue.False) // False -> False
-                      )
-                    )
-                  )
-                )
-              )
-            )
-          )
-        )
+                        SCaseAlt(SCPPrimCon(PCFalse), SEValue.False), // False -> False
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       )
   }
 

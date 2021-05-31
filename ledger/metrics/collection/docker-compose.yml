@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 version: "3"
@@ -12,9 +12,9 @@ services:
     networks:
       - collection
     volumes:
-      - ./dashboards:/var/lib/grafana/dashboards
-      - ./provisioning/dashboards:/etc/grafana/provisioning/dashboards
-      - ./provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning:/etc/grafana/provisioning # configuration to be imported during startup
+      - ./grafana/dashboards:/var/lib/grafana/dashboards # dashboards to be imported during startup
+      - grafana-storage:/var/lib/grafana # preserve configuration changes during restarts
 
   graphite:
     image: graphiteapp/graphite-statsd
@@ -31,10 +31,20 @@ services:
     networks:
       - collection
     volumes:
+      # preserve metrics data during restarts
       - graphite-storage:/opt/graphite/storage
+
+      # make configuration visible on the host system
+      - ./graphite/conf:/opt/graphite/conf
+      - ./graphite/statsd_conf:/opt/statsd/config
+
+      # update default configuration during startup
+      - ./graphite/run_once:/etc/run_once
+      - ./graphite/default_conf:/etc/default_conf
 
 networks:
   collection:
 
 volumes:
   graphite-storage:
+  grafana-storage:

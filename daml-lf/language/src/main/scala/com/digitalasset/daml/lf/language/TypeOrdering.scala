@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -87,6 +87,9 @@ object TypeOrdering extends Ordering[Type] {
       Ast.BTAny,
       Ast.BTTypeRep,
       Ast.BTGenMap,
+      Ast.BTBigNumeric,
+      Ast.BTRoundingMode,
+      Ast.BTAnyException,
     ).zipWithIndex.toMap
 
   private[this] def typeRank(typ: Ast.Type): Int =

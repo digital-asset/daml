@@ -1,11 +1,11 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Your First Feature
 ******************
 
 Let's dive into implementing a new feature for our social network app.
-This will give us a better idea how to develop DAML applications using our template.
+This will give us a better idea how to develop Daml applications using our template.
 
 At the moment, our app lets us follow users in the network, but we have no way to communicate with them!
 Let's fix that by adding a *direct messaging* feature.
@@ -15,20 +15,20 @@ This means:
     1. You cannot send a message to someone unless they have given you the authority by following you back.
     2. You cannot see a message unless you sent it or it was sent to you.
 
-We will see that DAML lets us implement these guarantees in a direct and intuitive way.
+We will see that Daml lets us implement these guarantees in a direct and intuitive way.
 
 There are three parts to building and running the messaging feature:
 
-    1. Adding the necessary changes to the DAML model
+    1. Adding the necessary changes to the Daml model
     2. Making the corresponding changes in the UI
     3. Running the app with the new feature.
 
-As usual, we must start with the DAML model and base our UI changes on top of that.
+As usual, we must start with the Daml model and base our UI changes on top of that.
 
-DAML Changes
+Daml Changes
 ============
 
-As mentioned in the :doc:`architecture <app-architecture>` section, the DAML code defines the *data* and *workflow* of the application.
+As mentioned in the :doc:`architecture <app-architecture>` section, the Daml code defines the *data* and *workflow* of the application.
 The workflow aspect refers to the interactions between parties that are permitted by the system.
 In the context of a messaging feature, these are essentially the authorization and privacy concerns listed above.
 
@@ -70,11 +70,11 @@ Running the New Feature
 
 Navigate to the terminal window where the ``daml start`` process is running and press 'r'. This will
 
-  - Compile our DAML code into a *DAR file containing the new feature*
-  - Update the JavaScript library under ``ui/daml.js`` to connect the UI with your DAML code
+  - Compile our Daml code into a *DAR file containing the new feature*
+  - Update the JavaScript library under ``ui/daml.js`` to connect the UI with your Daml code
   - Upload the *new DAR file* to the sandbox
 
-As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an
+As mentioned at the beginning of this *Getting Started with Daml* guide, Daml Sandbox uses an
 in-memory store, which means it loses its state when stopped or restarted. That means that all user
 data and follower relationships are lost.
 
@@ -112,9 +112,9 @@ For each contract in the stream, we destructure the *payload* (the data as oppos
 Then we construct a ``ListItem`` UI element with the details of the message.
 
 There is one important point about privacy here.
-No matter how we write our ``Message`` query in the UI code, it is impossible to break the privacy rules given by the DAML model.
+No matter how we write our ``Message`` query in the UI code, it is impossible to break the privacy rules given by the Daml model.
 That is, it is impossible to see a ``Message`` contract of which you are not the ``sender`` or the ``receiver`` (the only parties that can observe the contract).
-This is a major benefit of writing apps on DAML: the burden of ensuring privacy and authorization is confined to the DAML model.
+This is a major benefit of writing apps on Daml: the burden of ensuring privacy and authorization is confined to the Daml model.
 
 MessageEdit Component
 ---------------------
@@ -135,7 +135,7 @@ The prop will be passed down from the ``MainView`` component, reusing the work r
 You can see this ``followers`` field bound at the start of the ``MessageEdit`` component.
 
 We use the React ``useState`` hook to get and set the current choices of message ``receiver`` and ``content``.
-The DAML-specific ``useLedger`` hook gives us an object we can use to perform ledger operations.
+The Daml-specific ``useLedger`` hook gives us an object we can use to perform ledger operations.
 The call to ``ledger.exerciseByKey`` in ``submitMessage`` looks up the ``User`` contract with the receiver's username and exercises the ``SendMessage`` choice with the appropriate arguments.
 If the choice fails, the ``catch`` block reports the error in a dialog box.
 Additionally, ``submitMessage`` sets the ``isSubmitting`` state so that the *Send* button is disabled while the request is processed.
@@ -202,15 +202,15 @@ You'll notice that new messages appear in the UI as soon as they are sent (due t
 
    .. figure:: images/create-daml-app-message-received.png
       :scale: 50 %
-      :alt: In the create-daml-app as soon as you send the message it will appear in the "Messsaging" panel
+      :alt: In the create-daml-app as soon as you send the message it will appear in the "Messaging" panel
 
 .. tip:: You completed the second part of the Getting Started Guide! `Join our forum <https://discuss.daml.com>`_ and share a screenshot of your accomplishment to `get your second of 3 badges <https://discuss.daml.com/badges/126/hey-look-what-i-can-do>`_! Get the third badge by `deploying to project:DABL <https://daml.com/learn/getting-started/deploy-to-dabl/>`_
 
 Next Steps
 ==========
 
-We've gone through the process of setting up a full-stack DAML app and implementing a useful feature end to end.
-As the next step we encourage you to really dig into the fundamentals of DAML and understand its core concepts such as parties, signatories, observers, and controllers.
+We've gone through the process of setting up a full-stack Daml app and implementing a useful feature end to end.
+As the next step we encourage you to really dig into the fundamentals of Daml and understand its core concepts such as parties, signatories, observers, and controllers.
 You can do that either by :doc:`going through our docs </daml/intro/0_Intro>` or by taking an `online course <https://daml.com/learn/fundamental-concepts>`_.
 
 After you've got a good grip on these concepts learn :doc:`how to conduct end-to-end testing of your app <testing>`.

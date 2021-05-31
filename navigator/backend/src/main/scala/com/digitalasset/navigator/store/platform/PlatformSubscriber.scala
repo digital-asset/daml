@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.store.platform
@@ -40,7 +40,7 @@ object PlatformSubscriber {
       ledgerClient: LedgerClient,
       party: PartyState,
       applicationId: DamlLfRef.LedgerString,
-      token: Option[String]
+      token: Option[String],
   ) =
     Props(classOf[PlatformSubscriber], ledgerClient, party, applicationId, token)
 }
@@ -51,8 +51,8 @@ class PlatformSubscriber(
     ledgerClient: LedgerClient,
     party: PartyState,
     applicationId: DamlLfRef.LedgerString,
-    token: Option[String])
-    extends Actor
+    token: Option[String],
+) extends Actor
     with ActorLogging
     with Stash {
 
@@ -90,7 +90,8 @@ class PlatformSubscriber(
         log.error(
           "Failed to start actor for party '{}': {}. Please fix any issues and restart this application.",
           party.name,
-          error)
+          error,
+        )
         context.become(failed(error))
     }
   }
@@ -110,10 +111,10 @@ class PlatformSubscriber(
       unstashAll()
 
     case GetPartyActorInfo =>
-      sender ! PartyActorStarting(party)
+      sender() ! PartyActorStarting(party)
 
     case _ =>
-      stash
+      stash()
   }
 
   def running(state: StateRunning): Receive = {
@@ -121,20 +122,20 @@ class PlatformSubscriber(
       log.debug("Resetting connection for '{}'", party.name)
       killSwitch.shutdown()
       context.stop(self)
-      sender ! ConnectionReset
+      sender() ! ConnectionReset
 
     case SubmitCommand(command, commandSender) =>
       // Submit command and reply to
       submitCommand(ledgerClient, state.commandTracker, party, command, commandSender)
 
     case GetPartyActorInfo =>
-      sender ! PartyActorStarted(party)
+      sender() ! PartyActorStarted(party)
   }
 
   // Permanently failed state
   def failed(error: Throwable): Receive = {
     case GetApplicationStateInfo =>
-      sender ! PartyActorFailed(party, error)
+      sender() ! PartyActorFailed(party, error)
 
     case _ => ()
   }
@@ -150,7 +151,7 @@ class PlatformSubscriber(
   private def processTransaction[Tx](
       id: String,
       transaction: Tx,
-      reader: (Tx, converter.LedgerApiV1.Context) => Either[converter.ConversionError, Transaction]
+      reader: (Tx, converter.LedgerApiV1.Context) => Either[converter.ConversionError, Transaction],
   ): Future[NotUsed] = {
     def go(retryMissingTemplate: Boolean): Future[NotUsed] = {
       val ttx =
@@ -164,7 +165,8 @@ class PlatformSubscriber(
             log.info(
               "Template '{}' not found while processing transaction '{}', retrying after re-fetching packages.",
               e.id,
-              id)
+              id,
+            )
             fetchPackages(ledgerClient)
               .flatMap(_ => go(false))
           } else {
@@ -176,20 +178,21 @@ class PlatformSubscriber(
     }
 
     try {
-      go(true).recoverWith {
-        case e: Throwable =>
-          log.error(
-            "Error processing transaction {}: {}. Its effects will not be visible.",
-            e.getMessage,
-            id)
-          Future.failed(e)
+      go(true).recoverWith { case e: Throwable =>
+        log.error(
+          "Error processing transaction {}: {}. Its effects will not be visible.",
+          e.getMessage,
+          id,
+        )
+        Future.failed(e)
       }
     } catch {
       case e: Throwable =>
         log.error(
           "Error processing transaction {}: {}. Its effects will not be visible.",
           e.getMessage,
-          id)
+          id,
+        )
         Future.failed(e)
     }
   }
@@ -197,7 +200,8 @@ class PlatformSubscriber(
   private def startStreamingTransactions(): Future[Unit] = {
     val ledgerBegin = V1.ledger_offset.LedgerOffset(
       V1.ledger_offset.LedgerOffset.Value
-        .Boundary(V1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
+        .Boundary(V1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN)
+    )
     val transactionFilter = V1.transaction_filter.TransactionFilter(
       Map(Tag.unwrap(party.name) -> V1.transaction_filter.Filters(None))
     )
@@ -207,7 +211,8 @@ class PlatformSubscriber(
       ledgerClient.transactionClient
         .getTransactionTrees(ledgerBegin, None, transactionFilter, token = token)
         .mapAsync(1)(tx =>
-          processTransaction(tx.transactionId, tx, converter.LedgerApiV1.readTransactionTree))
+          processTransaction(tx.transactionId, tx, converter.LedgerApiV1.readTransactionTree)
+        )
 
     // Run the stream.
     // The stream runs independently of the actor. Add a kill switch to terminate the stream when actor stops.
@@ -221,7 +226,7 @@ class PlatformSubscriber(
   }
 
   private def startTrackingCommands()
-    : Future[SourceQueueWithComplete[Ctx[Command, SubmitRequest]]] = {
+      : Future[SourceQueueWithComplete[Ctx[Command, SubmitRequest]]] = {
     for {
       commandTracker <- ledgerClient.commandClient
         .trackCommands[Command](List(Tag.unwrap(party.name)), token)
@@ -250,7 +255,8 @@ class PlatformSubscriber(
             log.error(
               "Command tracking failed. Status unknown for command '{}': {}.",
               commandId,
-              error)
+              error,
+            )
         }
       })
       .to(Sink.ignore)
@@ -288,7 +294,8 @@ class PlatformSubscriber(
         party.addPackages(interfaces)
         log.info(
           "Successfully loaded packages {}",
-          interfaces.map(_.packageId).mkString("[", ", ", "]"))
+          interfaces.map(_.packageId).mkString("[", ", ", "]"),
+        )
         Future.unit
       })
       .recoverWith(apiFailureF)
@@ -310,7 +317,7 @@ class PlatformSubscriber(
       commandTracker: TrackCommandsSource,
       party: PartyState,
       command: Command,
-      sender: ActorRef
+      sender: ActorRef,
   ): Unit = {
     // Convert to ledger API command
     converter.LedgerApiV1
@@ -333,30 +340,33 @@ class PlatformSubscriber(
               case Success(QOR.Dropped) =>
                 party.addCommandStatus(
                   command.id,
-                  CommandStatusError("INTERNAL", "Command submission failed: buffer full"))
+                  CommandStatusError("INTERNAL", "Command submission failed: buffer full"),
+                )
               case Success(QOR.QueueClosed) =>
                 party.addCommandStatus(
                   command.id,
-                  CommandStatusError("INTERNAL", "Command submission failed: queue closed"))
+                  CommandStatusError("INTERNAL", "Command submission failed: queue closed"),
+                )
               case Success(QOR.Failure(e)) =>
                 party.addCommandStatus(
                   command.id,
-                  CommandStatusError("INTERNAL", s"Command submission failed: $e"))
+                  CommandStatusError("INTERNAL", s"Command submission failed: $e"),
+                )
               case Failure(e) =>
                 party.addCommandStatus(
                   command.id,
-                  CommandStatusError("INTERNAL", s"Command submission failed: $e"))
+                  CommandStatusError("INTERNAL", s"Command submission failed: $e"),
+                )
             }
 
           // Immediately return the command ID
           sender ! Success(command.id)
-        }
+        },
       )
   }
 
-  private def apiFailureF[T]: PartialFunction[Throwable, Future[T]] = {
-    case exception: Exception =>
-      log.error("Unable to perform API operation: {}", exception.getMessage)
-      Future.failed(StoreException(exception.getMessage))
+  private def apiFailureF[T]: PartialFunction[Throwable, Future[T]] = { case exception: Exception =>
+    log.error("Unable to perform API operation: {}", exception.getMessage)
+    Future.failed(StoreException(exception.getMessage))
   }
 }

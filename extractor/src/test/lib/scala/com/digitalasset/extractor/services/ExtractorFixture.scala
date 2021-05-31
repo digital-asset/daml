@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.services
@@ -24,6 +24,8 @@ import scala.concurrent.{Await, ExecutionContext}
 
 trait ExtractorFixture extends SandboxFixture with PostgresAroundSuite with Types {
   self: Suite =>
+
+  import Types._
 
   implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 
@@ -55,14 +57,14 @@ trait ExtractorFixture extends SandboxFixture with PostgresAroundSuite with Type
     outputFormat = outputFormat,
     schemaPerPackage = false,
     mergeIdentical = false,
-    stripPrefix = None
+    stripPrefix = None,
   )
 
   protected implicit lazy val xa: Aux[IO, Unit] = Transactor.fromDriverManager[IO](
     "org.postgresql.Driver", // driver classname
     target.connectUrl, // connect URL (driver-specific)
     target.user,
-    target.password
+    target.password,
   )
 
   protected def getTransactions: List[TransactionResult] = {

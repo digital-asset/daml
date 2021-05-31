@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.export
@@ -6,24 +6,25 @@ package com.daml.ledger.participant.state.kvutils.export
 import java.io.{BufferedInputStream, Closeable, InputStream}
 import java.nio.file.{Files, Path}
 
-import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.LedgerExportEntry
+import com.daml.ledger.participant.state.kvutils.{Conversions, Raw}
 import com.daml.ledger.participant.state.v1.ParticipantId
 
-import scala.collection.JavaConverters._
+import scala.collection.compat.immutable.LazyList
+import scala.jdk.CollectionConverters._
 
 final class ProtobufBasedLedgerDataImporter(input: InputStream)
     extends LedgerDataImporter
     with Closeable {
 
-  override def read(): Stream[(SubmissionInfo, WriteSet)] = {
+  override def read(): LazyList[(SubmissionInfo, WriteSet)] = {
     header.consumeAndVerify(input)
     readEntries()
   }
 
   override def close(): Unit = input.close()
 
-  private def readEntries(): Stream[(SubmissionInfo, WriteSet)] = {
+  private def readEntries(): LazyList[(SubmissionInfo, WriteSet)] = {
     val builder = LedgerExportEntry.newBuilder
     if (input.synchronized(builder.mergeDelimitedFrom(input))) {
       val entry = builder.build()
@@ -32,7 +33,7 @@ final class ProtobufBasedLedgerDataImporter(input: InputStream)
       (submissionInfo -> writeSet) #:: readEntries()
     } else {
       close()
-      Stream.empty
+      LazyList.empty
     }
   }
 
@@ -41,14 +42,14 @@ final class ProtobufBasedLedgerDataImporter(input: InputStream)
     SubmissionInfo(
       ParticipantId.assertFromString(entrySubmissionInfo.getParticipantId),
       entrySubmissionInfo.getCorrelationId,
-      entrySubmissionInfo.getSubmissionEnvelope,
+      Raw.Envelope(entrySubmissionInfo.getSubmissionEnvelope),
       Conversions.parseInstant(entrySubmissionInfo.getRecordTime),
     )
   }
 
   private def parseWriteSet(entry: LedgerExportEntry): WriteSet =
     entry.getWriteSetList.asScala.view
-      .map(writeEntry => writeEntry.getKey -> writeEntry.getValue)
+      .map(writeEntry => Raw.UnknownKey(writeEntry.getKey) -> Raw.Envelope(writeEntry.getValue))
       .toVector
 
 }

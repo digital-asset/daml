@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.export
@@ -8,9 +8,8 @@ import java.nio.file.{Files, Path}
 
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.LedgerExportEntry
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
     extends LedgerDataExporter
@@ -22,7 +21,7 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
   override def close(): Unit = output.close()
 
   private object Writer extends LedgerDataWriter {
-    override def write(submissionInfo: SubmissionInfo, writeSet: Seq[(Key, Value)]): Unit = {
+    override def write(submissionInfo: SubmissionInfo, writeSet: WriteSet): Unit = {
       val entry = LedgerExportEntry.newBuilder
         .setSubmissionInfo(buildSubmissionInfo(submissionInfo))
         .addAllWriteSet(buildWriteSet(writeSet).asJava)
@@ -34,24 +33,22 @@ final class ProtobufBasedLedgerDataExporter private (output: OutputStream)
     }
 
     private def buildSubmissionInfo(
-        submissionInfo: SubmissionInfo,
+        submissionInfo: SubmissionInfo
     ): LedgerExportEntry.SubmissionInfo =
       LedgerExportEntry.SubmissionInfo.newBuilder
         .setParticipantId(submissionInfo.participantId: String)
         .setCorrelationId(submissionInfo.correlationId)
-        .setSubmissionEnvelope(submissionInfo.submissionEnvelope)
+        .setSubmissionEnvelope(submissionInfo.submissionEnvelope.bytes)
         .setRecordTime(Conversions.buildTimestamp(submissionInfo.recordTimeInstant))
         .build()
 
-    private def buildWriteSet(
-        writeSet: Seq[(Key, Value)],
-    ): Iterable[LedgerExportEntry.WriteEntry] =
-      writeSet.map(
-        writeEntry =>
-          LedgerExportEntry.WriteEntry.newBuilder
-            .setKey(writeEntry._1)
-            .setValue(writeEntry._2)
-            .build())
+    private def buildWriteSet(writeSet: WriteSet): Iterable[LedgerExportEntry.WriteEntry] =
+      writeSet.map { case (key, value) =>
+        LedgerExportEntry.WriteEntry.newBuilder
+          .setKey(key.bytes)
+          .setValue(value.bytes)
+          .build()
+      }
   }
 
 }

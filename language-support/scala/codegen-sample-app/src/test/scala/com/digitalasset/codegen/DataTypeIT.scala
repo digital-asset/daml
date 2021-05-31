@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.codegen
@@ -61,15 +61,28 @@ class DataTypeIT extends AnyWordSpec with Matchers {
       P.GenMap(
         pair1 -> VariantMod.Either.Left(1L),
         pair2 -> VariantMod.Either.Right(BigDecimal("-2.222")),
-        pair3 -> VariantMod.Either.Left(3L)
+        pair3 -> VariantMod.Either.Left(3L),
       )
 
     "idempotent on genMap" in {
       Value.decode[T](Value.encode(genMap)) shouldBe Some(genMap)
     }
+  }
 
-    "preserve order of genMap entries" in {
-      Value.decode[T](Value.encode(genMap)).map(_.keys) shouldBe Some(Seq(pair1, pair2, pair3))
+  "variance" should {
+    import MyMain.{Maybe, JustMap}
+    "default to covariant" in {
+      val just = Maybe.Just(42)
+      val nothing = Maybe.Nothing[Nothing](())
+      Seq[Maybe[Any]](just, nothing) // compiles
+    }
+
+    "use invariant where needed" in {
+      val m = JustMap(P.GenMap(1L -> 2L))
+      val vw: JustMap[P.Int64, Any] = m
+      "val kvw: JustMap[Any, Any] = m" shouldNot typeCheck
+      val kevw: JustMap[_ <: P.Int64, Any] = m
+      Seq[JustMap[_ <: P.Int64, Any]](m, vw, kevw)
     }
   }
 

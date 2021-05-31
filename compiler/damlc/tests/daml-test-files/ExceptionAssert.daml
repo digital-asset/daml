@@ -1,0 +1,36 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_EXCEPTIONS
+
+-- | Test that DA.Assert throws AssertionFailed on failure.
+module ExceptionAssert where
+
+import DA.Assert
+
+testAssert = scenario do
+    p <- getParty "Alice"
+    submit p do
+        try do
+            assert False
+        catch
+            AssertionFailed m ->
+                m === "Assertion failed"
+
+testAssertMsg = scenario do
+    p <- getParty "Alice"
+    submit p do
+        try do
+            assertMsg "My message" False
+        catch
+            AssertionFailed m ->
+                m === "My message"
+
+testAssertEq = scenario do
+    p <- getParty "Alice"
+    submit p do
+        try do
+            10 === 20
+        catch
+            AssertionFailed m ->
+                m === "Failure, expected 10 == 20"

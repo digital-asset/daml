@@ -1,0 +1,41 @@
+
+-- | Test operational semantics for 1.11 features.
+--
+-- @SINCE-LF 1.11
+module SemanticsEvalOrderSince1_11 where
+
+-- @ERROR EvUpdExercWithoutActorsErr OK
+template T_EvUpdExercWithoutActorsErr
+    with
+        p : Party
+    where
+        signatory p
+        choice C_EvUpdExercWithoutActorsErr : ()
+          observer error @Party "EvUpdExercWithoutActorsErr failed at observers"
+          controller error @Party "EvUpdExercWithoutActorsErr OK"
+          do error "EvUpdExercWithoutActorsErr failed at body"
+
+evUpdExercWithoutActorsErr = scenario do
+    p <- getParty "Alice"
+    submit p do
+        t <- create (T_EvUpdExercWithoutActorsErr p)
+        exercise t C_EvUpdExercWithoutActorsErr
+        abort "EvUpdExercWithoutActorsErr failed after exercise"
+
+-- @ERROR EvUpdExercObserversErr OK
+template T_EvUpdExercObserversErr
+    with
+        p : Party
+    where
+        signatory p
+        choice C_EvUpdExercObserversErr : ()
+          observer error @Party "EvUpdExercObserversErr OK"
+          controller p
+          do error "EvUpdExercObserversErr failed at body"
+
+evUpdExercObserversErr = scenario do
+    p <- getParty "Alice"
+    submit p do
+        t <- create (T_EvUpdExercObserversErr p)
+        exercise t C_EvUpdExercObserversErr
+        abort "EvUpdExercObserversErr failed after exercise"

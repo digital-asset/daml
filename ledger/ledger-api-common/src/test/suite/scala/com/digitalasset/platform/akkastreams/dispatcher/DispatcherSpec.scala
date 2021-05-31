@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.akkastreams.dispatcher
@@ -19,6 +19,8 @@ import org.scalatest.{Assertion, BeforeAndAfter}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.collection.compat._
+import scala.collection.compat.immutable.LazyList
 import scala.collection.immutable
 import scala.collection.immutable.TreeMap
 import scala.concurrent.Future.successful
@@ -75,12 +77,13 @@ class DispatcherSpec
   def gen(
       count: Int,
       publishTo: Option[Dispatcher[Index]] = None,
-      meanDelayMs: Int = 0): IndexedSeq[(Index, Value)] = {
-    def genManyHelper(i: Index, count: Int): Stream[(Index, Value)] = {
+      meanDelayMs: Int = 0,
+  ): IndexedSeq[(Index, Value)] = {
+    def genManyHelper(i: Index, count: Int): LazyList[(Index, Value)] = {
       if (count == 0) {
-        Stream.empty
+        LazyList.empty
       } else {
-        val next = Stream
+        val next = LazyList
           .iterate(i)(i => i.next)
           .filter(i => i != nextIndex.get() && store.get().get(i).isEmpty)
           .head
@@ -91,7 +94,7 @@ class DispatcherSpec
           d.signalNewHead(i)
         }
         Thread.sleep(r.nextInt(meanDelayMs + 1).toLong * 2)
-        Stream.cons((i, v), genManyHelper(next, count - 1))
+        LazyList.cons((i, v), genManyHelper(next, count - 1))
       }
     }
 
@@ -104,8 +107,7 @@ class DispatcherSpec
     Thread.sleep(r.nextInt(meanDelayMs + 1).toLong * 2)
   }
 
-  /**
-    * Collect the actual results between start (exclusive) and stop (inclusive) from the given Dispatcher,
+  /** Collect the actual results between start (exclusive) and stop (inclusive) from the given Dispatcher,
     * then cancels the obtained stream.
     */
   private def collect(
@@ -113,7 +115,8 @@ class DispatcherSpec
       stop: Index,
       src: Dispatcher[Index],
       subSrc: SubSource[Index, Value],
-      delayMs: Int = 0) = {
+      delayMs: Int = 0,
+  ): Future[immutable.IndexedSeq[(Index, Value)]] = {
     if (delayMs > 0) {
       src
         .startingAt(start, subSrc, Some(stop))
@@ -139,27 +142,35 @@ class DispatcherSpec
         Future {
           Thread.sleep(r.nextInt(delayMs + 1).toLong * 2)
           store.get()(i)
-      })
+        },
+    )
 
   import Index.ordering._
-  private val rangeQuerySteppingMode = RangeSource[Index, Value](
-    (startExclusive, endInclusive) =>
-      Source(store.get().from(startExclusive).to(endInclusive).dropWhile(_._1 <= startExclusive))
+  private val rangeQuerySteppingMode = RangeSource[Index, Value]((startExclusive, endInclusive) =>
+    Source(
+      store.get().rangeFrom(startExclusive).rangeTo(endInclusive).dropWhile(_._1 <= startExclusive)
+    )
   )
 
-  private def slowRangeQuerySteppingMode(delayMs: Int) = RangeSource[Index, Value](
-    (startExclusive, endInclusive) =>
-      Source(store.get().from(startExclusive).to(endInclusive).dropWhile(_._1 <= startExclusive))
+  private def slowRangeQuerySteppingMode(delayMs: Int) =
+    RangeSource[Index, Value]((startExclusive, endInclusive) =>
+      Source(
+        store
+          .get()
+          .rangeFrom(startExclusive)
+          .rangeTo(endInclusive)
+          .dropWhile(_._1 <= startExclusive)
+      )
         .throttle(1, delayMs.milliseconds * 2)
-  )
+    )
 
   def newDispatcher(begin: Index = genesis, end: Index = genesis): Dispatcher[Index] =
     Dispatcher[Index]("test", begin, end)
 
   private def forAllSteppingModes(
       oneAfterAnother: OneAfterAnother[Index, Value] = oneAfterAnotherSteppingMode,
-      rangeQuery: RangeSource[Index, Value] = rangeQuerySteppingMode)(
-      f: SubSource[Index, Value] => Future[Assertion]): Future[Assertion] =
+      rangeQuery: RangeSource[Index, Value] = rangeQuerySteppingMode,
+  )(f: SubSource[Index, Value] => Future[Assertion]): Future[Assertion] =
     for {
       _ <- f(oneAfterAnother)
       _ = clearUp()
@@ -333,8 +344,9 @@ class DispatcherSpec
 
       expectTimeout(
         collect(Index(startIndex), i25, dispatcher, oneAfterAnotherSteppingMode),
-        1.second).andThen {
-        case _ => dispatcher.close()
+        1.second,
+      ).andThen { case _ =>
+        dispatcher.close()
       }
     }
 
@@ -346,8 +358,8 @@ class DispatcherSpec
       val random = new Random()
       1.to(updateCount).foreach(_ => dispatcher.signalNewHead(Index(random.nextInt(100))))
       dispatcher.signalNewHead(Index(100))
-      out.map(_ shouldEqual pairs).andThen {
-        case _ => dispatcher.close()
+      out.map(_ shouldEqual pairs).andThen { case _ =>
+        dispatcher.close()
       }
     }
   }
@@ -360,7 +372,8 @@ class DispatcherSpec
       outF: Future[immutable.IndexedSeq[(Index, Value)]],
       out25F: Future[immutable.IndexedSeq[(Index, Value)]],
       out50F: Future[immutable.IndexedSeq[(Index, Value)]],
-      out75F: Future[immutable.IndexedSeq[(Index, Value)]]) = {
+      out75F: Future[immutable.IndexedSeq[(Index, Value)]],
+  ) = {
     for {
       out <- outF
       out25 <- out25F

@@ -1,17 +1,17 @@
 {
   "homepage": "https://bazel.build",
-  "version": "3.3.1",
+  "version": "4.4.0",
   "license": "Apache-2.0",
   "bin": "bazel.exe",
   "architecture": {
     "64bit": {
-      "url": "https://daml-binaries.da-ext.net/patch_bazel_windows/bazel-2dfaf3c3b85bf9d78615a70a0afddc28.zip",
-      "hash": "3c54a367a682bd3f2ba0b0ed673846756b16704a1fcb58f89d939fc3f00b8c4b"
+      "url": "https://daml-binaries.da-ext.net/patch_bazel_windows/bazel-916ee1f1d0b4afd5db74fca42245244f.zip",
+      "hash": "e73600987e41354d1efdd4826985b6ab675720bf3cbb392f89891843b120d12e"
     }
   },
   "depends": [
     "msys2",
-    "vcredist-14.27.29112"
+    "vcredist"
   ],
   "env_set": {
     "BAZEL_SH": "$(appdir msys2)\\current\\usr\\bin\\bash.exe"

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.json
@@ -19,14 +19,16 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
 
   def jsValueToLfValue(
       lfId: lf.data.Ref.Identifier,
-      jsValue: JsValue): JsonError \/ lf.value.Value[lf.value.Value.ContractId] =
+      jsValue: JsValue,
+  ): JsonError \/ lf.value.Value[lf.value.Value.ContractId] =
     \/.fromTryCatchNonFatal(
       LfValueCodec.jsValueToApiValue(jsValue, lfId, lfTypeLookup)
     ).liftErr(JsonError)
 
   def jsValueToLfValue(
       lfType: iface.Type,
-      jsValue: JsValue): JsonError \/ lf.value.Value[lf.value.Value.ContractId] =
+      jsValue: JsValue,
+  ): JsonError \/ lf.value.Value[lf.value.Value.ContractId] =
     \/.fromTryCatchNonFatal(
       LfValueCodec.jsValueToApiValue(jsValue, lfType, lfTypeLookup)
     ).liftErr(JsonError)

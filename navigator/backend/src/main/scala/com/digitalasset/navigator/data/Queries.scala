@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.data
@@ -32,7 +32,8 @@ object Queries {
   val contractTemplateIdIsActive = createIndex(
     "contract",
     List("template_id", "archive_transaction_id"),
-    "contract_tmplt_active_idx")
+    "contract_tmplt_active_idx",
+  )
 
   val createEventTable: Fragment = sql"""
         CREATE TABLE

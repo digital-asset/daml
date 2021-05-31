@@ -1,11 +1,17 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine
 
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
+import com.daml.lf.transaction.Node.{
+  NodeRollback,
+  NodeCreate,
+  NodeExercises,
+  NodeFetch,
+  NodeLookupByKey,
+}
 import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Transaction}
 import com.daml.lf.ledger._
 import com.daml.lf.data.Relation.Relation
@@ -14,8 +20,7 @@ import scala.annotation.tailrec
 
 object Blinding {
 
-  /**
-    * Given a transaction provide concise information on visibility
+  /** Given a transaction provide concise information on visibility
     * for all stakeholders
     *
     * We keep this in Engine since it needs the packages and your
@@ -41,10 +46,11 @@ object Blinding {
     * transaction has Nid references that are not present in its nodes. Use `isWellFormed`
     * if you are getting the transaction from a third party.
     */
-  def divulgedTransaction[Nid, Cid, Val](
+  def divulgedTransaction[Nid, Cid](
       divulgences: Relation[Nid, Party],
       party: Party,
-      tx: GenTransaction[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] = {
+      tx: GenTransaction[Nid, Cid],
+  ): GenTransaction[Nid, Cid] = {
     val partyDivulgences = Relation.invert(divulgences)(party)
     // Note that this relies on the local divulgence to be well-formed:
     // if an exercise node is divulged to A but some of its descendants
@@ -60,10 +66,11 @@ object Blinding {
             go(filteredRoots :+ root, remainingRoots)
           } else {
             tx.nodes(root) match {
-              case _: NodeFetch[Cid, Val] | _: NodeCreate[Cid, Val] |
-                  _: NodeLookupByKey[Cid, Val] =>
+              case nr: NodeRollback[Nid] =>
+                go(filteredRoots, nr.children ++: remainingRoots)
+              case _: NodeFetch[Cid] | _: NodeCreate[Cid] | _: NodeLookupByKey[Cid] =>
                 go(filteredRoots, remainingRoots)
-              case ne: NodeExercises[Nid, Cid, Val] =>
+              case ne: NodeExercises[Nid, Cid] =>
                 go(filteredRoots, ne.children ++: remainingRoots)
             }
           }
@@ -72,7 +79,7 @@ object Blinding {
 
     GenTransaction(
       roots = go(BackStack.empty, FrontStack(tx.roots)),
-      nodes = filteredNodes
+      nodes = filteredNodes,
     )
   }
 }

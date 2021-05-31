@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -13,15 +13,17 @@ import scala.util.control.NonFatal
 final class HealthService(
     getLedgerEnd: HealthService.GetLedgerEnd,
     contractDao: Option[dbbackend.ContractDao],
-    timeoutSeconds: Int) {
+    timeoutSeconds: Int,
+) {
   import HealthService._
   def ready()(implicit ec: ExecutionContext): Future[ReadyResponse] =
     for {
       ledger <- getLedgerEnd().transform(r => Try(r.isSuccess))
       optDb <- contractDao.traverse(opt =>
-        opt.isValid(timeoutSeconds).unsafeToFuture().recover {
-          case NonFatal(_) => false
-      })
+        opt.isValid(timeoutSeconds).unsafeToFuture().recover { case NonFatal(_) =>
+          false
+        }
+      )
     } yield ReadyResponse(Seq(Check("ledger", ledger)) ++ optDb.toList.map(Check("database", _)))
 }
 
@@ -30,7 +32,8 @@ object HealthService {
   case class ReadyResponse(checks: Seq[Check]) {
     val ok = checks.forall(_.result)
     private def check(c: Check) = {
-      val (checkBox, result) = if (c.result) { ("+", "ok") } else { ("-", "failed") }
+      val (checkBox, result) = if (c.result) { ("+", "ok") }
+      else { ("-", "failed") }
       s"[$checkBox] ${c.name} $result"
     }
 
@@ -42,7 +45,7 @@ object HealthService {
     def toHttpResponse: HttpResponse =
       HttpResponse(
         status = if (ok) StatusCodes.OK else StatusCodes.ServiceUnavailable,
-        entity = HttpEntity(ContentTypes.`text/plain(UTF-8)`, render())
+        entity = HttpEntity(ContentTypes.`text/plain(UTF-8)`, render()),
       )
   }
   // We only check health so we don’t care about the offset

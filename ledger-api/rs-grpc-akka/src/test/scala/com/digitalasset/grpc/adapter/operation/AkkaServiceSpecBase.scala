@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.grpc.adapter.operation
@@ -38,7 +38,9 @@ abstract class AkkaServiceSpecBase(override protected val socketAddress: Option[
       "return the correct number" in {
         await()
           .atMost(5, SECONDS)
-          .until(() => service.getServerStreamingCalls == 7) // The number of calls in the previous tests
+          .until(() =>
+            service.getServerStreamingCalls == 7
+          ) // The number of calls in the previous tests
       }
     }
   }

@@ -1,9 +1,9 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -euox pipefail
 
 BASELINE=$1
 
@@ -18,11 +18,15 @@ main() {
 
   git checkout $BASELINE >&2
   git show ${current}:ci/cron/perf/CollectAuthority.scala.patch | git apply
+  git show ${current}:ci/cron/perf/BazelExclusiveSandboxing.patch | git apply
   local baseline_perf=$(measure)
+  if [ "" = "$baseline_perf" ]; then exit 1; fi
 
-  git checkout -- daml-lf/scenario-interpreter/src/perf/benches/scala/com/digitalasset/daml/lf/speedy/perf/CollectAuthority.scala
+  # undo patch
+  git reset --hard >&2
   git checkout $current >&2
   local current_perf=$(measure)
+  if [ "" = "$current_perf" ]; then exit 1; fi
 
   local speedup=$(printf "%.2f" $(echo "$baseline_perf / $current_perf" | bc -l))
   local progress_5x=$(printf "%05.2f%%" $(echo "100 * l($speedup) / l(5)" | bc -l))

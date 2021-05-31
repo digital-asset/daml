@@ -1,11 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
 
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast._
-import com.daml.lf.validation.traversable.ExprTraversable
+import com.daml.lf.validation.iterable.ExprIterable
 
 private[validation] object PartyLiterals {
 
@@ -20,10 +20,9 @@ private[validation] object PartyLiterals {
           throw EForbiddenPartyLiterals(context, ValRefWithPartyLiterals(context.ref))
       case _ =>
     }
-    module.templates.foreach {
-      case (defName, template) =>
-        def context = ContextDefValue(pkgId, module.name, defName)
-        ExprTraversable(template).foreach(checkExpr(world, context, _))
+    module.templates.foreach { case (defName, template) =>
+      def context = ContextDefValue(pkgId, module.name, defName)
+      ExprIterable(template).foreach(checkExpr(world, context, _))
     }
   }
 
@@ -34,7 +33,7 @@ private[validation] object PartyLiterals {
       case EVal(valRef) if !world.lookupValue(context, valRef).noPartyLiterals =>
         throw EForbiddenPartyLiterals(context, ValRefWithPartyLiterals(valRef))
       case otherwise =>
-        ExprTraversable(otherwise).foreach(checkExpr(world, context, _))
+        ExprIterable(otherwise).foreach(checkExpr(world, context, _))
     }
 
 }

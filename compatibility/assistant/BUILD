@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@daml//bazel_tools:haskell.bzl", "da_haskell_test")
@@ -8,7 +8,7 @@ da_haskell_test(
     srcs = glob(["src/**/*.hs"]),
     data = [
         "@daml-sdk-tarball-latest-stable//file:downloaded",
-        "@head_sdk//:sdk-release-tarball.tar.gz",
+        "@head_sdk//:sdk-release-tarball-ce.tar.gz",
     ],
     hackage_deps = [
         "base",
@@ -21,7 +21,6 @@ da_haskell_test(
         "extra",
         "process",
         "typed-process",
-        "safe-exceptions",
         "tasty",
         "tasty-hunit",
         "utf8-string",

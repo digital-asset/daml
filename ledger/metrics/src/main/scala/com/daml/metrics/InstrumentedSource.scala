@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.metrics
@@ -43,8 +43,7 @@ object InstrumentedSource {
     }
   }
 
-  /**
-    * Returns a `Source` that can be fed via the materialized queue.
+  /** Returns a `Source` that can be fed via the materialized queue.
     *
     * The queue length counter can at most be eventually consistent due to
     * the counter increment and decrement operation being scheduled separately
@@ -67,8 +66,9 @@ object InstrumentedSource {
       overflowStrategy: OverflowStrategy,
       capacityCounter: Counter,
       lengthCounter: Counter,
-      delayTimer: Timer)(
-      implicit materializer: Materializer,
+      delayTimer: Timer,
+  )(implicit
+      materializer: Materializer
   ): Source[T, QueueWithComplete[T]] = {
     val (queue, source) =
       Source.queue[(Timer.Context, T)](bufferSize, overflowStrategy).preMaterialize()
@@ -80,16 +80,44 @@ object InstrumentedSource {
     capacityCounter.inc(bufferSize.toLong)
     instrumentedQueue
       .watchCompletion()
-      .andThen {
-        case _ => capacityCounter.dec(bufferSize.toLong)
+      .andThen { case _ =>
+        capacityCounter.dec(bufferSize.toLong)
       }(DirectExecutionContext)
 
-    source.mapMaterializedValue(_ => instrumentedQueue).map {
-      case (timingContext, item) =>
-        timingContext.stop()
-        lengthCounter.dec()
-        item
+    source.mapMaterializedValue(_ => instrumentedQueue).map { case (timingContext, item) =>
+      timingContext.stop()
+      lengthCounter.dec()
+      item
     }
   }
 
+  /** Adds a buffer to the output of the original source, and adds a Counter metric for buffer size.
+    *
+    * Good for detecting bottlenecks and speed difference between consumer and producer.
+    * In case producer is faster, this buffer should be mostly empty.
+    * In case producer is slower, this buffer should be mostly full.
+    *
+    * @param original the original source which will be instrumented
+    * @param counter the counter to track the actual size of the buffer
+    * @param size the maximum size of the buffer. In case of a bottleneck in producer this will be mostly full, so careful estimation needed to prevent excessive memory pressure
+    * @tparam T
+    * @tparam U
+    * @return the instrumentes source
+    */
+  def bufferedSource[T, U](
+      original: Source[T, U],
+      counter: com.codahale.metrics.Counter,
+      size: Int,
+  ): Source[T, U] = {
+    def tap(block: => Unit): T => T = t => {
+      block
+      t
+    }
+    original
+      .map(
+        tap(counter.inc())
+      ) // since wireTap is not guaranteed to be executed always, we need map to prevent counter skew over time.
+      .buffer(size, OverflowStrategy.backpressure)
+      .map(tap(counter.dec()))
+  }
 }

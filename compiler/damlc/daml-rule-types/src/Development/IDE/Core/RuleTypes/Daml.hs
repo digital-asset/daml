@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -7,7 +7,7 @@
 
 -- | This module extends the general Haskell rule types in
 -- `Development.IDE.Core.RuleTypes` with DAML specific rule types
--- such as those for producing DAML LF.
+-- such as those for producing Daml-LF.
 module Development.IDE.Core.RuleTypes.Daml(
     module Development.IDE.Core.RuleTypes,
     module Development.IDE.Core.RuleTypes.Daml

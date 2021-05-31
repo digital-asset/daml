@@ -1,9 +1,9 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
 
--- | Constraint solver for DAML LF static verification
+-- | Constraint solver for Daml-LF static verification
 module DA.Daml.LF.Verify.Solve
   ( constructConstr
   , solveConstr
@@ -146,14 +146,19 @@ instance ConstrExpr Expr where
       builtin_op (ETyApp e _) = builtin_op e
       builtin_op (EBuiltin op) = case op of
         BEEqual _ -> COp OpEq
+        BEEqualGeneric -> COp OpEq
         BEEqualNumeric -> COp OpEq
         BEGreater _ -> COp OpGt
+        BEGreaterGeneric -> COp OpGt
         BEGreaterNumeric -> COp OpGt
         BEGreaterEq _ -> COp OpGtE
+        BEGreaterEqGeneric -> COp OpGtE
         BEGreaterEqNumeric -> COp OpGtE
         BELess _ -> COp OpLt
+        BELessGeneric -> COp OpLt
         BELessNumeric -> COp OpLt
         BELessEq _ -> COp OpLtE
+        BELessEqGeneric -> COp OpLtE
         BELessEqNumeric -> COp OpLtE
         BEAddInt64 -> CAdd
         BEAddNumeric -> CAdd

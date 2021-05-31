@@ -1,9 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
 
-import java.io._
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File, FileInputStream, InputStream}
 import java.util.zip.ZipInputStream
 
 import com.daml.lf.archive.Errors.{InvalidDar, InvalidLegacyDar, InvalidZipEntry}
@@ -20,7 +20,8 @@ import scala.util.{Failure, Success, Try}
 class DarReader[A](
     readDalfNamesFromManifest: InputStream => Try[Dar[String]],
     // The `Long` is the dalf size in bytes.
-    parseDalf: (Long, InputStream) => Try[A]) {
+    parseDalf: (Long, InputStream) => Try[A],
+) {
 
   import DarReader._
 
@@ -36,7 +37,8 @@ class DarReader[A](
   ): Try[Dar[A]] = {
     for {
       entries <- bracket(Try(darStream))(zis => Try(zis.close())).flatMap(zis =>
-        loadZipEntries(name, zis, entrySizeThreshold))
+        loadZipEntries(name, zis, entrySizeThreshold)
+      )
       names <- entries.readDalfNames(readDalfNamesFromManifest): Try[Dar[String]]
       main <- parseOne(entries.getInputStreamFor)(names.main): Try[A]
       deps <- parseAll(entries.getInputStreamFor)(names.dependencies): Try[List[A]]
@@ -70,7 +72,8 @@ class DarReader[A](
           go(
             accT.flatMap { acc =>
               bracket(slurpWithCaution(darStream, entrySizeThreshold))(_ =>
-                Try(darStream.closeEntry()))
+                Try(darStream.closeEntry())
+              )
                 .map { sizedBytes =>
                   acc + (entry.getName -> sizedBytes)
                 }
@@ -83,13 +86,13 @@ class DarReader[A](
   }
 
   private def parseAll(getInputStreamFor: String => Try[(Long, InputStream)])(
-      names: List[String]): Try[List[A]] =
+      names: List[String]
+  ): Try[List[A]] =
     sequence(names.map(parseOne(getInputStreamFor)))
 
   private def parseOne(getInputStreamFor: String => Try[(Long, InputStream)])(s: String): Try[A] =
-    bracket(getInputStreamFor(s))({ case (_, is) => Try(is.close()) }).flatMap({
-      case (size, is) =>
-        parseDalf(size, is)
+    bracket(getInputStreamFor(s))({ case (_, is) => Try(is.close()) }).flatMap({ case (size, is) =>
+      parseDalf(size, is)
     })
 
 }
@@ -103,7 +106,8 @@ object Errors {
 
   final case class InvalidZipEntry(name: String, entries: ZipEntries)
       extends RuntimeException(
-        s"Invalid zip entryName: ${name: String}, DAR: ${darInfo(entries): String}")
+        s"Invalid zip entryName: ${name: String}, DAR: ${darInfo(entries): String}"
+      )
 
   final case class InvalidLegacyDar(entries: ZipEntries)
       extends RuntimeException(s"Invalid Legacy DAR: ${darInfo(entries)}")
@@ -133,16 +137,17 @@ object DarReader {
     }
 
     def readDalfNames(
-        readDalfNamesFromManifest: InputStream => Try[Dar[String]]): Try[Dar[String]] =
-      parseDalfNamesFromManifest(readDalfNamesFromManifest).recoverWith {
-        case NonFatal(e1) =>
-          findLegacyDalfNames().recoverWith {
-            case NonFatal(_) => Failure(InvalidDar(this, e1))
-          }
+        readDalfNamesFromManifest: InputStream => Try[Dar[String]]
+    ): Try[Dar[String]] =
+      parseDalfNamesFromManifest(readDalfNamesFromManifest).recoverWith { case NonFatal(e1) =>
+        findLegacyDalfNames().recoverWith { case NonFatal(_) =>
+          Failure(InvalidDar(this, e1))
+        }
       }
 
     private def parseDalfNamesFromManifest(
-        readDalfNamesFromManifest: InputStream => Try[Dar[String]]): Try[Dar[String]] =
+        readDalfNamesFromManifest: InputStream => Try[Dar[String]]
+    ): Try[Dar[String]] =
       bracket(getInputStreamFor(ManifestName)) { case (_, is) => Try(is.close()) }
         .flatMap { case (_, is) => readDalfNamesFromManifest(is) }
 
@@ -167,9 +172,12 @@ object DarReader {
   }
 
   def apply(): DarReader[(Ref.PackageId, DamlLf.ArchivePayload)] =
-    new DarReader(DarManifestReader.dalfNames, {
-      case (_, is) => Try(Reader.decodeArchiveFromInputStream(is))
-    })
+    new DarReader(
+      DarManifestReader.dalfNames,
+      { case (_, is) =>
+        Try(Reader.decodeArchiveFromInputStream(is))
+      },
+    )
 
   def apply[A](parseDalf: (Long, InputStream) => Try[A]): DarReader[A] =
     new DarReader(DarManifestReader.dalfNames, parseDalf)
@@ -178,4 +186,5 @@ object DarReader {
 object DarReaderWithVersion
     extends DarReader[((Ref.PackageId, DamlLf.ArchivePayload), LanguageMajorVersion)](
       DarManifestReader.dalfNames,
-      { case (_, is) => Try(Reader.readArchiveAndVersion(is)) })
+      { case (_, is) => Try(Reader.readArchiveAndVersion(is)) },
+    )

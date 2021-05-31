@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator
@@ -7,15 +7,14 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
 import com.daml.ledger.participant.state.v1.ParticipantId
 
 import scala.concurrent.Future
 
-/**
-  * Determines how we commit the results of processing a DAML submission.
+/** Determines how we commit the results of processing a Daml submission.
   *
   * This must write deterministically. The output and order of writes should not vary with the same
   * input, even across process runs. This also means that the implementing type must not depend on

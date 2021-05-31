@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -13,7 +13,7 @@ import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.speedy.Compiler
 import com.daml.lf.speedy.Compiler.CompilationError
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.concurrent.{Map => ConcurrentMap}
 
 /** Thread-safe class that can be used when you need to maintain a shared, mutable collection of
@@ -42,7 +42,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
       AddPackageState(
         packages = Map(pkgId -> pkg),
         seenDependencies = Set.empty,
-        toCompile = List(pkgId)
+        toCompile = List(pkgId),
       )
     )
 
@@ -67,15 +67,18 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
           for (dependency <- pkg.directDeps) {
             if (!_signatures.contains(dependency) && !state.seenDependencies.contains(dependency)) {
               return ResultNeedPackage(
-                dependency, {
+                dependency,
+                {
                   case None => ResultError(Error(s"Could not find package $dependency"))
                   case Some(dependencyPkg) =>
                     addPackageInternal(
                       AddPackageState(
                         packages = state.packages + (dependency -> dependencyPkg),
                         seenDependencies = state.seenDependencies + dependency,
-                        toCompile = dependency :: pkgId :: toCompile))
-                }
+                        toCompile = dependency :: pkgId :: toCompile,
+                      )
+                    )
+                },
               )
             }
           }
@@ -86,28 +89,28 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
           // waiting for the first one to finish.
           if (!_signatures.contains(pkgId)) {
             val signature = AstUtil.toSignature(pkg)
-            val signatureLookup: PartialFunction[PackageId, PackageSignature] = {
-              case `pkgId` => signature
+            val signatureLookup: PartialFunction[PackageId, PackageSignature] = { case `pkgId` =>
+              signature
             }
             // Compile the speedy definitions for this package.
-            val defns = try {
-              new speedy.Compiler(signatureLookup orElse _signatures, compilerConfig)
-                .unsafeCompilePackage(pkgId, pkg)
-            } catch {
-              case CompilationError(msg) =>
-                return ResultError(Error(s"Compilation Error: $msg"))
-              case e: validation.ValidationError =>
-                return ResultError(Error(s"Validation Error: ${e.pretty}"))
-            }
-            defns.foreach {
-              case (defnId, defn) => _defns.put(defnId, defn)
+            val defns =
+              try {
+                new speedy.Compiler(signatureLookup orElse _signatures, compilerConfig)
+                  .unsafeCompilePackage(pkgId, pkg)
+              } catch {
+                case CompilationError(msg) =>
+                  return ResultError(Error(s"Compilation Error: $msg"))
+                case e: validation.ValidationError =>
+                  return ResultError(Error(s"Validation Error: ${e.pretty}"))
+              }
+            defns.foreach { case (defnId, defn) =>
+              _defns.put(defnId, defn)
             }
             // Compute the transitive dependencies of the new package. Since we are adding
             // packages in dependency order we can just union the dependencies of the
             // direct dependencies to get the complete transitive dependencies.
-            val deps = pkg.directDeps.foldLeft(pkg.directDeps) {
-              case (deps, dependency) =>
-                deps union _packageDeps.get(dependency)
+            val deps = pkg.directDeps.foldLeft(pkg.directDeps) { case (deps, dependency) =>
+              deps union _packageDeps.get(dependency)
             }
             _packageDeps.put(pkgId, deps)
             _signatures.put(pkgId, signature)
@@ -138,5 +141,6 @@ object ConcurrentCompiledPackages {
   private case class AddPackageState(
       packages: Map[PackageId, Package], // the packages we're currently compiling
       seenDependencies: Set[PackageId], // the dependencies we've found so far
-      toCompile: List[PackageId])
+      toCompile: List[PackageId],
+  )
 }

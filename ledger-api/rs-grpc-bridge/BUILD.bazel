@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test")
@@ -43,6 +43,11 @@ da_scala_test(
     ]),
     resource_strip_prefix = "ledger-api/rs-grpc-bridge/src/test/suite/resources/",
     resources = glob(["src/test/suite/resources/**/*"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_testng_6_7",
+    ],
     visibility = [
         "//visibility:public",
     ],
@@ -54,9 +59,6 @@ da_scala_test(
         "@maven//:org_reactivestreams_reactive_streams",
         "@maven//:org_reactivestreams_reactive_streams_examples",
         "@maven//:org_reactivestreams_reactive_streams_tck",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalatestplus_testng_6_7_2_12",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_testng_testng",
     ],

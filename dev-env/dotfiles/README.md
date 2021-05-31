@@ -1,4 +1,4 @@
-# Editor DAML Language Integration
+# Editor Daml Language Integration
 
 ## Vim
 
@@ -15,7 +15,7 @@ your `~/.vimrc`.
 
 ## VS Code
 
-Follow the DAML Studio installation instructions in the DAML user guide.
+Follow the Daml Studio installation instructions in the Daml user guide.
 
 
 ## Update Keywords

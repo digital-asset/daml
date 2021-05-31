@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,12 +6,22 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "silencer_plugin",
 )
 
 da_scala_library(
     name = "parser",
     srcs = glob(["src/main/**/*.scala"]),
-    scalacopts = lf_scalacopts,
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_parser_combinators",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts + [
+        "-P:silencer:lineContentFilters=standardInterpolator",
+    ],
     visibility = [
         "//daml-lf:__subpackages__",
         "//ledger:__subpackages__",
@@ -19,8 +29,6 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/language",
-        "@maven//:org_scala_lang_modules_scala_parser_combinators_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -28,6 +36,10 @@ da_scala_test(
     name = "parser-test",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+    ],
     scalacopts = lf_scalacopts,
     visibility = [
         "//daml-lf:__subpackages__",
@@ -36,7 +48,5 @@ da_scala_test(
         ":parser",
         "//daml-lf/data",
         "//daml-lf/language",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
     ],
 )

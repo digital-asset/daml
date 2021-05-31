@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.graphql
@@ -19,12 +19,12 @@ object StringAliasType {
       coerceOutput = sangria.schema.valueOutput,
       coerceUserInput = {
         case s: String => Right(s)
-        case _ ⇒ Left(StringCoercionViolation)
+        case _ => Left(StringCoercionViolation)
       },
       coerceInput = {
         case StringValue(s, _, _, _, _) => Right(s)
-        case _ ⇒ Left(StringCoercionViolation)
-      }
+        case _ => Left(StringCoercionViolation)
+      },
     )
 
   def tagged[T](name: String, description: Option[String] = None): ScalarType[String @@ T] =
@@ -34,11 +34,11 @@ object StringAliasType {
       coerceOutput = (value, _) => Tag.unwrap(value),
       coerceUserInput = {
         case s: String => Right(Tag.of[T](s))
-        case _ ⇒ Left(StringCoercionViolation)
+        case _ => Left(StringCoercionViolation)
       },
       coerceInput = {
         case StringValue(s, _, _, _, _) => Right(Tag.of[T](s))
-        case _ ⇒ Left(StringCoercionViolation)
-      }
+        case _ => Left(StringCoercionViolation)
+      },
     )
 }

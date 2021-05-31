@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.perf
@@ -53,8 +53,8 @@ object LedgerFactories {
       }
       server <- SandboxServer.owner(sandboxConfig(jdbcUrl, darFiles))
       channel <- GrpcClientResource.owner(server.port)
-    } yield
-      new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))(
-        ExecutionContext.fromExecutorService(executor))
+    } yield new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))(
+      ExecutionContext.fromExecutorService(executor)
+    )
   )
 }

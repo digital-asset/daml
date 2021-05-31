@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.memory
@@ -6,16 +6,16 @@ package com.daml.ledger.on.memory
 import com.daml.ledger.validator.{
   LedgerStateAccess,
   LedgerStateOperations,
-  TimedLedgerStateOperations
+  TimedLedgerStateOperations,
 }
 import com.daml.metrics.Metrics
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[memory] final class InMemoryLedgerStateAccess(state: InMemoryState, metrics: Metrics)
+final class InMemoryLedgerStateAccess(state: InMemoryState, metrics: Metrics)
     extends LedgerStateAccess[Index] {
-  override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T])(
-      implicit executionContext: ExecutionContext
+  override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T])(implicit
+      executionContext: ExecutionContext
   ): Future[T] =
     state.write { (log, state) =>
       body(new TimedLedgerStateOperations(new InMemoryLedgerStateOperations(log, state), metrics))

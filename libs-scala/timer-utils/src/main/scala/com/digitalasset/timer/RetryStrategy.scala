@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.timer
@@ -11,9 +11,7 @@ import scala.util.control.NonFatal
 
 object RetryStrategy {
 
-  /**
-    * Retry a fixed amount of times with exponential backoff, regardless of the exception thrown
-    *
+  /** Retry a fixed amount of times with exponential backoff, regardless of the exception thrown
     */
   def exponentialBackoff(attempts: Int, firstWaitTime: Duration): RetryStrategy =
     new RetryStrategy(
@@ -21,18 +19,15 @@ object RetryStrategy {
       firstWaitTime,
       firstWaitTime * math.pow(2.0, attempts.toDouble),
       _ * 2,
-      { case _ => true }
+      { case _ => true },
     )
 
-  /**
-    * Retry a fixed amount of times with constant wait time, regardless of the exception thrown
-    *
+  /** Retry a fixed amount of times with constant wait time, regardless of the exception thrown
     */
   def constant(attempts: Int, waitTime: Duration): RetryStrategy =
     new RetryStrategy(Some(attempts), waitTime, waitTime, identity, { case _ => true })
 
-  /**
-    * Retry with constant wait time, but only if the exception satisfies a predicate
+  /** Retry with constant wait time, but only if the exception satisfies a predicate
     */
   def constant(attempts: Option[Int] = None, waitTime: Duration)(
       predicate: PartialFunction[Throwable, Boolean]

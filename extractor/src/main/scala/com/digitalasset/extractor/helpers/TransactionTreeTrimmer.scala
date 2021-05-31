@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.helpers
@@ -9,12 +9,14 @@ import com.daml.ledger.api.v1.value.Identifier
 
 object TransactionTreeTrimmer {
   def shouldKeep(parties: Set[String], templateIds: Set[Identifier])(
-      event: TreeEvent.Kind): Boolean =
+      event: TreeEvent.Kind
+  ): Boolean =
     (templateIds.isEmpty || containsTemplateId(templateIds.map(asTuple))(event)) &&
       exerciseEventOrStakeholder(parties)(event)
 
   private def containsTemplateId(
-      templateIds: Set[(String, String, String)]): TreeEvent.Kind => Boolean = {
+      templateIds: Set[(String, String, String)]
+  ): TreeEvent.Kind => Boolean = {
     case Kind.Created(event) => contains(templateIds)(event.templateId.map(asTuple))
     case Kind.Exercised(event) => contains(templateIds)(event.templateId.map(asTuple))
     case Kind.Empty => false

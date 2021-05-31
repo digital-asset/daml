@@ -1,9 +1,7 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
-
-import java.nio.file.Path
 
 import akka.actor.{ActorSystem, Cancellable}
 import akka.http.scaladsl.Http
@@ -17,86 +15,66 @@ import com.daml.http.json.{
   ApiValueToJsValueConverter,
   DomainJsonDecoder,
   DomainJsonEncoder,
-  JsValueToApiValueConverter
+  JsValueToApiValueConverter,
 }
 import com.daml.http.util.ApiValueToLfValueConverter
 import com.daml.http.util.FutureUtil._
 import com.daml.http.util.IdentifierConverters.apiLedgerId
+import com.daml.http.util.Logging.InstanceUUID
 import com.daml.jwt.JwtDecoder
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
-import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.ledger.client.services.pkg.PackageClient
+import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
-import com.daml.util.ExceptionOps._
-import com.typesafe.scalalogging.StrictLogging
 import scalaz.Scalaz._
 import scalaz._
 
+import java.nio.file.Path
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.control.NonFatal
 
-object HttpService extends StrictLogging {
+object HttpService {
 
-  val DefaultPackageReloadInterval: FiniteDuration = FiniteDuration(5, "s")
-  val DefaultMaxInboundMessageSize: Int = 4194304
-  val DefaultHealthTimeoutSeconds: Int = 5
+  private val logger = ContextualizedLogger.get(getClass)
 
   // used only to populate a required field in LedgerClientConfiguration
   private val DummyApplicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway")
 
+  // default to 10 minutes for ledger connection retry period when ledger is not ready on start
+  private val MaxInitialLedgerConnectRetryAttempts = 600
+
   private type ET[A] = EitherT[Future, Error, A]
 
+  object Error {
+    def fromLedgerClientError(e: LedgerClientBase.Error): Error = Error(e.message)
+  }
+
   final case class Error(message: String)
-
-  // defined separately from Config so
-  //  1. it is absolutely lexically apparent what `import startSettings._` means
-  //  2. avoid incorporating other Config'd things into "the shared args to start"
-  trait StartSettings {
-    val ledgerHost: String
-    val ledgerPort: Int
-    val address: String
-    val httpPort: Int
-    val portFile: Option[Path]
-    val tlsConfig: TlsConfiguration
-    val wsConfig: Option[WebsocketConfig]
-    val accessTokenFile: Option[Path]
-    val allowNonHttps: Boolean
-    val staticContentConfig: Option[StaticContentConfig]
-    val packageReloadInterval: FiniteDuration
-    val packageMaxInboundMessageSize: Option[Int]
-    val maxInboundMessageSize: Int
-    val healthTimeoutSeconds: Int
-  }
-
-  trait DefaultStartSettings extends StartSettings {
-    override val staticContentConfig: Option[StaticContentConfig] = None
-    override val packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval
-    override val packageMaxInboundMessageSize: Option[Int] = None
-    override val maxInboundMessageSize: Int = DefaultMaxInboundMessageSize
-    override val healthTimeoutSeconds: Int = DefaultHealthTimeoutSeconds
-  }
 
   def start(
       startSettings: StartSettings,
       contractDao: Option[ContractDao] = None,
       validateJwt: EndpointsCompanion.ValidateJwt = decodeJwt,
-  )(
-      implicit asys: ActorSystem,
+  )(implicit
+      asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
   ): Future[Error \/ ServerBinding] = {
+
+    logger.info("HTTP Server pre-startup")
+
     import startSettings._
 
     implicit val settings: ServerSettings = ServerSettings(asys).withTransparentHeadRequests(true)
@@ -114,16 +92,24 @@ object HttpService extends StrictLogging {
 
     val bindingEt: EitherT[Future, Error, ServerBinding] = for {
       client <- eitherT(
-        ledgerClient(ledgerHost, ledgerPort, clientConfig)
-      ): ET[LedgerClient]
+        ledgerClient(
+          ledgerHost,
+          ledgerPort,
+          clientConfig,
+          startSettings.nonRepudiation,
+        )
+      ): ET[DamlLedgerClient]
 
       pkgManagementClient <- eitherT(
         ledgerClient(
           ledgerHost,
           ledgerPort,
           packageMaxInboundMessageSize.fold(clientConfig)(size =>
-            clientConfig.copy(maxInboundMessageSize = size)),
-        )): ET[LedgerClient]
+            clientConfig.copy(maxInboundMessageSize = size)
+          ),
+          startSettings.nonRepudiation,
+        )
+      ): ET[DamlLedgerClient]
 
       ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
@@ -131,7 +117,7 @@ object HttpService extends StrictLogging {
       _ = logger.info(s"contractDao: ${contractDao.toString}")
 
       packageService = new PackageService(
-        loadPackageStoreUpdates(pkgManagementClient.packageClient, tokenHolder),
+        loadPackageStoreUpdates(pkgManagementClient.packageClient, tokenHolder)
       )
 
       // load all packages right away
@@ -140,7 +126,6 @@ object HttpService extends StrictLogging {
       _ = schedulePackageReload(packageService, packageReloadInterval)
 
       commandService = new CommandService(
-        packageService.resolveTemplateId,
         LedgerClientJwt.submitAndWaitForTransaction(client),
         LedgerClientJwt.submitAndWaitForTransactionTree(client),
       )
@@ -151,14 +136,14 @@ object HttpService extends StrictLogging {
         LedgerClientJwt.getActiveContracts(client),
         LedgerClientJwt.getCreatesAndArchivesSince(client),
         LedgerClientJwt.getTermination(client),
-        LedgerReader.damlLfTypeLookup(packageService.packageStore _),
+        LedgerReader.damlLfTypeLookup(() => packageService.packageStore),
         contractDao,
       )
 
       partiesService = new PartiesService(
         LedgerClientJwt.listKnownParties(client),
         LedgerClientJwt.getParties(client),
-        LedgerClientJwt.allocateParty(client)
+        LedgerClientJwt.allocateParty(client),
       )
 
       packageManagementService = new PackageManagementService(
@@ -166,13 +151,14 @@ object HttpService extends StrictLogging {
         LedgerClientJwt.getPackage(pkgManagementClient),
         uploadDarAndReloadPackages(
           LedgerClientJwt.uploadDar(pkgManagementClient),
-          () => packageService.reload(ec))
+          implicit lc => packageService.reload,
+        ),
       )
 
       healthService = new HealthService(
         getLedgerEnd(pkgManagementClient, tokenHolder),
         contractDao,
-        healthTimeoutSeconds
+        healthTimeoutSeconds,
       )
 
       (encoder, decoder) = buildJsonCodecs(packageService)
@@ -193,7 +179,7 @@ object HttpService extends StrictLogging {
         contractsService,
         packageService.resolveTemplateId,
         decoder,
-        LedgerReader.damlLfTypeLookup(packageService.packageStore _),
+        LedgerReader.damlLfTypeLookup(() => packageService.packageStore),
         wsConfig,
       )
 
@@ -202,11 +188,12 @@ object HttpService extends StrictLogging {
         websocketService,
       )
 
-      defaultEndpoints = jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound
+      defaultEndpoints =
+        jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound
 
       allEndpoints = staticContentConfig.cata(
         c => StaticContentEndpoints.all(c) orElse defaultEndpoints,
-        defaultEndpoints
+        defaultEndpoints,
       )
 
       binding <- liftET[Error](
@@ -221,7 +208,7 @@ object HttpService extends StrictLogging {
   }
 
   private[http] def refreshToken(
-      holderM: Option[TokenHolder],
+      holderM: Option[TokenHolder]
   )(implicit ec: ExecutionContext): Future[PackageService.ServerError \/ Option[String]] =
     Future(
       holderM
@@ -230,11 +217,11 @@ object HttpService extends StrictLogging {
           holder.token
             .map(\/-(_))
             .getOrElse(-\/(PackageService.ServerError("Unable to load token")))
-        },
+        }
     )
 
   private[http] def doLoad(packageClient: PackageClient, ids: Set[String], tokenM: Option[String])(
-      implicit ec: ExecutionContext,
+      implicit ec: ExecutionContext
   ): Future[PackageService.ServerError \/ Option[PackageStore]] =
     LedgerReader
       .loadPackageStoreUpdates(packageClient, tokenM)(ids)
@@ -248,17 +235,24 @@ object HttpService extends StrictLogging {
 
   // We can reuse the token we use for packages since both
   // require only public claims
-  private[http] def getLedgerEnd(client: LedgerClient, holderM: Option[TokenHolder])(
-      implicit ec: ExecutionContext): () => Future[Unit] =
+  private[http] def getLedgerEnd(client: DamlLedgerClient, holderM: Option[TokenHolder])(implicit
+      ec: ExecutionContext
+  ): () => Future[Unit] =
     () => {
       for {
         token <- refreshToken(holderM).flatMap(x =>
-          toFuture(x: PackageService.Error \/ Option[String]))
+          toFuture(x: PackageService.Error \/ Option[String])
+        )
         _ <- client.transactionClient.getLedgerEnd(token)
       } yield ()
     }
 
-  def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
+  def stop(
+      f: Future[Error \/ ServerBinding]
+  )(implicit
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): Future[Unit] = {
     logger.info("Stopping server...")
     f.collect { case \/-(a) => a.unbind().void }.join
   }
@@ -268,14 +262,14 @@ object HttpService extends StrictLogging {
     jwt => JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.shows))
 
   private[http] def buildJsonCodecs(
-      packageService: PackageService,
+      packageService: PackageService
   ): (DomainJsonEncoder, DomainJsonDecoder) = {
 
-    val lfTypeLookup = LedgerReader.damlLfTypeLookup(packageService.packageStore _) _
+    val lfTypeLookup = LedgerReader.damlLfTypeLookup(() => packageService.packageStore) _
     val jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
 
     val apiValueToJsValueConverter = new ApiValueToJsValueConverter(
-      ApiValueToLfValueConverter.apiValueToLfValue,
+      ApiValueToLfValueConverter.apiValueToLfValue
     )
 
     val encoder = new DomainJsonEncoder(
@@ -298,7 +292,11 @@ object HttpService extends StrictLogging {
   private def schedulePackageReload(
       packageService: PackageService,
       pollInterval: FiniteDuration,
-  )(implicit asys: ActorSystem, ec: ExecutionContext): Cancellable = {
+  )(implicit
+      asys: ActorSystem,
+      ec: ExecutionContext,
+      lc: LoggingContextOf[InstanceUUID],
+  ): Cancellable = {
     val maxWait = pollInterval * 10
 
     // scheduleWithFixedDelay will wait for the previous task to complete before triggering the next one
@@ -326,25 +324,34 @@ object HttpService extends StrictLogging {
       ledgerHost: String,
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
-  )(implicit ec: ExecutionContext, aesf: ExecutionSequencerFactory): Future[Error \/ LedgerClient] =
+      nonRepudiationConfig: nonrepudiation.Configuration.Cli,
+  )(implicit
+      ec: ExecutionContext,
+      aesf: ExecutionSequencerFactory,
+  ): Future[Error \/ DamlLedgerClient] =
     LedgerClient
-      .singleHost(ledgerHost, ledgerPort, clientConfig)
-      .map(_.right)
-      .recover {
-        case NonFatal(e) =>
-          \/.left(Error(s"Cannot connect to the ledger server, error: ${e.description}"))
-      }
+      .fromRetried(
+        ledgerHost,
+        ledgerPort,
+        clientConfig,
+        nonRepudiationConfig,
+        MaxInitialLedgerConnectRetryAttempts,
+      )
+      .map(
+        _.leftMap(Error.fromLedgerClientError)
+      )
 
   private def createPortFile(
       file: Path,
-      binding: akka.http.scaladsl.Http.ServerBinding): Error \/ Unit = {
+      binding: akka.http.scaladsl.Http.ServerBinding,
+  ): Error \/ Unit = {
     import util.ErrorOps._
-    PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error)
+    PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error.apply)
   }
 
   private def uploadDarAndReloadPackages(
       f: LedgerClientJwt.UploadDarFile,
-      g: () => Future[PackageService.Error \/ Unit])(
-      implicit ec: ExecutionContext): LedgerClientJwt.UploadDarFile =
-    (x, y) => f(x, y).flatMap(_ => g().flatMap(toFuture(_): Future[Unit]))
+      g: LoggingContextOf[InstanceUUID] => Future[PackageService.Error \/ Unit],
+  )(implicit ec: ExecutionContext): LedgerClientJwt.UploadDarFile =
+    (x, y) => implicit lc => f(x, y)(lc).flatMap(_ => g(lc).flatMap(toFuture(_): Future[Unit]))
 }

@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+set -eu
+
+version=0.0.0
+sdk_tarball=sdk-release-tarball.tar.gz
+
+# Make sure they are in the right repo
+readonly repo_root="$(bazel info workspace)"
+if [[ "${repo_root}/dev-env/bin/daml-docker-head" != "${BASH_SOURCE[0]}" ]]; then
+  echo "Repo root does not match the script being run."
+  echo "Make sure you run this script from a directory within the 'daml' repository "
+  exit 1
+fi
+
+# Make sure they have docker
+if ! which docker > /dev/null ; then
+  echo "docker does not seems to be installed."
+  echo "See https://docs.docker.com/engine/install/ for more detail about docker installation."
+  exit 1
+fi
+
+bazel build //release:sdk-release-tarball
+
+tmpdir=$(mktemp -d -t docker-daml-XXXXXXXXXX)
+trap "rm -rf ${tmpdir}" EXIT
+
+# docker does like neither COPYing from files outside of the build
+# directory nor symlinks so we copy explicitly
+cp ${repo_root}/bazel-bin/release/${sdk_tarball} ${tmpdir}/
+cat << EOF > ${tmpdir}/Dockerfile
+FROM adoptopenjdk:8-jdk-hotspot
+RUN echo 'hosts: files dns' > /etc/nsswitch.conf
+RUN addgroup --system daml && adduser --system --ingroup daml daml
+USER daml
+COPY --chown=daml:daml ${sdk_tarball} /tmp/
+RUN tar xf /tmp/${sdk_tarball} -C /tmp && \
+  /tmp/sdk-${version}/install.sh && \
+  rm -rf /tmp/${sdk_tarball} /tmp/sdk-${version}
+ENV PATH="/home/daml/.daml/bin:\${PATH}"
+WORKDIR /home/daml
+EOF
+
+docker build -t "digitalasset/daml-sdk:${version}" ${tmpdir}

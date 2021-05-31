@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -13,7 +13,7 @@ object Request {
   implicit object IdentifierFormat extends JsonFormat[Identifier] {
     def read(value: JsValue): Identifier = value match {
       case JsString(s) =>
-        Identifier fromString s fold (deserializationError(_), identity)
+        Identifier.fromString(s).fold(deserializationError(_), identity)
       case _ => deserializationError("Expected trigger identifier of the form pkgid:mod:name")
     }
     def write(id: Identifier): JsValue = JsString(id.toString)
@@ -25,7 +25,8 @@ object Request {
   final case class StartParams(
       triggerName: Identifier,
       party: Party,
-      applicationId: Option[ApplicationId])
+      applicationId: Option[ApplicationId],
+  )
   object StartParams {
     implicit val applicationIdFormat: JsonFormat[ApplicationId] =
       Tag.subst(implicitly[JsonFormat[String]])

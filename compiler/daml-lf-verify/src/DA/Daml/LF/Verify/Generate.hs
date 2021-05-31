@@ -1,11 +1,11 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 
--- | Constraint generator for DAML LF static verification
+-- | Constraint generator for Daml-LF static verification
 module DA.Daml.LF.Verify.Generate
   ( genPackages
   , genExpr

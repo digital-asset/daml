@@ -1,7 +1,7 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML Documentation
+Daml Documentation
 ==================
 
 Getting started
@@ -18,7 +18,7 @@ Getting started
    getting-started/testing
    Cheat Sheet <https://docs.daml.com/cheat-sheet>
 
-Writing DAML
+Writing Daml
 ------------
 
 .. toctree::
@@ -28,7 +28,6 @@ Writing DAML
    daml/intro/0_Intro.rst
    daml/reference/index
    daml/stdlib/index
-   daml/testing-scenarios
    daml/troubleshooting
    /daml/patterns
 
@@ -42,13 +41,13 @@ Building applications
    app-dev/app-arch
    app-dev/bindings-ts/index
    json-api/index
-   DAML Script <daml-script/index>
-   DAML REPL <daml-repl/index>
+   Daml Script <daml-script/index>
+   Daml REPL <daml-repl/index>
    upgrade/index
    app-dev/authorization
    app-dev/ledger-api
 
-Deploying to DAML ledgers
+Deploying to Daml ledgers
 -------------------------
 
 .. toctree::
@@ -59,7 +58,7 @@ Deploying to DAML ledgers
    deploy/generic_ledger
    deploy/ledger-topologies
 
-Operating DAML
+Operating Daml
 --------------
 
 .. toctree::
@@ -80,6 +79,7 @@ Developer Tools
    tools/sandbox
    tools/navigator/index
    tools/codegen
+   tools/profiler
 
 Background concepts
 -------------------
@@ -110,7 +110,6 @@ Early Access Features
    :titlesonly:
    :maxdepth: 2
 
-   tools/navigator/console
    tools/extractor
    daml-integration-kit/index
    triggers/index
@@ -118,7 +117,7 @@ Early Access Features
    tools/trigger-service
    concepts/interoperability
 
-DAML Ecosystem
+Daml Ecosystem
 --------------
 
 .. toctree::

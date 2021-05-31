@@ -1,9 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.stores.ledger.sql
 
-import java.nio.file.Paths
+import java.io.File
 import java.time.Instant
 
 import ch.qos.logback.classic.Level
@@ -14,8 +14,10 @@ import com.daml.ledger.api.domain.{LedgerId, ParticipantId}
 import com.daml.ledger.api.health.Healthy
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, TestResourceContext}
+import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.LegacyTransactionCommitter
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -26,13 +28,12 @@ import com.daml.platform.sandbox.MetricsAround
 import com.daml.platform.sandbox.config.LedgerName
 import com.daml.platform.sandbox.stores.ledger.Ledger
 import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
-import com.daml.platform.store.IndexMetadata
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.{IndexMetadata, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.testing.postgresql.PostgresAroundEach
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
-import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
@@ -103,10 +104,14 @@ final class SqlLedgerSpec
     "refuse to create a new ledger when there is already one with a different ledger ID" in {
       for {
         _ <- createSqlLedger(ledgerId = "TheLedger", validatePartyAllocation = false)
-        throwable <- createSqlLedger(ledgerId = "AnotherLedger", validatePartyAllocation = false).failed
+        throwable <- createSqlLedger(
+          ledgerId = "AnotherLedger",
+          validatePartyAllocation = false,
+        ).failed
       } yield {
         throwable.getMessage should be(
-          "The provided ledger id does not match the existing one. Existing: \"TheLedger\", Provided: \"AnotherLedger\".")
+          "The provided ledger id does not match the existing one. Existing: \"TheLedger\", Provided: \"AnotherLedger\"."
+        )
       }
     }
 
@@ -207,20 +212,20 @@ final class SqlLedgerSpec
       }
     }
 
-    /**
-      * Workaround test for asserting that PostgreSQL asynchronous commits are disabled in
+    /** Workaround test for asserting that PostgreSQL asynchronous commits are disabled in
       * [[com.daml.platform.store.dao.JdbcLedgerDao]] transactions when used from [[SqlLedger]].
       *
-      * NOTE: This is needed for ensuring durability guarantees of DAML-on-SQL.
+      * NOTE: This is needed for ensuring durability guarantees of Daml-on-SQL.
       */
     "does not use async commit when building JdbcLedgerDao" in {
       for {
         _ <- createSqlLedger(validatePartyAllocation = false)
       } yield {
-        val jdbcLedgerDaoLogs =
-          LogCollector.read[this.type]("com.daml.platform.store.dao.JdbcLedgerDao")
-        jdbcLedgerDaoLogs should contain(
-          Level.INFO -> "Starting JdbcLedgerDao with async commit disabled")
+        val hikariDataSourceLogs =
+          LogCollector.read[this.type]("com.daml.platform.store.dao.HikariConnection")
+        hikariDataSourceLogs should contain(
+          Level.INFO -> "Creating Hikari connections with synchronous commit ON"
+        )
       }
     }
   }
@@ -285,6 +290,8 @@ final class SqlLedgerSpec
         name = LedgerName(getClass.getSimpleName),
         serverRole = ServerRole.Testing(getClass),
         jdbcUrl = postgresDatabase.url,
+        databaseConnectionPoolSize = 16,
+        databaseConnectionTimeout = 250.millis,
         providedLedgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
         participantId = participantId.getOrElse(DefaultParticipantId),
         timeProvider = TimeProvider.UTC,
@@ -294,10 +301,12 @@ final class SqlLedgerSpec
         initialLedgerEntries = ImmArray.empty,
         queueDepth = queueDepth,
         transactionCommitter = LegacyTransactionCommitter,
-        startMode = SqlStartMode.ContinueIfExists,
+        startMode = SqlStartMode.MigrateAndStart,
         eventsPageSize = 100,
+        servicesExecutionContext = executionContext,
         metrics = new Metrics(metrics),
-        lfValueTranslationCache = LfValueTranslation.Cache.none,
+        lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+        engine = new Engine(),
         validatePartyAllocation = validatePartyAllocation,
       ).acquire()(ResourceContext(system.dispatcher))
     createdLedgers += ledger
@@ -310,10 +319,9 @@ object SqlLedgerSpec {
 
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
 
-  private val testArchivePath = rlocation(Paths.get("ledger/test-common/model-tests.dar"))
-  private val darReader = DarReader { (_, stream) =>
-    Try(DamlLf.Archive.parseFrom(stream))
+  private val Success(testDar) = {
+    val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
+    val fileName = new File(rlocation(ModelTestDar.path))
+    reader.readArchiveFromFile(fileName)
   }
-  private lazy val Success(testDar) =
-    darReader.readArchiveFromFile(testArchivePath.toFile)
 }

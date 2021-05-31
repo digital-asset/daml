@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 terraform {
@@ -23,11 +23,11 @@ provider "secret" {
 }
 
 provider "template" {
-  version = "2.1.2"
+  version = "~>2.2"
 }
 
 data "google_project" "current" {
-  project_id = "${local.project}"
+  project_id = local.project
 }
 
 locals {
@@ -36,16 +36,16 @@ locals {
     host-group      = "buildpipeline"
     infra-owner     = "daml-language"
     managed         = "true"
-
-    # default the target name to be the name of the folder
-    target = "${basename(path.module)}"
+    target          = "infra"
   }
 
-  machine-labels = "${merge(local.labels, map("env", "production"))}"
+  machine-labels = merge(local.labels, map("env", "production"))
 
   project = "da-dev-gcp-daml-language"
   region  = "us-east4"
   zone    = "us-east4-a"
 
-  ssl_certificate_hoogle = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/daml-lang-hoogle-app-service-https-cert"
+  ssl_certificate_hoogle = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/hoogle-google-cert"
 }
+
+resource "secret_resource" "vsts-token" {}

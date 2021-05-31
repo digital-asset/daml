@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Helper.Codegen
   ( runCodegen
@@ -36,7 +36,7 @@ runCodegen lang args =
         if null args
           then do
             darPath <- getDarPath
-            projectConfig <- getProjectConfig
+            projectConfig <- getProjectConfig Nothing
             outputPath <-
               requiredE
                 "Failed to read output directory for JavaScript code generation" $

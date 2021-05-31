@@ -1,11 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package speedy
 
 import java.util
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SExpr._
@@ -79,6 +79,6 @@ private[speedy] object PrettyLightweight { // lightweight pretty printer for CEK
       s"clo[${commas(fvs.map(pp))}]:${pp(expr)}"
   }
 
-  def commas(xs: Seq[String]): String = xs.mkString(",")
+  def commas(xs: collection.Seq[String]): String = xs.mkString(",")
 
 }

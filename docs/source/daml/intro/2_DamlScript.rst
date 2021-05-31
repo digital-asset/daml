@@ -1,10 +1,12 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-2 Testing templates using DAML Script
+.. _testing-using-script:
+
+2 Testing templates using Daml Script
 =====================================
 
-In this section you will test the ``Token`` model from :doc:`1_Token` using the :doc:`DAML Script </daml-script/index>` integration in :ref:`DAML Studio <scenario-script-results>`. You'll learn about the basic features of :
+In this section you will test the ``Token`` model from :doc:`1_Token` using the :doc:`Daml Script </daml-script/index>` integration in :ref:`Daml Studio <scenario-script-results>`. You'll learn about the basic features of :
 
 - Allocating parties
 - Submitting transactions
@@ -26,7 +28,7 @@ A ``Script`` is like a recipe for a test, where you can script different parties
 
 Below is a basic script that creates a ``Token`` for a party called "Alice".
 
-.. literalinclude:: daml/daml-intro-2/Token_Test.daml
+.. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_1_BEGIN
   :end-before: -- TOKEN_TEST_1_END
@@ -43,7 +45,7 @@ Before you can create any ``Token`` contracts, you need some parties on the test
 
 
   If that doesn't quite make sense yet, for the time being you can think of this arrow as extracting the right-hand-side value from the ledger and storing it into the variable on the left.
-- The argument ``"Alice"`` to ``allocateParty`` does not have to be enclosed in brackets. Functions in DAML are called using the syntax ``fn arg1 arg2 arg3``.
+- The argument ``"Alice"`` to ``allocateParty`` does not have to be enclosed in brackets. Functions in Daml are called using the syntax ``fn arg1 arg2 arg3``.
 
 With a variable ``alice`` of type ``Party`` in hand, you can submit your first transaction. Unsurprisingly, you do this using the ``submit`` function. ``submit`` takes two arguments: the ``Party`` and the ``Commands``.
 
@@ -56,14 +58,14 @@ You could write this as ``submit alice (createCmd Token with owner = alice)``, b
 Running scripts
 ---------------
 
-There are a few ways to run DAML Scripts:
+There are a few ways to run Daml Scripts:
 
-- In DAML Studio against a test ledger, providing visualizations of the resulting ledger
-- Using the command line ``daml test`` also against a test ledger, useful for continuous integration
-- Against a real ledger, take a look at the documentation for :doc:`DAML Script </daml-script/index>` for more information.
-- Interactively using :doc:`DAML REPL </daml-repl/index>`.
+- In Daml Studio against a test ledger, providing visualizations of the resulting ledger.
+- Using the command line ``daml test`` also against a test ledger, useful for continuous integration.
+- Against a real ledger, take a look at the documentation for :doc:`Daml Script </daml-script/index>` for more information.
+- Interactively using :doc:`Daml REPL </daml-repl/index>`.
 
-In DAML Studio, you should see the text "Script results" just above the line ``token_test_1 = do``. Click on it to display the outcome of the script.
+In Daml Studio, you should see the text "Script results" just above the line ``token_test_1 = do``. Click on it to display the outcome of the script.
 
 .. figure:: images/2_Scenario/scenario_results1.png
 
@@ -91,7 +93,7 @@ Testing for failure
 
 In :doc:`1_Token` you learned that creating a ``Token`` requires the authority of its owner. In other words, it should not be possible for Alice to create a Token for another party and vice versa. A reasonable attempt to test that would be:
 
-.. literalinclude:: daml/daml-intro-2/Token_Test.daml
+.. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
   :language: daml
   :start-after: -- FAILURE_TEST_1_BEGIN
   :end-before: -- FAILURE_TEST_1_END
@@ -104,7 +106,7 @@ The script failed, as expected, but scripts abort at the first failure. This mea
 
 To test for failing submits and keep the script running thereafter, or fail if the submission succeeds, you can use the ``submitMustFail`` function:
 
-.. literalinclude:: daml/daml-intro-2/Token_Test.daml
+.. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_2_BEGIN
   :end-before: -- TOKEN_TEST_2_END
@@ -124,7 +126,7 @@ To ``archiveCmd`` the Token Alice has created, you need to get a handle on its c
 
 This script first checks that Bob cannot archive Alice's Token and then Alice successfully archives it:
 
-.. literalinclude:: daml/daml-intro-2/Token_Test.daml
+.. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_3_BEGIN
   :end-before: -- TOKEN_TEST_3_END
@@ -142,7 +144,7 @@ Click on the adjacent "Show transaction view" button to see the entire transacti
 
 .. figure:: images/2_Scenario/tx_graph.png
 
-In the DAML Studio script runner, committed transactions are numbered sequentially. The lines starting with ``TX`` indicate that there are three committed transactions, with ids ``#0``, ``#1``, and ``#2``. These correspond to the three ``submit`` and ``submitMustFail`` statements in the script.
+In the Daml Studio script runner, committed transactions are numbered sequentially. The lines starting with ``TX`` indicate that there are three committed transactions, with ids ``#0``, ``#1``, and ``#2``. These correspond to the three ``submit`` and ``submitMustFail`` statements in the script.
 
 Transaction ``#0`` has one *sub-transaction* ``#0:0``, which the arrow indicates is a ``create`` of a ``Token``. Identifiers ``#X:Y`` mean ``commit X, sub-transaction Y``. All transactions have this format in the script runner. However, this format is a testing feature. In general, you should consider Transaction and Contract IDs to be opaque.
 
@@ -169,4 +171,4 @@ To get a better understanding of script, try the following exercises:
 Next up
 ----------
 
-In :doc:`3_Data` you will learn about DAML's type system, and how you can think of templates as tables and contracts as database rows.
+In :doc:`3_Data` you will learn about Daml's type system, and how you can think of templates as tables and contracts as database rows.

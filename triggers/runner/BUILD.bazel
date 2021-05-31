@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -14,6 +14,13 @@ tsvc_main_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wa
 da_scala_library(
     name = "trigger-runner-lib",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_paiges_core",
+    ],
     scalacopts = tsvc_main_scalacopts,
     tags = ["maven_coordinates=com.daml:trigger-runner:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -34,11 +41,6 @@ da_scala_library(
         "//libs-scala/auth-utils",
         "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_typelevel_paiges_core_2_12",
     ],
 )
 

@@ -20,7 +20,7 @@ type F f = forall a. f a
 shadow : forall a. F (Either a)
 shadow = error "shadow"
 
--- This breaks if we don't allow for shadowing type variables in DAML-LF.
+-- This breaks if we don't allow for shadowing type variables in Daml-LF.
 type Kont a = forall r. (a -> r) -> r
 
 kont2 : Kont (Kont Int)

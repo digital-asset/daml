@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -27,8 +27,8 @@ class StructSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks
 
       forEvery(testCases) { list =>
         val struct = Struct.assertFromSeq(list)
-        (struct.names zip struct.names.drop(1)).foreach {
-          case (x, y) => (x: String) shouldBe <(y: String)
+        (struct.names zip struct.names.drop(1)).foreach { case (x, y) =>
+          (x: String) shouldBe <(y: String)
         }
       }
 
@@ -46,7 +46,7 @@ class StructSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks
         )
 
       forEvery(testCases) { list =>
-        Struct.fromSeq(list) shouldBe 'left
+        Struct.fromSeq(list) shouldBe a[Left[_, _]]
       }
 
     }
@@ -84,8 +84,8 @@ class StructSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks
             List(f1 -> 1, f2 -> 2, f3 -> 3),
             List(f2 -> 2),
             List(f2 -> 2, f3 -> 3),
-            List(f3 -> 3)
-          ).map(Struct.assertFromSeq).zipWithIndex: _*,
+            List(f3 -> 3),
+          ).map(Struct.assertFromSeq).zipWithIndex: _*
         )
 
       forEvery(testCases) { (x, i) =>

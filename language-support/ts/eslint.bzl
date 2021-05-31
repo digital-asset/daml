@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@language_support_ts_deps//eslint:index.bzl", _eslint_test = "eslint_test")
@@ -16,7 +16,7 @@ def eslint_test(name, srcs, tsconfig = ":tsconfig.json", eslintrc = ":.eslintrc.
     """
     eslint_deps = [
         "@language_support_ts_deps//@typescript-eslint",
-        "@language_support_ts_deps//tsutils",
+        "@language_support_ts_deps//@typescript-eslint/eslint-plugin",
     ] if not is_windows else []
     templated_args = [
         "--config",

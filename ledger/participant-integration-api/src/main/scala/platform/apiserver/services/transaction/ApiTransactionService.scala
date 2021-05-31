@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.transaction
@@ -17,7 +17,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
@@ -37,8 +37,8 @@ private[apiserver] object ApiTransactionService {
   def create(
       ledgerId: LedgerId,
       transactionsService: IndexTransactionsService,
-  )(
-      implicit ec: ExecutionContext,
+  )(implicit
+      ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory,
       loggingContext: LoggingContext,
@@ -46,12 +46,12 @@ private[apiserver] object ApiTransactionService {
     new GrpcTransactionService(
       new ApiTransactionService(transactionsService),
       ledgerId,
-      PartyNameChecker.AllowAllParties
+      PartyNameChecker.AllowAllParties,
     )
 }
 
 private[apiserver] final class ApiTransactionService private (
-    transactionsService: IndexTransactionsService,
+    transactionsService: IndexTransactionsService
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends TransactionService
     with ErrorFactories {
@@ -61,96 +61,129 @@ private[apiserver] final class ApiTransactionService private (
   private val subscriptionIdCounter = new AtomicLong()
 
   override def getTransactions(
-      request: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed] =
+      request: GetTransactionsRequest
+  ): Source[GetTransactionsResponse, NotUsed] =
     withEnrichedLoggingContext(
       logging.startExclusive(request.startExclusive),
       logging.endInclusive(request.endInclusive),
       logging.parties(request.filter.filtersByParty.keys),
     ) { implicit loggingContext =>
       val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
-      logger.debug(s"Received request for transaction subscription $subscriptionId: $request")
+      logger.info(s"Received request for transaction subscription $subscriptionId: $request")
       transactionsService
         .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
+        .via(logger.debugStream(transactionsLoggable))
         .via(logger.logErrorsOnStream)
     }
 
+  private def transactionsLoggable(transactions: GetTransactionsResponse): String =
+    s"Responding with transactions: ${transactions.transactions.toList
+      .map(t => entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset))}"
+
+  private def transactionTreesLoggable(trees: GetTransactionTreesResponse): String =
+    s"Responding with transaction trees: ${trees.transactions.toList
+      .map(t => entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset))}"
+
+  private def entityLoggable(
+      commandId: String,
+      transactionId: String,
+      workflowId: String,
+      offset: String,
+  ): Map[String, String] =
+    Map(
+      logging.commandId(commandId),
+      logging.transactionId(transactionId),
+      logging.workflowId(workflowId),
+      "offset" -> offset,
+    )
+
   override def getTransactionTrees(
-      request: GetTransactionTreesRequest): Source[GetTransactionTreesResponse, NotUsed] =
+      request: GetTransactionTreesRequest
+  ): Source[GetTransactionTreesResponse, NotUsed] =
     withEnrichedLoggingContext(
       logging.startExclusive(request.startExclusive),
       logging.endInclusive(request.endInclusive),
       logging.parties(request.parties),
     ) { implicit loggingContext =>
-      logger.debug(s"Received $request")
+      logger.info(s"Received request for transaction tree subscription: $request")
       transactionsService
         .transactionTrees(
           request.startExclusive,
           request.endInclusive,
           TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
-          request.verbose
+          request.verbose,
         )
+        .via(logger.debugStream(transactionTreesLoggable))
         .via(logger.logErrorsOnStream)
     }
 
   override def getTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[GetTransactionResponse] =
+      request: GetTransactionByEventIdRequest
+  ): Future[GetTransactionResponse] =
     withEnrichedLoggingContext(
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
-      logger.debug(s"Received $request")
+      logger.info(s"Received request for transaction by event id: $request")
       ledger.EventId
         .fromString(request.eventId.unwrap)
-        .map {
-          case ledger.EventId(transactionId, _) =>
-            lookUpTreeByTransactionId(TransactionId(transactionId), request.requestingParties)
+        .map { case ledger.EventId(transactionId, _) =>
+          lookUpTreeByTransactionId(TransactionId(transactionId), request.requestingParties)
         }
         .getOrElse(
           Future.failed(
             Status.NOT_FOUND
               .withDescription(s"invalid eventId: ${request.eventId}")
-              .asRuntimeException()))
+              .asRuntimeException()
+          )
+        )
         .andThen(logger.logErrorsOnCall[GetTransactionResponse])
     }
 
   override def getTransactionById(
-      request: GetTransactionByIdRequest): Future[GetTransactionResponse] =
+      request: GetTransactionByIdRequest
+  ): Future[GetTransactionResponse] =
     withEnrichedLoggingContext(
       logging.transactionId(request.transactionId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
-      logger.debug(s"Received $request")
+      logger.info(s"Received request for transaction by id $request")
       lookUpTreeByTransactionId(request.transactionId, request.requestingParties)
         .andThen(logger.logErrorsOnCall[GetTransactionResponse])
     }
 
   override def getFlatTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[GetFlatTransactionResponse] =
+      request: GetTransactionByEventIdRequest
+  ): Future[GetFlatTransactionResponse] =
     withEnrichedLoggingContext(
       logging.eventId(request.eventId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
+      logger.info(s"Received request for flat transaction by event id: $request")
       ledger.EventId
         .fromString(request.eventId.unwrap)
         .fold(
           err =>
             Future.failed[GetFlatTransactionResponse](
-              Status.NOT_FOUND.withDescription(s"invalid eventId: $err").asRuntimeException()),
+              Status.NOT_FOUND.withDescription(s"invalid eventId: $err").asRuntimeException()
+            ),
           eventId =>
             lookUpFlatByTransactionId(
               TransactionId(eventId.transactionId),
-              request.requestingParties)
+              request.requestingParties,
+            ),
         )
         .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
     }
 
   override def getFlatTransactionById(
-      request: GetTransactionByIdRequest,
+      request: GetTransactionByIdRequest
   ): Future[GetFlatTransactionResponse] =
     withEnrichedLoggingContext(
       logging.transactionId(request.transactionId),
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
+      logger.info(s"Received request for flat transaction by id: $request")
       lookUpFlatByTransactionId(request.transactionId, request.requestingParties)
         .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
     }
@@ -163,14 +196,16 @@ private[apiserver] final class ApiTransactionService private (
 
   private def lookUpTreeByTransactionId(
       transactionId: TransactionId,
-      requestingParties: Set[Party]): Future[GetTransactionResponse] =
+      requestingParties: Set[Party],
+  ): Future[GetTransactionResponse] =
     transactionsService
       .getTransactionTreeById(transactionId, requestingParties)
       .map(getOrElseThrowNotFound)
 
   private def lookUpFlatByTransactionId(
       transactionId: TransactionId,
-      requestingParties: Set[Party]): Future[GetFlatTransactionResponse] =
+      requestingParties: Set[Party],
+  ): Future[GetFlatTransactionResponse] =
     transactionsService
       .getTransactionById(transactionId, requestingParties)
       .map(getOrElseThrowNotFound)
@@ -180,6 +215,7 @@ private[apiserver] final class ApiTransactionService private (
     a.getOrElse(
       throw Status.NOT_FOUND
         .withDescription("Transaction not found, or not visible.")
-        .asRuntimeException())
+        .asRuntimeException()
+    )
 
 }

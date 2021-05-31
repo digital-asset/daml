@@ -1,9 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 //
 // Protocol buffer messages used by the participant state key-value utilities
-// for implementing a DAML ledger backed by a key-value store.
+// for implementing a Daml ledger backed by a key-value store.
 //
 // These messages should only be produced and consumed by the methods in
 // `KeyValueCommitting`, `KeyValueConsumption` and `KeyValueSubmission` objects.
@@ -75,7 +75,7 @@ message DamlSubmissionBatch {
   repeated CorrelatedSubmission submissions = 2;
 }
 
-// A log entry for a committed DAML submission.
+// A log entry for a committed Daml submission.
 // Produced by [[KeyValueCommitting]] from the `DamlSubmission` message.
 // Each entry can be converted into a participant state `Update` event
 // with [[KeyValueConsumption]], except for a time update entry.
@@ -88,26 +88,26 @@ message DamlLogEntry {
   google.protobuf.Timestamp record_time = 1;
 
   oneof payload {
-    // A committed DAML transaction.
+    // A committed Daml transaction.
     // Can be converted into `Update.TransactionAccepted`.
     DamlTransactionEntry transaction_entry = 2;
 
     // A rejected transaction.
     DamlTransactionRejectionEntry transaction_rejection_entry = 3;
 
-    // A collection of DAML-LF archives uploaded together by a participant.
+    // A collection of Daml-LF archives uploaded together by a participant.
     DamlPackageUploadEntry package_upload_entry = 4;
 
     // A rejection of package upload.
     DamlPackageUploadRejectionEntry package_upload_rejection_entry = 5;
 
-    // A DAML ledger configuration change.
+    // A Daml ledger configuration change.
     DamlConfigurationEntry configuration_entry = 6;
 
     // A rejected configuration change.
     DamlConfigurationRejectionEntry configuration_rejection_entry = 7;
 
-    // Allocation of a new DAML party and its assignment to a participant.
+    // Allocation of a new Daml party and its assignment to a participant.
     DamlPartyAllocationEntry party_allocation_entry = 8;
 
     // A rejection of party allocation request.
@@ -127,7 +127,7 @@ message DamlLogEntryId {
   // provide an ordered sequence of log entries.
   // The entry identifier is used:
   // * to lookup the log entry when producing `Update`.
-  // * as the DAML transaction identifier and rendered as hexadecimal.
+  // * as the Daml transaction identifier and rendered as hexadecimal.
   // * as part of contract identifiers.
   bytes entry_id = 1;
 }
@@ -140,8 +140,8 @@ message DamlSubmitterInfo {
   google.protobuf.Timestamp deduplicate_until = 5;
 }
 
-// DAML transaction entry, used in both `DamlSubmission` and `DamlLogEntry`.
-// Contains the original relative transaction as produced by DAML Engine, along
+// Daml transaction entry, used in both `DamlSubmission` and `DamlLogEntry`.
+// Contains the original relative transaction as produced by Daml Engine, along
 // with submitter information and metadata (see Ledger API `commands.proto` for
 // their source).
 message DamlTransactionEntry {
@@ -222,7 +222,7 @@ message DamlTransactionRejectionEntry {
 }
 
 // A public package upload.
-// DAML-LF packages will be deduplicated based on their hashes. Only unique
+// Daml-LF packages will be deduplicated based on their hashes. Only unique
 // ones will be added to the key-value storage. Deduplication has no impact on the
 // upload result.
 message DamlPackageUploadEntry {
@@ -362,9 +362,9 @@ message DamlOutOfTimeBoundsEntry {
   google.protobuf.Timestamp too_late_from = 4;
 }
 
-// DAML state key. [[KeyValueCommitting]] produces effects that are committed
+// Daml state key. [[KeyValueCommitting]] produces effects that are committed
 // to the ledger from the `DamlSubmission`: a log entry to be created, and
-// the set of DAML state updates.
+// the set of Daml state updates.
 // The field numbers below must match with the corresponding entries in `DamlStateValue`.
 message DamlStateKey {
   oneof key {
@@ -378,7 +378,7 @@ message DamlStateKey {
   }
 }
 
-// DAML state values pointed to by `DamlStateKey`.
+// Daml state values pointed to by `DamlStateKey`.
 // The field numbers below must match with the corresponding entries in `DamlStateKey`.
 message DamlStateValue {
   oneof value {
@@ -425,7 +425,7 @@ message DamlSubmissionDedupValue {
   reserved 1; // was record_time
 }
 
-// DAML contract state, recording the activeness state of a contract.
+// Daml contract state, recording the activeness state of a contract.
 // The contract instance itself is stored within the transaction in a log entry.
 // See https://github.com/digital-asset/daml/issues/734 for future work on contract
 // instance storage.
@@ -457,7 +457,7 @@ message DamlContractState {
 }
 
 message DamlContractKey {
-  // The DAML template identifier of the contract that created this key.
+  // The Daml template identifier of the contract that created this key.
   com.daml.lf.value.Identifier template_id = 1;
 
   reserved 2; // This was key serialized as a VersionedValue. Replaced by hash.
@@ -490,32 +490,7 @@ message DamlContractKeyState {
   google.protobuf.Timestamp active_at = 2;
 }
 
-// A v1 dump of a "kvutils" ledger, including submissions. Used by the integrity checker to test
-// that a new version of kvutils can process older submissions and ledgers.
-message LedgerDumpEntry {
-  message StatePair {
-    DamlStateKey state_key = 1;
-    bytes state_value = 2; // wrapped in envelope.
-  }
-
-  // The submission to the ledger, wrapped in an envelope.
-  // Optional. If unset the submission is synthesized from the log entry if possible.
-  bytes submission = 1;
-
-  // The participant that submitted it.
-  string participant_id = 2;
-
-  // The assigned entry id.
-  DamlLogEntryId entry_id = 3;
-
-  // The resulting log entry, wrapped in envelope.
-  bytes log_entry = 4;
-
-  // The resulting output state.
-  repeated StatePair output_state = 5;
-}
-
-// A v3 export of a "kvutils" ledger. Used by the integrity checker to test that a new version of
+// A v3 export of a KV ledger. Used by the integrity checker to test that a new version of
 // kvutils can process older ledgers.
 message LedgerExportEntry {
   // Information about the submission.
@@ -554,7 +529,7 @@ message Inconsistent {
 }
 
 // The transaction has been disputed.
-// Dispute occurs when the DAML model conformance or authorization fails.
+// Dispute occurs when the Daml model conformance or authorization fails.
 message Disputed {
   string details = 1;
 }
@@ -591,7 +566,7 @@ message SubmitterCannotActViaParticipant {
   string details = 1;
 }
 
-// Submitted request content was not valid: a DAML package, a party name
+// Submitted request content was not valid: a Daml package, a party name
 // or a configuration.
 message Invalid {
   string details = 1;

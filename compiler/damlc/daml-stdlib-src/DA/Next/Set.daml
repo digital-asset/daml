@@ -1,10 +1,23 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# OPTIONS -Wno-deprecations #-}
+{-# LANGUAGE CPP #-}
+
+#ifdef DAML_GENMAP
+
+-- | `DA.Next.Set` is deprecated. Please use `DA.Set` instead.
+module DA.Next.Set
+  {-# DEPRECATED "DA.Next.Set is deprecated. Please use DA.Set instead." #-}
+
+#else
 
 -- | Set - The `Set a` type represents a set of elements of type
 -- `a`. Most operations require that `a` be an instance of the `MapKey`
 -- type class.
 module DA.Next.Set
+
+#endif
+
   ( Set
   , empty
   , size

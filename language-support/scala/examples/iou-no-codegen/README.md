@@ -8,7 +8,7 @@ This example demonstrates how to:
 This examples requires a running sandbox.
 
 ## To start a sandbox running IOU example
-- create a new DAML Assistant `quickstart-scala` project
+- create a new Daml Assistant `quickstart-scala` project
 ```
 $ daml new quickstart-scala --template quickstart-scala
 ```

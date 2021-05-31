@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -31,12 +31,12 @@ object InterfaceReader {
 
   private def invalidDataTypeDefinition(
       ctx: QualifiedName,
-      reason: String
+      reason: String,
   ) = -\/(InvalidDataTypeDefinition(errorMessage(ctx, reason)))
 
   private def unserializableDataType(
       ctx: QualifiedName,
-      reason: String
+      reason: String,
   ) = -\/(UnserializableDataType(errorMessage(ctx, reason)))
 
   object InterfaceReaderError {
@@ -46,12 +46,13 @@ object InterfaceReader {
       Semigroup.firstSemigroup
 
     def treeReport(errors: Errors[ErrorLoc, InterfaceReader.InvalidDataTypeDefinition]): Cord =
-      stringReport(errors)(_ fold (sy => Cord(".") :+ sy.name, Cord("'") :+ _ :+ "'"), _.error)
+      stringReport(errors)(_.fold(sy => Cord(".") :+ sy.name, Cord("'") :+ _ :+ "'"), _.error)
   }
 
   private[reader] final case class State(
       typeDecls: Map[QualifiedName, iface.InterfaceType] = Map.empty,
-      errors: InterfaceReaderError.Tree = mzero[InterfaceReaderError.Tree]) {
+      errors: InterfaceReaderError.Tree = mzero[InterfaceReaderError.Tree],
+  ) {
 
     def addTypeDecl(nd: (Ref.QualifiedName, iface.InterfaceType)): State =
       copy(typeDecls + nd)
@@ -66,7 +67,7 @@ object InterfaceReader {
 
   private[reader] object State {
     implicit val stateMonoid: Monoid[State] =
-      Monoid instance ((l, r) => State(l.typeDecls ++ r.typeDecls, l.errors |+| r.errors), State())
+      Monoid.instance((l, r) => State(l.typeDecls ++ r.typeDecls, l.errors |+| r.errors), State())
   }
 
   def readInterface(
@@ -83,8 +84,9 @@ object InterfaceReader {
 
   private val dummyInterface = iface.Interface(dummyPkgId, Map.empty)
 
-  def readInterface(f: () => String \/ (PackageId, Ast.Package))
-    : (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
+  def readInterface(
+      f: () => String \/ (PackageId, Ast.Package)
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
     f() match {
       case -\/(e) =>
         (point(InvalidDataTypeDefinition(e)), dummyInterface)
@@ -101,7 +103,8 @@ object InterfaceReader {
     }
 
   private def filterOutUnserializableErrors(
-      es: InterfaceReaderError.Tree): Errors[ErrorLoc, InvalidDataTypeDefinition] =
+      es: InterfaceReaderError.Tree
+  ): Errors[ErrorLoc, InvalidDataTypeDefinition] =
     es.collectAndPrune { case x: InvalidDataTypeDefinition => x }
 
   private[reader] def foldModule(module: Ast.Module): State =
@@ -122,7 +125,7 @@ object InterfaceReader {
             enum(fullName, tyVars, dfn)
         }
 
-        locate('name, rootErrOf[ErrorLoc](result)) match {
+        locate(Symbol("name"), rootErrOf[ErrorLoc](result)) match {
           case -\/(e) =>
             state.addError(e)
           case \/-(d) =>
@@ -148,30 +151,29 @@ object InterfaceReader {
   ) =
     for {
       fields <- fieldsOrCons(name, record.fields)
-      choices <- dfn.choices.toList traverse {
-        case (choiceName, choice) => visitChoice(name, choice) map (x => choiceName -> x)
+      choices <- dfn.choices.toList traverse { case (choiceName, choice) =>
+        visitChoice(name, choice) map (x => choiceName -> x)
       }
       key <- dfn.key traverse (k => toIfaceType(name, k.typ))
     } yield name -> iface.InterfaceType.Template(Record(fields), DefTemplate(choices.toMap, key))
 
   private def visitChoice(
       ctx: QualifiedName,
-      choice: Ast.TemplateChoice
+      choice: Ast.TemplateChoice,
   ): InterfaceReaderError \/ TemplateChoice[Type] =
     for {
       tParam <- toIfaceType(ctx, choice.argBinder._2)
       tReturn <- toIfaceType(ctx, choice.returnType)
-    } yield
-      TemplateChoice(
-        param = tParam,
-        consuming = choice.consuming,
-        returnType = tReturn
-      )
+    } yield TemplateChoice(
+      param = tParam,
+      consuming = choice.consuming,
+      returnType = tReturn,
+    )
 
   private[reader] def variant(
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
-      variant: Ast.DataVariant
+      variant: Ast.DataVariant,
   ) = {
     for {
       cons <- fieldsOrCons(name, variant.variants)
@@ -181,24 +183,29 @@ object InterfaceReader {
   private[reader] def enum(
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
-      enum: Ast.DataEnum) =
+      enum: Ast.DataEnum,
+  ) =
     if (tyVars.isEmpty)
       \/-(
         name -> iface.InterfaceType.Normal(
-          DefDataType(ImmArraySeq.empty, Enum(enum.constructors.toSeq))))
+          DefDataType(ImmArraySeq.empty, Enum(enum.constructors.toSeq))
+        )
+      )
     else
       invalidDataTypeDefinition(name, s"non-empty type parameters for enum type $name")
 
-  private[reader] def fieldsOrCons(ctx: QualifiedName, fields: ImmArray[(Ref.Name, Ast.Type)])
-    : InterfaceReaderError \/ ImmArraySeq[(Ref.Name, Type)] =
-    fields.toSeq traverse {
-      case (fieldName, typ) => toIfaceType(ctx, typ).map(x => fieldName -> x)
+  private[reader] def fieldsOrCons(
+      ctx: QualifiedName,
+      fields: ImmArray[(Ref.Name, Ast.Type)],
+  ): InterfaceReaderError \/ ImmArraySeq[(Ref.Name, Type)] =
+    fields.toSeq traverse { case (fieldName, typ) =>
+      toIfaceType(ctx, typ).map(x => fieldName -> x)
     }
 
   private[lf] def toIfaceType(
       ctx: QualifiedName,
       a: Ast.Type,
-      args: FrontStack[Type] = FrontStack.empty
+      args: FrontStack[Type] = FrontStack.empty,
   ): InterfaceReaderError \/ Type =
     a match {
       case Ast.TVar(x) =>
@@ -214,7 +221,8 @@ object InterfaceReader {
         primitiveType(ctx, bt, args.toImmArray.toSeq)
       case Ast.TApp(tyfun, arg) =>
         toIfaceType(ctx, arg, FrontStack.empty) flatMap (tArg =>
-          toIfaceType(ctx, tyfun, tArg +: args))
+          toIfaceType(ctx, tyfun, tArg +: args)
+        )
       case Ast.TForall(_, _) | Ast.TStruct(_) | Ast.TNat(_) | Ast.TSynApp(_, _) =>
         unserializableDataType(ctx, s"unserializable data type: ${a.pretty}")
     }
@@ -222,7 +230,7 @@ object InterfaceReader {
   private def primitiveType(
       ctx: QualifiedName,
       a: Ast.BuiltinType,
-      args: ImmArraySeq[Type]
+      args: ImmArraySeq[Type],
   ): InterfaceReaderError \/ TypePrim =
     for {
       ab <- a match {
@@ -241,8 +249,10 @@ object InterfaceReader {
         case Ast.BTNumeric =>
           unserializableDataType(
             ctx,
-            s"Unserializable primitive type: $a must be applied to one and only one TNat")
-        case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow | Ast.BTAny | Ast.BTTypeRep =>
+            s"Unserializable primitive type: $a must be applied to one and only one TNat",
+          )
+        case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow | Ast.BTAny | Ast.BTTypeRep |
+            Ast.BTAnyException | Ast.BTBigNumeric | Ast.BTRoundingMode =>
           unserializableDataType(ctx, s"Unserializable primitive type: $a")
       }
       (arity, primType) = ab

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.http.perf.scenario
 
@@ -21,7 +21,7 @@ private[scenario] trait SimulationConfig {
 
   private lazy val hostAndPort: String = System.getProperty(HostAndPortKey, "localhost:7575")
 
-  private lazy val jwt: String = System.getProperty(JwtKey, aliceJwt)
+  protected[this] lazy val jwt: String = System.getProperty(JwtKey, aliceJwt)
 
   // {"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Alice"]}}
   val aliceJwt: String =

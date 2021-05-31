@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Feature and Component Statuses
@@ -16,7 +16,7 @@ Ledger API
    * - Component/Feature
      - Status
      - Deprecated on
-   * - :doc:`Ledger API specification </app-dev/grpc/proto-docs>` including all semantics of >= DAML-LF 1.6
+   * - :doc:`Ledger API specification </app-dev/grpc/proto-docs>` including all semantics of >= Daml-LF 1.6
      - Stable
      -   
    * - `Numbered (ie non-dev) Versions of Proto definitions distributed via GitHub Releases <protobufs_>`_
@@ -70,13 +70,13 @@ Runtime components
    * - **Triggers**
      -
      -
-   * - :doc:`DAML API of individual Triggers </triggers/index>`
+   * - :doc:`Daml API of individual Triggers </triggers/index>`
      - Beta
      -
    * - :doc:`Development CLI to start individual triggers in dev environment </triggers/index>` (``daml trigger``)
      - Beta
      -
-   * - :doc:`/tools/trigger-service` (``daml trigger-service``)
+   * - :doc:`/tools/trigger-service/index` (``daml trigger-service``)
      - Alpha
      -
    * - **Extractor**
@@ -155,16 +155,16 @@ Libraries
    * - ``@daml/react`` :doc:`library and its public API </app-dev/bindings-ts/daml-react>`
      - Stable
      -
-   * - **DAML Libraries**
+   * - **Daml Libraries**
      -
      -
-   * - :doc:`The DAML Standard Library </daml/stdlib/index>`
+   * - :doc:`The Daml Standard Library </daml/stdlib/index>`
      - Stable
      -
-   * - :doc:`The DAML Script Library </daml-script/api/index>`
+   * - :doc:`The Daml Script Library </daml-script/api/index>`
      - Stable
      -
-   * - :doc:`The DAML Trigger Library </triggers/api/index>`
+   * - :doc:`The Daml Trigger Library </triggers/api/index>`
      - Stable
      -
    
@@ -209,7 +209,7 @@ Developer Tools
    * - Assistant commands to start Runtime Components: ``daml json-api``, ``daml trigger``, ``daml trigger-service``, and ``daml extractor``.
      - See :ref:`runtime-components`.
      -
-   * - **DAML Projects**
+   * - **Daml Projects**
      -
      -
    * - ``daml.yaml`` project specification
@@ -218,7 +218,7 @@ Developer Tools
    * - Assistant commands ``new``, ``create-daml-app``, and ``init``. Note that the templates created by ``daml new`` and ``create-daml-app`` are considered example code, and are not covered by :ref:`semantic versioning <versioning>`.
      - Stable
      -
-   * - **DAML Studio**
+   * - **Daml Studio**
      -
      -
    * - VSCode Extension
@@ -239,16 +239,19 @@ Developer Tools
    * - ``daml sandbox`` assistant command and documented CLI under ``daml sandbox --help``.
      - Stable
      -
-   * - DAML Sandbox in Memory (ie without the ``--sql-backend-jdbcurl`` flag)
+   * - Daml Sandbox in Memory (ie without the ``--sql-backend-jdbcurl`` flag)
      - Stable
      -
-   * - DAML Sandbox on Postgres (iw with the ``--sql-backend-jdbcurl`` flag)
+   * - Daml Sandbox on Postgres (ie with the ``--sql-backend-jdbcurl`` flag)
      - Stable, Deprecated
      - 2020-12-16
-   * - DAML Sandbox Classic and associated CLIs ``daml sandbox-classic``, ``daml start --sandbox-classic``
+   * - Daml Sandbox Classic and associated CLIs ``daml sandbox-classic``, ``daml start --sandbox-classic``
      - Stable, Deprecated
      - 2020-04-09
-   * - **DAML Compiler**
+   * - Daml Profiler ``daml sandbox --profile-dir``
+     - Alpha
+     -
+   * - **Daml Compiler**
      -
      -
    * - ``daml build`` CLI
@@ -272,19 +275,19 @@ Developer Tools
    * - DAR File validation (``daml damlc validate-dar``)
      - Stable
      -
-   * - DAML Linter (``daml damlc lint``)
+   * - Daml Linter (``daml damlc lint``)
      - Stable
      -
-   * - DAML REPL (``daml damlc repl``)
-     - See DAML REPL heading below
+   * - Daml REPL (``daml damlc repl``)
+     - See Daml REPL heading below
      -
-   * - DAML Language Server CLI (``daml damlc ide``)
+   * - Daml Language Server CLI (``daml damlc ide``)
      - Labs
      -
-   * - DAML Documentation Generation (``daml damlc docs``)
+   * - Daml Documentation Generation (``daml damlc docs``)
      - Labs
      -
-   * - :doc:`DAML Model Visualization </tools/visual>` (``daml damlc visual`` and ``daml damlc visual-web``)
+   * - :doc:`Daml Model Visualization </tools/visual>` (``daml damlc visual`` and ``daml damlc visual-web``)
      - Labs
      -
    * - ``daml doctest``
@@ -293,19 +296,19 @@ Developer Tools
    * - **Scenarios and Script**
      -
      -
-   * - Scenario DAML API
+   * - Scenario Daml API
      - Stable
      -
-   * - :doc:`Script DAML API </daml-script/index>`
+   * - :doc:`Script Daml API </daml-script/index>`
      - Stable
      -
-   * - DAML Scenario IDE integration
+   * - Daml Scenario IDE integration
      - Stable
      -
-   * - DAML Script IDE integration
+   * - Daml Script IDE integration
      - Stable
      -
-   * - :doc:`DAML Script Library </daml-script/api/index>`
+   * - :doc:`Daml Script Library </daml-script/api/index>`
      - See :ref:`libraries`
      -
    * - ``daml test`` in-memory Script and Scenario test CLI
@@ -320,25 +323,22 @@ Developer Tools
    * - **Navigator**
      -
      -
-   * - :doc:`DAML Navigator Development UI </tools/navigator/index>` (``daml navigator server``)
+   * - :doc:`Daml Navigator Development UI </tools/navigator/index>` (``daml navigator server``)
      - Stable
      -
    * - Navigator Config File Creation (``daml navigator create-config``)
      - Stable
      -
-   * - :doc:`DAML Navigator Console </tools/navigator/console>` (``daml navigator console``)
-     - Labs
-     -
    * - Navigator graphQL Schema (``daml navigator dump-graphql-schema``)
      - Labs
      -
-   * - **DAML REPL Interactive Shell**
+   * - **Daml REPL Interactive Shell**
      -
      -
    * - ``daml repl`` :doc:`CLI </daml-repl/index>`
      - Stable
      -
-   * - :doc:`DAML and meta-APIs of the REPL </daml-repl/index>`
+   * - :doc:`Daml and meta-APIs of the REPL </daml-repl/index>`
      - Stable
      -
    * - **Ledger Administration CLI**

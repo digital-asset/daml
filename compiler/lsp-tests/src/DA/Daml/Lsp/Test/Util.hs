@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Lsp.Test.Util
@@ -29,7 +29,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Data.Aeson (Result(..), fromJSON)
 import qualified Data.Text as T
-import Language.Haskell.LSP.Test hiding (message, openDoc')
+import Language.Haskell.LSP.Test hiding (message)
 import qualified Language.Haskell.LSP.Test as LspTest
 import Language.Haskell.LSP.Types
 import Language.Haskell.LSP.Types.Lens as Lsp

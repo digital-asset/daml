@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MagicHash #-}
@@ -22,8 +22,6 @@ import "ghc-lib-parser" Class as GHC
 
 import Data.Generics.Uniplate.Data
 import Data.Maybe
-import Data.List
-import Data.Tuple.Extra
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -32,7 +30,8 @@ import GHC.Ptr(Ptr(..))
 import System.IO.Unsafe
 import Text.Read (readMaybe)
 import Control.Monad (guard)
-
+import qualified Data.Map.Strict as MS
+import qualified DA.Daml.LF.Ast as LF
 
 ----------------------------------------------------------------------
 -- GHC utility functions
@@ -79,7 +78,7 @@ pattern IgnoreWorkerPrefixFS :: T.Text -> FastString
 pattern IgnoreWorkerPrefixFS n <- (fsToText -> IgnoreWorkerPrefix n)
 
 -- daml-prim module patterns
-pattern Control_Exception_Base, Data_String, GHC_Base, GHC_Classes, GHC_CString, GHC_Integer_Type, GHC_Num, GHC_Prim, GHC_Real, GHC_Tuple, GHC_Types :: GHC.Module
+pattern Control_Exception_Base, Data_String, GHC_Base, GHC_Classes, GHC_CString, GHC_Integer_Type, GHC_Num, GHC_Prim, GHC_Real, GHC_Tuple, GHC_Types, GHC_Show :: GHC.Module
 pattern Control_Exception_Base <- ModuleIn DamlPrim "Control.Exception.Base"
 pattern Data_String <- ModuleIn DamlPrim "Data.String"
 pattern GHC_Base <- ModuleIn DamlPrim "GHC.Base"
@@ -91,9 +90,10 @@ pattern GHC_Prim <- ModuleIn DamlPrim "GHC.Prim" -- wired-in by GHC
 pattern GHC_Real <- ModuleIn DamlPrim "GHC.Real"
 pattern GHC_Tuple <- ModuleIn DamlPrim "GHC.Tuple"
 pattern GHC_Types <- ModuleIn DamlPrim "GHC.Types"
+pattern GHC_Show <- ModuleIn DamlPrim "GHC.Show"
 
 -- daml-stdlib module patterns
-pattern DA_Action, DA_Generics, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions :: GHC.Module
+pattern DA_Action, DA_Generics, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record, DA_Internal_Desugar, DA_Internal_Template_Functions, DA_Internal_Exception :: GHC.Module
 pattern DA_Action <- ModuleIn DamlStdlib "DA.Action"
 pattern DA_Generics <- ModuleIn DamlStdlib "DA.Generics"
 pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
@@ -101,6 +101,7 @@ pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
 pattern DA_Internal_Record <- ModuleIn DamlStdlib "DA.Internal.Record"
 pattern DA_Internal_Desugar <- ModuleIn DamlStdlib "DA.Internal.Desugar"
 pattern DA_Internal_Template_Functions <- ModuleIn DamlStdlib "DA.Internal.Template.Functions"
+pattern DA_Internal_Exception <- ModuleIn DamlStdlib "DA.Internal.Exception"
 
 -- | Deconstruct a dictionary function (DFun) identifier into a tuple
 -- containing, in order:
@@ -120,46 +121,55 @@ splitDFunId v
     | otherwise
     = Nothing
 
--- | Pattern for template desugaring DFuns.
-pattern DesugarDFunId :: [GHC.TyCoVar] -> [GHC.Type] -> FastString -> [GHC.Type] -> GHC.Var
-pattern DesugarDFunId tyCoVars dfunArgs clsName classArgs <-
+-- | Pattern for desugaring DFuns.
+pattern DesugarDFunId :: [GHC.TyCoVar] -> [GHC.Type] -> GHC.Name -> [GHC.Type] -> GHC.Var
+pattern DesugarDFunId tyCoVars dfunArgs name classArgs <-
     (splitDFunId -> Just
         ( tyCoVars
         , dfunArgs
-        , GHC.className -> NameIn DA_Internal_Template_Functions clsName
+        , GHC.className -> name
         , classArgs
         )
     )
 
 pattern HasSignatoryDFunId, HasEnsureDFunId, HasAgreementDFunId, HasObserverDFunId,
-    HasArchiveDFunId :: TyCon -> GHC.Var
+    HasArchiveDFunId, ShowDFunId :: TyCon -> GHC.Var
 
 pattern HasSignatoryDFunId templateTyCon <-
-    DesugarDFunId [] [] "HasSignatory"
+    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasSignatory")
         [splitTyConApp_maybe -> Just (templateTyCon, [])]
 pattern HasEnsureDFunId templateTyCon <-
-    DesugarDFunId [] [] "HasEnsure"
+    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasEnsure")
         [splitTyConApp_maybe -> Just (templateTyCon, [])]
 pattern HasAgreementDFunId templateTyCon <-
-    DesugarDFunId [] [] "HasAgreement"
+    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasAgreement")
         [splitTyConApp_maybe -> Just (templateTyCon, [])]
 pattern HasObserverDFunId templateTyCon <-
-    DesugarDFunId [] [] "HasObserver"
+    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasObserver")
         [splitTyConApp_maybe -> Just (templateTyCon, [])]
 pattern HasArchiveDFunId templateTyCon <-
-    DesugarDFunId [] [] "HasArchive"
+    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasArchive")
         [splitTyConApp_maybe -> Just (templateTyCon, [])]
+pattern ShowDFunId tyCon <-
+    DesugarDFunId [] [] (NameIn GHC_Show "Show")
+        [splitTyConApp_maybe -> Just (tyCon, [])]
 
 pattern HasKeyDFunId, HasMaintainerDFunId :: TyCon -> Type -> GHC.Var
 
 pattern HasKeyDFunId templateTyCon keyTy <-
-    DesugarDFunId [] [] "HasKey"
+    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasKey")
         [ splitTyConApp_maybe -> Just (templateTyCon, [])
         , keyTy ]
 pattern HasMaintainerDFunId templateTyCon keyTy <-
-    DesugarDFunId [] [] "HasMaintainer"
+    DesugarDFunId [] [] (NameIn DA_Internal_Template_Functions "HasMaintainer")
         [ splitTyConApp_maybe -> Just (templateTyCon, [])
         , keyTy ]
+
+pattern HasMessageDFunId :: TyCon -> GHC.Var
+pattern HasMessageDFunId tyCon <-
+    DesugarDFunId [] [] (NameIn DA_Internal_Exception "HasMessage")
+        [splitTyConApp_maybe -> Just (tyCon, [])]
+
 
 -- | Break down a constraint tuple projection function name
 -- into an (index, arity) pair. These names have the form
@@ -186,6 +196,23 @@ pattern ConstraintTupleProjection :: Int -> Int -> GHC.Expr Var
 pattern ConstraintTupleProjection index arity <-
     Var (ConstraintTupleProjectionName index arity)
 
+pattern RoundingModeName :: LF.RoundingModeLiteral -> FastString
+pattern RoundingModeName lit <- (toRoundingModeLiteral . fsToText -> Just lit)
+
+toRoundingModeLiteral :: T.Text -> Maybe LF.RoundingModeLiteral
+toRoundingModeLiteral x = MS.lookup x roundingModeLiteralMap
+
+roundingModeLiteralMap :: MS.Map T.Text LF.RoundingModeLiteral
+roundingModeLiteralMap = MS.fromList
+    [ ("RoundingUp", LF.LitRoundingUp)
+    , ("RoundingDown", LF.LitRoundingDown)
+    , ("RoundingCeiling", LF.LitRoundingCeiling)
+    , ("RoundingFloor", LF.LitRoundingFloor)
+    , ("RoundingHalfUp", LF.LitRoundingHalfUp)
+    , ("RoundingHalfDown", LF.LitRoundingHalfDown)
+    , ("RoundingHalfEven", LF.LitRoundingHalfEven)
+    , ("RoundingUnnecessary", LF.LitRoundingUnnecessary)
+    ]
 
 subst :: [(TyVar, GHC.Type)] -> GHC.Type -> GHC.Type
 subst env = transform $ \t ->
@@ -223,16 +250,30 @@ hasDamlEnumCtx t
     | otherwise
     = False
 
+hasDamlExceptionCtx :: TyCon -> Bool
+hasDamlExceptionCtx t
+    | [theta] <- tyConStupidTheta t
+    , TypeCon tycon [] <- theta
+    , NameIn DA_Internal_Exception "DamlException" <- tycon
+    = True
+
+    | otherwise
+    = False
+
 -- Pretty printing is very expensive, so clone the logic for when to add unique suffix
 varPrettyPrint :: Var -> T.Text
 varPrettyPrint (varName -> x) = getOccText x <> (if isSystemName x then "_" <> T.pack (show $ nameUnique x) else "")
 
+-- | Move DEFAULT case to end of the alternatives list.
+--
+-- GHC always puts the DEFAULT case at the front of the list
+-- (see https://hackage.haskell.org/package/ghc-8.2.2/docs/CoreSyn.html#t:Expr).
+-- We move the DEFAULT case to the back because LF gives earlier
+-- patterns priority, so the DEFAULT case needs to be last.
 defaultLast :: [Alt Var] -> [Alt Var]
-defaultLast = uncurry (++) . partition ((/=) DEFAULT . fst3)
-
-isLitAlt :: Alt Var -> Bool
-isLitAlt (LitAlt{},_,_) = True
-isLitAlt _              = False
+defaultLast = \case
+    alt@(DEFAULT,_,_) : alts -> alts ++ [alt]
+    alts -> alts
 
 untick :: GHC.Expr b -> GHC.Expr b
 untick = \case

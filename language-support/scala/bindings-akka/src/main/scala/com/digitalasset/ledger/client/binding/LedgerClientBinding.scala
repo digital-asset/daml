@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
@@ -16,7 +16,7 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.api.v1.event.Event
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
-  LedgerIdentityServiceGrpc
+  LedgerIdentityServiceGrpc,
 }
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
@@ -26,7 +26,6 @@ import com.daml.ledger.client.binding.retrying.{CommandRetryFlow, RetryInfo}
 import com.daml.ledger.client.binding.util.Slf4JLogger
 import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.daml.util.Ctx
-import com.github.ghik.silencer.silent
 import io.grpc.ManagedChannel
 import io.grpc.netty.NegotiationType.TLS
 import io.grpc.netty.NettyChannelBuilder
@@ -34,6 +33,7 @@ import io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class LedgerClientBinding(
@@ -42,7 +42,8 @@ class LedgerClientBinding(
     val channel: ManagedChannel,
     retryTimeout: Duration,
     timeProvider: TimeProvider,
-    decoder: DecoderType) {
+    decoder: DecoderType,
+) {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -52,30 +53,34 @@ class LedgerClientBinding(
       party: Party,
       templateSelector: TemplateSelector,
       startOffset: LedgerOffset,
-      endOffset: Option[LedgerOffset]): Source[DomainTransaction, NotUsed] = {
+      endOffset: Option[LedgerOffset],
+  ): Source[DomainTransaction, NotUsed] = {
 
     logger.debug(
       "[tx {}] subscription start with offset template selector {}, start {}, end {}",
-      party,
+      Party.unwrap(party),
       templateSelector,
       startOffset,
-      endOffset)
+      endOffset,
+    )
 
     ledgerClient.transactionClient
       .getTransactions(startOffset, endOffset, transactionFilter(party, templateSelector))
-      .via(Slf4JLogger(
-        logger,
-        s"tx $party",
-        tx =>
-          s"CID ${tx.commandId} TX ${tx.transactionId} CONTAINS ${tx.events
-            .map {
-              case Event(Event.Event.Created(value)) => s"C ${value.contractId}"
-              case Event(Event.Event.Archived(value)) => s"A ${value.contractId}"
-              case other => sys.error(s"Expected Created or Archived, got $other"): String
-            }
-            .mkString("[", ",", "]")}",
-        false
-      ))
+      .via(
+        Slf4JLogger(
+          logger,
+          s"tx $party",
+          tx =>
+            s"CID ${tx.commandId} TX ${tx.transactionId} CONTAINS ${tx.events
+              .map {
+                case Event(Event.Event.Created(value)) => s"C ${value.contractId}"
+                case Event(Event.Event.Archived(value)) => s"A ${value.contractId}"
+                case other => sys.error(s"Expected Created or Archived, got $other"): String
+              }
+              .mkString("[", ",", "]")}",
+          false,
+        )
+      )
       .via(DomainTransactionMapper(decoder))
   }
 
@@ -86,21 +91,22 @@ class LedgerClientBinding(
     ApplicationId(ledgerClientConfig.applicationId),
   )
 
-  def retryingConfirmedCommands[C](party: Party)(
-      implicit ec: ExecutionContext): Future[CommandTrackingFlow[C]] =
+  def retryingConfirmedCommands[C](
+      party: Party
+  )(implicit ec: ExecutionContext): Future[CommandTrackingFlow[C]] =
     for {
       tracking <- CommandRetryFlow[C](
         party,
         ledgerClient.commandClient,
         timeProvider,
         retryTimeout,
-        createRetry)
-    } yield
-      Flow[Ctx[C, CompositeCommand]]
-        .map(_.map(compositeCommandAdapter.transform))
-        .via(tracking)
+        createRetry,
+      )
+    } yield Flow[Ctx[C, CompositeCommand]]
+      .map(_.map(compositeCommandAdapter.transform))
+      .via(tracking)
 
-  @silent(" ignored .* is never used") // matches CommandRetryFlow signature
+  @nowarn("msg=parameter value ignored .* is never used") // matches CommandRetryFlow signature
   private def createRetry[C](retryInfo: RetryInfo[C], ignored: Any): SubmitRequest = {
     if (retryInfo.request.commands.isEmpty) {
       logger.warn(s"Retrying with empty commands for {}", retryInfo.request)
@@ -114,11 +120,10 @@ class LedgerClientBinding(
   def commands[C](party: Party)(implicit ec: ExecutionContext): Future[CommandsFlow[C]] = {
     for {
       trackCommandsFlow <- ledgerClient.commandClient.trackCommands[C](List(party.unwrap))
-    } yield
-      Flow[Ctx[C, CompositeCommand]]
-        .map(_.map(compositeCommandAdapter.transform))
-        .via(trackCommandsFlow)
-        .mapMaterializedValue(_ => NotUsed)
+    } yield Flow[Ctx[C, CompositeCommand]]
+      .map(_.map(compositeCommandAdapter.transform))
+      .via(trackCommandsFlow)
+      .mapMaterializedValue(_ => NotUsed)
   }
 
   def shutdown()(implicit ec: ExecutionContext): Future[Unit] = Future {
@@ -142,9 +147,12 @@ object LedgerClientBinding {
     builder.build()
   }
 
-  @silent(" config .* is never used") // public function, unsure whether arg needed
-  def askLedgerId(channel: ManagedChannel, config: LedgerClientConfiguration)(
-      implicit ec: ExecutionContext): Future[String] =
+  @nowarn(
+    "msg=parameter value config .* is never used"
+  ) // public function, unsure whether arg needed
+  def askLedgerId(channel: ManagedChannel, config: LedgerClientConfiguration)(implicit
+      ec: ExecutionContext
+  ): Future[String] =
     LedgerIdentityServiceGrpc
       .stub(channel)
       .getLedgerIdentity(GetLedgerIdentityRequest())

@@ -1,11 +1,11 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML-LF Governance process
+Daml-LF Governance process
 ==========================
 
 These are the principles and rules by which changes to three data
-formats are governed by the DAML Language team:
+formats are governed by the Daml Language team:
 
 * language,
 * values and,
@@ -15,38 +15,38 @@ formats are governed by the DAML Language team:
 Overview
 --------
 
-* The *DAML-LF language* is the typed core calculus that DAML gets
+* The *Daml-LF language* is the typed core calculus that Daml gets
   compiled to, and that the ledger runs.
 
-* *DAML-LF  serializable  values*  or   (DAML-LF  values  for  brevity
-  (DAML-LF values for brevity in the rest in the rest of this document)
-  is  the  universe of  DAML-LF  values  that  can  be stored  on  the
+* *Daml-LF  serializable  values*  or   (Daml-LF  values  for  brevity
+  (Daml-LF values for brevity in the rest in the rest of this document)
+  is  the  universe of  Daml-LF  values  that  can  be stored  on  the
   ledger.   Currently  nominal  records,  nominal   variants,  lists,
   optionals, maps, and primitive types.
 
-* *DAML-LF transaction nodes* (DAML-LF nodes for brevity in the rest
-   of this document) used to represent DAML actions described in the
-   DAML ledger model. Currently there are *create*, *exercise*,
+* *Daml-LF transaction nodes* (Daml-LF nodes for brevity in the rest
+   of this document) used to represent Daml actions described in the
+   Daml ledger model. Currently there are *create*, *exercise*,
    *fetch*, and *lookup-by-key* nodes.
    
-* *DAML-F transactions* are sequences of transaction nodes that
+* *Daml-F transactions* are sequences of transaction nodes that
   defines an update to the ledger.
   
-* The DAML-LF language is versioned using a major and minor component.
+* The Daml-LF language is versioned using a major and minor component.
   Changes to the major component allow us to drop features, or update
   the serialization format.  Changes to the minor component cannot
   break backward compatibility, and operate on the same major version
   of the serialization format in a backward compatible way. For
   historical reason this scheme starts at `1.6`.
 
-* DAML-LF values, nodes, and transactions are versioned using a common
+* Daml-LF values, nodes, and transactions are versioned using a common
   one component version scheme, called transaction version scheme.
   For historical reason this scheme starts at `10`.
   
-* DAML-LF Language, values, nodes, and transactions are evolved
+* Daml-LF Language, values, nodes, and transactions are evolved
   together without ever breaking backwards compatibility.
   
-* DAML-LF values, nodes, and transactions, and language are involved
+* Daml-LF values, nodes, and transactions, and language are involved
   together, meaning the introduction of a new language version implies
   the introduction of a new transaction version, and reciprocally.
 
@@ -55,28 +55,28 @@ Overview
   transactions.  Moreover, a one-line summary of each version must be
   present in the ``daml-lf-X.proto`` and ``transaction.proto`` files.
 
-* Every change to DAML-LF values, nodes, transactions or languages
-  *must* be checked for governance rules conformance and be approved
-  by at least two persons among Rémy Haemmerle, Martin Huschenbett
-  and Sophia Mota. Proposed changes can be filed as tickets under
-  labels "component/daml-lf" and "discussion".
+* Every change to Daml-LF values, nodes, transactions or languages *must* be
+  checked for governance rules conformance and be approved by at least two
+  persons among Rémy Haemmerle (@remyhaemmerle-da), Sofia Faro (@sofiafaro-da)
+  and Moritz Kiefer (@cocreature). Proposed changes can be filed as tickets
+  under labels "component/daml-lf" and "discussion".
 
 Language
 --------
 
 Some version bumps might not change the ``.proto`` at all, but just
 add / change semantics in the specification. For example, the string
-format for decimal numbers in DAML-LF values might be made more
+format for decimal numbers in Daml-LF values might be made more
 lenient, resulting in a version bump with no ``.proto`` schema changes
 (but probably a comment).
 
-Also note that the DAML-LF versioning is independent from the DAML
+Also note that the Daml-LF versioning is independent from the Daml
 surface language versioning.
 
 "dev" version
 ~~~~~~~~~~~~~
 
-Every DAML-LF major version includes a minor version, the *dev*
+Every Daml-LF major version includes a minor version, the *dev*
 version, which we use as staging area for the next stable minor
 version of that major version.
 
@@ -89,7 +89,7 @@ All newly-implemented minor version features or changes must be staged
 in the *dev* version for later release as a stable group of
 backward-compatible features.
 
-The DAML-LF dev version is enabled in the sandbox and ledger server,
+The Daml-LF dev version is enabled in the sandbox and ledger server,
 but will never be emitted by damlc unless explicitly requested via
 ``--target 1.dev`` or similar.
 
@@ -126,7 +126,7 @@ rather than "best-effort" consuming it in such a case, because any
 field might be ignored when within values/transactions of later
 versions.
 
-For DAML-LF values, node and transaction we have a single document for
+For Daml-LF values, node and transaction we have a single document for
 all the versions, with annotations on version-specific features (in
 the form of "since version XYZ").
 
@@ -142,11 +142,11 @@ Unlike the language, values and transactions have only one major
 version each; in terms of how language is versioned, they only have
 minor versions.  Their treatment is different for a few reasons:
 
-- We expect DAML-LF values to be often stored in a long-term fashion -
+- We expect Daml-LF values to be often stored in a long-term fashion -
   for example a ledger needs to do so.
 
 - It should be possible to revalidate old transactions at any time;
-  requiring users to maintain an archive of every DAML-LF engine
+  requiring users to maintain an archive of every Daml-LF engine
   version they ever used in order to be able to revalidate would be
   extremely onerous, and ledger operators should be able to upgrade
   the engine freely.
@@ -154,8 +154,8 @@ minor versions.  Their treatment is different for a few reasons:
 - While we could have major revisions and have each ledger deployment
   to have a blessed set of major revisions, like we plan do for code,
   we expect the impact of such a decision to be much greater, since
-  there is essentially only one consumer of DAML-LF code (the server),
-  while DAML-LF values will be stored all over the place, and the
+  there is essentially only one consumer of Daml-LF code (the server),
+  while Daml-LF values will be stored all over the place, and the
   disruption of breaking changes would be too burdensome.
 
 - It is *much* easier to preserve compatibility of simple first-order
@@ -164,8 +164,8 @@ minor versions.  Their treatment is different for a few reasons:
 Working with LF data
 --------------------
 
-The language Team provides libraries to read and write DAML-LF values,
-DAML-LF transactions, and DAML-LF packages in a version-aware manner,
+The language Team provides libraries to read and write Daml-LF values,
+Daml-LF transactions, and Daml-LF packages in a version-aware manner,
 to aid the implementation of readers and writers.
 
 With "version-aware" we mean that the libraries encoding and decoding
@@ -175,7 +175,7 @@ becomes more complex as the specifications evolve, we strongly
 recommend that JVM-hosted applications use our libraries for encoding
 and decoding.
 
-The ``daml-lf/transaction`` library for DAML-LF values and
+The ``daml-lf/transaction`` library for Daml-LF values and
 transactions includes:
 
 .. todo include this at some point? - Specification
@@ -187,12 +187,12 @@ transactions includes:
   Scala and Java, and functions to decode / encode between the
   ``.proto`` and the data structures.
 
-The ``daml-lf/lfpackage`` library for the DAML-LF language includes:
+The ``daml-lf/lfpackage`` library for the Daml-LF language includes:
 
 .. todo include this at some point? - Specifications, one per major revision
 
-- Data structures to work with DAML-LF packages. Currently, this is an
-  AST that supports a set of DAML-LF versions, spanning across multiple
+- Data structures to work with Daml-LF packages. Currently, this is an
+  AST that supports a set of Daml-LF versions, spanning across multiple
   major revisions, either by having a larger type or by converting some
   features into other features (e.g. if we add dependent functions the
   library would convert non-dependent functions and foralls into
@@ -214,8 +214,8 @@ The ``daml-lf/validation`` library includes:
 Engine
 ------
 
-The Language team provides the DAML-LF engine. The DAML-LF engine
-will advertise what versions of the DAML-LF language it accepts.
+The Language team provides the Daml-LF engine. The Daml-LF engine
+will advertise what versions of the Daml-LF language it accepts.
 It is guaranteed and engine will
 accept all transaction version associated to those language versions.
 

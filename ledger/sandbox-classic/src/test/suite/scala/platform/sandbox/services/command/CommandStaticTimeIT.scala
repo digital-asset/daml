@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services.command
@@ -10,7 +10,7 @@ import com.daml.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementA
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
-  SubmitRequest
+  SubmitRequest,
 }
 import com.daml.ledger.api.v1.commands.CreateCommand
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
@@ -43,8 +43,7 @@ final class CommandStaticTimeIT
 
   private val newCommandId: () => String = {
     val atomicInteger = new AtomicInteger()
-    () =>
-      atomicInteger.incrementAndGet().toString
+    () => atomicInteger.incrementAndGet().toString
   }
 
   private lazy val unwrappedLedgerId = ledgerId().unwrap
@@ -62,8 +61,10 @@ final class CommandStaticTimeIT
           CommandClientConfiguration(
             maxCommandsInFlight = 1,
             maxParallelSubmissions = 1,
-            defaultDeduplicationTime = java.time.Duration.ofSeconds(30)),
-      ))(DirectExecutionContext)
+            defaultDeduplicationTime = java.time.Duration.ofSeconds(30),
+          ),
+        )
+      )(DirectExecutionContext)
 
   private lazy val submitRequest: SubmitRequest =
     MockMessages.submitRequest.update(
@@ -74,11 +75,18 @@ final class CommandStaticTimeIT
           Some(
             Record(
               Some(templateIds.dummy),
-              Seq(RecordField(
-                "operator",
-                Option(
-                  Value(Value.Sum.Party(MockMessages.submitAndWaitRequest.commands.get.party)))))))
-        ).wrap)
+              Seq(
+                RecordField(
+                  "operator",
+                  Option(
+                    Value(Value.Sum.Party(MockMessages.submitAndWaitRequest.commands.get.party))
+                  ),
+                )
+              ),
+            )
+          ),
+        ).wrap
+      ),
     )
 
   "Command and Time Services" when {
@@ -91,11 +99,15 @@ final class CommandStaticTimeIT
           completion <- commandClient
             .trackSingleCommand(
               SubmitRequest(
-                Some(submitRequest.getCommands
-                  .withLedgerId(unwrappedLedgerId)
-                  .withCommandId(newCommandId()))))
+                Some(
+                  submitRequest.getCommands
+                    .withLedgerId(unwrappedLedgerId)
+                    .withCommandId(newCommandId())
+                )
+              )
+            )
         } yield {
-          completion.status.value should have('code (Status.OK.getCode.value()))
+          completion.status.value.code should be(Status.OK.getCode.value())
         }
       }
 

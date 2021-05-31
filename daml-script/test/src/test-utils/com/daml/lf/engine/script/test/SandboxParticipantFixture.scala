@@ -1,17 +1,18 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
 
 import java.io.File
 
-import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, RunnerConfig, ScriptTimeMode}
+import com.daml.lf.engine.script.{ApiParameters, Participants, Runner, RunnerConfig}
 import com.daml.platform.sandbox.services.SandboxFixture
 import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.Suite
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 
 import scala.concurrent.ExecutionContext
 
@@ -23,7 +24,8 @@ trait SandboxParticipantFixture
   private implicit val ec: ExecutionContext = system.dispatcher
   def participantClients(
       maxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize,
-      tlsConfiguration: TlsConfiguration = TlsConfiguration.Empty.copy(enabled = false)) =
+      tlsConfiguration: TlsConfiguration = TlsConfiguration.Empty.copy(enabled = false),
+  ) =
     Runner.connect(
       Participants(
         default_participant = Some(
@@ -31,9 +33,11 @@ trait SandboxParticipantFixture
             host = "localhost",
             port = serverPort.value,
             access_token = None,
-            application_id = None)),
+            application_id = None,
+          )
+        ),
         party_participants = Map.empty,
-        participants = Map.empty
+        participants = Map.empty,
       ),
       tlsConfig = tlsConfiguration,
       maxInboundMessageSize = maxInboundMessageSize,

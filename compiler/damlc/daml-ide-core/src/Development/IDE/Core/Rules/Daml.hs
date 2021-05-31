@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module Development.IDE.Core.Rules.Daml
     ( module Development.IDE.Core.Rules
@@ -24,23 +24,17 @@ import Maybes (MaybeErr(..))
 import TcRnMonad (initIfaceLoad)
 
 import Control.Concurrent.Extra
+import Control.DeepSeq (NFData())
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
-import Development.IDE.Core.Compile
-import Development.IDE.GHC.Error
-import Development.IDE.GHC.Warnings
-import Development.IDE.Core.OfInterest
-import Development.IDE.GHC.Util
-import Development.IDE.Types.Logger hiding (Priority)
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
-import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
-import Development.IDE.Types.Location as Base
 import Data.Aeson hiding (Options)
 import Data.Bifunctor (bimap)
+import Data.Binary (Binary())
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.UTF8 as BS
@@ -48,9 +42,10 @@ import Data.Either.Extra
 import Data.Foldable
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
+import Data.Hashable (Hashable())
+import qualified Data.IntMap.Strict as IntMap
 import Data.List.Extra
 import qualified Data.List.NonEmpty as NonEmpty
-import qualified Data.IntMap.Strict as IntMap
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -59,15 +54,24 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.Extended as T
 import qualified Data.Text.Lazy as TL
 import Data.Tuple.Extra
+import Data.Typeable (Typeable())
+import Development.IDE.Core.Compile
+import Development.IDE.Core.OfInterest
+import Development.IDE.GHC.Error
+import Development.IDE.GHC.Util
+import Development.IDE.GHC.Warnings
+import Development.IDE.Types.Location as Base
+import Development.IDE.Types.Logger hiding (Priority)
 import Development.Shake hiding (Diagnostic, Env, doesFileExist)
-import "ghc-lib" GHC hiding (typecheckModule, Succeeded)
-import "ghc-lib-parser" Module (stringToUnitId, UnitId(..), DefUnitId(..))
+import "ghc-lib" GHC hiding (Succeeded, typecheckModule)
+import "ghc-lib-parser" Module (DefUnitId(..), UnitId(..), stringToUnitId)
 import Safe
+import System.Directory.Extra as Dir
 import System.Environment
+import System.FilePath
 import System.IO
 import System.IO.Error
-import System.Directory.Extra as Dir
-import System.FilePath
+import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
 
 import qualified Network.HTTP.Types as HTTP.Types
 import qualified Network.URI as URI
@@ -85,7 +89,7 @@ import Development.IDE.Core.RuleTypes.Daml
 
 import DA.Bazel.Runfiles
 import DA.Daml.DocTest
-import DA.Daml.LFConversion (convertModule, sourceLocToRange)
+import DA.Daml.LFConversion (convertModule)
 import DA.Daml.LFConversion.UtilLF
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.InferSerializability as Serializability
@@ -188,7 +192,7 @@ data DalfDependency = DalfDependency
   }
 
 getDlintIdeas :: NormalizedFilePath -> Action (Maybe ())
-getDlintIdeas f = runMaybeT $ useE GetDlintDiagnostics f
+getDlintIdeas f = runMaybeT $ fst <$> useE GetDlintDiagnostics f
 
 ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
@@ -206,8 +210,8 @@ diagsToIdeResult fp diags = (map (fp, ShowDiag,) diags, r)
 -- | Dependencies on other packages excluding stable DALFs.
 getUnstableDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
 getUnstableDalfDependencies files = do
-    unitIds <- concatMap transitivePkgDeps <$> usesE GetDependencies files
-    pkgMap <- Map.unions . map getPackageMap <$> usesE GeneratePackageMap files
+    unitIds <- concatMap transitivePkgDeps <$> usesE' GetDependencies files
+    pkgMap <- Map.unions . map getPackageMap <$> usesE' GeneratePackageMap files
     pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
 
 getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
@@ -257,7 +261,7 @@ generateRawDalfRule =
                     PackageMap pkgMap <- use_ GeneratePackageMap file
                     stablePkgs <- useNoFile_ GenerateStablePackages
                     DamlEnv{envIsGenerated} <- getDamlServiceEnv
-                    -- GHC Core to DAML LF
+                    -- GHC Core to Daml-LF
                     case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core details of
                         Left e -> return ([e], Nothing)
                         Right v -> do
@@ -472,8 +476,8 @@ generatePackageMap version mbProjRoot userPkgDbs = do
     versionedPackageDbs <- getPackageDbs version mbProjRoot userPkgDbs
     (diags, pkgs) <-
         fmap (partitionEithers . concat) $
-        forM versionedPackageDbs $ \pkgDb -> do
-            allFiles <- listFilesRecursive pkgDb
+        forM versionedPackageDbs $ \db -> do
+            allFiles <- listFilesRecursive db
             let dalfs = filter ((== ".dalf") . takeExtension) allFiles
             forM dalfs $ \dalf -> do
                 dalfPkgOrErr <- readDalfPackage dalf
@@ -582,6 +586,10 @@ generateStablePackages lfVersion fp = do
                 [ map ("daml-prim" </>)
                     [ "DA-Internal-Erased.dalf"
                     , "DA-Internal-PromotedText.dalf"
+                    , "DA-Exception-GeneralError.dalf"
+                    , "DA-Exception-ArithmeticError.dalf"
+                    , "DA-Exception-AssertionFailed.dalf"
+                    , "DA-Exception-PreconditionFailed.dalf"
                     , "DA-Types.dalf"
                     , "GHC-Prim.dalf"
                     , "GHC-Tuple.dalf"
@@ -593,6 +601,7 @@ generateStablePackages lfVersion fp = do
                     , "DA-NonEmpty-Types.dalf"
                     , "DA-Time-Types.dalf"
                     , "DA-Semigroup-Types.dalf"
+                    , "DA-Set-Types.dalf"
                     , "DA-Monoid-Types.dalf"
                     , "DA-Validation-Types.dalf"
                     , "DA-Logic-Types.dalf"
@@ -653,10 +662,10 @@ generatePackageRule =
 -- and having it be a function makes the merging a bit easier.
 generateSerializedPackage :: LF.PackageName -> Maybe LF.PackageVersion -> [NormalizedFilePath] -> MaybeT Action LF.Package
 generateSerializedPackage pkgName pkgVersion rootFiles = do
-    fileDeps <- usesE GetDependencies rootFiles
+    fileDeps <- usesE' GetDependencies rootFiles
     let allFiles = nubSort $ rootFiles <> concatMap transitiveModuleDeps fileDeps
     files <- lift $ discardInternalModules (Just $ pkgNameVersion pkgName pkgVersion) allFiles
-    dalfs <- usesE ReadSerializedDalf files
+    dalfs <- usesE' ReadSerializedDalf files
     lfVersion <- lift getDamlLfVersion
     pure $ buildPackage (Just pkgName) pkgVersion lfVersion dalfs
 
@@ -732,6 +741,24 @@ contextForFile file = do
         , ctxSkipValidation = SS.SkipValidation (getSkipScenarioValidation envSkipScenarioValidation)
         }
 
+contextForPackage :: NormalizedFilePath -> LF.Package -> Action SS.Context
+contextForPackage file pkg = do
+    lfVersion <- getDamlLfVersion
+    encodedModules <-
+        mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $
+        NM.toList $ LF.packageModules pkg
+    PackageMap pkgMap <- use_ GeneratePackageMap file
+    stablePackages <- useNoFile_ GenerateStablePackages
+    pure
+        SS.Context
+            { ctxModules = Map.fromList encodedModules
+            , ctxPackages =
+                  [ (LF.dalfPackageId pkg, LF.dalfPackageBytes pkg)
+                  | pkg <- Map.elems pkgMap ++ Map.elems stablePackages
+                  ]
+            , ctxSkipValidation = SS.SkipValidation True -- no validation for external packages
+            }
+
 worldForFile :: NormalizedFilePath -> Action LF.World
 worldForFile file = do
     WhnfPackage pkg <- use_ GeneratePackage file
@@ -751,22 +778,30 @@ createScenarioContextRule =
     define $ \CreateScenarioContext file -> do
         ctx <- contextForFile file
         Just scenarioService <- envScenarioService <$> getDamlServiceEnv
-        ctxIdOrErr <- liftIO $ SS.getNewCtx scenarioService ctx
-        ctxId <-
-            liftIO $ either
-                (throwIO . ScenarioBackendException "Failed to create scenario context")
-                pure
-                ctxIdOrErr
         scenarioContextsVar <- envScenarioContexts <$> getDamlServiceEnv
-        liftIO $ modifyMVar_ scenarioContextsVar $ pure . HashMap.insert file ctxId
+        -- We need to keep the lock while creating the context not just while
+        -- updating the variable. That avoids the following race:
+        -- 1. getNewCtx creates a new context A
+        -- 2. Before scenarioContextsVar is updated, gcCtxs kicks in and ends up GCing A.
+        -- 3. Now we update the var and insert A (which has been GCd).
+        -- 4. We return A from the rule and run a scenario on A which
+        --    now fails due to a missing context.
+        ctxId <- liftIO $ modifyMVar scenarioContextsVar $ \prevCtxs -> do
+          ctxIdOrErr <- SS.getNewCtx scenarioService ctx
+          ctxId <-
+              either
+                  (throwIO . ScenarioBackendException "Failed to create scenario context")
+                  pure
+                  ctxIdOrErr
+          pure (HashMap.insert file ctxId prevCtxs, ctxId)
         pure ([], Just ctxId)
 
 -- | This helper should be used instead of GenerateDalf/GenerateRawDalf
 -- for generating modules that are sent to the scenario service.
 -- It switches between GenerateRawDalf and GenerateDalf depending
 -- on whether we only do light or full validation.
-dalfForScenario :: NormalizedFilePath -> Action LF.Module
-dalfForScenario file = do
+moduleForScenario :: NormalizedFilePath -> Action LF.Module
+moduleForScenario file = do
     DamlEnv{..} <- getDamlServiceEnv
     if getSkipScenarioValidation envSkipScenarioValidation then
         use_ GenerateRawDalf file
@@ -776,62 +811,115 @@ dalfForScenario file = do
 runScenariosRule :: Rules ()
 runScenariosRule =
     define $ \RunScenarios file -> do
-      m <- dalfForScenario file
+      m <- moduleForScenario file
       world <- worldForFile file
       let scenarios = map fst $ scenariosInModule m
-          toDiagnostic :: LF.ValueRef -> Either SS.Error SS.ScenarioResult -> Maybe FileDiagnostic
-          toDiagnostic scenario (Left err) =
-              Just $ (file, ShowDiag,) $ Diagnostic
-              { _range = maybe noRange sourceLocToRange mbLoc
-              , _severity = Just DsError
-              , _source = Just "Scenario"
-              , _message = Pretty.renderPlain $ formatScenarioError world err
-              , _code = Nothing
-              , _tags = Nothing
-              , _relatedInformation = Nothing
-              }
-            where scenarioName = LF.qualObject scenario
-                  mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
-          toDiagnostic _ (Right _) = Nothing
       Just scenarioService <- envScenarioService <$> getDamlServiceEnv
       ctxRoot <- use_ GetScenarioRoot file
       ctxId <- use_ CreateScenarioContext ctxRoot
       scenarioResults <-
           liftIO $ forM scenarios $ \scenario -> do
               (vr, res) <- runScenario scenarioService file ctxId scenario
-              pure (toDiagnostic scenario res, (vr, res))
+              let scenarioName = LF.qualObject scenario
+              let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
+              let range = maybe noRange sourceLocToRange mbLoc
+              pure (toDiagnostic file world range res , (vr, res))
       let (diags, results) = unzip scenarioResults
       pure (catMaybes diags, Just results)
 
 runScriptsRule :: Options -> Rules ()
 runScriptsRule opts =
     define $ \RunScripts file -> do
-      m <- dalfForScenario file
+      m <- moduleForScenario file
       world <- worldForFile file
       let scenarios = map fst $ scriptsInModule (optEnableScripts opts) m
-          toDiagnostic :: LF.ValueRef -> Either SS.Error SS.ScenarioResult -> Maybe FileDiagnostic
-          toDiagnostic scenario (Left err) =
-              Just $ (file, ShowDiag,) $ Diagnostic
-              { _range = maybe noRange sourceLocToRange mbLoc
-              , _severity = Just DsError
-              , _source = Just "Script"
-              , _message = Pretty.renderPlain $ formatScenarioError world err
-              , _code = Nothing
-              , _tags = Nothing
-              , _relatedInformation = Nothing
-              }
-            where scenarioName = LF.qualObject scenario
-                  mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
-          toDiagnostic _ (Right _) = Nothing
       Just scenarioService <- envScenarioService <$> getDamlServiceEnv
       ctxRoot <- use_ GetScenarioRoot file
       ctxId <- use_ CreateScenarioContext ctxRoot
       scenarioResults <-
           liftIO $ forM scenarios $ \scenario -> do
               (vr, res) <- runScript scenarioService file ctxId scenario
-              pure (toDiagnostic scenario res, (vr, res))
+              let scenarioName = LF.qualObject scenario
+              let mbLoc = NM.lookup scenarioName (LF.moduleValues m) >>= LF.dvalLocation
+              let range = maybe noRange sourceLocToRange mbLoc
+              pure (toDiagnostic file world range res, (vr, res))
       let (diags, results) = unzip scenarioResults
       pure (catMaybes diags, Just results)
+
+runScenariosScriptsPkg ::
+       NormalizedFilePath
+    -> LF.ExternalPackage
+    -> [LF.ExternalPackage]
+    -> Action ([FileDiagnostic], Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
+runScenariosScriptsPkg projRoot extPkg pkgs = do
+    Just scenarioService <- envScenarioService <$> getDamlServiceEnv
+    ctx <- contextForPackage projRoot pkg
+    ctxIdOrErr <- liftIO $ SS.getNewCtx scenarioService ctx
+    ctxId <-
+        liftIO $
+        either
+            (throwIO . ScenarioBackendException "Failed to create scenario context")
+            pure
+            ctxIdOrErr
+    scenarioContextsVar <- envScenarioContexts <$> getDamlServiceEnv
+    liftIO $ modifyMVar_ scenarioContextsVar $ pure . HashMap.insert projRoot ctxId
+    rs <-
+        liftIO $ do
+          scenarioResults <- forM scenarios $ \scenario ->
+              runScenario scenarioService pkgName' ctxId scenario
+          scriptResults <- forM scripts $ \script ->
+                  runScript
+                      scenarioService
+                      pkgName'
+                      ctxId
+                      script
+          pure $
+              [ (toDiagnostic pkgName' world noRange res, (vr, res))
+              | (vr, res) <- scenarioResults ++ scriptResults
+              ]
+    let (diags, results) = unzip rs
+    pure (catMaybes diags, Just results)
+  where
+    pkg = LF.extPackagePkg extPkg
+    pkgId = LF.extPackageId extPkg
+    pkgName' =
+        toNormalizedFilePath' $
+        T.unpack $
+        maybe (LF.unPackageId pkgId) (LF.unPackageName . LF.packageName) $ LF.packageMetadata pkg
+    world = LF.initWorldSelf pkgs pkg
+    scenarios =
+        map fst $
+        concat
+            [ scenariosInModule mod
+            | mod <- NM.elems $ LF.packageModules pkg
+            ]
+    scripts =
+        map fst $
+        concat
+            [ scriptsInModule (EnableScripts True) mod
+            | mod <- NM.elems $ LF.packageModules pkg
+            , LF.moduleName mod /= LF.ModuleName ["Daml", "Script"]
+            ]
+
+toDiagnostic ::
+       NormalizedFilePath
+    -> LF.World
+    -> Range
+    -> Either SS.Error SS.ScenarioResult
+    -> Maybe FileDiagnostic
+toDiagnostic file world range (Left err) =
+    Just $
+    (file, ShowDiag, ) $
+    Diagnostic
+        { _range = range
+        , _severity = Just DsError
+        , _source = Just "Script"
+        , _message = Pretty.renderPlain $ formatScenarioError world err
+        , _code = Nothing
+        , _tags = Nothing
+        , _relatedInformation = Nothing
+        }
+toDiagnostic _file _world _range (Right _) = Nothing
 
 encodeModule :: LF.Version -> LF.Module -> Action (SS.Hash, BS.ByteString)
 encodeModule lfVersion m =
@@ -1047,6 +1135,14 @@ getOpenVirtualResourcesRule = do
         openVRs <- liftIO $ readVar envOpenVirtualResources
         pure (Just $ BS.fromString $ show openVRs, ([], Just openVRs))
 
+formatHtmlScenarioError :: LF.World -> SS.Error -> T.Text
+formatHtmlScenarioError world  err = case err of
+    SS.BackendError err ->
+        Pretty.renderHtmlDocumentText 128 $ Pretty.pretty $ "Scenario service backend error: " <> show err
+    SS.ScenarioError err -> LF.renderScenarioError world err
+    SS.ExceptionError err ->
+        Pretty.renderHtmlDocumentText 128 $ Pretty.pretty $ "Exception during scenario execution: " <> show err
+
 formatScenarioError :: LF.World -> SS.Error -> Pretty.Doc Pretty.SyntaxClass
 formatScenarioError world  err = case err of
     SS.BackendError err -> Pretty.pretty $ "Scenario service backend error: " <> show err
@@ -1057,7 +1153,7 @@ formatScenarioResult :: LF.World -> Either SS.Error SS.ScenarioResult -> T.Text
 formatScenarioResult world errOrRes =
     case errOrRes of
         Left err ->
-            Pretty.renderHtmlDocumentText 128 (formatScenarioError world err)
+            formatHtmlScenarioError world err
         Right res ->
             LF.renderScenarioResult world res
 
@@ -1082,7 +1178,7 @@ encodeModuleRule options =
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules (optUnitId options) fs
         encodedDeps <- uses_ EncodeModule files
-        m <- dalfForScenario file
+        m <- moduleForScenario file
         let (hash, bs) = SS.encodeModule lfVersion m
         return ([], Just (mconcat $ hash : map fst encodedDeps, bs))
 
@@ -1192,6 +1288,23 @@ discardInternalModules mbPackageName files = do
                           moduleNameFile modName `isSuffixOf` fromNormalizedFilePath f)
                      $ Map.keys stablePackages)
         moduleNameFile (LF.ModuleName segments) = joinPath (map T.unpack segments) <.> "daml"
+
+usesE' ::
+       ( Eq k
+       , Hashable k
+       , Binary k
+       , Show k
+       , Show (RuleResult k)
+       , Typeable k
+       , Typeable (RuleResult k)
+       , NFData k
+       , NFData (RuleResult k)
+       )
+    => k
+    -> [NormalizedFilePath]
+    -> MaybeT Action [RuleResult k]
+usesE' k = fmap (map fst) . usesE k
+
 
 internalModules :: [FilePath]
 internalModules = map normalise

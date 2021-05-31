@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox
@@ -6,6 +6,7 @@ package com.daml.platform.sandbox
 import java.io.File
 import java.nio.file.Files
 import java.time.Instant
+import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -23,19 +24,21 @@ import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.engine.{Engine, EngineConfig}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.transaction.{
   LegacyTransactionCommitter,
   StandardTransactionCommitter,
-  TransactionCommitter
+  TransactionCommitter,
 }
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver._
-import com.daml.platform.configuration.PartyConfiguration
+import com.daml.platform.configuration.{InvalidConfigException, PartyConfiguration}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
+import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
@@ -44,11 +47,11 @@ import com.daml.platform.sandbox.stores.ledger._
 import com.daml.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndexAndWriteService}
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 import com.daml.ports.Port
 import scalaz.syntax.tag._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
@@ -99,6 +102,18 @@ object SandboxServer {
       }
     } yield server
 
+  // Run only the flyway migrations but do not initialize any of the ledger api or indexer services
+  def migrateOnly(
+      config: SandboxConfig
+  )(implicit resourceContext: ResourceContext): Future[Unit] = {
+
+    newLoggingContext(logging.participantId(config.participantId)) { implicit loggingContext =>
+      logger.info("Running only schema migration scripts")
+      new FlywayMigrations(config.jdbcUrl.get)
+        .migrate(enableAppendOnlySchema = config.enableAppendOnlySchema)
+    }
+  }
+
   final class SandboxState(
       materializer: Materializer,
       metrics: Metrics,
@@ -141,12 +156,28 @@ final class SandboxServer(
 ) extends AutoCloseable {
 
   private[this] val engine = {
-    val engineConfig =
-      (if (config.devMode) EngineConfig.Dev else EngineConfig.Stable)
-        .copy(
-          profileDir = config.profileDir,
-          stackTraceMode = config.stackTraces,
-        )
+    val engineConfig = {
+      val allowedLanguageVersions =
+        config.engineMode match {
+          case EngineMode.Stable if config.seeding.nonEmpty =>
+            LanguageVersion.StableVersions
+          case EngineMode.Stable =>
+            LanguageVersion.LegacyVersions
+          case EngineMode.EarlyAccess if config.seeding.nonEmpty =>
+            LanguageVersion.EarlyAccessVersions
+          case EngineMode.Dev if config.seeding.nonEmpty =>
+            LanguageVersion.DevVersions
+          case mode =>
+            throw new InvalidConfigException(
+              s""""${Seeding.NoSeedingModeName}" contract IDs seeding mode is not compatible with $mode mode"""
+            )
+        }
+      EngineConfig(
+        allowedLanguageVersions = allowedLanguageVersions,
+        profileDir = config.profileDir,
+        stackTraceMode = config.stackTraces,
+      )
+    }
     getEngine(engineConfig)
   }
 
@@ -172,23 +203,24 @@ final class SandboxServer(
   def portF(implicit executionContext: ExecutionContext): Future[Port] =
     apiServer.map(_.port)
 
-  def resetAndRestartServer()(
-      implicit executionContext: ExecutionContext,
+  def resetAndRestartServer()(implicit
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Unit] = {
     val apiServicesClosed = apiServer.flatMap(_.servicesClosed())
 
     // TODO: eliminate the state mutation somehow
     sandboxState = sandboxState.flatMap(
-      _.reset(
-        (materializer, metrics, packageStore, port) =>
-          buildAndStartApiServer(
-            materializer = materializer,
-            metrics = metrics,
-            packageStore = packageStore,
-            startMode = SqlStartMode.AlwaysReset,
-            currentPort = Some(port),
-        )))
+      _.reset((materializer, metrics, packageStore, port) =>
+        buildAndStartApiServer(
+          materializer = materializer,
+          metrics = metrics,
+          packageStore = packageStore,
+          startMode = SqlStartMode.ResetAndStart,
+          currentPort = Some(port),
+        )
+      )
+    )
 
     // Wait for the services to be closed, so we can guarantee that future API calls after finishing
     // the reset will never be handled by the old one.
@@ -196,8 +228,10 @@ final class SandboxServer(
   }
 
   // if requested, initialize the ledger state with the given scenario
-  private def createInitialState(config: SandboxConfig, packageStore: InMemoryPackageStore)
-    : (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
+  private def createInitialState(
+      config: SandboxConfig,
+      packageStore: InMemoryPackageStore,
+  ): (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
     // [[ScenarioLoader]] needs all the packages to be already compiled --
     // make sure that that's the case
     if (config.eagerPackageLoading || config.scenario.nonEmpty) {
@@ -206,13 +240,19 @@ final class SandboxServer(
         engine
           .preloadPackage(pkgId, pkg)
           .consume(
-            { _ =>
+            pcs = { _ =>
               sys.error("Unexpected request of contract")
             },
-            packageStore.getLfPackageSync, { _ =>
+            packages = packageStore.getLfPackageSync,
+            keys = { _ =>
               sys.error("Unexpected request of contract key")
-            }
+            },
+            localKeyVisible = { _ =>
+              sys.error("Unexpected request of local contract key visibility")
+            },
           )
+          .left
+          .foreach(err => sys.error(err.detailMsg))
       }
     }
     config.scenario match {
@@ -257,47 +297,59 @@ final class SandboxServer(
         .fold[TransactionCommitter](LegacyTransactionCommitter)(_ => StandardTransactionCommitter)
 
     val lfValueTranslationCache =
-      LfValueTranslation.Cache.newInstrumentedInstance(
+      LfValueTranslationCache.Cache.newInstrumentedInstance(
         eventConfiguration = config.lfValueTranslationEventCacheConfiguration,
         contractConfiguration = config.lfValueTranslationContractCacheConfiguration,
         metrics = metrics,
       )
 
-    val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
-      case Some(jdbcUrl) =>
-        "postgres" -> SandboxIndexAndWriteService.postgres(
-          name = name,
-          providedLedgerId = config.ledgerIdMode,
-          participantId = config.participantId,
-          jdbcUrl = jdbcUrl,
-          timeProvider = timeProvider,
-          ledgerEntries = ledgerEntries,
-          startMode = startMode,
-          queueDepth = config.commandConfig.maxParallelSubmissions,
-          transactionCommitter = transactionCommitter,
-          templateStore = packageStore,
-          eventsPageSize = config.eventsPageSize,
-          metrics = metrics,
-          lfValueTranslationCache = lfValueTranslationCache,
-          validatePartyAllocation = !config.implicitPartyAllocation,
-        )
-
-      case None =>
-        "in-memory" -> SandboxIndexAndWriteService.inMemory(
-          name,
-          config.ledgerIdMode,
-          config.participantId,
-          timeProvider,
-          acs,
-          ledgerEntries,
-          transactionCommitter,
-          packageStore,
-          metrics,
-        )
+    val ledgerType = config.jdbcUrl match {
+      case Some(_) => "postgres"
+      case None => "in-memory"
     }
 
     for {
-      indexAndWriteService <- indexAndWriteServiceResourceOwner.acquire()
+      servicesExecutionContext <- ResourceOwner
+        .forExecutorService(() => Executors.newWorkStealingPool())
+        .map(ExecutionContext.fromExecutorService)
+        .acquire()
+      indexAndWriteService <- (config.jdbcUrl match {
+        case Some(jdbcUrl) =>
+          SandboxIndexAndWriteService.postgres(
+            name = name,
+            providedLedgerId = config.ledgerIdMode,
+            participantId = config.participantId,
+            jdbcUrl = jdbcUrl,
+            databaseConnectionPoolSize = config.databaseConnectionPoolSize,
+            databaseConnectionTimeout = config.databaseConnectionTimeout,
+            timeProvider = timeProvider,
+            ledgerEntries = ledgerEntries,
+            startMode = startMode,
+            queueDepth = config.commandConfig.maxParallelSubmissions,
+            transactionCommitter = transactionCommitter,
+            templateStore = packageStore,
+            eventsPageSize = config.eventsPageSize,
+            servicesExecutionContext = servicesExecutionContext,
+            metrics = metrics,
+            lfValueTranslationCache = lfValueTranslationCache,
+            engine = engine,
+            validatePartyAllocation = !config.implicitPartyAllocation,
+            enableAppendOnlySchema = config.enableAppendOnlySchema,
+            enableCompression = config.enableCompression,
+          )
+        case None =>
+          SandboxIndexAndWriteService.inMemory(
+            name,
+            config.ledgerIdMode,
+            config.participantId,
+            timeProvider,
+            acs,
+            ledgerEntries,
+            transactionCommitter,
+            packageStore,
+            metrics,
+          )
+      }).acquire()
       ledgerId <- Resource.fromFuture(indexAndWriteService.indexService.getLedgerId())
       authorizer = new Authorizer(
         () => java.time.Clock.systemUTC.instant(),
@@ -327,9 +379,10 @@ final class SandboxServer(
         ledgerConfiguration = ledgerConfiguration,
         commandConfig = config.commandConfig,
         partyConfig = PartyConfiguration.default.copy(
-          implicitPartyAllocation = config.implicitPartyAllocation,
+          implicitPartyAllocation = config.implicitPartyAllocation
         ),
         optTimeServiceBackend = timeServiceBackendO,
+        servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         healthChecks = healthChecks,
         seedService = seedingService,
@@ -347,16 +400,17 @@ final class SandboxServer(
           AuthorizationInterceptor(authService, executionContext),
           resetService,
         ),
-        metrics
+        servicesExecutionContext,
+        metrics,
       ).acquire()
       _ <- Resource.fromFuture(writePortFile(apiServer.port))
     } yield {
       Banner.show(Console.out)
       logger.withoutContext.info(
         s"Initialized {} version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}{}{}",
-        name,
+        LedgerName.unwrap(name),
         BuildInfo.Version,
-        ledgerId,
+        LedgerId.unwrap(ledgerId),
         apiServer.port.toString,
         config.damlPackages,
         timeProviderType.description,
@@ -371,8 +425,22 @@ final class SandboxServer(
       )
       if (config.scenario.nonEmpty) {
         logger.withoutContext.warn(
-          """|Initializing a ledger with scenarios is deprecated and will be removed in the future. You are advised to use DAML Script instead. Using scenarios in DAML Studio will continue to work as expected.
-             |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin)
+          """|Initializing a ledger with scenarios is deprecated and will be removed in the future. You are advised to use Daml Script instead. Using scenarios in Daml Studio will continue to work as expected.
+             |A migration guide for converting your scenarios to Daml Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin
+        )
+      }
+      if (config.engineMode == SandboxConfig.EngineMode.EarlyAccess) {
+        logger.withoutContext.warn(
+          """|Using early access mode is dangerous as the backward compatibility of future SDKs is not guaranteed.
+             |Should be used for testing purpose only.""".stripMargin
+        )
+      }
+      if (config.seeding.isEmpty) {
+        logger.withoutContext.warn(
+          s"""|'${Seeding.NoSeedingModeName}' contract IDs seeding mode is not compatible with the LF 1.11 languages or later.
+              |A ledger stared with ${Seeding.NoSeedingModeName} contract IDs seeding will refuse to load LF 1.11 language or later. 
+              |To make sure you can load LF 1.11, use the option '--contract-id-seeding=strong' to set up the contract IDs seeding mode.""".stripMargin
+        )
       }
       apiServer
     }
@@ -385,7 +453,9 @@ final class SandboxServer(
         materializer,
         metrics,
         packageStore,
-        SqlStartMode.ContinueIfExists,
+        SqlStartMode
+          .fromString(config.sqlStartMode.toString)
+          .getOrElse(SqlStartMode.MigrateAndStart),
         currentPort = None,
       )
       Future.successful(new SandboxState(materializer, metrics, packageStore, apiServerResource))

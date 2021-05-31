@@ -1,19 +1,25 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
+    "silencer_plugin",
 )
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 da_scala_library(
     name = "ledger-api-common",
     srcs = glob(["src/main/scala/**/*.scala"]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
     ],
-    silent_annotations = True,
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     tags = ["maven_coordinates=com.daml:ledger-api-common:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -35,20 +41,26 @@ da_scala_library(
         "//libs-scala/concurrent",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "//libs-scala/resources-grpc",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_zipkin_brave_brave",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
 da_scala_library(
     name = "ledger-api-common-scala-tests-lib",
-    srcs = glob(["src/test/lib/**/*.scala"]),
+    srcs = glob(["src/test/lib/**/*.scala"] + [
+        "src/test/{}/**/*.scala".format(scala_major_version),
+    ]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     visibility = ["//ledger:__subpackages__"],
     deps = [
         ":ledger-api-common",
@@ -57,17 +69,33 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger/ledger-api-domain",
         "//libs-scala/concurrent",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:io_zipkin_brave_brave",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
 da_scala_test_suite(
     name = "ledger-api-common-scala-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_stream_testkit",
+        "@maven//:com_typesafe_akka_akka_testkit",
+        "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
+    scalacopts = [
+        "-P:silencer:lineContentFilters=import scala.collection.parallel.CollectionConverters._",
+    ],
+    versioned_scala_deps = {
+        "2.13": ["@maven//:org_scala_lang_modules_scala_parallel_collections"],
+    },
     deps = [
         ":ledger-api-common",
         ":ledger-api-common-scala-tests-lib",
@@ -83,20 +111,21 @@ da_scala_test_suite(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
+        "//ledger/metrics:metrics-test-lib",
         "//libs-scala/concurrent",
         "//libs-scala/grpc-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
-        "@maven//:com_typesafe_akka_akka_testkit_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_netty_netty_handler",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
         "@maven//:io_zipkin_brave_brave",
         "@maven//:org_awaitility_awaitility",
+        "@maven//:org_mockito_mockito_core",
         "@maven//:org_reactivestreams_reactive_streams",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -9,16 +9,19 @@ import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.ledger.{Authorize, CheckAuthorizationMode}
+import com.daml.lf.language.{Util => AstUtil}
+import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SBuiltin.checkAborted
+import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters._
+import scala.annotation.tailrec
+import scala.jdk.CollectionConverters._
 import scala.util.control.NoStackTrace
 
 private[lf] object Speedy {
@@ -94,10 +97,17 @@ private[lf] object Speedy {
 
   private[lf] sealed trait LedgerMode
 
+  private[lf] final case class CachedContract(
+      templateId: Ref.TypeConName,
+      value: SValue,
+      signatories: Set[Party],
+      observers: Set[Party],
+      key: Option[Node.KeyWithMaintainers[V[Nothing]]],
+  )
+
   private[lf] final case class OnLedger(
       val validating: Boolean,
-      /* Controls if authorization checks are performed during evaluation */
-      val checkAuthorization: CheckAuthorizationMode,
+      val contractKeyUniqueness: ContractKeyUniquenessMode,
       /* The current partial transaction */
       var ptx: PartialTransaction,
       /* Committers of the action. */
@@ -106,10 +116,9 @@ private[lf] object Speedy {
       var commitLocation: Option[Location],
       /* Flag to trace usage of get_time builtins */
       var dependsOnTime: Boolean,
-      // local contracts, that are contracts created in the current transaction)
-      var localContracts: Map[V.ContractId, (Ref.TypeConName, SValue)],
       // global contract discriminators, that are discriminators from contract created in previous transactions
       var globalDiscriminators: Set[crypto.Hash],
+      var cachedContracts: Map[V.ContractId, CachedContract],
   ) extends LedgerMode
 
   private[lf] final case object OffLedger extends LedgerMode
@@ -143,7 +152,7 @@ private[lf] object Speedy {
       var lastLocation: Option[Location],
       /* The trace log. */
       val traceLog: TraceLog,
-      /* Compiled packages (DAML-LF ast + compiled speedy expressions). */
+      /* Compiled packages (Daml-LF ast + compiled speedy expressions). */
       var compiledPackages: CompiledPackages,
       /* Used when enableLightweightStepTracing is true */
       var steps: Int,
@@ -152,7 +161,7 @@ private[lf] object Speedy {
       /* Profile of the run when the packages haven been compiled with profiling enabled. */
       var profile: Profile,
       /* True if we are running on ledger building transactions, false if we
-         are running off-ledger code, e.g., DAML Script or
+         are running off-ledger code, e.g., Daml Script or
          Triggers. It is safe to use on ledger for off ledger code but
          not the other way around.
        */
@@ -166,7 +175,7 @@ private[lf] object Speedy {
 
     private[lf] def withOnLedger[T](op: String)(f: OnLedger => T): T =
       ledgerMode match {
-        case onLedger @ OnLedger(_, _, _, _, _, _, _, _) => f(onLedger)
+        case onLedger: OnLedger => f(onLedger)
         case OffLedger => throw SRequiresOnLedger(op)
       }
 
@@ -175,7 +184,7 @@ private[lf] object Speedy {
       kontStack.add(k)
       if (enableInstrumentation) {
         track.countPushesKont += 1
-        if (kontDepth > track.maxDepthKont) track.maxDepthKont = kontDepth
+        if (kontDepth() > track.maxDepthKont) track.maxDepthKont = kontDepth()
       }
     }
 
@@ -191,7 +200,7 @@ private[lf] object Speedy {
     // And made explicit by a specifc speedy expression node: SELocS/SELocA/SELocF
     // At runtime these different location-node execute by calling the corresponding `getEnv*` function
 
-    // Variables which reside on the stack. Indexed by relative offset from the top of the stack
+    // Variables which reside on the stack. Indexed (from 1) by relative offset from the top of the stack (1 is top!)
     @inline
     private[speedy] def getEnvStack(i: Int): SValue = env.get(env.size - i)
 
@@ -259,7 +268,8 @@ private[lf] object Speedy {
     }
 
     /** Push a single location to the continuation stack for the sake of
-        maintaining a stack trace. */
+      *        maintaining a stack trace.
+      */
     def pushLocation(loc: Location): Unit = {
       lastLocation = Some(loc)
       val last_index = kontStack.size() - 1
@@ -273,7 +283,7 @@ private[lf] object Speedy {
           kontStack.add(last_index, KLocation(this, loc))
           if (enableInstrumentation) {
             track.countPushesKont += 1
-            if (kontDepth > track.maxDepthKont) track.maxDepthKont = kontDepth
+            if (kontDepth() > track.maxDepthKont) track.maxDepthKont = kontDepth()
           }
         }
         // NOTE(MH): When we use a cached top level value, we need to put the
@@ -287,12 +297,14 @@ private[lf] object Speedy {
     }
 
     /** Push an entire stack trace to the continuation stack. The first
-        element of the list will be pushed last. */
+      *        element of the list will be pushed last.
+      */
     def pushStackTrace(locs: List[Location]): Unit =
       locs.reverse.foreach(pushLocation)
 
     /** Compute a stack trace from the locations in the continuation stack.
-        The last seen location will come last. */
+      *        The last seen location will come last.
+      */
     def stackTrace(): ImmArray[Location] = {
       val s = ImmArray.newBuilder[Location]
       kontStack.forEach { k =>
@@ -306,30 +318,29 @@ private[lf] object Speedy {
 
     private[lf] def contextActors: Set[Party] =
       withOnLedger("ptx") { onLedger =>
-        onLedger.ptx.context.exeContext match {
-          case Some(ctx) =>
-            ctx.actingParties union ctx.signatories
-          case None =>
-            onLedger.committers
-        }
+        onLedger.ptx.context.info.authorizers.getOrElse(onLedger.committers)
       }
 
-    private[lf] def auth: Option[Authorize] =
-      withOnLedger("checkAuthorization") { onLedger =>
-        onLedger.checkAuthorization match {
-          case CheckAuthorizationMode.On => Some(Authorize(this.contextActors))
-          case CheckAuthorizationMode.Off => None
-        }
-      }
+    private[lf] def auth: Authorize = Authorize(this.contextActors)
 
-    def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
+    def addLocalContract(
+        coid: V.ContractId,
+        templateId: Ref.TypeConName,
+        arg: SValue,
+        signatories: Set[Party],
+        observers: Set[Party],
+        key: Option[Node.KeyWithMaintainers[V[Nothing]]],
+    ) =
       withOnLedger("addLocalContract") { onLedger =>
         coid match {
           case V.ContractId.V1(discriminator, _)
               if onLedger.globalDiscriminators.contains(discriminator) =>
             crash("Conflicting discriminators between a global and local contract ID.")
           case _ =>
-            onLedger.localContracts = onLedger.localContracts.updated(coid, templateId -> SValue)
+            onLedger.cachedContracts = onLedger.cachedContracts.updated(
+              coid,
+              CachedContract(templateId, arg, signatories, observers, key),
+            )
         }
       }
 
@@ -337,7 +348,7 @@ private[lf] object Speedy {
       withOnLedger("addGlobalCid") { onLedger =>
         cid match {
           case V.ContractId.V1(discriminator, _) =>
-            if (onLedger.localContracts.isDefinedAt(V.ContractId.V1(discriminator)))
+            if (onLedger.ptx.localContracts.contains(V.ContractId.V1(discriminator)))
               crash("Conflicting discriminators between a global and local contract ID.")
             else
               onLedger.globalDiscriminators = onLedger.globalDiscriminators + discriminator
@@ -346,8 +357,8 @@ private[lf] object Speedy {
       }
 
     /** Reuse an existing speedy machine to evaluate a new expression.
-      Do not use if the machine is partway though an existing evaluation.
-      i.e. run() has returned an `SResult` requiring a callback.
+      *      Do not use if the machine is partway though an existing evaluation.
+      *      i.e. run() has returned an `SResult` requiring a callback.
       */
     def setExpressionToEvaluate(expr: SExpr): Unit = {
       ctrl = expr
@@ -365,7 +376,7 @@ private[lf] object Speedy {
       // Most iterations are performed by the inner-loop, thus avoiding the work of to
       // wrap the exception handler on each of these steps. This is a performace gain.
       // However, we still need the outer loop because of the case:
-      //    case _:SErrorDamlException if tryHandleException =>
+      //    case _:SErrorDamlException if tryHandleSubmitMustFail =>
       // where we must continue iteration.
       var result: SResult = null
       while (result == null) {
@@ -384,7 +395,7 @@ private[lf] object Speedy {
               val value = returnValue
               returnValue = null
               popTempStackToBase()
-              popKont.execute(value)
+              popKont().execute(value)
             } else {
               val expr = ctrl
               ctrl = null
@@ -402,7 +413,8 @@ private[lf] object Speedy {
             result = res //stop
           case serr: SError =>
             serr match {
-              case _: SErrorDamlException if tryHandleException() => () // outer loop will run again
+              case _: SErrorDamlException if tryHandleSubmitMustFail() =>
+                () // outer loop will run again
               case _ => result = SResultError(serr) //stop
             }
           case ex: RuntimeException =>
@@ -412,22 +424,40 @@ private[lf] object Speedy {
       result
     }
 
-    /** Try to handle a DAML exception by looking for
+    /** Try to handle a Daml exception by looking for
       * the catch handler. Returns true if the exception
-      * was catched.
+      * was caught.
       */
-    def tryHandleException(): Boolean = {
-      val catchIndex =
-        kontStack.asScala.lastIndexWhere(_.isInstanceOf[KCatch])
-      if (catchIndex >= 0) {
-        val kcatch = kontStack.get(catchIndex).asInstanceOf[KCatch]
-        kontStack.subList(catchIndex, kontStack.size).clear()
-        env.subList(kcatch.envSize, env.size).clear()
-        ctrl = kcatch.handler
-        envBase = env.size
+    private[speedy] def tryHandleSubmitMustFail(): Boolean = {
+      if (kontStack.asScala.exists(k => k.isInstanceOf[KCatchSubmitMustFail])) {
+        @tailrec def unwind(): KCatchSubmitMustFail = {
+          popKont() match {
+            case handler: KCatchSubmitMustFail =>
+              handler
+            case _: KTryCatchHandler =>
+              withOnLedger("tryHandleSubmitMustFail/KCloseExercise") { onLedger =>
+                onLedger.ptx = onLedger.ptx.abortTry
+              }
+              unwind()
+            case _: KCloseExercise =>
+              withOnLedger("tryHandleSubmitMustFail/KCloseExercise") { onLedger =>
+                onLedger.ptx = onLedger.ptx.abortExercises
+              }
+              unwind()
+            case _ =>
+              unwind()
+          }
+        }
+        val mustFail = unwind()
+        restoreBase(mustFail.envSize)
+        returnValue = SValue.SValue.True
         true
-      } else
+      } else {
+        // In this case we don’t want to modify anything
+        // to preserve the partial transaction for stacktraces
+        // and error messages.
         false
+      }
     }
 
     def lookupVal(eval: SEVal): Unit = {
@@ -451,29 +481,31 @@ private[lf] object Speedy {
             case None =>
               if (compiledPackages.getSignature(ref.packageId).isDefined)
                 crash(
-                  s"definition $ref not found even after caller provided new set of packages",
+                  s"definition $ref not found even after caller provided new set of packages"
                 )
               else
                 throw SpeedyHungry(
                   SResultNeedPackage(
-                    ref.packageId, { packages =>
+                    ref.packageId,
+                    { packages =>
                       this.compiledPackages = packages
                       // To avoid infinite loop in case the packages are not updated properly by the caller
                       assert(compiledPackages.getSignature(ref.packageId).isDefined)
                       lookupVal(eval)
-                    }
-                  ),
+                    },
+                  )
                 )
           }
       }
     }
 
     /** This function is used to enter an ANF application.  The function has been evaluated to
-      a value, and so have the arguments - they just need looking up */
+      *      a value, and so have the arguments - they just need looking up
+      */
     // TODO: share common code with executeApplication
     private[speedy] def enterApplication(vfun: SValue, newArgs: Array[SExprAtomic]): Unit = {
       vfun match {
-        case SPAP(prim, actualsSoFar, arity) =>
+        case SValue.SPAP(prim, actualsSoFar, arity) =>
           val missing = arity - actualsSoFar.size
           val newArgsLimit = Math.min(missing, newArgs.length)
 
@@ -493,7 +525,7 @@ private[lf] object Speedy {
 
           // Not enough arguments. Return a PAP.
           if (othersLength < 0) {
-            this.returnValue = SPAP(prim, actuals, arity)
+            this.returnValue = SValue.SPAP(prim, actuals, arity)
 
           } else {
             // Too many arguments: Push a continuation to re-apply the over-applied args.
@@ -504,7 +536,7 @@ private[lf] object Speedy {
             }
             // Now the correct number of arguments is ensured. What kind of prim do we have?
             prim match {
-              case closure: PClosure =>
+              case closure: SValue.PClosure =>
                 this.frame = closure.frame
                 this.actuals = actuals
                 // Maybe push a continuation for the profiler
@@ -517,16 +549,9 @@ private[lf] object Speedy {
                 popTempStackToBase()
                 this.ctrl = closure.expr
 
-              case PBuiltin(builtin) =>
+              case SValue.PBuiltin(builtin) =>
                 this.actuals = actuals
-                try {
-                  builtin.execute(actuals, this)
-                } catch {
-                  // We turn arithmetic exceptions into a daml exception that can be caught.
-                  case e: ArithmeticException =>
-                    throw DamlEArithmeticError(e.getMessage)
-                }
-
+                builtin.execute(actuals, this)
             }
           }
 
@@ -538,7 +563,7 @@ private[lf] object Speedy {
     /** The function has been evaluated to a value, now start evaluating the arguments. */
     private[speedy] def executeApplication(vfun: SValue, newArgs: Array[SExpr]): Unit = {
       vfun match {
-        case SPAP(prim, actualsSoFar, arity) =>
+        case SValue.SPAP(prim, actualsSoFar, arity) =>
           val missing = arity - actualsSoFar.size
           val newArgsLimit = Math.min(missing, newArgs.length)
 
@@ -559,11 +584,11 @@ private[lf] object Speedy {
             }
             // Now the correct number of arguments is ensured. What kind of prim do we have?
             prim match {
-              case closure: PClosure =>
+              case closure: SValue.PClosure =>
                 // Push a continuation to execute the function body when the arguments have been evaluated
                 this.pushKont(KFun(this, closure, actuals))
 
-              case PBuiltin(builtin) =>
+              case SValue.PBuiltin(builtin) =>
                 // Push a continuation to execute the builtin when the arguments have been evaluated
                 this.pushKont(KBuiltin(this, builtin, actuals))
             }
@@ -576,16 +601,17 @@ private[lf] object Speedy {
     }
 
     /** Evaluate the first 'n' arguments in 'args'.
-      'args' will contain at least 'n' expressions, but it may contain more(!)
-
-      This is because, in the call from 'executeApplication' below, although over-applied
-      arguments are pushed into a continuation, they are not removed from the original array
-      which is passed here as 'args'.
+      *      'args' will contain at least 'n' expressions, but it may contain more(!)
+      *
+      *      This is because, in the call from 'executeApplication' below, although over-applied
+      *      arguments are pushed into a continuation, they are not removed from the original array
+      *      which is passed here as 'args'.
       */
     private[speedy] def evaluateArguments(
         actuals: util.ArrayList[SValue],
         args: Array[SExpr],
-        n: Int) = {
+        n: Int,
+    ) = {
       var i = 1
       while (i < n) {
         val arg = args(n - i)
@@ -622,104 +648,142 @@ private[lf] object Speedy {
     private[lf] def clearCommit: Unit = withOnLedger("clearCommit") { onLedger =>
       val freshSeed =
         crypto.Hash.deriveTransactionSeed(
-          onLedger.ptx.context.nextChildrenSeed,
+          onLedger.ptx.context.nextActionChildSeed,
           scenarioServiceParticipant,
           onLedger.ptx.submissionTime,
         )
       onLedger.committers = Set.empty
       onLedger.commitLocation = None
       onLedger.ptx = PartialTransaction.initial(
-        submissionTime = onLedger.ptx.submissionTime,
+        onLedger.ptx.packageToTransactionVersion,
+        onLedger.ptx.contractKeyUniqueness,
+        onLedger.ptx.submissionTime,
         InitialSeeding.TransactionSeed(freshSeed),
       )
     }
 
     // This translates a well-typed LF value (typically coming from the ledger)
     // to speedy value and set the control of with the result.
+    // Note the method does not check the value is well-typed as opposed as
+    // com.daml.lf.engine.preprocessing.ValueTranslator.translateValue.
     // All the contract IDs contained in the value are considered global.
     // Raises an exception if missing a package.
-    private[speedy] def importValue(value: V[V.ContractId]): Unit = {
-      def go(value0: V[V.ContractId]): SValue =
-        value0 match {
-          case V.ValueList(vs) => SList(vs.map[SValue](go))
-          case V.ValueContractId(coid) =>
-            addGlobalCid(coid)
-            SContractId(coid)
-          case V.ValueInt64(x) => SInt64(x)
-          case V.ValueNumeric(x) => SNumeric(x)
-          case V.ValueText(t) => SText(t)
-          case V.ValueTimestamp(t) => STimestamp(t)
-          case V.ValueParty(p) => SParty(p)
-          case V.ValueBool(b) => SBool(b)
-          case V.ValueDate(x) => SDate(x)
-          case V.ValueUnit => SUnit
-          case V.ValueRecord(Some(id), fs) =>
-            val values = new util.ArrayList[SValue](fs.length)
-            val names = fs.map {
-              case (Some(f), v) =>
-                values.add(go(v))
-                f
-              case (None, _) => crash("SValue.fromValue: record missing field name")
-            }
-            SRecord(id, names, values)
-          case V.ValueRecord(None, _) =>
-            crash("SValue.fromValue: record missing identifier")
-          case V.ValueVariant(None, _variant @ _, _value @ _) =>
-            crash("SValue.fromValue: variant without identifier")
-          case V.ValueEnum(None, constructor @ _) =>
-            crash("SValue.fromValue: enum without identifier")
-          case V.ValueOptional(mbV) =>
-            SOptional(mbV.map(go))
-          case V.ValueTextMap(entries) =>
-            SGenMap(
-              isTextMap = true,
-              entries = entries.iterator.map { case (k, v) => SText(k) -> go(v) }
-            )
-          case V.ValueGenMap(entries) =>
-            SGenMap(
-              isTextMap = false,
-              entries = entries.iterator.map { case (k, v) => go(k) -> go(v) }
-            )
-          case V.ValueVariant(Some(id), variant, arg) =>
-            compiledPackages.getSignature(id.packageId) match {
-              case Some(pkg) =>
-                pkg.lookupDefinition(id.qualifiedName).fold(crash, identity) match {
-                  case DDataType(_, _, data: DataVariant) =>
-                    SVariant(id, variant, data.constructorRank(variant), go(arg))
+    private[speedy] def importValue(typ0: Type, value0: V[V.ContractId]): Unit = {
+
+      def go(ty: Type, value: V[V.ContractId]): SValue = {
+        def typeMismatch = crash(s"mismatching type: $ty and value: $value")
+
+        val (tyFun, argTypes) = AstUtil.destructApp(ty)
+        tyFun match {
+          case TBuiltin(_) =>
+            argTypes match {
+              case Nil =>
+                value match {
+                  case V.ValueInt64(value) =>
+                    SValue.SInt64(value)
+                  case V.ValueNumeric(value) =>
+                    SValue.SNumeric(value)
+                  case V.ValueText(value) =>
+                    SValue.SText(value)
+                  case V.ValueTimestamp(value) =>
+                    SValue.STimestamp(value)
+                  case V.ValueDate(value) =>
+                    SValue.SDate(value)
+                  case V.ValueParty(value) =>
+                    SValue.SParty(value)
+                  case V.ValueBool(b) =>
+                    if (b) SValue.SValue.True else SValue.SValue.False
+                  case V.ValueUnit =>
+                    SValue.SValue.Unit
                   case _ =>
-                    crash(s"definition for variant $id not found")
+                    typeMismatch
                 }
-              case None =>
-                throw SpeedyHungry(
-                  SResultNeedPackage(
-                    id.packageId,
-                    pkg => {
-                      compiledPackages = pkg
-                      returnValue = go(value)
+              case elemType :: Nil =>
+                value match {
+                  case V.ValueContractId(cid) =>
+                    addGlobalCid(cid)
+                    SValue.SContractId(cid)
+                  case V.ValueNumeric(d) =>
+                    SValue.SNumeric(d)
+                  case V.ValueOptional(mb) =>
+                    mb match {
+                      case Some(value) => SValue.SOptional(Some(go(elemType, value)))
+                      case None => SValue.SValue.None
                     }
-                  ))
-            }
-          case V.ValueEnum(Some(id), constructor) =>
-            compiledPackages.getSignature(id.packageId) match {
-              case Some(pkg) =>
-                pkg.lookupDefinition(id.qualifiedName).fold(crash, identity) match {
-                  case DDataType(_, _, data: DataEnum) =>
-                    SEnum(id, constructor, data.constructorRank(constructor))
+                  // list
+                  case V.ValueList(ls) =>
+                    SValue.SList(ls.map(go(elemType, _)))
+
+                  // textMap
+                  case V.ValueTextMap(entries) =>
+                    SValue.SMap(
+                      isTextMap = true,
+                      entries = entries.iterator.map { case (k, v) =>
+                        SValue.SText(k) -> go(elemType, v)
+                      },
+                    )
                   case _ =>
-                    crash(s"definition for variant $id not found")
+                    typeMismatch
                 }
-              case None =>
-                throw SpeedyHungry(
-                  SResultNeedPackage(
-                    id.packageId,
-                    pkg => {
-                      compiledPackages = pkg
-                      returnValue = go(value)
-                    }
-                  ))
+              case keyType :: valueType :: Nil =>
+                value match {
+                  // genMap
+                  case V.ValueGenMap(entries) =>
+                    SValue.SMap(
+                      isTextMap = false,
+                      entries = entries.iterator.map { case (k, v) =>
+                        go(keyType, k) -> go(valueType, v)
+                      },
+                    )
+                  case _ =>
+                    typeMismatch
+                }
+              case _ =>
+                typeMismatch
             }
+          case TTyCon(tyCon) =>
+            val signature = compiledPackages.signatures(tyCon.packageId)
+            value match {
+              case V.ValueRecord(_, fields) =>
+                signature.lookupRecord(tyCon.qualifiedName) match {
+                  case Right((params, DataRecord(fieldsDef))) =>
+                    lazy val subst = (params.toSeq.view.map(_._1) zip argTypes).toMap
+                    val n = fields.length
+                    val values = new util.ArrayList[SValue](n)
+                    (fieldsDef.iterator zip fields.iterator).foreach {
+                      case ((_, fieldType), (_, fieldValue)) =>
+                        values.add(go(AstUtil.substitute(fieldType, subst), fieldValue))
+                        ()
+                    }
+                    SValue.SRecord(tyCon, fieldsDef.map(_._1), values)
+                  case Left(err) => crash(err)
+                }
+              case V.ValueVariant(_, constructor, value) =>
+                signature.lookupVariant(tyCon.qualifiedName) match {
+                  case Right((params, variantDef)) =>
+                    val rank = variantDef.constructorRank(constructor)
+                    val typDef = variantDef.variants(rank)._2
+                    val valType =
+                      AstUtil.substitute(typDef, params.toSeq.view.map(_._1) zip argTypes)
+                    SValue.SVariant(tyCon, constructor, rank, go(valType, value))
+                  case Left(err) => crash(err)
+                }
+              case V.ValueEnum(_, constructor) =>
+                signature.lookupEnum(tyCon.qualifiedName) match {
+                  case Right(enumDef) =>
+                    val rank = enumDef.constructorRank(constructor)
+                    SValue.SEnum(tyCon, constructor, rank)
+                  case Left(err) => crash(err)
+                }
+              case _ =>
+                typeMismatch
+            }
+          case _ =>
+            typeMismatch
         }
-      returnValue = go(value)
+      }
+
+      returnValue = go(typ0, value0)
     }
 
   }
@@ -736,9 +800,11 @@ private[lf] object Speedy {
         globalCids: Set[V.ContractId],
         committers: Set[Party],
         validating: Boolean = false,
-        checkAuthorization: CheckAuthorizationMode = CheckAuthorizationMode.On,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
-    ): Machine =
+        contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
+    ): Machine = {
+      val pkg2TxVersion =
+        compiledPackages.packageLanguageVersion.andThen(TransactionVersion.assignNodeVersion)
       new Machine(
         ctrl = expr,
         returnValue = null,
@@ -750,15 +816,16 @@ private[lf] object Speedy {
         lastLocation = None,
         ledgerMode = OnLedger(
           validating = validating,
-          checkAuthorization = checkAuthorization,
-          ptx = PartialTransaction.initial(submissionTime, initialSeeding),
+          ptx = PartialTransaction
+            .initial(pkg2TxVersion, contractKeyUniqueness, submissionTime, initialSeeding),
           committers = committers,
           commitLocation = None,
           dependsOnTime = false,
-          localContracts = Map.empty,
-          globalDiscriminators = globalCids.collect {
-            case V.ContractId.V1(discriminator, _) => discriminator
+          globalDiscriminators = globalCids.collect { case V.ContractId.V1(discriminator, _) =>
+            discriminator
           },
+          cachedContracts = Map.empty,
+          contractKeyUniqueness = contractKeyUniqueness,
         ),
         traceLog = traceLog,
         compiledPackages = compiledPackages,
@@ -766,6 +833,27 @@ private[lf] object Speedy {
         track = Instrumentation(),
         profile = new Profile(),
       )
+    }
+
+    @throws[PackageNotFound]
+    @throws[CompilationError]
+    // Construct a machine for running an update expression (testing -- avoiding scenarios)
+    def fromUpdateExpr(
+        compiledPackages: CompiledPackages,
+        transactionSeed: crypto.Hash,
+        updateE: Expr,
+        committer: Party,
+    ): Machine = {
+      val updateSE: SExpr = compiledPackages.compiler.unsafeCompile(updateE)
+      Machine(
+        compiledPackages = compiledPackages,
+        submissionTime = Time.Timestamp.MinValue,
+        initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
+        expr = SEApp(updateSE, Array(SEValue.Token)),
+        globalCids = Set.empty,
+        committers = Set(committer),
+      )
+    }
 
     @throws[PackageNotFound]
     @throws[CompilationError]
@@ -873,9 +961,9 @@ private[lf] object Speedy {
       extends Kont
       with SomeArrayEquals {
 
-    private val savedBase = machine.markBase()
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val savedBase = machine.markBase()
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(vfun: SValue) = {
       machine.restoreBase(savedBase);
@@ -891,9 +979,9 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private val savedBase = machine.markBase()
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val savedBase = machine.markBase()
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(vfun: SValue) = {
       machine.restoreBase(savedBase);
@@ -905,12 +993,12 @@ private[lf] object Speedy {
   /** The function-closure and arguments have been evaluated. Now execute the body. */
   private[speedy] final case class KFun(
       machine: Machine,
-      closure: PClosure,
-      actuals: util.ArrayList[SValue])
-      extends Kont
+      closure: SValue.PClosure,
+      actuals: util.ArrayList[SValue],
+  ) extends Kont
       with SomeArrayEquals {
 
-    private val savedBase = machine.markBase()
+    private[this] val savedBase = machine.markBase()
 
     def execute(v: SValue) = {
       actuals.add(v)
@@ -933,44 +1021,38 @@ private[lf] object Speedy {
   private[speedy] final case class KBuiltin(
       machine: Machine,
       builtin: SBuiltin,
-      actuals: util.ArrayList[SValue])
-      extends Kont {
+      actuals: util.ArrayList[SValue],
+  ) extends Kont {
 
-    private val savedBase = machine.markBase()
+    private[this] val savedBase = machine.markBase()
 
     def execute(v: SValue) = {
       actuals.add(v)
       // A builtin has no free-vars, so we set the frame to null.
       machine.restoreBase(savedBase)
       machine.restoreFrameAndActuals(null, actuals)
-      try {
-        builtin.execute(actuals, machine)
-      } catch {
-        // We turn arithmetic exceptions into a daml exception that can be caught.
-        case e: ArithmeticException =>
-          throw DamlEArithmeticError(e.getMessage)
-      }
+      builtin.execute(actuals, machine)
     }
   }
 
   /** The function's partial-arguments have been evaluated. Construct and return the PAP */
   private[speedy] final case class KPap(
       machine: Machine,
-      prim: Prim,
+      prim: SValue.Prim,
       actuals: util.ArrayList[SValue],
-      arity: Int)
-      extends Kont {
+      arity: Int,
+  ) extends Kont {
 
     def execute(v: SValue) = {
       actuals.add(v)
-      machine.returnValue = SPAP(prim, actuals, arity)
+      machine.returnValue = SValue.SPAP(prim, actuals, arity)
     }
   }
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
   private[speedy] def executeMatchAlts(machine: Machine, alts: Array[SCaseAlt], v: SValue): Unit = {
     val altOpt = v match {
-      case SBool(b) =>
+      case SValue.SBool(b) =>
         alts.find { alt =>
           alt.pattern match {
             case SCPPrimCon(PCTrue) => b
@@ -979,7 +1061,7 @@ private[lf] object Speedy {
             case _ => false
           }
         }
-      case SVariant(_, _, rank1, arg) =>
+      case SValue.SVariant(_, _, rank1, arg) =>
         alts.find { alt =>
           alt.pattern match {
             case SCPVariant(_, _, rank2) if rank1 == rank2 =>
@@ -989,7 +1071,7 @@ private[lf] object Speedy {
             case _ => false
           }
         }
-      case SEnum(_, _, rank1) =>
+      case SValue.SEnum(_, _, rank1) =>
         alts.find { alt =>
           alt.pattern match {
             case SCPEnum(_, _, rank2) => rank1 == rank2
@@ -997,20 +1079,20 @@ private[lf] object Speedy {
             case _ => false
           }
         }
-      case SList(lst) =>
+      case SValue.SList(lst) =>
         alts.find { alt =>
           alt.pattern match {
             case SCPNil if lst.isEmpty => true
             case SCPCons if !lst.isEmpty =>
               val Some((head, tail)) = lst.pop
               machine.pushEnv(head)
-              machine.pushEnv(SList(tail))
+              machine.pushEnv(SValue.SList(tail))
               true
             case SCPDefault => true
             case _ => false
           }
         }
-      case SUnit =>
+      case SValue.SUnit =>
         alts.find { alt =>
           alt.pattern match {
             case SCPPrimCon(PCUnit) => true
@@ -1018,7 +1100,7 @@ private[lf] object Speedy {
             case _ => false
           }
         }
-      case SOptional(mbVal) =>
+      case SValue.SOptional(mbVal) =>
         alts.find { alt =>
           alt.pattern match {
             case SCPNone if mbVal.isEmpty => true
@@ -1033,9 +1115,10 @@ private[lf] object Speedy {
             case _ => false
           }
         }
-      case SContractId(_) | SDate(_) | SNumeric(_) | SInt64(_) | SParty(_) | SText(_) | STimestamp(
-            _) | SStruct(_, _) | SGenMap(_, _) | SRecord(_, _, _) | SAny(_, _) | STypeRep(_) |
-          STNat(_) | _: SPAP | SToken =>
+      case SValue.SContractId(_) | SValue.SDate(_) | SValue.SNumeric(_) | SValue.SInt64(_) |
+          SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
+          SValue.SMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
+          SValue.STNat(_) | SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken =>
         crash("Match on non-matchable value")
     }
 
@@ -1048,9 +1131,9 @@ private[lf] object Speedy {
       extends Kont
       with SomeArrayEquals {
 
-    private val savedBase = machine.markBase()
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val savedBase = machine.markBase()
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(v: SValue) = {
       machine.restoreBase(savedBase);
@@ -1072,9 +1155,9 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private val savedBase = machine.markBase()
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val savedBase = machine.markBase()
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(v: SValue) = {
       machine.restoreBase(savedBase);
@@ -1091,8 +1174,8 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(acc: SValue) = {
       list.pop match {
@@ -1117,8 +1200,8 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(acc: SValue) = {
       if (lastIndex > 0) {
@@ -1145,8 +1228,8 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(closure: SValue) = {
       revClosures = closure +: revClosures
@@ -1171,8 +1254,8 @@ private[lf] object Speedy {
   ) extends Kont
       with SomeArrayEquals {
 
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
     def execute(acc: SValue) = {
       revClosures.pop match {
@@ -1198,8 +1281,8 @@ private[lf] object Speedy {
       machine: Machine,
       v: SEVal,
       defn: SDefinition,
-      stack_trace: List[Location])
-      extends Kont {
+      stack_trace: List[Location],
+  ) extends Kont {
 
     def execute(sv: SValue): Unit = {
       machine.pushStackTrace(stack_trace)
@@ -1209,32 +1292,121 @@ private[lf] object Speedy {
     }
   }
 
-  /** A catch frame marks the point to which an exception (of type 'SErrorDamlException')
-    * is unwound. The 'envSize' specifies the size to which the environment must be pruned.
-    * If an exception is raised and 'KCatch' is found from kont-stack, then 'handler' is
-    * evaluated. If 'KCatch' is encountered naturally, then 'fin' is evaluated.
+  private[speedy] final case class KCacheContract(
+      machine: Machine,
+      templateId: Ref.TypeConName,
+      cid: V.ContractId,
+  ) extends Kont {
+
+    def execute(sv: SValue): Unit = {
+      val cached = SBuiltin.extractCachedContract(templateId, sv)
+      machine.withOnLedger("KCacheContract") { onLedger =>
+        onLedger.cachedContracts = onLedger.cachedContracts.updated(cid, cached)
+        machine.returnValue = cached.value
+      }
+    }
+  }
+
+  /** KCloseExercise. Marks an open-exercise which needs to be closed. Either:
+    * (1) by 'endExercises' if this continuation is entered normally, or
+    * (2) by 'abortExercises' if we unwind the stack through this continuation
     */
-  private[speedy] final case class KCatch(
+  private[speedy] final case class KCloseExercise(machine: Machine) extends Kont {
+
+    def execute(exerciseResult: SValue) = {
+      machine.withOnLedger("KCloseExercise") { onLedger =>
+        onLedger.ptx = onLedger.ptx.endExercises(exerciseResult.toValue)
+        checkAborted(onLedger.ptx)
+      }
+      machine.returnValue = exerciseResult
+    }
+  }
+
+  /** KTryCatchHandler marks the kont-stack to allow unwinding when throw is executed. If
+    * the continuation is entered normally, the environment is restored but the handler is
+    * not executed.  When a throw is executed, the kont-stack is unwound to the nearest
+    * enclosing KTryCatchHandler (if there is one), and the code for the handler executed.
+    */
+  private[speedy] final case class KTryCatchHandler(
       machine: Machine,
       handler: SExpr,
-      fin: SExpr,
   ) extends Kont
       with SomeArrayEquals {
 
-    // We call [markBase] (as standard) so the continuation may access its temporaries.
-    // In addition [env.size] is recorded for use in [tryHandleException] to allow the
-    // env-stack to be unwound correctly when an exception is thrown.
+    private[this] val savedBase = machine.markBase()
+    private[this] val frame = machine.frame
+    private[this] val actuals = machine.actuals
 
-    val envSize = machine.env.size
-
-    private val savedBase = machine.markBase()
-    private val frame = machine.frame
-    private val actuals = machine.actuals
+    // we must restore when catching a throw, or for normal execution
+    def restore() = {
+      machine.restoreBase(savedBase)
+      machine.restoreFrameAndActuals(frame, actuals)
+    }
 
     def execute(v: SValue) = {
-      machine.restoreBase(savedBase);
-      machine.restoreFrameAndActuals(frame, actuals)
-      machine.ctrl = fin
+      restore()
+      machine.withOnLedger("KTryCatchHandler") { onLedger =>
+        onLedger.ptx = onLedger.ptx.endTry
+      }
+      machine.returnValue = v
+    }
+  }
+
+  /** unwindToHandler is called when an exception is thrown by the builtin SBThrow or
+    * re-thrown by the builtin SBTryHandler. If a catch-handler is found, we initiate
+    * execution of the handler code (which might decide to re-throw). Otherwise we call
+    * throwUnhandledException to apply the message function to the exception payload,
+    * producing a text message.
+    * In addition to exception handlers, we also stop unwinding at submitMustFail.
+    */
+  private[speedy] def unwindToHandler(machine: Machine, excep: SValue.SAny): Unit = {
+    @tailrec def unwind(): Option[Either[KTryCatchHandler, KCatchSubmitMustFail]] = {
+      if (machine.kontDepth() == 0) {
+        None
+      } else {
+        machine.popKont() match {
+          case handler: KTryCatchHandler =>
+            Some(Left(handler))
+          case mustFail: KCatchSubmitMustFail =>
+            Some(Right(mustFail))
+          case _: KCloseExercise =>
+            machine.withOnLedger("unwindToHandler/KCloseExercise") { onLedger =>
+              onLedger.ptx = onLedger.ptx.abortExercises
+            }
+            unwind()
+          case _ =>
+            unwind()
+        }
+      }
+    }
+    unwind() match {
+      case Some(Left(kh)) =>
+        kh.restore()
+        machine.popTempStackToBase()
+        machine.ctrl = kh.handler
+        machine.pushEnv(excep) // payload on stack where handler expects it
+      case Some(Right(mustFail @ _)) =>
+        machine.restoreBase(mustFail.envSize)
+        machine.returnValue = SValue.SValue.True
+      case None =>
+        machine.kontStack.clear()
+        machine.env.clear()
+        machine.envBase = 0
+        throw DamlEUnhandledException(excep)
+    }
+  }
+
+  /** A catch frame marks the point to which an exception (of type 'SErrorDamlException')
+    * is unwound. The 'envSize' specifies the size to which the environment must be pruned.
+    * If an exception is raised and 'KCatchSubmitMustFail' is found from kont-stack, then 'True' is
+    * returned. If 'KCatchSubmitMustFail' is entered normally, then 'False' is returned.
+    */
+  private[speedy] final case class KCatchSubmitMustFail(machine: Machine) extends Kont {
+
+    private[Speedy] val envSize = machine.env.size // used by: tryHandleSubmitMustFail
+
+    def execute(v: SValue) = {
+      machine.returnValue = SValue.SValue.False
     }
   }
 
@@ -1253,8 +1425,8 @@ private[lf] object Speedy {
       extends Kont {
     def execute(v: SValue) = {
       v match {
-        case SPAP(PClosure(_, expr, closure), args, arity) =>
-          machine.returnValue = SPAP(PClosure(label, expr, closure), args, arity)
+        case SValue.SPAP(SValue.PClosure(_, expr, closure), args, arity) =>
+          machine.returnValue = SValue.SPAP(SValue.PClosure(label, expr, closure), args, arity)
         case _ =>
           machine.returnValue = v
       }
@@ -1273,7 +1445,8 @@ private[lf] object Speedy {
   }
 
   /** Internal exception thrown when a continuation result needs to be returned.
-    Or machine execution has reached a final value. */
+    *    Or machine execution has reached a final value.
+    */
   private[speedy] final case class SpeedyHungry(result: SResult)
       extends RuntimeException
       with NoStackTrace
@@ -1284,6 +1457,7 @@ private[lf] object Speedy {
       submissionTime: Time.Timestamp,
   ): InitialSeeding =
     InitialSeeding.TransactionSeed(
-      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime))
+      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
+    )
 
 }

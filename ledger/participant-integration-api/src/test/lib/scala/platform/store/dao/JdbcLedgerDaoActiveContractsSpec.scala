@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -7,9 +7,10 @@ import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.lf.data.Ref.Party
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.platform.participant.util.LfEngineToApi
 import org.scalatest._
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -31,7 +32,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       (_, t1) <- store(singleCreate)
       (_, t2) <- store(singleCreate)
       (_, _) <- store(singleExercise(nonTransient(t2).loneElement))
-      (_, _) <- store(fullyTransient)
+      (_, _) <- store(fullyTransient())
       (_, t5) <- store(singleCreate)
       (_, t6) <- store(singleCreate)
       after <- ledgerDao.lookupLedgerEnd()
@@ -76,7 +77,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       (_, _) <- store(singleCreate)
       (_, c) <- store(singleCreate)
       (_, _) <- store(singleExercise(nonTransient(c).loneElement))
-      (_, _) <- store(fullyTransient)
+      (_, _) <- store(fullyTransient())
       (_, _) <- store(singleCreate)
       (_, _) <- store(singleCreate)
       activeContractsAfter <- activeContractsOf(
@@ -100,26 +101,25 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         multipleCreates(
           operator = "operator",
           signatoriesAndTemplates = Seq(
-            party1 -> "acs:mod:Template1",
-            party2 -> "acs:mod:Template3",
-            party1 -> "acs:mod:Template3",
-          )
-        ))
+            (party1, someTemplateId, someContractArgument),
+            (party2, otherTemplateId, otherContractArgument),
+            (party1, otherTemplateId, otherContractArgument),
+          ),
+        )
+      )
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = ledgerEnd,
-            filter = Map(party1 -> Set(Identifier.assertFromString("acs:mod:Template3"))),
+            filter = Map(party1 -> Set(otherTemplateId)),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       val create = result.loneElement
       create.witnessParties.loneElement shouldBe party1
-      val identifier = create.templateId.value
-      identifier.packageId shouldBe "acs"
-      identifier.moduleName shouldBe "mod"
-      identifier.entityName shouldBe "Template3"
+      create.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
     }
   }
 
@@ -131,43 +131,35 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         multipleCreates(
           operator = "operator",
           signatoriesAndTemplates = Seq(
-            party1 -> "acs:mod:Template1",
-            party2 -> "acs:mod:Template3",
-            party1 -> "acs:mod:Template3",
-          )
-        ))
+            (party1, someTemplateId, someContractArgument),
+            (party2, otherTemplateId, otherContractArgument),
+            (party1, otherTemplateId, otherContractArgument),
+          ),
+        )
+      )
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = ledgerEnd,
             filter = Map(
-              party1 -> Set(
-                Identifier.assertFromString("acs:mod:Template3"),
-              ),
-              party2 -> Set(
-                Identifier.assertFromString("acs:mod:Template3"),
-              )
+              party1 -> Set(otherTemplateId),
+              party2 -> Set(otherTemplateId),
             ),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       val activeContracts = result.toArray
       activeContracts should have length 2
 
       val create1 = activeContracts(0)
       create1.witnessParties.loneElement shouldBe party2
-      val identifier1 = create1.templateId.value
-      identifier1.packageId shouldBe "acs"
-      identifier1.moduleName shouldBe "mod"
-      identifier1.entityName shouldBe "Template3"
+      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
 
       val create2 = activeContracts(1)
       create2.witnessParties.loneElement shouldBe party1
-      val identifier2 = create2.templateId.value
-      identifier2.packageId shouldBe "acs"
-      identifier2.moduleName shouldBe "mod"
-      identifier2.entityName shouldBe "Template3"
+      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
     }
   }
 
@@ -179,43 +171,35 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         multipleCreates(
           operator = "operator",
           signatoriesAndTemplates = Seq(
-            party1 -> "acs:mod:Template1",
-            party2 -> "acs:mod:Template3",
-            party1 -> "acs:mod:Template3",
-          )
-        ))
+            (party1, someTemplateId, someContractArgument),
+            (party2, otherTemplateId, otherContractArgument),
+            (party1, otherTemplateId, otherContractArgument),
+          ),
+        )
+      )
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = ledgerEnd,
             filter = Map(
-              party1 -> Set(
-                Identifier.assertFromString("acs:mod:Template1"),
-              ),
-              party2 -> Set(
-                Identifier.assertFromString("acs:mod:Template3"),
-              )
+              party1 -> Set(someTemplateId),
+              party2 -> Set(otherTemplateId),
             ),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       val activeContracts = result.toArray
       activeContracts should have length 2
 
       val create2 = activeContracts(0)
       create2.witnessParties.loneElement shouldBe party1
-      val identifier2 = create2.templateId.value
-      identifier2.packageId shouldBe "acs"
-      identifier2.moduleName shouldBe "mod"
-      identifier2.entityName shouldBe "Template1"
+      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(someTemplateId)
 
       val create1 = activeContracts(1)
       create1.witnessParties.loneElement shouldBe party2
-      val identifier1 = create1.templateId.value
-      identifier1.packageId shouldBe "acs"
-      identifier1.moduleName shouldBe "mod"
-      identifier1.entityName shouldBe "Template3"
+      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
     }
   }
 
@@ -227,41 +211,35 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         multipleCreates(
           operator = "operator",
           signatoriesAndTemplates = Seq(
-            party1 -> "acs:mod:Template1",
-            party2 -> "acs:mod:Template3",
-            party1 -> "acs:mod:Template3",
-          )
-        ))
+            (party1, someTemplateId, someContractArgument),
+            (party2, otherTemplateId, otherContractArgument),
+            (party1, otherTemplateId, otherContractArgument),
+          ),
+        )
+      )
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       result <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(
             activeAt = ledgerEnd,
             filter = Map(
-              party1 -> Set(
-                Identifier.assertFromString("acs:mod:Template1"),
-              ),
-              party2 -> Set.empty
+              party1 -> Set(someTemplateId),
+              party2 -> Set.empty,
             ),
             verbose = true,
-          ))
+          )
+      )
     } yield {
       val activeContracts = result.toArray
       activeContracts should have length 2
 
       val create2 = activeContracts(0)
       create2.witnessParties.loneElement shouldBe party1
-      val identifier2 = create2.templateId.value
-      identifier2.packageId shouldBe "acs"
-      identifier2.moduleName shouldBe "mod"
-      identifier2.entityName shouldBe "Template1"
+      create2.templateId.value shouldBe LfEngineToApi.toApiIdentifier(someTemplateId)
 
       val create1 = activeContracts(1)
       create1.witnessParties.loneElement shouldBe party2
-      val identifier1 = create1.templateId.value
-      identifier1.packageId shouldBe "acs"
-      identifier1.moduleName shouldBe "mod"
-      identifier1.entityName shouldBe "Template3"
+      create1.templateId.value shouldBe LfEngineToApi.toApiIdentifier(otherTemplateId)
     }
   }
 
@@ -287,7 +265,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
   }
 
   private def activeContractsOf(
-      source: Source[GetActiveContractsResponse, NotUsed],
+      source: Source[GetActiveContractsResponse, NotUsed]
   ): Future[Seq[CreatedEvent]] =
     source.runWith(Sink.seq).map(_.flatMap(_.activeContracts))
 

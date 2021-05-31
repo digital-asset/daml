@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -20,7 +20,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 service CommandService {
 
   // Submits a single composite command and waits for its result.
-  // Propagates the gRPC error of failed submissions including DAML interpretation errors.
+  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
@@ -28,10 +28,11 @@ service CommandService {
   // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
   // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
+  // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources
   rpc SubmitAndWait (SubmitAndWaitRequest) returns (google.protobuf.Empty);
 
   // Submits a single composite command, waits for its result, and returns the transaction id.
-  // Propagates the gRPC error of failed submissions including DAML interpretation errors.
+  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
@@ -39,10 +40,11 @@ service CommandService {
   // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
   // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
+  // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources
   rpc SubmitAndWaitForTransactionId (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionIdResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction.
-  // Propagates the gRPC error of failed submissions including DAML interpretation errors.
+  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
@@ -50,10 +52,11 @@ service CommandService {
   // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
   // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
+  // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources
   rpc SubmitAndWaitForTransaction (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionResponse);
 
   // Submits a single composite command, waits for its result, and returns the transaction tree.
-  // Propagates the gRPC error of failed submissions including DAML interpretation errors.
+  // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   // Errors:
   // - ``UNAUTHENTICATED``: if the request does not include a valid access token
   // - ``PERMISSION_DENIED``: if the claims in the token are insufficient to perform a given operation
@@ -61,6 +64,7 @@ service CommandService {
   // - ``INVALID_ARGUMENT``: if the payload is malformed or is missing required fields
   // - ``RESOURCE_EXHAUSTED``: if the number of in-flight commands reached the maximum (if a limit is configured)
   // - ``UNAVAILABLE``: if the participant is not yet ready to submit commands or if the service has been shut down.
+  // - ``ABORTED``: if a contract key is missing or duplicated due to for example contention on resources
   rpc SubmitAndWaitForTransactionTree (SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionTreeResponse);
 }
 

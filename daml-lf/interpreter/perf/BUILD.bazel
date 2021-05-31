@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -23,7 +23,6 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/transaction",
     ],
 )
 
@@ -37,6 +36,9 @@ da_scala_binary(
         ":JsonParser.dar.pp",
     ],
     main_class = "com.daml.lf.speedy.explore.ExploreDar",
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -47,9 +49,7 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -64,6 +64,9 @@ da_scala_binary(
         ":Examples.dar.pp",
     ],
     main_class = "com.daml.lf.speedy.explore.SpeedTestNfib",
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -74,9 +77,7 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -96,6 +97,9 @@ da_scala_binary(
         ":JsonParser.dar.pp",
     ],
     main_class = "com.daml.lf.speedy.explore.SpeedTestJsonParser",
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -106,8 +110,6 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

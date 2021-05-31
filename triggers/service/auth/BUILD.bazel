@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,45 +6,75 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "silencer_plugin",
 )
+
+exports_files(["release/oauth2-middleware-logback.xml"])
 
 scalacopts = []
 
 da_scala_library(
     name = "oauth2-api",
     srcs = glob(["src/main/scala/com/daml/auth/oauth2/api/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_parsing",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:io_spray_spray_json",
+    ],
     scalacopts = scalacopts,
     visibility = ["//visibility:public"],
-    deps = [
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_http_2_12",
-        "@maven//:com_typesafe_akka_akka_http_core_2_12",
-        "@maven//:com_typesafe_akka_akka_parsing_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-    ],
 )
 
 da_scala_library(
     name = "middleware-api",
     srcs = glob(["src/main/scala/com/daml/auth/middleware/api/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http_spray_json",
+        "@maven//:com_typesafe_akka_akka_parsing",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = scalacopts,
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",
         "//language-support/scala/bindings",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_http_2_12",
-        "@maven//:com_typesafe_akka_akka_http_core_2_12",
-        "@maven//:com_typesafe_akka_akka_parsing_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
 da_scala_library(
     name = "oauth2-middleware",
     srcs = glob(["src/main/scala/com/daml/auth/middleware/oauth2/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
+    resources = glob(["src/main/resources/com/daml/auth/middleware/oauth2/**"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_lihaoyi_fastparse",
+        "@maven//:com_lihaoyi_geny",
+        "@maven//:com_lihaoyi_os_lib",
+        "@maven//:com_lihaoyi_sjsonnet",
+        "@maven//:com_lihaoyi_ujson",
+        "@maven//:com_lihaoyi_upickle_core",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http_spray_json",
+        "@maven//:com_typesafe_akka_akka_parsing",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = scalacopts,
     visibility = ["//visibility:public"],
     deps = [
@@ -52,20 +82,11 @@ da_scala_library(
         ":oauth2-api",
         "//daml-lf/data",
         "//language-support/scala/bindings",
+        "//ledger-service/cli-opts",
         "//ledger-service/jwt",
         "//ledger/cli-opts",
         "//ledger/ledger-api-auth",
         "//libs-scala/ports",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_http_2_12",
-        "@maven//:com_typesafe_akka_akka_http_core_2_12",
-        "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
-        "@maven//:com_typesafe_akka_akka_parsing_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -85,6 +106,18 @@ da_scala_binary(
 da_scala_library(
     name = "oauth2-test-server",
     srcs = glob(["src/main/scala/com/daml/auth/oauth2/test/server/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http_spray_json",
+        "@maven//:com_typesafe_akka_akka_parsing",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = scalacopts,
     visibility = ["//triggers/service:__subpackages__"],
     deps = [
@@ -93,15 +126,6 @@ da_scala_library(
         "//ledger-service/jwt",
         "//ledger/ledger-api-auth",
         "//libs-scala/ports",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_http_2_12",
-        "@maven//:com_typesafe_akka_akka_http_core_2_12",
-        "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -120,6 +144,16 @@ da_scala_binary(
 da_scala_test(
     name = "oauth2-test-server-tests",
     srcs = glob(["src/test/scala/com/daml/auth/oauth2/test/server/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http_spray_json",
+        "@maven//:com_typesafe_akka_akka_parsing",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = scalacopts,
     deps = [
         ":oauth2-api",
@@ -133,20 +167,23 @@ da_scala_test(
         "//libs-scala/adjustable-clock",
         "//libs-scala/ports",
         "//libs-scala/resources",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_http_2_12",
-        "@maven//:com_typesafe_akka_akka_http_core_2_12",
-        "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
-        "@maven//:com_typesafe_akka_akka_parsing_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
 da_scala_test(
     name = "oauth2-middleware-tests",
     srcs = glob(["src/test/scala/com/daml/auth/middleware/oauth2/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http_spray_json",
+        "@maven//:com_typesafe_akka_akka_parsing",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = scalacopts,
     deps = [
         ":middleware-api",
@@ -163,15 +200,7 @@ da_scala_test(
         "//libs-scala/adjustable-clock",
         "//libs-scala/ports",
         "//libs-scala/resources",
+        "//libs-scala/scala-utils",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_http_2_12",
-        "@maven//:com_typesafe_akka_akka_http_core_2_12",
-        "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
-        "@maven//:com_typesafe_akka_akka_parsing_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

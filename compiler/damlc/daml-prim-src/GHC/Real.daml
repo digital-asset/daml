@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -18,11 +18,14 @@ data Ratio a = !a :% !a
 
 type Rational = Ratio Integer
 
+#ifdef DAML_BIGNUMERIC
+fromRational : IsNumeric t => Rational -> t
+#else
 #ifdef DAML_NUMERIC
 fromRational : NumericScale n => Rational -> Numeric n
 #else
 fromRational : Rational -> Decimal
 #endif
+#endif
 fromRational = magic @"fromRational"
-
 {-# NOINLINE fromRational #-}

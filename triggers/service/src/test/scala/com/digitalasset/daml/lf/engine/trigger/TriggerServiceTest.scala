@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -70,8 +70,10 @@ trait AbstractTriggerServiceTest
           applicationId = testId,
           ledgerId = client.ledgerId.unwrap,
           commandId = UUID.randomUUID.toString,
-          commands = Seq(cmd)
-        )))
+          commands = Seq(cmd),
+        )
+      )
+    )
     client.commandServiceClient.submitAndWait(req)
   }
 
@@ -90,15 +92,16 @@ trait AbstractTriggerServiceTest
       uri: Uri,
       triggerName: String,
       party: Party,
-      applicationId: Option[ApplicationId] = None): Future[HttpResponse] = {
+      applicationId: Option[ApplicationId] = None,
+  ): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.POST,
       uri = uri.withPath(Uri.Path("/v1/triggers")),
       entity = HttpEntity(
         ContentTypes.`application/json`,
         s"""{"triggerName": "$triggerName", "party": "$party", "applicationId": "${applicationId
-          .getOrElse("null")}"}"""
-      )
+          .getOrElse("null")}"}""",
+      ),
     )
     httpRequestFollow(req)
   }
@@ -125,7 +128,7 @@ trait AbstractTriggerServiceTest
   def triggerStatus(uri: Uri, triggerInstance: UUID): Future[HttpResponse] = {
     val req = HttpRequest(
       method = HttpMethods.GET,
-      uri = uri.withPath(Uri.Path("/v1/triggers") / (triggerInstance.toString))
+      uri = uri.withPath(Uri.Path("/v1/triggers") / (triggerInstance.toString)),
     )
     httpRequestFollow(req)
   }
@@ -136,13 +139,15 @@ trait AbstractTriggerServiceTest
       Multipart.FormData.BodyPart(
         "dar",
         HttpEntity.IndefiniteLength(ContentTypes.`application/octet-stream`, fileContentsSource),
-        Map("filename" -> file.toString)))
+        Map("filename" -> file.toString),
+      )
+    )
     val req = HttpRequest(
       method = HttpMethods.POST,
       uri = uri.withPath(Uri.Path(s"/v1/packages")),
-      entity = multipartForm.toEntity
+      entity = multipartForm.toEntity,
     )
-    Http().singleRequest(req)
+    httpRequestFollow(req)
   }
 
   def responseBodyToString(resp: HttpResponse): Future[String] = {
@@ -180,9 +185,11 @@ trait AbstractTriggerServiceTest
   def getActiveContracts(
       client: LedgerClient,
       party: Party,
-      template: Identifier): Future[Seq[CreatedEvent]] = {
+      template: Identifier,
+  ): Future[Seq[CreatedEvent]] = {
     val filter = TransactionFilter(
-      Map(party.unwrap -> Filters(Some(InclusiveFilters(Seq(template))))))
+      Map(party.unwrap -> Filters(Some(InclusiveFilters(Seq(template)))))
+    )
     client.activeContractSetClient
       .getActiveContracts(filter)
       .runWith(Sink.seq)
@@ -195,8 +202,9 @@ trait AbstractTriggerServiceTest
       result <- parseTriggerIds(resp)
     } yield assert(result == expected)
 
-  def assertTriggerStatus[A](triggerInstance: UUID, pred: Vector[String] => A)(
-      implicit A: CompatAssertion[A]): Assertion =
+  def assertTriggerStatus[A](triggerInstance: UUID, pred: Vector[String] => A)(implicit
+      A: CompatAssertion[A]
+  ): Assertion =
     eventually {
       A(pred(getTriggerStatus(triggerInstance).map(_._2)))
     }
@@ -281,7 +289,8 @@ trait AbstractTriggerServiceTest
     for {
       client <- sandboxClient(
         ApiTypes.ApplicationId("my-app-id"),
-        actAs = List(ApiTypes.Party(aliceAcs.unwrap)))
+        actAs = List(ApiTypes.Party(aliceAcs.unwrap)),
+      )
       // Make sure that no contracts exist initially to guard against accidental
       // party reuse.
       _ <- getActiveContracts(client, aliceAcs, Identifier(testPkgId, "TestTrigger", "B"))
@@ -291,7 +300,8 @@ trait AbstractTriggerServiceTest
         uri,
         s"$testPkgId:TestTrigger:trigger",
         aliceAcs,
-        Some(ApplicationId("my-app-id")))
+        Some(ApplicationId("my-app-id")),
+      )
       triggerId <- parseTriggerId(resp)
 
       // Trigger is running, create an A contract
@@ -304,8 +314,12 @@ trait AbstractTriggerServiceTest
                 None,
                 Seq(
                   RecordField(value = Some(Value().withParty(aliceAcs.unwrap))),
-                  RecordField(value = Some(Value().withInt64(42)))))),
-          ))
+                  RecordField(value = Some(Value().withInt64(42))),
+                ),
+              )
+            ),
+          )
+        )
         submitCmd(client, aliceAcs.unwrap, cmd)
       }
       // Query ACS until we see a B contract
@@ -327,14 +341,16 @@ trait AbstractTriggerServiceTest
       status <- triggerStatus(uri, triggerId)
       _ = status.status shouldBe StatusCodes.OK
       body <- responseBodyToString(status)
-      _ = body shouldBe s"""{"result":{"party":"Alice_acs","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
+      _ =
+        body shouldBe s"""{"result":{"party":"Alice_acs","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
       resp <- stopTrigger(uri, triggerId, alice)
       _ <- assert(resp.status.isSuccess)
     } yield succeed
   }
 
   it should "restart trigger on initialization failure due to failed connection" in withTriggerService(
-    List(dar)) { uri: Uri =>
+    List(dar)
+  ) { uri: Uri =>
     for {
       // Simulate a failed ledger connection which will prevent triggers from initializing.
       _ <- Future(toxiSandboxProxy.disable())
@@ -352,7 +368,8 @@ trait AbstractTriggerServiceTest
   }
 
   it should "restart trigger on run-time failure due to dropped connection" in withTriggerService(
-    List(dar)) { uri: Uri =>
+    List(dar)
+  ) { uri: Uri =>
     // Simulate the ledger being briefly unavailable due to network connectivity loss.
     // We continually restart the trigger until the connection returns.
     for {
@@ -401,7 +418,8 @@ trait AbstractTriggerServiceTest
   }
 
   it should "give a 'not found' response for a stop request with an unparseable UUID" in withTriggerService(
-    Nil) { uri: Uri =>
+    Nil
+  ) { uri: Uri =>
     val uuid: String = "No More Mr Nice Guy"
     val req = HttpRequest(
       method = HttpMethods.DELETE,
@@ -414,7 +432,8 @@ trait AbstractTriggerServiceTest
   }
 
   it should "give a 'not found' response for a stop request on an unknown UUID" in withTriggerService(
-    Nil) { uri: Uri =>
+    Nil
+  ) { uri: Uri =>
     val uuid = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
     for {
       resp <- stopTrigger(uri, uuid, alice)
@@ -451,9 +470,7 @@ trait AbstractTriggerServiceTestInMem
     with TriggerDaoInMemFixture {}
 
 // Tests for database trigger service configurations go here
-trait AbstractTriggerServiceTestWithDb
-    extends AbstractTriggerServiceTest
-    with TriggerDaoPostgresFixture {
+trait AbstractTriggerServiceTestWithDatabase extends AbstractTriggerServiceTest {
 
   behavior of "persistent backend"
 
@@ -516,12 +533,28 @@ trait AbstractTriggerServiceTestAuthMiddleware
     extends AbstractTriggerServiceTest
     with AuthMiddlewareFixture {
 
-  override protected val authParties = Some(Set(alice, aliceAcs, aliceExp, bob))
-
   behavior of "authenticated service"
+
+  it should "redirect to the configured callback URI after login" in withTriggerService(
+    Nil,
+    authCallback = Some("http://localhost/TRIGGER_CALLBACK"),
+  ) { uri: Uri =>
+    for {
+      resp <- httpRequest(
+        HttpRequest(
+          method = HttpMethods.GET,
+          uri = uri.withPath(Uri.Path(s"/v1/triggers")).withQuery(Query(("party", alice.toString))),
+        )
+      )
+      _ <- resp.status shouldBe StatusCodes.Found
+      redirectUri = resp.header[headers.Location].get.uri.query().get("redirect_uri").get
+      _ <- Uri(redirectUri).withQuery(Query()) shouldBe Uri("http://localhost/TRIGGER_CALLBACK")
+    } yield succeed
+  }
 
   it should "forbid a non-authorized party to start a trigger" in withTriggerService(List(dar)) {
     uri: Uri =>
+      authServer.revokeParty(eve)
       for {
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", eve)
         _ <- resp.status shouldBe StatusCodes.Forbidden
@@ -530,6 +563,7 @@ trait AbstractTriggerServiceTestAuthMiddleware
 
   it should "forbid a non-authorized party to list triggers" in withTriggerService(Nil) {
     uri: Uri =>
+      authServer.revokeParty(eve)
       for {
         resp <- listTriggers(uri, eve)
         _ <- resp.status shouldBe StatusCodes.Forbidden
@@ -537,7 +571,8 @@ trait AbstractTriggerServiceTestAuthMiddleware
   }
 
   it should "forbid a non-authorized party to check the status of a trigger" in withTriggerService(
-    List(dar)) { uri: Uri =>
+    List(dar)
+  ) { uri: Uri =>
     for {
       resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", alice)
       _ <- resp.status shouldBe StatusCodes.OK
@@ -564,6 +599,14 @@ trait AbstractTriggerServiceTestAuthMiddleware
       } yield succeed
   }
 
+  it should "forbid a non-authorized user to upload a DAR" in withTriggerService(Nil) { uri: Uri =>
+    authServer.revokeAdmin()
+    for {
+      resp <- uploadDar(uri, darPath) // same dar as in initialization
+      _ <- resp.status shouldBe StatusCodes.Forbidden
+    } yield succeed
+  }
+
   it should "request a fresh token after expiry on user request" in withTriggerService(Nil) {
     uri: Uri =>
       for {
@@ -571,7 +614,8 @@ trait AbstractTriggerServiceTestAuthMiddleware
         _ <- resp.status shouldBe StatusCodes.OK
         // Expire old token and test the trigger service transparently requests a new token.
         _ = authClock.fastForward(
-          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
+          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1)
+        )
         resp <- listTriggers(uri, alice)
         _ <- resp.status shouldBe StatusCodes.OK
       } yield succeed
@@ -582,7 +626,8 @@ trait AbstractTriggerServiceTestAuthMiddleware
       for {
         client <- sandboxClient(
           ApiTypes.ApplicationId("exp-app-id"),
-          actAs = List(ApiTypes.Party(aliceExp.unwrap)))
+          actAs = List(ApiTypes.Party(aliceExp.unwrap)),
+        )
         // Make sure that no contracts exist initially to guard against accidental
         // party reuse.
         _ <- getActiveContracts(client, aliceExp, Identifier(testPkgId, "TestTrigger", "B"))
@@ -592,14 +637,16 @@ trait AbstractTriggerServiceTestAuthMiddleware
           uri,
           s"$testPkgId:TestTrigger:trigger",
           aliceExp,
-          Some(ApplicationId("exp-app-id")))
+          Some(ApplicationId("exp-app-id")),
+        )
         triggerId <- parseTriggerId(resp)
 
         // Expire old token and test that the trigger service requests a new token during trigger start-up.
         // TODO[AH] Here we want to test token expiry during QueryingACS.
         //   For now the test relies on timing. Find a way to enforce expiry during QueryingACS.
         _ = authClock.fastForward(
-          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
+          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1)
+        )
 
         // Trigger is running, create an A contract
         createACommand = { v: Long =>
@@ -611,8 +658,12 @@ trait AbstractTriggerServiceTestAuthMiddleware
                   None,
                   Seq(
                     RecordField(value = Some(Value().withParty(aliceExp.unwrap))),
-                    RecordField(value = Some(Value().withInt64(v))))))
-            ))
+                    RecordField(value = Some(Value().withInt64(v))),
+                  ),
+                )
+              ),
+            )
+          )
         }
         _ <- submitCmd(client, aliceExp.unwrap, createACommand(7))
         // Query ACS until we see a B contract
@@ -623,7 +674,8 @@ trait AbstractTriggerServiceTestAuthMiddleware
 
         // Expire old token and test that the trigger service requests a new token during running trigger.
         _ = authClock.fastForward(
-          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1))
+          JDuration.ofSeconds(authServer.tokenLifetimeSeconds.asInstanceOf[Long] + 1)
+        )
 
         // Create another A contract
         _ <- submitCmd(client, aliceExp.unwrap, createACommand(42))
@@ -647,7 +699,8 @@ trait AbstractTriggerServiceTestAuthMiddleware
         status <- triggerStatus(uri, triggerId)
         _ = status.status shouldBe StatusCodes.OK
         body <- responseBodyToString(status)
-        _ = body shouldBe s"""{"result":{"party":"Alice_exp","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
+        _ =
+          body shouldBe s"""{"result":{"party":"Alice_exp","status":"running","triggerId":"$testPkgId:TestTrigger:trigger"},"status":200}"""
         resp <- stopTrigger(uri, triggerId, aliceExp)
         _ <- assert(resp.status.isSuccess)
       } yield succeed

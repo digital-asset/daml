@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.cli
@@ -11,8 +11,9 @@ import java.time.Duration
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
+import com.daml.ledger.test.ModelTestDar
 import com.daml.platform.configuration.MetricsReporter
-import com.daml.platform.configuration.MetricsReporter.Graphite
+import com.daml.platform.configuration.MetricsReporter.{Graphite, Prometheus}
 import com.daml.platform.sandbox.cli.CommonCliSpecBase._
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
@@ -21,7 +22,7 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 abstract class CommonCliSpecBase(
     protected val cli: SandboxCli,
@@ -70,7 +71,8 @@ abstract class CommonCliSpecBase(
       val participantId = "myParticipant"
       checkOption(
         Array("--participant-id", participantId),
-        _.copy(participantId = v1.ParticipantId.assertFromString("myParticipant")))
+        _.copy(participantId = v1.ParticipantId.assertFromString("myParticipant")),
+      )
     }
 
     "apply static time when given" in {
@@ -81,7 +83,8 @@ abstract class CommonCliSpecBase(
     "apply wall-clock time when given" in {
       checkOption(
         Array("--wall-clock-time"),
-        _.copy(timeProviderType = Some(TimeProviderType.WallClock)))
+        _.copy(timeProviderType = Some(TimeProviderType.WallClock)),
+      )
       checkOption(Array("-w"), _.copy(timeProviderType = Some(TimeProviderType.WallClock)))
     }
 
@@ -94,7 +97,8 @@ abstract class CommonCliSpecBase(
       val crt = "mycrt"
       checkOption(
         Array("--crt", crt),
-        _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, Some(new File(crt)), None, None))))
+        _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, Some(new File(crt)), None, None))),
+      )
     }
 
     "parse the cacrt file when given" in {
@@ -102,21 +106,27 @@ abstract class CommonCliSpecBase(
       checkOption(
         Array("--cacrt", cacrt),
         _.copy(
-          tlsConfig = Some(TlsConfiguration(enabled = true, None, None, Some(new File(cacrt))))))
+          tlsConfig = Some(TlsConfiguration(enabled = true, None, None, Some(new File(cacrt))))
+        ),
+      )
     }
 
     "parse the pem file when given" in {
       val pem = "mypem"
       checkOption(
         Array("--pem", pem),
-        _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, None, Some(new File(pem)), None))))
+        _.copy(tlsConfig = Some(TlsConfiguration(enabled = true, None, Some(new File(pem)), None))),
+      )
     }
 
     "set certificate revocation checks property" in {
       checkOption(
         Array("--cert-revocation-checking", "true"),
-        _.copy(tlsConfig = Some(
-          TlsConfiguration(enabled = true, None, None, None, enableCertRevocationChecking = true)))
+        _.copy(tlsConfig =
+          Some(
+            TlsConfiguration(enabled = true, None, None, None, enableCertRevocationChecking = true)
+          )
+        ),
       )
     }
 
@@ -220,6 +230,42 @@ abstract class CommonCliSpecBase(
       config shouldEqual None
     }
 
+    "parse a Prometheus metrics reporter when given" in {
+      val expectedAddress = new InetSocketAddress("server", Prometheus.defaultPort)
+      checkOption(
+        Array("--metrics-reporter", "prometheus://server"),
+        _.copy(metricsReporter = Some(MetricsReporter.Prometheus(expectedAddress))),
+      )
+    }
+
+    "parse a Prometheus metrics reporter with a port when given" in {
+      val expectedAddress = new InetSocketAddress("server", 9876)
+      checkOption(
+        Array("--metrics-reporter", "prometheus://server:9876"),
+        _.copy(metricsReporter = Some(MetricsReporter.Prometheus(expectedAddress))),
+      )
+    }
+
+    "reject a Prometheus metrics reporter when it has no information" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "prometheus"))
+      config shouldEqual None
+    }
+
+    "reject a Prometheus metrics reporter without a host" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "prometheus://"))
+      config shouldEqual None
+    }
+
+    "reject a Prometheus metrics reporter without a host but with a port" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "prometheus://:9876"))
+      config shouldEqual None
+    }
+
+    "reject a Prometheus metrics reporter when it's missing '//'" in {
+      val config = cli.parse(requiredArgs ++ Array("--metrics-reporter", "prometheus:server:1234"))
+      config shouldEqual None
+    }
+
     "parse the metrics reporting interval when given" in {
       checkOption(
         Array("--metrics-reporting-interval", "PT1M30S"),
@@ -230,7 +276,7 @@ abstract class CommonCliSpecBase(
 
   protected def checkOption(
       args: Array[String],
-      expectedChange: SandboxConfig => SandboxConfig
+      expectedChange: SandboxConfig => SandboxConfig,
   ): Assertion = {
     val expectedConfig = expectedChange(defaultConfig.copy(damlPackages = List(new File(archive))))
     val config = cli.parse(requiredArgs ++ args ++ Array(archive))
@@ -240,7 +286,7 @@ abstract class CommonCliSpecBase(
 
 object CommonCliSpecBase {
 
-  private val archive = rlocation("ledger/test-common/model-tests.dar")
+  private val archive = rlocation(ModelTestDar.path)
   private val nonExistentArchive = "whatever.dar"
   private val invalidArchive = {
     val tempFile = Files.createTempFile("invalid-archive", ".dar.tmp")

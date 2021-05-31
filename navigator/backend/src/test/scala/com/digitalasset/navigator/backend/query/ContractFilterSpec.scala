@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.query
@@ -10,7 +10,7 @@ import com.daml.navigator.model.{Contract, Template}
 import com.daml.ledger.api.refinements.ApiTypes
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import com.daml.navigator.DamlConstants.singletonRecord
+import com.daml.navigator.DamlConstants.record
 import com.daml.navigator.model._
 import scalaz.syntax.tag._
 
@@ -23,12 +23,16 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
-      DamlLfDottedName.assertFromString("T0")))
+      DamlLfDottedName.assertFromString("T0"),
+    ),
+  )
   val damlLfId1 = DamlLfIdentifier(
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
-      DamlLfDottedName.assertFromString("T1")))
+      DamlLfDottedName.assertFromString("T1"),
+    ),
+  )
 
   val damlLfRecord0 = DamlLfDefDataType(
     DamlLfImmArraySeq(),
@@ -36,20 +40,26 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
       DamlLfImmArraySeq(
         DamlLfRef.Name
           .assertFromString("foo") -> DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq())
-      )))
+      )
+    ),
+  )
   val damlLfRecord1 = DamlLfDefDataType(
     DamlLfImmArraySeq(),
     DamlLfRecord(
       DamlLfImmArraySeq(
         DamlLfRef.Name
           .assertFromString("int") -> DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq())
-      )))
+      )
+    ),
+  )
 
   val damlLfIdKey = DamlLfIdentifier(
     DamlLfRef.PackageId.assertFromString("hash"),
     DamlLfQualifiedName(
       DamlLfDottedName.assertFromString("module"),
-      DamlLfDottedName.assertFromString("K1")))
+      DamlLfDottedName.assertFromString("K1"),
+    ),
+  )
 
   val damlLfRecordKey = DamlLfDefDataType(
     DamlLfImmArraySeq(),
@@ -57,7 +67,9 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
       DamlLfImmArraySeq(
         DamlLfRef.Name
           .assertFromString("foo") -> DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq())
-      )))
+      )
+    ),
+  )
 
   val damlLfKeyType =
     DamlLfTypeCon(DamlLfTypeConName(damlLfIdKey), DamlLfImmArraySeq.empty[DamlLfType])
@@ -65,7 +77,7 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
   val damlLfDefDataTypes: Map[DamlLfIdentifier, DamlLfDefDataType] = Map(
     damlLfId0 -> damlLfRecord0,
     damlLfId1 -> damlLfRecord1,
-    damlLfIdKey -> damlLfRecordKey
+    damlLfIdKey -> damlLfRecordKey,
   )
 
   val template1 = Template(damlLfId0, List.empty, None)
@@ -78,28 +90,30 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
   val contract1 = Contract(
     ApiTypes.ContractId("id1"),
     template1,
-    singletonRecord("foo", ValueText("bar")),
+    record("foo" -> ValueText("bar")),
     None,
     List(alice),
     List(bob, charlie),
-    None)
+    None,
+  )
   val contract2 = Contract(
     ApiTypes.ContractId("id2"),
     template2,
-    singletonRecord("int", ValueInt64(12)),
+    record("int" -> ValueInt64(12)),
     Some(""),
     List(alice),
     List(bob, charlie),
-    Some(singletonRecord("foo", ValueText("bar")))
+    Some(record("foo" -> ValueText("bar"))),
   )
   val contract3 = Contract(
     ApiTypes.ContractId("id3"),
     template1,
-    singletonRecord("foo", ValueText("bar")),
+    record("foo" -> ValueText("bar")),
     Some("agreement"),
     List(alice),
     List(bob, charlie),
-    None)
+    None,
+  )
 
   val templates = List(template1, template2)
   val contracts = List(contract1, contract2, contract3)
@@ -107,7 +121,8 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
   def test(filters: List[(String, String)], expected: List[Contract], isAnd: Boolean): Unit = {
     it should s"return $expected on filter (${filters.map { case (k, v) => s"$k contains $v" }.mkString(" and ")})" in {
       val criteria = filters.map { case (k, v) => new FilterCriterion(k, v) }
-      val criterion = if (isAnd) AndFilterCriterion(criteria) else OrFilterCriterion(criteria)
+      val criterion: FilterCriterionBase =
+        if (isAnd) AndFilterCriterion(criteria) else OrFilterCriterion(criteria)
       val filter = new ContractFilter(criterion, damlLfDefDataTypes.get, AllContractsPager)
       contracts.filter(filter.isIncluded) should contain theSameElementsAs expected
     }

@@ -1,48 +1,45 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-.. ops-ref_index:
+.. _ops-ref_index:
 
-DAML Participant pruning
+Daml Participant pruning
 ========================
 
-.. HINT::
-   DAML Participant pruning is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`
-
-The DAML Ledger API exposes an append-only ledger model; on the other hand, DAML Participants must be able to operate continuously for an indefinite amount of time on a limited amount of hot storage.
+The Daml Ledger API exposes an append-only ledger model; on the other hand, Daml Participants must be able to operate continuously for an indefinite amount of time on a limited amount of hot storage.
 
 In addition, privacy demands [1]_ may require removing Personally Identifiable Information (PII) upon request.
 
-To satisfy these requirements, the :ref:`Pruning Service <com.daml.ledger.api.v1.admin.ParticipantPruningService>` Ledger API endpoint [2]_ allows DAML Participants to support pruning of DAML contracts and transactions that were respectively archived and submitted before or at a given ledger offset.
+To satisfy these requirements, the :ref:`Pruning Service <com.daml.ledger.api.v1.admin.ParticipantPruningService>` Ledger API endpoint [2]_ allows Daml Participants to support pruning of Daml contracts and transactions that were respectively archived and submitted before or at a given ledger offset.
 
-Please refer to the specific DAML Driver information for details about its pruning support.
+Please refer to the specific Daml Driver information for details about its pruning support.
 
 .. [1] For example, as enabled by provisions about the "right to be forgotten" of legislation such as
        `EU's GDPR <https://gdpr-info.eu/>`_.
 .. [2] Invoking the Pruning Service requires administrative privileges.
 
-Impacts on DAML applications
+Impacts on Daml applications
 ----------------------------
 
-When supported, pruning can be invoked by an operator with administrative privileges at any time on a healthy DAML participant; furthermore, it doesn't require stopping nor suspending normal operation.
+When supported, pruning can be invoked by an operator with administrative privileges at any time on a healthy Daml participant; furthermore, it doesn't require stopping nor suspending normal operation.
 
-Still, DAML applications may be affected in the following ways:
+Still, Daml applications may be affected in the following ways:
 
-- Pruning is potentially a long-running operation and demanding one in terms of system resources; as such, it may significantly reduce DAML Ledger API throughput and increase latency while it is being performed. It is thus strongly recommended to plan pruning invocations, preferably, when the system is offline or at least when very low system utilization is expected.
+- Pruning is potentially a long-running operation and demanding one in terms of system resources; as such, it may significantly reduce Daml Ledger API throughput and increase latency while it is being performed. It is thus strongly recommended to plan pruning invocations, preferably, when the system is offline or at least when very low system utilization is expected.
 - Pruning may degrade the behavior of or abort in-progress requests if the pruning offset is too recent. In particular, the system might misbehave if command completions are pruned before the command trackers are able to process the completions.
 - Command deduplication and command tracker retention should always configured in such a way, that the associated windows don't overlap with the pruning window, so that their operation is unaffected by pruning.
 - Pruning may affect the behavior of Ledger API calls that allow to read data from the ledger: see the next sub-section for more information about API impacts.
 
-How the DAML Ledger API is affected
+How the Daml Ledger API is affected
 -----------------------------------
 
-- Active data streams from the DAML Participant may abort and need to be re-established by the DAML application from a later offset than pruned, even if they are already streaming past it.
+- Active data streams from the Daml Participant may abort and need to be re-established by the Daml application from a later offset than pruned, even if they are already streaming past it.
 - Requesting information at offsets that predate pruning, including from the ledger's start, will result in a ``NOT_FOUND`` gRPC error.
-  - As a consequence, after pruning, a DAML application must bootstrap from the Active Contract Service and a recent offset [3]_.
+  - As a consequence, after pruning, a Daml application must bootstrap from the Active Contract Service and a recent offset [3]_.
 
-Submission validation and DAML Ledger API endpoints that write to the ledger are generally not affected by pruning; an exception is that in-progress calls could abort while awaiting completion.
+Submission validation and Daml Ledger API endpoints that write to the ledger are generally not affected by pruning; an exception is that in-progress calls could abort while awaiting completion.
 
-Please refer to the :doc:`protobuf documentation of the API </app-dev/grpc/proto-docs>` for details about the ``prune`` operation itself and the behavior of other DAML Ledger API endpoints when pruning is being or has been performed.
+Please refer to the :doc:`protobuf documentation of the API </app-dev/grpc/proto-docs>` for details about the ``prune`` operation itself and the behavior of other Daml Ledger API endpoints when pruning is being or has been performed.
 
 Other limitations
 -----------------
@@ -64,7 +61,7 @@ Activities to be carried out *before* invoking a pruning operation should thus i
 
 In addition, activities to be carried out *after* invoking a pruning operation might include:
 
-- On a PostreSQL Index DB, especially if auto-vacuum tuning has not been performed, issuing `VACUUM` commands at appropriate times may improve performance and storage usage by letting the database reuse freed space. Note that `VACUUM FULL` commands are still needed for the OS to reclaim disk space previously used by the database.
+- On a PostgreSQL Index DB, especially if auto-vacuum tuning has not been performed, issuing `VACUUM` commands at appropriate times may improve performance and storage usage by letting the database reuse freed space. Note that `VACUUM FULL` commands are still needed for the OS to reclaim disk space previously used by the database.
 
 Backing up and vacuuming, in addition to pruning itself, are also long-running and resource-hungry operations that might negatively affect the performance of regular workloads and even the availability of the system: this is true in particular for `VACUUM FULL` in PostgreSQL and equivalent commands in other DBMSs. These operations should thus be planned and taken carefully into account when sizing system resources. They should also be scheduled sensibly in relation to the desired sustained performance levels of regular workloads and to the hot storage usage goals.
 
@@ -75,14 +72,14 @@ Determining a suitable pruning offset
 
 The :ref:`Transaction Service <transaction-service>` and the :ref:`Active Contract Service <active-contract-service>` provide offsets of the ledger end, as well as of transactions, and of Active Contracts snapshots respectively; such offsets can be passed unchanged to `prune` calls.
 
-Scheduled jobs, applications and/or operator tools can be built on top of the DAML Ledger API to implement pruning automatically, for example at regular intervals, or on-demand, for example according to a user-initiated process.
+Scheduled jobs, applications and/or operator tools can be built on top of the Daml Ledger API to implement pruning automatically, for example at regular intervals, or on-demand, for example according to a user-initiated process.
 
 For instance, pruning at regular intervals could be performed by a cron job that:
 
 1. If a pruning interval has been saved to a well-known location:
-   a. Backs up the DAML Participant Index DB.
+   a. Backs up the Daml Participant Index DB.
    b. Performs pruning.
-   c. (If using PostgreSQL) Performs a `VACUUM FULL` command on the DAML Participant Index DB.
+   c. (If using PostgreSQL) Performs a `VACUUM FULL` command on the Daml Participant Index DB.
 
 2. Queries the current ledger end and saves its offset.
 

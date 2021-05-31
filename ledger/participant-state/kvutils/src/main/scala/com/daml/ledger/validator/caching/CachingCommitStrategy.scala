@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.caching
@@ -8,12 +8,11 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.caching.CachingDamlLedgerStateReader.StateCache
 import com.daml.ledger.validator.{
   CommitStrategy,
   LedgerStateOperations,
   LogAppendingCommitStrategy,
-  StateKeySerializationStrategy
+  StateKeySerializationStrategy,
 }
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,8 +34,8 @@ final class CachingCommitStrategy[Result](
   ): Future[Result] =
     for {
       _ <- Future {
-        outputState.view.filter { case (key, _) => shouldCache(key) }.foreach {
-          case (key, value) => cache.put(key, value)
+        outputState.view.filter { case (key, _) => shouldCache(key) }.foreach { case (key, value) =>
+          cache.put(key, value)
         }
       }
       result <- delegate.commit(
@@ -53,8 +52,8 @@ final class CachingCommitStrategy[Result](
 
 object CachingCommitStrategy {
   def apply[LogResult](
-      stateCache: StateCache,
-      cacheUpdatePolicy: CacheUpdatePolicy,
+      stateCache: Cache[DamlStateKey, DamlStateValue],
+      cacheUpdatePolicy: CacheUpdatePolicy[DamlStateKey],
       ledgerStateOperations: LedgerStateOperations[LogResult],
       keySerializationStrategy: StateKeySerializationStrategy,
   )(implicit executionContext: ExecutionContext): CachingCommitStrategy[LogResult] =

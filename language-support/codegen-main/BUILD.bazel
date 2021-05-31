@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -18,6 +18,10 @@ load("@os_info//:os_info.bzl", "is_windows")
 da_scala_library(
     name = "codegen-main-lib",
     srcs = glob(["src/main/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+    ],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -27,8 +31,6 @@ da_scala_library(
         "//language-support/codegen-common",
         "//language-support/java/codegen:lib",
         "//language-support/scala/codegen:codegen-main",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
     ],
 )
 
@@ -36,6 +38,10 @@ da_scala_binary(
     name = "codegen-main",
     srcs = glob(["src/main/**/*.scala"]),
     main_class = "com.daml.codegen.CodegenMain",
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+    ],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -45,8 +51,6 @@ da_scala_binary(
         "//language-support/codegen-common",
         "//language-support/java/codegen:lib",
         "//language-support/scala/codegen:codegen-main",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
     ],
 )
 

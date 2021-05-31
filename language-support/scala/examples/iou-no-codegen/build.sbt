@@ -11,7 +11,7 @@ lazy val parent = project
   .settings(
     name := "iou-no-codegen",
     publishArtifact in (Compile, packageDoc) := false,
-    publishArtifact in (Compile, packageSrc) := false
+    publishArtifact in (Compile, packageSrc) := false,
   )
   .aggregate(application)
 
@@ -20,7 +20,7 @@ lazy val application = project
   .settings(
     name := "application",
     commonSettings,
-    libraryDependencies ++= applicationDependencies
+    libraryDependencies ++= applicationDependencies,
   )
 
 lazy val commonSettings = Seq(
@@ -31,14 +31,14 @@ lazy val commonSettings = Seq(
     "-Xfatal-warnings",
     "-unchecked",
     "-Xfuture",
-    "-Xlint:_,-unused"
+    "-Xlint:_,-unused",
   ),
   // uncomment next line, if you have to build against local maven repository
   // resolvers += Resolver.mavenLocal,
-  classpathTypes += "maven-plugin"
+  classpathTypes += "maven-plugin",
 )
 
 lazy val applicationDependencies = Seq(
   "com.daml" %% "bindings-scala" % damlSdkVersion,
-  "com.daml" %% "bindings-akka" % damlSdkVersion
+  "com.daml" %% "bindings-akka" % damlSdkVersion,
 )

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
@@ -9,7 +9,6 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.api.util.TimestampConversion._
-import com.daml.dec.DirectExecutionContext
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
@@ -29,10 +28,10 @@ import scala.util.control.NoStackTrace
 private[apiserver] final class ApiTimeService private (
     val ledgerId: LedgerId,
     backend: TimeServiceBackend,
-)(
-    implicit grpcExecutionContext: ExecutionContext,
+)(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
+    executionContext: ExecutionContext,
     loggingContext: LoggingContext,
 ) extends TimeServiceAkkaGrpc
     with FieldValidations
@@ -41,14 +40,16 @@ private[apiserver] final class ApiTimeService private (
   private val logger = ContextualizedLogger.get(this.getClass)
 
   logger.debug(
-    s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}")
+    s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}"
+  )
 
   private val dispatcher = SignalDispatcher[Instant]()
 
   override protected def getTimeSource(request: GetTimeRequest): Source[GetTimeResponse, NotUsed] =
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
-      Source.failed, { ledgerId =>
-        logger.trace(s"Request for time with ledger ID $ledgerId")
+      Source.failed,
+      { ledgerId =>
+        logger.info(s"Received request for time with ledger ID $ledgerId")
         dispatcher
           .subscribe()
           .map(_ => backend.getCurrentTime)
@@ -61,25 +62,31 @@ private[apiserver] final class ApiTimeService private (
             case Some(t) => List(GetTimeResponse(Some(fromInstant(t))))
           }
           .via(logger.logErrorsOnStream)
-      }
+      },
     )
 
   @SuppressWarnings(Array("org.wartremover.warts.JavaSerializable"))
   override def setTime(request: SetTimeRequest): Future[Empty] = {
     def updateTime(
         expectedTime: Instant,
-        requestedTime: Instant): Future[Either[StatusRuntimeException, Instant]] =
+        requestedTime: Instant,
+    ): Future[Either[StatusRuntimeException, Instant]] = {
+      logger.info(s"Setting time to $requestedTime")
       backend
         .setCurrentTime(expectedTime, requestedTime)
         .map(success =>
           if (success) Right(requestedTime)
           else
             Left(
-              new StatusRuntimeException(Status.INVALID_ARGUMENT
-                .withDescription(
-                  s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"))
-              with NoStackTrace
-          ))(DirectExecutionContext)
+              new StatusRuntimeException(
+                Status.INVALID_ARGUMENT
+                  .withDescription(
+                    s"current_time mismatch. Provided: $expectedTime. Actual: ${backend.getCurrentTime}"
+                  )
+              ) with NoStackTrace
+            )
+        )
+    }
 
     val result = for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
@@ -90,10 +97,13 @@ private[apiserver] final class ApiTimeService private (
           Right(())
         else
           Left(
-            new StatusRuntimeException(Status.INVALID_ARGUMENT
-              .withDescription(
-                s"new_time [$requestedTime] is before current_time [$expectedTime]. Setting time backwards is not allowed."))
-            with NoStackTrace)
+            new StatusRuntimeException(
+              Status.INVALID_ARGUMENT
+                .withDescription(
+                  s"new_time [$requestedTime] is before current_time [$expectedTime]. Setting time backwards is not allowed."
+                )
+            ) with NoStackTrace
+          )
       }
     } yield {
       updateTime(expectedTime, requestedTime)
@@ -104,14 +114,17 @@ private[apiserver] final class ApiTimeService private (
         .andThen(logger.logErrorsOnCall[Empty])
     }
 
-    result.fold({ error =>
-      logger.warn(s"Failed to set time for request $request: ${error.getMessage}")
-      Future.failed(error)
-    }, identity)
+    result.fold(
+      { error =>
+        logger.warn(s"Failed to set time for request $request: ${error.getMessage}")
+        Future.failed(error)
+      },
+      identity,
+    )
   }
 
   override def bindService(): ServerServiceDefinition =
-    TimeServiceGrpc.bindService(this, DirectExecutionContext)
+    TimeServiceGrpc.bindService(this, executionContext)
 
   def getCurrentTime: Instant = backend.getCurrentTime
 
@@ -122,10 +135,10 @@ private[apiserver] final class ApiTimeService private (
 }
 
 private[apiserver] object ApiTimeService {
-  def create(ledgerId: LedgerId, backend: TimeServiceBackend)(
-      implicit grpcExecutionContext: ExecutionContext,
+  def create(ledgerId: LedgerId, backend: TimeServiceBackend)(implicit
       mat: Materializer,
       esf: ExecutionSequencerFactory,
+      executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): TimeService with GrpcApiService =
     new ApiTimeService(ledgerId, backend)

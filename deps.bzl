@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 #
@@ -33,16 +33,16 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 rules_scala_version = "67a7ac178a73d1d5ff4c2b0663a8eda6dfcbbc56"
 rules_scala_sha256 = "95054009fd938ac7ef53a20619f94a5408d8ae74eb5b318cd150a3ecb1a6086f"
 
-rules_haskell_version = "130121dac45dc726175fbb15230c02325b6fe73a"
-rules_haskell_sha256 = "423112ebcd17ae609caf6b76c75d5785f58a41a197fb62545d46f89bd66b508c"
+rules_haskell_version = "60ed30aab00e9ffa2e2fe19e59f7de885f029556"
+rules_haskell_sha256 = "a9c94b1fb61e1e341b7544305e9b0a359594779f797fddfcfcd447709c7c9820"
 rules_nixpkgs_version = "0dd4c8a085b108592b0193ad1e237e2e07f715ac"
 rules_nixpkgs_sha256 = "f2073135db911ee94b70da1e2288dd2445976a1b20a1edfe67773b29751f50a9"
-buildifier_version = "3.3.0"
-buildifier_sha256 = "f11fc80da0681a6d64632a850346ed2d4e5cbb0908306d9a2a2915f707048a10"
+buildifier_version = "4.0.0"
+buildifier_sha256 = "0d3ca4ed434958dda241fb129f77bd5ef0ce246250feed2d5a5470c6f29a77fa"
 zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
-rules_nodejs_version = "2.0.1"
-rules_nodejs_sha256 = "0f2de53628e848c1691e5729b515022f5a77369c76a09fbe55611e12731c90e3"
+rules_nodejs_version = "3.5.1"
+rules_nodejs_sha256 = "4a5d654a4ccd4a4c24eca5d319d85a88a650edf119601550c95bf400c8cc897e"
 rules_jvm_external_version = "3.3"
 rules_jvm_external_sha256 = "d85951a92c0908c80bd8551002d66cb23c3434409c814179c0ff026b53544dab"
 rules_go_version = "0.23.6"
@@ -59,10 +59,21 @@ davl_v3_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
 davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
 
 # daml cheat sheet
-daml_cheat_sheet_version = "9d44b550de6c5d23096116da37ccb2fb4a90f7af"  # 2020-06-30
-daml_cheat_sheet_sha256 = "6429b73e33a7a937048c3d1316182bff0cb34b6aed30e2915875da698ee4d5c9"
+daml_cheat_sheet_version = "5ae141096d7fc0031392206e80f71f7dc3b23e1c"  # 2021-03-11
+daml_cheat_sheet_sha256 = "e51651b34bc67704c8f6995207982f9e87758460246c2132dd8fe524277f612b"
+
+platforms_version = "0.0.3"
+platforms_sha256 = "15b66b5219c03f9e8db34c1ac89c458bb94bfe055186e5505d5c6f09cb38307f"
 
 def daml_deps():
+    if "platforms" not in native.existing_rules():
+        http_archive(
+            name = "platforms",
+            sha256 = platforms_sha256,
+            strip_prefix = "platforms-{}".format(platforms_version),
+            urls = ["https://github.com/bazelbuild/platforms/archive/{version}.tar.gz".format(version = platforms_version)],
+        )
+
     if "rules_haskell" not in native.existing_rules():
         http_archive(
             name = "rules_haskell",
@@ -80,6 +91,8 @@ def daml_deps():
                 # This should be made configurable in rules_haskell.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
+                # Can be removed once https://github.com/tweag/rules_haskell/pull/1464 is merged.
+                "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper-windows.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -99,6 +112,8 @@ def daml_deps():
                 # reportedly solves the issue. See
                 # https://github.com/NixOS/nix/issues/2733#issuecomment-518324335
                 "@com_github_digital_asset_daml//bazel_tools:nixpkgs-disable-http2.patch",
+                # Already upstreamed to rules-nixpkgs. Remove on next upgrade.
+                "@com_github_digital_asset_daml//bazel_tools:rules-nixpkgs-llvm-cov.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -139,6 +154,8 @@ def daml_deps():
             sha256 = rules_scala_sha256,
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
+                # Remove once https://github.com/bazelbuild/rules_scala/pull/1261 is merged
+                "@com_github_digital_asset_daml//bazel_tools:rules_scala_suite_tags.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -146,11 +163,12 @@ def daml_deps():
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "60d2012e3922e429294d3a4ac31f336016514a91e5a63fd33f35743ccfe1bd7d",
-            # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-deps.bzl
-            strip_prefix = "protobuf-3.11.0",
-            urls = ["https://github.com/google/protobuf/archive/v3.11.0.zip"],
+            sha256 = "bf0e5070b4b99240183b29df78155eee335885e53a8af8683964579c214ad301",
+            # changing this version needs to be in sync with protobuf-java and grpc dependencies in bazel-java-bdeps.bzl
+            strip_prefix = "protobuf-3.14.0",
+            urls = ["https://github.com/google/protobuf/archive/v3.14.0.zip"],
             patches = [
+                "@com_github_digital_asset_daml//bazel_tools:protobuf-win32.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -190,16 +208,43 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
+    if "upb" not in native.existing_rules():
+        # upb is a dependency of com_github_grpc_grpc.
+        # It is usually pulled in automatically by grpc_deps(), but depend on it explicitly to patch it.
+        # This http_archive can be removed when we no longer need to patch upb.
+        http_archive(
+            name = "upb",
+            sha256 = "c0b97bf91dfea7e8d7579c24e2ecdd02d10b00f3c5defc3dce23d95100d0e664",
+            strip_prefix = "upb-60607da72e89ba0c84c84054d2e562d8b6b61177",
+            urls = [
+                "https://storage.googleapis.com/grpc-bazel-mirror/github.com/protocolbuffers/upb/archive/60607da72e89ba0c84c84054d2e562d8b6b61177.tar.gz",
+                "https://github.com/protocolbuffers/upb/archive/60607da72e89ba0c84c84054d2e562d8b6b61177.tar.gz",
+            ],
+        )
+
     if "com_github_grpc_grpc" not in native.existing_rules():
-        # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.23.1",
-            urls = ["https://github.com/grpc/grpc/archive/v1.23.1.tar.gz"],
-            sha256 = "dd7da002b15641e4841f20a1f3eb1e359edb69d5ccf8ac64c362823b05f523d9",
+            strip_prefix = "grpc-1.36.0",
+            urls = ["https://github.com/grpc/grpc/archive/v1.36.0.tar.gz"],
+            sha256 = "1a5127c81487f4e3e57973bb332f04b9159f94d860c207e096d8a587d371edbd",
             patches = [
-                "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-apple.patch",
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
+            ],
+            patch_args = ["-p1"],
+        )
+
+    if "com_google_absl" not in native.existing_rules():
+        http_archive(
+            name = "com_google_absl",
+            sha256 = "3d74cdc98b42fd4257d91f652575206de195e2c824fcd8d6e6d227f85cb143ef",
+            strip_prefix = "abseil-cpp-0f3bb466b868b523cf1dc9b2aaaed65c77b28862",
+            urls = [
+                "https://storage.googleapis.com/grpc-bazel-mirror/github.com/abseil/abseil-cpp/archive/0f3bb466b868b523cf1dc9b2aaaed65c77b28862.tar.gz",
+                "https://github.com/abseil/abseil-cpp/archive/0f3bb466b868b523cf1dc9b2aaaed65c77b28862.tar.gz",
+            ],
+            patches = [
+                "@com_github_digital_asset_daml//bazel_tools:absl-mingw.patch",
             ],
             patch_args = ["-p1"],
         )
@@ -207,12 +252,9 @@ def daml_deps():
     if "io_grpc_grpc_java" not in native.existing_rules():
         http_archive(
             name = "io_grpc_grpc_java",
-            strip_prefix = "grpc-java-1.21.0",
-            urls = ["https://github.com/grpc/grpc-java/archive/v1.21.0.tar.gz"],
-            sha256 = "9bc289e861c6118623fcb931044d843183c31d0e4d53fc43c4a32b56d6bb87fa",
-            patches = [
-                "@com_github_digital_asset_daml//bazel_tools:grpc-java-plugin-visibility.patch",
-            ],
+            strip_prefix = "grpc-java-1.35.0",
+            urls = ["https://github.com/grpc/grpc-java/archive/v1.35.0.tar.gz"],
+            sha256 = "537d01bdc5ae2bdb267853a75578d671db3075b33e3a00a93f5a572191d3a7b3",
             patch_args = ["-p1"],
         )
 
@@ -224,13 +266,23 @@ def daml_deps():
             urls = ["https://github.com/johnynek/bazel_jar_jar/archive/20dbf71f09b1c1c2a8575a42005a968b38805519.zip"],  # Latest commit SHA as at 2019/02/13
         )
 
-        if "com_github_googleapis_googleapis" not in native.existing_rules():
-            http_archive(
-                name = "com_github_googleapis_googleapis",
-                strip_prefix = "googleapis-6c48ab5aef47dc14e02e2dc718d232a28067129d",
-                urls = ["https://github.com/googleapis/googleapis/archive/6c48ab5aef47dc14e02e2dc718d232a28067129d.tar.gz"],
-                sha256 = "70d7be6ad49b4424313aad118c8622aab1c5fdd5a529d4215d3884ff89264a71",
-            )
+    if "com_github_googleapis_googleapis" not in native.existing_rules():
+        http_archive(
+            name = "com_github_googleapis_googleapis",
+            strip_prefix = "googleapis-6c48ab5aef47dc14e02e2dc718d232a28067129d",
+            urls = ["https://github.com/googleapis/googleapis/archive/6c48ab5aef47dc14e02e2dc718d232a28067129d.tar.gz"],
+            sha256 = "70d7be6ad49b4424313aad118c8622aab1c5fdd5a529d4215d3884ff89264a71",
+        )
+
+    if "com_github_bazelbuild_remote_apis" not in native.existing_rules():
+        http_archive(
+            name = "com_github_bazelbuild_remote_apis",
+            strip_prefix = "remote-apis-2.0.0",
+            urls = ["https://github.com/bazelbuild/remote-apis/archive/v2.0.0.tar.gz"],
+            sha256 = "79204ed1fa385c03b5235f65b25ced6ac51cf4b00e45e1157beca6a28bdb8043",
+            patches = ["@com_github_digital_asset_daml//:bazel_tools/remote_apis_no_services.patch"],
+            patch_args = ["-p1"],
+        )
 
     # Buildifier.
     # It is written in Go and hence needs rules_go to be available.
@@ -321,16 +373,32 @@ genrule(
   cmd = '''
     DIR=$$(dirname $(execpath _config.yml))
     $(execpath @jekyll_nix//:bin/jekyll) build -s $$DIR
-    tar hc _site \\
-        --owner=1000 \\
-        --group=1000 \\
-        --mtime=2000-01-01\\ 00:00Z \\
-        --no-acls \\
-        --no-xattrs \\
-        --no-selinux \\
-        --sort=name \\
+    tar hc _site \\\\
+        --owner=1000 \\\\
+        --group=1000 \\\\
+        --mtime=2000-01-01\\\\ 00:00Z \\\\
+        --no-acls \\\\
+        --no-xattrs \\\\
+        --no-selinux \\\\
+        --sort=name \\\\
         | gzip -n > $(OUTS)
   ''',
 )
             """,
+        )
+
+    if "canton" not in native.existing_rules():
+        http_archive(
+            name = "canton",
+            build_file_content = """
+package(default_visibility = ["//visibility:public"])
+
+java_import(
+    name = "lib",
+    jars = glob(["lib/**/*.jar"]),
+)
+        """,
+            sha256 = "2ab610e13cadef0756aa1eebf8be9c40192b7cca1774ebd0df06c662628a6c4d",
+            strip_prefix = "canton-community-0.24.0",
+            urls = ["https://www.canton.io/releases/canton-community-0.24.0.tar.gz"],
         )

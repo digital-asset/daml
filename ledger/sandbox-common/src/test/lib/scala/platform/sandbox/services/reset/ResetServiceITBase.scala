@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services.reset
@@ -13,20 +13,20 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{
   IsStatusException,
   SuiteResourceManagementAroundAll,
-  MockMessages => M
+  MockMessages => M,
 }
 import com.daml.ledger.api.v1.active_contracts_service.{
   ActiveContractsServiceGrpc,
   GetActiveContractsRequest,
-  GetActiveContractsResponse
+  GetActiveContractsResponse,
 }
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
-  PartyManagementServiceGrpc
+  PartyManagementServiceGrpc,
 }
 import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
-  CompletionStreamRequest
+  CompletionStreamRequest,
 }
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
@@ -34,11 +34,11 @@ import com.daml.ledger.api.v1.event.CreatedEvent
 import com.daml.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
   GetLedgerConfigurationResponse,
-  LedgerConfigurationServiceGrpc
+  LedgerConfigurationServiceGrpc,
 }
 import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
-  LedgerIdentityServiceGrpc
+  LedgerIdentityServiceGrpc,
 }
 import com.daml.ledger.api.v1.package_service.{ListPackagesRequest, PackageServiceGrpc}
 import com.daml.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
@@ -46,10 +46,11 @@ import com.daml.ledger.api.v1.testing.time_service.{
   GetTimeRequest,
   GetTimeResponse,
   SetTimeRequest,
-  TimeServiceGrpc
+  TimeServiceGrpc,
 }
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
 import com.daml.ledger.resources.TestResourceContext
+import com.daml.ledger.test.ModelTestDar
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.AbstractSandboxFixture
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -87,11 +88,12 @@ abstract class ResetServiceITBase
 
   protected implicit val ec: ExecutionContext = ExecutionContext.global
 
-  override protected def darFile: File =
-    new File(rlocation("ledger/test-common/model-tests.dar"))
+  override protected def darFile: File = new File(rlocation(ModelTestDar.path))
 
   protected def timeIsStatic: Boolean =
-    config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType) == TimeProviderType.Static
+    config.timeProviderType.getOrElse(
+      SandboxConfig.DefaultTimeProviderType
+    ) == TimeProviderType.Static
 
   protected def waitForLedgerToStart(): Future[LedgerId] =
     for {
@@ -102,7 +104,8 @@ abstract class ResetServiceITBase
       configurations <- new StreamConsumer[GetLedgerConfigurationResponse](responseObserver =>
         LedgerConfigurationServiceGrpc
           .stub(channel)
-          .getLedgerConfiguration(GetLedgerConfigurationRequest(ledgerId.unwrap), responseObserver))
+          .getLedgerConfiguration(GetLedgerConfigurationRequest(ledgerId.unwrap), responseObserver)
+      )
         .firstWithin(Span.convertSpanToDuration(scaled(1.second)))
     } yield {
       configurations should have size 1
@@ -138,13 +141,15 @@ abstract class ResetServiceITBase
 
   protected def activeContracts(
       ledgerId: LedgerId,
-      f: TransactionFilter): Future[Set[CreatedEvent]] =
+      f: TransactionFilter,
+  ): Future[Set[CreatedEvent]] =
     new StreamConsumer[GetActiveContractsResponse](
       ActiveContractsServiceGrpc
         .stub(channel)
-        .getActiveContracts(GetActiveContractsRequest(ledgerId.unwrap, Some(f)), _))
+        .getActiveContracts(GetActiveContractsRequest(ledgerId.unwrap, Some(f)), _)
+    )
       .all()
-      .map(_.flatMap(_.activeContracts)(collection.breakOut))
+      .map(_.view.flatMap(_.activeContracts).toSet)
 
   protected def listPackages(ledgerId: LedgerId): Future[Seq[String]] =
     PackageServiceGrpc
@@ -162,7 +167,9 @@ abstract class ResetServiceITBase
         Vector.fill(commands)(
           CommandSubmissionServiceGrpc
             .stub(channel)
-            .submit(dummyCommands(ledgerId, UUID.randomUUID.toString, party))))
+            .submit(dummyCommands(ledgerId, UUID.randomUUID.toString, party))
+        )
+      )
       unit <- WaitForCompletionsObserver(commands)(
         CommandCompletionServiceGrpc
           .stub(channel)
@@ -171,14 +178,17 @@ abstract class ResetServiceITBase
               ledgerId = ledgerId.unwrap,
               applicationId = M.applicationId,
               parties = Seq(party),
-              offset = Some(M.ledgerBegin)
+              offset = Some(M.ledgerBegin),
             ),
-            _))
+            _,
+          )
+      )
     } yield unit
 
   protected def getTime(ledgerId: LedgerId): Future[Instant] =
     new StreamConsumer[GetTimeResponse](
-      TimeServiceGrpc.stub(channel).getTime(GetTimeRequest(ledgerId.unwrap), _))
+      TimeServiceGrpc.stub(channel).getTime(GetTimeRequest(ledgerId.unwrap), _)
+    )
       .first()
       .map(_.flatMap(_.currentTime).map(TimestampConversion.toInstant).get)
 
@@ -190,7 +200,8 @@ abstract class ResetServiceITBase
           ledgerId.unwrap,
           Some(TimestampConversion.fromInstant(currentTime)),
           Some(TimestampConversion.fromInstant(newTime)),
-        ))
+        )
+      )
       .map(_ => ())
 
   "ResetService" when {

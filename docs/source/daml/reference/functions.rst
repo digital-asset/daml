@@ -1,12 +1,12 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: functions
 ####################
 
-This page gives reference information on functions in DAML.
+This page gives reference information on functions in Daml.
 
-DAML is a functional language. It lets you apply functions partially and also have functions that take other functions as arguments. This page discusses these *higher-order functions*.
+Daml is a functional language. It lets you apply functions partially and also have functions that take other functions as arguments. This page discusses these *higher-order functions*.
 
 Defining functions
 ******************
@@ -26,11 +26,11 @@ You can define this function equivalently using lambdas, involving ``\``, a sequ
 Partial application
 *******************
 
-The type of the ``tubeSurfaceArea`` function described previously, is ``Decimal -> Decimal -> Decimal``. An equivalent, but more instructive, way to read its type is: ``Decmial -> (Decimal -> Decimal)``: saying that ``tubeSurfaceArea`` is a function that takes *one* argument and returns another function.
+The type of the ``tubeSurfaceArea`` function described previously, is ``Decimal -> Decimal -> Decimal``. An equivalent, but more instructive, way to read its type is: ``Decimal -> (Decimal -> Decimal)``: saying that ``tubeSurfaceArea`` is a function that takes *one* argument and returns another function.
 
 So ``tubeSurfaceArea`` expects one argument of type ``Decimal`` and returns a function of type ``Decimal -> Decimal``. In other words, this function returns another function. *Only the last application of an argument yields a non-function.*
 
-This is called *currying*: currying is the process of converting a function of multiple arguments to a function that takes just a single argument and returns another function. In DAML, all functions are curried.
+This is called *currying*: currying is the process of converting a function of multiple arguments to a function that takes just a single argument and returns another function. In Daml, all functions are curried.
 
 This doesn't affect things that much. If you use functions in the classical way (by applying them to all parameters) then there is no difference.
 
@@ -57,7 +57,7 @@ The function type can be explicitly added to the ``tubeSurfaceArea`` function (w
 
 Note that ``tubeSurfaceArea : BinaryDecimalFunction = ...`` follows the same pattern as when binding values, e.g., ``pi : Decimal = 3.14159265359``.
 
-Functions have types, just like values. Which means they can be used just like normal variables. In fact, in DAML, functions are values.
+Functions have types, just like values. Which means they can be used just like normal variables. In fact, in Daml, functions are values.
 
 This means a function can take another function as an argument. For example, define a function ``applyFilter: (Int -> Int -> Bool) -> Int -> Int -> Bool`` which applies the first argument, a higher-order function, to the second and the third arguments to yield the result.
 
@@ -67,7 +67,7 @@ This means a function can take another function as an argument. For example, def
 
 The :ref:`daml-ref-folding` section looks into two useful built-in functions, ``foldl`` and ``foldr``, that also take a function as an argument.
 
-.. note:: DAML does not allow functions as parameters of contract templates and contract choices. However, a follow up of a choice can use built-in functions, defined at the top level or in the contract template body.
+.. note:: Daml does not allow functions as parameters of contract templates and contract choices. However, a follow up of a choice can use built-in functions, defined at the top level or in the contract template body.
 
 Generic functions
 *****************
@@ -80,6 +80,6 @@ A function is *parametrically polymorphic* if it behaves uniformly for all types
 
 where ``a``, ``b``, and ``c`` are any data types. Both ``compose ((+) 4) ((*) 2) 3 == 10`` and ``compose not ((&&) True) False`` evaluate to ``True``. Note that ``((+) 4)`` has type ``Int -> Int``, whereas ``not`` has type ``Bool -> Bool``.
 
-You can find many other generic functions including this one in the :doc:`DAML standard library </daml/stdlib/index>`.
+You can find many other generic functions including this one in the :doc:`Daml standard library </daml/stdlib/index>`.
 
-.. note:: DAML currently does not support generic functions for a specific set of types, such as ``Int`` and ``Decimal`` numbers. For example, ``sum (x: a) (y: a) = x + y`` is undefined when ``a`` equals the type ``Party``. *Bounded polymorphism* might be added to DAML in a later version.
+.. note:: Daml currently does not support generic functions for a specific set of types, such as ``Int`` and ``Decimal`` numbers. For example, ``sum (x: a) (y: a) = x + y`` is undefined when ``a`` equals the type ``Party``. *Bounded polymorphism* might be added to Daml in a later version.

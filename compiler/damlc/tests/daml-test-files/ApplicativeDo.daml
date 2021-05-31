@@ -1,6 +1,5 @@
 {-# LANGUAGE ApplicativeDo #-}
 -- @INFO Use let
--- @INFO Redundant pure
 module ApplicativeDo where
 
 -- This used to produce a reference to GHC.Base.return

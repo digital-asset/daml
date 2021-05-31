@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testing.utils
@@ -23,13 +23,16 @@ trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
 
   private implicit lazy val executionContext: ExecutionContext =
     ExecutionContext.fromExecutorService(
-      Executors.newSingleThreadExecutor(
+      Executors.newCachedThreadPool(
         new ThreadFactoryBuilder()
           .setDaemon(true)
           .setNameFormat(s"$actorSystemName-thread-pool-worker-%d")
           .setUncaughtExceptionHandler((thread, e) =>
-            logger.error(s"got an uncaught exception on thread: ${thread.getName}", e))
-          .build()))
+            logger.error(s"got an uncaught exception on thread: ${thread.getName}", e)
+          )
+          .build()
+      )
+    )
 
   protected implicit lazy val system: ActorSystem =
     ActorSystem(actorSystemName, defaultExecutionContext = Some(executionContext))

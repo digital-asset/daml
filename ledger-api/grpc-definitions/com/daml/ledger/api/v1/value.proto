@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -80,7 +80,6 @@ message Value {
 
     // The GenMap type
     GenMap gen_map = 18;
-
   }
 }
 
@@ -102,7 +101,7 @@ message RecordField {
   // When reading a transaction stream, it's omitted if verbose streaming is not enabled.
   // When submitting a commmand, it's optional:
   //   - if all keys within a single record are present, the order in which fields appear does not matter. however, each key must appear exactly once.
-  //   - if any of the keys within a single record are omitted, the order of fields MUST match the order of declaration in the DAML template.
+  //   - if any of the keys within a single record are omitted, the order of fields MUST match the order of declaration in the Daml template.
   // Must be a valid NameString
   string label = 1;
 
@@ -114,7 +113,7 @@ message RecordField {
 // Unique identifier of an entity.
 message Identifier {
 
-  // The identifier of the DAML package that contains the entity.
+  // The identifier of the Daml package that contains the entity.
   // Must be a valid PackageIdString.
   // Required
   string package_id = 1;
@@ -147,6 +146,18 @@ message Variant {
   // Required
   Value value = 3;
 }
+
+// // A builtin exception value
+// message BuiltinException {
+//
+//   // Determines the kind of builtin exception: ArithmeticError, GeneralError etc
+//   // Required
+//   string tag = 1;
+//
+//   // The value encoded within the Variant.
+//   // Required
+//   Value value = 2;
+// }
 
 // A value with finite set of alternative representations.
 message Enum {

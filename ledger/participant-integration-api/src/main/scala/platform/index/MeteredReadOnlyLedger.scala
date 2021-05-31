@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.index
@@ -17,7 +17,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
@@ -54,11 +54,12 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
       endInclusive: Option[Offset],
       requestingParties: Set[Party],
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext)
-    : Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     ledger.transactionTrees(startExclusive, endInclusive, requestingParties, verbose)
 
-  override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset = ledger.ledgerEnd
+  override def ledgerEnd()(implicit loggingContext: LoggingContext): Offset = ledger.ledgerEnd()
 
   override def completions(
       startExclusive: Option[Offset],
@@ -71,21 +72,23 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
   override def activeContracts(
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext)
-    : (Source[GetActiveContractsResponse, NotUsed], Offset) =
+  )(implicit
+      loggingContext: LoggingContext
+  ): (Source[GetActiveContractsResponse, NotUsed], Offset) =
     ledger.activeContracts(filter, verbose)
 
   override def lookupContract(
       contractId: Value.ContractId,
-      forParty: Party,
-  )(implicit loggingContext: LoggingContext)
-    : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
-    Timed.future(metrics.daml.index.lookupContract, ledger.lookupContract(contractId, forParty))
+      forParties: Set[Party],
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
+    Timed.future(metrics.daml.index.lookupContract, ledger.lookupContract(contractId, forParties))
 
-  override def lookupKey(key: GlobalKey, forParty: Party)(
-      implicit loggingContext: LoggingContext,
+  override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
+      loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
-    Timed.future(metrics.daml.index.lookupKey, ledger.lookupKey(key, forParty))
+    Timed.future(metrics.daml.index.lookupKey, ledger.lookupKey(key, forParties))
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,
@@ -106,41 +109,45 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
     )
 
   override def lookupMaximumLedgerTime(
-      contractIds: Set[ContractId],
+      contractIds: Set[ContractId]
   )(implicit loggingContext: LoggingContext): Future[Option[Instant]] =
     Timed.future(
       metrics.daml.index.lookupMaximumLedgerTime,
-      ledger.lookupMaximumLedgerTime(contractIds))
+      ledger.lookupMaximumLedgerTime(contractIds),
+    )
 
-  override def getParties(parties: Seq[Party])(
-      implicit loggingContext: LoggingContext,
+  override def getParties(parties: Seq[Party])(implicit
+      loggingContext: LoggingContext
   ): Future[List[PartyDetails]] =
     Timed.future(metrics.daml.index.getParties, ledger.getParties(parties))
 
-  override def listKnownParties()(
-      implicit loggingContext: LoggingContext): Future[List[PartyDetails]] =
+  override def listKnownParties()(implicit
+      loggingContext: LoggingContext
+  ): Future[List[PartyDetails]] =
     Timed.future(metrics.daml.index.listKnownParties, ledger.listKnownParties())
 
-  override def partyEntries(startExclusive: Offset)(
-      implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] =
+  override def partyEntries(startExclusive: Offset)(implicit
+      loggingContext: LoggingContext
+  ): Source[(Offset, PartyLedgerEntry), NotUsed] =
     ledger.partyEntries(startExclusive)
 
-  override def listLfPackages()(
-      implicit loggingContext: LoggingContext): Future[Map[PackageId, PackageDetails]] =
+  override def listLfPackages()(implicit
+      loggingContext: LoggingContext
+  ): Future[Map[PackageId, PackageDetails]] =
     Timed.future(metrics.daml.index.listLfPackages, ledger.listLfPackages())
 
-  override def getLfArchive(packageId: PackageId)(
-      implicit loggingContext: LoggingContext,
+  override def getLfArchive(packageId: PackageId)(implicit
+      loggingContext: LoggingContext
   ): Future[Option[Archive]] =
     Timed.future(metrics.daml.index.getLfArchive, ledger.getLfArchive(packageId))
 
-  override def getLfPackage(packageId: PackageId)(
-      implicit loggingContext: LoggingContext,
+  override def getLfPackage(packageId: PackageId)(implicit
+      loggingContext: LoggingContext
   ): Future[Option[Ast.Package]] =
     Timed.future(metrics.daml.index.getLfPackage, ledger.getLfPackage(packageId))
 
   override def packageEntries(
-      startExclusive: Offset,
+      startExclusive: Offset
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed] =
     ledger.packageEntries(startExclusive)
 
@@ -148,13 +155,13 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
     ledger.close()
   }
 
-  override def lookupLedgerConfiguration()(
-      implicit loggingContext: LoggingContext,
+  override def lookupLedgerConfiguration()(implicit
+      loggingContext: LoggingContext
   ): Future[Option[(Offset, Configuration)]] =
     Timed.future(metrics.daml.index.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
 
   override def configurationEntries(
-      startExclusive: Offset,
+      startExclusive: Offset
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed] =
     ledger.configurationEntries(startExclusive)
 
@@ -166,14 +173,16 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
   )(implicit loggingContext: LoggingContext): Future[CommandDeduplicationResult] =
     Timed.future(
       metrics.daml.index.deduplicateCommand,
-      ledger.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil))
+      ledger.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil),
+    )
 
-  override def removeExpiredDeduplicationData(currentTime: Instant)(
-      implicit loggingContext: LoggingContext,
+  override def removeExpiredDeduplicationData(currentTime: Instant)(implicit
+      loggingContext: LoggingContext
   ): Future[Unit] =
     Timed.future(
       metrics.daml.index.removeExpiredDeduplicationData,
-      ledger.removeExpiredDeduplicationData(currentTime))
+      ledger.removeExpiredDeduplicationData(currentTime),
+    )
 
   override def stopDeduplicatingCommand(
       commandId: CommandId,
@@ -181,13 +190,15 @@ private[platform] class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: M
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     Timed.future(
       metrics.daml.index.stopDeduplicatingCommand,
-      ledger.stopDeduplicatingCommand(commandId, submitters))
+      ledger.stopDeduplicatingCommand(commandId, submitters),
+    )
 
-  override def prune(pruneUpToInclusive: Offset)(
-      implicit loggingContext: LoggingContext): Future[Unit] =
+  override def prune(
+      pruneUpToInclusive: Offset
+  )(implicit loggingContext: LoggingContext): Future[Unit] =
     Timed.future(
       metrics.daml.index.prune,
-      ledger.prune(pruneUpToInclusive)
+      ledger.prune(pruneUpToInclusive),
     )
 }
 

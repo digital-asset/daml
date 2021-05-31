@@ -1,7 +1,7 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML Triggers - Off-Ledger Automation in DAML
+Daml Triggers - Off-Ledger Automation in Daml
 #############################################
 
 .. toctree::
@@ -9,13 +9,8 @@ DAML Triggers - Off-Ledger Automation in DAML
 
    api/index
 
-DAML Triggers are currently an :doc:`Early Access Feature in Alpha status </support/status-definitions>`.
-We welcome feedback about DAML triggers on
-`our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=DAML+Triggers>`_,
-or `our forum <https://discuss.daml.com>`_.
-
-In addition to the actual DAML logic which is uploaded to the Ledger
-and the UI, DAML applications often need to automate certain
+In addition to the actual Daml logic which is uploaded to the Ledger
+and the UI, Daml applications often need to automate certain
 interactions with the ledger. This is commonly done in the form of a
 ledger client that listens to the transaction stream of the ledger and
 when certain conditions are met, e.g., when a template of a given type
@@ -25,12 +20,12 @@ creates a template of another type.
 It is possible to write these clients in a language of your choice,
 e.g., JavaScript, using the HTTP JSON API. However, that introduces an
 additional layer of friction: You now need to translate between the
-template and choice types in DAML and a representation of those DAML
-types in the language you are using for your client. DAML triggers
+template and choice types in Daml and a representation of those Daml
+types in the language you are using for your client. Daml triggers
 address this problem by allowing you to write certain kinds of
-automation directly in DAML reusing all the DAML types and logic that
-you have already defined. Note that while the logic for DAML triggers
-is written in DAML, they act like any other ledger client: They are
+automation directly in Daml reusing all the Daml types and logic that
+you have already defined. Note that while the logic for Daml triggers
+is written in Daml, they act like any other ledger client: They are
 executed separately from the ledger, they do not need to be uploaded
 to the ledger and they do not allow you to do anything that any other
 ledger client could not do.
@@ -60,7 +55,7 @@ Second, we have a template called ``Subscriber``:
    :end-before: -- SUBSCRIBER_TEMPLATE_END
 
 This template allows the ``subscriber`` to subscribe to ``Original`` s where ``subscribedTo`` is the ``owner``.
-For each of these ``Original`` s, our DAML trigger should then automatically create an instance of
+For each of these ``Original`` s, our Daml trigger should then automatically create an instance of
 third template called ``Copy``:
 
 .. literalinclude:: ./template-root/src/CopyTrigger.daml
@@ -73,11 +68,11 @@ that we need to archive ``Copy`` contracts if there is more than one for the sam
 ``Copy`` contracts if the corresponding ``Original`` has been archived and we need to archive
 all ``Copy`` s for a given subscriber if the corresponding ``Subscriber`` contract has been archived.
 
-Implementing a DAML Trigger
+Implementing a Daml Trigger
 ---------------------------
 
-Having defined what our DAML trigger is supposed to do, we can now
-move on to its implementation. A DAML trigger is a regular DAML
+Having defined what our Daml trigger is supposed to do, we can now
+move on to its implementation. A Daml trigger is a regular Daml
 project that you can build using ``daml build``. To get access to the
 API used to build a trigger, you need to add the ``daml-triggers``
 library to the ``dependencies`` field in ``daml.yaml``.
@@ -89,7 +84,7 @@ library to the ``dependencies`` field in ``daml.yaml``.
 In addition to that you also need to import the ``Daml.Trigger``
 module.
 
-DAML triggers automatically track the active contract set (ACS), i.e., the set of contracts
+Daml triggers automatically track the active contract set (ACS), i.e., the set of contracts
 that have been created and have not been archived, and the
 commands in flight for you. In addition to that, they allow you to
 have user-defined state that is updated based on new transactions and
@@ -114,11 +109,11 @@ set.
 
 The ``updateState`` function is called on new transactions and command
 completions and can be used to update your user-defined state based on
-the ACS and the transaction or completion. Since our DAML trigger does
+the ACS and the transaction or completion. Since our Daml trigger does
 not have any interesting user-defined state, we will not go into
 details here.
 
-The ``rule`` function is the core of a DAML trigger. It defines which
+The ``rule`` function is the core of a Daml trigger. It defines which
 commands need to be sent to the ledger based on the party the trigger is
 executed at, the current state of the ACS, and the user defined state.
 The type ``TriggerA`` allows you to emit commands that are then sent to
@@ -138,14 +133,14 @@ Finally, you can specify an optional heartbeat interval at which the trigger
 will be sent a ``MHeartbeat`` message. This is useful if you want to ensure
 that the trigger is executed at a certain rate to issue timed commands.
 
-For our DAML trigger, the definition looks as follows:
+For our Daml trigger, the definition looks as follows:
 
 .. literalinclude:: ./template-root/src/CopyTrigger.daml
    :language: daml
    :start-after: -- TRIGGER_BEGIN
    :end-before: -- TRIGGER_END
 
-Now we can move on to the most complex part of our DAML trigger, the implementation of ``copyRule``.
+Now we can move on to the most complex part of our Daml trigger, the implementation of ``copyRule``.
 First let’s take a look at the signature:
 
 .. literalinclude:: ./template-root/src/CopyTrigger.daml
@@ -161,14 +156,14 @@ the ``subscribedTo`` field and the ``Copy`` contracts where we are the
 The commands in flight, retrievable with ``getCommandsInFlight``, will
 be useful to avoid sending the same command multiple times if
 ``copyRule`` is run multiple times before we get the corresponding
-transaction. Note that DAML triggers are expected to be designed such
+transaction. Note that Daml triggers are expected to be designed such
 that they can cope with this, e.g., after a restart or a crash where the
 commands in flight do not contain commands in flight from before the
 restart, so this is an optimization rather than something required for
 them to function correctly.
 
 First, we get all ``Subscriber``, ``Original`` and ``Copy`` contracts
-from the ACS. For that, the DAML trigger API provides a ``query``
+from the ACS. For that, the Daml trigger API provides a ``query``
 function that will return a list of all contracts of a given template.
 
 .. literalinclude:: ./template-root/src/CopyTrigger.daml
@@ -216,7 +211,7 @@ will be submitted as a single transaction. The actual commands can be
 created using ``exerciseCmd`` and ``createCmd``. In addition to that,
 we also pass in a list of contract ids. Those contracts will be marked
 pending and not be included in the result of ``query`` until
-the commands have either been comitted to the ledger or the command
+the commands have either been committed to the ledger or the command
 submission failed.
 
 .. literalinclude:: ./template-root/src/CopyTrigger.daml
@@ -226,7 +221,7 @@ submission failed.
 
 Finally, we also need to create copies that do not already exists. We
 want to avoid creating copies for which there is already a command in
-flight. The DAML Trigger API provides a ``dedupCreate`` helper for this
+flight. The Daml Trigger API provides a ``dedupCreate`` helper for this
 which only sends the commands if it is not already in flight.
 
 .. literalinclude:: ./template-root/src/CopyTrigger.daml
@@ -234,12 +229,12 @@ which only sends the commands if it is not already in flight.
    :start-after: -- CREATE_COPIES_BEGIN
    :end-before: -- CREATE_COPIES_END
 
-Running a DAML Trigger
+Running a Daml Trigger
 ----------------------
 
 To try this example out, you can replicate it using
 ``daml new copy-trigger --template copy-trigger``. You first have to build the trigger like
-you would build a regular DAML project using ``daml build``.
+you would build a regular Daml project using ``daml build``.
 Then start the sandbox and navigator using ``daml start``.
 
 Now we are ready to run the trigger using ``daml trigger``:
@@ -266,14 +261,14 @@ have created as ``Alice``. Once you archive the ``Subscriber``
 contract, you can see that the ``Copy`` contract will also be
 archived.
 
-When using DAML triggers against a Ledger with authentication, you can
+When using Daml triggers against a Ledger with authentication, you can
 pass ``--access-token-file token.jwt`` to ``daml trigger`` which will
 read the token from the file ``token.jwt``.
 
-When not to use DAML triggers
+When not to use Daml triggers
 =============================
 
-DAML Triggers are not suited for automation that needs to interact
+Daml Triggers are not suited for automation that needs to interact
 with services or data outside of the ledger. For those cases, you can
 write a ledger client using the
 :doc:`JavaScript bindings </app-dev/bindings-ts/index>`
@@ -281,6 +276,6 @@ running against the HTTP JSON API or the
 :doc:`Java bindings</app-dev/bindings-java/index>` running against the
 gRPC Ledger API.
 
-DAML triggers deliberately only allow you to express automation that
+Daml triggers deliberately only allow you to express automation that
 listens for ledger events and reacts to them by sending commands to
 the ledger.

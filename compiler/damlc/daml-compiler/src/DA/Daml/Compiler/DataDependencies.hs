@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Compiler.DataDependencies
@@ -10,7 +10,7 @@ module DA.Daml.Compiler.DataDependencies
 import DA.Pretty
 import Control.Applicative
 import Control.Monad
-import Control.Monad.Trans.Writer.CPS
+import Control.Monad.State.Strict
 import Data.Char (isDigit)
 import qualified Data.DList as DL
 import Data.Foldable (fold)
@@ -37,13 +37,14 @@ import "ghc-lib-parser" FastString
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
-import "ghc-lib-parser" Outputable (alwaysQualify, ppr, showSDocForUser)
+import "ghc-lib-parser" Outputable (ppr, showSDocForUser)
 import "ghc-lib-parser" RdrName
 import "ghc-lib-parser" TcEvidence (HsWrapper (WpHole))
 import "ghc-lib-parser" TysPrim
 import "ghc-lib-parser" TysWiredIn
 
 import qualified DA.Daml.LF.Ast as LF
+import qualified DA.Daml.LF.Ast.Type as LF
 import qualified DA.Daml.LF.Ast.Alpha as LF
 import qualified DA.Daml.LF.TypeChecker.Check as LF
 import qualified DA.Daml.LF.TypeChecker.Env as LF
@@ -199,16 +200,46 @@ modRefImport Config{..} ModRef{..} = noLoc ImportDecl
              -- The module names from the current package are the only ones that are not modified
              | otherwise -> prefixDependencyModule importPkgId modRefModule
 
+data GenState = GenState
+    { gsModRefs :: !(Set ModRef)
+    , gsFreshCounter :: !Int
+    , gsExtraDecls :: ![LHsDecl GhcPs]
+    }
+
+initialGenState :: GenState
+initialGenState = GenState
+    { gsModRefs = mempty
+    , gsExtraDecls = []
+    , gsFreshCounter = 1
+    }
 
 -- | Monad for generating a value together with its module references.
-newtype Gen t = Gen (Writer (Set ModRef) t)
+newtype Gen t = Gen (State GenState t)
     deriving (Functor, Applicative, Monad)
 
-runGen :: Gen t -> (t, Set ModRef)
-runGen (Gen m) = runWriter m
+runGen :: Gen t -> (t, GenState)
+runGen (Gen m) = runState m initialGenState
 
 emitModRef :: ModRef -> Gen ()
-emitModRef = Gen . tell . Set.singleton
+emitModRef modRef = Gen $ modify' (\gs -> gs { gsModRefs = Set.insert modRef (gsModRefs gs) })
+
+emitHsDecl :: LHsDecl GhcPs -> Gen ()
+emitHsDecl decl = Gen $ modify' (\gs -> gs { gsExtraDecls = decl : gsExtraDecls gs })
+
+freshInt :: Gen Int
+freshInt = Gen $ state (\gs -> (gsFreshCounter gs, gs { gsFreshCounter = gsFreshCounter gs + 1 }))
+
+freshTypeName :: Env -> Gen (Located RdrName)
+freshTypeName env = mkRdrName . (prefix <>) . T.pack . show <$> freshInt
+    where
+        prefix :: T.Text
+        prefix = T.concat
+            [ "T__DataDependencies__"
+            , LF.unPackageId (configSelfPkgId (envConfig env))
+            , "__"
+            , T.intercalate "_" (LF.unModuleName (LF.moduleName (envMod env)))
+            , "__"
+            ]
 
 -- | Extract all data definitions from a daml-lf module and generate
 -- a haskell source file from it.
@@ -226,7 +257,7 @@ generateSrcFromLf env = noLoc mod
         HsModule
             { hsmodImports = imports
             , hsmodName = Just (noLoc ghcModName)
-            , hsmodDecls = decls
+            , hsmodDecls = decls <> gsExtraDecls genState
             , hsmodDeprecMessage = Nothing
             , hsmodHaddockModHeader = Nothing
             , hsmodExports = Just (noLoc exports)
@@ -234,9 +265,12 @@ generateSrcFromLf env = noLoc mod
 
     decls :: [LHsDecl GhcPs]
     exports :: [LIE GhcPs]
-    modRefs :: Set ModRef
-    ((exports, decls), modRefs) = runGen
+    genState :: GenState
+    ((exports, decls), genState) = runGen
         ((,) <$> genExports <*> genDecls)
+
+    modRefs :: Set ModRef
+    modRefs = gsModRefs genState
 
     genExports :: Gen [LIE GhcPs]
     genExports = sequence $ selfReexport : classReexports
@@ -272,17 +306,11 @@ generateSrcFromLf env = noLoc mod
     classReexportMap :: MS.Map LF.TypeSynName (LF.PackageId, Gen (LIE GhcPs))
     classReexportMap = MS.fromList $ do
         synDef@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
-        guard $ case synType of
-            LF.TStruct _ -> True
-            -- Type classes with no fields are translated to TUnit
-            -- since LF structs need to have a non-zero number of
-            -- fields.
-            LF.TUnit -> True
-            _ -> False
+        guard $ isJust (getTypeClassFields synType)
         LF.TypeSynName [name] <- [synName]
         Just (pkgId, depDef) <- [envLookupDepClass synName env]
         guard (safeToReexport env synDef depDef)
-        let occName = mkOccName clsName . T.unpack $ sanitize name
+        let occName = mkOccName clsName (T.unpack name)
         pure . (\x -> (synName,(pkgId, x))) $ do
             ghcMod <- genModule env (LF.PRImport pkgId) (LF.moduleName (envMod env))
             pure . noLoc . IEThingAll noExt
@@ -295,14 +323,11 @@ generateSrcFromLf env = noLoc mod
     classDecls :: [Gen (LHsDecl GhcPs)]
     classDecls = do
         defTypeSyn@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
-        fields <- case synType of
-            LF.TStruct fields -> [fields]
-            LF.TUnit -> [[]]
-            _ -> []
+        Just fields <- [getTypeClassFields synType]
         LF.TypeSynName [name] <- [synName]
         guard (synName `MS.notMember` classReexportMap)
         guard (shouldExposeDefTypeSyn defTypeSyn)
-        let occName = mkOccName clsName . T.unpack $ sanitize name
+        let occName = mkOccName clsName (T.unpack name)
         pure $ do
             supers <- sequence
                 [ convType env reexportedClasses fieldType
@@ -370,13 +395,10 @@ generateSrcFromLf env = noLoc mod
     synonymDecls :: [Gen (LHsDecl GhcPs)]
     synonymDecls = do
         defTypeSyn@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
-        guard $ case synType of
-            LF.TStruct _ -> False
-            LF.TUnit -> False
-            _ -> True
+        Nothing <- [getTypeClassFields synType]
         LF.TypeSynName [name] <- [synName]
         guard (shouldExposeDefTypeSyn defTypeSyn)
-        let occName = mkOccName tcName . T.unpack $ sanitize name
+        let occName = mkOccName tcName (T.unpack name)
         pure $ do
             params <- mapM (convTyVarBinder env) synParams
             rhs <- convType env reexportedClasses synType
@@ -400,7 +422,7 @@ generateSrcFromLf env = noLoc mod
         -- the type will be inlined into the definition of the variant in
         -- convDataCons.
         [dataTypeCon0] <- [LF.unTypeConName dataTypeCon]
-        let occName = mkOccName varName $ T.unpack $ sanitize dataTypeCon0
+        let occName = mkOccName varName (T.unpack dataTypeCon0)
         [ mkDataDecl env thisModule occName dataParams =<<
             convDataCons dataTypeCon0 dataCons ]
 
@@ -431,10 +453,11 @@ generateSrcFromLf env = noLoc mod
                 [Nothing <$ genModule env (LF.qualPackage qualInstance) (LF.qualModule qualInstance)]
             Nothing -> pure $ do
                 polyTy <- HsIB noExt . noLoc <$> convDFunSig env reexportedClasses dfunSig
+                binds <- genInstanceBinds dfunSig
                 pure . Just . noLoc . InstD noExt . ClsInstD noExt $ ClsInstDecl
                     { cid_ext = noExt
                     , cid_poly_ty = polyTy
-                    , cid_binds = emptyBag
+                    , cid_binds = binds
                     , cid_sigs = []
                     , cid_tyfam_insts = []
                     , cid_datafam_insts = []
@@ -461,6 +484,21 @@ generateSrcFromLf env = noLoc mod
             dval <- NM.lookup (LFC.overlapModeName name) (LF.moduleValues (envMod env))
             mode <- LFC.decodeOverlapMode (snd (LF.dvalBinder dval))
             Just (noLoc mode)
+
+        genInstanceBinds :: DFunSig -> Gen (LHsBinds GhcPs)
+        genInstanceBinds DFunSig{..}
+            | DFunHeadNormal{..} <- dfsHead
+            , Right (LF.TStruct fields) <-
+                LF.runGamma (envWorld env) (envLfVersion env) $
+                    LF.introTypeVars dfsBinders $ LF.expandSynApp dfhName dfhArgs
+            = listToBag <$> sequence
+                [ noLoc <$> mkStubBind env (mkRdrName methodName) methodType
+                | (fieldName, LF.TUnit LF.:-> methodType) <- fields
+                , Just methodName <- [getClassMethodName fieldName]
+                ]
+
+            | otherwise
+            = pure emptyBag
 
     hiddenRefMap :: HMS.HashMap Ref Bool
     hiddenRefMap = envHiddenRefMap env
@@ -521,8 +559,8 @@ generateSrcFromLf env = noLoc mod
                 | conName <- cons
                 ]
       where
-        occName = mkOccName varName $ T.unpack (sanitize dataTypeCon0)
-        occNameFor (LF.VariantConName c) = mkOccName varName $ T.unpack (sanitize c)
+        occName = mkOccName varName (T.unpack dataTypeCon0)
+        occNameFor (LF.VariantConName c) = mkOccName varName (T.unpack c)
 
         mkConDecl :: OccName -> HsConDeclDetails GhcPs -> LConDecl GhcPs
         mkConDecl conName details = noLoc $ ConDeclH98
@@ -571,9 +609,21 @@ generateSrcFromLf env = noLoc mod
         , modRefModule /= LF.ModuleName ["CurrentSdk", "GHC", "Prim"]
         ]
 
--- TODO (drsk) how come those '#' appear in daml-lf names?
-sanitize :: T.Text -> T.Text
-sanitize = T.dropWhileEnd (== '#')
+getTypeClassFields :: LF.Type -> Maybe [(LF.FieldName, LF.Type)]
+getTypeClassFields = \case
+    LF.TStruct fields | all isTypeClassField fields -> Just fields
+    LF.TUnit -> Just []
+        -- Type classes with no fields are translated to TUnit
+        -- since LF structs need to have a non-zero number of
+        -- fields.
+    _ -> Nothing
+
+isTypeClassField :: (LF.FieldName, LF.Type) -> Bool
+isTypeClassField = \case
+    (fieldName, LF.TUnit LF.:-> _) ->
+        isSuperClassField fieldName || isJust (getClassMethodName fieldName)
+    _ ->
+        False
 
 mkConRdr :: Env -> Module -> OccName -> RdrName
 mkConRdr env thisModule
@@ -723,7 +773,7 @@ convType env reexported =
             HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
 
         ty1 LF.:-> ty2 -> do
-            ty1' <- convType env reexported ty1
+            ty1' <- convTypeLiftingConstraintTuples ty1
             ty2' <- convType env reexported ty2
             pure $ if isConstraint ty1
                 then HsQualTy noExt (noLoc [noLoc ty1']) (noLoc ty2')
@@ -766,15 +816,47 @@ convType env reexported =
             binder <- convTyVarBinder env forallBinder
             body <- convType env reexported forallBody
             pure . HsParTy noExt . noLoc $ HsForAllTy noExt [binder] (noLoc body)
-        ty@(LF.TStruct fls) -> do
-            tys <- mapM (convType env reexported . snd) fls
-            pure $ HsTupleTy noExt
-                (if isConstraint ty then HsConstraintTuple else HsBoxedTuple)
-                (map noLoc tys)
+
+        ty@(LF.TStruct fls)
+            | isConstraint ty -> do
+                fieldTys <- mapM (convTypeLiftingConstraintTuples . snd) fls
+                pure $ HsTupleTy noExt HsConstraintTuple (map noLoc fieldTys)
+
+            | otherwise ->
+                error ("Unexpected: Bare LF struct type that does not represent constraint tuple in data-dependencies. " <> show ty)
 
         LF.TNat n -> pure $
             HsTyLit noExt (HsNumTy NoSourceText (LF.fromTypeLevelNat n))
   where
+    convTypeLiftingConstraintTuples :: LF.Type -> Gen (HsType GhcPs)
+    convTypeLiftingConstraintTuples = \case
+        ty@(LF.TStruct fls) | isConstraint ty -> do
+            -- A constraint tuple. We need to lift it up to a type synonym
+            -- when it occurs in a function domain, otherwise GHC will
+            -- expand it out as a regular constraint.
+            -- See issue https://github.com/digital-asset/daml/issues/9663
+            let freeVars = map LF.unTypeVarName . Set.toList $ LF.freeVars ty
+            fieldTys <- mapM (convTypeLiftingConstraintTuples . snd) fls
+            tupleTyName <- freshTypeName env
+            emitHsDecl . noLoc . TyClD noExt $ SynDecl
+                { tcdSExt = noExt
+                , tcdLName = tupleTyName
+                , tcdTyVars = HsQTvs noExt $ map mkUserTyVar freeVars
+                , tcdFixity = Prefix
+                , tcdRhs = noLoc $ HsTupleTy noExt HsConstraintTuple (map noLoc fieldTys)
+                }
+            pure $ foldl'
+                (\ accum freeVar ->
+                    HsParTy noExt
+                    . noLoc . HsAppTy noExt (noLoc accum)
+                    . noLoc . HsTyVar noExt NotPromoted
+                    $ mkRdrName freeVar )
+                (HsTyVar noExt NotPromoted tupleTyName)
+                freeVars
+
+        ty ->
+            convType env reexported ty
+
     mkTuple :: Int -> Gen (HsType GhcPs)
     mkTuple i =
         pure $ HsTyVar noExt NotPromoted $
@@ -802,10 +884,9 @@ convBuiltInTy env =
         LF.BTNumeric -> mkGhcType env "Numeric"
         LF.BTAny -> mkLfInternalType env "Any"
         LF.BTTypeRep -> mkLfInternalType env "TypeRep"
-        LF.BTAnyException -> error "data-dependencies AnyException" -- TODO #8020
-        LF.BTGeneralError -> error "data-dependencies GeneralError" -- TODO #8020
-        LF.BTArithmeticError -> error "data-dependencies ArithmeticError" -- TODO #8020
-        LF.BTContractError -> error "data-dependencies ContractError" -- TODO #8020
+        LF.BTRoundingMode -> mkGhcType env "RoundingMode"
+        LF.BTBigNumeric -> mkGhcType env "BigNumeric"
+        LF.BTAnyException -> mkLfInternalType env "AnyException"
 
 errTooManyNameComponents :: [T.Text] -> a
 errTooManyNameComponents cs =
@@ -900,6 +981,7 @@ generateSrcPkgFromLf envConfig pkg = do
         , "{-# LANGUAGE TypeOperators #-}"
         , "{-# LANGUAGE UndecidableInstances #-}"
         , "{-# LANGUAGE AllowAmbiguousTypes #-}"
+        , "{-# LANGUAGE MagicHash #-}"
         , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods #-}"
         ]
 
@@ -957,7 +1039,7 @@ buildHiddenRefMap config world =
             = foldl' visitRef refGraph' refs
 
         | RValue val <- ref
-        , Right dval@LF.DefValue{..} <- LF.lookupValue val world
+        , Right dval <- LF.lookupValue val world
         , refs <- if hasDFunSig dval -- we only care about typeclass instances
             then DL.toList (refsFromDFun dval)
             else mempty

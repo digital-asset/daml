@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.stores.ledger
@@ -26,7 +26,8 @@ private class MeteredLedger(ledger: Ledger, metrics: Metrics)
   )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     Timed.future(
       metrics.daml.index.publishTransaction,
-      ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
+      ledger.publishTransaction(submitterInfo, transactionMeta, transaction),
+    )
 
   def publishPartyAllocation(
       submissionId: SubmissionId,
@@ -35,7 +36,8 @@ private class MeteredLedger(ledger: Ledger, metrics: Metrics)
   )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     Timed.future(
       metrics.daml.index.publishPartyAllocation,
-      ledger.publishPartyAllocation(submissionId, party, displayName))
+      ledger.publishPartyAllocation(submissionId, party, displayName),
+    )
 
   def uploadPackages(
       submissionId: SubmissionId,
@@ -45,7 +47,8 @@ private class MeteredLedger(ledger: Ledger, metrics: Metrics)
   )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     Timed.future(
       metrics.daml.index.uploadPackages,
-      ledger.uploadPackages(submissionId, knownSince, sourceDescription, payload))
+      ledger.uploadPackages(submissionId, knownSince, sourceDescription, payload),
+    )
 
   override def publishConfiguration(
       maxRecordTime: Time.Timestamp,
@@ -54,7 +57,8 @@ private class MeteredLedger(ledger: Ledger, metrics: Metrics)
   )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     Timed.future(
       metrics.daml.index.publishConfiguration,
-      ledger.publishConfiguration(maxRecordTime, submissionId, config))
+      ledger.publishConfiguration(maxRecordTime, submissionId, config),
+    )
 
   override def close(): Unit = {
     ledger.close()

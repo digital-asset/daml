@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
@@ -20,49 +20,49 @@ steps:
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
+      # On release, we want to skip testing because:
+      # - Caching on Windows is keyed on full path, and full path is somewhat
+      #   random (for a given machine, each pipeline has a its own workdir, but
+      #   they are not the same across machines).
+      # - In the specific case of a release commit on `main`, the exact same
+      #   code has already been tested twice: once as part of the target
+      #   commit's own build (albeit with 0.0.0 as version number), and once as
+      #   part of the release PR that triggered the build (with correct version
+      #   number).
+      SKIP_TESTS: ${{and(eq(parameters.is_release, 'true'),
+                         eq(variables['Build.SourceBranchName'], 'main'))}}
 
   - task: PublishBuildArtifacts@1
     condition: failed()
     displayName: 'Publish the bazel test logs'
     inputs:
       pathtoPublish: 'bazel-testlogs/'
-      artifactName: 'Test logs'
+      artifactName: 'Test logs Windows'
+
+  - template: bash-lib.yml
+    parameters:
+      var_name: bash-lib
 
   - bash: |
       set -euo pipefail
-      INSTALLER=daml-sdk-${{parameters.release_tag}}-windows.exe
-      mv "bazel-bin/release/windows-installer/daml-sdk-installer.exe" "$(Build.StagingDirectory)/$INSTALLER"
-      chmod +wx "$(Build.StagingDirectory)/$INSTALLER"
-      cleanup () {
-          rm -f signing_key.pfx
-      }
-      trap cleanup EXIT
-      echo "$SIGNING_KEY" | base64 -d > signing_key.pfx
-      MSYS_NO_PATHCONV=1 signtool.exe sign '/f' signing_key.pfx '/fd' sha256 '/tr' "http://timestamp.digicert.com" '/v' "$(Build.StagingDirectory)/$INSTALLER"
-      rm signing_key.pfx
-      trap - EXIT
-      echo "##vso[task.setvariable variable=installer;isOutput=true]$INSTALLER"
-      TARBALL=daml-sdk-${{parameters.release_tag}}-windows.tar.gz
-      cp bazel-bin/release/sdk-release-tarball.tar.gz '$(Build.StagingDirectory)'/$TARBALL
-      echo "##vso[task.setvariable variable=tarball;isOutput=true]$TARBALL"
+      mkdir -p '$(Build.StagingDirectory)'/release
+      ./ci/copy-windows-release-artifacts.sh ${{parameters.release_tag}} '$(Build.StagingDirectory)'/release
     name: publish
     env:
-      SIGNING_KEY: $(microsoft-code-signing)
+      AZURE_KEY_VAULT_URL: $(AZURE_KEY_VAULT_URL)
+      AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
+      AZURE_CLIENT_SECRET: $(AZURE_CLIENT_SECRET)
+      AZURE_TENANT_ID: $(AZURE_TENANT_ID)
+      AZURE_KEY_VAULT_CERTIFICATE: $(AZURE_KEY_VAULT_CERTIFICATE)
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   eq(variables['Build.SourceBranchName'], 'main'))
+
   - task: PublishPipelineArtifact@0
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   eq(variables['Build.SourceBranchName'], 'main'))
     inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.installer)
-      artifactName: $(publish.installer)
-  - task: PublishPipelineArtifact@0
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.tarball)
-      artifactName: $(publish.tarball)
+      targetPath: $(Build.StagingDirectory)/release
+      artifactName: windows-release

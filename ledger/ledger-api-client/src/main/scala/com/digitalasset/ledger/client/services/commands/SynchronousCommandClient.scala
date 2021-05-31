@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.commands
@@ -14,22 +14,26 @@ class SynchronousCommandClient(service: CommandServiceStub) {
 
   def submitAndWait(
       submitAndWaitRequest: SubmitAndWaitRequest,
-      token: Option[String] = None): Future[Empty] =
+      token: Option[String] = None,
+  ): Future[Empty] =
     LedgerClient.stub(service, token).submitAndWait(submitAndWaitRequest)
 
   def submitAndWaitForTransactionId(
       submitAndWaitRequest: SubmitAndWaitRequest,
-      token: Option[String] = None): Future[SubmitAndWaitForTransactionIdResponse] =
+      token: Option[String] = None,
+  ): Future[SubmitAndWaitForTransactionIdResponse] =
     LedgerClient.stub(service, token).submitAndWaitForTransactionId(submitAndWaitRequest)
 
   def submitAndWaitForTransaction(
       submitAndWaitRequest: SubmitAndWaitRequest,
-      token: Option[String] = None): Future[SubmitAndWaitForTransactionResponse] =
+      token: Option[String] = None,
+  ): Future[SubmitAndWaitForTransactionResponse] =
     LedgerClient.stub(service, token).submitAndWaitForTransaction(submitAndWaitRequest)
 
   def submitAndWaitForTransactionTree(
       submitAndWaitRequest: SubmitAndWaitRequest,
-      token: Option[String] = None): Future[SubmitAndWaitForTransactionTreeResponse] =
+      token: Option[String] = None,
+  ): Future[SubmitAndWaitForTransactionTreeResponse] =
     LedgerClient.stub(service, token).submitAndWaitForTransactionTree(submitAndWaitRequest)
 
 }

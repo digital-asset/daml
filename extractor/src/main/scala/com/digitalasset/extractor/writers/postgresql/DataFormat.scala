@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.writers.postgresql
@@ -19,14 +19,13 @@ object DataFormatState {
   case object SingleTableState extends DataFormatState
   final case class MultiTableState(
       templateToTable: Map[Identifier, TableName],
-      packageIdToNameSpace: Map[String, String]
+      packageIdToNameSpace: Map[String, String],
   ) extends DataFormatState
 }
 
 import DataFormat._
 
-/**
-  * Abstraction over different data formats
+/** Abstraction over different data formats
   *
   * Currently the two implementations are used directly,
   * so it could work without this trait, but it might come handy in the future
@@ -36,17 +35,18 @@ trait DataFormat[S <: DataFormatState] {
   def handleTemplate(
       state: S,
       packageStore: PackageStore,
-      template: TemplateInfo): (S, ConnectionIO[Unit])
+      template: TemplateInfo,
+  ): (S, ConnectionIO[Unit])
   def handlePackageId(state: S, packageId: String): (S, ConnectionIO[Unit])
   def handleExercisedEvent(
       state: S,
       transaction: TransactionTree,
-      event: ExercisedEvent
+      event: ExercisedEvent,
   ): RefreshPackages \/ ConnectionIO[Unit]
   def handleCreatedEvent(
       state: S,
       transaction: TransactionTree,
-      event: CreatedEvent
+      event: CreatedEvent,
   ): RefreshPackages \/ ConnectionIO[Unit]
 }
 

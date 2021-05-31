@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -49,14 +49,16 @@ final class FailureTests
           accountCreateCommand(p, "23"),
           encoder,
           uri,
-          headersWithParties(List(p.unwrap)))
+          headersWithParties(List(p.unwrap)),
+        )
         _ = status shouldBe StatusCodes.OK
         _ = proxy.disable()
         (status, output) <- postCreateCommand(
           accountCreateCommand(p, "24"),
           encoder,
           uri,
-          headersWithParties(List(p.unwrap)))
+          headersWithParties(List(p.unwrap)),
+        )
         _ = status shouldBe StatusCodes.InternalServerError
         (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
         _ = status shouldBe StatusCodes.ServiceUnavailable
@@ -65,11 +67,10 @@ final class FailureTests
             |[+] database ok
             |readyz check failed
             |""".stripMargin.replace("\r\n", "\n")
-        _ <- inside(output) {
-          case JsObject(fields) =>
-            inside(fields.get("status")) {
-              case Some(JsNumber(code)) => code shouldBe 500
-            }
+        _ <- inside(output) { case JsObject(fields) =>
+          inside(fields.get("status")) { case Some(JsNumber(code)) =>
+            code shouldBe 500
+          }
         }
         _ = proxy.enable()
         // eventually doesn’t handle Futures in the version of scalatest we’re using.
@@ -79,15 +80,16 @@ final class FailureTests
               accountCreateCommand(p, "25"),
               encoder,
               uri,
-              headersWithParties(List(p.unwrap)))
-          } yield status shouldBe StatusCodes.OK)
+              headersWithParties(List(p.unwrap)),
+            )
+          } yield status shouldBe StatusCodes.OK
+        )
         (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
         _ = status shouldBe StatusCodes.OK
       } yield succeed
   }
 
   "Command submission timeouts" in withHttpService { (uri, encoder, _, client) =>
-    import encoder.implicits._
     import json.JsonProtocol._
     for {
       p <- allocateParty(client, "Alice")
@@ -95,32 +97,40 @@ final class FailureTests
         accountCreateCommand(p, "23"),
         encoder,
         uri,
-        headersWithParties(List(p.unwrap)))
+        headersWithParties(List(p.unwrap)),
+      )
       _ = status shouldBe StatusCodes.OK
       // Client -> Server connection
       _ = proxy.toxics().timeout("timeout", ToxicDirection.UPSTREAM, 0)
-      body <- FutureUtil.toFuture(SprayJson.encode1(accountCreateCommand(p, "24"))): Future[JsValue]
+      body <- FutureUtil.toFuture(
+        encoder.encodeCreateCommand(accountCreateCommand(p, "24"))
+      ): Future[JsValue]
       (status, output) <- postJsonStringRequestEncoded(
         uri.withPath(Uri.Path("/v1/create")),
         body.compactPrint,
-        headersWithParties(List(p.unwrap)))
+        headersWithParties(List(p.unwrap)),
+      )
       _ = status shouldBe StatusCodes.ServiceUnavailable
-      _ = output shouldBe "The server was not able to produce a timely response to your request.\r\nPlease try again in a short while!"
+      _ =
+        output shouldBe "The server was not able to produce a timely response to your request.\r\nPlease try again in a short while!"
       _ = proxy.toxics().get("timeout").remove()
       (status, _) <- postCreateCommand(
         accountCreateCommand(p, "25"),
         encoder,
         uri,
-        headersWithParties(List(p.unwrap)))
+        headersWithParties(List(p.unwrap)),
+      )
       _ = status shouldBe StatusCodes.OK
       // Server -> Client connection
       _ = proxy.toxics().timeout("timeout", ToxicDirection.DOWNSTREAM, 0)
       (status, output) <- postJsonStringRequestEncoded(
         uri.withPath(Uri.Path("/v1/create")),
         body.compactPrint,
-        headersWithParties(List(p.unwrap)))
+        headersWithParties(List(p.unwrap)),
+      )
       _ = status shouldBe StatusCodes.ServiceUnavailable
-      _ = output shouldBe "The server was not able to produce a timely response to your request.\r\nPlease try again in a short while!"
+      _ =
+        output shouldBe "The server was not able to produce a timely response to your request.\r\nPlease try again in a short while!"
     } yield succeed
   }
 
@@ -132,25 +142,26 @@ final class FailureTests
           accountCreateCommand(p, "23"),
           encoder,
           uri,
-          headersWithParties(List(p.unwrap)))
+          headersWithParties(List(p.unwrap)),
+        )
         (status, output) <- getRequest(
           uri = uri.withPath(Uri.Path("/v1/query")),
-          headersWithParties(List(p.unwrap)))
-        _ <- inside(output) {
-          case JsObject(fields) =>
-            inside(fields.get("result")) {
-              case Some(JsArray(rs)) => rs.size shouldBe 1
-            }
+          headersWithParties(List(p.unwrap)),
+        )
+        _ <- inside(output) { case JsObject(fields) =>
+          inside(fields.get("result")) { case Some(JsArray(rs)) =>
+            rs.size shouldBe 1
+          }
         }
         _ = proxy.disable()
         (status, output) <- getRequest(
           uri = uri.withPath(Uri.Path("/v1/query")),
-          headersWithParties(List(p.unwrap)))
-        _ <- inside(output) {
-          case JsObject(fields) =>
-            inside(fields.get("status")) {
-              case Some(JsNumber(code)) => code shouldBe 501
-            }
+          headersWithParties(List(p.unwrap)),
+        )
+        _ <- inside(output) { case JsObject(fields) =>
+          inside(fields.get("status")) { case Some(JsNumber(code)) =>
+            code shouldBe 501
+          }
         }
         // TODO Document this properly or adjust it
         _ = status shouldBe StatusCodes.OK
@@ -166,30 +177,31 @@ final class FailureTests
           accountCreateCommand(p, "23"),
           encoder,
           uri,
-          headersWithParties(List(p.unwrap)))
+          headersWithParties(List(p.unwrap)),
+        )
         _ = status shouldBe StatusCodes.OK
         query = jsObject("""{"templateIds": ["Account:Account"]}""")
         (status, output) <- postRequest(
           uri = uri.withPath(Uri.Path("/v1/query")),
           query,
-          headersWithParties(List(p.unwrap)))
+          headersWithParties(List(p.unwrap)),
+        )
         _ = status shouldBe StatusCodes.OK
-        _ <- inside(output) {
-          case JsObject(fields) =>
-            inside(fields.get("result")) {
-              case Some(JsArray(rs)) => rs.size shouldBe 1
-            }
+        _ <- inside(output) { case JsObject(fields) =>
+          inside(fields.get("result")) { case Some(JsArray(rs)) =>
+            rs.size shouldBe 1
+          }
         }
         _ = proxy.disable()
         (status, output) <- postRequest(
           uri = uri.withPath(Uri.Path("/v1/query")),
           query,
-          headersWithParties(List(p.unwrap)))
-        _ <- inside(output) {
-          case JsObject(fields) =>
-            inside(fields.get("status")) {
-              case Some(JsNumber(code)) => code shouldBe 501
-            }
+          headersWithParties(List(p.unwrap)),
+        )
+        _ <- inside(output) { case JsObject(fields) =>
+          inside(fields.get("status")) { case Some(JsNumber(code)) =>
+            code shouldBe 501
+          }
         }
         // TODO Document this properly or adjust it
         _ = status shouldBe StatusCodes.OK
@@ -200,15 +212,16 @@ final class FailureTests
             (status, output) <- postRequest(
               uri = uri.withPath(Uri.Path("/v1/query")),
               query,
-              headersWithParties(List(p.unwrap)))
+              headersWithParties(List(p.unwrap)),
+            )
             _ = status shouldBe StatusCodes.OK
-            _ <- inside(output) {
-              case JsObject(fields) =>
-                inside(fields.get("result")) {
-                  case Some(JsArray(rs)) => rs.size shouldBe 1
-                }
+            _ <- inside(output) { case JsObject(fields) =>
+              inside(fields.get("result")) { case Some(JsArray(rs)) =>
+                rs.size shouldBe 1
+              }
             }
-          } yield succeed)
+          } yield succeed
+        )
       } yield succeed
   }
 
@@ -219,30 +232,31 @@ final class FailureTests
         accountCreateCommand(p, "23"),
         encoder,
         uri,
-        headersWithParties(List(p.unwrap)))
+        headersWithParties(List(p.unwrap)),
+      )
       _ = status shouldBe StatusCodes.OK
       query = jsObject("""{"templateIds": ["Account:Account"]}""")
       (status, output) <- postRequest(
         uri = uri.withPath(Uri.Path("/v1/query")),
         query,
-        headersWithParties(List(p.unwrap)))
+        headersWithParties(List(p.unwrap)),
+      )
       _ = status shouldBe StatusCodes.OK
-      _ <- inside(output) {
-        case JsObject(fields) =>
-          inside(fields.get("result")) {
-            case Some(JsArray(rs)) => rs.size shouldBe 1
-          }
+      _ <- inside(output) { case JsObject(fields) =>
+        inside(fields.get("result")) { case Some(JsArray(rs)) =>
+          rs.size shouldBe 1
+        }
       }
       _ = dbProxy.disable()
       (status, output) <- postRequest(
         uri = uri.withPath(Uri.Path("/v1/query")),
         query,
-        headersWithParties(List(p.unwrap)))
-      _ <- inside(output) {
-        case JsObject(fields) =>
-          inside(fields.get("status")) {
-            case Some(JsNumber(code)) => code shouldBe 501
-          }
+        headersWithParties(List(p.unwrap)),
+      )
+      _ <- inside(output) { case JsObject(fields) =>
+        inside(fields.get("status")) { case Some(JsNumber(code)) =>
+          code shouldBe 501
+        }
       }
       // TODO Document this properly or adjust it
       _ = status shouldBe StatusCodes.OK
@@ -260,15 +274,16 @@ final class FailureTests
           (status, output) <- postRequest(
             uri = uri.withPath(Uri.Path("/v1/query")),
             query,
-            headersWithParties(List(p.unwrap)))
+            headersWithParties(List(p.unwrap)),
+          )
           _ = status shouldBe StatusCodes.OK
-          _ <- inside(output) {
-            case JsObject(fields) =>
-              inside(fields.get("result")) {
-                case Some(JsArray(rs)) => rs.size shouldBe 1
-              }
+          _ <- inside(output) { case JsObject(fields) =>
+            inside(fields.get("result")) { case Some(JsArray(rs)) =>
+              rs.size shouldBe 1
+            }
           }
-        } yield succeed)
+        } yield succeed
+      )
       (status, _) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
       _ = status shouldBe StatusCodes.OK
     } yield succeed
@@ -300,7 +315,8 @@ final class FailureTests
     def respAfter(
         offset: domain.Offset,
         accountCid: domain.ContractId,
-        stop: UniqueKillSwitch): Sink[JsValue, Future[Unit]] = {
+        stop: UniqueKillSwitch,
+    ): Sink[JsValue, Future[Unit]] = {
       val dslSyntax = Consume.syntax[JsValue]
       import dslSyntax._
       Consume.interpret(
@@ -308,7 +324,7 @@ final class FailureTests
           ContractDelta(Vector((ctId, _)), Vector(), Some(newOffset)) <- readOne
           _ = ctId shouldBe accountCid.unwrap
           _ = newOffset.unwrap should be > offset.unwrap
-          _ = stop.shutdown
+          _ = stop.shutdown()
           _ <- drain
         } yield ()
       )
@@ -320,18 +336,18 @@ final class FailureTests
         accountCreateCommand(p, "abc123"),
         encoder,
         uri,
-        headers = headersWithParties(List(p.unwrap)))
-      _ = status shouldBe 'success
+        headers = headersWithParties(List(p.unwrap)),
+      )
+      _ = status shouldBe a[StatusCodes.Success]
       cid = getContractId(getResult(r))
       r <- (singleClientQueryStream(
         jwtForParties(List(p.unwrap), List(), ledgerId().unwrap),
         uri,
-        query
+        query,
       ) via parseResp runWith respBefore(cid)).transform(x => Success(x))
-      _ = inside(r) {
-        case Failure(e: PeerClosedConnectionException) =>
-          e.closeCode shouldBe 1011
-          e.closeReason shouldBe "internal error"
+      _ = inside(r) { case Failure(e: PeerClosedConnectionException) =>
+        e.closeCode shouldBe 1011
+        e.closeReason shouldBe "internal error"
       }
       offset <- offset.future
       _ = proxy.enable()
@@ -339,14 +355,15 @@ final class FailureTests
         accountCreateCommand(p, "abc456"),
         encoder,
         uri,
-        headers = headersWithParties(List(p.unwrap)))
+        headers = headersWithParties(List(p.unwrap)),
+      )
       cid = getContractId(getResult(r))
-      _ = status shouldBe 'success
+      _ = status shouldBe a[StatusCodes.Success]
       (stop, source) = singleClientQueryStream(
         jwtForParties(List(p.unwrap), List(), ledgerId().unwrap),
         uri,
         query,
-        Some(offset)
+        Some(offset),
       ).viaMat(KillSwitches.single)(Keep.right).preMaterialize()
       _ <- source via parseResp runWith respAfter(offset, cid, stop)
     } yield succeed

@@ -1,41 +1,31 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _sandbox-manual:
 
-DAML Sandbox
+Daml Sandbox
 ############
 
-The DAML Sandbox, or Sandbox for short, is a simple ledger implementation that enables rapid application prototyping by simulating a DAML Ledger.
+The Daml Sandbox, or Sandbox for short, is a simple ledger implementation that enables rapid application prototyping by simulating a Daml Ledger.
 
-You can start Sandbox together with :doc:`Navigator </tools/navigator/index>` using the ``daml start`` command in a DAML project. This command will compile the DAML file and its dependencies as specified in the ``daml.yaml``. It will then launch Sandbox passing the just obtained DAR packages. Sandbox will also be given the name of the startup scenario specified in the project's ``daml.yaml``. Finally, it launches the navigator connecting it to the running Sandbox.
+You can start Sandbox together with :doc:`Navigator </tools/navigator/index>` using the ``daml start`` command in a Daml project. This command will compile the Daml file and its dependencies as specified in the ``daml.yaml``. It will then launch Sandbox passing the just obtained DAR packages. The script specified in the ``init-script`` field in ``daml.yaml`` will be loaded into the ledger. Finally, it launches the navigator connecting it to the running Sandbox.
 
 It is possible to execute the Sandbox launching step in isolation by typing ``daml sandbox``.
 
-Note: Sandbox has switched to use Wall Clock Time mode by default. To use Static Time Mode you can provide the ``--static-time`` flag to the ``daml sandbox`` command or configure the time mode for ``daml start`` in ``sandbox-options:`` section of ``daml.yaml``. Please refer to :ref:`DAML configuration files <daml-yaml-configuration>` for more information.
+Note: Sandbox has switched to use Wall Clock Time mode by default. To use Static Time Mode you can provide the ``--static-time`` flag to the ``daml sandbox`` command or configure the time mode for ``daml start`` in ``sandbox-options:`` section of ``daml.yaml``. Please refer to :ref:`Daml configuration files <daml-yaml-configuration>` for more information.
 
 Sandbox can also be run manually as in this example:
 
 .. code-block:: none
 
-  $ daml sandbox Main.dar --static-time --scenario Main:example
+  $ daml sandbox Main.dar --static-time
 
      ____             ____
     / __/__ ____  ___/ / /  ___ __ __
    _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
   /___/\_,_/_//_/\_,_/_.__/\___/_\_\
-  initialized sandbox with ledger-id = sandbox-16ae201c-b2fd-45e0-af04-c61abe13fed7, port = 6865,
-  dar file = DAR files at List(/Users/damluser/temp/da-sdk/test/Main.dar), time mode = Static, daml-engine = {}
-  Initialized Static time provider, starting from 1970-01-01T00:00:00Z
-  listening on localhost:6865
 
-Here, ``daml sandbox`` tells the SDK Assistant to run ``sandbox`` from the active SDK release and pass it any arguments that follow. The example passes the DAR file to load (``Main.dar``) and the optional ``--scenario`` flag tells Sandbox to run the ``Main:example`` scenario on startup. The scenario must be fully qualified; here ``Main`` is the module and ``example`` is the name of the scenario, separated by a ``:``. We also specify that the Sandbox should run in Static Time mode so that the scenario can control the time.
-
-.. note::
-
-  The scenario is used for testing and development only, and is not supported by production DAML Ledgers. It is therefore inadvisable to rely on scenarios for ledger initialization.
-
-  ``submitMustFail`` is only supported by the test-ledger used by ``daml test`` and the IDE, not by the Sandbox.
+  INFO: Initialized sandbox version 1.12.0-snapshot.20210312.6498.0.707c86aa with ledger-id = fd562651-5ebb-4a45-add7-25809ca1f297, port = 6865, dar file = List(Main.dar), time mode = static time, ledger = in-memory, auth-service = AuthServiceWildcard$, contract ids seeding = strong
 
 Contract Identifier Generation
 ******************************
@@ -59,7 +49,9 @@ of the following command line options:
   seeding mode `<seeding-mode>` to seed the generation of random
   contract identifiers. Possible seeding modes are:
 
-  - ``no``: The Sandbox uses the ``deterministic`` scheme.
+  - ``no``: The Sandbox uses the ``deterministic`` scheme. This is
+    only supported by Sandbox classic and it prevents Sandbox from
+    accepting packages in Daml-LF 1.11 or newer.
 
   - ``strong``: The Sandbox uses the ``random`` scheme initialized
     with a high-entropy seed.  Depending on the underlying operating
@@ -81,7 +73,7 @@ Running with persistence
 ************************
 
 Note: Running Sandbox with persistence is deprecated as of SDK 1.8.0 (16th Dec 2020). You can use the
-DAML Driver for PostgreSQL instead.
+Daml Driver for PostgreSQL instead.
 
 By default, Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. If you want to keep the state, you can use a Postgres database for persistence. This allows you to shut down Sandbox and start it up later, continuing where it left off.
 
@@ -122,7 +114,7 @@ use one of the following command line options:
 - ``--auth-jwt-es256-crt=<filename>``.
   The sandbox will expect all tokens to be signed with ES256 (ECDSA using P-256 and SHA-256) with the public key loaded from the given X.509 certificate file.
   Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
-  and DER-encoded certicates (binary files) are supported.
+  and DER-encoded certificates (binary files) are supported.
 
 - ``--auth-jwt-es512-crt=<filename>``.
   The sandbox will expect all tokens to be signed with ES512 (ECDSA using P-521 and SHA-512)     with the public key loaded from the given X.509 certificate file.
@@ -221,7 +213,7 @@ well. You can set a custom root CA certificate used to validate client
 certificates via ``--cacrt ca.crt``. You can change the client
 authentication mode via ``--client-auth none`` which will disable it
 completely, ``--client-auth optional`` which makes it optional or
-specify the default explicitly via ``-.client-auth require``.
+specify the default explicitly via ``--client-auth require``.
 
 Command-line reference
 **********************
@@ -333,7 +325,7 @@ These metrics are:
 - ``<metric.qualified.name>.exec`` (timer): time to run the query and read the result
 - ``<metric.qualified.name>.query`` (timer): time to run the query
 - ``<metric.qualified.name>.commit`` (timer): time to perform the commit
-- ``<metric.qualified.name>.translation`` (timer): if relevant, time necessary to turn serialized DAML-LF values into in-memory objects
+- ``<metric.qualified.name>.translation`` (timer): if relevant, time necessary to turn serialized Daml-LF values into in-memory objects
 
 List of metrics
 ===============
@@ -378,7 +370,7 @@ further sent to deduplication and interpretation.
 ----------------------------
 
 A timer. Time to validate submitted commands before they are
-fed to the DAML interpreter.
+fed to the Daml interpreter.
 
 ``daml.commands.<party_name>.input_buffer_capacity``
 ----------------------------------------------------
@@ -415,7 +407,7 @@ the CommandService for a given party.
 ---------------------------------
 
 A timer. Time spent by the engine fetching the packages of compiled
-DAML code necessary for interpretation.
+Daml code necessary for interpretation.
 
 ``daml.execution.lookup_active_contract_count_per_execution``
 -------------------------------------------------------------
@@ -529,8 +521,8 @@ they are served via the party management service.
 ``daml.index.db.load_archive``
 ------------------------------
 
-A database metric. Time spent loading a package of compiled DAML code
-so that it's given to the DAML interpreter when
+A database metric. Time spent loading a package of compiled Daml code
+so that it's given to the Daml interpreter when
 needed.
 
 ``daml.index.db.load_configuration_entries``
@@ -570,7 +562,7 @@ has been ultimately allocated.
 ----------------------------------------
 
 A database metric. Time to fetch one contract on the index to be used by
-the DAML interpreter to evaluate a command into a
+the Daml interpreter to evaluate a command into a
 transaction.
 
 ``daml.index.db.lookup_configuration``
@@ -583,7 +575,7 @@ served via the configuration management service.
 ----------------------------------------
 
 A database metric. Time to lookup one contract key on the index to be used by
-the DAML interpreter to evaluate a command into a
+the Daml interpreter to evaluate a command into a
 transaction.
 
 ``daml.index.db.lookup_flat_transaction_by_id``
@@ -634,7 +626,7 @@ successfully interpreted and is final.
 ``daml.index.db.store_package_entry``
 -------------------------------------
 
-A database metric. Time spent storing a DAML package uploaded through
+A database metric. Time spent storing a Daml package uploaded through
 the package management service.
 
 ``daml.index.db.store_party_entry``

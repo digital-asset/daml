@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -20,6 +20,7 @@ import           Data.Functor.Identity
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
 import qualified Data.Map.Strict as Map
+import           Data.Maybe (fromMaybe)
 import qualified Data.NameMap as NM
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
@@ -307,10 +308,9 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTNumeric -> P.PrimTypeNUMERIC
     BTAny -> P.PrimTypeANY
     BTTypeRep -> P.PrimTypeTYPE_REP
+    BTRoundingMode -> P.PrimTypeROUNDING_MODE
+    BTBigNumeric -> P.PrimTypeBIGNUMERIC
     BTAnyException -> P.PrimTypeANY_EXCEPTION
-    BTGeneralError -> P.PrimTypeGENERAL_ERROR
-    BTArithmeticError -> P.PrimTypeARITHMETIC_ERROR
-    BTContractError -> P.PrimTypeCONTRACT_ERROR
 
 encodeType' :: Type -> Encode P.Type
 encodeType' typ = do
@@ -403,6 +403,16 @@ encodeBuiltinExpr = \case
         False -> P.PrimConCON_FALSE
         True -> P.PrimConCON_TRUE
 
+    BERoundingMode r -> case r of
+      LitRoundingUp -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeUP
+      LitRoundingDown -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeDOWN
+      LitRoundingCeiling -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeCEILING
+      LitRoundingFloor -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeFLOOR
+      LitRoundingHalfUp -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeHALF_UP
+      LitRoundingHalfDown -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeHALF_DOWN
+      LitRoundingHalfEven -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeHALF_EVEN
+      LitRoundingUnnecessary -> pureLit $ P.PrimLitSumRoundingMode $ P.Enumerated $ Right P.PrimLit_RoundingModeUNNECESSARY
+
     BEEqualGeneric -> builtin P.BuiltinFunctionEQUAL
     BELessGeneric -> builtin P.BuiltinFunctionLESS
     BELessEqGeneric -> builtin P.BuiltinFunctionLESS_EQ
@@ -463,22 +473,23 @@ encodeBuiltinExpr = \case
     BEGreaterEqNumeric -> builtin P.BuiltinFunctionGEQ_NUMERIC
 
     BEToText typ -> case typ of
-      BTInt64 -> builtin P.BuiltinFunctionTO_TEXT_INT64
-      BTDecimal -> builtin P.BuiltinFunctionTO_TEXT_DECIMAL
-      BTText -> builtin P.BuiltinFunctionTO_TEXT_TEXT
-      BTTimestamp -> builtin P.BuiltinFunctionTO_TEXT_TIMESTAMP
-      BTDate -> builtin P.BuiltinFunctionTO_TEXT_DATE
-      BTParty -> builtin P.BuiltinFunctionTO_TEXT_PARTY
+      BTInt64 -> builtin P.BuiltinFunctionINT64_TO_TEXT
+      BTDecimal -> builtin P.BuiltinFunctionDECIMAL_TO_TEXT
+      BTText -> builtin P.BuiltinFunctionTEXT_TO_TEXT
+      BTTimestamp -> builtin P.BuiltinFunctionTIMESTAMP_TO_TEXT
+      BTDate -> builtin P.BuiltinFunctionDATE_TO_TEXT
+      BTParty -> builtin P.BuiltinFunctionPARTY_TO_TEXT
+      BTBigNumeric ->  builtin P.BuiltinFunctionBIGNUMERIC_TO_TEXT
       other -> error $ "BEToText unexpected type " <> show other
-    BEToTextContractId -> builtin P.BuiltinFunctionTO_TEXT_CONTRACT_ID
-    BEToTextNumeric -> builtin P.BuiltinFunctionTO_TEXT_NUMERIC
-    BETextFromCodePoints -> builtin P.BuiltinFunctionTEXT_FROM_CODE_POINTS
-    BEPartyFromText -> builtin P.BuiltinFunctionFROM_TEXT_PARTY
-    BEInt64FromText -> builtin P.BuiltinFunctionFROM_TEXT_INT64
-    BEDecimalFromText-> builtin P.BuiltinFunctionFROM_TEXT_DECIMAL
-    BENumericFromText-> builtin P.BuiltinFunctionFROM_TEXT_NUMERIC
-    BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
-    BEPartyToQuotedText -> builtin P.BuiltinFunctionTO_QUOTED_TEXT_PARTY
+    BEContractIdToText -> builtin P.BuiltinFunctionCONTRACT_ID_TO_TEXT
+    BENumericToText -> builtin P.BuiltinFunctionNUMERIC_TO_TEXT
+    BECodePointsToText -> builtin P.BuiltinFunctionCODE_POINTS_TO_TEXT
+    BETextToParty -> builtin P.BuiltinFunctionTEXT_TO_PARTY
+    BETextToInt64 -> builtin P.BuiltinFunctionTEXT_TO_INT64
+    BETextToDecimal-> builtin P.BuiltinFunctionTEXT_TO_DECIMAL
+    BETextToNumeric-> builtin P.BuiltinFunctionTEXT_TO_NUMERIC
+    BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_POINTS_TO_CODE
+    BEPartyToQuotedText -> builtin P.BuiltinFunctionPARTY_TO_QUOTED_TEXT
 
     BEAddDecimal -> builtin P.BuiltinFunctionADD_DECIMAL
     BESubDecimal -> builtin P.BuiltinFunctionSUB_DECIMAL
@@ -493,6 +504,16 @@ encodeBuiltinExpr = \case
     BERoundNumeric -> builtin P.BuiltinFunctionROUND_NUMERIC
     BECastNumeric -> builtin P.BuiltinFunctionCAST_NUMERIC
     BEShiftNumeric -> builtin P.BuiltinFunctionSHIFT_NUMERIC
+
+    BEScaleBigNumeric -> builtin P.BuiltinFunctionSCALE_BIGNUMERIC
+    BEPrecisionBigNumeric -> builtin P.BuiltinFunctionPRECISION_BIGNUMERIC
+    BEAddBigNumeric -> builtin P.BuiltinFunctionADD_BIGNUMERIC
+    BESubBigNumeric -> builtin P.BuiltinFunctionSUB_BIGNUMERIC
+    BEMulBigNumeric -> builtin P.BuiltinFunctionMUL_BIGNUMERIC
+    BEDivBigNumeric -> builtin P.BuiltinFunctionDIV_BIGNUMERIC
+    BEShiftRightBigNumeric -> builtin P.BuiltinFunctionSHIFT_RIGHT_BIGNUMERIC
+    BEBigNumericToNumeric -> builtin P.BuiltinFunctionBIGNUMERIC_TO_NUMERIC
+    BENumericToBigNumeric -> builtin P.BuiltinFunctionNUMERIC_TO_BIGNUMERIC
 
     BEAddInt64 -> builtin P.BuiltinFunctionADD_INT64
     BESubInt64 -> builtin P.BuiltinFunctionSUB_INT64
@@ -516,14 +537,7 @@ encodeBuiltinExpr = \case
     BESha256Text -> builtin P.BuiltinFunctionSHA256_TEXT
 
     BEError -> builtin P.BuiltinFunctionERROR
-    BEThrow -> builtin P.BuiltinFunctionTHROW
     BEAnyExceptionMessage -> builtin P.BuiltinFunctionANY_EXCEPTION_MESSAGE
-    BEGeneralErrorMessage -> builtin P.BuiltinFunctionGENERAL_ERROR_MESSAGE
-    BEArithmeticErrorMessage -> builtin P.BuiltinFunctionARITHMETIC_ERROR_MESSAGE
-    BEContractErrorMessage -> builtin P.BuiltinFunctionCONTRACT_ERROR_MESSAGE
-    BEMakeGeneralError -> builtin P.BuiltinFunctionMAKE_GENERAL_ERROR
-    BEMakeArithmeticError -> builtin P.BuiltinFunctionMAKE_ARITHMETIC_ERROR
-    BEMakeContractError -> builtin P.BuiltinFunctionMAKE_CONTRACT_ERROR
 
     BETextMapEmpty -> builtin P.BuiltinFunctionTEXTMAP_EMPTY
     BETextMapInsert -> builtin P.BuiltinFunctionTEXTMAP_INSERT
@@ -672,15 +686,23 @@ encodeExpr' = \case
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
     ETypeRep ty -> do
         expr . P.ExprSumTypeRep <$> encodeType' ty
-    EMakeAnyException ty msg val -> do
-        expr_MakeAnyExceptionType <- encodeType ty
-        expr_MakeAnyExceptionMessage <- encodeExpr msg
-        expr_MakeAnyExceptionExpr <- encodeExpr val
-        pureExpr $ P.ExprSumMakeAnyException P.Expr_MakeAnyException{..}
+    EToAnyException ty val -> do
+        expr_ToAnyExceptionType <- encodeType ty
+        expr_ToAnyExceptionExpr <- encodeExpr val
+        pureExpr $ P.ExprSumToAnyException P.Expr_ToAnyException{..}
     EFromAnyException ty val -> do
         expr_FromAnyExceptionType <- encodeType ty
         expr_FromAnyExceptionExpr <- encodeExpr val
         pureExpr $ P.ExprSumFromAnyException P.Expr_FromAnyException{..}
+    EThrow ty1 ty2 val -> do
+        expr_ThrowReturnType <- encodeType ty1
+        expr_ThrowExceptionType <- encodeType ty2
+        expr_ThrowExceptionExpr <- encodeExpr val
+        pureExpr $ P.ExprSumThrow P.Expr_Throw{..}
+    EExperimental name ty -> do
+        let expr_ExperimentalName = encodeString name
+        expr_ExperimentalType <- encodeType ty
+        pureExpr $ P.ExprSumExperimental P.Expr_Experimental{..}
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr
@@ -855,6 +877,7 @@ encodeDefException :: DefException -> Encode P.DefException
 encodeDefException DefException{..} = do
     defExceptionNameInternedDname <- encodeDottedNameId unTypeConName exnName
     defExceptionLocation <- traverse encodeSourceLoc exnLocation
+    defExceptionMessage <- encodeExpr exnMessage
     pure P.DefException{..}
 
 encodeTemplate :: Template -> Encode P.DefTemplate
@@ -878,12 +901,21 @@ encodeTemplateKey TemplateKey{..} = do
     defTemplate_DefKeyMaintainers <- encodeExpr tplKeyMaintainers
     pure P.DefTemplate_DefKey{..}
 
+encodeChoiceObservers :: Maybe Expr -> Encode (Just P.Expr)
+encodeChoiceObservers chcObservers = do
+  EncodeEnv{..} <- get
+  -- The choice-observers field is mandatory when supported. So, when choice-observers are
+  -- not syntactically explicit, we generate an empty-party-list expression here.
+  if version `supports` featureChoiceObservers
+  then encodeExpr (fromMaybe (ENil TParty) chcObservers)
+  else traverse encodeExpr' chcObservers
+
 encodeTemplateChoice :: TemplateChoice -> Encode P.TemplateChoice
 encodeTemplateChoice TemplateChoice{..} = do
     templateChoiceName <- encodeName unChoiceName chcName
     let templateChoiceConsuming = chcConsuming
     templateChoiceControllers <- encodeExpr chcControllers
-    templateChoiceObservers <- traverse encodeExpr' chcObservers
+    templateChoiceObservers <- encodeChoiceObservers chcObservers
     templateChoiceSelfBinder <- encodeName unExprVarName chcSelfBinder
     templateChoiceArgBinder <- Just <$> encodeExprVarWithType chcArgBinder
     templateChoiceRetType <- encodeType chcReturnType
@@ -919,8 +951,8 @@ encodeModule Module{..} = do
 
 encodePackageMetadata :: PackageMetadata -> Encode P.PackageMetadata
 encodePackageMetadata PackageMetadata{..} = do
-    packageMetadataNameInternedStr <- either (const $ error "Package name is always interned") id <$> encodeInternableString (unPackageName packageName)
-    packageMetadataVersionInternedStr <- either (const $ error "Package name is always interned") id <$> encodeInternableString (unPackageVersion packageVersion)
+    packageMetadataNameInternedStr <- fromRight (error "Package name is always interned") <$> encodeInternableString (unPackageName packageName)
+    packageMetadataVersionInternedStr <- fromRight (error "Package name is always interned") <$> encodeInternableString (unPackageVersion packageVersion)
     pure P.PackageMetadata{..}
 
 -- | NOTE(MH): Assumes the DAML-LF version of the 'Package' is 'V1'.

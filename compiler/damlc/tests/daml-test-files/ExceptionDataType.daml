@@ -1,0 +1,88 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_EXCEPTIONS
+
+-- | Test that exception syntax desugars to the correct data type.
+module ExceptionDataType where
+
+-------
+
+exception NoFieldsNoWhere
+
+mkNoFieldsNoWhere : NoFieldsNoWhere
+mkNoFieldsNoWhere = NoFieldsNoWhere
+
+showNoFieldsNoWhere : NoFieldsNoWhere -> Text
+showNoFieldsNoWhere = show
+
+eqNoFieldsNoWhere : NoFieldsNoWhere -> NoFieldsNoWhere -> Bool
+eqNoFieldsNoWhere = (==)
+
+------
+
+exception NoFieldsWhereBlank
+    where
+
+mkNoFieldsWhereBlank : NoFieldsWhereBlank
+mkNoFieldsWhereBlank = NoFieldsWhereBlank
+
+------
+
+exception NoFieldsWhereMessage
+    where
+        message "NoFieldsWhereMessage exception"
+
+mkNoFieldsWhereMessage : NoFieldsWhereMessage
+mkNoFieldsWhereMessage = NoFieldsWhereMessage
+
+------
+
+exception WithFieldNoWhere
+    with
+        f1 : Int
+
+mkWithFieldNoWhere : WithFieldNoWhere
+mkWithFieldNoWhere = WithFieldNoWhere
+    with
+        f1 = 10
+
+------
+
+exception WithFieldWhereBlank
+    with
+        f2 : Int
+    where
+
+mkWithFieldWhereBlank : WithFieldWhereBlank
+mkWithFieldWhereBlank = WithFieldWhereBlank
+    with
+        f2 = 10
+
+------
+
+exception WithFieldWhereMessage
+    with
+        f3 : Int
+    where
+        message "WithFieldWhereMessage exception"
+
+mkWithFieldWhereMessage : WithFieldWhereMessage
+mkWithFieldWhereMessage = WithFieldWhereMessage
+    with
+        f3 = 10
+
+------
+
+exception WithBracketsNoWhere with { f4 : Int }
+
+mkWithBracketsNoWhere : WithBracketsNoWhere
+mkWithBracketsNoWhere = WithBracketsNoWhere { f4 = 10 }
+
+------
+
+exception WithBracketsWhereMessage with { f5 : Int }
+    where message "Hello"
+
+mkWithBracketsWhereMessage : WithBracketsWhereMessage
+mkWithBracketsWhereMessage = WithBracketsWhereMessage { f5 = 10 }

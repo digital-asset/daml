@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,7 +6,9 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
+    "silencer_plugin",
 )
+load("@scala_version//:index.bzl", "scala_version_suffix")
 
 common_scalacopts = [
     "-Xelide-below",
@@ -26,7 +28,13 @@ da_scala_library(
         ),
     plugins = [
         # Plugins have to be specified as JARs.
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = common_scalacopts,
     tags = ["maven_coordinates=com.daml:codegen-scala:__VERSION__"],
@@ -43,8 +51,6 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/interface",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -55,6 +61,10 @@ da_scala_binary(
         "src/main/scala/com/digitalasset/codegen/Main.scala",
     ],
     main_class = "com.daml.codegen.Main",
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     tags = ["maven_coordinates=com.daml:codegen-main:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -64,8 +74,6 @@ da_scala_binary(
         "//language-support/codegen-common",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -74,15 +82,22 @@ da_scala_test_suite(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = common_scalacopts,
     deps = [
         ":codegen",
+        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction-test-lib",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

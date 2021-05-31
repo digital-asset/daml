@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # hlint configuration file
@@ -674,6 +674,8 @@
 - ignore: {name: Redundant $}
 # Don't warn on redundant do (DAML choice syntax *mandates* 'do'!)
 - ignore: {name: Redundant do}
+# ApplicativeDo syntax mandates 'pure's which seem redundant
+- ignore: {name: Redundant pure}
 # Not helpful for beginner DAML programmers
 - ignore: {name: Eta reduce}
 - ignore: {name: Avoid lambda}

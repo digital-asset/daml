@@ -1,17 +1,16 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
-
-import scala.language.higherKinds
 
 import com.daml.ledger.api.refinements.ApiTypes.{Choice, TemplateId}
 import com.daml.ledger.api.v1.{event => rpcevent, value => rpcvalue}
 import rpcvalue.Value.{Sum => VSum}
 import encoding.{ExerciseOn, LfEncodable, LfTypeEncoding, RecordView}
-
 import scalaz.Liskov
 import Liskov.<~<
+
+import scala.annotation.nowarn
 
 /** Common superclass of template classes' companions.
   *
@@ -69,24 +68,26 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
   protected final def ` templateId`(
       packageId: String,
       moduleName: String,
-      entityName: String): Primitive.TemplateId[T] =
+      entityName: String,
+  ): Primitive.TemplateId[T] =
     Primitive.TemplateId(packageId, moduleName, entityName)
 
   /** Helper for EventDecoderApi. */
   private[binding] final def decoderEntry
-    : (Primitive.TemplateId[T], rpcevent.CreatedEvent => Option[Template[T]]) = {
+      : (Primitive.TemplateId[T], rpcevent.CreatedEvent => Option[Template[T]]) = {
     type K[+A] = (Primitive.TemplateId[T], rpcevent.CreatedEvent => Option[A])
     Liskov.co[K, T, Template[T]](describesTemplate)(
-      (id, _.createArguments flatMap fromNamedArguments))
+      (id, _.createArguments flatMap fromNamedArguments)
+    )
   }
 
-  @com.github.ghik.silencer.silent(" actor .* is never used") // part of generated code API
+  @nowarn("msg=parameter value actor .* is never used") // part of generated code API
   protected final def ` exercise`[ExOn, Out](
       actor: Primitive.Party,
       receiver: ExOn,
       choiceId: String,
-      arguments: Option[rpcvalue.Value])(
-      implicit exon: ExerciseOn[ExOn, T]): Primitive.Update[Out] =
+      arguments: Option[rpcvalue.Value],
+  )(implicit exon: ExerciseOn[ExOn, T]): Primitive.Update[Out] =
     Primitive.exercise(this, receiver, choiceId, arguments getOrElse Value.encode(()))
 
   protected final def ` arguments`(elems: (String, rpcvalue.Value)*): rpcvalue.Record =

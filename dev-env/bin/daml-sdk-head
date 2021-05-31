@@ -19,8 +19,12 @@ fi
 NUKE=0
 PROFILING=0
 SKIP_JARS=0
+SKIP_JAR_DOCS=0
+SKIP_SDK=0
 JUST_DAMLC=0
+SCALA_VERSIONS=()
 SHA=0
+EE=0
 for opt in "$@"; do
   case "$opt" in
     "--nuke")
@@ -32,11 +36,24 @@ for opt in "$@"; do
     "--skip-jars")
       SKIP_JARS=1
       ;;
+    "--skip-jar-docs")
+      SKIP_JAR_DOCS=1
+      ;;
+    "--scala-version="*)
+      VERSION="${opt#*=}"
+      SCALA_VERSIONS+=($VERSION)
+      ;;
+    "--skip-sdk")
+      SKIP_SDK=1
+      ;;
     "--damlc")
       JUST_DAMLC=1
       ;;
     "--sha")
       SHA=1
+      ;;
+    "--ee")
+      EE=1
       ;;
     *)
       echo "Unknown option: $opt"
@@ -44,8 +61,12 @@ for opt in "$@"; do
       echo "  --nuke  Remove existing daml installation before installing daml-head."
       echo "  --profiling  Build Haskell executables with profiling enabled."
       echo "  --skip-jars  Skip building and installing the JARs."
+      echo "  --skip-jar-docs Skips docs builds & installation for jars."
+      echo "  --skip-sdk  Skip building and installing the SDK."
+      echo "  --scala-version=$VERSION Only build for scala version $VERSION, can be specified multiple times. Note that you need an equal sign not spaces."
       echo "  --damlc  Update damlc only, if daml-head is already installed."
       echo "  --sha Include SHA information in version number."
+      echo "  --ee Build the EE edition."
 
       exit 1
   esac
@@ -89,85 +110,93 @@ else
     export DAML_SDK_RELEASE_VERSION=$(sha_version)
 fi
 
-readonly DAML_HEAD_SDK="$DAML_HOME/sdk/$DAML_SDK_RELEASE_VERSION"
-if [[ -d "$DAML_HEAD_SDK" && "$JUST_DAMLC" -eq 0 ]]; then
-  echo "$(tput setaf 3)Removing existing daml-head installation.$(tput sgr 0)"
-  rm -f "${DAML_HOME}/bin/daml-head"
-  chmod -R u+w "$DAML_HEAD_SDK"
-  rm -rf "$DAML_HEAD_SDK"
-fi
+if [[ "$SKIP_SDK" -eq 0 ]]; then
+    readonly DAML_HEAD_SDK="$DAML_HOME/sdk/$DAML_SDK_RELEASE_VERSION"
+    if [[ -d "$DAML_HEAD_SDK" && "$JUST_DAMLC" -eq 0 ]]; then
+      echo "$(tput setaf 3)Removing existing daml-head installation.$(tput sgr 0)"
+      rm -f "${DAML_HOME}/bin/daml-head"
+      chmod -R u+w "$DAML_HEAD_SDK"
+      rm -rf "$DAML_HEAD_SDK"
+    fi
 
-if [[ -d "$DAML_HEAD_SDK" && "$JUST_DAMLC" -ne 0 ]]; then
-  # daml-head is installed, so just replace damlc
-  echo "$(tput setaf 3)Existing daml-head installation found."
-  echo "Building damlc version $DAML_SDK_RELEASE_VERSION, this may take a while ...$(tput sgr 0)"
-  echo ""
+    if [[ -d "$DAML_HEAD_SDK" && "$JUST_DAMLC" -ne 0 ]]; then
+      # daml-head is installed, so just replace damlc
+      echo "$(tput setaf 3)Existing daml-head installation found."
+      echo "Building damlc version $DAML_SDK_RELEASE_VERSION, this may take a while ...$(tput sgr 0)"
+      echo ""
 
-  function cleanup() {
-    echo "damlc $DAML_SDK_RELEASE_VERSION failed to build/install; if you need help ask on https://discuss.daml.com"
-    echo "$(tput setaf 3)FAILED TO INSTALL! $(tput sgr 0)"
-  }
-  trap cleanup EXIT
+      function cleanup() {
+        echo "damlc $DAML_SDK_RELEASE_VERSION failed to build/install; if you need help ask on https://discuss.daml.com"
+        echo "$(tput setaf 3)FAILED TO INSTALL! $(tput sgr 0)"
+      }
+      trap cleanup EXIT
 
-  bazel build ${BAZEL_MODE_FLAGS[@]:-} //compiler/damlc:damlc-dist.tar.gz
+      bazel build ${BAZEL_MODE_FLAGS[@]:-} //compiler/damlc:damlc-dist.tar.gz
 
-  readonly TARBALL="$(bazel info bazel-bin ${BAZEL_MODE_FLAGS[@]:-})/compiler/damlc/damlc-dist.tar.gz"
-  chmod -R u+w "$DAML_HEAD_SDK"
-  rm -rf "${DAML_HEAD_SDK}/damlc"
-  mkdir -p "${DAML_HEAD_SDK}/damlc"
-  tar xzf "$TARBALL" -C "${DAML_HEAD_SDK}/damlc" --strip-components 1
+      readonly TARBALL="$(bazel info bazel-bin ${BAZEL_MODE_FLAGS[@]:-})/compiler/damlc/damlc-dist.tar.gz"
+      chmod -R u+w "$DAML_HEAD_SDK"
+      rm -rf "${DAML_HEAD_SDK}/damlc"
+      mkdir -p "${DAML_HEAD_SDK}/damlc"
+      tar xzf "$TARBALL" -C "${DAML_HEAD_SDK}/damlc" --strip-components 1
 
-  trap - EXIT
-  echo "$(tput setaf 3)Done installing damlc $DAML_SDK_RELEASE_VERSION$(tput sgr 0)"
-  exit 0
-fi
+      trap - EXIT
+      echo "$(tput setaf 3)Done installing damlc $DAML_SDK_RELEASE_VERSION$(tput sgr 0)"
+      exit 0
+    fi
 
-echo "$(tput setaf 3)Building version $DAML_SDK_RELEASE_VERSION - this may take a while ...$(tput sgr 0)"
-echo ""
+    echo "$(tput setaf 3)Building version $DAML_SDK_RELEASE_VERSION - this may take a while ...$(tput sgr 0)"
+    echo ""
 
-function cleanup() {
-  echo "SDK $DAML_SDK_RELEASE_VERSION failed to build/install - if you need help ask on"
-  echo "https://discuss.daml.com"
-  echo "$(tput setaf 3)FAILED TO INSTALL! $(tput sgr 0)"
+    function cleanup() {
+      echo "SDK $DAML_SDK_RELEASE_VERSION failed to build/install - if you need help ask on"
+      echo "https://discuss.daml.com"
+      echo "$(tput setaf 3)FAILED TO INSTALL! $(tput sgr 0)"
 
-  if [[ -n "${SDK_TEMP_DIR+x}" && -d "$SDK_TEMP_DIR" ]]; then
-    rm -rf "$SDK_TEMP_DIR"
-  fi
-}
-trap cleanup EXIT
+      if [[ -n "${SDK_TEMP_DIR+x}" && -d "$SDK_TEMP_DIR" ]]; then
+        rm -rf "$SDK_TEMP_DIR"
+      fi
+    }
+    trap cleanup EXIT
 
-# Building here separately so the user can see the build process which could take a while
-bazel build ${BAZEL_MODE_FLAGS[@]:-} //release:sdk-release-tarball.tar.gz
+    SDK_RELEASE_TARBALL="sdk-release-tarball-ce.tar.gz"
+    if [ $EE = 1 ]; then
+        SDK_RELEASE_TARBALL="sdk-release-tarball-ee.tar.gz"
+    fi
 
-readonly TARBALL="$(bazel info bazel-bin ${BAZEL_MODE_FLAGS[@]:-})/release/sdk-release-tarball.tar.gz"
-readonly SDK_TEMP_DIR="$(mktemp -d)"
-readonly SDK_DIR="${SDK_TEMP_DIR}/sdk-head"
-mkdir -p "$SDK_DIR"
+    # Building here separately so the user can see the build process which could take a while
+    bazel build ${BAZEL_MODE_FLAGS[@]:-} //release:$SDK_RELEASE_TARBALL
 
-tar xzf "$TARBALL" -C "$SDK_DIR" --strip-components 1
+    readonly TARBALL="$(bazel info bazel-bin ${BAZEL_MODE_FLAGS[@]:-})/release/$SDK_RELEASE_TARBALL"
+    readonly SDK_TEMP_DIR="$(mktemp -d)"
+    readonly SDK_DIR="${SDK_TEMP_DIR}/sdk-head"
+    mkdir -p "$SDK_DIR"
 
-readonly DAML_CMD="$(command -v daml)"
-if [[ -x "$DAML_CMD" && "$DAML_CMD" == "$DAML_HOME/bin/daml" ]]; then
-  # A daml installation already exists, so just install SDK version $DAML_SDK_RELEASE_VERSION.
-  "${DAML_HOME}/bin/daml" install "$SDK_DIR" --force
-else
-  # No daml installation detected, so install the tarball normally but disable auto-install.
-  "${SDK_DIR}/install.sh" --force
-  echo "auto-install: false" > "${DAML_HOME}/daml-config.yaml"
-fi
+    tar xzf "$TARBALL" -C "$SDK_DIR" --strip-components 1
 
-if [[ -d "$SDK_TEMP_DIR" ]]; then
-  rm -rf "$SDK_TEMP_DIR"
-fi
+    readonly DAML_CMD="$(command -v daml)"
+    if [[ -x "$DAML_CMD" && "$DAML_CMD" == "$DAML_HOME/bin/daml" ]]; then
+      # A daml installation already exists, so just install SDK version $DAML_SDK_RELEASE_VERSION.
+      "${DAML_HOME}/bin/daml" install "$SDK_DIR" --force --set-path=no
+    else
+      # No daml installation detected, so install the tarball normally but disable auto-install.
+      "${SDK_DIR}/install.sh" --force --set-path=no
+      echo "auto-install: false" > "${DAML_HOME}/daml-config.yaml"
+    fi
 
-cat > "${DAML_HOME}/bin/daml-head" << EOF
+    if [[ -d "$SDK_TEMP_DIR" ]]; then
+      rm -rf "$SDK_TEMP_DIR"
+    fi
+
+    cat > "${DAML_HOME}/bin/daml-head" << EOF
 #!/bin/sh
 exec env DAML_SDK_VERSION=$DAML_SDK_RELEASE_VERSION "${DAML_HEAD_SDK}/daml/daml" "\$@"
 EOF
-chmod +x "${DAML_HOME}/bin/daml-head"
+    chmod +x "${DAML_HOME}/bin/daml-head"
 
-trap - EXIT
-echo "$(tput setaf 3)Successfully installed daml-head command pointing to $DAML_SDK_RELEASE_VERSION.$(tput sgr 0)"
+    trap - EXIT
+    echo "$(tput setaf 3)Successfully installed daml-head command pointing to $DAML_SDK_RELEASE_VERSION.$(tput sgr 0)"
+
+fi
 
 if [[ "$SKIP_JARS" -eq 0 ]]; then
     echo "$(tput setaf 3)Installing JARs as $DAML_SDK_RELEASE_VERSION...$(tput sgr 0)"
@@ -179,7 +208,20 @@ if [[ "$SKIP_JARS" -eq 0 ]]; then
 
     bazel build //release:release
     tmp="$(mktemp -d)"
-    "${REPO_ROOT}/bazel-bin/release/release" --release-dir "$tmp" --install-head-jars
+    RELEASE_ARGS=(--release-dir "$tmp" --install-head-jars --no-ts)
+    if [[ "$SKIP_JAR_DOCS" -eq 1 ]]; then
+        RELEASE_ARGS+=(--no-docs)
+    fi
+    # Note (MK) You might be wondering what this horrendous
+    # expansion is doing here. This is to guard against set -u
+    # behavior on bash < 4.4 which treat empty arrays as unbound variables.
+    # This expansion is shamelessly stolen from
+    # https://stackoverflow.com/questions/7577052/bash-empty-array-expansion-with-set-u
+    for version in ${SCALA_VERSIONS[@]+"${SCALA_VERSIONS[@]}"}; do
+        RELEASE_ARGS+=("--scala-version=$version")
+    done
+
+    "${REPO_ROOT}/bazel-bin/release/release" ${RELEASE_ARGS[@]}
 
     trap - EXIT
 

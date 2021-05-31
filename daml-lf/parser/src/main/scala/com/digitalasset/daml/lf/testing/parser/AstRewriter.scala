@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.parser
@@ -12,7 +12,7 @@ import scala.{PartialFunction => PF}
 private[daml] class AstRewriter(
     typeRule: PF[Type, Type] = PF.empty[Type, Type],
     exprRule: PF[Expr, Expr] = PF.empty[Expr, Expr],
-    identifierRule: PF[Identifier, Identifier] = PF.empty[Identifier, Identifier]
+    identifierRule: PF[Identifier, Identifier] = PF.empty[Identifier, Identifier],
 ) {
 
   import AstRewriter._
@@ -25,6 +25,7 @@ private[daml] class AstRewriter(
       name = module.name,
       definitions = module.definitions.transform((_, x) => apply(x)),
       templates = module.templates.transform((_, x) => apply(x)),
+      exceptions = module.exceptions.transform((_, x) => apply(x)),
       featureFlags = module.featureFlags,
     )
 
@@ -59,16 +60,20 @@ private[daml] class AstRewriter(
       exprRule(x)
     else
       x match {
-        case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | ETypeRep(_) =>
+        case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | ETypeRep(_) |
+            EExperimental(_, _) =>
           x
         case EVal(ref) =>
           EVal(apply(ref))
         case ELocation(loc, expr) =>
           ELocation(loc, apply(expr))
         case ERecCon(tycon, fields) =>
-          ERecCon(apply(tycon), fields.transform { (_, x) =>
-            apply(x)
-          })
+          ERecCon(
+            apply(tycon),
+            fields.transform { (_, x) =>
+              apply(x)
+            },
+          )
         case ERecProj(tycon, field, record) =>
           ERecProj(apply(tycon), field, apply(record))
         case ERecUpd(tycon, field, record, update) =>
@@ -110,9 +115,15 @@ private[daml] class AstRewriter(
         case ESome(typ, body) =>
           ESome(apply(typ), apply(body))
         case EToAny(ty, body) =>
-          EToAny(ty, apply(body))
+          EToAny(apply(ty), apply(body))
         case EFromAny(ty, body) =>
-          EFromAny(ty, apply(body))
+          EFromAny(apply(ty), apply(body))
+        case EThrow(returnType, exceptionType, exception) =>
+          EThrow(apply(returnType), apply(exceptionType), apply(exception))
+        case EFromAnyException(ty, body) =>
+          EFromAnyException(apply(ty), apply(body))
+        case EToAnyException(typ, body) =>
+          EToAnyException(apply(typ), apply(body))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {
@@ -153,6 +164,8 @@ private[daml] class AstRewriter(
         UpdateLookupByKey(apply(rbk))
       case UpdateEmbedExpr(typ, body) =>
         UpdateEmbedExpr(apply(typ), apply(body))
+      case UpdateTryCatch(typ, body, binder, handler) =>
+        UpdateTryCatch(apply(typ), apply(body), binder, apply(handler))
     }
 
   def apply(x: RetrieveByKey): RetrieveByKey = x match {
@@ -211,21 +224,22 @@ private[daml] class AstRewriter(
             apply(x)
           },
           apply(observers),
-          key.map(apply)
+          key.map(apply),
         )
     }
 
   def apply(x: TemplateChoice): TemplateChoice =
     x match {
       case TemplateChoice(
-          name,
-          consuming,
-          controllers,
-          observers,
-          selfBinder,
-          (argBinderVar, argBinderType),
-          returnType,
-          update) =>
+            name,
+            consuming,
+            controllers,
+            observers,
+            selfBinder,
+            (argBinderVar, argBinderType),
+            returnType,
+            update,
+          ) =>
         TemplateChoice(
           name,
           consuming,
@@ -234,7 +248,8 @@ private[daml] class AstRewriter(
           selfBinder,
           (argBinderVar, apply(argBinderType)),
           apply(returnType),
-          apply(update))
+          apply(update),
+        )
     }
 
   def apply(x: TemplateKey): TemplateKey =
@@ -243,6 +258,10 @@ private[daml] class AstRewriter(
         TemplateKey(apply(typ), apply(body), apply(maintainers))
     }
 
+  def apply(x: DefException): DefException =
+    x match {
+      case DefException(message) => DefException(apply(message))
+    }
 }
 
 object AstRewriter {

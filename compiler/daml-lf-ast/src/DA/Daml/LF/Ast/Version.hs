@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DeriveAnyClass #-}
@@ -8,6 +8,7 @@ import           Data.Data
 import GHC.Generics
 import           DA.Pretty
 import           Control.DeepSeq
+import qualified Data.Map.Strict as MS
 import qualified Data.Text as T
 import qualified Text.Read as Read
 
@@ -31,16 +32,28 @@ version1_7 = V1 $ PointStable 7
 version1_8 :: Version
 version1_8 = V1 $ PointStable 8
 
+-- | DAML-LF version 1.11
+version1_11 :: Version
+version1_11 = V1 $ PointStable 11
+
+-- | DAML-LF version 1.12
+version1_12 :: Version
+version1_12 = V1 $ PointStable 12
+
+-- | DAML-LF version 1.13
+version1_13 :: Version
+version1_13 = V1 $ PointStable 13
+
 -- | The DAML-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_8
+versionDefault = version1_12
 
 -- | The DAML-LF development version.
 versionDev :: Version
 versionDev = V1 PointDev
 
 supportedOutputVersions :: [Version]
-supportedOutputVersions = [version1_6, version1_7, version1_8, versionDev]
+supportedOutputVersions = [version1_6, version1_7, version1_8, version1_11, version1_12, version1_13, versionDev]
 
 supportedInputVersions :: [Version]
 supportedInputVersions = supportedOutputVersions
@@ -84,14 +97,14 @@ featureStringInterning = Feature
 featureGenericComparison :: Feature
 featureGenericComparison = Feature
     { featureName = "Generic order relation"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_11
     , featureCppFlag = Just "DAML_GENERIC_COMPARISON"
     }
 
 featureGenMap :: Feature
 featureGenMap = Feature
     { featureName = "Generic map"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_11
     , featureCppFlag = Just "DAML_GENMAP"
     }
 
@@ -121,36 +134,46 @@ featureUnstable = Feature
 
 featureToTextContractId :: Feature
 featureToTextContractId = Feature
-    { featureName = "TO_TEXT_CONTRACT_ID primitive"
-    -- TODO Change as part of #7139
-    , featureMinVersion = versionDev
-    , featureCppFlag = Just "DAML_TO_TEXT_CONTRACT_ID"
+    { featureName = "CONTRACT_ID_TO_TEXT primitive"
+    , featureMinVersion = version1_11
+    , featureCppFlag = Just "DAML_CONTRACT_ID_TO_TEXT"
     }
 
-featureChoiceObservers :: Feature  -- issue #7709
+featureChoiceObservers :: Feature
 featureChoiceObservers = Feature
     { featureName = "Choice observers"
-    -- TODO Change as part of #7139
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_11
     , featureCppFlag = Just "DAML_CHOICE_OBSERVERS"
     }
 
 featureTypeInterning :: Feature
 featureTypeInterning = Feature
     { featureName = "Type interning"
-    -- TODO Change as part of #7139
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_11
     , featureCppFlag = Nothing
+    }
+
+featureBigNumeric :: Feature
+featureBigNumeric = Feature
+    { featureName = "BigNumeric type"
+    , featureMinVersion = version1_13
+    , featureCppFlag = Just "DAML_BIGNUMERIC"
     }
 
 featureExceptions :: Feature
 featureExceptions = Feature
     { featureName = "DAML Exceptions"
     , featureMinVersion = versionDev
-        -- TODO (#8020): Update LF version number when we stabilize exceptions.
-        -- https://github.com/digital-asset/daml/issues/8020
-        -- https://github.com/digital-asset/daml/issues/7139
+        -- TODO: https://github.com/digital-asset/daml/issues/8020
+        -- Update LF version number when we stabilize exceptions.
     , featureCppFlag = Just "DAML_EXCEPTIONS"
+    }
+
+featureExperimental :: Feature
+featureExperimental = Feature
+    { featureName = "DAML Experimental"
+    , featureMinVersion = versionDev
+    , featureCppFlag = Just "DAML_EXPERIMENTAL"
     }
 
 allFeatures :: [Feature]
@@ -167,8 +190,35 @@ allFeatures =
     , featureToTextContractId
     , featureChoiceObservers
     , featureTypeInterning
+    , featureBigNumeric
     , featureExceptions
+    , featureExperimental
     ]
+
+featureVersionMap :: MS.Map T.Text Version
+featureVersionMap = MS.fromList
+    [ (key, version)
+    | feature <- allFeatures
+    , let version = featureMinVersion feature
+    , Just key <- [featureCppFlag feature]
+    ]
+
+-- | Return minimum version associated with a feature flag.
+versionForFeature :: T.Text -> Maybe Version
+versionForFeature key = MS.lookup key featureVersionMap
+
+-- | Same as 'versionForFeature' but errors out if the feature doesn't exist.
+versionForFeaturePartial :: T.Text -> Version
+versionForFeaturePartial key =
+    case versionForFeature key of
+        Just version -> version
+        Nothing ->
+            error . T.unpack . T.concat $
+                [ "Unknown feature: "
+                , key
+                , ". Available features are: "
+                , T.intercalate ", " (MS.keys featureVersionMap)
+                ]
 
 allFeaturesForVersion :: Version -> [Feature]
 allFeaturesForVersion version = filter (supports version) allFeatures

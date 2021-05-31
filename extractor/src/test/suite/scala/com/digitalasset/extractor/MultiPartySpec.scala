@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor
@@ -25,7 +25,6 @@ import scalaz.std.option._
 import scalaz.std.string._
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
-import scopt.Read
 
 class MultiPartySpec
     extends AnyFlatSpec
@@ -46,7 +45,7 @@ class MultiPartySpec
   }
 
   private[this] implicit def partyArb: Arbitrary[Party] = Arbitrary(partyGen)
-  private[this] val readParties = implicitly[Read[ExtractorConfig.Parties]]
+  private[this] val readParties = implicitly[scopt.Read[ExtractorConfig.Parties]]
 
   "Party parser" should "permit comma separation" in forAll { parties: OneAnd[List, Party] =>
     readParties.reads(parties.widen[String] intercalate ",") should ===(parties)
@@ -54,7 +53,8 @@ class MultiPartySpec
 
   "Party parser" should "permit spaces in parties" in {
     readParties.reads("foo bar,baz quux, a b ") should ===(
-      OneAnd("foo bar", List("baz quux", " a b ")))
+      OneAnd("foo bar", List("baz quux", " a b "))
+    )
   }
 
   "Party parser" should "reject non-comma bad characters" in {

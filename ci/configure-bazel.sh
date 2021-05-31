@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -70,11 +70,11 @@ if is_windows; then
   # To avoid exceeding the maximum path limit on Windows we limit the suffix to
   # three characters.
   echo "Working directory: $PWD"
-  SUFFIX="$(echo $PWD $RULES_HASKELL_REV | openssl dgst -md5 -binary | openssl enc -base64)"
-  SUFFIX="${SUFFIX:0:3}"
+  SUFFIX="$(echo $PWD $RULES_HASKELL_REV | openssl dgst -md5 -r)"
+  SUFFIX="${SUFFIX:0:12}"
   echo "Platform suffix: $SUFFIX"
   # We include an extra version at the end that we can bump manually.
-  CACHE_SUFFIX="$SUFFIX-v10"
+  CACHE_SUFFIX="$SUFFIX-v11"
   CACHE_URL="$CACHE_URL/$CACHE_SUFFIX"
   echo "build:windows-ci --remote_http_cache=https://bazel-cache.da-ext.net/$CACHE_SUFFIX" >> .bazelrc.local
 fi

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -148,10 +148,9 @@ instance Pretty BuiltinType where
     BTArrow -> parens docFunArrow
     BTAny -> "Any"
     BTTypeRep -> "TypeRep"
+    BTRoundingMode -> "RoundingMode"
+    BTBigNumeric -> "BigNumeric"
     BTAnyException -> "AnyException"
-    BTGeneralError -> "GeneralError"
-    BTArithmeticError -> "ArithmeticError"
-    BTContractError -> "ContractError"
 
 pPrintRecord :: Pretty a => PrettyLevel -> Doc ann -> [(FieldName, a)] -> Doc ann
 pPrintRecord lvl sept fields =
@@ -201,6 +200,17 @@ docAltArrow = "->"
 instance Pretty PartyLiteral where
   pPrint = quotes . text . unPartyLiteral
 
+prettyRounding :: RoundingModeLiteral -> String
+prettyRounding = \case
+  LitRoundingUp -> "ROUNDING_UP"
+  LitRoundingDown -> "ROUNDING_DOWN"
+  LitRoundingCeiling -> "ROUNDING_CEILING"
+  LitRoundingFloor -> "ROUNDING_FLOOR"
+  LitRoundingHalfUp -> "ROUNDING_HALF_UP"
+  LitRoundingHalfDown -> "ROUNDING_HALF_DOWN"
+  LitRoundingHalfEven -> "ROUNDING_HALF_EVEN"
+  LitRoundingUnnecessary -> "ROUNDING_UNNECESSARY"
+
 instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case
     BEInt64 n -> integer (toInteger n)
@@ -210,15 +220,9 @@ instance Pretty BuiltinExpr where
     BEParty p -> pPrint p
     BEUnit -> keyword_ "unit"
     BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
+    BERoundingMode r -> keyword_ $ prettyRounding r
     BEError -> "ERROR"
-    BEThrow -> "THROW"
     BEAnyExceptionMessage -> "ANY_EXCEPTION_MESSAGE"
-    BEGeneralErrorMessage -> "GENERAL_ERROR_MESSAGE"
-    BEArithmeticErrorMessage -> "ARITHMETIC_ERROR_MESSAGE"
-    BEContractErrorMessage -> "CONTRACT_ERROR_MESSAGE"
-    BEMakeGeneralError -> "MAKE_GENERAL_ERROR"
-    BEMakeArithmeticError -> "MAKE_ARITHMETIC_ERROR"
-    BEMakeContractError -> "MAKE_CONTRACT_ERROR"
     BEEqualGeneric -> "EQUAL"
     BELessGeneric -> "LESS"
     BELessEqGeneric -> "LESS_EQ"
@@ -230,7 +234,7 @@ instance Pretty BuiltinExpr where
     BEGreater t   -> pPrintAppKeyword lvl prec "GREATER"    [TyArg (TBuiltin t)]
     BEGreaterEq t -> pPrintAppKeyword lvl prec "GREATER_EQ" [TyArg (TBuiltin t)]
     BEToText t    -> pPrintAppKeyword lvl prec "TO_TEXT"    [TyArg (TBuiltin t)]
-    BEToTextContractId -> "TO_TEXT_CONTRACT_ID"
+    BEContractIdToText -> "CONTRACT_ID_TO_TEXT"
     BEAddDecimal -> "ADD_DECIMAL"
     BESubDecimal -> "SUB_DECIMAL"
     BEMulDecimal -> "MUL_DECIMAL"
@@ -250,8 +254,17 @@ instance Pretty BuiltinExpr where
     BELessNumeric -> "LESS_NUMERIC"
     BEGreaterEqNumeric -> "GEQ_NUMERIC"
     BEGreaterNumeric -> "GREATER_NUMERIC"
-    BENumericFromText -> "FROM_TEXT_NUMERIC"
-    BEToTextNumeric -> "TO_TEXT_NUMERIC"
+    BETextToNumeric -> "TEXT_TO_NUMERIC"
+    BENumericToText -> "NUMERIC_TO_TEXT"
+    BEScaleBigNumeric -> "SCALE_BIGNUMERIC"
+    BEPrecisionBigNumeric -> "PRECISION_BIGNUMERIC"
+    BEAddBigNumeric -> "ADD_BIGNUMERIC"
+    BESubBigNumeric -> "SUB_BIGNUMERIC"
+    BEMulBigNumeric -> "MUl_BIGNUMERIC"
+    BEDivBigNumeric -> "DIV_BIGNUMERIC"
+    BEShiftRightBigNumeric -> "SHIFT_RIGHT_BIGNUMERIC"
+    BEBigNumericToNumeric -> "BIGNUMERIC_TO_NUMERIC"
+    BENumericToBigNumeric -> "NUMERIC_TO_BIGNUMERIC"
     BEAddInt64 -> "ADD_INT64"
     BESubInt64 -> "SUB_INT64"
     BEMulInt64 -> "MUL_INT64"
@@ -288,12 +301,12 @@ instance Pretty BuiltinExpr where
     BESha256Text -> "SHA256_TEXT"
     BETrace -> "TRACE"
     BEEqualContractId -> "EQUAL_CONTRACT_ID"
-    BEPartyFromText -> "FROM_TEXT_PARTY"
-    BEInt64FromText -> "FROM_TEXT_INT64"
-    BEDecimalFromText -> "FROM_TEXT_DECIMAL"
+    BETextToParty -> "TEXT_TO_PARTY"
+    BETextToInt64 -> "TEXT_TO_INT64"
+    BETextToDecimal -> "TEXT_TO_DECIMAL"
     BEPartyToQuotedText -> "PARTY_TO_QUOTED_TEXT"
     BETextToCodePoints -> "TEXT_TO_CODE_POINTS"
-    BETextFromCodePoints -> "TEXT_FROM_CODE_POINTS"
+    BECodePointsToText -> "CODE_POINTS_TO_TEXT"
     BECoerceContractId -> "COERCE_CONTRACT_ID"
     BETextToUpper -> "TEXT_TO_UPPER"
     BETextToLower -> "TEXT_TO_LOWER"
@@ -509,10 +522,13 @@ instance Pretty Expr where
     EToAny ty body -> pPrintAppKeyword lvl prec "to_any" [TyArg ty, TmArg body]
     EFromAny ty body -> pPrintAppKeyword lvl prec "from_any" [TyArg ty, TmArg body]
     ETypeRep ty -> pPrintAppKeyword lvl prec "type_rep" [TyArg ty]
-    EMakeAnyException ty msg val -> pPrintAppKeyword lvl prec "make_any_exception"
-        [TyArg ty, TmArg msg, TmArg val]
+    EToAnyException ty val -> pPrintAppKeyword lvl prec "to_any_exception"
+        [TyArg ty, TmArg val]
     EFromAnyException ty val -> pPrintAppKeyword lvl prec "from_any_exception"
         [TyArg ty, TmArg val]
+    EThrow ty1 ty2 val -> pPrintAppKeyword lvl prec "throw"
+        [TyArg ty1, TyArg ty2, TmArg val]
+    EExperimental name _ ->  pPrint $ "$" <> name
 
 instance Pretty DefTypeSyn where
   pPrintPrec lvl _prec (DefTypeSyn mbLoc syn params typ) =
@@ -521,8 +537,10 @@ instance Pretty DefTypeSyn where
       lhsDoc = pPrint syn <-> hsep (map (pPrintAndKind lvl precParam) params) <-> "="
 
 instance Pretty DefException where
-  pPrintPrec lvl _prec (DefException mbLoc tycon) =
-    withSourceLoc lvl mbLoc (keyword_ "exception" <-> pPrint tycon)
+  pPrintPrec lvl _prec (DefException mbLoc tycon msg) =
+    withSourceLoc lvl mbLoc
+      $ (keyword_ "exception" <-> pPrint tycon <-> "where")
+      $$ nest 2 ("message" <-> pPrintPrec lvl 0 msg)
 
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =

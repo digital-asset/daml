@@ -25,8 +25,7 @@ let
 in rec {
   inherit pkgs;
 
-  # GHC with static linking patches.
-  ghcStatic = bazel_dependencies.ghcStatic;
+  ghc = bazel_dependencies.ghc;
 
   # Tools used in the dev-env. These are invoked through wrappers
   # in dev-env/bin. See the development guide for more information:
@@ -41,10 +40,10 @@ in rec {
     protoc          = bazel_dependencies.protobuf3_8;
 
     # Haskell development
-    ghcStatic       = bazel_dependencies.ghcStatic;
+    ghc             = bazel_dependencies.ghc;
     ghcid           = pkgs.haskellPackages.ghcid;
-    hlint           = bazel_dependencies.ghcStaticPkgs.hlint;
-    ghci            = bazel_dependencies.ghcStatic;
+    hlint           = bazel_dependencies.hlint;
+    ghci            = bazel_dependencies.ghc;
 
     # Hazel’s configure step currently searches for the C compiler in
     # PATH instead of taking it from our cc toolchain so we have to add
@@ -67,20 +66,9 @@ in rec {
     jstack = jdk;
     jar    = jdk;
 
-    # The package itself is called bazel-watcher. However, the executable is
-    # called ibazel. We call the attribute ibazel so that the default dev-env
-    # wrapper works.
-    ibazel = pkgs.bazel-watcher;
+    javafmt = pkgs.callPackage ./tools/google-java-format {};
 
-    scala = (bazel_dependencies.scala.override { jre = jdk; }).overrideAttrs (attrs: {
-      buildInputs = attrs.buildInputs ++ [ pkgs.makeWrapper ];
-      installPhase = attrs.installPhase + ''
-        wrapProgram $out/bin/scala    --add-flags "-nobootcp"
-        wrapProgram $out/bin/scalac   --add-flags "-nobootcp"
-        wrapProgram $out/bin/scaladoc --add-flags "-nobootcp"
-        wrapProgram $out/bin/scalap   --add-flags "-nobootcp"
-      '';
-    });
+    scala = bazel_dependencies.scala_2_13;
     fsc      = scala;
     scalac   = scala;
     scaladoc = scala;
@@ -91,7 +79,6 @@ in rec {
     # nixpkgs ships with an RC for scalafmt 2.0 that seems to be significantly slower
     # and changes a lot of formatting so for now we stick to 1.5.1.
     scalafmt = pkgs.callPackage ./overrides/scalafmt.nix { jre = jdk; };
-    dependency-check = (pkgs.callPackage ./tools/dependency-check { });
 
     # Nix development
     cabal2nix = pkgs.cabal2nix;
@@ -129,16 +116,14 @@ in rec {
 
     pex = pkgs.python37Packages.pex;
     pipenv = import ./tools/pipenv {
-      lib = pkgs.stdenv.lib;
+      lib = pkgs.lib;
       python3 = python3;
     };
 
     sphinx-build      = sphinx183;
     sphinx-quickstart = sphinx183;
 
-    sphinx-autobuild = import ./tools/sphinx-autobuild/requirements.nix {
-      inherit pkgs;
-    };
+    sphinx-autobuild = pkgs.python37Packages.sphinx-autobuild;
 
     sphinx183 = bazel_dependencies.sphinx183-exts;
 
@@ -177,10 +162,10 @@ in rec {
       # Set the JAVA_HOME to our JDK
       export JAVA_HOME=${jdk.home}
       export GIT_SSL_CAINFO="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
-    '' + pkgs.stdenv.lib.optionalString (pkgs.buildPlatform.libc == "glibc") ''
+    '' + pkgs.lib.optionalString (pkgs.buildPlatform.libc == "glibc") ''
       export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive"
     '' + ''
-      exec ${pkgs.bazel}/bin/bazel --bazelrc "${bazelrc}" "$@"
+      exec ${pkgs.bazel_4}/bin/bazel --bazelrc "${bazelrc}" "$@"
     '');
 
     # System tools
@@ -195,6 +180,7 @@ in rec {
     # String mangling tooling.
     base64 = pkgs.coreutils;
     bc = pkgs.bc;
+    date = pkgs.coreutils;
     find = pkgs.findutils;
     gawk = bazel_dependencies.gawk;
     grep = pkgs.gnugrep;
@@ -215,12 +201,8 @@ in rec {
     tar = bazel_dependencies.gnutar;
 
     semver = pkgs.callPackage ./tools/semver-tool {};
-    osht = pkgs.callPackage ./tools/osht {};
-    bats = pkgs.callPackage ./tools/bats {};
-    dade-test-sh = pkgs.callPackage ./tools/dade-test-sh {};
 
     undmg = pkgs.undmg;
-    jfrog = pkgs.callPackage ./tools/jfrog-cli {};
 
     # Cloud tools
     aws = pkgs.awscli;
@@ -230,9 +212,7 @@ in rec {
     docker-credential-gcloud = gcloud;
     # used to set up the webide CI pipeline in azure-cron.yml
     docker-credential-gcr = pkgs.docker-credential-gcr;
-    # Note: we need to pin Terraform to 0.11 until nixpkgs includes a version
-    # of the secret provider that is compatiblz with Terraform 0.12 (1.1.0+)
-    terraform = pkgs.terraform_0_11.withPlugins (p: with p; [
+    terraform = pkgs.terraform_0_12.withPlugins (p: with p; [
       google
       google-beta
       random

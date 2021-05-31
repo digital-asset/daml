@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver
@@ -10,8 +10,7 @@ import io.grpc._
 
 import scala.collection.concurrent.TrieMap
 
-/**
-  * An interceptor that counts all incoming calls by method.
+/** An interceptor that counts all incoming calls by method.
   *
   * Given a fully qualified method name 'q' in the form "org.example.SomeService/someMethod" where
   * - "org.example.SomeService" is the fully qualified service name and
@@ -41,7 +40,8 @@ private[apiserver] final class MetricsInterceptor(metrics: Metrics) extends Serv
     val fullMethodName = call.getMethodDescriptor.getFullMethodName
     val timer = fullServiceToMetricNameCache.getOrElseUpdate(
       fullMethodName,
-      metrics.daml.lapi.forMethod(MetricsNaming.nameFor(fullMethodName)))
+      metrics.daml.lapi.forMethod(MetricsNaming.nameFor(fullMethodName)),
+    )
     val timerCtx = timer.time
     next.startCall(new TimedServerCall(call, timerCtx), headers)
   }

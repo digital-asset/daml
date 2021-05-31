@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -59,12 +59,6 @@ trait ServiceCallAuthTests
   protected def ledgerBegin: LedgerOffset =
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
 
-  behavior of serviceCallName
-
-  it should "deny unauthenticated calls" in {
-    expectUnauthenticated(serviceCallWithToken(None))
-  }
-
   protected val canActAsRandomParty: Option[String] =
     Option(toHeader(readWriteToken(UUID.randomUUID.toString)))
   protected val canActAsRandomPartyExpired: Option[String] =
@@ -93,10 +87,12 @@ trait ServiceCallAuthTests
     Option(toHeader(forLedgerId(UUID.randomUUID.toString, readOnlyToken(UUID.randomUUID.toString))))
   protected val canReadAsRandomPartyActualParticipantId: Option[String] =
     Option(
-      toHeader(forParticipantId("sandbox-participant", readOnlyToken(UUID.randomUUID.toString))))
+      toHeader(forParticipantId("sandbox-participant", readOnlyToken(UUID.randomUUID.toString)))
+    )
   protected val canReadAsRandomPartyRandomParticipantId: Option[String] =
     Option(
-      toHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(UUID.randomUUID.toString))))
+      toHeader(forParticipantId(UUID.randomUUID.toString, readOnlyToken(UUID.randomUUID.toString)))
+    )
 
   // Note: lazy val, because the ledger ID is only known after the sandbox start
   protected lazy val canReadAsAdminActualLedgerId: Option[String] =

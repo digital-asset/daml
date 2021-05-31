@@ -3,11 +3,11 @@
 For snapshot releases, skip the steps marked **[STABLE]**. For stable releases,
 skip the steps marked **[SNAPSHOT]**.
 
-Valid commits for a release should come from either the `master` branch or one
+Valid commits for a release should come from either the `main` branch or one
 of the support `release/a.b.x` branches (e.g. `release/1.0.x` branch is for
 patches we backport to the 1.0 release branch).
 
-> **IMPORTANT**: If the release fails, please delete it from the releases page
+> **IMPORTANT**: If the release fails, please delete it from the [releases page]
 > and write how it failed on the PR.
 
 1. **[STABLE]** Go through the [checklist] before making the release. Note that
@@ -22,7 +22,7 @@ patches we backport to the 1.0 release branch).
    (`#team-daml`) if you're not sure.
 
    If you are manually creating the PR for an out-of-schedule snapshot, start
-   from latest master and run
+   _from latest `main`_ and run
    ```
    ./release.sh snapshot <sha> <prefix>
    ```
@@ -31,8 +31,13 @@ patches we backport to the 1.0 release branch).
    $ ./release.sh snapshot cc880e2 0.1.2
    cc880e290b2311d0bf05d58c7d75c50784c0131c 0.1.2-snapshot.20200513.4174.0.cc880e29
    ```
-   Then open a PR with the changed `LATEST` file, and add the `Standard-Change`
-   label.
+   Then open a PR _to be merged to `main`_ (even if it's for a maintenance release)
+   with the changed `LATEST` file, add the line produced by the `release.sh`
+   invocation in a meaningful position (if you’re not sure, [semver](https://semver.org/) ordering is
+   probably the right thing to do) and add the `Standard-Change` label. It
+   is better to add such a label _before confirming the PR's creation_, else
+   the associated CI check will fail and merging the PR will require you to
+   re-run it after all the other ones have completed successfully.
 
 1. Once the PR has built, check that it was considered a release build by our
    CI. If you are working from an automated PR, check that it sent a message to
@@ -40,10 +45,9 @@ patches we backport to the 1.0 release branch).
    you can look at the output of the `check_for_release` build step.
 
 1. **[STABLE]** The PR **must** be approved by a team lead before merging. As
-   of this writing (2020-08-13), @bame-da, @gerolf-da, @cocreature or
-   @hurryabit.
+   of this writing (2021-05-12), @bame-da, @gerolf-da, or @cocreature.
 
-1. Merge the PR and wait for the corresponding `master` build to finish. You
+1. Merge the PR and wait for the corresponding `main` build to finish. You
    will be notified on `#team-daml`.
 
 1. On Windows, install the new SDK using the installer on
@@ -83,6 +87,10 @@ patches we backport to the 1.0 release branch).
    >
    > Ad-hoc machines also come with Node, VSCode and OpenJDK preinstalled, so
    > you don't need to worry about those.
+   >
+   > The script that installs Firefox, Node, VSCode and OpenJDK runs once the
+   > machine is available for login. If you can't find the software you need
+   > immediately, just wait for a couple of minutes.
    >
    > All of the commands mentioned in this document can be run from a simple
    > DOS prompt (start menu -> type "cmd" -> click "Command prompt").
@@ -187,6 +195,24 @@ patches we backport to the 1.0 release branch).
        through on Linux or macOS, you still need to run on Windows, and vice
        versa.
 
+1. Run through the following test plan on Windows. This is slightly shortened to
+   make testing faster and since most issues are not platform specific.
+
+   1. Run `daml new quickstart` to create a new project and switch to it using
+      `cd quickstart`.
+   1. Run `daml start`.
+   1. Open your browser at `http://localhost:7500`, verify that you can login as
+      Alice and there is one template and one contract.
+   1. Kill `daml start` with `Ctrl-C`.
+   1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
+      the script result appears within 30 seconds.
+   1. Add `+` at the end of line 25 after `(PartyIdHint "Alice")` and verify that
+      you get an error on line 26.
+
+1. On your PR, add the comment:
+
+   > Manual tests passed on Windows.
+
 1. Tests for `quickstart-java` (Linux/macOS)
 
    While this is no longer the default getting started guide we still test it
@@ -211,10 +237,10 @@ patches we backport to the 1.0 release branch).
        1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time && daml navigator server localhost 6865 --port 7500`
        1. `daml codegen java && mvn compile exec:java@run-quickstart`
 
-       > Note: It takes some time for our artifacts to be available on Maven
-       > Central. If you try running the last command before the artifacts are
-       > available, you will get a "not found" error. Trying to build again _in
-       > the next 24 hours_ will result in:
+       > Note: It takes some time (typically around half-an-hour) for our artifacts
+       > to be available on Maven Central. If you try running the last command before
+       > the artifacts are available, you will get a "not found" error. Trying to
+       > build again _in the next 24 hours_ will result in:
        >
        > ```
        > Failure to find ... was cached in the local repository, resolution will not be reattempted until the update interval of digitalasset-releases has elapsed or updates are forced
@@ -227,6 +253,10 @@ patches we backport to the 1.0 release branch).
        > bypass your local cache of the failure; it will not be required for a
        > user trying to run the quickstart after the artifacts have been
        > published.
+       >
+       > Another common problem is that artifacts fail to resolve because of custom
+       > Maven settings. Check your `~/.m2/settings.xml` configuration and try
+       > disabling them temporarily.
 
     1. Point your browser to `http://localhost:7500`, login as `Alice` and verify
        that there is 1 contract, 3 templates and 1 owned IOU.
@@ -239,7 +269,7 @@ patches we backport to the 1.0 release branch).
     1. Kill all processes.
 
     1. Run `daml studio --replace=always`. This should open VSCode and trigger
-       the DAML extension that's bundled with the new SDK version. (The new
+       the Daml extension that's bundled with the new SDK version. (The new
        VSCode extension will not be in the marketplace at this point.)
 
     1. Open `daml/Main.daml`.
@@ -267,25 +297,7 @@ patches we backport to the 1.0 release branch).
 
    specifying which platform you tested on.
 
-1. Run through the following test plan on Windows. This is slightly shortened to
-   make testing faster and since most issues are not platform specific.
-
-   1. Run `daml new quickstart` to create a new project and switch to it using
-      `cd quickstart`.
-   1. Run `daml start`.
-   1. Open your browser at `http://localhost:7500`, verify that you can login as
-      Alice and there is one template and one contract.
-   1. Kill `daml start` with `Ctrl-C`.
-   1. Run `daml studio --replace=always` and open `daml/Main.daml`. Verify that
-      the script result appears within 30 seconds.
-   1. Add `+` at the end of line 25 after `(PartyIdHint "Alice")` and verify that
-      you get an error on line 26.
-
-1. On your PR, add the comment:
-
-   > Manual tests passed on Windows.
-
-1. If the release is bad, delete the release from [the releases page]. Mention
+1. If the release is bad, delete the release from the [releases page]. Mention
    why it is bad as a comment on your PR, and **stop the process here**.
 
 1. Announce the release on the relevant internal Slack channels (`#product-daml`,
@@ -300,7 +312,7 @@ patches we backport to the 1.0 release branch).
    for this release will be added to docs.daml.com on the next hour.
 
 1. **[STABLE]** Coordinate with product (& marketing) for the relevant public
-   announcements (DAML Forum, Twitter, etc.).
+   announcements (Daml Forum, Twitter, etc.).
 
 1. **[STABLE]** Documentation is published automatically once the release is
    public on GitHub, though this runs on an hourly cron.

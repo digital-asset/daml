@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -31,7 +31,7 @@ class PartyLiteralsSpec extends AnyWordSpec with TableDrivenPropertyChecks with 
             val @noPartyLiterals v: Unit = Mod:v;
 
             val @noPartyLiterals isAlice: Party -> Bool =
-              \ (party: Party) -> EQUAL_TEXT (TO_TEXT_PARTY party) "'Alice'";
+              \ (party: Party) -> EQUAL_TEXT (PARTY_TO_TEXT party) "'Alice'";
 
             record R = { party: Party };
             template (this : R) =  {
@@ -104,7 +104,7 @@ class PartyLiteralsSpec extends AnyWordSpec with TableDrivenPropertyChecks with 
                   precondition True,
                   signatories Cons @Party [party] (Nil @Party),
                   observers Cons @Party [party] (Nil @Party),
-                  agreement TO_TEXT_PARTY 'Alice',               // disallowed party literal 'Alice'
+                  agreement PARTY_TO_TEXT 'Alice',               // disallowed party literal 'Alice'
                   choices {
                     choice Ch (self) (i : Mod:R): Unit, controllers 'Alice' to
                       upure @Unit ()
@@ -149,7 +149,8 @@ class PartyLiteralsSpec extends AnyWordSpec with TableDrivenPropertyChecks with 
       checkModule(
         world,
         defaultPackageId,
-        pkg.modules(DottedName.assertFromString("NegativeTestCase")))
+        pkg.modules(DottedName.assertFromString("NegativeTestCase")),
+      )
       forEvery(positiveTestCases) { modName =>
         an[EForbiddenPartyLiterals] should be thrownBy
           checkModule(world, defaultPackageId, pkg.modules(DottedName.assertFromString(modName)))

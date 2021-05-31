@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,33 +6,37 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
-    "silencer_lib",
 )
 
 da_scala_library(
     name = "db-backend",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:com_lihaoyi_sourcecode",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_tpolecat_doobie_core",
+        "@maven//:org_tpolecat_doobie_free",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_effect",
+        "@maven//:org_typelevel_cats_free",
+        "@maven//:org_typelevel_cats_kernel",
+    ],
+    scala_runtime_deps = [
+        "@maven//:org_tpolecat_doobie_postgres",
+    ],
     scalacopts = lf_scalacopts,
-    silent_annotations = True,
     tags = ["maven_coordinates=com.daml:http-json-db-backend:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:org_tpolecat_doobie_postgres_2_12",
     ],
     deps = [
-        "@maven//:com_chuusai_shapeless_2_12",
-        "@maven//:com_lihaoyi_sourcecode_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_tpolecat_doobie_core_2_12",
-        "@maven//:org_tpolecat_doobie_free_2_12",
-        "@maven//:org_typelevel_cats_core_2_12",
-        "@maven//:org_typelevel_cats_effect_2_12",
-        "@maven//:org_typelevel_cats_free_2_12",
-        "@maven//:org_typelevel_cats_kernel_2_12",
+        "//daml-lf/data",
+        "//libs-scala/scala-utils",
     ],
 )
 
@@ -40,31 +44,16 @@ da_scala_test(
     name = "tests",
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
     # data = ["//docs:quickstart-model.dar"],
     deps = [
         ":db-backend",
-        "//daml-lf/data",
-        "//daml-lf/interface",
-        "//daml-lf/transaction",
-        "//daml-lf/transaction-test-lib",
-        "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:com_chuusai_shapeless_2_12",
-        silencer_lib,
-        "@maven//:com_lihaoyi_sourcecode_2_12",
-        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
-        "@maven//:org_tpolecat_doobie_core_2_12",
-        "@maven//:org_tpolecat_doobie_free_2_12",
-        "@maven//:org_tpolecat_doobie_postgres_2_12",
-        "@maven//:org_typelevel_cats_core_2_12",
-        "@maven//:org_typelevel_cats_effect_2_12",
-        "@maven//:org_typelevel_cats_free_2_12",
-        "@maven//:org_typelevel_cats_kernel_2_12",
+        "//libs-scala/scala-utils",
     ],
 )

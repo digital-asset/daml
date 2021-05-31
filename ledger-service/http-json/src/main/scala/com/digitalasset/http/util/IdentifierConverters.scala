@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.util
@@ -19,7 +19,8 @@ object IdentifierConverters {
       Ref.PackageId.assertFromString(a.packageId),
       Ref.QualifiedName(
         Ref.ModuleName.assertFromString(a.moduleName),
-        Ref.DottedName.assertFromString(a.entityName))
+        Ref.DottedName.assertFromString(a.entityName),
+      ),
     )
   }
 
@@ -29,7 +30,8 @@ object IdentifierConverters {
       Ref.PackageId.assertFromString(a.packageId),
       Ref.QualifiedName(
         Ref.ModuleName.assertFromString(a.moduleName),
-        Ref.DottedName.assertFromString(a.entityName))
+        Ref.DottedName.assertFromString(a.entityName),
+      ),
     )
   }
 
@@ -37,7 +39,8 @@ object IdentifierConverters {
     lav1.value.Identifier(
       packageId = a.packageId,
       moduleName = a.qualifiedName.module.dottedName,
-      entityName = a.qualifiedName.name.dottedName)
+      entityName = a.qualifiedName.name.dottedName,
+    )
 
   def apiIdentifier(a: lar.TemplateId): lav1.value.Identifier = lar.TemplateId.unwrap(a)
 
@@ -45,7 +48,8 @@ object IdentifierConverters {
     lav1.value.Identifier(
       packageId = a.packageId,
       moduleName = a.moduleName,
-      entityName = a.entityName)
+      entityName = a.entityName,
+    )
 
   def refApiIdentifier(a: http.domain.TemplateId.RequiredPkg): lar.TemplateId =
     lar.TemplateId(apiIdentifier(a))

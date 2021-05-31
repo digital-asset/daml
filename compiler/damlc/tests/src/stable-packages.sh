@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Copy-pasted from the Bazel Bash runfiles library v2.
@@ -32,12 +32,16 @@ dependencies: [daml-prim, daml-stdlib]
 EOF
 mkdir -p $DIR/src
 
-$DAMLC build --project-root $DIR -o $DIR/out.dar
+$DAMLC build --target=1.dev --project-root $DIR -o $DIR/out.dar
 # The last line is the main dalf which we don’t need. We don’t need to worry about excluding daml-prim
 # and daml-stdlib since they are only pulled in when necessary and they are clearly not required for
 # an empty package
 $DIFF -u -b <($DAMLC inspect-dar $DIR/out.dar | sed '1,/following packages/d' | head -n -1) <(cat <<EOF
 
+daml-prim-DA-Exception-ArithmeticError-f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981 "f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981"
+daml-prim-DA-Exception-AssertionFailed-0b6d5242cee0f53a6aa39ab7caa8122e3864b200b86338007b334b0ad3c65830 "0b6d5242cee0f53a6aa39ab7caa8122e3864b200b86338007b334b0ad3c65830"
+daml-prim-DA-Exception-GeneralError-a4c4df2bd621b1bc1ba9fb5d3e633a5ddffb5b59e379bb091a18ce3f7801a7e4 "a4c4df2bd621b1bc1ba9fb5d3e633a5ddffb5b59e379bb091a18ce3f7801a7e4"
+daml-prim-DA-Exception-PreconditionFailed-dc9576d7b3a816944d0d07c7e2d57f8ebe247187f9e08629d6fa9b1020a77b5d "dc9576d7b3a816944d0d07c7e2d57f8ebe247187f9e08629d6fa9b1020a77b5d"
 daml-prim-DA-Internal-Erased-76bf0fd12bd945762a01f8fc5bbcdfa4d0ff20f8762af490f8f41d6237c6524f "76bf0fd12bd945762a01f8fc5bbcdfa4d0ff20f8762af490f8f41d6237c6524f"
 daml-prim-DA-Internal-PromotedText-d58cf9939847921b2aab78eaa7b427dc4c649d25e6bee3c749ace4c3f52f5c97 "d58cf9939847921b2aab78eaa7b427dc4c649d25e6bee3c749ace4c3f52f5c97"
 daml-prim-DA-Types-40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7 "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
@@ -52,6 +56,7 @@ daml-stdlib-DA-Logic-Types-c1f1f00558799eec139fb4f4c76f95fb52fa1837a5dd29600baa1
 daml-stdlib-DA-Monoid-Types-6c2c0667393c5f92f1885163068cd31800d2264eb088eb6fc740e11241b2bf06 "6c2c0667393c5f92f1885163068cd31800d2264eb088eb6fc740e11241b2bf06"
 daml-stdlib-DA-NonEmpty-Types-e22bce619ae24ca3b8e6519281cb5a33b64b3190cc763248b4c3f9ad5087a92c "e22bce619ae24ca3b8e6519281cb5a33b64b3190cc763248b4c3f9ad5087a92c"
 daml-stdlib-DA-Semigroup-Types-8a7806365bbd98d88b4c13832ebfa305f6abaeaf32cfa2b7dd25c4fa489b79fb "8a7806365bbd98d88b4c13832ebfa305f6abaeaf32cfa2b7dd25c4fa489b79fb"
+daml-stdlib-DA-Set-Types-97b883cd8a2b7f49f90d5d39c981cf6e110cf1f1c64427a28a6d58ec88c43657 "97b883cd8a2b7f49f90d5d39c981cf6e110cf1f1c64427a28a6d58ec88c43657"
 daml-stdlib-DA-Time-Types-733e38d36a2759688a4b2c4cec69d48e7b55ecc8dedc8067b815926c917a182a "733e38d36a2759688a4b2c4cec69d48e7b55ecc8dedc8067b815926c917a182a"
 daml-stdlib-DA-Validation-Types-99a2705ed38c1c26cbb8fe7acf36bbf626668e167a33335de932599219e0a235 "99a2705ed38c1c26cbb8fe7acf36bbf626668e167a33335de932599219e0a235"
 EOF

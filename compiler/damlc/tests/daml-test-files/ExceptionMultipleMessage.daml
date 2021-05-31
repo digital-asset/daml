@@ -1,0 +1,13 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_EXCEPTIONS
+
+-- | Test that multiple message declarations inside an exception block is a parse error.
+module ExceptionMultipleMessage where
+
+-- @ERROR range=13:9-13:26; Multiple 'message' declarations
+exception T
+    where
+        message "Hello"
+        message "Goodbye"

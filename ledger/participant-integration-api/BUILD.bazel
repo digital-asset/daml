@@ -1,17 +1,20 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@oracle//:index.bzl", "oracle_testing")
 load("@os_info//:os_info.bzl", "is_windows")
-load("//rules_daml:daml.bzl", "daml_compile")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_suffix")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
+    "da_scala_test",
     "da_scala_test_suite",
     "scaladoc_jar",
     "silencer_plugin",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 compile_deps = [
     "//daml-lf/archive:daml_lf_archive_reader",
@@ -42,39 +45,53 @@ compile_deps = [
     "//libs-scala/ports",
     "//libs-scala/resources",
     "//libs-scala/resources-akka",
+    "//libs-scala/resources-grpc",
     "//libs-scala/scala-utils",
     "//libs-scala/timer-utils",
-    "@maven//:com_github_scopt_scopt_2_12",
+    "//libs-scala/nameof",
     "@maven//:com_google_guava_guava",
-    "@maven//:com_typesafe_akka_akka_actor_2_12",
-    "@maven//:com_typesafe_akka_akka_stream_2_12",
-    "@maven//:com_typesafe_play_anorm_2_12",
-    "@maven//:com_typesafe_play_anorm_tokenizer_2_12",
     "@maven//:com_zaxxer_HikariCP",
     "@maven//:io_dropwizard_metrics_metrics_core",
     "@maven//:io_dropwizard_metrics_metrics_graphite",
     "@maven//:io_grpc_grpc_netty",
     "@maven//:io_grpc_grpc_services",
-    "@maven//:io_netty_netty_common",
     "@maven//:io_netty_netty_handler",
-    "@maven//:io_netty_netty_transport",
     "@maven//:net_logstash_logback_logstash_logback_encoder",
     "@maven//:org_flywaydb_flyway_core",
-    "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
-    "@maven//:org_scalaz_scalaz_core_2_12",
+    "@maven//:io_opentelemetry_opentelemetry_api",
+    "@maven//:io_opentelemetry_opentelemetry_context",
     "@maven//:org_slf4j_slf4j_api",
+    "@maven//:io_prometheus_simpleclient",
+    "@maven//:io_prometheus_simpleclient_dropwizard",
+    "@maven//:io_prometheus_simpleclient_httpserver",
+    # this oracle import is problematic for daml assistant build
+    "@maven//:com_oracle_database_jdbc_ojdbc8",
+]
+
+scala_compile_deps = [
+    "@maven//:com_github_scopt_scopt",
+    "@maven//:com_typesafe_akka_akka_actor",
+    "@maven//:com_typesafe_akka_akka_stream",
+    "@maven//:org_playframework_anorm_anorm",
+    "@maven//:org_playframework_anorm_anorm_tokenizer",
+    "@maven//:org_scala_lang_modules_scala_collection_compat",
+    "@maven//:org_scala_lang_modules_scala_java8_compat",
+    "@maven//:org_scalaz_scalaz_core",
 ]
 
 runtime_deps = [
     "@maven//:ch_qos_logback_logback_classic",
     "@maven//:com_h2database_h2",
     "@maven//:org_postgresql_postgresql",
-    "@maven//:org_xerial_sqlite_jdbc",
+    "@maven//:com_oracle_database_jdbc_ojdbc8",
 ]
 
 da_scala_library(
     name = "participant-integration-api",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
     resources =
         glob(
             ["src/main/resources/**/*"],
@@ -84,6 +101,7 @@ da_scala_library(
         ) + [
             "//ledger-api:api-version-files",
         ],
+    scala_deps = scala_compile_deps,
     tags = ["maven_coordinates=com.daml:participant-integration-api:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -95,6 +113,9 @@ da_scala_library(
 da_scala_library(
     name = "ledger-api-server",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
     resources =
         glob(
             ["src/main/resources/**/*"],
@@ -102,6 +123,7 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ),
+    scala_deps = scala_compile_deps,
     tags = ["maven_coordinates=com.daml:ledger-api-server:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -113,10 +135,24 @@ da_scala_library(
 da_scala_library(
     name = "participant-integration-api-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
+    scala_runtime_deps = [
+        "@maven//:com_typesafe_akka_akka_slf4j",
+    ],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:com_h2database_h2",
-        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
@@ -125,7 +161,164 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/sample-service",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-client",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-health",
+        "//ledger/ledger-resources",
+        "//ledger/metrics",
+        "//ledger/participant-state",
+        "//ledger/participant-state-index",
+        "//ledger/test-common:dar-files-stable-lib",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/oracle-testing",
+        "//libs-scala/ports",
+        "//libs-scala/postgresql-testing",
+        "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
+        "//libs-scala/timer-utils",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_netty_netty_common",
+        "@maven//:io_netty_netty_handler",
+        "@maven//:io_netty_netty_transport",
+    ],
+)
+
+openssl_executable = "@openssl_dev_env//:bin/openssl" if not is_windows else "@openssl_dev_env//:usr/bin/openssl.exe"
+
+da_scala_test_suite(
+    name = "participant-integration-api-tests",
+    size = "large",
+    srcs = glob(
+        ["src/test/suite/**/*.scala"],
+        exclude = [
+            "src/test/suite/**/ResetService*IT.scala",
+            "**/*Oracle*",
+        ],
+    ),
+    data = [
+        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common/test-certificates",
+        openssl_executable,
+    ],
+    jvm_flags = [
+        "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
+    ],
+    resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_akka_akka_stream_testkit",
+        "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    deps = [
+        ":participant-integration-api",
+        ":participant-integration-api-tests-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/data",
+        "//daml-lf/encoder",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction:value_proto_java",
+        "//daml-lf/transaction-test-lib",
+        "//language-support/scala/bindings",
+        "//ledger-api/rs-grpc-akka",
+        "//ledger-api/rs-grpc-akka:rs-grpc-akka-tests-lib",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/sample-service",
+        "//ledger-api/testing-utils",
+        "//ledger/caching",
+        "//ledger/ledger-api-client",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
+        "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-health",
+        "//ledger/ledger-resources",
+        "//ledger/ledger-resources:ledger-resources-test-lib",
+        "//ledger/metrics",
+        "//ledger/metrics:metrics-test-lib",
+        "//ledger/participant-state",
+        "//ledger/participant-state-index",
+        "//ledger/participant-state/kvutils",
+        "//ledger/test-common",
+        "//ledger/test-common:dar-files-stable-lib",
+        "//libs-scala/concurrent",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/grpc-utils",
+        "//libs-scala/ports",
+        "//libs-scala/postgresql-testing",
+        "//libs-scala/resources",
+        "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_github_ben_manes_caffeine_caffeine",
+        "@maven//:com_zaxxer_HikariCP",
+        "@maven//:commons_io_commons_io",
+        "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_netty_netty_handler",
+        "@maven//:io_netty_netty_transport",
+        "@maven//:io_opentelemetry_opentelemetry_api",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_testing",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
+        "@maven//:org_flywaydb_flyway_core",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_test_suite(
+    name = "participant-integration-api-tests-oracle",
+    size = "large",
+    srcs = glob(["src/test/suite/**/*Oracle*.scala"]),
+    data = [
+        "//ledger/test-common:model-tests-stable.dar",
+        "//ledger/test-common/test-certificates",
+        openssl_executable,
+    ],
+    jvm_flags = [
+        "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
+    ],
+    resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
+    tags = [] if oracle_testing else ["manual"],
+    runtime_deps = [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+    ],
+    deps = [
+        ":participant-integration-api",
+        ":participant-integration-api-tests-lib",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/data",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//language-support/scala/bindings",
@@ -135,115 +328,14 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",
-        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/oracle-testing",
         "//libs-scala/ports",
-        "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
-        "//libs-scala/timer-utils",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:io_grpc_grpc_netty",
-        "@maven//:io_netty_netty_common",
-        "@maven//:io_netty_netty_handler",
-        "@maven//:io_netty_netty_transport",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_slf4j_slf4j_api",
     ],
-)
-
-test_deps = [
-    ":participant-integration-api",
-    ":participant-integration-api-tests-lib",
-    "//bazel_tools/runfiles:scala_runfiles",
-    "//daml-lf/archive:daml_lf_archive_reader",
-    "//daml-lf/archive:daml_lf_dev_archive_proto_java",
-    "//daml-lf/data",
-    "//daml-lf/engine",
-    "//daml-lf/interpreter",
-    "//daml-lf/language",
-    "//daml-lf/transaction",
-    "//daml-lf/transaction-test-lib",
-    "//language-support/scala/bindings",
-    "//ledger-api/rs-grpc-akka",
-    "//ledger-api/rs-grpc-akka:rs-grpc-akka-tests-lib",
-    "//ledger-api/rs-grpc-bridge",
-    "//ledger-api/sample-service",
-    "//ledger-api/testing-utils",
-    "//ledger/caching",
-    "//ledger/ledger-api-auth",
-    "//ledger/ledger-api-client",
-    "//ledger/ledger-api-common",
-    "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
-    "//ledger/ledger-api-domain",
-    "//ledger/ledger-api-health",
-    "//ledger/ledger-resources",
-    "//ledger/ledger-resources:ledger-resources-test-lib",
-    "//ledger/metrics",
-    "//ledger/participant-state",
-    "//ledger/participant-state-index",
-    "//ledger/test-common",
-    "//libs-scala/contextualized-logging",
-    "//libs-scala/concurrent",
-    "//libs-scala/grpc-utils",
-    "//libs-scala/ports",
-    "//libs-scala/postgresql-testing",
-    "//libs-scala/resources",
-    "//libs-scala/timer-utils",
-    "@maven//:ch_qos_logback_logback_classic",
-    "@maven//:ch_qos_logback_logback_core",
-    "@maven//:com_typesafe_akka_akka_actor_2_12",
-    "@maven//:com_typesafe_akka_akka_stream_2_12",
-    "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
-    "@maven//:com_typesafe_akka_akka_testkit_2_12",
-    "@maven//:commons_io_commons_io",
-    "@maven//:io_dropwizard_metrics_metrics_core",
-    "@maven//:io_grpc_grpc_netty",
-    "@maven//:io_grpc_grpc_services",
-    "@maven//:io_netty_netty_common",
-    "@maven//:io_netty_netty_handler",
-    "@maven//:io_netty_netty_transport",
-    "@maven//:org_awaitility_awaitility",
-    "@maven//:org_flywaydb_flyway_core",
-    "@maven//:org_mockito_mockito_core",
-    "@maven//:org_mockito_mockito_scala_2_12",
-    "@maven//:org_reactivestreams_reactive_streams",
-    "@maven//:org_scalacheck_scalacheck_2_12",
-    "@maven//:org_scalactic_scalactic_2_12",
-    "@maven//:org_scalatest_scalatest_2_12",
-    "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
-    "@maven//:org_scalaz_scalaz_core_2_12",
-    "@maven//:org_slf4j_slf4j_api",
-]
-
-openssl_executable = "@openssl_dev_env//:bin/openssl" if not is_windows else "@openssl_dev_env//:usr/bin/openssl.exe"
-
-da_scala_test_suite(
-    name = "participant-integration-api-tests",
-    srcs = glob(
-        ["src/test/suite/**/*.scala"],
-        exclude = ["src/test/suite/**/ResetService*IT.scala"],
-    ),
-    data = [
-        "//ledger/test-common:model-tests.dar",
-        "//ledger/test-common/test-certificates",
-        openssl_executable,
-    ],
-    # this is not flaky for the usual "flaky tests" reasons. There is actually
-    # an ordering issue in transaction streams; some test failures are listed in
-    # https://github.com/digital-asset/daml/issues/7521 and the linked issues.
-    # We've marked it flaky because we don't want to collect failing cases
-    # anymore, and do not have a solution yet.
-    flaky = True,
-    jvm_flags = [
-        "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
-    ],
-    resources = glob(["src/test/resources/**/*"]),
-    deps = test_deps,
 )
 
 exports_files(["src/main/resources/logback.xml"])
@@ -255,16 +347,23 @@ scaladoc_jar(
         "//ledger/ledger-api-auth:sources",
         "//ledger/participant-state:sources",
     ],
-    doctitle = "DAML participant integration API",
+    doctitle = "Daml participant integration API",
     plugins = [
         silencer_plugin,
     ],
     root_content = "rootdoc.txt",
-    scalacopts = ["-P:silencer:checkUnused"],
+    scalacopts = [
+        "-P:silencer:checkUnused",
+    ] + (["-P:silencer:lineContentFilters=import scala.collection.compat._"] if scala_major_version != "2.12" else []),
     visibility = [
         "//visibility:public",
     ],
-    deps = compile_deps,
+    deps =
+        compile_deps +
+        [
+            "{}_{}".format(d, scala_major_version_suffix)
+            for d in scala_compile_deps
+        ],
 ) if not is_windows else None
 
 filegroup(

@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 DADE_CURRENT_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$DADE_CURRENT_SCRIPT_DIR/../lib/dade-common"
-bazel build @ghcide-exe//ghcide && bazel-bin/external/ghcide/ghcide-0.2.0/_install/bin/ghcide "$@"
+bazel build @ghcide-exe//ghcide && bazel-bin/external/ghcide/ghcide-0.7.2.0/_install/bin/ghcide "$@"

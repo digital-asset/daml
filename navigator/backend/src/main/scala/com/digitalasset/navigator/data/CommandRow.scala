@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.data
@@ -25,7 +25,7 @@ final case class CommandRow(
     recordArgument: Option[String],
     contractId: Option[String],
     choice: Option[String],
-    argumentValue: Option[String]
+    argumentValue: Option[String],
 ) {
 
   def toCommand(types: PackageRegistry): Try[Command] = {
@@ -37,7 +37,8 @@ final case class CommandRow(
           recArgJson <- Try(recordArgument.get)
           anyArg <- Try(
             ApiCodecCompressed
-              .jsValueToApiValue(recArgJson.parseJson, tid, types.damlLfDefDataType _))
+              .jsValueToApiValue(recArgJson.parseJson, tid, types.damlLfDefDataType _)
+          )
           recArg <- Try(anyArg.asInstanceOf[ApiRecord])
         } yield {
           CreateCommand(
@@ -46,13 +47,12 @@ final case class CommandRow(
             ApiTypes.WorkflowId(workflowId),
             Instant.parse(platformTime),
             tid,
-            recArg
+            recArg,
           )
-        }).recoverWith {
-          case e: Throwable =>
-            Failure(
-              DeserializationFailed(
-                s"Failed to deserialize CreateCommand from row: $this. Error: $e"))
+        }).recoverWith { case e: Throwable =>
+          Failure(
+            DeserializationFailed(s"Failed to deserialize CreateCommand from row: $this. Error: $e")
+          )
         }
       case "ExerciseCommand" =>
         (for {
@@ -73,13 +73,14 @@ final case class CommandRow(
             ApiTypes.ContractId(cId),
             tid,
             ApiTypes.Choice(ch),
-            arg
+            arg,
           )
-        }).recoverWith {
-          case e: Throwable =>
-            Failure(
-              DeserializationFailed(
-                s"Failed to deserialize ExerciseCommand from row: $this. Error: $e"))
+        }).recoverWith { case e: Throwable =>
+          Failure(
+            DeserializationFailed(
+              s"Failed to deserialize ExerciseCommand from row: $this. Error: $e"
+            )
+          )
         }
       case _ => Failure(DeserializationFailed(s"unknown subclass type for Command: $subclassType"))
     }
@@ -101,7 +102,7 @@ object CommandRow {
           Some(c.argument.toJson.compactPrint),
           None,
           None,
-          None
+          None,
         )
       case e: ExerciseCommand =>
         CommandRow(
@@ -114,7 +115,7 @@ object CommandRow {
           None,
           Some(e.contract.unwrap),
           Some(e.choice.unwrap),
-          Some(ApiCodecVerbose.apiValueToJsValue(e.argument).compactPrint)
+          Some(ApiCodecVerbose.apiValueToJsValue(e.argument).compactPrint),
         )
     }
   }

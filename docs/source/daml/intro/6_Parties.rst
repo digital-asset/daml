@@ -1,16 +1,16 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 6 Parties and authority
 =======================
 
-DAML is designed for distributed applications involving mutually distrusting parties. In a well-constructed contract model, all parties have strong guarantees that nobody cheats or circumvents the rules laid out by templates and choices.
+Daml is designed for distributed applications involving mutually distrusting parties. In a well-constructed contract model, all parties have strong guarantees that nobody cheats or circumvents the rules laid out by templates and choices.
 
-In this section you will learn about DAML's authorization rules and how to develop contract models that give all parties the required guarantees. In particular, you'll learn how to:
+In this section you will learn about Daml's authorization rules and how to develop contract models that give all parties the required guarantees. In particular, you'll learn how to:
 
 - Pass authority from one contract to another
 - Write advanced choices
-- Reason through DAML's Authorization model
+- Reason through Daml's Authorization model
 
 .. hint::
 
@@ -21,26 +21,26 @@ Preventing IOU revocation
 
 The ``SimpleIou`` contract from :doc:`4_Transformations` and :doc:`5_Restrictions` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it after receiving the goods. Bob would have a record of such actions, but would have to resort to off-ledger means to get his money back.
 
-.. literalinclude:: daml/daml-intro-6/Parties.daml
+.. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- SIMPLE_IOU_BEGIN
   :end-before: -- SIMPLE_IOU_END
 
-.. literalinclude:: daml/daml-intro-6/Parties.daml
+.. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- SIMPLE_IOU_SCENARIO_BEGIN
   :end-before: -- SIMPLE_IOU_SCENARIO_END
 
 For a party to have any guarantees that only those transformations specified in the choices are actually followed, they either need to be a signatory themselves, or trust one of the signatories to not agree to transactions that archive and re-create contracts in unexpected ways. To make the ``SimpleIou`` safe for Bob, you need to add him as a signatory.
 
-.. literalinclude:: daml/daml-intro-6/Parties.daml
+.. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- IOU_BEGIN
   :end-before: -- IOU_END
 
 There's a new problem here: There is no way for Alice to issue or transfer this ``Iou`` to Bob. To get an ``Iou`` with Bob's signature as ``owner`` onto the ledger, his authority is needed.
 
-.. literalinclude:: daml/daml-intro-6/Parties.daml
+.. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- IOU_SCENARIO_BEGIN
   :end-before: -- IOU_SCENARIO_END
@@ -57,14 +57,14 @@ Use propose-accept workflows for one-off authorization
 
 If there is no standing relationship between Alice and Bob, Alice can propose the issuance of an Iou to Bob, giving him the choice to accept. You can do so by introducing a proposal contract ``IouProposal``:
 
-.. literalinclude:: daml/daml-intro-6/Parties.daml
+.. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- IOU_PROPOSAL_BEGIN
   :end-before: -- IOU_PROPOSAL_END
 
 Note how we have used the fact that templates are records here to store the ``Iou`` in a single field.
 
-.. literalinclude:: daml/daml-intro-6/Parties.daml
+.. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- IOU_PROPOSAL_SCENARIO_BEGIN
   :end-before: -- IOU_PROPOSAL_SCENARIO_END
@@ -75,7 +75,7 @@ The choice is called ``IouProposal_Accept``, not ``Accept``, because propose-acc
 
 The above solves issuance, but not transfers. You can solve transfers exactly the same way, though, by creating a ``TransferProposal``:
 
-.. literalinclude:: daml/daml-intro-6/Parties.daml
+.. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- TRANSFER_PROPOSAL_BEGIN
   :end-before: -- TRANSFER_PROPOSAL_END
@@ -86,14 +86,14 @@ Note also how ``newOwner`` is given multiple choices using a single ``controller
 
 To allow an ``iou.owner`` to create such a proposal, you need to give them the choice to propose a transfer on the ``Iou`` contract. The choice looks just like the above ``Transfer`` choice, except that a ``IouTransferProposal`` is created instead of an ``Iou``:
 
-.. literalinclude:: daml/daml-intro-6/Parties.daml
+.. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- PROPOSE_TRANSFER_BEGIN
   :end-before: -- PROPOSE_TRANSFER_END
 
 Bob can now transfer his ``Iou``. The transfer workflow can even be used for issuance:
 
-.. literalinclude:: daml/daml-intro-6/Parties.daml
+.. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- IOU_TRANSFER_SCENARIO_BEGIN
   :end-before: -- IOU_TRANSFER_SCENARIO_END
@@ -101,11 +101,11 @@ Bob can now transfer his ``Iou``. The transfer workflow can even be used for iss
 Use role contracts for ongoing authorization
 --------------------------------------------
 
-Many actions, like the issuance of assets or their transfer, can be pre-agreed. You can represent this succinctly in DAML through relationship or role contracts.
+Many actions, like the issuance of assets or their transfer, can be pre-agreed. You can represent this succinctly in Daml through relationship or role contracts.
 
 Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in the script above. In :doc:`7_Composing`, you will see how to compose the ``ProposeTransfer`` and ``IouTransferProposal_Accept`` choices into a single new choice, but for now, here is a different way. You can give them the joint right to transfer an IOU:
 
-.. literalinclude:: daml/daml-intro-6/Parties.daml
+.. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- MUTUAL_TRANSFER_BEGIN
   :end-before: -- MUTUAL_TRANSFER_END
@@ -116,7 +116,7 @@ The above syntax is an alternative to ``controller c can``, which allows for thi
 
 This is also the first time we have shown a choice with more than one controller. If multiple controllers are specified, the authority of *all* the controllers is needed. Here, neither ``owner``, nor ``newOwner`` can execute a transfer unilaterally, hence the name ``Mutual_Transfer``.
 
-.. literalinclude:: daml/daml-intro-6/Parties.daml
+.. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- SENDER_ROLE_BEGIN
   :end-before: -- SENDER_ROLE_END
@@ -125,15 +125,15 @@ The above ``IouSender`` contract now gives one party, the ``sender`` the right t
 
 Here it is in action:
 
-.. literalinclude:: daml/daml-intro-6/Parties.daml
+.. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- SENDER_SCENARIO_BEGIN
   :end-before: -- SENDER_SCENARIO_END
 
-DAML's authorization model
+Daml's authorization model
 --------------------------
 
-Hopefully, the above will have given you a good intuition for how authority is passed around in DAML. In this section you'll learn about  the formal authorization model to allow you to reason through your contract models. This will allow you to construct them in such a way that you don't run into authorization errors at runtime, or, worse still, allow malicious transactions.
+Hopefully, the above will have given you a good intuition for how authority is passed around in Daml. In this section you'll learn about  the formal authorization model to allow you to reason through your contract models. This will allow you to construct them in such a way that you don't run into authorization errors at runtime, or, worse still, allow malicious transactions.
 
 In :ref:`choices` you learned that a transaction is, equivalently, a tree of transactions, or a forest of actions, where each transaction is a list of actions, and each action has a child-transaction called its consequences.
 
@@ -155,7 +155,7 @@ The authorizers of transactions are:
 An authorization example
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Consider the transaction from the script above where Bob sends an ``Iou`` to Charlie using a ``Send_Iou`` conctract.
+Consider the transaction from the script above where Bob sends an ``Iou`` to Charlie using a ``Send_Iou`` contract.
 It is authorized as follows, ignoring fetches:
 
 - Bob submits the transaction so he's the authorizer on the root transaction.
@@ -198,12 +198,12 @@ You can see the graph of this transaction in the transaction view of the IDE:
 
 Note that authority is not automatically transferred transitively.
 
-.. literalinclude:: daml/daml-intro-6/Parties.daml
+.. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- NON_TRANSITIVE_BEGIN
   :end-before: -- NON_TRANSITIVE_END
 
-.. literalinclude:: daml/daml-intro-6/Parties.daml
+.. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
   :start-after: -- NON_TRANSITIVE_SCENARIO_BEGIN
   :end-before: -- NON_TRANSITIVE_SCENARIO_END
@@ -215,4 +215,4 @@ Therefore, the consequences of ``TryA`` are only authorized by Alice. Bob's auth
 Next up
 -------
 
-In :doc:`7_Composing` you will put everything you have learned together to build a simple asset holding and trading model akin to that in the :doc:`/app-dev/bindings-java/quickstart`. In that context you'll learn a bit more about the ``Update`` action and how to use it to compose transactions, as well as about privacy on DAML ledgers.
+In :doc:`7_Composing` you will put everything you have learned together to build a simple asset holding and trading model akin to that in the :doc:`/app-dev/bindings-java/quickstart`. In that context you'll learn a bit more about the ``Update`` action and how to use it to compose transactions, as well as about privacy on Daml ledgers.

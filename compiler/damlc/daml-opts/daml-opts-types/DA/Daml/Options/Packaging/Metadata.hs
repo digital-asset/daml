@@ -1,11 +1,14 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module DA.Daml.Options.Packaging.Metadata
   ( PackageDbMetadata(..),
     writeMetadata,
     readMetadata,
     renamingToFlag,
+    metadataFile,
   ) where
 
 import Data.Aeson
@@ -23,15 +26,13 @@ import Development.IDE.Types.Location
 import GHC.Generics
 import qualified "ghc-lib-parser" Module as Ghc
 import System.FilePath
+import GHC.Fingerprint
 
 -- | Metadata about an initialized package db. We write this to a JSON
 -- file in the package db after the package db has been initialized.
 --
 -- While we can technically reconstruct all this information by
 -- reading the DARs again, this is unnecessarily wasteful.
---
--- In the future, we should also be able to include enough metadata in here
--- to decide whether we need to reinitialize the package db or not.
 data PackageDbMetadata = PackageDbMetadata
   { directDependencies :: [Ghc.UnitId]
   -- ^ Unit ids of direct dependencies. These are exposed by default
@@ -40,7 +41,14 @@ data PackageDbMetadata = PackageDbMetadata
   -- We do not bother differentiating between exposed and unexposed modules
   -- since we already warn on non-exposed modules anyway and this
   -- is intended for data-dependencies where everything is exposed.
+  , fingerprintDependencies :: Fingerprint
+  -- ^ Hash over all dependency dars. We use this to check whether we need to reinitialize the
+  -- package db or not.
   } deriving Generic
+
+deriving instance Generic Fingerprint
+instance ToJSON Fingerprint
+instance FromJSON Fingerprint
 
 renamingToFlag :: Ghc.UnitId -> Ghc.ModuleName -> [LF.ModuleName] -> PackageFlag
 renamingToFlag unitId prefix modules =

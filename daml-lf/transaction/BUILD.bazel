@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:proto.bzl", "proto_jars")
@@ -7,6 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "silencer_plugin",
 )
 
 #
@@ -45,6 +46,13 @@ proto_jars(
 da_scala_library(
     name = "transaction",
     srcs = glob(["src/main/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -54,7 +62,6 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -62,8 +69,18 @@ da_scala_test(
     name = "transaction-test",
     size = "medium",
     srcs = glob(["src/test/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
     scalacopts = lf_scalacopts,
-    silent_annotations = True,
     deps = [
         ":transaction",
         ":transaction_proto_java",
@@ -73,11 +90,6 @@ da_scala_test(
         "//daml-lf/language",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/scalatest-utils",
-        "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
     ],
 )

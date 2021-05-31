@@ -8,24 +8,21 @@ let
 
   # package overrides
   overrides = _: pkgs: rec {
+    # nixpkgs ships with a very old version of openjdk on darwin
+    # because newer versions cause issues with jvmci. We don’t care
+    # about that so we upgrade it to the latest.
+    jdk8 =
+      if pkgs.stdenv.isDarwin then
+        pkgs.jdk8.overrideAttrs(oldAttrs: {
+          name = "zulu1.8.0_282-8.52.0.23";
+          src = pkgs.fetchurl {
+            url = "https://cdn.azul.com/zulu/bin/zulu8.52.0.23-ca-jdk8.0.282-macosx_x64.zip";
+            sha256 = "04azr412azqx3cyj9fda0r025hbzypwbnpb44gi15s683ns63wd2";
+            curlOpts = "-H Referer:https://www.azul.com/downloads/zulu/zulu-linux/";
+          };
+        })
+      else pkgs.jdk8;
     nodejs = pkgs.nodejs-12_x;
-    grpc = pkgs.grpc.overrideAttrs (oldAttrs: {
-      version = "1.23.1";
-      src = pkgs.fetchFromGitHub {
-        owner = "grpc";
-        repo = "grpc";
-        rev = "v1.23.1";
-        sha256 = "1jcyd9jy7kz5zfch25s4inwlivb1y1w52fzfjy5ra5vcnp3hmqyr";
-        fetchSubmodules = true;
-      };
-      # Upstream nixpkgs applies patches that are incompatbile with our version
-      # of grpc. So, we disable them.
-      patches = [
-        # Fix glibc version conflict.
-        ./grpc-Fix-gettid-naming-conflict.patch
-        ./grpc-Rename-gettid-functions.patch
-      ];
-    });
     ephemeralpg = pkgs.ephemeralpg.overrideAttrs(oldAttrs: {
       installPhase = ''
         mkdir -p $out
@@ -33,27 +30,45 @@ let
         wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql_9_6}/bin:$out/bin
       '';
     });
-    bazel = pkgs.bazel.overrideAttrs(oldAttrs: {
-      patches = oldAttrs.patches ++ [
-        # Note (MK)
-        # This patch enables caching of tests marked as `exclusive`. It got apparently
-        # rolled back because it caused problems internally at Google but it’s unclear
-        # what is actually failing and it seems to work fine for us.
-        # See https://github.com/bazelbuild/bazel/pull/8983/files#diff-107db037d4a55f2421fed9ed5c6cc31b
-        # for the only change that actually affects the code in this patch. The rest is tests
-        # and/or documentation.
-        (pkgs.fetchurl {
-          url = "https://patch-diff.githubusercontent.com/raw/bazelbuild/bazel/pull/8983.patch";
-          sha256 = "1j25bycn9q7536ab3ln6yi6zpzv2b25fwdyxbgnalkpl2dz9idb7";
-        })
-      ];
-    });
-    scala_2_12 = pkgs.scala_2_12.overrideAttrs (oldAttrs: rec {
-      name = "scala-2.12.12";
+    scala_2_12 = pkgs.scala_2_12;
+    scala_2_13 = pkgs.scala_2_13.overrideAttrs (oldAttrs: rec {
+      version = "2.13.5";
+      name = "scala-2.13.5";
       src = pkgs.fetchurl {
         url = "https://www.scala-lang.org/files/archive/${name}.tgz";
-        sha256 = "3520cd1f3c9efff62baee75f32e52d1e5dc120be2ccf340649e470e48f527e2b";
+        sha256 = "1ah5rw6xqksiayi5i95r3pcff961q71ilishzn2kmg673z0j2b7d";
       };
+    });
+   haskell = pkgs.haskell // {
+     packages = pkgs.haskell.packages // {
+       integer-simple = pkgs.haskell.packages.integer-simple // {
+        ghc8104 = pkgs.haskell.packages.integer-simple.ghc8104.override {
+          ghc = pkgs.haskell.compiler.integer-simple.ghc8104.overrideAttrs (old: {
+            # We need to include darwin.cctools in PATH to make sure GHC finds
+            # otool.
+            postInstall = ''
+    # Install the bash completion file.
+    install -D -m 444 utils/completion/ghc.bash $out/share/bash-completion/completions/ghc
+
+    # Patch scripts to include "readelf" and "cat" in $PATH.
+    for i in "$out/bin/"*; do
+      test ! -h $i || continue
+      egrep --quiet '^#!' <(head -n 1 $i) || continue
+      sed -i -e '2i export PATH="$PATH:${pkgs.lib.makeBinPath ([ pkgs.targetPackages.stdenv.cc.bintools pkgs.coreutils ] ++ pkgs.lib.optional pkgs.targetPlatform.isDarwin pkgs.darwin.cctools) }"' $i
+    done
+  '';
+          });
+        };
+       };
+     };
+    };
+
+    bazel_4 = pkgs.bazel_4.overrideAttrs(oldAttrs: {
+      patches = oldAttrs.patches ++ [
+        # This should be upstreamed. Bazel is too aggressive
+        # in treating arguments starting with @ as response files.
+        ./bazel-cc-wrapper-response-file.patch
+      ];
     });
   };
 

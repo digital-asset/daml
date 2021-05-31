@@ -1,15 +1,14 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.speedy
 
-import com.daml.lf.VersionRange
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
-import com.daml.lf.value.{Value, ValueVersion}
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.ScenarioLedger
 
@@ -29,19 +28,22 @@ object SError {
   /** Operation is only supported in on-ledger mode but was
     * called in off-ledger mode.
     */
-  final case class SRequiresOnLedger(operation: String) extends SError
+  final case class SRequiresOnLedger(operation: String) extends SError {
+    override def toString = s"Requires on-ledger mode: " + operation
+  }
 
   def crash[A](reason: String): A =
     throw SErrorCrash(reason)
 
-  /** DAML exceptions that can be caught. These include
+  /** Daml exceptions that can be caught. These include
     * arithmetic errors, call to error builtin or update
-    * errors. */
+    * errors.
+    */
   sealed abstract class SErrorDamlException extends SError
 
-  /** Arithmetic error such as division by zero */
-  final case class DamlEArithmeticError(message: String) extends SErrorDamlException {
-    override def toString: String = message
+  /** Unhandled exceptions */
+  final case class DamlEUnhandledException(exception: SValue.SAny) extends SErrorDamlException {
+    override def toString: String = s"Unhandled exception: $exception"
   }
 
   /** User initiated error, via e.g. 'abort' or 'assert' */
@@ -51,7 +53,8 @@ object SError {
   final case class DamlEMatchError(reason: String) extends SErrorDamlException
 
   /** Template pre-condition (ensure) evaluated to false and the transaction
-    * was aborted. */
+    * was aborted.
+    */
   final case class DamlETemplatePreconditionViolated(
       templateId: TypeConName,
       optLocation: Option[Location],
@@ -59,16 +62,33 @@ object SError {
   ) extends SErrorDamlException
 
   /** A fetch or an exercise on a transaction-local contract that has already
-    * been consumed. */
+    * been consumed.
+    */
   final case class DamlELocalContractNotActive(
       coid: ContractId,
       templateId: TypeConName,
       consumedBy: NodeId,
   ) extends SErrorDamlException
 
+  final case class DamlELocalContractKeyNotVisible(
+      coid: ContractId,
+      key: GlobalKey,
+      actAs: Set[Party],
+      readAs: Set[Party],
+      stakeholders: Set[Party],
+  ) extends SErrorDamlException
+
+  /** Two contracts with the same key were active at the same time.
+    * See com.daml.lf.transaction.Transaction.DuplicateContractKey
+    * for more details.
+    */
+  final case class DamlEDuplicateContractKey(
+      key: GlobalKey
+  ) extends SErrorDamlException
+
   /** Error during an operation on the update transaction. */
   final case class DamlETransactionError(
-      reason: String,
+      reason: String
   ) extends SErrorDamlException
 
   /** A create a contract key without maintainers */
@@ -108,14 +128,6 @@ object SError {
       actual: TypeConName,
   ) extends SErrorDamlException
 
-  /** We tried to fetch data with disallowed value version --
-    *  see <https://github.com/digital-asset/daml/issues/5164>
-    */
-  final case class DamlEDisallowedInputValueVersion(
-      allowed: VersionRange[ValueVersion],
-      actual: ValueVersion,
-  ) extends SErrorDamlException
-
   /** There was an authorization failure during execution. */
   final case class DamlEFailedAuthorization(
       nid: NodeId,
@@ -123,21 +135,25 @@ object SError {
   ) extends SErrorDamlException
 
   /** A fetch or exercise was being made against a contract that has not
-    * been disclosed to 'committer'. */
+    * been disclosed to 'committer'.
+    */
   final case class ScenarioErrorContractNotVisible(
       coid: ContractId,
       templateId: Identifier,
-      committer: Party,
+      actAs: Set[Party],
+      readAs: Set[Party],
       observers: Set[Party],
   ) extends SErrorScenario
 
   /** A fetchByKey or lookupByKey was being made against a key
     * for which the contract exists but has not
-    * been disclosed to 'committer'. */
+    * been disclosed to 'committer'.
+    */
   final case class ScenarioErrorContractKeyNotVisible(
       coid: ContractId,
       key: GlobalKey,
-      committer: Party,
+      actAs: Set[Party],
+      readAs: Set[Party],
       stakeholders: Set[Party],
   ) extends SErrorScenario
 

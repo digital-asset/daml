@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao.events
@@ -10,10 +10,13 @@ import com.daml.ledger.participant.state.v1.{
   CommittedTransaction,
   DivulgedContract,
   Offset,
-  SubmitterInfo
+  SubmitterInfo,
 }
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.BlindingInfo
+import com.daml.platform.store.serialization.Compression
+
+import scala.collection.compat._
 
 final case class TransactionIndexing(
     transaction: TransactionIndexing.TransactionInfo,
@@ -28,22 +31,21 @@ object TransactionIndexing {
       translation: LfValueTranslation,
       transactionId: TransactionId,
       events: Vector[(NodeId, Node)],
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgence: Iterable[DivulgedContract],
   ): Serialized = {
 
-    val createArgumentsByContract = Map.newBuilder[ContractId, Array[Byte]]
-    val createArguments = Map.newBuilder[NodeId, Array[Byte]]
-    val createKeyValues = Map.newBuilder[NodeId, Array[Byte]]
-    val exerciseArguments = Map.newBuilder[NodeId, Array[Byte]]
-    val exerciseResults = Map.newBuilder[NodeId, Array[Byte]]
+    val createArguments = Vector.newBuilder[(NodeId, ContractId, Array[Byte])]
+    val divulgedContracts = Vector.newBuilder[(ContractId, Array[Byte])]
+    val createKeyValues = Vector.newBuilder[(NodeId, Array[Byte])]
+    val exerciseArguments = Vector.newBuilder[(NodeId, Array[Byte])]
+    val exerciseResults = Vector.newBuilder[(NodeId, Array[Byte])]
 
     for ((nodeId, event) <- events) {
       val eventId = EventId(transactionId, nodeId)
       event match {
         case create: Create =>
           val (createArgument, createKeyValue) = translation.serialize(eventId, create)
-          createArgumentsByContract += ((create.coid, createArgument))
-          createArguments += ((nodeId, createArgument))
+          createArguments += ((nodeId, create.coid, createArgument))
           createKeyValue.foreach(key => createKeyValues += ((nodeId, key)))
         case exercise: Exercise =>
           val (exerciseArgument, exerciseResult) = translation.serialize(eventId, exercise)
@@ -53,19 +55,81 @@ object TransactionIndexing {
       }
     }
 
-    for (DivulgedContract(contractId, contractInst) <- divulgedContracts) {
+    for (DivulgedContract(contractId, contractInst) <- divulgence) {
       val serializedCreateArgument = translation.serialize(contractId, contractInst.arg)
-      createArgumentsByContract += ((contractId, serializedCreateArgument))
+      divulgedContracts += ((contractId, serializedCreateArgument))
     }
 
     Serialized(
-      createArgumentsByContract = createArgumentsByContract.result(),
       createArguments = createArguments.result(),
+      divulgedContracts = divulgedContracts.result(),
       createKeyValues = createKeyValues.result(),
       exerciseArguments = exerciseArguments.result(),
       exerciseResults = exerciseResults.result(),
     )
 
+  }
+
+  def compress(
+      serialized: Serialized,
+      compressionStrategy: CompressionStrategy,
+      compressionMetrics: CompressionMetrics,
+  ): Compressed = {
+
+    val createArgumentsByContract = Map.newBuilder[ContractId, Array[Byte]]
+    val createArguments = Map.newBuilder[NodeId, Array[Byte]]
+    val createKeyValues = Map.newBuilder[NodeId, Array[Byte]]
+    val exerciseArguments = Map.newBuilder[NodeId, Array[Byte]]
+    val exerciseResults = Map.newBuilder[NodeId, Array[Byte]]
+
+    for ((contractId, argument) <- serialized.divulgedContracts) {
+      val compressedArgument =
+        compressionStrategy.createArgumentCompression
+          .compress(argument, compressionMetrics.createArgument)
+      createArgumentsByContract += ((contractId, compressedArgument))
+    }
+
+    for ((nodeId, contractId, argument) <- serialized.createArguments) {
+      val compressedArgument = compressionStrategy.createArgumentCompression
+        .compress(argument, compressionMetrics.createArgument)
+      createArguments += ((nodeId, compressedArgument))
+      createArgumentsByContract += ((contractId, compressedArgument))
+    }
+
+    for ((nodeId, key) <- serialized.createKeyValues) {
+      val compressedKey = compressionStrategy.createKeyValueCompression
+        .compress(key, compressionMetrics.createKeyValue)
+      createKeyValues += ((nodeId, compressedKey))
+    }
+
+    for ((nodeId, argument) <- serialized.exerciseArguments) {
+      val compressedArgument = compressionStrategy.exerciseArgumentCompression
+        .compress(argument, compressionMetrics.exerciseArgument)
+      exerciseArguments += ((nodeId, compressedArgument))
+    }
+
+    for ((nodeId, result) <- serialized.exerciseResults) {
+      val compressedResult = compressionStrategy.exerciseResultCompression
+        .compress(result, compressionMetrics.exerciseResult)
+      exerciseResults += ((nodeId, compressedResult))
+    }
+
+    Compressed(
+      contracts = Compressed.Contracts(
+        createArguments = createArgumentsByContract.result(),
+        createArgumentsCompression = compressionStrategy.createArgumentCompression,
+      ),
+      events = Compressed.Events(
+        createArguments = createArguments.result(),
+        createArgumentsCompression = compressionStrategy.createArgumentCompression,
+        createKeyValues = createKeyValues.result(),
+        createKeyValueCompression = compressionStrategy.createKeyValueCompression,
+        exerciseArguments = exerciseArguments.result(),
+        exerciseArgumentsCompression = compressionStrategy.exerciseArgumentCompression,
+        exerciseResults = exerciseResults.result(),
+        exerciseResultsCompression = compressionStrategy.exerciseResultCompression,
+      ),
+    )
   }
 
   private class Builder(blinding: BlindingInfo) {
@@ -128,7 +192,7 @@ object TransactionIndexing {
 
     private def visibility(contracts: Iterable[DivulgedContract]): WitnessRelation[ContractId] =
       Relation.from(
-        contracts.map(c => c.contractId -> blinding.divulgence.getOrElse(c.contractId, Set.empty)),
+        contracts.map(c => c.contractId -> blinding.divulgence.getOrElse(c.contractId, Set.empty))
       )
 
     def build(
@@ -138,15 +202,27 @@ object TransactionIndexing {
         ledgerEffectiveTime: Instant,
         offset: Offset,
         divulgedContracts: Iterable[DivulgedContract],
+        inactiveContracts: Set[ContractId],
     ): TransactionIndexing = {
+      // Creates outside of rollback nodes.
       val created = creates.result()
+      // Archives outside of rollback nodes.
       val archived = archives.result()
       val allCreatedContractIds = created.map(_.coid)
+      // All contracts referenced outside of rollback nodes
+      // either in creates or in archives.
       val allContractIds = allCreatedContractIds.union(archived)
+      // Local contracts that have not been archived
       val netCreates = created.filterNot(c => archived(c.coid))
+      // Global contracts that have been archived.
       val netArchives = archived.filterNot(allCreatedContractIds)
+      // Divulged global contracts that have not been archived. This only
+      // includes contracts divulged before the current transaction.
       val netDivulgedContracts = divulgedContracts.filterNot(c => allContractIds(c.contractId))
-      val netTransactionVisibility = Relation.from(visibility.result()).filterKeys(!archived(_))
+      // Local and global contracts divulged in this transaction that have not been archived.
+      val netTransactionVisibility =
+        Relation.from(visibility.result()).view.filterKeys(!inactiveContracts(_)).toMap
+      // All active, divulged contracts at the end of the transaction.
       val netVisibility = Relation.union(netTransactionVisibility, visibility(netDivulgedContracts))
       TransactionIndexing(
         transaction = TransactionInfo(
@@ -170,7 +246,7 @@ object TransactionIndexing {
         contractWitnesses = ContractWitnessesInfo(
           netArchives = netArchives,
           netVisibility = netVisibility,
-        )
+        ),
       )
     }
   }
@@ -202,11 +278,50 @@ object TransactionIndexing {
   )
 
   final case class Serialized(
-      createArgumentsByContract: Map[ContractId, Array[Byte]],
-      createArguments: Map[NodeId, Array[Byte]],
-      createKeyValues: Map[NodeId, Array[Byte]],
-      exerciseArguments: Map[NodeId, Array[Byte]],
-      exerciseResults: Map[NodeId, Array[Byte]],
+      createArguments: Vector[(NodeId, ContractId, Array[Byte])],
+      divulgedContracts: Vector[(ContractId, Array[Byte])],
+      createKeyValues: Vector[(NodeId, Array[Byte])],
+      exerciseArguments: Vector[(NodeId, Array[Byte])],
+      exerciseResults: Vector[(NodeId, Array[Byte])],
+  ) {
+    val createArgumentsByContract = createArguments.map { case (_, contractId, arg) =>
+      contractId -> arg
+    }.toMap
+  }
+
+  object Compressed {
+
+    final case class Contracts(
+        createArguments: Map[ContractId, Array[Byte]],
+        createArgumentsCompression: Compression.Algorithm,
+    )
+
+    final case class Events(
+        createArguments: Map[NodeId, Array[Byte]],
+        createArgumentsCompression: Compression.Algorithm,
+        createKeyValues: Map[NodeId, Array[Byte]],
+        createKeyValueCompression: Compression.Algorithm,
+        exerciseArguments: Map[NodeId, Array[Byte]],
+        exerciseArgumentsCompression: Compression.Algorithm,
+        exerciseResults: Map[NodeId, Array[Byte]],
+        exerciseResultsCompression: Compression.Algorithm,
+    ) {
+      def assertCreate(nodeId: NodeId): (Array[Byte], Option[Array[Byte]]) = {
+        assert(createArguments.contains(nodeId), s"Node $nodeId is not a create event")
+        (createArguments(nodeId), createKeyValues.get(nodeId))
+      }
+
+      def assertExercise(nodeId: NodeId): (Array[Byte], Option[Array[Byte]]) = {
+        assert(exerciseArguments.contains(nodeId), s"Node $nodeId is not an exercise event")
+        (exerciseArguments(nodeId), exerciseResults.get(nodeId))
+      }
+    }
+
+  }
+
+  final case class Compressed(
+      contracts: Compressed.Contracts,
+      events: Compressed.Events,
   )
 
   def from(
@@ -218,9 +333,16 @@ object TransactionIndexing {
       offset: Offset,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
-  ): TransactionIndexing =
+  ): TransactionIndexing = {
     transaction
-      .fold(new Builder(blindingInfo))(_ add _)
+      .foldInExecutionOrder(new Builder(blindingInfo))(
+        exerciseBegin = (acc, nid, node) => (acc.add((nid, node)), true),
+        // Rollback nodes are not included in the indexer
+        rollbackBegin = (acc, _, _) => (acc, false),
+        leaf = (acc, nid, node) => acc.add((nid, node)),
+        exerciseEnd = (acc, _, _) => acc,
+        rollbackEnd = (acc, _, _) => acc,
+      )
       .build(
         submitterInfo = submitterInfo,
         workflowId = workflowId,
@@ -228,6 +350,8 @@ object TransactionIndexing {
         ledgerEffectiveTime = ledgerEffectiveTime,
         offset = offset,
         divulgedContracts = divulgedContracts,
+        inactiveContracts = transaction.inactiveContracts,
       )
+  }
 
 }

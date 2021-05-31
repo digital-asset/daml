@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -13,7 +13,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import spray.json.RootJsonFormat
 
@@ -100,13 +100,15 @@ final class Divulgence(
 
   private val divulged: PartialFunction[CreatedEvent, Application.Contract] = {
     case created: CreatedEvent
-        if created.createArguments.exists(_.fields.exists(r =>
-          r.label == "tag" && r.value.exists(_.getText.startsWith("divulging-")))) =>
+        if created.createArguments.exists(
+          _.fields
+            .exists(r => r.label == "tag" && r.value.exists(_.getText.startsWith("divulging-")))
+        ) =>
       Application.Contract(created.contractId)
   }
 
-  override def execute(packageId: String, config: Config.Test)(
-      implicit ec: ExecutionContext,
+  override def execute(packageId: String, config: Config.Test)(implicit
+      ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] =
@@ -118,13 +120,15 @@ final class Divulgence(
       divulgence <- model.createAssetDivulgence(owner, divulgee)
       oldAssets <- owner.activeContracts(model.Asset)
       oldDivulgeeAssets <- Future.traverse(oldAssets.collect(divulged))(
-        model.fetchDivulgedAsset(_, divulgee))
+        model.fetchDivulgedAsset(_, divulgee)
+      )
       asset <- model.createAsset(owner, s"divulging-$suffix")
       _ <- model.divulge(asset, divulgence, owner)
       _ <- model.createAsset(owner, s"private-$suffix")
       newAssets <- owner.activeContracts(model.Asset)
       newDivulgeeAssets <- Future.traverse(newAssets.collect(divulged))(
-        model.fetchDivulgedAsset(_, divulgee))
+        model.fetchDivulgedAsset(_, divulgee)
+      )
     } yield {
       saveAsJson(
         config.outputFile,

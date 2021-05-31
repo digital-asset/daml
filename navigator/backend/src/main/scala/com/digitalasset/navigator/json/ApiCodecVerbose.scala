@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.json
@@ -12,8 +12,7 @@ import com.daml.navigator.json.Util._
 import com.daml.navigator.model.DamlLfIdentifier
 import spray.json._
 
-/**
-  * A verbose encoding of API values.
+/** A verbose encoding of API values.
   *
   * The encoded values include type information and can be losslessly encoded.
   */
@@ -78,25 +77,23 @@ object ApiCodecVerbose {
   def apiListToJsValue(value: Model.ApiList): JsValue =
     JsObject(
       propType -> JsString(tagList),
-      propValue -> JsArray(value.values.map(apiValueToJsValue).toImmArray.toSeq: _*)
+      propValue -> JsArray(value.values.map(apiValueToJsValue).toImmArray.toSeq: _*),
     )
 
   def apiTextMapToJsValue(value: Model.ApiMap): JsValue =
     JsObject(
       propType -> JsString(tagTextMap),
-      propValue -> JsArray(value.value.toImmArray.toSeq.toVector.map {
-        case (k, v) =>
-          JsObject("key" -> JsString(k), "value" -> apiValueToJsValue(v))
-      })
+      propValue -> JsArray(value.value.toImmArray.toSeq.toVector.map { case (k, v) =>
+        JsObject("key" -> JsString(k), "value" -> apiValueToJsValue(v))
+      }),
     )
 
   def apiGenMapToJsValue(value: Model.ApiGenMap): JsValue =
     JsObject(
       propType -> JsString(tagGenMap),
-      propValue -> JsArray(value.entries.toSeq.toVector.map {
-        case (k, v) =>
-          JsObject("key" -> apiValueToJsValue(k), "value" -> apiValueToJsValue(v))
-      })
+      propValue -> JsArray(value.entries.toSeq.toVector.map { case (k, v) =>
+        JsObject("key" -> apiValueToJsValue(k), "value" -> apiValueToJsValue(v))
+      }),
     )
 
   def apiVariantToJsValue(value: Model.ApiVariant): JsValue =
@@ -104,7 +101,7 @@ object ApiCodecVerbose {
       propType -> JsString(tagVariant),
       propId -> value.tycon.map(_.toJson).getOrElse(JsNull),
       propConstructor -> JsString(value.variant),
-      propValue -> apiValueToJsValue(value.value)
+      propValue -> apiValueToJsValue(value.value),
     )
 
   def apiEnumToJsValue(value: V.ValueEnum): JsValue =
@@ -118,13 +115,12 @@ object ApiCodecVerbose {
     JsObject(
       propType -> JsString(tagRecord),
       propId -> value.tycon.map(_.toJson).getOrElse(JsNull),
-      propFields -> JsArray(value.fields.toSeq.zipWithIndex.map {
-        case ((oflabel, fvalue), ix) =>
-          JsObject(
-            propLabel -> JsString(oflabel getOrElse (ix: Int).toString),
-            propValue -> apiValueToJsValue(fvalue)
-          )
-      }.toVector)
+      propFields -> JsArray(value.fields.toSeq.zipWithIndex.map { case ((oflabel, fvalue), ix) =>
+        JsObject(
+          propLabel -> JsString(oflabel getOrElse (ix: Int).toString),
+          propValue -> apiValueToJsValue(fvalue),
+        )
+      }.toVector),
     )
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -143,7 +139,7 @@ object ApiCodecVerbose {
       case `tagVariant` => jsValueToApiVariant(value)
       case `tagEnum` => jsValueToApiEnum(value)
       case `tagList` =>
-        V.ValueList(arrayField(value, propValue, "ApiList").map(jsValueToApiValue).to[FrontStack])
+        V.ValueList(arrayField(value, propValue, "ApiList").map(jsValueToApiValue).to(FrontStack))
       case `tagText` => V.ValueText(strField(value, propValue, "ApiText"))
       case `tagInt64` => V.ValueInt64(strField(value, propValue, "ApiInt64").toLong)
       case `tagNumeric` =>
@@ -167,8 +163,9 @@ object ApiCodecVerbose {
             .fromImmArray(ImmArray(arrayField(value, propValue, "ApiMap").map(jsValueToMapEntry)))
             .fold(
               err => deserializationError(s"Can't read ${value.prettyPrint} as ApiValue, $err'"),
-              identity
-            ))
+              identity,
+            )
+        )
       case `tagGenMap` =>
         V.ValueGenMap(ImmArray(arrayField(value, propValue, "ApiGenMap").map(jsValueToGenMapEntry)))
       case t =>
@@ -182,11 +179,12 @@ object ApiCodecVerbose {
           asObject(value, "ApiRecord").fields
             .get(propId)
             .flatMap(_.convertTo[Option[DamlLfIdentifier]]),
-          arrayField(value, propFields, "ApiRecord").map(jsValueToApiRecordField).to[ImmArray]
+          arrayField(value, propFields, "ApiRecord").map(jsValueToApiRecordField).to(ImmArray),
         )
       case t =>
         deserializationError(
-          s"Can't read ${value.prettyPrint} as ApiRecord, type '$t' is not a record")
+          s"Can't read ${value.prettyPrint} as ApiRecord, type '$t' is not a record"
+        )
     }
 
   def jsValueToMapEntry(value: JsValue): (String, Model.ApiValue) = {
@@ -223,11 +221,12 @@ object ApiCodecVerbose {
             .get(propId)
             .flatMap(_.convertTo[Option[DamlLfIdentifier]]),
           assertDE(Ref.Name fromString strField(value, propConstructor, "ApiVariant")),
-          jsValueToApiValue(anyField(value, propValue, "ApiVariant"))
+          jsValueToApiValue(anyField(value, propValue, "ApiVariant")),
         )
       case t =>
         deserializationError(
-          s"Can't read ${value.prettyPrint} as ApiVariant, type '$t' is not a variant")
+          s"Can't read ${value.prettyPrint} as ApiVariant, type '$t' is not a variant"
+        )
     }
 
   def jsValueToApiEnum(value: JsValue): V.ValueEnum =
@@ -237,7 +236,7 @@ object ApiCodecVerbose {
           asObject(value, "ApiEnum").fields
             .get(propId)
             .flatMap(_.convertTo[Option[DamlLfIdentifier]]),
-          assertDE(Ref.Name fromString strField(value, propConstructor, "ApiEnum"))
+          assertDE(Ref.Name fromString strField(value, propConstructor, "ApiEnum")),
         )
       case t =>
         deserializationError(
@@ -266,5 +265,5 @@ object ApiCodecVerbose {
   }
 
   private[this] def assertDE[A](ea: Either[String, A]): A =
-    ea fold (deserializationError(_), identity)
+    ea.fold(deserializationError(_), identity)
 }

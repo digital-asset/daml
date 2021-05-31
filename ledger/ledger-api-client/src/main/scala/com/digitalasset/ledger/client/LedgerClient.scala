@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client
@@ -36,14 +36,15 @@ import scala.concurrent.{ExecutionContext, Future}
 final class LedgerClient private (
     val channel: Channel,
     config: LedgerClientConfiguration,
-    val ledgerId: LedgerId
+    val ledgerId: LedgerId,
 )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory)
     extends Closeable {
 
   val activeContractSetClient =
     new ActiveContractSetClient(
       ledgerId,
-      LedgerClient.stub(ActiveContractsServiceGrpc.stub(channel), config.token))
+      LedgerClient.stub(ActiveContractsServiceGrpc.stub(channel), config.token),
+    )
 
   val commandClient: CommandClient =
     new CommandClient(
@@ -51,7 +52,7 @@ final class LedgerClient private (
       LedgerClient.stub(CommandCompletionServiceGrpc.stub(channel), config.token),
       ledgerId,
       config.applicationId,
-      config.commandClient
+      config.commandClient,
     )
 
   val commandServiceClient: SynchronousCommandClient =
@@ -62,16 +63,19 @@ final class LedgerClient private (
 
   val packageManagementClient: PackageManagementClient =
     new PackageManagementClient(
-      LedgerClient.stub(PackageManagementServiceGrpc.stub(channel), config.token))
+      LedgerClient.stub(PackageManagementServiceGrpc.stub(channel), config.token)
+    )
 
   val partyManagementClient: PartyManagementClient =
     new PartyManagementClient(
-      LedgerClient.stub(PartyManagementServiceGrpc.stub(channel), config.token))
+      LedgerClient.stub(PartyManagementServiceGrpc.stub(channel), config.token)
+    )
 
   val transactionClient: TransactionClient =
     new TransactionClient(
       ledgerId,
-      LedgerClient.stub(TransactionServiceGrpc.stub(channel), config.token))
+      LedgerClient.stub(TransactionServiceGrpc.stub(channel), config.token),
+    )
 
   val versionClient: VersionClient =
     new VersionClient(ledgerId, LedgerClient.stub(VersionServiceGrpc.stub(channel), config.token))
@@ -79,7 +83,10 @@ final class LedgerClient private (
   override def close(): Unit =
     channel match {
       case channel: ManagedChannel =>
-        val _ = channel.shutdown().awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
+        // This includes closing active connections.
+        channel.shutdownNow()
+        channel.awaitTermination(Long.MaxValue, TimeUnit.SECONDS)
+        ()
       case _ => // do nothing
     }
 }
@@ -92,7 +99,8 @@ object LedgerClient {
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
     for {
       ledgerId <- new LedgerIdentityClient(
-        stub(LedgerIdentityServiceGrpc.stub(channel), config.token))
+        stub(LedgerIdentityServiceGrpc.stub(channel), config.token)
+      )
         .satisfies(config.ledgerIdRequirement)
     } yield {
       new LedgerClient(channel, config, ledgerId)
@@ -102,30 +110,29 @@ object LedgerClient {
   private[client] def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
     token.fold(stub)(LedgerCallCredentials.authenticatingStub(stub, _))
 
-  /**
-    * A convenient shortcut to build a [[LedgerClient]], use [[fromBuilder]] for a more
+  /** A convenient shortcut to build a [[LedgerClient]], use [[fromBuilder]] for a more
     * flexible alternative.
     */
-  def singleHost(hostIp: String, port: Int, configuration: LedgerClientConfiguration)(
-      implicit ec: ExecutionContext,
-      esf: ExecutionSequencerFactory): Future[LedgerClient] =
+  def singleHost(hostIp: String, port: Int, configuration: LedgerClientConfiguration)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+  ): Future[LedgerClient] =
     fromBuilder(NettyChannelBuilder.forAddress(hostIp, port), configuration)
 
   @deprecated("Use the safer and more flexible `fromBuilder` method", "0.13.35")
-  def forChannel(configuration: LedgerClientConfiguration, channel: Channel)(
-      implicit ec: ExecutionContext,
-      esf: ExecutionSequencerFactory): Future[LedgerClient] =
+  def forChannel(configuration: LedgerClientConfiguration, channel: Channel)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+  ): Future[LedgerClient] =
     apply(channel, configuration)
 
-  /**
-    * Takes a [[NettyChannelBuilder]], possibly set up with some relevant extra options
+  /** Takes a [[NettyChannelBuilder]], possibly set up with some relevant extra options
     * that cannot be specified though the [[LedgerClientConfiguration]] (e.g. a set of
     * default [[io.grpc.CallCredentials]] to be used with all calls unless explicitly
     * set on a per-call basis), sets the relevant options specified by the configuration
     * (possibly overriding the existing builder settings), and returns a [[LedgerClient]].
     *
     * A shutdown hook is also added to close the channel when the JVM stops.
-    *
     */
   def fromBuilder(
       builder: NettyChannelBuilder,

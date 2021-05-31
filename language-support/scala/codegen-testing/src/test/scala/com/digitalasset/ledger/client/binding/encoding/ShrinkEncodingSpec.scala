@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.encoding
@@ -9,7 +9,8 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 class ShrinkEncodingSpec extends AnyWordSpec with ScalaCheckDrivenPropertyChecks {
 
   "ShrinkEncoding.primitive.valueParty should not generate \\u0000, PostgreSQL does not like them" in forAll(
-    GenEncoding.primitive.valueParty) { p: P.Party =>
+    GenEncoding.primitive.valueParty
+  ) { p: P.Party =>
     import EqualityEncoding.Implicits._
     import ShowEncoding.Implicits._
     import com.daml.scalatest.CustomMatcher._
@@ -26,7 +27,8 @@ class ShrinkEncodingSpec extends AnyWordSpec with ScalaCheckDrivenPropertyChecks
   }
 
   "GenEncoding.primitive.valueParty should not generate \\u0000,  PostgreSQL does not like them" in forAll(
-    GenEncoding.primitive.valueParty) { p: P.Party =>
+    GenEncoding.primitive.valueParty
+  ) { p: P.Party =>
     val str: String = P.Party.unwrap(p)
     if (str.contains("\u0000")) {
       fail(s"Party contains illegal chars: ${ShowEncoding.primitive.valueParty.show(p)}")

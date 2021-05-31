@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -12,6 +12,12 @@ da_scala_library(
     name = "ledger-api-auth",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scala_lang_modules_scala_java8_compat",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     tags = ["maven_coordinates=com.daml:ledger-api-auth:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -22,13 +28,9 @@ da_scala_library(
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger-service/jwt",
         "//ledger/ledger-api-common",
-        "//libs-scala/concurrent",
         "@maven//:com_auth0_java_jwt",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_context",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -37,24 +39,28 @@ da_scala_binary(
     name = "ledger-api-auth-bin",
     srcs = glob(["src/app/scala/**/*.scala"]),
     main_class = "com.daml.ledger.api.auth.Main",
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     deps = [
         ":ledger-api-auth",
         "//ledger-service/jwt",
         "//ledger/ledger-api-common",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
 da_scala_test_suite(
     name = "ledger-api-auth-scala-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
+    scala_deps = [
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+    ],
     deps = [
         ":ledger-api-auth",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
     ],
 )
 

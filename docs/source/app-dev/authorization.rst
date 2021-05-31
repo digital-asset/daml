@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _authorization:
@@ -6,7 +6,7 @@
 Authorization
 #############
 
-When developing DAML applications using SDK tools,
+When developing Daml applications using SDK tools,
 your local setup will most likely not verify any authorization -
 by default, any valid ledger API request will be accepted by the sandbox.
 
@@ -19,22 +19,22 @@ The :doc:`Ledger API </app-dev/ledger-api>` is used to request changes to the le
 wants to exercise choice X on contract Y*"), or to read data from the ledger (e.g., "*Alice wants to
 see all active contracts*").
 
-What requests are valid is defined by :ref:`integrity <da-model-integrity>` and :ref:`privacy <da-model-privacy>` parts the :ref:`DAML Ledger Model <da-ledgers>`.
-This model is defined in terms of :ref:`DAML parties <glossary-party>`,
+What requests are valid is defined by :ref:`integrity <da-model-integrity>` and :ref:`privacy <da-model-privacy>` parts the :ref:`Daml Ledger Model <da-ledgers>`.
+This model is defined in terms of :ref:`Daml parties <glossary-party>`,
 and does not require any cryptographic information to be sent along with requests.
 
 In particular, this model does not talk about authentication ("*Is the request claiming to come from Alice really sent by Alice?*")
-and authorization ("*Is Alice authorized to add a new DAML package to the ledger?*").
+and authorization ("*Is Alice authorized to add a new Daml package to the ledger?*").
 
-In practice, DAML ledgers will therefore need to add authentication to the ledger API.
+In practice, Daml ledgers will therefore need to add authentication to the ledger API.
 
 .. note::
-    Depending on the ledger topology, a DAML ledger may consist of multiple participant nodes,
+    Depending on the ledger topology, a Daml ledger may consist of multiple participant nodes,
     each having its own ledger API server.
-    Each participant node typically hosts different DAML parties,
-    and only sees data visible to the parties hosted on that node (as defined by the DAML privacy model).
+    Each participant node typically hosts different Daml parties,
+    and only sees data visible to the parties hosted on that node (as defined by the Daml privacy model).
 
-    For more details on DAML ledger topologies, refer to the :ref:`DAML Ledger Topologies <daml-ledger-topologies>` documentation.
+    For more details on Daml ledger topologies, refer to the :ref:`Daml Ledger Topologies <daml-ledger-topologies>` documentation.
 
 Adding authentication
 =====================
@@ -42,14 +42,14 @@ Adding authentication
 How authentication is set up on a particular ledger is defined by the ledger operator.
 However, most authentication setups share the following pattern:
 
-First, the DAML application contacts a token issuer to get an access token.
+First, the Daml application contacts a token issuer to get an access token.
 The token issuer verifies the identity of the requesting user
 (e.g., by checking the username/password credentials sent with the request),
 looks up the privileges of the user,
 and generates a signed access token describing those privileges.
 
-Then, the DAML application sends the access token along with each ledger API request.
-The DAML ledger verifies the signature of the token (to make sure it has not been tampered with),
+Then, the Daml application sends the access token along with each ledger API request.
+The Daml ledger verifies the signature of the token (to make sure it has not been tampered with),
 and then checks that the privileges described in the token authorize the given ledger API request.
 
 .. image:: ./images/Authentication.svg

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.testing.time
@@ -23,8 +23,8 @@ class StaticTime(
     timeService: TimeService,
     clock: AtomicReference[Instant],
     killSwitch: UniqueKillSwitch,
-    ledgerId: String)
-    extends TimeProvider
+    ledgerId: String,
+) extends TimeProvider
     with AutoCloseable {
 
   def getCurrentTime: Instant = clock.get
@@ -33,7 +33,8 @@ class StaticTime(
     SetTimeRequest(
       ledgerId,
       Some(TimestampConversion.fromInstant(getCurrentTime)),
-      Some(TimestampConversion.fromInstant(instant)))
+      Some(TimestampConversion.fromInstant(instant)),
+    )
 
   def setTime(instant: Instant)(implicit ec: ExecutionContext): Future[Unit] = {
     timeService.setTime(timeRequest(instant)).map { _ =>
@@ -52,29 +53,33 @@ object StaticTime {
     }
   }
 
-  def updatedVia(timeService: TimeServiceStub, ledgerId: String, token: Option[String] = None)(
-      implicit m: Materializer,
-      esf: ExecutionSequencerFactory): Future[StaticTime] = {
+  def updatedVia(
+      timeService: TimeServiceStub,
+      ledgerId: String,
+      token: Option[String] = None,
+  )(implicit m: Materializer, esf: ExecutionSequencerFactory): Future[StaticTime] = {
     val clockRef = new AtomicReference[Instant](Instant.EPOCH)
     val killSwitchExternal = KillSwitches.single[Instant]
     val sinkExternal = Sink.head[Instant]
 
     RunnableGraph
       .fromGraph {
-        GraphDSL.create(killSwitchExternal, sinkExternal) {
-          case (killSwitch, futureOfFirstElem) =>
-            // We serve this in a future which completes when the first element has passed through.
-            // Thus we make sure that the object we serve already received time data from the ledger.
-            futureOfFirstElem.map(_ => new StaticTime(timeService, clockRef, killSwitch, ledgerId))(
-              DirectExecutionContext)
+        GraphDSL.create(killSwitchExternal, sinkExternal) { case (killSwitch, futureOfFirstElem) =>
+          // We serve this in a future which completes when the first element has passed through.
+          // Thus we make sure that the object we serve already received time data from the ledger.
+          futureOfFirstElem.map(_ => new StaticTime(timeService, clockRef, killSwitch, ledgerId))(
+            DirectExecutionContext
+          )
         } { implicit b => (killSwitch, sinkHead) =>
           import GraphDSL.Implicits._
           val instantSource = b.add(
             ClientAdapter
               .serverStreaming(
                 GetTimeRequest(ledgerId),
-                LedgerClient.stub(timeService, token).getTime)
-              .map(r => toInstant(r.getCurrentTime)))
+                LedgerClient.stub(timeService, token).getTime,
+              )
+              .map(r => toInstant(r.getCurrentTime))
+          )
 
           val updateClock = b.add(Flow[Instant].map { i =>
             advanceClock(clockRef, i)

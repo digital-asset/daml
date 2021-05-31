@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.retrying
@@ -35,7 +35,8 @@ object CommandRetryFlow {
       commandClient: CommandClient,
       timeProvider: TimeProvider,
       maxRetryTime: TemporalAmount,
-      createRetry: CreateRetryFn[C])(implicit ec: ExecutionContext): Future[SubmissionFlowType[C]] =
+      createRetry: CreateRetryFn[C],
+  )(implicit ec: ExecutionContext): Future[SubmissionFlowType[C]] =
     for {
       submissionFlow <- commandClient.trackCommands[RetryInfo[C]](List(party.unwrap))
       submissionFlowWithoutMat = submissionFlow.mapMaterializedValue(_ => NotUsed)
@@ -44,7 +45,8 @@ object CommandRetryFlow {
 
   def wrapGraph[C](
       graph: SubmissionFlowType[RetryInfo[C]],
-      timeProvider: TimeProvider): SubmissionFlowType[C] =
+      timeProvider: TimeProvider,
+  ): SubmissionFlowType[C] =
     Flow[In[C]]
       .map(RetryInfo.wrap(timeProvider))
       .via(graph)
@@ -54,7 +56,8 @@ object CommandRetryFlow {
       commandSubmissionFlow: SubmissionFlowType[RetryInfo[C]],
       timeProvider: TimeProvider,
       maxRetryTime: TemporalAmount,
-      createRetry: CreateRetryFn[C]): SubmissionFlowType[RetryInfo[C]] =
+      createRetry: CreateRetryFn[C],
+  ): SubmissionFlowType[RetryInfo[C]] =
     Flow
       .fromGraph(GraphDSL.create(commandSubmissionFlow) { implicit b => commandSubmission =>
         import GraphDSL.Implicits._
@@ -63,13 +66,17 @@ object CommandRetryFlow {
 
         val retryDecider = b.add(
           Partition[Out[RetryInfo[C]]](
-            outputPorts = 2, {
+            outputPorts = 2,
+            {
               case Ctx(
-                  RetryInfo(request, nrOfRetries, firstSubmissionTime, _),
-                  Completion(_, Some(status: Status), _, _)) =>
+                    RetryInfo(request, nrOfRetries, firstSubmissionTime, _),
+                    Completion(_, Some(status: Status), _, _),
+                  ) =>
                 if (status.code == Code.OK_VALUE) {
                   PROPAGATE_PORT
-                } else if ((firstSubmissionTime plus maxRetryTime) isBefore timeProvider.getCurrentTime) {
+                } else if (
+                  (firstSubmissionTime plus maxRetryTime) isBefore timeProvider.getCurrentTime
+                ) {
                   RetryLogger.logStopRetrying(request, status, nrOfRetries, firstSubmissionTime)
                   PROPAGATE_PORT
                 } else if (RETRYABLE_ERROR_CODES.contains(status.code)) {
@@ -81,8 +88,9 @@ object CommandRetryFlow {
                 }
               case Ctx(_, Completion(commandId, _, _, _)) =>
                 statusNotFoundError(commandId)
-            }
-          ))
+            },
+          )
+        )
 
         val convertToRetry = b.add(Flow[Out[RetryInfo[C]]].map {
           case Ctx(retryInfo, failedCompletion) =>

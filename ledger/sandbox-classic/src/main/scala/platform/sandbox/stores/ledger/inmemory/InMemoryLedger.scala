@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.stores.ledger.inmemory
@@ -20,7 +20,7 @@ import com.daml.ledger.api.domain.{
   LedgerOffset,
   PartyDetails,
   RejectionReason,
-  TransactionFilter
+  TransactionFilter,
 }
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -30,19 +30,19 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew,
   CommandDeduplicationResult,
-  PackageDetails
+  PackageDetails,
 }
 import com.daml.ledger.participant.state.v1.{
   ApplicationId => _,
   LedgerId => _,
   TransactionId => _,
-  _
+  _,
 }
 import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.daml.lf.data.{ImmArray, Ref, Time}
@@ -64,7 +64,7 @@ import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
-  PartyLedgerEntry
+  PartyLedgerEntry,
 }
 import com.daml.platform.{ApiOffset, index}
 import io.grpc.Status
@@ -74,7 +74,6 @@ import scala.concurrent.Future
 import scala.util.Try
 
 /** This stores all the mutable data that we need to run a ledger: the PCS, the ACS, and the deduplicator.
-  *
   */
 private[sandbox] final class InMemoryLedger(
     val ledgerId: LedgerId,
@@ -119,12 +118,12 @@ private[sandbox] final class InMemoryLedger(
               .ledgerEntryToFlatTransaction(
                 LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
                 tx,
-                TransactionFilter(filter.map {
-                  case (party, templates) =>
-                    party -> Filters(
-                      if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None)
+                TransactionFilter(filter.map { case (party, templates) =>
+                  party -> Filters(
+                    if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None
+                  )
                 }),
-                verbose
+                verbose,
               )
               .map(tx => offset -> GetTransactionsResponse(Seq(tx)))
               .toList
@@ -138,8 +137,9 @@ private[sandbox] final class InMemoryLedger(
       endInclusive: Option[Offset],
       requestingParties: Set[Party],
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext)
-    : Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
     entries
       .getSource(startExclusive, endInclusive)
       .flatMapConcat {
@@ -150,9 +150,11 @@ private[sandbox] final class InMemoryLedger(
                 LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
                 tx,
                 requestingParties,
-                verbose)
+                verbose,
+              )
               .map(tx => offset -> GetTransactionTreesResponse(Seq(tx)))
-              .toList)
+              .toList
+          )
         case _ =>
           Source.empty
       }
@@ -171,8 +173,8 @@ private[sandbox] final class InMemoryLedger(
   )(implicit loggingContext: LoggingContext): Source[(Offset, CompletionStreamResponse), NotUsed] =
     entries
       .getSource(startExclusive, endInclusive)
-      .collect {
-        case (offset, InMemoryLedgerEntry(entry)) => (offset, entry)
+      .collect { case (offset, InMemoryLedgerEntry(entry)) =>
+        (offset, entry)
       }
       .collect(CompletionFromTransaction(applicationId.unwrap, parties))
 
@@ -181,21 +183,23 @@ private[sandbox] final class InMemoryLedger(
   override def activeContracts(
       filter: Map[Party, Set[Ref.Identifier]],
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext)
-    : (Source[GetActiveContractsResponse, NotUsed], Offset) = {
-    val (acsNow, ledgerEndNow) = this.synchronized { (acs, ledgerEnd) }
+  )(implicit
+      loggingContext: LoggingContext
+  ): (Source[GetActiveContractsResponse, NotUsed], Offset) = {
+    val (acsNow, ledgerEndNow) = this.synchronized { (acs, ledgerEnd()) }
     (
       Source
-        .fromIterator[ActiveContract](
-          () =>
-            acsNow.activeContracts.valuesIterator.flatMap(
-              index
-                .EventFilter(_)(TransactionFilter(filter.map {
-                  case (party, templates) =>
-                    party -> Filters(
-                      if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None)
-                }))
-                .toList))
+        .fromIterator[ActiveContract](() =>
+          acsNow.activeContracts.valuesIterator.flatMap(
+            index
+              .EventFilter(_)(TransactionFilter(filter.map { case (party, templates) =>
+                party -> Filters(
+                  if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None
+                )
+              }))
+              .toList
+          )
+        )
         .map { contract =>
           GetActiveContractsResponse(
             workflowId = contract.workflowId.getOrElse(""),
@@ -204,49 +208,54 @@ private[sandbox] final class InMemoryLedger(
                 ledger.EventId(contract.transactionId, contract.nodeId).toLedgerString,
                 contract.id.coid,
                 Some(LfEngineToApi.toApiIdentifier(contract.contract.template)),
-                contractKey = contract.key.map(
-                  ck =>
-                    LfEngineToApi.assertOrRuntimeEx(
-                      "converting stored contract",
-                      LfEngineToApi
-                        .lfContractKeyToApiValue(verbose = verbose, ck))),
+                contractKey = contract.key.map(ck =>
+                  LfEngineToApi.assertOrRuntimeEx(
+                    "converting stored contract",
+                    LfEngineToApi
+                      .lfContractKeyToApiValue(verbose = verbose, ck),
+                  )
+                ),
                 createArguments = Some(
                   LfEngineToApi.assertOrRuntimeEx(
                     "converting stored contract",
                     LfEngineToApi
-                      .lfValueToApiRecord(verbose = verbose, contract.contract.arg.value))),
+                      .lfValueToApiRecord(verbose = verbose, contract.contract.arg.value),
+                  )
+                ),
                 contract.signatories.union(contract.observers).intersect(filter.keySet).toSeq,
                 signatories = contract.signatories.toSeq,
                 observers = contract.observers.toSeq,
-                agreementText = Some(contract.agreementText)
+                agreementText = Some(contract.agreementText),
               )
-            )
+            ),
           )
         },
-      ledgerEndNow)
+      ledgerEndNow,
+    )
   }
 
   override def lookupContract(
       contractId: ContractId,
-      forParty: Party
-  )(implicit loggingContext: LoggingContext)
-    : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
+      forParties: Set[Party],
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
     Future.successful(this.synchronized {
       acs.activeContracts
         .get(contractId)
-        .filter(ac => acs.isVisibleForDivulgees(ac.id, forParty))
+        .filter(ac => acs.isVisibleForDivulgees(ac.id, forParties))
         .map(_.contract)
     })
 
-  override def lookupKey(key: GlobalKey, forParty: Party)(
-      implicit loggingContext: LoggingContext,
+  override def lookupKey(key: GlobalKey, forParties: Set[Party])(implicit
+      loggingContext: LoggingContext
   ): Future[Option[ContractId]] =
     Future.successful(this.synchronized {
-      acs.keys.get(key).filter(acs.isVisibleForStakeholders(_, forParty))
+      acs.keys.get(key).filter(acs.isVisibleForStakeholders(_, forParties))
     })
 
-  override def lookupMaximumLedgerTime(contractIds: Set[ContractId])(
-      implicit loggingContext: LoggingContext,
+  override def lookupMaximumLedgerTime(contractIds: Set[ContractId])(implicit
+      loggingContext: LoggingContext
   ): Future[Option[Instant]] =
     if (contractIds.isEmpty) {
       Future.failed(
@@ -260,7 +269,8 @@ private[sandbox] final class InMemoryLedger(
           val let = acs.activeContracts
             .getOrElse(
               id,
-              sys.error(s"Contract $id not found while looking for maximum ledger time"))
+              sys.error(s"Contract $id not found while looking for maximum ledger time"),
+            )
             .let
           acc.map(acc => if (let.isAfter(acc)) let else acc)
         })
@@ -284,9 +294,7 @@ private[sandbox] final class InMemoryLedger(
     ledgerConfiguration
       .fold[Either[String, Unit]](
         Left("No ledger configuration available, cannot validate ledger time")
-      )(
-        config => config.timeModel.checkTime(ledgerTime, recordTime)
-      )
+      )(config => config.timeModel.checkTime(ledgerTime, recordTime))
   }
 
   private def handleSuccessfulTx(
@@ -316,13 +324,14 @@ private[sandbox] final class InMemoryLedger(
             committedTransaction,
             disclosureForIndex,
             divulgence,
-            List.empty
+            List.empty,
           )
           acsRes match {
             case Left(err) =>
               handleError(
                 submitterInfo,
-                RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
+                RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"),
+              )
             case Right(newAcs) =>
               acs = newAcs
               val entry = LedgerEntry
@@ -335,18 +344,18 @@ private[sandbox] final class InMemoryLedger(
                   transactionMeta.ledgerEffectiveTime.toInstant,
                   recordTime,
                   committedTransaction,
-                  disclosureForIndex
+                  disclosureForIndex,
                 )
               entries.publish(InMemoryLedgerEntry(entry))
               ()
           }
-        }
+        },
       )
 
   }
 
-  private def handleError(submitterInfo: SubmitterInfo, reason: RejectionReason)(
-      implicit loggingContext: LoggingContext,
+  private def handleError(submitterInfo: SubmitterInfo, reason: RejectionReason)(implicit
+      loggingContext: LoggingContext
   ): Unit = {
     logger.warn(s"Publishing error to ledger: ${reason.description}")
     stopDeduplicatingCommand(CommandId(submitterInfo.commandId), submitterInfo.actAs)
@@ -357,7 +366,8 @@ private[sandbox] final class InMemoryLedger(
           submitterInfo.commandId,
           submitterInfo.applicationId,
           submitterInfo.actAs,
-          reason)
+          reason,
+        )
       )
     )
     ()
@@ -369,7 +379,7 @@ private[sandbox] final class InMemoryLedger(
     TransactionFilter(requestingParties.map(p => p -> Filters.noFilter).toMap)
 
   private def lookupTransactionEntry(
-      id: ledger.TransactionId,
+      id: ledger.TransactionId
   ): Option[(Offset, LedgerEntry.Transaction)] =
     entries.items
       .collectFirst {
@@ -382,16 +392,15 @@ private[sandbox] final class InMemoryLedger(
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     Future.successful {
-      lookupTransactionEntry(transactionId).flatMap {
-        case (offset, entry) =>
-          TransactionConversion
-            .ledgerEntryToFlatTransaction(
-              offset = LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
-              entry = entry,
-              filter = filterFor(requestingParties),
-              verbose = true,
-            )
-            .map(tx => GetFlatTransactionResponse(Some(tx)))
+      lookupTransactionEntry(transactionId).flatMap { case (offset, entry) =>
+        TransactionConversion
+          .ledgerEntryToFlatTransaction(
+            offset = LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+            entry = entry,
+            filter = filterFor(requestingParties),
+            verbose = true,
+          )
+          .map(tx => GetFlatTransactionResponse(Some(tx)))
       }
     }
 
@@ -400,28 +409,27 @@ private[sandbox] final class InMemoryLedger(
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     Future.successful {
-      lookupTransactionEntry(transactionId).flatMap {
-        case (offset, entry) =>
-          TransactionConversion
-            .ledgerEntryToTransactionTree(
-              offset = LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
-              entry = entry,
-              requestingParties = requestingParties,
-              verbose = true,
-            )
-            .map(tx => GetTransactionResponse(Some(tx)))
+      lookupTransactionEntry(transactionId).flatMap { case (offset, entry) =>
+        TransactionConversion
+          .ledgerEntryToTransactionTree(
+            offset = LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+            entry = entry,
+            requestingParties = requestingParties,
+            verbose = true,
+          )
+          .map(tx => GetTransactionResponse(Some(tx)))
       }
     }
 
-  override def getParties(parties: Seq[Party])(
-      implicit loggingContext: LoggingContext,
+  override def getParties(parties: Seq[Party])(implicit
+      loggingContext: LoggingContext
   ): Future[List[PartyDetails]] =
     Future.successful(this.synchronized {
       parties.flatMap(party => acs.parties.get(party).toList).toList
     })
 
-  override def listKnownParties()(
-      implicit loggingContext: LoggingContext,
+  override def listKnownParties()(implicit
+      loggingContext: LoggingContext
   ): Future[List[PartyDetails]] =
     Future.successful(this.synchronized {
       acs.parties.values.toList
@@ -430,7 +438,7 @@ private[sandbox] final class InMemoryLedger(
   override def publishPartyAllocation(
       submissionId: SubmissionId,
       party: Party,
-      displayName: Option[String]
+      displayName: Option[String],
   )(implicit loggingContext: LoggingContext): Future[SubmissionResult] =
     Future.successful(this.synchronized[SubmissionResult] {
       val ids = acs.parties.keySet
@@ -451,36 +459,39 @@ private[sandbox] final class InMemoryLedger(
             PartyLedgerEntry.AllocationAccepted(
               Some(submissionId),
               timeProvider.getCurrentTime,
-              PartyDetails(party, displayName, isLocal = true))))
+              PartyDetails(party, displayName, isLocal = true),
+            )
+          )
+        )
       }
       SubmissionResult.Acknowledged
     })
 
-  override def partyEntries(startExclusive: Offset)(
-      implicit loggingContext: LoggingContext,
+  override def partyEntries(startExclusive: Offset)(implicit
+      loggingContext: LoggingContext
   ): Source[(Offset, PartyLedgerEntry), NotUsed] = {
     entries.getSource(Some(startExclusive), None).collect {
       case (offset, InMemoryPartyEntry(partyEntry)) => (offset, partyEntry)
     }
   }
 
-  override def listLfPackages()(
-      implicit loggingContext: LoggingContext,
+  override def listLfPackages()(implicit
+      loggingContext: LoggingContext
   ): Future[Map[PackageId, PackageDetails]] =
     packageStoreRef.get.listLfPackages()
 
-  override def getLfArchive(packageId: PackageId)(
-      implicit loggingContext: LoggingContext,
+  override def getLfArchive(packageId: PackageId)(implicit
+      loggingContext: LoggingContext
   ): Future[Option[Archive]] =
     packageStoreRef.get.getLfArchive(packageId)
 
-  override def getLfPackage(packageId: PackageId)(
-      implicit loggingContext: LoggingContext,
+  override def getLfPackage(packageId: PackageId)(implicit
+      loggingContext: LoggingContext
   ): Future[Option[Ast.Package]] =
     packageStoreRef.get.getLfPackage(packageId)
 
-  override def packageEntries(startExclusive: Offset)(
-      implicit loggingContext: LoggingContext,
+  override def packageEntries(startExclusive: Offset)(implicit
+      loggingContext: LoggingContext
   ): Source[(Offset, PackageLedgerEntry), NotUsed] =
     entries.getSource(Some(startExclusive), None).collect {
       case (offset, InMemoryPackageEntry(entry)) => (offset, entry)
@@ -499,19 +510,25 @@ private[sandbox] final class InMemoryLedger(
       .fold(
         err => {
           entries.publish(
-            InMemoryPackageEntry(PackageLedgerEntry
-              .PackageUploadRejected(submissionId, timeProvider.getCurrentTime, err)))
+            InMemoryPackageEntry(
+              PackageLedgerEntry
+                .PackageUploadRejected(submissionId, timeProvider.getCurrentTime, err)
+            )
+          )
           Future.successful(SubmissionResult.Acknowledged)
         },
         newStore => {
           if (packageStoreRef.compareAndSet(oldStore, newStore)) {
-            entries.publish(InMemoryPackageEntry(
-              PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)))
+            entries.publish(
+              InMemoryPackageEntry(
+                PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)
+              )
+            )
             Future.successful(SubmissionResult.Acknowledged)
           } else {
             uploadPackages(submissionId, knownSince, sourceDescription, payload)
           }
-        }
+        },
       )
   }
 
@@ -532,7 +549,9 @@ private[sandbox] final class InMemoryLedger(
                   submissionId,
                   s"Generation mismatch, expected ${currentConfig.generation + 1}, got ${config.generation}",
                   config,
-                )))
+                )
+              )
+            )
 
           case _ if recordTime.isAfter(mrt) =>
             entries.publish(
@@ -541,7 +560,9 @@ private[sandbox] final class InMemoryLedger(
                   submissionId,
                   s"Configuration change timed out: $mrt > $recordTime",
                   config,
-                )))
+                )
+              )
+            )
             ledgerConfiguration = Some(config)
 
           case _ =>
@@ -552,21 +573,21 @@ private[sandbox] final class InMemoryLedger(
       }
     }
 
-  override def lookupLedgerConfiguration()(
-      implicit loggingContext: LoggingContext,
+  override def lookupLedgerConfiguration()(implicit
+      loggingContext: LoggingContext
   ): Future[Option[(Offset, Configuration)]] =
     Future.successful(this.synchronized {
       val end = ledgerEnd()
       ledgerConfiguration.map(config => end -> config)
     })
 
-  override def configurationEntries(startExclusive: Offset)(
-      implicit loggingContext: LoggingContext,
+  override def configurationEntries(startExclusive: Offset)(implicit
+      loggingContext: LoggingContext
   ): Source[(Offset, ConfigurationEntry), NotUsed] =
     entries
       .getSource(Some(startExclusive), None)
-      .collect {
-        case (offset, InMemoryConfigEntry(entry)) => offset -> entry
+      .collect { case (offset, InMemoryConfigEntry(entry)) =>
+        offset -> entry
       }
 
   private def deduplicationKey(
@@ -609,8 +630,8 @@ private[sandbox] final class InMemoryLedger(
       }
     }
 
-  override def removeExpiredDeduplicationData(currentTime: Instant)(
-      implicit loggingContext: LoggingContext,
+  override def removeExpiredDeduplicationData(currentTime: Instant)(implicit
+      loggingContext: LoggingContext
   ): Future[Unit] =
     Future.successful {
       this.synchronized {
@@ -619,8 +640,8 @@ private[sandbox] final class InMemoryLedger(
       }
     }
 
-  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Party])(
-      implicit loggingContext: LoggingContext,
+  override def stopDeduplicatingCommand(commandId: CommandId, submitters: List[Party])(implicit
+      loggingContext: LoggingContext
   ): Future[Unit] =
     Future.successful {
       val key = deduplicationKey(commandId, submitters)
@@ -630,8 +651,9 @@ private[sandbox] final class InMemoryLedger(
       }
     }
 
-  override def prune(pruneUpToInclusive: Offset)(
-      implicit loggingContext: LoggingContext): Future[Unit] =
+  override def prune(pruneUpToInclusive: Offset)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] =
     // sandbox-classic in-memory ledger does not support pruning
     Future.failed(Status.UNIMPLEMENTED.asRuntimeException())
 }

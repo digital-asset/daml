@@ -1,6 +1,8 @@
--- @ERROR Attempt to fetch, lookup or exercise a key associated with a contract
--- @ERROR Attempt to fetch, lookup or exercise a key associated with a contract
--- @ERROR Attempt to fetch, lookup or exercise a key associated with a contract
+-- @ERROR range=18:1-18:10; Attempt to fetch, lookup or exercise a key associated with a contract
+-- @ERROR range=63:1-63:15; Attempt to fetch, lookup or exercise a key associated with a contract
+-- @ERROR range=81:1-81:12; Attempt to fetch, lookup or exercise a key associated with a contract
+-- @ERROR range=111:1-111:12; Attempt to fetch, lookup or exercise a key associated with a contract
+-- @ERROR range=117:1-117:11;  Attempt to fetch, lookup or exercise a key associated with a contract
 module ContractKeyNotVisible where
 
 import DA.Optional
@@ -70,8 +72,9 @@ divulgeeLookup = scenario do
   -- which means the error message changes. The reason is that the
   -- assertion is checked at interpretation time, before the lookup
   -- is checked at validation time.
+  delegationCid <- submit sig $ create (Delegation sig divulgee)
   submit divulgee do
-    mcid <- createAndExercise (Delegation sig divulgee) LookupKeyed
+    mcid <- exercise delegationCid LookupKeyed
     assert (isNone mcid)
     pure ()
 
@@ -80,7 +83,46 @@ blindLookup = scenario do
   blind <- getParty "b" -- Blind
   _ <- submit sig do create Keyed with ..
   -- Blind party can't do positive lookup with maintainer authority.
+  cid <- submit sig $ create (Delegation sig blind)
   submit blind do
-    mcid <- createAndExercise (Delegation sig blind) LookupKeyed
+    mcid <- exercise cid LookupKeyed
     assert (isNone mcid)
     pure ()
+
+template LocalKeyVisibility
+  with
+    sig : Party
+    obs : Party
+  where
+    signatory sig
+    observer obs
+    choice LocalLookup : ()
+      controller obs
+      do create (Keyed sig)
+         Some _ <- lookupByKey @Keyed sig
+         pure ()
+
+    choice LocalFetch : ()
+      controller obs
+      do create (Keyed sig)
+         _ <- fetchByKey @Keyed sig
+         pure ()
+
+localLookup = scenario do
+  p1 <- getParty "p1"
+  p2 <- getParty "p2"
+  cid <- submit p1 $ create (LocalKeyVisibility p1 p2)
+  submit p2 $ exercise cid LocalLookup
+
+localFetch = scenario do
+  p1 <- getParty "p1"
+  p2 <- getParty "p2"
+  cid <- submit p1 $ create (LocalKeyVisibility p1 p2)
+  submit p2 $ exercise cid LocalFetch
+
+localLookupFetchMustFail = scenario do
+  p1 <- getParty "p1"
+  p2 <- getParty "p2"
+  cid <- submit p1 $ create (LocalKeyVisibility p1 p2)
+  submitMustFail p2 $ exercise cid LocalLookup
+  submitMustFail p2 $ exercise cid LocalFetch

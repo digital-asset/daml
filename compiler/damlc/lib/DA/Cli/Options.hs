@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
 module DA.Cli.Options
@@ -93,12 +93,12 @@ targetFileNameOpt = option (Just <$> str) $
 packageNameOpt :: Parser GHC.UnitId
 packageNameOpt = fmap GHC.stringToUnitId $ argument str $
        metavar "PACKAGE-NAME"
-    <> help "Name of the DAML package"
+    <> help "Name of the Daml package"
 
 lfVersionOpt :: Parser LF.Version
 lfVersionOpt = option (str >>= select) $
        metavar "DAML-LF-VERSION"
-    <> help ("DAML-LF version to output: " ++ versionsStr)
+    <> help ("Daml-LF version to output: " ++ versionsStr)
     <> long "target"
     <> value LF.versionDefault
     <> internal
@@ -113,7 +113,7 @@ lfVersionOpt = option (str >>= select) $
         , version `elem` LF.supportedOutputVersions
         -> return version
         | otherwise
-        -> readerError $ "Unknown DAML-LF version: " ++ versionsStr
+        -> readerError $ "Unknown Daml-LF version: " ++ versionsStr
 
 dotFileOpt :: Parser (Maybe FilePath)
 dotFileOpt = option (Just <$> str) $
@@ -197,10 +197,11 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
             help
                 (mconcat
                      [ "Path to the root of a project containing daml.yaml. "
-                     , "If you use the assistant, you should set the DAML_PROJECT environment variable instead."
+                     , "You should prefer the DAML_PROJECT environment variable over this option."
+                     , "See https://docs.daml.com/tools/assistant.html#running-commands-outside-of-the-project-directory for more details."
                      ])
         projectCheckOpt cmdName = fmap (ProjectCheck cmdName) . switch $
-               help "Check if running in DAML project."
+               help "Check if running in Daml project."
             <> long "project-check"
 
 enableScenarioOpt :: Parser EnableScenarioService
@@ -209,23 +210,26 @@ enableScenarioOpt = EnableScenarioService <$>
 
 enableScriptsOpt :: Parser EnableScripts
 enableScriptsOpt = EnableScripts <$>
-    flagYesNoAuto "daml-script" True "Enable/disable support for running DAML Scripts" internal
+    flagYesNoAuto "daml-script" True "Enable/disable support for running Daml Scripts" internal
 
 dlintEnabledOpt :: Parser DlintUsage
 dlintEnabledOpt = DlintEnabled
   <$> strOption
   ( long "with-dlint"
     <> metavar "DIR"
+    <> internal
     <> help "Enable linting with 'dlint.yaml' directory"
   )
   <*> switch
   ( long "allow-overrides"
+    <> internal
     <> help "Allow '.dlint.yaml' configuration overrides"
   )
 
 dlintDisabledOpt :: Parser DlintUsage
 dlintDisabledOpt = flag' DlintDisabled
   ( long "without-dlint"
+    <> internal
     <> help "Disable dlint"
   )
 
@@ -255,6 +259,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
 
     optImportPath <- optImportPath
     optPackageDbs <- optPackageDir
+    optAccessTokenPath <- optAccessTokenPath
     let optStablePackages = Nothing
     let optIfaceDir = Nothing
     optPackageImports <- many optPackageImport
@@ -278,6 +283,12 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
 
     return Options{..}
   where
+    optAccessTokenPath :: Parser (Maybe FilePath)
+    optAccessTokenPath = optional . option str
+        $ metavar "PATH"
+        <> long "access-token-file"
+        <> help "Path to the token-file for ledger authorization."
+
     optImportPath :: Parser [FilePath]
     optImportPath =
         many $

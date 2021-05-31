@@ -1,10 +1,11 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
   is_release: ''
   name: ''
   release_tag: ''
+  scala_version: ''
 
 steps:
   - bash: ci/dev-env-install.sh
@@ -35,30 +36,22 @@ steps:
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
+      DAML_SCALA_VERSION: ${{parameters.scala_version}}
 
   - task: PublishBuildArtifacts@1
     condition: failed()
     displayName: 'Publish the bazel test logs'
     inputs:
       pathtoPublish: 'bazel-testlogs/'
-      artifactName: 'Test logs'
+      artifactName: 'Test logs ${{parameters.name}}'
 
   - bash: |
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
-
-      mkdir -p ~/.jfrog
-      cleanup() {
-          rm -f ~/.jfrog/jfrog-cli.conf
-      }
-      trap cleanup EXIT
-      echo "$JFROG_CONFIG_CONTENT" > ~/.jfrog/jfrog-cli.conf
-      unset JFROG_CONFIG_CONTENT
-
       ./bazel-bin/release/release --release-dir "$(mktemp -d)" --upload
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
-      JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)
+      DAML_SCALA_VERSION: ${{parameters.scala_version}}
       GPG_KEY: $(gpg-code-signing)
       MAVEN_USERNAME: $(MAVEN_USERNAME)
       MAVEN_PASSWORD: $(MAVEN_PASSWORD)
@@ -67,91 +60,27 @@ steps:
     name: publish_npm_mvn
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'),
-                   eq('${{parameters.name}}', 'linux'))
+                   eq('${{parameters.scala_version}}', ''),
+                   eq(variables['Build.SourceBranchName'], 'main'),
+                   in('${{parameters.name}}', 'linux', 'linux-scala-2.12'))
+  - template: bash-lib.yml
+    parameters:
+      var_name: bash-lib
   - bash: |
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
-
-      TARBALL=daml-sdk-${{parameters.release_tag}}-${{parameters.name}}.tar.gz
-      cp bazel-bin/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$TARBALL
-      echo "##vso[task.setvariable variable=tarball;isOutput=true]$TARBALL"
-
-      PROTOS_ZIP=protobufs-${{parameters.release_tag}}.zip
-      cp bazel-bin/release/protobufs.zip $(Build.StagingDirectory)/$PROTOS_ZIP
-      echo "##vso[task.setvariable variable=protos-zip;isOutput=true]$PROTOS_ZIP"
-
-      DAML_ON_SQL=daml-on-sql-${{parameters.release_tag}}.jar
-      ## Not built by default
-      bazel build //ledger/daml-on-sql:daml-on-sql-binary_deploy.jar
-      cp bazel-bin/ledger/daml-on-sql/daml-on-sql-binary_deploy.jar $(Build.StagingDirectory)/$DAML_ON_SQL
-      echo "##vso[task.setvariable variable=daml-on-sql;isOutput=true]$DAML_ON_SQL"
-
-      JSON_API=http-json-${{parameters.release_tag}}.jar
-      ## Not built by default
-      bazel build //ledger-service/http-json:http-json-binary_deploy.jar
-      cp bazel-bin/ledger-service/http-json/http-json-binary_deploy.jar $(Build.StagingDirectory)/$JSON_API
-      echo "##vso[task.setvariable variable=json-api;isOutput=true]$JSON_API"
-
-      TRIGGER=daml-trigger-runner-${{parameters.release_tag}}.jar
-      bazel build //triggers/runner:trigger-runner_deploy.jar
-      cp bazel-bin/triggers/runner/trigger-runner_deploy.jar $(Build.StagingDirectory)/$TRIGGER
-      echo "##vso[task.setvariable variable=trigger-runner;isOutput=true]$TRIGGER"
-
-      SCRIPT=daml-script-${{parameters.release_tag}}.jar
-      bazel build //daml-script/runner:script-runner_deploy.jar
-      cp bazel-bin/daml-script/runner/script-runner_deploy.jar $(Build.StagingDirectory)/$SCRIPT
-      echo "##vso[task.setvariable variable=script-runner;isOutput=true]$SCRIPT"
+      mkdir -p $(Build.StagingDirectory)/release
+      ./ci/copy-unix-release-artifacts.sh ${{parameters.release_tag}} ${{parameters.name}} $(Build.StagingDirectory)/release
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     name: publish
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   eq(variables['Build.SourceBranchName'], 'main'))
   - task: PublishPipelineArtifact@0
     inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.tarball)
-      artifactName: $(publish.tarball)
+      targetPath: $(Build.StagingDirectory)/release
+      artifactName: ${{parameters.name}}-release
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.protos-zip)
-      artifactName: $(publish.protos-zip)
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'),
-                   eq('${{parameters.name}}', 'linux'))
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.daml-on-sql)
-      artifactName: $(publish.daml-on-sql)
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'),
-                   eq('${{parameters.name}}', 'linux'))
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.json-api)
-      artifactName: $(publish.json-api)
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'),
-                   eq('${{parameters.name}}', 'linux'))
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.trigger-runner)
-      artifactName: $(publish.trigger-runner)
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'),
-                   eq('${{parameters.name}}', 'linux'))
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.script-runner)
-      artifactName: $(publish.script-runner)
-    condition: and(succeeded(),
-                   eq(${{parameters.is_release}}, 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'),
-                   eq('${{parameters.name}}', 'linux'))
+                   eq(variables['Build.SourceBranchName'], 'main'))

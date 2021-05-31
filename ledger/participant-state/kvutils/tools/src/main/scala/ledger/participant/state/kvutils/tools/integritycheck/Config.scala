@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
@@ -15,6 +15,10 @@ case class Config(
     indexOnly: Boolean = false,
     reportMetrics: Boolean = false,
     jdbcUrl: Option[String] = None,
+    expectedUpdatesPath: Option[Path] = None,
+    actualUpdatesPath: Option[Path] = None,
+    expectedUpdateNormalizers: Iterable[UpdateNormalizer] = Iterable.empty,
+    actualUpdateNormalizers: Iterable[UpdateNormalizer] = Iterable.empty,
 ) {
   def exportFileName: String = exportFilePath.getFileName.toString
 }
@@ -32,7 +36,8 @@ object Config {
     new OptionParser[Config]("integrity-checker") {
       head("kvutils Integrity Checker")
       note(
-        s"You can produce a ledger export on a kvutils ledger by setting ${LedgerDataExporter.EnvironmentVariableName}=/path/to/file${System.lineSeparator}")
+        s"You can produce a ledger export on a kvutils ledger by setting ${LedgerDataExporter.EnvironmentVariableName}=/path/to/file${System.lineSeparator}"
+      )
       help("help")
       arg[Path]("PATH")
         .text("The path to the ledger export file (uncompressed).")
@@ -42,11 +47,13 @@ object Config {
         .action((_, config) => config.copy(performByteComparison = false))
       opt[Unit]("sort-write-set")
         .text(
-          "Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally.")
+          "Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally."
+        )
         .action((_, config) => config.copy(sortWriteSet = true))
       opt[Unit]("index-only")
         .text(
-          "Run only the indexing step of the integrity checker (useful tp benchmark the indexer).")
+          "Run only the indexing step of the integrity checker (useful tp benchmark the indexer)."
+        )
         .action((_, config) => config.copy(indexOnly = true))
       opt[String]("jdbc-url")
         .text("External JDBC URL (useful for running against PostgreSQL).")
@@ -54,8 +61,18 @@ object Config {
       opt[Unit]("report-metrics")
         .text("Print all registered metrics.")
         .action((_, config) => config.copy(reportMetrics = true))
+      opt[Path]("expected-updates-output")
+        .text("The output path for expected updates. Useful for debugging.")
+        .action((expectedUpdatesPath, config) =>
+          config.copy(expectedUpdatesPath = Some(expectedUpdatesPath))
+        )
+      opt[Path]("actual-updates-output")
+        .text("The output path for actual updates. Useful for debugging.")
+        .action((actualUpdatesPath, config) =>
+          config.copy(actualUpdatesPath = Some(actualUpdatesPath))
+        )
     }
 
-  def parse(args: Seq[String]): Option[Config] =
+  def parse(args: collection.Seq[String]): Option[Config] =
     Parser.parse(args, Config.ParseInput)
 }

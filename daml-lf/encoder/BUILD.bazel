@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -10,17 +10,11 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "lf_dev_version",
-    "lf_latest_version",
-    "lf_stable_version",
+    "ENCODER_LF_VERSIONS",
+    "lf_version_configuration",
+    "lf_version_configuration_versions",
+    "mangle_for_java",
 )
-
-lf_targets = [
-    "1.6",
-    "1.7",
-    "1.8",
-    "1.dev",
-]
 
 da_scala_library(
     name = "encoder",
@@ -28,18 +22,17 @@ da_scala_library(
         ["src/main/**/*.scala"],
         exclude = ["src/main/scala/com/digitalasset/daml/lf/archive/testing/DamlLfEncoder.scala"],
     ),
-    scalacopts = lf_scalacopts,
-    visibility = [
-        "//daml-lf:__subpackages__",
-        "//ledger:__subpackages__",
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
     ],
+    scalacopts = lf_scalacopts,
+    visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -47,8 +40,17 @@ da_scala_test_suite(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    data = [":testing-dar-%s" % target for target in lf_targets],
+    data = [":testing-dar-%s" % target for target in ENCODER_LF_VERSIONS],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
+    versioned_scala_deps = {
+        "2.12": [
+            "@maven//:org_scala_lang_modules_scala_collection_compat",
+        ],
+    },
     deps = [
         ":encoder",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -59,8 +61,6 @@ da_scala_test_suite(
         "//daml-lf/parser",
         "//daml-lf/validation",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -69,13 +69,13 @@ da_scala_binary(
     srcs = glob(["src/main/scala/com/digitalasset/daml/lf/archive/testing/DamlLfEncoder.scala"]),
     main_class = "com.daml.lf.archive.testing.DamlLfEncoder",
     scalacopts = lf_scalacopts,
-    visibility = [
-        "//daml-lf:__subpackages__",
-        "//language-support:__subpackages__",
-    ],
+    visibility = ["//visibility:public"],
     deps = [
         ":encoder",
+        "//:sdk-version-scala-lib",
+        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/archive/encoder",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
@@ -92,7 +92,7 @@ da_scala_binary(
             "src/test/lf/*_%s_*.lf" % target,
         ]),
     )
-    for target in lf_targets
+    for target in ENCODER_LF_VERSIONS
 ]
 
 [
@@ -103,11 +103,7 @@ da_scala_binary(
             outs = ["test-%s.dar" % target],
             cmd = "$(location :encoder_binary) $(SRCS) --output $@ --target %s" % target,
             tools = [":encoder_binary"],
-            visibility = [
-                "//daml-lf:__subpackages__",
-                "//extractor:__subpackages__",
-                "//language-support:__subpackages__",
-            ],
+            visibility = ["//visibility:public"],
         ),
         sh_test(
             name = "validate-dar-%s" % target,
@@ -115,7 +111,7 @@ da_scala_binary(
             args = [
                 "$(location //daml-lf/repl:repl)",
                 "$(location :testing-dar-%s)" % target,
-                "--dev" if (target == "1.dev") else "",
+                "--dev" if (target == lf_version_configuration.get("dev") or target == lf_version_configuration.get("preview")) else "",
             ],
             data = [
                 "//daml-lf/repl",
@@ -126,23 +122,49 @@ da_scala_binary(
             ],
         ),
     ]
-    for target in lf_targets
+    for target in ENCODER_LF_VERSIONS
 ]
 
 [
-    filegroup(
-        name = "testing-dar-%s" % alias,
-        srcs = [":testing-dar-%s" % version],
-        visibility = [
-            "//daml-lf:__subpackages__",
-            "//extractor:__subpackages__",
-            "//language-support:__subpackages__",
-            "//ledger:__subpackages__",
-        ],
-    )
-    for (alias, version) in [
-        ("stable", lf_stable_version),
-        ("latest", lf_latest_version),
-        ("dev", lf_dev_version),
+    [
+        genrule(
+            name = "testing-dar-lookup-scala-%s" % lf_version,
+            outs = ["TestDars-%s.scala" % mangle_for_java(lf_version)],
+            cmd = """
+cat > $@ <<EOF
+package com.daml.lf.archive.testing
+object TestDar {
+    val fileName = \"daml-lf/encoder/test-%s.dar\"
+}
+EOF
+""" % lf_version,
+        ),
+        da_scala_library(
+            name = "testing-dar-lookup-lib-%s" % lf_version,
+            srcs = ["testing-dar-lookup-scala-%s" % lf_version],
+            # generated_srcs is required for scaladocF
+            generated_srcs = ["testing-dar-lookup-scala-%s" % lf_version],
+            visibility = ["//visibility:public"],
+        ),
     ]
+    for lf_version in lf_version_configuration_versions
 ]
+
+[
+    alias(
+        name = "testing-dar%s-%s" % (name, keyword),
+        actual = ":testing-dar%s-%s" % (name, version),
+        visibility = ["//visibility:public"],
+    )
+    for name in [
+        "",
+        "-lookup-lib",
+    ]
+    for (keyword, version) in lf_version_configuration.items()
+]
+
+filegroup(
+    name = "testing-dars",
+    srcs = ["testing-dar-%s" % version for version in ENCODER_LF_VERSIONS],
+    visibility = ["//visibility:public"],
+)

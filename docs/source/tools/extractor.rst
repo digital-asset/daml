@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Extractor
@@ -103,7 +103,7 @@ Authorize Extractor
 
 If you are running Extractor against a Ledger API server that verifies authorization, you must provide the access token when you start it.
 
-The access token retrieval depends on the specific DAML setup you are working with: please refer to the ledger operator to learn how.
+The access token retrieval depends on the specific Daml setup you are working with: please refer to the ledger operator to learn how.
 
 Once you have retrieved your access token, you can provide it to Extractor by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
 
@@ -170,7 +170,7 @@ Output format
 
 To understand the format that Extractor outputs into a PostgreSQL database, you need to understand how the ledger stores data.
 
-The DAML Ledger is composed of transactions, which contain events. Events can represent:
+The Daml Ledger is composed of transactions, which contain events. Events can represent:
 
 - creation of contracts (“create event”), or
 - exercise of a choice on a contract (“exercise event”).
@@ -195,7 +195,7 @@ Transactions are stored in the ``transaction table`` in the ``public`` schema, w
 
 - **transaction_id**: The transaction ID, as appears on the ledger. This is the primary key of the table.
 - **transaction_id**, **effective_at, workflow_id, ledger_offset**: These columns are the properties of the transaction on the ledger. For more information, see the `specification <../../app-dev/grpc/proto-docs.html#transactiontree>`__.
-- **seq**: Transaction IDs should be treated as arbitrary text values: you can’t rely on them for ordering transactions in the database. However, transactions appear on the Ledger API transaction stream in the same order as they were accepted on the ledger. You can use this to work around the arbitrary nature of the transaction IDs, which is the purpose of the ``seq`` field: it gives you a total ordering of the transactions, as they happened from the perspective of the ledger. Be aware that ``seq`` is not the exact index of the given transaction on the ledger. Due to the privacy model of DAML Ledgers, the transaction stream won’t deliver a transaction which doesn’t concern the party which is subscribed. The transaction with ``seq`` of 100 might be the 1000th transaction on the ledger; in the other 900, the transactions contained only events which mustn’t be seen by you.
+- **seq**: Transaction IDs should be treated as arbitrary text values: you can’t rely on them for ordering transactions in the database. However, transactions appear on the Ledger API transaction stream in the same order as they were accepted on the ledger. You can use this to work around the arbitrary nature of the transaction IDs, which is the purpose of the ``seq`` field: it gives you a total ordering of the transactions, as they happened from the perspective of the ledger. Be aware that ``seq`` is not the exact index of the given transaction on the ledger. Due to the privacy model of Daml Ledgers, the transaction stream won’t deliver a transaction which doesn’t concern the party which is subscribed. The transaction with ``seq`` of 100 might be the 1000th transaction on the ledger; in the other 900, the transactions contained only events which mustn’t be seen by you.
 - **extracted_at**: The ``extracted_at`` field means the date the transaction row and its events were inserted into the database. When extracting historical data, this field will point to a possibly much later time than ``effective_at``.
 
 Contracts
@@ -268,7 +268,7 @@ JSON schema are instantiated as follows in Extractor:
 Examples of output
 ******************
 
-The following examples show you what output you should expect. The Sandbox has already run the scenarios of a DAML model that created two transactions: one creating a ``Main:RightOfUseOffer`` and one accepting it, thus archiving the original contract and creating a new ``Main:RightOfUseAgreement`` contract. We also added a new offer manually.
+The following examples show you what output you should expect. The Sandbox has already run the scenarios of a Daml model that created two transactions: one creating a ``Main:RightOfUseOffer`` and one accepting it, thus archiving the original contract and creating a new ``Main:RightOfUseAgreement`` contract. We also added a new offer manually.
 
 This is how the ``transaction`` table looks after extracting data from the ledger:
 
@@ -282,7 +282,7 @@ This is how the ``contract`` table looks:
 .. figure:: images/contracts.png
    :align: center
 
-You can see that the ``archived_by_transacion_id`` and ``archived_by_event_id`` fields of contract ``#0:0`` is not empty, thus this contract is archived. These fields of contracts ``#1:1`` and ``#2:0`` are ``NULL`` s, which mean they are active contracts, not yet archived.
+You can see that the ``archived_by_transaction_id`` and ``archived_by_event_id`` fields of contract ``#0:0`` is not empty, thus this contract is archived. These fields of contracts ``#1:1`` and ``#2:0`` are ``NULL`` s, which mean they are active contracts, not yet archived.
 
 This is how the ``exercise`` table looks:
 
@@ -411,7 +411,7 @@ The only parameters that you can change between two sessions running against the
 Fault tolerance
 ***************
 
-Once the Extractor connects to the Ledger Node and the database and creates the table structure from the fetched DAML packages, it wraps the transaction stream in a restart logic with an exponential backoff. This results in the Extractor not terminating even when the transaction stream is aborted for some reason (the ledger node is down, there’s a network partition, etc.).
+Once the Extractor connects to the Ledger Node and the database and creates the table structure from the fetched Daml packages, it wraps the transaction stream in a restart logic with an exponential backoff. This results in the Extractor not terminating even when the transaction stream is aborted for some reason (the ledger node is down, there’s a network partition, etc.).
 
 Once the connection is back, it continues the stream from where it left off. If it can’t reach the node on the host/port pair the Extractor was started with, you need to manually stop it and restart with the updated address.
 

@@ -1,7 +1,8 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE CPP #-}
 
 -- | MOVE Prelude
 --
@@ -14,10 +15,28 @@ module GHC.Err
 import GHC.Integer.Type() -- required so Integer optimisation works
 import GHC.Types
 
+#ifdef DAML_EXCEPTIONS
+
+import DA.Exception.GeneralError
+
 -- | `error` stops execution and displays the given error message.
 --
 -- If called within a transaction, it will abort the current transaction.
--- Outside of a transaction (scenarios, DAML Script or DAML Triggers)
+-- Outside of a transaction (scenarios, Daml Script or Daml Triggers)
+-- it will stop the whole scenario/script/trigger.
+--
+-- Throws a `GeneralError` exception.
+error : Text -> a
+error msg = primitive @"EThrow" (GeneralError msg)
+
+#else
+
+-- | `error` stops execution and displays the given error message.
+--
+-- If called within a transaction, it will abort the current transaction.
+-- Outside of a transaction (scenarios, Daml Script or Daml Triggers)
 -- it will stop the whole scenario/script/trigger.
 error : Text -> a
 error = primitive @"BEError"
+
+#endif

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.validation
@@ -17,15 +17,16 @@ class SubmitRequestValidator(commandsValidator: CommandsValidator) {
       req: SubmitRequest,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationTime: Option[Duration])
-    : Either[StatusRuntimeException, submission.SubmitRequest] =
+      maxDeduplicationTime: Option[Duration],
+  ): Either[StatusRuntimeException, submission.SubmitRequest] =
     for {
       commands <- requirePresence(req.commands, "commands")
       validatedCommands <- commandsValidator.validateCommands(
         commands,
         currentLedgerTime,
         currentUtcTime,
-        maxDeduplicationTime)
+        maxDeduplicationTime,
+      )
     } yield submission.SubmitRequest(validatedCommands, req.traceContext.map(toBrave))
 
 }

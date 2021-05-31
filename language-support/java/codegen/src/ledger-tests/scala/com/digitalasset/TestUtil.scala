@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml
@@ -11,12 +11,9 @@ import java.util.{Optional, UUID}
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.ActiveContractsServiceOuterClass.GetActiveContractsResponse
 import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
-import com.daml.ledger.api.v1.TransactionServiceOuterClass.{
-  GetLedgerEndRequest,
-  GetTransactionsResponse
-}
-import com.daml.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
+import com.daml.ledger.api.v1.{ActiveContractsServiceGrpc, CommandServiceGrpc}
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
 import com.daml.ledger.resources.ResourceContext
@@ -30,9 +27,11 @@ import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.Assertion
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
+
+import java.util.Arrays.asList
 
 object TestUtil {
 
@@ -41,9 +40,11 @@ object TestUtil {
 
   val LedgerID = "ledger-test"
 
-  def withClient(testCode: Channel => Assertion)(
-      implicit resourceContext: ResourceContext): Future[Assertion] = {
+  def withClient(
+      testCode: Channel => Assertion
+  )(implicit resourceContext: ResourceContext): Future[Assertion] = {
     val config = sandbox.DefaultConfig.copy(
+      seeding = Some(com.daml.ledger.participant.state.v1.SeedService.Seeding.Weak),
       port = Port.Dynamic,
       damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),
@@ -83,43 +84,72 @@ object TestUtil {
               Optional.empty[Instant],
               Optional.empty[Duration],
               Optional.empty[Duration],
-              cmds.asJava))
-          .build)
+              cmds.asJava,
+            )
+          )
+          .build
+      )
   }
+
+  def sendCmd(
+      channel: Channel,
+      actAs: java.util.List[String],
+      readAs: java.util.List[String],
+      cmds: Command*
+  ): Empty = {
+    CommandServiceGrpc
+      .newBlockingStub(channel)
+      .withDeadlineAfter(40, TimeUnit.SECONDS)
+      .submitAndWait(
+        SubmitAndWaitRequest
+          .newBuilder()
+          .setCommands(
+            SubmitCommandsRequest.toProto(
+              LedgerID,
+              randomId,
+              randomId,
+              randomId,
+              actAs,
+              readAs,
+              Optional.empty[Instant],
+              Optional.empty[Duration],
+              Optional.empty[Duration],
+              cmds.asJava,
+            )
+          )
+          .build
+      )
+  }
+
+  def sendCmd(channel: Channel, party: String, cmds: Command*): Empty =
+    sendCmd(channel, asList(party), asList[String](), cmds: _*)
 
   def readActiveContracts[C <: Contract](fromCreatedEvent: CreatedEvent => C)(
       channel: Channel
   ): List[C] = {
-    val txService = TransactionServiceGrpc.newBlockingStub(channel)
-    val end = txService.getLedgerEnd(GetLedgerEndRequest.newBuilder().setLedgerId(LedgerID).build)
-    val txs = txService.getTransactions(
-      new GetTransactionsRequest(
+    // Relies on ordering of ACS endpoint. This isn’t documented but currently
+    // the ledger guarantees this.
+    val txService = ActiveContractsServiceGrpc.newBlockingStub(channel)
+    val txs = txService.getActiveContracts(
+      new GetActiveContractsRequest(
         LedgerID,
-        LedgerOffset.LedgerBegin.getInstance(),
-        LedgerOffset.fromProto(end.getOffset),
         allTemplates,
-        true).toProto)
-    val iterable: java.lang.Iterable[GetTransactionsResponse] = () => txs
+        true,
+      ).toProto
+    )
+    val iterable: java.lang.Iterable[GetActiveContractsResponse] = () => txs
     StreamSupport
       .stream(iterable.spliterator(), false)
-      .flatMap[Transaction](
-        (r: GetTransactionsResponse) =>
-          data.GetTransactionsResponse
-            .fromProto(r)
-            .getTransactions
-            .stream())
-      .flatMap[Event]((t: Transaction) => t.getEvents.stream)
-      .collect(Collectors.toList[Event])
+      .flatMap[CreatedEvent]((r: GetActiveContractsResponse) =>
+        data.GetActiveContractsResponse
+          .fromProto(r)
+          .getCreatedEvents
+          .stream()
+      )
+      .map[C]((e: CreatedEvent) => fromCreatedEvent(e))
+      .collect(Collectors.toList[C])
       .asScala
-      .foldLeft(Map[String, C]())((acc, event) =>
-        event match {
-          case e: CreatedEvent =>
-            acc + (e.getContractId -> fromCreatedEvent(e))
-          case a: ArchivedEvent => acc - a.getContractId
-      })
       .toList
-      .sortBy(_._1)
-      .map(_._2)
   }
 
 }

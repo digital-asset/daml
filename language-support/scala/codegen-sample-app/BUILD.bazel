@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -14,22 +14,20 @@ load(
 load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "lf_dev_version",
-    "lf_latest_version",
+    "lf_version_configuration",
 )
+load("@scala_version//:index.bzl", "scala_version_suffix")
 
 daml_compile(
     name = "MyMain",
     srcs = ["src/main/daml/MyMain.daml"],
-    # FIXME https://github.com/digital-asset/daml/issues/2256
-    # switch to latest once 1.9 is frozen
-    target = lf_dev_version,
+    target = lf_version_configuration.get("latest"),
 )
 
 daml_compile(
     name = "MySecondMain",
     srcs = ["src/main/daml/MySecondMain.daml"],
-    target = lf_latest_version,
+    target = lf_version_configuration.get("latest"),
 )
 
 dar_to_scala(
@@ -48,8 +46,12 @@ da_scala_library(
     name = "daml-lf-codegen-sample-app",
     srcs = [":MyMain.srcjar"] + glob(["src/main/**/*.scala"]),
     plugins = [
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
         silencer_plugin,
-        "@maven//:org_spire_math_kind_projector_2_12",
+    ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = [
         "-P:silencer:checkUnused",
@@ -60,6 +62,7 @@ da_scala_library(
         # referenced types, and only occurs here in this source tree, so I don't consider
         # it worth fixing for now. -SC
         "-P:silencer:lineContentFilters=ContractIdNT (Value|LfEncodable).*?implicit .?ev",
+        "-P:silencer:lineContentFilters=import _root_.scala.language.higherKinds;",
     ],
     visibility = [
         "//visibility:public",
@@ -71,10 +74,6 @@ da_scala_library(
     deps = [
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
-        # silencer warns if this is absent, but we don't use it here;
-        # buildozer errors if you add it, so silent_annotations can't be used
-        # "@maven//:com_github_ghik_silencer_lib_2_12_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -91,9 +90,11 @@ da_scala_library(
     name = "daml-lf-codegen-sample-app-testing",
     srcs = testing_utils,
     resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -108,12 +109,14 @@ da_scala_test(
             "src/test/scala/com/digitalasset/codegen/ScalaCodeGenIT.scala",
         ],
     ),
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     deps = [
         ":daml-lf-codegen-sample-app",
         "//language-support/scala/bindings",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -132,6 +135,10 @@ da_scala_test(
     ],
     jvm_flags = [
         "-Dcom.daml.sandbox.jar=ledger/sandbox-classic/sandbox-classic-binary_deploy.jar",
+    ],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
         ":daml-lf-codegen-sample-app",
@@ -155,7 +162,5 @@ da_scala_test(
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/ports",
         "//libs-scala/resources",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

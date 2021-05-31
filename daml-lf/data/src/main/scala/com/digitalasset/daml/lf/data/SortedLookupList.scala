@@ -1,22 +1,25 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
 
 import ScalazEqual.{equalBy, orderBy}
-import com.daml.lf.data.ImmArray.ImmArraySeq
 
-import scala.language.higherKinds
 import scalaz.{Applicative, Equal, Order, Traverse}
 import scalaz.std.tuple._
 import scalaz.std.string._
 import scalaz.syntax.traverse._
 
 import scala.collection.immutable.HashMap
+import scala.collection.compat._
 
-/** We use this container to pass around DAML-LF text maps as flat lists in various parts of the codebase. */
+/** We use this container to pass around Daml-LF text maps as flat lists in various parts of the codebase. */
 // Note that keys are ordered using Utf8 ordering
 final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extends Equals {
+
+  def isEmpty: Boolean = entries.isEmpty
+
+  def length: Int = entries.length
 
   def mapValue[Y](f: X => Y) = new SortedLookupList(entries.map { case (k, v) => k -> f(v) })
 
@@ -49,8 +52,8 @@ final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extend
 
 object SortedLookupList extends SortedLookupListInstances {
 
-  private[this] val EntryOrdering: Ordering[(String, _)] = {
-    case ((key1, _), (key2, _)) => Utf8.Ordering.compare(key1, key2)
+  private[this] val EntryOrdering: Ordering[(String, _)] = { case ((key1, _), (key2, _)) =>
+    Utf8.Ordering.compare(key1, key2)
   }
 
   private[this] def nonOrderedEntry[X](entries: ImmArray[(String, X)]): Option[(String, X)] =
@@ -72,8 +75,9 @@ object SortedLookupList extends SortedLookupListInstances {
       case Some(_) => Left(s"the entries $entries are not sorted by key")
     }
 
-  def apply[X](entries: Map[String, X]): SortedLookupList[X] =
-    new SortedLookupList[X](entries.to[ImmArraySeq].sorted(EntryOrdering).toImmArray)
+  def apply[X](entries: Map[String, X]): SortedLookupList[X] = {
+    new SortedLookupList[X](entries.to(ImmArray.ImmArraySeq).sorted(EntryOrdering).toImmArray)
+  }
 
   def Empty: SortedLookupList[Nothing] = new SortedLookupList(ImmArray.empty)
 
@@ -83,7 +87,8 @@ object SortedLookupList extends SortedLookupListInstances {
   implicit val `SLL covariant instance`: Traverse[SortedLookupList] =
     new Traverse[SortedLookupList] {
       override def traverseImpl[G[_]: Applicative, A, B](fa: SortedLookupList[A])(
-          f: A => G[B]): G[SortedLookupList[B]] =
+          f: A => G[B]
+      ): G[SortedLookupList[B]] =
         fa.toImmArray traverse (_ traverse f) map (new SortedLookupList(_))
     }
 

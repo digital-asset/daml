@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services.command
@@ -9,7 +9,7 @@ import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.testing.utils.{
   IsStatusException,
   MockMessages,
-  SuiteResourceManagementAroundAll
+  SuiteResourceManagementAroundAll,
 }
 import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
 import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
@@ -45,14 +45,17 @@ class CommandServiceBackPressureIT
       Some(
         Record(
           Some(templateIds.dummy),
-          Seq(RecordField("operator", Option(Value(Value.Sum.Party(party)))))))).wrap
+          Seq(RecordField("operator", Option(Value(Value.Sum.Party(party))))),
+        )
+      ),
+    ).wrap
 
   private def submitAndWaitRequest(ledgerId: String) =
     MockMessages.submitAndWaitRequest
       .update(
         _.commands.commands := List(command(MockMessages.submitAndWaitRequest.getCommands.party)),
         _.commands.ledgerId := ledgerId,
-        _.commands.commandId := UUID.randomUUID().toString
+        _.commands.commandId := UUID.randomUUID().toString,
       )
 
   private def submitRequest(ledgerId: String) =
@@ -60,7 +63,7 @@ class CommandServiceBackPressureIT
       .update(
         _.commands.commands := List(command(MockMessages.submitRequest.getCommands.party)),
         _.commands.ledgerId := ledgerId,
-        _.commands.commandId := UUID.randomUUID().toString
+        _.commands.commandId := UUID.randomUUID().toString,
       )
 
   private def pushedBack(t: Throwable): Boolean = t match {
@@ -70,8 +73,8 @@ class CommandServiceBackPressureIT
 
   private def testBackPressure[A](responses: Seq[Future[A]]): Future[Assertion] =
     Future
-      .sequence(responses.map(_.map(Success(_)).recover({
-        case ex => Failure(ex)
+      .sequence(responses.map(_.map(Success(_)).recover({ case ex =>
+        Failure(ex)
       })))
       .map(_.collect { case Failure(ex) => ex }) map { errors =>
       info(s"${errors.size}/$commands requests failed")
@@ -105,7 +108,7 @@ class CommandServiceBackPressureIT
       commandConfig = super.config.commandConfig.copy(
         inputBufferSize = 1,
         maxParallelSubmissions = 2,
-        maxCommandsInFlight = 2
+        maxCommandsInFlight = 2,
       )
     )
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.{
   LedgerItem,
-  ledgerOffsetOrdering
+  ledgerOffsetOrdering,
 }
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.auth.services.TransactionServiceAuthorization
@@ -17,7 +17,7 @@ import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.{
   LEDGER_BEGIN,
   LEDGER_END,
-  Unrecognized
+  Unrecognized,
 }
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.{Absolute, Boundary}
 import com.daml.ledger.api.v1.trace_context.TraceContext
@@ -46,14 +46,15 @@ final class TransactionsServiceImpl(ledgerContent: Observable[LedgerItem])
 
   override def getTransactions(
       request: GetTransactionsRequest,
-      responseObserver: StreamObserver[GetTransactionsResponse]): Unit = {
+      responseObserver: StreamObserver[GetTransactionsResponse],
+  ): Unit = {
     lastTransactionsRequest.set(request)
 
     if (request.end.exists(end => ledgerOffsetOrdering.gt(request.getBegin, end))) {
       val metadata = new Metadata()
       metadata.put(
         Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER),
-        s"BEGIN should be strictly smaller than END. Found BEGIN '${request.getBegin}' and END '${request.getEnd}'"
+        s"BEGIN should be strictly smaller than END. Found BEGIN '${request.getBegin}' and END '${request.getEnd}'",
       )
       responseObserver.onError(Status.INVALID_ARGUMENT.asRuntimeException(metadata))
     } else {
@@ -69,42 +70,52 @@ final class TransactionsServiceImpl(ledgerContent: Observable[LedgerItem])
 
   override def getTransactionTrees(
       request: GetTransactionsRequest,
-      responseObserver: StreamObserver[GetTransactionTreesResponse]): Unit = {
+      responseObserver: StreamObserver[GetTransactionTreesResponse],
+  ): Unit = {
     lastTransactionsTreesRequest.set(request)
     responseObserver.onCompleted()
   }
 
   override def getTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[GetTransactionResponse] = {
+      request: GetTransactionByEventIdRequest
+  ): Future[GetTransactionResponse] = {
     lastTransactionByEventIdRequest.set(request)
     Future.successful(new GetTransactionResponse(None)) // just a mock, not intended for consumption
   }
 
   override def getTransactionById(
-      request: GetTransactionByIdRequest): Future[GetTransactionResponse] = {
+      request: GetTransactionByIdRequest
+  ): Future[GetTransactionResponse] = {
     lastTransactionByIdRequest.set(request)
     Future.successful(new GetTransactionResponse(None)) // just a mock, not intended for consumption
   }
 
   override def getFlatTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[GetFlatTransactionResponse] = {
+      request: GetTransactionByEventIdRequest
+  ): Future[GetFlatTransactionResponse] = {
     lastFlatTransactionByEventIdRequest.set(request)
-    Future.successful(new GetFlatTransactionResponse(None)) // just a mock, not intended for consumption
+    Future.successful(
+      new GetFlatTransactionResponse(None)
+    ) // just a mock, not intended for consumption
   }
 
   override def getFlatTransactionById(
-      request: GetTransactionByIdRequest): Future[GetFlatTransactionResponse] = {
+      request: GetTransactionByIdRequest
+  ): Future[GetFlatTransactionResponse] = {
     lastFlatTransactionByIdRequest.set(request)
-    Future.successful(new GetFlatTransactionResponse(None)) // just a mock, not intended for consumption
+    Future.successful(
+      new GetFlatTransactionResponse(None)
+    ) // just a mock, not intended for consumption
   }
 
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] = {
     lastLedgerEndRequest.set(request)
-    val promise = Promise[GetLedgerEndResponse]
+    val promise = Promise[GetLedgerEndResponse]()
     val result =
       ledgerContent
         .map[GetLedgerEndResponse](t =>
-          GetLedgerEndResponse(Option(LedgerOffset(Absolute(t.offset)))))
+          GetLedgerEndResponse(Option(LedgerOffset(Absolute(t.offset))))
+        )
         .last(GetLedgerEndResponse(Option(LedgerOffset(Boundary(LEDGER_BEGIN)))))
     result.subscribe(promise.success, promise.failure)
     promise.future
@@ -121,7 +132,8 @@ object TransactionsServiceImpl {
       effectiveAt: Timestamp,
       events: Seq[Event],
       offset: String,
-      traceContext: Option[TraceContext]) {
+      traceContext: Option[TraceContext],
+  ) {
 
     def toTransaction =
       Transaction(
@@ -131,7 +143,8 @@ object TransactionsServiceImpl {
         Some(effectiveAt),
         events,
         offset,
-        traceContext)
+        traceContext,
+      )
   }
 
   def eventId(event: Event): String = event.event match {
@@ -140,8 +153,9 @@ object TransactionsServiceImpl {
     case Empty => ""
   }
 
-  def createWithRef(ledgerContent: Observable[LedgerItem], authorizer: Authorizer)(
-      implicit ec: ExecutionContext): (ServerServiceDefinition, TransactionsServiceImpl) = {
+  def createWithRef(ledgerContent: Observable[LedgerItem], authorizer: Authorizer)(implicit
+      ec: ExecutionContext
+  ): (ServerServiceDefinition, TransactionsServiceImpl) = {
     val impl = new TransactionsServiceImpl(ledgerContent)
     val authImpl = new TransactionServiceAuthorization(impl, authorizer)
     (TransactionServiceGrpc.bindService(authImpl, ec), impl)
@@ -157,7 +171,8 @@ object TransactionsServiceImpl {
             case LEDGER_END => 1
             case Unrecognized(value) =>
               throw new RuntimeException(
-                s"Found boundary that is neither BEGIN or END (value: $value)")
+                s"Found boundary that is neither BEGIN or END (value: $value)"
+              )
           }
         case xAbs =>
           y.getAbsolute match {
@@ -167,7 +182,8 @@ object TransactionsServiceImpl {
                 case LEDGER_END => -1
                 case Unrecognized(value) =>
                   throw new RuntimeException(
-                    s"Found boundary that is neither BEGIN or END (value: $value)")
+                    s"Found boundary that is neither BEGIN or END (value: $value)"
+                  )
               }
             case yAbs => xAbs.compareTo(yAbs)
           }

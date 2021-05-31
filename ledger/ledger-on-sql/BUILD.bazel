@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,6 +6,7 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
+    "silencer_plugin",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 
@@ -76,7 +77,18 @@ all_database_runtime_deps = {dep: None for db in supported_databases for dep in 
 da_scala_library(
     name = "ledger-on-sql",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    plugins = [
+        silencer_plugin,
+    ],
     resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_playframework_anorm_anorm",
+        "@maven//:org_playframework_anorm_anorm_tokenizer",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     tags = ["maven_coordinates=com.daml:ledger-on-sql:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -98,15 +110,11 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_play_anorm_2_12",
-        "@maven//:com_typesafe_play_anorm_tokenizer_2_12",
         "@maven//:com_zaxxer_HikariCP",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_flywaydb_flyway_core",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -114,6 +122,11 @@ da_scala_library(
     name = "ledger-on-sql-app",
     srcs = glob(["src/app/scala/**/*.scala"]),
     resources = glob(["src/app/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":ledger-on-sql",
@@ -132,9 +145,6 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/ports",
         "//libs-scala/resources",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
     ],
 )
 
@@ -154,6 +164,13 @@ da_scala_binary(
 da_scala_library(
     name = "ledger-on-sql-test-lib",
     srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
     visibility = [
         "//visibility:public",
     ],
@@ -169,7 +186,6 @@ da_scala_library(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",
-        "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
@@ -180,11 +196,6 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
@@ -192,9 +203,16 @@ da_scala_test_suite(
     name = "ledger-on-sql-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
-        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common:model-tests-stable.dar",
     ],
     resources = glob(["src/test/resources/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scala_lang_modules_scala_java8_compat",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
@@ -219,15 +237,35 @@ da_scala_test_suite(
         "//libs-scala/flyway-testing",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_flywaydb_flyway_core",
-        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
+
+[
+    # TODO https://github.com/digital-asset/daml/issues/8020
+    # Consider if we want to keep dev once exceptions are out of 1.dev
+    conformance_test(
+        name = "conformance-test-{}".format(db["name"]),
+        lf_versions = [
+            "stable",
+            "latest",
+            "preview",
+            "dev",
+        ],
+        ports = [6865],
+        server = ":conformance-test-{}-bin".format(db["name"]),
+        server_args = [
+            "--contract-id-seeding=testing-weak",
+            "--participant participant-id=conformance-test,port=6865",
+        ] + db.get("conformance_test_server_args", []),
+        tags = db.get("conformance_test_tags", []),
+        test_tool_args = db.get("conformance_test_tool_args", []) + [
+            "--verbose",
+        ],
+    )
+    for db in supported_databases
+]
 
 [
     (
@@ -242,19 +280,6 @@ da_scala_test_suite(
             ],
         ),
         conformance_test(
-            name = "conformance-test-{}".format(db["name"]),
-            ports = [6865],
-            server = ":conformance-test-{}-bin".format(db["name"]),
-            server_args = [
-                "--contract-id-seeding=testing-weak",
-                "--participant participant-id=conformance-test,port=6865",
-            ] + db.get("conformance_test_server_args", []),
-            tags = db.get("conformance_test_tags", []),
-            test_tool_args = db.get("conformance_test_tool_args", []) + [
-                "--verbose",
-            ],
-        ),
-        conformance_test(
             name = "conformance-test-participant-pruning-{}".format(db["name"]),
             ports = [6865],
             server = ":conformance-test-{}-bin".format(db["name"]),
@@ -266,6 +291,20 @@ da_scala_test_suite(
             test_tool_args = db.get("conformance_test_tool_args", []) + [
                 "--verbose",
                 "--include=ParticipantPruningIT",
+            ],
+        ),
+        conformance_test(
+            name = "conformance-test-multi-party-submission-{}".format(db["name"]),
+            ports = [6865],
+            server = ":conformance-test-{}-bin".format(db["name"]),
+            server_args = [
+                "--contract-id-seeding=testing-weak",
+                "--participant participant-id=conformance-test,port=6865",
+            ] + db.get("conformance_test_server_args", []),
+            tags = db.get("conformance_test_tags", []),
+            test_tool_args = db.get("conformance_test_tool_args", []) + [
+                "--verbose",
+                "--include=MultiPartySubmissionIT",
             ],
         ),
         conformance_test(
@@ -287,3 +326,53 @@ da_scala_test_suite(
     )
     for db in supported_databases
 ]
+
+conformance_test(
+    name = "conformance-test-append-only",
+    ports = [6865],
+    server = ":conformance-test-postgresql-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
+    ],
+    tags = [],
+    test_tool_args = [
+        "--verbose",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-pruning",
+    ports = [6865],
+    server = ":conformance-test-postgresql-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
+    ],
+    tags = [],
+    test_tool_args = [
+        "--verbose",
+        "--include=ParticipantPruningIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-multi-party-submission",
+    ports = [6865],
+    server = ":conformance-test-postgresql-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
+    ],
+    tags = [],
+    test_tool_args = [
+        "--verbose",
+        "--include=MultiPartySubmissionIT",
+    ],
+)

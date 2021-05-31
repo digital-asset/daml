@@ -1,6 +1,7 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 
@@ -8,6 +9,7 @@
 module DA.Internal.Desugar (
     module DA.Internal.Template,
     module DA.Internal.Template.Functions,
+    module DA.Internal.Exception,
     Eq(..), Show(..),
     Bool(..), Text, Optional(..),
     concat, magic,
@@ -19,6 +21,11 @@ import DA.Internal.Prelude
 import DA.Internal.Template
 import DA.Internal.Template.Functions
 import DA.Internal.LF
+#ifndef DAML_EXCEPTIONS
+import DA.Internal.Exception ()
+#else
+import DA.Internal.Exception
+#endif
 import GHC.Types (magic)
 
 -- These are only used as markers by desugaring, we do not translate them to LF.

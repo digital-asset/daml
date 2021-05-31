@@ -1,11 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.script.converter
 
 import java.util
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scalaz.syntax.bind._
 import scalaz.std.either._
 import com.daml.lf.data.{ImmArray, Ref}
@@ -27,17 +27,18 @@ private[daml] object Converter {
   def daInternalAny(s: String): Identifier =
     Identifier(
       DA_INTERNAL_ANY_PKGID,
-      QualifiedName(DottedName.assertFromString("DA.Internal.Any"), DottedName.assertFromString(s)))
+      QualifiedName(DottedName.assertFromString("DA.Internal.Any"), DottedName.assertFromString(s)),
+    )
 
   def toContractId(v: SValue): ErrorOr[ContractId] =
-    v expect ("ContractId", { case SContractId(cid) => cid })
+    v.expect("ContractId", { case SContractId(cid) => cid })
 
   def toText(v: SValue): ErrorOr[String] =
-    v expect ("SText", { case SText(s) => s })
+    v.expect("SText", { case SText(s) => s })
 
   // Helper to make constructing an SRecord more convenient
   def record(ty: Identifier, fields: (String, SValue)*): SValue = {
-    val fieldNames = fields.iterator.map { case (n, _) => Name.assertFromString(n) }.to[ImmArray]
+    val fieldNames = fields.view.map { case (n, _) => Name.assertFromString(n) }.to(ImmArray)
     val args =
       new util.ArrayList[SValue](fields.map({ case (_, v) => v }).asJava)
     SRecord(ty, fieldNames, args)
@@ -47,11 +48,14 @@ private[daml] object Converter {
     * with the assumption that `f` is a variant type.
     */
   def unrollFree(v: SValue): ErrorOr[SValue Either (Ast.VariantConName, SValue)] =
-    v expect ("Free with variant or Pure", {
-      case SVariant(_, "Free", _, SVariant(_, variant, _, vv)) =>
-        Right((variant, vv))
-      case SVariant(_, "Pure", _, v) => Left(v)
-    })
+    v.expect(
+      "Free with variant or Pure",
+      {
+        case SVariant(_, "Free", _, SVariant(_, variant, _, vv)) =>
+          Right((variant, vv))
+        case SVariant(_, "Pure", _, v) => Left(v)
+      },
+    )
 
   private[this] val DaTypesTuple2 =
     QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString("Tuple2"))
@@ -65,14 +69,14 @@ private[daml] object Converter {
   }
 
   object DamlAnyModuleRecord {
-    def unapplySeq(v: SRecord): Some[(String, Seq[SValue])] = {
+    def unapplySeq(v: SRecord): Some[(String, collection.Seq[SValue])] = {
       val SRecord(Identifier(_, QualifiedName(_, name)), _, values) = v
       Some((name.dottedName, values.asScala))
     }
   }
 
   object JavaList {
-    def unapplySeq[A](jl: util.List[A]): Some[Seq[A]] =
+    def unapplySeq[A](jl: util.List[A]): Some[collection.Seq[A]] =
       Some(jl.asScala)
   }
 
@@ -90,7 +94,7 @@ private[daml] object Converter {
 
     implicit final class `ErrorOr ops`[A](private val self: ErrorOr[A]) extends AnyVal {
       @throws[ConverterException]
-      def orConverterException: A = self fold (e => throw new ConverterException(e), identity)
+      def orConverterException: A = self.fold(e => throw new ConverterException(e), identity)
     }
   }
 }

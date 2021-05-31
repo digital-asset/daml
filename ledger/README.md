@@ -21,7 +21,7 @@ increasing volume of logging during normal operation.
 WARN level should be used for transition between healthy/unhealthy state, or in other close to error scenarios.
 
 DEBUG level should be turned on only when investigating issues in the system, and usually that means we want the trail
-loggers. Normal loggers at DEBUG level can be useful sometimes (e.g. DAML interpretation).
+loggers. Normal loggers at DEBUG level can be useful sometimes (e.g. Daml interpretation).
 
 ## Metrics
 

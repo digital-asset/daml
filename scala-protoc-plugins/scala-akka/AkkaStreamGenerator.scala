@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 package com.daml.protoc.plugins.akka
 
@@ -6,47 +6,43 @@ import com.google.protobuf.Descriptors._
 import com.google.protobuf.ExtensionRegistry
 import com.google.protobuf.compiler.PluginProtos.{CodeGeneratorRequest, CodeGeneratorResponse}
 import protocbridge.ProtocCodeGenerator
+import protocgen.{CodeGenRequest, CodeGenResponse}
 import scalapb.compiler._
-import scalapb.options.compiler.Scalapb
+import scalapb.options.Scalapb
 
-import scala.collection.JavaConverters._
-import scala.reflect.io.Streamable
+import scala.jdk.CollectionConverters._
 
 // This file is mostly copied over from ScalaPbCodeGenerator and ProtobufGenerator
-
-object AkkaStreamCompilerPlugin {
-  def main(args: Array[String]): Unit = {
-    val registry = ExtensionRegistry.newInstance()
-    Scalapb.registerAllExtensions(registry)
-    val request = CodeGeneratorRequest.parseFrom(Streamable.bytes(System.in), registry)
-    System.out.write(AkkaStreamGenerator.handleCodeGeneratorRequest(request).toByteArray)
-  }
-}
-
-class AkkaStreamGenerator(val params: GeneratorParams, files: Seq[FileDescriptor])
-    extends DescriptorImplicits(params, files) {
-  def generateServiceFiles(file: FileDescriptor): Seq[CodeGeneratorResponse.File] = {
-    file.getServices.asScala.flatMap { service =>
-      val p = new AkkaGrpcServicePrinter(service, params)
-      p.printService(FunctionalPrinter()).fold[List[CodeGeneratorResponse.File]](Nil) { p =>
-        val code = p.result()
-        val b = CodeGeneratorResponse.File.newBuilder()
-        b.setName(file.scalaDirectory + "/" + service.name + "AkkaGrpc.scala")
-        b.setContent(code)
-        List(b.build)
-      }
-    }
-  }
-}
 
 object AkkaStreamGenerator extends ProtocCodeGenerator {
   override def run(req: Array[Byte]): Array[Byte] = {
     val registry = ExtensionRegistry.newInstance()
     Scalapb.registerAllExtensions(registry)
     val request = CodeGeneratorRequest.parseFrom(req, registry)
-    handleCodeGeneratorRequest(request).toByteArray
+    handleCodeGeneratorRequest(CodeGenRequest(request)).toCodeGeneratorResponse.toByteArray
   }
-  def parseParameters(params: String): Either[String, GeneratorParams] = {
+
+  def handleCodeGeneratorRequest(request: CodeGenRequest): CodeGenResponse =
+    parseParameters(request.parameter) match {
+      case Right(params) =>
+        implicit val descriptorImplicits: DescriptorImplicits =
+          DescriptorImplicits.fromCodeGenRequest(params, request)
+        try {
+          val filesByName: Map[String, FileDescriptor] =
+            request.allProtos.map(fd => fd.getName -> fd).toMap
+          val validator = new ProtoValidation(descriptorImplicits)
+          filesByName.values.foreach(validator.validateFile)
+          val responseFiles = request.filesToGenerate.flatMap(generateServiceFiles(_))
+          CodeGenResponse.succeed(responseFiles)
+        } catch {
+          case exception: GeneratorException =>
+            CodeGenResponse.fail(exception.message)
+        }
+      case Left(error) =>
+        CodeGenResponse.fail(error)
+    }
+
+  private def parseParameters(params: String): Either[String, GeneratorParams] = {
     params
       .split(",")
       .map(_.trim)
@@ -64,33 +60,22 @@ object AkkaStreamGenerator extends ProtocCodeGenerator {
       }
   }
 
-  def handleCodeGeneratorRequest(request: CodeGeneratorRequest): CodeGeneratorResponse = {
-    val b = CodeGeneratorResponse.newBuilder
-    parseParameters(request.getParameter) match {
-      case Right(params) =>
-        try {
-          val filesByName: Map[String, FileDescriptor] =
-            request.getProtoFileList.asScala.foldLeft[Map[String, FileDescriptor]](Map.empty) {
-              case (acc, fp) =>
-                val deps = fp.getDependencyList.asScala.map(acc)
-                acc + (fp.getName -> FileDescriptor.buildFrom(fp, deps.toArray))
-            }
-          val generator = new AkkaStreamGenerator(params, filesByName.values.toSeq)
-          val validator = new ProtoValidation(generator)
-          filesByName.values.foreach(validator.validateFile)
-          request.getFileToGenerateList.asScala.foreach { name =>
-            val file = filesByName(name)
-            val responseFiles = generator.generateServiceFiles(file)
-            b.addAllFile(responseFiles.asJava)
-          }
-        } catch {
-          case e: GeneratorException =>
-            b.setError(e.message)
-        }
-      case Left(error) =>
-        b.setError(error)
+  private def generateServiceFiles(
+      file: FileDescriptor
+  )(implicit
+      descriptorImplicits: DescriptorImplicits
+  ): collection.Seq[CodeGeneratorResponse.File] = {
+    import descriptorImplicits._
+    file.getServices.asScala.flatMap { service =>
+      val printer = new AkkaGrpcServicePrinter(service)
+      printer.printService(FunctionalPrinter()).fold[List[CodeGeneratorResponse.File]](Nil) { p =>
+        val code = p.result()
+        val fileBuilder = CodeGeneratorResponse.File.newBuilder()
+        fileBuilder.setName(file.scalaDirectory + "/" + service.name + "AkkaGrpc.scala")
+        fileBuilder.setContent(code)
+        List(fileBuilder.build())
+      }
     }
-    b.build
   }
 
   val deprecatedAnnotation: String =

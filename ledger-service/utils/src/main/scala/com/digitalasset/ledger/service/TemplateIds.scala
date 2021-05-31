@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.service
@@ -13,11 +13,11 @@ object TemplateIds {
     interfaces.flatMap(getTemplateIds)
 
   private def getTemplateIds(interface: Interface): Set[Identifier] =
-    interface.typeDecls.iterator.collect {
-      case (qn: QualifiedName, _: Template) =>
-        Identifier(
-          packageId = interface.packageId,
-          moduleName = qn.module.dottedName,
-          entityName = qn.name.dottedName)
+    interface.typeDecls.iterator.collect { case (qn: QualifiedName, _: Template) =>
+      Identifier(
+        packageId = interface.packageId,
+        moduleName = qn.module.dottedName,
+        entityName = qn.name.dottedName,
+      )
     }.toSet
 }

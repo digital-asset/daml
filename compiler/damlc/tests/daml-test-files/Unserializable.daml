@@ -1,11 +1,11 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- Test the serializability checker for DAML LF.
+-- Test the serializability checker for Daml-LF.
 -- We use the template typeclass and instances directly as otherwise the error
 -- is caught prior due to missing Eq and Show instances.
 
--- @ERROR range=1:1-100001:1; expected serializable type
+-- @ERROR range=1:1-2:1; expected serializable type
 
 module Unserializable where
 

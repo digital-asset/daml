@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.json
@@ -30,7 +30,8 @@ private[http] object ResponseFormats {
 
   def resultJsObject[E: Show](
       jsVals: Source[E \/ JsValue, NotUsed],
-      warnings: Option[JsValue]): Source[ByteString, NotUsed] = {
+      warnings: Option[JsValue],
+  ): Source[ByteString, NotUsed] = {
 
     val graph = GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._

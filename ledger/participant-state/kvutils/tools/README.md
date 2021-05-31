@@ -2,7 +2,7 @@
 
 A tool that checks the integrity of a ledger dump stored in a file. It can be used to
 verify that a dump made with an old version of the software can still be successfully processed.
-It can also be used to profile DAML interpretation code in a more isolated fashion.
+It can also be used to profile Daml interpretation code in a more isolated fashion.
 
 ## Build
 
@@ -24,11 +24,13 @@ Run the tool using Bazel:
 The following options are supported:
 
     --help
-    --skip-byte-comparison  Skips the byte-for-byte comparison. Useful when comparing behavior across versions.
-    --sort-write-set        Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally.
-    --index-only            Run only the indexing step of the integrity checker (useful to benchmark the indexer).
-    --jdbc-url              External JDBC url (useful for running against PostgreSQL).
-    --report-metrics          Print all registered metrics.
+    --skip-byte-comparison      Skips the byte-for-byte comparison. Useful when comparing behavior across versions.
+    --sort-write-set            Sorts the computed write set. Older exports sorted before writing. Newer versions order them intentionally.
+    --index-only                Run only the indexing step of the integrity checker (useful to benchmark the indexer).
+    --jdbc-url                  External JDBC url (useful for running against PostgreSQL).
+    --report-metrics            Print all registered metrics.
+    --expected-updates-output   The output path for expected updates. Useful for debugging. It might be worth sorting the output files and using a diff tool.
+    --actual-updates-output     Similarly, the output path for actual updates.
 
 # `benchmark-replay`
 
@@ -69,7 +71,7 @@ where:
   "adaptation". The adaptation process attempts to map the identifiers
   from the export file with the ones of dar file when those latter
   differ only in their package ID.  This can be used when the original
-  DAML source used to generate the ledger export is only slightly
+  Daml source used to generate the ledger export is only slightly
   modified or compiled with different options.
   
 The tool expects the exercised choices to be unique in the ledger

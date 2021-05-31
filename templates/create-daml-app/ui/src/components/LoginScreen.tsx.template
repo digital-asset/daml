@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import React, { useCallback } from 'react'
@@ -69,10 +69,10 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
               href='https://www.daml.com/'
               target='_blank'
               src='/daml.svg'
-              alt='DAML Logo'
+              alt='Daml Logo'
               spaced
               size='small'
-              verticalAlign='middle'
+              verticalAlign='bottom'
             />
             App
           </Header.Content>

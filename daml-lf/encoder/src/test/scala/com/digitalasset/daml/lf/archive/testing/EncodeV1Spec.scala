@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.archive
@@ -7,10 +7,9 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageMajorVersion.V1
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.daml.lf.testing.parser.{AstRewriter, ParserParameters, parseModules}
+import com.daml.lf.testing.parser.{AstRewriter, ParserParameters}
 import com.daml.lf.validation.Validation
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
@@ -23,10 +22,7 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
   import EncodeV1Spec._
 
   val defaultParserParameters: ParserParameters[this.type] =
-    ParserParameters(
-      pkgId,
-      LanguageVersion(V1, "8")
-    )
+    ParserParameters(pkgId, LanguageVersion.v1_dev)
 
   "Encode and Decode" should {
     "form a prism" in {
@@ -49,8 +45,14 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
               observers Cons @Party [Mod:Person {person} this] (Nil @Party),
               agreement "Agreement",
               choices {
-                choice Sleep (self) (u: Unit) : Unit, controllers Cons @Party [Mod:Person {person} this] (Nil @Party) to upure @Unit (),
-                choice @nonConsuming Nap (self) (i : Int64): Int64, controllers Cons @Party [Mod:Person {person} this] (Nil @Party) to upure @Int64 i
+                choice Sleep (self) (u: Unit) : Unit, 
+                    controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
+                    observers Nil @Party
+                  to upure @Unit (),
+                choice @nonConsuming Nap (self) (i : Int64): Int64, 
+                    controllers Cons @Party [Mod:Person {person} this] (Nil @Party),
+                    observers Cons @Party [Mod:Person {person} this] (Nil @Party)
+                to upure @Int64 i
               },
               key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party))
             };
@@ -131,55 +133,30 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
            val anEmbedExpr: forall (a: *). Update a -> Update a = /\ (a: *). \ (x: Update a) ->
              uembed_expr @a x;
            val isZero: Int64 -> Bool = EQUAL @Int64 0;
+           val isOne: BigNumeric -> Bool = EQUAL @BigNumeric (NUMERIC_TO_BIGNUMERIC @10 1.0000000000);
+           val defaultRounding: RoundingMode = ROUNDING_UP;
+
+           record @serializable MyException = { message: Text } ;
+           exception MyException = {
+             message \(e: Mod:MyException) -> Mod:MyException {message} e
+           };
+
+           val testException: Update Unit = ubind
+              u1: Unit <-
+                try @Unit
+                  throw @(Update Unit) @Mod:MyException (Mod:MyException {message = "oops"})
+                catch e -> Some @(Update Unit) (upure @Unit ())
+            in upure @Unit ();
          }
         
       """
 
       validate(pkgId, pkg)
-
       val archive = Encode.encodeArchive(pkgId -> pkg, defaultParserParameters.languageVersion)
       val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
 
       val pkg1 = normalize(decodedPackage, hashCode, pkgId)
       pkg shouldBe pkg1
-    }
-
-    "Encoding of function type with different versions should work as expected" in {
-
-      val text =
-        """
-        module Mod{
-        
-          val f : forall (a:*) (b: *) (c: *). a -> b -> c -> Unit =
-            /\  (a:*) (b: *) (c: *). \ (xa: a) (xb: b) (xc: c) -> ();
-        }
-     """
-      val versions =
-        Table(
-          "minVersion",
-          LanguageVersion(V1, "6"),
-          LanguageVersion(V1, "7"),
-          LanguageVersion(V1, "8"),
-          LanguageVersion.default)
-
-      forEvery(versions) { version =>
-        implicit val parserParameters: ParserParameters[version.type] =
-          ParserParameters(pkgId, version)
-
-        val metadata =
-          if (LanguageVersion.ordering.gteq(version, LanguageVersion.Features.packageMetadata)) {
-            Some(
-              PackageMetadata(
-                PackageName.assertFromString("encodespec"),
-                PackageVersion.assertFromString("1.0.0")))
-          } else None
-        val pkg = Package(parseModules(text).right.get, Set.empty, version, metadata)
-        val archive = Encode.encodeArchive(pkgId -> pkg, version)
-        val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
-
-        pkg shouldBe normalize(decodedPackage, hashCode, pkgId)
-      }
-
     }
   }
 
@@ -196,9 +173,8 @@ object EncodeV1Spec {
     val replacePkId: PartialFunction[Identifier, Identifier] = {
       case Identifier(`hashCode`, name) => Identifier(selfPackageId, name)
     }
-    lazy val dropEAbsRef: PartialFunction[Expr, Expr] = {
-      case EAbs(binder, body, Some(_)) =>
-        EAbs(normalizer.apply(binder), normalizer.apply(body), None)
+    lazy val dropEAbsRef: PartialFunction[Expr, Expr] = { case EAbs(binder, body, Some(_)) =>
+      EAbs(normalizer.apply(binder), normalizer.apply(body), None)
     }
     lazy val normalizer = new AstRewriter(exprRule = dropEAbsRef, identifierRule = replacePkId)
 

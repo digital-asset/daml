@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
@@ -8,7 +8,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_binary(
     name = "release",
-    srcs = glob(["src/**/*.hs"]) + ["//:SdkVersion.hs"],
+    srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
         "aeson",
         "async",
@@ -26,7 +26,6 @@ da_haskell_binary(
         "extra",
         "fast-logger",
         "filepath",
-        "ghc",
         "http-client",
         "http-client-tls",
         "http-conduit",
@@ -57,7 +56,10 @@ da_haskell_binary(
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
-    deps = [],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//libs-haskell/test-utils",
+    ],
 )
 
 # Disabled on Windows since directory outputs can cause issues.
@@ -65,4 +67,20 @@ protos_zip(
     name = "protobufs",
 ) if not is_windows else None
 
-sdk_tarball("sdk-release-tarball", sdk_version)
+[
+    sdk_tarball(
+        "sdk-release-tarball-{}".format(edition),
+        sdk_version,
+        edition,
+    )
+    for edition in [
+        "ce",
+        "ee",
+    ]
+]
+
+alias(
+    name = "sdk-release-tarball",
+    actual = "sdk-release-tarball-ce",
+    visibility = ["//visibility:public"],
+)

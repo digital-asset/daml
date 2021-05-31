@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -6,10 +6,10 @@ package com.daml.lf.engine.script.test
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
-import com.daml.lf.engine.script.RunnerConfig
+import com.daml.lf.engine.script.{RunnerConfig, ScriptF, StackTrace}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue._
-import org.scalatest._
+import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import spray.json.{JsNumber, JsObject, JsString}
@@ -18,6 +18,7 @@ abstract class AbstractFuncIT
     extends AsyncWordSpec
     with SandboxParticipantFixture
     with Matchers
+    with Inside
     with SuiteResourceManagementAroundAll {
   val (stableDar, stableEnvIface) = readDar(stableDarFile)
   val (devDar, devDarEnvIface) = readDar(devDarFile)
@@ -28,7 +29,7 @@ abstract class AbstractFuncIT
       case _ => fail(s"Expected STimestamp but got $v")
     }
 
-  s"DAML Script func tests: ${timeMode}" can {
+  s"Daml Script func tests: ${timeMode}" can {
     "test0" should {
       "create two accepted proposals" in {
         for {
@@ -36,7 +37,8 @@ abstract class AbstractFuncIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test0"),
-            dar = stableDar)
+            dar = stableDar,
+          )
         } yield {
           assert(vals.size == 5)
           val alice = vals.get(0) match {
@@ -51,9 +53,8 @@ abstract class AbstractFuncIT
           assert(alice != bob)
           vals.get(2) match {
             case SList(
-                FrontStackCons(
-                  SRecord(_, _, t1),
-                  FrontStackCons(SRecord(_, _, t2), FrontStack()))) =>
+                  FrontStackCons(SRecord(_, _, t1), FrontStackCons(SRecord(_, _, t2), FrontStack()))
+                ) =>
               t1 should contain theSameElementsInOrderAs (Seq(SParty(alice), SParty(bob)))
               t2 should contain theSameElementsInOrderAs (Seq(SParty(alice), SParty(bob)))
             case v => fail(s"Expected SList but got $v")
@@ -85,7 +86,8 @@ abstract class AbstractFuncIT
             clients,
             QualifiedName.assertFromString("ScriptTest:test2"),
             dar = stableDar,
-            inputValue = Some(JsObject(("p", JsString("Alice")), ("v", JsNumber(42)))))
+            inputValue = Some(JsObject(("p", JsString("Alice")), ("v", JsNumber(42)))),
+          )
         } yield {
           assert(v == SInt64(42))
         }
@@ -108,7 +110,8 @@ abstract class AbstractFuncIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:test4"),
-            dar = stableDar)
+            dar = stableDar,
+          )
         } yield {
           assert(vals.size == 2)
           assert(vals.get(0) == vals.get(1))
@@ -122,7 +125,8 @@ abstract class AbstractFuncIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testKey"),
-            dar = stableDar)
+            dar = stableDar,
+          )
         } yield {
           assert(vals.size == 2)
           assert(vals.get(0) == vals.get(1))
@@ -136,7 +140,8 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testCreateAndExercise"),
-            dar = stableDar)
+            dar = stableDar,
+          )
         } yield {
           assert(v == SInt64(42))
         }
@@ -149,7 +154,8 @@ abstract class AbstractFuncIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testGetTime"),
-            dar = stableDar)
+            dar = stableDar,
+          )
         } yield {
           assert(vals.size == 2)
           val t0 = assertSTimestamp(vals.get(0))
@@ -168,7 +174,8 @@ abstract class AbstractFuncIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:partyIdHintTest"),
-            dar = stableDar)
+            dar = stableDar,
+          )
         } yield {
           assert(vals.size == 2)
           assert(vals.get(0) == SParty(Party.assertFromString("carol")))
@@ -183,15 +190,16 @@ abstract class AbstractFuncIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:listKnownPartiesTest"),
-            dar = stableDar)
+            dar = stableDar,
+          )
         } yield {
           assert(vals.size == 2)
-          vals.get(0) match {
-            case SList(FrontStackCons(SRecord(_, _, details), FrontStack())) =>
-              details should contain theSameElementsInOrderAs (Seq(
-                vals.get(1),
-                SOptional(Some(SText("myparty"))),
-                SBool(true)))
+          inside(vals.get(0)) { case SList(FrontStackCons(SRecord(_, _, details), FrontStack())) =>
+            details should contain theSameElementsInOrderAs (Seq(
+              vals.get(1),
+              SOptional(Some(SText("myparty"))),
+              SBool(true),
+            ))
           }
         }
       }
@@ -210,11 +218,13 @@ abstract class AbstractFuncIT
       "succeed despite large message" in {
         for {
           clients <- participantClients(
-            maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize * 10)
+            maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize * 10
+          )
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testMaxInboundMessageSize"),
-            dar = stableDar)
+            dar = stableDar,
+          )
         } yield {
           assert(v == SUnit)
         }
@@ -237,7 +247,8 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testQueryContractId"),
-            dar = stableDar)
+            dar = stableDar,
+          )
         } yield {
           assert(v == SUnit)
         }
@@ -250,7 +261,8 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testQueryContractKey"),
-            dar = stableDar)
+            dar = stableDar,
+          )
         } yield {
           assert(v == SUnit)
         }
@@ -258,18 +270,22 @@ abstract class AbstractFuncIT
     }
     "traceOrder" should {
       "emit trace statements in correct order" in {
-        def traceMsg(msg: String) = s"""[DA.Internal.Prelude:532]: "$msg""""
+        val msgRegex = raw"""\[DA.Internal.Prelude:\d+]: "(.*)"""".r
+        def stripLoc(msg: String) = msg match {
+          case msgRegex(msg_) => msg_
+        }
         for {
           clients <- participantClients()
           _ = LogCollector.clear()
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:traceOrder"),
-            dar = stableDar)
+            dar = stableDar,
+          )
         } yield {
           assert(v == SUnit)
           val logMsgs = LogCollector.events.map(_.getMessage)
-          assert(logMsgs == Seq(traceMsg("abc"), traceMsg("def"), traceMsg("abc"), traceMsg("def")))
+          assert(logMsgs.map(stripLoc(_)) == Seq("abc", "def", "abc", "def"))
         }
       }
     }
@@ -280,7 +296,8 @@ abstract class AbstractFuncIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("TestContractId:testContractId"),
-            dar = devDar)
+            dar = devDar,
+          )
         } yield {
           assert(vals.size == 2)
           (vals.get(0), vals.get(1)) match {
@@ -291,6 +308,22 @@ abstract class AbstractFuncIT
         }
       }
     }
+
+    "Exceptions:test" should {
+      "succeed" in {
+        for {
+          clients <- participantClients()
+          v <- run(
+            clients,
+            QualifiedName.assertFromString("TestExceptions:test"),
+            dar = devDar,
+          )
+        } yield {
+          v shouldBe (SUnit)
+        }
+      }
+    }
+
     "testMultiPartyQuery" should {
       "should return contracts for all listed parties" in {
         for {
@@ -298,10 +331,59 @@ abstract class AbstractFuncIT
           v <- run(
             clients,
             QualifiedName.assertFromString("ScriptTest:testMultiPartyQueries"),
-            dar = stableDar)
+            dar = stableDar,
+          )
         } yield {
           assert(v == SUnit)
         }
+      }
+    }
+    "multiparty command submission" in {
+      for {
+        clients <- participantClients()
+        v <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:multiPartySubmission"),
+          dar = stableDar,
+        )
+      } yield {
+        assert(v == SUnit)
+      }
+    }
+    "tuple key" in {
+      for {
+        clients <- participantClients()
+        v <- run(
+          clients,
+          QualifiedName.assertFromString("ScriptTest:tupleKey"),
+          dar = stableDar,
+        )
+      } yield {
+        assert(v == SUnit)
+      }
+    }
+    "stack trace" in {
+      for {
+        clients <- participantClients()
+        e <- recoverToExceptionIf[ScriptF.FailedCmd](
+          run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:stackTrace"),
+            dar = stableDar,
+          )
+        )
+      } yield {
+        val m = ModuleName.assertFromString("ScriptTest")
+        def loc(d: String, start: (Int, Int), end: (Int, Int)) = Location(
+          stableDar.main._1,
+          m,
+          d,
+          start,
+          end,
+        )
+        e.cmd.stackTrace shouldBe StackTrace(
+          Vector(loc("submit", (390, 18), (390, 31)), loc("mySubmit", (395, 2), (395, 12)))
+        )
       }
     }
   }

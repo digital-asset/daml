@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -272,6 +272,26 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
             _ <- makeFile "CaSe.daml" "module Case where"
             setFilesOfInterest [a]
             expectNoErrors
+    ,   testCase' "Record dot updates" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "module Foo where"
+                , "data Outer = Outer {inner : Inner}"
+                , "data Inner = Inner {field : Int}"
+                , "f : Outer -> Outer"
+                , "f o = o {inner.field = 2}"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+    ,   testCase' "Record dot update errors" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "module Foo where"
+                , "data Outer = Outer {inner : Inner}"
+                , "data Inner = Inner {field : Int}"
+                , "f : Outer -> Outer"
+                , "f o = o {inner.fied = 2}"
+                ]
+            setFilesOfInterest [foo]
+            expectOneError (foo, 4, 6) "fied"
     ]
     where
         testCase' = testCase mbScenarioService
@@ -1174,26 +1194,66 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
         let vr = VRScenario f "test"
         setOpenVirtualResources [vr]
         -- TODO(MH): Matching on HTML via regular expressions has a high
-        -- chance of becoming a maintenance nightmare. Fina a better way.
+        -- chance of becoming a maintenance nightmare. Find a better way.
         expectVirtualResourceRegex vr $ T.intercalate ".*"
             [ "<h1>TableView:Iou</h1>"
             , "<table"
             , "<tr", "Issuer", "Owner", "Regulator", "Spy", "</tr>"
             , "<tr"
-            , "<td", "tooltip", ">S<", "tooltiptext", ">Signatory<", "</td>"
-            , "<td", "tooltip", ">O<", "tooltiptext", ">Observer<", "</td>"
-            , "<td", "tooltip", ">-<", "</td>"
-            , "<td", "tooltip", ">-<", "</td>"
-            , "</tr"
-            , "<tr"
+            , "<td>#1:1"
             , "<td", "tooltip", ">S<", "tooltiptext", ">Signatory<", "</td>"
             , "<td", "tooltip", ">O<", "tooltiptext", ">Observer<", "</td>"
             , "<td", "tooltip", ">W<", "tooltiptext", ">Witness<", "</td>"
             , "<td", "tooltip", ">D<", "tooltiptext", ">Divulged<", "</td>"
             , "</tr>"
+            , "<tr"
+            , "<td>#4:0"
+            , "<td", "tooltip", ">S<", "tooltiptext", ">Signatory<", "</td>"
+            , "<td", "tooltip", ">O<", "tooltiptext", ">Observer<", "</td>"
+            , "<td", "tooltip", ">-<", "</td>"
+            , "<td", "tooltip", ">-<", "</td>"
+            , "</tr"
             , "</table>"
             , "<h1>TableView:IouDivulger</h1>"
             , "<h1>TableView:IouIssuer</h1>"
+            ]
+    , testCase' "Table view on error" $ do
+        f <- makeFile "TableView.daml" $ T.unlines
+          [ "module TableView where"
+
+          , "template T with"
+          , "    p: Party"
+          , "  where"
+          , "    signatory p"
+          , "    choice Fail : ()"
+          , "      controller p"
+          , "      do create this"
+          , "         assert False"
+
+          , "test = scenario do"
+          , "  p <- getParty \"p\""
+          , "  c <- submit p do create T with p = p"
+          , "  submit p $ do exercise c Fail"
+          ]
+        setFilesOfInterest [f]
+        let vr = VRScenario f "test"
+        setOpenVirtualResources [vr]
+        -- This is a bit messy, we also want to to test for the absence of extra nodes
+        -- so we have to be quite strict in what we match against.
+        expectVirtualResourceRegex vr $ T.concat
+            [ "<h1>TableView:T</h1>"
+            , "<table>"
+            , "<tr><th>id</th><th>status</th><th>p</th><th><div class=\"observer\">p</div></th></tr>"
+            , "<tr class=\"active\">"
+            , "<td>#0:0</td>"
+            , "<td>active</td>"
+            , "<td>&#39;p&#39;</td>"
+            , "<td class=\"disclosure disclosed\">"
+            , "<div class=\"tooltip\"><span>S</span><span class=\"tooltiptext\">Signatory</span>"
+            , "</div>"
+            , "</td>"
+            , "</tr>"
+            , "</table>"
             ]
     ]
     where

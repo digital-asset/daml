@@ -4,7 +4,7 @@
 {-# LANGUAGE TypeFamilies #-}
 -- @ERROR range=11:1-11:16; Data definition, of type type family.
 -- @WARN Modules compiled with the TypeFamilies language extension might not work properly with data-dependencies.
--- @WARN Modules compiled with the ExplicitNamespaces language extension might not work properly with data-dependencies.
+
 
 module TypeFamily where
 

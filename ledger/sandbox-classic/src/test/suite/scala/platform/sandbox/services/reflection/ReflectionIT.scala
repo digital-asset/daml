@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services.reflection
@@ -9,12 +9,13 @@ import com.daml.platform.testing.StreamConsumer
 import io.grpc.reflection.v1alpha.{
   ServerReflectionGrpc,
   ServerReflectionRequest,
-  ServerReflectionResponse
+  ServerReflectionResponse,
 }
+import org.scalatest.Inspectors._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.Future
 
 final class ReflectionIT
@@ -56,9 +57,12 @@ final class ReflectionIT
             // We filter for this string due to an exotic bug in the bazel-grpc setup, see grpc-definitions/BUILD.bazel.
             assert(
               !p.toStringUtf8.contains("bazel-out"),
-              s"filedescriptor ${p.toStringUtf8} contains string 'bazel-out'. This means grpc reflection will not work.")
+              s"filedescriptor ${p.toStringUtf8} contains string 'bazel-out'. This means grpc reflection will not work.",
+            )
           }
-          all(symbolResponses) should have('hasErrorResponse (false))
+          forAll(symbolResponses) { r =>
+            r.hasErrorResponse should be(false)
+          }
         }
       }
     }

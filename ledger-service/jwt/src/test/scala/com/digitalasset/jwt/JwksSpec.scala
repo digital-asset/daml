@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.jwt
@@ -66,8 +66,9 @@ class JwksSpec extends AnyFlatSpec with Matchers {
     val jwks = KeyUtils.generateJwks(
       Map(
         "test-key-1" -> publicKey1,
-        "test-key-2" -> publicKey2
-      ))
+        "test-key-2" -> publicKey2,
+      )
+    )
 
     val server = SimpleHttpServer.start(jwks)
     val url = SimpleHttpServer.responseUrl(server)
@@ -81,8 +82,8 @@ class JwksSpec extends AnyFlatSpec with Matchers {
 
     assert(
       result1.isRight,
-      s"The correctly signed token should successfully verify, but the result was ${result1.leftMap(
-        e => e.shows)}"
+      s"The correctly signed token should successfully verify, but the result was ${result1
+        .leftMap(e => e.shows)}",
     )
 
     // Test 2: Failure - unknown key ID
@@ -92,7 +93,7 @@ class JwksSpec extends AnyFlatSpec with Matchers {
 
     assert(
       result2.isLeft,
-      s"The token with an unknown key ID should not successfully verify"
+      s"The token with an unknown key ID should not successfully verify",
     )
 
     // Test 3: Failure - wrong public key
@@ -102,7 +103,7 @@ class JwksSpec extends AnyFlatSpec with Matchers {
 
     assert(
       result3.isLeft,
-      s"The token with a mismatching public key should not successfully verify"
+      s"The token with a mismatching public key should not successfully verify",
     )
 
     SimpleHttpServer.stop(server)

@@ -1,0 +1,10 @@
+-- Copyright (c) 2021, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 1.13
+-- @ERROR Large BigNumeric (larger than Numeric) literals are not currently supported.
+
+module BigNumericTooBig where
+
+tooBig : BigNumeric
+tooBig = 123456789012345678901233456789012345678.0

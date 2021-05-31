@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.scalatest
@@ -23,9 +23,10 @@ import org.scalactic.{Prettifier, source}
 trait WordSpecCheckLaws extends Checkers { this: AnyWordSpec =>
 
   /** Like `check(props)` but with '''much better''' test reporting. */
-  def checkLaws(props: Properties)(
-      implicit generatorDrivenConfig: PropertyCheckConfiguration,
+  def checkLaws(props: Properties)(implicit
+      generatorDrivenConfig: PropertyCheckConfiguration,
       prettifier: Prettifier,
-      pos: source.Position): Unit =
+      pos: source.Position,
+  ): Unit =
     props.properties foreach { case (s, p) => s in check(p) }
 }

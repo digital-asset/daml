@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.common
@@ -10,7 +10,8 @@ abstract class MismatchException[A](
     val existing: A,
     val provided: A,
 ) extends RuntimeException(
-      s"""The provided $description does not match the existing one. Existing: "$existing", Provided: "$provided".""")
+      s"""The provided $description does not match the existing one. Existing: "$existing", Provided: "$provided"."""
+    )
 
 object MismatchException {
 

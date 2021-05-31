@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.admin
@@ -12,13 +12,13 @@ import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult}
 import com.daml.platform.apiserver.services.admin.SynchronousResponse.{Accepted, Rejected}
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.telemetry.TelemetryContext
 import io.grpc.StatusRuntimeException
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 
-/**
-  * Submits a request and waits for a corresponding entry to emerge on the corresponding stream.
+/** Submits a request and waits for a corresponding entry to emerge on the corresponding stream.
   *
   * The strategy governs how the request is submitted, how to open a stream, and how to filter for
   * the appropriate entry.
@@ -28,8 +28,9 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
     timeToLive: Duration,
 ) {
 
-  def submitAndWait(submissionId: SubmissionId, input: Input)(
-      implicit executionContext: ExecutionContext,
+  def submitAndWait(submissionId: SubmissionId, input: Input)(implicit
+      telemetryContext: TelemetryContext,
+      executionContext: ExecutionContext,
       materializer: Materializer,
   ): Future[AcceptedEntry] = {
     for {
@@ -47,11 +48,12 @@ class SynchronousResponse[Input, Entry, AcceptedEntry](
             }
             .completionTimeout(FiniteDuration(timeToLive.toMillis, TimeUnit.MILLISECONDS))
             .runWith(Sink.head)
-            .recoverWith {
-              case _: TimeoutException =>
-                Future.failed(ErrorFactories.aborted("Request timed out"))
+            .recoverWith { case _: TimeoutException =>
+              Future.failed(ErrorFactories.aborted("Request timed out"))
             }
             .flatten
+        case r @ SubmissionResult.SynchronousReject(_) =>
+          Future.failed(r.failure)
         case r @ SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted(r.description))
         case r @ SubmissionResult.InternalError(_) =>
@@ -72,7 +74,9 @@ object SynchronousResponse {
     def currentLedgerEnd(): Future[Option[LedgerOffset.Absolute]]
 
     /** Submits a request to the ledger. */
-    def submit(submissionId: SubmissionId, input: Input): Future[SubmissionResult]
+    def submit(submissionId: SubmissionId, input: Input)(implicit
+        telemetryContext: TelemetryContext
+    ): Future[SubmissionResult]
 
     /** Opens a stream of entries from before the submission. */
     def entries(offset: Option[LedgerOffset.Absolute]): Source[Entry, _]
@@ -88,7 +92,7 @@ object SynchronousResponse {
   }
 
   private final class Accepted[Entry, AcceptedEntry](
-      accept: PartialFunction[Entry, AcceptedEntry],
+      accept: PartialFunction[Entry, AcceptedEntry]
   ) {
     private val liftedAccept = accept.lift
 

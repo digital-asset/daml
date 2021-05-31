@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_binary")
@@ -15,25 +15,31 @@ da_scala_binary(
     main_class = "com.daml.navigator.test.Main",
     resource_strip_prefix = "navigator/integration-test/src/main/resources/",
     resources = ["src/main/resources/Main.daml"],
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_generic",
+        "@maven//:io_circe_circe_parser",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_selenium_3_141",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
+    ],
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     visibility = ["//visibility:public"],
     runtime_deps = [
         "//ledger/sandbox-classic",
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        "@maven//:com_chuusai_shapeless_2_12",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:commons_codec_commons_codec",
-        "@maven//:io_circe_circe_core_2_12",
-        "@maven//:io_circe_circe_generic_2_12",
-        "@maven//:io_circe_circe_parser_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalatestplus_selenium_3_141_2_12",
         "@maven//:org_seleniumhq_selenium_selenium_api",
         "@maven//:org_seleniumhq_selenium_selenium_remote_driver",
         "@maven//:org_slf4j_slf4j_api",
-        "@maven//:org_typelevel_cats_core_2_12",
     ],
 )

@@ -1,13 +1,13 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java
 
-import scala.collection.JavaConverters.iterableAsScalaIterableConverter
 import com.squareup.javapoet.{ClassName, TypeName}
 import javax.lang.model.element.Modifier
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
+import scala.jdk.CollectionConverters._
 
 final class ObjectMethodsSpec extends AnyFlatSpec with Matchers {
 
@@ -35,7 +35,8 @@ final class ObjectMethodsSpec extends AnyFlatSpec with Matchers {
   it should "generate 'equals' with a single parameter 'object' of type Object" in {
     equalsSpec.parameters.asScala
       .map(p => p.name -> p.`type`) should contain only "object" -> ClassName.get(
-      classOf[java.lang.Object])
+      classOf[java.lang.Object]
+    )
   }
 
   it should "generate 'equals' returning a boolean" in {

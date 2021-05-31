@@ -34,42 +34,22 @@ My personal recommendation would be for the host machines to not be accessible
 from any network, and to instead be managed by physical access, if possible.
 
 The `init.sh` script creates a `vsts` user with more restricted access to run
-the CI builds. NOTE: the VSTS agent islocked down so upgrade from the Azure console
+the CI builds. NOTE: the VSTS agent is locked down so upgrade from the Azure console
 will fail. Expectation is that the nodes are cycled daily and will pick up latest
 Azure VSTS agent on rebuild.
 
 # Machine initialization
 
-The Vagrantfile for CI nodes will read the init script directly from the master
-branch on GitHub. This means that any change to [the init
-script](2-vagrant-files/init.sh) for the macOS machines constitutes a "Standard
-Change", just like changes to the Linux and Windows scripts. Note that this
-should already be enforced by virtue of the `init.sh` file being under the
-already-monitored-by-CI folder `//infra`.
-
-The intention is that the macOS nodes, like the Linux and Windows ones, should
-be cycled daily, so changing their config file can be done with no other human
-intervention than committing to the master branch. This means that, without
-additional human intervention, changes would take about a day to propagate,
-whereas the DAML team can apply changes to the Linux and Windows nodes directly
-through Terraform. I believe this tradeoff is necessary, because we should
-restrict access to the underlying macOS hosts as much as practical. Ideally,
-they should not be reachable from the internet at all.
+Machine initialization is done based on the local checkout of the repo on each
+macOS host. This means that changes to the macOS nodes init script need to be
+propagated manually at this time. PRs that change macOS nodes configs should
+include an audit trail of deploying those changes in their comments.
 
 # Wiping nodes on a cron
 
-Just like the Linux and Windows nodes, the macOS nodes should be wiped daily.
-This is the main reason for putting in the effort in virtualizing them, as
-opposed to just setting up physical nodes directly.
-
-As explained in the [Vagrant section](2-vagrant-files/README.md) of this
-document, this should be as simple as adding a cron to run
-
-```
-cd path/to/Vagrantfile/folder && vagrant destroy -f && GUEST_NAME=... VSTS_TOKEN=... vagrant up
-```
-
-every day at 4AM UTC (to synchronize with the Linux and Windows ones).
+macOS nodes are wiped every day overnight (at different time each, and after
+checking the machine is not processing any job, so as to minimize service
+interruption).
 
 # Proxying the cache
 

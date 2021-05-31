@@ -1,18 +1,18 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 
 import java.nio.file.Files
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.auth.TokenHolder
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.util.TestUtil.requiredFile
-import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, Claims}
-import com.daml.ledger.client.LedgerClient
+import com.daml.http.util.Logging.instanceUUIDLogCtx
+import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, ClaimSet}
+import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -36,8 +36,8 @@ final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with 
   private val publicToken = "public"
   private val emptyToken = "empty"
   private val mockedAuthService = Option(AuthServiceStatic {
-    case `publicToken` => Claims(Seq[Claim](ClaimPublic))
-    case `emptyToken` => Claims(Nil)
+    case `publicToken` => ClaimSet.Claims(Seq[Claim](ClaimPublic))
+    case `emptyToken` => ClaimSet.Unauthenticated
   })
 
   private val accessTokenFile = Files.createTempFile("Extractor", "AuthSpec")
@@ -59,25 +59,25 @@ final class AuthorizationTest extends AsyncFlatSpec with BeforeAndAfterAll with 
     }
   }
 
-  protected def withLedger[A](testFn: LedgerClient => Future[A]): Future[A] =
+  protected def withLedger[A](testFn: DamlLedgerClient => Future[A]): Future[A] =
     HttpServiceTestFixture
       .withLedger[A](List(dar), testId, Option(publicToken), authService = mockedAuthService) {
         case (_, client) => testFn(client)
       }
 
-  private def packageService(client: LedgerClient): PackageService =
+  private def packageService(client: DamlLedgerClient): PackageService =
     new PackageService(HttpService.loadPackageStoreUpdates(client.packageClient, tokenHolder))
 
   behavior of "PackageService against an authenticated sandbox"
 
   it should "fail immediately if the authorization is insufficient" in withLedger { client =>
     setToken(emptyToken)
-    packageService(client).reload.failed.map(_ => succeed)
+    instanceUUIDLogCtx(implicit lc => packageService(client).reload.failed.map(_ => succeed))
   }
 
   it should "succeed if the authorization is sufficient" in withLedger { client =>
     setToken(publicToken)
-    packageService(client).reload.map(_ => succeed)
+    instanceUUIDLogCtx(implicit lc => packageService(client).reload.map(_ => succeed))
   }
 
 }

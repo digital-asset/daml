@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -24,11 +24,11 @@ import qualified "ghc-lib-parser" FastString as GHC
 import qualified "ghc-lib-parser" GHC.LanguageExtensions.Type as GHC
 import Outputable
 
-import           Control.Monad.Extra
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import           Data.List.Extra
 import           Data.Maybe
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           System.FilePath (splitDirectories)
 
@@ -47,29 +47,50 @@ isInternal (GHC.moduleNameString -> x)
       , "DA.Time.Types"
       ]
 
-mayImportInternal :: [GHC.ModuleName]
-mayImportInternal =
-    map GHC.mkModuleName
-        [ "Prelude"
-        , "DA.Time"
-        , "DA.Date"
-        , "DA.Record"
-        , "DA.TextMap"
-        , "DA.Map"
-        , "DA.Generics"
-        , "DA.Text"
-        , "DA.Numeric"
-        , "DA.Stack"
+preprocessorExceptions :: Set.Set GHC.ModuleName
+preprocessorExceptions = Set.fromList $ map GHC.mkModuleName
+    -- These modules need to import internal modules.
+    [ "Prelude"
+    , "DA.Time"
+    , "DA.Date"
+    , "DA.Record"
+    , "DA.TextMap"
+    , "DA.Map"
+    , "DA.Generics"
+    , "DA.Text"
+    , "DA.Numeric"
+    , "DA.Stack"
+    , "DA.BigNumeric"
+    , "DA.Exception"
+    , "DA.Exception.GeneralError"
+    , "DA.Exception.ArithmeticError"
+    , "DA.Exception.AssertionFailed"
+    , "DA.Exception.PreconditionFailed"
 
-        -- These modules are just listed to disable the record preprocessor.
-        , "DA.NonEmpty.Types"
-        , "DA.Monoid.Types"
-        ]
+    -- These modules need to have the record preprocessor disabled.
+    , "DA.NonEmpty.Types"
+    , "DA.Monoid.Types"
+    , "DA.Set.Types"
+
+    -- This module needs to use the PatternSynonyms extension.
+    , "DA.Maybe"
+    ]
+
+isExperimental :: GHC.ModuleName -> Bool
+isExperimental (GHC.moduleNameString -> x)
+  -- Experimental modules need to import internal modules.
+  = "DA.Experimental." `isPrefixOf` x
+
+shouldSkipPreprocessor :: GHC.ModuleName -> Bool
+shouldSkipPreprocessor name =
+    isInternal name
+    || Set.member name preprocessorExceptions
+    || isExperimental name
 
 -- | Apply all necessary preprocessors
 damlPreprocessor :: ES.EnumSet GHC.Extension -> Maybe GHC.UnitId -> GHC.DynFlags -> GHC.ParsedSource -> IdePreprocessedSource
 damlPreprocessor dataDependableExtensions mbUnitId dflags x
-    | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor dflags x
+    | maybe False shouldSkipPreprocessor name = noPreprocessor dflags x
     | otherwise = IdePreprocessedSource
         { preprocWarnings = concat
             [ checkDamlHeader x
@@ -78,8 +99,19 @@ damlPreprocessor dataDependableExtensions mbUnitId dflags x
             , checkImportsWrtDataDependencies x
             , checkKinds x
             ]
-        , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x ++ checkRecordConstructor x ++ checkModuleName x
-        , preprocSource = rewriteLets $ recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbUnitId $ enumTypePreprocessor "GHC.Types" x
+        , preprocErrors = concat
+            [ checkImports x
+            , checkDataTypes x
+            , checkModuleDefinition x
+            , checkRecordConstructor x
+            , checkModuleName x
+            ]
+        , preprocSource =
+            rewriteLets
+            . recordDotPreprocessor
+            . importDamlPreprocessor
+            . genericsPreprocessor mbUnitId
+            $ enumTypePreprocessor "GHC.Types" x
         }
     where
       name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
@@ -201,7 +233,42 @@ checkRecordConstructor (GHC.L _ m) = mapMaybe getRecordError (GHC.hsmodDecls m)
         , "Possible solution: Change the constructor name to", tyNameStr ]
 
 checkDataTypes :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
-checkDataTypes m = checkAmbiguousDataTypes m ++ checkUnlabelledConArgs m ++ checkThetas m
+checkDataTypes m = checkAmbiguousDataTypes m ++ checkUnlabelledConArgs m ++ checkThetas m ++ checkDuplicateRecordFields m
+
+checkDuplicateRecordFields :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkDuplicateRecordFields m =
+    [ err
+    | GHC.L _ con <- universeConDecl m
+    , err <- conErrs (GHC.getConArgs con)
+    ]
+  where
+      conErrs :: GHC.HsConDeclDetails GHC.GhcPs -> [(GHC.SrcSpan, String)]
+      conErrs (GHC.RecCon (GHC.L _ fields)) =
+          let names = map fieldName fields
+              grouped = Map.fromListWith (++) [(GHC.unLoc n, [n]) | n <- names]
+          in concatMap errors (Map.elems grouped)
+      conErrs _ = []
+
+      -- The first field name is the one the user wrote which we want here. Later (there should only ever be 2)
+      -- field names are autogenerated and don’t matter here.
+      fieldName :: GHC.LConDeclField GHC.GhcPs -> GHC.Located GHC.RdrName
+      fieldName (GHC.L _ GHC.ConDeclField { cd_fld_names = (n : _) }) = GHC.rdrNameFieldOcc (GHC.unLoc n)
+      fieldName (GHC.L _ GHC.ConDeclField { cd_fld_names = [] }) =
+          error "Internal error: cd_fld_names should contain exactly one name but got an empty list"
+      fieldName (GHC.L _ (GHC.XConDeclField GHC.NoExt)) = error "Internal error: unexpected XConDeclField"
+      fieldError :: GHC.SrcSpan -> GHC.Located GHC.RdrName -> (GHC.SrcSpan, String)
+      fieldError def (GHC.L l n) =
+          ( l
+          , unwords
+            [ "Duplicate field name " ++ showSDocUnsafe (ppr n) ++ "."
+            , "Original definition at " ++ showSDocUnsafe (ppr def) ++ "."
+            ]
+          )
+      -- the list should always be non-empty but easy enough to handle this case without crashing
+      errors xs = case sortOn GHC.getLoc xs of
+        [] -> []
+        (hd : tl) -> map (fieldError (GHC.getLoc hd)) tl
+
 
 checkAmbiguousDataTypes :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
 checkAmbiguousDataTypes (GHC.L _ m) =

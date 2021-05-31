@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.validation
@@ -13,13 +13,13 @@ import com.daml.lf.data.Ref.Party
 import com.daml.platform.server.api.validation.ErrorFactories._
 import io.grpc.StatusRuntimeException
 
-import scala.language.higherKinds
 import scala.util.Try
 
 trait FieldValidations {
 
-  def matchLedgerId(ledgerId: LedgerId)(
-      received: LedgerId): Either[StatusRuntimeException, LedgerId] =
+  def matchLedgerId(
+      ledgerId: LedgerId
+  )(received: LedgerId): Either[StatusRuntimeException, LedgerId] =
     if (ledgerId == received) Right(received)
     else Left(ledgerIdMismatch(ledgerId, received))
 
@@ -31,7 +31,7 @@ trait FieldValidations {
 
   def requireName(
       s: String,
-      fieldName: String
+      fieldName: String,
   ): Either[StatusRuntimeException, Ref.Name] =
     if (s.isEmpty)
       Left(missingField(fieldName))
@@ -46,7 +46,8 @@ trait FieldValidations {
 
   def requirePackageId(
       s: String,
-      fieldName: String): Either[StatusRuntimeException, Ref.PackageId] =
+      fieldName: String,
+  ): Either[StatusRuntimeException, Ref.PackageId] =
     if (s.isEmpty) Left(missingField(fieldName))
     else Ref.PackageId.fromString(s).left.map(invalidField(fieldName, _))
 
@@ -67,7 +68,7 @@ trait FieldValidations {
 
   def requireLedgerString(
       s: String,
-      fieldName: String
+      fieldName: String,
   ): Either[StatusRuntimeException, Ref.LedgerString] =
     if (s.isEmpty) Left(missingField(fieldName))
     else Ref.LedgerString.fromString(s).left.map(invalidField(fieldName, _))
@@ -77,19 +78,21 @@ trait FieldValidations {
 
   def requireContractId(
       s: String,
-      fieldName: String
+      fieldName: String,
   ): Either[StatusRuntimeException, ContractId] =
     if (s.isEmpty) Left(missingField(fieldName))
     else ContractId.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireDottedName(
       s: String,
-      fieldName: String): Either[StatusRuntimeException, Ref.DottedName] =
+      fieldName: String,
+  ): Either[StatusRuntimeException, Ref.DottedName] =
     Ref.DottedName.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireNonEmpty[M[_] <: Iterable[_], T](
       s: M[T],
-      fieldName: String): Either[StatusRuntimeException, M[T]] =
+      fieldName: String,
+  ): Either[StatusRuntimeException, M[T]] =
     if (s.nonEmpty) Right(s)
     else Left(missingField(fieldName))
 
@@ -99,9 +102,11 @@ trait FieldValidations {
   def validateDeduplicationTime(
       durationO: Option[com.google.protobuf.duration.Duration],
       maxDeduplicationTimeO: Option[Duration],
-      fieldName: String): Either[StatusRuntimeException, Duration] =
+      fieldName: String,
+  ): Either[StatusRuntimeException, Duration] =
     maxDeduplicationTimeO.fold[Either[StatusRuntimeException, Duration]](
-      Left(missingLedgerConfig()))(maxDeduplicationTime =>
+      Left(missingLedgerConfig())
+    )(maxDeduplicationTime =>
       durationO match {
         case None =>
           Right(maxDeduplicationTime)
@@ -110,12 +115,16 @@ trait FieldValidations {
           if (result.isNegative)
             Left(invalidField(fieldName, "Duration must be positive"))
           else if (result.compareTo(maxDeduplicationTime) > 0)
-            Left(invalidField(
-              fieldName,
-              s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationTime"))
+            Left(
+              invalidField(
+                fieldName,
+                s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationTime",
+              )
+            )
           else
             Right(result)
-    })
+      }
+    )
 
   def validateIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] =
     for {

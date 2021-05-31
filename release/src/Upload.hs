@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -62,8 +62,8 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
     -- Note: TLS verification settings switchable by MavenUpload settings
     let managerSettings = if getAllowUnsecureTls mucAllowUnsecureTls then noVerifyTlsManagerSettings else tlsManagerSettings
 
-    -- Create HTTP Connection manager with 2min response timeout as the OSSRH can be slow...
-    manager <- liftIO $ newManager managerSettings { managerResponseTimeout = responseTimeoutMicro (120 * 1000 * 1000) }
+    -- Create HTTP Connection manager with 5min response timeout as the OSSRH can be slow...
+    manager <- liftIO $ newManager managerSettings { managerResponseTimeout = responseTimeoutMicro (5 * 60 * 1000 * 1000) }
 
     parsedUrlRequest <- parseUrlThrow $ T.unpack mucUrl -- Note: Will throw exception on non-2XX responses
     let baseRequest = setRequestMethod "PUT" $ setRequestBasicAuth (encodeUtf8 mucUser) (encodeUtf8 mucPassword) parsedUrlRequest
@@ -371,8 +371,9 @@ logStatusRetry shouldRetry _ status =
     else
         $logDebug ("Aborting staging repository check after " <> (tshow $ rsCumulativeDelay status) <> "µs.")
 
+-- Retry for 5 minutes total, doubling delay starting with 20ms.
 uploadRetryPolicy :: RetryPolicy
-uploadRetryPolicy = limitRetriesByCumulativeDelay (60 * 1000 * 1000) (exponentialBackoff (200 * 100))
+uploadRetryPolicy = limitRetriesByCumulativeDelay (5 * 60 * 1000 * 1000) (exponentialBackoff (20 * 1000))
 
 -- The status of the staging repository can take a number of minutes to change it's
 -- status to closed.

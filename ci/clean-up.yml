@@ -1,0 +1,20 @@
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+steps:
+- bash: |
+    set -euo pipefail
+
+    eval "$(dev-env/bin/dade-assist)"
+
+    exec 1> >(while IFS= read -r line; do echo "$(date -uIs) [out]: $line"; done)
+    exec 2> >(while IFS= read -r line; do echo "$(date -uIs) [err]: $line"; done >&2)
+
+    df -h .
+    if [ $(df -m . | sed 1d | awk '{print $4}') -lt 50000 ]; then
+        echo "Disk full, cleaning up..."
+        $HOME/reset_caches.sh
+        echo "Done."
+        df -h .
+    fi
+  displayName: clean-up disk cache

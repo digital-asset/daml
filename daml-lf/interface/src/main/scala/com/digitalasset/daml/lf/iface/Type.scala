@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.iface
@@ -12,10 +12,9 @@ import scalaz.Monoid
 import scalaz.syntax.foldable._
 import scalaz.syntax.monoid._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
-/**
-  * [[Type]] is an intermediate form from
+/** [[Type]] is an intermediate form from
   * which record/variant objects or type aliases are generated from.
   *
   * You might be wondering, why so many data structures for types
@@ -24,7 +23,7 @@ import scala.collection.JavaConverters._
   *
   * The reason we have chosen to use the [[Core.Type]] in the
   * `typeDecls` field of [[com.daml.core.Package.PackageInterface]]
-  * is because other programs besides the DAML Scala code generator inspect
+  * is because other programs besides the Daml Scala code generator inspect
   * this data structure. (e.g. Integration Adapter as of 07 Sep 2017).
   *
   * The [[Package.ParamType]] structure represents all types that are valid
@@ -53,7 +52,8 @@ sealed abstract class Type extends Product with Serializable {
       typeCon: TypeCon => Z,
       typePrim: TypePrim => Z,
       typeVar: TypeVar => Z,
-      typeNum: TypeNumeric => Z): Z =
+      typeNum: TypeNumeric => Z,
+  ): Z =
     this match {
       case t @ TypeCon(_, _) => typeCon(t)
       case t @ TypePrim(_, _) => typePrim(t)
@@ -88,9 +88,10 @@ final case class TypeCon(name: TypeConName, typArgs: ImmArraySeq[Type])
   def instantiate(defn: DefDataType.FWT): DataType.FWT =
     if (defn.typeVars.length != typArgs.length) {
       throw new RuntimeException(
-        s"Mismatching type vars and applied types, expected ${defn.typeVars} but got ${typArgs.length} types")
+        s"Mismatching type vars and applied types, expected ${defn.typeVars} but got ${typArgs.length} types"
+      )
     } else {
-      if (defn.typeVars.empty) { // optimization
+      if (defn.typeVars.isEmpty) { // optimization
         defn.dataType
       } else {
         val paramsMap = Map(defn.typeVars.zip(typArgs): _*)

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -10,7 +10,7 @@ import java.util
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SValue
-import com.daml.lf.transaction.{GenTransaction, Node, NodeId}
+import com.daml.lf.transaction.{GenTransaction, NodeId}
 import com.daml.lf.value.Value
 
 import scala.annotation.tailrec
@@ -41,7 +41,8 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     ): Result[(Set[Ref.TypeConName], Set[Ref.TypeConName])] = {
       def pullPackage(pkgId: Ref.PackageId) =
         ResultNeedPackage(
-          pkgId, {
+          pkgId,
+          {
             case Some(pkg) =>
               for {
                 _ <- compiledPackages.addPackage(pkgId, pkg)
@@ -49,11 +50,12 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                   typesToProcess0,
                   tmplToProcess0,
                   tyConAlreadySeen0,
-                  tmplsAlreadySeen0)
+                  tmplsAlreadySeen0,
+                )
               } yield r
             case None =>
               ResultError(Error(s"Couldn't find package $pkgId"))
-          }
+          },
         )
 
       typesToProcess0 match {
@@ -65,7 +67,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                 if !tyConAlreadySeen0(tyCon) =>
               compiledPackages.signatures.lift(pkgId) match {
                 case Some(pkg) =>
-                  SignatureLookup.lookupDataType(pkg, qualifiedName) match {
+                  pkg.lookupDataType(qualifiedName) match {
                     case Right(Ast.DDataType(_, _, dataType)) =>
                       val typesToProcess = dataType match {
                         case Ast.DataRecord(fields) =>
@@ -79,9 +81,10 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                         typesToProcess,
                         tmplToProcess0,
                         tyConAlreadySeen0 + tyCon,
-                        tmplsAlreadySeen0)
+                        tmplsAlreadySeen0,
+                      )
                     case Left(e) =>
-                      ResultError(e)
+                      ResultError(Error(e))
                   }
                 case None =>
                   pullPackage(pkgId)
@@ -99,7 +102,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
               val pkgId = tmplId.packageId
               compiledPackages.getSignature(pkgId) match {
                 case Some(pkg) =>
-                  SignatureLookup.lookupTemplate(pkg, tmplId.qualifiedName) match {
+                  pkg.lookupTemplate(tmplId.qualifiedName) match {
                     case Right(template) =>
                       val typs0 = template.choices.map(_._2.argBinder._2).toList
                       val typs1 =
@@ -107,7 +110,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                       val typs2 = template.key.fold(typs1)(_.typ :: typs1)
                       go(typs2, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
                     case Left(error) =>
-                      ResultError(error)
+                      ResultError(Error(error))
                   }
                 case None =>
                   pullPackage(pkgId)
@@ -121,8 +124,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     go(typesToProcess0, tmplToProcess0, tyConAlreadySeen0, tmplAlreadySeen0)
   }
 
-  /**
-    * Translates the LF value `v0` of type `ty0` to a speedy value.
+  /** Translates the LF value `v0` of type `ty0` to a speedy value.
     * Fails if the nesting is too deep or if v0 does not match the type `ty0`.
     * Assumes ty0 is a well-formed serializable typ.
     */
@@ -131,56 +133,27 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
       unsafeTranslateValue(ty0, v0)
     }.map(_._1)
 
-  /**
-    * Translates  LF commands to a speedy commands.
+  private[engine] def preprocessCommand(
+      cmd: command.Command
+  ): Result[(speedy.Command, Set[Value.ContractId])] =
+    safelyRun(getDependencies(List.empty, List(cmd.templateId))) {
+      unsafePreprocessCommand(cmd)
+    }
+
+  /** Translates  LF commands to a speedy commands.
     */
   def preprocessCommands(
-      cmds: data.ImmArray[command.Command],
+      cmds: data.ImmArray[command.ApiCommand]
   ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
     safelyRun(getDependencies(List.empty, cmds.map(_.templateId).toList)) {
       unsafePreprocessCommands(cmds)
     }
 
-  private def getTemplateId(node: Node.GenNode.WithTxValue[NodeId, _]) =
-    node match {
-      case Node.NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
-        coinst.template
-      case Node.NodeExercises(
-          coid @ _,
-          templateId,
-          choice @ _,
-          optLoc @ _,
-          consuming @ _,
-          actingParties @ _,
-          chosenVal @ _,
-          stakeholders @ _,
-          signatories @ _,
-          choiceObservers @ _,
-          children @ _,
-          exerciseResult @ _,
-          key @ _,
-          byKey @ _,
-          ) =>
-        templateId
-      case Node.NodeFetch(coid @ _, templateId, _, _, _, _, _, _) =>
-        templateId
-      case Node.NodeLookupByKey(templateId, _, key @ _, _) =>
-        templateId
-    }
-
-  def translateNode[Cid <: Value.ContractId](
-      node: Node.GenNode.WithTxValue[NodeId, Cid],
-  ): Result[(speedy.Command, Set[Value.ContractId])] =
-    safelyRun(getDependencies(List.empty, List(getTemplateId(node)))) {
-      val (cmd, (globalCids, _)) = unsafeTranslateNode((Set.empty, Set.empty), node)
-      cmd -> globalCids
-    }
-
   def translateTransactionRoots[Cid <: Value.ContractId](
-      tx: GenTransaction.WithTxValue[NodeId, Cid],
+      tx: GenTransaction[NodeId, Cid]
   ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
     safelyRun(
-      getDependencies(List.empty, tx.roots.toList.map(id => getTemplateId(tx.nodes(id))))
+      getDependencies(List.empty, tx.rootNodes.toList.map(_.templateId))
     ) {
       unsafeTranslateTransactionRoots(tx)
     }
@@ -210,7 +183,7 @@ private[preprocessing] object Preprocessor {
     throw PreprocessorError(e)
 
   @throws[PreprocessorException]
-  def assertRight[X](either: Either[Error, X]): X = either match {
+  def assertRight[X](either: Either[String, X]): X = either match {
     case Left(e) => fail(e)
     case Right(v) => v
   }

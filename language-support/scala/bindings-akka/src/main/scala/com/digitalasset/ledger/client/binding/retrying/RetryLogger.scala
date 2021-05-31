@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.retrying
@@ -11,7 +11,7 @@ import com.daml.ledger.client.binding.log.Labels.{
   ERROR_CODE,
   ERROR_DETAILS,
   ERROR_MESSAGE,
-  WORKFLOW_ID
+  WORKFLOW_ID,
 }
 import com.google.rpc.status.Status
 import com.typesafe.scalalogging.LazyLogging
@@ -21,14 +21,16 @@ object RetryLogger extends LazyLogging {
   def logFatal(request: SubmitRequest, status: Status, nrOfRetries: Int): Unit = {
     logger.warn(
       s"Encountered fatal error when submitting command after $nrOfRetries retries, therefore retry halted: " +
-        format(request, status))
+        format(request, status)
+    )
   }
 
   def logStopRetrying(
       request: SubmitRequest,
       status: Status,
       nrOfRetries: Int,
-      firstSubmissionTime: Instant): Unit = {
+      firstSubmissionTime: Instant,
+  ): Unit = {
     logger.warn(
       s"Retrying of command stopped after $nrOfRetries retries. Attempting since $firstSubmissionTime: " +
         format(request, status)
@@ -50,7 +52,7 @@ object RetryLogger extends LazyLogging {
       (WORKFLOW_ID, request.commands.map(_.workflowId)),
       (ERROR_CODE, status.code),
       (ERROR_MESSAGE, status.message),
-      (ERROR_DETAILS, status.details.mkString(","))
+      (ERROR_DETAILS, status.details.mkString(",")),
     )
   }
 

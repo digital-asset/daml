@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.logging
@@ -27,8 +27,7 @@ object ContextualizedLogger {
   private[logging] def createFor(name: String): ContextualizedLogger =
     createFor(LoggerFactory.getLogger(name))
 
-  /**
-    * Gets from cache (or creates) a [[ContextualizedLogger]].
+  /** Gets from cache (or creates) a [[ContextualizedLogger]].
     * Automatically strips the `$` at the end of Scala `object`s' name.
     */
   def get(clazz: Class[_]): ContextualizedLogger = {
@@ -52,8 +51,8 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
   private def logError(t: Throwable)(implicit loggingContext: LoggingContext): Unit =
     error("Unhandled internal error", t)
 
-  def logErrorsOnCall[Out](
-      implicit loggingContext: LoggingContext,
+  def logErrorsOnCall[Out](implicit
+      loggingContext: LoggingContext
   ): PartialFunction[Try[Out], Unit] = {
     case Failure(e @ GrpcException(s, _)) =>
       if (internalOrUnknown(s.getCode)) {
@@ -73,6 +72,14 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
       case NonFatal(e) =>
         logError(e)
         e
+    }
+
+  def debugStream[Out](
+      toLoggable: Out => String
+  )(implicit loggingContext: LoggingContext): Flow[Out, Out, NotUsed] =
+    Flow[Out].map { item =>
+      debug(toLoggable(item))
+      item
     }
 
 }

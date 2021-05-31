@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -10,6 +10,9 @@ load(
 da_scala_library(
     name = "caching",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_java8_compat",
+    ],
     tags = ["maven_coordinates=com.daml:caching:__VERSION__"],
     visibility = [
         "//:__subpackages__",
@@ -18,27 +21,30 @@ da_scala_library(
         "//ledger/metrics",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
     ],
 )
 
 da_scala_library(
     name = "caching-test-lib",
     srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
     deps = [
         ":caching",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )
 
 da_scala_test_suite(
     name = "caching-tests",
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+    ],
     deps = [
         ":caching",
         ":caching-test-lib",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
     ],
 )

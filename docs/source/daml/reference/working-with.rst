@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: built-in functions
@@ -9,18 +9,18 @@ This page gives reference information on functions for.
 Working with time
 *****************
 
-DAML has these built-in functions for working with time:
+Daml has these built-in functions for working with time:
 
 - ``datetime``: creates a ``Time`` given year, month, day, hours, minutes, and seconds as argument.
 - ``subTime``: subtracts one time from another. Returns the ``RelTime`` difference between ``time1`` and ``time2``.
 - ``addRelTime``: add times. Takes a ``Time`` and ``RelTime`` and adds the ``RelTime`` to the ``Time``.
 - ``days``, ``hours``, ``minutes``, ``seconds``: constructs a ``RelTime`` of the specified length.
-- ``pass``: (in :doc:`scenario tests <../testing-scenarios>` only) use ``pass : RelTime -> Scenario Time`` to advance the ledger time by the argument amount. Returns the new time.
+- ``pass``: (in :ref:`Daml Script tests <testing-using-script>` only) use ``pass : RelTime -> Script Time`` to advance the ledger time by the argument amount. Returns the new time.
 
 Working with numbers
 ********************
 
-DAML has these built-in functions for working with numbers:
+Daml has these built-in functions for working with numbers:
 
 - ``round``: rounds a ``Decimal`` number to ``Int``.
 
@@ -46,12 +46,12 @@ The set of numbers expressed by ``Decimal`` is not closed under division as the 
 Working with text
 *****************
 
-DAML has these built-in functions for working with text:
+Daml has these built-in functions for working with text:
 
 - ``<>`` operator: concatenates two ``Text`` values.
 - ``show`` converts a value of the primitive types (``Bool``, ``Int``, ``Decimal``, ``Party``, ``Time``, ``RelTime``) to a ``Text``.
 
-To escape text in DAML strings, use ``\``:
+To escape text in Daml strings, use ``\``:
 
 +-------------------+-----------------------------+
 |  Character        | How to escape it            |
@@ -76,7 +76,7 @@ To escape text in DAML strings, use ``\``:
 Working with lists
 ******************
 
-DAML has these built-in functions for working with lists:
+Daml has these built-in functions for working with lists:
 
 - ``foldl`` and ``foldr``: see :ref:`daml-ref-folding` below.
 
@@ -103,7 +103,7 @@ Processing goes like this:
 #. The binary operator is applied to the *second* accumulator value and the second element in the list. This produces a third accumulator value.
 #. This continues until there are no more elements in the list. Then, the last accumulator value is returned.
 
-As an example, to sum up a list of integers in DAML:
+As an example, to sum up a list of integers in Daml:
 
 .. literalinclude:: ../code-snippets/Snippets.daml
    :language: daml

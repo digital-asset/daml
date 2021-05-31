@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
@@ -17,7 +17,7 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class CommandCompletionClientImplTest
     extends AnyFlatSpec
@@ -65,7 +65,8 @@ class CommandCompletionClientImplTest
     val completionResponse = CompletionStreamResponse(None, List(completion1, completion2))
     ledgerServices.withCommandCompletionClient(
       List(completionResponse),
-      genCompletionEndResponse("")) { (client, _) =>
+      genCompletionEndResponse(""),
+    ) { (client, _) =>
       val completions = client
         .completionStream(applicationId, LedgerBegin.getInstance(), Set("Alice").asJava)
         .take(1)
@@ -94,7 +95,8 @@ class CommandCompletionClientImplTest
     val parties = Set("Alice")
     ledgerServices.withCommandCompletionClient(
       List(completionResponse),
-      genCompletionEndResponse("")) { (client, serviceImpl) =>
+      genCompletionEndResponse(""),
+    ) { (client, serviceImpl) =>
       client
         .completionStream(applicationId, LedgerBegin.getInstance(), parties.asJava)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -116,7 +118,7 @@ class CommandCompletionClientImplTest
     ledgerServices.withCommandCompletionClient(
       List(completionResponse),
       genCompletionEndResponse(""),
-      mockedAuthService
+      mockedAuthService,
     ) { (client, _) =>
       fn(client)
     }
@@ -157,7 +159,8 @@ class CommandCompletionClientImplTest
               "appId",
               LedgerBegin.getInstance(),
               Set(someParty).asJava,
-              someOtherPartyReadToken)
+              someOtherPartyReadToken,
+            )
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingFirst()
         }
@@ -186,7 +189,8 @@ class CommandCompletionClientImplTest
             "appId",
             LedgerBegin.getInstance(),
             Set(someParty).asJava,
-            somePartyReadToken)
+            somePartyReadToken,
+          )
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
           .blockingFirst()
       }

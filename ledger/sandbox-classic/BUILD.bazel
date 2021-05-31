@@ -1,68 +1,102 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite")
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test_suite",
+    "silencer_plugin",
+)
 load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@build_environment//:configuration.bzl", "mvn_version")
-
-da_scala_library(
-    name = "sandbox-classic",
-    srcs = glob(["src/main/scala/**/*.scala"]),
-    # Do not include logback.xml into the library: let the user
-    # of the sandbox-as-a-library decide how to log.
-    resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
-    silent_annotations = True,
-    tags = ["maven_coordinates=com.daml:sandbox-classic:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:ch_qos_logback_logback_core",
-        "@maven//:com_h2database_h2",
-        "@maven//:org_postgresql_postgresql",
-        "@maven//:org_xerial_sqlite_jdbc",
-    ],
-    deps = [
-        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
-        "//daml-lf/data",
-        "//daml-lf/engine",
-        "//daml-lf/interpreter",
-        "//daml-lf/language",
-        "//daml-lf/scenario-interpreter",
-        "//daml-lf/transaction",
-        "//language-support/scala/bindings",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger/caching",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
-        "//ledger/ledger-api-health",
-        "//ledger/ledger-resources",
-        "//ledger/metrics",
-        "//ledger/participant-integration-api",
-        "//ledger/participant-state",
-        "//ledger/participant-state-index",
-        "//ledger/participant-state-metrics",
-        "//ledger/sandbox-common",
-        "//libs-scala/build-info",
-        "//libs-scala/concurrent",
-        "//libs-scala/contextualized-logging",
-        "//libs-scala/ports",
-        "//libs-scala/resources",
-        "//libs-scala/resources-akka",
-        "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_config",
-        "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_version_configuration",
+    "lf_version_configuration_versions",
 )
+
+alias(
+    name = "sandbox-classic",
+    actual = "sandbox-classic-ce",
+    visibility = ["//visibility:public"],
+)
+
+[
+    da_scala_library(
+        name = "sandbox-classic-{}".format(edition),
+        srcs = glob(["src/main/scala/**/*.scala"]),
+        plugins = [
+            silencer_plugin,
+        ],
+        # Do not include logback.xml into the library: let the user
+        # of the sandbox-as-a-library decide how to log.
+        resources = ["//ledger/sandbox-common:src/main/resources/banner.txt"],
+        scala_deps = [
+            "@maven//:com_github_scopt_scopt",
+            "@maven//:com_typesafe_akka_akka_actor",
+            "@maven//:com_typesafe_akka_akka_stream",
+            "@maven//:org_scala_lang_modules_scala_java8_compat",
+            "@maven//:org_scala_lang_modules_scala_collection_compat",
+            "@maven//:org_scalaz_scalaz_core",
+        ],
+        scalacopts = [
+            # retain is deprecated in 2.13 but the replacement filterInPlace
+            # does not exist in 2.12.
+            "-P:silencer:lineContentFilters=retain",
+        ],
+        tags = ["maven_coordinates=com.daml:sandbox-classic:__VERSION__"],
+        visibility = [
+            "//visibility:public",
+        ],
+        runtime_deps = [
+            "@maven//:ch_qos_logback_logback_classic",
+            "@maven//:ch_qos_logback_logback_core",
+            "@maven//:com_h2database_h2",
+            "@maven//:org_postgresql_postgresql",
+        ],
+        deps = [
+            "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+            "//daml-lf/data",
+            "//daml-lf/engine",
+            "//daml-lf/interpreter",
+            "//daml-lf/language",
+            "//daml-lf/scenario-interpreter",
+            "//daml-lf/transaction",
+            "//language-support/scala/bindings",
+            "//ledger-api/rs-grpc-bridge",
+            "//ledger/caching",
+            "//ledger/ledger-api-auth",
+            "//ledger/ledger-api-common",
+            "//ledger/ledger-api-domain",
+            "//ledger/ledger-api-health",
+            "//ledger/ledger-resources",
+            "//ledger/metrics",
+            "//ledger/participant-integration-api",
+            "//ledger/participant-state",
+            "//ledger/participant-state-index",
+            "//ledger/participant-state-metrics",
+            "//ledger/sandbox-common:sandbox-common-{}".format(edition),
+            "//ledger-service/cli-opts",
+            "//libs-scala/build-info",
+            "//libs-scala/concurrent",
+            "//libs-scala/contextualized-logging",
+            "//libs-scala/ports",
+            "//libs-scala/resources",
+            "//libs-scala/resources-akka",
+            "//libs-scala/resources-grpc",
+            "@maven//:ch_qos_logback_logback_classic",
+            "@maven//:com_typesafe_config",
+            "@maven//:io_dropwizard_metrics_metrics_core",
+            "@maven//:org_slf4j_slf4j_api",
+        ],
+    )
+    for edition in [
+        "ce",
+        "ee",
+    ]
+]
 
 da_scala_binary(
     name = "sandbox-classic-binary",
@@ -85,33 +119,30 @@ da_scala_binary(
     ],
 )
 
-genrule(
-    name = "sandbox-classic-tarball",
-    srcs = [
-        ":sandbox-classic-binary_deploy.jar",
-    ],
-    outs = ["sandbox-classic-tarball.tar.gz"],
-    cmd = """
-        mkdir -p sandbox-classic-tarball/sandbox
-        cp -L $(location :sandbox-classic-binary_deploy.jar) sandbox-classic-tarball/sandbox/sandbox-classic-{mvn}.jar
-        $(execpath //bazel_tools/sh:mktgz) $@ -C sandbox-classic-tarball sandbox
-    """.format(mvn = mvn_version),
-    tools = ["//bazel_tools/sh:mktgz"],
-    visibility = ["//visibility:public"],
-)
-
 da_scala_library(
     name = "sandbox-classic-scala-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_playframework_anorm_anorm",
+        "@maven//:org_playframework_anorm_anorm_tokenizer",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scala_runtime_deps = [
+        "@maven//:com_typesafe_akka_akka_slf4j",
+    ],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:com_h2database_h2",
-        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
         ":sandbox-classic",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
@@ -138,16 +169,10 @@ da_scala_library(
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_play_anorm_2_12",
-        "@maven//:com_typesafe_play_anorm_tokenizer_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -188,6 +213,7 @@ test_deps = [
     "//ledger/sandbox-common",
     "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
     "//ledger/test-common",
+    "//ledger/test-common:dar-files-stable-lib",
     "//libs-scala/contextualized-logging",
     "//libs-scala/concurrent",
     "//libs-scala/grpc-utils",
@@ -196,10 +222,6 @@ test_deps = [
     "//libs-scala/resources",
     "@maven//:ch_qos_logback_logback_classic",
     "@maven//:ch_qos_logback_logback_core",
-    "@maven//:com_typesafe_akka_akka_actor_2_12",
-    "@maven//:com_typesafe_akka_akka_stream_2_12",
-    "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
-    "@maven//:com_typesafe_akka_akka_testkit_2_12",
     "@maven//:com_typesafe_config",
     "@maven//:commons_io_commons_io",
     "@maven//:io_dropwizard_metrics_metrics_core",
@@ -208,27 +230,57 @@ test_deps = [
     "@maven//:org_awaitility_awaitility",
     "@maven//:org_flywaydb_flyway_core",
     "@maven//:org_mockito_mockito_core",
-    "@maven//:org_mockito_mockito_scala_2_12",
     "@maven//:org_reactivestreams_reactive_streams",
-    "@maven//:org_scalacheck_scalacheck_2_12",
-    "@maven//:org_scalactic_scalactic_2_12",
-    "@maven//:org_scalatest_scalatest_2_12",
-    "@maven//:org_scalaz_scalaz_core_2_12",
     "@maven//:org_slf4j_slf4j_api",
 ]
 
-da_scala_test_suite(
-    name = "sandbox-classic-tests",
-    srcs = glob(["src/test/suite/**/*.scala"]),
-    data = [
-        "//daml-lf/encoder:testing-dar-dev",
-        "//daml-lf/encoder:testing-dar-latest",
-        "//ledger/test-common:model-tests.dar",
-        "//ledger/test-common/test-certificates",
-    ],
-    resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
-    deps = test_deps,
-)
+scala_test_deps = [
+    "@maven//:com_typesafe_akka_akka_actor",
+    "@maven//:com_typesafe_akka_akka_stream",
+    "@maven//:com_typesafe_akka_akka_stream_testkit",
+    "@maven//:com_typesafe_akka_akka_testkit",
+    "@maven//:org_mockito_mockito_scala",
+    "@maven//:org_scalacheck_scalacheck",
+    "@maven//:org_scalactic_scalactic",
+    "@maven//:org_scalatest_scalatest",
+    "@maven//:org_scalaz_scalaz_core",
+]
+
+# The reset service is cursed so we mark all tests involving it as flaky.
+reset_service_pattern = "src/test/suite/**/*ResetService*.scala"
+
+[
+    da_scala_test_suite(
+        name = "sandbox-classic-tests{}".format(suffix),
+        srcs = glob(
+            [pattern],
+            exclude = exclusions,
+        ),
+        data = [
+            "//daml-lf/encoder:testing-dars",
+            "//ledger/test-common:model-tests-stable.dar",
+            "//ledger/test-common/test-certificates",
+        ],
+        flaky = flaky,
+        resources = glob(["src/test/resources/**/*"]) + ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+        scala_deps = scala_test_deps,
+        deps = test_deps,
+    )
+    for (suffix, pattern, exclusions, flaky) in [
+        (
+            "",
+            "src/test/suite/**/*.scala",
+            [reset_service_pattern],
+            False,
+        ),
+        (
+            "-resetservice",
+            reset_service_pattern,
+            [],
+            True,
+        ),
+    ]
+]
 
 SERVERS = {
     "memory": {
@@ -257,12 +309,46 @@ SERVERS = {
     },
 }
 
+# TODO append-only: only for temporary testing
+ONLY_POSTGRES_SERVER = {
+    "postgresql": {
+        "binary": ":sandbox-classic-ephemeral-postgresql",
+        "server_args": [
+            "--port=6865",
+            "--eager-package-loading",
+        ],
+    },
+}
+
 server_conformance_test(
     name = "conformance-test-static-time",
+    lf_versions = [
+        "stable",
+        "preview",
+    ],
     server_args = [
         "--static-time",
+        "--contract-id-seeding=testing-weak",
     ],
     servers = SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+# TODO append-only: only for temporary testing
+server_conformance_test(
+    name = "conformance-test-static-time-append-only",
+    lf_versions = [
+        "stable",
+    ],
+    server_args = [
+        "--static-time",
+        "--contract-id-seeding=testing-weak",
+        "--enable-append-only-schema",
+    ],
+    servers = ONLY_POSTGRES_SERVER,
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",
@@ -273,6 +359,7 @@ server_conformance_test(
     name = "conformance-test-wall-clock",
     server_args = [
         "--wall-clock-time",
+        "--contract-id-seeding=testing-weak",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -281,13 +368,63 @@ server_conformance_test(
     ],
 )
 
+# TODO append-only: only for temporary testing
 server_conformance_test(
-    name = "conformance-test-contract-id-seeding",
+    name = "conformance-test-wall-clock-append-only",
+    server_args = [
+        "--wall-clock-time",
+        "--contract-id-seeding=testing-weak",
+        "--enable-append-only-schema",
+    ],
+    servers = ONLY_POSTGRES_SERVER,
+    test_tool_args = [
+        "--open-world",
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-legacy-cid",
+    lf_versions = ["legacy"],
+    server_args = [
+        "--wall-clock-time",
+        "--contract-id-seeding=no",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+# TODO https://github.com/digital-asset/daml/issues/8020
+# Drop/modify once exceptions are out of 1.dev
+server_conformance_test(
+    name = "conformance-test-exceptions",
+    lf_versions = ["dev"],
     server_args = [
         "--wall-clock-time",
         "--contract-id-seeding=testing-weak",
     ],
     servers = SERVERS,
+    test_tool_args = [
+        "--open-world",
+        "--exclude=ClosedWorldIT",
+    ],
+)
+
+# TODO https://github.com/digital-asset/daml/issues/8020
+# TODO append-only: only for temporary testing
+# Drop/modify once exceptions are out of 1.dev
+server_conformance_test(
+    name = "conformance-test-exceptions-append-only",
+    lf_versions = ["dev"],
+    server_args = [
+        "--wall-clock-time",
+        "--contract-id-seeding=testing-weak",
+        "--enable-append-only-schema",
+    ],
+    servers = ONLY_POSTGRES_SERVER,
     test_tool_args = [
         "--open-world",
         "--exclude=ClosedWorldIT",

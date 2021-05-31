@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ApplicativeDo #-}
@@ -10,6 +10,7 @@ import DA.Assert
 import DA.Date
 import DA.Foldable hiding (length)
 import DA.List
+import DA.Stack
 import DA.Time
 import Daml.Script
 
@@ -69,6 +70,16 @@ template WithKey
     nonconsuming choice GetCid : ContractId WithKey
       controller p
       do pure self
+
+template TTupleKey
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    key (p1, p2) : (Party, Party)
+    maintainer key._1
 
 test0 : Script (Party, Party, [T], [TProposal], [C])
 test0 = do
@@ -323,3 +334,78 @@ jsonQueryContractKey p = do
   submit p do archiveCmd cid
   optR <- queryContractKey @WithKey p p
   optR === None
+
+template MultiPartyContract
+  with
+    parties: [Party]
+  where
+    signatory parties
+
+    nonconsuming choice MPFetchOther : ()
+      with
+        cid: ContractId MultiPartyContract
+        actor: Party
+      controller actor
+      do
+        actualContract <- fetch cid
+        return ()
+
+multiPartySubmission : Script ()
+multiPartySubmission = do
+  p1 <- allocateParty "p1"
+  p2 <- allocateParty "p2"
+  submitMultiMustFail [p1] [] (createCmd (MultiPartyContract [p1, p2]))
+  shared <- submitMulti [p1, p2] [] (createCmd (MultiPartyContract [p1, p2]))
+  single <- submitMulti [p1] [] (createCmd (MultiPartyContract [p1]))
+  submitMultiMustFail [p2] [] (exerciseCmd shared (MPFetchOther single p2))
+  submitMulti [p2] [p1] (exerciseCmd shared (MPFetchOther single p2))
+  pure ()
+
+tupleKey : Script ()
+tupleKey = do
+  p1 <- allocateParty "p1"
+  p2 <- allocateParty "p2"
+  cid <- submit p1 (createCmd (TTupleKey p1 p2))
+  r <- queryContractKey @TTupleKey p1 (p1, p2)
+  r === Some (cid, TTupleKey p1 p2)
+  pure ()
+
+tree : Script ()
+tree = do
+  p1 <- allocateParty "p1"
+  TransactionTree [CreatedEvent (Created cid arg)] <- submitTree p1 (createCmd (T p1 p1))
+  fromAnyTemplate arg === Some (T p1 p1)
+  let Some cid' = fromAnyContractId @T cid
+  optT <- queryContractId p1 cid'
+  optT === Some (T p1 p1)
+  cid <- submit p1 (createCmd (MessageSize p1))
+  TransactionTree [ExercisedEvent ex] <- submitTree p1 (exerciseCmd cid (CreateN 3))
+  fromAnyContractId @MessageSize ex.contractId === Some cid
+  let [CreatedEvent c1, CreatedEvent c2, CreatedEvent c3] = ex.childEvents
+  fromAnyTemplate c1.argument === Some (MessageSize p1)
+  fromAnyTemplate c2.argument === Some (MessageSize p1)
+  fromAnyTemplate c3.argument === Some (MessageSize p1)
+  pure ()
+
+mySubmit : HasCallStack => Party -> Commands a -> Script a
+mySubmit p cmds = submit p cmds
+
+stackTrace : Script ()
+stackTrace = do
+  p <- allocateParty "p"
+  mySubmit p $ createAndExerciseCmd (C p 42) ShouldFail
+
+-- Create a contract only visible to one party to test readAs
+jsonMultiPartySubmissionCreateSingle : Party -> Script (ContractId MultiPartyContract)
+jsonMultiPartySubmissionCreateSingle p = do
+  submit p (createCmd (MultiPartyContract [p]))
+
+-- Create a contract only visible to one party to test readAs
+jsonMultiPartySubmissionCreate : (Party, Party) -> Script (ContractId MultiPartyContract)
+jsonMultiPartySubmissionCreate (p1, p2) = do
+  submitMulti [p1, p2] [] (createCmd (MultiPartyContract [p1, p2]))
+
+-- Create a contract only visible to one party to test readAs
+jsonMultiPartySubmissionExercise : (Party, Party, ContractId MultiPartyContract, ContractId MultiPartyContract) -> Script ()
+jsonMultiPartySubmissionExercise (p1, p2, cid, cidFetch) = do
+  submitMulti [p2] [p1] (exerciseCmd cid (MPFetchOther cidFetch p2))

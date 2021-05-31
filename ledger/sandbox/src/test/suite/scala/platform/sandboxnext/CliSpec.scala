@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandboxnext
@@ -17,7 +17,9 @@ class CliSpec extends CommonCliSpecBase(Cli) {
       checkOption(
         Array("--ledgerid", ledgerId),
         _.copy(ledgerIdMode =
-          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(ledgerId)))))
+          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(ledgerId)))
+        ),
+      )
     }
 
     "parse the sql-backend-jdbcurl flag when given" in {

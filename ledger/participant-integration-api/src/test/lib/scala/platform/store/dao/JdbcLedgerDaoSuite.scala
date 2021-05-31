@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -6,23 +6,26 @@ package com.daml.platform.store.dao
 import java.io.File
 import java.time.{Duration, Instant}
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 
 import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
+import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.{Identifier, Party}
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction, Node, NodeId}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{ContractId, ContractInst, ValueRecord, ValueText, ValueUnit}
+import com.daml.lf.transaction._
+import com.daml.lf.value.{Value => LfValue}
+import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import com.daml.logging.LoggingContext
+import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.store.dao.events.TransactionsWriter
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite
 
@@ -35,49 +38,125 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected implicit final val loggingContext: LoggingContext = LoggingContext.ForTesting
 
+  val previousOffset: AtomicReference[Option[Offset]] =
+    new AtomicReference[Option[Offset]](Option.empty)
+
   protected final val nextOffset: () => Offset = {
     val base = BigInt(1) << 32
     val counter = new AtomicLong(0)
-    () =>
+    () => {
       Offset.fromByteArray((base + counter.getAndIncrement()).toByteArray)
+    }
   }
 
   protected final implicit class OffsetToLong(offset: Offset) {
     def toLong: Long = BigInt(offset.toByteArray).toLong
   }
 
+  private[this] val Success(dar) = {
+    val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
+    val fileName = new File(rlocation(ModelTestDar.path))
+    reader.readArchiveFromFile(fileName)
+  }
+
+  private val now = Instant.now()
+
+  protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] =
+    dar.all.map(dar => dar -> v2.PackageDetails(dar.getSerializedSize.toLong, now, None))
+  private val testPackageId: Ref.PackageId = Ref.PackageId.assertFromString(dar.main.getHash)
+
   protected final val alice = Party.assertFromString("Alice")
   protected final val bob = Party.assertFromString("Bob")
   protected final val charlie = Party.assertFromString("Charlie")
   protected final val david = Party.assertFromString("David")
+  protected final val emma = Party.assertFromString("Emma")
 
   protected final val defaultAppId = "default-app-id"
   protected final val defaultWorkflowId = "default-workflow-id"
   protected final val someAgreement = "agreement"
-  protected final val someTemplateId = Identifier(
-    Ref.PackageId.assertFromString("packageId"),
+
+  // Note: *identifiers* and *values* defined below MUST correspond to //ledger/test-common/src/main/daml/model/Test.daml
+  // This is because some tests request values in verbose mode, which requires filling in missing type information,
+  // which in turn requires loading Daml-LF packages with valid Daml-LF types that correspond to the Daml-LF values.
+  //
+  // On the other hand, *transactions* do not need to correspond to valid transactions that could be produced by the
+  // above mentioned Daml code, e.g., signatories/stakeholders may not correspond to the contract/choice arguments.
+  // This is because JdbcLedgerDao is only concerned with serialization, and does not verify the Daml ledger model.
+  private def testIdentifier(name: String) = Identifier(
+    testPackageId,
     Ref.QualifiedName(
-      Ref.ModuleName.assertFromString("moduleName"),
-      Ref.DottedName.assertFromString("someTemplate"))
+      Ref.ModuleName.assertFromString("Test"),
+      Ref.DottedName.assertFromString(name),
+    ),
   )
-  protected final val someRecordId = Identifier(
-    Ref.PackageId.assertFromString("packageId"),
-    Ref.QualifiedName(
-      Ref.ModuleName.assertFromString("moduleName"),
-      Ref.DottedName.assertFromString("someRecord"))
+  protected def recordFieldName(name: String) = Some(Ref.Name.assertFromString(name))
+  protected final val someTemplateId = testIdentifier("ParameterShowcase")
+  protected final val someValueText = LfValue.ValueText("some text")
+  protected final val someValueInt = LfValue.ValueInt64(1)
+  protected final val someValueNumeric =
+    LfValue.ValueNumeric(com.daml.lf.data.Numeric.assertFromString("1.1"))
+  protected final val someNestedOptionalInteger = LfValue.ValueRecord(
+    Some(testIdentifier("NestedOptionalInteger")),
+    ImmArray(
+      Some(Ref.Name.assertFromString("value")) -> LfValue.ValueVariant(
+        Some(testIdentifier("OptionalInteger")),
+        Ref.Name.assertFromString("SomeInteger"),
+        someValueInt,
+      )
+    ),
   )
-  protected final val someValueText = ValueText("some text")
-  protected final val someValueRecord = ValueRecord(
-    Some(someRecordId),
-    ImmArray(Some(Ref.Name.assertFromString("field")) -> someValueText))
-  protected final val someContractKey = someValueText
+  protected final val someContractArgument = LfValue.ValueRecord(
+    Some(someTemplateId),
+    ImmArray(
+      recordFieldName("operator") -> LfValue.ValueParty(alice),
+      recordFieldName("integer") -> someValueInt,
+      recordFieldName("decimal") -> someValueNumeric,
+      recordFieldName("text") -> someValueText,
+      recordFieldName("bool") -> LfValue.ValueBool(true),
+      recordFieldName("time") -> LfValue.ValueTimestamp(Time.Timestamp.Epoch),
+      recordFieldName("nestedOptionalInteger") -> someNestedOptionalInteger,
+      recordFieldName("integerList") -> LfValue.ValueList(FrontStack(someValueInt)),
+      recordFieldName("optionalText") -> LfValue.ValueOptional(Some(someValueText)),
+    ),
+  )
+  protected final val someChoiceName = Ref.Name.assertFromString("Choice1")
+  protected final val someChoiceArgument = LfValue.ValueRecord(
+    Some(testIdentifier(someChoiceName)),
+    ImmArray(
+      recordFieldName("newInteger") -> someValueInt,
+      recordFieldName("newDecimal") -> someValueNumeric,
+      recordFieldName("newText") -> someValueText,
+      recordFieldName("newBool") -> LfValue.ValueBool(true),
+      recordFieldName("newTime") -> LfValue.ValueTimestamp(Time.Timestamp.Epoch),
+      recordFieldName("newNestedOptionalInteger") -> someNestedOptionalInteger,
+      recordFieldName("newIntegerList") -> LfValue.ValueList(FrontStack(someValueInt)),
+      recordFieldName("newOptionalText") -> LfValue.ValueOptional(Some(someValueText)),
+    ),
+  )
+  protected final val someChoiceResult =
+    LfValue.ValueContractId[ContractId](ContractId.V0.assertFromString("#1"))
+  protected final def someContractKey(party: Party, value: String) = LfValue.ValueRecord(
+    None,
+    ImmArray(
+      None -> LfValue.ValueParty(party),
+      None -> LfValue.ValueText(value),
+    ),
+  )
   protected final val someContractInstance = ContractInst(
     someTemplateId,
-    someValueRecord,
-    someAgreement
+    someContractArgument,
+    someAgreement,
   )
   protected final val someVersionedContractInstance =
     TransactionBuilder().versionContract(someContractInstance)
+
+  protected final val otherTemplateId = testIdentifier("Dummy")
+  protected final val otherContractArgument = LfValue.ValueRecord(
+    Some(otherTemplateId),
+    ImmArray(
+      recordFieldName("operator") -> LfValue.ValueParty(alice)
+    ),
+  )
 
   protected final val defaultConfig = v1.Configuration(
     generation = 0,
@@ -85,15 +164,13 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     Duration.ofDays(1),
   )
 
-  private val reader = DarReader { (_, stream) =>
-    Try(DamlLf.Archive.parseFrom(stream))
-  }
-  private val Success(dar) =
-    reader.readArchiveFromFile(new File(rlocation("ledger/test-common/model-tests.dar")))
-  private val now = Instant.now()
-
-  protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] =
-    dar.all.map(dar => dar -> v2.PackageDetails(dar.getSerializedSize.toLong, now, None))
+  private[dao] def store(
+      submitterInfo: Option[SubmitterInfo],
+      tx: LedgerEntry.Transaction,
+      offsetStep: OffsetStep,
+      divulgedContracts: List[DivulgedContract],
+      blindingInfo: Option[BlindingInfo],
+  ): Future[(Offset, LedgerEntry.Transaction)]
 
   protected implicit def toParty(s: String): Party = Party.assertFromString(s)
 
@@ -103,90 +180,82 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final def create(
       absCid: ContractId,
       signatories: Set[Party] = Set(alice, bob),
-  ): NodeCreate[ContractId, Value[ContractId]] =
-    NodeCreate(
-      coid = absCid,
-      coinst = someContractInstance,
-      optLocation = None,
-      signatories = signatories,
-      stakeholders = signatories,
-      key = None
-    )
+      templateId: Identifier = someTemplateId,
+      contractArgument: LfValue[ContractId] = someContractArgument,
+  ): NodeCreate[ContractId] =
+    createNode(absCid, signatories, signatories, None, templateId, contractArgument)
 
-  protected final def createWithStakeholders(
+  protected final def createNode(
       absCid: ContractId,
       signatories: Set[Party],
       stakeholders: Set[Party],
-  ): NodeCreate[ContractId, Value[ContractId]] =
+      key: Option[KeyWithMaintainers[LfValue[ContractId]]] = None,
+      templateId: Identifier = someTemplateId,
+      contractArgument: LfValue[ContractId] = someContractArgument,
+  ): NodeCreate[ContractId] =
     NodeCreate(
       coid = absCid,
-      coinst = someContractInstance,
+      templateId = templateId,
+      arg = contractArgument,
+      agreementText = someAgreement,
       optLocation = None,
       signatories = signatories,
       stakeholders = stakeholders,
-      key = None
+      key = key,
+      version = TransactionVersion.minVersion,
     )
 
   private def exercise(
       targetCid: ContractId,
-  ): NodeExercises[NodeId, ContractId, Value[ContractId]] =
+      key: Option[KeyWithMaintainers[LfValue[ContractId]]] = None,
+  ): NodeExercises[NodeId, ContractId] =
     NodeExercises(
       targetCoid = targetCid,
       templateId = someTemplateId,
-      choiceId = Ref.Name.assertFromString("choice"),
+      choiceId = someChoiceName,
       optLocation = None,
       consuming = true,
       actingParties = Set(alice),
-      chosenValue = ValueText("some choice value"),
+      chosenValue = someChoiceArgument,
       stakeholders = Set(alice, bob),
       signatories = Set(alice, bob),
       choiceObservers = Set.empty,
       children = ImmArray.empty,
-      exerciseResult = Some(ValueText("some exercise result")),
-      key = None,
+      exerciseResult = Some(someChoiceResult),
+      key = key,
       byKey = false,
+      version = TransactionVersion.minVersion,
     )
+
+  // Ids of all contracts created in a transaction - both transient and non-transient
+  protected def created(tx: LedgerEntry.Transaction): Set[ContractId] =
+    tx.transaction.fold(Set.empty[ContractId]) {
+      case (set, (_, create: NodeCreate[ContractId])) =>
+        set + create.coid
+      case (set, _) =>
+        set
+    }
 
   // All non-transient contracts created in a transaction
   protected def nonTransient(tx: LedgerEntry.Transaction): Set[ContractId] =
     tx.transaction.fold(Set.empty[ContractId]) {
-      case (set, (_, create: NodeCreate.WithTxValue[ContractId])) =>
+      case (set, (_, create: NodeCreate[ContractId])) =>
         set + create.coid
-      case (set, (_, exercise: Node.NodeExercises.WithTxValue[NodeId, ContractId]))
-          if exercise.consuming =>
+      case (set, (_, exercise: Node.NodeExercises[NodeId, ContractId])) if exercise.consuming =>
         set - exercise.targetCoid
       case (set, _) =>
         set
     }
 
-  protected final def singleCreateP(create: ContractId => NodeCreate[ContractId, Value[ContractId]])
-    : (Offset, LedgerEntry.Transaction) = {
-    val txBuilder = TransactionBuilder()
-    val cid = txBuilder.newCid
-    val creation = create(cid)
-    val eid = txBuilder.add(creation)
-    val offset = nextOffset()
-    val id = offset.toLong
-    val let = Instant.now
-    offset -> LedgerEntry.Transaction(
-      commandId = Some(s"commandId$id"),
-      transactionId = s"trId$id",
-      applicationId = Some("appID1"),
-      actAs = List(alice),
-      workflowId = Some("workflowId"),
-      ledgerEffectiveTime = let,
-      recordedAt = let,
-      transaction = txBuilder.buildCommitted(),
-      explicitDisclosure = Map(eid -> (creation.signatories union creation.stakeholders))
-    )
-  }
-
   protected final def singleCreate: (Offset, LedgerEntry.Transaction) =
-    singleCreateP(create(_))
+    singleCreate(create(_))
 
-  protected final def multiPartySingleCreateP(
-      create: ContractId => NodeCreate[ContractId, Value[ContractId]],
-      actAs: List[Party],
+  protected final def multiPartySingleCreate: (Offset, LedgerEntry.Transaction) =
+    singleCreate(create(_, Set(alice, bob)), List(alice, bob))
+
+  protected final def singleCreate(
+      create: ContractId => NodeCreate[ContractId],
+      actAs: List[Party] = List(alice),
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()
     val cid = txBuilder.newCid
@@ -204,12 +273,50 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       ledgerEffectiveTime = let,
       recordedAt = let,
       transaction = txBuilder.buildCommitted(),
-      explicitDisclosure = Map(eid -> (creation.signatories union creation.stakeholders))
+      explicitDisclosure = Map(eid -> (creation.signatories union creation.stakeholders)),
     )
   }
 
-  protected final def multiPartySingleCreate: (Offset, LedgerEntry.Transaction) =
-    multiPartySingleCreateP(create(_, Set(alice, bob)), List(alice, bob))
+  protected final def createTestKey(
+      maintainers: Set[Party]
+  ): (KeyWithMaintainers[ValueText], GlobalKey) = {
+    val aTextValue = ValueText(scala.util.Random.nextString(10))
+    val keyWithMaintainers = KeyWithMaintainers(aTextValue, maintainers)
+    val globalKey = GlobalKey.assertBuild(someTemplateId, aTextValue)
+    (keyWithMaintainers, globalKey)
+  }
+
+  protected final def createAndStoreContract(
+      submittingParties: Set[Party],
+      signatories: Set[Party],
+      stakeholders: Set[Party],
+      key: Option[KeyWithMaintainers[LfValue[ContractId]]],
+      contractArgument: LfValue[ContractId] = someContractArgument,
+  ): Future[(Offset, LedgerEntry.Transaction)] =
+    store(
+      singleCreate(
+        create = { cid =>
+          createNode(
+            absCid = cid,
+            signatories = signatories,
+            stakeholders = stakeholders,
+            key = key,
+            contractArgument = contractArgument,
+          )
+        },
+        actAs = submittingParties.toList,
+      )
+    )
+
+  protected final def storeCommitedContractDivulgence(
+      id: ContractId,
+      divulgees: Set[Party],
+  ): Future[(Offset, LedgerEntry.Transaction)] =
+    store(
+      divulgedContracts = Map((id, someVersionedContractInstance) -> divulgees),
+      blindingInfo = None,
+      offsetAndTx = divulgeAlreadyCommittedContract(id, divulgees),
+    )
 
   protected def divulgeAlreadyCommittedContract(
       id: ContractId,
@@ -220,18 +327,19 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       NodeExercises(
         targetCoid = id,
         templateId = someTemplateId,
-        choiceId = Ref.ChoiceName.assertFromString("someChoice"),
+        choiceId = someChoiceName,
         optLocation = None,
         consuming = false,
         actingParties = Set(alice),
-        chosenValue = ValueUnit,
+        chosenValue = someChoiceArgument,
         stakeholders = divulgees,
         signatories = divulgees,
         choiceObservers = Set.empty,
         children = ImmArray.empty,
-        exerciseResult = Some(ValueUnit),
+        exerciseResult = Some(someChoiceResult),
         key = None,
         byKey = false,
+        version = TransactionVersion.minVersion,
       )
     )
     txBuilder.add(
@@ -244,6 +352,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         stakeholders = Set(alice),
         None,
         byKey = false,
+        version = TransactionVersion.minVersion,
       ),
       exerciseId,
     )
@@ -263,9 +372,10 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   protected def singleExercise(
       targetCid: ContractId,
+      key: Option[KeyWithMaintainers[LfValue[ContractId]]] = None,
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()
-    val nid = txBuilder.add(exercise(targetCid))
+    val nid = txBuilder.add(exercise(targetCid, key))
     val offset = nextOffset()
     val id = offset.toLong
     val let = Instant.now
@@ -278,12 +388,12 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       ledgerEffectiveTime = let,
       recordedAt = let,
       transaction = CommittedTransaction(txBuilder.buildCommitted()),
-      explicitDisclosure = Map(nid -> Set("Alice", "Bob"))
+      explicitDisclosure = Map(nid -> Set("Alice", "Bob")),
     )
   }
 
   protected def multiPartySingleExercise(
-      targetCid: ContractId,
+      targetCid: ContractId
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()
     val nid = txBuilder.add(exercise(targetCid))
@@ -299,12 +409,12 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       ledgerEffectiveTime = let,
       recordedAt = let,
       transaction = CommittedTransaction(txBuilder.buildCommitted()),
-      explicitDisclosure = Map(nid -> Set(alice, bob))
+      explicitDisclosure = Map(nid -> Set(alice, bob)),
     )
   }
 
   protected def singleNonConsumingExercise(
-      targetCid: ContractId,
+      targetCid: ContractId
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()
     val nid = txBuilder.add(exercise(targetCid).copy(consuming = false))
@@ -320,12 +430,12 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       ledgerEffectiveTime = let,
       recordedAt = let,
       transaction = txBuilder.buildCommitted(),
-      explicitDisclosure = Map(nid -> Set("Alice", "Bob"))
+      explicitDisclosure = Map(nid -> Set("Alice", "Bob")),
     )
   }
 
   protected def exerciseWithChild(
-      targetCid: ContractId,
+      targetCid: ContractId
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()
     val exerciseId = txBuilder.add(exercise(targetCid))
@@ -344,11 +454,13 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       let,
       let,
       CommittedTransaction(tx),
-      Map(exerciseId -> Set("Alice", "Bob"), childId -> Set("Alice", "Bob"))
+      Map(exerciseId -> Set("Alice", "Bob"), childId -> Set("Alice", "Bob")),
     )
   }
 
-  protected def fullyTransient: (Offset, LedgerEntry.Transaction) = {
+  protected def fullyTransient(
+      create: ContractId => NodeCreate[ContractId] = create(_)
+  ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()
     val cid = txBuilder.newCid
     val createId = txBuilder.add(create(cid))
@@ -366,7 +478,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       explicitDisclosure = Map(
         createId -> Set(alice, bob),
         exerciseId -> Set(alice, bob),
-      )
+      ),
     )
   }
 
@@ -395,12 +507,11 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         rootExerciseId -> Set(alice, bob, charlie),
         createTransientId -> Set(alice, bob, charlie),
         consumeTransientId -> Set(alice, bob, charlie),
-      )
+      ),
     )
   }
 
-  /**
-    * Creates the following transaction
+  /** Creates the following transaction
     *
     * Create A --> Exercise A
     *              |        |
@@ -411,7 +522,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     * A is visible to Charlie
     * B is visible to Alice and Charlie
     * C is visible to Bob and Charlie
-    *
     */
   protected def partiallyVisible: (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()
@@ -419,7 +529,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       create(txBuilder.newCid).copy(
         signatories = Set(charlie),
         stakeholders = Set(charlie),
-      ))
+      )
+    )
     val exerciseId = txBuilder.add(
       exercise(txBuilder.newCid).copy(
         actingParties = Set(charlie),
@@ -450,12 +561,11 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         exerciseId -> Set(charlie),
         childCreateId1 -> Set(alice, charlie),
         childCreateId2 -> Set(bob, charlie),
-      )
+      ),
     )
   }
 
-  /**
-    * Creates a transactions with multiple top-level creates.
+  /** Creates a transactions with multiple top-level creates.
     *
     * Every contract will be signed by a fixed "operator" and each contract will have a
     * further signatory and a template as defined by signatoriesAndTemplates.
@@ -464,21 +574,16 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     */
   protected def multipleCreates(
       operator: String,
-      signatoriesAndTemplates: Seq[(String, String)],
+      signatoriesAndTemplates: Seq[(Party, Identifier, LfValue[ContractId])],
   ): (Offset, LedgerEntry.Transaction) = {
     require(signatoriesAndTemplates.nonEmpty, "multipleCreates cannot create empty transactions")
     val txBuilder = TransactionBuilder()
     val disclosure = for {
       entry <- signatoriesAndTemplates
-      (signatory, template) = entry
-      contract = create(txBuilder.newCid)
+      (signatory, template, argument) = entry
+      contract = create(txBuilder.newCid, Set(signatory), template, argument)
       parties = Set[Party](operator, signatory)
-      nodeId = txBuilder.add(
-        contract.copy(
-          signatories = parties,
-          stakeholders = parties,
-          coinst = contract.coinst.copy(template = Identifier.assertFromString(template)),
-        ))
+      nodeId = txBuilder.add(contract)
     } yield nodeId -> parties
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
@@ -493,50 +598,64 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     )
   }
 
+  protected final def prepareInsert(
+      submitterInfo: Option[SubmitterInfo],
+      tx: LedgerEntry.Transaction,
+      offsetStep: OffsetStep,
+      divulgedContracts: List[DivulgedContract] = List.empty,
+      blindingInfo: Option[BlindingInfo] = None,
+  ): TransactionsWriter.PreparedInsert =
+    ledgerDao.prepareTransactionInsert(
+      submitterInfo,
+      tx.workflowId,
+      tx.transactionId,
+      tx.ledgerEffectiveTime,
+      offsetStep.offset,
+      tx.transaction,
+      divulgedContracts,
+      blindingInfo,
+    )
+
   protected final def store(
       divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
       blindingInfo: Option[BlindingInfo],
       offsetAndTx: (Offset, LedgerEntry.Transaction),
-  ): Future[(Offset, LedgerEntry.Transaction)] = {
-    val (offset, entry) = offsetAndTx
-    val submitterInfo =
-      for (actAs <- if (entry.actAs.isEmpty) None else Some(entry.actAs); app <- entry.applicationId;
-        cmd <- entry.commandId) yield v1.SubmitterInfo(actAs, app, cmd, Instant.EPOCH)
-    val committedTransaction = CommittedTransaction(entry.transaction)
-    val ledgerEffectiveTime = entry.ledgerEffectiveTime
-    val divulged = divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
-    val preparedTransactionInsert = ledgerDao.prepareTransactionInsert(
-      submitterInfo,
-      entry.workflowId,
-      entry.transactionId,
-      ledgerEffectiveTime,
-      offset,
-      committedTransaction,
-      divulged,
-      blindingInfo,
+  ): Future[(Offset, LedgerEntry.Transaction)] =
+    storeOffsetStepAndTx(
+      divulgedContracts = divulgedContracts,
+      blindingInfo = blindingInfo,
+      offsetStepAndTx = nextOffsetStep(offsetAndTx._1) -> offsetAndTx._2,
     )
-    ledgerDao
-      .storeTransaction(
-        preparedInsert = preparedTransactionInsert,
-        submitterInfo = submitterInfo,
-        transactionId = entry.transactionId,
-        transaction = committedTransaction,
-        recordTime = entry.recordedAt,
-        ledgerEffectiveTime = ledgerEffectiveTime,
-        offset = offset,
-        divulged = divulged,
-        blindingInfo = blindingInfo,
-      )
-      .map(_ => offsetAndTx)
+
+  protected final def storeOffsetStepAndTx(
+      divulgedContracts: Map[(ContractId, v1.ContractInst), Set[Party]],
+      blindingInfo: Option[BlindingInfo],
+      offsetStepAndTx: (OffsetStep, LedgerEntry.Transaction),
+  ): Future[(Offset, LedgerEntry.Transaction)] = {
+    val (offsetStep, entry) = offsetStepAndTx
+    val maybeSubmitterInfo = submitterInfo(entry)
+    val divulged = divulgedContracts.keysIterator.map(c => v1.DivulgedContract(c._1, c._2)).toList
+
+    store(maybeSubmitterInfo, entry, offsetStep, divulged, blindingInfo)
   }
 
+  protected def submitterInfo(entry: LedgerEntry.Transaction) =
+    for (
+      actAs <- if (entry.actAs.isEmpty) None else Some(entry.actAs); app <- entry.applicationId;
+      cmd <- entry.commandId
+    ) yield v1.SubmitterInfo(actAs, app, cmd, Instant.EPOCH)
+
   protected final def store(
-      offsetAndTx: (Offset, LedgerEntry.Transaction),
+      offsetAndTx: (Offset, LedgerEntry.Transaction)
   ): Future[(Offset, LedgerEntry.Transaction)] =
-    store(divulgedContracts = Map.empty, blindingInfo = None, offsetAndTx)
+    storeOffsetStepAndTx(
+      divulgedContracts = Map.empty,
+      blindingInfo = None,
+      offsetStepAndTx = nextOffsetStep(offsetAndTx._1) -> offsetAndTx._2,
+    )
 
   protected final def storeSync(
-      commands: Vector[(Offset, LedgerEntry.Transaction)],
+      commands: Vector[(Offset, LedgerEntry.Transaction)]
   ): Future[Vector[(Offset, LedgerEntry.Transaction)]] = {
 
     import JdbcLedgerDaoSuite._
@@ -552,28 +671,33 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   protected final def txCreateContractWithKey(
       party: Party,
       key: String,
+      txUuid: Option[String] = None,
   ): (Offset, LedgerEntry.Transaction) = {
     val txBuilder = TransactionBuilder()
     val createNodeId = txBuilder.add(
       NodeCreate(
         coid = txBuilder.newCid,
-        coinst = someContractInstance,
+        templateId = someTemplateId,
+        arg = someContractArgument,
+        agreementText = someAgreement,
         optLocation = None,
         signatories = Set(party),
         stakeholders = Set(party),
-        key = Some(KeyWithMaintainers(ValueText(key), Set(party)))
-      ))
+        key = Some(KeyWithMaintainers(someContractKey(party, key), Set(party))),
+        version = TransactionVersion.minVersion,
+      )
+    )
     nextOffset() ->
       LedgerEntry.Transaction(
         commandId = Some(UUID.randomUUID().toString),
-        transactionId = UUID.randomUUID.toString,
+        transactionId = txUuid.getOrElse(UUID.randomUUID.toString),
         applicationId = Some(defaultAppId),
         actAs = List(party),
         workflowId = Some(defaultWorkflowId),
         ledgerEffectiveTime = Instant.now,
         recordedAt = Instant.now,
         transaction = txBuilder.buildCommitted(),
-        explicitDisclosure = Map(createNodeId -> Set(party))
+        explicitDisclosure = Map(createNodeId -> Set(party)),
       )
   }
 
@@ -592,15 +716,17 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         optLocation = None,
         consuming = true,
         actingParties = Set(party),
-        chosenValue = ValueUnit,
+        chosenValue = LfValue.ValueUnit,
         stakeholders = Set(party),
         signatories = Set(party),
         choiceObservers = Set.empty,
         children = ImmArray.empty,
-        exerciseResult = Some(ValueUnit),
-        key = maybeKey.map(k => KeyWithMaintainers(ValueText(k), Set(party))),
+        exerciseResult = Some(LfValue.ValueUnit),
+        key = maybeKey.map(k => KeyWithMaintainers(someContractKey(party, k), Set(party))),
         byKey = false,
-      ))
+        version = TransactionVersion.minVersion,
+      )
+    )
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
       transactionId = UUID.randomUUID.toString,
@@ -610,7 +736,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       ledgerEffectiveTime = Instant.now,
       recordedAt = Instant.now,
       transaction = txBuilder.buildCommitted(),
-      explicitDisclosure = Map(archiveNodeId -> Set(party))
+      explicitDisclosure = Map(archiveNodeId -> Set(party)),
     )
   }
 
@@ -625,9 +751,11 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       NodeLookupByKey(
         someTemplateId,
         None,
-        KeyWithMaintainers(ValueText(key), Set(party)),
+        KeyWithMaintainers(someContractKey(party, key), Set(party)),
         result,
-      ))
+        version = TransactionVersion.minVersion,
+      )
+    )
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
       transactionId = UUID.randomUUID.toString,
@@ -637,7 +765,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       ledgerEffectiveTime = Instant.now(),
       recordedAt = Instant.now(),
       transaction = txBuilder.buildCommitted(),
-      explicitDisclosure = Map(lookupByKeyNodeId -> Set(party))
+      explicitDisclosure = Map(lookupByKeyNodeId -> Set(party)),
     )
   }
 
@@ -656,7 +784,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         stakeholders = Set(party),
         None,
         byKey = false,
-      ))
+        version = TransactionVersion.minVersion,
+      )
+    )
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
       transactionId = UUID.randomUUID.toString,
@@ -666,7 +796,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       ledgerEffectiveTime = Instant.now(),
       recordedAt = Instant.now(),
       transaction = txBuilder.buildCommitted(),
-      explicitDisclosure = Map(fetchNodeId -> Set(party))
+      explicitDisclosure = Map(fetchNodeId -> Set(party)),
     )
   }
 
@@ -696,14 +826,14 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       .map(c => c.commandId -> c.status.get.code)
       .runWith(Sink.seq)
 
+  def nextOffsetStep(offset: Offset): OffsetStep =
+    OffsetStep(previousOffset.getAndSet(Some(offset)), offset)
 }
 
 object JdbcLedgerDaoSuite {
 
   import scalaz.syntax.traverse._
   import scalaz.{Free, Monad, NaturalTransformation, Traverse}
-
-  import scala.language.higherKinds
 
   implicit final class `TraverseFM Ops`[T[_], A](private val self: T[A]) extends AnyVal {
 
@@ -718,4 +848,5 @@ object JdbcLedgerDaoSuite {
         .traverse(a => Free suspend (Free liftF f(a)))
         .foldMap(NaturalTransformation.refl)
   }
+
 }

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.DataDependencies (main) where
 
@@ -8,9 +8,11 @@ import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Reader (readDalfs, Dalfs(..))
 import qualified DA.Daml.LF.Proto3.Archive as LFArchive
+import DA.Daml.StablePackages (numStablePackagesForVersion)
 import DA.Test.Process
 import DA.Test.Util
 import qualified Data.ByteString.Lazy as BSL
+import Data.List (sort)
 import qualified Data.NameMap as NM
 import Module (unitIdString)
 import System.Directory.Extra
@@ -26,7 +28,7 @@ import SdkVersion
 
 main :: IO ()
 main = do
-    setEnv "TASTY_NUM_THREADS" "1" True
+    setEnv "TASTY_NUM_THREADS" "3" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     repl <- locateRunfiles (mainWorkspace </> "daml-lf" </> "repl" </> exe "repl")
     davlDar <- locateRunfiles ("davl-v3" </> "released" </> "davl-v3.dar")
@@ -49,14 +51,11 @@ darPackageIds fp = do
     Right dalfPkgIds  <- pure $ mapM (LFArchive.decodeArchivePackageId . BSL.toStrict) $ mainDalf : dalfDeps
     pure dalfPkgIds
 
-
-numStablePackages :: LF.Version -> Int
-numStablePackages ver
-  | ver == LF.version1_6 = 15
-  | ver == LF.version1_7 = 16
-  | ver == LF.version1_8 = 16
-  | ver == LF.versionDev = 16
-  | otherwise = error $ "Unsupported LF version: " <> show ver
+-- | Sequential LF version pairs, with an additional (1.dev, 1.dev) pair at the end.
+sequentialVersionPairs :: [(LF.Version, LF.Version)]
+sequentialVersionPairs =
+    let versions = sort LF.supportedOutputVersions ++ [LF.versionDev]
+    in zip versions (tail versions)
 
 tests :: Tools -> TestTree
 tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependencies" $
@@ -92,10 +91,15 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "source: src"
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
-          withCurrentDirectory proja $ callProcessSilent damlc ["build", "--target=" <> LF.renderVersion depLfVer, "-o", proja </> "proja.dar"]
+          callProcessSilent damlc
+                ["build"
+                , "--project-root", proja
+                , "--target", LF.renderVersion depLfVer
+                , "-o", proja </> "proja.dar"
+                ]
           projaPkgIds <- darPackageIds (proja </> "proja.dar")
           -- daml-stdlib, daml-prim and proja
-          length projaPkgIds @?= numStablePackages depLfVer + 2 + 1
+          length projaPkgIds @?= numStablePackagesForVersion depLfVer + 2 + 1
 
           step "Build projb"
           createDirectoryIfMissing True (projb </> "src")
@@ -122,22 +126,24 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "dependencies: [daml-prim, daml-stdlib]"
               , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
               ]
-          withCurrentDirectory projb $ callProcessSilent damlc
-            [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", projb
+            , "--target", LF.renderVersion targetLfVer
+            , "-o", projb </> "projb.dar"
             ]
           step "Validating DAR"
           validate $ projb </> "projb.dar"
           projbPkgIds <- darPackageIds (projb </> "projb.dar")
           -- daml-prim, daml-stdlib for targetLfVer, daml-prim, daml-stdlib for depLfVer if targetLfVer /= depLfVer, proja and projb
-          length projbPkgIds @?= numStablePackages
-            targetLfVer + 2 + (if targetLfVer /= depLfVer then 2 else 0) + 1 + 1
+          length projbPkgIds @?= numStablePackagesForVersion targetLfVer
+              + 2 + (if targetLfVer /= depLfVer then 2 else 0) + 1 + 1
           length (filter (`notElem` projaPkgIds) projbPkgIds) @?=
-              (numStablePackages targetLfVer - numStablePackages depLfVer) + -- new stable packages
+              ( numStablePackagesForVersion targetLfVer
+              - numStablePackagesForVersion depLfVer ) + -- new stable packages
               1 + -- projb
               (if targetLfVer /= depLfVer then 2 else 0) -- different daml-stdlib/daml-prim
-    | depLfVer <- LF.supportedOutputVersions
-    , targetLfVer <- LF.supportedOutputVersions
-    , targetLfVer >= depLfVer
+    | (depLfVer, targetLfVer) <- sequentialVersionPairs
     ] <>
     [ testCaseSteps "Cross-SDK dependency on DAVL" $ \step -> withTempDir $ \tmpDir -> do
           step "Building DAR"
@@ -177,8 +183,10 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "  () <- submit alice $ exercise cid OldStdlib.Archive"
               , "  pure ()"
               ]
-          withCurrentDirectory tmpDir $ callProcessSilent damlc
-            [ "build", "-o", tmpDir </> "foobar.dar"
+          callProcessSilent damlc
+            [ "build"
+            , "--project-root", tmpDir
+            , "-o", tmpDir </> "foobar.dar"
             -- We need to use the old stdlib for the Archive type
             , "--package", "daml-stdlib-cc6d52aa624250119006cd19d51c60006762bd93ca5a6d288320a703024b33da (DA.Internal.Template as OldStdlib.DA.Internal.Template)"
             ]
@@ -201,7 +209,10 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "inc : Int -> Int"
               , "inc = (+ 1)"
               ]
-          withCurrentDirectory (tmpDir </> "lib") $ callProcessSilent damlc ["build", "-o", tmpDir </> "lib" </> "lib.dar"]
+          callProcessSilent damlc
+              [ "build"
+              , "--project-root", tmpDir </> "lib"
+              , "-o", tmpDir </> "lib" </> "lib.dar"]
           libPackageIds <- darPackageIds (tmpDir </> "lib" </> "lib.dar")
 
           step "Building 'a'"
@@ -222,7 +233,11 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "two : Int"
               , "two = inc 1"
               ]
-          withCurrentDirectory (tmpDir </> "a") $ callProcessSilent damlc ["build", "-o", tmpDir </> "a" </> "a.dar"]
+          callProcessSilent damlc
+              [ "build"
+              , "--project-root", tmpDir </> "a"
+              , "-o", tmpDir </> "a" </> "a.dar"
+              ]
           aPackageIds <- darPackageIds (tmpDir </> "a" </> "a.dar")
           length aPackageIds @?= length libPackageIds + 1
 
@@ -246,7 +261,11 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "three : Int"
               , "three = inc two"
               ]
-          withCurrentDirectory (tmpDir </> "b") $ callProcessSilent damlc ["build", "-o", tmpDir </> "b" </> "b.dar"]
+          callProcessSilent damlc
+              ["build"
+              , "--project-root", tmpDir </> "b"
+              , "-o", tmpDir </> "b" </> "b.dar"
+              ]
           projbPackageIds <- darPackageIds (tmpDir </> "b" </> "b.dar")
           length projbPackageIds @?= length libPackageIds + 2
 
@@ -324,7 +343,12 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
                   [ "module Lib where"
                   , "data X" <> version <> " = X"
                   ]
-              withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", projDir </> "lib.dar"]
+
+              callProcessSilent damlc
+                  [ "build"
+                  , "--project-root", projDir
+                  , "-o", projDir </> "lib.dar"
+                  ]
 
           step "Building a"
           let projDir = tmpDir </> "a"
@@ -343,7 +367,11 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "import Lib"
               , "data A = A X1"
               ]
-          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", projDir </> "a.dar"]
+          callProcessSilent damlc
+              [ "build"
+              , "--project-root", projDir
+              , "-o", projDir </> "a.dar"
+              ]
 
           step "Building b"
           let projDir = tmpDir </> "b"
@@ -365,7 +393,11 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "data B1 = B1 A"
               , "data B2 = B2 X2"
               ]
-          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", projDir </> "b.dar"]
+          callProcessSilent damlc
+              [ "build"
+              , "--project-root", projDir
+              , "-o", projDir </> "b.dar"
+              ]
 
           -- At this point b has references to both lib-1 and lib-2 in its transitive dependency closure.
           -- Now try building `c` which references `b` as a `data-dependency` and see if it
@@ -390,7 +422,11 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "f : B2 -> X2"
               , "f (B2 x) = x"
               ]
-          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", projDir </> "c.dar"]
+          callProcessSilent damlc
+              [ "build"
+              , "--project-root", projDir
+              , "-o", projDir </> "c.dar"
+              ]
     ] <>
     [ testCase ("Dalf imports (withArchiveChoice=" <> show withArchiveChoice <> ")") $ withTempDir $ \projDir -> do
         let genSimpleDalfExe
@@ -406,6 +442,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
           , "source: ."
           , "dependencies: [daml-prim, daml-stdlib]"
           , "data-dependencies: [simple-dalf-0.0.0.dalf]"
+          , "build-options: [--package=simple-dalf-0.0.0]"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "module A where"
@@ -441,10 +478,14 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             -- , "  submit bob $ exercise coid1 Module.Choice2 with choiceArg = ()"
             -- , "  pure ()"
             ]
-        withCurrentDirectory projDir $
-            callProcessSilent genSimpleDalf $
-            ["--with-archive-choice" | withArchiveChoice ] <> ["simple-dalf-0.0.0.dalf"]
-        withCurrentDirectory projDir $ callProcess damlc ["build", "--target=1.dev", "--generated-src"]
+        callProcessSilent genSimpleDalf $
+            ["--with-archive-choice" | withArchiveChoice ] <>
+            [projDir </> "simple-dalf-0.0.0.dalf"]
+        callProcess damlc
+            [ "build"
+            , "--project-root", projDir
+            , "--target=1.dev"
+            , "--generated-src"]
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertFileExists dar
         callProcessSilent damlc ["test", "--target=1.dev", "--project-root", projDir, "--generated-src"]
@@ -530,6 +571,18 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "  v >>= f = case v of"
               , "    Errors e-> Errors e"
               , "    Success a -> f a"
+
+              -- Regression for issue https://github.com/digital-asset/daml/issues/9663
+              -- Constraint tuple functions
+              , "constraintTupleFn : (Template t, Show t) => t -> ()"
+              , "constraintTupleFn = const ()"
+              , "type BigConstraint a b c = (Show a, Show b, Show c, Additive c)"
+              , "bigConstraintFn : BigConstraint a b c => a -> b -> c -> c -> Text"
+              , "bigConstraintFn x y z w = show x <> show y <> show (z + w)"
+              -- nested constraint tuples
+              , "type NestedConstraintTuple a b c d = (BigConstraint a b c, Show d)"
+              , "nestedConstraintTupleFn : NestedConstraintTuple a b c d => a -> b -> c -> d -> Text"
+              , "nestedConstraintTupleFn x y z w = show x <> show y <> show z <> show w"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -538,13 +591,18 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "source: src"
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
-          withCurrentDirectory proja $ callProcessSilent damlc ["build", "--target=" <> LF.renderVersion depLfVer, "-o", proja </> "proja.dar"]
+          callProcessSilent damlc
+              [ "build"
+              , "--project-root", proja
+              , "--target", LF.renderVersion depLfVer
+              , "-o", proja </> "proja.dar"
+              ]
 
           step "Build projb"
           createDirectoryIfMissing True (projb </> "src")
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "module B where"
-              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, RR(RR), P(P), AnyWrapper(..), FunT(..), OptionalT(..), ActionTrans(..), usesHasField, usesHasFieldEmpty )"
+              , "import A"
               , "import DA.Assert"
               , "import DA.Record"
               , ""
@@ -594,6 +652,22 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "usesHasFieldIndirectly = usesHasField"
               , "usesHasFieldEmptyIndirectly : HasField \"\" a b => a -> b"
               , "usesHasFieldEmptyIndirectly = usesHasFieldEmpty"
+              -- use constraint tuple fn
+              , "useConstraintTupleFn : (Template t, Show t) => t -> ()"
+              , "useConstraintTupleFn x = constraintTupleFn x"
+              , "useBigConstraintFn : Text"
+              , "useBigConstraintFn = bigConstraintFn True \"Hello\" 10 20"
+              -- regression test for issue: https://github.com/digital-asset/daml/issues/9689
+              -- Using constraint synonym defined in data-dependency
+              , "newBigConstraintFn : BigConstraint a b c => a -> b -> c -> Text"
+              , "newBigConstraintFn x y z = show x <> show y <> show z"
+              , "useNewBigConstraintFn : Text"
+              , "useNewBigConstraintFn = newBigConstraintFn 10 \"Hello\" 20"
+              -- Using nested constraint tuple
+              , "useNestedConstraintTupleFn : Text"
+              , "useNestedConstraintTupleFn = nestedConstraintTupleFn 10 20 30 40"
+              , "nestedConstraintTupleFn2 : NestedConstraintTuple a b c d => a -> b -> c -> d -> Text"
+              , "nestedConstraintTupleFn2 x y z w = show x <> show y <> show z <> show w"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -603,14 +677,15 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "dependencies: [daml-prim, daml-stdlib]"
               , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
               ]
-          withCurrentDirectory projb $ callProcessSilent damlc
-            [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
-            ]
+          callProcessSilent damlc
+              [ "build"
+              , "--project-root", projb
+              , "--target=" <> LF.renderVersion targetLfVer
+              , "-o", projb </> "projb.dar"
+              ]
           validate $ projb </> "projb.dar"
 
-    | depLfVer <- LF.supportedOutputVersions
-    , targetLfVer <- LF.supportedOutputVersions
-    , targetLfVer >= depLfVer
+    | (depLfVer, targetLfVer) <- sequentialVersionPairs
     , LF.supports depLfVer LF.featureTypeSynonyms -- only test for new-style typeclasses
     ] <>
     [ testCase "Cross-SDK typeclasses" $ withTempDir $ \tmpDir -> do
@@ -669,7 +744,10 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               [ "module Proxy where"
               , "data Proxy a = Proxy {}"
               ]
-          withCurrentDirectory (tmpDir </> "type") $ callProcessSilent damlc ["build", "-o", "type.dar"]
+          callProcessSilent damlc
+              [ "build"
+              , "--project-root", tmpDir </> "type"
+              , "-o",  tmpDir </> "type" </> "type.dar"]
 
           step "building dependency project"
           createDirectoryIfMissing True (tmpDir </> "dependency")
@@ -679,7 +757,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "source: ."
               , "version: 0.1.0"
               , "dependencies: [daml-prim, daml-stdlib]"
-              , "data-dependencies: [" <> show (tmpDir </> "type/type.dar") <> "]"
+              , "data-dependencies: [" <> show (tmpDir </> "type" </> "type.dar") <> "]"
               , "build-options: [ \"--target=1.dev\" ]"
               ]
           writeFileUTF8 (tmpDir </> "dependency" </> "Dependency.daml") $ unlines
@@ -688,7 +766,10 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
              , "instance Functor Proxy where"
              , "  fmap _ Proxy = Proxy"
              ]
-          withCurrentDirectory (tmpDir </> "dependency") $ callProcessSilent damlc ["build", "-o", "dependency.dar"]
+          callProcessSilent damlc
+              [ "build"
+              , "--project-root", tmpDir </> "dependency"
+              , "-o", tmpDir </> "dependency" </> "dependency.dar"]
 
           step "building data-dependency project"
           createDirectoryIfMissing True (tmpDir </> "data-dependency")
@@ -698,7 +779,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "source: ."
               , "version: 0.1.0"
               , "dependencies: [daml-prim, daml-stdlib]"
-              , "data-dependencies: [" <> show (tmpDir </> "type/type.dar") <> "]"
+              , "data-dependencies: [" <> show (tmpDir </> "type" </> "type.dar") <> "]"
               , "build-options: [ \"--target=1.dev\" ]"
               ]
           writeFileUTF8 (tmpDir </> "data-dependency" </> "DataDependency.daml") $ unlines
@@ -710,17 +791,20 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
              , "  pure _ = Proxy"
              , "  Proxy <*> Proxy = Proxy"
              ]
-          withCurrentDirectory (tmpDir </> "data-dependency") $ callProcessSilent damlc ["build", "-o", "data-dependency.dar"]
+          callProcessSilent damlc
+              [ "build"
+              , "--project-root", tmpDir </> "data-dependency"
+              , "-o", tmpDir </> "data-dependency" </> "data-dependency.dar"]
 
           step "building top-level project"
-          createDirectoryIfMissing True (tmpDir </> "top" </> "data-dependency")
+          createDirectoryIfMissing True (tmpDir </> "top")
           writeFileUTF8 (tmpDir </> "top" </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
               , "name: top"
               , "source: ."
               , "version: 0.1.0"
-              , "dependencies: [daml-prim, daml-stdlib, " <> show (tmpDir </> "dependency/dependency.dar") <> ", " <> show (tmpDir </> "type/type.dar") <> "]"
-              , "data-dependencies: [" <> show (tmpDir </> "data-dependency/data-dependency.dar") <> "]"
+              , "dependencies: [daml-prim, daml-stdlib, " <> show (tmpDir </> "dependency" </> "dependency.dar") <> ", " <> show (tmpDir </> "type/type.dar") <> "]"
+              , "data-dependencies: [" <> show (tmpDir </> "data-dependency" </> "data-dependency.dar") <> "]"
               , "build-options: [--target=1.dev]"
               ]
           writeFileUTF8 (tmpDir </> "top" </> "Top.daml") $ unlines
@@ -730,7 +814,9 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               -- Test that we can use the Applicaive instance of Proxy from the data-dependency
               , "f = pure () : Proxy ()"
               ]
-          withCurrentDirectory (tmpDir </> "top") $ callProcessSilent damlc ["build", "-o", "top.dar"]
+          callProcessSilent damlc
+              [ "build"
+              , "--project-root", tmpDir </> "top"]
 
     , simpleImportTest "Generic variants with record constructors"
         -- This test checks that data definitions of the form
@@ -871,6 +957,25 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             , "useBaz = baz M"
             ]
 
+    , simpleImportTest "Non-default instance for constrained default methods"
+        -- This test checks that non-default instances of a class with
+        -- a constrained default method have the correct stubs.
+        -- [ regression test for https://github.com/digital-asset/daml/issues/8802 ]
+            [ "module Lib where"
+            , "class Foo t where"
+            , "    foo : t -> Text"
+            , "    default foo : Show t => t -> Text"
+            , "    foo = show"
+            , "data Bar = Bar" -- no Show instance
+            , "instance Foo Bar where"
+            , "    foo Bar = \"bar\""
+            ]
+            [ "module Main where"
+            , "import Lib"
+            , "baz : Text"
+            , "baz = foo Bar"
+            ]
+
     , simpleImportTest "Data constructor operators"
         -- This test checks that we reconstruct data constructors operators properly.
         [ "module Lib where"
@@ -884,13 +989,13 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
     , simpleImportTest "Using TypeOperators extension"
         -- This test checks that we reconstruct type operators properly.
         [ "{-# LANGUAGE TypeOperators #-}"
-        , "module Lib where"
+        , "module Lib (type (:+:) (..), type (+)) where"
         , "data a :+: b = (:+:){left: a, right:  b}"
         , "type a + b = a :+: b"
         ]
         [ "{-# LANGUAGE TypeOperators #-}"
         , "module Main where"
-        , "import Lib"
+        , "import Lib (type (:+:) (..), type (+))"
         , "colonPlus: Bool :+: Int"
         , "colonPlus = True :+: 1"
         , "onlyPlus: Int + Bool"
@@ -1037,8 +1142,10 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             -- how to reliably stop it from doing this therefore,
             -- we assert that the instance actually exists.
             ]
-        withCurrentDirectory (tmpDir </> "dep") $
-            callProcessSilent damlc ["build", "-o", "dep.dar"]
+        callProcessSilent damlc
+            [ "build"
+            , "--project-root", tmpDir </> "dep"
+            , "-o", tmpDir </> "dep" </> "dep.dar" ]
         Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile (tmpDir </> "dep" </> "dep.dar")
         (_pkgId, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
 
@@ -1074,8 +1181,183 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             , "import Foo"
             , "g = f"
             ]
-        withCurrentDirectory (tmpDir </> "proj") $
-            callProcessSilent damlc ["build"]
+        callProcessSilent damlc [ "build", "--project-root", tmpDir </> "proj" ]
+
+    -- TODO https://github.com/digital-asset/daml/issues/8020
+    --   Replace with a simpleImportTest once exceptions are stable.
+    , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
+        step "building project to be imported via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "lib")
+        writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: lib"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (tmpDir </> "lib" </> "Lib.daml") $ unlines
+            [ "module Lib where"
+            , "import DA.Exception"
+            , "exception E1"
+            , "  with m : Text"
+            , "  where message m"
+            , ""
+            , "libFnThatThrowsE1 : Update ()"
+            , "libFnThatThrowsE1 = throw (E1 \"throw from lib\")"
+            , "libFnThatThrows : Exception e => e -> Update ()"
+            , "libFnThatThrows x = throw x"
+            , "libFnThatCatches : Exception e => (() -> Update ()) -> (e -> Update ()) -> Update ()"
+            , "libFnThatCatches m c = try m () catch e -> c e"
+            ]
+        callProcessSilent damlc
+            [ "build"
+            , "--project-root", tmpDir </> "lib"
+            , "-o", tmpDir </> "lib" </> "lib.dar"
+            , "--target=1.dev"]
+
+        step "building project that imports it via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "main")
+        writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: main"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: "
+            , "  - " <> (tmpDir </> "lib" </> "lib.dar")
+            ]
+        writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "import DA.Exception"
+            , "import Lib"
+            , "exception E2"
+            , "  with m : Text"
+            , "  where message m"
+            , ""
+            , "mainFnThatThrowsE1 : Update ()"
+            , "mainFnThatThrowsE1 = throw (E1 \"throw from main\")"
+            , "mainFnThatThrowsE2 : Update ()"
+            , "mainFnThatThrowsE2 = libFnThatThrows (E2 \"thrown from lib\")"
+            , "mainFnThatCatchesE1 : Update ()"
+            , "mainFnThatCatchesE1 = try libFnThatThrowsE1 catch E1 e -> pure ()"
+            , "mainFnThatCatchesE2 : (() -> Update ()) -> Update ()"
+            , "mainFnThatCatchesE2 m = libFnThatCatches m (\\ (e: E2) -> pure ())"
+            ]
+        callProcessSilent damlc
+            [ "build"
+            , "--project-root", tmpDir </> "main"
+            , "--target=1.dev"]
+
+    , testCaseSteps "Standard library exceptions" $ \step -> withTempDir $ \tmpDir -> do
+        step "building project to be imported via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "lib")
+        writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: lib"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (tmpDir </> "lib" </> "Lib.daml") $ unlines
+            [ "module Lib where"
+            , "import DA.Assert"
+            , "import DA.Exception"
+            , "template TLib"
+            , "  with"
+            , "    p : Party"
+            , "  where"
+            , "    signatory p"
+            , "    ensure False"
+            , ""
+            , "libFnThatThrowsGeneralError : Party -> Update ()"
+            , "libFnThatThrowsGeneralError _ = error \"thrown from lib\""
+            , "libFnThatThrowsArithmeticError : Party -> Update ()"
+            , "libFnThatThrowsArithmeticError _ = pure (1 / 0) >> pure ()"
+            , "libFnThatThrowsAssertionFailed : Party -> Update ()"
+            , "libFnThatThrowsAssertionFailed _ = assert False"
+            , "libFnThatThrowsPreconditionFailed : Party -> Update ()"
+            , "libFnThatThrowsPreconditionFailed p = create (TLib p) >> pure ()"
+            , ""
+            , "libFnThatCatchesGeneralError : (() -> Update ()) -> Update ()"
+            , "libFnThatCatchesGeneralError m = try m () catch (e: GeneralError) -> pure ()"
+            , "libFnThatCatchesArithmeticError : (() -> Update ()) -> Update ()"
+            , "libFnThatCatchesArithmeticError m = try m () catch (e: ArithmeticError) -> pure ()"
+            , "libFnThatCatchesAssertionFailed : (() -> Update ()) -> Update ()"
+            , "libFnThatCatchesAssertionFailed m = try m () catch (e: AssertionFailed) -> pure ()"
+            , "libFnThatCatchesPreconditionFailed : (() -> Update ()) -> Update ()"
+            , "libFnThatCatchesPreconditionFailed m = try m () catch (e: PreconditionFailed) -> pure ()"
+            ]
+        callProcessSilent damlc
+            [ "build"
+            , "--project-root", tmpDir </> "lib"
+            , "-o", tmpDir </> "lib" </> "lib.dar"
+            , "--target=1.dev"]
+
+        step "building project that imports it via data-dependencies"
+        createDirectoryIfMissing True (tmpDir </> "main")
+        writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: main"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: "
+            , "  - " <> (tmpDir </> "lib" </> "lib.dar")
+            ]
+        writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "import DA.Assert"
+            , "import DA.Exception"
+            , "import Lib"
+            , "template TMain"
+            , "  with"
+            , "    p : Party"
+            , "  where"
+            , "    signatory p"
+            , "    ensure False"
+            , ""
+            , "mainFnThatThrowsGeneralError : Party -> Update ()"
+            , "mainFnThatThrowsGeneralError _ = error \"thrown from main\""
+            , "mainFnThatThrowsArithmeticError : Party -> Update ()"
+            , "mainFnThatThrowsArithmeticError _ = pure (1 / 0) >> pure ()"
+            , "mainFnThatThrowsAssertionFailed : Party -> Update ()"
+            , "mainFnThatThrowsAssertionFailed _ = assert False"
+            , "mainFnThatThrowsPreconditionFailed : Party -> Update ()"
+            , "mainFnThatThrowsPreconditionFailed p = create (TMain p) >> pure ()"
+            , ""
+            , "mainFnThatCatchesGeneralError : (() -> Update ()) -> Update ()"
+            , "mainFnThatCatchesGeneralError m = try m () catch (e: GeneralError) -> pure ()"
+            , "mainFnThatCatchesArithmeticError : (() -> Update ()) -> Update ()"
+            , "mainFnThatCatchesArithmeticError m = try m () catch (e: ArithmeticError) -> pure ()"
+            , "mainFnThatCatchesAssertionFailed : (() -> Update ()) -> Update ()"
+            , "mainFnThatCatchesAssertionFailed m = try m () catch (e: AssertionFailed) -> pure ()"
+            , "mainFnThatCatchesPreconditionFailed : (() -> Update ()) -> Update ()"
+            , "mainFnThatCatchesPreconditionFailed m = try m () catch (e: PreconditionFailed) -> pure ()"
+            , ""
+            , "mkScenario : ((() -> Update ()) -> Update ()) -> (Party -> Update ()) -> Scenario ()"
+            , "mkScenario catcher thrower = scenario do"
+            , "    p <- getParty \"Alice\""
+            , "    submit p (catcher (\\() -> thrower p))"
+            , ""
+            , "libThrow1 = mkScenario mainFnThatCatchesGeneralError libFnThatThrowsGeneralError"
+            , "libThrow2 = mkScenario mainFnThatCatchesArithmeticError libFnThatThrowsArithmeticError"
+            , "libThrow3 = mkScenario mainFnThatCatchesAssertionFailed libFnThatThrowsAssertionFailed"
+            , "libThrow4 = mkScenario mainFnThatCatchesPreconditionFailed libFnThatThrowsPreconditionFailed"
+            , ""
+            , "libCatch1 = mkScenario libFnThatCatchesGeneralError mainFnThatThrowsGeneralError"
+            , "libCatch2 = mkScenario libFnThatCatchesArithmeticError mainFnThatThrowsArithmeticError"
+            , "libCatch3 = mkScenario libFnThatCatchesAssertionFailed mainFnThatThrowsAssertionFailed"
+            , "libCatch4 = mkScenario libFnThatCatchesPreconditionFailed mainFnThatThrowsPreconditionFailed"
+           ]
+        callProcessSilent damlc
+            [ "build"
+            , "--project-root", tmpDir </> "main"
+            , "--target=1.dev"]
+        step "running damlc test"
+        callProcessSilent damlc
+            [ "test"
+            , "--project-root", tmpDir </> "main"
+            , "--target=1.dev"]
     ]
   where
     simpleImportTest :: String -> [String] -> [String] -> TestTree
@@ -1091,8 +1373,10 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
                 , "dependencies: [daml-prim, daml-stdlib]"
                 ]
             writeFileUTF8 (tmpDir </> "lib" </> "Lib.daml") $ unlines lib
-            withCurrentDirectory (tmpDir </> "lib") $
-                callProcessSilent damlc ["build", "-o", "lib.dar"]
+            callProcessSilent damlc
+                [ "build"
+                , "--project-root", tmpDir </> "lib"
+                , "-o", tmpDir </> "lib" </> "lib.dar"]
 
             step "building project that imports it via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "main")
@@ -1106,5 +1390,4 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
                 , "  - " <> (tmpDir </> "lib" </> "lib.dar")
                 ]
             writeFileUTF8 (tmpDir </> "main" </> "Main.daml") $ unlines main
-            withCurrentDirectory (tmpDir </> "main") $
-                callProcessSilent damlc ["build"]
+            callProcessSilent damlc ["build", "--project-root", tmpDir </> "main"]

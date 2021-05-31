@@ -1,14 +1,16 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
+package engine
 
 import com.daml.lf.data._
-import com.daml.lf.engine.Engine
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.transaction.{GenTransaction, GlobalKey, Node, NodeId}
+import com.daml.lf.transaction.test.TransactionBuilder
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf.value.{Value, ValueVersions}
+import org.scalatest.Inside.inside
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -51,12 +53,21 @@ class ContractDiscriminatorFreshnessCheckSpec
                     Mod:contractParties this
                   to
                     upure @Unit (),
-                 choice @nonConsuming LookupByKey (self) (key: Mod:Key) : Option (ContractId Mod:Contract),
-                   controllers 
-                     Mod:contractParties this
-                   to
-                     lookup_by_key @Mod:Contract key 
-                     
+                choice @nonConsuming Identity (self) (cid: ContractId Mod:Contract) : ContractId Mod:Contract,
+                  controllers 
+                    Mod:contractParties this
+                  to
+                    upure @(ContractId Mod:Contract) cid,  
+                choice @nonConsuming LookupByKey (self) (key: Mod:Key) : Option (ContractId Mod:Contract),
+                  controllers 
+                    Mod:contractParties this
+                  to
+                    lookup_by_key @Mod:Contract key, 
+                choice @nonConsuming Create (self) (contract: Mod:Contract): (ContractId Mod:Contract),
+                  controllers
+                    Mod:contractParties this
+                  to
+                    create @Mod:Contract contract          
               },
               key @Mod:Key (Mod:Contract {key} this) Mod:keyParties
             };
@@ -77,7 +88,7 @@ class ContractDiscriminatorFreshnessCheckSpec
       ImmArray(
         Some[Ref.Name]("party") -> Value.ValueParty(party),
         Some[Ref.Name]("idx") -> Value.ValueInt64(idx.toLong),
-      )
+      ),
     )
 
   private def contractRecord(party: Ref.Party, idx: Int, cids: List[ContractId]) =
@@ -85,8 +96,8 @@ class ContractDiscriminatorFreshnessCheckSpec
       Some(tmplId),
       ImmArray(
         Some[Ref.Name]("key") -> keyRecord(party, idx),
-        Some[Ref.Name]("cids") -> Value.ValueList(FrontStack(cids.map(Value.ValueContractId(_))))
-      )
+        Some[Ref.Name]("cids") -> Value.ValueList(FrontStack(cids.map(Value.ValueContractId(_)))),
+      ),
     )
 
   private val hash1 = crypto.Hash.hashPrivateKey("hash1")
@@ -98,7 +109,7 @@ class ContractDiscriminatorFreshnessCheckSpec
   private def contractInstance(party: Ref.Party, idx: Int, cids: List[ContractId]) =
     Value.ContractInst(
       tmplId,
-      ValueVersions.assertAsVersionedValue(contractRecord(party, idx, cids)),
+      TransactionBuilder.assertAsVersionedValue(contractRecord(party, idx, cids)),
       "Agreement",
     )
 
@@ -113,18 +124,18 @@ class ContractDiscriminatorFreshnessCheckSpec
   private val transactionSeed = crypto.Hash.deriveTransactionSeed(
     submissionSeed,
     participant,
-    let
+    let,
   )
 
   private def submit(
-      cmds: ImmArray[command.Command],
+      cmds: ImmArray[command.ApiCommand],
       pcs: Value.ContractId => Option[Value.ContractInst[Value.VersionedValue[ContractId]]],
-      keys: GlobalKey => Option[ContractId]
+      keys: GlobalKey => Option[ContractId],
   ) =
     engine
       .submit(
+        submitters = Set(alice),
         cmds = command.Commands(
-          submitters = Set(alice),
           commands = cmds,
           ledgerEffectiveTime = let,
           commandsReference = "test",
@@ -132,7 +143,12 @@ class ContractDiscriminatorFreshnessCheckSpec
         participantId = participant,
         submissionSeed = submissionSeed,
       )
-      .consume(pcs, pkgs, keyWithMaintainers => keys(keyWithMaintainers.globalKey))
+      .consume(
+        pcs,
+        pkgs,
+        keyWithMaintainers => keys(keyWithMaintainers.globalKey),
+        VisibleByKey.fromSubmitters(Set(alice)),
+      )
 
   val engine = Engine.DevEngine()
 
@@ -153,23 +169,23 @@ class ContractDiscriminatorFreshnessCheckSpec
         List(
           (exercisedCid1, 1, List.empty),
           (exercisedCid2, 2, List(conflictingCid)),
-          (conflictingCid, 3, List.empty)
+          (conflictingCid, 3, List.empty),
         )
       val contractLookup =
         contractsData
-          .map {
-            case (cid, idx, cids) => cid -> contractInstance(alice, idx, cids)
+          .map { case (cid, idx, cids) =>
+            cid -> contractInstance(alice, idx, cids)
           }
           .toMap
           .lift
       val keyLookup = contractsData
-        .map {
-          case (cid, idx, _) => globalKey(alice, idx) -> cid
+        .map { case (cid, idx, _) =>
+          globalKey(alice, idx) -> cid
         }
         .toMap
         .lift
 
-      def run(cmd: command.Command) =
+      def run(cmd: command.ApiCommand) =
         submit(
           ImmArray(
             command.CreateCommand(tmplId, contractRecord(alice, 0, List.empty)),
@@ -198,18 +214,18 @@ class ContractDiscriminatorFreshnessCheckSpec
       )
 
       forAll(negativeTestCases) { cmd =>
-        run(cmd) shouldBe 'right
+        run(cmd) shouldBe a[Right[_, _]]
       }
 
       forAll(positiveTestCases) { cmd =>
         val r = run(cmd)
-        r shouldBe 'left
+        r shouldBe a[Left[_, _]]
         r.left.exists(_.msg.contains("Conflicting discriminators")) shouldBe true
       }
 
     }
 
-    "fails when a local conflicts with a local contract previously fetched" in {
+    "fails when a local conflicts with a global contract previously fetched" in {
 
       val conflictingCid = {
         val createNodeSeed = crypto.Hash.deriveNodeSeed(transactionSeed, 1)
@@ -224,23 +240,23 @@ class ContractDiscriminatorFreshnessCheckSpec
         List(
           (exercisedCid1, 1, List.empty),
           (exercisedCid2, 2, List(conflictingCid)),
-          (conflictingCid, 3, List.empty)
+          (conflictingCid, 3, List.empty),
         )
       val contractLookup =
         contractsData
-          .map {
-            case (cid, idx, cids) => cid -> contractInstance(alice, idx, cids)
+          .map { case (cid, idx, cids) =>
+            cid -> contractInstance(alice, idx, cids)
           }
           .toMap
           .lift
       val keyLookup = contractsData
-        .map {
-          case (cid, idx, _) => globalKey(alice, idx) -> cid
+        .map { case (cid, idx, _) =>
+          globalKey(alice, idx) -> cid
         }
         .toMap
         .lift
 
-      def run(cmd: command.Command) =
+      def run(cmd: command.ApiCommand) =
         submit(
           ImmArray(
             cmd,
@@ -269,15 +285,85 @@ class ContractDiscriminatorFreshnessCheckSpec
       )
 
       forAll(negativeTestCases) { cmd =>
-        Right(cmd) shouldBe 'right
+        Right(cmd) shouldBe a[Right[_, _]]
       }
 
       forAll(positiveTestCases) { cmd =>
         val r = run(cmd)
-        r shouldBe 'left
+        r shouldBe a[Left[_, _]]
         r.left.exists(_.msg.contains("Conflicting discriminators")) shouldBe true
       }
 
+    }
+
+    "fail when preprocessing a transaction when a cid appear before before being created" in {
+
+      val cid0: ContractId = ContractId.V1(crypto.Hash.hashPrivateKey("test"), Bytes.Empty)
+
+      val Right((tx, _)) = submit(
+        ImmArray(
+          command.CreateAndExerciseCommand(
+            tmplId,
+            contractRecord(alice, 1, List.empty),
+            "Identity",
+            Value.ValueContractId(cid0),
+          ),
+          command.CreateCommand(tmplId, contractRecord(alice, 2, List.empty)),
+        ),
+        pcs = (cid => if (cid == cid0) Some(contractInstance(alice, 0, List.empty)) else None),
+        keys = _ => None,
+      )
+
+      val lastCreatedCid = tx.fold(cid0) {
+        case (_, (_, create: Node.NodeCreate[ContractId])) => create.coid
+        case (acc, _) => acc
+      }
+
+      assert(lastCreatedCid != cid0)
+
+      val newNodes = tx.fold(tx.nodes) {
+        case (nodes, (nid, exe: Node.NodeExercises[NodeId, ContractId]))
+            if exe.choiceId == "Identity" =>
+          nodes.updated(nid, exe.copy(chosenValue = Value.ValueContractId(lastCreatedCid)))
+        case (acc, _) => acc
+      }
+
+      val result =
+        new preprocessing.Preprocessor(ConcurrentCompiledPackages(speedy.Compiler.Config.Dev))
+          .translateTransactionRoots(GenTransaction(newNodes, tx.roots))
+          .consume(_ => None, pkgs, _ => None, _ => VisibleByKey.Visible)
+
+      inside(result) { case Left(err) =>
+        err.msg should include("Conflicting discriminators")
+      }
+
+    }
+
+    "does not fail when replaying an exercise by key of a non-root local Contract" in {
+      // regression test for https://discuss.daml.com/t/ledger-api-error-message-conflicting-discriminators-between-a-global-and-local-contract-id/2416/3
+      val Right((tx, txMeta)) = submit(
+        ImmArray(
+          command.CreateAndExerciseCommand(
+            tmplId,
+            contractRecord(alice, 0, List.empty),
+            "Create",
+            contractRecord(alice, 1, List.empty),
+          ),
+          command.ExerciseByKeyCommand(tmplId, keyRecord(alice, 1), "Noop", Value.ValueUnit),
+        ),
+        pcs = _ => None,
+        keys = _ => None,
+      )
+      engine
+        .replay(
+          submitters = Set(alice),
+          tx,
+          ledgerEffectiveTime = txMeta.submissionTime,
+          participantId = participant,
+          submissionTime = txMeta.submissionTime,
+          submissionSeed = txMeta.submissionSeed.get,
+        )
+        .consume(_ => None, pkgs, _ => None, _ => VisibleByKey.Visible) shouldBe a[Right[_, _]]
     }
 
   }

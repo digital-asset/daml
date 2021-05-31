@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox
@@ -18,7 +18,9 @@ class CliSpec extends CommonCliSpecBase(Cli) {
       checkOption(
         Array("--ledgerid", ledgerId),
         _.copy(ledgerIdMode =
-          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(ledgerId)))))
+          LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(ledgerId)))
+        ),
+      )
     }
 
     "parse the sql-backend-jdbcurl flag when given" in {
@@ -37,6 +39,12 @@ class CliSpec extends CommonCliSpecBase(Cli) {
 
     "parse the contract-id-seeding mode when given" in {
       checkOption(Array("--contract-id-seeding", "strong"), _.copy(seeding = Some(Seeding.Strong)))
+    }
+
+    "use no seeding by default" in {
+      // do not change the default seeding of sandbox classic without
+      // formal agreement of Bernhard Elsner.
+      cli.defaultConfig.seeding shouldBe None
     }
   }
 

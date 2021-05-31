@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.components
@@ -14,10 +14,10 @@ import com.daml.ledger.api.auth.AuthServiceWildcard
 import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse
+  SubmitAndWaitForTransactionTreeResponse,
 }
 import com.daml.ledger.api.{v1 => scalaAPI}
-import com.daml.ledger.javaapi.data.{Unit => DAMLUnit, _}
+import com.daml.ledger.javaapi.data.{Unit => DamlUnit, _}
 import com.daml.ledger.rxjava.components.BotTest._
 import com.daml.ledger.rxjava.components.LedgerViewFlowable.LedgerView
 import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, CreatedContract}
@@ -38,10 +38,10 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Future, Promise}
+import scala.jdk.CollectionConverters._
 import scala.util.Random
 import scala.util.control.NonFatal
 
@@ -60,9 +60,11 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
       Flowable.empty(),
       transactions,
       Flowable.empty(),
-      new LedgerOffset.Absolute("0"))
+      new LedgerOffset.Absolute("0"),
+    )
     val filter = new FiltersByParty(
-      Map("Alice" -> new InclusiveFilter(Set(templateId).asJava).asInstanceOf[Filter]).asJava)
+      Map("Alice" -> new InclusiveFilter(Set(templateId).asJava).asInstanceOf[Filter]).asJava
+    )
 
     val workflowEvents = Bot.activeContractSetAndNewTransactions(ledgerClient, filter)
     val secondElementOffset = 1
@@ -89,9 +91,11 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
       Flowable.empty(),
       transactions,
       Flowable.empty(),
-      new LedgerOffset.Absolute("0"))
+      new LedgerOffset.Absolute("0"),
+    )
     val filter = new FiltersByParty(
-      Map("Alice" -> new InclusiveFilter(Set(templateId).asJava).asInstanceOf[Filter]).asJava)
+      Map("Alice" -> new InclusiveFilter(Set(templateId).asJava).asInstanceOf[Filter]).asJava
+    )
 
     val workflowEvents = Bot.activeContractSetAndNewTransactions(ledgerClient, filter)
     val contract1 = create("Alice", templateId)
@@ -101,7 +105,8 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
       "workflowId",
       ZeroTimestamp,
       List[Event](contract1).asJava,
-      "1")
+      "1",
+    )
     val testSub = workflowEvents.test()
 
     transactions.emit(t1)
@@ -127,9 +132,11 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
         Flowable.empty(),
         transactions,
         Flowable.never(),
-        new LedgerOffset.Absolute("0")) {
+        new LedgerOffset.Absolute("0"),
+      ) {
         override def getCommandSubmissionClient: CommandSubmissionClient =
           new CommandSubmissionClient {
+
             override def submit(
                 workflowId: String,
                 applicationId: String,
@@ -138,7 +145,8 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
                 minLedgerTimeAbs: Optional[Instant],
                 minLedgerTimeRel: Optional[Duration],
                 deduplicationTime: Optional[Duration],
-                commands: util.List[Command]): Single[JEmpty] = {
+                commands: util.List[Command],
+            ): Single[JEmpty] = {
               submitted.append(
                 new SubmitCommandsRequest(
                   workflowId,
@@ -148,9 +156,25 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
                   minLedgerTimeAbs,
                   minLedgerTimeRel,
                   deduplicationTime,
-                  commands))
+                  commands,
+                )
+              )
               Single.error(new RuntimeException("expected failure"))
             }
+
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                actAs: java.util.List[String],
+                readAS: java.util.List[String],
+                minLedgerTimeAbs: Optional[Instant],
+                minLedgerTimeRel: Optional[Duration],
+                deduplicationTime: Optional[Duration],
+                commands: util.List[Command],
+            ): Single[JEmpty] =
+              untestedEndpoint
+
             override def submit(
                 workflowId: String,
                 applicationId: String,
@@ -160,7 +184,22 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
                 minLedgerTimeRel: Optional[Duration],
                 deduplicationTime: Optional[Duration],
                 commands: util.List[Command],
-                accessToken: String): Single[JEmpty] =
+                accessToken: String,
+            ): Single[JEmpty] =
+              untestedEndpoint
+
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                actAs: java.util.List[String],
+                readAS: java.util.List[String],
+                minLedgerTimeAbs: Optional[Instant],
+                minLedgerTimeRel: Optional[Duration],
+                deduplicationTime: Optional[Duration],
+                commands: util.List[Command],
+                accessToken: String,
+            ): Single[JEmpty] =
               untestedEndpoint
 
             override def submit(
@@ -168,7 +207,19 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
                 applicationId: String,
                 commandId: String,
                 party: String,
-                commands: util.List[Command]): Single[JEmpty] = untestedEndpoint
+                commands: util.List[Command],
+            ): Single[JEmpty] =
+              untestedEndpoint
+
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                actAs: java.util.List[String],
+                readAS: java.util.List[String],
+                commands: util.List[Command],
+            ): Single[JEmpty] =
+              untestedEndpoint
 
             override def submit(
                 workflowId: String,
@@ -176,7 +227,20 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
                 commandId: String,
                 party: String,
                 commands: util.List[Command],
-                accessToken: String): Single[JEmpty] = untestedEndpoint
+                accessToken: String,
+            ): Single[JEmpty] =
+              untestedEndpoint
+
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                actAs: java.util.List[String],
+                readAS: java.util.List[String],
+                commands: util.List[Command],
+                accessToken: String,
+            ): Single[JEmpty] =
+              untestedEndpoint
           }
       }
 
@@ -206,7 +270,7 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
             // let's run this test 3 times
             if (counter.get() < 3) {
               counter.incrementAndGet()
-              val command = new ExerciseCommand(templateId, cid, "choice", DAMLUnit.getInstance())
+              val command = new ExerciseCommand(templateId, cid, "choice", DamlUnit.getInstance())
               val commandList = List[Command](command).asJava
               val commands = new SubmitCommandsRequest(
                 "wid",
@@ -216,12 +280,14 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                commandList
+                commandList,
               )
               Flowable.fromArray(
                 new CommandsAndPendingSet(
                   commands,
-                  HashTreePMap.singleton(templateId, HashTreePSet.singleton(cid))))
+                  HashTreePMap.singleton(templateId, HashTreePSet.singleton(cid)),
+                )
+              )
             } else {
               finishedWork.set(true)
               Flowable.empty()
@@ -266,7 +332,8 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
         Flowable.empty(),
         transactions,
         commandCompletions,
-        new LedgerOffset.Absolute("0"))
+        new LedgerOffset.Absolute("0"),
+      )
 
     val parties = new java.util.HashMap[String, Filter]()
     parties.put(party, new InclusiveFilter(Set(templateId).asJava).asInstanceOf[Filter])
@@ -287,27 +354,27 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
             fcs
               .getContracts(templateId)
               .asScala
-              .map {
-                case (contractId, _) =>
-                  val command =
-                    new ExerciseCommand(templateId, contractId, "choice", DAMLUnit.getInstance())
-                  logger.debug(s"exercise: $command")
-                  val commandList = List[Command](command).asJava
-                  val commands =
-                    new SubmitCommandsRequest(
-                      "wid",
-                      appId,
-                      s"commandId_${atomicCount.incrementAndGet()}",
-                      party,
-                      Optional.empty(),
-                      Optional.empty(),
-                      Optional.empty(),
-                      commandList
-                    )
-                  logger.debug(s"commands: $commands")
-                  new CommandsAndPendingSet(
-                    commands,
-                    HashTreePMap.singleton(templateId, HashTreePSet.singleton(contractId)))
+              .map { case (contractId, _) =>
+                val command =
+                  new ExerciseCommand(templateId, contractId, "choice", DamlUnit.getInstance())
+                logger.debug(s"exercise: $command")
+                val commandList = List[Command](command).asJava
+                val commands =
+                  new SubmitCommandsRequest(
+                    "wid",
+                    appId,
+                    s"commandId_${atomicCount.incrementAndGet()}",
+                    party,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    commandList,
+                  )
+                logger.debug(s"commands: $commands")
+                new CommandsAndPendingSet(
+                  commands,
+                  HashTreePMap.singleton(templateId, HashTreePSet.singleton(contractId)),
+                )
               }
               .asJava
           )
@@ -343,8 +410,10 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
               .newBuilder()
               .setCommandId("commandId_0")
               .setStatus(Status.newBuilder().setCode(OK.value).build())
-              .build()).asJava
-        ))
+              .build()
+          ).asJava,
+        )
+      )
       Thread.sleep(100)
       ledgerClient.submitted should have size 3
 
@@ -372,8 +441,7 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
 
   it should "query first the ACS and then the LedgerEnd sequentially so that there is not race condition and LedgerEnd >= ACS offset" in {
 
-    /**
-      * This tests that the Bot has finished dealing with the ACS before asking for the LedgerEnd.
+    /** This tests that the Bot has finished dealing with the ACS before asking for the LedgerEnd.
       * The reason why this is essential is that the ACS can change in between the LedgerEnd is obtained and the ACS
       * is exhausted, leading to the offset of the ACS being after the LedgerEnd. If this happens, the Bot will ask
       * for transactions to the Ledger with begin offset bigger than end offset and the Ledger will return an error that
@@ -385,8 +453,8 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
       * stream based on if it's fulfilled or not: if fulfilled, the last transaction will contain the same offset
       * of the ACS, otherwise it will contain an offset before it.
       *
-      * Note that the tests delays sending the ACS to the Bot in order to "guarantee" that the test is not green because
-      * or race conditions.
+      * Note that the tests delay sending the ACS to the Bot in order to "guarantee" that the test is not green because
+      * of race conditions.
       */
     val (wrongOffset, rightOffset) = ("0", "1")
 
@@ -412,11 +480,12 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
         com.google.protobuf.timestamp.Timestamp.defaultInstance,
         Seq(),
         offset,
-        None)
-    val getTransactionsResponses = Observable.defer[TransactionsServiceImpl.LedgerItem](
-      () =>
-        Observable.fromArray(
-          dummyTransactionResponse(if (getACSDone.future.isCompleted) rightOffset else wrongOffset))
+        None,
+      )
+    val getTransactionsResponses = Observable.defer[TransactionsServiceImpl.LedgerItem](() =>
+      Observable.fromArray(
+        dummyTransactionResponse(if (getACSDone.future.isCompleted) rightOffset else wrongOffset)
+      )
     )
 
     ledgerServices.withFakeLedgerServer(
@@ -434,7 +503,7 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
       Future.successful(scalaAPI.package_service.ListPackagesResponse.defaultInstance),
       Future.successful(scalaAPI.package_service.GetPackageResponse.defaultInstance),
       Future.successful(scalaAPI.package_service.GetPackageStatusResponse.defaultInstance),
-      AuthServiceWildcard
+      AuthServiceWildcard,
     ) { (server, _) =>
       val client =
         DamlLedgerClient.newBuilder("localhost", server.getPort).build()
@@ -454,7 +523,7 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
           .dispose()
       } catch {
         case GrpcException(GrpcStatus.INVALID_ARGUMENT(), trailers) =>
-          /** the tests relies on specific implementation of the [[TransactionsServiceImpl.getTransactions()]]  */
+          /** the tests relies on specific implementation of the [[TransactionsServiceImpl.getTransactions()]] */
           fail(trailers.get(Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER)))
       }
 
@@ -465,7 +534,8 @@ final class BotTest extends AnyFlatSpec with Matchers with Eventually {
         case NonFatal(exception) =>
           logger.warn(
             "Closing DamlLedgerClient caused an error, ignoring it because it can happen and it should not be a problem",
-            exception)
+            exception,
+          )
       }
     }
   }
@@ -491,7 +561,7 @@ object BotTest {
       Optional.empty(),
       Optional.empty(),
       Collections.emptySet(),
-      Collections.emptySet()
+      Collections.emptySet(),
     )
 
   private def archive(event: CreatedEvent): ArchivedEvent =
@@ -499,7 +569,8 @@ object BotTest {
       event.getWitnessParties,
       s"${event.getEventId}_archive",
       event.getTemplateId,
-      event.getContractId)
+      event.getContractId,
+    )
 
   private def transaction(events: Event*): Transaction =
     new Transaction(
@@ -508,7 +579,8 @@ object BotTest {
       "wid",
       ZeroTimestamp,
       events.toList.asJava,
-      events.toList.size.toString)
+      events.toList.size.toString,
+    )
 
   private class TestFlowable[A](name: String) extends Flowable[A] {
     private val logger = LoggerFactory.getLogger(s"${getClass.getSimpleName}($name)")
@@ -521,7 +593,8 @@ object BotTest {
       observerMay match {
         case Some(oldObserver) =>
           throw new IllegalStateException(
-            s"${getClass.getSimpleName} supports only one subscriber. Currently subscribed $oldObserver, want to subscribe $observer")
+            s"${getClass.getSimpleName} supports only one subscriber. Currently subscribed $oldObserver, want to subscribe $observer"
+          )
         case None =>
           observerMay = Option(observer)
           logger.debug(s"Subscribed observer $observer")

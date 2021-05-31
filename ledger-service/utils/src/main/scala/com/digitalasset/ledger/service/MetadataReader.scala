@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.service
@@ -31,14 +31,15 @@ object MetadataReader {
     for {
       dar <- \/.fromEither(
         DarReader().readArchiveFromFile(darFile).toEither
-      ).leftMap(e => Error('readFromDar, e.description))
+      ).leftMap(e => Error(Symbol("readFromDar"), e.description))
 
       packageStore <- decodePackageStoreFromDar(dar)
 
     } yield packageStore
 
   private def decodePackageStoreFromDar(
-      dar: Dar[(Ref.PackageId, DamlLf.ArchivePayload)]): Error \/ LfMetadata = {
+      dar: Dar[(Ref.PackageId, DamlLf.ArchivePayload)]
+  ): Error \/ LfMetadata = {
 
     dar.all
       .traverse { a =>
@@ -48,18 +49,18 @@ object MetadataReader {
   }
 
   private def decodeInterfaceFromArchive(
-      a: (Ref.PackageId, DamlLf.ArchivePayload)): Error \/ iface.Interface =
+      a: (Ref.PackageId, DamlLf.ArchivePayload)
+  ): Error \/ iface.Interface =
     \/.fromTryCatchNonFatal {
       iface.reader.InterfaceReader.readInterface(a)
-    }.leftMap(e => Error('decodeInterfaceFromArchive, e.description))
-      .flatMap {
-        case (errors, out) =>
-          if (errors.empty) {
-            \/.right(out)
-          } else {
-            val errorMsg = s"Errors reading LF archive ${a._1: Ref.PackageId}:\n${errors.toString}"
-            \/.left(Error('decodeInterfaceFromArchive, errorMsg))
-          }
+    }.leftMap(e => Error(Symbol("decodeInterfaceFromArchive"), e.description))
+      .flatMap { case (errors, out) =>
+        if (errors.empty) {
+          \/.right(out)
+        } else {
+          val errorMsg = s"Errors reading LF archive ${a._1: Ref.PackageId}:\n${errors.toString}"
+          \/.left(Error(Symbol("decodeInterfaceFromArchive"), errorMsg))
+        }
       }
 
   def typeLookup(metaData: LfMetadata)(id: Ref.Identifier): Option[iface.DefDataType.FWT] =
@@ -68,19 +69,21 @@ object MetadataReader {
       ifaceType <- iface.typeDecls.get(id.qualifiedName)
     } yield ifaceType.`type`
 
-  def typeByName(metaData: LfMetadata)(
-      name: Ref.QualifiedName): Seq[(Ref.PackageId, iface.DefDataType.FWT)] =
+  def typeByName(
+      metaData: LfMetadata
+  )(name: Ref.QualifiedName): Seq[(Ref.PackageId, iface.DefDataType.FWT)] =
     metaData.values.iterator
       .map(interface => interface.typeDecls.get(name).map(x => (interface.packageId, x.`type`)))
       .collect { case Some(x) => x }
       .toSeq
 
-  def templateByName(metaData: LfMetadata)(
-      name: Ref.QualifiedName): Seq[(PackageId, iface.InterfaceType.Template)] =
+  def templateByName(
+      metaData: LfMetadata
+  )(name: Ref.QualifiedName): Seq[(PackageId, iface.InterfaceType.Template)] =
     metaData.values.iterator
       .map(interface => interface.typeDecls.get(name).map(x => (interface.packageId, x)))
-      .collect {
-        case Some((pId, x @ iface.InterfaceType.Template(_, _))) => (pId, x)
+      .collect { case Some((pId, x @ iface.InterfaceType.Template(_, _))) =>
+        (pId, x)
       }
       .toSeq
 }

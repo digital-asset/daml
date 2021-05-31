@@ -1,27 +1,32 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 
 import java.nio.file.Path
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
+import com.daml.cliopts.Logging.LogEncoder
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.runtime.JdbcDrivers
 import com.daml.scalautil.Statement.discard
 import com.daml.http.dbbackend.ContractDao
-import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
 import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
+import com.daml.cliopts.{GlobalLogLevel, Logging}
+import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-object Main extends StrictLogging {
+object Main {
+
+  private[this] val logger = ContextualizedLogger.get(getClass)
 
   object ErrorCodes {
     val Ok = 0
@@ -29,16 +34,39 @@ object Main extends StrictLogging {
     val StartupError = 101
   }
 
-  def main(args: Array[String]): Unit =
-    Cli.parseConfig(args) match {
-      case Some(config) =>
-        main(config)
-      case None =>
-        // error is printed out by scopt
-        sys.exit(ErrorCodes.InvalidUsage)
+  def adjustAndReloadLoggingOptions(
+      config: Config
+  ): Unit = {
+    // If the system property was explicitly set before application startup and the config option was provided,
+    // the prior value will be overridden here.
+    config.logEncoder match {
+      case LogEncoder.Plain => () // This is the default
+      case LogEncoder.Json =>
+        Logging.setUseJsonLogEncoderSystemProp()
+        Logging.reconfigure(getClass, "logback.xml")
     }
+    // Here we set all things which are related to logging but not to
+    // any env vars in the logback.xml file.
+    config.logLevel.foreach(GlobalLogLevel.set("Ledger HTTP-JSON API"))
+  }
 
-  private def main(config: Config): Unit = {
+  def main(args: Array[String]): Unit = {
+    instanceUUIDLogCtx(implicit lc =>
+      Cli.parseConfig(
+        args,
+        ContractDao.supportedJdbcDriverNames(JdbcDrivers.availableJdbcDriverNames),
+      ) match {
+        case Some(config) =>
+          adjustAndReloadLoggingOptions(config)
+          main(config)
+        case None =>
+          // error is printed out by scopt
+          sys.exit(ErrorCodes.InvalidUsage)
+      }
+    )
+  }
+
+  private def main(config: Config)(implicit lc: LoggingContextOf[InstanceUUID]): Unit = {
     logger.info(
       s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
         s", address=${config.address: String}, httpPort=${config.httpPort: Int}" +
@@ -52,7 +80,11 @@ object Main extends StrictLogging {
         s", allowNonHttps=${config.allowNonHttps.shows}" +
         s", accessTokenFile=${config.accessTokenFile: Option[Path]}" +
         s", wsConfig=${config.wsConfig.shows}" +
-        ")")
+        s", nonRepudiationCertificateFile=${config.nonRepudiation.certificateFile: Option[Path]}" +
+        s", nonRepudiationPrivateKeyFile=${config.nonRepudiation.privateKeyFile: Option[Path]}" +
+        s", nonRepudiationPrivateKeyAlgorithm=${config.nonRepudiation.privateKeyAlgorithm: Option[String]}" +
+        ")"
+    )
 
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
     implicit val mat: Materializer = Materializer(asys)
@@ -67,7 +99,8 @@ object Main extends StrictLogging {
     (contractDao, config.jdbcConfig) match {
       case (Some(dao), Some(c)) if c.createSchema =>
         logger.info("Creating DB schema...")
-        Try(dao.transact(ContractDao.initialize(dao.logHandler)).unsafeRunSync()) match {
+        import dao.{logHandler, jdbcDriver}
+        Try(dao.transact(ContractDao.initialize).unsafeRunSync()) match {
           case Success(()) =>
             logger.info("DB schema created. Terminating process...")
             terminate()
@@ -111,7 +144,9 @@ object Main extends StrictLogging {
     }
   }
 
-  private def logFailure[A](msg: String, fa: Try[A]): Unit = fa match {
+  private def logFailure[A](msg: String, fa: Try[A])(implicit
+      lc: LoggingContextOf[InstanceUUID]
+  ): Unit = fa match {
     case Failure(e) => logger.error(msg, e)
     case _ =>
   }

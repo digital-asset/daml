@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_library")
@@ -13,6 +13,10 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ),
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     tags = ["maven_coordinates=com.daml:sandbox-common:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -22,11 +26,11 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_h2database_h2",
         "@maven//:org_postgresql_postgresql",
-        "@maven//:org_xerial_sqlite_jdbc",
     ],
     deps = [
         "//daml-lf/data",
         "//language-support/scala/bindings",
+        "//ledger-service/cli-opts",
         "//ledger-service/jwt",
         "//ledger/caching",
         "//ledger/cli-opts",
@@ -43,15 +47,49 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_dropwizard_metrics_metrics_jmx",
         "@maven//:io_netty_netty_handler",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_library(
+    name = "sandbox-common-ce",
+    srcs = glob(["src/ce/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_github_scopt_scopt",
+    ],
+    tags = ["maven_coordinates=com.daml:sandbox-common-ce:__VERSION__"],
+    visibility = ["//visibility:public"],
+    exports = [":sandbox-common"],
+    deps = [
+        ":sandbox-common",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-state",
+    ],
+)
+
+da_scala_library(
+    name = "sandbox-common-ee",
+    srcs = glob(["src/ee/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_github_scopt_scopt",
+    ],
+    visibility = ["//visibility:public"],
+    exports = [":sandbox-common"],
+    deps = [
+        ":sandbox-common",
+        "//daml-lf/data",
+        "//ledger/caching",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-integration-api",
+        "//ledger/participant-state",
+        "//libs-scala/ports",
     ],
 )
 
@@ -65,10 +103,20 @@ da_scala_library(
     name = "sandbox-common-scala-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
     resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scala_runtime_deps = [
+        "@maven//:com_typesafe_akka_akka_slf4j",
+    ],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:com_h2database_h2",
-        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
@@ -92,20 +140,16 @@ da_scala_library(
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/test-common",
+        "//ledger/test-common:dar-files-stable-lib",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:io_netty_netty_handler",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

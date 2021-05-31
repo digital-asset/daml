@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Helper.Util
@@ -9,6 +9,7 @@ module DA.Daml.Helper.Util
   , getDarPath
   , getProjectLedgerHost
   , getProjectLedgerPort
+  , getProjectLedgerAccessToken
   , getProjectParties
   , getProjectConfig
   , toAssistantCommand
@@ -20,6 +21,7 @@ module DA.Daml.Helper.Util
   , getLogbackArg
   , waitForConnectionOnPort
   , waitForHttpServer
+  , tokenFor
   ) where
 
 import Control.Exception.Safe
@@ -33,10 +35,14 @@ import qualified Network.HTTP.Types as HTTP
 import Network.Socket
 import System.Directory
 import System.FilePath
+import System.IO
+import System.Info.Extra
 import System.Process (showCommandForUser, terminateProcess)
 import System.Process.Typed
-import System.Info.Extra
-import System.IO
+import qualified Web.JWT as JWT
+import qualified Data.Aeson as A
+import qualified Data.HashMap.Strict as HashMap
+import qualified Data.Map as Map
 
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
@@ -71,38 +77,55 @@ getDarPath = do
 
 getProjectName :: IO String
 getProjectName = do
-    projectConfig <- getProjectConfig
+    projectConfig <- getProjectConfig Nothing
     requiredE "Failed to read project name from project config" $
         queryProjectConfigRequired ["name"] projectConfig
 
 getProjectVersion :: IO String
 getProjectVersion = do
-    projectConfig <- getProjectConfig
+    projectConfig <- getProjectConfig Nothing
     requiredE "Failed to read project version from project config" $
         queryProjectConfigRequired ["version"] projectConfig
 
 getProjectParties :: IO [String]
 getProjectParties = do
-    projectConfig <- getProjectConfig
-    requiredE "Failed to read list of parties from project config" $
-        queryProjectConfigRequired ["parties"] projectConfig
+    projectConfig <- getProjectConfig Nothing
+    fmap (fromMaybe []) $
+        requiredE "Failed to read list of parties from project config" $
+        queryProjectConfig ["parties"] projectConfig
 
 getProjectLedgerPort :: IO Int
 getProjectLedgerPort = do
-    projectConfig <- getProjectConfig
+    projectConfig <- getProjectConfig $ Just "--port"
     -- TODO: remove default; insist ledger-port is in the config ?!
     defaultingE "Failed to parse ledger.port" 6865 $
         queryProjectConfig ["ledger", "port"] projectConfig
 
 getProjectLedgerHost :: IO String
 getProjectLedgerHost = do
-    projectConfig <- getProjectConfig
+    projectConfig <- getProjectConfig $ Just "--host"
     defaultingE "Failed to parse ledger.host" "localhost" $
         queryProjectConfig ["ledger", "host"] projectConfig
 
-getProjectConfig :: IO ProjectConfig
-getProjectConfig = do
-    projectPath <- required "Must be called from within a project" =<< getProjectPath
+getProjectLedgerAccessToken :: IO (Maybe FilePath)
+getProjectLedgerAccessToken = do
+    projectConfigFpM <- getProjectPath
+    projectConfigM <- forM projectConfigFpM (readProjectConfig . ProjectPath)
+    case projectConfigM of
+        Nothing -> pure Nothing
+        Just projectConfig ->
+            defaultingE "Failed to parse ledger.access-token-file" Nothing $
+            queryProjectConfig ["ledger", "access-token-file"] projectConfig
+
+getProjectConfig :: Maybe T.Text -> IO ProjectConfig
+getProjectConfig argM = do
+    projectPath <-
+        required
+            (case argM of
+              Nothing -> "Must be called from within a project."
+              Just arg -> "This command needs to be either run from within a project \
+                          \ or the argument " <> arg <> " needs to be specified.") =<<
+        getProjectPath
     readProjectConfig (ProjectPath projectPath)
 
 requiredE :: Exception e => T.Text -> Either e t -> IO t
@@ -197,3 +220,21 @@ waitForHttpServer sleep url headers = do
     where isIOException e = isJust (fromException e :: Maybe IOException)
           isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)
 
+tokenFor :: [T.Text] -> T.Text -> T.Text -> T.Text
+tokenFor parties ledgerId applicationId =
+  JWT.encodeSigned
+    (JWT.HMACSecret "secret")
+    mempty
+    mempty
+      { JWT.unregisteredClaims =
+          JWT.ClaimsMap $
+          Map.fromList
+            [ ( "https://daml.com/ledger-api"
+              , A.Object $
+                HashMap.fromList
+                  [ ("actAs", A.toJSON parties)
+                  , ("ledgerId", A.String ledgerId)
+                  , ("applicationId", A.String applicationId)
+                  ])
+            ]
+      }

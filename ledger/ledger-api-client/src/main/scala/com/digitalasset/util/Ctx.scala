@@ -1,10 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.util
 
-/**
-  * Ctx wraps a value with some contextual information.
+/** Ctx wraps a value with some contextual information.
   */
 final case class Ctx[+Context, +Value](context: Context, value: Value) {
 

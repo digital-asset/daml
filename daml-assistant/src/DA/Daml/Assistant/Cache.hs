@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -43,27 +43,28 @@ versionsKey :: CacheKey
 versionsKey = "versions.txt"
 
 saveAvailableSdkVersions
-    :: DamlPath
+    :: CachePath
     -> [SdkVersion]
     -> IO ()
-saveAvailableSdkVersions damlPath =
-    saveToCacheWith damlPath versionsKey serializeVersions
+saveAvailableSdkVersions cachePath =
+    saveToCacheWith cachePath versionsKey serializeVersions
 
 cacheAvailableSdkVersions
     :: DamlPath
+    -> CachePath
     -> IO [SdkVersion]
     -> IO [SdkVersion]
-cacheAvailableSdkVersions damlPath getVersions = do
+cacheAvailableSdkVersions damlPath cachePath getVersions = do
     damlConfigE <- tryConfig $ readDamlConfig damlPath
     let updateCheckM = join $ eitherToMaybe (queryDamlConfig ["update-check"] =<< damlConfigE)
         defaultUpdateCheck = UpdateCheckEvery (CacheTimeout 86400)
     case fromMaybe defaultUpdateCheck updateCheckM of
         UpdateCheckNever -> do
-            valueAgeM <- loadFromCacheWith damlPath versionsKey (CacheTimeout 0) deserializeVersions
+            valueAgeM <- loadFromCacheWith cachePath versionsKey (CacheTimeout 0) deserializeVersions
             pure (maybe [] fst valueAgeM)
 
         UpdateCheckEvery timeout ->
-            cacheWith damlPath versionsKey timeout
+            cacheWith cachePath versionsKey timeout
                 serializeVersions deserializeVersions
                 getVersions
 
@@ -75,22 +76,19 @@ deserializeVersions :: Deserialize [SdkVersion]
 deserializeVersions =
     Just . mapMaybe (eitherToMaybe . parseVersion . pack) . lines
 
-cacheDirPath :: DamlPath -> FilePath
-cacheDirPath (DamlPath damlPath) = damlPath </> "cache"
-
-cacheFilePath :: DamlPath -> CacheKey -> FilePath
-cacheFilePath damlPath (CacheKey key) = cacheDirPath damlPath </> key
+cacheFilePath :: CachePath -> CacheKey -> FilePath
+cacheFilePath cachePath (CacheKey key) = unwrapCachePath cachePath </> key
 
 cacheWith
-    :: DamlPath
+    :: CachePath
     -> CacheKey
     -> CacheTimeout
     -> Serialize t
     -> Deserialize t
     -> IO t
     -> IO t
-cacheWith damlPath key timeout serialize deserialize getFresh = do
-    valueAgeM <- loadFromCacheWith damlPath key timeout deserialize
+cacheWith cachePath key timeout serialize deserialize getFresh = do
+    valueAgeM <- loadFromCacheWith cachePath key timeout deserialize
     case valueAgeM of
         Just (value, Fresh) -> pure value
         Just (value, Stale) -> do
@@ -98,11 +96,11 @@ cacheWith damlPath key timeout serialize deserialize getFresh = do
             case valueE of
                 Left _ -> pure value
                 Right value' -> do
-                    saveToCacheWith damlPath key serialize value'
+                    saveToCacheWith cachePath key serialize value'
                     pure value'
         Nothing -> do
             value <- getFresh
-            saveToCacheWith damlPath key serialize value
+            saveToCacheWith cachePath key serialize value
             pure value
 
 -- | A representation of the age of a cache value. We only care if the value is stale or fresh.
@@ -111,22 +109,22 @@ data CacheAge
     | Fresh
 
 -- | Save value to cache. Never raises an exception.
-saveToCache :: DamlPath -> CacheKey -> String -> IO ()
-saveToCache damlPath key value =
+saveToCache :: CachePath -> CacheKey -> String -> IO ()
+saveToCache cachePath key value =
     void . tryIO $ do
-        let dirPath = cacheDirPath damlPath
-            filePath = cacheFilePath damlPath key
+        let dirPath = unwrapCachePath cachePath
+            filePath = cacheFilePath cachePath key
         createDirectoryIfMissing True dirPath
         writeFileUTF8 filePath value
 
 -- | Save value to cache, with serialization function.
-saveToCacheWith :: DamlPath -> CacheKey -> Serialize t -> t -> IO ()
-saveToCacheWith damlPath key serialize value = saveToCache damlPath key (serialize value)
+saveToCacheWith :: CachePath -> CacheKey -> Serialize t -> t -> IO ()
+saveToCacheWith cachePath key serialize value = saveToCache cachePath key (serialize value)
 
 -- | Read value from cache, including its age. Never raises an exception.
-loadFromCache :: DamlPath -> CacheKey -> CacheTimeout -> IO (Maybe (String, CacheAge))
-loadFromCache damlPath key (CacheTimeout timeout) = do
-    let path = cacheFilePath damlPath key
+loadFromCache :: CachePath -> CacheKey -> CacheTimeout -> IO (Maybe (String, CacheAge))
+loadFromCache cachePath key (CacheTimeout timeout) = do
+    let path = cacheFilePath cachePath key
     modTimeE <- tryIO (getModificationTime path)
     curTimeE <- tryIO getCurrentTime
     let isStaleE = liftM2 (\mt ct -> diffUTCTime ct mt >= timeout) modTimeE curTimeE
@@ -136,9 +134,9 @@ loadFromCache damlPath key (CacheTimeout timeout) = do
     pure $ fmap (, age) valueM
 
 -- | Read value from cache, including its age, with deserialization function.
-loadFromCacheWith :: DamlPath -> CacheKey -> CacheTimeout -> Deserialize t -> IO (Maybe (t, CacheAge))
-loadFromCacheWith damlPath key timeout deserialize = do
-    valueAgeM <- loadFromCache damlPath key timeout
+loadFromCacheWith :: CachePath -> CacheKey -> CacheTimeout -> Deserialize t -> IO (Maybe (t, CacheAge))
+loadFromCacheWith cachePath key timeout deserialize = do
+    valueAgeM <- loadFromCache cachePath key timeout
     pure $ do
         (valueStr, age) <- valueAgeM
         value <- deserialize valueStr

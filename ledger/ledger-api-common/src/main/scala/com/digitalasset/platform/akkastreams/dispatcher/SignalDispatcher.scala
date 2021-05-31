@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.akkastreams.dispatcher
@@ -12,8 +12,7 @@ import com.daml.platform.akkastreams.dispatcher.SignalDispatcher.Signal
 import com.daml.dec.DirectExecutionContext
 import org.slf4j.LoggerFactory
 
-/**
-  * A fanout signaller that can be subscribed to dynamically.
+/** A fanout signaller that can be subscribed to dynamically.
   * Signals may be coalesced, but if a signal is sent, we guarantee that all consumers subscribed before
   * the signal is sent will eventually receive a signal.
   */
@@ -27,14 +26,12 @@ class SignalDispatcher private () extends AutoCloseable {
   private[akkastreams] def getRunningState: Set[SourceQueueWithComplete[Signal]] =
     runningState.get.getOrElse(throwClosed())
 
-  /**
-    * Signal to this Dispatcher that there's a new head `Index`.
+  /** Signal to this Dispatcher that there's a new head `Index`.
     * The Dispatcher will emit values on all streams until the new head is reached.
     */
   def signal(): Unit = getRunningState.foreach(_.offer(Signal))
 
-  /**
-    * Returns a Source that, when materialized, subscribes to this SignalDispatcher.
+  /** Returns a Source that, when materialized, subscribes to this SignalDispatcher.
     *
     * @param signalOnSubscribe True if you want to send a signal to the new subscription.
     */
@@ -62,8 +59,7 @@ class SignalDispatcher private () extends AutoCloseable {
 
   private def throwClosed(): Nothing = throw new IllegalStateException("SignalDispatcher is closed")
 
-  /**
-    * Closes this SignalDispatcher.
+  /** Closes this SignalDispatcher.
     * For any downstream with pending signals, at least one such signal will be sent first.
     */
   def close(): Unit =
@@ -72,7 +68,8 @@ class SignalDispatcher private () extends AutoCloseable {
       // note, Materializer's lifecycle is managed outside of this class
       // fire and forget complete signals -- we can't control how long downstream takes
       .fold(throw new IllegalStateException("SignalDispatcher is already closed"))(
-        _.foreach(_.complete()))
+        _.foreach(_.complete())
+      )
 
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -9,7 +9,7 @@ import data.{Bytes, Utf8}
 import language.TypeOrdering
 import value.Value.ContractId
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object Ordering extends scala.math.Ordering[SValue] {
 
@@ -47,6 +47,8 @@ object Ordering extends scala.math.Ordering[SValue] {
           diff = x compareTo y
         case (SNumeric(x), SNumeric(y)) =>
           diff = x compareTo y
+        case (SBigNumeric(x), SBigNumeric(y)) =>
+          diff = x compareTo y
         case (SText(x), SText(y)) =>
           diff = Utf8.Ordering.compare(x, y)
         case (SDate(x), SDate(y)) =>
@@ -69,7 +71,7 @@ object Ordering extends scala.math.Ordering[SValue] {
           push(xs.iterator, ys.iterator)
         case (SOptional(xOpt), SOptional(yOpt)) =>
           push(xOpt.iterator, yOpt.iterator)
-        case (SGenMap(_, xMap), SGenMap(_, yMap)) =>
+        case (SMap(_, xMap), SMap(_, yMap)) =>
           push(
             new InterlacedIterator(xMap.keys.iterator, xMap.values.iterator),
             new InterlacedIterator(yMap.keys.iterator, yMap.values.iterator),
@@ -116,7 +118,8 @@ object Ordering extends scala.math.Ordering[SValue] {
           Bytes.ordering.compare(suffix1, suffix2)
         else
           throw SError.SErrorCrash(
-            "Conflicting discriminators between a local and global contract id")
+            "Conflicting discriminators between a local and global contract id"
+          )
     }
 
 }

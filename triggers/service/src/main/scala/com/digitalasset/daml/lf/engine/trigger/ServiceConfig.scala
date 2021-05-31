@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -9,6 +9,7 @@ import java.time.Duration
 import akka.http.scaladsl.model.Uri
 import com.daml.cliopts
 import com.daml.platform.services.time.TimeProviderType
+import com.daml.auth.middleware.api.{Client => AuthClient}
 import scalaz.Show
 
 import scala.concurrent.duration
@@ -23,9 +24,15 @@ private[trigger] final case class ServiceConfig(
     ledgerHost: String,
     ledgerPort: Int,
     authUri: Option[Uri],
+    authRedirectToLogin: AuthClient.RedirectToLogin,
+    authCallbackUri: Option[Uri],
     maxInboundMessageSize: Int,
     minRestartInterval: FiniteDuration,
     maxRestartInterval: FiniteDuration,
+    maxAuthCallbacks: Int,
+    authCallbackTimeout: FiniteDuration,
+    maxHttpEntityUploadSize: Long,
+    httpEntityUploadTimeout: FiniteDuration,
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
     init: Boolean,
@@ -34,6 +41,7 @@ private[trigger] final case class ServiceConfig(
 )
 
 final case class JdbcConfig(
+    driver: String,
     url: String,
     user: String,
     password: String,
@@ -43,35 +51,51 @@ object JdbcConfig {
   implicit val showInstance: Show[JdbcConfig] =
     Show.shows(a => s"JdbcConfig(url=${a.url}, user=${a.user})")
 
-  def create(x: Map[String, String]): Either[String, JdbcConfig] =
+  def create(
+      x: Map[String, String],
+      supportedJdbcDriverNames: Set[String],
+  ): Either[String, JdbcConfig] =
     for {
       url <- requiredField(x)("url")
       user <- requiredField(x)("user")
       password <- requiredField(x)("password")
-    } yield
-      JdbcConfig(
-        url = url,
-        user = user,
-        password = password,
+      driver = x.get("driver").getOrElse(defaultDriver)
+      _ <- Either.cond(
+        supportedJdbcDriverNames(driver),
+        (),
+        s"$driver unsupported. Supported drivers: ${supportedJdbcDriverNames.mkString(", ")}",
       )
+    } yield JdbcConfig(
+      driver = driver,
+      url = url,
+      user = user,
+      password = password,
+    )
+
+  private val defaultDriver: String = "org.postgresql.Driver"
 
   private def requiredField(m: Map[String, String])(k: String): Either[String, String] =
     m.get(k).filter(_.nonEmpty).toRight(s"Invalid JDBC config, must contain '$k' field")
 
-  lazy val usage: String = helpString("<JDBC connection url>", "<user>", "<password>")
+  lazy val usage: String =
+    helpString("<JDBC driver class name>", "<JDBC connection url>", "<user>", "<password>")
 
-  lazy val help: String =
+  def help(supportedJdbcDriverNames: Set[String]): String =
     "Contains comma-separated key-value pairs. Where:\n" +
       s"${indent}url -- JDBC connection URL, beginning with jdbc:postgresql,\n" +
       s"${indent}user -- user name for database user with permissions to create tables,\n" +
       s"${indent}password -- password of database user,\n" +
+      s"${indent}driver -- JDBC driver class name, supported drivers: ${supportedJdbcDriverNames
+        .mkString(", ")}, defaults to org.postgresql.Driver\n" +
       s"${indent}Example: " + helpString(
-      "jdbc:postgresql://localhost:5432/triggers",
-      "operator",
-      "password")
+        "org.postgresql.Driver",
+        "jdbc:postgresql://localhost:5432/triggers",
+        "operator",
+        "password",
+      )
 
-  private def helpString(url: String, user: String, password: String): String =
-    s"""\"url=$url,user=$user,password=$password\""""
+  private def helpString(driver: String, url: String, user: String, password: String): String =
+    s"""\"driver=$driver,url=$url,user=$user,password=$password\""""
 
   private val indent: String = List.fill(8)(" ").mkString
 }
@@ -81,9 +105,24 @@ private[trigger] object ServiceConfig {
   val DefaultMaxInboundMessageSize: Int = RunnerConfig.DefaultMaxInboundMessageSize
   private val DefaultMinRestartInterval: FiniteDuration = FiniteDuration(5, duration.SECONDS)
   val DefaultMaxRestartInterval: FiniteDuration = FiniteDuration(60, duration.SECONDS)
+  // Adds up to ~1GB with DefaultMaxInboundMessagesSize
+  val DefaultMaxAuthCallbacks: Int = 250
+  val DefaultAuthCallbackTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
+  val DefaultMaxHttpEntityUploadSize: Long = RunnerConfig.DefaultMaxInboundMessageSize.toLong
+  val DefaultHttpEntityUploadTimeout: FiniteDuration = FiniteDuration(1, duration.MINUTES)
+
+  implicit val redirectToLoginRead: scopt.Read[AuthClient.RedirectToLogin] = scopt.Read.reads {
+    _.toLowerCase match {
+      case "yes" => AuthClient.RedirectToLogin.Yes
+      case "no" => AuthClient.RedirectToLogin.No
+      case "auto" => AuthClient.RedirectToLogin.Auto
+      case s => throw new IllegalArgumentException(s"'$s' is not one of 'yes', 'no', or 'auto'.")
+    }
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements")) // scopt builders
-  private val parser = new scopt.OptionParser[ServiceConfig]("trigger-service") {
+  private class OptionParser(supportedJdbcDriverNames: Set[String])
+      extends scopt.OptionParser[ServiceConfig]("trigger-service") {
     head("trigger-service")
 
     opt[String]("dar")
@@ -113,26 +152,67 @@ private[trigger] object ServiceConfig {
       .optional()
       .action((t, c) => c.copy(authUri = Some(Uri(t))))
       .text("Auth middleware URI.")
-      // TODO[AH] Expose once the feature is fully implemented.
-      .hidden()
+
+    opt[AuthClient.RedirectToLogin]("auth-redirect")
+      .optional()
+      .action((x, c) => c.copy(authRedirectToLogin = x))
+      .text(
+        "Redirect to auth middleware login endpoint when unauthorized. One of 'yes', 'no', or 'auto'."
+      )
+
+    opt[String]("auth-callback")
+      .optional()
+      .action((t, c) => c.copy(authCallbackUri = Some(Uri(t))))
+      .text(
+        "URI to the auth login flow callback endpoint `/cb`. By default constructed from the incoming login request."
+      )
 
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
       .optional()
       .text(
-        s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}.")
+        s"Optional max inbound message size in bytes. Defaults to ${DefaultMaxInboundMessageSize}."
+      )
 
     opt[Long]("min-restart-interval")
       .action((x, c) => c.copy(minRestartInterval = FiniteDuration(x, duration.SECONDS)))
       .optional()
       .text(
-        s"Minimum time interval before restarting a failed trigger. Defaults to ${DefaultMinRestartInterval.toSeconds} seconds.")
+        s"Minimum time interval before restarting a failed trigger. Defaults to ${DefaultMinRestartInterval.toSeconds} seconds."
+      )
 
     opt[Long]("max-restart-interval")
       .action((x, c) => c.copy(maxRestartInterval = FiniteDuration(x, duration.SECONDS)))
       .optional()
       .text(
-        s"Maximum time interval between restarting a failed trigger. Defaults to ${DefaultMaxRestartInterval.toSeconds} seconds.")
+        s"Maximum time interval between restarting a failed trigger. Defaults to ${DefaultMaxRestartInterval.toSeconds} seconds."
+      )
+
+    opt[Int]("max-pending-authorizations")
+      .action((x, c) => c.copy(maxAuthCallbacks = x))
+      .optional()
+      .text(
+        s"Optional max number of pending authorization requests. Defaults to ${DefaultMaxAuthCallbacks}."
+      )
+
+    opt[Long]("authorization-timeout")
+      .action((x, c) => c.copy(authCallbackTimeout = FiniteDuration(x, duration.SECONDS)))
+      .optional()
+      .text(
+        s"Optional authorization timeout. Defaults to ${DefaultAuthCallbackTimeout.toSeconds} seconds."
+      )
+
+    opt[Long]("max-http-entity-upload-size")
+      .action((x, c) => c.copy(maxHttpEntityUploadSize = x))
+      .optional()
+      .text(s"Optional max HTTP entity upload size. Defaults to ${DefaultMaxHttpEntityUploadSize}.")
+
+    opt[Long]("http-entity-upload-timeout")
+      .action((x, c) => c.copy(httpEntityUploadTimeout = FiniteDuration(x, duration.SECONDS)))
+      .optional()
+      .text(
+        s"Optional HTTP entity upload timeout. Defaults to ${DefaultHttpEntityUploadTimeout.toSeconds} seconds."
+      )
 
     opt[Unit]('w', "wall-clock-time")
       .action { (_, c) =>
@@ -148,19 +228,27 @@ private[trigger] object ServiceConfig {
 
     opt[Map[String, String]]("jdbc")
       .action((x, c) =>
-        c.copy(jdbcConfig = Some(JdbcConfig.create(x).fold(e => sys.error(e), identity))))
+        c.copy(jdbcConfig =
+          Some(JdbcConfig.create(x, supportedJdbcDriverNames).fold(e => sys.error(e), identity))
+        )
+      )
       .optional()
-      .valueName(JdbcConfig.usage)
-      .text("JDBC configuration parameters. If omitted the service runs without a database.")
+      .text(JdbcConfig.help(supportedJdbcDriverNames))
+      .text(
+        "JDBC configuration parameters. If omitted the service runs without a database. " + JdbcConfig
+          .help(supportedJdbcDriverNames)
+      )
 
     cmd("init-db")
       .action((_, c) => c.copy(init = true))
       .text("Initialize database and terminate.")
 
+    help("help").text("Print this usage text")
+
   }
 
-  def parse(args: Array[String]): Option[ServiceConfig] =
-    parser.parse(
+  def parse(args: Array[String], supportedJdbcDriverNames: Set[String]): Option[ServiceConfig] =
+    new OptionParser(supportedJdbcDriverNames).parse(
       args,
       ServiceConfig(
         darPaths = Nil,
@@ -169,9 +257,15 @@ private[trigger] object ServiceConfig {
         ledgerHost = null,
         ledgerPort = 0,
         authUri = None,
+        authRedirectToLogin = AuthClient.RedirectToLogin.No,
+        authCallbackUri = None,
         maxInboundMessageSize = DefaultMaxInboundMessageSize,
         minRestartInterval = DefaultMinRestartInterval,
         maxRestartInterval = DefaultMaxRestartInterval,
+        maxAuthCallbacks = DefaultMaxAuthCallbacks,
+        authCallbackTimeout = DefaultAuthCallbackTimeout,
+        maxHttpEntityUploadSize = DefaultMaxHttpEntityUploadSize,
+        httpEntityUploadTimeout = DefaultHttpEntityUploadTimeout,
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
         init = false,

@@ -1,9 +1,10 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "da_scala_test",
     "da_scala_test_suite",
     "lf_scalacopts",
 )
@@ -12,8 +13,13 @@ load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repl")
 da_scala_library(
     name = "interpreter",
     srcs = glob(["src/main/**/*.scala"]),
+    scala_deps = [
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_paiges_core",
+    ],
     scalacopts = lf_scalacopts,
-    silent_annotations = True,
     tags = ["maven_coordinates=com.daml:daml-lf-interpreter:__VERSION__"],
     visibility = [
         "//compiler/repl-service:__subpackages__",
@@ -29,17 +35,49 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
-        "@maven//:org_typelevel_paiges_core_2_12",
     ],
 )
+
+bigNumericTests = "src/test/scala/com/digitalasset/daml/lf/speedy/SBuiltinBigNumericTest.scala"
 
 da_scala_test_suite(
     name = "tests",
     size = "small",
-    srcs = glob(["src/test/**/*.scala"]),
+    srcs = glob(
+        ["src/test/**/*.scala"],
+        exclude = [bigNumericTests],
+    ),
+    scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+        "@maven//:org_typelevel_paiges_core",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":interpreter",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
+        "//daml-lf/validation",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+da_scala_test(
+    name = "test_bignumeric",
+    srcs = [bigNumericTests],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
     deps = [
         ":interpreter",
@@ -47,15 +85,6 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/transaction",
-        "//daml-lf/transaction-test-lib",
-        "//daml-lf/validation",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
-        "@maven//:org_slf4j_slf4j_api",
-        "@maven//:org_typelevel_paiges_core_2_12",
     ],
 )
 

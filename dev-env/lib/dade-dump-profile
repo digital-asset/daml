@@ -128,3 +128,8 @@ fi
 echo "export LC_ALL=en_US.UTF-8"
 echo "export LANG=en_US.UTF-8"
 
+echo "# Used when running Bazel commands with --config=oracle"
+echo "export ORACLE_USERNAME=system"
+echo "export ORACLE_PWD=hunter2"
+echo "export ORACLE_PORT=1521"
+

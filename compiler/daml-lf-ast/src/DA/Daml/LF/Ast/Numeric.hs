@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | DAML-LF Numeric literals, with scale attached.
@@ -54,7 +54,7 @@ data NumericError
 numericE :: Natural -> Integer -> Either NumericError Numeric
 numericE s m
     | s > numericMaxScale = Left NEScaleTooLarge
-    | m > numericMaxMantissa = Left NEMantissaTooLarge
+    | abs m > numericMaxMantissa = Left NEMantissaTooLarge
     | otherwise = Right . Numeric $ Decimal (fromIntegral s) m
 
 -- | Partial smart constructor for Numeric literals. Returns undefined

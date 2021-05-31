@@ -1,12 +1,18 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
 
 module DA.Assert
   ( module DA.Assert
+  , CanAssert (assertFail)
   , assert
   , assertMsg
   , assertAfter
   , assertBefore
+#ifdef DAML_EXCEPTIONS
+  , AssertionFailed (AssertionFailed)
+#endif
   ) where
 
 infix 4 ===
@@ -14,42 +20,42 @@ infix 4 =/=
 
 -- | Check two values for equality. If they're not equal,
 -- fail with a message.
-assertEq : (CanAbort m, Show a, Eq a) => a -> a -> m ()
+assertEq : (CanAssert m, Show a, Eq a) => a -> a -> m ()
 -- NOTE(MH): We do not define `assertEq` in terms of `assertMsg` to avoid
 -- constructing the error message in the successful case.
 assertEq x y
   | x == y = return ()
-  | otherwise = abort ("Failure, expected " <> show x <> " == " <> show y)
+  | otherwise = assertFail ("Failure, expected " <> show x <> " == " <> show y)
 
 -- | Infix version of `assertEq`.
-(===) : (CanAbort m, Show a, Eq a) => a -> a -> m ()
+(===) : (CanAssert m, Show a, Eq a) => a -> a -> m ()
 (===) = assertEq
 
 -- | Check two values for inequality. If they're equal,
 -- fail with a message.
-assertNotEq : (CanAbort m, Show a, Eq a) => a -> a -> m ()
+assertNotEq : (CanAssert m, Show a, Eq a) => a -> a -> m ()
 assertNotEq x y
   | x /= y = return ()
-  | otherwise = abort ("Failure, expected " <> show x <> " /= " <> show y)
+  | otherwise = assertFail ("Failure, expected " <> show x <> " /= " <> show y)
 
 -- | Infix version of `assertNotEq`.
-(=/=) : (CanAbort m, Show a, Eq a) => a -> a -> m ()
+(=/=) : (CanAssert m, Show a, Eq a) => a -> a -> m ()
 (=/=) = assertNotEq
 
 -- | Check whether the given time is in the future. If it's not,
 -- abort with a message.
-assertAfterMsg : (CanAbort m, HasTime m) => Text -> Time -> m ()
+assertAfterMsg : (CanAssert m, HasTime m) => Text -> Time -> m ()
 assertAfterMsg msg time = do
   now <- getTime
   if time > now
-    then abort msg
+    then assertFail msg
     else return ()
 
 -- | Check whether the given time is in the past. If it's not,
 -- abort with a message.
-assertBeforeMsg : (CanAbort m, HasTime m) => Text -> Time -> m ()
+assertBeforeMsg : (CanAssert m, HasTime m) => Text -> Time -> m ()
 assertBeforeMsg msg time = do
   now <- getTime
   if time < now
-    then abort msg
+    then assertFail msg
     else return ()

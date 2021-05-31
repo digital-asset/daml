@@ -1,0 +1,32 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Test where
+
+import qualified DA.BigNumeric as BigNumeric
+
+template BigNumericResults
+  with
+    party: Party
+    values: [Numeric 10]
+  where
+    signatory party
+
+x : BigNumeric
+x = 0.5
+
+run = scenario do
+  alice <- getParty "Alice"
+  submit alice do
+     create BigNumericResults with
+        party = alice
+        values = map fromBigNumeric [
+              x + x
+            , negate x
+            , x * x
+            , BigNumeric.round 0 RoundingUp x
+            , BigNumeric.round 0 RoundingDown x
+            , BigNumeric.round 0 RoundingHalfUp x
+            , BigNumeric.round 0 RoundingCeiling (negate x)
+          ]

@@ -1,24 +1,28 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
   trigger_sha: ''
 
 steps:
+  - template: bash-lib.yml
+    parameters:
+      var_name: bash_lib
   - bash: |
       set -euo pipefail
-      COMMIT_TITLE=$(git log --pretty=format:%s -n1 ${{ parameters.trigger_sha }})
-      COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$COMMIT_TITLE>"
+      source $(bash_lib)
+      COMMIT_TITLE="$(escape_slack "$(git log --pretty=format:%s -n1 ${{ parameters.trigger_sha }})")"
+      COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|${COMMIT_TITLE}>"
       if [ -z "${{ parameters.trigger_sha }}" ]; then
-          WARNING="<!here> *FAILED* $(Build.SourceBranchName)/$(Agent.JobName): $COMMIT_LINK"
+          WARNING="*FAILED* $(Build.SourceBranchName)/$(Agent.JobName) [$(Agent.MachineName)]: $COMMIT_LINK"
       else
-          WARNING=":fire: :fire: :fire: :fire: :fire:\n<!here> *RELEASE FAILED* $(Build.SourceBranchName)/$(Agent.JobName): $COMMIT_LINK\n:fire: :fire: :fire: :fire: :fire:"
+          WARNING=":fire: :fire: :fire: :fire: :fire:\n*RELEASE FAILED* $(Build.SourceBranchName)/$(Agent.JobName): $COMMIT_LINK\n:fire: :fire: :fire: :fire: :fire:"
       fi
       curl -XPOST \
            -i \
            -H 'Content-type: application/json' \
            --data "{\"text\":\"$WARNING\n\"}" \
-           $(Slack.team-daml)
+           $(Slack.ci-failures-daml)
     condition: and(failed(),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
+                   or(eq(variables['Build.SourceBranchName'], 'main'),
                       startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))

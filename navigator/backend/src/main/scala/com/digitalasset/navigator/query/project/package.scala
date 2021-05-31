@@ -1,16 +1,16 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.query
 
+import com.daml.lf.value.json.ApiValueImplicits._
+import com.daml.lf.value.{Value => V}
 import com.daml.navigator.dotnot._
 import com.daml.navigator.model._
-import com.daml.lf.value.{Value => V}
-import com.daml.lf.value.json.ApiValueImplicits._
-import com.github.ghik.silencer.silent
 import scalaz.Tag
 import scalaz.syntax.tag._
 
+import scala.annotation.nowarn
 import scala.util.{Failure, Success, Try}
 
 @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
@@ -48,40 +48,49 @@ object project {
       rootParam: DamlLfType,
       cursor: PropertyCursor,
       value: String,
-      ps: DamlLfTypeLookup): Either[DotNotFailure, ProjectValue] = {
+      ps: DamlLfTypeLookup,
+  ): Either[DotNotFailure, ProjectValue] = {
 
     @annotation.tailrec
     def loop(
         parameter: DamlLfType,
         cursor: PropertyCursor,
-        ps: DamlLfTypeLookup): Either[DotNotFailure, ProjectValue] =
+        ps: DamlLfTypeLookup,
+    ): Either[DotNotFailure, ProjectValue] =
       parameter match {
         case tc: DamlLfTypeCon =>
-          val next = for {
-            ddt <- ps(tc.name.identifier)
-              .toRight(UnknownType(tc.name.identifier.toString, cursor, value))
-            nextCursor <- cursor.next.toRight(MustNotBeLastPart("DataType", cursor, value))
-            nextField <- tc.instantiate(ddt) match {
-              case DamlLfRecord(fields) =>
-                fields
-                  .find(f => f._1 == nextCursor.current)
-                  .toRight(UnknownProperty("record", nextCursor, value))
-              case DamlLfVariant(fields) =>
-                fields
-                  .find(f => f._1 == nextCursor.current)
-                  .toRight(UnknownProperty("variant", nextCursor, value))
-              case DamlLfEnum(_) =>
-                // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-                throw new NotImplementedError("Enum types not supported")
-            }
-          } yield {
-            (nextField._2, nextCursor)
+          val tyCon = tc.name.identifier
+          ps(tyCon) match {
+            case Some(ddt) =>
+              val next = tc.instantiate(ddt) match {
+                case DamlLfEnum(_) =>
+                  Right(StringValue(tyCon.toString))
+                case DamlLfRecord(fields) =>
+                  Left("record" -> fields)
+                case DamlLfVariant(constructors) =>
+                  Left("variant" -> constructors)
+              }
+              next match {
+                case Left((description, fields)) =>
+                  cursor.next match {
+                    case Some(nextCursor) =>
+                      fields.collectFirst { case (nextCursor.current, fieldType) =>
+                        fieldType
+                      } match {
+                        case Some(nextType) =>
+                          loop(nextType, nextCursor, ps)
+                        case None =>
+                          Left(UnknownProperty(description, nextCursor, value))
+                      }
+                    case None =>
+                      Left(MustNotBeLastPart("DataType", cursor, value))
+                  }
+                case Right(result) =>
+                  Right(result)
+              }
+            case None =>
+              Left(UnknownType(tyCon.toString, cursor, value))
           }
-          next match {
-            case Right((nextType, nextCursor)) => loop(nextType, nextCursor, ps)
-            case Left(e) => Left(e)
-          }
-
         case DamlLfTypeVar(name) => Right(StringValue(name))
         case DamlLfTypePrim(DamlLfPrimType.Bool, _) => Right(StringValue("bool"))
         case DamlLfTypeNumeric(_) => Right(StringValue("decimal"))
@@ -105,29 +114,33 @@ object project {
       rootArgument: Option[ApiValue],
       cursor: PropertyCursor,
       expectedValue: String,
-      ps: DamlLfTypeLookup): Either[DotNotFailure, ProjectValue] =
+      ps: DamlLfTypeLookup,
+  ): Either[DotNotFailure, ProjectValue] =
     rootArgument.fold[Either[DotNotFailure, ProjectValue]](Right(StringValue("")))(
-      checkValue(_, cursor, expectedValue, ps))
+      checkValue(_, cursor, expectedValue, ps)
+    )
 
-  @silent(" ps .* is never used") // conforms to `opaque`'s signature
+  @nowarn("msg=parameter value ps .* is never used") // conforms to `opaque`'s signature
   def checkValue(
       rootArgument: ApiValue,
       cursor: PropertyCursor,
       expectedValue: String,
-      ps: DamlLfTypeLookup): Either[DotNotFailure, ProjectValue] = {
+      ps: DamlLfTypeLookup,
+  ): Either[DotNotFailure, ProjectValue] = {
 
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, ProjectValue] =
       argument match {
-        case V.ValueContractId(value) if cursor.isLast => Right(StringValue(value))
-        case V.ValueInt64(value) if cursor.isLast => Right(NumberValue(value))
-        case V.ValueNumeric(value) if cursor.isLast => Right(StringValue(value.toUnscaledString))
-        case V.ValueText(value) if cursor.isLast => Right(StringValue(value))
-        case V.ValueParty(value) if cursor.isLast => Right(StringValue(value))
-        case V.ValueBool(value) if cursor.isLast => Right(BooleanValue(value))
-        case V.ValueUnit if cursor.isLast => Right(StringValue(""))
-        case t: V.ValueTimestamp if cursor.isLast => Right(StringValue(t.toIso8601))
-        case t: V.ValueDate if cursor.isLast => Right(StringValue(t.toIso8601))
+        case V.ValueContractId(value) => cursor.ensureLast("contractid")(StringValue(value))
+        case V.ValueInt64(value) => cursor.ensureLast("int64")(NumberValue(value))
+        case V.ValueNumeric(value) =>
+          cursor.ensureLast("numeric")(StringValue(value.toUnscaledString))
+        case V.ValueText(value) => cursor.ensureLast("text")(StringValue(value))
+        case V.ValueParty(value) => cursor.ensureLast("party")(StringValue(value))
+        case V.ValueBool(value) => cursor.ensureLast("bool")(BooleanValue(value))
+        case V.ValueUnit => cursor.ensureLast("unit")(StringValue(""))
+        case t: V.ValueTimestamp => cursor.ensureLast("timestamp")(StringValue(t.toIso8601))
+        case t: V.ValueDate => cursor.ensureLast("date")(StringValue(t.toIso8601))
         case V.ValueRecord(_, fields) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("record", cursor, expectedValue))
@@ -202,6 +215,7 @@ object project {
                       loop(entries(index)._1, nextNextCursor)
                     case Some(nextNextCursor) if nextNextCursor.current == "value" =>
                       loop(entries(index)._2, nextNextCursor)
+                    case Some(_) => Left(UnknownProperty("genmap", nextCursor, expectedValue))
                     case None =>
                       Left(UnknownProperty(nextCursor.current, nextCursor, expectedValue))
                   }
@@ -215,11 +229,13 @@ object project {
 
   lazy val parameterProject =
     opaque[DamlLfType, ProjectValue, DamlLfTypeLookup]("parameter")((t, c, e, p) =>
-      checkParameter(t, c, e, p))
+      checkParameter(t, c, e, p)
+    )
 
   lazy val parameterIdProject =
     opaque[DamlLfIdentifier, ProjectValue, DamlLfTypeLookup]("parameter")((id, c, e, p) =>
-      checkParameter(DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq()), c, e, p))
+      checkParameter(DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq()), c, e, p)
+    )
 
   lazy val argumentProject =
     opaque[ApiValue, ProjectValue, DamlLfTypeLookup]("argument")(checkValue)

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 // Setup the Nix bucket + CDN
@@ -11,24 +11,24 @@ locals {
 module "nix_cache" {
   source = "./modules/gcp_cdn_bucket"
 
-  labels               = "${local.labels}"
-  name                 = "${local.nix_cache_name}"
-  project              = "${local.project}"
-  region               = "${local.region}"
+  labels               = local.labels
+  name                 = local.nix_cache_name
+  project              = local.project
+  region               = local.region
   ssl_certificate      = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/nix-cache"
   cache_retention_days = 360
 }
 
 // allow rw access for CI writer (see writer.tf)
 resource "google_storage_bucket_iam_member" "nix_cache_writer_create" {
-  bucket = "${module.nix_cache.bucket_name}"
+  bucket = module.nix_cache.bucket_name
 
   # https://cloud.google.com/storage/docs/access-control/iam-roles
   role   = "roles/storage.objectCreator"
   member = "serviceAccount:${google_service_account.writer.email}"
 }
 resource "google_storage_bucket_iam_member" "nix_cache_writer_read" {
-  bucket = "${module.nix_cache.bucket_name}"
+  bucket = module.nix_cache.bucket_name
 
   # https://cloud.google.com/storage/docs/access-control/iam-roles
   role   = "roles/storage.objectViewer"
@@ -36,5 +36,5 @@ resource "google_storage_bucket_iam_member" "nix_cache_writer_read" {
 }
 
 output "nix_cache_ip" {
-  value = "${module.nix_cache.external_ip}"
+  value = module.nix_cache.external_ip
 }

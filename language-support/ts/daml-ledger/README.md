@@ -1,7 +1,7 @@
 # @daml/ledger
 
-> Client side API implementation for a DAML based ledgers. This library implements the [JSON
-> API](https://docs.daml.com/json-api/index.html) for a DAML ledger.
+> Client side API implementation for a Daml based ledgers. This library implements the [JSON
+> API](https://docs.daml.com/json-api/index.html) for a Daml ledger.
 
 ## Documentation
 
@@ -10,19 +10,25 @@ Comprehensive documentation for `@daml/ledger` can be found
 
 ## Usage
 
-The best way to get you started quickly is to look at [Create DAML
-App](https://github.com/digital-asset/create-daml-app) and to read the [Quickstart
-Guide](https://docs.daml.com/getting-started/quickstart.html).
+The best way to get you started quickly is to use the `create-daml-app` template:
+
+```
+daml new --template=create-daml-app my-project-name
+```
+
+and to read the [Quickstart Guide].
+
+[Quickstart Guide]: https://docs.daml.com/getting-started/quickstart.html
 
 We recommend to use the [React](https://reactjs.org) framework and the `@daml/react` library to
-build frontends for DAML applications. If you choose a different Javascript based framework, please
+build frontends for Daml applications. If you choose a different Javascript based framework, please
 take a look at the source of `@daml/react` and it's usage of the `@daml/ledger` library.
 
 The main export of `@daml/ledger` is the `Ledger` class. It's constructor takes an authentication
 token used to communicate with the [JSON API](https://docs.daml.com/json-api/index.html), an HTTP
 base URL and a websocket base URL.
 
-An instance of the `Ledger` class provides the following methods to communicate with a DAML ledger.
+An instance of the `Ledger` class provides the following methods to communicate with a Daml ledger.
 Please consult the
 [documentation](https://docs.daml.com/app-dev/bindings-ts/daml-ledger/classes/_index_.ledger.html)
 for their exact signatures.
@@ -143,8 +149,8 @@ token with admin access.
 
 ## Source
 
-https://github.com/digital-asset/daml/tree/master/language-support/ts/daml-ledger
+https://github.com/digital-asset/daml/tree/main/language-support/ts/daml-ledger
 
 ## License
 
-[Apache-2.0](https://github.com/digital-asset/daml/blob/master/LICENSE)
+[Apache-2.0](https://github.com/digital-asset/daml/blob/main/LICENSE)

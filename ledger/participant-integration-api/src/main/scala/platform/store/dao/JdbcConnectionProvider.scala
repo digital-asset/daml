@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -14,6 +14,7 @@ private[platform] trait JdbcConnectionProvider extends ReportsHealth {
   /** Blocks are running in a single transaction as the commit happens when the connection
     * is returned to the pool.
     * The block must not recursively call [[runSQL]], as this could result in a deadlock
-    * waiting for a free connection from the same pool. */
+    * waiting for a free connection from the same pool.
+    */
   def runSQL[T](databaseMetrics: DatabaseMetrics)(block: Connection => T): T
 }

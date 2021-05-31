@@ -1,18 +1,31 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
+    "silencer_plugin",
 )
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 da_scala_library(
     name = "codegen-testing",
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
         # Plugins have to be specified as JARs.
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding",
+    ],
+    scalacopts = [
+        # Forced upon us by scalatest
+        "-P:silencer:lineContentFilters=Stream",
     ],
     visibility = [
         "//visibility:public",
@@ -21,9 +34,6 @@ da_scala_library(
     runtime_deps = [],
     deps = [
         "//language-support/scala/bindings",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
     ],
 )
 
@@ -41,10 +51,17 @@ testing_utils = [
 
 da_scala_library(
     name = "codegen-testing-testing",
-    srcs = testing_utils,
+    srcs = testing_utils + glob(["src/test/{}/com/**/*.scala".format(scala_major_version)]),
     plugins = [
         # Plugins have to be specified as JARs.
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+    ],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     visibility = [
         "//visibility:public",
@@ -54,11 +71,6 @@ da_scala_library(
     deps = [
         ":codegen-testing",
         "//language-support/scala/bindings",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -67,20 +79,25 @@ da_scala_test_suite(
     size = "small",
     srcs = glob(
         [
-            "src/test/**/*.scala",
+            "src/test/scala/**/*.scala",
         ],
         exclude = testing_utils,
-    ),
-    silent_annotations = True,
+    ) + glob(["src/test/{}/scala/**/*.scala".format(scala_major_version)]),
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     deps = [
         ":codegen-testing",
         ":codegen-testing-testing",
         "//language-support/scala/bindings",
-        "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:org_apache_commons_commons_text",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

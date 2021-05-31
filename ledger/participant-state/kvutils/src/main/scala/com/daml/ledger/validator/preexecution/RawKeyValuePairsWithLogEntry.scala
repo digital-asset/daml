@@ -1,15 +1,14 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.preexecution
 
-import com.daml.ledger.participant.state.kvutils.Bytes
+import com.daml.ledger.participant.state.kvutils.Raw
 
-/**
-  * Raw key-value pairs with a distinct log entry.
+/** Raw key-value pairs with a distinct log entry.
   */
 case class RawKeyValuePairsWithLogEntry(
-    state: Iterable[(Bytes, Bytes)],
-    logEntryKey: Bytes,
-    logEntryValue: Bytes,
+    state: Iterable[Raw.StateEntry],
+    logEntryKey: Raw.LogEntryId,
+    logEntryValue: Raw.Envelope,
 )

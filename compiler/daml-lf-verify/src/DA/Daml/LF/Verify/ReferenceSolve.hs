@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ConstraintKinds #-}
@@ -7,7 +7,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | Solving references (adding support for recursion) for DAML LF static verification
+-- | Solving references (adding support for recursion) for Daml-LF static verification
 module DA.Daml.LF.Verify.ReferenceSolve
   ( solveValueReferences
   , solveChoiceReferences
@@ -30,7 +30,7 @@ solveValueReferences env =
   let val_exp_hmap = HM.map fst $ envVals env
       val_ref_hmap = HM.map snd $ envVals env
       (_, val_sol_hmap) = foldl' (\hmaps ref -> snd $ solveReference lookup_ref_in lookup_ref_out pop_upds ext_upds make_rec make_mutrec intro_cond empty_upds [] hmaps ref) (val_ref_hmap, HM.empty) (HM.keys $ envVals env)
-      valhmap = HM.intersectionWith (\e u -> (e,u)) val_exp_hmap val_sol_hmap
+      valhmap = HM.intersectionWith (,) val_exp_hmap val_sol_hmap
   in EnvCG (envSkols env) valhmap (envDats env) (envCids env) HM.empty (envCtrs env) HM.empty
   where
     lookup_ref_in :: Qualified ExprValName

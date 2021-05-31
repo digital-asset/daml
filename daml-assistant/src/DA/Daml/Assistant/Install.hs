@@ -1,26 +1,27 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE PatternSynonyms #-}
 
 module DA.Daml.Assistant.Install
     ( InstallOptions (..)
-    , InstallURL (..)
     , InstallEnv (..)
+    , Artifactory.ArtifactoryApiKey(..)
     , versionInstall
-    , getLatestVersion
     , install
     , uninstallVersion
+    , Artifactory.queryArtifactoryApiKey
     , pattern RawInstallTarget_Project
     ) where
 
 import DA.Directory
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
+import qualified DA.Daml.Assistant.Install.Artifactory as Artifactory
 import qualified DA.Daml.Assistant.Install.Github as Github
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
-import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion)
+import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion, getLatestReleaseVersion)
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
 import Safe
@@ -29,13 +30,17 @@ import Conduit
 import qualified Data.Conduit.List as List
 import qualified Data.Conduit.Tar.Extra as Tar
 import qualified Data.Conduit.Zlib as Zlib
+import Data.Either.Extra
+import qualified Data.SemVer as SemVer
 import Network.HTTP.Simple
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS.UTF8
 import System.Environment
 import System.Exit
 import System.IO
+import System.IO.Extra (writeFileUTF8)
 import System.IO.Temp
+import System.FileLock (withFileLock, withTryFileLock, SharedExclusive (Exclusive))
 import System.FilePath
 import System.Directory
 import Control.Monad.Extra
@@ -78,6 +83,8 @@ data InstallEnv = InstallEnv
         -- (e.g. when running install script).
     , projectPathM :: Maybe ProjectPath
         -- ^ project path (for "daml install project")
+    , artifactoryApiKeyM :: Maybe Artifactory.ArtifactoryApiKey
+        -- ^ Artifactoyr API key used to fetch SDK EE tarball.
     , output :: String -> IO ()
         -- ^ output an informative message
     }
@@ -92,8 +99,16 @@ setupDamlPath :: DamlPath -> IO ()
 setupDamlPath (DamlPath path) = do
     createDirectoryIfMissing True (path </> "bin")
     createDirectoryIfMissing True (path </> "sdk")
-    -- For now, we only ensure that the config file exists.
-    appendFile (path </> damlConfigName) ""
+    -- Ensure that the config file exists.
+    unlessM (doesFileExist (path </> damlConfigName)) $ do
+        writeFileUTF8 (path </> damlConfigName) defaultConfig
+  where
+    defaultConfig = unlines
+        [ "update-check: never"
+        , if isWindows
+            then "auto-install: false"
+            else "auto-install: true"
+        ]
 
 -- | Install (extracted) SDK directory to the correct place, after performing
 -- a version sanity check. Then run the sdk install hook if applicable.
@@ -292,20 +307,31 @@ extractAndInstall env source =
     where throwError msg e = liftIO $ throwIO $ assistantErrorBecause ("Invalid SDK release: " <> msg) e
 
 -- | Download an sdk tarball and install it.
-httpInstall :: InstallEnv -> InstallURL -> IO ()
-httpInstall env@InstallEnv{..} (InstallURL url) = do
+httpInstall :: InstallEnv -> SdkVersion -> IO ()
+httpInstall env@InstallEnv{..} version = do
     unlessQuiet env $ output "Downloading SDK release."
-    request <- requiredAny "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)
-    requiredAny "Failed to download SDK release." $ withResponse request $ \response -> do
-        when (getResponseStatusCode response /= 200) $
-            throwIO . assistantErrorBecause "Failed to download release."
-                    . pack . show $ getResponseStatus response
-        let totalSizeM = readMay . BS.UTF8.toString =<< headMay
-                (getResponseHeader "Content-Length" response)
-        extractAndInstall env
-            . maybe id (\s -> (.| observeProgress s)) totalSizeM
-            $ getResponseBody response
+    requiredAny "Failed to download SDK release." $
+        downloadLocation location
     where
+        location = case artifactoryApiKeyM of
+            Nothing -> Github.versionLocation version
+            Just apiKey
+              | version >= firstEEVersion -> Artifactory.versionLocation version apiKey
+              | otherwise -> Github.versionLocation version
+        !firstEEVersion =
+            let verStr = "1.12.0-snapshot.20210312.6498.0.707c86aa"
+            in SdkVersion (either error id (SemVer.fromText verStr))
+        downloadLocation :: InstallLocation -> IO ()
+        downloadLocation (InstallLocation url headers) = do
+            request <- requiredAny "Failed to parse HTTPS request." $ parseRequest ("GET " <> unpack url)
+            withResponse (setRequestHeaders headers request) $ \response -> do
+                when (getResponseStatusCode response /= 200) $
+                    throwIO . assistantErrorBecause "Failed to download release."
+                            . pack . show $ getResponseStatus response
+                let totalSizeM = readMay . BS.UTF8.toString =<< headMay (getResponseHeader "Content-Length" response)
+                extractAndInstall env
+                    . maybe id (\s -> (.| observeProgress s)) totalSizeM
+                    $ getResponseBody response
         observeProgress :: MonadResource m =>
             Int -> ConduitT BS.ByteString BS.ByteString m ()
         observeProgress totalSize = do
@@ -314,9 +340,32 @@ httpInstall env@InstallEnv{..} (InstallURL url) = do
                 liftIO $ incProgress pb (BS.length bs)
                 pure bs
 
+-- | Perform an action with a file lock from DAML_HOME/sdk/.lock
+-- This function blocks until the lock has been obtained.
+-- If the lock cannot be obtained immediately without blocking,
+-- a message is output.
+--
+-- The lock is released after the action is performed, and is
+-- automatically released if the process ends prematurely.
+withInstallLock :: InstallEnv -> IO a -> IO a
+withInstallLock InstallEnv{..} action = do
+    let damlSdkPath = unwrapDamlPath damlPath </> "sdk"
+        lockFilePath = damlSdkPath </> ".lock"
+    createDirectoryIfMissing True damlSdkPath
+    resultM <- withTryFileLock lockFilePath Exclusive (const action)
+    case resultM of
+        Just x -> pure x
+        Nothing -> do
+            output ("Waiting for SDK installation lock " <> lockFilePath)
+            withFileLock lockFilePath Exclusive (const action)
+
 -- | Install SDK from a path. If the path is a tarball, extract it first.
+--
+-- This function takes the install file lock, so it can't be performed
+-- concurrently with a versionInstall or another pathInstall, blocking
+-- until the other process is finished.
 pathInstall :: InstallEnv -> FilePath -> IO ()
-pathInstall env@InstallEnv{..} sourcePath = do
+pathInstall env@InstallEnv{..} sourcePath = withInstallLock env $ do
     isDirectory <- doesDirectoryExist sourcePath
     if isDirectory
         then do
@@ -327,8 +376,12 @@ pathInstall env@InstallEnv{..} sourcePath = do
             extractAndInstall env (sourceFileBS sourcePath)
 
 -- | Install a specific SDK version.
+--
+-- This function takes the install file lock, so it can't be performed
+-- concurrently with a pathInstall or another versionInstall, blocking
+-- until the other process is finished.
 versionInstall :: InstallEnv -> SdkVersion -> IO ()
-versionInstall env@InstallEnv{..} version = do
+versionInstall env@InstallEnv{..} version = withInstallLock env $ do
 
     let SdkPath path = defaultSdkPath damlPath version
     alreadyInstalled <- doesDirectoryExist path
@@ -351,8 +404,7 @@ versionInstall env@InstallEnv{..} version = do
             ]
 
     when performInstall $
-        httpInstall env { targetVersionM = Just version }
-            (Github.versionURL version)
+        httpInstall env { targetVersionM = Just version } version
 
     -- Need to activate here if we aren't performing the full install.
     when (not performInstall && shouldInstallAssistant env version) $ do
@@ -363,16 +415,12 @@ versionInstall env@InstallEnv{..} version = do
 -- | Install the latest version of the SDK.
 latestInstall :: InstallEnv -> IO ()
 latestInstall env@InstallEnv{..} = do
-    version1 <- getLatestVersion
+    version1 <- getLatestReleaseVersion
     version2M <- if iSnapshots options
         then getLatestSdkSnapshotVersion
         else pure Nothing
     let version = maybe version1 (max version1) version2M
     versionInstall env version
-
--- | Get the latest stable version.
-getLatestVersion :: IO SdkVersion
-getLatestVersion = Github.getLatestVersion
 
 -- | Install the SDK version of the current project.
 projectInstall :: InstallEnv -> ProjectPath -> IO ()
@@ -407,10 +455,12 @@ install options damlPath projectPathM assistantVersion = do
 
     missingAssistant <- not <$> doesFileExist (installedAssistantPath damlPath)
     execPath <- getExecutablePath
+    damlConfigE <- tryConfig $ readDamlConfig damlPath
     let installingFromOutside = not $
             isPrefixOf (unwrapDamlPath damlPath </> "") execPath
         targetVersionM = Nothing -- determined later
         output = putStrLn -- Output install messages to stdout.
+        artifactoryApiKeyM = Artifactory.queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
         env = InstallEnv {..}
     case iTargetM options of
         Nothing -> do

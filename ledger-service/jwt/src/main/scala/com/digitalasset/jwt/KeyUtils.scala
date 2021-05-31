@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.jwt
@@ -27,8 +27,7 @@ object KeyUtils {
 
   private val mimeCharSet = StandardCharsets.ISO_8859_1
 
-  /**
-    * Reads an RSA public key from a X509 encoded file.
+  /** Reads an RSA public key from a X509 encoded file.
     * These usually have the .crt file extension.
     */
   def readRSAPublicKeyFromCrt(file: File): Try[RSAPublicKey] = {
@@ -38,12 +37,12 @@ object KeyUtils {
           .getInstance("X.509")
           .generateCertificate(istream)
           .getPublicKey
-          .asInstanceOf[RSAPublicKey])
+          .asInstanceOf[RSAPublicKey]
+      )
     }
   }
 
-  /**
-    * Reads an EC public key from a X509 encoded file.
+  /** Reads an EC public key from a X509 encoded file.
     * These usually have the .crt file extension.
     */
   def readECPublicKeyFromCrt(file: File): Try[ECPublicKey] = {
@@ -53,12 +52,12 @@ object KeyUtils {
           .getInstance("X.509")
           .generateCertificate(istream)
           .getPublicKey
-          .asInstanceOf[ECPublicKey])
+          .asInstanceOf[ECPublicKey]
+      )
     }
   }
 
-  /**
-    * Reads a RSA private key from a PEM/PKCS#8 file.
+  /** Reads a RSA private key from a PEM/PKCS#8 file.
     * These usually have the .pem file extension.
     */
   def readRSAPrivateKeyFromPem(file: File): Try[RSAPrivateKey] =
@@ -89,8 +88,7 @@ object KeyUtils {
       }
     } yield key
 
-  /**
-    * Reads a RSA private key from a binary file (PKCS#8, DER).
+  /** Reads a RSA private key from a binary file (PKCS#8, DER).
     * To generate this file from a .pem file, use the following command:
     * openssl pkcs8 -topk8 -inform PEM -outform DER -in private-key.pem -nocrypt > private-key.der
     */
@@ -106,8 +104,7 @@ object KeyUtils {
       }
     } yield key
 
-  /**
-    * Generates a JWKS JSON object for the given map of KeyID->Key
+  /** Generates a JWKS JSON object for the given map of KeyID->Key
     *
     * Note: this uses the same format as Google OAuth, see https://www.googleapis.com/oauth2/v3/certs
     */
@@ -119,7 +116,7 @@ object KeyUtils {
          |      "alg": "RS256",
          |      "use": "sig",
          |      "e": "${java.util.Base64.getUrlEncoder
-           .encodeToString(key.getPublicExponent.toByteArray)}",
+        .encodeToString(key.getPublicExponent.toByteArray)}",
          |      "n": "${java.util.Base64.getUrlEncoder.encodeToString(key.getModulus.toByteArray)}"
          |    }""".stripMargin
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.json
@@ -20,7 +20,7 @@ object JsonConverters {
   private[this] object LfValueSprayEnc
       extends ApiCodecCompressed[String](
         encodeDecimalAsString = true,
-        encodeInt64AsString = false
+        encodeInt64AsString = false,
       )
 
   private[this] def sprayToCirce(s: spray.json.JsValue): Json = {
@@ -28,7 +28,8 @@ object JsonConverters {
     s match {
       case sj.JsString(v) => Json fromString v
       case sj.JsNumber(v) => Json fromBigDecimal v
-      case sj.JsBoolean(v) => Json fromBoolean v
+      case sj.JsTrue => Json fromBoolean true
+      case sj.JsFalse => Json fromBoolean false
       case sj.JsObject(v) => Json fromFields (v transform ((_, e) => sprayToCirce(e)))
       case sj.JsArray(v) => Json fromValues (v map sprayToCirce)
       case sj.JsNull => Json.Null

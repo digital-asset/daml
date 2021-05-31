@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.index.v2
@@ -14,26 +14,25 @@ import com.daml.logging.LoggingContext
 
 import scala.concurrent.Future
 
-/**
-  * Meant be used for optimistic contract lookups before command submission.
+/** Meant be used for optimistic contract lookups before command submission.
   */
 trait ContractStore {
   def lookupActiveContract(
-      submitter: Ref.Party,
-      contractId: ContractId
-  )(implicit loggingContext: LoggingContext)
-    : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
+      readers: Set[Ref.Party],
+      contractId: ContractId,
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]]
 
-  def lookupContractKey(submitter: Party, key: GlobalKey)(
-      implicit loggingContext: LoggingContext,
+  def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
+      loggingContext: LoggingContext
   ): Future[Option[ContractId]]
 
-  /**
-    * @return The maximum ledger effective time of all contracts in ids, fails as follows:
+  /** @return The maximum ledger effective time of all contracts in ids, fails as follows:
     *         - if ids is empty or not all the non-divulged ids can be found, a failed [[Future]]
     *         - if all ids are found but each refer to a divulged contract, a successful [[None]]
     */
-  def lookupMaximumLedgerTime(ids: Set[ContractId])(
-      implicit loggingContext: LoggingContext,
+  def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
+      loggingContext: LoggingContext
   ): Future[Option[Instant]]
 }

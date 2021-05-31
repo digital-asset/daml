@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.db.migration.postgres.v25_backfill_participant_events
@@ -89,13 +89,13 @@ private[migration] object V25TransactionsWriter extends V25TransactionsWriter {
       // Prepare batch inserts for flat transactions
       val flatTransactionWitnessesBatch =
         V25WitnessesTable.ForFlatTransactions.prepareBatchInsert(
-          witnesses = disclosureForFlatTransaction,
+          witnesses = disclosureForFlatTransaction
         )
 
       // Prepare batch inserts for all witnesses except those for flat transactions
       val complementWitnessesBatch =
         V25WitnessesTable.Complement.prepareBatchInsert(
-          witnesses = disclosureComplement,
+          witnesses = disclosureComplement
         )
 
       eventBatches.foreach(_.execute())

@@ -1,17 +1,16 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 package util
 
-import Collections._
 import InsertDeleteStep.{Cid, Inserts}
 
 import scalaz.{Semigroup, \/}
 import scalaz.std.tuple._
 import scalaz.syntax.functor._
 
-import scala.collection.generic.CanBuildFrom
+import scala.collection.compat._
 
 private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product with Serializable {
   import ContractStreamStep._
@@ -45,15 +44,15 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
   def mapPreservingIds[CC](f: C => CC): ContractStreamStep[D, CC] =
     mapInserts(_ map f)
 
-  def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(
-      implicit LDS: CanBuildFrom[Map[String, D], LD, LDS],
+  def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(implicit
+      LDS: Factory[LD, LDS]
   ): (LDS, Inserts[LC], ContractStreamStep[DD, CC]) =
     this match {
       case Acs(inserts) =>
-        val (lcs, ins) = inserts partitionMap g
-        (LDS().result(), lcs, Acs(ins))
-      case lb @ LiveBegin(_) => (LDS().result(), Inserts.empty, lb)
-      case Txn(step, off) => step partitionBimap (f, g) map (Txn(_, off))
+        val (lcs, ins) = inserts partitionMap (x => g(x).toEither)
+        (LDS.newBuilder.result(), lcs, Acs(ins))
+      case lb @ LiveBegin(_) => (LDS.newBuilder.result(), Inserts.empty, lb)
+      case Txn(step, off) => step.partitionBimap(f, g)(LDS).map(Txn(_, off))
     }
 
   def mapInserts[CC](f: Inserts[C] => Inserts[CC]): ContractStreamStep[D, CC] = this match {

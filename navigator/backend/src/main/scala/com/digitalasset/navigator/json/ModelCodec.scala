@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.json
@@ -9,9 +9,7 @@ import com.daml.navigator.json.Util._
 import com.daml.navigator.json.DamlLfCodec.JsonImplicits._
 import spray.json._
 
-/**
-  * An encoding of Model types.
-  *
+/** An encoding of Model types.
   */
 object ModelCodec {
 

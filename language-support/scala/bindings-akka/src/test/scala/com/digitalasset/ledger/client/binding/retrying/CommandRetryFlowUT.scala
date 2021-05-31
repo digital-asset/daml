@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.retrying
@@ -10,22 +10,21 @@ import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.client.testing.AkkaTest
 import com.daml.ledger.client.binding.retrying.CommandRetryFlow.{In, Out, SubmissionFlowType}
+import com.daml.ledger.client.testing.AkkaTest
 import com.daml.util.Ctx
-import com.github.ghik.silencer.silent
 import com.google.protobuf.duration.{Duration => protoDuration}
 import com.google.rpc.Code
 import com.google.rpc.status.Status
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
 class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
 
-  /**
-    * Uses the status received in the context for the first time,
+  /** Uses the status received in the context for the first time,
     * then replies OK status as the ledger effective time is stepped.
     */
   val mockCommandSubmission: SubmissionFlowType[RetryInfo[Status]] =
@@ -40,7 +39,9 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
               Completion(
                 commands.commandId,
                 Some(status.copy(code = Code.OK_VALUE)),
-                traceContext = tc))
+                traceContext = tc,
+              ),
+            )
           }
         case x =>
           throw new RuntimeException(s"Unexpected input: '$x'")
@@ -49,7 +50,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
   private val timeProvider = TimeProvider.Constant(Instant.ofEpochSecond(60))
   private val maxRetryTime = Duration.ofSeconds(30)
 
-  @silent(" completion .* is never used") // matches createGraph signature
+  @nowarn("msg=parameter value completion .* is never used") // matches createGraph signature
   private def createRetry(retryInfo: RetryInfo[Status], completion: Completion) = {
     val commands = retryInfo.request.commands.get
     val dedupTime = commands.deduplicationTime.get
@@ -74,7 +75,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
           Some(protoDuration.of(120, 0)),
         )
       ),
-      None
+      None,
     )
 
     val input =
@@ -102,7 +103,8 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
           .values()
           .toList
           .filterNot(c =>
-            c == Code.UNRECOGNIZED || CommandRetryFlow.RETRYABLE_ERROR_CODES.contains(c.getNumber))
+            c == Code.UNRECOGNIZED || CommandRetryFlow.RETRYABLE_ERROR_CODES.contains(c.getNumber)
+          )
       val failedSubmissions = codesToFail.map { code =>
         submitRequest(code.getNumber, Instant.ofEpochSecond(45)) map { result =>
           result.size shouldBe 1

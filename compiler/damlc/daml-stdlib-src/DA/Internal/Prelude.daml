@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -27,6 +27,10 @@ import GHC.Tuple()
 import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, DamlEnum, ifThenElse
 #ifdef DAML_NUMERIC
   , Numeric
+#endif
+#ifdef DAML_BIGNUMERIC
+  , BigNumeric
+  , RoundingMode (..)
 #endif
   )
 -- Not reexported
@@ -79,7 +83,7 @@ class Functor f => Applicative f where
 -- in imperative languages.
 (>>) : Action m => m a -> m b -> m b
 -- NOTE(MH): We need an `Action` constraint here rather than an `Applicative`
--- constrait since the conversion to DAML-LF rewrites `A >> B` into
+-- constrait since the conversion to Daml-LF rewrites `A >> B` into
 -- `A >>= \_ -> B`. This is to make `(>>)` lazy in its second argument and
 -- hence give `do A; B` the desired semantics where `B` is not evaluated if
 -- `A` short-circuits the monad computation..
@@ -397,7 +401,7 @@ infixr 1 =<<
 
 -- | Map a function over each element of a list, and concatenate all the results.
 concatMap : (a -> [b]) -> [a] -> [b]
-concatMap f = concat . map f
+concatMap f xs = foldr (\x acc -> f x ++ acc) [] xs
 
 -- | `replicate i x` gives the list `[x, x, x, ..., x]` with `i` copies of `x`.
 replicate : Int -> a -> [a]
@@ -418,7 +422,11 @@ drop n (_ :: xs)       =  drop (n-1) xs
 
 -- | Split a list at a given index.
 splitAt : Int -> [a] -> ([a], [a])
-splitAt i x = (take i x, drop i x)
+splitAt _ [] = ([], [])
+splitAt i ys@(x :: xs)
+  | i <= 0 = ([], ys)
+  | otherwise = case splitAt (i - 1) xs of
+      (a, b) -> (x :: a, b)
 
 -- | Take elements from a list while the predicate holds.
 takeWhile : (a -> Bool) -> [a] -> [a]
@@ -508,18 +516,26 @@ unzip3 = foldr (\(a,b,c) ~(as,bs,cs) -> (a::as,b::bs,c::cs))
                   ([],[],[])
 
 -- | `traceRaw msg a` prints `msg` and returns `a`, for debugging purposes.
+--
+-- Note that on some ledgers, those messages are not displayed at the default log level. For Sandbox, you can use `--log-level=debug` to include them.
 traceRaw : Text -> a -> a
 traceRaw = primitive @"BETrace"
 
 -- | `trace b a` prints `b` and returns `a`, for debugging purposes.
+--
+-- Note that on some ledgers, those messages are not displayed at the default log level. For Sandbox, you can use `--log-level=debug` to include them.
 trace : Show b => b -> a -> a
 trace = traceRaw . show
 
 -- | `traceId a` prints `a` and returns `a`, for debugging purposes.
+--
+-- Note that on some ledgers, those messages are not displayed at the default log level. For Sandbox, you can use `--log-level=debug` to include them.
 traceId : Show b => b -> b
 traceId x = trace x x
 
 -- | `debug x` prints `x` for debugging purposes.
+--
+-- Note that on some ledgers, those messages are not displayed at the default log level. For Sandbox, you can use `--log-level=debug` to include them.
 debug : (Show b, Action m) => b -> m ()
 debug x =
   -- NOTE (MK): We introduce an explicit indirection via >>=

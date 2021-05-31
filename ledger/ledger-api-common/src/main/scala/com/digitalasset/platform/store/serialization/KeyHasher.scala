@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.serialization
@@ -11,32 +11,27 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
-/**
-  * @deprecated in favor of [[GlobalKey.hash]]
+/** @deprecated in favor of [[GlobalKey.hash]]
   */
 trait KeyHasher {
 
-  /**
-    * @deprecated in favor of [[GlobalKey.hash]]
-    * Returns the hash of the given DAML-LF value
+  /** @deprecated in favor of [[GlobalKey.hash]]
+    * Returns the hash of the given Daml-LF value
     */
   def hashKey(key: GlobalKey): Array[Byte]
 
-  /**
-    * @deprecated in favor of [[GlobalKey.hash]]
-    * Returns a string representation of the hash of the given DAML-LF value
+  /** @deprecated in favor of [[GlobalKey.hash]]
+    * Returns a string representation of the hash of the given Daml-LF value
     */
   def hashKeyString(key: GlobalKey): String = hashKey(key).map("%02x" format _).mkString
 }
 
-/**
-  * @deprecated in favor of [[GlobalKey.hash]]
+/** @deprecated in favor of [[GlobalKey.hash]]
   */
 object KeyHasher extends KeyHasher {
 
-  /**
-    * ADT for data elements that appear in the input stream of the hash function
-    * used to hash DAML-LF values.
+  /** ADT for data elements that appear in the input stream of the hash function
+    * used to hash Daml-LF values.
     */
   private sealed abstract class HashToken extends Product with Serializable
   private final case class HashTokenText(value: String) extends HashToken
@@ -46,11 +41,10 @@ object KeyHasher extends KeyHasher {
   private final case class HashTokenCollectionBegin(length: Int) extends HashToken
   private final case class HashTokenCollectionEnd() extends HashToken
 
-  /**
-    * Traverses the given value in a stable way, producing "hash tokens" for any encountered primitive values.
+  /** Traverses the given value in a stable way, producing "hash tokens" for any encountered primitive values.
     * These tokens can be used as the input to a hash function.
     *
-    * @param value the DAML-LF value to hash
+    * @param value the Daml-LF value to hash
     * @param z initial hash value
     * @param op operation to append a hash token
     * @return the final hash value
@@ -154,12 +148,11 @@ object KeyHasher extends KeyHasher {
           case HashTokenCollectionEnd() => // no-op
         }
         d
-      }
+      },
     )
   }
 
-  /**
-    * @deprecated in favor of [[GlobalKey.hash]]
+  /** @deprecated in favor of [[GlobalKey.hash]]
     */
   override def hashKey(key: GlobalKey): Array[Byte] = {
     val digest = MessageDigest.getInstance("SHA-256")

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.quickstart.iou
@@ -28,14 +28,14 @@ object DecodeUtil {
     for {
       record <- event.createArguments: Option[V.Record]
       a <- decoder.read(V.Value.Sum.Record(record)): Option[A]
-    } yield
-      Contract(
-        P.ContractId(event.contractId),
-        a,
-        event.agreementText,
-        event.signatories,
-        event.observers,
-        event.contractKey)
+    } yield Contract(
+      P.ContractId(event.contractId),
+      a,
+      event.agreementText,
+      event.signatories,
+      event.observers,
+      event.contractKey,
+    )
   }
 
   def decodeArchived[A <: Template[A]](transaction: Transaction): Option[P.ContractId[A]] = {

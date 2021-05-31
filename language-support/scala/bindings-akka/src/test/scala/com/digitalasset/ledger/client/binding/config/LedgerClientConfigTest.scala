@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.config
@@ -62,7 +62,8 @@ class LedgerClientConfigTest extends AnyWordSpec with Matchers {
 
     "return the expected type of Throwable on parse errors" in {
       LedgerClientConfig.create(ConfigFactory.empty()).failed.get should be(
-        a[MalformedTypesafeConfig])
+        a[MalformedTypesafeConfig]
+      )
     }
   }
 }

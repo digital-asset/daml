@@ -1,16 +1,16 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package io.gatling.app
 
-import java.io.File
-import java.nio.file.FileSystems
+import java.nio.file.{FileSystems, Path}
 
 import akka.actor.ActorSystem
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
 import io.gatling.core.config.GatlingConfiguration
 import io.gatling.core.scenario.Simulation
+import io.netty.channel.EventLoopGroup
 
 import scala.util.Try
 
@@ -21,9 +21,10 @@ object CustomRunner extends StrictLogging {
   // This derivation returns the results directory of the run for additional post-processing.
   def runWith(
       system: ActorSystem,
+      eventLoop: EventLoopGroup,
       overrides: ConfigOverrides,
-      mbSimulation: Option[Class[Simulation]] = None
-  ): Try[(Int, File)] = {
+      mbSimulation: Option[Class[Simulation]] = None,
+  ): Try[(Int, Path)] = {
     logger.trace("Starting")
 
     // workaround for deadlock issue, see https://github.com/gatling/gatling/issues/3411
@@ -33,12 +34,12 @@ object CustomRunner extends StrictLogging {
     logger.trace("Configuration loaded")
 
     val runResult = Try {
-      Runner(system, configuration).run(mbSimulation)
+      Runner(system, eventLoop, configuration).run(mbSimulation)
     }
 
     runResult map { res =>
       val status = new RunResultProcessor(configuration).processRunResult(res).code
-      (status, new File(configuration.core.directory.results, res.runId))
+      (status, configuration.core.directory.results.resolve(res.runId))
     }
   }
 }

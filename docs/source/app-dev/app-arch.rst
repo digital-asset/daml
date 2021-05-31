@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _recommended-architecture:
@@ -6,53 +6,51 @@
 Application architecture
 ########################
 
-This section describes our recommended design of a full-stack DAML application.
+This section describes our recommended design of a full-stack Daml application.
 
 .. image:: ./recommended_architecture.svg
 
 The above image shows the recommended architecture. Of course there are many ways how you can change
 the architecture and technology stack to fit your needs, which we'll mention in the corresponding
-sections. Note that the Participant Node is integrated into the DAML drivers in some cases rather
+sections. Note that the Participant Node is integrated into the Daml drivers in some cases rather
 than being part of the Application Backend. See :doc:`/support/overview` for more details.
 
-To get started quickly with the recommended application architecture clone the
-``create-daml-app`` application template:
+To get started quickly with the recommended application architecture, generate a new project using the ``create-daml-app`` template:
 
 .. code-block:: bash
 
-  git clone https://github.com/digital-asset/create-daml-app
+  daml new --template=create-daml-app my-project-name
 
 ``create-daml-app`` is a small, but fully functional demo application implementing the recommended
 architecture, providing you with an excellent starting point for your own application. It showcases
 
-- using DAML React libraries
-- quick iteration against the :ref:`DAML Sandbox <sandbox-manual>`.
+- using Daml React libraries
+- quick iteration against the :ref:`Daml Sandbox <sandbox-manual>`.
 - authorization
 - deploying your application in the cloud as a Docker container
 
 Backend
 ~~~~~~~
+The backend for your application can be any Daml ledger implementation running your DAR
+(:ref:`Daml Archive <dar-file-dalf-file>`) file.
 
-The backend for your application can be any DAML ledger implementation running your DAR
-(:ref:`DAML Archive <dar-file-dalf-file>`) file.
-
-We recommend using the :ref:`DAML JSON API <json-api>` as an interface to your frontend. It is
+We recommend using the :ref:`Daml JSON API <json-api>` as an interface to your frontend. It is
 served by the HTTP JSON API server connected to the ledger API server. It provides simple HTTP
 endpoints to interact with the ledger via GET/POST requests. However, if you prefer, you can also
 use the :ref:`gRPC Ledger API <grpc>` directly.
 
-When you use the ``create-daml-app`` template application, you can start a DAML Sandbox together
+When you use the ``create-daml-app`` template application, you can start a Daml Sandbox together
 with a JSON API server by running
 
 .. code-block:: bash
 
   daml start --start-navigator=no
 
-in the root of the project. DAML Sandbox exposes the same DAML Ledger API a Participant Node would
-expose without requiring a fully-fledged DAML network to back the application. Once your
+in the root of the project. Daml Sandbox exposes the same Daml Ledger API a Participant Node would
+expose without requiring a fully-fledged Daml network to back the application. Once your
 application matures and becomes ready for production, the ``daml deploy`` command helps you deploy
-your frontend and DAML artifacts of your project to a production DAML network. See
-:ref:`Deploying to DAML Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
+your frontend and Daml artifacts of your project to a production Daml network. See
+:ref:`Deploying to Daml Ledgers <deploy-ref_overview>` for an in depth manual for specific ledgers.
 
 Frontend
 ~~~~~~~~
@@ -64,21 +62,21 @@ you can choose virtually any language for your frontend and interact with the le
 :ref:`gRPC Ledger API <grpc>` directly.
 
 
-We provide two libraries to build your React frontend for a DAML application.
+We provide two libraries to build your React frontend for a Daml application.
 
 +--------------------------------------------------------------+--------------------------------------------------------------------------+
 | Name                                                         | Summary                                                                  |
 +==============================================================+==========================================================================+
-| `@daml/react <https://www.npmjs.com/package/@daml/react>`_   | React hooks to query/create/exercise DAML contracts                      |
+| `@daml/react <https://www.npmjs.com/package/@daml/react>`_   | React hooks to query/create/exercise Daml contracts                      |
 +--------------------------------------------------------------+--------------------------------------------------------------------------+
-| `@daml/ledger <https://www.npmjs.com/package/@daml/ledger>`_ | DAML ledger object to connect and directly submit commands to the ledger |
+| `@daml/ledger <https://www.npmjs.com/package/@daml/ledger>`_ | Daml ledger object to connect and directly submit commands to the ledger |
 +--------------------------------------------------------------+--------------------------------------------------------------------------+
 
 You can install any of these libraries by running ``npm install <library>`` in the ``ui`` directory of
 your project, e.g. ``npm install @daml/react``. Please explore the ``create-daml-app`` example project
 to see the usage of these libraries.
 
-To make your life easy when interacting with the ledger, the DAML assistant can generate JavaScript
+To make your life easy when interacting with the ledger, the Daml assistant can generate JavaScript
 libraries with TypeScript typings from the data types declared in the deployed DAR.
 
 .. code-block:: bash
@@ -100,45 +98,47 @@ Authorization
 When you deploy your application to a production ledger, you need to authenticate the identities of
 your users.
 
-DAML ledgers support a unified interface for authorization of commands. Some DAML ledgers, like for
+Daml ledgers support a unified interface for authorization of commands. Some Daml ledgers, like for
 example https://projectdabl.com, offer integrated authentication and authorization, but you can also
-use an external service provider like https://auth0.com. The DAML react libraries support interfacing
-with a DAML ledger that validates authorization of incoming requests. Simply initialize your
+use an external service provider like https://auth0.com. The Daml react libraries support interfacing
+with a Daml ledger that validates authorization of incoming requests. Simply initialize your
 ``DamlLedger`` object with the token obtained by the respective token issuer. How authorization works and the
 form of the required tokens is described in the :ref:`Authorization <authorization>` section.
 
 Developer workflow
 ~~~~~~~~~~~~~~~~~~
 
-The SDK enables a local development environment with fast iteration cycles. If you run
-``daml-reload-on-change.sh`` of the ``create-daml-app``, a local DAML Sandbox is started that
-is updated with your most recent DAML code on any change. Next, you can start your frontend in
-development mode by changing to your ``ui`` directory and run ``npm start``. This will reload your
-frontend whenever you make changes to it. You can add unit tests for your DAML models by writing
-:ref:`DAML scenarios <testing-using-scenarios>`. These will also be reevaluated on change.  A
-typical DAML developer workflow is to
+The SDK enables a local development environment with fast iteration cycles:
 
-  #. Make a small change to your DAML data model
-  #. Optionally test your DAML code and with :ref:`scenarios <testing-using-scenarios>`
-  #. Edit your React components to be aligned with changes made in DAML code
+1. The integrated VSCode IDE (``daml studio``) runs your Scripts on any change to your Daml models. See :ref:`Daml Script <testing-using-script>`.
+#. ``daml start`` will build all of your Daml code, generate the JavaScript bindings, and start the required "backend" processes (sandbox and HTTP JSON API). It will also allow you to press ``r`` (followed by Enter on Windows) to rebuild your code, regenerate the JavaScript bindings and upload the new code to the running ledger.
+#. ``npm start`` will watch your JavaScript source files for change and recompile them immediately when they are saved.
+
+Together, these features can provide you with very tight feedback loops while developing your Daml application, all the way from your Daml contracts up to your web UI. A typical Daml developer workflow is to
+
+  1. Make a small change to your Daml data model
+  #. Optionally test your Daml code with :ref:`Daml Script <testing-using-script>`
+  #. Edit your React components to be aligned with changes made in Daml code
   #. Extend the UI to make use of the newly introduced feature
-  #. Make further changes either to your DAML and/or React code until you're happy with what you've developed
+  #. Make further changes either to your Daml and/or React code until you're happy with what you've developed
 
 .. image:: ./developer_workflow.svg
+
+See :doc:`Your First Feature </getting-started/first-feature>` for a more detailed walkthrough of these steps.
 
 .. _command-deduplication:
 
 Command deduplication
 *********************
 
-The interaction of a DAML application with the ledger is inherently asynchronous: applications send commands to the ledger, and some time later they see the effect of that command on the ledger.
+The interaction of a Daml application with the ledger is inherently asynchronous: applications send commands to the ledger, and some time later they see the effect of that command on the ledger.
 
 There are several things that can fail during this time window: the application can crash, the participant node can crash, messages can be lost on the network, or the ledger may be just slow to respond due to a high load.
 
 If you want to make sure that a command is not executed twice, your application needs to robustly handle all the various failure scenarios.
-DAML ledgers provide a mechanism for :ref:`command deduplication <command-submission-service-deduplication>` to help deal this problem.
+Daml ledgers provide a mechanism for :ref:`command deduplication <command-submission-service-deduplication>` to help deal with this problem.
 
-For each command applications provide a command ID and an optional parameter that specifies the deduplication time. If the latter parameter is not specified in the command submission itself, the ledger will fall back to using the configured maximum deduplication time.
+For each command application provide a command ID and an optional parameter that specifies the deduplication time. If the latter parameter is not specified in the command submission itself, the ledger will fall back to using the configured maximum deduplication time.
 The ledger will then guarantee that commands for the same submitting party and command ID will be ignored within the deduplication time window.
 
 To use command deduplication, you should:
@@ -156,7 +156,7 @@ For more details on command deduplication, see the :ref:`Ledger API Services <co
 Failing over between Ledger API endpoints
 *****************************************
 
-Some DAML Ledgers support exposing multiple eventually consistent Ledger API
+Some Daml Ledgers support exposing multiple eventually consistent Ledger API
 endpoints where command deduplication works across these Ledger API endpoints.
 For example, these endpoints might be hosted by separate Ledger API servers
 that replicate the same data and host the same parties. Contact your ledger
@@ -191,9 +191,9 @@ new endpoint, it will resume normal operation.
 Dealing with time
 *****************
 
-The DAML language contains a function :ref:`getTime <daml-ref-gettime>` which returns a rough estimate of “current time” called *Ledger Time*. The notion of time comes with a lot of problems in a distributed setting: different participants might run different clocks, there may be latencies due to calculation and network, clocks may drift against each other over time, etc.
+The Daml language contains a function :ref:`getTime <daml-ref-gettime>` which returns a rough estimate of “current time” called *Ledger Time*. The notion of time comes with a lot of problems in a distributed setting: different participants might run different clocks, there may be latencies due to calculation and network, clocks may drift against each other over time, etc.
 
-In order to provide a useful notion of time in DAML without incurring severe performance or liveness penalties, DAML has two notions of time: *Ledger Time* and *Record Time*:
+In order to provide a useful notion of time in Daml without incurring severe performance or liveness penalties, Daml has two notions of time: *Ledger Time* and *Record Time*:
 
 - As part of command interpretation, each transaction is automatically assigned a *Ledger Time* by the participant server.
 - All calls to ``getTime`` within a transaction return the *Ledger Time* assigned to that transaction.
@@ -205,7 +205,7 @@ Some commands might take a long time to process, and by the time the resulting t
 
 How is this used in practice?
 
-- Be aware that ``getTime`` is only reasonably close to real time, and not completely monotonic. Avoid DAML workflows that rely on very accurate time measurements or high frequency time changes.
+- Be aware that ``getTime`` is only reasonably close to real time, and not completely monotonic. Avoid Daml workflows that rely on very accurate time measurements or high frequency time changes.
 - Set ``min_ledger_time_abs`` or ``min_ledger_time_rel`` if the duration of command interpretation and transmission is likely to take a long time relative to the tolerance interval set by the ledger.
 - In some corner cases, the participant node may be unable to determine a suitable Ledger Time by itself. If you get an error that no Ledger Time could be found, check whether you have contention on any contract referenced by your command or whether the referenced contracts are sensitive to small changes of ``getTime``.
 

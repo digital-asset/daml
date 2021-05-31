@@ -1,27 +1,27 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 7 Composing choices
 ===================
 
-It's time to put everything you've learnt so far together into a complete and secure DAML model for asset issuance, management, transfer, and trading. This application will have capabilities similar to the one in :doc:`/app-dev/bindings-java/quickstart`. In the process you will learn about a few more concepts:
+It's time to put everything you've learnt so far together into a complete and secure Daml model for asset issuance, management, transfer, and trading. This application will have capabilities similar to the one in :doc:`/app-dev/bindings-java/quickstart`. In the process you will learn about a few more concepts:
 
-- DAML projects, packages and modules
+- Daml projects, packages and modules
 - Composition of transactions
 - Observers and stakeholders
-- DAML's execution model
+- Daml's execution model
 - Privacy
 
-The model in this section is not a single DAML file, but a DAML project consisting of several files that depend on each other.
+The model in this section is not a single Daml file, but a Daml project consisting of several files that depend on each other.
 
 .. hint::
 
   Remember that you can load all the code for this section into a folder called ``7_Composing`` by running ``daml new 7Composing --template daml-intro-7``
 
-DAML projects
+Daml projects
 -------------
 
-DAML is organized in projects, packages and modules. A DAML project is specified using a single ``daml.yaml`` file, and compiles into a package in DAML's intermediate language, or bytecode equivalent, DAML-LF. Each DAML file within a project becomes a DAML module, which is a bit like a namespace. Each DAML project has a source root specified in the ``source`` parameter in the project's ``daml.yaml`` file. The package will include all modules specified in ``*.daml`` files beneath that source directory.
+Daml is organized in projects, packages and modules. A Daml project is specified using a single ``daml.yaml`` file, and compiles into a package in Daml's intermediate language, or bytecode equivalent, Daml-LF. Each Daml file within a project becomes a Daml module, which is a bit like a namespace. Each Daml project has a source root specified in the ``source`` parameter in the project's ``daml.yaml`` file. The package will include all modules specified in ``*.daml`` files beneath that source directory.
 
 You can start a new project with a skeleton structure using ``daml new project_name`` in the terminal. A minimal project would contain just a ``daml.yaml`` file and an empty directory of source files.
 
@@ -30,14 +30,14 @@ You can start a new project with a skeleton structure using ``daml new project_n
 .. literalinclude:: daml/daml-intro-7/daml.yaml.template
   :language: yaml
 
-You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: It includes dependencies. You should always include ``daml-prim`` and ``daml-stdlib``. The former contains internals of compiler and DAML Runtime, the latter gives access to the DAML Standard Library. ``daml-script`` contains the types and standard library for DAML Script.
+You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: It includes dependencies. You should always include ``daml-prim`` and ``daml-stdlib``. The former contains internals of compiler and Daml Runtime, the latter gives access to the Daml Standard Library. ``daml-script`` contains the types and standard library for Daml Script.
 
-You compile a DAML project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is DAML's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. ``dar`` files are fully self-contained in that they contain all dependencies of the main package. More on all of this in :doc:`8_Dependencies`.
+You compile a Daml project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is Daml's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. ``dar`` files are fully self-contained in that they contain all dependencies of the main package. More on all of this in :doc:`9_Dependencies`.
 
 Project structure
 -----------------
 
-This project contains an asset holding model for transferrable, fungible assets and a separate trade workflow. The templates are structured in three modules: ``Intro.Asset``, ``Intro.Asset.Role``, and ``Intro.Asset.Trade``.
+This project contains an asset holding model for transferable, fungible assets and a separate trade workflow. The templates are structured in three modules: ``Intro.Asset``, ``Intro.Asset.Role``, and ``Intro.Asset.Trade``.
 
 In addition, there are tests in modules ``Test.Intro.Asset``, ``Test.Intro.Asset.Role``, and ``Test.Intro.Asset.Trade``.
 
@@ -82,7 +82,7 @@ import only the selected names:
 
   import DA.List (sortOn, groupOn)
 
-If your module contains any DAML Scripts, you need to import the
+If your module contains any Daml Scripts, you need to import the
 corresponding functionality:
 
 .. code-block:: daml
@@ -206,10 +206,10 @@ Just writing ``(alice, bob, bank, aha, ahb) <- setupRoles`` would also be legal,
 
 .. _execution_model:
 
-DAML's execution model
+Daml's execution model
 ----------------------
 
-DAML's execution model is fairly easy to understand, but has some important consequences. You can imagine the life of a transaction as follows:
+Daml's execution model is fairly easy to understand, but has some important consequences. You can imagine the life of a transaction as follows:
 
 Command Submission
   A user submits a list of Commands via the Ledger API of a Participant Node, acting as a `Party` hosted on that Node. That party is called the requester.
@@ -222,7 +222,7 @@ Transaction Submission
 Validation
   The Transaction/Commit is validated by the network. Who exactly validates can differ from implementation to implementation. Validation also involves scheduling and collision detection, ensuring that the transaction has a well-defined place in the (partial) ordering of Commits, and no double spends occur.
 Commitment
-  The Commit is actually commited according to the commit or consensus protocol of the Ledger.
+  The Commit is actually committed according to the commit or consensus protocol of the Ledger.
 Confirmation
   The network sends confirmations of the commitment back to all involved Participant Nodes.
 Completion
@@ -232,7 +232,7 @@ The first important consequence of the above is that all transactions are commit
 
 That's important in the context of the ``Trade_Settle`` choice shown above. The choice transfers a ``baseAsset`` one way and a ``quoteAsset`` the other way. Thanks to transaction atomicity, there is no chance that either party is left out of pocket.
 
-The second consequence is that the requester of a transaction knows all consequences of their submitted transaction -- there are no surprises in DAML. However, it also means that the requester must have all the information to interpret the transaction.
+The second consequence is that the requester of a transaction knows all consequences of their submitted transaction -- there are no surprises in Daml. However, it also means that the requester must have all the information to interpret the transaction.
 We also refer to this as Principle 2 a bit later on this page.
 
 That's also important in the context of ``Trade``. In order to allow Bob to interpret a transaction that transfers Alice's cash to Bob, Bob needs to know both about Alice's ``Asset`` contract, as well as about some way for ``Alice`` to accept a transfer -- remember, accepting a transfer needs the authority of ``issuer`` in this example.
@@ -240,7 +240,7 @@ That's also important in the context of ``Trade``. In order to allow Bob to inte
 Observers
 ---------
 
-*Observers* are DAML's mechanism to disclose contracts to other parties. They are declared just like signatories, but using the ``observer`` keyword, as shown in the ``Asset`` template:
+*Observers* are Daml's mechanism to disclose contracts to other parties. They are declared just like signatories, but using the ``observer`` keyword, as shown in the ``Asset`` template:
 
 .. literalinclude:: daml/daml-intro-7/daml/Intro/Asset.daml
   :language: daml
@@ -254,7 +254,7 @@ The ``Asset`` template also gives the ``owner`` a choice to set the observers, a
   :start-after: -- SET_OBSERVER_BEGIN
   :end-before: -- SET_OBSERVER_END
 
-Observers have guarantees in DAML. In particular, they are guaranteed to see actions that create and archive the contract on which they are an observer.
+Observers have guarantees in Daml. In particular, they are guaranteed to see actions that create and archive the contract on which they are an observer.
 
 Since observers are calculated from the arguments of the contract, they always know about each other. That's why, rather than adding Bob as an observer on Alice's ``AssetHolder`` contract, and using that to authorize the transfer in ``Trade_Settle``, Alice creates a one-time authorization in the form of a ``TransferAuthorization``. If Alice had lots of counterparties, she would otherwise end up leaking them to each other.
 
@@ -265,7 +265,7 @@ Controllers declared via the ``controller cs can`` syntax are automatically made
 Privacy
 -------
 
-DAML's privacy model is based on two principles:
+Daml's privacy model is based on two principles:
 
 Principle 1. Parties see those actions that they have a stake in.
 Principle 2. Every party that sees an action sees its (transitive) consequences.
@@ -286,7 +286,7 @@ The consequences contain, next to some ``fetch`` actions, two ``exercise`` actio
 
 Each of the two involved ``TransferApproval`` contracts is signed by a different ``issuer``, which see the action on "their" contract. So the EUR_Bank sees the ``TransferApproval_Transfer`` action for the EUR ``Asset`` and the USD_Bank sees the ``TransferApproval_Transfer`` action for the USD ``Asset``.
 
-Some DAML ledgers, like the script runner and the Sandbox, work on the principle of "data minimization", meaning nothing more than the above information is distributed. That is, the "projection" of the overall transaction that gets distributed to EUR_Bank in step 4 of :ref:`execution_model` would consist only of the ``TransferApproval_Transfer`` and its consequences.
+Some Daml ledgers, like the script runner and the Sandbox, work on the principle of "data minimization", meaning nothing more than the above information is distributed. That is, the "projection" of the overall transaction that gets distributed to EUR_Bank in step 4 of :ref:`execution_model` would consist only of the ``TransferApproval_Transfer`` and its consequences.
 
 Other implementations, in particular those on public blockchains, may have weaker privacy constraints.
 
@@ -297,9 +297,9 @@ Note that Principle 2 of the privacy model means that sometimes parties see cont
 
 .. figure:: images/7_Composing/divulgence.png
 
-This is because the ``create`` action of these contracts are in the transitive consequences of the ``Trade_Settle`` action both of them have a stake in. This kind of disclosure is often called "divulgence" and needs to be considered when designing DAML models for privacy sensitive applications.
+This is because the ``create`` action of these contracts are in the transitive consequences of the ``Trade_Settle`` action both of them have a stake in. This kind of disclosure is often called "divulgence" and needs to be considered when designing Daml models for privacy sensitive applications.
 
 Next up
 -------
 
-The model presented here is safe and sound so we could deploy it to production and start trading. But the journey doesn't stop there. In :doc:`8_Dependencies` you will learn how to extend an already running application to enhance it with new features. In that context you'll learn a bit more about the architecture of DAML, about dependencies, and identifiers.
+In :doc:`8_Exceptions`, we will learn about how errors in your model can be handled in Daml.

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.validation
@@ -9,7 +9,7 @@ import com.daml.ledger.api.messages.command.completion
 import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
-  CompletionStreamRequest => GrpcCompletionStreamRequest
+  CompletionStreamRequest => GrpcCompletionStreamRequest,
 }
 import com.daml.platform.server.api.validation.FieldValidations
 import com.daml.platform.server.util.context.TraceContextConversions.toBrave
@@ -24,8 +24,8 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
   def validateCompletionStreamRequest(
       request: GrpcCompletionStreamRequest,
       ledgerEnd: LedgerOffset.Absolute,
-      offsetOrdering: Ordering[LedgerOffset.Absolute])
-    : Either[StatusRuntimeException, CompletionStreamRequest] =
+      offsetOrdering: Ordering[LedgerOffset.Absolute],
+  ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       nonEmptyAppId <- requireNonEmptyString(request.applicationId, "application_id")
@@ -40,17 +40,18 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
         "Begin",
         convertedOffset,
         ledgerEnd,
-        offsetOrdering)
-    } yield
-      CompletionStreamRequest(
-        ledgerId,
-        ApplicationId(appId),
-        knownParties,
-        convertedOffset
+        offsetOrdering,
       )
+    } yield CompletionStreamRequest(
+      ledgerId,
+      ApplicationId(appId),
+      knownParties,
+      convertedOffset,
+    )
 
   def validateCompletionEndRequest(
-      req: CompletionEndRequest): Either[StatusRuntimeException, completion.CompletionEndRequest] =
+      req: CompletionEndRequest
+  ): Either[StatusRuntimeException, completion.CompletionEndRequest] =
     for {
       ledgerId <- matchLedgerId(ledgerId)(LedgerId(req.ledgerId))
     } yield completion.CompletionEndRequest(ledgerId, req.traceContext.map(toBrave))

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.resources
@@ -10,8 +10,7 @@ import scala.compat.java8.FutureConverters._
 import scala.concurrent.Future
 import scala.util.Try
 
-/**
-  * Convenient [[ResourceOwner]] factory methods.
+/** Convenient [[AbstractResourceOwner]] factory methods.
   */
 trait ResourceOwnerFactories[Context] {
   protected implicit val hasExecutionContext: HasExecutionContext[Context]

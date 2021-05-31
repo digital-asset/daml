@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -20,8 +20,8 @@ object LoadDarFunction extends App {
 
     val packages = UniversalArchiveReader().readFile(darFile).get
     val packagesMap =
-      packages.all.map {
-        case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+      packages.all.map { case (pkgId, pkgArchive) =>
+        Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
       }.toMap
 
     val compilerConfig =
@@ -30,7 +30,7 @@ object LoadDarFunction extends App {
       )
 
     val compiledPackages: CompiledPackages =
-      PureCompiledPackages(packagesMap, compilerConfig).right.get
+      PureCompiledPackages(packagesMap, compilerConfig).toOption.get
 
     def function(argValue: Long): Long = {
       val expr: SExpr = {

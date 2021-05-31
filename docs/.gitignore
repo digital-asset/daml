@@ -1,2 +1,4 @@
 .vscode/settings.json
 /source/app-dev/grpc/proto-docs.rst
+__pycache__/
+/build/

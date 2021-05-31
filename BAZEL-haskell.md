@@ -5,7 +5,7 @@ Finding your way around our Bazel build system from a Haskell developers' point 
   - How toolchains and external dependencies are defined;
   - Specifiying stock `bazel` command options.
 
-For this, one needs awareness of four files at the root level of the DAML repository : `WORKSPACE`, `deps.bzl`, `BUILD` and `.bazelrc`.
+For this, one needs awareness of four files at the root level of the Daml repository : `WORKSPACE`, `deps.bzl`, `BUILD` and `.bazelrc`.
 
 ## `.bazelrc` the Bazel configuration file
 
@@ -26,7 +26,7 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 ```
 This loads the contents of the files `http.bzl` and `git.bzl` from the external workspace [`bazel_tools`](https://github.com/bazelbuild/bazel/tree/master/tools) into the "environment". `bazel_tools` is an external workspace builtin to Bazel and provides rules for working with archives and git.
 
-*[Note : Confusingly (?), `//bazel_tools` is a DAML package (a sub-directory of the root package directory containing a `BUILD.bazel` file). Don't confuse `@bazel_tools//..` with `//bazel_tools/..`]*.
+*[Note : Confusingly (?), `//bazel_tools` is a Daml package (a sub-directory of the root package directory containing a `BUILD.bazel` file). Don't confuse `@bazel_tools//..` with `//bazel_tools/..`]*.
 
 Straight after the loading of those rules, `deps.bzl` reads,
 ```
@@ -55,7 +55,7 @@ Those toolchains are defined in `BUILD` (we'll skip listing their definitions he
 The GHC toolchain is registered within macros provided by `rules_haskell`:
 ```
 haskell_register_ghc_nixpkgs(
-    attribute_path = "ghcStatic",
+    attribute_path = "ghc",
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
     compiler_flags = [ ... ],
     ...
@@ -259,6 +259,6 @@ may take some time if the required artifacts are not built or cached already.
 
 ## Further reading:
 
-- ["Bazel User Guide"](https://github.com/digital-asset/daml/blob/master/BAZEL.md) (DAML specific)
+- ["Bazel User Guide"](https://github.com/digital-asset/daml/blob/main/BAZEL.md) (Daml specific)
 - ["A Users's Guide to Bazel"](https://docs.bazel.build/versions/master/guide.html) (official documentation)
 - [`rules_haskell` documentation](https://api.haskell.build/index.html) (core Haskell rules, Haddock support, Linting, Defining toolchains, Support for protocol buffers, Interop with `cc_*` rules, Workspace rules)

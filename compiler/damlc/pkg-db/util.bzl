@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # A DAML package database contains a subdirectory for each DAML-LF
@@ -119,6 +119,7 @@ def _daml_package_rule_impl(ctx):
         --iface-dir $IFACE_DIR \
         --target {daml_lf_version} \
         --cpp {cpp} \
+        --ghc-option=-Werror \
         -o {dalf_file} \
         {main}
 

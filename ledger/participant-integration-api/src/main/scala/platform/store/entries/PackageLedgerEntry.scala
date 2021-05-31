@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.entries
@@ -17,25 +17,25 @@ private[platform] object PackageLedgerEntry {
 
   final case class PackageUploadAccepted(
       submissionId: SubmissionId,
-      recordTime: Instant
+      recordTime: Instant,
   ) extends PackageLedgerEntry {
     override def toDomain: PackageEntry =
       PackageEntry.PackageUploadAccepted(
         submissionId,
-        recordTime
+        recordTime,
       )
   }
 
   final case class PackageUploadRejected(
       submissionId: SubmissionId,
       recordTime: Instant,
-      reason: String
+      reason: String,
   ) extends PackageLedgerEntry {
     override def toDomain: PackageEntry =
       PackageEntry.PackageUploadRejected(
         submissionId,
         recordTime,
-        reason
+        reason,
       )
   }
 }

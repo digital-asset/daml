@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.quickstart.iou
@@ -13,7 +13,7 @@ import com.daml.ledger.client.binding.Contract
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.quickstart.iou.ClientUtil.workflowIdFromParty
 import com.daml.quickstart.iou.DecodeUtil.{decodeAllCreated, decodeArchived, decodeCreated}
@@ -66,7 +66,7 @@ object IouMain extends App with StrictLogging {
     ledgerIdRequirement = LedgerIdRequirement.none,
     commandClient = CommandClientConfiguration.default,
     sslContext = None,
-    token = None
+    token = None,
   )
   // </doc-ref:ledger-client-configuration>
 
@@ -110,7 +110,8 @@ object IouMain extends App with StrictLogging {
     owner = issuer,
     currency = "USD",
     amount = BigDecimal("1000.00"),
-    observers = List())
+    observers = List(),
+  )
   // </doc-ref:iou-contract-instance>
 
   val issuerFlow: Future[Unit] = for {
@@ -143,7 +144,8 @@ object IouMain extends App with StrictLogging {
     _ = logger.info(s"$issuer received final transaction: $tx1")
     archivedIouContractId <- toFuture(decodeArchived[M.Iou](tx1)): Future[P.ContractId[M.Iou]]
     _ = logger.info(
-      s"$issuer received Archive Event for the original IOU contract ID: $archivedIouContractId")
+      s"$issuer received Archive Event for the original IOU contract ID: $archivedIouContractId"
+    )
     _ <- Future(assert(iouContract.contractId == archivedIouContractId))
     iouTransferContract <- toFuture(decodeAllCreated[M.IouTransfer](tx1).headOption)
     _ = logger.info(s"$issuer received confirmation for the IOU Transfer: $iouTransferContract")

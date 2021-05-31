@@ -1,11 +1,15 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE CPP #-}
 
 module TemplateIdFilter where
 
 import Prelude hiding (test)
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+import qualified DA.Map as Map
+#else
 import qualified DA.Next.Map as Map
+#endif
 import Daml.Trigger
 
 test : RegisteredTemplates -> Trigger ()

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -27,7 +27,7 @@ private[validation] object AlphaEquiv {
           Env(
             currentDepth + 1,
             binderDepthLhs + (varName1 -> currentDepth),
-            binderDepthRhs + (varName2 -> currentDepth)
+            binderDepthRhs + (varName2 -> currentDepth),
           ).alphaEquiv(b1, b2)
       case (TStruct(fs1), TStruct(fs2)) =>
         (fs1.names sameElements fs2.names) &&

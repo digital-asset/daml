@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -6,11 +6,11 @@ package com.daml.platform.store.dao
 import java.time.Instant
 import java.util.UUID
 
-import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
+import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInst, ValueParty, VersionedValue}
-import com.daml.lf.value.ValueVersion
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.{Inside, LoneElement}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -28,11 +28,14 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       builder.add(
         NodeCreate(
           coid = contractId,
-          coinst = someContractInstance,
+          templateId = someTemplateId,
+          arg = someContractArgument,
+          agreementText = someAgreement,
           optLocation = None,
           signatories = Set(alice),
           stakeholders = Set(alice),
-          key = None
+          key = None,
+          version = TransactionVersion.minVersion,
         )
       )
       contractId -> builder.buildCommitted()
@@ -43,13 +46,16 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       builder.add(
         NodeCreate(
           coid = contractId,
-          coinst = someContractInstance,
+          someTemplateId,
+          someContractArgument,
+          someAgreement,
           optLocation = None,
           signatories = Set(bob),
           stakeholders = Set(bob),
           key = Some(
-            KeyWithMaintainers(ValueParty(bob), Set(bob))
-          )
+            KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
+          ),
+          version = TransactionVersion.minVersion,
         )
       )
       contractId -> builder.buildCommitted()
@@ -60,18 +66,21 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         NodeExercises(
           targetCoid = create1,
           templateId = someTemplateId,
-          choiceId = Ref.ChoiceName.assertFromString("SomeChoice"),
+          choiceId = someChoiceName,
           optLocation = None,
           consuming = true,
           actingParties = Set(bob),
-          chosenValue = someValueRecord,
+          chosenValue = someChoiceArgument,
           stakeholders = Set(alice, bob),
           signatories = Set(alice),
-          choiceObservers = Set.empty, //FIXME #7709, also test the case of non-empty choice-observers
+          // TODO https://github.com/digital-asset/daml/issues/7709
+          //  also test the case of non-empty choice-observers
+          choiceObservers = Set.empty,
           children = ImmArray.empty,
-          exerciseResult = None,
+          exerciseResult = Some(someChoiceResult),
           key = None,
           byKey = false,
+          version = TransactionVersion.minVersion,
         )
       )
       builder.add(
@@ -85,7 +94,8 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           key = Some(
             KeyWithMaintainers(ValueParty(bob), Set(bob))
           ),
-          byKey = false
+          byKey = false,
+          version = TransactionVersion.minVersion,
         ),
         parentId = rootExercise,
       )
@@ -93,33 +103,37 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         NodeExercises(
           targetCoid = create2,
           templateId = someTemplateId,
-          choiceId = Ref.ChoiceName.assertFromString("SomeChoice"),
+          choiceId = someChoiceName,
           optLocation = None,
           consuming = true,
           actingParties = Set(bob),
-          chosenValue = someValueRecord,
+          chosenValue = someChoiceArgument,
           stakeholders = Set(bob),
           signatories = Set(bob),
           choiceObservers = Set.empty,
           children = ImmArray.empty,
-          exerciseResult = None,
+          exerciseResult = Some(someChoiceResult),
           key = Some(
-            KeyWithMaintainers(ValueParty(bob), Set(bob))
+            KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
           ),
           byKey = false,
+          version = TransactionVersion.minVersion,
         ),
         parentId = rootExercise,
       )
       builder.add(
         NodeCreate(
           coid = builder.newCid,
-          coinst = someContractInstance,
+          someTemplateId,
+          someContractArgument,
+          someAgreement,
           optLocation = None,
           signatories = Set(bob),
           stakeholders = Set(alice, bob),
           key = Some(
-            KeyWithMaintainers(ValueParty(bob), Set(bob))
-          )
+            KeyWithMaintainers(someContractKey(bob, "some key"), Set(bob))
+          ),
+          version = TransactionVersion.minVersion,
         ),
         parentId = nestedExercise,
       )
@@ -131,9 +145,9 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         template = someContractInstance.template,
         agreementText = someContractInstance.agreementText,
         arg = VersionedValue(
-          version = ValueVersion("6"),
-          value = someContractInstance.arg
-        )
+          version = TransactionVersion.V10,
+          value = someContractInstance.arg,
+        ),
       )
 
     val t1 = Instant.now()
@@ -170,7 +184,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
       _ <- store(
         divulgedContracts = Map((create2, someVersionedContractInstance) -> Set(alice)),
         blindingInfo = None,
-        nextOffset() -> LedgerEntry.Transaction(
+        offsetAndTx = nextOffset() -> LedgerEntry.Transaction(
           commandId = Some(UUID.randomUUID.toString),
           transactionId = UUID.randomUUID.toString,
           applicationId = Some(appId),
@@ -180,7 +194,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
           recordedAt = t3,
           transaction = tx3,
           explicitDisclosure = Map.empty,
-        )
+        ),
       )
     } yield {
       succeed

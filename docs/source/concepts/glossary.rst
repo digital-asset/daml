@@ -1,13 +1,13 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Glossary of concepts
 ####################
 
-DAML
+Daml
 ****
 
-**DAML** is a programming language for writing `smart contracts <#contract>`__, that you can use to build an application based on a `ledger <#ledger-daml-ledger>`__. You can run DAML contracts on many different ledgers.
+**Daml** is a programming language for writing `smart contracts <#contract>`__, that you can use to build an application based on a `ledger <#ledger-daml-ledger>`__. You can run Daml contracts on many different ledgers.
 
 Contract
 ===========================
@@ -33,7 +33,7 @@ Once the contract is archived, it is no longer valid, and `choices <#choice>`__ 
 Template
 ========
 
-A **template** is a blueprint for creating a `contract <#contract>`__. This is the DAML code you write.
+A **template** is a blueprint for creating a `contract <#contract>`__. This is the Daml code you write.
 
 For full documentation on what can be in a template, see :doc:`/daml/reference/templates`.
 
@@ -85,7 +85,7 @@ Party
 
 A **party** represents a person or legal entity. Parties can `create contracts <#create>`__ and `exercise choices <#exercise>`__.
 
-`Signatories <#signatory>`_, `observers <#observer>`__, `controllers <#controller>`__, and `maintainers <#maintainer>`__ all must be parties, represented by the ``Party`` data type in DAML.
+`Signatories <#signatory>`_, `observers <#observer>`__, `controllers <#controller>`__, and `maintainers <#maintainer>`__ all must be parties, represented by the ``Party`` data type in Daml.
 
 .. Something about how they work in the `execution engine`.
 
@@ -118,7 +118,7 @@ A **choice observer** is a `party <#party>`__ on a `choice <#choice>`__. Choice 
 Stakeholder
 -----------
 
-**Stakeholder** is not a term used within the DAML language, but the concept refers to the `signatories <#signatory>`__ and `observers <#observer>`__ collectively. That is, it means all of the `parties <#party>`__ that are interested in a `contract <#contract>`__.
+**Stakeholder** is not a term used within the Daml language, but the concept refers to the `signatories <#signatory>`__ and `observers <#observer>`__ collectively. That is, it means all of the `parties <#party>`__ that are interested in a `contract <#contract>`__.
 
 Maintainer
 ----------
@@ -132,9 +132,9 @@ For documentation on contract keys, see :doc:`/daml/reference/contract-keys`.
 Authorization, signing
 ======================
 
-The DAML runtime checks that every submitted transaction is **well-authorized**, according to the :doc:`authorization rules of the ledger model </concepts/ledger-model/ledger-integrity>`, which guarantee the integrity of the underlying ledger.
+The Daml runtime checks that every submitted transaction is **well-authorized**, according to the :doc:`authorization rules of the ledger model </concepts/ledger-model/ledger-integrity>`, which guarantee the integrity of the underlying ledger.
 
-A DAML update is the composition of update actions created with one of the items in the table below. A DAML update is well-authorized when **all** its contained update actions are well-authorized. Each operation has an associated set of parties that need to authorize it:
+A Daml update is the composition of update actions created with one of the items in the table below. A Daml update is well-authorized when **all** its contained update actions are well-authorized. Each operation has an associated set of parties that need to authorize it:
 
 .. list-table:: Updates and required authorization
    :header-rows: 1
@@ -158,7 +158,7 @@ A DAML update is the composition of update actions created with one of the items
      - ``k -> Update (Optional (ContractId c))``
      - All key maintainers
 
-At runtime, the DAML execution engine computes the required authorizing parties from this mapping. It also computes which parties have given authorization to the update in question. A party is giving authorization to an update in one of two ways:
+At runtime, the Daml execution engine computes the required authorizing parties from this mapping. It also computes which parties have given authorization to the update in question. A party is giving authorization to an update in one of two ways:
 
 - It is the signatory of the contract that contains the update action.
 - It is element of the controllers executing the choice containing the update action.
@@ -170,7 +170,7 @@ It is noteworthy, that authorizing parties are always determined only from the l
 Standard library
 ================
 
-The **DAML standard library** is a set of `DAML` functions, classes and more that make developing with DAML easier.
+The **Daml standard library** is a set of `Daml` functions, classes and more that make developing with Daml easier.
 
 For documentation, see :doc:`/daml/stdlib/index`.
 
@@ -205,10 +205,10 @@ A `party <#party>`__ `submits <#submitting-commands-writing-to-the-ledger>`__ an
 
 See :doc:`/daml/reference/updates`.
 
-Scenario
-========
+Daml Script
+===========
 
-A **scenario** is a way of testing DAML code during development. You can run scenarios inside `DAML Studio <#daml-studio>`__, or write them to be executed on `Sandbox <#sandbox>`__ when it starts up.
+**Daml Script** provides a way of testing Daml code during development. You can run Daml Script inside `Daml Studio <#daml-studio>`__, or write them to be executed on `Sandbox <#sandbox>`__ when it starts up.
 
 They're useful for:
 
@@ -216,14 +216,14 @@ They're useful for:
 - ensuring that parties can exclusively create contracts, observe contracts, and exercise choices that they are meant to
 - acting as regression tests to confirm that everything keeps working correctly
 
-Scenarios emulate a real ledger. You specify a linear sequence of actions that various parties take, and these are evaluated in order, according to the same consistency, authorization, and privacy rules as they would be on a DAML ledger. DAML Studio shows you the resulting `transaction <#transactions>`__ graph, and (if a scenario fails) what caused it to fail.
+In Daml Studio, Daml Script runs in an emulated ledger. You specify a linear sequence of actions that various parties take, and these are evaluated in order, according to the same consistency, authorization, and privacy rules as they would be on a Daml ledger. Daml Studio shows you the resulting `transaction <#transactions>`__ graph, and (if a Daml Script fails) what caused it to fail.
 
-See :doc:`/daml/testing-scenarios`.
+See :ref:`testing-using-script`.
 
-.. DAMLe, DAML runtime, DAML execution engine
+.. Damle, Daml runtime, Daml execution engine
 .. ==========================================
 
-.. The **DAML runtime** (sometimes also called the DAML execution engine or DAMLe)...
+.. The **Daml runtime** (sometimes also called the Daml execution engine or Damle)...
 
 Contract key
 ============
@@ -239,11 +239,11 @@ See :doc:`/daml/reference/contract-keys`.
 DAR file, DALF file
 ===================
 
-A ``.dar`` file is the result of compiling DAML using the `Assistant <#assistant>`__.
+A ``.dar`` file is the result of compiling Daml using the `Assistant <#assistant>`__.
 
 You upload ``.dar`` files to a `ledger <#ledger-daml-ledger>`__ in order to be able to create contracts from the templates in that file.
 
-A ``.dar`` contains multiple ``.dalf`` files. A ``.dalf`` file is the output of a compiled DAML package or library. Its underlying format is `DAML-LF <#daml-lf>`__.
+A ``.dar`` contains multiple ``.dalf`` files. A ``.dalf`` file is the output of a compiled Daml package or library. Its underlying format is `Daml-LF <#daml-lf>`__.
 
 .. Package, module, library
 .. ========================
@@ -256,14 +256,14 @@ Developer tools
 Assistant
 =========
 
-**DAML Assistant** is a command-line tool for many tasks related to DAML. Using it, you can create DAML projects, compile DAML projects into `.dar files <#dar-file-dalf-file>`__, launch other developer tools, and download new SDK versions.
+**Daml Assistant** is a command-line tool for many tasks related to Daml. Using it, you can create Daml projects, compile Daml projects into `.dar files <#dar-file-dalf-file>`__, launch other developer tools, and download new SDK versions.
 
 See :doc:`/tools/assistant`.
 
 Studio
 ======
 
-**DAML Studio** is a plugin for Visual Studio Code, and is the IDE for writing DAML code.
+**Daml Studio** is a plugin for Visual Studio Code, and is the IDE for writing Daml code.
 
 See :doc:`/daml/daml-studio`.
 
@@ -288,13 +288,6 @@ This is the version of Navigator that runs as a web app.
 
 See :doc:`/tools/navigator/index`.
 
-Navigator Console
------------------
-
-This is the version of Navigator that runs on the command-line. It has similar functionality to the GUI.
-
-See :doc:`/tools/navigator/console`.
-
 Extractor
 =========
 
@@ -315,8 +308,8 @@ There's a lot of information available about application development, starting w
 Ledger API
 ==========
 
-The **Ledger API** is an API that's exposed by any `DAML ledger <#ledger-daml-ledger>`__.
-Alternative names: **DAML Ledger API** and **gRPC Ledger API** if disambiguation from other technologies is needed.
+The **Ledger API** is an API that's exposed by any `Daml ledger <#ledger-daml-ledger>`__.
+Alternative names: **Daml Ledger API** and **gRPC Ledger API** if disambiguation from other technologies is needed.
 See :doc:`/app-dev/ledger-api` page.
 It includes the following :doc:`services </app-dev/services>`.
 
@@ -348,7 +341,7 @@ Use the **active contract service** to obtain a party-specific view of all `cont
 Package service
 ---------------
 
-Use the **package service** to obtain information about DAML packages available on the `ledger <#ledger-daml-ledger>`__. See :ref:`package-service`.
+Use the **package service** to obtain information about Daml packages available on the `ledger <#ledger-daml-ledger>`__. See :ref:`package-service`.
 
 Ledger identity service
 -----------------------
@@ -401,37 +394,37 @@ A **command** is an instruction to add a transaction to the `ledger <#ledger-dam
 
 .. _daml-lf:
 
-DAML-LF
+Daml-LF
 =======
 
-When you compile DAML source code into a `.dar file <#dar-file-dalf-file>`__, the underlying format is **DAML-LF**. DAML-LF is similar to DAML, but is stripped down to a core set of features. The relationship between the surface DAML syntax and DAML-LF is loosely similar to that between Java and JVM bytecode.
+When you compile Daml source code into a `.dar file <#dar-file-dalf-file>`__, the underlying format is **Daml-LF**. Daml-LF is similar to Daml, but is stripped down to a core set of features. The relationship between the surface Daml syntax and Daml-LF is loosely similar to that between Java and JVM bytecode.
 
-As a user, you don't need to interact with DAML-LF directly. But internally, it's used for:
+As a user, you don't need to interact with Daml-LF directly. But internally, it's used for:
 
-- executing DAML code on the Sandbox or on another platform
+- executing Daml code on the Sandbox or on another platform
 - sending and receiving values via the Ledger API (using a protocol such as gRPC)
-- generating code in other languages for interacting with DAML models (often called “codegen”)
+- generating code in other languages for interacting with Daml models (often called “codegen”)
 
 General concepts
 ****************
 
-Ledger, DAML ledger
+Ledger, Daml ledger
 ===================
 
-**Ledger** can refer to a lot of things, but a ledger is essentially the underlying storage mechanism for a running DAML applications: it's where the contracts live. A **DAML ledger** is a ledger that you can store DAML contracts on, because it implements the `ledger API <#ledger-api>`__.
+**Ledger** can refer to a lot of things, but a ledger is essentially the underlying storage mechanism for a running Daml applications: it's where the contracts live. A **Daml ledger** is a ledger that you can store Daml contracts on, because it implements the `ledger API <#ledger-api>`__.
 
-DAML ledgers provide various guarantees about what you can expect from it, all laid out in the :doc:`/concepts/ledger-model/index` page.
+Daml ledgers provide various guarantees about what you can expect from it, all laid out in the :doc:`/concepts/ledger-model/index` page.
 
 When you're developing, you'll use `Sandbox <#sandbox>`__ as your ledger.
 
-If you would like to integrate DAML with a storage infrastructure not already in development (see `daml.com <https://daml.com>`__), please get in touch on `Slack <https://damldriven.slack.com/sso/saml/start>`__ in the channel ``#daml-contributors``.
+If you would like to integrate Daml with a storage infrastructure not already in development (see `daml.com <https://daml.com>`__), please get in touch on `Slack <https://damldriven.slack.com/sso/saml/start>`__ in the channel ``#daml-contributors``.
 
 .. _trust-domain:
 
 Trust domain
 ============
 
-A **trust domain** encompasses a part of the system (in particular, a DAML ledger) operated by a single real-world entity. This subsystem may consist of one or more physical nodes. A single physical machine is always assumed to be controlled by exactly one real-world entity.
+A **trust domain** encompasses a part of the system (in particular, a Daml ledger) operated by a single real-world entity. This subsystem may consist of one or more physical nodes. A single physical machine is always assumed to be controlled by exactly one real-world entity.
 
 
 .. Transaction

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
@@ -67,6 +67,6 @@ to your commit message.
     return 1
 }
 
-BASE=${1:-origin/master}
+BASE=${1:-origin/main}
 
 has_a_changelog $BASE || is_dependabot_pr $BASE

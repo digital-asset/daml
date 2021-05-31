@@ -1,14 +1,14 @@
-# DAML template syntax desugaring
+# Daml template syntax desugaring
 
-Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
+Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: (Apache-2.0 OR BSD-3-Clause)
 
 ## Introduction
-DAML syntax describes contracts and the choices that operate on them. When DAML syntax is interpreted, the first step is to parse it to Haskell abstract syntax trees.
+Daml syntax describes contracts and the choices that operate on them. When Daml syntax is interpreted, the first step is to parse it to Haskell abstract syntax trees.
 
-This note shows how DAML examples are desugared by showing their Haskell source equivalents, and should help you understand the connection between DAML and Haskell.
+This note shows how Daml examples are desugared by showing their Haskell source equivalents, and should help you understand the connection between Daml and Haskell.
 
-## How DAML syntax desugars
+## How Daml syntax desugars
 
 ### Example (1)
 
@@ -35,7 +35,7 @@ template Iou
         create this with owner = newOwner
 ```
 
-The `class Template` (defined by the DAML standard library) represents the set of all contract types:
+The `class Template` (defined by the Daml standard library) represents the set of all contract types:
 
 ```haskell
 class Template t where
@@ -94,7 +94,7 @@ instance Template Iou where
   _templateTypeRep = magic @"_templateTypeRep"
 ```
 
-When a type `t` is a `Template` instance, `class Choice` (defined by the DAML standard library) defines a (multi-parameter type class) relation on types `t`, `c` and `r` such that `r` is uniquely determined by the pair `(t, c)`:
+When a type `t` is a `Template` instance, `class Choice` (defined by the Daml standard library) defines a (multi-parameter type class) relation on types `t`, `c` and `r` such that `r` is uniquely determined by the pair `(t, c)`:
 
 ```haskell
 class Template t => Choice t c r | t c -> r where
@@ -139,7 +139,7 @@ _choice_IouTransfer
 
 ### Example (2)
 
-The next contract exercises the "contract keys" feature of DAML.
+The next contract exercises the "contract keys" feature of Daml.
 Contract key syntax desugars to `instance` declarations of the following typeclass.
 
 ```haskell

@@ -1,15 +1,21 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test")
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
+load("@build_environment//:configuration.bzl", "sdk_version")
+load("//daml-lf/language:daml-lf.bzl", "lf_versions_aggregate")
 
 da_scala_library(
     name = "daml-on-sql",
     srcs = glob(["src/main/scala/**/*.scala"]),
     # Do not include logback.xml in the library. Let the user of the library decide how to log.
     resources = ["src/main/resources/banner.txt"],
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_core",
@@ -17,18 +23,17 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
+        "//ledger-service/cli-opts",
         "//ledger/caching",
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/sandbox-classic",
-        "//ledger/sandbox-common",
+        "//ledger/sandbox-common:sandbox-common-ce",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -77,7 +82,10 @@ da_scala_test(
     name = "daml-on-sql-tests",
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     data = [
-        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common:dar-files",
+    ],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
         ":daml-on-sql",
@@ -90,7 +98,6 @@ da_scala_test(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//libs-scala/ports",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -103,3 +110,109 @@ conformance_test(
         "--eager-package-loading",
     ],
 )
+
+# TODO append-only: cleanup
+conformance_test(
+    name = "conformance-test-append-only",
+    server = ":daml-on-sql-ephemeral-postgresql",
+    server_args = [
+        "--ledgerid=conformance-test",
+        "--port=6865",
+        "--eager-package-loading",
+        "--enable-append-only-schema",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-multi-party-submissions",
+    server = ":daml-on-sql-ephemeral-postgresql",
+    server_args = [
+        "--ledgerid=conformance-test",
+        "--port=6865",
+        "--eager-package-loading",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=MultiPartySubmissionIT",
+    ],
+)
+
+# TODO append-only: cleanup
+conformance_test(
+    name = "conformance-test-multi-party-submissions-append-only",
+    server = ":daml-on-sql-ephemeral-postgresql",
+    server_args = [
+        "--ledgerid=conformance-test",
+        "--port=6865",
+        "--eager-package-loading",
+        "--enable-append-only-schema",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--include=MultiPartySubmissionIT",
+    ],
+)
+
+genrule(
+    name = "docs",
+    srcs = [
+        "README.rst",
+        "//docs:theme",
+        "//docs:configs/html/conf.py",
+        "//docs:configs/static/pygments_daml_lexer.py",
+        "//docs:configs/static/typescript.py",
+        "//docs:scripts/check-closing-quotes.sh",
+        "//docs:scripts/check-closing-quotes.sh.allow",
+    ],
+    outs = ["html.tar.gz"],
+    cmd = """
+        mkdir -p build/docs/source
+        cp $(location :README.rst) build/docs/source/index.rst
+
+        mkdir -p build/docs/configs/html
+        cp $(location //docs:configs/html/conf.py) build/docs/configs/html/conf.py
+        mkdir -p build/docs/configs/static
+        cp $(location //docs:configs/static/pygments_daml_lexer.py) build/docs/configs/static/pygments_daml_lexer.py
+        cp $(location //docs:configs/static/typescript.py) build/docs/configs/static/typescript.py
+
+        # Copy in theme
+        mkdir -p build/docs/theme
+        tar -zxf $(location //docs:theme) -C build/docs/theme
+
+        if ! $(location //docs:scripts/check-closing-quotes.sh) . $(location //docs:scripts/check-closing-quotes.sh.allow); then
+            exit 1
+        fi
+
+        # Build with Sphinx 
+        cd build
+        sed -i "s,__VERSION__,"{sdk}"," docs/configs/html/conf.py
+        sed -i "s,'index_page_boxes': True,'index_page_boxes': False," docs/configs/html/conf.py
+        sed -i "s,'pdf_download': True,'pdf_download': False," docs/configs/html/conf.py
+        export LC_ALL=en_US.UTF-8
+        export LANG=en_US.UTF-8
+        # Sphinx 1.8.3 triggers the following warning:
+        #
+        #   /nix/store/1v39mhhyn48s251przk2fwcvgm71vfqi-python3.7-sphinx-1.8.3/lib/python3.7/site-packages/sphinx/writers/html.py:462: FutureWarning:
+        #      The iterable returned by Node.traverse()
+        #      will become an iterator instead of a list in Docutils > 0.16.
+        #     target_node = image_nodes and image_nodes[0] or node.parent
+        #
+        # We are using an older Sphinx (1.8.3) with a more recent nixpkgs revision.
+        # Unfortunately, an update is not so easy because Sphinx 2.3.1 breaks
+        # the PDF documentation due to issues with the FreeSerif font in the
+        # fontspec package. So, for now we ignore `FutureWarning`.
+        WARNINGS=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1 | \\
+          grep -Pi "(?<!future)warning:" || true)
+
+        if [ "$$WARNINGS" != "" ]; then
+            echo "$$WARNINGS"
+            exit 1
+        fi
+
+        ../$(execpath //bazel_tools/sh:mktgz) ../$@ html
+        """.format(sdk = sdk_version),
+    tools = [
+        "@sphinx_nix//:bin/sphinx-build",
+        "//bazel_tools/sh:mktgz",
+    ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
+) if not is_windows else None

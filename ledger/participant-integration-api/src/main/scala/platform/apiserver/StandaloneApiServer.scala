@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver
@@ -16,24 +16,26 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedService, WriteService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.engine.Engine
+import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
   PartyConfiguration,
-  ServerRole
+  ServerRole,
 }
-import com.daml.ports.{PortFiles}
 import com.daml.platform.index.JdbcIndex
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.ports.Port
+import com.daml.platform.store.LfValueTranslationCache
+import com.daml.ports.{Port, PortFiles}
 import io.grpc.{BindableService, ServerInterceptor}
+import scalaz.{-\/, \/-}
 
 import scala.collection.immutable
+import scala.concurrent.{ExecutionContextExecutor}
+import scala.util.{Failure, Success, Try}
 
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
@@ -51,7 +53,8 @@ final class StandaloneApiServer(
     otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
     otherInterceptors: List[ServerInterceptor] = List.empty,
     engine: Engine,
-    lfValueTranslationCache: LfValueTranslation.Cache,
+    servicesExecutionContext: ExecutionContextExecutor,
+    lfValueTranslationCache: LfValueTranslationCache.Cache,
 )(implicit actorSystem: ActorSystem, materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[ApiServer] {
 
@@ -64,18 +67,28 @@ final class StandaloneApiServer(
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
 
+    val valueEnricher = new ValueEnricher(engine)
+
     val owner = for {
       indexService <- JdbcIndex
         .owner(
-          ServerRole.ApiServer,
-          domain.LedgerId(ledgerId),
-          participantId,
-          config.jdbcUrl,
-          config.eventsPageSize,
-          metrics,
-          lfValueTranslationCache,
+          serverRole = ServerRole.ApiServer,
+          ledgerId = domain.LedgerId(ledgerId),
+          participantId = participantId,
+          jdbcUrl = config.jdbcUrl,
+          databaseConnectionPoolSize = config.databaseConnectionPoolSize,
+          databaseConnectionTimeout = config.databaseConnectionTimeout,
+          eventsPageSize = config.eventsPageSize,
+          servicesExecutionContext = servicesExecutionContext,
+          metrics = metrics,
+          lfValueTranslationCache = lfValueTranslationCache,
+          enricher = valueEnricher,
+          enableAppendOnlySchema = config.enableAppendOnlySchema,
+          maxContractStateCacheSize = config.maxContractStateCacheSize,
+          maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
+          enableMutableContractStateCache = config.enableMutableContractStateCache,
         )
-        .map(index => new TimedIndexService(index, metrics))
+        .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
       authorizer = new Authorizer(Clock.systemUTC.instant _, ledgerId, participantId)
       healthChecksWithIndexService = healthChecks + ("index" -> indexService)
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
@@ -88,11 +101,13 @@ final class StandaloneApiServer(
         timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
         timeProviderType =
           timeServiceBackend.fold[TimeProviderType](TimeProviderType.WallClock)(_ =>
-            TimeProviderType.Static),
+            TimeProviderType.Static
+          ),
         ledgerConfiguration = ledgerConfig,
         commandConfig = commandConfig,
         partyConfig = partyConfig,
         optTimeServiceBackend = timeServiceBackend,
+        servicesExecutionContext = servicesExecutionContext,
         metrics = metrics,
         healthChecks = healthChecksWithIndexService,
         seedService = SeedService(config.seeding),
@@ -106,12 +121,14 @@ final class StandaloneApiServer(
         config.address,
         config.tlsConfig,
         AuthorizationInterceptor(authService, executionContext) :: otherInterceptors,
-        metrics
+        servicesExecutionContext,
+        metrics,
       )
+      _ <- ResourceOwner.forTry(() => writePortFile(apiServer.port))
     } yield {
-      writePortFile(apiServer.port)
       logger.info(
-        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}, dar file = ${config.archiveFiles}")
+        s"Initialized API server version ${BuildInfo.Version} with ledger-id = $ledgerId, port = ${apiServer.port}, dar file = ${config.archiveFiles}"
+      )
       apiServer
     }
 
@@ -129,9 +146,13 @@ final class StandaloneApiServer(
           { _ =>
             sys.error("Unexpected request of contract")
           },
-          packageContainer.getLfPackageSync, { _ =>
+          packageContainer.getLfPackageSync,
+          { _ =>
             sys.error("Unexpected request of contract key")
-          }
+          },
+          { _ =>
+            sys.error("Unexpected request of local contract key visibility")
+          },
         )
       ()
     }
@@ -147,8 +168,15 @@ final class StandaloneApiServer(
       .fold({ case (err, file) => sys.error(s"Could not load package $file: $err") }, identity)
   }
 
-  private def writePortFile(port: Port): Unit =
-    config.portFile.foreach { path =>
-      PortFiles.write(path, port)
+  private def writePortFile(port: Port): Try[Unit] = {
+    config.portFile match {
+      case Some(path) =>
+        PortFiles.write(path, port) match {
+          case -\/(err) => Failure(new RuntimeException(err.toString))
+          case \/-(()) => Success(())
+        }
+      case None =>
+        Success(())
     }
+  }
 }

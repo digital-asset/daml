@@ -1,28 +1,28 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-How DAML types are translated to DAML-LF
+How Daml types are translated to Daml-LF
 ########################################
 
-This page shows how types in DAML are translated into DAML-LF. It should help you understand and predict the generated client interfaces, which is useful when you're building a DAML-based application that uses the Ledger API or client bindings in other languages.
+This page shows how types in Daml are translated into Daml-LF. It should help you understand and predict the generated client interfaces, which is useful when you're building a Daml-based application that uses the Ledger API or client bindings in other languages.
 
-For an introduction to DAML-LF, see :ref:`daml-lf-intro`.
+For an introduction to Daml-LF, see :ref:`daml-lf-intro`.
 
 Primitive types
 ***************
 
-:ref:`Built-in data types <daml-ref-built-in-types>` in DAML have straightforward mappings to DAML-LF.
+:ref:`Built-in data types <daml-ref-built-in-types>` in Daml have straightforward mappings to Daml-LF.
 
-This section only covers the serializable types, as these are what client applications can interact with via the generated DAML-LF. (Serializable types are ones whose values can be written in a text or binary format. So not function types, ``Update`` and ``Scenario`` types, as well as any types built up from those.)
+This section only covers the serializable types, as these are what client applications can interact with via the generated Daml-LF. (Serializable types are ones whose values can be written in a text or binary format. So not function types, ``Update`` and ``Scenario`` types, as well as any types built up from those.)
 
-Most built-in types have the same name in DAML-LF as in DAML. These are the exact mappings:
+Most built-in types have the same name in Daml-LF as in Daml. These are the exact mappings:
 
 .. list-table::
    :widths: 10 15
    :header-rows: 1
 
-   * - DAML primitive type
-     - DAML-LF primitive type
+   * - Daml primitive type
+     - Daml-LF primitive type
    * - ``Int``
      - ``Int64``
    * - ``Time``
@@ -44,41 +44,41 @@ Most built-in types have the same name in DAML-LF as in DAML. These are the exac
    * - ``ContractId``
      - ``ContractId``
 
-Be aware that only the DAML primitive types exported by the :ref:`Prelude <module-prelude-6842>` module map to the DAML-LF primitive types above. That means that, if you define your own type named ``Party``, it will not translate to the DAML-LF primitive ``Party``.
+Be aware that only the Daml primitive types exported by the :ref:`Prelude <module-prelude-6842>` module map to the Daml-LF primitive types above. That means that, if you define your own type named ``Party``, it will not translate to the Daml-LF primitive ``Party``.
 
 Tuple types
 ***********
 
-DAML tuple type constructors take types ``T1, T2, …, TN`` to the type ``(T1, T2, …, TN)``. These are exposed in the DAML surface language through the :ref:`Prelude <module-prelude-6842>` module.
+Daml tuple type constructors take types ``T1, T2, …, TN`` to the type ``(T1, T2, …, TN)``. These are exposed in the Daml surface language through the :ref:`Prelude <module-prelude-6842>` module.
 
-The equivalent DAML-LF type constructors are ``daml-prim:DA.Types:TupleN``, for each particular N (where 2 <= N <= 20). This qualified name refers to the package name (``ghc-prim``) and the module name (``GHC.Tuple``).
+The equivalent Daml-LF type constructors are ``daml-prim:DA.Types:TupleN``, for each particular N (where 2 <= N <= 20). This qualified name refers to the package name (``ghc-prim``) and the module name (``GHC.Tuple``).
 
-For example: the DAML pair type ``(Int, Text)`` is translated to ``daml-prim:DA.Types:Tuple2 Int64 Text``.
+For example: the Daml pair type ``(Int, Text)`` is translated to ``daml-prim:DA.Types:Tuple2 Int64 Text``.
 
 Data types
 **********
 
-DAML-LF has three kinds of data declarations:
+Daml-LF has three kinds of data declarations:
 
 - **Record** types, which define a collection of data
 - **Variant** or **sum** types, which define a number of alternatives
 - **Enum**, which defines simplified **sum** types without type parameters nor argument.
 
-:ref:`Data type declarations in DAML <daml-ref-data-constructors>` (starting with the ``data`` keyword) are translated to record, variant or enum types. It’s sometimes not obvious what they will be translated to, so this section lists many examples of data types in DAML and their translations in DAML-LF.
+:ref:`Data type declarations in Daml <daml-ref-data-constructors>` (starting with the ``data`` keyword) are translated to record, variant or enum types. It’s sometimes not obvious what they will be translated to, so this section lists many examples of data types in Daml and their translations in Daml-LF.
 
-.. In the tables below, the left column uses DAML 1.2 syntax and the right column uses the notation from the `DAML-LF specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>`_.
+.. In the tables below, the left column uses Daml 1.2 syntax and the right column uses the notation from the `Daml-LF specification <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>`_.
 
 Record declarations
 ===================
 
-This section uses the syntax for DAML :ref:`records <daml-ref-record-types>` with curly braces.
+This section uses the syntax for Daml :ref:`records <daml-ref-record-types>` with curly braces.
 
 .. list-table::
    :widths: 10 15
    :header-rows: 1
 
-   * - DAML declaration
-     - DAML-LF translation
+   * - Daml declaration
+     - Daml-LF translation
    * - ``data Foo = Foo { foo1: Int; foo2: Text }``
      - ``record Foo ↦ { foo1: Int64; foo2: Text }``
    * - ``data Foo = Bar { bar1: Int; bar2: Text }``
@@ -99,8 +99,8 @@ Variant declarations
    :widths: 10 15
    :header-rows: 1
 
-   * - DAML declaration
-     - DAML-LF translation
+   * - Daml declaration
+     - Daml-LF translation
    * - ``data Foo = Bar Int | Baz Text``
      - ``variant Foo ↦ Bar Int64 | Baz Text``
    * - ``data Foo a = Bar a | Baz Text``
@@ -135,8 +135,8 @@ Enum declarations
    :widths: 10 15
    :header-rows: 1
 
-   * - DAML declaration
-     - DAML-LF declaration
+   * - Daml declaration
+     - Daml-LF declaration
    * - ``data Foo = Bar | Baz``
      - ``enum Foo ↦ Bar | Baz``
    * - ``data Color = Red | Green | Blue``
@@ -145,13 +145,13 @@ Enum declarations
 Banned declarations
 ===================
 
-There are two gotchas to be aware of: things you might expect to be able to do in DAML that you can't because of DAML-LF.
+There are two gotchas to be aware of: things you might expect to be able to do in Daml that you can't because of Daml-LF.
 
 The first: a single constructor data type must be made unambiguous as to whether it is a record or a variant type. Concretely, the data type declaration ``data Foo = Foo`` causes a compile-time error, because it is unclear whether it is declaring a record or a variant type.
 
 To fix this, you must make the distinction explicitly. Write ``data Foo = Foo {}`` to declare a record type with no fields, or ``data Foo = Foo ()`` for a variant with a single constructor taking unit argument.
 
-The second gotcha is that a constructor in a data type declaration can have at most one unlabelled argument type. This restriction is so that we can provide a straight-forward encoding of DAML-LF types in a variety of client languages.
+The second gotcha is that a constructor in a data type declaration can have at most one unlabelled argument type. This restriction is so that we can provide a straight-forward encoding of Daml-LF types in a variety of client languages.
 
 .. list-table::
    :widths: 10 15
@@ -173,16 +173,16 @@ The second gotcha is that a constructor in a data type declaration can have at m
 Type synonyms
 *************
 
-:ref:`Type synonyms <daml-ref-type-synonyms>` (starting with the ``type`` keyword) are eliminated during conversion to DAML-LF. The body of the type synonym is inlined for all occurrences of the type synonym name.
+:ref:`Type synonyms <daml-ref-type-synonyms>` (starting with the ``type`` keyword) are eliminated during conversion to Daml-LF. The body of the type synonym is inlined for all occurrences of the type synonym name.
 
-For example, consider the following DAML type declarations.
+For example, consider the following Daml type declarations.
 
 .. literalinclude:: code-snippets/LfTranslation.daml
    :language: daml
    :start-after: -- start code snippet: type synonyms
    :end-before: -- end code snippet: type synonyms
 
-The ``Username`` type is eliminated in the DAML-LF translation, as follows:
+The ``Username`` type is eliminated in the Daml-LF translation, as follows:
 
 .. code-block:: none
 
@@ -191,9 +191,9 @@ The ``Username`` type is eliminated in the DAML-LF translation, as follows:
 Template types
 **************
 
-A :ref:`template declaration <daml-ref-template-name>` in DAML results in one or more data type declarations behind the scenes. These data types, detailed in this section, are not written explicitly in the DAML program but are created by the compiler.
+A :ref:`template declaration <daml-ref-template-name>` in Daml results in one or more data type declarations behind the scenes. These data types, detailed in this section, are not written explicitly in the Daml program but are created by the compiler.
 
-They are translated to DAML-LF using the same rules as for record declarations above.
+They are translated to Daml-LF using the same rules as for record declarations above.
 
 These declarations are all at the top level of the module in which the template is defined.
 
@@ -214,7 +214,7 @@ results in this record declaration:
    :start-after: -- start snippet: data from template
    :end-before: -- end snippet: data from template
 
-This translates to the DAML-LF record declaration:
+This translates to the Daml-LF record declaration:
 
 .. code-block:: none
 
@@ -239,7 +239,7 @@ This results in these two record types:
 
 Whether the choice is consuming or nonconsuming is irrelevant to the data type declaration. The data type is a record even if there are no fields.
 
-These translate to the DAML-LF record declarations:
+These translate to the Daml-LF record declarations:
 
 .. code-block:: none
 
@@ -249,7 +249,7 @@ These translate to the DAML-LF record declarations:
 Names with special characters
 *****************************
 
-All names in DAML—of types, templates, choices, fields, and variant data constructors—are translated to the more restrictive rules of DAML-LF.  ASCII letters, digits, and ``_`` underscore are unchanged in DAML-LF; all other characters must be mangled in some way, as follows:
+All names in Daml—of types, templates, choices, fields, and variant data constructors—are translated to the more restrictive rules of Daml-LF.  ASCII letters, digits, and ``_`` underscore are unchanged in Daml-LF; all other characters must be mangled in some way, as follows:
 
 - ``$`` changes to ``$$``,
 - Unicode codepoints less than 65536 translate to ``$uABCD``, where ``ABCD`` are exactly four (zero-padded) hexadecimal digits of the codepoint in question, using only lowercase ``a-f``, and
@@ -259,8 +259,8 @@ All names in DAML—of types, templates, choices, fields, and variant data const
    :widths: 10 15
    :header-rows: 1
 
-   * - DAML name
-     - DAML-LF identifier
+   * - Daml name
+     - Daml-LF identifier
    * - ``Foo_bar``
      - ``Foo_bar``
    * - ``baz'``

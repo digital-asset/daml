@@ -1,4 +1,4 @@
--- @ERROR range= 21:1-21:20; Attempt to fetch or exercise a contract not visible to the committer.
+-- @ERROR range= 21:1-21:20; Attempt to fetch or exercise a contract not visible to the reading parties.
 module FailedFetch where
 
 template T

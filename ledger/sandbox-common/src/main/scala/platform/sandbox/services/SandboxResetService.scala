@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services
@@ -39,10 +39,12 @@ class SandboxResetService(
   override def interceptCall[ReqT, RespT](
       serverCall: ServerCall[ReqT, RespT],
       metadata: Metadata,
-      serverCallHandler: ServerCallHandler[ReqT, RespT]): Listener[ReqT] = {
+      serverCallHandler: ServerCallHandler[ReqT, RespT],
+  ): Listener[ReqT] = {
     if (resetInitialized.get) {
       throw new StatusRuntimeException(
-        Status.UNAVAILABLE.withDescription("Sandbox server is currently being reset"))
+        Status.UNAVAILABLE.withDescription("Sandbox server is currently being reset")
+      )
     }
 
     serverCallHandler.startCall(serverCall, metadata)
@@ -59,7 +61,8 @@ class SandboxResetService(
       .cond(
         ledgerId == LedgerId(request.ledgerId),
         request.ledgerId,
-        ErrorFactories.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId)))
+        ErrorFactories.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId)),
+      )
       .fold(Future.failed[Empty], _ => actuallyReset().map(_ => Empty())(DE))
 
   private def actuallyReset() = {
@@ -67,7 +70,8 @@ class SandboxResetService(
 
     if (!resetInitialized.compareAndSet(false, true))
       throw new StatusRuntimeException(
-        Status.FAILED_PRECONDITION.withDescription("Sandbox server is currently being reset"))
+        Status.FAILED_PRECONDITION.withDescription("Sandbox server is currently being reset")
+      )
 
     logger.info(s"Stopping and starting the server.")
     resetAndRestartServer()

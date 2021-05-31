@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.data
@@ -73,7 +73,8 @@ private[daml] object ScalazEqual {
 
   private[this] final class OrderBy[A, I](
       val k: A => I,
-      override val inductiveNaturalEqual: Boolean)(implicit val I: Order[I])
+      override val inductiveNaturalEqual: Boolean,
+  )(implicit val I: Order[I])
       extends Order[A]
       with EqualBy[A, I] {
     override def order(a: A, b: A) =

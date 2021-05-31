@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 V1 Contract ID allocation scheme
@@ -8,16 +8,17 @@ V1 Contract ID allocation scheme
 Goals
 ^^^^^
 
-* Allows ordering contract IDs and make DAML semantics depend on this
+* Allows ordering contract IDs and make Daml semantics depend on this
   order, e.g., for comparison builtin and maps using IDs as keys.
 * Eliminate all contract ID translations for central committer ledger
 * Allows ledgers to store information about the contract and the
   creating transaction in the contract ID if necessary.
 
+
 Requirements
 ^^^^^^^^^^^^
 
-**Executability**: DAML engine can determine ordering of the contract
+**Executability**: Daml engine can determine ordering of the contract
 IDs before it hands out the transaction to the write service.
 
 **Validation**: The allocation scheme commutes with transaction
@@ -53,7 +54,7 @@ bytes defined as follows ::
 where
 
 * ``∥`` is the concatenation operation; 
-* ``versionPrefix`` is 1 byte (equal to 0) used to version the
+* ``versionPrefix`` is 1 byte (equal to `0x00`) used to version the
   contract ID scheme;
 * ``discriminator`` is a sequence of 32 bytes. It is like a random
   UUID, but generated from an initial seed (called *submission seed*)
@@ -100,18 +101,19 @@ Contract ID uniqueness
 ----------------------
 
 During interpretation local contract IDs are created without suffix.
-Ledger implementations are responsible for enforcing uniqueness of
-contract IDs on the whole ledger.  This can be done by enforcing
-global uniqueness of the seeds or by appropriately suffixing the
-contract IDs.  No other requirement (except the 94 bytes size limit)
-is assumed for those suffices.
+Ledger implementations are responsible for enforcing global uniqueness
+of all the contract IDs referenced by the ledger, including IDs of
+transient contract. This can be done by enforcing global uniqueness of
+the seeds or by appropriately suffixing the contract IDs.  No other
+requirement (except the 94 bytes size limit) is assumed for those
+suffixes.
 
-The simplest approach consists to suffix all local contract ID with a
+The simplest approach consists to suffix all local contract IDs with a
 uniquely global transaction ID. Alternatively central committer ledger
-can completely avoid suffixing by enforcing that same pair (submission
-seed, submission time) is never used more that once, the discriminator
-allocation scheme ensuring in this case the uniqueness of allocated
-discriminators.
+can completely avoid suffixing by enforcing that the pair (submission
+seed, submission time) is not used by two different submission, as the
+discriminator allocation scheme ensures in this case the uniqueness of
+allocated discriminators.
 
 
 Submission time
@@ -147,6 +149,7 @@ Submission seed
 Any random number with sufficient entropy works as submission seed
 ``submission_seed`` (256 bit entropy).
 
+
 Transaction seed construction
 -----------------------------
 
@@ -176,6 +179,7 @@ where
 
 * ``i`` is the 0-based index of the root node as a 64 bytes big-endian
   integer;
+
 
 Derivation of seeds for the children of exercise nodes
 ------------------------------------------------------
@@ -209,7 +213,8 @@ where
   lexicographically. IDs of stakeholder are interpreted as their
   US-ASCII encoding prefixed with there size encoded as a 32 bits
   big-endian integer.
-  
+
+
 Submission
 ^^^^^^^^^^
 

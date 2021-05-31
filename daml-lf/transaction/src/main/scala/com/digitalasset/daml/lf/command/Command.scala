@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,12 +8,17 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.value.Value
 import com.daml.lf.data.{ImmArray, Time}
 
+// ---------------------------
+// commands accepted by engine
+// ---------------------------
+sealed abstract class Command extends Product with Serializable {
+  val templateId: Identifier
+}
+
 // ---------------------------------
 // Accepted commands coming from API
 // ---------------------------------
-sealed trait Command extends Product with Serializable {
-  val templateId: Identifier
-}
+sealed abstract class ApiCommand extends Command
 
 /** Command for creating a contract
   *
@@ -21,7 +26,7 @@ sealed trait Command extends Product with Serializable {
   *  @param argument value passed to the template
   */
 final case class CreateCommand(templateId: Identifier, argument: Value[Value.ContractId])
-    extends Command
+    extends ApiCommand
 
 /** Command for exercising a choice on an existing contract
   *
@@ -35,7 +40,7 @@ final case class ExerciseCommand(
     contractId: Value.ContractId,
     choiceId: ChoiceName,
     argument: Value[Value.ContractId],
-) extends Command
+) extends ApiCommand
 
 /** Command for exercising a choice on an existing contract specified by its key
   *
@@ -49,7 +54,7 @@ final case class ExerciseByKeyCommand(
     contractKey: Value[Value.ContractId],
     choiceId: ChoiceName,
     argument: Value[Value.ContractId],
-) extends Command
+) extends ApiCommand
 
 /** Command for creating a contract and exercising a choice
   * on that existing contract within the same transaction
@@ -64,19 +69,32 @@ final case class CreateAndExerciseCommand(
     createArgument: Value[Value.ContractId],
     choiceId: ChoiceName,
     choiceArgument: Value[Value.ContractId],
+) extends ApiCommand
+
+final case class FetchCommand(
+    templateId: Identifier,
+    coid: Value.ContractId,
+) extends Command
+
+final case class FetchByKeyCommand(
+    templateId: Identifier,
+    key: Value[Value.ContractId],
+) extends Command
+
+final case class LookupByKeyCommand(
+    templateId: Identifier,
+    contractKey: Value[Value.ContractId],
 ) extends Command
 
 /** Commands input adapted from ledger-api
   *
-  *  @param submitters parties that authorizes all commands
   *  @param commands a batch of commands to be interpreted/executed
   *  @param ledgerEffectiveTime approximate time the commands to be effective,
   *    interpretation will take this instant
   *  @param commandsReference id passed only for error reporting
   */
 case class Commands(
-    submitters: Set[Party],
-    commands: ImmArray[Command],
+    commands: ImmArray[ApiCommand],
     ledgerEffectiveTime: Time.Timestamp,
     commandsReference: String,
 )

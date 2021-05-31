@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -7,7 +7,8 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "lf_stable_version",
+    "lf_version_configuration",
+    "lf_version_configuration_versions",
 )
 load(
     "//bazel_tools:scala.bzl",
@@ -23,95 +24,22 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
+    "silencer_plugin",
 )
 load(
     ":conformance.bzl",
     "conformance_test",
 )
+load(":util.bzl", "suites_sources")
+load("@os_info//:os_info.bzl", "is_windows")
 
-daml_compile(
-    name = "PackageManagementTest",
-    srcs = ["src/main/daml/PackageManagementTest.daml"],
-    target = lf_stable_version,
-)
-
-dar_to_scala(
-    name = "PackageManagementTest.scala-codegen",
-    srcs = [
-        ":PackageManagementTest.dar",
-    ],
-    package_prefix = "com.daml.ledger.packagemanagementtest",
-    srcjar_out = "PackageManagementTest.scala.srcjar",
-    verbosity = 2,
-)
-
-da_scala_library(
-    name = "PackageManagementTest.scala",
-    srcs = [":PackageManagementTest.scala-codegen"],
-    deps = [
-        "//language-support/scala/bindings",
-    ],
-)
-
-da_scala_library(
-    name = "ledger-api-test-tool-lib",
-    srcs = glob([
-        "src/main/scala/com/daml/ledger/api/testtool/infrastructure/**/*.scala",
-    ]),
-    deps = [
-        "//daml-lf/data",
-        "//language-support/scala/bindings",
-        "//ledger/ledger-api-common",
-        "//ledger/test-common",
-        "//ledger/test-common:model-tests.scala",
-        "//libs-scala/grpc-utils",
-        "//libs-scala/timer-utils",
-        "@maven//:ai_x_diff_2_12",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_config",
-        "@maven//:io_grpc_grpc_netty",
-        "@maven//:io_netty_netty_common",
-        "@maven//:io_netty_netty_handler",
-        "@maven//:io_netty_netty_transport",
-        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
-)
-
-da_scala_library_suite(
-    name = "ledger-api-test-tool-tests",
-    srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/tests/**/*.scala"]),
-    deps = [
-        ":PackageManagementTest.scala",
-        ":ledger-api-test-tool-lib",
-        "//daml-lf/data",
-        "//language-support/scala/bindings",
-        "//ledger/ledger-api-common",
-        "//ledger/test-common",
-        "//ledger/test-common:model-tests.scala",
-        "//ledger/test-common:performance-tests.scala",
-        "//ledger/test-common:semantic-tests.scala",
-        "//libs-scala/timer-utils",
-        "@maven//:ai_x_diff_2_12",
-        "@maven//:com_chuusai_shapeless_2_12",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_context",
-        "@maven//:org_cvogt_scala_extensions_2_12",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
-)
-
+# we release ledger-api-test-tool-stable as ledger-api-test-tool
 da_scala_binary(
     name = "ledger-api-test-tool",
-    srcs = glob([
-        "src/main/scala/com/daml/ledger/api/testtool/*.scala",
-    ]),
+    srcs = [],
     main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
     resources = [
         "src/main/resources/logback.xml",
-        ":PackageManagementTest.dar",
-        "//ledger/test-common:dar-files",
     ],
     tags = [
         "maven_coordinates=com.daml:ledger-api-test-tool:__VERSION__",
@@ -124,16 +52,138 @@ da_scala_binary(
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
-    deps = [
-        ":ledger-api-test-tool-lib",
-        ":ledger-api-test-tool-tests",
-        "//ledger/ledger-api-common",
-        "//libs-scala/build-info",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:io_netty_netty_handler",
-        "@maven//:org_slf4j_slf4j_api",
-    ],
+    deps = [":ledger-api-test-tool-stable"],
 )
+
+[
+    [
+        alias(
+            name = "ledger-api-test-tool-%s%s" % (name, target_suffix),
+            actual = ":ledger-api-test-tool-%s%s" % (lf_target, target_suffix),
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for target_suffix in [
+        "",
+        "-lib",
+        "-tests",
+        "-test-suites",
+    ]
+    for (name, lf_target) in lf_version_configuration.items()
+]
+
+[
+    [
+        da_scala_library(
+            name = "ledger-api-test-tool-%s-lib" % lf_version,
+            srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/infrastructure/**/*.scala"]),
+            scala_deps = [
+                "@maven//:com_typesafe_akka_akka_actor",
+                "@maven//:com_typesafe_akka_akka_stream",
+                "@maven//:org_scala_lang_modules_scala_collection_compat",
+                "@maven//:org_scala_lang_modules_scala_java8_compat",
+                "@maven//:org_scalameta_munit",
+            ],
+            visibility = ["//:__subpackages__"],
+            deps = [
+                "//daml-lf/data",
+                "//language-support/scala/bindings",
+                "//ledger/ledger-api-common",
+                "//ledger/test-common:test-common-%s" % lf_version,
+                "//ledger/test-common:model-tests-%s.scala" % lf_version,
+                "//ledger/test-common:dar-files-%s-lib" % lf_version,
+                "//libs-scala/grpc-utils",
+                "//libs-scala/resources",
+                "//libs-scala/resources-akka",
+                "//libs-scala/resources-grpc",
+                "//libs-scala/timer-utils",
+                "@maven//:com_typesafe_config",
+                "@maven//:io_netty_netty_common",
+                "@maven//:io_netty_netty_transport",
+                "@maven//:junit_junit",
+                "@maven//:org_slf4j_slf4j_api",
+            ],
+        ),
+        da_scala_library_suite(
+            name = "ledger-api-test-tool-%s-test-suites" % lf_version,
+            srcs = suites_sources(lf_version),
+            plugins = [
+                silencer_plugin,
+            ],
+            scala_deps = [
+                "@maven//:com_chuusai_shapeless",
+                "@maven//:org_scala_lang_modules_scala_collection_compat",
+            ],
+            scaladoc = False,
+            visibility = [
+                "//:__subpackages__",
+            ],
+            deps = [
+                ":ledger-api-test-tool-%s-lib" % lf_version,
+                "//daml-lf/data",
+                "//language-support/scala/bindings",
+                "//ledger/ledger-api-common",
+                "//ledger/test-common:test-common-%s" % lf_version,
+                "//ledger/test-common:package_management-tests-%s.scala" % lf_version,
+                "//ledger/test-common:model-tests-%s.scala" % lf_version,
+                "//ledger/test-common:performance-tests-%s.scala" % lf_version,
+                "//ledger/test-common:semantic-tests-%s.scala" % lf_version,
+                "//ledger/test-common:dar-files-%s-lib" % lf_version,
+                "//libs-scala/grpc-utils",
+                "//libs-scala/timer-utils",
+                "@maven//:io_grpc_grpc_api",
+                "@maven//:io_grpc_grpc_context",
+                "@maven//:org_slf4j_slf4j_api",
+            ],
+        ),
+        da_scala_library(
+            name = "ledger-api-test-tool-%s-tests" % lf_version,
+            srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/tests/**/*.scala"]),
+            visibility = ["//:__subpackages__"],
+            deps = [
+                "//daml-lf/language",
+                "//ledger/test-common:dar-files-%s-lib" % lf_version,
+                ":ledger-api-test-tool-%s-lib" % lf_version,
+                ":ledger-api-test-tool-%s-test-suites" % lf_version,
+                "//ledger/ledger-api-common",
+            ],
+        ),
+        da_scala_binary(
+            name = "ledger-api-test-tool-%s" % lf_version,
+            srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/*.scala"]),
+            main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
+            plugins = [
+                silencer_plugin,
+            ],
+            resources = [
+                "src/main/resources/logback.xml",
+            ],
+            scala_deps = [
+                "@maven//:org_scala_lang_modules_scala_collection_compat",
+                "@maven//:com_github_scopt_scopt",
+            ],
+            visibility = ["//visibility:public"],
+            runtime_deps = [
+                "@maven//:ch_qos_logback_logback_classic",
+            ],
+            deps = [
+                ":ledger-api-test-tool-%s-lib" % lf_version,
+                ":ledger-api-test-tool-%s-tests" % lf_version,
+                "//ledger/ledger-api-common",
+                "//libs-scala/build-info",
+                "//libs-scala/resources",
+                "//libs-scala/resources-akka",
+                "//libs-scala/resources-grpc",
+                "@maven//:io_grpc_grpc_api",
+                "@maven//:io_grpc_grpc_core",
+                "@maven//:io_grpc_grpc_netty",
+                "@maven//:io_netty_netty_handler",
+                "@maven//:org_slf4j_slf4j_api",
+            ],
+        ),
+    ]
+    for lf_version in lf_version_configuration_versions
+]
 
 conformance_test(
     name = "ssl-test",
@@ -196,7 +246,7 @@ conformance_test(
 )
 
 # Test that both --include ContractKeysIT as well as --include ContractKeysIT:CKFetchOrLookup
-# are supporte.
+# are supported.
 conformance_test(
     name = "test-name-syntax",
     server = "//ledger/ledger-on-memory:app",
@@ -207,5 +257,37 @@ conformance_test(
     test_tool_args = [
         "--include=IdentityIT",
         "--include=IdentityIT:IdNotEmpty",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test",
+    lf_versions = lf_version_configuration_versions,
+    ports = [6865],
+    server = "//ledger/ledger-on-memory:app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant=participant-id=example,port=6865",
+    ],
+    test_tool_args = ["--verbose"],
+)
+
+# This deliberately uses the deploy.jar since that’s what we ship
+# and we want to test that the extract option works there.
+# Given subleties in classpaths, it could potentially work
+# in the non-deploy jar.
+sh_test(
+    name = "test-extract",
+    srcs = ["test-extract.sh"],
+    args = [
+        "$(location @local_jdk//:bin/java.exe)" if is_windows else "$(location @local_jdk//:bin/java)",
+        "$(location :ledger-api-test-tool_deploy.jar)",
+    ],
+    data = [
+        ":ledger-api-test-tool_deploy.jar",
+        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )

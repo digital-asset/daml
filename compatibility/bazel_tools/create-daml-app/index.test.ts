@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // The tests here are identical to the ones in
@@ -106,7 +106,7 @@ const detached = process.platform != "win32";
 
 const npmExeName = process.platform == "win32" ? "npm" : "npm-cli.js";
 
-// Start the DAML and UI processes before the tests begin.
+// Start the Daml and UI processes before the tests begin.
 // To reduce test times, we reuse the same processes between all the tests.
 // This means we need to use a different set of parties and a new browser page for each test.
 beforeAll(async () => {
@@ -216,6 +216,15 @@ const newUiPage = async (): Promise<Page> => {
   return page;
 };
 
+const waitForNSelector = async (page: Page, selector: string, n: number) => {
+  await page.waitForFunction(
+      (n, selector) => document.querySelectorAll(selector).length == n,
+      {},
+      n,
+      selector
+  );
+}
+
 // Note that Follow is a consuming choice on a contract
 // with a contract key so it is crucial to wait between follows.
 // Otherwise, you get errors due to contention.
@@ -223,11 +232,7 @@ const newUiPage = async (): Promise<Page> => {
 // but that is not the underlying error (the JSON API will
 // output the contention errors as well so look through the log).
 const waitForFollowers = async (page: Page, n: number) => {
-  await page.waitForFunction(
-      (n) => document.querySelectorAll(".test-select-following").length == n,
-      {},
-      n
-  );
+  await waitForNSelector(page, ".test-select-following", n);
 }
 
 // LOGIN_FUNCTION_BEGIN
@@ -391,7 +396,8 @@ test("log in as three different users and start following each other", async () 
   expect(noFollowing3).toEqual([]);
 
   // However, Party 3 should see both Party 1 and Party 2 in the network.
-  await page3.waitForSelector(".test-select-user-in-network");
+  await waitForNSelector(page3, ".test-select-user-in-network", 2);
+
   const network3 = await page3.$$eval(
     ".test-select-user-in-network",
     (following) => following.map((e) => e.innerHTML)

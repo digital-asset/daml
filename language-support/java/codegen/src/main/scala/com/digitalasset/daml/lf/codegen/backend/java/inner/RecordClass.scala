@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -8,7 +8,7 @@ import com.squareup.javapoet.{ClassName, TypeSpec, TypeVariableName}
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 private[inner] object RecordClass extends StrictLogging {
 
@@ -16,7 +16,8 @@ private[inner] object RecordClass extends StrictLogging {
       className: ClassName,
       typeParameters: IndexedSeq[String],
       record: Record.FWT,
-      packagePrefixes: Map[PackageId, String]): TypeSpec = {
+      packagePrefixes: Map[PackageId, String],
+  ): TypeSpec = {
     TrackLineage.of("record", className.simpleName()) {
       logger.info("Start")
       val fields = getFieldsWithTypes(record.fields, packagePrefixes)

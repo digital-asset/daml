@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v1
 import java.util.concurrent.CompletionStage
 
 import com.daml.ledger.api.health.ReportsHealth
+import com.daml.telemetry.TelemetryContext
 
 /** An interface to change a ledger via a participant.
   *
@@ -21,12 +22,11 @@ import com.daml.ledger.api.health.ReportsHealth
   * plans to make this functionality uniformly available: see the roadmap for
   * progress information https://github.com/digital-asset/daml/issues/121.
   *
-  * As of now there are four methods for changing the state of a DAML ledger:
+  * As of now there are four methods for changing the state of a Daml ledger:
   * - submitting a transaction using [[WriteService!.submitTransaction]]
   * - allocating a new party using [[WritePartyService!.allocateParty]]
   * - uploading a new package using [[WritePackagesService!.uploadPackages]]
   * - pruning a participant ledger using [[WriteParticipantPruningService!.prune]]
-  *
   */
 trait WriteService
     extends WritePackagesService
@@ -57,7 +57,7 @@ trait WriteService
     * A note on ledger effective time and record time: transactions are
     * submitted together with a `ledgerEffectiveTime` provided as part of the
     * `transactionMeta` information. The ledger-effective time is used by the
-    * DAML Engine to resolve calls to the `getTime :: Update Time`
+    * Daml Engine to resolve calls to the `getTime :: Update Time`
     * function. Letting the submitter freely choose the ledger-effective time
     * is though a problem for the other stakeholders in the contracts affected
     * by the submitted transaction. The submitter can in principle choose to
@@ -94,6 +94,7 @@ trait WriteService
     *                                    daml-lf/spec/contract-id.rst.
     * @param estimatedInterpretationCost Estimated cost of interpretation that may be used for
     *                                    handling submitted transactions differently.
+    * @param telemetryContext            Implicit context for tracing.
     * @return an async result of a SubmissionResult
     */
   def submitTransaction(
@@ -101,5 +102,5 @@ trait WriteService
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  ): CompletionStage[SubmissionResult]
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
 }

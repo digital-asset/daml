@@ -1,9 +1,23 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE CPP #-}
+
+#ifdef DAML_GENMAP
+
+-- | `DA.Next.Map` is deprecated. Please use `DA.Map` instead.
+module DA.Next.Map
+  {-# DEPRECATED "DA.Next.Map is deprecated. Please use DA.Map instead." #-}
+
+#else
+
 -- | Map - A `Map` is an associative array data type composed of a
 -- collection of key/value pairs such that each possible key appears
 -- at most once in the collection.
 module DA.Next.Map
+
+#endif
+
   ( Map
   , MapKey (..)
   , empty
@@ -170,7 +184,7 @@ instance (MapKey k, Show k, Show v) => Show (Map k v) where
 
 deriving instance MapKey k => Semigroup (Map k v)
 
--- TODO(MH): The converter to DAML-LF can't handle deriving this right now.
+-- TODO(MH): The converter to Daml-LF can't handle deriving this right now.
 -- It fails with "Coercion with symco."
 -- deriving instance MapKey k => Monoid (Map k v)
 instance MapKey k => Monoid (Map k v) where

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -31,6 +31,24 @@ daml_compile(
     visibility = ["//daml-lf:__subpackages__"],
 )
 
+daml_compile(
+    name = "Exceptions",
+    srcs = ["Exceptions.daml"],
+    # TODO https://github.com/digital-asset/daml/issues/8020
+    # Switch to a stable LF version.
+    target = "1.dev",
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
+daml_compile(
+    name = "MultiKeys",
+    srcs = ["MultiKeys.daml"],
+    # TODO https://github.com/digital-asset/daml/issues/8020
+    # Switch to a stable LF version.
+    target = "1.dev",
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
 [
     sh_test(
         name = name + "-test",
@@ -38,11 +56,11 @@ daml_compile(
         srcs = ["daml-lf-test.sh"],
         args = [
             "$(location //daml-lf/repl:repl)",
-            "$(location //compiler/damlc)",
+            "$(location //compiler/damlc:damlc-compile-only)",
             "$(location :%s.dar)" % name,
         ],
         data = [
-            "//compiler/damlc",
+            "//compiler/damlc:damlc-compile-only",
             "//daml-lf/repl",
             ":%s.dar" % name,
         ],
@@ -60,13 +78,13 @@ daml_compile(
         srcs = ["scenario/test.sh"],
         args = [
             "$(location //daml-lf/repl:repl)",
-            "$(location //compiler/damlc)",
+            "$(location //compiler/damlc:damlc-compile-only)",
             "$(location :%s)" % file,
             "$(POSIX_DIFF)",
             "false",
         ],
         data = [
-            "//compiler/damlc",
+            "//compiler/damlc:damlc-compile-only",
             "//daml-lf/repl",
             file,
             "%s/EXPECTED.ledger" % "/".join(file.split("/")[0:3]),
@@ -88,13 +106,13 @@ daml_compile(
         srcs = ["scenario/test.sh"],
         args = [
             "$(location //daml-lf/repl:repl)",
-            "$(location //compiler/damlc)",
+            "$(location //compiler/damlc:damlc-compile-only)",
             "$(location :%s)" % file,
             "$(POSIX_DIFF)",
             "true",
         ],
         data = [
-            "//compiler/damlc",
+            "//compiler/damlc:damlc-compile-only",
             "//daml-lf/repl",
             file,
             "%s/EXPECTED.ledger" % "/".join(file.split("/")[0:3]),

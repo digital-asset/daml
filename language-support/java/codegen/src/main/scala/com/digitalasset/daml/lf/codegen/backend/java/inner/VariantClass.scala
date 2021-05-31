@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -13,7 +13,7 @@ import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
 
-import scala.collection.JavaConverters.{asJavaIterableConverter, iterableAsScalaIterableConverter}
+import scala.jdk.CollectionConverters._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 private[inner] object VariantClass extends StrictLogging {
@@ -24,7 +24,8 @@ private[inner] object VariantClass extends StrictLogging {
       typeArguments: IndexedSeq[String],
       variant: Variant.FWT,
       typeWithContext: TypeWithContext,
-      packagePrefixes: Map[PackageId, String]): (TypeSpec, List[TypeSpec]) =
+      packagePrefixes: Map[PackageId, String],
+  ): (TypeSpec, List[TypeSpec]) =
     TrackLineage.of("variant", typeWithContext.name) {
       logger.info("Start")
       val constructorInfo = getFieldsWithTypes(variant.fields, packagePrefixes)
@@ -42,7 +43,8 @@ private[inner] object VariantClass extends StrictLogging {
         variant,
         typeWithContext,
         packagePrefixes,
-        variantClassName)
+        variantClassName,
+      )
       (variantType, constructors)
     }
 
@@ -52,8 +54,7 @@ private[inner] object VariantClass extends StrictLogging {
       case _: Variant[_] | _: Enum => false
     }
 
-  /**
-    * A record is a variant record if and only if
+  /** A record is a variant record if and only if
     * 1. it is part of the package where the variant is (i.e Package is None)
     * 2. its identifier has the same module as the variant
     * 3. its identifier name is equal to the variant identifier name with the constructor name appended
@@ -61,7 +62,8 @@ private[inner] object VariantClass extends StrictLogging {
   private def isVariantRecord(
       typeWithContext: TypeWithContext,
       constructor: String,
-      identifier: Identifier): Boolean = {
+      identifier: Identifier,
+  ): Boolean = {
     typeWithContext.interface.typeDecls.get(identifier.qualifiedName).exists(isRecord) &&
     typeWithContext.identifier.qualifiedName.module == identifier.qualifiedName.module &&
     typeWithContext.identifier.qualifiedName.name.segments == identifier.qualifiedName.name.segments.init &&
@@ -87,7 +89,7 @@ private[inner] object VariantClass extends StrictLogging {
     CodeBlock.of(
       "$T variant$$ = value$$.asVariant().orElseThrow(() -> new IllegalArgumentException($S))",
       classOf[javaapi.data.Variant],
-      s"Expected Variant to build an instance of the Variant $t"
+      s"Expected Variant to build an instance of the Variant $t",
     )
 
   private def switchOnConstructor(
@@ -95,7 +97,8 @@ private[inner] object VariantClass extends StrictLogging {
       constructors: Fields,
       variant: ClassName,
       subPackage: String,
-      useConstructor: String => CodeBlock): MethodSpec.Builder = {
+      useConstructor: String => CodeBlock,
+  ): MethodSpec.Builder = {
     val constructorsAsString = constructors.map(_.damlName).mkString("[", ", ", "]")
     logger.debug(s"Generating switch on constructors $constructorsAsString for $variant")
     for (constructorInfo <- constructors) {
@@ -107,42 +110,48 @@ private[inner] object VariantClass extends StrictLogging {
     builder
       .addStatement(
         "throw new IllegalArgumentException($S)",
-        s"Found unknown constructor variant$$.getConstructor() for variant $variant, expected one of ${constructorsAsString}"
+        s"Found unknown constructor variant$$.getConstructor() for variant $variant, expected one of ${constructorsAsString}",
       )
   }
 
   private def generateParameterizedFromValue(
       variant: ParameterizedTypeName,
       constructors: Fields,
-      subPackage: String): MethodSpec = {
+      subPackage: String,
+  ): MethodSpec = {
     logger.debug(s"Generating fromValue static method for $variant")
     require(
       variant.typeArguments.asScala.forall(_.isInstanceOf[TypeVariableName]),
-      s"All type arguments of ${variant.rawType} must be generic")
+      s"All type arguments of ${variant.rawType} must be generic",
+    )
     val builder = initFromValueBuilder(variant)
     val typeVariablesExtractorParameters =
       FromValueExtractorParameters.generate(
-        variant.typeArguments.asScala.map(_.toString).toIndexedSeq)
+        variant.typeArguments.asScala.map(_.toString).toIndexedSeq
+      )
     builder.addTypeVariables(typeVariablesExtractorParameters.typeVariables.asJava)
     builder.addParameters(typeVariablesExtractorParameters.parameterSpecs.asJava)
     builder.addStatement("$L", variantExtractor(variant.rawType))
     val extractors =
       CodeBlock.join(
         variant.typeArguments.asScala.map(t => CodeBlock.of("$L", s"fromValue$t")).asJava,
-        ", ")
+        ", ",
+      )
     switchOnConstructor(
       builder,
       constructors,
       variant.rawType,
       subPackage,
-      constructor => CodeBlock.of("return $L.fromValue(variant$$, $L)", constructor, extractors))
+      constructor => CodeBlock.of("return $L.fromValue(variant$$, $L)", constructor, extractors),
+    )
     builder.build()
   }
 
   private def generateConcreteFromValue(
       t: ClassName,
       constructors: Fields,
-      subPackage: String): MethodSpec = {
+      subPackage: String,
+  ): MethodSpec = {
     logger.debug(s"Generating fromValue static method for $t")
     val builder = initFromValueBuilder(t).addStatement("$L", variantExtractor(t))
     switchOnConstructor(
@@ -150,7 +159,8 @@ private[inner] object VariantClass extends StrictLogging {
       constructors,
       t,
       subPackage,
-      c => CodeBlock.of("return $L.fromValue(variant$$)", c))
+      c => CodeBlock.of("return $L.fromValue(variant$$)", c),
+    )
     builder.build()
   }
 
@@ -158,7 +168,8 @@ private[inner] object VariantClass extends StrictLogging {
       typeArguments: IndexedSeq[String],
       constructorInfo: Fields,
       variantClassName: ClassName,
-      subPackage: String): MethodSpec =
+      subPackage: String,
+  ): MethodSpec =
     variantClassName.parameterized(typeArguments) match {
       case variant: ClassName => generateConcreteFromValue(variant, constructorInfo, subPackage)
       case variant: ParameterizedTypeName =>
@@ -172,14 +183,18 @@ private[inner] object VariantClass extends StrictLogging {
       variant: Variant.FWT,
       typeWithContext: TypeWithContext,
       packagePrefixes: Map[PackageId, String],
-      variantClassName: ClassName): List[TypeSpec] = {
+      variantClassName: ClassName,
+  ): List[TypeSpec] = {
     logger.debug(s"Generating inner classes")
     val innerClasses = new collection.mutable.ArrayBuffer[TypeSpec]
     val variantRecords = new collection.mutable.HashSet[String]()
     val fullVariantClassName = variantClassName.parameterized(typeArgs)
-    for (FieldInfo(damlName, damlType, javaName, _) <- getFieldsWithTypes(
+    for (
+      FieldInfo(damlName, damlType, javaName, _) <- getFieldsWithTypes(
         variant.fields,
-        packagePrefixes)) {
+        packagePrefixes,
+      )
+    ) {
       damlType match {
         case TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
           // Variant records will be dealt with in a subsequent phase
@@ -192,7 +207,8 @@ private[inner] object VariantClass extends StrictLogging {
             damlName,
             javaName,
             damlType,
-            packagePrefixes)
+            packagePrefixes,
+          )
       }
     }
     for (child <- typeWithContext.typesLineages) yield {
@@ -209,12 +225,14 @@ private[inner] object VariantClass extends StrictLogging {
                 getFieldsWithTypes(record.fields, packagePrefixes),
                 child.name,
                 fullVariantClassName,
-                packagePrefixes)
+                packagePrefixes,
+              )
               .build()
           case _ =>
             val c = s"${typeWithContext.name}.${child.name}"
             throw new IllegalArgumentException(
-              s"Underlying type of constructor $c is not Record (found: ${child.`type`.typ})")
+              s"Underlying type of constructor $c is not Record (found: ${child.`type`.typ})"
+            )
         }
       } else {
         logger.debug(s"${child.name} is an unrelated inner type")

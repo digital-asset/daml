@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure
 import scala.concurrent.duration.Duration
 import scala.util.control.NoStackTrace
 
-private[testtool] object Result {
+private[daml] object Result {
 
   sealed trait Success
 

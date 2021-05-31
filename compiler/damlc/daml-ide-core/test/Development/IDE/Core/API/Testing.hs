@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GADTs #-}
@@ -88,7 +88,6 @@ import           Control.Monad.IO.Class (MonadIO (liftIO))
 import           System.IO.Temp         (withSystemTempDirectory)
 import           System.IO.Extra
 import           Control.Monad
-import           Control.Monad.Fail
 import           Data.Maybe
 import           Data.List.Extra
 import           Text.Regex.TDFA

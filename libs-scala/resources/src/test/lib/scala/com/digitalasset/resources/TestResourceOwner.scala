@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.resources
@@ -19,12 +19,11 @@ final class TestResourceOwner[T](acquire: Future[T], release: T => Future[Unit])
     if (!acquired.compareAndSet(false, true)) {
       throw new TriedToAcquireTwice
     }
-    Resource[TestContext].apply(acquire)(
-      value =>
-        if (acquired.compareAndSet(true, false))
-          release(value)
-        else
-          Future.failed(new TriedToReleaseTwice)
+    ReleasableResource(acquire)(value =>
+      if (acquired.compareAndSet(true, false))
+        release(value)
+      else
+        Future.failed(new TriedToReleaseTwice)
     )
   }
 }

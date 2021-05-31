@@ -1,9 +1,10 @@
-<!-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 {# TEMPLATE VAR SETTINGS #}
 {%- set url_root = pathto('', 1) %}
 {%- if url_root == '#' %}{% set url_root = '' %}{% endif %}
+{%- set is_index = theme_index_page_boxes and url_root == './' %}
 {%- if not embedded and docstitle %}
 {%- set titlesuffix = " &mdash; "|safe + docstitle|e %}
 {%- else %}
@@ -106,7 +107,7 @@
   {%- endif %}
   {%- endblock %}
   {%- block extrahead %} {% endblock %}
-  {%- if url_root == './' %}
+  {%- if is_index %}
   <style>
     .wy-nav-content {
       max-width: initial;
@@ -115,9 +116,8 @@
   {%- endif %}
 
   {# Favicons #}
-  <link rel="apple-touch-icon" sizes="180x180" href="{{ pathto('_static/images/favicon/apple-touch-icon.png', 1) }}">
-  <link rel="icon" type="image/png" sizes="32x32" href="{{ pathto('_static/images/favicon/favicon-32x32.png', 1) }}">
-  <link rel="icon" type="image/png" sizes="16x16" href="{{ pathto('_static/images/favicon/favicon-16x16.png', 1) }}">
+  <link rel="icon" type="image/svg+xml"  href="{{ pathto('_static/images/daml-logo-mark-light.svg', 1) }}">
+  <link rel="alternate icon" href="{{ pathto('_static/images/daml-favicon-1.ico', 1) }}">
 
   <!-- Google Tag Manager -->
   <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
@@ -163,13 +163,15 @@
           <div class="local-toc">{{ toc }}</div>
           {% endif %}
           {% endblock %}
+          {% if theme_pdf_download %}
           <div class="pdf-download"><a href="{{ pathto('_downloads/DigitalAssetSDK.pdf', 1) }}" download>Download as PDF</a></div>
+          {% endif %}
         </div>
       </div>
     </nav>
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-      {%- if url_root == './' %}
+      {%- if is_index %}
       {% set addClass = ' landing' %}
       {% endif %}
       <div class="topbar fixed">
@@ -182,7 +184,7 @@
         {% include "navbar.html" %}
 
         <div class="version {{addClass}}">
-          {%- if url_root == './' %}
+          {%- if is_index %}
           <span class="hide-tablet">Documentation&nbsp;</span><span class="hide-mobile">Version&nbsp;</span><span class="version_switcher_placeholder"></span>
           {% else %}
           <span class="hide-mobile">Version&nbsp;</span><span class="version_switcher_placeholder"></span>
@@ -192,7 +194,7 @@
 
         {% include "searchinput.html" %}
 
-        {%- if url_root != './' %}
+        {%- if not is_index %}
           {% include "onthispage.html" %}
         {% endif %}
 
@@ -207,7 +209,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             {%- block document %}
             <div itemprop="articleBody">
-              {%- if url_root == './' and activePage != 'search.html' %}
+              {%- if is_index and activePage != 'search.html' %}
                 {% include "boxes.html" %}
               {% else %}
                 {% block body %}
@@ -219,7 +221,7 @@
               {% block comments %}{% endblock %}
             </div>
             {% endif%}
-            {% if url_root != './' %}
+            {% if  not is_index %}
               {% include "footer.html" %}
             {% endif %}
           </div>
@@ -257,7 +259,7 @@
     {% endif %}
   {% endif %}
 
-  {%- if url_root != './' %}
+  {%- if not is_index %}
   <div id="inpageContent"></div>
   {% else %}
   <div id="inpageContent" style="display: none;"></div>

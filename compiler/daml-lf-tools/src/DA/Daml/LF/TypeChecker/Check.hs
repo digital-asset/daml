@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
@@ -30,6 +30,7 @@
 module DA.Daml.LF.TypeChecker.Check
     ( checkModule
     , expandTypeSynonyms
+    , expandSynApp
     , typeOf'
     ) where
 
@@ -130,10 +131,9 @@ kindOfBuiltin = \case
   BTArrow -> KStar `KArrow` KStar `KArrow` KStar
   BTAny -> KStar
   BTTypeRep -> KStar
+  BTRoundingMode -> KStar
+  BTBigNumeric -> KStar
   BTAnyException -> KStar
-  BTGeneralError -> KStar
-  BTArithmeticError -> KStar
-  BTContractError -> KStar
 
 checkKind :: MonadGamma m => Kind -> m ()
 checkKind = \case
@@ -213,15 +213,9 @@ typeOfBuiltin = \case
   BEDate _           -> pure TDate
   BEUnit             -> pure TUnit
   BEBool _           -> pure TBool
+  BERoundingMode _   -> pure TRoundingMode
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
-  BEThrow            -> pure $ TForall (alpha, KStar) (TAnyException :-> tAlpha)
   BEAnyExceptionMessage -> pure $ TAnyException :-> TText
-  BEGeneralErrorMessage -> pure $ TGeneralError :-> TText
-  BEArithmeticErrorMessage -> pure $ TArithmeticError :-> TText
-  BEContractErrorMessage -> pure $ TContractError :-> TText
-  BEMakeGeneralError -> pure $ TText :-> TGeneralError
-  BEMakeArithmeticError -> pure $ TText :-> TArithmeticError
-  BEMakeContractError -> pure $ TText :-> TContractError
   BEEqualGeneric     -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BELessGeneric      -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
   BELessEqGeneric    -> pure $ TForall (alpha, KStar) (tAlpha :-> tAlpha :-> TBool)
@@ -233,12 +227,12 @@ typeOfBuiltin = \case
   BEGreater   btype  -> pure $ tComparison btype
   BEGreaterEq btype  -> pure $ tComparison btype
   BEToText    btype  -> pure $ TBuiltin btype :-> TText
-  BEToTextContractId -> pure $ TForall (alpha, KStar) $ TContractId tAlpha :-> TOptional TText
-  BETextFromCodePoints -> pure $ TList TInt64 :-> TText
+  BEContractIdToText -> pure $ TForall (alpha, KStar) $ TContractId tAlpha :-> TOptional TText
+  BECodePointsToText -> pure $ TList TInt64 :-> TText
   BEPartyToQuotedText -> pure $ TParty :-> TText
-  BEPartyFromText    -> pure $ TText :-> TOptional TParty
-  BEInt64FromText    -> pure $ TText :-> TOptional TInt64
-  BEDecimalFromText  -> pure $ TText :-> TOptional TDecimal
+  BETextToParty    -> pure $ TText :-> TOptional TParty
+  BETextToInt64    -> pure $ TText :-> TOptional TInt64
+  BETextToDecimal  -> pure $ TText :-> TOptional TDecimal
   BETextToCodePoints -> pure $ TText :-> TList TInt64
   BEAddDecimal       -> pure $ tBinop TDecimal
   BESubDecimal       -> pure $ tBinop TDecimal
@@ -259,8 +253,18 @@ typeOfBuiltin = \case
   BEShiftNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tAlpha :-> TNumeric tBeta
   BEInt64ToNumeric -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha
   BENumericToInt64 -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TInt64
-  BEToTextNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TText
-  BENumericFromText -> pure $ TForall (alpha, KNat) $ TText :-> TOptional (TNumeric tAlpha)
+  BENumericToText -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TText
+  BETextToNumeric -> pure $ TForall (alpha, KNat) $ TText :-> TOptional (TNumeric tAlpha)
+
+  BEScaleBigNumeric -> pure $ TBigNumeric :-> TInt64
+  BEPrecisionBigNumeric -> pure $ TBigNumeric :-> TInt64
+  BEAddBigNumeric -> pure $ TBigNumeric :-> TBigNumeric :-> TBigNumeric
+  BESubBigNumeric -> pure $ TBigNumeric :-> TBigNumeric :-> TBigNumeric
+  BEMulBigNumeric -> pure $ TBigNumeric :-> TBigNumeric :-> TBigNumeric
+  BEDivBigNumeric -> pure $ TInt64 :-> TRoundingMode :-> TBigNumeric :-> TBigNumeric :-> TBigNumeric
+  BEShiftRightBigNumeric -> pure $ TInt64 :-> TBigNumeric :-> TBigNumeric
+  BEBigNumericToNumeric -> pure $ TForall (alpha, KNat) $ TBigNumeric :-> TNumeric tAlpha
+  BENumericToBigNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TBigNumeric
 
   BEAddInt64         -> pure $ tBinop TInt64
   BESubInt64         -> pure $ tBinop TInt64
@@ -699,18 +703,23 @@ typeOf' = \case
   ETypeRep ty -> do
     checkGroundType ty
     pure $ TBuiltin BTTypeRep
-  EMakeAnyException ty msg val -> do
+  EToAnyException ty val -> do
     checkExceptionType ty
-    checkExpr msg TText
     checkExpr val ty
     pure TAnyException
   EFromAnyException ty val -> do
     checkExceptionType ty
     checkExpr val TAnyException
     pure (TOptional ty)
+  EThrow ty1 ty2 val -> do
+    checkType ty1 KStar
+    checkExceptionType ty2
+    checkExpr val ty2
+    pure ty1
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf' expr
+  EExperimental _ ty -> pure ty
 
 typeOf :: MonadGamma m => Expr -> m Type
 typeOf expr = do
@@ -732,9 +741,6 @@ checkGroundType ty = do
 
 checkExceptionType' :: MonadGamma m => Type -> m ()
 checkExceptionType' = \case
-    TGeneralError -> pure ()
-    TArithmeticError -> pure ()
-    TContractError -> pure ()
     TCon qtcon -> do
       _ <- inWorld (lookupException qtcon)
       pure ()
@@ -837,6 +843,7 @@ checkDefException m DefException{..} = do
         tcon = Qualified PRSelf modName exnName
     DefDataType _loc _name _serializable tyParams dataCons <- inWorld (lookupDataType tcon)
     unless (null tyParams) $ throwWithContext (EExpectedExceptionTypeHasNoParams modName exnName)
+    checkExpr exnMessage (TCon tcon :-> TText)
     _ <- match _DataRecord (EExpectedExceptionTypeIsRecord modName exnName) dataCons
     case NM.lookup exnName (moduleTemplates m) of
         Nothing -> pure ()

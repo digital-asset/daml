@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DataKinds #-}
@@ -25,6 +25,7 @@ import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import DA.PortFile
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import Data.Functor
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import Network.GRPC.HighLevel.Client (ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
@@ -74,7 +75,7 @@ data BackendError
 -- JAVA_HOME is correctly set, but 'java' is not in PATH.
 javaProc :: [String] -> IO CreateProcess
 javaProc args =
-  lookupEnv "JAVA_HOME" >>= return . \case
+  lookupEnv "JAVA_HOME" <&> \case
     Nothing ->
       proc "java" args
     Just javaHome ->

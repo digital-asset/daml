@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -62,7 +62,9 @@ private[validation] object Serializability {
         checkType(targ)
       case TBuiltin(builtinType) =>
         builtinType match {
-          case BTInt64 | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit =>
+          case BTInt64 | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit |
+              BTAnyException =>
+            ()
           case BTNumeric =>
             unserializable(URNumeric)
           case BTList =>
@@ -85,6 +87,10 @@ private[validation] object Serializability {
             unserializable(URAny)
           case BTTypeRep =>
             unserializable(URTypeRep)
+          case BTRoundingMode =>
+            unserializable(URRoundingMode)
+          case BTBigNumeric =>
+            unserializable(URBigNumeric)
         }
       case TForall(_, _) =>
         unserializable(URForall)
@@ -98,7 +104,8 @@ private[validation] object Serializability {
       world: World,
       tyCon: TTyCon,
       params: ImmArray[(TypeVarName, Kind)],
-      dataCons: DataCons): Unit = {
+      dataCons: DataCons,
+  ): Unit = {
     val context = ContextDefDataType(tyCon.tycon)
     val env =
       (params.iterator foldLeft Env(version, world, context, SRDataType, tyCon))(_.introVar(_))
@@ -132,6 +139,15 @@ private[validation] object Serializability {
     template.key.foreach(k => Env(version, world, context, SRKey, k.typ).checkType())
   }
 
+  def checkException(
+      version: LanguageVersion,
+      world: World,
+      tyCon: TTyCon,
+  ): Unit = {
+    val context = ContextDefException(tyCon.tycon)
+    Env(version, world, context, SRExceptionArg, tyCon).checkType()
+  }
+
   def checkModule(world: World, pkgId: PackageId, module: Module): Unit = {
     val version = world.lookupPackage(NoContext, pkgId).languageVersion
     module.definitions.foreach {
@@ -140,10 +156,13 @@ private[validation] object Serializability {
         if (serializable) checkDataType(version, world, tyCon, params, dataCons)
       case _ =>
     }
-    module.templates.foreach {
-      case (defName, template) =>
-        val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
-        checkTemplate(version, world, tyCon, template)
+    module.templates.foreach { case (defName, template) =>
+      val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
+      checkTemplate(version, world, tyCon, template)
+    }
+    module.exceptions.keys.foreach { defName =>
+      val tyCon = TTyCon(Identifier(pkgId, QualifiedName(module.name, defName)))
+      checkException(version, world, tyCon)
     }
   }
 }

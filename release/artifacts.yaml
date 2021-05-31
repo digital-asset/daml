@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 - target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
@@ -15,6 +15,18 @@
   type: jar-lib
 - target: //daml-lf/archive:daml_lf_1.8_archive_proto_java
   type: jar-proto
+- target: //daml-lf/archive:daml_lf_1.11_archive_proto_jar
+  type: jar-lib
+- target: //daml-lf/archive:daml_lf_1.11_archive_proto_java
+  type: jar-proto
+- target: //daml-lf/archive:daml_lf_1.12_archive_proto_jar
+  type: jar-lib
+- target: //daml-lf/archive:daml_lf_1.12_archive_proto_java
+  type: jar-proto
+- target: //daml-lf/archive:daml_lf_1.13_archive_proto_jar
+  type: jar-lib
+- target: //daml-lf/archive:daml_lf_1.13_archive_proto_java
+  type: jar-proto
 - target: //daml-lf/archive:daml_lf_dev_archive_proto_jar
   type: jar-lib
 - target: //daml-lf/archive:daml_lf_dev_archive_proto_java
@@ -30,6 +42,8 @@
 - target: //daml-lf/interface:interface
   type: jar-scala
 - target: //daml-lf/interpreter:interpreter
+  type: jar-scala
+- target: //daml-lf/kv-transaction-support:kv-transaction-support
   type: jar-scala
 - target: //daml-lf/language:language
   type: jar-scala
@@ -54,7 +68,7 @@
 - target: //language-support/codegen-common:codegen-common
   type: jar-scala
 - target: //language-support/codegen-main:shaded_binary
-  type: jar-scala
+  type: jar-jarjar
 - target: //language-support/java/bindings:bindings-java
   type: jar-lib
 - target: //language-support/java/bindings-rxjava:bindings-rxjava
@@ -62,7 +76,7 @@
 - target: //language-support/java/codegen:lib
   type: jar-scala
 - target: //language-support/java/codegen:shaded_binary
-  type: jar-scala
+  type: jar-jarjar
 - target: //language-support/scala/bindings:bindings
   type: jar-scala
 - target: //language-support/scala/bindings-akka:bindings-akka
@@ -103,11 +117,15 @@
   type: jar-deploy
 - target: //ledger/ledger-on-memory:ledger-on-memory
   type: jar-scala
+- target: //ledger/ledger-on-memory:ledger-on-memory-app
+  type: jar-scala
 - target: //ledger/ledger-on-sql:ledger-on-sql
   type: jar-scala
 - target: //ledger/ledger-resources:ledger-resources
   type: jar-scala
 - target: //ledger/metrics:metrics
+  type: jar-scala
+- target: //ledger/metrics:metrics-test-lib
   type: jar-scala
 - target: //ledger/participant-integration-api:ledger-api-server
   type: jar-scala
@@ -121,6 +139,10 @@
   type: jar-proto
 - target: //ledger/participant-state/kvutils:kvutils
   type: jar-scala
+- target: //ledger/participant-state/kvutils:dar-files-1.dev-lib
+  type: jar-scala
+- target: //ledger/participant-state/kvutils:kvutils-tests-lib
+  type: jar-scala
 - target: //ledger/participant-state/kvutils/app:app
   type: jar-scala
 - target: //ledger/participant-state/kvutils/tools:tools
@@ -133,15 +155,27 @@
   type: jar-scala
 - target: //ledger/participant-state-metrics:participant-state-metrics
   type: jar-scala
-- target: //ledger/sandbox:sandbox
+- target: //ledger/sandbox:sandbox-ce
   type: jar-scala
 - target: //ledger/sandbox-common:sandbox-common
   type: jar-scala
-- target: //ledger/sandbox-classic:sandbox-classic
+- target: //ledger/sandbox-common:sandbox-common-ce
+  type: jar-scala
+- target: //ledger/sandbox-classic:sandbox-classic-ce
+  type: jar-scala
+- target: //ledger/sandbox-on-x:sandbox-on-x
+  type: jar-scala
+- target: //ledger/sandbox-on-x:sandbox-on-x-app
+  type: jar-scala
+- target: //ledger/test-common:dar-files-1.12-lib
+  type: jar-scala
+- target: //ledger/test-common:dar-files-1.dev-lib
+  type: jar-scala
+- target: //ledger/test-common:test-common-1.12
+  type: jar-scala
+- target: //ledger/test-common:test-common-1.dev
   type: jar-scala
 - target: //ledger-service/db-backend:db-backend
-  type: jar-scala
-- target: //ledger-service/http-json:http-json
   type: jar-scala
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala
@@ -159,6 +193,8 @@
   type: jar-scala
 - target: //libs-scala/contextualized-logging:contextualized-logging
   type: jar-scala
+- target: //libs-scala/doobie-slf4j:doobie-slf4j
+  type: jar-scala
 - target: //libs-scala/grpc-utils:grpc-utils
   type: jar-scala
 - target: //libs-scala/ports:ports
@@ -167,6 +203,8 @@
   type: jar-scala
 - target: //libs-scala/resources-akka:resources-akka
   type: jar-scala
+- target: //libs-scala/resources-grpc:resources-grpc
+  type: jar-scala
 - target: //libs-scala/scala-utils:scala-utils
   type: jar-scala
 - target: //libs-scala/scalatest-utils:scalatest-utils
@@ -174,4 +212,6 @@
 - target: //libs-scala/timer-utils:timer-utils
   type: jar-scala
 - target: //triggers/runner:trigger-runner-lib
+  type: jar-scala
+- target: //libs-scala/nameof:nameof
   type: jar-scala

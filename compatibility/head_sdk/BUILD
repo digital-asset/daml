@@ -1,4 +1,4 @@
 exports_files([
-    "sdk-release-tarball.tar.gz",
+    "sdk-release-tarball-ce.tar.gz",
     "ledger-api-test-tool_deploy.jar",
 ])

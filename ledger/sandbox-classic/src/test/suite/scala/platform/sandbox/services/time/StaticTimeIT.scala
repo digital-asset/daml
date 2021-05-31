@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services.time
@@ -32,7 +32,7 @@ class StaticTimeIT
     with Matchers {
 
   override implicit val patienceConfig: PatienceConfig =
-    PatienceConfig(timeout = scaled(Span(1, Seconds)))
+    PatienceConfig(timeout = scaled(Span(2, Seconds)))
 
   implicit private def ec: ExecutionContext = materializer.executionContext
 
@@ -84,7 +84,8 @@ class StaticTimeIT
 
       "fail during initialization" in {
         whenReady(StaticTime.updatedVia(clientStub, notLedgerId.unwrap).failed)(
-          IsStatusException(Status.NOT_FOUND))
+          IsStatusException(Status.NOT_FOUND)
+        )
       }
     }
   }

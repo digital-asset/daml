@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -24,11 +24,13 @@ module Daml.Trigger.Internal
 
 import DA.Action.State
 import DA.Functor ((<&>))
+#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
+import DA.Map (Map)
+import qualified DA.Map as Map
+import DA.Optional (fromOptional)
+#else
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
-#ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-import qualified DA.Map as GMap
-import DA.Optional (fromOptional)
 #endif
 
 import Daml.Trigger.LowLevel hiding (Trigger)
@@ -38,19 +40,19 @@ import Daml.Trigger.LowLevel hiding (Trigger)
 -- | HIDE Active contract set, you can use `getContracts` to access the templates of
 -- a given type.
 
--- This will change to a Map once we have proper maps in DAML-LF
+-- This will change to a Map once we have proper maps in Daml-LF
 data ACS = ACS
   { activeContracts :
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-      GMap.Map TemplateTypeRep
-        (GMap.Map AnyContractId AnyTemplate)
+      Map.Map TemplateTypeRep
+        (Map.Map AnyContractId AnyTemplate)
 #else
       [(AnyContractId, AnyTemplate)]
 #endif
   , pendingContracts : Map CommandId [AnyContractId]
   }
 
--- | TriggerA is the type used in the `rule` of a DAML trigger.
+-- | TriggerA is the type used in the `rule` of a Daml trigger.
 -- Its main feature is that you can call `emitCommands` to
 -- send commands to the ledger.
 newtype TriggerA s a =
@@ -74,7 +76,7 @@ instance ActionState s (TriggerA s) where
 instance HasTime (TriggerA s) where
   getTime = TriggerA $ const getTime
 
--- | TriggerUpdateA is the type used in the `updateState` of a DAML
+-- | TriggerUpdateA is the type used in the `updateState` of a Daml
 -- trigger.  It has similar actions in common with `TriggerA`, but
 -- cannot use `emitCommands` or `getTime`.
 newtype TriggerUpdateA s a =
@@ -96,7 +98,7 @@ instance ActionState s (TriggerUpdateA s) where
   put = TriggerUpdateA . const . put
   modify = TriggerUpdateA . const . modify
 
--- | TriggerInitializeA is the type used in the `initialize` of a DAML
+-- | TriggerInitializeA is the type used in the `initialize` of a Daml
 -- trigger.  It can query, but not emit commands or update the state.
 newtype TriggerInitializeA a =
   -- | HIDE
@@ -112,8 +114,8 @@ addCommands m (Commands cid cmds) = Map.insert cid cmds m
 -- | HIDE
 insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-insertTpl cid tpl acs = acs { activeContracts = GMap.alter addct cid.templateId acs.activeContracts }
-  where addct = Some . GMap.insert cid tpl . fromOptional mempty
+insertTpl cid tpl acs = acs { activeContracts = Map.alter addct cid.templateId acs.activeContracts }
+  where addct = Some . Map.insert cid tpl . fromOptional mempty
 #else
 insertTpl cid tpl acs = acs { activeContracts = (cid, tpl) :: acs.activeContracts }
 #endif
@@ -121,9 +123,9 @@ insertTpl cid tpl acs = acs { activeContracts = (cid, tpl) :: acs.activeContract
 -- | HIDE
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
 groupActiveContracts :
-  [(AnyContractId, AnyTemplate)] -> GMap.Map TemplateTypeRep (GMap.Map AnyContractId AnyTemplate)
-groupActiveContracts = foldr (\v@(cid, _) -> GMap.alter (addct v) cid.templateId) GMap.empty
-  where addct (cid, tpl) = Some . GMap.insert cid tpl . fromOptional mempty
+  [(AnyContractId, AnyTemplate)] -> Map.Map TemplateTypeRep (Map.Map AnyContractId AnyTemplate)
+groupActiveContracts = foldr (\v@(cid, _) -> Map.alter (addct v) cid.templateId) Map.empty
+  where addct (cid, tpl) = Some . Map.insert cid tpl . fromOptional mempty
 #else
 groupActiveContracts : forall a. a -> a
 groupActiveContracts a = a
@@ -132,11 +134,11 @@ groupActiveContracts a = a
 -- | HIDE
 deleteTpl : AnyContractId -> ACS -> ACS
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-deleteTpl cid acs = acs { activeContracts = GMap.alter rmct cid.templateId acs.activeContracts }
+deleteTpl cid acs = acs { activeContracts = Map.alter rmct cid.templateId acs.activeContracts }
   where rmct om = do
           m <- om
-          let m' = GMap.delete cid m
-          if GMap.null m' then None else Some m'
+          let m' = Map.delete cid m
+          if Map.null m' then None else Some m'
 #else
 deleteTpl cid acs = acs { activeContracts = filter (\(cid', _) -> cid /= cid') acs.activeContracts }
 #endif
@@ -145,7 +147,7 @@ deleteTpl cid acs = acs { activeContracts = filter (\(cid', _) -> cid /= cid') a
 lookupTpl : Template a => AnyContractId -> ACS -> Optional a
 lookupTpl cid acs = do
 #ifdef DAML_GENMAP && DAML_GENERIC_COMPARISON
-  tpl <- GMap.lookup cid =<< GMap.lookup cid.templateId acs.activeContracts
+  tpl <- Map.lookup cid =<< Map.lookup cid.templateId acs.activeContracts
 #else
   (_, tpl) <- find ((cid ==) . fst) acs.activeContracts
 #endif

@@ -1,12 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.configuration
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
-/**
-  * Reaching either [[inputBufferSize]] or [[maxCommandsInFlight]] will trigger
+/** Reaching either [[inputBufferSize]] or [[maxCommandsInFlight]] will trigger
   * back-pressure by [[com.daml.ledger.client.services.commands.CommandClient]].
   *
   * Reaching [[maxParallelSubmissions]] will trigger back-pressure
@@ -32,16 +31,18 @@ final case class CommandConfiguration(
     maxParallelSubmissions: Int,
     maxCommandsInFlight: Int,
     limitMaxCommandsInFlight: Boolean,
-    retentionPeriod: FiniteDuration
+    retentionPeriod: FiniteDuration,
 )
 
 object CommandConfiguration {
+  val DefaultTrackerRetentionPeriod: FiniteDuration = 5.minutes
+
   lazy val default: CommandConfiguration =
     CommandConfiguration(
       inputBufferSize = 512,
       maxParallelSubmissions = 512,
       maxCommandsInFlight = 256,
       limitMaxCommandsInFlight = true,
-      retentionPeriod = 24.hours
+      retentionPeriod = DefaultTrackerRetentionPeriod,
     )
 }

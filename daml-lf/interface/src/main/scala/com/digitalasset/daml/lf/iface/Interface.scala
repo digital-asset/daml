@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -11,8 +11,8 @@ import com.daml.lf.data.Ref.{PackageId, QualifiedName}
 import com.daml.lf.iface.reader.Errors
 import com.daml.daml_lf_dev.DamlLf
 
-import scala.collection.JavaConverters._
 import scala.collection.immutable.Map
+import scala.jdk.CollectionConverters._
 
 sealed abstract class InterfaceType extends Product with Serializable {
   def `type`: DefDataType.FWT
@@ -26,11 +26,14 @@ sealed abstract class InterfaceType extends Product with Serializable {
   /** Alias for `type`. */
   def getType: DefDataType.FWT = `type`
   def getTemplate: j.Optional[_ <: DefTemplate.FWT] =
-    fold({ _ =>
-      j.Optional.empty()
-    }, { (_, tpl) =>
-      j.Optional.of(tpl)
-    })
+    fold(
+      { _ =>
+        j.Optional.empty()
+      },
+      { (_, tpl) =>
+        j.Optional.of(tpl)
+      },
+    )
 }
 object InterfaceType {
   final case class Normal(`type`: DefDataType.FWT) extends InterfaceType
@@ -55,8 +58,9 @@ object Interface {
   def read(lf: DamlLf.Archive): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(lf)
 
-  def read(lf: (PackageId, DamlLf.ArchivePayload))
-    : (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
+  def read(
+      lf: (PackageId, DamlLf.ArchivePayload)
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(lf)
 
 }

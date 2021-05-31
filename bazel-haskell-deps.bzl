@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Defines external Haskell dependencies.
@@ -17,14 +17,16 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "8e4f52892d88d23259547b03bb096b46f28c0afc"
-GHCIDE_SHA256 = "3fa3e23d760f1bdfb2a707d2593ea3eaedba748abfd649e8917c585780fa91db"
+GHCIDE_REV = "c8818a7d7abf66a4a7302b360857e3a790ab1be4"
+GHCIDE_SHA256 = "999cd7677b0e6747b6ab7a1e503afc23380cd0c12d9781b09f9a905b8f49cca7"
 GHCIDE_VERSION = "0.1.0"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
 SHAKE_VERSION = "0.18.5"
 ZIP_VERSION = "1.5.0"
+GRPC_HASKELL_REV = "641f0bab046f2f03e5350a7c5f2044af1e19a5b1"
+GRPC_HASKELL_SHA256 = "d850d804d7af779bb8717ebe4ea2ac74903a30adeb5262477a2e7a1536f4ca81"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
@@ -59,9 +61,9 @@ haskell_binary(
     visibility = ["//visibility:public"],
 )
 """,
-        sha256 = "216fb8b5d92afc9df70512da2331e098e926239efd55e770802079c2a13bad5e",
-        strip_prefix = "proto3-suite-0.4.0.0",
-        urls = ["http://hackage.haskell.org/package/proto3-suite-0.4.0.0/proto3-suite-0.4.0.0.tar.gz"],
+        sha256 = "b294ff0fe24c6c256dc8eca1d44c2a9a928b9a1bc70ddce6a1d059499edea119",
+        strip_prefix = "proto3-suite-0af901f9ef3b9719e08eae4fab8fd700d6c8047a",
+        urls = ["https://github.com/awakesecurity/proto3-suite/archive/0af901f9ef3b9719e08eae4fab8fd700d6c8047a.tar.gz"],
     )
 
     #
@@ -127,46 +129,97 @@ haskell_library(
         urls = ["https://github.com/digital-asset/daml-ghcide/archive/%s.tar.gz" % GHCIDE_REV],
     )
 
-    # The Bazel-provided grpc libs cause issues in GHCi so we get them from Nix on Linux and MacOS.
-    deps = '[":grpc", ":libgpr"]' if is_windows else '["@grpc_nix//:grpc_lib"]'
-    extra_targets = """
-fat_cc_library(
-  name = "grpc",
-  input_lib = "@com_github_grpc_grpc//:grpc",
-)
-# Cabal requires libgpr next to libgrpc. However, fat_cc_library of grpc
-# already contains gpr and providing a second copy would cause duplicate symbol
-# errors. Instead, we define an empty dummy libgpr.
-genrule(name = "gpr-source", outs = ["gpr.c"], cmd = "touch $(OUTS)")
-cc_library(name = "gpr", srcs = [":gpr-source"])
-cc_library(name = "libgpr", linkstatic = 1, srcs = [":gpr"])
-""" if is_windows else ""
-
     http_archive(
         name = "grpc_haskell_core",
         build_file_content = """
 load("@com_github_digital_asset_daml//bazel_tools:fat_cc_library.bzl", "fat_cc_library")
-load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
-load("@stackage//:packages.bzl", "packages")
-haskell_cabal_library(
+load("@com_github_digital_asset_daml//bazel_tools:haskell.bzl", "c2hs_suite")
+load("@rules_haskell//haskell:defs.bzl", "haskell_library")
+c2hs_suite(
     name = "grpc-haskell-core",
-    version = "0.0.0.0",
-    srcs = glob(["**"]),
-    haddock = False,
-    deps = packages["grpc-haskell-core"].deps + {deps},
-    tools = ["@stackage-exe//c2hs"],
-    verbose = False,
+    srcs = [
+        "src/Network/GRPC/Unsafe/Constants.hsc",
+    ] + glob(["src/**/*.hs"]),
+    c2hs_src_strip_prefix = "src",
+    hackage_deps = ["clock", "managed", "base", "sorted-list", "bytestring", "containers", "stm", "transformers"],
+    c2hs_srcs = [
+        "src/Network/GRPC/Unsafe/Time.chs",
+        "src/Network/GRPC/Unsafe/ChannelArgs.chs",
+        "src/Network/GRPC/Unsafe/Slice.chs",
+        "src/Network/GRPC/Unsafe/ByteBuffer.chs",
+        "src/Network/GRPC/Unsafe/Metadata.chs",
+        "src/Network/GRPC/Unsafe/Op.chs",
+        "src/Network/GRPC/Unsafe.chs",
+        "src/Network/GRPC/Unsafe/Security.chs",
+    ],
+    compiler_flags = ["-XCPP", "-Wno-unused-imports", "-Wno-unused-record-wildcards"],
     visibility = ["//visibility:public"],
+    deps = [
+        ":fat_cbits",
+    ],
 )
-{extra_targets}
-""".format(deps = deps, extra_targets = extra_targets),
+
+fat_cc_library(
+  name = "fat_cbits",
+  input_lib = "cbits",
+)
+cc_library(
+  name = "cbits",
+  srcs = glob(["cbits/*.c"]),
+  hdrs = glob(["include/*.h"]),
+  includes = ["include/"],
+  deps = [
+    "@com_github_grpc_grpc//:grpc",
+  ]
+)
+""",
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-cpp-options.patch",
+            "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-upgrade.patch",
         ],
-        sha256 = "087527ec3841330b5328d123ca410901905d111529956821b724d92c436e6cdf",
-        strip_prefix = "grpc-haskell-core-0.0.0.0",
-        urls = ["http://hackage.haskell.org/package/grpc-haskell-core-0.0.0.0/grpc-haskell-core-0.0.0.0.tar.gz"],
+        sha256 = GRPC_HASKELL_SHA256,
+        strip_prefix = "gRPC-haskell-{}/core".format(GRPC_HASKELL_REV),
+        urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_REV)],
+    )
+
+    http_archive(
+        name = "grpc_haskell",
+        build_file_content = """
+load("@rules_haskell//haskell:defs.bzl", "haskell_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_library(
+    name = "grpc-haskell",
+    srcs = glob(["src/**/*.hs"]),
+    deps = packages["grpc-haskell"].deps,
+    visibility = ["//visibility:public"],
+)
+""",
+        sha256 = GRPC_HASKELL_SHA256,
+        strip_prefix = "gRPC-haskell-{}".format(GRPC_HASKELL_REV),
+        urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_REV)],
+    )
+
+    http_archive(
+        name = "proto3-suite",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "proto3-suite",
+    version = "0.4.2.0",
+    srcs = glob(["src/**", "test-files/*.bin", "tests/*", "proto3-suite.cabal"]),
+    haddock = False,
+    deps = packages["proto3-suite"].deps,
+    verbose = False,
+    visibility = ["//visibility:public"],
+)
+""",
+        sha256 = "b294ff0fe24c6c256dc8eca1d44c2a9a928b9a1bc70ddce6a1d059499edea119",
+        strip_prefix = "proto3-suite-0af901f9ef3b9719e08eae4fab8fd700d6c8047a",
+        urls = ["https://github.com/awakesecurity/proto3-suite/archive/0af901f9ef3b9719e08eae4fab8fd700d6c8047a.tar.gz"],
+        patches = ["@com_github_digital_asset_daml//bazel_tools:haskell_proto3_suite_deriving_defaults.patch"],
+        patch_args = ["-p1"],
     )
 
     # Note (MK)
@@ -357,6 +410,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "aeson",
             "aeson-extra",
             "aeson-pretty",
+            "alex",
             "ansi-terminal",
             "ansi-wl-pprint",
             "array",
@@ -364,6 +418,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "attoparsec",
             "base",
             "base16-bytestring",
+            "base64",
             "base64-bytestring",
             "binary",
             "blaze-html",
@@ -392,6 +447,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "extra",
             "fast-logger",
             "file-embed",
+            "filelock",
             "filepath",
             "filepattern",
             "foldl",
@@ -405,8 +461,8 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "ghc-paths",
             "ghc-prim",
             "gitrev",
-            "grpc-haskell",
             "haddock-library",
+            "happy",
             "hashable",
             "haskeline",
             "haskell-lsp",
@@ -458,7 +514,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "pretty-show",
             "primitive",
             "process",
-            "proto3-suite",
             "proto3-wire",
             "QuickCheck",
             "quickcheck-instances",
@@ -482,6 +537,8 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "split",
             "stache",
             "stm",
+            "stm-conduit",
+            "stm-chans",
             "swagger2",
             "syb",
             "system-filepath",
@@ -527,9 +584,11 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         vendored_packages = {
             "ghcide": "@ghcide_ghc_lib//:ghcide",
             "grpc-haskell-core": "@grpc_haskell_core//:grpc-haskell-core",
+            "grpc-haskell": "@grpc_haskell//:grpc-haskell",
             "js-jquery": "@js_jquery//:js-jquery",
             "js-dgtable": "@js_dgtable//:js-dgtable",
             "js-flot": "@js_flot//:js-flot",
+            "proto3-suite": "@proto3-suite//:proto3-suite",
             "shake": "@shake//:shake",
             "zip": "@zip//:zip",
         },

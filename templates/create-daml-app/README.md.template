@@ -1,14 +1,14 @@
-[![DAML logo](https://daml.com/static/images/logo.png)](https://www.daml.com)
+[![Daml logo](https://daml.com/static/images/logo.png)](https://www.daml.com)
 
 [![Download](https://img.shields.io/github/release/digital-asset/daml.svg?label=Download)](https://docs.daml.com/getting-started/installation.html)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/main/LICENSE)
 
-# Welcome to _Create DAML App_
+# Welcome to _Create Daml App_
 
 This repository contains a template to get started with developing full-stack
-[DAML](https://daml.com/) applications. The demo application covers the following aspects:
+[Daml](https://daml.com/) applications. The demo application covers the following aspects:
 
-1. A [DAML](https://docs.daml.com/index.html) model of a simple social network
+1. A [Daml](https://docs.daml.com/index.html) model of a simple social network
 2. A UI written in [TypeScript](https://www.typescriptlang.org/) and [React](https://reactjs.org/)
 
 The UI is developed using [React](https://reactjs.org/),
@@ -16,7 +16,7 @@ The UI is developed using [React](https://reactjs.org/),
 official [React integration](https://react.semantic-ui.com/).
 The whole project was bootstrapped with
 [Create React App](https://github.com/facebook/create-react-app).
-Regardless of these choices, all DAML specific aspects of the UI client are
+Regardless of these choices, all Daml specific aspects of the UI client are
 written in plain TypeScript and the UI framework should hence be easily
 replaceable.
 
@@ -27,7 +27,7 @@ Before you can run the application, you need to install the
 [Node](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) package manager for JavaScript.
 
 There are two steps to build the project.
-First, we need to generate TypeScript code bindings for the compiled DAML model.
+First, we need to generate TypeScript code bindings for the compiled Daml model.
 At the root of the repository, run
 ```
 daml build
@@ -44,7 +44,7 @@ npm run-script build
 The last step is not absolutely necessary but useful to check that the app compiles.
 
 To start the application, there are again two steps.
-In one terminal in the root directory, start a DAML ledger using
+In one terminal in the root directory, start a Daml ledger using
 ```
 daml start
 ```
@@ -72,23 +72,23 @@ us. We can follow `Alice` by clicking the plus symbol to the right of here name.
 
 ## Deploying to DABL
 
-Deploying `__PROJECT_NAME__` to the hosted DAML platform
+Deploying `__PROJECT_NAME__` to the hosted Daml platform
 [project:DABL](https://projectdabl.com/) is quite simple. Log into your DABL
-account, create a new ledger and upload your DAML models and your UI.
+account, create a new ledger and upload your Daml models and your UI.
 
-To upload the DAML models, compile them into a DAR by executing
+To upload the Daml models, compile them into a DAR by executing
 ```
 daml build -o __PROJECT_NAME__.dar
 ```
 at the root of your repository. Afterwards, open to the DABL website, select
-the ledger you want to deploy to, go to the "DAML" selection and upload the
+the ledger you want to deploy to, go to the "Daml" selection and upload the
 DAR `__PROJECT_NAME__.dar` you have just created.
 
 To upload the UI, create a ZIP file containing all your UI assets by executing
 ```
 daml build
 daml codegen js .daml/dist/__PROJECT_NAME__-0.1.0.dar -o ui/daml.js
-(cd ui && npm run-script build && zip -r ../__PROJECT_NAME__-ui.zip build)
+(cd ui && npm install && npm run-script build && zip -r ../__PROJECT_NAME__-ui.zip build)
 ```
 at the root of the repository. Afterwards, select the "UI Assets" tab of your
 chosen ledger on the DABL website, upload the ZIP file
@@ -104,9 +104,9 @@ There are many directions in which this application can be extended.
 Regardless of which direction you pick, the following files will be the most
 interesting ones to familiarize yourself with:
 
-- [`daml/User.daml`](daml/User.daml): the DAML model of the social network
+- [`daml/User.daml`](daml/User.daml): the Daml model of the social network
 - `daml.js/__PROJECT_NAME__-0.1.0/src/User.ts` (once you've generated it):
-  a reflection of the types contained in the DAML model in TypeScript
+  a reflection of the types contained in the Daml model in TypeScript
 - [`ui/src/components/MainView.tsx`](ui/src/components/MainView.tsx):
   a React component using the HTTP Ledger API and rendering the main features
 

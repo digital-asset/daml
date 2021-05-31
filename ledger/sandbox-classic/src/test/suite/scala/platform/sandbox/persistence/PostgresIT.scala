@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.persistence
@@ -33,6 +33,7 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
           ServerRole.Testing(getClass),
           postgresDatabase.url,
           maxConnections = 4,
+          3.seconds,
           new MetricRegistry,
         )
         .acquire()(ResourceContext(DirectExecutionContext))

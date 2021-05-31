@@ -4,7 +4,7 @@
     "description": "DAML editing and analysis tools",
     "version": "__VERSION__",
     "publisher": "DigitalAssetHoldingsLLC",
-    "repository": "https://github.com/digital-asset/daml/tree/master/compiler/daml-extension",
+    "repository": "https://github.com/digital-asset/daml/tree/main/compiler/daml-extension",
     "icon": "images/daml-studio.png",
     "engines": {
         "vscode": "^1.39.0"
@@ -151,6 +151,6 @@
         "@types/node": "12.7.11",
         "@types/vscode": "1.39",
         "typescript": "3.6.3",
-        "vsce": "1.66.0"
+        "vsce": "1.88.0"
     }
 }

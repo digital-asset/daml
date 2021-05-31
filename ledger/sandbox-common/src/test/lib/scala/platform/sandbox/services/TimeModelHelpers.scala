@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.services
@@ -8,7 +8,7 @@ import com.daml.ledger.api.v1.admin.config_management_service.{
   ConfigManagementServiceGrpc,
   GetTimeModelRequest,
   SetTimeModelRequest,
-  TimeModel => ProtobufTimeModel
+  TimeModel => ProtobufTimeModel,
 }
 import com.daml.ledger.participant.state.v1.TimeModel
 import com.google.protobuf.timestamp.Timestamp
@@ -28,13 +28,16 @@ object TimeModelHelpers {
           "config-submission",
           Some(Timestamp(30, 0)),
           generation,
-          Some(ProtobufTimeModel(
-            avgTransactionLatency =
-              Some(DurationConversion.toProto(timeModel.avgTransactionLatency)),
-            minSkew = Some(DurationConversion.toProto(timeModel.minSkew)),
-            maxSkew = Some(DurationConversion.toProto(timeModel.maxSkew))
-          ))
-        ))
+          Some(
+            ProtobufTimeModel(
+              avgTransactionLatency =
+                Some(DurationConversion.toProto(timeModel.avgTransactionLatency)),
+              minSkew = Some(DurationConversion.toProto(timeModel.minSkew)),
+              maxSkew = Some(DurationConversion.toProto(timeModel.maxSkew)),
+            )
+          ),
+        )
+      )
     } yield ()
   }
 }

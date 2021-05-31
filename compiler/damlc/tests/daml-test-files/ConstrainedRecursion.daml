@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 The Daml Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 --
 -- @INFO range=12:1-13:21; Use foldl

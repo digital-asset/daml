@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.server.api.services.domain
@@ -10,13 +10,13 @@ import com.daml.ledger.api.messages.transaction.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
   GetTransactionTreesRequest,
-  GetTransactionsRequest
+  GetTransactionsRequest,
 }
 import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 
 import scala.concurrent.Future
@@ -26,7 +26,8 @@ trait TransactionService {
   def getTransactions(req: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed]
 
   def getTransactionTrees(
-      req: GetTransactionTreesRequest): Source[GetTransactionTreesResponse, NotUsed]
+      req: GetTransactionTreesRequest
+  ): Source[GetTransactionTreesResponse, NotUsed]
 
   def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute]
 
@@ -39,5 +40,6 @@ trait TransactionService {
   def getFlatTransactionById(req: GetTransactionByIdRequest): Future[GetFlatTransactionResponse]
 
   def getFlatTransactionByEventId(
-      req: GetTransactionByEventIdRequest): Future[GetFlatTransactionResponse]
+      req: GetTransactionByEventIdRequest
+  ): Future[GetFlatTransactionResponse]
 }

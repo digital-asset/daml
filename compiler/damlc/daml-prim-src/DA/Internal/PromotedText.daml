@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -9,10 +9,10 @@ module DA.Internal.PromotedText
 
 import GHC.Types()
 
--- | Proxy type used to support type-level strings in DAML.
+-- | Proxy type used to support type-level strings in Daml.
 --
 -- A type-level string "foo" will be represented as
--- `PromotedText {"foo": Unit}` in DAML-LF, where
+-- `PromotedText {"foo": Unit}` in Daml-LF, where
 -- `{"_foo": Unit}` is an LF struct with a single field
 -- of unit type. The field name represents the type-level
 -- string, after adding an underscore and some name
@@ -20,7 +20,7 @@ import GHC.Types()
 -- more details.
 --
 -- Note that there's no way to construct the requisite
--- LF struct directly in DAML. In DAML, instead of using
+-- LF struct directly in Daml. In Daml, instead of using
 -- this type, you should just use type-level strings
 -- directly.
 data PromotedText t

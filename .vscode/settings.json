@@ -1,12 +1,22 @@
 {
     "editor.tabSize": 4,
-    // Otherwise Mac users get 200% CPU usage
-    "files.useExperimentalFileWatcher": true,
     "files.exclude": {
         "**/.git": true,
         "dev-env/lib/*": true,
-        "buck-out/*": true,
         "bazel-*/*": true,
+        ".bazel-cache/*": true,
+        "**/node_modules/*": true
+    },
+    "files.watcherExclude": {
+        "**/.stack-work": true,
+        "**/*.hi": true,
+        "**/*.dyn_hi": true,
+        "**/workspaces/*": true,
+        "**/.git": true,
+        "dev-env/lib/*": true,
+        "bazel-*/*": true,
+        ".bazel-cache/*": true,
+        "**/node_modules/*": true
     },
     "search.exclude": {
         "**/.stack-work": true,
@@ -14,8 +24,8 @@
         "**/*.dyn_hi": true,
         "**/workspaces/*": true,
         "dev-env/lib/*": true,
-        "buck-out/*": true,
         "bazel-*/*": true,
+        ".bazel-cache": true
     },
     "[restructuredtext]": {
         "editor.wordWrap": "wordWrapColumn",

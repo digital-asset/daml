@@ -1,7 +1,7 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
-// The DAML Ledger configuration. Please refer to the spec
+// The Daml Ledger configuration. Please refer to the spec
 // (ledger/participant-state/protobuf/ledger_configuration.rst)
 // for detailed information on versions and semantics.
 //

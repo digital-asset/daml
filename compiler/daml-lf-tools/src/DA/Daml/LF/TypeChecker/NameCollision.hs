@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.TypeChecker.NameCollision
@@ -33,7 +33,7 @@ data Name
     | NRecordType ModuleName TypeConName
     | NVariantType ModuleName TypeConName
     | NEnumType ModuleName TypeConName
-    | NTypeSynonym ModuleName TypeConName
+    | NTypeSynonym ModuleName TypeSynName
     | NVariantCon ModuleName TypeConName VariantConName
     | NEnumCon ModuleName TypeConName VariantConName
     | NField ModuleName TypeConName FieldName
@@ -58,7 +58,7 @@ displayName = \case
         T.concat ["variant ", dot m, ":", dot t]
     NEnumType (ModuleName m) (TypeConName t) ->
         T.concat ["enum ", dot m, ":", dot t]
-    NTypeSynonym (ModuleName m) (TypeConName t) ->
+    NTypeSynonym (ModuleName m) (TypeSynName t) ->
         T.concat ["synonym ", dot m, ":", dot t]
     NVariantCon (ModuleName m) (TypeConName t) (VariantConName v) ->
         T.concat ["variant constructor ", dot m, ":", dot t, ".", v]
@@ -95,7 +95,7 @@ nameCollisionForbidden a b = not (nameCollisionPermitted a b)
 -- constructed lower case in order to have case-insensitivity.
 --
 -- This corresponds to the following section of the LF spec:
--- https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst#fully-resolved-name
+-- https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst#fully-resolved-name
 newtype FRName = FRName [T.Text]
     deriving (Eq, Ord)
 
@@ -112,7 +112,7 @@ fullyResolve = FRName . map T.toLower . \case
         m ++ t
     NEnumType (ModuleName m) (TypeConName t) ->
         m ++ t
-    NTypeSynonym (ModuleName m) (TypeConName t) ->
+    NTypeSynonym (ModuleName m) (TypeSynName t) ->
         m ++ t
     NVariantCon (ModuleName m) (TypeConName t) (VariantConName v) ->
         m ++ t ++ [v]
@@ -193,6 +193,10 @@ checkTemplate moduleName Template{..} = do
     forM_ tplChoices $ \TemplateChoice{..} ->
         checkName (NChoice moduleName tplTypeCon chcName)
 
+checkSynonym :: ModuleName -> DefTypeSyn -> NCMonad ()
+checkSynonym moduleName DefTypeSyn{..} =
+    checkName (NTypeSynonym moduleName synName)
+
 checkModuleName :: Module -> NCMonad ()
 checkModuleName m =
     checkName (NModule (moduleName m))
@@ -207,6 +211,8 @@ checkModuleBody m = do
         checkDataType (moduleName m) dataType
     forM_ (moduleTemplates m) $ \tpl ->
         checkTemplate (moduleName m) tpl
+    forM_ (moduleSynonyms m) $ \synonym ->
+        checkSynonym (moduleName m) synonym
 
 checkModule :: Module -> NCMonad ()
 checkModule m = do
@@ -238,13 +244,12 @@ isAscendant (ModuleName xs) (ModuleName ys) =
 -- name collision condition.
 checkModuleDeps :: World -> Module -> NCMonad ()
 checkModuleDeps world mod0 = do
-    -- TODO #3616:  check for collisions with TypeSynonyms
     let package = getWorldSelf world
         modules = NM.toList (packageModules package)
         name0 = moduleName mod0
         ascendants = filter (flip isAscendant name0 . moduleName) modules
         descendants = filter (isAscendant name0 . moduleName) modules
-    mapM_ checkModuleBody ascendants -- only need type names
+    mapM_ checkModuleBody ascendants -- only need type and synonym names
     mapM_ checkModuleName descendants -- only need module names
     mapM_ checkVirtualModuleName (concatMap virtualModuleNames descendants)
     checkModule mod0

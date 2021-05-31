@@ -1,8 +1,9 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Project.Consts
     ( damlPathEnvVar
+    , damlCacheEnvVar
     , projectPathEnvVar
     , sdkPathEnvVar
     , sdkVersionEnvVar
@@ -42,6 +43,11 @@ import DA.Daml.Project.Types
 -- On Windows, that's %APPDATA%/daml
 damlPathEnvVar :: String
 damlPathEnvVar = "DAML_HOME"
+
+-- | The DAML_CACHE environment variable determines the path of the daml
+-- assistant cache directory. This defaults to XDG_CACHE_HOME.
+damlCacheEnvVar :: String
+damlCacheEnvVar = "DAML_CACHE"
 
 -- | The DAML_PROJECT environment variable determines the path of
 -- the current daml project. By default, this is done by traversing
@@ -97,6 +103,7 @@ sdkConfigName = "sdk-config.yaml"
 damlEnvVars :: [String]
 damlEnvVars =
     [ damlPathEnvVar
+    , damlCacheEnvVar
     , projectPathEnvVar
     , sdkPathEnvVar
     , sdkVersionEnvVar

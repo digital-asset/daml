@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -10,27 +10,33 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
 import com.daml.ledger.participant.state.v1._
-import com.daml.lf.command.{Command, Commands}
+import com.daml.ledger.test.SimplePackagePartyTestDar
+import com.daml.lf.command.{ApiCommand, Commands}
 import com.daml.lf.crypto
-import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.engine.Engine
+import com.daml.lf.engine.{Engine, VisibleByKey}
+import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Transaction
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import scalaz.State
 import scalaz.std.list._
 import scalaz.syntax.traverse._
+import scalaz.{Reader, State}
 
-import scala.collection.JavaConverters._
-import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 
 final case class KVTestState(
     participantId: ParticipantId,
     recordTime: Timestamp,
     defaultConfig: Configuration,
     nextEntryId: Int,
-    damlState: Map[DamlStateKey, DamlStateValue]) {}
+    engine: Engine,
+    keyValueSubmission: KeyValueSubmission,
+    keyValueCommitting: KeyValueCommitting,
+    uploadedPackages: Map[Ref.PackageId, Ast.Package],
+    damlState: Map[DamlStateKey, DamlStateValue],
+)
 
 object KVTest {
 
@@ -39,37 +45,71 @@ object KVTest {
 
   type KVTest[A] = State[KVTestState, A]
 
-  def initialTestState: KVTestState =
+  // This returns `State`, not `Reader`, to avoid having to convert between them.
+  def KVReader[A](f: KVTestState => A): KVTest[A] =
+    Reader(f).state
+
+  private[this] val MinMaxRecordTimeDelta: Duration = Duration.ofSeconds(1)
+  private[this] val DefaultSimplePackage: SimplePackage = new SimplePackage(
+    SimplePackagePartyTestDar
+  )
+
+  private[kvutils] val metrics = new Metrics(new MetricRegistry)
+
+  private def initialTestState: KVTestState = {
+    val engine = Engine.DevEngine()
     KVTestState(
       participantId = mkParticipantId(0),
       recordTime = Timestamp.Epoch.addMicros(1000000),
       defaultConfig = theDefaultConfig,
       nextEntryId = 0,
-      damlState = Map.empty
+      engine = engine,
+      keyValueSubmission = new KeyValueSubmission(metrics),
+      keyValueCommitting = new KeyValueCommitting(engine, metrics),
+      uploadedPackages = Map.empty,
+      damlState = Map.empty,
     )
+  }
+
+  def sequentially[A](operations: Seq[KVTest[A]]): KVTest[List[A]] =
+    operations.toList.sequence
+
+  def inParallelReadOnly[A](operations: Seq[KVTest[A]]): KVTest[Seq[A]] =
+    KVReader { state =>
+      operations.map(_.eval(state))
+    }
 
   def runTest[A](test: KVTest[A]): A =
     test.eval(initialTestState)
 
-  def runTestWithPackage[A](additionalContractDataTy: String, parties: Party*)(test: KVTest[A]): A =
+  def runTestWithPackage[A](
+      simplePackage: SimplePackage,
+      parties: Party*
+  )(test: KVTest[A])(implicit loggingContext: LoggingContext): A =
     (for {
-      _ <- uploadArchive(additionalContractDataTy)
+      _ <- uploadArchive(simplePackage)
       _ <- parties.toList.traverse(p => allocateParty(p, p))
       r <- test
     } yield r).eval(initialTestState)
 
-  def runTestWithSimplePackage[A](parties: Party*)(test: KVTest[A]): A =
-    runTestWithPackage(DefaultAdditionalContractDataTy, parties: _*)(test)
+  def runTestWithSimplePackage[A](
+      parties: Party*
+  )(test: SimplePackage => KVTest[A])(implicit loggingContext: LoggingContext): A =
+    runTestWithPackage(DefaultSimplePackage, parties: _*)(test(DefaultSimplePackage))
 
-  def uploadArchive(additionalContractDataTy: String): KVTest[Unit] =
+  private def uploadArchive(
+      simplePackage: SimplePackage
+  )(implicit loggingContext: LoggingContext): KVTest[Unit] =
     for {
       archiveLogEntry <- submitArchives(
         "simple-archive-submission",
-        archiveWithContractData(additionalContractDataTy)).map(_._2)
+        simplePackage.archives.values.toSeq: _*
+      ).map(_._2)
       _ = assert(archiveLogEntry.getPayloadCase == DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY)
+      _ <- modify[KVTestState](state =>
+        state.copy(uploadedPackages = state.uploadedPackages ++ simplePackage.packages)
+      )
     } yield ()
-
-  def uploadSimpleArchive: KVTest[Unit] = uploadArchive(DefaultAdditionalContractDataTy)
 
   def freshEntryId: KVTest.KVTest[DamlLogEntryId] =
     for {
@@ -99,8 +139,11 @@ object KVTest {
       .flatMap {
         case None => getDefaultConfiguration
         case Some(v) =>
-          State.state(Configuration.decode(v.getConfigurationEntry.getConfiguration).right.get)
+          State.state(Configuration.decode(v.getConfigurationEntry.getConfiguration).toOption.get)
       }
+
+  def currentRecordTime: KVTest[Timestamp] =
+    get[KVTestState].map(_.recordTime)
 
   def setRecordTime(rt: Timestamp): KVTest[Unit] =
     modify(_.copy(recordTime = rt))
@@ -117,7 +160,7 @@ object KVTest {
   def submitArchives(
       submissionId: String,
       archives: DamlLf.Archive*
-  ): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     get.flatMap { testState =>
       submit(
         createArchiveSubmission(submissionId, testState, archives: _*)
@@ -127,7 +170,7 @@ object KVTest {
   def preExecuteArchives(
       submissionId: String,
       archives: DamlLf.Archive*
-  ): KVTest[(DamlLogEntryId, PreExecutionResult)] =
+  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, PreExecutionResult)] =
     get.flatMap { testState =>
       preExecute(
         createArchiveSubmission(submissionId, testState, archives: _*)
@@ -137,44 +180,43 @@ object KVTest {
   def runCommand(
       submitter: Party,
       submissionSeed: crypto.Hash,
-      additionalContractDataTy: String,
-      cmds: Command*,
+      command: ApiCommand,
   ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
-    for {
-      s <- get[KVTestState]
-      (tx, meta) = engine
+    KVReader { state =>
+      state.engine
         .submit(
+          submitters = Set(submitter),
           cmds = Commands(
-            submitters = Set(submitter),
-            commands = ImmArray(cmds),
-            ledgerEffectiveTime = s.recordTime,
+            commands = ImmArray(command),
+            ledgerEffectiveTime = state.recordTime,
             commandsReference = "cmds-ref",
           ),
-          participantId = s.participantId,
+          participantId = state.participantId,
           submissionSeed = submissionSeed,
         )
         .consume(
-          { coid =>
-            s.damlState
-              .get(Conversions.contractIdToStateKey(coid))
+          pcs = contractId =>
+            state.damlState
+              .get(Conversions.contractIdToStateKey(contractId))
               .map { v =>
                 Conversions.decodeContractInstance(v.getContractState.getContractInstance)
-              }
-          }, { _ =>
-            Some(decodedPackageWithContractData(additionalContractDataTy))
-          }, { _ =>
-            sys.error("no keys")
-          }
+              },
+          packages = state.uploadedPackages.get,
+          keys = globalKey =>
+            state.damlState
+              .get(Conversions.globalKeyToStateKey(globalKey.globalKey))
+              .map(value => Conversions.decodeContractId(value.getContractKeyState.getContractId)),
+          localKeyVisible = VisibleByKey.fromSubmitters(Set(submitter)),
         )
-        .getOrElse(sys.error("Engine.submit fail"))
-    } yield tx -> meta
+        .fold(error => throw new RuntimeException(error.detailMsg), identity)
+    }
 
   def runSimpleCommand(
       submitter: Party,
       submissionSeed: crypto.Hash,
-      cmds: Command*,
+      command: ApiCommand,
   ): KVTest[(SubmittedTransaction, Transaction.Metadata)] =
-    runCommand(submitter, submissionSeed, DefaultAdditionalContractDataTy, cmds: _*)
+    runCommand(submitter, submissionSeed, command)
 
   def submitTransaction(
       submitter: Party,
@@ -182,20 +224,16 @@ object KVTest {
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
       commandId: CommandId = randomLedgerString,
-      deduplicationTime: Duration = Duration.ofDays(1)): KVTest[(DamlLogEntryId, DamlLogEntry)] =
-    for {
-      testState <- get[KVTestState]
-      submissionInfo = createSubmitterInfo(submitter, commandId, deduplicationTime, testState)
-      (tx, txMetaData) = transaction
-      submission = transactionToSubmission(
-        submissionSeed,
-        letDelta,
-        testState,
-        submissionInfo,
-        tx,
-        txMetaData)
-      result <- submit(submission)
-    } yield result
+      deduplicationTime: Duration = Duration.ofDays(1),
+  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+    prepareTransactionSubmission(
+      submitter,
+      transaction,
+      submissionSeed,
+      letDelta,
+      commandId,
+      deduplicationTime,
+    ).flatMap(submit)
 
   def preExecuteTransaction(
       submitter: Party,
@@ -203,27 +241,52 @@ object KVTest {
       submissionSeed: crypto.Hash,
       letDelta: Duration = Duration.ZERO,
       commandId: CommandId = randomLedgerString,
-      deduplicationTime: Duration = Duration.ofDays(1))
-    : KVTest[(DamlLogEntryId, PreExecutionResult)] =
-    for {
-      testState <- get[KVTestState]
-      submitterInfo = createSubmitterInfo(submitter, commandId, deduplicationTime, testState)
-      (tx, txMetaData) = transaction
-      submission = transactionToSubmission(
-        submissionSeed,
-        letDelta,
-        testState,
-        submitterInfo,
-        tx,
-        txMetaData)
-      result <- preExecute(submission)
-    } yield result
+      deduplicationTime: Duration = Duration.ofDays(1),
+  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, PreExecutionResult)] =
+    prepareTransactionSubmission(
+      submitter,
+      transaction,
+      submissionSeed,
+      letDelta,
+      commandId,
+      deduplicationTime,
+    ).flatMap(preExecute)
+
+  def prepareTransactionSubmission(
+      submitter: Party,
+      transaction: (SubmittedTransaction, Transaction.Metadata),
+      submissionSeed: crypto.Hash,
+      letDelta: Duration = Duration.ZERO,
+      commandId: CommandId = randomLedgerString,
+      deduplicationTime: Duration = Duration.ofDays(1),
+  ): KVTest[DamlSubmission] = KVReader { testState =>
+    val (tx, txMetaData) = transaction
+    val submitterInfo = createSubmitterInfo(
+      submitter,
+      commandId,
+      deduplicationTime,
+      testState.recordTime,
+    )
+    testState.keyValueSubmission.transactionToSubmission(
+      submitterInfo = submitterInfo,
+      meta = TransactionMeta(
+        ledgerEffectiveTime = testState.recordTime.addMicros(letDelta.toNanos / 1000),
+        workflowId = None,
+        submissionTime = txMetaData.submissionTime,
+        submissionSeed = submissionSeed,
+        optUsedPackages = Some(txMetaData.usedPackages),
+        optNodeSeeds = None,
+        optByKeyNodes = None,
+      ),
+      tx = tx,
+    )
+  }
 
   def submitConfig(
       configModify: Configuration => Configuration,
       submissionId: SubmissionId = randomLedgerString,
-      minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta
-  ): KVTest[DamlLogEntry] =
+      minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta,
+  )(implicit loggingContext: LoggingContext): KVTest[DamlLogEntry] =
     for {
       testState <- get[KVTestState]
       oldConf <- getConfiguration
@@ -233,15 +296,16 @@ object KVTest {
           submissionId,
           minMaxRecordTimeDelta,
           testState,
-          oldConf)
+          oldConf,
+        )
       )
     } yield result._2
 
   def preExecuteConfig(
       configModify: Configuration => Configuration,
       submissionId: SubmissionId = randomLedgerString,
-      minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta
-  ): KVTest[PreExecutionResult] =
+      minMaxRecordTimeDelta: Duration = MinMaxRecordTimeDelta,
+  )(implicit loggingContext: LoggingContext): KVTest[PreExecutionResult] =
     for {
       testState <- get[KVTestState]
       oldConf <- getConfiguration
@@ -251,27 +315,35 @@ object KVTest {
           submissionId,
           minMaxRecordTimeDelta,
           testState,
-          oldConf)
+          oldConf,
+        )
       )
     } yield result._2
 
   def submitPartyAllocation(
       subId: String,
       hint: String,
-      participantId: ParticipantId): KVTest[DamlLogEntry] =
-    submit(
-      createPartySubmission(subId, hint, participantId)
-    ).map(_._2)
+      participantId: ParticipantId,
+  )(implicit loggingContext: LoggingContext): KVTest[DamlLogEntry] =
+    get[KVTestState]
+      .flatMap(testState => submit(createPartySubmission(subId, hint, participantId, testState)))
+      .map(_._2)
 
   def preExecutePartyAllocation(
       subId: String,
       hint: String,
-      participantId: ParticipantId): KVTest[PreExecutionResult] =
-    preExecute(
-      createPartySubmission(subId, hint, participantId)
-    ).map(_._2)
+      participantId: ParticipantId,
+  )(implicit loggingContext: LoggingContext): KVTest[PreExecutionResult] =
+    get[KVTestState]
+      .flatMap(testState =>
+        preExecute(createPartySubmission(subId, hint, participantId, testState))
+      )
+      .map(_._2)
 
-  def allocateParty(subId: String, hint: String): KVTest[Party] =
+  def allocateParty(
+      subId: String,
+      hint: String,
+  )(implicit loggingContext: LoggingContext): KVTest[Party] =
     for {
       testState <- get[KVTestState]
       result <- submitPartyAllocation(subId, hint, testState.participantId).map { logEntry =>
@@ -280,11 +352,13 @@ object KVTest {
       }
     } yield result
 
-  private def submit(submission: DamlSubmission): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+  private def submit(
+      submission: DamlSubmission
+  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     for {
       testState <- get[KVTestState]
       entryId <- freshEntryId
-      (logEntry, newState) = keyValueCommitting.processSubmission(
+      (logEntry, newState) = testState.keyValueCommitting.processSubmission(
         entryId = entryId,
         recordTime = testState.recordTime,
         defaultConfig = testState.defaultConfig,
@@ -306,25 +380,22 @@ object KVTest {
       entryId -> logEntry
     }
 
-  private def preExecute(
-      damlSubmission: DamlSubmission): KVTest[(DamlLogEntryId, PreExecutionResult)] =
+  def preExecute(
+      damlSubmission: DamlSubmission
+  )(implicit loggingContext: LoggingContext): KVTest[(DamlLogEntryId, PreExecutionResult)] =
     for {
       testState <- get[KVTestState]
       entryId <- freshEntryId
       inputKeys = damlSubmission.getInputDamlStateList.asScala
-      preExecutionResult @ PreExecutionResult(
-        readSet,
-        successfulLogEntry,
-        newState,
-        outOfTimeBoundsLogEntry,
-        _,
-        _) = keyValueCommitting
-        .preExecuteSubmission(
-          defaultConfig = testState.defaultConfig,
-          submission = damlSubmission,
-          participantId = testState.participantId,
-          inputState = createInputState(inputKeys, testState),
-        )
+      inputState <- createInputState(inputKeys)
+      preExecutionResult = testState.keyValueCommitting.preExecuteSubmission(
+        defaultConfig = testState.defaultConfig,
+        submission = damlSubmission,
+        participantId = testState.participantId,
+        inputState = inputState,
+      )
+      PreExecutionResult(readSet, successfulLogEntry, newState, outOfTimeBoundsLogEntry, _, _) =
+        preExecutionResult
       _ <- addDamlState(newState)
     } yield {
       assert(
@@ -334,100 +405,77 @@ object KVTest {
       KeyValueConsumption.logEntryToUpdate(
         entryId,
         successfulLogEntry,
-        recordTimeFromTimeUpdateLogEntry)
+        recordTimeFromTimeUpdateLogEntry,
+      )
       KeyValueConsumption.logEntryToUpdate(
         entryId,
         outOfTimeBoundsLogEntry,
-        recordTimeFromTimeUpdateLogEntry)
+        recordTimeFromTimeUpdateLogEntry,
+      )
 
       entryId -> preExecutionResult
     }
 
-  private[this] val MinMaxRecordTimeDelta: Duration = Duration.ofSeconds(1)
-  private[this] val DefaultAdditionalContractDataTy = "Party"
-  private[this] val engine = Engine.DevEngine()
-  private[kvutils] val metrics = new Metrics(new MetricRegistry)
-  private[this] val keyValueCommitting = new KeyValueCommitting(engine, metrics)
-  private[this] val keyValueSubmission = new KeyValueSubmission(metrics)
-
   private[this] def createInputState(
-      inputKeys: mutable.Buffer[DamlStateKey],
-      testState: KVTestState): Map[DamlStateKey, Option[DamlStateValue]] = {
-    inputKeys.map { key =>
-      {
-        val damlStateValue = testState.damlState
-          .get(key)
-        key -> damlStateValue
-      }
-    }.toMap
+      inputKeys: collection.Seq[DamlStateKey]
+  ): KVTest[Map[DamlStateKey, Option[DamlStateValue]]] = KVReader { state =>
+    inputKeys.view
+      .map(key => key -> state.damlState.get(key))
+      .toMap
   }
 
-  private[this] def createSubmitterInfo(
+  private def createSubmitterInfo(
       submitter: Party,
       commandId: CommandId,
       deduplicationTime: Duration,
-      testState: KVTestState): SubmitterInfo =
-    SubmitterInfo.withSingleSubmitter(
-      submitter = submitter,
+      recordTime: Timestamp,
+  ): SubmitterInfo =
+    SubmitterInfo(
+      actAs = List(submitter),
       applicationId = Ref.LedgerString.assertFromString("test"),
       commandId = commandId,
-      deduplicateUntil = testState.recordTime.addMicros(deduplicationTime.toNanos / 1000).toInstant,
-    )
-
-  private[this] def transactionToSubmission(
-      submissionSeed: Hash,
-      letDelta: Duration,
-      testState: KVTestState,
-      submInfo: SubmitterInfo,
-      tx: SubmittedTransaction,
-      txMetaData: Transaction.Metadata): DamlSubmission =
-    keyValueSubmission.transactionToSubmission(
-      submitterInfo = submInfo,
-      meta = TransactionMeta(
-        ledgerEffectiveTime = testState.recordTime.addMicros(letDelta.toNanos / 1000),
-        workflowId = None,
-        submissionTime = txMetaData.submissionTime,
-        submissionSeed = submissionSeed,
-        optUsedPackages = Some(txMetaData.usedPackages),
-        optNodeSeeds = None,
-        optByKeyNodes = None,
-      ),
-      tx = tx
+      deduplicateUntil = recordTime.addMicros(deduplicationTime.toNanos / 1000).toInstant,
     )
 
   private[this] def createPartySubmission(
       subId: String,
       hint: String,
-      participantId: ParticipantId): DamlSubmission =
-    keyValueSubmission.partyToSubmission(
+      participantId: ParticipantId,
+      testState: KVTestState,
+  ): DamlSubmission =
+    testState.keyValueSubmission.partyToSubmission(
       Ref.LedgerString.assertFromString(subId),
       Some(hint),
       None,
-      participantId)
+      participantId,
+    )
 
   private[this] def createConfigurationSubmission(
       configModify: Configuration => Configuration,
       submissionId: SubmissionId,
       minMaxRecordTimeDelta: Duration,
       testState: KVTestState,
-      oldConf: Configuration): DamlSubmission =
-    keyValueSubmission.configurationToSubmission(
+      oldConf: Configuration,
+  ): DamlSubmission =
+    testState.keyValueSubmission.configurationToSubmission(
       maxRecordTime = testState.recordTime.addMicros(minMaxRecordTimeDelta.toNanos / 1000),
       submissionId = submissionId,
       participantId = testState.participantId,
-      config = configModify(oldConf)
+      config = configModify(oldConf),
     )
 
   private[this] def createArchiveSubmission(
       submissionId: String,
       testState: KVTestState,
-      archives: DamlLf.Archive*): DamlSubmission =
-    keyValueSubmission.archivesToSubmission(
+      archives: DamlLf.Archive*
+  ): DamlSubmission =
+    testState.keyValueSubmission.archivesToSubmission(
       submissionId = submissionId,
       archives = archives.toList,
       sourceDescription = "description",
-      participantId = testState.participantId
+      participantId = testState.participantId,
     )
 
-  private[this] def recordTimeFromTimeUpdateLogEntry = Some(Timestamp.now())
+  private[this] def recordTimeFromTimeUpdateLogEntry: Option[Timestamp] =
+    Some(Timestamp.now())
 }

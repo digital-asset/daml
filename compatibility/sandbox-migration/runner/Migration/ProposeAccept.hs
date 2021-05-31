@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DerivingStrategies #-}
@@ -53,16 +53,16 @@ test step modelDar = Test {..}
             _ -> throwError ("Expected 1 new T contract but got: " <> show addedTs)
         -- verify that the stream before and after the migration are the same.
         unless (prevTransactions == oldTransactions) $
-            fail $ "Transaction stream changed after migration "
+            Left $ "Transaction stream changed after migration "
                 <> show (prevTransactions, oldTransactions)
         -- verify that we created the right number of new transactions.
         unless (length newTransactions == length oldTransactions + 5) $
-            fail $ "Expected 3 new transactions but got "
+            Left $ "Expected 3 new transactions but got "
                 <> show (length newTransactions - length oldTransactions)
         let (newStart, newEnd) = splitAt (length oldTransactions) newTransactions
         -- verify that the new stream is identical to the old if we cut off the new transactions.
         unless (newStart == oldTransactions) $
-            fail $ "New transaction stream does not contain old transactions "
+            Left $ "New transaction stream does not contain old transactions "
                 <> show (oldTransactions, newStart)
         -- verify that the new transactions are what we expect.
         validateNewTransactions (map events newEnd)

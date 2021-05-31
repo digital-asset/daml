@@ -1,0 +1,47 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Test where
+
+import DA.Exception
+
+template T
+  with
+    ps : [Party]
+  where
+    signatory ps
+
+template Tester
+  with
+    a : Party
+    b : Party
+  where
+    signatory a
+    observer b
+    nonconsuming choice CreateInTry : ()
+      controller b
+      do try do
+           create (T [a, b])
+           abort ""
+         catch
+           GeneralError _ -> pure ()
+
+    nonconsuming choice CreateInNestedTry : ()
+      controller b
+      do try try do create (T [a, b])
+                    abort ""
+             catch
+               GeneralError _ -> pure ()
+         catch
+           GeneralError _ -> pure ()
+
+run = scenario do
+  a <- getParty "a"
+  b <- getParty "b"
+  cid <- submit a $ create (Tester a b)
+  -- Tests that we have the authorization from the parent exercise.
+  submit b $ exercise cid CreateInTry
+  -- Tests that we have the authorization from the parent exercise
+  -- even if there is another rollback in between.
+  submit b $ exercise cid CreateInNestedTry

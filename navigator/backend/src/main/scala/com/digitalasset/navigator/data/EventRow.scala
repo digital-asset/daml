@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.data
@@ -31,7 +31,8 @@ final case class EventRow(
     agreementText: Option[String],
     signatories: String,
     observers: String,
-    key: Option[String]) {
+    key: Option[String],
+) {
 
   def toEvent(types: PackageRegistry): Try[Event] = {
     subclassType match {
@@ -45,15 +46,21 @@ final case class EventRow(
           recArgJson <- Try(recordArgument.get)
           recArgAny <- Try(
             ApiCodecCompressed
-              .jsValueToApiValue(recArgJson.parseJson, tp, types.damlLfDefDataType _))
+              .jsValueToApiValue(recArgJson.parseJson, tp, types.damlLfDefDataType _)
+          )
           recArg <- Try(recArgAny.asInstanceOf[ApiRecord])
           template <- types
             .template(tp)
-            .fold[Try[Template]](Failure(
-              new RuntimeException(s"No template in package registry with identifier $tp")))(Try(_))
+            .fold[Try[Template]](
+              Failure(new RuntimeException(s"No template in package registry with identifier $tp"))
+            )(Try(_))
           key <- Try(
-            key.map(_.parseJson.convertTo[ApiValue](
-              ApiCodecCompressed.apiValueJsonReader(template.key.get, types.damlLfDefDataType _))))
+            key.map(
+              _.parseJson.convertTo[ApiValue](
+                ApiCodecCompressed.apiValueJsonReader(template.key.get, types.damlLfDefDataType _)
+              )
+            )
+          )
         } yield {
           ContractCreated(
             ApiTypes.EventId(id),
@@ -67,13 +74,14 @@ final case class EventRow(
             agreementText,
             sig,
             obs,
-            key
+            key,
           )
-        }).recoverWith {
-          case e: Throwable =>
-            Failure(
-              DeserializationFailed(
-                s"Failed to deserialize ContractCreated from row: $this. Error: $e"))
+        }).recoverWith { case e: Throwable =>
+          Failure(
+            DeserializationFailed(
+              s"Failed to deserialize ContractCreated from row: $this. Error: $e"
+            )
+          )
         }
       case "ChoiceExercised" =>
         (for {
@@ -84,10 +92,12 @@ final case class EventRow(
           tid <- Try(parseOpaqueIdentifier(tp).get)
           t <- Try(types.template(tid).get)
           choiceType <- Try(
-            t.choices.find(c => ApiTypes.Choice.unwrap(c.name) == chc).get.parameter)
+            t.choices.find(c => ApiTypes.Choice.unwrap(c.name) == chc).get.parameter
+          )
           arg <- Try(
             ApiCodecCompressed
-              .jsValueToApiValue(argJson.parseJson, choiceType, types.damlLfDefDataType _))
+              .jsValueToApiValue(argJson.parseJson, choiceType, types.damlLfDefDataType _)
+          )
           apJson <- Try(actingParties.get)
           ap <- Try(apJson.parseJson.convertTo[List[ApiTypes.Party]])
           consuming <- Try(isConsuming.get)
@@ -103,13 +113,14 @@ final case class EventRow(
             ApiTypes.Choice(chc),
             arg,
             ap,
-            consuming
+            consuming,
           )
-        }).recoverWith {
-          case e: Throwable =>
-            Failure(
-              DeserializationFailed(
-                s"Failed to deserialize ChoiceExercised from row: $this. Error: $e"))
+        }).recoverWith { case e: Throwable =>
+          Failure(
+            DeserializationFailed(
+              s"Failed to deserialize ChoiceExercised from row: $this. Error: $e"
+            )
+          )
         }
       case s => Failure(DeserializationFailed(s"unknown subclass type for Event: $s"))
     }
@@ -138,7 +149,7 @@ object EventRow {
           c.agreementText,
           c.signatories.toJson.compactPrint,
           c.observers.toJson.compactPrint,
-          c.key.map(_.toJson.compactPrint)
+          c.key.map(_.toJson.compactPrint),
         )
       case e: ChoiceExercised =>
         EventRow(

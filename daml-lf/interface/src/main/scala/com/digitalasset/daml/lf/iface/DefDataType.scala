@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.iface
@@ -15,8 +15,7 @@ import java.{util => j}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 
-import scala.language.higherKinds
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class DefDataType[+RF, +VF](typeVars: ImmArraySeq[Ref.Name], dataType: DataType[RF, VF]) {
   def bimap[C, D](f: RF => C, g: VF => D): DefDataType[C, D] =
@@ -37,7 +36,8 @@ object DefDataType {
     new Bitraverse[DefDataType] with Bifoldable.FromBifoldMap[DefDataType] {
 
       override def bimap[A, B, C, D](
-          fab: DefDataType[A, B])(f: A => C, g: B => D): DefDataType[C, D] = {
+          fab: DefDataType[A, B]
+      )(f: A => C, g: B => D): DefDataType[C, D] = {
         DefDataType(fab.typeVars, Bifunctor[DataType].bimap(fab.dataType)(f, g))
       }
 
@@ -46,9 +46,11 @@ object DefDataType {
       }
 
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
-          fab: DefDataType[A, B])(f: A => G[C], g: B => G[D]): G[DefDataType[C, D]] = {
+          fab: DefDataType[A, B]
+      )(f: A => G[C], g: B => G[D]): G[DefDataType[C, D]] = {
         Applicative[G].map(Bitraverse[DataType].bitraverse(fab.dataType)(f)(g))(dataTyp =>
-          DefDataType(fab.typeVars, dataTyp))
+          DefDataType(fab.typeVars, dataTyp)
+        )
       }
     }
 }
@@ -95,7 +97,8 @@ object DataType {
         }
 
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
-          fab: DataType[A, B])(f: A => G[C], g: B => G[D]): G[DataType[C, D]] =
+          fab: DataType[A, B]
+      )(f: A => G[C], g: B => G[D]): G[DataType[C, D]] =
         fab match {
           case r @ Record(_) =>
             Traverse[Record].traverse(r)(f).widen
@@ -132,7 +135,8 @@ object Record extends FWTLike[Record] {
         fa.fields foldMap { case (_, a) => f(a) }
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: Record[A])(
-          f: A => G[B]): G[Record[B]] =
+          f: A => G[B]
+      ): G[Record[B]] =
         Applicative[G].map(fa.fields traverse (_ traverse f))(bs => fa.copy(fields = bs))
     }
 }
@@ -157,7 +161,8 @@ object Variant extends FWTLike[Variant] {
         fa.fields foldMap { case (_, a) => f(a) }
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: Variant[A])(
-          f: A => G[B]): G[Variant[B]] =
+          f: A => G[B]
+      ): G[Variant[B]] =
         Applicative[G].map(fa.fields traverse (_ traverse f))(bs => fa.copy(fields = bs))
     }
 }
@@ -186,8 +191,9 @@ object DefTemplate {
       override def foldMap[A, B: Monoid](fa: DefTemplate[A])(f: A => B): B =
         fa.choices.foldMap(_ foldMap f) |+| (fa.key foldMap f)
 
-      override def traverseImpl[G[_]: Applicative, A, B](fab: DefTemplate[A])(
-          f: A => G[B]): G[DefTemplate[B]] =
+      override def traverseImpl[G[_]: Applicative, A, B](
+          fab: DefTemplate[A]
+      )(f: A => G[B]): G[DefTemplate[B]] =
         ^(fab.choices traverse (_ traverse f), fab.key traverse f) { (choices, key) =>
           fab.copy(choices = choices, key = key)
         }
@@ -204,8 +210,9 @@ object TemplateChoice {
   type FWT = TemplateChoice[Type]
 
   implicit val `Choice traverse`: Traverse[TemplateChoice] = new Traverse[TemplateChoice] {
-    override def traverseImpl[G[_]: Applicative, A, B](fa: TemplateChoice[A])(
-        f: A => G[B]): G[TemplateChoice[B]] =
+    override def traverseImpl[G[_]: Applicative, A, B](
+        fa: TemplateChoice[A]
+    )(f: A => G[B]): G[TemplateChoice[B]] =
       ^(f(fa.param), f(fa.returnType)) { (param, returnType) =>
         fa.copy(param = param, returnType = returnType)
       }
@@ -213,7 +220,7 @@ object TemplateChoice {
 }
 
 /** Add aliases to companions. */
-sealed abstract class FWTLike[F[+ _]] {
+sealed abstract class FWTLike[F[+_]] {
 
   /** Alias for application to [[Type]]. Note that FWT stands for "Field with
     * type", because before we parametrized over both the field and the type,

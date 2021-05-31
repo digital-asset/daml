@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Helper.Start
     ( runStart
@@ -99,14 +99,16 @@ navigatorPortNavigatorArgs (NavigatorPort p) = ["--port", show p]
 navigatorURL :: NavigatorPort -> String
 navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
-withSandbox :: SandboxClassic -> SandboxPortSpec -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
-withSandbox (SandboxClassic classic) portSpec extraArgs a = withTempDir $ \tempDir -> do
+withSandbox :: SandboxClassic -> Maybe SandboxPortSpec -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
+withSandbox (SandboxClassic classic) mbPortSpec extraArgs a = withTempDir $ \tempDir -> do
     let portFile = tempDir </> "sandbox-portfile"
     let sandbox = if classic then "sandbox-classic" else "sandbox"
-    let args = [ sandbox
-               , "--port", show (fromSandboxPortSpec portSpec)
-               , "--port-file", portFile
-               ] ++ extraArgs
+    let args = concat
+          [ [ sandbox ]
+          , concat [ [ "--port", show (fromSandboxPortSpec portSpec) ] | Just portSpec <- [mbPortSpec] ]
+          , [ "--port-file", portFile ]
+          , extraArgs
+          ]
     withPlatformJar args "sandbox-logback.xml" $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
         port <- readPortFile maxRetries portFile
@@ -207,8 +209,7 @@ runStart
   (ScriptOptions scriptOpts)
   sandboxClassic
   = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
-    let sandboxPort = fromMaybe defaultSandboxPort sandboxPortM
-    projectConfig <- getProjectConfig
+    projectConfig <- getProjectConfig Nothing
     darPath <- getDarPath
     mbScenario :: Maybe String <-
         requiredE "Failed to parse scenario" $
@@ -230,7 +231,7 @@ runStart
     doBuild
     doCodegen projectConfig
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
-    withSandbox sandboxClassic sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh sandboxPort -> do
+    withSandbox sandboxClassic sandboxPortM (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh sandboxPort -> do
         let doRunInitScript =
               whenJust mbInitScript $ \initScript -> do
                   putStrLn "Running the initialization script."
@@ -260,7 +261,6 @@ runStart
                   void $ waitAnyCancel =<< mapM (async . waitExitCode) [navigatorPh,sandboxPh,jsonApiPh]
 
     where
-        defaultSandboxPort = SpecifiedPort (SandboxPort 6865)
         withNavigator' shouldStartNavigator sandboxPh =
             if shouldStartNavigator
                 then withNavigator
@@ -278,6 +278,8 @@ runStart
                 projectConfig
             whenJust mbOutputPath $ \_outputPath -> do
               runCodegen lang []
+        doReset (SandboxPort sandboxPort) =
+          runLedgerReset $ (defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}
         doUploadDar darPath (SandboxPort sandboxPort) =
           runLedgerUploadDar ((defaultLedgerFlags Grpc) {fPortM = Just sandboxPort}) (Just darPath)
         listenForKeyPress projectConfig darPath sandboxPort runInitScript = do
@@ -295,13 +297,16 @@ runStart
         rebuild :: ProjectConfig -> FilePath -> SandboxPort -> IO () -> IO ()
         rebuild projectConfig darPath sandboxPort doRunInitScript = do
           putStrLn "Re-building and uploading package ..."
+          doReset sandboxPort
           doBuild
           doCodegen projectConfig
           doUploadDar darPath sandboxPort
           doRunInitScript
+          setSGR [SetColor Foreground Dull Green]
           putStrLn "Rebuild complete."
+          setSGR [Reset]
         printRebuildInstructions = do
-          setSGR [SetColor Foreground Vivid Red]
+          setSGR [SetColor Foreground Vivid Yellow]
           putStrLn reloadInstructions
           setSGR [Reset]
           hFlush stdout

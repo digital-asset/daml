@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.ledger.types
@@ -14,7 +14,8 @@ import scalaz.syntax.std.either._
 import scalaz.syntax.traverse._
 
 private[types] object RecordField {
-  private val fieldLens = ReqFieldLens.create[api.value.RecordField, api.value.Value]('value)
+  private val fieldLens =
+    ReqFieldLens.create[api.value.RecordField, api.value.Value](Symbol("value"))
 
   final implicit class ApiRecordFieldOps(val apiRecordField: api.value.RecordField) extends AnyVal {
     def convert: String \/ (Option[Ref.Name], LedgerValue) =

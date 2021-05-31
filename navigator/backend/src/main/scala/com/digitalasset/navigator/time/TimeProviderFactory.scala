@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.time
@@ -14,14 +14,13 @@ object TimeProviderFactory {
 
   def apply(
       timeProviderType: TimeProviderType,
-      ledgerTime: Option[StaticTime]): Option[TimeProviderWithType] =
+      ledgerTime: Option[StaticTime],
+  ): Option[TimeProviderWithType] =
     timeProviderType match {
       case TimeProviderType.Auto =>
         ledgerTime.fold(
           Some(TimeProviderWithType(TimeProvider.UTC, TimeProviderType.WallClock))
-        )(
-          t => Some(TimeProviderWithType(t, TimeProviderType.Static))
-        )
+        )(t => Some(TimeProviderWithType(t, TimeProviderType.Static)))
       case TimeProviderType.WallClock =>
         Some(TimeProviderWithType(TimeProvider.UTC, TimeProviderType.WallClock))
       case TimeProviderType.Static =>
@@ -32,7 +31,8 @@ object TimeProviderFactory {
           val diff = Duration.between(lt.getCurrentTime, utc.getCurrentTime)
           TimeProviderWithType(
             TimeProvider.MappedTimeProvider(utc, i => i minus diff),
-            TimeProviderType.Simulated)
+            TimeProviderType.Simulated,
+          )
         })
     }
 }

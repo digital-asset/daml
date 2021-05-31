@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -124,3 +124,16 @@ mkBuiltinGreater v ty =
     if v `supports` featureGenericComparison
         then EBuiltin BEGreaterGeneric `ETyApp` TBuiltin ty
         else EBuiltin (BEGreater ty)
+
+preconditionFailedTypeCon :: Qualified TypeConName
+preconditionFailedTypeCon = Qualified
+    { qualPackage = PRImport (PackageId "dc9576d7b3a816944d0d07c7e2d57f8ebe247187f9e08629d6fa9b1020a77b5d")
+    , qualModule = ModuleName ["DA", "Exception", "PreconditionFailed"]
+    , qualObject = TypeConName ["PreconditionFailed"]
+    }
+
+mkPreconditionFailed :: Expr -> Expr
+mkPreconditionFailed msg = ERecCon
+    { recTypeCon = TypeConApp preconditionFailedTypeCon []
+    , recFields = [(FieldName "message", msg)]
+    }

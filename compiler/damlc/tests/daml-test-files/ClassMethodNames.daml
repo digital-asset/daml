@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 --
 -- Ensure that class method names are preserved during the translation
--- to DAML-LF.
+-- to Daml-LF.
 --
 -- @SINCE-LF 1.7
 -- @QUERY-LF (.interned_strings | map(select(. == "m_baz")) == ["m_baz"])

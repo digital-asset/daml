@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.language
@@ -60,6 +60,8 @@ object Util {
   val TParty = TBuiltin(BTParty)
   val TAny = TBuiltin(BTAny)
   val TTypeRep = TBuiltin(BTTypeRep)
+  val TBigNumeric = TBuiltin(BTBigNumeric)
+  val TRoundingMode = TBuiltin(BTRoundingMode)
 
   val TNumeric = new ParametricType1(BTNumeric)
   val TList = new ParametricType1(BTList)
@@ -74,6 +76,8 @@ object Util {
   val TDecimalScale = TNat(Decimal.scale)
   val TDecimal = TNumeric(TDecimalScale)
 
+  val TAnyException = TBuiltin(BTAnyException)
+
   val EUnit = EPrimCon(PCUnit)
   val ETrue = EPrimCon(PCTrue)
   val EFalse = EPrimCon(PCFalse)
@@ -84,11 +88,40 @@ object Util {
   val CPTrue = CPPrimCon(PCTrue)
   val CPFalse = CPPrimCon(PCFalse)
 
+  @tailrec
+  def destructApp(typ: Type, tyArgs: List[Type] = List.empty): (Type, List[Type]) =
+    typ match {
+      case TApp(tyFun, tyArg) => destructApp(tyFun, tyArg :: tyArgs)
+      case otherwise => (otherwise, tyArgs)
+    }
+
+  // this is not tail recursive, but it doesn't really matter, since types are bounded
+  // by what's in the source, which should be short enough...
+  @throws[IllegalArgumentException]
+  def substitute(typ: Type, subst: Iterable[(TypeVarName, Type)]): Type = {
+
+    def go(typ: Type, subst: Map[TypeVarName, Type]): Type =
+      typ match {
+        case TVar(v) => subst.getOrElse(v, typ)
+        case TApp(tyfun, arg) => TApp(go(tyfun, subst), go(arg, subst))
+        case TForall(binder @ (v, _), body) => TForall(binder, go(body, subst - v))
+        case TSynApp(tysyn, args) => TSynApp(tysyn, args.map(go(_, subst)))
+        case _ => typ
+      }
+
+    if (subst.isEmpty) {
+      // optimization
+      typ
+    } else {
+      go(typ, subst.toMap)
+    }
+  }
+
   // Returns the `pkgIds` and all its dependencies in topological order.
   // A package undefined w.r.t. the function `packages` is treated as a sink.
   def dependenciesInTopologicalOrder(
       pkgIds: List[Ref.PackageId],
-      packages: Ref.PackageId PartialFunction Package,
+      packages: PartialFunction[Ref.PackageId, Package],
   ): List[Ref.PackageId] = {
 
     @tailrec
@@ -104,7 +137,7 @@ object Util {
           buildGraph(
             newDeps.foldLeft(toProcess1)(_.::(_)),
             seen0 ++ newDeps,
-            graph0.updated(pkgId, deps)
+            graph0.updated(pkgId, deps),
           )
         case Nil => graph0
       }
@@ -116,21 +149,22 @@ object Util {
         // (i.e. we find a collision in SHA256), so we crash.
         cycle =>
           throw new Error(s"cycle in package definitions ${cycle.vertices.mkString(" -> ")}"),
-        identity
+        identity,
       )
   }
 
   private[this] def toSignature(choice: TemplateChoice): TemplateChoiceSignature =
     choice match {
       case TemplateChoice(
-          name,
-          consuming,
-          _,
-          choiceObservers,
-          selfBinder,
-          argBinder,
-          returnType,
-          _) =>
+            name,
+            consuming,
+            _,
+            choiceObservers,
+            selfBinder,
+            argBinder,
+            returnType,
+            _,
+          ) =>
         TemplateChoiceSignature(
           name,
           consuming,
@@ -139,7 +173,8 @@ object Util {
           selfBinder,
           argBinder,
           returnType,
-          ())
+          (),
+        )
     }
 
   private[this] def toSignature(key: TemplateKey): TemplateKeySignature =
@@ -164,7 +199,7 @@ object Util {
 
   private[this] def toSignature(module: Module): ModuleSignature =
     module match {
-      case Module(name, definitions, templates, featureFlags) =>
+      case Module(name, definitions, templates, exceptions, featureFlags) =>
         ModuleSignature(
           name = name,
           definitions = definitions.transform {
@@ -173,6 +208,7 @@ object Util {
             case (_, typeSyn: DTypeSyn) => typeSyn
           },
           templates = templates.transform((_, template) => toSignature(template)),
+          exceptions = exceptions.transform((_, _) => DefExceptionSignature),
           featureFlags = featureFlags,
         )
     }

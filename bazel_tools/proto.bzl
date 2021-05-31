@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:java.bzl", "da_java_library")
@@ -10,6 +10,7 @@ load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@scala_version//:index.bzl", "scala_major_version_suffix")
 
 # taken from rules_proto:
 # https://github.com/stackb/rules_proto/blob/f5d6eea6a4528bef3c1d3a44d486b51a214d61c2/compile.bzl#L369-L393
@@ -168,7 +169,10 @@ def _maven_tags(group, artifact_prefix, artifact_suffix):
         return []
 
 def _proto_scala_srcs(name, grpc):
-    return [":%s" % name] + ([
+    return [
+        ":%s" % name,
+        "//bazel_tools/scalapb:scalapb-configuration",
+    ] + ([
         "@com_github_googleapis_googleapis//google/rpc:code_proto",
         "@com_github_googleapis_googleapis//google/rpc:status_proto",
         "@com_github_grpc_grpc//src/proto/grpc/health/v1:health_proto_descriptor",
@@ -177,10 +181,10 @@ def _proto_scala_srcs(name, grpc):
 def _proto_scala_deps(grpc, proto_deps):
     return [
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_thesamet_scalapb_lenses_2_12",
-        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
+        "@maven//:com_thesamet_scalapb_lenses_{}".format(scala_major_version_suffix),
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_{}".format(scala_major_version_suffix),
     ] + ([
-        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_2_12",
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_{}".format(scala_major_version_suffix),
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_protobuf",
@@ -206,12 +210,16 @@ def proto_jars(
         maven_artifact_proto_suffix = "proto",
         maven_artifact_java_suffix = "java-proto",
         maven_artifact_scala_suffix = "scala-proto"):
+    # NOTE (MK) An empty string flattens the whole structure which is
+    # rarely what you want, see https://github.com/bazelbuild/rules_pkg/issues/82
+    tar_strip_prefix = "." if not strip_import_prefix else strip_import_prefix
+
     # Tarball containing the *.proto files.
     pkg_tar(
         name = "%s_tar" % name,
         srcs = srcs,
         extension = "tar.gz",
-        strip_prefix = strip_import_prefix,
+        strip_prefix = tar_strip_prefix,
         visibility = [":__subpackages__", "//release:__subpackages__"],
     )
 

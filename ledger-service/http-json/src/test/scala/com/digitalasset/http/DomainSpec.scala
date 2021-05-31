@@ -1,14 +1,12 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 
 import domain._
-
-import org.scalatest._
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
-import scalaz.OneAnd
+import scalaz.{NonEmptyList, OneAnd}
 
 final class DomainSpec extends AnyFreeSpec with Matchers {
   private val ledgerId = LedgerId("myledger")
@@ -17,7 +15,8 @@ final class DomainSpec extends AnyFreeSpec with Matchers {
   private val bob = Party("Bob")
   "JwtWritePayload" - {
     "parties deduplicates between actAs and readAs" in {
-      val payload = JwtWritePayload(ledgerId, appId, actAs = alice, readAs = List(alice, bob))
+      val payload =
+        JwtWritePayload(ledgerId, appId, actAs = NonEmptyList(alice), readAs = List(alice, bob))
       payload.parties shouldBe OneAnd(alice, Set(bob))
     }
   }

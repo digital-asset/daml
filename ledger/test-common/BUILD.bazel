@@ -1,74 +1,129 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-    "//rules_daml:daml.bzl",
-    "daml_compile",
-)
-load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "silencer_plugin",
 )
 load(
     "//language-support/scala/codegen:codegen.bzl",
     "dar_to_scala",
 )
+load("@scala_version//:index.bzl", "scala_major_version")
+load("@scala_version//:index.bzl", "scala_major_version")
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "lf_stable_version",
+    "lf_version_configuration",
+    "lf_version_configuration_versions",
 )
+load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
 
-da_scala_library(
-    name = "test-common",
-    srcs = glob(["src/main/scala/**/*.scala"]),
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
-        "//libs-scala/timer-utils",
-        "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:ch_qos_logback_logback_core",
-        "@maven//:io_grpc_grpc_context",
-    ],
+alias(
+    name = "dar-files",
+    actual = "dar-files-stable",
+    visibility = ["//visibility:public"],
 )
 
 [
     [
-        daml_compile(
-            name = "%s-tests" % test_name,
-            srcs = glob(["src/main/daml/%s/*.daml" % test_name]),
-            target = target,
+        # alias model-tests-KEYWORD.dar, dar-files-KEYWORD, and dar-files-KEYWORD-lib
+        # to model-tests-TAG.dar, dar-files-TAG, dar-files-TAG-lib, and test-common-TAG
+        # where : KEYWORD is a keyword like stable, latest, or dev
+        #         TAG is a (java friendly) version TAG like 1_8
+        #         The mapping KEYWORD -> TAG is defined by test_common_configurations
+        alias(
+            name = "%s-%s%s" % (target_prefix, name, target_suffix),
+            actual = ":%s-%s%s" % (target_prefix, lf_version, target_suffix),
             visibility = ["//visibility:public"],
-        ),
-        dar_to_scala(
-            name = "%s-tests.scala-codegen" % test_name,
-            srcs = [":%s-tests.dar" % test_name],
-            package_prefix = "com.daml.ledger.test.%s" % test_name,
-            srcjar_out = "%s.scala.srcjar" % test_name,
-            verbosity = 2,
-            visibility = ["//visibility:public"],
-        ),
-        da_scala_library(
-            name = "%s-tests.scala" % test_name,
-            srcs = [":%s-tests.scala-codegen" % test_name],
-            visibility = ["//visibility:public"],
-            deps = ["//language-support/scala/bindings"],
         ),
     ]
-    for (test_name, target) in [
-        ("model", lf_stable_version),
-        ("semantic", lf_stable_version),
-        ("performance", lf_stable_version),
+    for (target_prefix, target_suffix) in [
+        ("model-tests", ".dar"),
+        ("dar-files", ""),
+        ("dar-files", "-lib"),
+        ("test-common", ""),
     ]
+    for (name, lf_version) in lf_version_configuration.items()
 ]
 
-filegroup(
-    name = "dar-files",
-    srcs = [
-        ":model-tests.dar",
-        ":performance-tests.dar",
-        ":semantic-tests.dar",
-    ],
+alias(
+    name = "test-common",
+    actual = "test-common-stable",
     visibility = ["//visibility:public"],
 )
+
+[
+    [
+        da_scala_library(
+            name = "test-common-%s" % target,
+            srcs = glob(["src/main/scala/**/*.scala"]),
+            tags = ["maven_coordinates=com.daml:test-common-%s:__VERSION__" % target],
+            visibility = [
+                "//visibility:public",
+            ],
+            deps = [
+                "//daml-lf/archive:daml_lf_archive_reader",
+                "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+                "//ledger-api/grpc-definitions:ledger_api_proto_scala",
+                "//ledger/test-common:dar-files-%s-lib" % target,
+                "//libs-scala/timer-utils",
+                "@maven//:ch_qos_logback_logback_classic",
+                "@maven//:ch_qos_logback_logback_core",
+                "@maven//:io_grpc_grpc_context",
+            ],
+        ),
+    ]
+    for target in lf_version_configuration_versions
+]
+
+# Correspond to the directories under src/test/lib/daml
+test_names_with_dependencies = {
+    "model": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    "semantic": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    "performance": [],
+    "package_management": [],
+}
+
+da_scala_dar_resources_library(
+    add_maven_tag = True,
+    daml_dir_names = test_names_with_dependencies.keys(),
+    daml_root_dir = "src/main/daml",
+    lf_versions = lf_version_configuration_versions,
+    maven_name_prefix = "test",
+    visibility = ["//visibility:public"],
+)
+
+[
+    [
+        [
+            dar_to_scala(
+                name = "%s-tests-%s.scala-codegen" % (test_name, target),
+                srcs = [":%s-tests-%s.dar" % (test_name, target)],
+                package_prefix = "com.daml.ledger.test.%s" % test_name,
+                srcjar_out = "%s-%s.scala.srcjar" % (test_name, target),
+                verbosity = 2,
+                visibility = ["//visibility:public"],
+            ),
+            da_scala_library(
+                name = "%s-tests-%s.scala" % (test_name, target),
+                srcs = [
+                    ":%s-tests-%s.scala-codegen" % (test_name, target),
+                ],
+                plugins = [
+                    silencer_plugin,
+                ],
+                scala_deps = extra_deps,
+                scalacopts = [
+                    "-P:silencer:lineContentFilters=import _root_.scala.language.higherKinds;",
+                ],
+                visibility = ["//visibility:public"],
+                deps = [
+                    "//language-support/scala/bindings",
+                ],
+            ),
+        ]
+        for (test_name, extra_deps) in test_names_with_dependencies.items()
+    ]
+    for target in lf_version_configuration_versions
+]

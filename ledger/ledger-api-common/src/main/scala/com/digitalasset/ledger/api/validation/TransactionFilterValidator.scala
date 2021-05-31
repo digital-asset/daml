@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.validation
@@ -16,17 +16,17 @@ import scalaz.syntax.traverse._
 object TransactionFilterValidator {
 
   def validate(
-      txFilter: TransactionFilter): Either[StatusRuntimeException, domain.TransactionFilter] = {
+      txFilter: TransactionFilter
+  ): Either[StatusRuntimeException, domain.TransactionFilter] = {
     if (txFilter.filtersByParty.isEmpty) {
       Left(ErrorFactories.invalidArgument("filtersByParty cannot be empty"))
     } else {
       val convertedFilters =
-        txFilter.filtersByParty.toList.traverse {
-          case (k, v) =>
-            for {
-              key <- requireParty(k)
-              value <- validateFilters(v)
-            } yield key -> value
+        txFilter.filtersByParty.toList.traverse { case (k, v) =>
+          for {
+            key <- requireParty(k)
+            value <- validateFilters(v)
+          } yield key -> value
         }
       convertedFilters.map(m => domain.TransactionFilter(m.toMap))
     }

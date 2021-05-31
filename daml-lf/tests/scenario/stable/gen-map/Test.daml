@@ -1,0 +1,21 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module Test where
+
+import DA.Map
+
+template MapTemplate
+  with
+    party: Party
+    value: Map Int Text
+  where
+    signatory party
+
+run = scenario do
+  alice <- getParty "Alice"
+  submit alice do
+     create MapTemplate with
+        party = alice
+        value = fromList [(2, "a"), (5, "b"), (1, "c")]

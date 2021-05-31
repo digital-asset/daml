@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Sandbox
@@ -16,14 +16,14 @@ module Sandbox
   ) where
 
 import Control.Concurrent (threadDelay)
-import Control.Exception.Safe (catchJust, mask, onException)
+import Control.Exception.Safe (IOException, catchJust, mask, onException)
 import Control.Monad
 import qualified Data.Text.IO as T
 import Safe (readMay)
 import System.Environment (getEnvironment)
 import System.Exit (exitFailure)
 import System.FilePath ((</>))
-import System.IO.Error (isDoesNotExistError)
+import System.IO.Error (isDoesNotExistError, isPermissionError)
 import System.IO.Extra (Handle, IOMode (..), hClose, newTempDir, openBinaryFile, stderr)
 import System.Info.Extra (isWindows)
 import System.Process
@@ -147,12 +147,18 @@ readPortFile 0 _file = do
   T.hPutStrLn stderr "Port file was not written to in time."
   exitFailure
 readPortFile n file = do
-  fileContent <- catchJust (guard . isDoesNotExistError) (readFile file) (const $ pure "")
+  fileContent <- catchJust (guard . shouldCatch) (readFile file) (const $ pure "")
   case readMay fileContent of
     Nothing -> do
       threadDelay (1000 * retryDelayMillis)
       readPortFile (n-1) file
     Just p -> pure p
+
+-- On Windows we sometimes get permission errors. It looks like
+-- this might come from a race where sandbox is writing the file at the same
+-- time we try to open it so catching the exception is the right thing to do.
+shouldCatch :: IOException -> Bool
+shouldCatch e = isDoesNotExistError e || isPermissionError e
 
 retryDelayMillis :: Int
 retryDelayMillis = 50

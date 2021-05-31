@@ -1,7 +1,7 @@
 
 # `group-chat`
 
-DAML Chat Room model, with support for:
+Daml Chat Room model, with support for:
 
 - Multiple Chat Groups.
 - Group entry by invitation.
@@ -43,9 +43,9 @@ Messages:
 - A Message is authorised by it's Sender and Recipients. (See discussion below.)
 
 
-## Modelling with DAML
+## Modelling with Daml
 
-`GroupChat.daml` formalizes the above features in DAML. The essence of the model is as follows:
+`GroupChat.daml` formalizes the above features in Daml. The essence of the model is as follows:
 
 - A Message is modelled by a simple `Message` contract.
 - A Group is modelled by a series of `Group` contracts, only one being active at a time.
@@ -106,7 +106,7 @@ Without recipient authority on the messages, we get only (a) but not (b).
 
 Do we need the concept of group identity?
 
-With group identity, we can use DAML contract-keys to ensure every group has a unique identity, allowing discovery.
+With group identity, we can use Daml contract-keys to ensure every group has a unique identity, allowing discovery.
 In addition, we can embed the group identity in each message sent.
 
 The identity might be constructed from the creator party and a group-name.

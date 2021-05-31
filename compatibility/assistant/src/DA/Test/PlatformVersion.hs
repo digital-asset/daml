@@ -1,11 +1,10 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Test.PlatformVersion (main) where
 
 import qualified Bazel.Runfiles
 import Control.Concurrent.STM
-import Control.Exception.Safe
 import Control.Monad
 import Data.ByteString.Lazy.UTF8 (ByteString, toString)
 import Data.Conduit ((.|), runConduitRes)
@@ -111,7 +110,7 @@ withSdkResource f =
     withResource (installSdk =<< getDir) (const $ pure ()) (const $ f getDir)
   where installSdk targetDir = do
             runfiles <- Bazel.Runfiles.create
-            let headSdk = Bazel.Runfiles.rlocation runfiles "head_sdk/sdk-release-tarball.tar.gz"
+            let headSdk = Bazel.Runfiles.rlocation runfiles "head_sdk/sdk-release-tarball-ce.tar.gz"
             let latestStableSdk = Bazel.Runfiles.rlocation runfiles "daml-sdk-tarball-latest-stable/file/downloaded"
             setEnv "DAML_HOME" targetDir True
             withTempDir $ \extractDir -> do
@@ -131,18 +130,7 @@ withSdkResource f =
 
 withTempDirResource :: (IO FilePath -> TestTree) -> TestTree
 withTempDirResource f = withResource newTempDir delete (f . fmap fst)
-    -- The delete action provided by `newTempDir` calls `removeDirectoryRecursively`
-    -- and silently swallows errors. SDK installations are marked read-only
-    -- which means that they don’t end up being removed which is obviously
-    -- not what we intend.
-    -- As usual Windows is terrible and doesn’t let you remove the SDK
-    -- if there is a process running. Simultaneously it is also terrible
-    -- at process management so we end up with running processes
-    -- since child processes aren’t torn down properly
-    -- (Bazel will kill them later when the test finishes). Therefore,
-    -- we ignore exceptions and hope for the best. On Windows that
-    -- means we still leak directories :(
-    where delete (d, _delete) = void $ tryIO $ removePathForcibly d
+    where delete (d, _delete) = void $ removePathForcibly d
 
 exe :: FilePath -> FilePath
 exe | os == "mingw32" = (<.> "exe")

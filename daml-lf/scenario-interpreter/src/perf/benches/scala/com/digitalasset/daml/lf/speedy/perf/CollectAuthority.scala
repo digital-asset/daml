@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref.{Identifier, Party, QualifiedName}
 import com.daml.lf.data.Time
 import com.daml.lf.language.Ast.EVal
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.Transaction.Value
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.Speedy.Machine
@@ -42,8 +42,8 @@ class CollectAuthorityState {
   def init(): Unit = {
     val darFile = new File(if (dar.startsWith("//")) rlocation(dar.substring(2)) else dar)
     val packages = UniversalArchiveReader().readFile(darFile).get
-    val packagesMap = packages.all.map {
-      case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
+    val packagesMap = packages.all.map { case (pkgId, pkgArchive) =>
+      Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
     }.toMap
 
     val compilerConfig =
@@ -71,7 +71,7 @@ class CollectAuthorityState {
   // The maps are indexed by step number.
   private var cachedParty: Map[Int, Party] = Map()
   private var cachedCommit: Map[Int, SValue] = Map()
-  private var cachedContract: Map[Int, ContractInst[Value[ContractId]]] = Map()
+  private var cachedContract: Map[Int, ContractInst[Value.VersionedValue[ContractId]]] = Map()
 
   // This is function that we benchmark
   def run(): Unit = {
@@ -110,11 +110,12 @@ class CollectAuthorityState {
           }
         case SResultScenarioCommit(value, tx, committers, callback) =>
           ScenarioLedger.commitTransaction(
-            committers.head,
+            committers,
+            Set(),
             ledger.currentTime,
             onLedger.commitLocation,
             tx,
-            ledger
+            ledger,
           ) match {
             case Left(fas) => crash(s"commitTransaction failed: $fas")
             case Right(result) =>
@@ -125,9 +126,10 @@ class CollectAuthorityState {
         case SResultNeedContract(acoid, _, committers, _, callback) =>
           val effectiveAt = ledger.currentTime
           ledger.lookupGlobalContract(
-            ScenarioLedger.ParticipantView(committers),
+            ScenarioLedger.ParticipantView(committers, Set()),
             effectiveAt,
-            acoid) match {
+            acoid,
+          ) match {
             case ScenarioLedger.LookupOk(_, result, _) =>
               cachedContract = cachedContract + (step -> result)
               callback(result)

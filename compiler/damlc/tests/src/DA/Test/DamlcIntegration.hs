@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Test driver for DAML-GHC CompilerService.
@@ -26,7 +26,8 @@ import           Control.Monad.IO.Class
 import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
-import qualified DA.Service.Logger.Impl.Pure as Logger
+import qualified DA.Service.Logger as Logger
+import qualified DA.Service.Logger.Impl.IO as Logger
 import Development.IDE.Core.Compile
 import Development.IDE.Core.Debouncer
 import qualified Development.IDE.Types.Logger as IdeLogger
@@ -108,7 +109,8 @@ main = do
  LfVersionOpt lfVer <- do
      let parser = optionCLParser <* many (strArgument @String mempty)
      execParser (info parser forwardOptions)
- SS.withScenarioService lfVer Logger.makeNopHandle scenarioConf $ \scenarioService -> do
+ scenarioLogger <- Logger.newStderrLogger Logger.Warning "scenario"
+ SS.withScenarioService lfVer scenarioLogger scenarioConf $ \scenarioService -> do
   hSetEncoding stdout utf8
   setEnv "TASTY_NUM_THREADS" "1" True
   todoRef <- newIORef DList.empty
@@ -121,8 +123,7 @@ main = do
     putStr (unlines (DList.toList todos)))
   where ingredients =
           includingOptions
-            [ Option (Proxy @PackageDb)
-            , Option (Proxy @LfVersionOpt)
+            [ Option (Proxy @LfVersionOpt)
             , Option (Proxy @SkipValidationOpt)
             ] :
           defaultIngredients
@@ -192,9 +193,9 @@ getIntegrationTests registerTODO scenarioService = do
           withResource
           (getDamlEnv >>= \damlEnv -> initialise def (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging noopDebouncer damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
           shutdown $ \serviceGenerated ->
-          withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
-            map (testCase args version service outdir registerTODO) nongeneratedFiles <>
-            map (testCase args version serviceGenerated outdir registerTODO) generatedFiles
+          testGroup ("Tests for DAML-LF " ++ renderPretty version) $
+            map (testCase version service outdir registerTODO) nongeneratedFiles <>
+            map (testCase version serviceGenerated outdir registerTODO) generatedFiles
 
     pure tree
 
@@ -212,8 +213,8 @@ instance IsTest TestCase where
     pure $ res { resultDescription = desc }
   testOptions = Tagged []
 
-testCase :: TestArguments -> LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath) -> TestTree
-testCase args version getService outdir registerTODO (name, file) = singleTest name . TestCase $ \log -> do
+testCase :: LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath) -> TestTree
+testCase version getService outdir registerTODO (name, file) = singleTest name . TestCase $ \log -> do
   service <- getService
   anns <- readFileAnns file
   if any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] then
@@ -228,7 +229,7 @@ testCase args version getService outdir registerTODO (name, file) = singleTest n
     else do
       -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
       unsafeClearDiagnostics service
-      ex <- try $ mainProj args service outdir log (toNormalizedFilePath' file) :: IO (Either SomeException Package)
+      ex <- try $ mainProj service outdir log (toNormalizedFilePath' file) :: IO (Either SomeException Package)
       diags <- getDiagnostics service
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
@@ -314,25 +315,6 @@ checkDiagnostics log expected got
             expected
 
 ------------------------------------------------------------
--- CLI argument handling
-
-newtype PackageDb = PackageDb String
-
-instance IsOption PackageDb where
-  defaultValue = PackageDb "bazel-bin/compiler/damlc/pkg-db"
-  parseValue = Just . PackageDb
-  optionName = Tagged "package-db"
-  optionHelp = Tagged "Path to the package database"
-
-data TestArguments = TestArguments
-    {package_db  :: FilePath
-    }
-
-withTestArguments :: (TestArguments -> TestTree) -> TestTree
-withTestArguments f =
-  askOption $ \(PackageDb packageDb) -> f (TestArguments packageDb)
-
-------------------------------------------------------------
 -- functionality
 data Ann
     = Ignore                             -- Don't run this test at all
@@ -352,6 +334,7 @@ readFileAnns file = do
         f (stripPrefix "-- @" . trim -> Just x) = case word1 $ trim x of
             ("IGNORE",_) -> Just Ignore
             ("SINCE-LF", x) -> Just $ SinceLF $ fromJust $ LF.parseVersion $ trim x
+            ("SINCE-LF-FEATURE", x) -> Just $ SinceLF $ LF.versionForFeaturePartial $ T.pack $ trim x
             ("UNTIL-LF", x) -> Just $ UntilLF $ fromJust $ LF.parseVersion $ trim x
             ("ERROR",x) -> Just (DiagnosticFields (DSeverity DsError : parseFields x))
             ("WARN",x) -> Just (DiagnosticFields (DSeverity DsWarning : parseFields x))
@@ -392,8 +375,8 @@ parseRange s =
         (Position (rowEnd - 1) (colEnd - 1))
     _ -> error $ "Failed to parse range, got " ++ s
 
-mainProj :: TestArguments -> IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package
-mainProj TestArguments{..} service outdir log file = do
+mainProj :: IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package
+mainProj service outdir log file = do
     let proj = takeBaseName (fromNormalizedFilePath file)
 
     -- NOTE (MK): For some reason ghcide’s `prettyPrint` seems to fall over on Windows with `commitBuffer: invalid argument`.

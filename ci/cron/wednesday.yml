@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 pr: none
@@ -9,14 +9,14 @@ schedules:
   displayName: weekly snapshot
   branches:
     include:
-    - master
+    - main
   always: true
 
 jobs:
 - job: open_release_pr
   timeoutInMinutes: 60
   pool:
-    vmImage: ubuntu-latest
+    vmImage: ubuntu-18.04
   steps:
   - checkout: self
     persistCredentials: true
@@ -56,7 +56,7 @@ jobs:
                          --arg branch "$branch" \
                          --arg title "$title" \
                          --arg body "$(printf "$body")" \
-                         '{"title": $title, "head": $branch, "base": "master", "body": $body}' \
+                         '{"title": $title, "head": $branch, "base": "main", "body": $body}' \
                     | curl -H "Content-Type: application/json" \
                            -H "$AUTH" \
                            --silent \
@@ -66,7 +66,7 @@ jobs:
                     | jq '.number')
           az pipelines build queue \
               --branch $branch \
-              --definition-name "digital-asset.daml" \
+              --definition-name "PRs" \
               --org "https://dev.azure.com/digitalasset" \
               --project daml
           if [ -n "$out" ]; then
@@ -93,18 +93,42 @@ jobs:
           cp release/rotation $tmp
           (tail -n +2 $tmp; head -1 $tmp) > release/rotation
       }
+      release_message() {
+          local handler=$1
+          local start=$2
+          local commit_log
+          commit_log=$(git log --pretty=oneline $start..HEAD)
+          local changelog
+          changelog=$(./unreleased.sh $start..HEAD)
+          # Keep this line in sync with RELEASE_PR_NOTIF in azure-pipelines.yml
+          echo "This PR has been created by a script, which is not very smart"
+          echo "and does not have all the context. Please do double-check that"
+          echo "the version prefix is correct before merging."
+          echo ""
+          echo "@${handler} is in charge of this release."
+          echo ""
+          echo "Commit log:"
+          echo "\`\`\`"
+          echo "$commit_log"
+          echo "\`\`\`"
+          echo "Changelog:"
+          echo "\`\`\`"
+          echo "$changelog"
+          echo "\`\`\`"
+      }
 
       reset
 
       NEXT_SLACK=$(head -1 release/rotation | awk '{print $1}')
       NEXT_GH=$(head -1 release/rotation | awk '{print $2}')
 
+      PREV="v$(head -1 LATEST | awk '{print $2}')"
       ./release.sh new snapshot
       RELEASE=$(head -1 LATEST | awk '{print $2}')
       PR_FILE=$(mktemp)
       open_pr "auto-release-pr-$(date -I)" \
               "release $RELEASE" \
-              "This PR has been created by a script, which is not very smart and does not have all the context. Please do double-check that the version prefix is correct before merging.\n\n@$NEXT_GH is in charge of this release." \
+              "$(release_message $NEXT_GH $PREV)" \
               $PR_FILE
 
       PR=$(cat $PR_FILE)

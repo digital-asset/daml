@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Getting Help
@@ -15,7 +15,7 @@ Have questions or feedback? You're in the right place.
 
   If you want to give feedback, you can make a topic in the ``General`` category `on our forum <https://discuss.daml.com>`_.
 
-When you're in the community Forum or on Stack Overflow, please keep to our `Code of Conduct <https://github.com/digital-asset/daml/blob/master/CODE_OF_CONDUCT.md>`__.
+When you're in the community Forum or on Stack Overflow, please keep to our `Code of Conduct <https://github.com/digital-asset/daml/blob/main/CODE_OF_CONDUCT.md>`__.
 
 Support expectations
 --------------------
@@ -24,10 +24,10 @@ For community users (ie on our Forum and Stack Overflow):
 
 - **Timing**: You can enjoy the support of the community, which is provided for you out of their own good will and free time. On top of that, a Digital Asset employee will try to reply to unanswered questions within two business days.
 
-  Business days are affected by public holidays. Engineers contributing to DAML are mostly located in Zurich and New York, so please be mindful of the public holidays in those locations (`timeanddate.com <https://www.timeanddate.com>`_ maintains an unofficial list of holidays for both `Switzerland <https://www.timeanddate.com/holidays/switzerland/>`_ and the `United States <https://www.timeanddate.com/holidays/us/>`_).
+  Business days are affected by public holidays. Engineers contributing to Daml are mostly located in Zurich and New York, so please be mindful of the public holidays in those locations (`timeanddate.com <https://www.timeanddate.com>`_ maintains an unofficial list of holidays for both `Switzerland <https://www.timeanddate.com/holidays/switzerland/>`_ and the `United States <https://www.timeanddate.com/holidays/us/>`_).
 - **Public support**: We offer public support in the ``Questions`` category `on our forum <https://discuss.daml.com>`_.
 
   We can't answer questions in private messages or over email, so please only ask questions in public forums.
-- **Level of support**: We're happy to answer questions about error messages you're encountering, or discuss DAML design questions. However, we can't provide more extensive consultation on how to build your DAML application or the languages, frameworks, libraries and tools you may use to build it.
+- **Level of support**: We're happy to answer questions about error messages you're encountering, or discuss Daml design questions. However, we can't provide more extensive consultation on how to build your Daml application or the languages, frameworks, libraries and tools you may use to build it.
 
-If you need private support, or want consultation from Digital Asset about how to build your DAML application, they offer paid support. Please contact Digital Asset to ask about pricing.
+If you need private support, or want consultation from Digital Asset about how to build your Daml application, they offer paid support. Please contact Digital Asset to ask about pricing.

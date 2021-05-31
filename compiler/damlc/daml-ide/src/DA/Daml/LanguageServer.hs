@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -55,7 +55,7 @@ setHandlersKeepAlive = PartialHandlers $ \WithMessage{..} x -> return x
     }
 
 setIgnoreOptionalHandlers :: PartialHandlers a
-setIgnoreOptionalHandlers = PartialHandlers $ \WithMessage{..} x -> return x
+setIgnoreOptionalHandlers = PartialHandlers $ \_ x -> return x
     {LSP.customRequestHandler = Just $ \msg@RequestMessage{_method} ->
          case _method of
              CustomClientMethod s

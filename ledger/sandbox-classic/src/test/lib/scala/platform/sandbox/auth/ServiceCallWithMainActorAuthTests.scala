@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.auth
@@ -6,7 +6,7 @@ package com.daml.platform.sandbox.auth
 import java.time.Duration
 import java.util.UUID
 
-trait ServiceCallWithMainActorAuthTests extends ServiceCallAuthTests {
+trait ServiceCallWithMainActorAuthTests extends SecuredServiceCallAuthTests {
 
   protected val mainActor: String = UUID.randomUUID.toString
 

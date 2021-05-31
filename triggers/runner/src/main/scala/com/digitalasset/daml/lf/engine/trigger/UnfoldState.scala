@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -16,7 +16,6 @@ import scala.annotation.tailrec
 import com.daml.scalautil.Statement.discard
 
 import scala.collection.compat._
-import scala.collection.generic.CanBuildFrom
 import scala.collection.immutable.{IndexedSeq, Iterable, LinearSeq}
 
 /** A variant of [[scalaz.CorecursiveList]] that emits a final state
@@ -42,7 +41,7 @@ private[trigger] sealed abstract class UnfoldState[+T, +A] {
   private[trigger] final def iterator(): Iterator[T \/ A] =
     new Iterator[T \/ A] {
       var last = some(step(init))
-      override def hasNext() = last.isDefined
+      override def hasNext = last.isDefined
       override def next() = last match {
         case Some(\/-((a, s))) =>
           last = Some(step(s))
@@ -55,8 +54,8 @@ private[trigger] sealed abstract class UnfoldState[+T, +A] {
       }
     }
 
-  final def runTo[FA](implicit cbf: CanBuildFrom[Nothing, A, FA]): (FA, T) = {
-    val b = cbf()
+  final def runTo[FA](implicit factory: Factory[A, FA]): (FA, T) = {
+    val b = factory.newBuilder
     val t = foreach(a => discard(b += a))
     (b.result(), t)
   }
@@ -76,7 +75,7 @@ private[trigger] object UnfoldState {
 
   implicit def `US bifunctor instance`: Bifunctor[UnfoldState] = new Bifunctor[UnfoldState] {
     override def bimap[A, B, C, D](fab: UnfoldState[A, B])(f: A => C, g: B => D) =
-      UnfoldState(fab.init)(fab.step andThen (_ bimap (f, (_ leftMap g))))
+      UnfoldState(fab.init)(fab.step andThen (_.bimap(f, (_ leftMap g))))
   }
 
   def fromLinearSeq[A](list: LinearSeq[A]): UnfoldState[Unit, A] =
@@ -116,12 +115,14 @@ private[trigger] object UnfoldState {
     * left T, then repeat until close, with a final T unless aborted.
     */
   def flatMapConcatStates[T, A, B](zero: T)(
-      f: (T, A) => UnfoldState[T, B]): Flow[A, T \/ B, NotUsed] =
+      f: (T, A) => UnfoldState[T, B]
+  ): Flow[A, T \/ B, NotUsed] =
     Flow[A].statefulMapConcat(() => mkMapConcatFun(zero, f))
 
   type UnfoldStateShape[T, -A, +B] = BidiShape[T, B, A, T]
   implicit final class flatMapConcatNodeOps[IT, B, A, OT](
-      private val self: BidiShape[IT, B, A, OT]) {
+      private val self: BidiShape[IT, B, A, OT]
+  ) {
     def initState: Inlet[IT] = self.in1
     def elemsIn: Inlet[A] = self.in2
     def elemsOut: Outlet[B] = self.out1
@@ -133,7 +134,8 @@ private[trigger] object UnfoldState {
     * on out2.
     */
   def flatMapConcatNode[T, A, B](
-      f: (T, A) => UnfoldState[T, B]): Graph[UnfoldStateShape[T, A, B], NotUsed] =
+      f: (T, A) => UnfoldState[T, B]
+  ): Graph[UnfoldStateShape[T, A, B], NotUsed] =
     GraphDSL.create() { implicit gb =>
       import GraphDSL.Implicits._
       val initialT = gb add (Flow fromFunction \/.left[T, A] take 1)
@@ -152,10 +154,15 @@ private[trigger] object UnfoldState {
   private[this] def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
-      val split = b.add(Partition[A \/ B](2, {
-        case -\/(_) => 0
-        case \/-(_) => 1
-      }))
+      val split = b.add(
+        Partition[A \/ B](
+          2,
+          {
+            case -\/(_) => 0
+            case \/-(_) => 1
+          },
+        )
+      )
       val as = b.add(Flow[A \/ B].collect { case -\/(a) => a })
       val bs = b.add(Flow[A \/ B].collect { case \/-(b) => b })
       discard { split ~> as }
@@ -167,12 +174,15 @@ private[trigger] object UnfoldState {
 
   private[this] def statefulMapConcatFun[T, A, B](f: FoldL[T, A, B]): T \/ A => Iterable[T \/ B] = {
     var mcFun: A => Iterable[T \/ B] = null
-    _ fold (zeroT => {
-      mcFun = mkMapConcatFun(zeroT, f)
-      Iterable.empty
-    }, { a =>
-      mcFun(a)
-    })
+    _.fold(
+      zeroT => {
+        mcFun = mkMapConcatFun(zeroT, f)
+        Iterable.empty
+      },
+      { a =>
+        mcFun(a)
+      },
+    )
   }
 
   private[this] def mkMapConcatFun[T, A, B](zero: T, f: FoldL[T, A, B]): A => Iterable[T \/ B] = {
@@ -188,7 +198,7 @@ private[trigger] object UnfoldState {
         override def iterator = new Iterator[T \/ B] {
           private[this] var last: Option[T \/ (B, bs.S)] = {
             val fst = step(bs.init)
-            fst fold (newT => t = newT, _ => ())
+            fst.fold(newT => t = newT, _ => ())
             Some(fst)
           }
 
@@ -196,7 +206,7 @@ private[trigger] object UnfoldState {
           // of what the client sees.  We could improve laziness by making it
           // "even", but it would be a little trickier, as `hasNext` would have
           // a forcing side-effect
-          override def hasNext() = last.isDefined
+          override def hasNext = last.isDefined
 
           override def next() =
             last match {
@@ -204,7 +214,7 @@ private[trigger] object UnfoldState {
                 val next = step(s)
                 // The assumption here is that statefulMapConcat's implementation
                 // will always read iterator to end before invoking on the next A
-                next fold (newT => t = newT, _ => ())
+                next.fold(newT => t = newT, _ => ())
                 last = Some(next)
                 \/-(b)
               case Some(et @ -\/(_)) =>

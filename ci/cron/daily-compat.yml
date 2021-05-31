@@ -1,10 +1,10 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Do not run on PRs
 pr: none
 
-# Do not run on merge to master
+# Do not run on merge to main
 trigger: none
 
 # Do run on a schedule (daily)
@@ -19,19 +19,19 @@ schedules:
   displayName: daily checks and reporting
   branches:
     include:
-    - master
+    - main
   always: true
 
 jobs:
   - job: compatibility_ts_libs
     timeoutInMinutes: 60
     pool:
-      name: linux-pool
+      name: ubuntu_20_04
       demands: assignment -equals default
     steps:
       - checkout: self
+      - template: ../clean-up.yml
       - template: ../compatibility_ts_libs.yml
-      - template: ../daily_tell_slack.yml
 
   - job: compatibility
     dependsOn: compatibility_ts_libs
@@ -39,7 +39,7 @@ jobs:
     strategy:
       matrix:
         linux:
-          pool: linux-pool
+          pool: ubuntu_20_04
         macos:
           pool: macOS-pool
     pool:
@@ -49,8 +49,8 @@ jobs:
       - checkout: self
       - ${{ if eq(variables['pool'], 'macos-pool') }}:
         - template: ../clear-shared-segments-macos.yml
+      - template: ../clean-up.yml
       - template: ../compatibility.yml
-      - template: ../daily_tell_slack.yml
 
   - job: compatibility_windows
     dependsOn: compatibility_ts_libs
@@ -66,12 +66,11 @@ jobs:
         inputs:
           pathtoPublish: '$(Build.StagingDirectory)'
           artifactName: 'Bazel Compatibility Logs'
-      - template: ../daily_tell_slack.yml
 
   - job: perf_speedy
     timeoutInMinutes: 120
     pool:
-      name: "linux-pool"
+      name: "ubuntu_20_04"
       demands: assignment -equals default
     steps:
       - checkout: self
@@ -109,17 +108,21 @@ jobs:
 
           gcs "$GCRED" cp "$OUT" gs://daml-data/perf/speedy/$START.json
 
+          setvar speedup "$(jq -r '.speedup' "$OUT")"
+
         displayName: measure perf
+        name: out
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: ../daily_tell_slack.yml
-        parameters:
-          success-message: '$(cat $(Build.StagingDirectory)/perf-results.json | jq . | jq -sR ''"perf for ''"$COMMIT_LINK"'':```\(.)```"'')'
+      - task: PublishPipelineArtifact@0
+        inputs:
+          targetPath: $(Build.StagingDirectory)/perf-results.json
+          artifactName: perf
 
   - job: perf_http_json
     timeoutInMinutes: 120
     pool:
-      name: "linux-pool"
+      name: "ubuntu_20_04"
       demands: assignment -equals default
     steps:
       - checkout: self
@@ -159,7 +162,7 @@ jobs:
           OUT="$(Build.StagingDirectory)/${REPORT_ID}"
 
           for scenario in $SCENARIOS; do
-            bazel run //ledger-service/http-json-perf:http-json-perf-binary -- \
+            bazel run //ledger-service/http-json-perf:http-json-perf-binary-ce -- \
             --scenario=${scenario} \
             --dars=${DAR} \
             --reports-dir=${OUT} \
@@ -175,9 +178,9 @@ jobs:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
   - job: check_releases
-    timeoutInMinutes: 240
+    timeoutInMinutes: 360
     pool:
-      name: linux-pool
+      name: ubuntu_20_04
       demands: assignment -equals default
     steps:
       - checkout: self
@@ -195,67 +198,164 @@ jobs:
         displayName: check releases
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: ../daily_tell_slack.yml
 
   - job: blackduck_scan
     timeoutInMinutes: 1200
+    condition: eq(variables['Build.SourceBranchName'], 'main')
     pool:
-      name: linux-pool
+      name: ubuntu_20_04
       demands: assignment -equals default
     steps:
       - checkout: self
+        persistCredentials: true
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
-      - bash: ci/configure-bazel.sh
-        displayName: 'Configure Bazel'
-        env:
-          IS_FORK: $(System.PullRequest.IsFork)
-          # to upload to the bazel cache
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)        
       - bash: |
           set -euo pipefail
           eval "$(dev-env/bin/dade assist)"
           export LC_ALL=en_US.UTF-8
-          
+
           bazel build //...
           # Make sure that Bazel query works
-          bazel query 'deps(//...)'
+          bazel query 'deps(//...)' >/dev/null
         displayName: 'Build'
       - bash: |
           set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
+          eval "$(dev-env/bin/dade-assist)"
+
+          #needs to be specified since blackduck can not scan all bazel
+          #dependency types in one go, haskell has to be scanned separatey and
+          #code location name uniquely identified to avoid stomping
+          BAZEL_DEPENDENCY_TYPE="haskell_cabal_library"
+
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml master \
+          ci-build digital-asset_daml $(Build.SourceBranchName) \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.tools=BAZEL \
           --detect.bazel.target=//... \
-          --detect.bazel.dependency.type=haskell_cabal_library \
+          --detect.bazel.dependency.type=${BAZEL_DEPENDENCY_TYPE} \
+          --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
           --detect.notices.report=true \
-          --detect.report.timeout=1500
+          --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
+          --detect.timeout=1500
         displayName: 'Blackduck Haskell Scan'
         env:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
       - bash: |
           set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
+          eval "$(dev-env/bin/dade-assist)"
+
+          #avoid stomping any previous bazel haskell scans for this repository
+          #by qualifying as a maven_install (aka jvm) bazel blackduck scan
+          BAZEL_DEPENDENCY_TYPE="maven_install"
+
           bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) \
-          ci-build digital-asset_daml master \
+          ci-build digital-asset_daml $(Build.SourceBranchName) \
           --logging.level.com.synopsys.integration=DEBUG \
           --detect.npm.include.dev.dependencies=false \
           --detect.excluded.detector.types=NUGET \
           --detect.excluded.detector.types=GO_MOD \
           --detect.yarn.prod.only=true \
-          --detect.python.python3=true \
           --detect.tools=DETECTOR,BAZEL,DOCKER \
           --detect.bazel.target=//... \
-          --detect.bazel.dependency.type=maven_install \
-          --detect.detector.search.exclusion.paths=language-support/ts/codegen/tests/ts,language-support/ts,language-support/scala/examples/iou-no-codegen,language-support/scala/examples/quickstart-scala,docs/source/app-dev/bindings-java/code-snippets,docs/source/app-dev/bindings-java/quickstart/template-root,language-support/scala/examples/quickstart-scala,language-support/scala/examples/iou-no-codegen \
+          --detect.bazel.dependency.type=${BAZEL_DEPENDENCY_TYPE} \
+          --detect.excluded.directories=.bazel-cache,language-support/ts/codegen/tests/ts,language-support/ts,language-support/scala/examples/iou-no-codegen,language-support/scala/examples/quickstart-scala,docs/source/app-dev/bindings-java/code-snippets,docs/source/app-dev/bindings-java/quickstart/template-root,language-support/scala/examples/quickstart-scala,language-support/scala/examples/iou-no-codegen \
           --detect.cleanup=false \
           --detect.policy.check.fail.on.severities=MAJOR,CRITICAL,BLOCKER \
           --detect.notices.report=true \
           --detect.cleanup.bdio.files=true \
-          --detect.report.timeout=4500
+          --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
+          --detect.timeout=4500
         displayName: 'Blackduck Scan'
         env:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
-      - template: ../daily_tell_slack.yml
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          source $(bash_lib)
+
+          branch="notices-update-$(Build.BuildId)"
+
+          tr -d '\015' <*_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml >NOTICES
+          if git diff --exit-code -- NOTICES; then
+              echo "NOTICES file already up-to-date."
+              setvar need_to_build false
+          else
+              git add NOTICES
+              open_pr "$branch" "update NOTICES file"
+              setvar need_to_build true
+          fi
+        displayName: open PR
+        name: out
+        condition: and(succeeded(),
+                       eq(variables['Build.SourceBranchName'], 'main'))
+
+  - job: run_notices_pr_build
+    timeoutInMinutes: 60
+    dependsOn: ["blackduck_scan"]
+    condition: and(succeeded(),
+                   eq(variables['Build.SourceBranchName'], 'main'))
+    pool:
+      vmImage: ubuntu-20.04
+    variables:
+      need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
+    steps:
+      - bash: |
+          if [ "$(need_to_build)" == "true" ]; then
+              branch="notices-update-$(Build.BuildId)"
+              az extension add --name azure-devops
+              trap "az devops logout" EXIT
+              echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
+              az pipelines build queue --branch "$branch" \
+                                       --definition-name "PRs" \
+                                       --org "https://dev.azure.com/digitalasset" \
+                                       --project daml
+          fi
+
+  - job: report
+    dependsOn: [compatibility_ts_libs, compatibility, compatibility_windows,
+                perf_speedy, perf_http_json, check_releases,
+                blackduck_scan, run_notices_pr_build]
+    condition: and(succeededOrFailed(),
+                   eq(variables['Build.SourceBranchName'], 'main'))
+    pool:
+      name: ubuntu_20_04
+      demands: assignment -equals default
+    variables:
+      compatibility_ts_libs: $[ dependencies.compatibility_ts_libs.result ]
+      compatibility: $[ dependencies.compatibility.result ]
+      compatibility_windows: $[ dependencies.compatibility_windows.result ]
+      perf_speedy: $[ dependencies.perf_speedy.result ]
+      speedup: $[ dependencies.perf_speedy.outputs['out.speedup'] ]
+      perf_http_json: $[ dependencies.perf_http_json.result ]
+      check_releases: $[ dependencies.check_releases.result ]
+      blackduck_scan: $[ dependencies.blackduck_scan.result ]
+      run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
+    steps:
+    - template: ../bash-lib.yml
+      parameters:
+        var_name: bash_lib
+    - bash: |
+        set -euo pipefail
+
+        eval "$(./dev-env/bin/dade-assist)"
+        source $(bash_lib)
+
+        COMMIT_TITLE="$(escape_slack "$(git log --pretty=format:%s -n1)")"
+        COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|${COMMIT_TITLE}>"
+
+        if [[ "$(compatibility_ts_libs)" == "Succeeded"
+           && "$(compatibility)" == "Succeeded"
+           && "$(compatibility_windows)" == "Succeeded"
+           && "$(perf_speedy)" == "Succeeded"
+           && "$(perf_http_json)" == "Succeeded"
+           && "$(check_releases)" == "Succeeded"
+           && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
+           && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped") ]]; then
+            tell_slack "Daily tests passed: $COMMIT_LINK (speedup: $(speedup))." "$(Slack.ci-failures-daml)"
+        else
+            tell_slack "Daily tests failed: $COMMIT_LINK." "$(Slack.ci-failures-daml)"
+        fi

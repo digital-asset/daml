@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -19,11 +19,32 @@ load("//:versions.bzl", "latest_stable_version")
 # - ContractKeysIT:
 #   - https://github.com/digital-asset/daml/pull/5608
 #   - https://github.com/digital-asset/daml/pull/7829
+#   - https://github.com/digital-asset/daml/pull/9218
 # - ContractKeysSubmitterIsMaintainerIT:
 #   - https://github.com/digital-asset/daml/pull/5611
+# - SemanticTests:
+#   - https://github.com/digital-asset/daml/pull/9218
 
 last_nongranular_test_tool = "1.3.0-snapshot.20200617.4484.0.7e0a6848"
 first_granular_test_tool = "1.3.0-snapshot.20200623.4546.0.4f68cfc4"
+
+# Some of gRPC error codes changed from INVALID_ARGUMENT to ABORTED
+# See https://github.com/digital-asset/daml/pull/9218
+before_grpc_error_code_breaking_change = "1.12.0-snapshot.20210323.6567.0.90c5ce70"
+after_grpc_error_code_breaking_change = "1.12.0-snapshot.20210323.6567.1.90c5ce70"
+grpc_error_code_breaking_change_exclusions = [
+    "SemanticTests:SemanticDoubleSpendShared",
+    "SemanticTests:SemanticPrivacyProjections",
+    "SemanticTests:SemanticDivulgence",
+    "ContractKeysIT:CKFetchOrLookup",
+    "ContractKeysIT:CKNoFetchUndisclosed",
+    "ContractKeysIT:CKMaintainerScoped",
+]
+
+grpc_error_code_breaking_change_exclusions_suites = [
+    "SemanticTests",
+    "ContractKeysIT",
+]
 
 excluded_test_tool_tests = [
     {
@@ -152,6 +173,74 @@ excluded_test_tool_tests = [
                     "ContractKeysIT:CKFetchOrLookup",
                     "ContractKeysIT:CKNoFetchUndisclosed",
                 ],
+            },
+        ],
+    },
+    {
+        "start": "1.10.0-snapshot.20210201.6207.0.7cf1914d",
+        "platform_ranges": [
+            {
+                "end": "1.10.0-snapshot.20210125.6143.0.550aa48f",
+                "exclusions": [
+                    # See https://github.com/digital-asset/daml/pull/8642
+                    "PartyManagementServiceIT:PMRejectLongPartyHints",
+                    "PartyManagementServiceIT:PMRejectInvalidPartyHints",
+                ],
+            },
+        ],
+    },
+    {
+        "start": after_grpc_error_code_breaking_change,
+        "platform_ranges": [
+            {
+                "end": before_grpc_error_code_breaking_change,
+                "exclusions": grpc_error_code_breaking_change_exclusions + ["SemanticTests:SemanticDoubleSpendBasic"],
+            },
+        ],
+    },
+    {
+        "end": last_nongranular_test_tool,
+        "platform_ranges": [
+            {
+                "start": after_grpc_error_code_breaking_change,
+                "exclusions": grpc_error_code_breaking_change_exclusions_suites,
+            },
+        ],
+    },
+    {
+        "start": first_granular_test_tool,
+        "end": "1.5.0",
+        "platform_ranges": [
+            {
+                "start": after_grpc_error_code_breaking_change,
+                "exclusions": grpc_error_code_breaking_change_exclusions + ["SemanticTests:SemanticDoubleSpend"],
+            },
+        ],
+    },
+    {
+        "start": "1.6.0",
+        "platform_ranges": [
+            {
+                "start": after_grpc_error_code_breaking_change,
+                "exclusions": grpc_error_code_breaking_change_exclusions + ["SemanticTests:SemanticDoubleSpendBasic"],
+            },
+        ],
+    },
+    {
+        "start": "1.13.0-snapshot.20210419.6730.1.8c3a8c04",
+        "platform_ranges": [
+            {
+                "end": "1.13.0-snapshot.20210419.6730.0.8c3a8c04",
+                "exclusions": ["ContractKeysIT:CKLocalKeyVisibility"],
+            },
+        ],
+    },
+    {
+        "start": "1.13.0-snapshot.20210419.6730.1.8c3a8c04",
+        "platform_ranges": [
+            {
+                "end": "1.13.0-snapshot.20210504.6833.0.9ae787d0",
+                "exclusions": ["ValueLimitsIT:VLLargeSubmittersNumberCreateContract"],
             },
         ],
     },
@@ -360,6 +449,27 @@ def create_daml_app_test(
         **kwargs
     )
 
+# FIXME
+#
+# SDK components may default to a LF version too recent for a given platform version.
+#
+# This predicate can be used to filter sdk_platform_test rules as a temporary
+# measure to prevent spurious errors on CI.
+#
+# The proper fix is to use the appropriate version of Daml-LF for every SDK/platform pair.
+
+def daml_lf_compatible(sdk_version, platform_version):
+    return (
+        # any platform supports any pre 1.11 SDK
+        not in_range(sdk_version, {"start": "1.11.0-snapshot"})
+    ) or (
+        # any post 1.10.0 platform supports any pre 1.12 SDK
+        in_range(platform_version, {"start": "1.10.0-snapshot"}) and not in_range(sdk_version, {"start": "1.12.0-snapshot"})
+    ) or (
+        # any post 1.11.0 platform supports any SDK
+        in_range(platform_version, {"start": "1.11.0-snapshot"})
+    )
+
 def sdk_platform_test(sdk_version, platform_version):
     # SDK components
     daml_assistant = "@daml-sdk-{sdk_version}//:daml".format(
@@ -385,7 +495,7 @@ def sdk_platform_test(sdk_version, platform_version):
     # if the CI machine does not have enough entropy.
     sandbox_args = ["sandbox", "--contract-id-seeding=testing-weak"]
 
-    sandbox_classic_args = ["sandbox-classic"]
+    sandbox_classic_args = ["sandbox-classic", "--contract-id-seeding=testing-weak"]
 
     json_api_args = ["json-api"]
 
@@ -453,6 +563,7 @@ def sdk_platform_test(sdk_version, platform_version):
 
     client_server_test(
         name = name + "-classic-postgresql",
+        size = "large",
         client = ledger_api_test_tool,
         client_args = [
             "localhost:6865",
@@ -462,7 +573,7 @@ def sdk_platform_test(sdk_version, platform_version):
         runner = "@//bazel_tools/client_server:runner",
         runner_args = ["6865"],
         server = ":sandbox-with-postgres-{}".format(platform_version),
-        server_args = [platform_version, "sandbox-classic"],
+        server_args = [platform_version] + sandbox_classic_args,
         server_files = ["$(rootpaths {dar_files})".format(
             dar_files = dar_files,
         )],

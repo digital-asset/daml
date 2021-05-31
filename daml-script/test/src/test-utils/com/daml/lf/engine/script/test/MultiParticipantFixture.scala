@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -9,12 +9,17 @@ import java.util.stream.Collectors
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, OwnedResource, SuiteResource}
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.on.memory.{ExtraConfig, Owner}
-import com.daml.ledger.participant.state.kvutils.app.{ParticipantConfig, ParticipantRunMode}
+import com.daml.ledger.on.memory.Owner
+import com.daml.ledger.participant.state.kvutils.app.{
+  ParticipantConfig,
+  ParticipantIndexerConfig,
+  ParticipantRunMode,
+}
 import com.daml.ledger.participant.state.kvutils.{app => kvutils}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.engine.script._
+import com.daml.lf.engine.script.ledgerinteraction.ScriptTimeMode
 import com.daml.ports.Port
 import org.scalatest.Suite
 
@@ -50,9 +55,10 @@ trait MultiParticipantFixture
     port = Port.Dynamic,
     portFile = Some(participant1Portfile),
     serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId1),
-    allowExistingSchemaForIndex = false,
+    indexerConfig = ParticipantIndexerConfig(
+      allowExistingSchema = false
+    ),
     maxCommandsInFlight = None,
-    managementServiceTimeout = ParticipantConfig.defaultManagementServiceTimeout,
   )
   private val participantId2 = v1.ParticipantId.assertFromString("participant2")
   private val participant2 = ParticipantConfig(
@@ -63,9 +69,10 @@ trait MultiParticipantFixture
     port = Port.Dynamic,
     portFile = Some(participant2Portfile),
     serverJdbcUrl = ParticipantConfig.defaultIndexJdbcUrl(participantId2),
-    allowExistingSchemaForIndex = false,
+    indexerConfig = ParticipantIndexerConfig(
+      allowExistingSchema = false
+    ),
     maxCommandsInFlight = None,
-    managementServiceTimeout = ParticipantConfig.defaultManagementServiceTimeout,
   )
   override protected lazy val suiteResource = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
@@ -73,15 +80,12 @@ trait MultiParticipantFixture
       for {
         _ <- Owner(
           kvutils.Config
-            .createDefault(ExtraConfig.reasonableDefault)
+            .createDefault(())
             .copy(
-              participants = Seq(
-                participant1,
-                participant2
-              ),
-              archiveFiles = Seq(
-                darFile
-              )))
+              participants = Seq(participant1, participant2),
+              archiveFiles = Seq(darFile),
+            )
+        )
       } yield (readPortfile(participant1Portfile), readPortfile(participant2Portfile))
     )
   }
@@ -92,14 +96,15 @@ trait MultiParticipantFixture
       None,
       Seq(
         (Participant("one"), ApiParameters("localhost", suiteResource.value._1.value, None, None)),
-        (Participant("two"), ApiParameters("localhost", suiteResource.value._2.value, None, None))
+        (Participant("two"), ApiParameters("localhost", suiteResource.value._2.value, None, None)),
       ).toMap,
-      Map.empty
+      Map.empty,
     )
     Runner.connect(
       params,
       tlsConfig = TlsConfiguration(false, None, None, None),
-      maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize)
+      maxInboundMessageSize = RunnerConfig.DefaultMaxInboundMessageSize,
+    )
   }
 
   override def timeMode: ScriptTimeMode = ScriptTimeMode.WallClock

@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _java-bindings:
@@ -14,7 +14,7 @@ Java bindings
   Iou Quickstart Tutorial <quickstart>
 
 The Java bindings is a client implementation of the *Ledger API*
-based on `RxJava <https://github.com/ReactiveX/RxJava>`_, a library for composing asynchronous and event-based programs using observable sequences for the Java VM. It provides an idiomatic way to write DAML Ledger applications.
+based on `RxJava <https://github.com/ReactiveX/RxJava>`_, a library for composing asynchronous and event-based programs using observable sequences for the Java VM. It provides an idiomatic way to write Daml Ledger applications.
 
 .. seealso::
    This documentation for the Java bindings API includes the `JavaDoc reference documentation <javadocs/index.html>`_.
@@ -38,11 +38,11 @@ The Java bindings library is composed of:
 
     The Reactive Layer also exposes the main interface representing a client
     connecting via the Ledger API. This interface is called ``LedgerClient`` and the
-    main implementation working against a DAML Ledger is the ``DamlLedgerClient``.
+    main implementation working against a Daml Ledger is the ``DamlLedgerClient``.
 
     Can be found in the java package ``com.daml.ledger.rxjava``.
 - The Reactive Components
-    A set of optional components you can use to assemble DAML Ledger applications. These components are deprecated as of 2020-10-14.
+    A set of optional components you can use to assemble Daml Ledger applications. These components are deprecated as of 2020-10-14.
 
     The most important components are:
 
@@ -54,16 +54,16 @@ The Java bindings library is composed of:
 Code generation
 ===============
 
-When writing applications for the ledger in Java, you want to work with a representation of DAML templates and data types in Java that closely resemble the original DAML code while still being as true to the native types in Java as possible.
+When writing applications for the ledger in Java, you want to work with a representation of Daml templates and data types in Java that closely resemble the original Daml code while still being as true to the native types in Java as possible.
 
-To achieve this, you can use DAML to Java code generator ("Java codegen") to generate Java types based on a DAML model. You can then use these types in your Java code when reading information from and sending data to the ledger.
+To achieve this, you can use Daml to Java code generator ("Java codegen") to generate Java types based on a Daml model. You can then use these types in your Java code when reading information from and sending data to the ledger.
 
 For more information on Java code generation, see :doc:`/app-dev/bindings-java/codegen`.
 
 Connecting to the ledger: LedgerClient
 ======================================
 
-Connections to the ledger are made by creating instance of classes that implement the interface ``LedgerClient``. The class ``DamlLedgerClient`` implements this interface, and is used to connect to a DAML ledger.
+Connections to the ledger are made by creating instance of classes that implement the interface ``LedgerClient``. The class ``DamlLedgerClient`` implements this interface, and is used to connect to a Daml ledger.
 
 This class provides access to the ledgerId, and all clients that give access to the various ledger services, such as the active contract set, the transaction service, the time service, etc. This is described :ref:`below <ledger-api-java-binding-connecting>`. Consult the `JavaDoc for DamlLedgerClient <javadocs/com/daml/ledger/rxjava/DamlLedgerClient.html>`_ for full details.
 
@@ -127,11 +127,11 @@ If you're communicating with a ledger that verifies authorization it's very impo
 Connecting securely
 ===================
 
-The Java bindings library lets you connect to a DAML Ledger via a secure connection. The builders created by
+The Java bindings library lets you connect to a Daml Ledger via a secure connection. The builders created by
 ``DamlLedgerClient.newBuilder`` default to a plaintext connection, but you can invoke ``withSslContext`` to pass an ``SslContext``.
 Using the default plaintext connection is useful only when connecting to a locally running Sandbox for development purposes.
 
-Secure connections to a DAML Ledger must be configured to use client authentication certificates, which can be provided by a Ledger Operator.
+Secure connections to a Daml Ledger must be configured to use client authentication certificates, which can be provided by a Ledger Operator.
 
 For information on how to set up an ``SslContext`` with the provided certificates for client authentication, please consult the gRPC documentation on
 `TLS with OpenSSL <https://github.com/grpc/grpc-java/blob/master/SECURITY.md#tls-with-openssl>`_ as well as the
@@ -170,7 +170,7 @@ for the application, the application ``LedgerView`` is updated to contain that c
 Writing automations: Bot
 ------------------------
 
-The ``Bot`` is an abstraction used to write automation for a DAML Ledger. It is conceptually
+The ``Bot`` is an abstraction used to write automation for a Daml Ledger. It is conceptually
 defined by two aspects:
 
 - the ``LedgerView``

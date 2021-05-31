@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: choices
@@ -21,13 +21,11 @@ There are two ways you can start a choice:
 
 The main difference is that starting with ``choice`` means that you can pass in a ``Party`` to use as a controller. If you do this, you **must** make sure that you add that party as an ``observer``, otherwise they won't be able to see the contract (and therefore won't be able to exercise the choice).
 
-In contrast, if you start with ``controller``, the ``controller`` is automatically added as an observer when you compile your DAML files.
+In contrast, if you start with ``controller``, the ``controller`` is automatically added as an observer when you compile your Daml files.
 
 .. _daml-ref-choice-observers:
 
 A secondary difference is that starting with ``choice`` allows *choice observers* to be attached to the choice using the ``observer`` keyword. The choice observers are a list of parties that, in addition to the stakeholders, will see all consequences of the action.
-
-Choice observers are an "Early Access" feature. They are only available if you target DAML-LF 1.dev by ``--target=1.dev``.
 
 .. literalinclude:: ../code-snippets-dev/Structure.daml
    :language: daml

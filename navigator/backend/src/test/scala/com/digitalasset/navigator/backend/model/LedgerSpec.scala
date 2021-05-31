@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.model
@@ -31,7 +31,8 @@ class LedgerSpec extends AnyWordSpec with Matchers {
       Some(ApiTypes.CommandId("commandId")),
       Instant.now(),
       "0",
-      List.empty)
+      List.empty,
+    )
   private def contract(id: String): Contract =
     Contract(
       ApiTypes.ContractId(id),
@@ -40,7 +41,8 @@ class LedgerSpec extends AnyWordSpec with Matchers {
       Option(""),
       List(alice),
       List(bob, charlie),
-      None)
+      None,
+    )
 
   "A ledger with existing contracts" when {
     val subject = Ledger(alice, None, false).withTransaction(
@@ -58,10 +60,11 @@ class LedgerSpec extends AnyWordSpec with Matchers {
             Some(""),
             List(alice),
             List(bob, charlie),
-            None
+            None,
           )
-        )),
-      templateRegistry
+        )
+      ),
+      templateRegistry,
     )
 
     "adding a transaction" should {
@@ -87,7 +90,7 @@ class LedgerSpec extends AnyWordSpec with Matchers {
         agreementText = Some(""),
         signatories = List(alice),
         observers = List(bob, charlie),
-        key = None
+        key = None,
       )
       val created1 = contractCreated("E1", "C1")
       val created2 = contractCreated("E2", "C2")
@@ -101,12 +104,16 @@ class LedgerSpec extends AnyWordSpec with Matchers {
       }
 
       "return the created contracts when traversing all contracts" in {
-        result.allContracts(templateRegistry) should contain allOf (contract("C1"), contract("C2"))
+        result.allContracts(templateRegistry) should contain.allOf(contract("C1"), contract("C2"))
       }
 
       "consider the created contracts to be active" in {
-        result.activeContracts(templateRegistry) should contain allOf (contract("C1"), contract(
-          "C2"))
+        result.activeContracts(templateRegistry) should contain.allOf(
+          contract("C1"),
+          contract(
+            "C2"
+          ),
+        )
       }
 
       "return the events by id" in {
@@ -151,7 +158,7 @@ class LedgerSpec extends AnyWordSpec with Matchers {
         agreementText = Some(""),
         signatories = List(bob),
         observers = List(charlie),
-        key = None
+        key = None,
       )
 
       val created1 = contractCreated("NonVisible", "NotVisible")
@@ -176,7 +183,7 @@ class LedgerSpec extends AnyWordSpec with Matchers {
         choice = ApiTypes.Choice("choice"),
         argument = C.simpleUnitV,
         actingParties = List(party),
-        consuming = true
+        consuming = true,
       )
       val latest = transaction("Tx1").copy(events = List(exercisedEvent))
 
@@ -228,7 +235,7 @@ class LedgerSpec extends AnyWordSpec with Matchers {
         agreementText = Some(""),
         signatories = List(alice),
         observers = List(bob, charlie),
-        key = None
+        key = None,
       )
       val exercisedEvent = ChoiceExercised(
         id = ApiTypes.EventId("E2"),
@@ -241,9 +248,9 @@ class LedgerSpec extends AnyWordSpec with Matchers {
         choice = ApiTypes.Choice("choice"),
         argument = C.simpleUnitV,
         actingParties = List(party),
-        consuming = true
+        consuming = true,
       )
-      val latest = transaction("Tx1").copy(events = List(exercisedEvent, createdEvent))
+      val latest = transaction("Tx1").copy(events = List[Event](exercisedEvent, createdEvent))
 
       val result = subject.withTransaction(latest, templateRegistry)
 
@@ -300,13 +307,15 @@ class LedgerSpec extends AnyWordSpec with Matchers {
         ApiTypes.WorkflowId("W1"),
         Instant.EPOCH,
         template.id,
-        contractArgument)
+        contractArgument,
+      )
 
       val result = subject.withCommand(createCmd)
 
       "report the status of the command as waiting" in {
         result.statusOf(ApiTypes.CommandId("Cmd1"), templateRegistry) shouldBe Some(
-          CommandStatusWaiting())
+          CommandStatusWaiting()
+        )
       }
 
       "don't report any result of the command" in {
@@ -321,7 +330,8 @@ class LedgerSpec extends AnyWordSpec with Matchers {
         ApiTypes.WorkflowId("W1"),
         Instant.EPOCH,
         template.id,
-        contractArgument)
+        contractArgument,
+      )
 
       val latest = transaction("Tx1").copy(commandId = Some(ApiTypes.CommandId("Cmd1")))
 
@@ -329,12 +339,14 @@ class LedgerSpec extends AnyWordSpec with Matchers {
 
       "report the status of the command as success with the transaction" in {
         result.statusOf(ApiTypes.CommandId("Cmd1"), templateRegistry) shouldBe Some(
-          CommandStatusSuccess(latest))
+          CommandStatusSuccess(latest)
+        )
       }
 
       "report the result of the command as success with the transaction" in {
         result.resultOf(ApiTypes.CommandId("Cmd1"), templateRegistry) shouldBe Some(
-          Result(ApiTypes.CommandId("Cmd1"), Right(latest)))
+          Result(ApiTypes.CommandId("Cmd1"), Right(latest))
+        )
       }
     }
   }

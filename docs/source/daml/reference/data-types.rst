@@ -1,10 +1,10 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: data types
 #####################
 
-This page gives reference information on DAML's data types.
+This page gives reference information on Daml's data types.
 
 .. _daml-ref-built-in-types:
 
@@ -33,7 +33,11 @@ Table of built-in primitive types
    * - ``Numeric n``
      - fixed point decimal numbers
      - ``1.0``
-     - `Numeric n` values are rational numbers with up to ``38`` digits. The scale parameter ``n`` controls the number of digits after the decimal point, so for example, ``Numeric 10`` values have 10 decimal places, and ``Numeric 20`` values have 20 decimal places. The value of ``n`` must be between ``0`` and ``37`` inclusive.
+     - ``Numeric n`` values are rational numbers with ``38`` decimal digits. The scale parameter ``n`` controls the number of digits after the decimal point, so for example, ``Numeric 10`` values have 10 digits after the decimal point, and ``Numeric 20`` values have 20 digits after the decimal point. The value of ``n`` must be between ``0`` and ``37`` inclusive.
+   * - ``BigNumeric``
+     - large fixed point decimal numbers
+     - ``1.0``
+     - ``BigNumeric`` values are rational numbers with up to ``2^16`` decimal digits. They can have up to ``2^15`` digits before the decimal point, and up to ``2^15`` digits after the decimal point.
    * - ``Text``
      - strings
      - ``"hello"``
@@ -45,7 +49,7 @@ Table of built-in primitive types
    * - ``Party``
      - unicode string representing a party
      - ``alice <- getParty "Alice"``
-     - Every *party* in a DAML system has a unique identifier of type ``Party``. To create a value of type ``Party``, use binding on the result of calling ``getParty``. The party text can only contain alphanumeric characters, ``-``, ``_`` and spaces.
+     - Every *party* in a Daml system has a unique identifier of type ``Party``. To create a value of type ``Party``, use binding on the result of calling ``getParty``. The party text can only contain alphanumeric characters, ``-``, ``_`` and spaces.
    * - ``Date``
      - models dates
      - ``date 2007 Apr 5``
@@ -67,7 +71,7 @@ Escaping characters
 Time
 ====
 
-Definition of time on the ledger is a property of the execution environment. DAML assumes there is a shared understanding of what time is among the stakeholders of contracts.
+Definition of time on the ledger is a property of the execution environment. Daml assumes there is a shared understanding of what time is among the stakeholders of contracts.
 
 Lists
 *****
@@ -84,7 +88,7 @@ list) and ``::`` (which is an operator that appends an element to the front of a
 Summing a list
 ==============
 
-To sum a list, use a *fold* (because there are no loops in DAML). See :ref:`daml-ref-folding` for details.
+To sum a list, use a *fold* (because there are no loops in Daml). See :ref:`daml-ref-folding` for details.
 
 .. TODO - reference std lib documentation
 
@@ -148,7 +152,7 @@ You can use ``data`` keyword to define a new data type, for example ``data Floor
 The first ``Floor`` in the expression is the *type constructor*. The second ``Floor`` is a *data constructor* that can be used to specify values of the ``Floor Int``
 type: for example, ``Floor 0``, ``Floor 1``.
 
-In DAML, data constructors may take *at most one argument*.
+In Daml, data constructors may take *at most one argument*.
 
 An example of a data constructor with zero arguments is ``data Empty = Empty {}``. The only value of the ``Empty`` type is ``Empty``.
 
@@ -184,7 +188,7 @@ For example:
 
 produces the new record value ``MyRecord with first = 1; second = 5``.
 
-If you have a variable with the same name as the label, DAML lets you use this without assigning it to make things look nicer:
+If you have a variable with the same name as the label, Daml lets you use this without assigning it to make things look nicer:
 
 .. code-block:: daml
 
@@ -197,7 +201,7 @@ If you have a variable with the same name as the label, DAML lets you use this w
   -- or with
   myRecord3 = MyRecord with first = 1; second = second
 
-  -- but DAML has a nicer way of putting this:
+  -- but Daml has a nicer way of putting this:
   myRecord4 = MyRecord with first = 1; second
 
   -- or even
@@ -210,7 +214,7 @@ If you have a variable with the same name as the label, DAML lets you use this w
 Parameterized data types
 ========================
 
-DAML supports parameterized data types.
+Daml supports parameterized data types.
 
 For example, to express a more general type for 2D coordinates:
 
@@ -254,7 +258,7 @@ An algebraic data type is a composite type: a type formed by a combination of ot
 Product types
 =============
 
-The following data constructor is not valid in DAML: ``data AlternativeCoordinate a b = AlternativeCoordinate a b``. This is because data constructors can only have one argument.
+The following data constructor is not valid in Daml: ``data AlternativeCoordinate a b = AlternativeCoordinate a b``. This is because data constructors can only have one argument.
 
 To get around this, wrap the values in a :ref:`record <daml-ref-record-types>`:
 ``data Coordinate a b = Coordinate {first: a; second: b}``.
@@ -275,7 +279,7 @@ An example is the built-in data type ``Bool``. This is defined by ``data Bool = 
 Please note that all types which you intend to use as template or choice arguments need to derive at least from `(Eq, Show)`.
 
 A very useful sum type is ``data Optional a = None | Some a deriving (Eq,Show)``. It is part of
-the :doc:`DAML standard library </daml/stdlib/index>`.
+the :doc:`Daml standard library </daml/stdlib/index>`.
 
 ``Optional`` captures the concept of a box, which can be empty or contain a value of type ``a``.
 
@@ -309,4 +313,4 @@ As an example, the following is an expression for a ``Text``:
 
 Notice the use of nested pattern matching above.
 
-.. note:: An underscore was used in place of a variable name. The reason for this is that :doc:`DAML Studio <../daml-studio>` produces a warning for all variables that are not being used. This is useful in detecting unused variables. You can suppress the warning by naming the variable with an initial underscore.
+.. note:: An underscore was used in place of a variable name. The reason for this is that :doc:`Daml Studio <../daml-studio>` produces a warning for all variables that are not being used. This is useful in detecting unused variables. You can suppress the warning by naming the variable with an initial underscore.

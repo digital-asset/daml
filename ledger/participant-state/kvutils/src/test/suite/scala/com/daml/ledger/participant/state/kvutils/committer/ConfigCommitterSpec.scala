@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
@@ -10,11 +10,14 @@ import com.daml.ledger.participant.state.kvutils.TestHelpers
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class ConfigCommitterSpec extends AnyWordSpec with Matchers {
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
+
   private val metrics = new Metrics(new MetricRegistry)
   private val aRecordTime = Timestamp(100)
   private val aConfigurationSubmission = DamlConfigurationSubmission.newBuilder
@@ -33,12 +36,13 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val actual = instance.checkTtl(context, anEmptyResult)
 
       actual match {
-        case StepContinue(_) => fail
+        case StepContinue(_) => fail()
         case StepStop(actualLogEntry) =>
           actualLogEntry.hasConfigurationRejectionEntry shouldBe true
           actualLogEntry.getConfigurationRejectionEntry.hasTimedOut shouldBe true
           actualLogEntry.getConfigurationRejectionEntry.getTimedOut.getMaximumRecordTime shouldBe buildTimestamp(
-            aRecordTime)
+            aRecordTime
+          )
       }
     }
 
@@ -51,7 +55,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
 
         actual match {
           case StepContinue(_) => succeed
-          case StepStop(_) => fail
+          case StepStop(_) => fail()
         }
       }
     }
@@ -60,9 +64,11 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val instance = createConfigCommitter(aRecordTime)
       val context = createCommitContext(recordTime = None)
 
-      instance.checkTtl(context, anEmptyResult) match {
+      val actual = instance.checkTtl(context, anEmptyResult)
+
+      actual match {
         case StepContinue(_) => succeed
-        case StepStop(_) => fail
+        case StepStop(_) => fail()
       }
     }
 
@@ -103,7 +109,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val actual = instance.buildLogEntry(context, anEmptyResult)
 
       actual match {
-        case StepContinue(_) => fail
+        case StepContinue(_) => fail()
         case StepStop(actualLogEntry) =>
           actualLogEntry.hasRecordTime shouldBe true
           actualLogEntry.getRecordTime shouldBe buildTimestamp(theRecordTime)
@@ -117,7 +123,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
       val actual = instance.buildLogEntry(context, anEmptyResult)
 
       actual match {
-        case StepContinue(_) => fail
+        case StepContinue(_) => fail()
         case StepStop(actualLogEntry) =>
           actualLogEntry.hasRecordTime shouldBe false
       }
@@ -131,7 +137,7 @@ class ConfigCommitterSpec extends AnyWordSpec with Matchers {
         val actual = instance.buildLogEntry(context, anEmptyResult)
 
         actual match {
-          case StepContinue(_) => fail
+          case StepContinue(_) => fail()
           case StepStop(actualLogEntry) =>
             actualLogEntry.hasConfigurationEntry shouldBe true
             val actualConfigurationEntry = actualLogEntry.getConfigurationEntry

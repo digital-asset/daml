@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _contractkeys:
@@ -31,14 +31,14 @@ If you specify a contract key for a template, you must also specify a ``maintain
 
 Uniqueness of keys is guaranteed per template. Since multiple templates may use the same key type, some key-related functions must be annotated using the ``@ContractType`` as shown in the examples below.
 
-When you are writing DAML models, the maintainers matter since they affect authorization -- much like signatories and observers. You don't need to do anything to "maintain" the keys. In the above example, it is guaranteed that there can only be one ``Account`` with a given ``number`` at a given ``bank``.
+When you are writing Daml models, the maintainers matter since they affect authorization -- much like signatories and observers. You don't need to do anything to "maintain" the keys. In the above example, it is guaranteed that there can only be one ``Account`` with a given ``number`` at a given ``bank``.
 
-Checking of the keys is done automatically at execution time, by the DAML exeuction engine: if someone tries to create a new contract that duplicates an existing contract key, the execution engine will cause that creation to fail.
+Checking of the keys is done automatically at execution time, by the Daml execution engine: if someone tries to create a new contract that duplicates an existing contract key, the execution engine will cause that creation to fail.
 
 Contract Lookups
 ****************
 
-The primary purpose of contract keys is to provide a stable, and possibly meaningful, identifier that can be used in DAML to fetch contracts. There are two functions to perform such lookups: :ref:`fetchbykey` and :ref:`lookupbykey`. Both types of lookup are performed at interpretation time on the submitting Partipant Node, on a best-effort basis. Currently, that best-effort means lookups only return contracts if the submitting Party is a stakeholder of that contract.
+The primary purpose of contract keys is to provide a stable, and possibly meaningful, identifier that can be used in Daml to fetch contracts. There are two functions to perform such lookups: :ref:`fetchbykey` and :ref:`lookupbykey`. Both types of lookup are performed at interpretation time on the submitting Participant Node, on a best-effort basis. Currently, that best-effort means lookups only return contracts if the submitting Party is a stakeholder of that contract.
 
 In particular, the above means that if multiple commands are submitted simultaneously, all using contract lookups to find and consume a given contract, there will be contention between these commands, and at most one will succeed.
 
@@ -60,7 +60,7 @@ Like ``fetch``, ``fetchByKey`` needs to be authorized by at least one stakeholde
 ``fetchByKey`` fails and aborts the transaction if:
 
 - The submitting Party is not a stakeholder on a contract with the given key, or
-- A contract was found, but the ``fetchByKey`` violates the authorization rule, meaning no stakeholder authorized the ``fetch``..
+- A contract was found, but the ``fetchByKey`` violates the authorization rule, meaning no stakeholder authorized the ``fetch``.
 
 This means that if it fails, it doesn't guarantee that a contract with that key doesn't exist, just that the submitting Party doesn't know about it, or there are issues with authorization.
 

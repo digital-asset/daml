@@ -1,9 +1,8 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth.services
 
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.daml.ledger.api.v1.command_completion_service._
@@ -12,11 +11,12 @@ import com.daml.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 private[daml] final class CommandCompletionServiceAuthorization(
     protected val service: CommandCompletionService with AutoCloseable,
-    private val authorizer: Authorizer)
+    private val authorizer: Authorizer,
+)(implicit executionContext: ExecutionContext)
     extends CommandCompletionService
     with ProxyCloseable
     with GrpcApiService {
@@ -26,7 +26,8 @@ private[daml] final class CommandCompletionServiceAuthorization(
 
   override def completionStream(
       request: CompletionStreamRequest,
-      responseObserver: StreamObserver[CompletionStreamResponse]): Unit =
+      responseObserver: StreamObserver[CompletionStreamResponse],
+  ): Unit =
     authorizer.requireReadClaimsForAllPartiesOnStream(
       parties = request.parties,
       applicationId = Some(request.applicationId),
@@ -34,7 +35,7 @@ private[daml] final class CommandCompletionServiceAuthorization(
     )(request, responseObserver)
 
   override def bindService(): ServerServiceDefinition =
-    CommandCompletionServiceGrpc.bindService(this, DirectExecutionContext)
+    CommandCompletionServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
 

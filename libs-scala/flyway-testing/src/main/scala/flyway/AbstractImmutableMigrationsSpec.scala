@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.flyway
@@ -16,7 +16,7 @@ import org.flywaydb.core.internal.scanner.{LocationScannerCache, ResourceNameCac
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 abstract class AbstractImmutableMigrationsSpec extends AnyWordSpec {
   protected def migrationsResourcePath: String
@@ -38,8 +38,11 @@ abstract class AbstractImmutableMigrationsSpec extends AnyWordSpec {
       resourceScanner: Scanner[_],
   ): String = {
     val resource = Option(resourceScanner.getResource(digestFile))
-      .getOrElse(throw new FileNotFoundException(
-        s"""\"$digestFile\" is missing. If you are introducing a new Flyway migration step, you need to create an SHA-256 digest file by running $hashMigrationsScriptPath."""))
+      .getOrElse(
+        throw new FileNotFoundException(
+          s"""\"$digestFile\" is missing. If you are introducing a new Flyway migration step, you need to create an SHA-256 digest file by running $hashMigrationsScriptPath."""
+        )
+      )
     new BufferedReader(resource.read()).readLine()
   }
 

@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _da-model-privacy:
@@ -9,9 +9,9 @@ Privacy
 The previous sections have addressed two out of three questions posed in the
 introduction: "what the ledger looks like", and "who may request which changes".
 This section addresses the last one, "who sees which changes and data". That is,
-it explains the privacy model for DAML ledgers.
+it explains the privacy model for Daml ledgers.
 
-The privacy model of DAML Ledgers is based on a **need-to-know
+The privacy model of Daml Ledgers is based on a **need-to-know
 basis**, and provides privacy **on the level of subtransactions**. Namely, a party learns only those
 parts of ledger changes that affect contracts in which the party has a stake,
 and the consequences of those changes.
@@ -28,18 +28,24 @@ Generalizing this, **observers** are parties who might not be bound by the contr
 For example, Alice should be an observer of the `PaintOffer`, such that she is made aware that the offer exists.
 
 Signatories are already determined by the contract model discussed so far.
-The full **contract model** additionally specifies the observers on each contract.
-A **stakeholder** of a contract (according to a given
-contract model) is then either a signatory or an observer on the contract.
-Note that in DAML, as detailed :ref:`later <da-model-daml>`, controllers specified using simple syntax are automatically made observers whenever possible.
+The full **contract model** additionally specifies the **contract observers** on each contract.
+A **stakeholder** of a contract (according to a given contract model) is then either a signatory or a contract observer on the contract.
+Note that in Daml, as detailed :ref:`later <da-model-daml>`, controllers specified using simple syntax are automatically made contract observers whenever possible.
 
-In the graphical representation of the paint offer acceptance below, observers who are not signatories are indicated by an underline.
+In the graphical representation of the paint offer acceptance below, contract observers who are not signatories are indicated by an underline.
 
 .. https://www.lucidchart.com/documents/edit/ea40a651-a2e0-4365-ae7d-4cee8cd07071/0
 .. image:: ./images/stakeholders-paint-offer.svg
    :align: center
    :width: 60%
 
+Choice Observers
+++++++++++++++++
+
+In addition to contract observers, the contract model can also specify **choice observers** on individual **Exercise** actions.
+Choice observers get to see a specific exercise on a contract, and to view its consequences.
+Choice observers are not considered stakeholders of the contract, they only affect the set of informees
+on an action, for the purposes of projection (see below).
 
 .. _da-model-projections:
 
@@ -85,18 +91,20 @@ for, providing privacy to `A` and `P` with respect to the bank.
 
 .. _def-informee:
 
-As a design choice, DAML Ledgers show to observers on a contract only the
+As a design choice, Daml Ledgers show to contract observers only the
 :ref:`state changing <def-contract-state>` actions on the contract.
-More precisely, **Fetch** and non-consuming **Exercise** actions are not shown to the observers - except when they are
-the actors of these actions.
+More precisely, **Fetch** and non-consuming **Exercise** actions are not shown to contract observers - except when they are
+also actors or choice observers of these actions.
 This motivates the following definition: a party `p` is an **informee** of an action `A` if one of the following holds:
 
   * `A` is a **Create** on a contract `c` and `p` is a stakeholder of `c`.
 
   * `A` is a consuming **Exercise** on a contract `c`, and `p` is a stakeholder of `c` or an actor on `A`.
-    Note that a DAML "flexible controller" :ref:`can be an exercise actor without being a contract stakeholder <da-model-daml>`.
+    Note that a Daml "flexible controller" :ref:`can be an exercise actor without being a contract stakeholder <da-model-daml>`.
 
   * `A` is a non-consuming **Exercise** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
+
+  * `A` is an **Exercise** action and `p` is a choice observer on `A`.
 
   * `A` is a **Fetch** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
 
@@ -165,7 +173,7 @@ In other words,
 contract model is **subaction-closed**, which
 means that for every action `act` in the model, all subactions of
 `act` are also in the model, then the projection is guaranteed to be
-conformant. As we will see shortly, DAML-based contract models are
+conformant. As we will see shortly, Daml-based contract models are
 conformant. Lastly, as projections carry no information about the
 requesters, we cannot talk about authorization on the level of
 projections.
@@ -192,7 +200,7 @@ However, we demand that *all* maintainers must authorize it.
 This is to prevent spam in the projection of the maintainers.
 If only one maintainer sufficed to authorize a key assertion,
 then a valid ledger could contain **NoSuchKey** `k` assertions where the maintainers of `k` include, apart from the requester, arbitrary other parties.
-Unlike **Create** actions to observers, such assertions are of no value to the other parties.
+Unlike **Create** actions to contract observers, such assertions are of no value to the other parties.
 Since processing such assertions may be expensive, they can be considered spam.
 Requiring all maintainers to authorize a **NoSuchKey** assertion avoids the problem.
 
@@ -202,7 +210,7 @@ Requiring all maintainers to authorize a **NoSuchKey** assertion avoids the prob
 Divulgence: When Non-Stakeholders See Contracts
 +++++++++++++++++++++++++++++++++++++++++++++++
 
-The guiding principle for the privacy model of DAML ledgers is that
+The guiding principle for the privacy model of Daml ledgers is that
 contracts should only be shown to their stakeholders. However,
 ledger projections can cause contracts to become visible to other
 parties as well.
@@ -218,7 +226,7 @@ and `Iou Bank P` was shown to Alice.
 
 Showing contracts to non-stakeholders through ledger projections is
 called **divulgence**. Divulgence is a deliberate choice in the design
-of DAML ledgers. In the paint offer example, the only proper way to
+of Daml ledgers. In the paint offer example, the only proper way to
 accept the offer is to transfer the money from Alice to the painter.
 Conceptually, at the instant where the offer is accepted, its
 stakeholders also gain a temporary stake in the actions on the two
@@ -249,7 +257,7 @@ the painter:
 In the example, the context is provided by consuming a `ShowIou` contract on which the painter is a stakeholder.
 This now requires an additional contract type, compared to the original paint offer example.
 An alternative approach to enable this workflow, without increasing the number of contracts required, is to
-replace the original `Iou` contract by one on which the painter is an observer.
+replace the original `Iou` contract by one on which the painter is a contract observer.
 This would require extending the contract model with a (consuming) exercise action on the `Iou` that creates a new
 `Iou`, with observers of Alice's choice.
 In addition to the different number of commits, the two approaches differ in one more aspect.
@@ -264,7 +272,7 @@ such that the painter immediately settles the IOU.
    :width: 100%
 
 While Alice sees the creation of the `Iou Bank P` contract, she does
-not see the settlement action. Thus, she does know whether the
+not see the settlement action. Thus, she does not know whether the
 contract is still active at any point after its creation. Similarly,
 in the previous example with the counteroffer, Alice could spend the
 IOU that she showed to the painter by the time the painter attempts to

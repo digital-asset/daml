@@ -1,12 +1,18 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LFConversion.Tests (main) where
 
+import Development.IDE.Types.Diagnostics (FileDiagnostic, showDiagnostics)
+import Development.IDE.Types.Location (toNormalizedFilePath')
 import Test.Tasty
 import Test.Tasty.HUnit
+import Data.Either.Combinators (whenLeft, whenRight)
 import Data.Maybe (isNothing)
+import Data.Ratio
+import qualified Data.Text as T
 
+import DA.Daml.LFConversion
 import DA.Daml.LFConversion.MetadataEncoding
 import qualified DA.Daml.LF.Ast as LF
 
@@ -15,7 +21,11 @@ import qualified "ghc-lib-parser" BooleanFormula as BF
 import "ghc-lib-parser" SrcLoc (noLoc)
 
 main :: IO ()
-main = defaultMain metadataEncodingTests
+main = defaultMain $
+  testGroup "LFConversion"
+    [ metadataEncodingTests
+    , bignumericTests
+    ]
 
 metadataEncodingTests :: TestTree
 metadataEncodingTests = testGroup "MetadataEncoding"
@@ -67,3 +77,30 @@ roundtripTestsPartial groupName encode decode negativeExamples positiveExamples 
                 (Just value == (encode value >>= decode))
         | (name, value) <- positiveExamples
         ]
+
+bignumericTests :: TestTree
+bignumericTests = testGroup "BigNumeric"
+  [ valid 0.123457
+  , valid 0.123456
+  , valid 0.0
+  , invalid 123456789012345678901233456789012345678
+  , invalid (-123456789012345678901233456789012345678)
+  ]
+  where
+    valid :: Rational -> TestTree
+    valid r = testCase (show r <> " should be valid") $ do
+      let result = convertLiteral r
+      whenLeft result $ \diag ->
+        assertFailure $ T.unpack $ showDiagnostics [diag]
+    invalid :: Rational -> TestTree
+    invalid r = testCase (show r <> " should be invalid") $ do
+      let result = convertLiteral r
+      whenRight result $ \_ ->
+        assertFailure $ "Expected " <> show r <> " to be an invalid BigNumeric literal but conversion succeeeded"
+    convertLiteral :: Rational -> Either FileDiagnostic LF.Expr
+    convertLiteral r =
+        let dummyEnv = ConversionEnv
+              { convModuleFilePath = toNormalizedFilePath' ""
+              , convRange = Nothing
+              }
+        in runConvertM dummyEnv $ convertRationalBigNumeric (numerator r) (denominator r)

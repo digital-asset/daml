@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.iface
@@ -78,11 +78,16 @@ class TypeSpec extends AnyWordSpec with Matchers {
           case Pkg.BTArrow => sys.error("cannot use arrow in interface type")
           case Pkg.BTAny => sys.error("cannot use any in interface type")
           case Pkg.BTTypeRep => sys.error("cannot use type representation in interface type")
+          case Pkg.BTRoundingMode => sys.error("cannot use rounding mode in interface type")
+          case Pkg.BTBigNumeric => sys.error("cannot use big numeric in interface type")
+          case Pkg.BTAnyException =>
+            sys.error("exception not supported")
         }
       case Pkg.TTyCon(tycon) => TypeCon(TypeConName(tycon), args.toImmArray.toSeq)
       case Pkg.TNat(_) => sys.error("cannot use nat type in interface type")
       case _: Pkg.TStruct => sys.error("cannot use structs in interface type")
       case _: Pkg.TForall => sys.error("cannot use forall in interface type")
+      case _: Pkg.TSynApp => sys.error("cannot use type synonym in interface type")
     }
 
     go(pkgTyp00, BackStack.empty)
@@ -96,7 +101,7 @@ class TypeSpec extends AnyWordSpec with Matchers {
     val inst = tyCon.instantiate(
       DefDataType(
         ImmArraySeq(n"a", n"b"),
-        Record(ImmArraySeq(n"fld1" -> t"List a", n"fld2" -> t"Mod:V b"))
+        Record(ImmArraySeq(n"fld1" -> t"List a", n"fld2" -> t"Mod:V b")),
       )
     )
     inst shouldBe Record[Type](ImmArraySeq(n"fld1" -> t"List Int64", n"fld2" -> t"Mod:V Text"))
@@ -126,7 +131,8 @@ class TypeSpec extends AnyWordSpec with Matchers {
       Record(
         ImmArraySeq(
           n"f" -> TypeCon(id2, ImmArraySeq(t"a"))
-        ))
+        )
+      ),
     )
     val result = tc.instantiate(ddt)
 

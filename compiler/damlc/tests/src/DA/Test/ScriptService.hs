@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Test.ScriptService (main) where
@@ -7,6 +7,7 @@ import Control.Exception
 import Control.Monad
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
+import DA.Cli.Damlc.DependencyDb
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Daml.LF.PrettyScenario (prettyScenarioError, prettyScenarioResult)
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
@@ -41,6 +42,9 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Text.Regex.TDFA
 
+lfVersion :: LF.Version
+lfVersion = max (LF.featureMinVersion LF.featureExceptions) LF.versionDefault
+
 main :: IO ()
 main =
   withTempDir $ \dir -> do
@@ -48,7 +52,7 @@ main =
       setEnv "TASTY_NUM_THREADS" "1" True
 
       -- Package DB setup, we only need to do this once so we do it at the beginning.
-      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script.dar"
+      scriptDar <- locateRunfiles $ mainWorkspace </> "daml-script/daml/daml-script-1.dev.dar"
       writeFileUTF8 "daml.yaml" $
         unlines
           [ "sdk-version: " <> sdkVersion,
@@ -60,19 +64,23 @@ main =
             "- daml-stdlib",
             "- " <> show scriptDar
           ]
-      withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} ->
+      withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
+        let projDir = toNormalizedFilePath' dir
+        installDependencies
+            projDir
+            options
+            pSdkVersion
+            pDependencies
+            pDataDependencies
         createProjectPackageDb
-          (toNormalizedFilePath' dir)
+          projDir
           options
-          pSdkVersion
           pModulePrefixes
-          pDependencies
-          pDataDependencies
 
       logger <- Logger.newStderrLogger Logger.Debug "script-service"
 
       -- Spinning up the scenario service is expensive so we do it once at the beginning.
-      SS.withScenarioService LF.versionDefault logger scenarioConfig $ \scriptService ->
+      SS.withScenarioService lfVersion logger scenarioConfig $ \scriptService ->
         defaultMain $
           testGroup
             "Script Service"
@@ -225,11 +233,11 @@ main =
                 expectScriptFailure rs (vr "testDuplicateKey") $ \r ->
                   matchRegex r "due to unique key violation for key"
                 expectScriptFailure rs (vr "testNotVisible") $ \r ->
-                  matchRegex r "Attempt to fetch or exercise a contract not visible to the committer"
+                  matchRegex r "Attempt to fetch or exercise a contract not visible to the reading parties"
                 expectScriptFailure rs (vr "testError") $ \r ->
-                  matchRegex r "Aborted:  errorCrash"
+                  matchRegex r "errorCrash"
                 expectScriptFailure rs (vr "testAbort") $ \r ->
-                  matchRegex r "Aborted:  abortCrash"
+                  matchRegex r "abortCrash"
                 expectScriptFailure rs (vr "testPartialSubmit") $ \r ->
                   matchRegex r  $ T.unlines
                     [ "Scenario execution failed on commit at Test:57:3:"
@@ -264,6 +272,7 @@ main =
                       [ "module Test where",
                         "import Daml.Script",
                         "import DA.Assert",
+                        "import DA.List",
                         "template T1",
                         "  with",
                         "    p : Party, v: Int",
@@ -281,6 +290,7 @@ main =
                         "  where",
                         "    signatory p1",
                         "    observer p2",
+                        "deriving instance Ord TShared",
                         "template Divulger",
                         "  with",
                         "    divulgee : Party",
@@ -325,14 +335,14 @@ main =
                         "  t1p2 <- query @T1 p2",
                         "  t1p2 === [(cidT1p2, T1 p2 23)]",
                         "  sharedp1 <- query @TShared p1",
-                        "  sharedp1 === [(cidSharedp1, TShared p1 p2), (cidSharedp2, TShared p2 p1)]",
+                        "  sortOn snd sharedp1 === [(cidSharedp1, TShared p1 p2), (cidSharedp2, TShared p2 p1)]",
                         "  sharedp2 <- query @TShared p2",
-                        "  sharedp2 === [(cidSharedp1, TShared p1 p2), (cidSharedp2, TShared p2 p1)]"
+                        "  sortOn snd sharedp2 === [(cidSharedp1, TShared p1 p2), (cidSharedp2, TShared p2 p1)]"
                       ]
                   expectScriptSuccess rs (vr "testQueryInactive") $ \r ->
-                    matchRegex r "Active contracts:  #2:0, #0:0\n\n"
+                    matchRegex r "Active contracts:  #0:0, #2:0\n\n"
                   expectScriptSuccess rs (vr "testQueryVisibility") $ \r ->
-                    matchRegex r "Active contracts:  #4:0, #3:0, #2:0, #0:0, #1:0\n\n"
+                    matchRegex r "Active contracts:  #0:0, #1:0, #2:0, #3:0, #4:0\n\n"
                   pure (),
               testCase "submitMustFail" $ do
                   rs <-
@@ -555,7 +565,7 @@ main =
                     , "  pure ()"
                     ]
                 expectScriptSuccess rs (vr "testQueryContract") $ \r ->
-                  matchRegex r "Active contracts:  #2:0, #0:0, #1:0",
+                  matchRegex r "Active contracts:  #0:0, #1:0, #2:0",
               testCase "trace" $ do
                 rs <-
                   runScripts
@@ -625,7 +635,179 @@ main =
                     , "  pure ()"
                     ]
                 expectScriptSuccess rs (vr "test") $ \r ->
+                  matchRegex r "Active contracts:  #0:0, #1:0",
+              testCase "multi-party submissions" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import DA.Assert"
+                    , "import DA.List"
+                    , "import Daml.Script"
+                    , "template T"
+                    , "  with p0 : Party, p1 : Party"
+                    , "  where"
+                    , "    signatory p0, p1"
+                    , "    nonconsuming choice C : T"
+                    , "      with cid : ContractId T"
+                    , "      controller p1"
+                    , "      do fetch cid"
+                    , "testSucceed = do"
+                    , "  p0 <- allocateParty \"p0\""
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  submitMultiMustFail [p0] [] (createCmd (T p0 p1))"
+                    , "  submitMultiMustFail [p0] [p1] (createCmd (T p0 p1))"
+                    , "  cid <- submitMulti [p0, p1] ([] : [Party]) (createCmd (T p0 p1))"
+                    , "  cidp0 <- submit p0 (createCmd (T p0 p0))"
+                    , "  submitMultiMustFail [p1] [] (exerciseCmd cid (C cidp0))"
+                    , "  submitMulti [p1] [p0] (exerciseCmd cid (C cidp0))"
+                    , "testFail = do"
+                    , "  p0 <- allocateParty \"p0\""
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  submitMulti [p0] [p1] (createCmd (T p0 p1))"
+                    ]
+                expectScriptSuccess rs (vr "testSucceed") $ \r ->
                   matchRegex r "Active contracts:  #0:0, #1:0"
+                expectScriptFailure rs (vr "testFail") $ \r ->
+                  matchRegex r "missing authorization from 'p1'",
+              testCase "submitTree" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import DA.Assert"
+                    , "import DA.Foldable"
+                    , "import Daml.Script"
+                    , "template T"
+                    , "  with"
+                    , "    p : Party"
+                    , "    v : Int"
+                    , "  where"
+                    , "    signatory p"
+                    , "    nonconsuming choice CreateN : ()"
+                    , "      with n : Int"
+                    , "      controller p"
+                    , "      do forA_ [ 1 .. n ] $ \\i -> create (T p i)"
+                    , "test = do"
+                    , "  p <- allocateParty \"p\""
+                    , "  TransactionTree [CreatedEvent (Created cid arg)] <- submitTree p (createCmd (T p 0))"
+                    , "  fromAnyTemplate arg === Some (T p 0)"
+                    , "  let Some cid' = fromAnyContractId @T cid"
+                    , "  optT <- queryContractId p cid'"
+                    , "  optT === Some (T p 0)"
+                    , "  TransactionTree [ExercisedEvent ex] <- submitTree p (exerciseCmd cid' (CreateN 3))"
+                    , "  fromAnyContractId ex.contractId === Some cid'"
+                    , "  let [CreatedEvent c1, CreatedEvent c2, CreatedEvent c3] = ex.childEvents"
+                    , "  fromAnyTemplate c1.argument === Some (T p 1)"
+                    , "  fromAnyTemplate c2.argument === Some (T p 2)"
+                    , "  fromAnyTemplate c3.argument === Some (T p 3)"
+                    ]
+                expectScriptSuccess rs (vr "test") $ \r ->
+                  matchRegex r "Active contracts:",
+              testCase "local key visibility" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import DA.Assert"
+                    , "import DA.Foldable"
+                    , "import Daml.Script"
+                    , "template WithKey"
+                    , "  with"
+                    , "    p : Party"
+                    , "  where"
+                    , "    signatory p"
+                    , "    key p : Party"
+                    , "    maintainer key"
+                    , "template LocalKeyVisibility"
+                    , "  with"
+                    , "    p1 : Party"
+                    , "    p2 : Party"
+                    , "  where"
+                    , "    signatory p1"
+                    , "    observer p2"
+                    , "    nonconsuming choice LocalLookup : ()"
+                    , "      controller p2"
+                    , "      do cid <- create (WithKey p1)"
+                    , "         Some _ <- lookupByKey @WithKey p1"
+                    , "         archive cid"
+                    , "    nonconsuming choice LocalFetch : ()"
+                    , "      controller p2"
+                    , "      do cid <- create (WithKey p1)"
+                    , "         _ <- fetchByKey @WithKey p1"
+                    , "         archive cid"
+                    , "localLookup = do"
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  p2 <- allocateParty \"p2\""
+                    , "  cid <- submit p1 $ createCmd (LocalKeyVisibility p1 p2)"
+                    , "  submit p2 $ exerciseCmd cid LocalLookup"
+                    , "localFetch = do"
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  p2 <- allocateParty \"p2\""
+                    , "  cid <- submit p1 $ createCmd (LocalKeyVisibility p1 p2)"
+                    , "  submit p2 $ exerciseCmd cid LocalFetch"
+                    , "localLookupFetchMustFail = do"
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  p2 <- allocateParty \"p2\""
+                    , "  cid <- submit p1 $ createCmd (LocalKeyVisibility p1 p2)"
+                    , "  submitMustFail p2 $ exerciseCmd cid LocalLookup"
+                    , "  submitMustFail p2 $ exerciseCmd cid LocalFetch"
+                    , "localLookupFetchMulti = do"
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  p2 <- allocateParty \"p2\""
+                    , "  cid <- submit p1 $ createCmd (LocalKeyVisibility p1 p2)"
+                    , "  submitMulti [p2] [p1]  $ exerciseCmd cid LocalLookup"
+                    , "  submitMulti [p2] [p1] $ exerciseCmd cid LocalFetch"
+                    ]
+                expectScriptFailure rs (vr "localLookup") $ \r ->
+                  matchRegex r "not visible to the committer"
+                expectScriptFailure rs (vr "localFetch") $ \r ->
+                  matchRegex r "not visible to the committer"
+                expectScriptSuccess rs (vr "localLookupFetchMustFail") $ \r ->
+                  matchRegex r "Active contracts:"
+                expectScriptSuccess rs (vr "localLookupFetchMulti") $ \r ->
+                  matchRegex r "Active contracts:",
+              testCase "exceptions" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import DA.Exception"
+                    , "import DA.Assert"
+                    , "import DA.Foldable"
+                    , "import Daml.Script"
+                    , "template T"
+                    , "  with"
+                    , "    p : Party"
+                    , "  where"
+                    , "    signatory p"
+                    , "template Helper"
+                    , "  with"
+                    , "    p : Party"
+                    , "  where"
+                    , "    signatory p"
+                    , "    choice C : ()"
+                    , "      with"
+                    , "        cid : ContractId T"
+                    , "      controller p"
+                    , "      do try do"
+                    , "           -- rolled back create"
+                    , "           create (T p)"
+                    , "           -- rolled back archive"
+                    , "           archive cid"
+                    , "           error \"\""
+                    , "         catch"
+                    , "           (GeneralError _) -> pure ()"
+                    , "test = do"
+                    , "  p <- allocateParty \"p\""
+                    , "  cid <- submit p $ createCmd (T p)"
+                    , "  submit p $ createAndExerciseCmd (Helper p) (C cid)"
+                    , "  r <- query @T p"
+                    , "  r === [(cid, T p)]"
+                    , "  pure ()"
+                    ]
+                expectScriptSuccess rs (vr "test") $ \r ->
+                  matchRegex r "Active contracts:  #0:0\n"
             ]
   where
     scenarioConfig = SS.defaultScenarioServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
@@ -676,7 +858,7 @@ expectScriptFailure xs vr pred = case find ((vr ==) . fst) xs of
 
 options :: Options
 options =
-  (defaultOptions Nothing)
+  (defaultOptions (Just lfVersion))
     { optDlintUsage = DlintDisabled,
       optEnableOfInterestRule = False,
       optEnableScripts = EnableScripts True

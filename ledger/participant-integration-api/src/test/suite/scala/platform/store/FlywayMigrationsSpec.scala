@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store
@@ -16,7 +16,7 @@ import org.flywaydb.core.internal.scanner.{LocationScannerCache, ResourceNameCac
 import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 // SQL MIGRATION AND THEIR DIGEST FILES SHOULD BE CREATED ONLY ONCE AND NEVER CHANGED AGAIN,
 // OTHERWISE MIGRATIONS BREAK ON EXISTING DEPLOYMENTS!
@@ -24,13 +24,16 @@ class FlywayMigrationsSpec extends AnyWordSpec {
 
   "Postgres flyway migration files" should {
     "always have a valid SHA-256 digest file accompanied" in {
-      assertFlywayMigrationFileHashes(DbType.Postgres)
+      assertFlywayMigrationFileHashes(DbType.Postgres, 10)
+    }
+    "always have a valid SHA-256 digest file accompanied (append-only)" in {
+      assertFlywayMigrationFileHashes(DbType.Postgres, 1, true)
     }
   }
 
   "H2 database flyway migration files" should {
     "always have a valid SHA-256 digest file accompanied" in {
-      assertFlywayMigrationFileHashes(DbType.H2Database)
+      assertFlywayMigrationFileHashes(DbType.H2Database, 10)
     }
   }
 
@@ -40,11 +43,15 @@ object FlywayMigrationsSpec {
 
   private val digester = MessageDigest.getInstance("SHA-256")
 
-  private def assertFlywayMigrationFileHashes(dbType: DbType): Unit = {
-    val config = FlywayMigrations.configurationBase(dbType)
+  private def assertFlywayMigrationFileHashes(
+      dbType: DbType,
+      minMigrationCount: Int,
+      enableAppendOnlySchema: Boolean = false,
+  ): Unit = {
+    val config = FlywayMigrations.configurationBase(dbType, enableAppendOnlySchema)
     val resourceScanner = scanner(config)
     val resources = resourceScanner.getResources("", ".sql").asScala.toSeq
-    resources.size should be > 10
+    resources.size should be >= minMigrationCount
 
     resources.foreach { res =>
       val fileName = res.getFilename
@@ -54,7 +61,7 @@ object FlywayMigrationsSpec {
 
       assert(
         currentDigest == expectedDigest,
-        s"Digest of migration file $fileName has changed! It is NOT allowed to change neither existing sql migrations files nor their digests!"
+        s"Digest of migration file $fileName has changed! It is NOT allowed to change neither existing sql migrations files nor their digests!",
       )
     }
   }
@@ -82,7 +89,8 @@ object FlywayMigrationsSpec {
            | - shasum -a 256 $sourceFile | awk '{print $$1}' > $digestFile (under the db/migration folder)
            | - or ledger/sandbox/src/main/resources/db/migration/recompute-sha256sums.sh
            |""".stripMargin))
-        .read())
+        .read()
+    )
 
   private def getCurrentDigest(res: LoadableResource, encoding: Charset) = {
     val digest = digester.digest(IOUtils.toByteArray(res.read(), encoding))

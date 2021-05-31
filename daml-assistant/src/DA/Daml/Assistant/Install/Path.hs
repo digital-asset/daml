@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -13,6 +13,7 @@ import System.FilePath
 import System.Directory
 import System.Environment
 import System.IO
+import Data.Maybe
 #endif
 
 #ifdef mingw32_HOST_OS
@@ -106,7 +107,8 @@ updatePath installOpts output targetPath
                   Auto -> do
                     stdinIsTerminal <- hIsTerminalDevice stdin
                     stdoutIsTerminal <- hIsTerminalDevice stdout
-                    if stdinIsTerminal && stdoutIsTerminal
+                    ci <- isCI
+                    if stdinIsTerminal && stdoutIsTerminal && not ci
                       then do
                         answer <- prompt output ("Add DAML Assistant executable to your PATH (in " ++ configFile ++ ")?") "Yes" ["No"]
                         when (answer `elem` ["Yes", "yes", "y", "Y"]) $ doUpdatePath cfgFile cmd
@@ -130,6 +132,9 @@ prompt output msg def others = do
     if null ans
       then def
       else ans
+
+isCI :: IO Bool
+isCI = isJust <$> lookupEnv "CI"
 
 shellConfig :: String -> FilePath -> Maybe (FilePath, String)
 shellConfig shell targetPath =

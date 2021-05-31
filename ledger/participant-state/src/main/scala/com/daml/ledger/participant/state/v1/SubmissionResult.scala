@@ -1,7 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
+
+import io.grpc.StatusRuntimeException
 
 sealed abstract class SubmissionResult extends Product with Serializable {
   def description: String
@@ -28,4 +30,10 @@ object SubmissionResult {
   final case class InternalError(reason: String) extends SubmissionResult {
     override val description: String = s"Failed with an internal error, reason=$reason"
   }
+
+  /** Temporary method to tunnel new error codes through the ledger-api server */
+  final case class SynchronousReject(failure: StatusRuntimeException) extends SubmissionResult {
+    override def description: String = failure.getStatus.getDescription
+  }
+
 }

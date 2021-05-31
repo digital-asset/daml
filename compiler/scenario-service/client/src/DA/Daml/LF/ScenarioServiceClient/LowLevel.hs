@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
@@ -28,6 +28,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
 
 import Conduit (runConduit, (.|), MonadUnliftIO(..))
 import Data.Either
+import Data.Functor
 import Data.Maybe
 import Data.IORef
 import GHC.Generics
@@ -59,7 +60,6 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import qualified System.IO
-import System.Process (proc, CreateProcess, readCreateProcessWithExitCode)
 
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
@@ -126,7 +126,7 @@ findServerJar = do
 -- JAVA_HOME is correctly set, but 'java' is not in PATH.
 javaProc :: [String] -> IO CreateProcess
 javaProc args =
-  lookupEnv "JAVA_HOME" >>= return . \case
+  lookupEnv "JAVA_HOME" <&> \case
     Nothing ->
       proc "java" args
     Just javaHome ->
@@ -137,8 +137,8 @@ data ScenarioServiceException = ScenarioServiceException String deriving Show
 
 instance Exception ScenarioServiceException
 
-validateJava :: Options -> IO ()
-validateJava Options{..} = do
+validateJava :: IO ()
+validateJava = do
     getJavaVersion <- liftIO $ javaProc ["-version"]
     -- We could validate the Java version here but Java version strings are annoyingly
     -- inconsistent, e.g. you might get
@@ -201,7 +201,7 @@ withScenarioService opts@Options{..} f = do
   serverJarExists <- doesFileExist optServerJar
   unless serverJarExists $
       throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
-  validateJava opts
+  validateJava
   cp <- javaProc (optJvmOptions <> ["-jar" , optServerJar] <> maybeToList (show <$> optGrpcMaxMessageSize))
   exitExpected <- newIORef False
   let closeStdin hdl = do

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.codegen.lf
@@ -38,11 +38,12 @@ private[codegen] object HierarchicalOutput {
 
   /** Pull up each `Rec` into the companion implied, or not, by the keys. */
   private[this] def liftSubtrees[S, F](
-      subtrees: String ==>> (Boolean => (Vector[S], SingleOr[(F, Set[Tree], Iterable[Tree])])))(
-      inCompanion: Boolean): (Vector[S], Vector[(F, Set[Tree], Iterable[Tree])]) =
-    subtrees.map(_(inCompanion)).foldMapWithKey {
-      case (k, (errs, file)) =>
-        (errs, file match {
+      subtrees: String ==>> (Boolean => (Vector[S], SingleOr[(F, Set[Tree], Iterable[Tree])]))
+  )(inCompanion: Boolean): (Vector[S], Vector[(F, Set[Tree], Iterable[Tree])]) =
+    subtrees.map(_(inCompanion)).foldMapWithKey { case (k, (errs, file)) =>
+      (
+        errs,
+        file match {
           case -\/(single) => Vector(single)
           case \/-(multiple @ Vector((firstFile, _, _), _*)) =>
             if (inCompanion)
@@ -52,17 +53,20 @@ private[codegen] object HierarchicalOutput {
                   (multiple.map(_._2) foldLeft Set.empty[Tree])(_ | _),
                   Iterable(q"""object ${TermName(k)} {
                                 ..${multiple flatMap (_._3)}
-                              }""")))
+                              }"""),
+                )
+              )
             else multiple map (_ map (contents => Iterable(q"""package ${TermName(k)} {
                                                                  ..$contents
                                                                }""")))
           case \/-(_) => Vector()
-        })
+        },
+      )
     }
 
   def discoverFiles(
       treeified: Namespace[String, Option[TemplateOrDatatype]],
-      util: LFUtil
+      util: LFUtil,
   ): ErrorsAndFiles[String, File] =
     treeified
       .foldTreeStrict[Rec] {
@@ -80,32 +84,37 @@ private[codegen] object HierarchicalOutput {
                     util,
                     templateId,
                     templateInterface,
-                    companionMembers),
+                    companionMembers,
+                  ),
                 s"Writing template for $templateId",
-                s"Cannot generate Scala code for template $templateId")
+                s"Cannot generate Scala code for template $templateId",
+              )
 
             case (name, \/-(ntd)) =>
               (
                 () => DamlDataTypeGen.generate(util, ntd, companionMembers),
                 s"Writing type declaration for $name",
-                s"Cannot generate Scala code for type declaration with name $name")
+                s"Cannot generate Scala code for type declaration with name $name",
+              )
           }
 
-          val errorsImportsAndFile = try { (subErrs, -\/(generate())) } catch {
-            case e: UnsupportedDamlTypeException =>
-              (subErrs :+ s"$errorMsg because: ${e.getLocalizedMessage}", \/-(subFiles))
-          }
+          val errorsImportsAndFile =
+            try { (subErrs, -\/(generate())) }
+            catch {
+              case e: UnsupportedDamlTypeException =>
+                (subErrs :+ s"$errorMsg because: ${e.getLocalizedMessage}", \/-(subFiles))
+            }
 
-          _ =>
-            errorsImportsAndFile
+          _ => errorsImportsAndFile
       }
       .apply(false)
-      .rightMap(_.valueOr(Vector(_)).map {
-        case (err, imports, subTrees) => err -> standardTopFileBehavior(util)(imports, subTrees)
+      .rightMap(_.valueOr(Vector(_)).map { case (err, imports, subTrees) =>
+        err -> standardTopFileBehavior(util)(imports, subTrees)
       })
 
   private[this] def standardTopFileBehavior(
-      util: LFUtil)(imports: Set[Tree], trees: Iterable[Tree]): Iterable[Tree] =
+      util: LFUtil
+  )(imports: Set[Tree], trees: Iterable[Tree]): Iterable[Tree] =
     imports.toSeq :+ q"""
       package ${Util.packageNameToRefTree(util.packageName)} {
         ..$trees

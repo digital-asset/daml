@@ -1,21 +1,47 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
 package speedy
 
-import collection.JavaConverters._
+import com.daml.lf.data.Ref
+import com.daml.lf.language.Ast
 import java.lang.System
 import java.nio.file.{Files, Path}
 import java.util.ArrayList
+import scala.annotation.nowarn
+import scala.jdk.CollectionConverters._
 
 /** Class for profiling information collected by Speedy.
+  *
+  *    Profiling works as follows:
+  *
+  *    1. The speedy compiler wraps some expressions in SELabelClosure
+  *    with the label being some type of identifier which will later be
+  *    used in the profiling results (e.g., the choice this expression
+  *    corresponds to)
+  *
+  *    2. When executing SELabelClosure we push a KLabelClosure
+  *    continuation and then proceed with the wrapped expression.
+  *
+  *    3. When we execute KLabelClosure, we look at the return value. If
+  *    it is a closure, we modify the closure to contain the
+  *    corresponding the label. If it is not a closure (this can happen
+  *    for top-level definitions or let-bindings that are not functions),
+  *    we do nothing.
+  *
+  *    4. When we execute a KFun and the corresponding closure has a
+  *    label, we emit an open event for this label and push a
+  *    KLeaveClosure.
+  *
+  *    5. When we execute the KLeaveClosure, we emit a close event for
+  *    the label.
   */
 final class Profile {
   import Profile._
   private val start: Long = System.nanoTime()
   private[lf] val events: ArrayList[Event] = new ArrayList()
-  var name: String = "DAML Engine profile"
+  var name: String = "Daml Engine profile"
 
   def addOpenEvent(label: Label) = {
     val time = System.nanoTime()
@@ -38,7 +64,7 @@ object Profile {
     def label: String = LabelModule.Allowed.renderLabel(rawLabel)
   }
 
-  private def unmangleLenient(str: String): String = {
+  private[speedy] def unmangleLenient(str: String): String = {
     val builder = new StringBuilder(str.length)
     var i = 0
     while (i < str.length) {
@@ -124,7 +150,6 @@ object Profile {
     object FileJson {
       def fromProfile(profile: Profile) = {
         import scala.collection.mutable.HashMap
-        import scala.collection.JavaConverters._
 
         val frames = new ArrayList[FrameJson]()
         val frameIndices = new HashMap[String, Int]()
@@ -160,12 +185,21 @@ object Profile {
           profiles = List(profileJson),
           shared = sharedJson,
           activeProfileIndex = 0,
-          exporter = "DAML Engine",
+          exporter = "Daml Engine",
           name = profile.name,
         )
       }
     }
   }
+
+  final case class CreateAndExerciseLabel(tplId: Ref.DefinitionRef, choiceId: Ref.ChoiceName)
+
+  sealed trait ScenarioLabel
+
+  final case object SubmitLabel extends ScenarioLabel
+  final case object SubmitMustFailLabel extends ScenarioLabel
+  final case object PassLabel extends ScenarioLabel
+  final case object GetPartyLabel extends ScenarioLabel
 
   type Label = LabelModule.Module.T
   val LabelUnset: Label = LabelModule.Module(null)
@@ -191,6 +225,7 @@ object Profile {
 
     // assumes -Xsource:2.13 in clients, which we should just do always,
     // this is in scope wherever the expected type is `Label`
+    @nowarn("msg=parameter value evidence.* is never used")
     implicit def fromAllowed[T: Allowed](t: T with AnyRef): Label = Module(t)
 
     final class Allowed[-T] private ()
@@ -200,13 +235,19 @@ object Profile {
       implicit val anonClosure: Allowed[AnonymousClosure.type] = allowAll
       implicit val lfDefRef: Allowed[LfDefRef] = allowAll
       implicit val createDefRef: Allowed[CreateDefRef] = allowAll
+      implicit val keyDefRef: Allowed[KeyDefRef] = allowAll
+      implicit val signatoriesDefRef: Allowed[SignatoriesDefRef] = allowAll
+      implicit val observersDefRef: Allowed[ObserversDefRef] = allowAll
       implicit val choiceDefRef: Allowed[ChoiceDefRef] = allowAll
       implicit val fetchDefRef: Allowed[FetchDefRef] = allowAll
       implicit val choiceByKeyDefRef: Allowed[ChoiceByKeyDefRef] = allowAll
       implicit val fetchByKeyDefRef: Allowed[FetchByKeyDefRef] = allowAll
       implicit val lookupByKeyDefRef: Allowed[LookupByKeyDefRef] = allowAll
+      implicit val createAndExerciseLabel: Allowed[CreateAndExerciseLabel] = allowAll
+      implicit val exceptionMessageDefRef: Allowed[ExceptionMessageDefRef] = allowAll
       implicit val sebrdr: Allowed[SEBuiltinRecursiveDefinition.Reference] = allowAll
-      implicit val str: Allowed[String] = allowAll
+      implicit val scenarioLabel: Allowed[ScenarioLabel] = allowAll
+      implicit val exprVarName: Allowed[Ast.ExprVarName] = allowAll
 
       // below cases must cover above set
 
@@ -216,16 +257,29 @@ object Profile {
           case AnonymousClosure => "<lambda>"
           case LfDefRef(ref) => ref.qualifiedName.toString()
           case CreateDefRef(tmplRef) => s"create @${tmplRef.qualifiedName}"
+          case KeyDefRef(tmplRef) => s"keyAndMaintainers @${tmplRef.qualifiedName}"
+          case SignatoriesDefRef(tmplRef) => s"signatories @${tmplRef.qualifiedName}"
+          case ObserversDefRef(tmplRef) => s"observers @${tmplRef.qualifiedName}"
           case ChoiceDefRef(tmplRef, name) => s"exercise @${tmplRef.qualifiedName} ${name}"
           case FetchDefRef(tmplRef) => s"fetch @${tmplRef.qualifiedName}"
           case ChoiceByKeyDefRef(tmplRef, name) =>
             s"exerciseByKey @${tmplRef.qualifiedName} ${name}"
           case FetchByKeyDefRef(tmplRef) => s"fetchByKey @${tmplRef.qualifiedName}"
           case LookupByKeyDefRef(tmplRef) => s"lookupByKey @${tmplRef.qualifiedName}"
+          case CreateAndExerciseLabel(tmplRef, name) =>
+            s"createAndExercise @${tmplRef.qualifiedName} ${name}"
+          case ExceptionMessageDefRef(typeId) => s"message @${typeId.qualifiedName}"
           case ref: SEBuiltinRecursiveDefinition.Reference => ref.toString().toLowerCase()
-          case str: String => str
+          case SubmitLabel => "submit"
+          case SubmitMustFailLabel => "submitMustFail"
+          case PassLabel => "pass"
+          case GetPartyLabel => "getParty"
+          // This is only used for ExprVarName but we cannot do a runtime check due to
+          // type erasure.
+          case v: String => v
           case any => s"<unknown ${any}>"
         }
     }
+
   }
 }

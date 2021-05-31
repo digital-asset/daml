@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -8,10 +8,11 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.value.Value.ContractId
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /** Methods to produce the [[DamlSubmission]] message.
   *
@@ -33,9 +34,14 @@ class KeyValueSubmission(metrics: Metrics) {
     */
   def transactionOutputs(tx: SubmittedTransaction): List[DamlStateKey] =
     metrics.daml.kvutils.submission.conversion.transactionOutputs.time { () =>
-      val effects = InputsAndEffects.computeEffects(tx)
-      effects.createdContracts.map(_._1) ++ effects.consumedContracts
+      (tx.localContracts.keys ++ tx.consumedContracts).map(Conversions.contractIdToStateKey).toList
     }
+
+  private def submissionParties(
+      submitterInfo: SubmitterInfo,
+      tx: SubmittedTransaction,
+  ): Set[Party] =
+    tx.informees ++ submitterInfo.actAs
 
   /** Prepare a transaction submission. */
   def transactionToSubmission(
@@ -44,14 +50,23 @@ class KeyValueSubmission(metrics: Metrics) {
       tx: SubmittedTransaction,
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.transactionToSubmission.time { () =>
-      val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx, meta)
       val encodedSubInfo = buildSubmitterInfo(submitterInfo)
+      val packageIdStates = meta.optUsedPackages
+        .getOrElse(
+          throw new InternalError("Transaction was not annotated with used packages")
+        )
+        .map(Conversions.packageStateKey)
+      val partyStates = submissionParties(submitterInfo, tx).toList.map(Conversions.partyStateKey)
+      val contractIdStates = tx.inputContracts[ContractId].map(Conversions.contractIdToStateKey)
+      val contractKeyStates = tx.contractKeys.map(Conversions.globalKeyToStateKey)
 
       DamlSubmission.newBuilder
         .addInputDamlState(commandDedupKey(encodedSubInfo))
         .addInputDamlState(configurationStateKey)
-        .addInputDamlState(partyStateKey(submitterInfo.singleSubmitterOrThrow()))
-        .addAllInputDamlState(inputDamlStateFromTx.asJava)
+        .addAllInputDamlState(packageIdStates.asJava)
+        .addAllInputDamlState(partyStates.asJava)
+        .addAllInputDamlState(contractIdStates.asJava)
+        .addAllInputDamlState(contractKeyStates.asJava)
         .setTransactionEntry(
           DamlTransactionEntry.newBuilder
             .setTransaction(Conversions.encodeTransaction(tx))
@@ -73,11 +88,11 @@ class KeyValueSubmission(metrics: Metrics) {
   ): DamlSubmission =
     metrics.daml.kvutils.submission.conversion.archivesToSubmission.time { () =>
       val archivesDamlState =
-        archives.map(
-          archive =>
-            DamlStateKey.newBuilder
-              .setPackageId(archive.getHash)
-              .build)
+        archives.map(archive =>
+          DamlStateKey.newBuilder
+            .setPackageId(archive.getHash)
+            .build
+        )
 
       DamlSubmission.newBuilder
         .addInputDamlState(packageUploadDedupKey(participantId, submissionId))

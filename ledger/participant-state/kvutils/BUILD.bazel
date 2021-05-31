@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:proto.bzl", "proto_jars")
@@ -6,6 +6,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
+    "silencer_plugin",
 )
 load(
     "//bazel_tools/client_server:client_server_build.bzl",
@@ -17,11 +18,22 @@ load(
 )
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@os_info//:os_info.bzl", "is_windows")
+load("@scala_version//:index.bzl", "scala_major_version")
+load("//ledger/test-common:test-common.bzl", "da_scala_dar_resources_library")
 
 da_scala_library(
     name = "kvutils",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    silent_annotations = True,
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scala_lang_modules_scala_java8_compat",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
     tags = ["maven_coordinates=com.daml:participant-state-kvutils:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -49,35 +61,46 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "//libs-scala/timer-utils",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
 da_scala_library(
     name = "kvutils-tests-lib",
-    srcs = glob(["src/test/lib/scala/**/*.scala"]),
+    srcs = glob([
+        "src/test/lib/scala/**/*.scala",
+        "src/test/lib/{}/**/*.scala".format(scala_major_version),
+    ]),
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scala_lang_modules_scala_java8_compat",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
+    tags = ["maven_coordinates=com.daml:kvutils-tests-lib:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         ":daml_kvutils_proto_java",
         ":kvutils",
-        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
-        "//daml-lf/encoder",
         "//daml-lf/engine",
         "//daml-lf/language",
-        "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
@@ -88,20 +111,16 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/ledger-resources",
-        "//ledger/ledger-resources:ledger-resources-test-lib",
         "//ledger/metrics",
         "//ledger/participant-state",
+        "//ledger/participant-state/kvutils:dar-files-1.dev-lib",
+        "//ledger/test-common",
+        "//ledger/test-common:dar-files-stable-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
-        "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -112,10 +131,21 @@ da_scala_test_suite(
     timeout = "moderate",
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     data = [
-        "//ledger/test-common:model-tests.dar",
+        "//ledger/test-common:model-tests-stable.dar",
+    ],
+    plugins = [
+        silencer_plugin,
     ],
     resources = glob(["src/test/resources/*"]),
-    silent_annotations = True,
+    scala_deps = [
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_mockito_mockito_scala",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     deps = [
         ":daml_kvutils_proto_java",
         ":kvutils",
@@ -140,20 +170,33 @@ da_scala_test_suite(
         "//ledger/ledger-api-health",
         "//ledger/metrics",
         "//ledger/participant-state",
+        "//ledger/participant-state/kvutils:dar-files-1.dev-lib",
         "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
+        "//ledger/test-common",
+        "//ledger/test-common:dar-files-stable-lib",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_mockito_mockito_core",
-        "@maven//:org_mockito_mockito_scala_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
+)
+
+da_scala_dar_resources_library(
+    add_maven_tag = True,
+    daml_dir_names = [
+        "simple_package_party",
+        "simple_package_optional",
+        "simple_package_list",
+        "simple_package_text_map",
+        "simple_package_variant",
+        "simple_package_tuple",
+    ],
+    daml_root_dir = "src/test/lib/daml",
+    lf_versions = ["1.dev"],
+    maven_name_prefix = "kvutils-tests",
+    visibility = ["//visibility:__subpackages__"],
 )
 
 proto_jars(
@@ -184,14 +227,12 @@ REFERENCE_LEDGER_EXPORT_PORT = 65102
 client_server_build(
     name = REFERENCE_LEDGER_EXPORT_NAME,
     testonly = True,  # only test targets can depend on this.
+    outs = ["%s.out" % REFERENCE_LEDGER_EXPORT_NAME],
     client = "//ledger/ledger-api-test-tool",
     client_args = [
         "--concurrent-test-runs=4",
         "--timeout-scale-factor=20",
         "localhost:%d" % REFERENCE_LEDGER_EXPORT_PORT,
-    ],
-    data = [
-        "//ledger/test-common:dar-files",
     ],
     output_env = "KVUTILS_LEDGER_EXPORT",
     runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
@@ -199,8 +240,9 @@ client_server_build(
     server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=%s,port=%d" % (REFERENCE_LEDGER_EXPORT_NAME, REFERENCE_LEDGER_EXPORT_PORT),
+        "--participant=participant-id=%s,port=%d" % (REFERENCE_LEDGER_EXPORT_NAME, REFERENCE_LEDGER_EXPORT_PORT),
     ],
+    visibility = [":__subpackages__"],
 ) if not is_windows else None
 
 # Test for checking the integrity of the ledger export produced above.

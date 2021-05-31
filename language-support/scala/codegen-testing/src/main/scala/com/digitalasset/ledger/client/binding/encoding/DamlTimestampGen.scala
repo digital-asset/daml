@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding.encoding
@@ -12,7 +12,9 @@ object DamlTimestampGen {
   private lazy val genRandomDamlTimestamp: Gen[P.Timestamp] = P.Timestamp.subst(
     Gen.zip(
       Gen.choose(P.Timestamp.MIN.getEpochSecond, P.Timestamp.MAX.getEpochSecond),
-      Gen.choose(0L, 999999)) map { case (s, n) => Instant.ofEpochSecond(s, n * 1000) })
+      Gen.choose(0L, 999999),
+    ) map { case (s, n) => Instant.ofEpochSecond(s, n * 1000) }
+  )
 
   private lazy val genSpecificDamlTimestamp: Gen[P.Timestamp] =
     Gen.oneOf(
@@ -20,7 +22,7 @@ object DamlTimestampGen {
       ts("4226-11-05T05:07:48Z"),
       ts("8202-11-07T05:51:35Z"),
       ts("2529-11-06T05:57:36.498937000Z"),
-      ts("2529-11-06T05:57:36.498937Z")
+      ts("2529-11-06T05:57:36.498937Z"),
     )
 
   private def ts(s: String): P.Timestamp =

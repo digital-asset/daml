@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.config
@@ -6,7 +6,6 @@ package com.daml.platform.sandbox.config
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
-
 import ch.qos.logback.classic.Level
 import com.daml.caching.SizedCache
 import com.daml.ledger.api.auth.AuthService
@@ -18,8 +17,9 @@ import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguratio
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 
-/**
-  * Defines the basic configuration for running sandbox
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+
+/** Defines the basic configuration for running sandbox
   */
 final case class SandboxConfig(
     address: Option[String],
@@ -36,6 +36,8 @@ final case class SandboxConfig(
     implicitPartyAllocation: Boolean,
     maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
+    databaseConnectionPoolSize: Int,
+    databaseConnectionTimeout: FiniteDuration,
     eagerPackageLoading: Boolean,
     logLevel: Option[Level],
     authService: Option[AuthService],
@@ -47,14 +49,20 @@ final case class SandboxConfig(
     lfValueTranslationContractCacheConfiguration: SizedCache.Configuration,
     profileDir: Option[Path],
     stackTraces: Boolean,
-    devMode: Boolean,
-    managementServiceTimeout: Duration
+    engineMode: SandboxConfig.EngineMode,
+    managementServiceTimeout: Duration,
+    sqlStartMode: Option[PostgresStartupMode],
+    enableAppendOnlySchema: Boolean,
+    enableCompression: Boolean,
 )
 
 object SandboxConfig {
   val DefaultPort: Port = Port(6865)
 
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
+
+  val DefaultDatabaseConnectionPoolSize: Int = 16
+  val DefaultDatabaseConnectionTimeout: FiniteDuration = 250.millis
 
   val DefaultEventsPageSize: Int = 1000
 
@@ -67,6 +75,8 @@ object SandboxConfig {
     v1.ParticipantId.assertFromString("sandbox-participant")
 
   val DefaultManagementServiceTimeout: Duration = Duration.ofMinutes(2)
+
+  val DefaultSqlStartupMode: PostgresStartupMode = PostgresStartupMode.MigrateAndStart
 
   lazy val defaultConfig: SandboxConfig =
     SandboxConfig(
@@ -84,6 +94,8 @@ object SandboxConfig {
       implicitPartyAllocation = true,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,
+      databaseConnectionPoolSize = DefaultDatabaseConnectionPoolSize,
+      databaseConnectionTimeout = DefaultDatabaseConnectionTimeout,
       eagerPackageLoading = false,
       logLevel = None, // the default is in logback.xml
       authService = None,
@@ -95,8 +107,19 @@ object SandboxConfig {
       lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       profileDir = None,
       stackTraces = true,
-      devMode = true,
+      engineMode = EngineMode.Stable,
       managementServiceTimeout = DefaultManagementServiceTimeout,
+      sqlStartMode = Some(DefaultSqlStartupMode),
+      enableAppendOnlySchema = false,
+      enableCompression = false,
     )
+
+  sealed abstract class EngineMode extends Product with Serializable
+
+  object EngineMode {
+    final case object Stable extends EngineMode
+    final case object EarlyAccess extends EngineMode
+    final case object Dev extends EngineMode
+  }
 
 }

@@ -1,50 +1,47 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.ValueOuterClass;
-import org.checkerframework.checker.nullness.qual.NonNull;
-
 import java.time.LocalDate;
 import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 public class Date extends Value {
 
-    private final LocalDate value;
+  private final LocalDate value;
 
-    public Date(int value) {
-        this.value = LocalDate.ofEpochDay(value);
-    }
+  public Date(int value) {
+    this.value = LocalDate.ofEpochDay(value);
+  }
 
-    @Override
-    public ValueOuterClass.Value toProto() {
-        return ValueOuterClass.Value.newBuilder().setDate((int)this.value.toEpochDay()).build();
-    }
+  @Override
+  public ValueOuterClass.Value toProto() {
+    return ValueOuterClass.Value.newBuilder().setDate((int) this.value.toEpochDay()).build();
+  }
 
-    @NonNull
-    public LocalDate getValue() {
-        return value;
-    }
+  @NonNull
+  public LocalDate getValue() {
+    return value;
+  }
 
-    @Override
-    public String toString() {
-        return "Date{" +
-                "value=" + value +
-                '}';
-    }
+  @Override
+  public String toString() {
+    return "Date{" + "value=" + value + '}';
+  }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Date date = (Date) o;
-        return Objects.equals(value, date.value);
-    }
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    Date date = (Date) o;
+    return Objects.equals(value, date.value);
+  }
 
-    @Override
-    public int hashCode() {
+  @Override
+  public int hashCode() {
 
-        return Objects.hash(value);
-    }
+    return Objects.hash(value);
+  }
 }

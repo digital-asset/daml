@@ -1,9 +1,9 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
 
--- DAML chat-room model, with support for multiple chat-groups with entry by invitation.
+-- Daml chat-room model, with support for multiple chat-groups with entry by invitation.
 
 module GroupChat where
 

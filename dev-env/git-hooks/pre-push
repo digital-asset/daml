@@ -13,14 +13,14 @@
 #   <local ref> <local sha1> <remote ref> <remote sha1>
 #
 
-protected_branches=('master')
+protected_branches=('main')
 
 IFS=' '
 while read local_ref local_sha remote_ref remote_sha
 do
     for protected_branch in "${protected_branches[@]}"; do
         if [[ $remote_ref == "refs/heads/$protected_branch" ]]; then
-            echo -en "\033[31mYou're about to push master, that is verboten!\033[0m"
+            echo -en "\033[31mYou're about to push main, that is verboten!\033[0m"
             echo
             exit 1 # push will not execute
         fi

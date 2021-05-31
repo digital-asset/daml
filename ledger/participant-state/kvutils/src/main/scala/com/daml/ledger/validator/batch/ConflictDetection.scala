@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.batch
@@ -7,7 +7,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry.Payloa
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
 }
 import com.daml.lf.value.ValueCoder
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -17,8 +17,7 @@ class ConflictDetection(val damlMetrics: Metrics) {
   private val logger = ContextualizedLogger.get(getClass)
   private val metrics = damlMetrics.daml.kvutils.conflictdetection
 
-  /**
-    * Detect conflicts in a log entry and attempt to recover.
+  /** Detect conflicts in a log entry and attempt to recover.
     * @param invalidatedKeys  set of keys that have been written up until now. We assume that a key
     *                         whose value hasn't been changed is not part of this set.
     * @param inputState input state used for the submission
@@ -32,8 +31,10 @@ class ConflictDetection(val damlMetrics: Metrics) {
       invalidatedKeys: collection.Set[DamlStateKey],
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
       logEntry: DamlLogEntry,
-      outputState: Map[DamlStateKey, DamlStateValue])(implicit loggingContext: LoggingContext)
-    : Option[(collection.Set[DamlStateKey], (DamlLogEntry, Map[DamlStateKey, DamlStateValue]))] = {
+      outputState: Map[DamlStateKey, DamlStateValue],
+  )(implicit
+      loggingContext: LoggingContext
+  ): Option[(collection.Set[DamlStateKey], (DamlLogEntry, Map[DamlStateKey, DamlStateValue]))] = {
     val newInvalidatedKeys = outputState.collect {
       case (key, outputValue)
           if changedStateValueOf(key, inputState.getOrElse(key, None), outputValue) =>
@@ -54,7 +55,8 @@ class ConflictDetection(val damlMetrics: Metrics) {
   private def changedStateValueOf(
       key: DamlStateKey,
       inputValueMaybe: Option[DamlStateValue],
-      outputValue: DamlStateValue)(implicit loggingContext: LoggingContext): Boolean =
+      outputValue: DamlStateValue,
+  )(implicit loggingContext: LoggingContext): Boolean =
     inputValueMaybe.forall { inputValue =>
       val contentsDiffer = inputValue.hashCode() != outputValue
         .hashCode() || inputValue != outputValue
@@ -67,8 +69,10 @@ class ConflictDetection(val damlMetrics: Metrics) {
 
   private def produceRejectionOrDropSubmission(
       logEntry: DamlLogEntry,
-      conflictingKeys: Set[DamlStateKey])(implicit loggingContext: LoggingContext)
-    : Option[(DamlLogEntry, Map[DamlStateKey, DamlStateValue])] = {
+      conflictingKeys: Set[DamlStateKey],
+  )(implicit
+      loggingContext: LoggingContext
+  ): Option[(DamlLogEntry, Map[DamlStateKey, DamlStateValue])] = {
     metrics.conflicted.inc()
 
     logEntry.getPayloadCase match {
@@ -95,7 +99,7 @@ class ConflictDetection(val damlMetrics: Metrics) {
   // Attempt to produce a useful message by collecting the first conflicting
   // contract id or contract key.
   private def explainConflict(conflictingKeys: Iterable[DamlStateKey]): String =
-    conflictingKeys.toStream
+    conflictingKeys.toVector
       .sortBy(_.toByteString.asReadOnlyByteBuffer())
       .collectFirst {
         case key if key.hasContractKey =>
@@ -121,7 +125,8 @@ class ConflictDetection(val damlMetrics: Metrics) {
 
   private def transactionRejectionEntryFrom(
       logEntry: DamlLogEntry,
-      reason: String): DamlLogEntry = {
+      reason: String,
+  ): DamlLogEntry = {
     val builder = DamlLogEntry.newBuilder
     builder.setRecordTime(logEntry.getRecordTime)
     builder.getTransactionRejectionEntryBuilder

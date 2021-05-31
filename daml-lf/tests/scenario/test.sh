@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 #
@@ -52,4 +52,4 @@ $DAMLC package $TARGETFLAG --debug $TESTMAIN 'main' -o $TESTDAR
 
 $REPL $DEVFLAG test Test:run $TESTDAR | sed -E "$REGEX_HIDE_HASHES" > ${TESTDIR}/ACTUAL.ledger
 
-$DIFF -u --strip-trailing-cr ${TESTDIR}/ACTUAL.ledger ${TESTDIR}/EXPECTED.ledger
+$DIFF -u --strip-trailing-cr ${TESTDIR}/EXPECTED.ledger ${TESTDIR}/ACTUAL.ledger

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -15,7 +15,7 @@ import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 private[inner] object TemplateClass extends StrictLogging {
 
@@ -24,7 +24,8 @@ private[inner] object TemplateClass extends StrictLogging {
       record: Record.FWT,
       template: DefTemplate.FWT,
       typeWithContext: TypeWithContext,
-      packagePrefixes: Map[PackageId, String]): TypeSpec =
+      packagePrefixes: Map[PackageId, String],
+  ): TypeSpec =
     TrackLineage.of("template", typeWithContext.name) {
       val fields = getFieldsWithTypes(record.fields, packagePrefixes)
       logger.info("Start")
@@ -43,14 +44,18 @@ private[inner] object TemplateClass extends StrictLogging {
             template.key,
             typeWithContext.interface.typeDecls,
             typeWithContext.packageId,
-            packagePrefixes))
+            packagePrefixes,
+          )
+        )
         .addMethods(
           generateCreateAndExerciseMethods(
             className,
             template.choices,
             typeWithContext.interface.typeDecls,
             typeWithContext.packageId,
-            packagePrefixes))
+            packagePrefixes,
+          )
+        )
         .addMethod(staticCreateMethod)
         .addType(
           generateIdClass(
@@ -58,7 +63,9 @@ private[inner] object TemplateClass extends StrictLogging {
             template.choices,
             typeWithContext.interface.typeDecls,
             typeWithContext.packageId,
-            packagePrefixes))
+            packagePrefixes,
+          )
+        )
         .addType(generateContractClass(className, template.key, packagePrefixes))
         .addFields(RecordFields(fields).asJava)
         .addMethods(RecordMethods(fields, className, IndexedSeq.empty, packagePrefixes).asJava)
@@ -82,7 +89,8 @@ private[inner] object TemplateClass extends StrictLogging {
   private def generateContractClass(
       templateClassName: ClassName,
       key: Option[Type],
-      packagePrefixes: Map[PackageId, String]): TypeSpec = {
+      packagePrefixes: Map[PackageId, String],
+  ): TypeSpec = {
 
     val contractIdClassName = ClassName.bestGuess("ContractId")
     val contractKeyClassName = key.map(toJavaTypeName(_, packagePrefixes))
@@ -141,21 +149,27 @@ private[inner] object TemplateClass extends StrictLogging {
           contractClassName,
           templateClassName,
           contractIdClassName,
-          contractKeyClassName))
+          contractKeyClassName,
+        )
+      )
       .addMethod(
         generateFromIdAndRecordDeprecated(
           contractClassName,
           templateClassName,
           contractIdClassName,
-          contractKeyClassName))
+          contractKeyClassName,
+        )
+      )
       .addMethod(
         generateFromCreatedEvent(
           contractClassName,
           key,
-          packagePrefixes
-        ))
+          packagePrefixes,
+        )
+      )
       .addMethods(
-        ObjectMethods(contractClassName, IndexedSeq.empty, fields, templateClassName).asJava)
+        ObjectMethods(contractClassName, IndexedSeq.empty, fields, templateClassName).asJava
+      )
       .build()
   }
 
@@ -163,17 +177,19 @@ private[inner] object TemplateClass extends StrictLogging {
       className: ClassName,
       templateClassName: ClassName,
       idClassName: ClassName,
-      maybeContractKeyClassName: Option[TypeName]): MethodSpec = {
+      maybeContractKeyClassName: Option[TypeName],
+  ): MethodSpec = {
 
     val methodParameters = Iterable(
       ParameterSpec.builder(classOf[String], "contractId").build(),
       ParameterSpec.builder(classOf[javaapi.data.Record], "record$").build(),
-      ParameterSpec.builder(optionalString, agreementFieldName).build()
+      ParameterSpec.builder(optionalString, agreementFieldName).build(),
     ) ++ maybeContractKeyClassName
       .map(name => ParameterSpec.builder(optional(name), contractKeyFieldName).build)
       .toList ++ Iterable(
       ParameterSpec.builder(setOfStrings, signatoriesFieldName).build(),
-      ParameterSpec.builder(setOfStrings, observersFieldName).build())
+      ParameterSpec.builder(setOfStrings, observersFieldName).build(),
+    )
 
     val spec =
       MethodSpec
@@ -186,11 +202,13 @@ private[inner] object TemplateClass extends StrictLogging {
           "$T $L = $T.fromValue(record$$)",
           templateClassName,
           dataFieldName,
-          templateClassName)
+          templateClassName,
+        )
 
-    val callParameterNames = Vector(idFieldName, dataFieldName, agreementFieldName) ++ maybeContractKeyClassName
-      .map(_ => contractKeyFieldName)
-      .toList ++ Vector(signatoriesFieldName, observersFieldName).toList
+    val callParameterNames =
+      Vector(idFieldName, dataFieldName, agreementFieldName) ++ maybeContractKeyClassName
+        .map(_ => contractKeyFieldName)
+        .toList ++ Vector(signatoriesFieldName, observersFieldName).toList
     val callParameters = CodeBlock.join(callParameterNames.map(CodeBlock.of(_)).asJava, ", ")
     spec.addStatement("return new $T($L)", className, callParameters).build()
   }
@@ -202,7 +220,8 @@ private[inner] object TemplateClass extends StrictLogging {
       className: ClassName,
       templateClassName: ClassName,
       idClassName: ClassName,
-      maybeContractKeyClassName: Option[TypeName]): MethodSpec = {
+      maybeContractKeyClassName: Option[TypeName],
+  ): MethodSpec = {
     val spec =
       MethodSpec
         .methodBuilder("fromIdAndRecord")
@@ -216,14 +235,14 @@ private[inner] object TemplateClass extends StrictLogging {
           "$T $L = $T.fromValue(record$$)",
           templateClassName,
           dataFieldName,
-          templateClassName)
+          templateClassName,
+        )
 
     val callParameters = Vector(
       CodeBlock.of(idFieldName),
       CodeBlock.of(dataFieldName),
-      emptyOptional) ++ maybeContractKeyClassName.map(_ => emptyOptional).toList ++ Vector(
-      emptySet,
-      emptySet)
+      emptyOptional,
+    ) ++ maybeContractKeyClassName.map(_ => emptyOptional).toList ++ Vector(emptySet, emptySet)
 
     spec
       .addStatement("return new $T($L)", className, CodeBlock.join(callParameters.asJava, ", "))
@@ -236,14 +255,16 @@ private[inner] object TemplateClass extends StrictLogging {
   private def getContractKey(t: Type, packagePrefixes: Map[PackageId, String]) =
     CodeBlock.of(
       "event.getContractKey().map(e -> $L)",
-      FromValueGenerator.extractor(t, "e", CodeBlock.of("e"), newNameGenerator, packagePrefixes))
+      FromValueGenerator.extractor(t, "e", CodeBlock.of("e"), newNameGenerator, packagePrefixes),
+    )
   private val getSignatories = CodeBlock.of("event.getSignatories()")
   private val getObservers = CodeBlock.of("event.getObservers()")
 
   private[inner] def generateFromCreatedEvent(
       className: ClassName,
       maybeContractKeyType: Option[Type],
-      packagePrefixes: Map[PackageId, String]) = {
+      packagePrefixes: Map[PackageId, String],
+  ) = {
 
     val spec =
       MethodSpec
@@ -267,7 +288,8 @@ private[inner] object TemplateClass extends StrictLogging {
       .addStatement(
         "return new $T($T.TEMPLATE_ID, this.toValue())",
         classOf[javaapi.data.CreateCommand],
-        name)
+        name,
+      )
       .build()
 
   private def generateStaticCreateMethod(fields: Fields, name: ClassName): MethodSpec =
@@ -276,13 +298,15 @@ private[inner] object TemplateClass extends StrictLogging {
         MethodSpec
           .methodBuilder("create")
           .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-          .returns(classOf[javaapi.data.CreateCommand])) {
-        case (b, FieldInfo(_, _, escapedName, tpe)) => b.addParameter(tpe, escapedName)
+          .returns(classOf[javaapi.data.CreateCommand])
+      ) { case (b, FieldInfo(_, _, escapedName, tpe)) =>
+        b.addParameter(tpe, escapedName)
       }
       .addStatement(
         "return new $T($L).create()",
         name,
-        generateArgumentList(fields.map(_.javaName)))
+        generateArgumentList(fields.map(_.javaName)),
+      )
       .build()
 
   private def generateIdClass(
@@ -290,13 +314,16 @@ private[inner] object TemplateClass extends StrictLogging {
       choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
       typeDeclarations: Map[QualifiedName, InterfaceType],
       packageId: PackageId,
-      packagePrefixes: Map[PackageId, String]): TypeSpec = {
+      packagePrefixes: Map[PackageId, String],
+  ): TypeSpec = {
 
     val idClassBuilder =
       TypeSpec
         .classBuilder("ContractId")
-        .superclass(ParameterizedTypeName
-          .get(ClassName.get(classOf[javaapi.data.codegen.ContractId[_]]), templateClassName))
+        .superclass(
+          ParameterizedTypeName
+            .get(ClassName.get(classOf[javaapi.data.codegen.ContractId[_]]), templateClassName)
+        )
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
     val constructor =
       MethodSpec
@@ -310,16 +337,20 @@ private[inner] object TemplateClass extends StrictLogging {
       val exerciseChoiceMethod =
         generateExerciseMethod(choiceName, choice, templateClassName, packagePrefixes)
       idClassBuilder.addMethod(exerciseChoiceMethod)
-      for (record <- choice.param.fold(
+      for (
+        record <- choice.param.fold(
           getRecord(_, typeDeclarations, packageId),
           _ => None,
           _ => None,
-          _ => None)) {
+          _ => None,
+        )
+      ) {
         val splatted = generateFlattenedExerciseMethod(
           choiceName,
           choice,
           getFieldsWithTypes(record.fields, packagePrefixes),
-          packagePrefixes)
+          packagePrefixes,
+        )
         idClassBuilder.addMethod(splatted)
       }
     }
@@ -329,7 +360,7 @@ private[inner] object TemplateClass extends StrictLogging {
   private def getRecord(
       typeCon: TypeCon,
       identifierToType: Map[QualifiedName, InterfaceType],
-      packageId: PackageId
+      packageId: PackageId,
   ): Option[Record.FWT] = {
     // TODO: at the moment we don't support other packages Records because the codegen works on single packages
     if (typeCon.name.identifier.packageId == packageId) {
@@ -347,7 +378,8 @@ private[inner] object TemplateClass extends StrictLogging {
       maybeKey: Option[Type],
       typeDeclarations: Map[QualifiedName, InterfaceType],
       packageId: PackageId,
-      packagePrefixes: Map[PackageId, String]) =
+      packagePrefixes: Map[PackageId, String],
+  ) =
     maybeKey.fold(java.util.Collections.emptyList[MethodSpec]()) { key =>
       val methods = for ((choiceName, choice) <- choices.toList) yield {
         val raw = generateStaticExerciseByKeyMethod(
@@ -355,18 +387,23 @@ private[inner] object TemplateClass extends StrictLogging {
           choice,
           key,
           templateClassName,
-          packagePrefixes)
-        val flattened = for (record <- choice.param
-            .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None, _ => None))
-          yield {
-            generateFlattenedStaticExerciseByKeyMethod(
-              choiceName,
-              choice,
-              key,
-              templateClassName,
-              getFieldsWithTypes(record.fields, packagePrefixes),
-              packagePrefixes)
-          }
+          packagePrefixes,
+        )
+        val flattened =
+          for (
+            record <- choice.param
+              .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None, _ => None)
+          )
+            yield {
+              generateFlattenedStaticExerciseByKeyMethod(
+                choiceName,
+                choice,
+                key,
+                templateClassName,
+                getFieldsWithTypes(record.fields, packagePrefixes),
+                packagePrefixes,
+              )
+            }
         raw :: flattened.toList
       }
       methods.flatten.asJava
@@ -377,7 +414,8 @@ private[inner] object TemplateClass extends StrictLogging {
       choice: TemplateChoice[Type],
       key: Type,
       templateClassName: ClassName,
-      packagePrefixes: Map[PackageId, String]): MethodSpec = {
+      packagePrefixes: Map[PackageId, String],
+  ): MethodSpec = {
     val exerciseByKeyBuilder = MethodSpec
       .methodBuilder(s"exerciseByKey${choiceName.capitalize}")
       .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
@@ -397,7 +435,7 @@ private[inner] object TemplateClass extends StrictLogging {
       ToValueGenerator
         .generateToValueConverter(key, CodeBlock.of("key"), newNameGenerator, packagePrefixes),
       choiceName,
-      choiceArgument
+      choiceArgument,
     )
     exerciseByKeyBuilder.build()
   }
@@ -408,7 +446,8 @@ private[inner] object TemplateClass extends StrictLogging {
       key: Type,
       templateClassName: ClassName,
       fields: Fields,
-      packagePrefixes: Map[PackageId, String]): MethodSpec = {
+      packagePrefixes: Map[PackageId, String],
+  ): MethodSpec = {
     val methodName = s"exerciseByKey${choiceName.capitalize}"
     val exerciseByKeyBuilder = MethodSpec
       .methodBuilder(methodName)
@@ -425,7 +464,8 @@ private[inner] object TemplateClass extends StrictLogging {
       templateClassName,
       methodName,
       choiceJavaType,
-      generateArgumentList(fields.map(_.javaName)))
+      generateArgumentList(fields.map(_.javaName)),
+    )
     exerciseByKeyBuilder.build()
   }
 
@@ -434,18 +474,23 @@ private[inner] object TemplateClass extends StrictLogging {
       choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
       typeDeclarations: Map[QualifiedName, InterfaceType],
       packageId: PackageId,
-      packagePrefixes: Map[PackageId, String]) = {
+      packagePrefixes: Map[PackageId, String],
+  ) = {
     val methods = for ((choiceName, choice) <- choices) yield {
       val createAndExerciseChoiceMethod =
         generateCreateAndExerciseMethod(choiceName, choice, templateClassName, packagePrefixes)
-      val splatted = for (record <- choice.param
-          .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None, _ => None)) yield {
-        generateFlattenedCreateAndExerciseMethod(
-          choiceName,
-          choice,
-          getFieldsWithTypes(record.fields, packagePrefixes),
-          packagePrefixes)
-      }
+      val splatted =
+        for (
+          record <- choice.param
+            .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None, _ => None)
+        ) yield {
+          generateFlattenedCreateAndExerciseMethod(
+            choiceName,
+            choice,
+            getFieldsWithTypes(record.fields, packagePrefixes),
+            packagePrefixes,
+          )
+        }
       createAndExerciseChoiceMethod :: splatted.toList
     }
     methods.flatten.asJava
@@ -455,7 +500,8 @@ private[inner] object TemplateClass extends StrictLogging {
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       templateClassName: ClassName,
-      packagePrefixes: Map[PackageId, String]): MethodSpec = {
+      packagePrefixes: Map[PackageId, String],
+  ): MethodSpec = {
     val methodName = s"createAndExercise${choiceName.capitalize}"
     val createAndExerciseChoiceBuilder = MethodSpec
       .methodBuilder(methodName)
@@ -497,7 +543,8 @@ private[inner] object TemplateClass extends StrictLogging {
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       fields: Fields,
-      packagePrefixes: Map[PackageId, String]): MethodSpec = {
+      packagePrefixes: Map[PackageId, String],
+  ): MethodSpec = {
     val methodName = s"createAndExercise${choiceName.capitalize}"
     val createAndExerciseChoiceBuilder = MethodSpec
       .methodBuilder(methodName)
@@ -511,7 +558,8 @@ private[inner] object TemplateClass extends StrictLogging {
       "return $L(new $T($L))",
       methodName,
       javaType,
-      generateArgumentList(fields.map(_.javaName)))
+      generateArgumentList(fields.map(_.javaName)),
+    )
     createAndExerciseChoiceBuilder.build()
   }
 
@@ -519,7 +567,8 @@ private[inner] object TemplateClass extends StrictLogging {
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       templateClassName: ClassName,
-      packagePrefixes: Map[PackageId, String]): MethodSpec = {
+      packagePrefixes: Map[PackageId, String],
+  ): MethodSpec = {
     val methodName = s"exercise${choiceName.capitalize}"
     val exerciseChoiceBuilder = MethodSpec
       .methodBuilder(methodName)
@@ -561,7 +610,8 @@ private[inner] object TemplateClass extends StrictLogging {
       choiceName: ChoiceName,
       choice: TemplateChoice[Type],
       fields: Fields,
-      packagePrefixes: Map[PackageId, String]): MethodSpec = {
+      packagePrefixes: Map[PackageId, String],
+  ): MethodSpec = {
     val methodName = s"exercise${choiceName.capitalize}"
     val exerciseChoiceBuilder = MethodSpec
       .methodBuilder(methodName)
@@ -575,7 +625,8 @@ private[inner] object TemplateClass extends StrictLogging {
       "return $L(new $T($L))",
       methodName,
       javaType,
-      generateArgumentList(fields.map(_.javaName)))
+      generateArgumentList(fields.map(_.javaName)),
+    )
     exerciseChoiceBuilder.build()
   }
 
@@ -586,13 +637,14 @@ private[inner] object TemplateClass extends StrictLogging {
         "TEMPLATE_ID",
         Modifier.STATIC,
         Modifier.FINAL,
-        Modifier.PUBLIC)
+        Modifier.PUBLIC,
+      )
       .initializer(
         "new $T($S, $S, $S)",
         classOf[javaapi.data.Identifier],
         typeWithContext.packageId,
         typeWithContext.modulesLineage.map(_._1).toImmArray.iterator.mkString("."),
-        typeWithContext.name
+        typeWithContext.name,
       )
       .build()
 

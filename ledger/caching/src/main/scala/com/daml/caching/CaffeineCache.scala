@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.caching
@@ -13,44 +13,45 @@ object CaffeineCache {
   def apply[Key <: AnyRef, Value <: AnyRef](
       builder: caffeine.Caffeine[_ >: Key, _ >: Value],
       metrics: Option[CacheMetrics],
-  ): Cache[Key, Value] = {
-    val cache = builder.build[Key, Value]
+  ): ConcurrentCache[Key, Value] =
     metrics match {
-      case None => new SimpleCaffeineCache(cache)
-      case Some(metrics) => new InstrumentedCaffeineCache(cache, metrics)
+      case None => new SimpleCaffeineCache(builder.build[Key, Value])
+      case Some(metrics) =>
+        builder.recordStats(() => new DropwizardStatsCounter(metrics))
+        new InstrumentedCaffeineCache(builder.build[Key, Value], metrics)
     }
-  }
 
   private final class SimpleCaffeineCache[Key <: AnyRef, Value <: AnyRef](
-      cache: caffeine.Cache[Key, Value],
-  ) extends Cache[Key, Value] {
+      cache: caffeine.Cache[Key, Value]
+  ) extends ConcurrentCache[Key, Value] {
     override def put(key: Key, value: Value): Unit = cache.put(key, value)
-
-    override def get(key: Key, acquire: Key => Value): Value =
-      cache.get(key, key => acquire(key))
 
     override def getIfPresent(key: Key): Option[Value] =
       Option(cache.getIfPresent(key))
+
+    override def getOrAcquire(key: Key, acquire: Key => Value): Value =
+      cache.get(key, key => acquire(key))
   }
 
   private final class InstrumentedCaffeineCache[Key <: AnyRef, Value <: AnyRef](
       cache: caffeine.Cache[Key, Value],
       metrics: CacheMetrics,
-  ) extends Cache[Key, Value] {
+  ) extends ConcurrentCache[Key, Value] {
     metrics.registerSizeGauge(() => cache.estimatedSize())
     metrics.registerWeightGauge(() =>
-      cache.policy().eviction().asScala.flatMap(_.weightedSize.asScala).getOrElse(0))
+      cache.policy().eviction().asScala.flatMap(_.weightedSize.asScala).getOrElse(0)
+    )
 
     private val delegate = new SimpleCaffeineCache(cache)
 
-    override def get(key: Key, acquire: Key => Value): Value =
-      delegate.get(key, acquire)
+    override def put(key: Key, value: Value): Unit =
+      delegate.put(key, value)
 
     override def getIfPresent(key: Key): Option[Value] =
       delegate.getIfPresent(key)
 
-    override def put(key: Key, value: Value): Unit =
-      delegate.put(key, value)
+    override def getOrAcquire(key: Key, acquire: Key => Value): Value =
+      delegate.getOrAcquire(key, acquire)
   }
 
 }

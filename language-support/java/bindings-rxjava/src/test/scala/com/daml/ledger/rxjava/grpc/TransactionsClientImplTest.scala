@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
@@ -18,7 +18,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 final class TransactionsClientImplTest
     extends AnyFlatSpec
@@ -63,8 +63,9 @@ final class TransactionsClientImplTest
             "Alice" -> new data.InclusiveFilter(
               Set(
                 new data.Identifier("p1", "m1", "e1"),
-                new data.Identifier("p2", "m2", "e2")
-              ).asJava)
+                new data.Identifier("p2", "m2", "e2"),
+              ).asJava
+            )
           ).asJava
         )
 
@@ -80,7 +81,8 @@ final class TransactionsClientImplTest
         filter.keySet shouldBe Set("Alice")
         filter("Alice").inclusive.get.templateIds.toSet shouldBe Set(
           Identifier("p1", moduleName = "m1", entityName = "e1"),
-          Identifier("p2", moduleName = "m2", entityName = "e2"))
+          Identifier("p2", moduleName = "m2", entityName = "e2"),
+        )
         request.verbose shouldBe true
     }
   }
@@ -126,8 +128,9 @@ final class TransactionsClientImplTest
             "Alice" -> new data.InclusiveFilter(
               Set(
                 new data.Identifier("p1", "m1", "e1"),
-                new data.Identifier("p2", "m2", "e2")
-              ).asJava)
+                new data.Identifier("p2", "m2", "e2"),
+              ).asJava
+            )
           ).asJava
         )
 
@@ -143,7 +146,8 @@ final class TransactionsClientImplTest
         filter.keySet shouldBe Set("Alice")
         filter("Alice").inclusive.get.templateIds.toSet shouldBe Set(
           Identifier("p1", moduleName = "m1", entityName = "e1"),
-          Identifier("p2", moduleName = "m2", entityName = "e2"))
+          Identifier("p2", moduleName = "m2", entityName = "e2"),
+        )
         request.verbose shouldBe true
     }
   }
@@ -209,16 +213,17 @@ final class TransactionsClientImplTest
 
   behavior of "8.12 TransactionClient.getTransactionById"
 
-  it should "look up transaction by transaction ID" ignore forAll(ledgerContentWithTransactionIdGen) {
-    case (ledgerContent, transactionId, transactionTree) =>
-      ledgerServices.withTransactionsClient(Observable.fromIterable(ledgerContent.asJava)) {
-        (transactionClient, transactionService) =>
-          transactionClient
-            .getTransactionById(transactionId, Set.empty[String].asJava)
-            .blockingGet() shouldBe transactionTree
+  it should "look up transaction by transaction ID" ignore forAll(
+    ledgerContentWithTransactionIdGen
+  ) { case (ledgerContent, transactionId, transactionTree) =>
+    ledgerServices.withTransactionsClient(Observable.fromIterable(ledgerContent.asJava)) {
+      (transactionClient, transactionService) =>
+        transactionClient
+          .getTransactionById(transactionId, Set.empty[String].asJava)
+          .blockingGet() shouldBe transactionTree
 
-          transactionService.lastTransactionByIdRequest.get().transactionId shouldBe transactionId
-      }
+        transactionService.lastTransactionByIdRequest.get().transactionId shouldBe transactionId
+    }
   }
 
   behavior of "8.13 TransactionClient.getTransactionById"
@@ -295,7 +300,8 @@ final class TransactionsClientImplTest
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingIterable()
             .asScala
-            .size)
+            .size
+        )
       }
     }
     withClue("getTransactions without specifying end") {
@@ -305,7 +311,8 @@ final class TransactionsClientImplTest
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingIterable()
             .asScala
-            .size)
+            .size
+        )
       }
     }
     withClue("getTransactionsTree specifying end") {
@@ -315,7 +322,8 @@ final class TransactionsClientImplTest
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingIterable()
             .asScala
-            .size)
+            .size
+        )
       }
     }
     withClue("getTransactionByEventId") {
@@ -331,7 +339,8 @@ final class TransactionsClientImplTest
     withClue("getFlatTransactionByEventId") {
       expectUnauthenticated {
         toAuthenticatedServer(
-          _.getFlatTransactionByEventId("...", Set(someParty).asJava).blockingGet())
+          _.getFlatTransactionByEventId("...", Set(someParty).asJava).blockingGet()
+        )
       }
     }
     withClue("getFlatTransactionById") {
@@ -355,11 +364,13 @@ final class TransactionsClientImplTest
             ledgerEnd,
             filterFor(someParty),
             false,
-            someOtherPartyReadWriteToken)
+            someOtherPartyReadWriteToken,
+          )
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingIterable()
             .asScala
-            .size)
+            .size
+        )
       }
     }
     withClue("getTransactions without specifying end") {
@@ -369,7 +380,8 @@ final class TransactionsClientImplTest
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingIterable()
             .asScala
-            .size)
+            .size
+        )
       }
     }
     withClue("getTransactionsTree specifying end") {
@@ -380,39 +392,45 @@ final class TransactionsClientImplTest
             ledgerEnd,
             filterFor(someParty),
             false,
-            someOtherPartyReadWriteToken)
+            someOtherPartyReadWriteToken,
+          )
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingIterable()
             .asScala
-            .size)
+            .size
+        )
       }
     }
     withClue("getTransactionByEventId") {
       expectPermissionDenied {
         toAuthenticatedServer(
           _.getTransactionByEventId("...", Set(someParty).asJava, someOtherPartyReadWriteToken)
-            .blockingGet())
+            .blockingGet()
+        )
       }
     }
     withClue("getTransactionById") {
       expectPermissionDenied {
         toAuthenticatedServer(
           _.getTransactionById("...", Set(someParty).asJava, someOtherPartyReadWriteToken)
-            .blockingGet())
+            .blockingGet()
+        )
       }
     }
     withClue("getFlatTransactionByEventId") {
       expectPermissionDenied {
         toAuthenticatedServer(
           _.getFlatTransactionByEventId("...", Set(someParty).asJava, someOtherPartyReadWriteToken)
-            .blockingGet())
+            .blockingGet()
+        )
       }
     }
     withClue("getFlatTransactionById") {
       expectPermissionDenied {
         toAuthenticatedServer(
           _.getFlatTransactionById("...", Set(someParty).asJava, someOtherPartyReadWriteToken)
-            .blockingGet())
+            .blockingGet()
+        )
       }
     }
     withClue("getLedgerEnd") {
@@ -430,11 +448,13 @@ final class TransactionsClientImplTest
           ledgerEnd,
           filterFor(someParty),
           false,
-          somePartyReadWriteToken)
+          somePartyReadWriteToken,
+        )
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
           .blockingIterable()
           .asScala
-          .size)
+          .size
+      )
     }
     withClue("getTransactions without specifying end") {
       toAuthenticatedServer(
@@ -442,7 +462,8 @@ final class TransactionsClientImplTest
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
           .blockingIterable()
           .asScala
-          .size)
+          .size
+      )
     }
     withClue("getTransactionsTree specifying end") {
       toAuthenticatedServer(
@@ -451,31 +472,37 @@ final class TransactionsClientImplTest
           ledgerEnd,
           filterFor(someParty),
           false,
-          somePartyReadWriteToken)
+          somePartyReadWriteToken,
+        )
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
           .blockingIterable()
           .asScala
-          .size)
+          .size
+      )
     }
     withClue("getTransactionByEventId") {
       toAuthenticatedServer(
         _.getTransactionByEventId("...", Set(someParty).asJava, somePartyReadWriteToken)
-          .blockingGet())
+          .blockingGet()
+      )
     }
     withClue("getTransactionById") {
       toAuthenticatedServer(
         _.getTransactionById("...", Set(someParty).asJava, somePartyReadWriteToken)
-          .blockingGet())
+          .blockingGet()
+      )
     }
     withClue("getFlatTransactionByEventId") {
       toAuthenticatedServer(
         _.getFlatTransactionByEventId("...", Set(someParty).asJava, somePartyReadWriteToken)
-          .blockingGet())
+          .blockingGet()
+      )
     }
     withClue("getFlatTransactionById") {
       toAuthenticatedServer(
         _.getFlatTransactionById("...", Set(someParty).asJava, somePartyReadWriteToken)
-          .blockingGet())
+          .blockingGet()
+      )
     }
     withClue("getLedgerEnd") {
       toAuthenticatedServer(_.getLedgerEnd(publicToken).blockingGet())

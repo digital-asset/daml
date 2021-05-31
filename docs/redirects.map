@@ -49,7 +49,6 @@ packages/da-docs-example-collateral/index.html -> /examples/collateral/index.htm
 packages/navigator-docs/index.html -> /tools/navigator/index.html
 packages/navigator-docs/database.html -> /tools/navigator/database.html
 packages/navigator-docs/backend-licenses.html -> /
-packages/navigator-docs/console.html -> /tools/navigator/console.html
 packages/navigator-docs/frontend-licenses.html -> /
 packages/quickstart/index.html -> /getting-started/index.html
 packages/da-docs-ledger-model/ledger-integrity.html -> /concepts/ledger-model/ledger-integrity.html
@@ -811,6 +810,10 @@ gsg.html -> /getting-started/installation.html
 getting-started/quickstart.html -> /getting-started/index.html
 app-dev/authentication.html -> /app-dev/authorization.html
 daml/intro/2_Scenario.html -> /daml/intro/2_DamlScript.html
+daml/intro/8_Dependencies.html -> /daml/intro/9_Dependencies.html
+daml/intro/9_Functional101.html -> /daml/intro/10_Dependencies.html
+daml/intro/10_StdLib.html -> /daml/intro/11_StdLib.html
+daml/intro/11_Testing.html -> /daml/intro/12_Testing.html
 daml-script/daml-script-docs.html -> /daml-script/api/index.html
 triggers/trigger-docs.html -> /triggers/api/index.html
 support.html -> /support/support.html

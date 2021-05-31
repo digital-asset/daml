@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client
@@ -9,7 +9,7 @@ import com.daml.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceMa
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.SandboxRequiringAuthorization
@@ -40,11 +40,11 @@ final class LedgerClientAuthIT
   )
 
   private val ClientConfiguration = ClientConfigurationWithoutToken.copy(
-    token = Some(toHeader(readOnlyToken("Read-only party"))),
+    token = Some(toHeader(readOnlyToken("Read-only party")))
   )
 
   override protected def config: SandboxConfig = super.config.copy(
-    ledgerIdMode = LedgerIdMode.Static(LedgerId),
+    ledgerIdMode = LedgerIdMode.Static(LedgerId)
   )
 
   "the ledger client" when {
@@ -64,8 +64,8 @@ final class LedgerClientAuthIT
             .allocateParty(hint = Some("Bob"), displayName = None)
             .failed
         } yield {
-          inside(exception) {
-            case GrpcException.PERMISSION_DENIED() => succeed
+          inside(exception) { case GrpcException.PERMISSION_DENIED() =>
+            succeed
           }
         }
       }
@@ -91,8 +91,8 @@ final class LedgerClientAuthIT
         for {
           exception <- LedgerClient(channel, ClientConfigurationWithoutToken).failed
         } yield {
-          inside(exception) {
-            case GrpcException.UNAUTHENTICATED() => succeed
+          inside(exception) { case GrpcException.UNAUTHENTICATED() =>
+            succeed
           }
         }
       }

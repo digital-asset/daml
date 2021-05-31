@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
@@ -10,7 +10,8 @@ import Template.CreateForExercise
 import scala.annotation.implicitNotFound
 
 @implicitNotFound(
-  """Cannot decide how to exercise a choice on ${Self}; only well-typed contract IDs, Templates (.createAnd), and keys (TemplateType key k) are candidates for choice exercise""")
+  """Cannot decide how to exercise a choice on ${Self}; only well-typed contract IDs, Templates (.createAnd), and keys (TemplateType key k) are candidates for choice exercise"""
+)
 sealed abstract class ExerciseOn[-Self, Tpl]
 
 object ExerciseOn {

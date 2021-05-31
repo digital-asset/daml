@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -14,52 +14,50 @@ import shapeless.record.{Record => HRecord}
 import shapeless.syntax.singleton._
 import shapeless.{Coproduct => HSum}
 
+import scala.annotation.nowarn
 import scala.language.implicitConversions
 
 class HashSpec extends AnyWordSpec with Matchers {
 
-  @com.github.ghik.silencer.silent("dead code following this construct")
+  @nowarn("msg=dead code following this construct")
   private implicit val ordNo: scalaz.Order[Nothing] = (a, _) => a // principle of explosion
 
   private val packageId0 = Ref.PackageId.assertFromString("package")
 
   private val complexRecordT =
     VA.record(
-        defRef(name = "ComplexRecord"),
-        'fInt0 ->> VA.int64
-          :: 'fInt1 ->> VA.int64
-          :: 'fInt2 ->> VA.int64
-          :: 'fNumeric0 ->> VA.numeric(Decimal.scale)
-          :: 'fNumeric1 ->> VA.numeric(Decimal.scale)
-          :: 'fBool0 ->> VA.bool
-          :: 'fBool1 ->> VA.bool
-          :: 'fDate0 ->> VA.date
-          :: 'fDate1 ->> VA.date
-          :: 'fTime0 ->> VA.timestamp
-          :: 'fTime1 ->> VA.timestamp
-          :: 'fText0 ->> VA.text
-          :: 'fTest1 ->> VA.text
-          :: 'fPArty ->> VA.party
-          :: 'fUnit ->> VA.unit
-          :: 'fOpt0 ->> VA.optional(VA.text)
-          :: 'fOpt1 ->> VA.optional(VA.text)
-          :: 'fList ->> VA.list(VA.text)
-          :: 'fVariant ->>
-          VA.variant(
-              defRef(name = "Variant"),
-              'Variant ->> VA.int64 :: RNil,
-            )
-            ._2
-          :: 'fRecord ->>
-          VA.record(
-              defRef(name = "Record"),
-              'field1 ->> VA.text :: 'field2 ->> VA.text :: RNil,
-            )
-            ._2
-          :: 'fTextMap ->> VA.map(VA.text)
-          :: RNil,
-      )
-      ._2
+      defRef(name = "ComplexRecord"),
+      Symbol("fInt0") ->> VA.int64
+        :: Symbol("fInt1") ->> VA.int64
+        :: Symbol("fInt2") ->> VA.int64
+        :: Symbol("fNumeric0") ->> VA.numeric(Decimal.scale)
+        :: Symbol("fNumeric1") ->> VA.numeric(Decimal.scale)
+        :: Symbol("fBool0") ->> VA.bool
+        :: Symbol("fBool1") ->> VA.bool
+        :: Symbol("fDate0") ->> VA.date
+        :: Symbol("fDate1") ->> VA.date
+        :: Symbol("fTime0") ->> VA.timestamp
+        :: Symbol("fTime1") ->> VA.timestamp
+        :: Symbol("fText0") ->> VA.text
+        :: Symbol("fTest1") ->> VA.text
+        :: Symbol("fPArty") ->> VA.party
+        :: Symbol("fUnit") ->> VA.unit
+        :: Symbol("fOpt0") ->> VA.optional(VA.text)
+        :: Symbol("fOpt1") ->> VA.optional(VA.text)
+        :: Symbol("fList") ->> VA.list(VA.text)
+        :: Symbol("fVariant") ->>
+        VA.variant(
+          defRef(name = "Variant"),
+          Symbol("Variant") ->> VA.int64 :: RNil,
+        )._2
+        :: Symbol("fRecord") ->>
+        VA.record(
+          defRef(name = "Record"),
+          Symbol("field1") ->> VA.text :: Symbol("field2") ->> VA.text :: RNil,
+        )._2
+        :: Symbol("fTextMap") ->> VA.map(VA.text)
+        :: RNil,
+    )._2
 
   private val complexRecordV: complexRecordT.Inj[Nothing] =
     HRecord(
@@ -81,7 +79,7 @@ class HashSpec extends AnyWordSpec with Matchers {
       fOpt0 = None,
       fOpt1 = Some("Some"),
       fList = Vector("A", "B", "C"),
-      fVariant = HSum('Variant ->> 0L),
+      fVariant = HSum(Symbol("Variant") ->> 0L),
       fRecord = HRecord(field1 = "field1", field2 = "field2"),
       fTextMap = SortedLookupList(Map("keyA" -> "valueA", "keyB" -> "valueB")),
     )
@@ -100,7 +98,6 @@ class HashSpec extends AnyWordSpec with Matchers {
       // Note: intentionally does not reuse value instances
       val hashes = Vector
         .fill(1000)(defRef("module", "name") -> complexRecordT.inj(complexRecordV))
-        .par
         .map(Function.tupled(Hash.assertHashContractKey))
 
       hashes.toSet.size shouldBe 1
@@ -161,9 +158,12 @@ class HashSpec extends AnyWordSpec with Matchers {
 
     "not produce collision in Variant constructor" in {
       val variantT =
-        VA.variant(defRef(name = "Variant"), 'A ->> VA.unit :: 'B ->> VA.unit :: RNil)._2
-      val value1 = variantT.inj(HSum[variantT.Inj[Nothing]]('A ->> (())))
-      val value2 = variantT.inj(HSum[variantT.Inj[Nothing]]('B ->> (())))
+        VA.variant(
+          defRef(name = "Variant"),
+          Symbol("A") ->> VA.unit :: Symbol("B") ->> VA.unit :: RNil,
+        )._2
+      val value1 = variantT.inj(HSum[variantT.Inj[Nothing]](Symbol("A") ->> (())))
+      val value2 = variantT.inj(HSum[variantT.Inj[Nothing]](Symbol("B") ->> (())))
 
       val tid = defRef("module", "name")
 
@@ -174,9 +174,9 @@ class HashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in Variant value" in {
-      val variantT = VA.variant(defRef(name = "Variant"), 'A ->> VA.int64 :: RNil)._2
-      val value1 = variantT.inj(HSum('A ->> 0L))
-      val value2 = variantT.inj(HSum('A ->> 1L))
+      val variantT = VA.variant(defRef(name = "Variant"), Symbol("A") ->> VA.int64 :: RNil)._2
+      val value1 = variantT.inj(HSum(Symbol("A") ->> 0L))
+      val value2 = variantT.inj(HSum(Symbol("A") ->> 1L))
 
       val tid = defRef("module", "name")
 
@@ -202,7 +202,7 @@ class HashSpec extends AnyWordSpec with Matchers {
 
     "not produce collision in TextMap values" in {
       def textMap(elements: (String, Long)*) =
-        VA.map(VA.int64).inj(SortedLookupList(elements.toMap))
+        VA.map(VA.int64).inj(SortedLookupList(elements.toMap[String, Long]))
       val value1 = textMap("A" -> 0, "B" -> 0)
       val value2 = textMap("A" -> 0, "B" -> 1)
 
@@ -216,7 +216,7 @@ class HashSpec extends AnyWordSpec with Matchers {
 
     "not produce collision in GenMap keys" in {
       def genMap(elements: (String, Long)*) =
-        VA.genMap(VA.text, VA.int64).inj(elements.toMap)
+        VA.genMap(VA.text, VA.int64).inj(elements.toMap[String, Long])
       val value1 = genMap("A" -> 0, "B" -> 0)
       val value2 = genMap("A" -> 0, "C" -> 0)
 
@@ -230,7 +230,7 @@ class HashSpec extends AnyWordSpec with Matchers {
 
     "not produce collision in GenMap values" in {
       def genMap(elements: (String, Long)*) =
-        VA.genMap(VA.text, VA.int64).inj(elements.toMap)
+        VA.genMap(VA.text, VA.int64).inj(elements.toMap[String, Long])
       val value1 = genMap("A" -> 0, "B" -> 0)
       val value2 = genMap("A" -> 0, "B" -> 1)
 
@@ -316,7 +316,10 @@ class HashSpec extends AnyWordSpec with Matchers {
 
     "not produce collision in Record" in {
       val recordT =
-        VA.record(defRef(name = "Tuple2"), '_1 ->> VA.text :: '_2 ->> VA.text :: RNil)._2
+        VA.record(
+          defRef(name = "Tuple2"),
+          Symbol("_1") ->> VA.text :: Symbol("_2") ->> VA.text :: RNil,
+        )._2
       val value1 = recordT.inj(HRecord(_1 = "A", _2 = "B"))
       val value2 = recordT.inj(HRecord(_1 = "A", _2 = "C"))
 
@@ -396,8 +399,10 @@ class HashSpec extends AnyWordSpec with Matchers {
           record0T2.inj(HRecord()),
         )
 
-      val record2T1 = VA.record("Tuple", '_1 ->> VA.bool :: '_2 ->> VA.bool :: RNil)._2
-      val record2T2 = VA.record("TupleBis", '_1 ->> VA.bool :: '_2 ->> VA.bool :: RNil)._2
+      val record2T1 =
+        VA.record("Tuple", Symbol("_1") ->> VA.bool :: Symbol("_2") ->> VA.bool :: RNil)._2
+      val record2T2 =
+        VA.record("TupleBis", Symbol("_1") ->> VA.bool :: Symbol("_2") ->> VA.bool :: RNil)._2
 
       val records2 =
         List(
@@ -407,14 +412,17 @@ class HashSpec extends AnyWordSpec with Matchers {
           record2T2.inj(HRecord(_1 = false, _2 = false)),
         )
 
-      val variantT1 = VA.variant("Either", 'Left ->> VA.bool :: 'Right ->> VA.bool :: RNil)._2
-      val variantT2 = VA.variant("EitherBis", 'Left ->> VA.bool :: 'Right ->> VA.bool :: RNil)._2
+      val variantT1 =
+        VA.variant("Either", Symbol("Left") ->> VA.bool :: Symbol("Right") ->> VA.bool :: RNil)._2
+      val variantT2 = VA
+        .variant("EitherBis", Symbol("Left") ->> VA.bool :: Symbol("Right") ->> VA.bool :: RNil)
+        ._2
 
       val variants = List(
-        variantT1.inj(HSum[variantT1.Inj[Nothing]]('Left ->> false)),
-        variantT1.inj(HSum[variantT1.Inj[Nothing]]('Left ->> true)),
-        variantT1.inj(HSum[variantT1.Inj[Nothing]]('Right ->> false)),
-        variantT2.inj(HSum[variantT1.Inj[Nothing]]('Left ->> false)),
+        variantT1.inj(HSum[variantT1.Inj[Nothing]](Symbol("Left") ->> false)),
+        variantT1.inj(HSum[variantT1.Inj[Nothing]](Symbol("Left") ->> true)),
+        variantT1.inj(HSum[variantT1.Inj[Nothing]](Symbol("Right") ->> false)),
+        variantT2.inj(HSum[variantT1.Inj[Nothing]](Symbol("Left") ->> false)),
       )
 
       def list(elements: Boolean*) = VA.list(VA.bool).inj(elements.toVector)
@@ -443,7 +451,7 @@ class HashSpec extends AnyWordSpec with Matchers {
       )
 
       def genMap(entries: (String, Boolean)*) =
-        VA.genMap(VA.text, VA.bool).inj(entries.toMap)
+        VA.genMap(VA.text, VA.bool).inj(entries.toMap[String, Boolean])
 
       val genMaps = List[V](
         genMap(),
@@ -639,9 +647,11 @@ class HashSpec extends AnyWordSpec with Matchers {
 
     "be stable" in {
       Hash.deriveMaintainerContractKeyUUID(k1, p1) shouldBe Hash.assertFromString(
-        "6ac76f1cb2b75305a6c910641ae39463321e09104d49d9aa32638d1d3286430c")
+        "6ac76f1cb2b75305a6c910641ae39463321e09104d49d9aa32638d1d3286430c"
+      )
       Hash.deriveMaintainerContractKeyUUID(k2, p2) shouldBe Hash.assertFromString(
-        "6874798ccf6ec1577955d61a6b6d96247f823515ef3afe8b1e086b3533a4fd56")
+        "6874798ccf6ec1577955d61a6b6d96247f823515ef3afe8b1e086b3533a4fd56"
+      )
     }
   }
 

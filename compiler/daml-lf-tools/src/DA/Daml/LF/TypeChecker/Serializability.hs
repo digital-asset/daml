@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | This module provides functions to perform the DAML-LF constraint checks on
@@ -101,11 +101,10 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
         BTArrow -> Left URFunction
         BTNumeric -> Left URNumeric -- 'Numeric' is used as a higher-kinded type constructor.
         BTAny -> Left URAny
+        BTAnyException -> Left URAnyException
         BTTypeRep -> Left URTypeRep
-        BTAnyException -> noConditions
-        BTGeneralError -> noConditions
-        BTArithmeticError -> noConditions
-        BTContractError -> noConditions
+        BTRoundingMode -> Left URRoundingMode
+        BTBigNumeric -> Left URBigNumeric
       TForall{} -> Left URForall
       TStruct{} -> Left URStruct
 

@@ -1,24 +1,24 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML Integration Kit
+Daml Integration Kit
 ####################
 
-The DAML integration kit is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`. It comprises the components needed to build your own :ref:`DAML Drivers <ecosystem-architecture>`.
+The Daml integration kit is currently an :doc:`Early Access Feature in Labs status </support/status-definitions>`. It comprises the components needed to build your own :ref:`Daml Drivers <ecosystem-architecture>`.
 
 .. toctree::
    :hidden:
 
    /tools/ledger-api-test-tool/index
 
-:doc:`DAML Applications </app-dev/app-arch>` run on DAML Ledgers.
-A DAML Ledger is a server serving the
+:doc:`Daml Applications </app-dev/app-arch>` run on Daml Ledgers.
+A Daml Ledger is a server serving the
 :doc:`Ledger API </app-dev/grpc/index>` as per the semantics defined in
 the :doc:`/concepts/ledger-model/index` and the
-`DAML-LF specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>`_.
+`Daml-LF specification <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>`_.
 
-The DAML integration kit helps third-party ledger developers to
-implement a DAML Ledger on top of their distributed ledger or database of
+The Daml integration kit helps third-party ledger developers to
+implement a Daml Ledger on top of their distributed ledger or database of
 choice.
 
 We provide the resources in the kit, which include guides to
@@ -30,13 +30,13 @@ We provide the resources in the kit, which include guides to
 - :ref:`integration-kit_benchmarking`
 
 Using these guides, you can focus on your own distributed-ledger or database
-and reuse our DAML Ledger server and DAML interpreter code for
-implementing the DAML Ledger API. For example uses of the integration kit, see
+and reuse our Daml Ledger server and Daml interpreter code for
+implementing the Daml Ledger API. For example uses of the integration kit, see
 below.
 
 .. _status_and_roadmap:
 
-DAML Integration Kit status and roadmap
+Daml Integration Kit status and roadmap
 ***************************************
 
 The current status of the integration kit is ALPHA. We are working towards BETA,
@@ -44,16 +44,16 @@ and General Availability (GA) will come quite a bit later. The roadmap below exp
 these different statuses, and what's missing to progress.
 
 ALPHA (current status)
-  In the ALPHA status, the DAML integration kit is ready to be used by
+  In the ALPHA status, the Daml integration kit is ready to be used by
   third-parties willing to accept the following caveats:
 
-  - The architecture includes everything required to run DAML Applications using the
-    DAML Ledger API. However, it misses support for testing DAML Applications in a
-    uniform way against different DAML Ledgers.
+  - The architecture includes everything required to run Daml Applications using the
+    Daml Ledger API. However, it misses support for testing Daml Applications in a
+    uniform way against different Daml Ledgers.
   - Ledger API authorization, package upload, party on-boarding, ledger reset,
-    and time manipulation are specific to each DAML Ledger, until the uniform
-    *administrative DAML ledger access* API is introduced, which is different
-    to the uniform *per-party DAML ledger access* that the DAML Ledger API provides.
+    and time manipulation are specific to each Daml Ledger, until the uniform
+    *administrative Daml ledger access* API is introduced, which is different
+    to the uniform *per-party Daml ledger access* that the Daml Ledger API provides.
     We will address this before reaching BETA status.
   - The architecture is likely to change due to learnings from integrators like you!
     Where possible we strive to make these changes backwards compatible. though this
@@ -63,7 +63,7 @@ ALPHA (current status)
   - Some of our code might be fresh off the press and might therefore have a
     higher rate of bugs.
 
-  That said: we highly value your feedback and input on where you find DAML software and this integration kit most useful.
+  That said: we highly value your feedback and input on where you find Daml software and this integration kit most useful.
   You can get into contact with us using the feedback form on this
   documentation page or by creating issues or pull-requests against the
   `digital-asset/daml <https://github.com/digital-asset/daml>`__ GitHub repository.
@@ -72,16 +72,16 @@ ALPHA (current status)
 BETA
   For us, BETA status means that we have architectural stability and solid
   documentation in place. At this point, third-parties should have everything
-  they need to integrate DAML with their ledger of choice completely on their
+  they need to integrate Daml with their ledger of choice completely on their
   own.
 
   Before reaching BETA status, we expect to have:
 
   - hardened our test tooling
-  - built tooling for benchmarking DAML ledgers
-  - completed several integrations of DAML for different ledgers
-  - implemented uniform *administrative DAML ledger access* to provide a
-    portable way for testing DAML applications against different DAML ledgers
+  - built tooling for benchmarking Daml ledgers
+  - completed several integrations of Daml for different ledgers
+  - implemented uniform *administrative Daml ledger access* to provide a
+    portable way for testing Daml applications against different Daml ledgers
 
   Related links
 
@@ -90,7 +90,7 @@ BETA
 
 GA
   For us GA (General Availability) means that there are several
-  production-ready DAML ledgers built using the DAML integration kit.
+  production-ready Daml ledgers built using the Daml integration kit.
   We expect to reach GA in 2019.
 
   Related links
@@ -99,13 +99,13 @@ GA
 
 .. _integration-kit_implementing:
 
-Implementing your own DAML Ledger
+Implementing your own Daml Ledger
 *********************************
 
 Each `X` ledger requires at least the implementation of a specific
-``daml-on-<X>-server``, which implements the DAML Ledger API. It might also
+``daml-on-<X>-server``, which implements the Daml Ledger API. It might also
 require the implementation of a ``<X>-daml-validator``, which provides the
-ability for nodes to validate DAML transactions.
+ability for nodes to validate Daml transactions.
 
 For more about these parts of the architecture, read the
 `Architectural overview`_.
@@ -117,13 +117,13 @@ Prerequisite knowledge
 ----------------------
 
 Before you can decide on an appropriate architecture and implement your own
-server and validator, you need a significant amount of context about DAML.
+server and validator, you need a significant amount of context about Daml.
 To acquire this context, you should:
 
 1. Complete the :doc:`/app-dev/bindings-java/quickstart`.
 2. Get an in-depth understanding of the :doc:`/concepts/ledger-model/index`.
 3. Build a mental model of how the :doc:`Ledger API </app-dev/ledger-api>`
-   is used to :doc:`build DAML Applications </app-dev/app-arch>`.
+   is used to :doc:`build Daml Applications </app-dev/app-arch>`.
 
 .. _integration-kit_writing_code:
 
@@ -133,7 +133,7 @@ Deciding on the architecture and writing the code
 Once you have the necessary context, we recommend the steps
 to implement your own server and validator:
 
-1. Clone our example DAML Ledger (which is backed by an in-memory key-value store)
+1. Clone our example Daml Ledger (which is backed by an in-memory key-value store)
    from the `digital-asset/daml-on-x-example <https://github.com/digital-asset/daml-on-x-example>`__.
 
 1. Read the example code jointly with
@@ -141,12 +141,12 @@ to implement your own server and validator:
    the `Library infrastructure overview`_ below.
 
 1. Combine all the knowledge gained to decide on the architecture for your
-   DAML on `X` ledger.
+   Daml on `X` ledger.
 
 1. Implement your architecture; and let the world know about it by creating a
    PR against the
    `digital-asset/daml <https://github.com/digital-asset/daml>`__ repository
-   to add your ledger to the list of :ref:`DAML Ledgers built or in development <deploy-ref_in_development>`.
+   to add your ledger to the list of :ref:`Daml Ledgers built or in development <deploy-ref_in_development>`.
 
 If you need help, then feel free to use the feedback form on this documentation page or GitHub issues on the
 `digital-asset/daml <https://github.com/digital-asset/daml>`__ repository to
@@ -155,11 +155,11 @@ get into contact with us.
 Architectural overview
 ======================
 
-This section explains the architecture of a DAML ledger backed by a specific
+This section explains the architecture of a Daml ledger backed by a specific
 ledger `X`.
 
 The backing ledger can be a proper distributed ledger or also just a database.
-The goal of a DAML ledger implementation is to allow multiple DAML applications,
+The goal of a Daml ledger implementation is to allow multiple Daml applications,
 which are potentially run by different entities, to execute multi-party workflows
 using the ledger `X`.
 
@@ -175,19 +175,19 @@ documentation, we call these nodes `participant nodes`.
 
 In the diagram:
 
-- The boxes labeled `daml-on-<X>-server` denote the DAML Ledger API
-  servers, which implement the DAML Ledger API on top of the services provided
+- The boxes labeled `daml-on-<X>-server` denote the Daml Ledger API
+  servers, which implement the Daml Ledger API on top of the services provided
   by the `X` participant nodes.
 
-- The boxes labeled `<X>-daml-validator` denote `X`-specific DAML transaction
+- The boxes labeled `<X>-daml-validator` denote `X`-specific Daml transaction
   validation services. In a distributed ledger they provide the ability for
-  nodes to :doc:`validate DAML transactions </concepts/ledger-model/ledger-integrity>`
+  nodes to :doc:`validate Daml transactions </concepts/ledger-model/ledger-integrity>`
   at the appropriate stage in the `X` ledger's transaction commit process.
 
   Whether they are needed, by what nodes they are used, and whether they are run
   in-process or out-of-process depends on the `X` ledger's architecture. Above
   we depict a common case where the participant nodes jointly maintain the
-  ledger's integrity and therefore need to validate DAML transactions.
+  ledger's integrity and therefore need to validate Daml transactions.
 
 
 Message flow
@@ -203,17 +203,17 @@ Message flow
 Resources we provide
 ====================
 
-- Scala libraries for validating DAML transactions and serving the
+- Scala libraries for validating Daml transactions and serving the
   Ledger API given implementations of two specific interfaces. See
   the `Library infrastructure overview`_ for an overview of these
   libraries.
 
-- A complete example of a DAML Ledger backed by an in-memory key-value store,
+- A complete example of a Daml Ledger backed by an in-memory key-value store,
   in the
   `digital-asset/daml-on-x-example <https://github.com/digital-asset/daml-on-x-example>`__
   GitHub repository.
   It builds on our Scala libraries and demonstrates how they
-  can be assembled to serve the Ledger API and validate DAML transactions.
+  can be assembled to serve the Ledger API and validate Daml transactions.
 
   For ledgers where data is shared between all participant nodes, we
   recommend using this example as a starting point for implementing your
@@ -222,40 +222,40 @@ Resources we provide
   For ledgers with stronger privacy models, this example
   can serve as an inspiration. You will need to dive deeper into how
   transactions are represented and how to communicate them to
-  implement :doc:`DAML's privacy model </concepts/ledger-model/ledger-privacy>`
+  implement :doc:`Daml's privacy model </concepts/ledger-model/ledger-privacy>`
   at the ledger level instead of just at the Ledger API level.
 
 Library infrastructure overview
 -------------------------------
 
 To help you implement your server and validator, we provide the following
-four Scala libraries as part of DAML Connect. Changes
+four Scala libraries as part of Daml Connect. Changes
 to them are explained as part of the :ref:`release-notes`.
 
 As explained in :ref:`integration-kit_writing_code`,
 this section is best read jointly with the code in
 `digital-asset/daml-on-x-example <https://github.com/digital-asset/daml-on-x-example>`__.
 
-``participant-state.jar`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/src/main/scala/com/daml/ledger/participant/state/v1/package.scala>`__)
+``participant-state.jar`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/participant-state/src/main/scala/com/daml/ledger/participant/state/v1/package.scala>`__)
   Contains interfaces abstracting over the state of
-  a participant node relevant for a DAML Ledger API server.
+  a participant node relevant for a Daml Ledger API server.
 
   These are the
   interfaces whose implementation is specific to a particular `X` ledger. These
   interfaces are optimized for ease of implementation.
-``participant-state-kvutils.jar`` (`source code <https://github.com/digital-asset/daml/tree/master/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils>`__)
-  These utilities provide methods to succintly implement interfaces from
+``participant-state-kvutils.jar`` (`source code <https://github.com/digital-asset/daml/tree/main/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils>`__)
+  These utilities provide methods to succinctly implement interfaces from
   ``participant-state.jar`` on top of a key-value state storage.
 
   See documentation in
-  `package.scala <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils/package.scala>`__
+  `package.scala <https://github.com/digital-asset/daml/blob/main/ledger/participant-state/kvutils/src/main/scala/com/daml/ledger/participant/state/kvutils/package.scala>`__
 
-``ledger-api-server.jar`` (`source code for API server <https://github.com/digital-asset/daml/blob/master/ledger/participant-integration-api/src/main/scala/platform/apiserver/StandaloneApiServer.scala>`__, `source code for indexer <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/daml/platform/indexer/StandaloneIndexerServer.scala>`__)
-  Contains code that implements a DAML Ledger API server and the SQL-backed indexer
+``ledger-api-server.jar`` (`source code for API server <https://github.com/digital-asset/daml/blob/main/ledger/participant-integration-api/src/main/scala/platform/apiserver/StandaloneApiServer.scala>`__, `source code for indexer <https://github.com/digital-asset/daml/blob/main/ledger/sandbox/src/main/scala/com/daml/platform/indexer/StandaloneIndexerServer.scala>`__)
+  Contains code that implements a Daml Ledger API server and the SQL-backed indexer
   given implementations of the interfaces in ``participant-state.jar``.
 
-``daml-engine.jar`` (`source code <https://github.com/digital-asset/daml/blob/master/daml-lf/engine/src/main/scala/com/digitalasset/daml/lf/engine/Engine.scala>`__)
-  Contains code for serializing and deserializing DAML
+``daml-engine.jar`` (`source code <https://github.com/digital-asset/daml/blob/main/daml-lf/engine/src/main/scala/com/digitalasset/daml/lf/engine/Engine.scala>`__)
+  Contains code for serializing and deserializing Daml
   transactions and for validating them.
 
   An `<X>-daml-validator` is typically
@@ -266,7 +266,7 @@ this section is best read jointly with the code in
   to its participant node.
 
 This diagram shows how the classes and interfaces provided by these
-libraries are typically combined to instantiate a DAML Ledger API server
+libraries are typically combined to instantiate a Daml Ledger API server
 backed by an `X` ledger:
 
 *TODO: Update this diagram to mention ledger server classes above instead of deprecated daml-on-x-server*
@@ -296,12 +296,12 @@ of their qualified names where unambiguous):
 ``<x>.LedgerApiServer``
   is the class whose main method or constructor
   creates the contained instances and wires them up to provide the Ledger API
-  backed by the ``<X> services``. You need to implement this for your DAML on
+  backed by the ``<X> services``. You need to implement this for your Daml on
   `X` ledger.
-``WriteService`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/src/main/scala/com/daml/ledger/participant/state/v1/WriteService.scala>`_)
+``WriteService`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/participant-state/src/main/scala/com/daml/ledger/participant/state/v1/WriteService.scala>`_)
   is an interface abstracting over the mechanism to submit
-  DAML transactions to the underlying `X` ledger via a participant node.
-``ReadService`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-state/src/main/scala/com/daml/ledger/participant/state/v1/ReadService.scala>`__)
+  Daml transactions to the underlying `X` ledger via a participant node.
+``ReadService`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/participant-state/src/main/scala/com/daml/ledger/participant/state/v1/ReadService.scala>`__)
   is an interface abstracting over the ability to subscribe to
   changes of the `X` ledger visible to a particular participant node.
   The changes are exposed as a stream that is resumable from any particular
@@ -312,17 +312,17 @@ of their qualified names where unambiguous):
 ``<x>.Backend``
   is a class implementing the ``ReadService`` and the
   ``WriteService`` on top of the ``<X> services``. You need to implement this
-  for your DAML on `X` ledger.
-``StandaloneIndexerServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-integration-api/src/main/scala/platform/indexer/StandaloneIndexerServer.scala>`__)
+  for your Daml on `X` ledger.
+``StandaloneIndexerServer`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/participant-integration-api/src/main/scala/platform/indexer/StandaloneIndexerServer.scala>`__)
   is a standalone service that subscribe to ledger changes using ``ReadService`` and inserts
   the data into a SQL backend ("index") for the purpose of serving the data over the Ledger API.
-``StandaloneIndexServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-integration-api/src/main/scala/platform/apiserver/StandaloneApiServer.scala>`__)
+``StandaloneIndexServer`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/participant-integration-api/src/main/scala/platform/apiserver/StandaloneApiServer.scala>`__)
   is a class containing all the code to implement the
   Ledger API on top of an ledger backend. It serves the data from a SQL database populated by the ``StandaloneIndexerServer``.
 
 .. _integration-kit_deploying:
 
-Deploying a DAML Ledger
+Deploying a Daml Ledger
 ***********************
 
 **TODO (BETA):**
@@ -332,7 +332,7 @@ Deploying a DAML Ledger
   (`GitHub issue <https://github.com/digital-asset/daml/issues/669>`__)
 - explain option of using a persistent SQL-backed participant state index
   (`GitHub issue <https://github.com/digital-asset/daml/issues/581>`__).
-- explain how testing of DAML applications (ledger reset, time manipulation,
+- explain how testing of Daml applications (ledger reset, time manipulation,
   scripted package upload) can be supported by a uniform admin interface
   (`GitHub issue <https://github.com/digital-asset/daml/issues/347>`__).
 
@@ -344,29 +344,29 @@ Authorization
 To implement authorization on your ledger,
 do the following modifications to your code:
 
-- Implement the ``com.daml.ledger.api.auth.AuthService`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthService.scala>`__) interface.
+- Implement the ``com.daml.ledger.api.auth.AuthService`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthService.scala>`__) interface.
   An AuthService receives all HTTP headers attached to a gRPC ledger API request
-  and returns a set of ``Claims`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/Claims.scala>`__), which describe the authorization of the request.
-- Instantiate a ``com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/interceptor/AuthorizationInterceptor.scala>`__),
+  and returns a set of ``Claims`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/Claims.scala>`__), which describe the authorization of the request.
+- Instantiate a ``com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/interceptor/AuthorizationInterceptor.scala>`__),
   and pass it an instance of your AuthService implementation.
   This interceptor will be responsible for storing the decoded Claims in a place where ledger API services can access them.
-- When starting the ``com.daml.platform.apiserver.LedgerApiServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/participant-integration-api/src/main/scala/platform/apiserver/LedgerApiServer.scala>`__),
+- When starting the ``com.daml.platform.apiserver.LedgerApiServer`` (`source code <https://github.com/digital-asset/daml/blob/main/ledger/participant-integration-api/src/main/scala/platform/apiserver/LedgerApiServer.scala>`__),
   add the above AuthorizationInterceptor to the list of interceptors (see ``interceptors`` parameter of ``LedgerApiServer.create``).
 
 For reference, you can have a look at how authorization is implemented in the sandbox:
 
-- The ``com.daml.ledger.api.auth.AuthServiceJWT`` class (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWT.scala>`__)
+- The ``com.daml.ledger.api.auth.AuthServiceJWT`` class (`source code <https://github.com/digital-asset/daml/blob/main/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWT.scala>`__)
   reads a `JWT <https://jwt.io/>`__ token from HTTP headers.
-- The ``com.daml.ledger.api.auth.AuthServiceJWTPayload`` class (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWTPayload.scala>`__)
+- The ``com.daml.ledger.api.auth.AuthServiceJWTPayload`` class (`source code <https://github.com/digital-asset/daml/blob/main/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWTPayload.scala>`__)
   defines the format of the token payload.
 - The token signature algorithm and the corresponding public key is specified as a sandbox command line parameter.
 
 .. _integration-kit_testing:
 
-Testing a DAML Ledger
+Testing a Daml Ledger
 *********************
 
-You can test your DAML ledger implementation using 
+You can test your Daml ledger implementation using 
 :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>`,
 which will assess correctness of implementation of the
 :doc:`Ledger API </app-dev/ledger-api>`. For example, it will show you if
@@ -377,7 +377,7 @@ Assuming that your Ledger API endpoint is accessible at ``localhost:6865``, you 
 #. Download the Ledger API Test Tool from `Maven <api-test-tool_>`_
    and save it as ``ledger-api-test-tool.jar`` in your current directory.
 
-#. Obtain the DAML archives required to run the tests:
+#. Obtain the Daml archives required to run the tests:
 
    ``java -jar ledger-api-test-tool.jar --extract``
 
@@ -391,7 +391,7 @@ See more in :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>`.
 
 .. _integration-kit_benchmarking:
 
-Benchmarking a DAML Ledger
+Benchmarking a Daml Ledger
 **************************
 
 **TODO (BETA):**

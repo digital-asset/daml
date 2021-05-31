@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -eou pipefail
@@ -15,6 +15,10 @@ cd "$(dirname ${BASH_SOURCE[0]})/.."
 
 mkdir -p $TARGET_DIR
 
+# This version needs to be adapted in all cabal files, too
+# The script below will fail on the `cp` command otherwise.
+LIB_VERSION="0.1.13.0"
+
 package_from_dir() {
     local dir=$1
     if [ ! -d $dir ]; then
@@ -23,7 +27,7 @@ package_from_dir() {
     fi
     pushd $dir
     cabal v2-sdist
-    cp dist-newstyle/sdist/*.tar.gz "$TARGET_DIR/"
+    cp dist-newstyle/sdist/*${LIB_VERSION}.tar.gz "$TARGET_DIR/"
     rm -rf cabal.tix dist-newstyle/
     popd
 }
@@ -42,7 +46,7 @@ mkdir -p "$DIR/protobuf/com/daml"
 cp -RL "daml-lf/archive/src/main/protobuf/com/daml/daml_lf_dev" "$DIR/protobuf/com/daml/"
 # generate code from protobuf using the matching tool, as a configure script
 cat <<EOF >"$DIR/Setup.hs"
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2021 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 --
 -- Parts of this code were adapted from
@@ -113,7 +117,7 @@ EOF
 cat <<EOF > "$DIR/daml-lf-proto-types.cabal"
 cabal-version: 2.4
 name: daml-lf-proto-types
-version: 0.1.4.0
+version: ${LIB_VERSION}
 
 extra-source-files:
   protobuf/com/daml/daml_lf_dev/daml_lf.proto
@@ -152,11 +156,11 @@ if [ ! -f "$TARGET_DIR/cabal.project" ]; then
     cat <<EOF > "$TARGET_DIR/cabal.project"
 packages:
 --   ./. -- add this if the top project is cabalised
-  ./da-hs-base-0.1.4.0.tar.gz
-  ./daml-lf-ast-0.1.4.0.tar.gz
-  ./daml-lf-proto-0.1.4.0.tar.gz
-  ./daml-lf-proto-types-0.1.4.0.tar.gz
-  ./daml-lf-reader-0.1.4.0.tar.gz
+  ./da-hs-base-${LIB_VERSION}.tar.gz
+  ./daml-lf-ast-${LIB_VERSION}.tar.gz
+  ./daml-lf-proto-${LIB_VERSION}.tar.gz
+  ./daml-lf-proto-types-${LIB_VERSION}.tar.gz
+  ./daml-lf-reader-${LIB_VERSION}.tar.gz
 EOF
     echo "Wrote $TARGET_DIR/cabal.project"
 else
@@ -165,23 +169,41 @@ fi
 
 if [ ! -f "$TARGET_DIR/stack.yaml" ]; then
     cat <<EOF > "$TARGET_DIR/stack.yaml"
-# last known good resolver configuration for these libraries
-resolver: lts-14.27
+resolver: lts-17.11
 
 packages:
 - .
 
 # adding proto3 libraries (not on stackage) for daml-lf-proto-types
 extra-deps:
-- proto3-suite-0.4.0.0
-- proto3-wire-1.1.0
-- ./da-hs-base-0.1.4.0.tar.gz
-- ./daml-lf-ast-0.1.4.0.tar.gz
-- ./daml-lf-proto-types-0.1.4.0.tar.gz
-- ./daml-lf-proto-0.1.4.0.tar.gz
-- ./daml-lf-reader-0.1.4.0.tar.gz
+- proto3-suite-0.4.2
+- proto3-wire-1.2.2
+- ./da-hs-base-${LIB_VERSION}.tar.gz
+- ./daml-lf-ast-${LIB_VERSION}.tar.gz
+- ./daml-lf-proto-types-${LIB_VERSION}.tar.gz
+- ./daml-lf-proto-${LIB_VERSION}.tar.gz
+- ./daml-lf-reader-${LIB_VERSION}.tar.gz
 EOF
     echo "Wrote $TARGET_DIR/stack.yaml"
 else
     echo "not overwriting existing stack.yaml file"
 fi
+
+# add a dummy cabal file so one can compile the libraries for a test
+cat <<EOF > $TARGET_DIR/test-lib-lf.cabal
+cabal-version:    2.4
+
+name:             test-lib-lf
+description:      Dummy package to test compilation of the extracted LF libraries
+version:          ${LIB_VERSION}
+build-type:       Simple
+
+library
+  hs-source-dirs: .
+  build-depends:  da-hs-base,
+                  daml-lf-ast,
+                  daml-lf-proto,
+                  daml-lf-proto-types,
+                  daml-lf-reader
+  default-language: Haskell2010
+EOF

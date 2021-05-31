@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.helpers
@@ -13,7 +13,7 @@ import com.daml.ledger.api.v1.value.Value.Sum.{
   Party,
   Text,
   Timestamp,
-  List => DamlListValue
+  List => DamlListValue,
 }
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, List => DamlList}
 
@@ -30,7 +30,8 @@ object ValueConversions {
   implicit class InstantValues(val i: Instant) extends AnyVal {
     def asTime: Value = {
       val micros = TimeUnit.SECONDS.toMicros(i.getEpochSecond) + TimeUnit.NANOSECONDS.toMicros(
-        i.getNano.toLong)
+        i.getNano.toLong
+      )
       Value(Timestamp(micros))
     }
   }
@@ -49,8 +50,8 @@ object ValueConversions {
     def asRecordValueOf(identifier: Identifier) = Value(Value.Sum.Record(asRecordOf(identifier)))
 
     private def recordFields: Seq[RecordField] = {
-      labeledValues.map {
-        case (k, v) => RecordField(k, Some(v))
+      labeledValues.map { case (k, v) =>
+        RecordField(k, Some(v))
       }
     }
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store
@@ -22,8 +22,7 @@ private[platform] case object LetUnknown extends LetLookup
 /** Contract exists with the given LET */
 private[platform] final case class Let(instant: Instant) extends LetLookup
 
-/**
-  * An abstract representation of the active ledger state:
+/** An abstract representation of the active ledger state:
   * - Active contracts
   * - Divulged contracts
   * - Contract keys
@@ -42,11 +41,11 @@ private[platform] trait ActiveLedgerState[ALS <: ActiveLedgerState[ALS]] {
     * - None if the contract does not exist
     * - Some(LetUnknown) if the contract exists, but its LET is unknown (i.e., a divulged contract)
     * - Some(Let(_)) if the contract exists and its LET is known
-    * */
+    */
   def lookupContractLet(cid: ContractId): Option[LetLookup]
 
   /** Callback to query a contract by key, used for validating NodeLookupByKey nodes.
-    * */
+    */
   def lookupContractByKey(key: GlobalKey): Option[ContractId]
 
   /** Called when a new contract is created */
@@ -69,5 +68,12 @@ private[platform] trait ActiveLedgerState[ALS <: ActiveLedgerState[ALS]] {
   def divulgeAlreadyCommittedContracts(
       transactionId: TransactionId,
       global: Relation[ContractId, Party],
-      referencedContracts: List[(Value.ContractId, ContractInst)]): ALS
+      referencedContracts: List[(Value.ContractId, ContractInst)],
+  ): ALS
+
+  /** Clone the current active ledger state. The new state starts out
+    * being identical to the old one but writes to the cloned
+    *  state will not affect the original state and the other way around.
+    */
+  def cloneState(): ALS
 }

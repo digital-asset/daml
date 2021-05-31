@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -9,11 +9,11 @@ import com.daml.lf.language.{LanguageVersion, Util}
 import com.daml.lf.speedy.SExpr.SDefinitionRef
 import com.daml.lf.speedy.{Compiler, SDefinition}
 
-/** Trait to abstract over a collection holding onto DAML-LF package definitions + the
+/** Trait to abstract over a collection holding onto Daml-LF package definitions + the
   * compiled speedy expressions.
   */
 private[lf] abstract class CompiledPackages(
-    compilerConfig: Compiler.Config,
+    compilerConfig: Compiler.Config
 ) {
   def getSignature(pkgId: PackageId): Option[PackageSignature]
   def getDefinition(dref: SDefinitionRef): Option[SDefinition]

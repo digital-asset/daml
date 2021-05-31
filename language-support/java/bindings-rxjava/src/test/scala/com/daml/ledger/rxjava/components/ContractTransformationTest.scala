@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.components
@@ -7,7 +7,7 @@ import com.daml.ledger.javaapi.data.{Identifier, Party, Record, Text}
 import com.daml.ledger.rxjava.components.helpers.{
   CreatedContract,
   CreatedContractContext,
-  TemplateUtils
+  TemplateUtils,
 }
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
@@ -23,7 +23,8 @@ class ContractTransformationTest extends AnyFlatSpec with Matchers {
   private def createCreatedContract(identifier: Identifier, argument: String): CreatedContract = {
     val arguments = new Record(
       new Record.Field("argument", new Text(argument)),
-      new Record.Field("owner", new Party("party")))
+      new Record.Field("owner", new Party("party")),
+    )
     new CreatedContract(identifier, arguments, new TestContext())
   }
 

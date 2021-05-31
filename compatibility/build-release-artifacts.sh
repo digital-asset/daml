@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -17,10 +17,14 @@ eval "$(./dev-env/bin/dade-assist)"
 # before fetching it in another step.
 HEAD_TARGET_DIR=${1:-compatibility/head_sdk}
 
+git clean -fxd -e 'daml-*.tgz' $HEAD_TARGET_DIR
+
+# Temporary until all nodes have been reset
+rm -rf compiler/daml-extension/node_modules
 bazel build \
   //release:sdk-release-tarball \
   //ledger/ledger-api-test-tool:ledger-api-test-tool_deploy.jar
 
-cp -f bazel-bin/release/sdk-release-tarball.tar.gz "$HEAD_TARGET_DIR"
+cp -f bazel-bin/release/sdk-release-tarball-ce.tar.gz "$HEAD_TARGET_DIR"
 cp -f bazel-bin/ledger/ledger-api-test-tool/ledger-api-test-tool_deploy.jar "$HEAD_TARGET_DIR"
 cp -f templates/create-daml-app-test-resources/messaging.patch "$HEAD_TARGET_DIR"

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -10,7 +10,6 @@ import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
 import com.daml.lf.speedy.SValue._
-import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -22,7 +21,7 @@ final class MultiParticipantIT
   private def darFile = new File(rlocation("daml-script/test/script-test.dar"))
   val (dar, envIface) = readDar(darFile)
 
-  "Multi-participant DAML Script" can {
+  "Multi-participant Daml Script" can {
     "multiTest" should {
       "return 42" in {
         for {
@@ -38,10 +37,12 @@ final class MultiParticipantIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("MultiTest:partyIdHintTest"),
-            dar = dar)
+            dar = dar,
+          )
         } yield {
           vals should contain theSameElementsInOrderAs Seq("alice", "bob").map(p =>
-            SParty(Party.assertFromString(p)))
+            SParty(Party.assertFromString(p))
+          )
         }
       }
     }
@@ -52,18 +53,23 @@ final class MultiParticipantIT
           SRecord(_, _, vals) <- run(
             clients,
             QualifiedName.assertFromString("MultiTest:listKnownPartiesTest"),
-            dar = dar)
+            dar = dar,
+          )
         } yield {
           assert(vals.size == 2)
           val first = SList(
             FrontStack(
               tuple(SOptional(Some(SText("p1"))), SBool(true)),
-              tuple(SOptional(Some(SText("p2"))), SBool(false))))
+              tuple(SOptional(Some(SText("p2"))), SBool(false)),
+            )
+          )
           assert(vals.get(0) == first)
           val second = SList(
             FrontStack(
               tuple(SOptional(Some(SText("p1"))), SBool(false)),
-              tuple(SOptional(Some(SText("p2"))), SBool(true))))
+              tuple(SOptional(Some(SText("p2"))), SBool(true)),
+            )
+          )
           assert(vals.get(1) == second)
         }
 

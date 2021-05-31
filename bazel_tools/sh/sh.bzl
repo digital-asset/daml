@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "os_name")
@@ -49,6 +49,7 @@ def sh_inline_test(
         name,
         cmd,
         data = [],
+        toolchains = [],
         **kwargs):
     testonly = kwargs.pop("testonly", True)
     _sh_inline_script(
@@ -57,6 +58,7 @@ def sh_inline_test(
         output = name + ".sh",
         data = data,
         testonly = testonly,
+        toolchains = toolchains,
     )
     native.sh_test(
         name = name,

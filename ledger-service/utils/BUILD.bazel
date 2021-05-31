@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -11,6 +11,9 @@ load(
 da_scala_library(
     name = "utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:http-json-utils:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -21,7 +24,6 @@ da_scala_library(
         "//daml-lf/interface",
         "//daml-lf/language",
         "//language-support/scala/bindings-akka",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

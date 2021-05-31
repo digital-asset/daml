@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava
@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse
+  SubmitAndWaitForTransactionTreeResponse,
 }
 import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
 import com.daml.ledger.api.v1.package_service._
@@ -26,8 +26,8 @@ import org.scalatest.{Assertion, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.collection.JavaConverters._
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters._
 
 class DamlLedgerClientTest
     extends AnyFlatSpec
@@ -68,17 +68,21 @@ class DamlLedgerClientTest
       damlLedgerClient.getLedgerId shouldBe ledgerServices.ledgerId
       testActiveContractSetClient(
         damlLedgerClient.getActiveContractSetClient,
-        ledgerServicesImpls.activeContractsServiceImpl)
+        ledgerServicesImpls.activeContractsServiceImpl,
+      )
       testCommandClient(damlLedgerClient.getCommandClient, ledgerServicesImpls.commandServiceImpl)
       testCommandCompletionClient(
         damlLedgerClient.getCommandCompletionClient,
-        ledgerServicesImpls.commandCompletionServiceImpl)
+        ledgerServicesImpls.commandCompletionServiceImpl,
+      )
       testCommandSubmissionClient(
         damlLedgerClient.getCommandSubmissionClient,
-        ledgerServicesImpls.commandSubmissionServiceImpl)
+        ledgerServicesImpls.commandSubmissionServiceImpl,
+      )
       testLedgerConfigurationClient(
         damlLedgerClient.getLedgerConfigurationClient,
-        ledgerServicesImpls.ledgerConfigurationServiceImpl)
+        ledgerServicesImpls.ledgerConfigurationServiceImpl,
+      )
       testTimeClientGet(damlLedgerClient.getTimeClient, ledgerServicesImpls.timeServiceImpl)
       expectPermissionDenied {
         testTimeClientSet(damlLedgerClient.getTimeClient, ledgerServicesImpls.timeServiceImpl)
@@ -93,22 +97,27 @@ class DamlLedgerClientTest
 
   private def testDamlLedgerClient(
       damlLedgerClient: DamlLedgerClient,
-      ledgerServicesImpls: LedgerServicesImpls): Any = {
+      ledgerServicesImpls: LedgerServicesImpls,
+  ): Any = {
     damlLedgerClient.connect()
     damlLedgerClient.getLedgerId shouldBe ledgerServices.ledgerId
     testActiveContractSetClient(
       damlLedgerClient.getActiveContractSetClient,
-      ledgerServicesImpls.activeContractsServiceImpl)
+      ledgerServicesImpls.activeContractsServiceImpl,
+    )
     testCommandClient(damlLedgerClient.getCommandClient, ledgerServicesImpls.commandServiceImpl)
     testCommandCompletionClient(
       damlLedgerClient.getCommandCompletionClient,
-      ledgerServicesImpls.commandCompletionServiceImpl)
+      ledgerServicesImpls.commandCompletionServiceImpl,
+    )
     testCommandSubmissionClient(
       damlLedgerClient.getCommandSubmissionClient,
-      ledgerServicesImpls.commandSubmissionServiceImpl)
+      ledgerServicesImpls.commandSubmissionServiceImpl,
+    )
     testLedgerConfigurationClient(
       damlLedgerClient.getLedgerConfigurationClient,
-      ledgerServicesImpls.ledgerConfigurationServiceImpl)
+      ledgerServicesImpls.ledgerConfigurationServiceImpl,
+    )
     testTimeClientGet(damlLedgerClient.getTimeClient, ledgerServicesImpls.timeServiceImpl)
     testTimeClientSet(damlLedgerClient.getTimeClient, ledgerServicesImpls.timeServiceImpl)
     testPackageClient(damlLedgerClient.getPackageClient, ledgerServicesImpls.packageServiceImpl)
@@ -117,7 +126,8 @@ class DamlLedgerClientTest
 
   private def testActiveContractSetClient(
       activeContractSetClient: ActiveContractsClient,
-      activeContractsServiceImpl: ActiveContractsServiceImpl): Assertion = {
+      activeContractsServiceImpl: ActiveContractsServiceImpl,
+  ): Assertion = {
     withClue(clueFor("ActiveContractsClient")) {
       activeContractSetClient
         .getActiveContracts(filterFor(someParty), false)
@@ -131,7 +141,8 @@ class DamlLedgerClientTest
 
   private def testCommandClient(
       commandClient: CommandClient,
-      commandServiceImpl: CommandServiceImpl): Assertion = {
+      commandServiceImpl: CommandServiceImpl,
+  ): Assertion = {
     withClue(clueFor("CommandClient")) {
       val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
       val record = new Record(recordId, List.empty[Record.Field].asJava)
@@ -146,9 +157,9 @@ class DamlLedgerClientTest
           commands.getMinLedgerTimeAbsolute,
           commands.getMinLedgerTimeRelative,
           commands.getDeduplicationTime,
-          commands.getCommands
+          commands.getCommands,
         )
-        .timeout(1l, TimeUnit.SECONDS)
+        .timeout(1L, TimeUnit.SECONDS)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
       commandServiceImpl.getLastRequest.value.getCommands.ledgerId shouldBe ledgerServices.ledgerId
@@ -157,7 +168,8 @@ class DamlLedgerClientTest
 
   private def testCommandCompletionClient(
       commandCompletionClient: CommandCompletionClient,
-      commandCompletionServiceImpl: CommandCompletionServiceImpl): Assertion = {
+      commandCompletionServiceImpl: CommandCompletionServiceImpl,
+  ): Assertion = {
     withClue(clueFor("CommandCompletionClient")) {
       commandCompletionClient
         .completionStream("applicationId", new Absolute(""), Set(someParty).asJava)
@@ -174,7 +186,8 @@ class DamlLedgerClientTest
 
   private def testCommandSubmissionClient(
       commandSubmissionClient: CommandSubmissionClient,
-      commandSubmissionServiceImpl: CommandSubmissionServiceImpl): Assertion = {
+      commandSubmissionServiceImpl: CommandSubmissionServiceImpl,
+  ): Assertion = {
     withClue("CommandSubmissionClient") {
       val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
       val record = new Record(recordId, List.empty[Record.Field].asJava)
@@ -189,9 +202,9 @@ class DamlLedgerClientTest
           commands.getMinLedgerTimeAbsolute,
           commands.getMinLedgerTimeRelative,
           commands.getDeduplicationTime,
-          commands.getCommands
+          commands.getCommands,
         )
-        .timeout(1l, TimeUnit.SECONDS)
+        .timeout(1L, TimeUnit.SECONDS)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
       commandSubmissionServiceImpl.getSubmittedRequest.value.getCommands.ledgerId shouldBe ledgerServices.ledgerId
@@ -200,7 +213,8 @@ class DamlLedgerClientTest
 
   private def testTimeClientGet(
       timeClient: TimeClient,
-      timeServiceImpl: TimeServiceImpl): Assertion = {
+      timeServiceImpl: TimeServiceImpl,
+  ): Assertion = {
     withClue("TimeClientGet") {
       timeClient.getTime
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -211,10 +225,11 @@ class DamlLedgerClientTest
 
   private def testTimeClientSet(
       timeClient: TimeClient,
-      timeServiceImpl: TimeServiceImpl): Assertion = {
+      timeServiceImpl: TimeServiceImpl,
+  ): Assertion = {
     withClue("TimeClientSet") {
       timeClient
-        .setTime(Instant.EPOCH, Instant.ofEpochSecond(10l))
+        .setTime(Instant.EPOCH, Instant.ofEpochSecond(10L))
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingGet()
       timeServiceImpl.getLastSetTimeRequest.value.ledgerId shouldBe ledgerServices.ledgerId
@@ -223,7 +238,8 @@ class DamlLedgerClientTest
 
   private def testLedgerConfigurationClient(
       ledgerConfigurationClient: LedgerConfigurationClient,
-      ledgerConfigurationServiceImpl: LedgerConfigurationServiceImpl): Assertion = {
+      ledgerConfigurationServiceImpl: LedgerConfigurationServiceImpl,
+  ): Assertion = {
     withClue("LedgerConfigurationClient") {
       ledgerConfigurationClient.getLedgerConfiguration
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -234,7 +250,8 @@ class DamlLedgerClientTest
 
   private def testPackageClient(
       packageClient: PackageClient,
-      packageServiceImpl: PackageServiceImpl): Assertion = {
+      packageServiceImpl: PackageServiceImpl,
+  ): Assertion = {
     withClue("PackageClient") {
       packageClient
         .listPackages()
@@ -255,8 +272,9 @@ class DamlLedgerClientTest
   }
 
   // a custom withFakeLedgerServer that sets all parameters such that testing ledgerId is possible
-  private def withFakeLedgerServer(authService: AuthService)(
-      f: (Server, LedgerServicesImpls) => Any): Any = {
+  private def withFakeLedgerServer(
+      authService: AuthService
+  )(f: (Server, LedgerServicesImpls) => Any): Any = {
     ledgerServices.withFakeLedgerServer(
       Observable.fromArray(genGetActiveContractsResponse),
       Observable.empty(),
@@ -272,7 +290,7 @@ class DamlLedgerClientTest
       Future.successful(ListPackagesResponse(Seq("id1"))),
       Future.successful(GetPackageResponse(HashFunction.SHA256, ByteString.EMPTY)),
       Future.successful(GetPackageStatusResponse(PackageStatus.values.head)),
-      authService
+      authService,
     )(f)
   }
 }

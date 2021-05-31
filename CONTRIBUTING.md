@@ -1,16 +1,16 @@
-# Contributing to DAML
+# Contributing to Daml
 
-Welcome! This page gives a high-level overview of how to contribute to the development of DAML.
+Welcome! This page gives a high-level overview of how to contribute to the development of Daml.
 
 There are many ways you can contribute beyond coding. For example, you can report problems, clarify [issues](https://github.com/digital-asset/daml/issues), and write documentation. If you're completely new to open source development, the [Open Source Guides](https://opensource.guide) is a great place to start.
 
 ## Working on the codebase
 
-For information on how to build, test, and work on the codebase, see ["Contributing to DAML" in the README](./README.md#contributing-to-daml).
+For information on how to build, test, and work on the codebase, see ["Contributing to Daml" in the README](./README.md#contributing-to-daml).
 
 ## Code of conduct
 
-This project and everyone participating in it is governed by the [DAML Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [community@digitalasset.com](mailto:community@digitalasset.com).
+This project and everyone participating in it is governed by the [Daml Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [community@digitalasset.com](mailto:community@digitalasset.com).
 
 ## Git conventions
 
@@ -29,7 +29,7 @@ For Git commit messages, our principle is that `git log --pretty=oneline` should
 * Read this document (contribution guidelines).
 * Does your PR include appropriate tests?
 * Make sure your PR title and description makes it easy for other developers to understand what the contained commits do. The title should say what the changes do. The description should expand on what it does (if not obvious from the title alone), and say why it is being done.
-* If your PR corresponds to an issue, add “Fixes #XX” to your pull request description. This will auto-close the corresponding issue when the commit is merged into master and tie the PR to the issue.
+* If your PR corresponds to an issue, add “Fixes #XX” to your pull request description. This will auto-close the corresponding issue when the commit is merged into main and tie the PR to the issue.
 * the squashed commit for the PR **MUST** include in its body a section between the ``CHANGELOG_BEGIN`` and ``CHANGELOG_END`` tags. This section **MAY** include a list of _user-facing_ changes [Follow these guidelines on how to write a good changelog entry](#writing-a-good-changelog-entry).
 
 The following is an example of a well-formed commit, including the description (first line) and a body that includes changelog additions:
@@ -45,7 +45,7 @@ The following is an example of a well-formed commit, including the description (
 
       CHANGELOG_END
 
-If you want to amend an existing changelog entry part of a PR already merged on master, do so by adding a ``WARNING`` to your changelog additions:
+If you want to amend an existing changelog entry part of a PR already merged on main, do so by adding a ``WARNING`` to your changelog additions:
 
       CHANGELOG_BEGIN
 
@@ -65,9 +65,9 @@ If the PR contains no _user-facing_ change, the section **MUST** be there but ca
       CHANGELOG_BEGIN
       CHANGELOG_END
 
-If you want to verify the changelog entries as described by a range of Git revisions, you can use the `unreleased.sh` script. In most cases, to see the entries added as part of commits added since branching off of `master`, you can run:
+If you want to verify the changelog entries as described by a range of Git revisions, you can use the `unreleased.sh` script. In most cases, to see the entries added as part of commits added since branching off of `main`, you can run:
 
-    ./unreleased.sh master..
+    ./unreleased.sh main..
 
 ## Writing a good changelog entry
 
@@ -88,9 +88,9 @@ Here are a few practical tips:
 
 This list should cover the vast majority of needs. If unsure, ask on the relevant GitHub issue or PR.
 
-  * DAML Compiler
-  * DAML on SQL
-  * DAML Studio
+  * Daml Compiler
+  * Daml on SQL
+  * Daml Studio
   * Distribution/Releases
   * Extractor
   * Java Bindings
@@ -101,20 +101,20 @@ This list should cover the vast majority of needs. If unsure, ask on the relevan
   * Ledger API Specification
   * Integration Kit †
   * Navigator
-  * DAML REPL
+  * Daml REPL
   * Sandbox
   * Scala Bindings
   * Scala Codegen
-  * DAML Script
-  * DAML Assistant
-  * DAML Standard Library
-  * DAML Triggers
+  * Daml Script
+  * Daml Assistant
+  * Daml Standard Library
+  * Daml Triggers
 
 † Covers the Ledger API Test Tool and changes to libraries that affect ledger integrations (e.g. `kvutils`)
 
 ## Working with issues
 
-We use issues and [pull requests](https://help.github.com/articles/about-pull-requests/) to collaborate and track our work. Anyone is welcome to open an issue. If you just want to ask a question, please ask away on [the DAML forum](https://discuss.daml.com).
+We use issues and [pull requests](https://help.github.com/articles/about-pull-requests/) to collaborate and track our work. Anyone is welcome to open an issue. If you just want to ask a question, please ask away on [the Daml forum](https://discuss.daml.com).
 
 We encourage everyone to vote on issues that they support or not:
 
@@ -138,7 +138,7 @@ We use labels to indicate what component the issue relates to (`component/...`).
 
 By default, issues represent "work to be done" -- that might be features, improvements, non-critical bug fixes, and so on.
 
-The DAML Language team uses labels to indicate priority (the DAML Runtime team does not):
+The Daml Language team uses labels to indicate priority (the Daml Runtime team does not):
 
 - `language/now`
 - `language/soon`
@@ -148,7 +148,7 @@ You can see all labels [here](https://github.com/digital-asset/daml/labels).
 
 ### Milestones
 
-In addition to labels, we group issues into *milestones*. The DAML Language team has all issues in a single *Language* milestone; the DAML Runtime team uses them to group work efforts (*Add PostgreSQL backend to the Ledger* for example). *Maintenance* and *Backlog* are special milestones.
+In addition to labels, we group issues into *milestones*. The Daml Language team has all issues in a single *Language* milestone; the Daml Runtime team uses them to group work efforts (*Add PostgreSQL backend to the Ledger* for example). *Maintenance* and *Backlog* are special milestones.
 
 Issues without a milestone are treated as in need of triaging.
 
@@ -156,7 +156,7 @@ You can see all the active milestones [here](https://github.com/digital-asset/da
 
 ## Discussions
 
-Please hold discussions that are relevant to DAML development and not confidential in GitHub issues. That way, anyone who wants to contribute or follow along can do so. If you have private discussions, please summarise them in an issue or comment to an issue.
+Please hold discussions that are relevant to Daml development and not confidential in GitHub issues. That way, anyone who wants to contribute or follow along can do so. If you have private discussions, please summarise them in an issue or comment to an issue.
 
 You can also join a `#daml-contributors` channel on our Slack: [damldriven.slack.com](https://damldriven.slack.com/sso/saml/start).
 

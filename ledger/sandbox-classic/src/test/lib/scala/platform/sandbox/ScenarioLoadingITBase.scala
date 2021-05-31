@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox
@@ -9,7 +9,7 @@ import com.daml.ledger.api.testing.utils.MockMessages.transactionFilter
 import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundEach, MockMessages => M}
 import com.daml.ledger.api.v1.active_contracts_service.{
   ActiveContractsServiceGrpc,
-  GetActiveContractsResponse
+  GetActiveContractsResponse,
 }
 import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.daml.ledger.api.v1.event.CreatedEvent
@@ -64,12 +64,12 @@ abstract class ScenarioLoadingITBase
   private def lookForContract(
       events: Seq[CreatedEvent],
       template: Identifier,
-      present: Boolean = true): Assertion = {
+      present: Boolean = true,
+  ): Assertion = {
     val occurrence = if (present) 1 else 0
-    events.collect {
-      case ce @ CreatedEvent(_, _, Some(`template`), _, _, _, _, _, _) =>
-        ce.contractId should fullyMatch regex "00([0-9a-f][0-9a-f]){32,94}"
-        ce
+    events.collect { case ce @ CreatedEvent(_, _, Some(`template`), _, _, _, _, _, _) =>
+      ce.contractId should fullyMatch regex "00([0-9a-f][0-9a-f]){32,94}"
+      ce
     }.size should equal(occurrence)
   }
 
@@ -151,8 +151,11 @@ abstract class ScenarioLoadingITBase
           responses = resp.init // last response is just ledger offset
           eventIds = responses.flatMap(_.activeContracts).map(_.eventId)
           txByEventId <- Future
-            .sequence(eventIds.map(evId =>
-              client.getFlatTransactionByEventId(evId, Seq(M.party)).map(evId -> _)))
+            .sequence(
+              eventIds.map(evId =>
+                client.getFlatTransactionByEventId(evId, Seq(M.party)).map(evId -> _)
+              )
+            )
             .map(_.toMap)
         } yield {
           eventIds.foreach { evId =>
@@ -178,7 +181,9 @@ abstract class ScenarioLoadingITBase
               events.map(e =>
                 client
                   .getFlatTransactionByEventId(e.eventId, Seq(M.party))
-                  .map(e.eventId -> _)))
+                  .map(e.eventId -> _)
+              )
+            )
             .map(_.toMap)
         } yield {
           events.foreach { event =>

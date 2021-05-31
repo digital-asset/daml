@@ -1,12 +1,10 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- The tests here check that we compile all syntactic variants of DAML record
--- projection into the DAML-LF builtin for record projection as soon as we know
+-- The tests here check that we compile all syntactic variants of Daml record
+-- projection into the Daml-LF builtin for record projection as soon as we know
 -- the record type and the field name.
 module RecordProjection where
-
-import DA.Record (getField)
 
 data Foo = Foo with quux: Int
 

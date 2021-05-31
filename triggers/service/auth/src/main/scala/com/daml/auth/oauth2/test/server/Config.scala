@@ -1,11 +1,10 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.oauth2.test.server
 
 import java.time.Clock
 
-import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ports.Port
 
 case class Config(
@@ -15,17 +14,15 @@ case class Config(
     ledgerId: String,
     // Secret used to sign JWTs
     jwtSecret: String,
-    // Only authorize requests for these parties, if set.
-    parties: Option[Set[Party]],
     // Use the provided clock instead of system time for token generation.
     clock: Option[Clock],
 )
 
 object Config {
   private val Empty =
-    Config(port = Port.Dynamic, ledgerId = null, jwtSecret = null, parties = None, clock = None)
+    Config(port = Port.Dynamic, ledgerId = null, jwtSecret = null, clock = None)
 
-  def parseConfig(args: Seq[String]): Option[Config] =
+  def parseConfig(args: collection.Seq[String]): Option[Config] =
     configParser.parse(args, Empty)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
@@ -43,10 +40,6 @@ object Config {
 
       opt[String]("secret")
         .action((x, c) => c.copy(jwtSecret = x))
-
-      opt[Seq[String]]("parties")
-        .action((x, c) => c.copy(parties = Some(Party.subst(x).toSet)))
-        .text("Only authorize requests for these parties")
 
       help("help").text("Print this usage text")
     }

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -12,6 +12,67 @@ import GHC.Types
 import GHC.Tuple() -- reqired for Tuple's themselves
 import GHC.Integer.Type() -- required for Integer primitives
 
+-- | `HasField` gives you getter and setter functions for each record field
+-- automatically.
+--
+-- **In the vast majority of use-cases, plain Record syntax should be
+-- preferred**:
+--
+-- ```
+-- daml> let a = MyRecord 1 "hello"
+-- daml> a.foo
+-- 1
+-- daml> a.bar
+-- "hello"
+-- daml> a { bar = "bye" }
+-- MyRecord {foo = 1, bar = "bye"}
+-- daml> a with foo = 3
+-- MyRecord {foo = 3, bar = "hello"}
+-- daml>
+-- ```
+--
+-- For more on Record syntax, see https://docs.daml.com/daml/intro/3_Data.html#record.
+--
+-- `HasField x r a` is a typeclass that takes three parameters. The first
+-- parameter `x` is the field name, the second parameter `r` is the record type,
+-- and the last parameter `a` is the type of the field in this record. For
+-- example, if we define a type:
+--
+-- ```
+-- data MyRecord = MyRecord with
+--     foo : Int
+--     bar : Text
+-- ```
+--
+-- Then we get, for free, the following HasField instances:
+--
+-- ```
+-- HasField "foo" MyRecord Int
+-- HasField "bar" MyRecord Text
+-- ```
+--
+-- If we want to get a value using HasField, we can use the `getField` function:
+--
+-- ```
+-- getFoo : MyRecord -> Int
+-- getFoo r = getField @"foo" r
+--
+-- getBar : MyRecord -> Text
+-- getBar r = getField @"bar" r
+-- ```
+--
+-- Note that this uses the “type application” syntax ( `f @t` ) to specify the
+-- field name.
+--
+-- Likewise, if we want to set the value in the field, we can use the `setField` function:
+--
+-- ```
+-- setFoo : Int -> MyRecord -> MyRecord
+-- setFoo a r = setField @"foo" a r
+--
+-- setBar : Text -> MyRecord -> MyRecord
+-- setBar a r = setField @"bar" a r
+-- ```
 class HasField (x : Symbol) r a | x r -> a where
     getField : r -> a
     setField : a -> r -> r

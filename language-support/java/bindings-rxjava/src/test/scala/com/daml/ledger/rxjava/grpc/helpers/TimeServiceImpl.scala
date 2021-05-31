@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
@@ -10,7 +10,7 @@ import com.daml.ledger.api.v1.testing.time_service.{
   GetTimeRequest,
   GetTimeResponse,
   SetTimeRequest,
-  TimeServiceGrpc
+  TimeServiceGrpc,
 }
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
@@ -27,7 +27,8 @@ final class TimeServiceImpl(getTimeResponses: Seq[GetTimeResponse])
 
   override def getTime(
       request: GetTimeRequest,
-      responseObserver: StreamObserver[GetTimeResponse]): Unit = {
+      responseObserver: StreamObserver[GetTimeResponse],
+  ): Unit = {
     this.lastGetTimeRequest = Some(request)
     getTimeResponses.foreach(responseObserver.onNext)
     responseObserver.onCompleted()
@@ -44,8 +45,9 @@ final class TimeServiceImpl(getTimeResponses: Seq[GetTimeResponse])
 }
 
 object TimeServiceImpl {
-  def createWithRef(getTimeResponses: Seq[GetTimeResponse], authorizer: Authorizer)(
-      implicit ec: ExecutionContext): (ServerServiceDefinition, TimeServiceImpl) = {
+  def createWithRef(getTimeResponses: Seq[GetTimeResponse], authorizer: Authorizer)(implicit
+      ec: ExecutionContext
+  ): (ServerServiceDefinition, TimeServiceImpl) = {
     val impl = new TimeServiceImpl(getTimeResponses)
     val authImpl = new TimeServiceAuthorization(impl, authorizer)
     (TimeServiceGrpc.bindService(authImpl, ec), impl)

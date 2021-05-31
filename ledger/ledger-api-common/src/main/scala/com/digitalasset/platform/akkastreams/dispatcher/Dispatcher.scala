@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.akkastreams.dispatcher
@@ -7,8 +7,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.resources.ResourceOwner
 
-/**
-  * A fanout signaller, representing a stream of external updates,
+/** A fanout signaller, representing a stream of external updates,
   * that can be subscribed to dynamically at a given point in the stream.
   * Stream positions are given by the Index type, and stream values are given by T. Subscribing to a point
   * yields all values starting at that point.
@@ -28,13 +27,13 @@ trait Dispatcher[Index] extends AutoCloseable {
   def startingAt[T](
       startExclusive: Index,
       subSource: SubSource[Index, T],
-      endInclusive: Option[Index] = None): Source[(Index, T), NotUsed]
+      endInclusive: Option[Index] = None,
+  ): Source[(Index, T), NotUsed]
 }
 
 object Dispatcher {
 
-  /**
-    * Construct a new Dispatcher. This will consume Akka resources until closed.
+  /** Construct a new Dispatcher. This will consume Akka resources until closed.
     *
     * @param zeroIndex            the initial starting Index instance
     * @param headAtInitialization the head index at the time of creation

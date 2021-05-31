@@ -1,23 +1,23 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML Assistant (``daml``)
+Daml Assistant (``daml``)
 #########################
 
 ``daml`` is a command-line tool that does a lot of useful things related to the SDK. Using ``daml``, you can:
 
-- Create new DAML projects: ``daml new <path to create project in>``
-- Create a new project based on `create-daml-app <https://github.com/digital-asset/create-daml-app>`_: ``daml create-daml-app <path to create project in>``
-- Initialize a DAML project: ``daml init``
-- Compile a DAML project: ``daml build``
+- Create new Daml projects: ``daml new <path to create project in>``
+- Create a new project based on the ``create-daml-app`` template: ``daml new --template=create-daml-app <path to create project in>``
+- Initialize a Daml project: ``daml init``
+- Compile a Daml project: ``daml build``
 
-  This builds the DAML project according to the project config file ``daml.yaml`` (see `Configuration files`_ below).
+  This builds the Daml project according to the project config file ``daml.yaml`` (see `Configuration files`_ below).
 
-  In particular, it will download and install the specified version of the DAML Connect SDK (the ``sdk-version`` field in ``daml.yaml``) if missing, and use that SDK version to resolve dependencies and compile the DAML project.
+  In particular, it will download and install the specified version of the Daml Connect SDK (the ``sdk-version`` field in ``daml.yaml``) if missing, and use that SDK version to resolve dependencies and compile the Daml project.
 
 - Launch the tools in the SDK:
 
-  - Launch :doc:`DAML Studio </daml/daml-studio>`: ``daml studio``
+  - Launch :doc:`Daml Studio </daml/daml-studio>`: ``daml studio``
   - Launch :doc:`Sandbox </tools/sandbox>`, :doc:`Navigator </tools/navigator/index>` and the :doc:`/json-api/index`: ``daml start``
     You can disable the HTTP JSON API by passing ``--json-api-port none`` to ``daml start``.
     To specify additional options for sandbox/navigator/the HTTP JSON API you can use
@@ -26,7 +26,7 @@ DAML Assistant (``daml``)
   - Launch Navigator: ``daml navigator``
   - Launch :doc:`Extractor </tools/extractor>`: ``daml extractor``
   - Launch the :doc:`/json-api/index`: ``daml json-api``
-  - Run :doc:`DAML codegen </tools/codegen>`: ``daml codegen``
+  - Run :doc:`Daml codegen </tools/codegen>`: ``daml codegen``
 
 - Install new SDK versions manually: ``daml install <version>``
 
@@ -42,10 +42,12 @@ To see information about any command, run it with ``--help``.
 Configuration files
 *******************
 
-The DAML assistant and the SDK are configured using two files:
+The Daml assistant and the SDK are configured using two files:
 
 - The global config file, one per installation, which controls some options regarding SDK installation and updates
-- The project config file, one per DAML project, which controls how the SDK builds and interacts with the project
+- The project config file, one per Daml project, which controls how the SDK builds and interacts with the project
+
+.. _global_daml_config:
 
 Global config file (``daml-config.yaml``)
 =========================================
@@ -60,6 +62,10 @@ By default it's blank, and you usually won't need to edit it. It recognizes the 
    This setting is only used to inform you when an update is available.
 
    Set ``update-check: <number>`` to check for new versions every N seconds. Set ``update-check: never`` to never check for new versions.
+- ``artifactory-api-key``: If you have a license for Daml Connect EE,
+  you can use this to specify the Artifactory API key displayed in
+  your user profile. The assistant will use this to download the EE
+  edition.
 
 Here is an example ``daml-config.yaml``:
 
@@ -71,9 +77,9 @@ Here is an example ``daml-config.yaml``:
 Project config file (``daml.yaml``)
 ===================================
 
-The project config file ``daml.yaml`` must be in the root of your DAML project directory. It controls how the DAML project is built and how tools like Sandbox and Navigator interact with it.
+The project config file ``daml.yaml`` must be in the root of your Daml project directory. It controls how the Daml project is built and how tools like Sandbox and Navigator interact with it.
 
-The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory contains a DAML project, and lets you use project-aware commands like ``daml build`` and ``daml start``.
+The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory contains a Daml project, and lets you use project-aware commands like ``daml build`` and ``daml start``.
 
 ``daml init`` creates a ``daml.yaml`` in an existing folder, so ``daml`` knows it's a project folder.
 
@@ -117,19 +123,19 @@ Here is what each field means:
   Sandbox, Sandbox classic and the HTTP JSON API both when invoked directly via ``daml sandbox``
   as well as when invoked via ``daml start``. Changing the platform version is useful if you deploy
   to a ledger that is running on a different SDK version than you use locally and you want to make
-  sure that you catch any issues during testing. E.g., you might compile your DAML code using
-  SDK 1.3.0 so you get improvements in DAML Studio but deploy to DABL which could still be running
+  sure that you catch any issues during testing. E.g., you might compile your Daml code using
+  SDK 1.3.0 so you get improvements in Daml Studio but deploy to DABL which could still be running
   a ledger and the JSON API from SDK 1.2.0. In that case, you can set ``sdk-version: 1.3.0``
   and ``platform-version: 1.2.0``.
   It is possible to override the platform version by setting the ``DAML_PLATFORM_VERSION``
   environment variable.
 - ``name``: the name of the project. This determines the filename of the ``.dar`` file compiled by ``daml build``.
-- ``source``: the root folder of your DAML source code files relative to the project root.
+- ``source``: the root folder of your Daml source code files relative to the project root.
 - ``scenario``: the name of the scenario to run when using ``daml start``.
-- ``init-script``: the name of the DAML script to run when using ``daml start``.
+- ``init-script``: the name of the Daml script to run when using ``daml start``.
 - ``parties``: the parties to display in the Navigator when using ``daml start``.
 - ``version``: the project version.
-- ``exposed-modules``: the DAML modules that are exposed by this project, which can be imported in other projects.
+- ``exposed-modules``: the Daml modules that are exposed by this project, which can be imported in other projects.
   If this field is not specified all modules in the project are exposed.
 - ``dependencies``: library-dependencies of this project. See :doc:`/daml/reference/packages`.
 - ``data-dependencies``: Cross-SDK dependencies of this project See :doc:`/daml/reference/packages`.
@@ -149,21 +155,19 @@ Here is what each field means:
 - ``sandbox-options``: a list of options that will be passed to Sandbox in ``daml start``.
 - ``navigator-options``: a list of options that will be passed to Navigator in ``daml start``.
 - ``json-api-options``: a list of options that will be passed to the HTTP JSON API in ``daml start``.
-- ``script-options``: a list of options that will be passed to the DAML script
+- ``script-options``: a list of options that will be passed to the Daml script
   runner when running the ``init-script`` as part of ``daml start``.
 - ``start-navigator``: Controls whether navigator is started as part
   of ``daml start``. Defaults to ``true``. If this is specified as a CLI argument,
   say ``daml start --start-navigator=true``, the CLI argument takes precedence over
   the value in ``daml.yaml``.
 
-..  TODO (@robin-da) document the dependency syntax
-
 .. _assistant-manual-building-dars:
 
-Building DAML projects
+Building Daml projects
 **********************
 
-To compile your DAML source code into a DAML archive (a ``.dar`` file), run::
+To compile your Daml source code into a Daml archive (a ``.dar`` file), run::
 
   daml build
 
@@ -189,7 +193,7 @@ Managing releases
 
 You can manage SDK versions manually by using ``daml install``.
 
-To download and install SDK of the latest stable DAML Connect version::
+To download and install SDK of the latest stable Daml Connect version::
 
   daml install latest
 
@@ -218,7 +222,7 @@ See ``daml install --help`` for a full list of options.
 Terminal Command Completion
 ***************************
 
-The ``daml`` assistant comes with support for ``bash`` and ``zsh`` completions. These will be installed automatically on Linux and Mac when you install or upgrade the DAML assistant.
+The ``daml`` assistant comes with support for ``bash`` and ``zsh`` completions. These will be installed automatically on Linux and Mac when you install or upgrade the Daml assistant.
 
 If you use the ``bash`` shell, and your ``bash`` supports completions, you can use the TAB key to complete many ``daml`` commands, such as ``daml install`` and ``daml version``.
 
@@ -228,3 +232,20 @@ before you call ``compinit``: ``fpath=(~/.daml/zsh $fpath)``
 
 You can override whether bash completions are installed for ``daml`` by
 passing ``--bash-completions=yes`` or ``--bash-completions=no`` to ``daml install``.
+
+.. _daml_project_dir:
+
+Running Commands outside of the Project Directory
+*************************************************
+
+In some cases, it can be convenient to run a command in a project
+without having to change directories. For that usecase, you can set
+the ``DAML_PROJECT`` environment variable to the path to the project:
+
+.. code-block:: sh
+
+    DAML_PROJECT=/path/to/my/project daml build
+
+Note that while some commands, most notably, ``daml build``, accept a
+``--project-root`` option, it can end up choosing the wrong SDK
+version so you should prefer the environment variable instead.

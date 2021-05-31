@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.script.test
@@ -10,7 +10,8 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Identifier, Name, PackageId, QualifiedName}
-import com.daml.lf.engine.script.{Participants, Runner, ScriptLedgerClient, ScriptTimeMode}
+import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
+import com.daml.lf.engine.script.{Participants, Runner}
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast.Package
@@ -23,14 +24,14 @@ import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 
-// Fixture for a set of participants used in DAML Script tests
+// Fixture for a set of participants used in Daml Script tests
 trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
   self: Suite =>
   protected def timeMode: ScriptTimeMode
 
   protected def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentInterface) = {
-    val dar = DarReader().readArchiveFromFile(file).get.map {
-      case (pkgId, archive) => Decode.readArchivePayload(pkgId, archive)
+    val dar = DarReader().readArchiveFromFile(file).get.map { case (pkgId, archive) =>
+      Decode.readArchivePayload(pkgId, archive)
     }
     val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
     val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
@@ -41,7 +42,8 @@ trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
       clients: Participants[ScriptLedgerClient],
       name: QualifiedName,
       inputValue: Option[JsValue] = None,
-      dar: Dar[(PackageId, Package)])(implicit ec: ExecutionContext): Future[SValue] = {
+      dar: Dar[(PackageId, Package)],
+  )(implicit ec: ExecutionContext): Future[SValue] = {
     val scriptId = Identifier(dar.main._1, name)
     Runner.run(dar, scriptId, inputValue, clients, timeMode)
   }
@@ -53,10 +55,12 @@ trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
     SRecord(
       id = Identifier(
         PackageId.assertFromString(
-          "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"),
-        QualifiedName.assertFromString("DA.Types:Tuple2")),
+          "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7"
+        ),
+        QualifiedName.assertFromString("DA.Types:Tuple2"),
+      ),
       fields = ImmArray(Name.assertFromString("_1"), Name.assertFromString("_2")),
-      values = vals
+      values = vals,
     )
   }
 }

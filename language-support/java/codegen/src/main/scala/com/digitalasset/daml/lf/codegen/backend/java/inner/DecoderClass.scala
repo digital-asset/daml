@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -29,13 +29,13 @@ object DecoderClass {
   private val decoderFunctionType = ParameterizedTypeName.get(
     ClassName.get(classOf[java.util.function.Function[_, _]]),
     ClassName.get(classOf[CreatedEvent]),
-    ClassName.get(classOf[Contract])
+    ClassName.get(classOf[Contract]),
   )
 
   private val decodersMapType = ParameterizedTypeName.get(
     ClassName.get(classOf[java.util.HashMap[_, _]]),
     ClassName.get(classOf[Identifier]),
-    decoderFunctionType
+    decoderFunctionType,
   )
 
   private val fromCreatedEvent = MethodSpec
@@ -50,17 +50,19 @@ object DecoderClass {
         .addStatement("Identifier templateId = event.getTemplateId()")
         .addStatement(
           "$T decoderFunc = getDecoder(templateId).orElseThrow(() -> new IllegalArgumentException(\"No template found for identifier \" + templateId))",
-          decoderFunctionType
+          decoderFunctionType,
         )
         .addStatement("return decoderFunc.apply(event)")
-        .build())
+        .build()
+    )
     .build()
 
   private val getDecoder = MethodSpec
     .methodBuilder("getDecoder")
     .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
     .returns(
-      ParameterizedTypeName.get(ClassName.get(classOf[java.util.Optional[_]]), decoderFunctionType))
+      ParameterizedTypeName.get(ClassName.get(classOf[java.util.Optional[_]]), decoderFunctionType)
+    )
     .addParameter(ClassName.get(classOf[Identifier]), "templateId")
     .addStatement(CodeBlock.of("return Optional.ofNullable(decoders.get(templateId))"))
     .build()
@@ -78,7 +80,8 @@ object DecoderClass {
         "$N.put($T.TEMPLATE_ID, $T.Contract::fromCreatedEvent)",
         decodersField,
         template,
-        template)
+        template,
+      )
     }
     b.build()
   }

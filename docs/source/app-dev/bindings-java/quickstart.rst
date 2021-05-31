@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _quickstart:
@@ -6,7 +6,7 @@
 IOU Quickstart Tutorial
 #######################
 
-In this guide, you will learn about developer tools and DAML applications by:
+In this guide, you will learn about developer tools and Daml applications by:
 
 - developing a simple ledger application for issuing, managing, transferring and trading IOUs ("I Owe You!")
 - developing an integration layer that exposes some of the functionality via custom REST services
@@ -21,7 +21,7 @@ Prerequisites:
 Download the quickstart application
 ***********************************
 
-You can get the quickstart application using the DAML assistant (``daml``):
+You can get the quickstart application using the Daml assistant (``daml``):
 
 #. Run ``daml new quickstart --template quickstart-java``
 
@@ -58,9 +58,9 @@ The project contains the following files:
           └── resources
               └── logback.xml
 
-- ``daml.yaml`` is a DAML project config file used by the SDK to find out how to build the DAML project and how to run it.
-- ``daml`` contains the :ref:`DAML code <quickstart-daml>` specifying the contract model for the ledger.
-- ``daml/Tests`` contains :ref:`test scenarios <quickstart-scenarios>` for the DAML model.
+- ``daml.yaml`` is a Daml project config file used by the SDK to find out how to build the Daml project and how to run it.
+- ``daml`` contains the :ref:`Daml code <quickstart-daml>` specifying the contract model for the ledger.
+- ``daml/Tests`` contains :ref:`test scenarios <quickstart-scenarios>` for the Daml model.
 - ``frontend-config.js`` and ``ui-backend.conf`` are configuration files for the :ref:`Navigator <quickstart-navigator>` frontend.
 - ``pom.xml`` and ``src/main/java`` constitute a :ref:`Java application <quickstart-application>` that provides REST services to interact with the ledger.
 
@@ -75,7 +75,7 @@ To run through this guide, you will need to understand what an IOU is. This sect
 
 A bank bill represents a contract between the owner of the bill and its issuer, the central bank. Historically, it is a bearer instrument - it gives anyone who holds it the right to demand a fixed amount of material value, often gold, from the issuer in exchange for the note.
 
-To do this, the note must have certain properties. In particular, the British pound note shown below illustrates the key elements that are needed to describe money in DAML:
+To do this, the note must have certain properties. In particular, the British pound note shown below illustrates the key elements that are needed to describe money in Daml:
 
 .. figure:: quickstart/images/poundNote.jpg
    :align: center
@@ -109,11 +109,11 @@ The note itself is printed on paper, and its legal owner is the person holding i
 Run the application using prototyping tools
 *******************************************
 
-In this section, you will run the quickstart application and get introduced to the main tools for prototyping DAML:
+In this section, you will run the quickstart application and get introduced to the main tools for prototyping Daml:
 
-#. To compile the DAML model, run ``daml build``
+#. To compile the Daml model, run ``daml build``
 
-   This creates a :ref:`DAR file <dar-file-dalf-file>` (DAR is just the format that DAML compiles to) called ``.daml/dist/quickstart-0.0.1.dar``. The output should look like this:
+   This creates a :ref:`DAR file <dar-file-dalf-file>` (DAR is just the format that Daml compiles to) called ``.daml/dist/quickstart-0.0.1.dar``. The output should look like this:
 
    .. code-block:: none
 
@@ -142,11 +142,11 @@ In this section, you will run the quickstart application and get introduced to t
 
 #. Open a new terminal window and navigate to your project directory, ``quickstart``.
 
-#. To initialize the ledger with some parties and contracts we use :doc:`DAML Script </daml-script/index>` by running ``daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --static-time``
+#. To initialize the ledger with some parties and contracts we use :doc:`Daml Script </daml-script/index>` by running ``daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Main:initialize --ledger-host localhost --ledger-port 6865 --static-time``
 
    .. _quickstart-navigator:
 
-#. Start the :doc:`Navigator </tools/navigator/index>`, a browser-based leger front-end, by running ``daml navigator server``
+#. Start the :doc:`Navigator </tools/navigator/index>`, a browser-based ledger front-end, by running ``daml navigator server``
 
    The Navigator automatically connects the sandbox. You can access it on port ``4000``.
 
@@ -168,7 +168,7 @@ Now everything is running, you can try out the quickstart application:
 
    This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, in our case with Id ``#9:1``, created from a *template* called ``Iou:Iou@ffb...``.
 
-   Your contract ID may vary. There's a lot going on in a DAML ledger, so things could have happened in a different order, or other internal ledger events might have occurred. The actual value doesn't matter. We'll refer to this contract as ``#9:1`` in the rest of this document, and you'll need to substitute your own value mentally.
+   Your contract ID may vary. There's a lot going on in a Daml ledger, so things could have happened in a different order, or other internal ledger events might have occurred. The actual value doesn't matter. We'll refer to this contract as ``#9:1`` in the rest of this document, and you'll need to substitute your own value mentally.
 
 #. On the left-hand side, you can see what the pages the Navigator contains:
 
@@ -200,14 +200,14 @@ Now everything is running, you can try out the quickstart application:
    The screen shows the same contract ``#9:1`` that you already saw on the *Contracts* page. It is an Iou for €100, issued by *EUR_Bank*.
 #. Go to the **Iou Transfers** page. It shows the transfer of your recently issued Iou to Bob, but Bob has not accepted the transfer, so it is not settled.
 
-   This is an important part of DAML: nobody can be forced into owning an *Iou*, or indeed agreeing to any other contract. They must explicitly consent.
+   This is an important part of Daml: nobody can be forced into owning an *Iou*, or indeed agreeing to any other contract. They must explicitly consent.
 
    You could cancel the transfer by using the *IouTransfer_Cancel* choice within it, but for this walk-through, leave it alone for the time being.
 #. Try asking *Bob* to exchange your €100 for $110. To do so, you first have to show your Iou to *Bob* so that he can verify the settlement transaction, should he accept the proposal.
 
    Go back to *Owned Ious*, open the Iou for €100 and click on the button *Iou_AddObserver*. Submit *Bob* as the *newObserver*.
 
-   Contracts in DAML are immutable, meaning they cannot be changed, only created and archived. If you head back to the **Owned Ious** screen, you can see that the Iou now has a new Contract ID. In our case, it's `#13:1`.
+   Contracts in Daml are immutable, meaning they cannot be changed, only created and archived. If you head back to the **Owned Ious** screen, you can see that the Iou now has a new Contract ID. In our case, it's `#13:1`.
 #. To propose the trade, go to the **Templates** screen. Click on the *IouTrade:IouTrade* template, fill in the form as shown below and submit the transaction.
 
    .. figure:: quickstart/images/tradeProp.png
@@ -223,7 +223,7 @@ Now everything is running, you can try out the quickstart application:
 #. Settle the trade. Go to the **Trades** page, and click on the row of the proposal. Accept the trade by clicking **IouTrade_Accept**. In the popup, enter the Contract ID you just noted as the *quoteIouCid*, then click **Submit**.
 
    The two legs of the transfer are now settled atomically in a single transaction. The trade either fails or succeeds as a whole.
-#. Privacy is an important feature of DAML. You can check that Alice and Bob's privacy relative to the Banks was preserved.
+#. Privacy is an important feature of Daml. You can check that Alice and Bob's privacy relative to the Banks was preserved.
 
    To do this, log out, then log in as **USD_Bank**.
 
@@ -250,12 +250,12 @@ Now everything is running, you can try out the quickstart application:
 
 .. _quickstart-daml:
 
-Get started with DAML
+Get started with Daml
 *********************
 
-The *contract model* specifies the possible contracts, as well as the allowed transactions on the ledger, and is written in DAML.
+The *contract model* specifies the possible contracts, as well as the allowed transactions on the ledger, and is written in Daml.
 
-The core concept in DAML is a *contract template* - you used them earlier to create contracts. Contract templates specify:
+The core concept in Daml is a *contract template* - you used them earlier to create contracts. Contract templates specify:
 
 - a type of contract that may exist on the ledger, including a corresponding data type
 - the *signatories*, who need to agree to the *creation* of a contract of that type
@@ -263,14 +263,14 @@ The core concept in DAML is a *contract template* - you used them earlier to cre
 - constraints or conditions on the data on a contract
 - additional parties, called observers, who can see the contract
 
-For more information about DAML Ledgers, consult :ref:`da-ledgers` for an in-depth technical description.
+For more information about Daml Ledgers, consult :ref:`da-ledgers` for an in-depth technical description.
 
-Develop with DAML Studio
+Develop with Daml Studio
 ========================
 
-Take a look at the DAML that specifies the contract model in the quickstart application. The core template is ``Iou``.
+Take a look at the Daml that specifies the contract model in the quickstart application. The core template is ``Iou``.
 
-#. Open :doc:`DAML Studio </daml/daml-studio>`, a DAML IDE based on VS Code, by running ``daml studio`` from the root of your project.
+#. Open :doc:`Daml Studio </daml/daml-studio>`, a Daml IDE based on VS Code, by running ``daml studio`` from the root of your project.
 #. Using the explorer on the left, open ``daml/Iou.daml``.
 
 The first two lines specify language version and module name:
@@ -327,24 +327,24 @@ A more interesting choice is ``IouTrade_Accept``. To look at it, open ``IouTrade
   :language: daml
   :lines: 25-46
 
-This choice uses the ``===`` operator from the :doc:`DAML Standard Library </daml/stdlib/index>` to check pre-conditions. The standard library is imported using ``import DA.Assert`` at the top of the module.
+This choice uses the ``===`` operator from the :doc:`Daml Standard Library </daml/stdlib/index>` to check pre-conditions. The standard library is imported using ``import DA.Assert`` at the top of the module.
 
 Then, it *composes* the ``Iou_Transfer`` and ``IouTransfer_Accept`` choices to build one big transaction. In this transaction, ``buyer`` and ``seller`` exchange their Ious atomically, without disclosing the entire transaction to all parties involved.
 
 The *Issuers* of the two Ious, which are involved in the transaction because they are signatories on the ``Iou`` and ``IouTransfer`` contracts, only get to see the sub-transactions that concern them, as we saw earlier.
 
-For a deeper introduction to DAML, consult the :doc:`DAML Reference </daml/reference/index>`.
+For a deeper introduction to Daml, consult the :doc:`Daml Reference </daml/reference/index>`.
 
 .. _quickstart-scenarios:
 
 Test using scenarios
 ====================
 
-You can check the correct authorization and privacy of a contract model using *scenarios*: tests that are written in DAML.
+You can check the correct authorization and privacy of a contract model using *scenarios*: tests that are written in Daml.
 
-Scenarios are a linear sequence of transactions that is evaluated using the same consistency, conformance and authorization rules as it would be on the full ledger server or the sandbox ledger. They are integrated into DAML Studio, which can show you the resulting transaction graph, making them a powerful tool to test and troubleshoot the contract model.
+Scenarios are a linear sequence of transactions that is evaluated using the same consistency, conformance and authorization rules as it would be on the full ledger server or the sandbox ledger. They are integrated into Daml Studio, which can show you the resulting transaction graph, making them a powerful tool to test and troubleshoot the contract model.
 
-To take a look at the scenarios in the quickstart application, open ``daml/Tests/Trade.daml`` in DAML Studio.
+To take a look at the scenarios in the quickstart application, open ``daml/Tests/Trade.daml`` in Daml Studio.
 
 A scenario test is defined with ``trade_test = scenario do``. The ``submit`` function takes a submitting party and a transaction, which is specified the same way as in contract choices.
 
@@ -456,7 +456,7 @@ The ``submit`` function used in this scenario tries to perform a transaction and
 ..  Interact with the ledger through the command line
     *************************************************
 
-    All interaction with a DAML ledger, be it sandbox or any other implementation, happens via the :doc:`Ledger API </app-dev/ledger-api>`. It is based on `gRPC <https://grpc.io/>`_.
+    All interaction with a Daml ledger, be it sandbox or any other implementation, happens via the :doc:`Ledger API </app-dev/ledger-api>`. It is based on `gRPC <https://grpc.io/>`_.
 
     The Navigator uses this API, as will any :ref:`custom integration <quickstart-application>`.
 
@@ -473,9 +473,9 @@ The ``submit`` function used in this scenario tries to perform a transaction and
 Integrate with the ledger
 *************************
 
-A distributed ledger only forms the core of a full DAML application.
+A distributed ledger only forms the core of a full Daml application.
 
-To build automations and integrations around the ledger, DAML Connect has :doc:`language bindings </app-dev/bindings-java/index>` for the Ledger API in several programming languages.
+To build automations and integrations around the ledger, Daml Connect has :doc:`language bindings </app-dev/bindings-java/index>` for the Ledger API in several programming languages.
 
 
 To compile the Java integration for the quickstart application, we first need to run the Java codegen on the DAR we built before::
@@ -524,28 +524,28 @@ The automation is based on the :doc:`Java bindings </app-dev/bindings-java/index
   :language: xml
   :lines: 22-32
 
-It consists of the application in file ``IouMain.java``. It uses the class ``Iou`` from ``Iou.java``, which is generated from the DAML model with the Java code generator. The ``Iou`` class provides better serialization and de-serialization to JSON via `gson <https://github.com/google/gson>`_.
+It consists of the application in file ``IouMain.java``. It uses the class ``Iou`` from ``Iou.java``, which is generated from the Daml model with the Java code generator. The ``Iou`` class provides better serialization and de-serialization to JSON via `gson <https://github.com/google/gson>`_.
 
 #. A connection to the ledger is established using a ``LedgerClient`` object.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
-      :lines: 46-50
-      :dedent: 8
+      :lines: 42-47
+      :dedent: 4
 
 #. An in-memory contract store is initialized. This is intended to provide a live view of all active contracts, with mappings between ledger and external Ids.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
-      :lines: 58-60
-      :dedent: 8
+      :lines: 55-57
+      :dedent: 4
 
 #. The Active Contracts Service (ACS) is used to quickly build up the contract store to a recent state.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
-      :lines: 63-73
-      :dedent: 8
+      :lines: 61-77
+      :dedent: 4
 
    Note the use of ``blockingForEach`` to ensure that the contract store is fully built and the ledger-offset up to which the ACS provides data is known before moving on.
 
@@ -554,29 +554,29 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
-      :lines: 75-91
-      :dedent: 8
+      :lines: 79-100
+      :dedent: 4
 
 #. Commands are submitted via the Command Submission Service.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
-      :lines: 126-137
-      :dedent: 4
+      :lines: 140-153
+      :dedent: 2
 
    You can find examples of ``ExerciseCommand`` and ``CreateCommand`` instantiation in the bodies of the ``transfer`` and ``iou`` endpoints, respectively.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :caption: ExerciseCommand
       :language: java
-      :lines: 107-108
-      :dedent: 12
+      :lines: 123-125
+      :dedent: 10
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :caption: CreateCommand
       :language: java
-      :lines: 100-101
-      :dedent: 12
+      :lines: 113-114
+      :dedent: 10
 
 The rest of the application sets up the REST services using `Spark Java <http://sparkjava.com/>`_, and does dynamic package Id detection using the Package Service. The latter is useful during development when package Ids change frequently.
 
@@ -590,7 +590,7 @@ Great - you've completed the quickstart guide!
 Some steps you could take next include:
 
 - Explore `examples <https://daml.com/examples>`_ for guidance and inspiration.
-- :doc:`Learn DAML </daml/intro/0_Intro>`.
+- :doc:`Learn Daml </daml/intro/0_Intro>`.
 - :doc:`Language reference </daml/reference/index>`.
 - Learn more about :doc:`application development </app-dev/app-arch>`.
-- Learn about the :doc:`conceptual models </concepts/ledger-model/index>` behind DAML.
+- Learn about the :doc:`conceptual models </concepts/ledger-model/index>` behind Daml.

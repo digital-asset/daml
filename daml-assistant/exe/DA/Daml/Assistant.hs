@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -135,6 +135,7 @@ autoInstall env@Env{..} = do
     damlConfigE <- tryConfig $ readDamlConfig envDamlPath
     let doAutoInstallE = queryDamlConfigRequired ["auto-install"] =<< damlConfigE
         doAutoInstall = fromRight True doAutoInstallE
+        artifactoryApiKeyM = queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
 
     if doAutoInstall && isJust envSdkVersion && isNothing envSdkPath then do
         -- sdk is missing, so let's install it!
@@ -158,6 +159,7 @@ autoInstall env@Env{..} = do
                 , installingFromOutside = False
                 , projectPathM = Nothing
                 , assistantVersion = envDamlAssistantSdkVersion
+                , artifactoryApiKeyM
                 , output = hPutStrLn stderr
                     -- Print install messages to stderr since the install
                     -- is only happening because of some other command,
@@ -188,7 +190,7 @@ runCommand :: Env -> Command -> IO ()
 runCommand env@Env{..} = \case
     Builtin (Version VersionOptions{..}) -> do
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
-        availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envDamlPath
+        availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envCachePath
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
         projectVersionM <- mapM getSdkVersionFromProjectPath envProjectPath
         envSelectedVersionM <- lookupEnv sdkVersionEnvVar
@@ -298,24 +300,24 @@ handleErrors logger m = m `catches`
         exitFailure
 
 withLogger :: DamlPath -> (L.Handle IO -> IO ()) -> IO ()
-withLogger damlPath k = do
+withLogger (DamlPath damlPath) k = do
+    cache <- getCachePath
+    let cachePath = unwrapCachePath cache
     let logOfInterest prio = prio `elem` [L.Telemetry, L.Warning, L.Error]
         gcpConfig = L.GCPConfig
             { gcpConfigTag = "assistant"
-            , gcpConfigDamlPath = Just (unwrapDamlPath damlPath)
+            , gcpConfigCachePath = Just cachePath
+            , gcpConfigDamlPath = Just damlPath
             }
-        optedOutPath = unwrapDamlPath damlPath </> ".opted_out"
-        optedInPath = unwrapDamlPath damlPath </> ".opted_in"
-
-    isOptedOut <- doesPathExist optedOutPath
-    isOptedIn <- doesPathExist optedInPath
+    isOptedIn <- L.isOptedIn cachePath
+    isOptedOut <- L.isOptedOut cachePath
     if isOptedIn && not isOptedOut
-        then
-            L.withGcpLogger gcpConfig logOfInterest L.makeNopHandle $ \gcpState logger -> do
-                L.logMetaData gcpState
-                k logger
-        else
-            k L.makeNopHandle
+      then
+        L.withGcpLogger gcpConfig logOfInterest L.makeNopHandle $ \gcpStateM logger -> do
+            whenJust gcpStateM $ \gcpState -> L.logMetaData gcpState
+            k logger
+      else
+        k L.makeNopHandle
 
 -- | Get the arguments to `daml` and anonimize all but the first.
 -- That way, the daml command doesn't get accidentally anonimized.
@@ -370,6 +372,7 @@ argWhitelist = S.fromList
     , "deploy"
     , "json-api"
     , "trigger", "trigger-service", "list"
+    , "oauth2-middleware"
     , "script"
     , "test-script"
     ]

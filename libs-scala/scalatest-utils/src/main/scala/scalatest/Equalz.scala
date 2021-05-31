@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.scalatest
@@ -6,7 +6,6 @@ package com.daml.scalatest
 import org.scalatest.matchers.dsl.{MatcherFactory1}
 import org.scalatest.matchers.{MatchResult, Matcher}
 import org.scalatest.matchers.should.Matchers
-import scala.language.higherKinds
 import scalaz.Equal
 
 /** Provides the `equalz` [[Matcher]].
@@ -35,15 +34,15 @@ trait Equalz extends Matchers {
   import Equalz.{LubEqual, XMatcherFactory1, EqualFactory1}
 
   final def equalz[Ex](expected: Ex): EqualFactory1[Ex] =
-    new MatcherFactory1[Ex, LubEqual[Ex, ?]] with XMatcherFactory1[Ex] {
+    new MatcherFactory1[Ex, LubEqual[Ex, *]] with XMatcherFactory1[Ex] {
       type TC[A] = LubEqual[Ex, A]
       override def matcher[T <: Ex](implicit ev: TC[T]): Matcher[T] =
         actual =>
           MatchResult(
             ev.equal(expected, actual),
             s"$actual did not equal $expected",
-            s"$actual equalled $expected"
-        )
+            s"$actual equalled $expected",
+          )
     }
 
   /** An improved design for [[MatcherFactory1]]; see [[XMatcherFactory1]]. */
@@ -65,7 +64,7 @@ object Equalz extends Equalz {
     }
   }
 
-  type EqualFactory1[SC] = XMatcherFactory1[SC] with MatcherFactory1[SC, LubEqual[SC, ?]] {
+  type EqualFactory1[SC] = XMatcherFactory1[SC] with MatcherFactory1[SC, LubEqual[SC, *]] {
     type TC[A] = LubEqual[SC, A]
   }
 

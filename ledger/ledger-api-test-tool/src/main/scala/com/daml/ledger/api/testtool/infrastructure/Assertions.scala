@@ -1,18 +1,18 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
 
 import java.util.regex.Pattern
 
-import ai.x.diff.DiffShow
 import com.daml.grpc.{GrpcException, GrpcStatus}
+import munit.{Assertions => MUnit, ComparisonFailException}
 import io.grpc.Status
 
-import scala.language.higherKinds
-import scala.util.control.NonFatal
+import scala.concurrent.Future
+import scala.language.implicitConversions
 
-object Assertions extends DiffExtensions {
+object Assertions {
   def fail(message: String): Nothing =
     throw new AssertionError(message)
 
@@ -27,19 +27,22 @@ object Assertions extends DiffExtensions {
   def assertSingleton[A](context: String, as: Seq[A]): A =
     assertLength(context, 1, as).head
 
-  def assertEquals[T: DiffShow](context: String, actual: T, expected: T): Unit = {
-    val diff = DiffShow.diff(actual, expected)
-    if (!diff.isIdentical)
-      throw AssertionErrorWithPreformattedMessage(
-        diff.string,
-        s"$context: two objects are supposed to be equal but they are not",
-      )
+  def assertEquals[T](context: String, actual: T, expected: T): Unit = {
+    try {
+      MUnit.assertEquals(actual, expected, context)
+    } catch {
+      case e: ComparisonFailException =>
+        throw AssertionErrorWithPreformattedMessage(
+          e.message,
+          s"$context: two objects are supposed to be equal but they are not",
+        )
+    }
   }
 
   /** Match the given exception against a status code and a regex for the expected message.
-      Succeeds if the exception is a GrpcException with the expected code and
-      the regex matches some part of the message or there is no message and the pattern is
-      None.
+    *      Succeeds if the exception is a GrpcException with the expected code and
+    *      the regex matches some part of the message or there is no message and the pattern is
+    *      None.
     */
   def assertGrpcError(t: Throwable, expectedCode: Status.Code, optPattern: Option[Pattern]): Unit =
     (t, optPattern) match {
@@ -54,8 +57,8 @@ object Assertions extends DiffExtensions {
       case (GrpcException(GrpcStatus(`expectedCode`, _), _), None) => ()
       case (GrpcException(GrpcStatus(code, _), _), _) =>
         fail(s"Expected code [$expectedCode], but got [$code].")
-      case (NonFatal(e), _) =>
-        fail("Exception is neither a StatusRuntimeException nor a StatusException", e)
+      case (_, _) =>
+        fail("Exception is neither a StatusRuntimeException nor a StatusException", t)
     }
 
   /** non-regex overload for assertGrpcError which just does a substring check.
@@ -64,6 +67,11 @@ object Assertions extends DiffExtensions {
     assertGrpcError(
       t,
       expectedCode,
-      if (pattern.isEmpty) None else Some(Pattern.compile(Pattern.quote(pattern))))
+      if (pattern.isEmpty) None else Some(Pattern.compile(Pattern.quote(pattern))),
+    )
   }
+
+  /** Allows for assertions with more information in the error messages. */
+  implicit def futureAssertions[T](future: Future[T]): FutureAssertions[T] =
+    new FutureAssertions[T](future)
 }

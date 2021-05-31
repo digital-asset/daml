@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.validation
@@ -24,7 +24,7 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils {
       requestMustFailWith(
         validateIdentifier(api.identifier.withPackageId("")),
         INVALID_ARGUMENT,
-        """Missing field: package_id"""
+        """Missing field: package_id""",
       )
     }
 
@@ -32,7 +32,7 @@ class IdentifierValidatorTest extends AsyncWordSpec with ValidatorTestUtils {
       requestMustFailWith(
         validateIdentifier(api.identifier.withModuleName("").withEntityName("")),
         INVALID_ARGUMENT,
-        "Invalid field module_name: Expected a non-empty string"
+        "Invalid field module_name: Expected a non-empty string",
       )
     }
   }

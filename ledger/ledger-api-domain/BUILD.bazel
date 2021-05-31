@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -9,6 +9,9 @@ load(
 da_scala_library(
     name = "ledger-api-domain",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     tags = ["maven_coordinates=com.daml:ledger-api-domain:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -18,7 +21,6 @@ da_scala_library(
         "//daml-lf/transaction",
         "//ledger/participant-state",
         "@maven//:io_zipkin_brave_brave",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -31,12 +33,14 @@ da_scala_library(
             "src/test/**/*Test.scala",
         ],
     ),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     visibility = [
         "//visibility:public",
     ],
     deps = [
         ":ledger-api-domain",
         "//daml-lf/data",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

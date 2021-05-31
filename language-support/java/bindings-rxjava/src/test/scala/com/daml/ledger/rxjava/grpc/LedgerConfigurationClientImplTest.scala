@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
@@ -50,7 +50,8 @@ final class LedgerConfigurationClientImplTest
   def toAuthenticatedServer(fn: LedgerConfigurationClient => Any): Any =
     ledgerServices.withConfigurationClient(
       Seq(GetLedgerConfigurationResponse.defaultInstance),
-      mockedAuthService) { (client, _) =>
+      mockedAuthService,
+    ) { (client, _) =>
       fn(client)
     }
 
@@ -59,7 +60,8 @@ final class LedgerConfigurationClientImplTest
       toAuthenticatedServer(
         _.getLedgerConfiguration
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-          .blockingFirst())
+          .blockingFirst()
+      )
     }
   }
 
@@ -68,7 +70,8 @@ final class LedgerConfigurationClientImplTest
       toAuthenticatedServer(
         _.getLedgerConfiguration(emptyToken)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-          .blockingFirst())
+          .blockingFirst()
+      )
     }
   }
 
@@ -76,7 +79,8 @@ final class LedgerConfigurationClientImplTest
     toAuthenticatedServer(
       _.getLedgerConfiguration(publicToken)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-        .blockingFirst())
+        .blockingFirst()
+    )
   }
 
 }

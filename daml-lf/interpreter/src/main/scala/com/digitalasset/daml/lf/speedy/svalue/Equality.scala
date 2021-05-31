@@ -1,12 +1,13 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 package svalue
 
 import com.daml.lf.speedy.SError.SErrorCrash
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 private[lf] object Equality {
 
@@ -49,7 +50,7 @@ private[lf] object Equality {
           push(xs.iterator, ys.iterator)
         case (SOptional(xOpt), SOptional(yOpt)) =>
           push(xOpt.iterator, yOpt.iterator)
-        case (SGenMap(_, xMap), SGenMap(_, yMap)) =>
+        case (SMap(_, xMap), SMap(_, yMap)) =>
           push(
             new InterlacedIterator(xMap.keys.iterator, xMap.values.iterator),
             new InterlacedIterator(yMap.keys.iterator, yMap.values.iterator),
@@ -61,8 +62,8 @@ private[lf] object Equality {
           success = xType == yType
         case (STypeRep(xType), STypeRep(yType)) =>
           success = xType == yType
-        case _ =>
-          throw SErrorCrash("trying to compare incomparable types")
+        case (x, y) =>
+          throw SErrorCrash(s"trying to compare incomparable types:\n- $x\n- $y")
       }
 
     while (success && stackX.nonEmpty) {

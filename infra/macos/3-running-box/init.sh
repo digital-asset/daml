@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -68,7 +68,12 @@ set -u
 AGENT_SETUP
 
 ## Remount Nix partition
-sudo hdiutil attach /System/Volumes/Data/Nix.dmg.sparseimage -mountpoint /nix
+hdiutil attach /System/Volumes/Data/Nix.dmg.sparseimage -mountpoint /nix
+
+su -l vsts <<END
+hdiutil attach /var/tmp/bazel_cache.dmg.sparseimage -mountpoint /var/tmp/_bazel_vsts
+hdiutil attach /var/tmp/disk_cache.dmg.sparseimage -mountpoint /Users/vsts/.bazel-cache
+END
 
 ## Hardening
 chown -R root:wheel /Users/vsts/agent/{*.sh,bin,externals}

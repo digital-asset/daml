@@ -1,86 +1,112 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//daml-lf/language:daml-lf.bzl", "LF_VERSIONS")
+load("//daml-lf/language:daml-lf.bzl", "PROTO_LF_VERSIONS")
 load("@build_environment//:configuration.bzl", "sdk_version")
 
-def sdk_tarball(name, version):
+inputs = {
+    "sdk_config": ":sdk-config.yaml.tmpl",
+    "install_sh": ":install.sh",
+    "install_bat": ":install.bat",
+    "sandbox_logback": "//ledger/sandbox-common:src/main/resources/logback.xml",
+    "navigator_logback": "//navigator/backend:src/main/resources/logback.xml",
+    "extractor_logback": "//extractor:src/main/resources/logback.xml",
+    "http_json_logback": "//ledger-service/http-json:src/main/resources/logback.xml",
+    "oauth2_middleware_logback": "//triggers/service/auth:release/oauth2-middleware-logback.xml",
+    "trigger_service_logback": "//triggers/service:release/trigger-service-logback.xml",
+    "trigger_logback": "//triggers/runner:src/main/resources/logback.xml",
+    "java_codegen_logback": "//language-support/java/codegen:src/main/resources/logback.xml",
+    "daml_script_logback": "//daml-script/runner:src/main/resources/logback.xml",
+    "export_logback": "//daml-script/export:src/main/resources/logback.xml",
+    "NOTICES": "//:NOTICES",
+    "daml_dist": "//daml-assistant:daml-dist",
+    "daml_helper_dist": "//daml-assistant/daml-helper:daml-helper-dist",
+    "damlc_dist": "//compiler/damlc:damlc-dist",
+    "daml_extension": "//compiler/daml-extension:vsix",
+    "daml2js_dist": "//language-support/ts/codegen:daml2js-dist",
+    "templates": "//templates:templates-tarball.tar.gz",
+    "trigger_dars": "//triggers/daml:daml-trigger-dars",
+    "script_dars": "//daml-script/daml:daml-script-dars",
+    "sdk_deploy_jar": {
+        "ce": "//daml-assistant/daml-sdk:sdk_deploy.jar",
+        "ee": "//daml-assistant/daml-sdk:sdk_ee_deploy.jar",
+    },
+}
+
+def input_target(config, name):
+    targets = inputs.get(name)
+    if type(targets) == "string":
+        return targets
+    else:
+        return targets.get(config)
+
+def sdk_tarball(name, version, config):
+    kwargs = {name: input_target(config, name) for name in inputs.keys()}
     native.genrule(
         name = name,
-        srcs = [
-            ":sdk-config.yaml.tmpl",
-            ":install.sh",
-            ":install.bat",
-            "//ledger/sandbox-common:src/main/resources/logback.xml",
-            "//navigator/backend:src/main/resources/logback.xml",
-            "//extractor:src/main/resources/logback.xml",
-            "//ledger-service/http-json:src/main/resources/logback.xml",
-            "//triggers/service:release/trigger-service-logback.xml",
-            "//language-support/java/codegen:src/main/resources/logback.xml",
-            "//triggers/runner:src/main/resources/logback.xml",
-            "//daml-script/runner:src/main/resources/logback.xml",
-            "//:NOTICES",
-            "//daml-assistant:daml-dist",
-            "//compiler/damlc:damlc-dist",
-            "//compiler/daml-extension:vsix",
-            "//daml-assistant/daml-helper:daml-helper-dist",
-            "//language-support/ts/codegen:daml2js-dist",
-            "//templates:templates-tarball.tar.gz",
-            "//triggers/daml:daml-trigger-dars",
-            "//daml-script/daml:daml-script-dars",
-            "//daml-assistant/daml-sdk:sdk_deploy.jar",
-        ],
+        srcs = [input_target(config, name) for name in inputs.keys()],
         outs = ["{}.tar.gz".format(name)],
         tools = ["//bazel_tools/sh:mktgz"],
         cmd = """
           # damlc
           VERSION={version}
-          OUT=sdk-$$VERSION
+          DIR=$$(mktemp -d)
+          trap "rm -rf $$DIR" EXIT
+          OUT=$$DIR/sdk-$$VERSION
           mkdir -p $$OUT
 
-          cp $(location //:NOTICES) $$OUT/NOTICES
+          cp $(location {NOTICES}) $$OUT/NOTICES
 
-          cp $(location :install.sh) $$OUT/install.sh
-          cp $(location :install.bat) $$OUT/install.bat
+          cp $(location {install_sh}) $$OUT/install.sh
+          cp $(location {install_bat}) $$OUT/install.bat
 
-          cp $(location :sdk-config.yaml.tmpl) $$OUT/sdk-config.yaml
+          cp $(location {sdk_config}) $$OUT/sdk-config.yaml
           sed -i "s/__VERSION__/$$VERSION/" $$OUT/sdk-config.yaml
 
           mkdir -p $$OUT/daml
-          tar xf $(location //daml-assistant:daml-dist) --strip-components=1 -C $$OUT/daml
+          tar xf $(location {daml_dist}) --strip-components=1 -C $$OUT/daml
 
           mkdir -p $$OUT/damlc
-          tar xf $(location //compiler/damlc:damlc-dist) --strip-components=1 -C $$OUT/damlc
+          tar xf $(location {damlc_dist}) --strip-components=1 -C $$OUT/damlc
 
           mkdir -p $$OUT/daml-libs
-          cp -t $$OUT/daml-libs $(locations //triggers/daml:daml-trigger-dars)
-          cp -t $$OUT/daml-libs $(locations //daml-script/daml:daml-script-dars)
+          cp -t $$OUT/daml-libs $(locations {trigger_dars})
+          cp -t $$OUT/daml-libs $(locations {script_dars})
 
           mkdir -p $$OUT/daml-helper
-          tar xf $(location //daml-assistant/daml-helper:daml-helper-dist) --strip-components=1 -C $$OUT/daml-helper
+          tar xf $(location {daml_helper_dist}) --strip-components=1 -C $$OUT/daml-helper
 
           mkdir -p $$OUT/daml2js
-          tar xf $(location //language-support/ts/codegen:daml2js-dist) --strip-components=1 -C $$OUT/daml2js
+          tar xf $(location {daml2js_dist}) --strip-components=1 -C $$OUT/daml2js
 
           mkdir -p $$OUT/studio
-          cp $(location //compiler/daml-extension:vsix) $$OUT/studio/daml-bundled.vsix
+          cp $(location {daml_extension}) $$OUT/studio/daml-bundled.vsix
 
           mkdir -p $$OUT/templates
-          tar xf $(location //templates:templates-tarball.tar.gz) --strip-components=1 -C $$OUT/templates
+          tar xf $(location {templates}) --strip-components=1 -C $$OUT/templates
 
           mkdir -p $$OUT/daml-sdk
-          cp $(location //daml-assistant/daml-sdk:sdk_deploy.jar) $$OUT/daml-sdk/daml-sdk.jar
-          cp -L $(location //ledger-service/http-json:src/main/resources/logback.xml) $$OUT/daml-sdk/json-api-logback.xml
-          cp -L $(location //triggers/service:release/trigger-service-logback.xml) $$OUT/daml-sdk/
-          cp -L $(location //ledger/sandbox-common:src/main/resources/logback.xml) $$OUT/daml-sdk/sandbox-logback.xml
-          cp -L $(location //navigator/backend:src/main/resources/logback.xml) $$OUT/daml-sdk/navigator-logback.xml
-          cp -L $(location //extractor:src/main/resources/logback.xml) $$OUT/daml-sdk/extractor-logback.xml
-          cp -L $(location //language-support/java/codegen:src/main/resources/logback.xml) $$OUT/daml-sdk/codegen-logback.xml
-          cp -L $(location //triggers/runner:src/main/resources/logback.xml) $$OUT/daml-sdk/trigger-logback.xml
-          cp -L $(location //daml-script/runner:src/main/resources/logback.xml) $$OUT/daml-sdk/script-logback.xml
+          cp $(location {sdk_deploy_jar}) $$OUT/daml-sdk/daml-sdk.jar
+          cp -L $(location {http_json_logback}) $$OUT/daml-sdk/json-api-logback.xml
+          cp -L $(location {trigger_service_logback}) $$OUT/daml-sdk/
+          cp -L $(location {oauth2_middleware_logback}) $$OUT/daml-sdk/
+          cp -L $(location {sandbox_logback}) $$OUT/daml-sdk/sandbox-logback.xml
+          cp -L $(location {navigator_logback}) $$OUT/daml-sdk/navigator-logback.xml
+          cp -L $(location {extractor_logback}) $$OUT/daml-sdk/extractor-logback.xml
+          cp -L $(location {java_codegen_logback}) $$OUT/daml-sdk/codegen-logback.xml
+          cp -L $(location {trigger_logback}) $$OUT/daml-sdk/trigger-logback.xml
+          cp -L $(location {daml_script_logback}) $$OUT/daml-sdk/script-logback.xml
+          cp -L $(location {export_logback}) $$OUT/daml-sdk/export-logback.xml
 
-          $(execpath //bazel_tools/sh:mktgz) $@ $$OUT
-        """.format(version = version),
+          MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
+          OUT_PATH=$$PWD/$@
+          cd $$DIR
+
+          $$MKTGZ $$OUT_PATH $$(basename $$OUT)
+        """.format(
+            version = version,
+            **kwargs
+        ),
         visibility = ["//visibility:public"],
     )
 
@@ -140,7 +166,7 @@ protos_zip = rule(
             allow_files = True,
             default = [
                 Label("//daml-lf/archive:daml_lf_{}_archive_proto_tar.tar.gz".format(version))
-                for version in LF_VERSIONS
+                for version in PROTO_LF_VERSIONS
             ],
         ),
         "ledger_api_tarball": attr.label(

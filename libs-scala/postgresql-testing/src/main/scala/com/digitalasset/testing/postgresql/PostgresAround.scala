@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.testing.postgresql
@@ -15,7 +15,7 @@ import com.daml.testing.postgresql.PostgresAround._
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters.asScalaBufferConverter
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -79,12 +79,11 @@ trait PostgresAround {
   }
 
   protected def disconnectFromPostgresqlServer(): Unit = {
-    paths foreach {
-      case PostgresServerPaths(root, dataDir, _) =>
-        logger.info("Stopping and cleaning up PostgreSQL...")
-        stopPostgresql(dataDir)
-        deleteRecursively(root)
-        logger.info("PostgreSQL has stopped, and the data directory has been deleted.")
+    paths foreach { case PostgresServerPaths(root, dataDir, _) =>
+      logger.info("Stopping and cleaning up PostgreSQL...")
+      stopPostgresql(dataDir)
+      deleteRecursively(root)
+      logger.info("PostgreSQL has stopped, and the data directory has been deleted.")
     }
     server = null
   }
@@ -92,7 +91,7 @@ trait PostgresAround {
   private def startPostgresql(dataDir: Path, logFile: Path): Unit = {
     if (!started.compareAndSet(false, true)) {
       throw new IllegalStateException(
-        "Attempted to start PostgreSQL, but it has already been started.",
+        "Attempted to start PostgreSQL, but it has already been started."
       )
     }
     try {
@@ -149,7 +148,7 @@ trait PostgresAround {
     "UNICODE",
     "-A",
     "trust",
-    dataDir.toString.replaceAllLiterally("\\", "/"),
+    dataDir.toString.replace("\\", "/"),
   )
 
   private def createConfigFile(configPath: Path): Unit = {
@@ -232,7 +231,7 @@ trait PostgresAround {
   }
 
   private def readLogs(): Seq[String] =
-    Try(paths.map(paths => Files.readAllLines(paths.logFile).asScala).getOrElse(Seq.empty))
+    Try(paths.map(paths => Files.readAllLines(paths.logFile).asScala.toSeq).getOrElse(Seq.empty))
       .getOrElse(Seq.empty)
 
   private def deleteRecursively(tempDir: Path): Unit =

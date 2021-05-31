@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.data
@@ -15,11 +15,12 @@ final case class CommandStatusRow(
     subclassType: String,
     code: Option[String],
     details: Option[String],
-    transactionId: Option[String]
+    transactionId: Option[String],
 ) {
 
   def toCommandStatus(
-      transactionById: ApiTypes.TransactionId => Try[Option[Transaction]]): Try[CommandStatus] = {
+      transactionById: ApiTypes.TransactionId => Try[Option[Transaction]]
+  ): Try[CommandStatus] = {
     subclassType match {
       case "CommandStatusWaiting" =>
         Success(CommandStatusWaiting())
@@ -31,7 +32,8 @@ final case class CommandStatusRow(
           CommandStatusError(c, d)
         }).fold[Try[CommandStatus]](
           Failure(
-            DeserializationFailed(s"Failed to deserialize CommandStatusError from row: $this"))
+            DeserializationFailed(s"Failed to deserialize CommandStatusError from row: $this")
+          )
         )(
           Success(_)
         )
@@ -41,15 +43,21 @@ final case class CommandStatusRow(
         } match {
           case Some(Success(Some(tx: Transaction))) => Success(CommandStatusSuccess(tx))
           case Some(Failure(e)) =>
-            Failure(RecordNotFound(
-              s"Failed to load transaction $transactionId for CommandStatus with commandId: $commandId. Exception: ${e.getMessage}"))
+            Failure(
+              RecordNotFound(
+                s"Failed to load transaction $transactionId for CommandStatus with commandId: $commandId. Exception: ${e.getMessage}"
+              )
+            )
           case Some(Success(None)) =>
-            Failure(RecordNotFound(
-              s"Failed to load transaction $transactionId for CommandStatus with commandId: $commandId"))
+            Failure(
+              RecordNotFound(
+                s"Failed to load transaction $transactionId for CommandStatus with commandId: $commandId"
+              )
+            )
           case None =>
             Failure(
-              DeserializationFailed(
-                s"TransactionId is missing for CommandStatusSuccess row: $this"))
+              DeserializationFailed(s"TransactionId is missing for CommandStatusSuccess row: $this")
+            )
         }
       case "CommandStatusUnknown" =>
         Success(CommandStatusUnknown())
@@ -71,7 +79,8 @@ object CommandStatusRow {
           "CommandStatusError",
           Some(e.code),
           Some(e.details),
-          None)
+          None,
+        )
       case s: CommandStatusSuccess =>
         CommandStatusRow(
           commandId.unwrap,
@@ -79,7 +88,8 @@ object CommandStatusRow {
           "CommandStatusSuccess",
           None,
           None,
-          Some(s.tx.id.unwrap))
+          Some(s.tx.id.unwrap),
+        )
       case u: CommandStatusUnknown =>
         CommandStatusRow(commandId.unwrap, u.isCompleted, "CommandStatusUnknown", None, None, None)
     }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver
@@ -24,25 +24,25 @@ import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.execution.{
   LedgerTimeAwareCommandExecutor,
   StoreBackedCommandExecutor,
-  TimedCommandExecutor
+  TimedCommandExecutor,
 }
 import com.daml.platform.apiserver.services._
 import com.daml.platform.apiserver.services.admin.{
   ApiConfigManagementService,
   ApiPackageManagementService,
   ApiParticipantPruningService,
-  ApiPartyManagementService
+  ApiPartyManagementService,
 }
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
-  PartyConfiguration
+  PartyConfiguration,
 }
 import com.daml.platform.server.api.services.grpc.{
   GrpcCommandCompletionService,
   GrpcHealthService,
-  GrpcTransactionService
+  GrpcTransactionService,
 }
 import com.daml.platform.services.time.TimeProviderType
 import io.grpc.BindableService
@@ -69,7 +69,7 @@ private[daml] object ApiServices {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  class Owner(
+  final class Owner(
       participantId: Ref.ParticipantId,
       optWriteService: Option[WriteService],
       indexService: IndexService,
@@ -81,12 +81,13 @@ private[daml] object ApiServices {
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
+      servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       healthChecks: HealthChecks,
       seedService: SeedService,
       managementServiceTimeout: Duration,
-  )(
-      implicit materializer: Materializer,
+  )(implicit
+      materializer: Materializer,
       esf: ExecutionSequencerFactory,
       loggingContext: LoggingContext,
   ) extends ResourceOwner[ApiServices] {
@@ -101,34 +102,36 @@ private[daml] object ApiServices {
     private val configManagementService: IndexConfigManagementService = indexService
     private val submissionService: IndexSubmissionService = indexService
 
-    override def acquire()(implicit context: ResourceContext): Resource[ApiServices] =
-      Resource(
-        for {
-          ledgerId <- identityService.getLedgerId()
-          ledgerConfigProvider = LedgerConfigProvider.create(
-            configManagementService,
+    override def acquire()(implicit context: ResourceContext): Resource[ApiServices] = {
+      logger.info(engine.info.toString)
+
+      for {
+        ledgerId <- Resource.fromFuture(indexService.getLedgerId())
+        ledgerConfigProvider <- LedgerConfigProvider
+          .owner(
+            indexService,
             optWriteService,
             timeProvider,
-            ledgerConfiguration)
-          services = createServices(ledgerId, ledgerConfigProvider)(materializer.system.dispatcher)
-          _ <- ledgerConfigProvider.ready
-        } yield (ledgerConfigProvider, services)
-      ) {
-        case (ledgerConfigProvider, services) =>
+            ledgerConfiguration,
+          )(materializer, loggingContext)
+          .acquire()
+        services <- Resource(
+          Future(createServices(ledgerId, ledgerConfigProvider)(servicesExecutionContext))
+        )(services =>
           Future {
             services.foreach {
               case closeable: AutoCloseable => closeable.close()
               case _ => ()
             }
-            ledgerConfigProvider.close()
           }
-      }.map(x => ApiServicesBundle(x._2))
+        )
+      } yield ApiServicesBundle(services)
+    }
 
-    private def createServices(ledgerId: LedgerId, ledgerConfigProvider: LedgerConfigProvider)(
-        implicit executionContext: ExecutionContext): List[BindableService] = {
-
-      logger.info(engine.info.toString)
-
+    private def createServices(
+        ledgerId: LedgerId,
+        ledgerConfigProvider: LedgerConfigProvider,
+    )(implicit executionContext: ExecutionContext): List[BindableService] = {
       val apiTransactionService =
         ApiTransactionService.create(ledgerId, transactionsService)
 
@@ -150,22 +153,17 @@ private[daml] object ApiServices {
         ApiActiveContractsService.create(ledgerId, activeContractsService)
 
       val apiTimeServiceOpt =
-        optTimeServiceBackend.map { tsb =>
-          new TimeServiceAuthorization(
-            ApiTimeService.create(
-              ledgerId,
-              tsb,
-            ),
-            authorizer
-          )
-        }
+        optTimeServiceBackend.map(tsb =>
+          new TimeServiceAuthorization(ApiTimeService.create(ledgerId, tsb), authorizer)
+        )
 
       val writeServiceBackedApiServices =
         intitializeWriteServiceBackedApiServices(
           ledgerId,
           ledgerConfigProvider,
           apiCompletionService,
-          apiTransactionService)
+          apiTransactionService,
+        )
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
@@ -174,16 +172,16 @@ private[daml] object ApiServices {
       apiTimeServiceOpt.toList :::
         writeServiceBackedApiServices :::
         List(
-        new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
-        new PackageServiceAuthorization(apiPackageService, authorizer),
-        new LedgerConfigurationServiceAuthorization(apiConfigurationService, authorizer),
-        new TransactionServiceAuthorization(apiTransactionService, authorizer),
-        new CommandCompletionServiceAuthorization(apiCompletionService, authorizer),
-        new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
-        apiReflectionService,
-        apiHealthService,
-        apiVersionService,
-      )
+          new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
+          new PackageServiceAuthorization(apiPackageService, authorizer),
+          new LedgerConfigurationServiceAuthorization(apiConfigurationService, authorizer),
+          new TransactionServiceAuthorization(apiTransactionService, authorizer),
+          new CommandCompletionServiceAuthorization(apiCompletionService, authorizer),
+          new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
+          apiReflectionService,
+          apiHealthService,
+          apiVersionService,
+        )
     }
 
     private def intitializeWriteServiceBackedApiServices(
@@ -191,11 +189,7 @@ private[daml] object ApiServices {
         ledgerConfigProvider: LedgerConfigProvider,
         apiCompletionService: GrpcCommandCompletionService,
         apiTransactionService: GrpcTransactionService,
-    )(
-        implicit materializer: Materializer,
-        executionContext: ExecutionContext,
-        loggingContext: LoggingContext,
-    ): List[BindableService] = {
+    )(implicit executionContext: ExecutionContext): List[BindableService] = {
       optWriteService.toList.flatMap { writeService =>
         val commandExecutor = new TimedCommandExecutor(
           new LedgerTimeAwareCommandExecutor(
@@ -224,7 +218,7 @@ private[daml] object ApiServices {
           seedService,
           commandExecutor,
           ApiSubmissionService.Configuration(
-            partyConfig.implicitPartyAllocation,
+            partyConfig.implicitPartyAllocation
           ),
           metrics,
         )
@@ -246,38 +240,34 @@ private[daml] object ApiServices {
             r => apiCompletionService.completionStreamSource(r),
             () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
             apiTransactionService.getTransactionById,
-            apiTransactionService.getFlatTransactionById
+            apiTransactionService.getFlatTransactionById,
           ),
           timeProvider,
           ledgerConfigProvider,
           metrics,
         )
-        val apiPartyManagementService =
-          ApiPartyManagementService
-            .createApiService(
-              partyManagementService,
-              transactionsService,
-              writeService,
-              managementServiceTimeout,
-            )
 
-        val apiPackageManagementService =
-          ApiPackageManagementService
-            .createApiService(
-              indexService,
-              transactionsService,
-              writeService,
-              managementServiceTimeout,
-              engine,
-            )
+        val apiPartyManagementService = ApiPartyManagementService.createApiService(
+          partyManagementService,
+          transactionsService,
+          writeService,
+          managementServiceTimeout,
+        )
 
-        val apiConfigManagementService =
-          ApiConfigManagementService
-            .createApiService(
-              configManagementService,
-              writeService,
-              timeProvider,
-              ledgerConfiguration)
+        val apiPackageManagementService = ApiPackageManagementService.createApiService(
+          indexService,
+          transactionsService,
+          writeService,
+          managementServiceTimeout,
+          engine,
+        )
+
+        val apiConfigManagementService = ApiConfigManagementService.createApiService(
+          configManagementService,
+          writeService,
+          timeProvider,
+          ledgerConfiguration,
+        )
 
         val apiParticipantPruningService =
           ApiParticipantPruningService.createApiService(indexService, writeService)

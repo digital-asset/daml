@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -29,7 +29,9 @@ fromSomeNote n None = error n
 -- | The `catOptionals` function takes a list of `Optionals` and returns a
 -- list of all the `Some` values.
 catOptionals : [Optional a] -> [a]
-catOptionals = concatMap optionalToList
+catOptionals = foldr f []
+  where f None acc = acc
+        f (Some x) acc = x :: acc
 
 -- | The `listToOptional` function returns `None` on an empty list or
 -- `Some` a where a is the first element of the list.
@@ -66,10 +68,24 @@ isNone = not . isSome
 -- the result list. If it is `Some b`, then `b` is included in the
 -- result list.
 mapOptional : (a -> Optional b) -> [a] -> [b]
-mapOptional f = catOptionals . map f
+mapOptional p = foldr f []
+  where f x acc = case p x of
+          None -> acc
+          Some y -> y :: acc
 
 -- | Perform some operation on `Some`, given the field inside the
 -- `Some`.
 whenSome : Applicative m => Optional a -> (a -> m ()) -> m ()
 whenSome None _ = pure ()
 whenSome (Some v) f = f v
+
+-- | The `findOptional` returns the value of the predicate at the first
+-- element where it returns `Some`. `findOptional` is similar to `find` but it
+-- allows you to return a value from the predicate. This is useful both as a more
+-- type safe version if the predicate corresponds to a pattern match
+-- and for performance to avoid duplicating work performed in the predicate.
+findOptional : (a -> Optional b) -> [a] -> Optional b
+findOptional _ [] = None
+findOptional p (x :: xs) = case p x of
+  None -> findOptional p xs
+  Some y -> Some y

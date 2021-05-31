@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Tasty resource for starting sandbox
@@ -11,15 +11,21 @@ module DA.Test.Sandbox
     , withSandbox
     , createSandbox
     , destroySandbox
+    , makeSignedJwt
     ) where
 
 import Control.Exception
 import DA.Bazel.Runfiles
 import DA.PortFile
+import qualified Data.Aeson as Aeson
+import qualified Data.Map as Map
+import qualified Data.Text as T
+import qualified Data.Vector as Vector
 import System.FilePath
 import System.IO.Extra
 import System.Process
 import Test.Tasty
+import qualified Web.JWT as JWT
 
 data ClientAuth
     = None
@@ -105,3 +111,16 @@ data SandboxResource = SandboxResource
 
 destroySandbox :: SandboxResource -> IO ()
 destroySandbox = cleanupProcess . sandboxProcess
+
+makeSignedJwt :: String -> [String] -> String
+makeSignedJwt sharedSecret actAs = do
+    let urc =
+            JWT.ClaimsMap $
+            Map.fromList
+                [ ("admin", Aeson.Bool True)
+                , ("actAs", Aeson.Array $ Vector.fromList $ map (Aeson.String . T.pack) actAs)
+                ]
+    let cs = mempty {JWT.unregisteredClaims = urc}
+    let key = JWT.hmacSecret $ T.pack sharedSecret
+    let text = JWT.encodeSigned key mempty cs
+    T.unpack text

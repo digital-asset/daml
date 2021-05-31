@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Ast.FreeVars
@@ -101,8 +101,10 @@ freeVarsStep = \case
     EToAnyF t e -> freeVarsInType t <> e
     EFromAnyF t e -> freeVarsInType t <> e
     ETypeRepF t -> freeVarsInType t
-    EMakeAnyExceptionF t e1 e2 -> freeVarsInType t <> e1 <> e2
+    EToAnyExceptionF t e -> freeVarsInType t <> e
     EFromAnyExceptionF t e -> freeVarsInType t <> e
+    EThrowF t1 t2 e -> freeVarsInType t1 <> freeVarsInType t2 <> e
+    EExperimentalF _ t -> freeVarsInType t
 
   where
 

@@ -1,10 +1,10 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.conf
 
 import java.io.File
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 
 import ch.qos.logback.classic.Level
 import com.daml.assistant.config._
@@ -35,20 +35,19 @@ object CodegenConfigReader {
       verbosity <- verbosity(sdkConf, dest): Result[Option[Int]]
       logLevel <- logLevel(verbosity, Level.ERROR)
       root <- root(sdkConf, dest): Result[Option[List[String]]]
-    } yield
-      Conf(
-        darFiles = Map(dar -> packagePrefix),
-        outputDirectory = outputDirectory,
-        decoderPkgAndClass = decoderPkgAndClass,
-        verbosity = logLevel,
-        roots = root.getOrElse(Nil)
-      )
+    } yield Conf(
+      darFiles = Map(dar -> packagePrefix),
+      outputDirectory = outputDirectory,
+      decoderPkgAndClass = decoderPkgAndClass,
+      verbosity = logLevel,
+      roots = root.getOrElse(Nil),
+    )
 
   private def darPath(sdkConf: ProjectConfig): Result[Path] =
     for {
       name <- name(sdkConf)
       version <- version(sdkConf)
-      dar <- darPath(name, version)
+      dar <- darPath(sdkConf.projectPath, name, version)
     } yield dar
 
   private def name(sdkConf: ProjectConfig): Result[String] =
@@ -63,13 +62,10 @@ object CodegenConfigReader {
       case None => Left(ConfigMissing("version"))
     }
 
-  private def darPath(name: String, version: String): Result[Path] =
-    for {
-      darFile <- result(new File(darDirectory, s"$name-$version.dar"))
-      darPath <- result(darFile.toPath)
-    } yield darPath
+  private def darPath(projectPath: Path, name: String, version: String): Result[Path] =
+    result(projectPath.resolve(darDirectory).resolve(s"$name-$version.dar"))
 
-  private val darDirectory = new File(".daml/dist")
+  private val darDirectory = Paths.get(".daml/dist")
 
   private def packagePrefix(sdkConf: ProjectConfig, mode: CodegenDest): Result[Option[String]] =
     codegen(sdkConf, mode)
@@ -88,7 +84,8 @@ object CodegenConfigReader {
 
   private def decoderPkgAndClass(
       sdkConf: ProjectConfig,
-      mode: CodegenDest): Result[Option[(String, String)]] =
+      mode: CodegenDest,
+  ): Result[Option[(String, String)]] =
     codegen(sdkConf, mode)
       .downField("decoderClass")
       .as[Option[String]]

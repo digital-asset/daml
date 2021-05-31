@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Based on https://github.com/ghc/ghc/blob/23f6f31dd66d7c370cb8beec3f1d96a0cb577393/libraries/ghc-prim/GHC/Types.hs
@@ -27,7 +27,10 @@ module GHC.Types (
 #ifdef DAML_NUMERIC
         Nat, Numeric,
 #endif
-
+#ifdef DAML_BIGNUMERIC
+        BigNumeric,
+        RoundingMode(..),
+#endif
     ) where
 
 import GHC.Prim
@@ -80,7 +83,7 @@ ifThenElse c t f = case c of True -> t; False -> f
 
 
 -- NOTE(MH): We're remove all the produced runtime represenations when
--- converting to DAML-LF but still need them here for type checking.
+-- converting to Daml-LF but still need them here for type checking.
 
 {- Note [Runtime representation of modules and tycons]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -137,11 +140,11 @@ data TyCon = TyCon Word# Word#           -- Fingerprint
                    KindRep               -- A representation of the type's kind
 
 
--- | HIDE A DAML-LF call to an external package
+-- | HIDE A Daml-LF call to an external package
 external : forall (f : Symbol) b. b
 external = external --deleted by the compiler
 
--- | HIDE A DAML-LF primitive
+-- | HIDE A Daml-LF primitive
 primitive : forall (f : Symbol) b. b
 primitive = primitive -- deleted by the compiler
 
@@ -149,7 +152,7 @@ primitive = primitive -- deleted by the compiler
 magic : forall (f : Symbol) b. b
 magic = magic -- deleted by the compiler
 
--- | HIDE Dummy type to mark types built into DAML-LF.
+-- | HIDE Dummy type to mark types built into Daml-LF.
 data Opaque = Opaque
 
 -- | A type for text strings, that can represent any unicode code point.
@@ -196,5 +199,46 @@ data Decimal =
   -- | HIDE
   Decimal Opaque
 
+
+#endif
+
+#ifdef DAML_BIGNUMERIC
+
+-- TODO https://github.com/digital-asset/daml/issues/8719
+--  Better documentation for BigNumeric and RoundingMode.
+
+-- | A big numeric type, capable of holding large decimal values with many digits.
+--
+-- `BigNumeric` represents any positive or negative decimal number with up to
+-- 2^15 digits before the decimal point, and up to 2^15 digits after the decimal
+-- point.
+--
+-- `BigNumeric` is not serializable, it is only intended for intermediate computation.
+-- You must round and convert `BigNumeric` to a fixed-width numeric (`Numeric n`)
+-- in order to store it in a template. The rounding operations are `round` and
+-- `div` from the `DA.BigNumeric` module. The casting operations are `fromNumeric`
+-- and `fromBigNumeric` from the `IsNumeric` typeclass.
+data BigNumeric =
+  -- | HIDE
+  BigNumeric Opaque
+
+-- | Rounding modes for `BigNumeric` operations like `div` and `round` from `DA.BigNumeric`.
+data RoundingMode
+  = RoundingUp -- ^ Round away from zero.
+  | RoundingDown -- ^ Round towards zero.
+  | RoundingCeiling -- ^ Round towards positive infinity.
+  | RoundingFloor -- ^ Round towards negative infinity.
+  | RoundingHalfUp
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round away from zero.
+  | RoundingHalfDown
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round towards zero.
+  | RoundingHalfEven
+      -- ^ Round towards the nearest neighbor unless both neighbors
+      -- are equidistant, in which case round towards the even neighbor.
+  | RoundingUnnecessary
+      -- ^ Do not round. Raises an error if the result cannot
+      -- be represented without rounding at the targeted scale.
 
 #endif

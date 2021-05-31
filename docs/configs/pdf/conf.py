@@ -1,9 +1,9 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # -*- coding: utf-8 -*-
 #
-# DAML SDK documentation build configuration file, created by
+# Daml SDK documentation build configuration file, created by
 # sphinx-quickstart on Wed Jul  5 17:39:28 2017.
 #
 # This file is execfile()d with the current directory set to its
@@ -53,8 +53,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'DAML SDK'
-copyright = u'© Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.'
+project = u'Daml SDK'
+copyright = u'Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited. "Digital Asset" and "Daml" are Registered in the U.S. Patent and Trademark Office.'
 author = u'Digital Asset'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -189,10 +189,10 @@ latex_elements = {
         %\fancyhead[LE]{\small \nouppercase{\leftmark}}
 
         %% for oneside: change footer at right side. If you want to use Left and right then use same as header defined above.
-        \fancyfoot[R]{\ifthenelse{\isodd{\value{page}}}{{\tiny © Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates.} }{{\tiny © Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates.}}}
+        \fancyfoot[R]{\ifthenelse{\isodd{\value{page}}}{{\tiny Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates.} }{{\tiny Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates.}}}
 
         %%% Alternating Footer for two side
-        %\fancyfoot[RO, RE]{\scriptsize © Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates.}
+        %\fancyfoot[RO, RE]{\scriptsize Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates.}
 
         %%% page number
         \fancyfoot[CO, CE]{\thepage}
@@ -256,7 +256,7 @@ latex_elements = {
             \centering
 
             \vspace*{40mm} %%% * is used to give space from top
-            \textcolor{headerblue}{\sffamily{\textbf{\Huge {DAML SDK Documentation}}}}
+            \textcolor{headerblue}{\sffamily{\textbf{\Huge {Daml SDK Documentation}}}}
 
             \vspace{20mm}
             \begin{figure}[!h]
@@ -271,7 +271,7 @@ latex_elements = {
 
             %% \vfill adds at the bottom
             \vfill
-            \small \textit{© Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.}
+            \small \textit{Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. Any unauthorized use, duplication or distribution is strictly prohibited.}
         \end{titlepage}
 
         \clearpage
@@ -303,7 +303,7 @@ latex_logo = 'logo.png'
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'DigitalAssetSDK.tex', u'DAML SDK Documentation',
+    (master_doc, 'DigitalAssetSDK.tex', u'Daml SDK Documentation',
      u'Digital Asset', 'manual'),
 ]
 
@@ -313,7 +313,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'digitalassetsdk', u'DAML SDK Documentation',
+    (master_doc, 'digitalassetsdk', u'Daml SDK Documentation',
      [author], 1)
 ]
 
@@ -324,7 +324,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'DigitalAssetSDK', u'DAML SDK Documentation',
+    (master_doc, 'DigitalAssetSDK', u'Daml SDK Documentation',
      author, 'DigitalAssetSDK', 'One line description of project.',
      'Miscellaneous'),
 ]
@@ -336,7 +336,7 @@ rst_prolog = """
 .. _api-test-tool: https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/{release}/ledger-api-test-tool-{release}.jar
 """.format(release = release)
 
-# Import the DAML lexer
+# Import the Daml lexer
 def setup(sphinx):
     from pygments_daml_lexer import DAMLLexer
     sphinx.add_lexer("daml", DAMLLexer())

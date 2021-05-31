@@ -1,8 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.auth.middleware.oauth2
 
+import java.io.File
 import java.time.{Instant, ZoneId}
 import java.util.Date
 
@@ -12,48 +13,96 @@ import com.auth0.jwt.JWTVerifier.BaseVerification
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.{Clock => Auth0Clock}
+import com.daml.auth.middleware.api.Client
 import com.daml.clock.AdjustableClock
 import com.daml.jwt.JwtVerifier
-import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   OwnedResource,
   Resource,
-  SuiteResource
+  SuiteResource,
 }
 import com.daml.ledger.resources.ResourceContext
-import com.daml.auth.oauth2.test.server.{Config => OAuthConfig}
+import com.daml.auth.oauth2.test.server.{Config => OAuthConfig, Server => OAuthServer}
 import com.daml.ports.Port
-import org.scalatest.Suite
+import org.scalatest.{BeforeAndAfterEach, Suite}
+
+import scala.concurrent.duration
+import scala.concurrent.duration.FiniteDuration
+
+case class TestResources(
+    clock: AdjustableClock,
+    authServer: OAuthServer,
+    authServerBinding: ServerBinding,
+    authMiddlewarePortFile: File,
+    authMiddlewareBinding: ServerBinding,
+    authMiddlewareClient: Client,
+    authMiddlewareClientBinding: ServerBinding,
+)
 
 trait TestFixture
     extends AkkaBeforeAndAfterAll
-    with SuiteResource[(AdjustableClock, ServerBinding, ServerBinding)] {
+    with BeforeAndAfterEach
+    with SuiteResource[TestResources] {
   self: Suite =>
   protected val ledgerId: String = "test-ledger"
   protected val jwtSecret: String = "secret"
-  override protected lazy val suiteResource
-    : Resource[(AdjustableClock, ServerBinding, ServerBinding)] = {
+  protected val maxMiddlewareLogins: Int = Config.DefaultMaxLoginRequests
+  protected val maxClientAuthCallbacks: Int = 1000
+  protected val middlewareCallbackUri: Option[Uri] = None
+  protected val redirectToLogin: Client.RedirectToLogin = Client.RedirectToLogin.Yes
+  lazy protected val clock: AdjustableClock = suiteResource.value.clock
+  lazy protected val server: OAuthServer = suiteResource.value.authServer
+  lazy protected val serverBinding: ServerBinding = suiteResource.value.authServerBinding
+  lazy protected val middlewarePortFile: File = suiteResource.value.authMiddlewarePortFile
+  lazy protected val middlewareBinding: ServerBinding = suiteResource.value.authMiddlewareBinding
+  lazy protected val middlewareClient: Client = suiteResource.value.authMiddlewareClient
+  lazy protected val middlewareClientBinding: ServerBinding = {
+    suiteResource.value.authMiddlewareClientBinding
+  }
+  lazy protected val middlewareClientCallbackUri: Uri = {
+    val host = middlewareClientBinding.localAddress
+    Uri()
+      .withScheme("http")
+      .withAuthority("localhost", host.getPort)
+      .withPath(Uri.Path./("cb"))
+  }
+  override protected lazy val suiteResource: Resource[TestResources] = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-    new OwnedResource[ResourceContext, (AdjustableClock, ServerBinding, ServerBinding)](
+    new OwnedResource[ResourceContext, TestResources](
       for {
         clock <- Resources.clock(Instant.now(), ZoneId.systemDefault())
-        server <- Resources.authServer(
+        server = OAuthServer(
           OAuthConfig(
             port = Port.Dynamic,
             ledgerId = ledgerId,
             jwtSecret = jwtSecret,
-            parties = Some(ApiTypes.Party.subst(Set("Alice", "Bob"))),
             clock = Some(clock),
-          ))
+          )
+        )
+        serverBinding <- Resources.authServerBinding(server)
         serverUri = Uri()
           .withScheme("http")
-          .withAuthority(server.localAddress.getHostString, server.localAddress.getPort)
-        client <- Resources.authMiddleware(
+          .withAuthority(
+            serverBinding.localAddress.getHostString,
+            serverBinding.localAddress.getPort,
+          )
+        tempDir <- Resources.temporaryDirectory()
+        middlewarePortFile = new File(tempDir, "port")
+        middlewareBinding <- Resources.authMiddlewareBinding(
           Config(
-            port = Port.Dynamic,
+            address = "localhost",
+            port = 0,
+            portFile = Some(middlewarePortFile.toPath),
+            callbackUri = middlewareCallbackUri,
+            maxLoginRequests = maxMiddlewareLogins,
+            loginTimeout = Config.DefaultLoginTimeout,
+            cookieSecure = Config.DefaultCookieSecure,
             oauthAuth = serverUri.withPath(Uri.Path./("authorize")),
             oauthToken = serverUri.withPath(Uri.Path./("token")),
+            oauthAuthTemplate = None,
+            oauthTokenTemplate = None,
+            oauthRefreshTemplate = None,
             clientId = "middleware",
             clientSecret = "middleware-secret",
             tokenVerifier = new JwtVerifier(
@@ -63,9 +112,46 @@ trait TestFixture
                 .build(new Auth0Clock {
                   override def getToday: Date = Date.from(clock.instant())
                 })
-            )
-          ))
-      } yield { (clock, server, client) }
+            ),
+          )
+        )
+        middlewareClientPort <- Resources.port()
+        middlewareClientConfig = Client.Config(
+          authMiddlewareUri = Uri()
+            .withScheme("http")
+            .withAuthority(
+              middlewareBinding.localAddress.getHostName,
+              middlewareBinding.localAddress.getPort,
+            ),
+          redirectToLogin = redirectToLogin,
+          callbackUri = Uri()
+            .withScheme("http")
+            .withAuthority("localhost", middlewareClientPort.value)
+            .withPath(Uri.Path./("cb")),
+          maxAuthCallbacks = maxClientAuthCallbacks,
+          authCallbackTimeout = FiniteDuration(1, duration.MINUTES),
+          maxHttpEntityUploadSize = 4194304,
+          httpEntityUploadTimeout = FiniteDuration(1, duration.MINUTES),
+        )
+        middlewareClient = Client(middlewareClientConfig)
+        middlewareClientBinding <- Resources
+          .authMiddlewareClientBinding(middlewareClientConfig, middlewareClient)
+      } yield TestResources(
+        clock = clock,
+        authServer = server,
+        authServerBinding = serverBinding,
+        authMiddlewarePortFile = middlewarePortFile,
+        authMiddlewareBinding = middlewareBinding,
+        authMiddlewareClient = middlewareClient,
+        authMiddlewareClientBinding = middlewareClientBinding,
+      )
     )
+  }
+
+  override protected def afterEach(): Unit = {
+    server.resetAuthorizedParties()
+    server.resetAdmin()
+
+    super.afterEach()
   }
 }

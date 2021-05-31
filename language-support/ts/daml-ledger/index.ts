@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 import { Choice, ContractId, List, Party, Template, Text, lookupTemplate } from '@daml/types';
 import * as jtv from '@mojotech/json-type-validation';
@@ -6,6 +6,22 @@ import fetch from 'cross-fetch';
 import { EventEmitter } from 'events';
 import WebSocket from 'isomorphic-ws';
 import _ from 'lodash';
+
+/**
+ * The result of a ``query`` against the ledger.
+ *
+ * Note: this is meant to be used by @daml/react.
+ *
+ * @typeparam T The contract template type of the query.
+ * @typeparam K The contract key type of the query.
+ * @typeparam I The template id type.
+ */
+export type QueryResult<T extends object, K, I extends string> = {
+  /** Contracts matching the query. */
+  contracts: readonly CreateEvent<T, K, I>[];
+  /** Indicator for whether the query is executing. */
+  loading: boolean;
+}
 
 /**
  * Full information about a Party.
@@ -241,17 +257,53 @@ export type StreamCloseEvent = {
  * @typeparam State The accumulated state.
  */
 export interface Stream<T extends object, K, I extends string, State> {
+  /**
+   * Register a callback that will be called when the state of the stream has
+   * caught up with the Active Contract Set and is now receiving new transactions.
+   * @param type 'live'
+   * @param listener function taking the state of the stream as an argument.
+   */
   on(type: 'live', listener: (state: State) => void): void;
+  /**
+   * Register a callback that will be called when the state of the stream changes,
+   * eg. new contract creates or archives.
+   * @param type 'change'
+   * @param listener function taking the state of the stream and new events as
+   * arguments.
+   */
   on(type: 'change', listener: (state: State, events: readonly Event<T, K, I>[]) => void): void;
+  /**
+   * Register a callback that will be called when the underlying stream is closed.
+   * @param type 'close'
+   * @param listener a function taking a StreamCloseEvent as an argument.
+   */
   on(type: 'close', listener: (closeEvent: StreamCloseEvent) => void): void;
+  /**
+   * Remove the registered callback for the 'live' event.
+   * @param type 'live'
+   * @param listener function to be deregistered.
+   */
   off(type: 'live', listener: (state: State) => void): void;
+  /**
+   * Remove the registered callback for the 'change' event.
+   * @param type 'change'
+   * @param listener function to be deregistered.
+   */
   off(type: 'change', listener: (state: State, events: readonly Event<T, K, I>[]) => void): void;
+  /**
+   * Remove the registered callback for the 'close' event.
+   * @param type 'close'
+   * @param listener function to be deregistered.
+   */
   off(type: 'close', listener: (closeEvent: StreamCloseEvent) => void): void;
+  /**
+   * Close the Stream and stop receiving events.
+   */
   close(): void;
 }
 
 /**
- * Options for creating a handle to a DAML ledger.
+ * Options for creating a handle to a Daml ledger.
  */
 type LedgerOptions = {
   /** JSON web token used for authentication. */
@@ -278,7 +330,7 @@ type LedgerOptions = {
 }
 
 /**
- * An object of type `Ledger` represents a handle to a DAML ledger.
+ * An object of type `Ledger` represents a handle to a Daml ledger.
  */
 class Ledger {
   private readonly token: string;
@@ -457,7 +509,7 @@ class Ledger {
    * @returns The return value of the choice together with a list of
    * [[event]]'s that were created as a result of exercising the choice.
    */
-  async exercise<T extends object, C, R>(choice: Choice<T, C, R>, contractId: ContractId<T>, argument: C): Promise<[R , Event<object>[]]> {
+  async exercise<T extends object, C, R, K>(choice: Choice<T, C, R, K>, contractId: ContractId<T>, argument: C): Promise<[R , Event<object>[]]> {
     const payload = {
       templateId: choice.template().templateId,
       contractId: ContractId(choice.template()).encode(contractId),
@@ -492,7 +544,7 @@ class Ledger {
    * is consuming (or otherwise archives it as part of its execution).
    *
    */
-  async createAndExercise<T extends object, C, R>(choice: Choice<T, C, R>, payload: T, argument: C): Promise<[R, Event<object>[]]> {
+  async createAndExercise<T extends object, C, R, K>(choice: Choice<T, C, R, K>, payload: T, argument: C): Promise<[R, Event<object>[]]> {
     const command = {
       templateId: choice.template().templateId,
       payload: choice.template().encode(payload),
@@ -802,7 +854,7 @@ class Ledger {
     template: Template<T, K, I>,
     key: K,
   ): Stream<T, K, I, CreateEvent<T, K, I> | null> {
-    // Note: this implmeentation is deliberately not unified with that of
+    // Note: this implementation is deliberately not unified with that of
     // `streamFetchByKeys`, because doing so would add the requirement that the
     // given key be in output format, whereas existing implementation supports
     // input format.

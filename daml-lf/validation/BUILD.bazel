@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,11 +6,16 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "silencer_plugin",
 )
 
 da_scala_library(
     name = "validation",
     srcs = glob(["src/main/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:daml-lf-validation:__VERSION__"],
     visibility = [
@@ -20,8 +25,6 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/language",
-        "//daml-lf/transaction",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -29,12 +32,21 @@ da_scala_test(
     name = "validation-test",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
-    scalacopts = lf_scalacopts,
+    plugins = [
+        silencer_plugin,
+    ],
+    scalacopts = lf_scalacopts + [
+        "-P:silencer:lineContentFilters=standardInterpolator",
+    ],
+    versioned_scala_deps = {
+        "2.12": [
+            "@maven//:org_scalaz_scalaz_core",
+        ],
+    },
     deps = [
         ":validation",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
@@ -22,7 +22,8 @@ private[testtool] abstract class LedgerTestSuite {
       participants: ParticipantAllocation,
       timeoutScale: Double = 1.0,
       runConcurrently: Boolean = true,
-  )(testCase: ExecutionContext => Participants => Future[Unit]): Unit = {
+      repeated: Int = 1,
+  )(testCase: ExecutionContext => PartialFunction[Participants, Future[Unit]]): Unit = {
     val shortIdentifierRef = Ref.LedgerString.assertFromString(shortIdentifier)
     testCaseBuffer.append(
       new LedgerTestCase(
@@ -31,9 +32,10 @@ private[testtool] abstract class LedgerTestSuite {
         description,
         timeoutScale,
         runConcurrently,
+        repeated,
         participants,
         testCase,
-      ),
+      )
     )
   }
 }

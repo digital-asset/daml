@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -54,19 +54,22 @@ common_haskell_flags = [
     "-Wno-name-shadowing",
     "-fno-omit-yields",
     "-fno-ignore-asserts",
+]
+
+# Passing these to libraries produces a (harmless but annoying) warning.
+common_binary_haskell_flags = common_haskell_flags + [
     "-threaded",
     "-rtsopts",
-
     # run on two cores, disable idle & parallel GC
     "-with-rtsopts=-N2 -qg -I0",
 ]
 
-def _wrap_rule(rule, name = "", deps = [], hackage_deps = [], compiler_flags = [], **kwargs):
+def _wrap_rule(rule, common_flags, name = "", deps = [], hackage_deps = [], compiler_flags = [], **kwargs):
     ext_flags = ["-X%s" % ext for ext in common_haskell_exts]
     stackage_libs = ["@stackage//:{}".format(dep) for dep in hackage_deps]
     rule(
         name = name,
-        compiler_flags = ext_flags + common_haskell_flags + compiler_flags,
+        compiler_flags = ext_flags + common_flags + compiler_flags,
         deps = stackage_libs + deps,
         **kwargs
     )
@@ -122,7 +125,7 @@ def da_haskell_library(**kwargs):
         )
         ```
     """
-    _wrap_rule(haskell_library, **kwargs)
+    _wrap_rule(haskell_library, common_haskell_flags, **kwargs)
 
 def da_haskell_binary(main_function = "Main.main", **kwargs):
     """
@@ -154,6 +157,7 @@ def da_haskell_binary(main_function = "Main.main", **kwargs):
     """
     _wrap_rule(
         haskell_binary,
+        common_binary_haskell_flags,
         # Make this argument explicit, so we can distinguish library and
         # executable rules in _wrap_rule.
         main_function = main_function,
@@ -190,6 +194,7 @@ def da_haskell_test(main_function = "Main.main", testonly = True, **kwargs):
     """
     _wrap_rule(
         haskell_test,
+        common_binary_haskell_flags,
         # Make this argument explicit, so we can distinguish library and
         # executable rules in _wrap_rule.
         main_function = main_function,

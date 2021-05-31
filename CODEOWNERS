@@ -3,8 +3,8 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
-CODEOWNERS  @hurryabit @gerolf-da @cocreature
-LATEST      @hurryabit @gerolf-da @bame-da @cocreature
+CODEOWNERS   @gerolf-da @cocreature
+LATEST       @gerolf-da @bame-da @cocreature
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
@@ -14,49 +14,59 @@ LATEST      @hurryabit @gerolf-da @bame-da @cocreature
 azure-pipelines.yml @garyverhaegen-da
 azure-cron.yml      @garyverhaegen-da
 
+# Blackduck
+NOTICES     @garyverhaegen-da @aherrmann-da @cocreature @dasormeter
+
 # Language
-/compiler/          @hurryabit @cocreature
-/libs-haskell/      @hurryabit @cocreature
-/daml-assistant/    @sofiafaro-da @hurryabit @cocreature
-/daml-script/       @cocreature @hurryabit @aherrmann-da
-/triggers/          @cocreature @hurryabit @aherrmann-da
+/compiler/           @cocreature
+/libs-haskell/       @cocreature
+/daml-assistant/    @sofiafaro-da  @cocreature
+/daml-script/       @cocreature  @aherrmann-da @stefanobaghino-da
+/triggers/          @cocreature  @aherrmann-da @stefanobaghino-da
 /ghc-lib/           @cocreature
 /compatibility/     @garyverhaegen-da @aherrmann-da @cocreature
 
 # Runtime
-/daml-lf/governance.rst @hurryabit @S11001001
-/daml-lf/archive/da/    @remyhaemmerle-da @hurryabit
-/daml-lf/engine/ @hurryabit @remyhaemmerle-da
-/daml-lf/interpreter/ @hurryabit @remyhaemmerle-da
-/daml-lf/repl/ @hurryabit @remyhaemmerle-da
-/daml-lf/scenario-interpreter/ @hurryabit @remyhaemmerle-da
-/daml-lf/spec/value.rst @S11001001 @hurryabit
-/daml-lf/spec/transaction.rst @S11001001 @hurryabit
-/daml-lf/spec/daml-lf-1.rst @remyhaemmerle-da @hurryabit
-/daml-lf/data-scalacheck/  @S11001001
-/daml-lf/transaction-test-lib/  @S11001001
-/daml-lf/validation/    @remyhaemmerle-da
-/daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @S11001001
-/daml-lf/transaction/src/main/scala/com/daml/lf/value/       @S11001001
+/daml-lf/ @remyhaemmerle-da
+/daml-lf/archive/da/ @cocreature
+/daml-lf/data-scalacheck/ @S11001001 @cocreature
+/daml-lf/engine/ @cocreature
+/daml-lf/governance.rst
+/daml-lf/interpreter/ @cocreature
+/daml-lf/kv-transaction-support/ @cocreature @gerolf-da @miklos-da
+/daml-lf/repl/ @cocreature
+/daml-lf/scenario-interpreter/  @cocreature
+/daml-lf/spec/daml-lf-1.rst @cocreature
+/daml-lf/spec/transaction.rst @cocreature
+/daml-lf/spec/value.rst @cocreature
+/daml-lf/transaction-test-lib/ @S11001001 @cocreature
+/daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @cocreature
+/daml-lf/transaction/src/main/scala/com/daml/lf/value/ @cocreature
+/daml-lf/validation/ @cocreature
 
-/ledger-service/    @S11001001 @cocreature
+/ledger-service/    @S11001001 @cocreature @stefanobaghino-da
 
-/ledger/      @gerolf-da @rautenrieth-da @SamirTalwar-DA @stefanobaghino-da
-/ledger-api/  @gerolf-da @rautenrieth-da @SamirTalwar-DA @stefanobaghino-da
+/ledger/      @gerolf-da @mziolekda @nmarton-da @rautenrieth-da @tudor-da
+/ledger-api/  @gerolf-da @mziolekda @nmarton-da @rautenrieth-da @tudor-da
 
-# DAML-on-X
-/ledger/participant-state/kvutils/  @dajmaki @dasormeter @fabiotudone-da @gerolf-da @miklos-da @mziolekda @rautenrieth-da @SamirTalwar-DA @stefanobaghino-da
+/ledger/participant-state/kvutils/ @fabiotudone-da @gerolf-da @miklos-da @SamirTalwar-DA
+
+/runtime-components/    @stefanobaghino-da @cocreature
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da
-/language-support/java/     @cocreature
-/language-support/scala/    @S11001001 @cocreature
-/language-support/ts/       @hurryabit @robin-da @cocreature @garyverhaegen-da
+/language-support/java/     @cocreature @stefanobaghino-da
+/language-support/scala/    @S11001001 @cocreature @stefanobaghino-da
+/language-support/ts/        @robin-da @cocreature @garyverhaegen-da @stefanobaghino-da
 
 # Tools
-/extractor/         @S11001001
-/navigator/         @cocreature
+/extractor/         @S11001001 @stefanobaghino-da
+/navigator/         @cocreature @stefanobaghino-da
+/navigator/backend/src/main/scala/com/digitalasset/navigator/json/    @S11001001
 
 # Misc
-/docs/              @bame-da @nemanja-da @hurryabit
+/docs/              @bame-da @nemanja-da
 /libs-scala/        @stefanobaghino-da @SamirTalwar-DA
+/libs-scala/contextualized-logging/    @S11001001
+/libs-scala/scala-utils/    @S11001001
+/libs-scala/scalatest-utils/    @S11001001

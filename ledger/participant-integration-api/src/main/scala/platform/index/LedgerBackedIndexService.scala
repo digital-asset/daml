@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.index
@@ -20,7 +20,7 @@ import com.daml.ledger.api.domain.{
   PartyDetails,
   PartyEntry,
   TransactionFilter,
-  TransactionId
+  TransactionId,
 }
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -29,7 +29,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
@@ -45,6 +45,7 @@ import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.store.ReadOnlyLedger
 import com.daml.platform.store.entries.PartyLedgerEntry
+import com.daml.telemetry.{SpanAttribute, Spans}
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
@@ -74,17 +75,22 @@ private[platform] final class LedgerBackedIndexService(
       filter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionTreesResponse, NotUsed] =
-    between(startExclusive, endInclusive)(
-      (from, to) =>
-        ledger
-          .transactionTrees(
-            startExclusive = from,
-            endInclusive = to,
-            requestingParties = filter.filtersByParty.keySet,
-            verbose = verbose,
-          )
-          .map(_._2)
-    )
+    between(startExclusive, endInclusive)((from, to) => {
+      from.foreach(offset =>
+        Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
+      )
+      to.foreach(offset =>
+        Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
+      )
+      ledger
+        .transactionTrees(
+          startExclusive = from,
+          endInclusive = to,
+          requestingParties = filter.filtersByParty.keySet,
+          verbose = verbose,
+        )
+        .map(_._2)
+    })
 
   override def transactions(
       startExclusive: domain.LedgerOffset,
@@ -92,22 +98,27 @@ private[platform] final class LedgerBackedIndexService(
       filter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetTransactionsResponse, NotUsed] =
-    between(startExclusive, endInclusive)(
-      (from, to) =>
-        ledger
-          .flatTransactions(
-            startExclusive = from,
-            endInclusive = to,
-            filter = convertFilter(filter),
-            verbose = verbose,
-          )
-          .map(_._2)
-    )
+    between(startExclusive, endInclusive)((from, to) => {
+      from.foreach(offset =>
+        Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
+      )
+      to.foreach(offset =>
+        Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
+      )
+      ledger
+        .flatTransactions(
+          startExclusive = from,
+          endInclusive = to,
+          filter = convertFilter(filter),
+          verbose = verbose,
+        )
+        .map(_._2)
+    })
 
   // Returns a function that memoizes the current end
   // Can be used directly or shared throughout a request processing
-  private def convertOffset(
-      implicit loggingContext: LoggingContext,
+  private def convertOffset(implicit
+      loggingContext: LoggingContext
   ): LedgerOffset => Source[Offset, NotUsed] = {
     case LedgerOffset.LedgerBegin => Source.single(Offset.beforeBegin)
     case LedgerOffset.LedgerEnd => Source.single(ledger.ledgerEnd())
@@ -118,8 +129,8 @@ private[platform] final class LedgerBackedIndexService(
   private def between[A](
       startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset],
-  )(f: (Option[Offset], Option[Offset]) => Source[A, NotUsed])(
-      implicit loggingContext: LoggingContext,
+  )(f: (Option[Offset], Option[Offset]) => Source[A, NotUsed])(implicit
+      loggingContext: LoggingContext
   ): Source[A, NotUsed] = {
     val convert = convertOffset
     convert(startExclusive).flatMapConcat { begin =>
@@ -132,7 +143,9 @@ private[platform] final class LedgerBackedIndexService(
           case Some(end) if begin > end =>
             Source.failed(
               ErrorFactories.invalidArgument(
-                s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."))
+                s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."
+              )
+            )
           case endOpt: Option[Offset] =>
             f(Some(begin), endOpt)
         }
@@ -140,17 +153,16 @@ private[platform] final class LedgerBackedIndexService(
   }
 
   private def convertFilter(filter: TransactionFilter): Map[Party, Set[Identifier]] =
-    filter.filtersByParty.map {
-      case (party, filters) =>
-        party -> filters.inclusive.fold(Set.empty[Identifier])(_.templateIds)
+    filter.filtersByParty.map { case (party, filters) =>
+      party -> filters.inclusive.fold(Set.empty[Identifier])(_.templateIds)
     }
 
-  override def currentLedgerEnd()(
-      implicit loggingContext: LoggingContext,
+  override def currentLedgerEnd()(implicit
+      loggingContext: LoggingContext
   ): Future[LedgerOffset.Absolute] = {
     val offset =
-      if (ledger.ledgerEnd == Offset.beforeBegin) ApiOffset.begin
-      else ledger.ledgerEnd
+      if (ledger.ledgerEnd() == Offset.beforeBegin) ApiOffset.begin
+      else ledger.ledgerEnd()
     Future.successful(toAbsolute(offset))
   }
 
@@ -172,7 +184,7 @@ private[platform] final class LedgerBackedIndexService(
   override def getCompletions(
       startExclusive: LedgerOffset,
       applicationId: ApplicationId,
-      parties: Set[Ref.Party]
+      parties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContext): Source[CompletionStreamResponse, NotUsed] = {
     val convert = convertOffset
     convert(startExclusive).flatMapConcat { beginOpt =>
@@ -181,55 +193,56 @@ private[platform] final class LedgerBackedIndexService(
   }
 
   // IndexPackagesService
-  override def listLfPackages()(
-      implicit loggingContext: LoggingContext,
+  override def listLfPackages()(implicit
+      loggingContext: LoggingContext
   ): Future[Map[PackageId, PackageDetails]] =
     ledger.listLfPackages()
 
-  override def getLfArchive(packageId: PackageId)(
-      implicit loggingContext: LoggingContext,
+  override def getLfArchive(packageId: PackageId)(implicit
+      loggingContext: LoggingContext
   ): Future[Option[Archive]] =
     ledger.getLfArchive(packageId)
 
-  override def getLfPackage(packageId: PackageId)(
-      implicit loggingContext: LoggingContext,
+  override def getLfPackage(packageId: PackageId)(implicit
+      loggingContext: LoggingContext
   ): Future[Option[Ast.Package]] =
     ledger.getLfPackage(packageId)
 
   override def lookupActiveContract(
-      submitter: Ref.Party,
+      readers: Set[Party],
       contractId: ContractId,
-  )(implicit loggingContext: LoggingContext)
-    : Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
-    ledger.lookupContract(contractId, submitter)
+  )(implicit
+      loggingContext: LoggingContext
+  ): Future[Option[ContractInst[Value.VersionedValue[ContractId]]]] =
+    ledger.lookupContract(contractId, readers)
 
-  override def lookupMaximumLedgerTime(ids: Set[ContractId])(
-      implicit loggingContext: LoggingContext,
+  override def lookupMaximumLedgerTime(ids: Set[ContractId])(implicit
+      loggingContext: LoggingContext
   ): Future[Option[Instant]] =
     ledger.lookupMaximumLedgerTime(ids)
 
   override def lookupContractKey(
-      submitter: Party,
+      readers: Set[Party],
       key: GlobalKey,
   )(implicit loggingContext: LoggingContext): Future[Option[ContractId]] =
-    ledger.lookupKey(key, submitter)
+    ledger.lookupKey(key, readers)
 
   // PartyManagementService
   override def getParticipantId()(implicit loggingContext: LoggingContext): Future[ParticipantId] =
     Future.successful(participantId)
 
-  override def getParties(parties: Seq[Party])(
-      implicit loggingContext: LoggingContext,
+  override def getParties(parties: Seq[Party])(implicit
+      loggingContext: LoggingContext
   ): Future[List[PartyDetails]] =
     ledger.getParties(parties)
 
-  override def listKnownParties()(
-      implicit loggingContext: LoggingContext,
+  override def listKnownParties()(implicit
+      loggingContext: LoggingContext
   ): Future[List[PartyDetails]] =
     ledger.listKnownParties()
 
   override def partyEntries(
-      startExclusive: Option[LedgerOffset.Absolute],
+      startExclusive: Option[LedgerOffset.Absolute]
   )(implicit loggingContext: LoggingContext): Source[PartyEntry, NotUsed] = {
     Source
       .future(concreteOffset(startExclusive))
@@ -243,7 +256,7 @@ private[platform] final class LedgerBackedIndexService(
   }
 
   override def packageEntries(
-      startExclusive: Option[LedgerOffset.Absolute],
+      startExclusive: Option[LedgerOffset.Absolute]
   )(implicit loggingContext: LoggingContext): Source[PackageEntry, NotUsed] =
     Source
       .future(concreteOffset(startExclusive))
@@ -254,18 +267,17 @@ private[platform] final class LedgerBackedIndexService(
     * to subscribe to further configuration changes.
     * The offset is internal and not exposed over Ledger API.
     */
-  override def lookupConfiguration()(
-      implicit loggingContext: LoggingContext,
+  override def lookupConfiguration()(implicit
+      loggingContext: LoggingContext
   ): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
     ledger
       .lookupLedgerConfiguration()
       .map(_.map { case (offset, config) => (toAbsolute(offset), config) })(DEC)
 
   /** Looks up the current configuration, if set, and continues to stream configuration changes.
-    *
     */
-  override def getLedgerConfiguration()(
-      implicit loggingContext: LoggingContext,
+  override def getLedgerConfiguration()(implicit
+      loggingContext: LoggingContext
   ): Source[LedgerConfiguration, NotUsed] = {
     Source
       .future(lookupConfiguration())
@@ -284,13 +296,13 @@ private[platform] final class LedgerBackedIndexService(
   }
 
   /** Retrieve configuration entries. */
-  override def configurationEntries(startExclusive: Option[LedgerOffset.Absolute])(
-      implicit loggingContext: LoggingContext,
+  override def configurationEntries(startExclusive: Option[LedgerOffset.Absolute])(implicit
+      loggingContext: LoggingContext
   ): Source[(domain.LedgerOffset.Absolute, domain.ConfigurationEntry), NotUsed] =
     Source
       .future(concreteOffset(startExclusive))
-      .flatMapConcat(ledger.configurationEntries(_).map {
-        case (offset, config) => toAbsolute(offset) -> config.toDomain
+      .flatMapConcat(ledger.configurationEntries(_).map { case (offset, config) =>
+        toAbsolute(offset) -> config.toDomain
       })
 
   /** Deduplicate commands */
@@ -309,8 +321,9 @@ private[platform] final class LedgerBackedIndexService(
     ledger.stopDeduplicatingCommand(commandId, submitters)
 
   /** Participant pruning command */
-  override def prune(pruneUpToInclusive: Offset)(
-      implicit loggingContext: LoggingContext): Future[Unit] =
+  override def prune(pruneUpToInclusive: Offset)(implicit
+      loggingContext: LoggingContext
+  ): Future[Unit] =
     ledger.prune(pruneUpToInclusive)
 
   private def concreteOffset(startExclusive: Option[LedgerOffset.Absolute]): Future[Offset] =

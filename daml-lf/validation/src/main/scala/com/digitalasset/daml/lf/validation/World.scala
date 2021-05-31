@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.validation
@@ -42,7 +42,8 @@ private[validation] class World(packages: PartialFunction[PackageId, Ast.GenPack
   def lookupChoice(
       ctx: => Context,
       tmpName: TypeConName,
-      chName: ChoiceName): Ast.GenTemplateChoice[_] =
+      chName: ChoiceName,
+  ): Ast.GenTemplateChoice[_] =
     lookupTemplate(ctx, tmpName).choices
       .getOrElse(chName, throw EUnknownDefinition(ctx, LEChoice(tmpName, chName)))
 
@@ -54,4 +55,7 @@ private[validation] class World(packages: PartialFunction[PackageId, Ast.GenPack
         throw EUnknownDefinition(ctx, LEValue(name))
     }
 
+  def lookupException(ctx: => Context, name: TypeConName): Ast.GenDefException[_] =
+    lookupModule(ctx, name.packageId, name.qualifiedName.module).exceptions
+      .getOrElse(name.qualifiedName.name, throw EUnknownDefinition(ctx, LEException(name)))
 }

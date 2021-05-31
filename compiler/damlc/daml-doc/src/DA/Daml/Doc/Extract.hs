@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | This module extracts docs from DAML modules. It does so by reading
@@ -53,6 +53,8 @@ import qualified Data.Map.Strict as MS
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Either
+
+
 
 -- | Extract documentation in a dependency graph of modules.
 extractDocs ::
@@ -192,9 +194,12 @@ haddockParse diagsLogger opts f = MaybeT $ do
           Service.discardInternalModules (optUnitId opts) f
       liftIO $ Service.setFilesOfInterest service (HashSet.fromList nonInternal)
       Service.runActionSync service $ runMaybeT $ do
-          deps <- Service.usesE Service.GetDependencies f
-          Service.usesE Service.TypeCheck $ nubOrd $ f ++ concatMap Service.transitiveModuleDeps deps
+          deps <- usesE' Service.GetDependencies f
+          usesE' Service.TypeCheck $ nubOrd $ f ++ concatMap Service.transitiveModuleDeps deps
               -- We enable Opt_Haddock in the opts for daml-doc.
+              --
+          where
+            usesE' k = fmap (map fst) . Service.usesE k
 
 ------------------------------------------------------------
 

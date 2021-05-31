@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -13,7 +13,7 @@ import org.scalatest.{OptionValues, TryValues}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.collection.JavaConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 
 final class RecordLikeMethodsSpec
     extends AnyFlatSpec
@@ -24,7 +24,7 @@ final class RecordLikeMethodsSpec
   behavior of "RecordMethods.constructor"
 
   it should "be a constructor" in {
-    constructor should be a 'constructor
+    constructor should be a Symbol("constructor")
   }
 
   it should "be public" in {
@@ -78,7 +78,7 @@ final class RecordLikeMethodsSpec
   }
 
   it should "be public static" in {
-    fromValue.modifiers.asScala should contain only (Modifier.STATIC, Modifier.PUBLIC)
+    fromValue.modifiers.asScala should contain.only(Modifier.STATIC, Modifier.PUBLIC)
   }
 
   it should "return the outer class" in {
@@ -102,10 +102,12 @@ final class RecordLikeMethodsSpec
   private val methods = RecordMethods(
     getFieldsWithTypes(
       ImmArraySeq(Ref.Name.assertFromString("bool") -> TypePrim(PrimTypeBool, ImmArraySeq.empty)),
-      Map()),
+      Map(),
+    ),
     name,
     IndexedSeq.empty,
-    Map())
+    Map(),
+  )
   private val Vector(constructor, fromValue, toValue) = methods.take(3)
 
 }

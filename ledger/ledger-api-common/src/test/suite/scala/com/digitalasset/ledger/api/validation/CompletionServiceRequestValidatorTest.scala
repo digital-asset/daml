@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.validation
@@ -6,7 +6,7 @@ package com.daml.ledger.api.validation
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
-  CompletionStreamRequest
+  CompletionStreamRequest,
 }
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
@@ -29,7 +29,7 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
 
   val validator = new CompletionServiceRequestValidator(
     domain.LedgerId(expectedLedgerId),
-    PartyNameChecker.AllowAllParties
+    PartyNameChecker.AllowAllParties,
   )
 
   "CompletionRequestValidation" when {
@@ -41,9 +41,10 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           validator.validateCompletionStreamRequest(
             completionReq.withLedgerId(""),
             ledgerEnd,
-            offsetOrdering),
+            offsetOrdering,
+          ),
           NOT_FOUND,
-          "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'."
+          "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
         )
       }
 
@@ -52,9 +53,10 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           validator.validateCompletionStreamRequest(
             completionReq.withApplicationId(""),
             ledgerEnd,
-            offsetOrdering),
+            offsetOrdering,
+          ),
           INVALID_ARGUMENT,
-          "Missing field: application_id"
+          "Missing field: application_id",
         )
       }
 
@@ -63,20 +65,24 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           validator.validateCompletionStreamRequest(
             completionReq.withParties(Seq()),
             ledgerEnd,
-            offsetOrdering),
+            offsetOrdering,
+          ),
           INVALID_ARGUMENT,
-          "Missing field: parties")
+          "Missing field: parties",
+        )
       }
 
       "return the correct error on unknown begin boundary" in {
         requestMustFailWith(
           validator.validateCompletionStreamRequest(
             completionReq.withOffset(
-              LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.Unrecognized(7)))),
+              LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.Unrecognized(7)))
+            ),
             ledgerEnd,
-            offsetOrdering),
+            offsetOrdering,
+          ),
           INVALID_ARGUMENT,
-          "Invalid argument: Unknown ledger boundary value '7' in field offset.boundary"
+          "Invalid argument: Unknown ledger boundary value '7' in field offset.boundary",
         )
       }
 
@@ -84,11 +90,13 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
         requestMustFailWith(
           validator.validateCompletionStreamRequest(
             completionReq.withOffset(
-              LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))),
+              LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))
+            ),
             ledgerEnd,
-            offsetOrdering),
+            offsetOrdering,
+          ),
           OUT_OF_RANGE,
-          "Begin offset 1001 is after ledger end 1000"
+          "Begin offset 1001 is after ledger end 1000",
         )
       }
 
@@ -97,22 +105,24 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           validator.validateCompletionStreamRequest(
             completionReq.update(_.optionalOffset := None),
             ledgerEnd,
-            offsetOrdering)) {
-          case Right(req) =>
-            req.ledgerId shouldEqual expectedLedgerId
-            req.applicationId shouldEqual expectedApplicationId
-            req.parties shouldEqual Set(party)
-            req.offset shouldEqual None
+            offsetOrdering,
+          )
+        ) { case Right(req) =>
+          req.ledgerId shouldEqual expectedLedgerId
+          req.applicationId shouldEqual expectedApplicationId
+          req.parties shouldEqual Set(party)
+          req.offset shouldEqual None
         }
       }
 
       "tolerate all fields filled out" in {
-        inside(validator.validateCompletionStreamRequest(completionReq, ledgerEnd, offsetOrdering)) {
-          case Right(req) =>
-            req.ledgerId shouldEqual expectedLedgerId
-            req.applicationId shouldEqual expectedApplicationId
-            req.parties shouldEqual Set(party)
-            req.offset shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+        inside(
+          validator.validateCompletionStreamRequest(completionReq, ledgerEnd, offsetOrdering)
+        ) { case Right(req) =>
+          req.ledgerId shouldEqual expectedLedgerId
+          req.applicationId shouldEqual expectedApplicationId
+          req.parties shouldEqual Set(party)
+          req.offset shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
         }
       }
     }
@@ -123,23 +133,23 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
         requestMustFailWith(
           validator.validateCompletionEndRequest(endReq.withLedgerId("")),
           NOT_FOUND,
-          "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.")
+          "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
+        )
       }
 
       "work with missing traceContext" in {
         inside(
-          validator.validateCompletionEndRequest(endReq.update(_.optionalTraceContext := None))) {
-          case Right(out) =>
-            out should have('ledgerId (expectedLedgerId))
-            out.traceContext shouldBe empty
+          validator.validateCompletionEndRequest(endReq.update(_.optionalTraceContext := None))
+        ) { case Right(out) =>
+          out should have(Symbol("ledgerId")(expectedLedgerId))
+          out.traceContext shouldBe empty
         }
       }
 
       "work with present traceContext" in {
-        inside(validator.validateCompletionEndRequest(endReq)) {
-          case Right(out) =>
-            out should have('ledgerId (expectedLedgerId))
-            isExpectedTraceContext(out.traceContext.value)
+        inside(validator.validateCompletionEndRequest(endReq)) { case Right(out) =>
+          out should have(Symbol("ledgerId")(expectedLedgerId))
+          isExpectedTraceContext(out.traceContext.value)
         }
       }
     }
@@ -149,7 +159,8 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
       val knowsPartyOnly =
         new CompletionServiceRequestValidator(
           domain.LedgerId(expectedLedgerId),
-          PartyNameChecker.AllowPartySet(Set(party)))
+          PartyNameChecker.AllowPartySet(Set(party)),
+        )
 
       val unknownParties = List("party", "Alice", "Bob")
       val knownParties = List("party")
@@ -159,9 +170,10 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           knowsPartyOnly.validateCompletionStreamRequest(
             completionReq.withParties(unknownParties),
             ledgerEnd,
-            offsetOrdering),
+            offsetOrdering,
+          ),
           INVALID_ARGUMENT,
-          "Invalid argument: Unknown parties: [Alice, Bob]"
+          "Invalid argument: Unknown parties: [Alice, Bob]",
         )
       }
 
@@ -169,7 +181,8 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
         knowsPartyOnly.validateCompletionStreamRequest(
           completionReq.withParties(knownParties),
           ledgerEnd,
-          offsetOrdering) shouldBe a[Right[_, _]]
+          offsetOrdering,
+        ) shouldBe a[Right[_, _]]
       }
     }
   }

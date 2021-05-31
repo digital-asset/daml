@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.conf
@@ -9,10 +9,8 @@ import ch.qos.logback.classic.Level
 import com.daml.buildinfo.BuildInfo
 import scopt.{OptionParser, Read}
 
-/**
-  *
-  * @param darFiles The [[Set]] of DAML-LF [[Path]]s to convert into code. It MUST contain
-  *                        all the DAML-LF packages dependencies.
+/** @param darFiles The [[Set]] of Daml-LF [[Path]]s to convert into code. It MUST contain
+  *                        all the Daml-LF packages dependencies.
   * @param outputDirectory The directory where the code will be generated
   * @param decoderPkgAndClass the fully qualified name of the generated decoder class (optional)
   */
@@ -21,7 +19,7 @@ final case class Conf(
     outputDirectory: Path,
     decoderPkgAndClass: Option[(String, String)] = None,
     verbosity: Level = Level.ERROR,
-    roots: List[String] = Nil
+    roots: List[String] = Nil,
 )
 
 object Conf {
@@ -34,14 +32,17 @@ object Conf {
 
   def parser: OptionParser[Conf] = new scopt.OptionParser[Conf]("codegen") {
     head("codegen", BuildInfo.Version)
-    note("Code generator for the DAML ledger bindings.\n")
+    note("Code generator for the Daml ledger bindings.\n")
 
     arg[(Path, Option[String])]("<DAR-file[=package-prefix]>...")(
-      optTupleRead(readPath, Read.stringRead))
+      optTupleRead(readPath, Read.stringRead)
+    )
       .unbounded()
       .action((p, c) => c.copy(darFiles = c.darFiles + p))
       .required()
-      .text("DAR file to use as input of the codegen with an optional, but recommend, package prefix for the generated sources.")
+      .text(
+        "DAR file to use as input of the codegen with an optional, but recommend, package prefix for the generated sources."
+      )
 
     opt[Path]('o', "output-directory")(readPath)
       .action((p, c) => c.copy(outputDirectory = p))
@@ -60,7 +61,8 @@ object Conf {
       .unbounded()
       .action((rexp, c) => c.copy(roots = rexp :: c.roots))
       .text(
-        "Regular expression for fully-qualified names of templates to generate -- defaults to .*")
+        "Regular expression for fully-qualified names of templates to generate -- defaults to .*"
+      )
 
     help("help").text("This help text")
 
@@ -82,7 +84,8 @@ object Conf {
     case "4" => Level.TRACE
     case _ =>
       throw new IllegalArgumentException(
-        "Expected a verbosity value between 0 (least verbose) and 4 (most verbose)")
+        "Expected a verbosity value between 0 (least verbose) and 4 (most verbose)"
+      )
   }
 
   private[conf] def optTupleRead[A: Read, B: Read]: Read[(A, Option[B])] =

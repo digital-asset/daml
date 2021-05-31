@@ -1,13 +1,16 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.configuration
 
-import com.github.ghik.silencer.silent
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-@silent("LedgerIdRequirement is deprecated \\(since 1.3.0\\): Use Option-based (copy|constructor)")
+import scala.annotation.nowarn
+
+@nowarn(
+  "msg=LedgerIdRequirement is deprecated \\(since 1.3.0\\): Use Option-based (copy|constructor)"
+)
 class LedgerIdRequirementTest extends AnyWordSpec with Matchers {
 
   "LedgerIdRequirement" when {

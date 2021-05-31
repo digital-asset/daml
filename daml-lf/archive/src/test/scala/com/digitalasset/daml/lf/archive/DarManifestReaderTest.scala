@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.archive
@@ -19,7 +19,7 @@ class DarManifestReaderTest extends AnyWordSpec with Matchers with Inside {
 
   "should read dalf names from manifest, real scenario with Dalfs line split" in {
     val manifest = """Manifest-Version: 1.0
-      |Created-By: Digital Asset packager (DAML-GHC)
+      |Created-By: Digital Asset packager (Daml-GHC)
       |Main-Dalf: com.daml.lf.archive:DarReaderTest:0.1.dalf
       |Dalfs: com.daml.lf.archive:DarReaderTest:0.1.dalf, daml-pri
       | m.dalf
@@ -30,7 +30,8 @@ class DarManifestReaderTest extends AnyWordSpec with Matchers with Inside {
     val actual = DarManifestReader.dalfNames(inputStream)
 
     actual shouldBe Success(
-      Dar("com.daml.lf.archive:DarReaderTest:0.1.dalf", List("daml-prim.dalf")))
+      Dar("com.daml.lf.archive:DarReaderTest:0.1.dalf", List("daml-prim.dalf"))
+    )
 
     inputStream.close()
   }
@@ -72,9 +73,8 @@ class DarManifestReaderTest extends AnyWordSpec with Matchers with Inside {
     val inputStream: InputStream = new ByteArrayInputStream(manifest.getBytes(unicode))
     val actual = DarManifestReader.dalfNames(inputStream)
 
-    inside(actual) {
-      case Failure(DarManifestReaderException(msg)) =>
-        msg shouldBe "Unsupported format: anything-different-from-daml-lf"
+    inside(actual) { case Failure(DarManifestReaderException(msg)) =>
+      msg shouldBe "Unsupported format: anything-different-from-daml-lf"
     }
 
     inputStream.close()

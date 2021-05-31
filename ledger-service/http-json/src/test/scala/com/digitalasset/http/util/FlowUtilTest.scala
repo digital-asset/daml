@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.util
@@ -15,6 +15,7 @@ import org.scalatest.matchers.should.Matchers
 import scalaz.{-\/, \/, \/-}
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
 
 class FlowUtilTest
     extends AnyFlatSpec
@@ -27,20 +28,21 @@ class FlowUtilTest
   implicit val materializer: Materializer = Materializer(asys)
 
   "allowOnlyFirstInput" should "pass 1st message through and replace all others with errors" in forAll(
-    nonEmptyVectorOfInts) { xs: Vector[Int] =>
+    nonEmptyVectorOfInts
+  ) { xs: Vector[Int] =>
     val error = "Error"
     val errorNum = Math.max(xs.size - 1, 0)
     val expected: Vector[String \/ Int] =
       xs.take(1).map(\/-(_)) ++ Vector.fill(errorNum)(-\/(error))
     val input: Source[String \/ Int, NotUsed] =
-      Source.fromIterator(() => xs.toIterator).map(\/-(_))
+      Source.fromIterator(() => xs.iterator).map(\/-(_))
 
     val actualF: Future[Vector[String \/ Int]] =
       input
         .via(allowOnlyFirstInput[String, Int](error))
         .runFold(Vector.empty[String \/ Int])(_ :+ _)
 
-    whenReady(actualF) { actual =>
+    whenReady(actualF, timeout(5.seconds), interval(100.milliseconds)) { actual =>
       actual shouldBe expected
     }
   }

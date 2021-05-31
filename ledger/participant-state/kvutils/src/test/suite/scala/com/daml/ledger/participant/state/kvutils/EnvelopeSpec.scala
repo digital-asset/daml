@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -31,7 +31,8 @@ class EnvelopeSpec extends AnyWordSpec with Matchers {
         .addSubmissions(
           Proto.DamlSubmissionBatch.CorrelatedSubmission.newBuilder
             .setCorrelationId("anId")
-            .setSubmission(ByteString.copyFromUtf8("a submission")))
+            .setSubmission(ByteString.copyFromUtf8("a submission"))
+        )
         .build
       Envelope.open(Envelope.enclose(submissionBatch)) shouldEqual
         Right(Envelope.SubmissionBatchMessage(submissionBatch))

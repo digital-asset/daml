@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.store.dao
@@ -31,6 +31,7 @@ private[platform] final class HikariConnection(
     metrics: Option[MetricRegistry],
     connectionPoolPrefix: String,
     maxInitialConnectRetryAttempts: Int,
+    connectionAsyncCommitMode: DbType.AsyncCommitMode,
 )(implicit loggingContext: LoggingContext)
     extends ResourceOwner[HikariDataSource] {
 
@@ -38,8 +39,10 @@ private[platform] final class HikariConnection(
 
   override def acquire()(implicit context: ResourceContext): Resource[HikariDataSource] = {
     val config = new HikariConfig
+    val dbType = DbType.jdbcType(jdbcUrl)
+
     config.setJdbcUrl(jdbcUrl)
-    config.setDriverClassName(DbType.jdbcType(jdbcUrl).driver)
+    config.setDriverClassName(dbType.driver)
     config.addDataSourceProperty("cachePrepStmts", "true")
     config.addDataSourceProperty("prepStmtCacheSize", "128")
     config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
@@ -50,22 +53,37 @@ private[platform] final class HikariConnection(
     config.setPoolName(s"$connectionPoolPrefix.${serverRole.threadPoolSuffix}")
     metrics.foreach(config.setMetricRegistry)
 
+    configureAsyncCommit(config, dbType)
+
     // Hikari dies if a database connection could not be opened almost immediately
     // regardless of any connection timeout settings. We retry connections so that
     // Postgres and Sandbox can be started in any order.
     Resource(
       RetryStrategy.constant(
         attempts = maxInitialConnectRetryAttempts,
-        waitTime = 1.second
+        waitTime = 1.second,
       ) { (i, _) =>
         Future {
           logger.info(
-            s"Attempting to connect to $jdbcUrl (attempt $i/$maxInitialConnectRetryAttempts)")
+            s"Attempting to connect to the database (attempt $i/$maxInitialConnectRetryAttempts)"
+          )
           new HikariDataSource(config)
         }
       }
     )(conn => Future { conn.close() })
   }
+
+  private def configureAsyncCommit(config: HikariConfig, dbType: DbType): Unit =
+    if (dbType.supportsAsynchronousCommits) {
+      logger.info(
+        s"Creating Hikari connections with synchronous commit ${connectionAsyncCommitMode.setting}"
+      )
+      config.setConnectionInitSql(s"SET synchronous_commit=${connectionAsyncCommitMode.setting}")
+    } else if (connectionAsyncCommitMode != DbType.SynchronousCommit) {
+      logger.warn(
+        s"Asynchronous commit setting ${connectionAsyncCommitMode.setting} is not compatible with ${dbType.name} database backend"
+      )
+    }
 }
 
 private[platform] object HikariConnection {
@@ -79,9 +97,8 @@ private[platform] object HikariConnection {
       maxPoolSize: Int,
       connectionTimeout: FiniteDuration,
       metrics: Option[MetricRegistry],
-  )(
-      implicit loggingContext: LoggingContext
-  ): HikariConnection =
+      connectionAsyncCommitMode: DbType.AsyncCommitMode,
+  )(implicit loggingContext: LoggingContext): HikariConnection =
     new HikariConnection(
       serverRole,
       jdbcUrl,
@@ -91,6 +108,7 @@ private[platform] object HikariConnection {
       metrics,
       ConnectionPoolPrefix,
       MaxInitialConnectRetryAttempts,
+      connectionAsyncCommitMode,
     )
 }
 
@@ -126,11 +144,11 @@ private[platform] class HikariJdbcConnectionProvider(
     try {
       val res = Timed.value(
         databaseMetrics.queryTimer,
-        block(conn)
+        block(conn),
       )
       Timed.value(
         databaseMetrics.commitTimer,
-        conn.commit()
+        conn.commit(),
       )
       res
     } catch {
@@ -155,7 +173,9 @@ private[platform] object HikariJdbcConnectionProvider {
       serverRole: ServerRole,
       jdbcUrl: String,
       maxConnections: Int,
+      connectionTimeout: FiniteDuration,
       metrics: MetricRegistry,
+      connectionAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
   )(implicit loggingContext: LoggingContext): ResourceOwner[HikariJdbcConnectionProvider] =
     for {
       // these connections should never time out as we have the same number of threads as connections
@@ -164,10 +184,12 @@ private[platform] object HikariJdbcConnectionProvider {
         jdbcUrl,
         maxConnections,
         maxConnections,
-        250.millis,
+        connectionTimeout,
         Some(metrics),
+        connectionAsyncCommitMode,
       )
       healthPoller <- ResourceOwner.forTimer(() =>
-        new Timer(s"${classOf[HikariJdbcConnectionProvider].getName}#healthPoller"))
+        new Timer(s"${classOf[HikariJdbcConnectionProvider].getName}#healthPoller")
+      )
     } yield new HikariJdbcConnectionProvider(dataSource, healthPoller)
 }

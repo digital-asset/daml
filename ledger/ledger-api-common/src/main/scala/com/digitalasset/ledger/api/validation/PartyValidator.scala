@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.validation
@@ -11,7 +11,7 @@ import io.grpc.StatusRuntimeException
 class PartyValidator(partyNameChecker: PartyNameChecker) {
   type Result[X] = Either[StatusRuntimeException, X]
 
-  def requireKnownParties(parties: Traversable[String]): Result[Set[Party]] =
+  def requireKnownParties(parties: Iterable[String]): Result[Set[Party]] =
     for {
       ps <- requireParties(parties.toSet)
       knownParties <- requireKnownParties(ps)

@@ -1,9 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// .proto representation of the first version of the DAML-LF language,
+// .proto representation of the first version of the Daml-LF language,
 // as specified by
-// <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>.
+// <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>.
 //
 // A few notes:
 //
@@ -17,36 +17,39 @@
 
 // Minor version history:
 // * 0 (somewhen in December 2018): initial version
-// * 1 -- 2019-01-10: Add Optional type
-//     -- 2019-01-27: Add <, <=, =>, > for Party
-//     -- 2019-01-29: Add PrimType.ARROW
-// * 2 -- 2019-03-18: Add BuiltinFunction.{SHA256_TEXT, TO_TEXT_PARTY, FROM_TEXT_PARTY}
-//     -- 2019-03-18: Add flexible controllers (change scoping of controller expressions)
-// * 3 -- 2019-03-25: Add contract keys
-//     -- 2019-03-27: Add Map type
-// * 4 -- 2019-05-15: Add complex contract keys
-// * 5 -- 2019-05-22: Relax serializability constraints for contract ids
-//        2019-05-23: Add BuiltinFunction.COERCE_CONTRACT_ID
-//        2019-05-24: Make actors in exercise optional
-// * 6 -- 2019-05-27: Add enum type.
-//        2019-06-04: Add BuiltinFunction.{TEXT_FROM_CODE_POINTS, TEXT_TO_CODE_POINTS}
-//        2019-06-12: Add Package.interned_package_ids and PackageRef.interned_id
-// * 7 -- 2019-07-29: Add nat kind and Nat types, Numeric types and Numeric builtins
-//        2019-09-17: Add Any type and, `to_any` and `from_any` builtins
-//        2019-09-17: Drop support for Decimal
-//        2019-09-30: Add interning of strings and dotted names
-//        2019-11-04: Add Type representation values
-// * 8 -- 2019-11-22: Rename Map to TextMap
-//        2019-11-28: Rename Tuple to Struct
-//        2019-12-03: Add type synonyms
-//        2020-02-20: Add PackageMetadata.
+// * 1 --  2019-01-10: Add Optional type
+//     --  2019-01-27: Add <, <=, =>, > for Party
+//     --  2019-01-29: Add PrimType.ARROW
+// * 2 --  2019-03-18: Add BuiltinFunction.{SHA256_TEXT, PARTY_TO_TEXT, TEXT_TO_PARTY}
+//     --  2019-03-18: Add flexible controllers (change scoping of controller expressions)
+// * 3 --  2019-03-25: Add contract keys
+//     --  2019-03-27: Add Map type
+// * 4 --  2019-05-15: Add complex contract keys
+// * 5 --  2019-05-22: Relax serializability constraints for contract ids
+//         2019-05-23: Add BuiltinFunction.COERCE_CONTRACT_ID
+//         2019-05-24: Make actors in exercise optional
+// * 6 --  2019-05-27: Add enum type.
+//         2019-06-04: Add BuiltinFunction.{CODE_POINTS_TO_TEXT, TEXT_POINTS_TO_CODE}
+//         2019-06-12: Add Package.interned_package_ids and PackageRef.interned_id
+// * 7 --  2019-07-29: Add nat kind and Nat types, Numeric types and Numeric builtins
+//         2019-09-17: Add Any type and, `to_any` and `from_any` builtins
+//         2019-09-17: Drop support for Decimal
+//         2019-09-30: Add interning of strings and dotted names
+//         2019-11-04: Add Type representation values
+// * 8 --  2019-11-22: Rename Map to TextMap
+//         2019-11-28: Rename Tuple to Struct
+//         2019-12-03: Add type synonyms
+//         2020-02-20: Add PackageMetadata.
+// * 11 -- 2019-11-12: Add Generic Map (GenMap)
+//         2019-12-05: Add Generic Equality builtin
+//         2019-10-13: Add ExerciseByKey Update
+//         2020-11-04: Add interning of types
+//         2020-11-20: Add choice-observers
+// * 12 -- 2021-01-27: No Archive changes
+// * 13 -- 2021-04-06: Add BigNumeric
 // * dev (special staging area for the next version to be released)
-//        2019-11-12: Add Generic Map (GenMap)
 //        2019-12-03: Add (experimental) text primitives.
-//        2019-12-05: Add Generic Equality builtin
-//        2019-10-13: Add ExerciseByKey Update
-//        2020-11-04: Add interning of types
-//        2020-11-??: Add choice-observers
+//        2020-03-08: Add experiment Builtin hook
 //        2020-11-27: Add exception handling & primitives
 
 syntax = "proto3";
@@ -307,24 +310,20 @@ enum PrimType {
   TYPE_REP = 19;
 
   // Builtin type 'TGenMap`
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.11*
   GENMAP = 20;
+
+  // Builtin type 'TBigNumeric'
+  // *Available in versions >= 1.13*
+  BIGNUMERIC = 21;
+
+  // Builtin type 'TRoundingMode'
+  // *Available in versions >= 1.13*
+  ROUNDING_MODE = 22;
 
   // Builtin type 'TAnyException'
   // *Available in versions >= 1.dev*
-  ANY_EXCEPTION = 21;
-
-  // Builtin type 'TGeneralError'
-  // *Available in versions >= 1.dev*
-  GENERAL_ERROR = 22;
-
-  // Builtin type 'TArithmeticError'
-  // *Available in versions >= 1.dev*
-  ARITHMETIC_ERROR = 23;
-
-  // Builtin type 'TContractError'
-  // *Available in versions >= 1.dev*
-  CONTRACT_ERROR = 24;
+  ANY_EXCEPTION = 23;
 }
 
 // Types
@@ -415,7 +414,7 @@ message Type {
     sint64 nat = 11;
     Syn syn = 12; // *Available in versions >= 1.8*
 
-    int32 interned = 13; // *Available in versions >= 1.dev*
+    int32 interned = 13; // *Available in versions >= 1.11*
   }
 
   reserved 4; // This was fun.  Removed in favour of PrimType.ARROW
@@ -440,7 +439,7 @@ enum PrimCon {
 }
 
 // Builtin functions
-// Refer to DAML-LF major version 1 specification for types and behavior of those.
+// Refer to Daml-LF major version 1 specification for types and behavior of those.
 enum BuiltinFunction {
   ADD_DECIMAL = 0; // *Available in versions < 1.7*
   SUB_DECIMAL = 1; // *Available in versions < 1.7*
@@ -473,72 +472,65 @@ enum BuiltinFunction {
   TEXTMAP_TO_LIST = 100;
   TEXTMAP_SIZE = 101;
 
-  GENMAP_EMPTY = 124; // *Available in versions >= 1.dev*
-  GENMAP_INSERT = 125; // *Available in versions >= 1.dev*
-  GENMAP_LOOKUP = 126; // *Available in versions >= 1.dev*
-  GENMAP_DELETE = 127; // *Available in versions >= 1.dev*
-  GENMAP_KEYS = 128; // *Available in versions >= 1.dev*
-  GENMAP_VALUES = 129; // *Available in versions >= 1.dev*
-  GENMAP_SIZE = 130; // *Available in versions >= 1.dev*
+  GENMAP_EMPTY = 124; // *Available in versions >= 1.11*
+  GENMAP_INSERT = 125; // *Available in versions >= 1.11*
+  GENMAP_LOOKUP = 126; // *Available in versions >= 1.11*
+  GENMAP_DELETE = 127; // *Available in versions >= 1.11*
+  GENMAP_KEYS = 128; // *Available in versions >= 1.11*
+  GENMAP_VALUES = 129; // *Available in versions >= 1.11*
+  GENMAP_SIZE = 130; // *Available in versions >= 1.11*
 
   EXPLODE_TEXT = 23;
   APPEND_TEXT = 24;
 
   ERROR = 25;
-  THROW = 137;                      // *Available in versions >= 1.dev*
-  ANY_EXCEPTION_MESSAGE = 138;      // *Available in versions >= 1.dev*
-  MAKE_GENERAL_ERROR = 139;         // *Available in versions >= 1.dev*
-  GENERAL_ERROR_MESSAGE = 140;      // *Available in versions >= 1.dev*
-  MAKE_ARITHMETIC_ERROR = 141;      // *Available in versions >= 1.dev*
-  ARITHMETIC_ERROR_MESSAGE = 142;   // *Available in versions >= 1.dev*
-  MAKE_CONTRACT_ERROR = 143;        // *Available in versions >= 1.dev*
-  CONTRACT_ERROR_MESSAGE = 144;     // *Available in versions >= 1.dev*
+  ANY_EXCEPTION_MESSAGE = 147;              // *Available in versions >= 1.dev*
 
-  LEQ_INT64 = 33;         // *Available in versions < 1.dev*
+  LEQ_INT64 = 33;         // *Available in versions < 1.11*
   LEQ_DECIMAL = 34;       // *Available in versions < 1.7*
-  LEQ_NUMERIC = 112;      // *Available in versions >= 1.7 and < 1.dev*
-  LEQ_TEXT = 36;          // *Available in versions < 1.dev*
-  LEQ_TIMESTAMP = 37;     // *Available in versions < 1.dev*
-  LEQ_DATE = 67;          // *Available in versions < 1.dev*
-  LEQ_PARTY = 89;         // *Available in versions >= 1.1 and < 1.dev*
+  LEQ_NUMERIC = 112;      // *Available in versions >= 1.7 and < 1.11*
+  LEQ_TEXT = 36;          // *Available in versions < 1.11*
+  LEQ_TIMESTAMP = 37;     // *Available in versions < 1.11*
+  LEQ_DATE = 67;          // *Available in versions < 1.11*
+  LEQ_PARTY = 89;         // *Available in versions >= 1.1 and < 1.11*
 
-  LESS_INT64 = 39;        // *Available in versions < 1.dev*
+  LESS_INT64 = 39;        // *Available in versions < 1.11*
   LESS_DECIMAL = 40;      // *Available in versions < 1.7*
-  LESS_NUMERIC = 113;     // *Available in versions >= 1.7 and < 1.dev*
-  LESS_TEXT = 42;         // *Available in versions < 1.dev*
-  LESS_TIMESTAMP = 43;    // *Available in versions < 1.dev*
-  LESS_DATE = 68;         // *Available in versions < 1.dev*
-  LESS_PARTY = 90;        // *Available in versions >= 1.1 and < 1.dev*
+  LESS_NUMERIC = 113;     // *Available in versions >= 1.7 and < 1.11*
+  LESS_TEXT = 42;         // *Available in versions < 1.11*
+  LESS_TIMESTAMP = 43;    // *Available in versions < 1.11*
+  LESS_DATE = 68;         // *Available in versions < 1.11*
+  LESS_PARTY = 90;        // *Available in versions >= 1.1 and < 1.11*
 
-  GEQ_INT64 = 45;         // *Available in versions < 1.dev*
+  GEQ_INT64 = 45;         // *Available in versions < 1.11*
   GEQ_DECIMAL = 46;       // *Available in versions < 1.7*
-  GEQ_NUMERIC = 114;      // *Available in versions >= 1.7 and < 1.dev*
-  GEQ_TEXT = 48;          // *Available in versions < 1.dev*
-  GEQ_TIMESTAMP = 49;     // *Available in versions < 1.dev*
-  GEQ_DATE = 69;          // *Available in versions < 1.dev*
-  GEQ_PARTY = 91;         // *Available in versions >= 1.1 and < 1.dev*
+  GEQ_NUMERIC = 114;      // *Available in versions >= 1.7 and < 1.11*
+  GEQ_TEXT = 48;          // *Available in versions < 1.11*
+  GEQ_TIMESTAMP = 49;     // *Available in versions < 1.11*
+  GEQ_DATE = 69;          // *Available in versions < 1.11*
+  GEQ_PARTY = 91;         // *Available in versions >= 1.1 and < 1.11*
 
-  GREATER_INT64 = 51;     // *Available in versions < 1.dev*
+  GREATER_INT64 = 51;     // *Available in versions < 1.11*
   GREATER_DECIMAL = 52;   // *Available in versions < 1.7*
-  GREATER_NUMERIC = 115;  // *Available in versions >= 1.7 and < 1.dev*
-  GREATER_TEXT = 54;      // *Available in versions < 1.dev*
-  GREATER_TIMESTAMP = 55; // *Available in versions < 1.dev*
-  GREATER_DATE = 70;      // *Available in versions < 1.dev*
-  GREATER_PARTY = 92;     // *Available in versions >= 1.1 and < 1.dev*
+  GREATER_NUMERIC = 115;  // *Available in versions >= 1.7 and < 1.11*
+  GREATER_TEXT = 54;      // *Available in versions < 1.11*
+  GREATER_TIMESTAMP = 55; // *Available in versions < 1.11*
+  GREATER_DATE = 70;      // *Available in versions < 1.11*
+  GREATER_PARTY = 92;     // *Available in versions >= 1.1 and < 1.11*
 
-  TO_TEXT_INT64 = 57;
-  TO_TEXT_DECIMAL = 58;  // *Available in versions < 1.7*
-  TO_TEXT_NUMERIC = 116;  // *Available in versions >= 1.7*
-  TO_TEXT_TEXT = 60;
-  TO_TEXT_TIMESTAMP = 61;
-  TO_TEXT_DATE = 71;
-  TO_QUOTED_TEXT_PARTY = 63; // legacy, remove in next major version
-  TO_TEXT_PARTY = 94; // *Available in versions >= 1.2*
-  FROM_TEXT_PARTY = 95; // *Available in versions >= 1.2*, was named FROM_TEXT_PARTY in 1.2, 1.3 and 1.4
-  FROM_TEXT_INT64 = 103; // *Available in versions >= 1.5*
-  FROM_TEXT_DECIMAL = 104; // *Available in versions 1.5 and 1.6
-  FROM_TEXT_NUMERIC = 117;  // *Available in versions >= 1.7*
-  TO_TEXT_CONTRACT_ID = 136; // *Available in versions >= 1.dev*
+  INT64_TO_TEXT = 57;
+  DECIMAL_TO_TEXT = 58;  // *Available in versions < 1.7*
+  NUMERIC_TO_TEXT = 116;  // *Available in versions >= 1.7*
+  TEXT_TO_TEXT = 60;
+  TIMESTAMP_TO_TEXT = 61;
+  DATE_TO_TEXT = 71;
+  PARTY_TO_QUOTED_TEXT = 63; // *Available in versions <= 1.dev*
+  PARTY_TO_TEXT = 94; // *Available in versions >= 1.2*
+  TEXT_TO_PARTY = 95; // *Available in versions >= 1.2*, was named TEXT_TO_PARTY in 1.2, 1.3 and 1.4
+  TEXT_TO_INT64 = 103; // *Available in versions >= 1.5*
+  TEXT_TO_DECIMAL = 104; // *Available in versions 1.5 and 1.6
+  TEXT_TO_NUMERIC = 117;  // *Available in versions >= 1.7*
+  CONTRACT_ID_TO_TEXT = 136; // *Available in versions >= 1.11*
   SHA256_TEXT = 93; // *Available in versions >= 1.2*
 
   DATE_TO_UNIX_DAYS = 72; // Date -> Int64
@@ -555,32 +547,43 @@ enum BuiltinFunction {
 
   IMPLODE_TEXT = 78;
 
-  EQUAL_INT64 = 79;       // *Available in versions < 1.dev*
+  EQUAL_INT64 = 79;       // *Available in versions < 1.11*
   EQUAL_DECIMAL = 80;     // *Available in versions < 1.7*
-  EQUAL_NUMERIC = 120;    // *Available in versions >= 1.7 and < 1.dev*
-  EQUAL_TEXT = 81;        // *Available in versions < 1.dev*
-  EQUAL_TIMESTAMP = 82;   // *Available in versions < 1.dev*
-  EQUAL_DATE = 83;        // *Available in versions < 1.dev*
-  EQUAL_PARTY = 84;       // *Available in versions < 1.dev*
-  EQUAL_BOOL = 85;        // *Available in versions < 1.dev*
-  EQUAL_CONTRACT_ID = 86; // *Available in versions < 1.dev*
+  EQUAL_NUMERIC = 120;    // *Available in versions >= 1.7 and < 1.11*
+  EQUAL_TEXT = 81;        // *Available in versions < 1.11*
+  EQUAL_TIMESTAMP = 82;   // *Available in versions < 1.11*
+  EQUAL_DATE = 83;        // *Available in versions < 1.11*
+  EQUAL_PARTY = 84;       // *Available in versions < 1.11*
+  EQUAL_BOOL = 85;        // *Available in versions < 1.11*
+  EQUAL_CONTRACT_ID = 86; // *Available in versions < 1.11*
   EQUAL_LIST = 87;
   EQUAL_TYPE_REP = 123;   // *Available in versions = 1.8*
 
-  EQUAL = 131;            // *Available in versions >= 1.dev*
-  LESS_EQ = 132;          // *Available in versions >= 1.dev*
-  LESS = 133;             // *Available in versions >= 1.dev*
-  GREATER_EQ = 134;       // *Available in versions >= 1.dev*
-  GREATER = 135;          // *Available in versions >= 1.dev*
+  EQUAL = 131;            // *Available in versions >= 1.11*
+  LESS_EQ = 132;          // *Available in versions >= 1.11*
+  LESS = 133;             // *Available in versions >= 1.11*
+  GREATER_EQ = 134;       // *Available in versions >= 1.11*
+  GREATER = 135;          // *Available in versions >= 1.11*
 
   TRACE = 88;
 
   COERCE_CONTRACT_ID = 102;
 
-  TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
-  TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
+  CODE_POINTS_TO_TEXT = 105;  // *Available in versions >= 1.6*
+  TEXT_POINTS_TO_CODE = 106; // *Available in versions >= 1.6*
 
-  // Next id is 145. 144 is CONTRACT_ERROR_MESSAGE.
+  SCALE_BIGNUMERIC = 137; // *Available in versions >= 1.13*
+  PRECISION_BIGNUMERIC = 138; // *Available in versions >= 1.13*
+  ADD_BIGNUMERIC = 139; // *Available in versions >= 1.13*
+  SUB_BIGNUMERIC = 140; // *Available in versions >= 1.13*
+  MUL_BIGNUMERIC = 141; // *Available in versions >= 1.13*
+  DIV_BIGNUMERIC = 142; // *Available in versions >= 1.13*
+  SHIFT_RIGHT_BIGNUMERIC = 143; // *Available in versions >= 1.13*
+  BIGNUMERIC_TO_NUMERIC = 144; // *Available in versions >= 1.13*
+  NUMERIC_TO_BIGNUMERIC = 145; // *Available in versions >= 1.13*
+  BIGNUMERIC_TO_TEXT = 146; // *Available in versions >= 1.13*
+
+  // Next id is 148. 147 is ANY_EXCEPTION_MESSAGE.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
@@ -596,6 +599,19 @@ enum BuiltinFunction {
 // Builtin literals
 // FixMe: Renamed
 message PrimLit {
+
+  // match java.math.BigDecimal.ROUND_XXX constants
+  enum RoundingMode {
+    UP = 0;
+    DOWN = 1;
+    CEILING = 2;
+    FLOOR = 3;
+    HALF_UP = 4;
+    HALF_DOWN = 5;
+    HALF_EVEN = 6;
+    UNNECESSARY = 7;
+  }
+
   oneof Sum {
 
     //  64-bit integer literal ('LitInt64')
@@ -623,6 +639,10 @@ message PrimLit {
 
     // *Must be a valid date*
     int32 date = 8;
+
+    // rounding mode for arithmetic operation
+    // *Available in versions >= 1.13*
+    RoundingMode rounding_mode = 13;
   }
 
   reserved 3; // This was char.
@@ -880,17 +900,15 @@ message Expr {
 
   // Wrap an exception value in AnyException
   // *Available in versions >= 1.dev*
-  message MakeAnyException {
+  message ToAnyException {
     // type of argument. Must be an exception type.
     Type type = 1;
     // argument
     Expr expr = 2;
-    // error message
-    Expr message = 3;
   }
 
   // Extract the given exception type from AnyException or return None on type-mismatch
-  // *Available in versions >= 1.7*
+  // *Available in versions >= 1.dev*
   message FromAnyException {
     // type that should be extracted. Must be an exception type.
     Type type = 1;
@@ -898,8 +916,23 @@ message Expr {
     Expr expr = 2;
   }
 
+  // Throw an exception.
+  // *Available in versions >= 1.dev*
+  message Throw {
+    // Overall type of the "throw" expression.
+    Type return_type = 1;
+    // Type of exception to throw. Must be an exception type.
+    Type exception_type = 2;
+    // Value of type "exception_type".
+    Expr exception_expr = 3;
+  }
 
-  // Location of the expression in the DAML code source.
+  message Experimental {
+    string name = 1;
+    Type type = 2 ;
+  }
+
+  // Location of the expression in the Daml code source.
   // Optional
   Location location = 25;
 
@@ -997,13 +1030,19 @@ message Expr {
     // *Available in versions >= 1.7*
     Type type_rep = 32;
 
-    // Wrap an arbitrary exception into an AnyException ('ExpMakeAnyException').
+    // Wrap an arbitrary exception into an AnyException ('ExpToAnyException').
     // *Available in versions >= 1.dev*
-    MakeAnyException make_any_exception = 33;
+    ToAnyException to_any_exception = 33;
 
     // Extract an arbitrary exception from an AnyException ('ExpFromAnyException').
     // *Available in versions >= 1.dev*
     FromAnyException from_any_exception = 34;
+
+    // Throw an exception ('ExpThrow').
+    // *Available in versions >= 1.dev*
+    Throw throw = 35;
+
+    Experimental experimental = 9999; // *Available only in 1.dev*
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*
@@ -1152,7 +1191,6 @@ message Update {
     // contract id
     Expr cid = 3;
     // actors
-    // *Available in version < 1.5*
     reserved 4; // Was actor
     // argument
     Expr arg = 5;
@@ -1210,7 +1248,7 @@ message Update {
     Block block = 2;
     Create create = 3;
     Exercise exercise = 4;
-    ExerciseByKey exercise_by_key = 10; // *Available in versions >= 1.dev*
+    ExerciseByKey exercise_by_key = 10; // *Available in versions >= 1.11*
     Fetch fetch = 5;
     Unit get_time = 6;
     RetrieveByKey lookup_by_key = 8; // *Available in versions >= 1.2*
@@ -1275,13 +1313,13 @@ message TemplateChoice {
   bool consuming = 2;
 
   // The controllers of the choice. They have type `List Party` and the
-  // template parameter in scope, and (since 1.2) also the choice parameter. All of these
+  // template parameter in scope, and the choice parameter. All of these
   // controllers need to authorize the exercising of this choice (aka
   // conjunctive choice controllers).
   Expr controllers = 3;
 
   // The additional informees of the choice. They have type `List Party`.
-  Expr observers = 11; // *Available in versions >= 1.dev*
+  Expr observers = 11; // *Available in versions >= 1.11*
 
   // Name to which the choice argument is bound and its type.
   VarWithType arg_binder = 4;
@@ -1379,7 +1417,7 @@ message DefTemplate {
     int32 param_interned_str = 11; // *Available in versions >= 1.7*
   }
 
-  // NOTE(MH): The new runtime authorization check for DAML 1.0 does not rely
+  // NOTE(MH): The new runtime authorization check for Daml 1.0 does not rely
   // on the stakeholder signatures produced by the obligables computation
   // anymore but uses the interpreter to compute the signatories and
   // stakeholders of contract instances.
@@ -1418,6 +1456,7 @@ message DefException {
   // *Must be a valid interned dotted name*
   int32 name_interned_dname = 1;
   Location location = 2;
+  Expr message = 3;
 }
 
 // Data type definition
@@ -1541,7 +1580,7 @@ message Module {
   repeated DefDataType data_types = 5;
   repeated DefValue values = 6;
   repeated DefTemplate templates = 7;
-  repeated DefException exceptions = 10; // *Available in versions >= 1.dev* (#8020)
+  repeated DefException exceptions = 10; // *Available in versions >= 1.dev*
 }
 
 message InternedDottedName {
@@ -1561,5 +1600,5 @@ message Package {
 
   // Types in the interning table are only allowed to refer to interned types
   // at smaller indices.
-  repeated Type interned_types = 5; // *Available in versions >= 1.dev*
+  repeated Type interned_types = 5; // *Available in versions >= 1.11*
 }

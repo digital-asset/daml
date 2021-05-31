@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Status Definitions
@@ -9,7 +9,7 @@ Throughout the documentation, we use labels to mark features of APIs not yet dee
 Early Access Features
 ---------------------
 
-Features or components covered by these docs are :ref:`Stable <status_definitions>` by default. :ref:`Stable <status_definitions>` features and components constitute DAML's "public API" in the sense of :ref:`Semantic Versioning <versioning>`. Feature and components that are not :ref:`Stable <status_definitions>` are called "Early Access" and called out explicitly.
+Features or components covered by these docs are :ref:`Stable <status_definitions>` by default. :ref:`Stable <status_definitions>` features and components constitute Daml's "public API" in the sense of :ref:`Semantic Versioning <versioning>`. Feature and components that are not :ref:`Stable <status_definitions>` are called "Early Access" and called out explicitly.
 
 Early Access features are opt-in whenever possible, needing to be activated with special commands or flags needing to be started up separately, or requiring the use of additional endpoints, for example.
 
@@ -32,14 +32,14 @@ Deprecation
 
 In addition to being labelled Early Access, features and components can also be labelled "Deprecated". Deprecation follows a deprecation cycle laid out in the table below. The date of deprecation is documented in :doc:`overview`.
 
-Deprecated features can be relied upon during the deprecation cycle to the same degree as their non-deprecated counterparts, but building on deprecated features may hinder an upgrade to new DAML versions following the deprecation cycle.
+Deprecated features can be relied upon during the deprecation cycle to the same degree as their non-deprecated counterparts, but building on deprecated features may hinder an upgrade to new Daml versions following the deprecation cycle.
 
 .. _status_definitions:
 
 Comparison of Statuses
 ----------------------
 
-The table below gives a concise overview of the labels used for DAML features and components.
+The table below gives a concise overview of the labels used for Daml features and components.
 
 .. list-table:: Feature Maturities
    :widths: 10 20 20 20 20
@@ -73,8 +73,8 @@ The table below gives a concise overview of the labels used for DAML features an
    * - Compatibility
      - Compatibility is covered by :doc:`compatibility`.
      - Compatibility is covered by :doc:`compatibility`.
-     - The feature may only work against specific DAML integrations, or specific API versions, including Early Access ones.
-     - The feature may only work against specific DAML integrations, or specific API versions, including Early Access ones.
+     - The feature may only work against specific Daml integrations, or specific API versions, including Early Access ones.
+     - The feature may only work against specific Daml integrations, or specific API versions, including Early Access ones.
    * - Stability & Error Recovery
      - The feature is long-term stable and supports recovery fit for a production system.
      - No known reproducible crashes which can't be recovered from. There is still an expectation that new issues may be discovered.

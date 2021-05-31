@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data
@@ -9,7 +9,7 @@ import com.daml.ledger.api.v1.ValueOuterClass
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
-import collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class RecordSpec extends AnyFlatSpec with Matchers {
 
@@ -23,29 +23,23 @@ class RecordSpec extends AnyFlatSpec with Matchers {
     record.getFieldsMap shouldBe empty
   }
 
-  // XXX SC remove in 2.13; see notes in ConfSpec
-  import scala.collection.GenTraversable, org.scalatest.enablers.Aggregating
-  private[this] implicit def `fixed sig aggregatingNatureOfGenTraversable`[
-      E: org.scalactic.Equality,
-      TRAV]: Aggregating[TRAV with GenTraversable[E]] =
-    Aggregating.aggregatingNatureOfGenTraversable[E, GenTraversable]
-
   it should "build a record with an empty field map if there are no labels" in {
     val fields = List(
       ValueOuterClass.RecordField
         .newBuilder()
-        .setValue(ValueOuterClass.Value.newBuilder().setInt64(1l))
+        .setValue(ValueOuterClass.Value.newBuilder().setInt64(1L))
         .build(),
       ValueOuterClass.RecordField
         .newBuilder()
-        .setValue(ValueOuterClass.Value.newBuilder().setInt64(2l))
-        .build()
+        .setValue(ValueOuterClass.Value.newBuilder().setInt64(2L))
+        .build(),
     ).asJava
     val recordValue = ValueOuterClass.Record.newBuilder().addAllFields(fields).build()
     val record = Record.fromProto(recordValue)
     record.getFields should contain theSameElementsInOrderAs List(
-      new Record.Field(new Int64(1l)),
-      new Record.Field(new Int64(2l)))
+      new Record.Field(new Int64(1L)),
+      new Record.Field(new Int64(2L)),
+    )
     record.getFieldsMap shouldBe empty
   }
 
@@ -54,21 +48,23 @@ class RecordSpec extends AnyFlatSpec with Matchers {
       ValueOuterClass.RecordField
         .newBuilder()
         .setLabel("label1")
-        .setValue(ValueOuterClass.Value.newBuilder().setInt64(1l))
+        .setValue(ValueOuterClass.Value.newBuilder().setInt64(1L))
         .build(),
       ValueOuterClass.RecordField
         .newBuilder()
         .setLabel("label2")
-        .setValue(ValueOuterClass.Value.newBuilder().setInt64(2l))
-        .build()
+        .setValue(ValueOuterClass.Value.newBuilder().setInt64(2L))
+        .build(),
     ).asJava
     val recordValue = ValueOuterClass.Record.newBuilder().addAllFields(fields).build()
     val record = Record.fromProto(recordValue)
     record.getFields should contain theSameElementsInOrderAs List(
-      new Record.Field("label1", new Int64(1l)),
-      new Record.Field("label2", new Int64(2l)))
+      new Record.Field("label1", new Int64(1L)),
+      new Record.Field("label2", new Int64(2L)),
+    )
     record.getFieldsMap.asScala should contain theSameElementsAs Map(
-      "label1" -> new Int64(1l),
-      "label2" -> new Int64(2l))
+      "label1" -> new Int64(1L),
+      "label2" -> new Int64(2L),
+    )
   }
 }

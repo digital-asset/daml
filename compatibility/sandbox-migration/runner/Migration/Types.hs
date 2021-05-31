@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -7,6 +7,7 @@ module Migration.Types
   ( Test(..)
   , interleave
   , SdkVersion(..)
+  , getSdkVersion
   , ContractId(..)
   , Party(..)
   , Tuple2(..)
@@ -17,6 +18,7 @@ module Migration.Types
 
 import qualified Data.Aeson as A
 import qualified Data.Text as T
+import qualified Data.SemVer as SemVer
 import GHC.Generics (Generic)
 
 data Test s r = Test
@@ -41,7 +43,10 @@ interleave t t' = Test
     , initialState = (initialState t, initialState t')
     }
 
-newtype SdkVersion = SdkVersion { getSdkVersion :: String }
+newtype SdkVersion = SdkVersion SemVer.Version
+
+getSdkVersion :: SdkVersion -> String
+getSdkVersion (SdkVersion ver) = SemVer.toString ver
 
 -- The datatypes are defined such that the autoderived Aeson instances
 -- match the DAML-LF JSON encoding.

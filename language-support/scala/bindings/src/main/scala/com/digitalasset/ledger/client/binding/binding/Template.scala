@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
@@ -30,8 +30,9 @@ abstract class Template[+T] extends ValueRef { self: T =>
 
   // arguments and templateId are provided in lieu of making templateCompanion
   // public, though the latter might be more "powerful"
-  protected[this] def templateCompanion(
-      implicit d: DummyImplicit): TemplateCompanion[_ >: self.type <: T]
+  protected[this] def templateCompanion(implicit
+      d: DummyImplicit
+  ): TemplateCompanion[_ >: self.type <: T]
 }
 
 object Template {

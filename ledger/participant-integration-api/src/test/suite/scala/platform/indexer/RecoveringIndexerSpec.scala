@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.indexer
@@ -45,9 +45,10 @@ final class RecoveringIndexerSpec
 
   "RecoveringIndexer" should {
     "work when the stream completes" in {
-      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
+      val recoveringIndexer =
+        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, 10.millis)
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.millis),
+        SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.millis)
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
@@ -72,10 +73,11 @@ final class RecoveringIndexerSpec
     }
 
     "work when the stream is stopped" in {
-      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
+      val recoveringIndexer =
+        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, 10.millis)
       // Stream completes after 10s, but is released before that happens
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.seconds),
+        SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.seconds)
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
@@ -103,15 +105,17 @@ final class RecoveringIndexerSpec
     }
 
     "wait until the subscription completes" in {
-      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
+      val recoveringIndexer =
+        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, 10.millis)
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SuccessfullyCompletes, 100.millis, 10.millis),
+        SubscribeResult("A", SuccessfullyCompletes, 100.millis, 10.millis)
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
       resource.asFuture
         .map { complete =>
-          readLog() should contain theSameElementsInOrderAs Seq(
+          // at this point the read log should at least contain logs informing about a successful indexer server startup
+          readLog().take(2) should contain theSameElementsInOrderAs Seq(
             Level.INFO -> "Starting Indexer Server",
             Level.INFO -> "Started Indexer Server",
           )
@@ -132,7 +136,8 @@ final class RecoveringIndexerSpec
     }
 
     "recover from failure" in {
-      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis)
+      val recoveringIndexer =
+        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, 10.millis)
       // Subscribe fails, then the stream fails, then the stream completes without errors.
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SubscriptionFails, 10.millis, 10.millis),
@@ -175,7 +180,8 @@ final class RecoveringIndexerSpec
 
     "respect restart delay" in {
       val restartDelay = 500.millis
-      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, restartDelay)
+      val recoveringIndexer =
+        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, restartDelay)
       // Subscribe fails, then the stream completes without errors. Note the restart delay of 500ms.
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SubscriptionFails, 0.millis, 0.millis),
@@ -197,11 +203,13 @@ final class RecoveringIndexerSpec
             EventStreamComplete("B"),
             EventStopCalled("B"),
           )
-          readLog() should contain theSameElementsInOrderAs Seq(
+          // All log items will be in order except this one, which could show up anywhere.
+          // It could finish restarting after stopping, for example.
+          val sequentialLog = readLog().filterNot(_ == Level.INFO -> "Restarted Indexer Server")
+          sequentialLog should contain theSameElementsInOrderAs Seq(
             Level.INFO -> "Starting Indexer Server",
             Level.ERROR -> "Error while starting indexer, restart scheduled after 500 milliseconds",
             Level.INFO -> "Restarting Indexer Server",
-            Level.INFO -> "Restarted Indexer Server",
             Level.INFO -> "Successfully finished processing state updates",
             Level.INFO -> "Stopping Indexer Server",
             Level.INFO -> "Stopped Indexer Server",
@@ -215,8 +223,8 @@ final class RecoveringIndexerSpec
 
 object RecoveringIndexerSpec {
 
-  def finallyRelease[T](resource: Resource[_])(
-      implicit executionContext: ExecutionContext
+  def finallyRelease[T](resource: Resource[_])(implicit
+      executionContext: ExecutionContext
   ): Try[T] => Future[T] = {
     case Success(value) => resource.release().map(_ => value)
     case Failure(exception) => resource.release().flatMap(_ => Future.failed(exception))
@@ -233,8 +241,8 @@ object RecoveringIndexerSpec {
 
     def actions: Seq[IndexerEvent] = actionsQueue.toArray(Array.empty[IndexerEvent]).toSeq
 
-    class TestIndexerFeedHandle(result: SubscribeResult)(
-        implicit executionContext: ExecutionContext
+    class TestIndexerFeedHandle(result: SubscribeResult)(implicit
+        executionContext: ExecutionContext
     ) extends IndexFeedHandle {
       private[this] val promise = Promise[Unit]()
 
@@ -283,15 +291,13 @@ object RecoveringIndexerSpec {
               throw new RuntimeException("Random simulated failure: subscribe")
             }
           })
-        })(
-          handle => {
-            val complete = handle.stop()
-            complete.onComplete { _ =>
-              openSubscriptions -= handle
-            }
-            complete
+        })(handle => {
+          val complete = handle.stop()
+          complete.onComplete { _ =>
+            openSubscriptions -= handle
           }
-        )
+          complete
+        })
       }
     }
 

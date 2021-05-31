@@ -1,9 +1,9 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
 
--- | MOVE Prelude DAML-LF types and primitives, apart from templates/contracts.
+-- | MOVE Prelude Daml-LF types and primitives, apart from templates/contracts.
 module DA.Internal.Date where
 
 import DA.Internal.Prelude

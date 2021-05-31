@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 def _integrity_test_impl(ctx):
@@ -7,7 +7,7 @@ def _integrity_test_impl(ctx):
         output = wrapper,
         content = """#!/usr/bin/env bash
 set -eux
-{checker} $(rlocation "$TEST_WORKSPACE/{dump}")
+exec {checker} $(rlocation "$TEST_WORKSPACE/{dump}")
 """.format(
             checker = ctx.executable.checker.short_path,
             dump = ctx.file.dump.short_path,

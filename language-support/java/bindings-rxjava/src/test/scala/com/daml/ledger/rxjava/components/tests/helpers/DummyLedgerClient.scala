@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.components.tests.helpers
@@ -21,8 +21,8 @@ class DummyLedgerClient(
     boundedTransactions: Flowable[Transaction],
     transactions: Flowable[Transaction],
     commandCompletions: Flowable[CompletionStreamResponse],
-    ledgerEnd: LedgerOffset)
-    extends LedgerClient {
+    ledgerEnd: LedgerOffset,
+) extends LedgerClient {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -34,13 +34,15 @@ class DummyLedgerClient(
 
     override def getActiveContracts(
         filter: TransactionFilter,
-        verbose: Boolean): Flowable[GetActiveContractsResponse] =
+        verbose: Boolean,
+    ): Flowable[GetActiveContractsResponse] =
       activeContractSet
 
     override def getActiveContracts(
         filter: TransactionFilter,
         verbose: Boolean,
-        accessToken: String): Flowable[GetActiveContractsResponse] =
+        accessToken: String,
+    ): Flowable[GetActiveContractsResponse] =
       untestedEndpoint
   }
 
@@ -50,11 +52,13 @@ class DummyLedgerClient(
         begin: LedgerOffset,
         end: LedgerOffset,
         filter: TransactionFilter,
-        verbose: Boolean): Flowable[Transaction] =
+        verbose: Boolean,
+    ): Flowable[Transaction] =
       (if (end == LedgerOffset.LedgerEnd.getInstance()) transactions else boundedTransactions)
         .filter(t =>
           DummyLedgerOffsetOrdering.compareWithAbsoluteValue(begin, t.getOffset) <= 0 &&
-            DummyLedgerOffsetOrdering.compareWithAbsoluteValue(end, t.getOffset) >= 0)
+            DummyLedgerOffsetOrdering.compareWithAbsoluteValue(end, t.getOffset) >= 0
+        )
         .map(t => {
           logger.debug(s"DummyLedgerClient.getTransactions emit $t")
           t
@@ -65,80 +69,95 @@ class DummyLedgerClient(
         end: LedgerOffset,
         filter: TransactionFilter,
         verbose: Boolean,
-        accessToken: String): Flowable[Transaction] = untestedEndpoint
+        accessToken: String,
+    ): Flowable[Transaction] = untestedEndpoint
 
     override def getTransactions(
         begin: LedgerOffset,
         filter: TransactionFilter,
-        verbose: Boolean): Flowable[Transaction] =
+        verbose: Boolean,
+    ): Flowable[Transaction] =
       getTransactions(begin, LedgerOffset.LedgerEnd.getInstance(), filter, verbose)
 
     override def getTransactions(
         begin: LedgerOffset,
         filter: TransactionFilter,
         verbose: Boolean,
-        accessToken: String): Flowable[Transaction] = untestedEndpoint
-
-    override def getTransactionsTrees(
-        begin: LedgerOffset,
-        end: LedgerOffset,
-        filter: TransactionFilter,
-        verbose: Boolean): Flowable[TransactionTree] = untestedEndpoint
+        accessToken: String,
+    ): Flowable[Transaction] = untestedEndpoint
 
     override def getTransactionsTrees(
         begin: LedgerOffset,
         end: LedgerOffset,
         filter: TransactionFilter,
         verbose: Boolean,
-        accessToken: String): Flowable[TransactionTree] = untestedEndpoint
+    ): Flowable[TransactionTree] = untestedEndpoint
 
     override def getTransactionsTrees(
         begin: LedgerOffset,
+        end: LedgerOffset,
         filter: TransactionFilter,
-        verbose: Boolean): Flowable[TransactionTree] = untestedEndpoint
+        verbose: Boolean,
+        accessToken: String,
+    ): Flowable[TransactionTree] = untestedEndpoint
 
     override def getTransactionsTrees(
         begin: LedgerOffset,
         filter: TransactionFilter,
         verbose: Boolean,
-        accessToken: String): Flowable[TransactionTree] = untestedEndpoint
+    ): Flowable[TransactionTree] = untestedEndpoint
 
-    override def getTransactionByEventId(
-        eventId: String,
-        requestingParties: util.Set[String]): Single[TransactionTree] = untestedEndpoint
+    override def getTransactionsTrees(
+        begin: LedgerOffset,
+        filter: TransactionFilter,
+        verbose: Boolean,
+        accessToken: String,
+    ): Flowable[TransactionTree] = untestedEndpoint
 
     override def getTransactionByEventId(
         eventId: String,
         requestingParties: util.Set[String],
-        accessToken: String): Single[TransactionTree] = untestedEndpoint
+    ): Single[TransactionTree] = untestedEndpoint
+
+    override def getTransactionByEventId(
+        eventId: String,
+        requestingParties: util.Set[String],
+        accessToken: String,
+    ): Single[TransactionTree] = untestedEndpoint
 
     override def getTransactionById(
         transactionId: String,
-        requestingParties: util.Set[String]): Single[TransactionTree] =
+        requestingParties: util.Set[String],
+    ): Single[TransactionTree] =
       untestedEndpoint
 
     override def getTransactionById(
         transactionId: String,
         requestingParties: util.Set[String],
-        accessToken: String): Single[TransactionTree] = untestedEndpoint
-
-    override def getFlatTransactionByEventId(
-        eventId: String,
-        requestingParties: util.Set[String]): Single[Transaction] = untestedEndpoint
+        accessToken: String,
+    ): Single[TransactionTree] = untestedEndpoint
 
     override def getFlatTransactionByEventId(
         eventId: String,
         requestingParties: util.Set[String],
-        accessToken: String): Single[Transaction] = untestedEndpoint
+    ): Single[Transaction] = untestedEndpoint
 
-    override def getFlatTransactionById(
-        transactionId: String,
-        requestingParties: util.Set[String]): Single[Transaction] = untestedEndpoint
+    override def getFlatTransactionByEventId(
+        eventId: String,
+        requestingParties: util.Set[String],
+        accessToken: String,
+    ): Single[Transaction] = untestedEndpoint
 
     override def getFlatTransactionById(
         transactionId: String,
         requestingParties: util.Set[String],
-        accessToken: String): Single[Transaction] = untestedEndpoint
+    ): Single[Transaction] = untestedEndpoint
+
+    override def getFlatTransactionById(
+        transactionId: String,
+        requestingParties: util.Set[String],
+        accessToken: String,
+    ): Single[Transaction] = untestedEndpoint
 
     override def getLedgerEnd: Single[LedgerOffset] = Single.just(ledgerEnd)
 
@@ -149,25 +168,29 @@ class DummyLedgerClient(
     override def completionStream(
         applicationId: String,
         offset: LedgerOffset,
-        parties: util.Set[String]): Flowable[CompletionStreamResponse] =
+        parties: util.Set[String],
+    ): Flowable[CompletionStreamResponse] =
       commandCompletions
 
     override def completionStream(
         applicationId: String,
         offset: LedgerOffset,
         parties: util.Set[String],
-        accessToken: String): Flowable[CompletionStreamResponse] =
+        accessToken: String,
+    ): Flowable[CompletionStreamResponse] =
       untestedEndpoint
 
     override def completionStream(
         applicationId: String,
-        parties: util.Set[String]): Flowable[CompletionStreamResponse] =
+        parties: util.Set[String],
+    ): Flowable[CompletionStreamResponse] =
       commandCompletions
 
     override def completionStream(
         applicationId: String,
         parties: util.Set[String],
-        accessToken: String): Flowable[CompletionStreamResponse] =
+        accessToken: String,
+    ): Flowable[CompletionStreamResponse] =
       untestedEndpoint
 
     override def completionEnd(): Single[CompletionEndResponse] = untestedEndpoint
@@ -185,7 +208,8 @@ class DummyLedgerClient(
         minLedgerTimeAbs: Optional[Instant],
         minLedgerTimeRel: Optional[Duration],
         deduplicationTime: Optional[Duration],
-        commands: util.List[Command]): Single[Empty] = {
+        commands: util.List[Command],
+    ): Single[Empty] = {
       submitted.append(
         new SubmitCommandsRequest(
           workflowId,
@@ -195,9 +219,24 @@ class DummyLedgerClient(
           minLedgerTimeAbs,
           minLedgerTimeRel,
           deduplicationTime,
-          commands))
+          commands,
+        )
+      )
       Single.just(Empty.getDefaultInstance)
     }
+
+    override def submit(
+        workflowId: String,
+        applicationId: String,
+        commandId: String,
+        actAs: java.util.List[String],
+        readAs: java.util.List[String],
+        minLedgerTimeAbs: Optional[Instant],
+        minLedgerTimeRel: Optional[Duration],
+        deduplicationTime: Optional[Duration],
+        commands: util.List[Command],
+    ): Single[Empty] =
+      untestedEndpoint
 
     override def submit(
         workflowId: String,
@@ -208,14 +247,23 @@ class DummyLedgerClient(
         minLedgerTimeRel: Optional[Duration],
         deduplicationTime: Optional[Duration],
         commands: util.List[Command],
-        accessToken: String): Single[Empty] = untestedEndpoint
+        accessToken: String,
+    ): Single[Empty] =
+      untestedEndpoint
 
     override def submit(
         workflowId: String,
         applicationId: String,
         commandId: String,
-        party: String,
-        commands: util.List[Command]): Single[Empty] = untestedEndpoint
+        actAs: java.util.List[String],
+        readAs: java.util.List[String],
+        minLedgerTimeAbs: Optional[Instant],
+        minLedgerTimeRel: Optional[Duration],
+        deduplicationTime: Optional[Duration],
+        commands: util.List[Command],
+        accessToken: String,
+    ): Single[Empty] =
+      untestedEndpoint
 
     override def submit(
         workflowId: String,
@@ -223,7 +271,39 @@ class DummyLedgerClient(
         commandId: String,
         party: String,
         commands: util.List[Command],
-        accessToken: String): Single[Empty] = untestedEndpoint
+    ): Single[Empty] =
+      untestedEndpoint
+
+    override def submit(
+        workflowId: String,
+        applicationId: String,
+        commandId: String,
+        actAs: java.util.List[String],
+        readAs: java.util.List[String],
+        commands: util.List[Command],
+    ): Single[Empty] =
+      untestedEndpoint
+
+    override def submit(
+        workflowId: String,
+        applicationId: String,
+        commandId: String,
+        party: String,
+        commands: util.List[Command],
+        accessToken: String,
+    ): Single[Empty] =
+      untestedEndpoint
+
+    override def submit(
+        workflowId: String,
+        applicationId: String,
+        commandId: String,
+        actAs: java.util.List[String],
+        readAs: java.util.List[String],
+        commands: util.List[Command],
+        accessToken: String,
+    ): Single[Empty] =
+      untestedEndpoint
   }
 
   override def getLedgerIdentityClient: LedgerIdentityClient = new LedgerIdentityClient {
@@ -260,7 +340,8 @@ object DummyLedgerOffsetOrdering extends Ordering[LedgerOffset] {
               .compareTo(a2.asInstanceOf[LedgerOffset.Absolute].getOffset)
           case (_, _) =>
             throw new IllegalStateException(
-              s"DummyLedgerOffsetOrdering failed to compare $x and $y")
+              s"DummyLedgerOffsetOrdering failed to compare $x and $y"
+            )
         }
     logger.debug(s"compare($x, $y): $r")
     r

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | The `Either` type represents values with two possibilities.
@@ -61,10 +61,10 @@ eitherToOptional : Either a b -> Optional b
 eitherToOptional (Left _) = None
 eitherToOptional (Right x) = Some x
 -- | Deprecated.
-{-# DEPRECATED maybeToEither "DAML 1.2 compatibility helper, use 'optionalToEither' instead of 'maybeToEither'" #-}
+{-# DEPRECATED maybeToEither "Daml 1.2 compatibility helper, use 'optionalToEither' instead of 'maybeToEither'" #-}
 maybeToEither : a -> Optional b -> Either a b
 maybeToEither = optionalToEither
 -- | Deprecated.
-{-# DEPRECATED eitherToMaybe "DAML 1.2 compatibility helper, use 'eitherToOptional' instead of 'eitherToMaybe'" #-}
+{-# DEPRECATED eitherToMaybe "Daml 1.2 compatibility helper, use 'eitherToOptional' instead of 'eitherToMaybe'" #-}
 eitherToMaybe : Either a b -> Optional b
 eitherToMaybe = eitherToOptional

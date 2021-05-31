@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
@@ -10,6 +10,7 @@ import akka.stream.Materializer
 import com.daml.http.EndpointsCompanion._
 import com.daml.http.domain.{JwtPayload, SearchForeverRequest}
 import com.daml.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
+import JsonProtocol.LfValueDatabaseCodec
 import com.daml.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import util.{BeginBookmark, ContractStreamStep, InsertDeleteStep}
@@ -17,8 +18,9 @@ import ContractStreamStep.LiveBegin
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.daml.jwt.domain.Jwt
-import com.typesafe.scalalogging.LazyLogging
 import com.daml.http.query.ValuePredicate
+import doobie.ConnectionIO
+import doobie.syntax.string._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
@@ -27,9 +29,12 @@ import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.std.tuple._
+import scalaz.std.vector._
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, OneAnd, Tag, \/, \/-}
 import Liskov.<~<
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
+import com.daml.http.util.Logging.{InstanceUUID, RequestID}
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
 import scala.collection.compat._
@@ -40,14 +45,29 @@ import scala.util.{Failure, Success}
 object WebSocketService {
   import util.ErrorOps._
 
-  private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
+  private type CompiledQueries =
+    Map[domain.TemplateId.RequiredPkg, (ValuePredicate, LfV => Boolean)]
 
-  private type StreamPredicate[+Positive] = (
-      Set[domain.TemplateId.RequiredPkg],
-      Set[domain.TemplateId.OptionalPkg],
-      domain.ActiveContract[LfV] => Option[Positive],
+  private final case class StreamPredicate[+Positive](
+      resolved: Set[domain.TemplateId.RequiredPkg],
+      unresolved: Set[domain.TemplateId.OptionalPkg],
+      fn: domain.ActiveContract[LfV] => Option[Positive],
+      dbQuery: (OneAnd[Set, domain.Party], dbbackend.ContractDao) => ConnectionIO[
+        _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
+      ],
   )
 
+  /** If an element satisfies `prefix`, consume it and emit the result alongside
+    * the next element (which is not similarly tested); otherwise, emit it.
+    *
+    * {{{
+    *   withOptPrefix(_ => None)
+    *     = Flow[I].map((None, _))
+    *
+    *   Source(Seq(1, 2, 3, 4)) via withOptPrefix(Some(_))
+    *     = Source(Seq((Some(1), 2), (Some(3), 4)))
+    * }}}
+    */
   private def withOptPrefix[I, L](prefix: I => Option[L]): Flow[I, (Option[L], I), NotUsed] =
     Flow[I]
       .scan(none[L \/ (Option[L], I)]) { (s, i) =>
@@ -60,7 +80,8 @@ object WebSocketService {
 
   private final case class StepAndErrors[+Pos, +LfVT](
       errors: Seq[ServerError],
-      step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfVT], Pos)]) {
+      step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfVT], Pos)],
+  ) {
     import JsonProtocol._, spray.json._
 
     def render(implicit lfv: LfVT <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsObject = {
@@ -74,10 +95,9 @@ object WebSocketService {
           .toInsertDelete
 
       val events = (deletes.valuesIterator.map(inj("archived", _)).toVector
-        ++ inserts.map {
-          case (ac, pos) =>
-            val acj = inj("created", ac)
-            acj copy (fields = acj.fields ++ pos)
+        ++ inserts.map { case (ac, pos) =>
+          val acj = inj("created", ac)
+          acj copy (fields = acj.fields ++ pos)
         } ++ errors.map(e => inj("error", e.message)))
 
       val offsetAfter = step.bookmark.map(_.toJson)
@@ -128,7 +148,7 @@ object WebSocketService {
             val InsertDeleteStep(inserts, deletes) = step.toInsertDelete
             errors.length.toLong + (inserts.length * 2) + deletes.size
         },
-        identity
+        identity,
       )(_ append _)
   }
 
@@ -144,17 +164,18 @@ object WebSocketService {
 
     def removePhantomArchives(request: A): Option[Set[domain.ContractId]]
 
-    def predicate(
+    private[WebSocketService] def predicate(
         request: A,
         resolveTemplateId: PackageService.ResolveTemplateId,
-        lookupType: ValuePredicate.TypeLookup): StreamPredicate[Positive]
+        lookupType: ValuePredicate.TypeLookup,
+    ): StreamPredicate[Positive]
 
     def renderCreatedMetadata(p: Positive): Map[String, JsValue]
   }
 
   implicit val SearchForeverRequestWithStreamQuery: StreamQueryReader[domain.SearchForeverRequest] =
     new StreamQueryReader[domain.SearchForeverRequest]
-    with StreamQuery[domain.SearchForeverRequest] {
+      with StreamQuery[domain.SearchForeverRequest] {
 
       type Positive = NonEmptyList[Int]
 
@@ -168,38 +189,60 @@ object WebSocketService {
 
       override def removePhantomArchives(request: SearchForeverRequest) = None
 
-      override def predicate(
+      override private[WebSocketService] def predicate(
           request: SearchForeverRequest,
           resolveTemplateId: PackageService.ResolveTemplateId,
-          lookupType: ValuePredicate.TypeLookup): StreamPredicate[Positive] = {
+          lookupType: ValuePredicate.TypeLookup,
+      ): StreamPredicate[Positive] = {
 
         import scalaz.syntax.foldable._
         import util.Collections._
 
         val (resolved, unresolved, q) = request.queries.zipWithIndex
-          .foldMap {
-            case (gacr, ix) =>
-              val (resolved, unresolved) =
-                gacr.templateIds.toSet.partitionMap(x => resolveTemplateId(x) toLeftDisjunction x)
-              val q: CompiledQueries = prepareFilters(resolved, gacr.query, lookupType)
-              (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
+          .foldMap { case (gacr, ix) =>
+            val (resolved, unresolved) =
+              gacr.templateIds.toSet.partitionMap(x => resolveTemplateId(x).toLeft(x))
+            val q: CompiledQueries = prepareFilters(resolved, gacr.query, lookupType)
+            (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
           }
-        val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
+        def fn(a: domain.ActiveContract[LfV]): Option[Positive] =
           q.get(a.templateId).flatMap { preds =>
-            preds.collect(Function unlift { case (p, ix) => p(a.payload) option ix })
+            preds.collect(Function unlift { case ((_, p), ix) => p(a.payload) option ix })
           }
+        def dbQueriesPlan(implicit
+            sjd: dbbackend.SupportedJdbcDriver
+        ): (Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)], Map[Int, Int]) = {
+          val annotated = q.toSeq.flatMap { case (tpid, nel) =>
+            nel.toVector.map { case ((vp, _), pos) => (tpid, vp.toSqlWhereClause, pos) }
+          }
+          val posMap = annotated.iterator.zipWithIndex.map { case ((_, _, pos), ix) =>
+            (ix, pos)
+          }.toMap
+          (annotated map { case (tpid, sql, _) => (tpid, sql) }, posMap)
         }
 
-        (resolved, unresolved, fn)
+        StreamPredicate(
+          resolved,
+          unresolved,
+          fn,
+          { (parties, dao) =>
+            import dao.{logHandler, jdbcDriver}
+            import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
+            val (dbQueries, posMap) = dbQueriesPlan
+            selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.ByNelInt)
+              .map(_ map (_ rightMap (_ map posMap)))
+          },
+        )
       }
 
       private def prepareFilters(
           ids: Set[domain.TemplateId.RequiredPkg],
           queryExpr: Map[String, JsValue],
-          lookupType: ValuePredicate.TypeLookup
+          lookupType: ValuePredicate.TypeLookup,
       ): CompiledQueries =
         ids.iterator.map { tid =>
-          (tid, ValuePredicate.fromTemplateJsObject(queryExpr, tid, lookupType).toFunPredicate)
+          val vp = ValuePredicate.fromTemplateJsObject(queryExpr, tid, lookupType)
+          (tid, (vp, vp.toFunPredicate))
         }.toMap
 
       override def renderCreatedMetadata(p: Positive) =
@@ -210,15 +253,16 @@ object WebSocketService {
     }
 
   implicit val EnrichedContractKeyWithStreamQuery
-    : StreamQueryReader[domain.ContractKeyStreamRequest[_, _]] =
+      : StreamQueryReader[domain.ContractKeyStreamRequest[_, _]] =
     new StreamQueryReader[domain.ContractKeyStreamRequest[_, _]] {
 
       import JsonProtocol._
 
       override def parse(resumingAtOffset: Boolean, decoder: DomainJsonDecoder, jv: JsValue) = {
         type NelCKRH[Hint, V] = NonEmptyList[domain.ContractKeyStreamRequest[Hint, V]]
-        def go[Hint](alg: StreamQuery[NelCKRH[Hint, LfV]])(
-            implicit ev: JsonReader[NelCKRH[Hint, JsValue]]) =
+        def go[Hint](
+            alg: StreamQuery[NelCKRH[Hint, LfV]]
+        )(implicit ev: JsonReader[NelCKRH[Hint, JsValue]]) =
           for {
             as <- SprayJson
               .decode[NelCKRH[Hint, JsValue]](jv)
@@ -231,10 +275,13 @@ object WebSocketService {
 
       private def decodeWithFallback[Hint](
           decoder: DomainJsonDecoder,
-          a: domain.ContractKeyStreamRequest[Hint, JsValue]) =
+          a: domain.ContractKeyStreamRequest[Hint, JsValue],
+      ) =
         decoder
           .decodeUnderlyingValuesToLf(a)
-          .valueOr(_ => a.map(_ => com.daml.lf.value.Value.ValueUnit)) // unit will not match any key
+          .valueOr(_ =>
+            a.map(_ => com.daml.lf.value.Value.ValueUnit)
+          ) // unit will not match any key
 
     }
 
@@ -244,38 +291,60 @@ object WebSocketService {
 
     protected type CKR[+V] = domain.ContractKeyStreamRequest[Cid, V]
 
-    override def predicate(
+    override private[WebSocketService] def predicate(
         request: NonEmptyList[CKR[LfV]],
         resolveTemplateId: PackageService.ResolveTemplateId,
-        lookupType: TypeLookup): StreamPredicate[Positive] = {
-
-      import util.Collections._
-
+        lookupType: TypeLookup,
+    ): StreamPredicate[Positive] = {
       val (resolvedWithKey, unresolved) =
         request.toSet.partitionMap { x: CKR[LfV] =>
           resolveTemplateId(x.ekey.templateId)
             .map((_, x.ekey.key))
-            .toLeftDisjunction(x.ekey.templateId)
+            .toLeft(x.ekey.templateId)
         }
 
+      // invariant: every set is non-empty
       val q: Map[domain.TemplateId.RequiredPkg, HashSet[LfV]] =
         resolvedWithKey.foldLeft(Map.empty[domain.TemplateId.RequiredPkg, HashSet[LfV]])(
           (acc, el) =>
             acc.get(el._1) match {
               case Some(v) => acc.updated(el._1, v += el._2)
               case None => acc.updated(el._1, HashSet(el._2))
-          })
+            }
+        )
       val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
         a.key match {
           case None => None
           case Some(k) => if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
         }
       }
-      (q.keySet, unresolved, fn)
+      def dbQueries(implicit
+          sjd: dbbackend.SupportedJdbcDriver
+      ): Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)] =
+        q.toSeq map (_ rightMap { lfvKeys =>
+          val khd +: ktl = lfvKeys.toVector
+          import dbbackend.Queries.joinFragment
+          joinFragment(OneAnd(khd, ktl) map (keyEquality(_)), sql" OR ")
+        })
+      StreamPredicate(
+        q.keySet,
+        unresolved,
+        fn,
+        { (parties, dao) =>
+          import dao.{logHandler, jdbcDriver}
+          import dbbackend.ContractDao.{selectContractsMultiTemplate, MatchedQueryMarker}
+          selectContractsMultiTemplate(parties, dbQueries, MatchedQueryMarker.Unused)
+        },
+      )
     }
 
     override def renderCreatedMetadata(p: Unit) = Map.empty
   }
+
+  private[this] def keyEquality(k: LfV)(implicit
+      sjd: dbbackend.SupportedJdbcDriver
+  ): doobie.Fragment =
+    sjd.queries.keyEquality(LfValueDatabaseCodec.apiValueToJsValue(k))
 
   private[this] object InitialEnrichedContractKeyWithStreamQuery
       extends EnrichedContractKeyWithStreamQuery[Unit] {
@@ -300,8 +369,10 @@ class WebSocketService(
     resolveTemplateId: PackageService.ResolveTemplateId,
     decoder: DomainJsonDecoder,
     lookupType: ValuePredicate.TypeLookup,
-    wsConfig: Option[WebsocketConfig])(implicit mat: Materializer, ec: ExecutionContext)
-    extends LazyLogging {
+    wsConfig: Option[WebsocketConfig],
+)(implicit mat: Materializer, ec: ExecutionContext) {
+
+  private[this] val logger = ContextualizedLogger.get(getClass)
 
   import WebSocketService._
   import com.daml.scalautil.Statement.discard
@@ -315,7 +386,7 @@ class WebSocketService(
   private[http] def transactionMessageHandler[A: StreamQueryReader](
       jwt: Jwt,
       jwtPayload: JwtPayload,
-  ): Flow[Message, Message, _] =
+  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): Flow[Message, Message, _] =
     wsMessageHandler[A](jwt, jwtPayload)
       .via(applyConfig)
       .via(connCounter)
@@ -325,21 +396,26 @@ class WebSocketService(
       .takeWithin(config.maxDuration)
       .throttle(config.throttleElem, config.throttlePer, config.maxBurst, config.mode)
 
-  @SuppressWarnings(
-    Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"))
-  private def connCounter[A]: Flow[A, A, NotUsed] =
+  private def connCounter[A](implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Flow[A, A, NotUsed] =
     Flow[A]
       .watchTermination() { (_, future) =>
-        numConns.incrementAndGet
-        logger.info(s"New websocket client has connected, current number of clients:$numConns")
+        discard { numConns.incrementAndGet }
+        logger.info(
+          s"New websocket client has connected, current number of clients:${numConns.get()}"
+        )
         future onComplete {
           case Success(_) =>
-            numConns.decrementAndGet
-            logger.info(s"Websocket client has disconnected. Current number of clients: $numConns")
-          case Failure(ex) =>
-            numConns.decrementAndGet
+            discard { numConns.decrementAndGet }
             logger.info(
-              s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: $numConns")
+              s"Websocket client has disconnected. Current number of clients: ${numConns.get()}"
+            )
+          case Failure(ex) =>
+            discard { numConns.decrementAndGet }
+            logger.info(
+              s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: ${numConns.get()}"
+            )
         }
         NotUsed
       }
@@ -347,28 +423,31 @@ class WebSocketService(
   private def wsMessageHandler[A: StreamQueryReader](
       jwt: Jwt,
       jwtPayload: JwtPayload,
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Flow[Message, Message, NotUsed] = {
     val Q = implicitly[StreamQueryReader[A]]
     Flow[Message]
       .mapAsync(1)(parseJson)
       .via(withOptPrefix(ejv => ejv.toOption flatMap readStartingOffset))
-      .map {
-        case (oeso, ejv) =>
-          for {
-            offPrefix <- oeso.sequence
-            jv <- ejv
-            a <- Q.parse(resumingAtOffset = offPrefix.isDefined, decoder, jv)
-          } yield (offPrefix, a)
+      .map { case (oeso, ejv) =>
+        for {
+          offPrefix <- oeso.sequence
+          jv <- ejv
+          a <- Q.parse(resumingAtOffset = offPrefix.isDefined, decoder, jv)
+        } yield (offPrefix, a)
       }
-      .via(allowOnlyFirstInput(
-        InvalidUserInput("Multiple requests over the same WebSocket connection are not allowed.")))
+      .via(
+        allowOnlyFirstInput(
+          InvalidUserInput("Multiple requests over the same WebSocket connection are not allowed.")
+        )
+      )
       .flatMapMerge(
         2, // 2 streams max, the 2nd is to be able to send an error back
-        _.map {
-          case (offPrefix, qq: Q.Query[q]) =>
-            implicit val SQ: StreamQuery[q] = qq.alg
-            getTransactionSourceForParty[q](jwt, jwtPayload.parties, offPrefix, qq.q: q)
-        }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed]
+        _.map { case (offPrefix, qq: Q.Query[q]) =>
+          implicit val SQ: StreamQuery[q] = qq.alg
+          getTransactionSourceForParty[q](jwt, jwtPayload.parties, offPrefix, qq.q: q)
+        }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed],
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
       .map(_.fold(e => wsErrorMessage(e), identity): Message)
@@ -384,23 +463,70 @@ class WebSocketService(
       discard { bm.dataStream.runWith(Sink.ignore) }
       Future successful -\/(
         InvalidUserInput(
-          "Invalid request. Expected a single TextMessage with JSON payload, got BinaryMessage"))
+          "Invalid request. Expected a single TextMessage with JSON payload, got BinaryMessage"
+        )
+      )
   }
 
   private def getTransactionSourceForParty[A: StreamQuery](
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
       offPrefix: Option[domain.StartingOffset],
-      request: A): Source[Error \/ Message, NotUsed] = {
+      request: A,
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Source[Error \/ Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
 
-    val (resolved, unresolved, fn) = Q.predicate(request, resolveTemplateId, lookupType)
+    val StreamPredicate(resolved, unresolved, fn, dbQuery) =
+      Q.predicate(request, resolveTemplateId, lookupType)
 
     if (resolved.nonEmpty) {
-      contractsService
-        .insertDeleteStepSource(jwt, parties, resolved.toList, offPrefix, Terminates.Never)
-        .via(convertFilterContracts(fn))
-        .via(emitOffsetTicksAndFilterOutEmptySteps)
+      def prefilter: Future[
+        (
+            Source[
+              ContractStreamStep[Nothing, (domain.ActiveContract[JsValue], Q.Positive)],
+              NotUsed,
+            ],
+            Option[domain.StartingOffset],
+        )
+      ] =
+        contractsService.daoAndFetch
+          .filter(_ => offPrefix.isEmpty)
+          .cata(
+            { case (dao, fetch) =>
+              val tx = for {
+                bookmark <- fetch.fetchAndPersist(jwt, parties, resolved.toList)
+                mdContracts <- dbQuery(parties, dao)
+              } yield (
+                Source.single(mdContracts).map(ContractStreamStep.Acs(_)) ++ Source
+                  .single(ContractStreamStep.LiveBegin(bookmark.map(_.toDomain))),
+                bookmark.toOption map (term => domain.StartingOffset(term.toDomain)),
+              )
+              dao.transact(tx).unsafeToFuture()
+            },
+            Future.successful((Source.empty, offPrefix)),
+          )
+
+      Source
+        .lazyFutureSource(() =>
+          prefilter.map { case (prefiltered, shiftedPrefix) =>
+            val liveFiltered = contractsService
+              .insertDeleteStepSource(
+                jwt,
+                parties,
+                resolved.toList,
+                shiftedPrefix,
+                Terminates.Never,
+              )
+              .via(convertFilterContracts(fn))
+            (prefiltered.map(StepAndErrors(Seq.empty, _)) ++ liveFiltered)
+              .via(emitOffsetTicksAndFilterOutEmptySteps(shiftedPrefix))
+          }
+        )
+        .mapMaterializedValue { _: Future[NotUsed] =>
+          NotUsed
+        }
         .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
@@ -412,10 +538,14 @@ class WebSocketService(
     }
   }
 
-  private def emitOffsetTicksAndFilterOutEmptySteps[Pos]
-    : Flow[StepAndErrors[Pos, JsValue], StepAndErrors[Pos, JsValue], NotUsed] = {
+  private def emitOffsetTicksAndFilterOutEmptySteps[Pos](
+      offset: Option[domain.StartingOffset]
+  ): Flow[StepAndErrors[Pos, JsValue], StepAndErrors[Pos, JsValue], NotUsed] = {
 
-    val zero = (Option.empty[BeginBookmark[domain.Offset]], TickTrigger: TickTriggerOrStep[Pos])
+    val zero = (
+      offset.map(o => util.AbsoluteBookmark(o.offset)): Option[BeginBookmark[domain.Offset]],
+      TickTrigger: TickTriggerOrStep[Pos],
+    )
 
     Flow[StepAndErrors[Pos, JsValue]]
       .map(a => Step(a))
@@ -440,10 +570,11 @@ class WebSocketService(
     StepAndErrors[Pos, JsValue](Seq.empty, LiveBegin(offset))
 
   private def removePhantomArchives[A, B](remove: Option[Set[domain.ContractId]]) =
-    remove cata (removePhantomArchives_[A, B], Flow[StepAndErrors[A, B]])
+    remove.cata(removePhantomArchives_[A, B], Flow[StepAndErrors[A, B]])
 
-  private def removePhantomArchives_[A, B](initialState: Set[domain.ContractId])
-    : Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] = {
+  private def removePhantomArchives_[A, B](
+      initialState: Set[domain.ContractId]
+  ): Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] = {
     import ContractStreamStep.{LiveBegin, Txn, Acs}
     Flow[StepAndErrors[A, B]]
       .scan((Tag unsubst initialState, Option.empty[StepAndErrors[A, B]])) {
@@ -452,7 +583,7 @@ class WebSocketService(
             domain.ContractId.unsubst(idstep.inserts.map(_._1.contractId))
           val (deletesToEmit, deletesToHold) = s0 partition idstep.deletes.keySet
           val s1: Set[String] = deletesToHold ++ newInserts
-          val a1 = a0.copy(step = a0.step.mapDeletes(_ filterKeys deletesToEmit))
+          val a1 = a0.copy(step = a0.step.mapDeletes(_.view.filterKeys(deletesToEmit).toMap))
 
           (s1, if (a1.nonEmpty) Some(a1) else None)
 
@@ -473,8 +604,9 @@ class WebSocketService(
   private[http] def wsMessage(jsVal: JsValue): TextMessage.Strict =
     TextMessage(jsVal.compactPrint)
 
-  private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])
-    : Flow[ContractStreamStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
+  private def convertFilterContracts[Pos](
+      fn: domain.ActiveContract[LfV] => Option[Pos]
+  ): Flow[ContractStreamStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
       .fromFunction { step: ContractStreamStep.LAV1 =>
         val (aerrors, errors, dstep) = step.partitionBimap(
@@ -487,23 +619,27 @@ class WebSocketService(
               .fromLedgerApi(ce)
               .liftErr(ServerError)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError)),
-        )
-        StepAndErrors(errors ++ aerrors, dstep mapInserts {
-          inserts: Vector[domain.ActiveContract[LfV]] =>
+        )(implicitly[Factory[ServerError, Seq[ServerError]]])
+        StepAndErrors(
+          errors ++ aerrors,
+          dstep mapInserts { inserts: Vector[domain.ActiveContract[LfV]] =>
             inserts.flatMap { ac =>
               fn(ac).map((ac, _)).toList
             }
-        })
+          },
+        )
       }
       .via(conflation)
       .map(_ mapLfv lfValueToJsValue)
 
   private def reportUnresolvedTemplateIds(
-      unresolved: Set[domain.TemplateId.OptionalPkg]): Source[JsValue, NotUsed] =
+      unresolved: Set[domain.TemplateId.OptionalPkg]
+  ): Source[JsValue, NotUsed] =
     if (unresolved.isEmpty) Source.empty
     else {
       import spray.json._
       Source.single(
-        domain.AsyncWarningsWrapper(domain.UnknownTemplateIds(unresolved.toList)).toJson)
+        domain.AsyncWarningsWrapper(domain.UnknownTemplateIds(unresolved.toList)).toJson
+      )
     }
 }

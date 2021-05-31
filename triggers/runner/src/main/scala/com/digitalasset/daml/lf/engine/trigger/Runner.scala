@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -20,8 +20,6 @@ import scalaz.syntax.functor._
 import scalaz.syntax.tag._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
-
-import scala.language.higherKinds
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
@@ -73,7 +71,7 @@ final case class Trigger(
     filters: Filters, // We store Filters rather than
     // TransactionFilter since the latter is
     // party-specific.
-    heartbeat: Option[FiniteDuration]
+    heartbeat: Option[FiniteDuration],
 ) {
   private[trigger] def loggingExtension: Map[String, String] =
     Map("triggerDefinition" -> triggerDefinition.toString)
@@ -101,7 +99,8 @@ object Machine extends StrictLogging {
 object Trigger extends StrictLogging {
   def fromIdentifier(
       compiledPackages: CompiledPackages,
-      triggerId: Identifier): Either[String, Trigger] = {
+      triggerId: Identifier,
+  ): Either[String, Trigger] = {
 
     // Given an identifier to a high- or lowlevel trigger,
     // return an expression that will run the corresponding trigger
@@ -154,7 +153,8 @@ object Trigger extends StrictLogging {
       compiledPackages: CompiledPackages,
       compiler: Compiler,
       converter: Converter,
-      expr: TypedExpr): Either[String, Option[FiniteDuration]] = {
+      expr: TypedExpr,
+  ): Either[String, Option[FiniteDuration]] = {
     val heartbeat = compiler.unsafeCompile(
       ERecProj(expr.ty, Name.assertFromString("heartbeat"), expr.expr)
     )
@@ -171,23 +171,24 @@ object Trigger extends StrictLogging {
       compiledPackages: CompiledPackages,
       compiler: Compiler,
       converter: Converter,
-      expr: TypedExpr): Either[String, Filters] = {
+      expr: TypedExpr,
+  ): Either[String, Filters] = {
     val registeredTemplates =
       compiler.unsafeCompile(
-        ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr))
+        ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr)
+      )
     val machine = Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)
     Machine.stepToValue(machine) match {
       case SVariant(_, "AllInDar", _, _) => {
         val packages: Seq[(PackageId, PackageSignature)] = compiledPackages.packageIds
           .map(pkgId => (pkgId, compiledPackages.getSignature(pkgId).get))
           .toSeq
-        val templateIds = packages.flatMap({
-          case (pkgId, pkg) =>
-            pkg.modules.toList.flatMap({
-              case (modName, module) =>
-                module.templates.keys.map(entityName =>
-                  toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName))))
-            })
+        val templateIds = packages.flatMap({ case (pkgId, pkg) =>
+          pkg.modules.toList.flatMap({ case (modName, module) =>
+            module.templates.keys.map(entityName =>
+              toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName)))
+            )
+          })
         })
         Right(Filters(Some(InclusiveFilters(templateIds))))
       }
@@ -249,16 +250,18 @@ class Runner(
       applicationId = applicationId.unwrap,
       commandId = commandUUID.toString,
       party = party,
-      commands = commands
+      commands = commands,
     )
     logger.debug(
-      s"submitting command ID ${commandUUID: UUID}, commands ${commands.map(_.command.value)}")
+      s"submitting command ID ${commandUUID: UUID}, commands ${commands.map(_.command.value)}"
+    )
     (commandUUID, SubmitRequest(commands = Some(commandsArg)))
   }
 
   private def freeTriggerSubmits(
       clientTime: Timestamp,
-      v: SValue): UnfoldState[SValue, SubmitRequest] = {
+      v: SValue,
+  ): UnfoldState[SValue, SubmitRequest] = {
     def evaluate(se: SExpr) = {
       val machine: Speedy.Machine =
         Speedy.Machine.fromPureSExpr(compiledPackages, se)
@@ -270,15 +273,18 @@ class Runner(
       val resumed = unrollFree(v) match {
         case Right(Right(vvv @ (variant, vv))) =>
           vvv.match2 {
-            case "GetTime" /*(Time -> a)*/ => {
-              case DamlFun(timeA) => Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
+            case "GetTime" /*(Time -> a)*/ => { case DamlFun(timeA) =>
+              Right(evaluate(makeAppD(timeA, STimestamp(clientTime))))
             }
             case "Submit" /*([Command], Text -> a)*/ => {
               case DamlTuple2(sCommands, DamlFun(textA)) =>
                 val commands = converter.toCommands(sCommands).orConverterException
                 val (commandUUID, submitRequest) = handleCommands(commands)
-                Left(\/-(
-                  (submitRequest, evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))))))
+                Left(
+                  \/-(
+                    (submitRequest, evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))))
+                  )
+                )
             }
             case _ =>
               val msg = s"unrecognized TriggerF step $variant"
@@ -304,30 +310,31 @@ class Runner(
       offset: LedgerOffset,
       heartbeat: Option[FiniteDuration],
       party: String,
-      filter: TransactionFilter): Flow[SingleCommandFailure, TriggerMsg, NotUsed] = {
+      filter: TransactionFilter,
+  ): Flow[SingleCommandFailure, TriggerMsg, NotUsed] = {
 
     // A queue for command submission failures.
     val submissionFailureQueue: Flow[SingleCommandFailure, Completion, NotUsed] =
       Flow[SingleCommandFailure]
-      // 256 comes from the default ExecutionContext.
-      // Why `fail`?  Consider the most obvious alternatives.
-      //
-      // `backpressure`?  This feeds into the Free interpreter flow, which may produce
-      //   many command failures for one event, hence deadlock.
-      //
-      // `drop*`?  A trigger will proceed as if everything was fine, without ever
-      //   getting the notification that its reaction to one contract and attempt to
-      //   advance its workflow failed.
-      //
-      // `fail`, on the other hand?  It far better fits the trigger model to go
-      //   tabula rasa and notice the still-unhandled contract in the ACS again
-      //   on init, as we expect triggers to be able to do anyhow.
+        // 256 comes from the default ExecutionContext.
+        // Why `fail`?  Consider the most obvious alternatives.
+        //
+        // `backpressure`?  This feeds into the Free interpreter flow, which may produce
+        //   many command failures for one event, hence deadlock.
+        //
+        // `drop*`?  A trigger will proceed as if everything was fine, without ever
+        //   getting the notification that its reaction to one contract and attempt to
+        //   advance its workflow failed.
+        //
+        // `fail`, on the other hand?  It far better fits the trigger model to go
+        //   tabula rasa and notice the still-unhandled contract in the ACS again
+        //   on init, as we expect triggers to be able to do anyhow.
         .buffer(256 + maxParallelSubmissionsPerTrigger, OverflowStrategy.fail)
-        .map {
-          case SingleCommandFailure(commandId, s) =>
-            Completion(
-              commandId,
-              Some(Status(s.getStatus().getCode().value(), s.getStatus().getDescription())))
+        .map { case SingleCommandFailure(commandId, s) =>
+          Completion(
+            commandId,
+            Some(Status(s.getStatus().getCode().value(), s.getStatus().getDescription())),
+          )
         }
 
     // The transaction source (ledger).
@@ -346,7 +353,8 @@ class Runner(
             .mapConcat {
               case CheckpointElement(_) => List()
               case CompletionElement(c) => List(c)
-            })
+            }
+        )
         .map(CompletionMsg)
 
     // Hearbeats source (we produce these repetitvely on a timer with
@@ -373,10 +381,12 @@ class Runner(
     // speedy expressions.
     val update: SExpr =
       compiler.unsafeCompile(
-        ERecProj(trigger.expr.ty, Name.assertFromString("update"), trigger.expr.expr))
+        ERecProj(trigger.expr.ty, Name.assertFromString("update"), trigger.expr.expr)
+      )
     val getInitialState: SExpr =
       compiler.unsafeCompile(
-        ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr))
+        ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr)
+      )
     // Convert the ACS to a speedy value.
     val createdValue: SValue = converter.fromACS(acs).orConverterException
     // Setup an application expression of initialState on the ACS.
@@ -389,9 +399,12 @@ class Runner(
     machine.setExpressionToEvaluate(initialState)
     val initialStateFree = Machine
       .stepToValue(machine)
-      .expect("TriggerSetup", {
-        case DamlAnyModuleRecord("TriggerSetup", fts) => fts
-      })
+      .expect(
+        "TriggerSetup",
+        { case DamlAnyModuleRecord("TriggerSetup", fts) =>
+          fts
+        },
+      )
       .orConverterException
     machine.setExpressionToEvaluate(update)
     val evaluatedUpdate: SValue = Machine.stepToValue(machine)
@@ -439,24 +452,32 @@ class Runner(
       machine.setExpressionToEvaluate(makeAppD(evaluatedUpdate, messageVal))
       val stateFun = Machine
         .stepToValue(machine)
-        .expect("TriggerRule", {
-          case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) => fun
-        })
+        .expect(
+          "TriggerRule",
+          { case DamlAnyModuleRecord("TriggerRule", DamlAnyModuleRecord("StateT", fun)) =>
+            fun
+          },
+        )
         .orConverterException
       machine.setExpressionToEvaluate(makeAppD(stateFun, state))
       val updateWithNewState = Machine.stepToValue(machine)
 
       freeTriggerSubmits(clientTime, v = updateWithNewState)
-        .leftMap(_.expect("TriggerRule new state", {
-          case DamlTuple2(SUnit, newState) =>
-            logger.debug(s"New state: $newState")
-            newState
-        }).orConverterException)
+        .leftMap(
+          _.expect(
+            "TriggerRule new state",
+            { case DamlTuple2(SUnit, newState) =>
+              logger.debug(s"New state: $newState")
+              newState
+            },
+          ).orConverterException
+        )
     }
 
     val logInitialState =
       Flow[SValue].wireTap(evaluatedInitialState =>
-        logger.debug(s"Initial state: $evaluatedInitialState"))
+        logger.debug(s"Initial state: $evaluatedInitialState")
+      )
 
     // The flow that we return:
     //  - Maps incoming trigger messages to new trigger messages
@@ -493,7 +514,8 @@ class Runner(
         // This happens for invalid UUIDs which we might get for
         // completions not emitted by the trigger.
         val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
-          UUID.fromString(c.commandId)).toOption
+          UUID.fromString(c.commandId)
+        ).toOption
         ouuid.flatMap { uuid =>
           useCommandId(uuid, SeenMsgs.Completion) option msg
         }.toList
@@ -501,7 +523,8 @@ class Runner(
         // This happens for invalid UUIDs which we might get for
         // transactions not emitted by the trigger.
         val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
-          UUID.fromString(t.commandId)).toOption
+          UUID.fromString(t.commandId)
+        ).toOption
         List(ouuid flatMap { uuid =>
           useCommandId(uuid, SeenMsgs.Transaction) option msg
         } getOrElse TransactionMsg(t.copy(commandId = "")))
@@ -516,21 +539,24 @@ class Runner(
 
   // Query the ACS. This allows you to separate the initialization of
   // the initial state from the first run.
-  def queryACS()(
-      implicit materializer: Materializer,
-      executionContext: ExecutionContext): Future[(Seq[CreatedEvent], LedgerOffset)] = {
+  def queryACS()(implicit
+      materializer: Materializer,
+      executionContext: ExecutionContext,
+  ): Future[(Seq[CreatedEvent], LedgerOffset)] = {
     for {
       acsResponses <- client.activeContractSetClient
         .getActiveContracts(transactionFilter, verbose = false)
         .runWith(Sink.seq)
       offset = Array(acsResponses: _*).lastOption
         .fold(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))(resp =>
-          LedgerOffset().withAbsolute(resp.offset))
+          LedgerOffset().withAbsolute(resp.offset)
+        )
     } yield (acsResponses.flatMap(x => x.activeContracts), offset)
   }
 
-  private[this] def submitOrFail(
-      implicit ec: ExecutionContext): Flow[SubmitRequest, SingleCommandFailure, NotUsed] = {
+  private[this] def submitOrFail(implicit
+      ec: ExecutionContext
+  ): Flow[SubmitRequest, SingleCommandFailure, NotUsed] = {
     def submit(req: SubmitRequest) = {
       val f: Future[Empty] = client.commandClient
         .submitSingleCommand(req)
@@ -555,7 +581,8 @@ class Runner(
       backoff = overloadedRetryDelay,
       parallelism = maxParallelSubmissionsPerTrigger,
       retryableSubmit,
-      submit)
+      submit,
+    )
       .collect { case Some(err) => err }
   }
 
@@ -567,9 +594,11 @@ class Runner(
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
       msgFlow: Graph[FlowShape[TriggerMsg, TriggerMsg], T] = Flow[TriggerMsg],
-      name: String = "")(
-      implicit materializer: Materializer,
-      executionContext: ExecutionContext): (T, Future[SValue]) = {
+      name: String = "",
+  )(implicit
+      materializer: Materializer,
+      executionContext: ExecutionContext,
+  ): (T, Future[SValue]) = {
     val source =
       msgSource(client, offset, trigger.heartbeat, party, transactionFilter)
     Flow
@@ -617,25 +646,31 @@ object Runner extends StrictLogging {
       backoff: Int => FiniteDuration,
       parallelism: Int,
       retryable: A => Future[Option[B]],
-      notRetryable: A => Future[B])(implicit ec: ExecutionContext): Flow[A, B, NotUsed] = {
+      notRetryable: A => Future[B],
+  )(implicit ec: ExecutionContext): Flow[A, B, NotUsed] = {
     def trial(tries: Int, value: A): Future[B] =
       if (tries <= 1) notRetryable(value)
       else
-        retryable(value).flatMap(_ cata (Future.successful, {
-          Future {
-            try Thread.sleep(backoff(initialTries - tries + 1).toMillis)
-            catch { case _: InterruptedException => }
-          }.flatMap(_ => trial(tries - 1, value))
-        }))
+        retryable(value).flatMap(
+          _.cata(
+            Future.successful, {
+              Future {
+                try Thread.sleep(backoff(initialTries - tries + 1).toMillis)
+                catch { case _: InterruptedException => }
+              }.flatMap(_ => trial(tries - 1, value))
+            },
+          )
+        )
     Flow[A].mapAsync(parallelism)(trial(initialTries, _))
   }
 
   private def alterF[K, V, F[a] >: Option[a]: Functor](m: Map[K, V], k: K)(
-      f: Option[V] => F[Option[V]]): F[Map[K, V]] = {
+      f: Option[V] => F[Option[V]]
+  ): F[Map[K, V]] = {
     val ov = m get k
     f(ov) map {
       (ov, _) match {
-        case (_, Some(v)) => m updated (k, v)
+        case (_, Some(v)) => m.updated(k, v)
         case (None, None) => m
         case (Some(_), None) => m - k
       }
@@ -668,10 +703,13 @@ object Runner extends StrictLogging {
       client: LedgerClient,
       timeProviderType: TimeProviderType,
       applicationId: ApplicationId,
-      party: String
+      party: String,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] = {
     val darMap = dar.all.toMap
-    val compiledPackages = PureCompiledPackages(darMap).right.get
+    val compiledPackages = PureCompiledPackages(darMap) match {
+      case Left(err) => throw new RuntimeException(s"Failed to compile packages: $err")
+      case Right(pkgs) => pkgs
+    }
     val trigger = Trigger.fromIdentifier(compiledPackages, triggerId) match {
       case Left(err) => throw new RuntimeException(s"Invalid trigger: $err")
       case Right(trigger) => trigger

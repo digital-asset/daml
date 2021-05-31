@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api
@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.{Ref, Time}
 import com.daml.metrics.Metrics
+import com.daml.telemetry.TelemetryContext
 
 import scala.compat.java8.FutureConverters
 
@@ -25,7 +26,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  ): CompletionStage[SubmissionResult] = {
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val submission =
       keyValueSubmission.transactionToSubmission(
         submitterInfo,
@@ -36,26 +37,30 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
     commit(
       correlationId = submitterInfo.commandId,
       submission = submission,
-      metadata = Some(metadata))
+      metadata = Some(metadata),
+    )
   }
 
   override def uploadPackages(
       submissionId: SubmissionId,
       archives: List[DamlLf.Archive],
-      sourceDescription: Option[String]): CompletionStage[SubmissionResult] = {
+      sourceDescription: Option[String],
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val submission = keyValueSubmission
       .archivesToSubmission(
         submissionId,
         archives,
         sourceDescription.getOrElse(""),
-        writer.participantId)
+        writer.participantId,
+      )
     commit(submissionId, submission)
   }
 
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
-      config: Configuration): CompletionStage[SubmissionResult] = {
+      config: Configuration,
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val submission =
       keyValueSubmission
         .configurationToSubmission(maxRecordTime, submissionId, writer.participantId, config)
@@ -65,14 +70,16 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
   override def allocateParty(
       hint: Option[Party],
       displayName: Option[String],
-      submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
+      submissionId: SubmissionId,
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(generateRandomParty())
     val submission =
       keyValueSubmission.partyToSubmission(
         submissionId,
         Some(party),
         displayName,
-        writer.participantId)
+        writer.participantId,
+      )
     commit(submissionId, submission)
   }
 
@@ -85,16 +92,19 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
       correlationId: String,
       submission: DamlSubmission,
       metadata: Option[CommitMetadata] = None,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(
       writer.commit(
         correlationId,
         Envelope.enclose(submission),
-        metadata.getOrElse(CommitMetadata(submission, None))))
+        metadata.getOrElse(CommitMetadata(submission, None)),
+      )
+    )
 
   override def prune(
       pruneUpToInclusive: Offset,
-      submissionId: SubmissionId): CompletionStage[PruningResult] =
+      submissionId: SubmissionId,
+  ): CompletionStage[PruningResult] =
     // kvutils has no participant local state to prune, so return success to let participant pruning proceed elsewhere.
     CompletableFuture.completedFuture(PruningResult.ParticipantPruned)
 }

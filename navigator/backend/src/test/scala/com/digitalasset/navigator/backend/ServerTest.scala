@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator
@@ -20,7 +20,7 @@ import com.daml.navigator.store.Store.{
   ApplicationStateFailed,
   ApplicationStateInfo,
   PartyActorRunning,
-  PartyActorStarted
+  PartyActorStarted,
 }
 import com.daml.navigator.time.TimeProviderType.Static
 import com.daml.navigator.time.TimeProviderWithType
@@ -52,11 +52,12 @@ class ServerTest
     "id" -> JsString(userId),
     "role" -> JsString(role),
     "party" -> JsString(party.unwrap),
-    "canAdvanceTime" -> JsBoolean(true))
+    "canAdvanceTime" -> JsBoolean(true),
+  )
 
   val sessionJson = JsObject(
     "type" -> JsString("session"),
-    "user" -> userJson
+    "user" -> userJson,
   )
 
   case object TestInfoHandler extends InfoHandler {
@@ -69,7 +70,7 @@ class ServerTest
       arguments = Arguments.default,
       graphQL = DefaultGraphQLHandler(Set.empty, None),
       info = TestInfoHandler,
-      getAppState = () => Future.successful(state)
+      getAppState = () => Future.successful(state),
     )
 
   private[this] val connected =
@@ -81,7 +82,9 @@ class ServerTest
         "n/a",
         "0",
         TimeProviderWithType(UTC, Static),
-        Map(userId -> PartyActorRunning(PartyActorStarted(partyState)))))
+        Map(userId -> PartyActorRunning(PartyActorStarted(partyState))),
+      )
+    )
 
   private[this] val unauthorized =
     route(
@@ -90,8 +93,9 @@ class ServerTest
         6865,
         true,
         "n/a",
-        io.grpc.Status.PERMISSION_DENIED.asException
-      ))
+        io.grpc.Status.PERMISSION_DENIED.asException,
+      )
+    )
 
   private[this] val failed =
     route(
@@ -100,8 +104,9 @@ class ServerTest
         6865,
         true,
         "n/a",
-        io.grpc.Status.INVALID_ARGUMENT.asException
-      ))
+        io.grpc.Status.INVALID_ARGUMENT.asException,
+      )
+    )
 
   private[this] val connecting =
     route(
@@ -109,8 +114,9 @@ class ServerTest
         "localhost",
         6865,
         true,
-        "n/a"
-      ))
+        "n/a",
+      )
+    )
 
   def sessionCookie(): String = {
     val cookies = headers.collect { case `Set-Cookie`(x) if x.name == "session-id" => x }
@@ -134,14 +140,16 @@ class ServerTest
     Session.open(sessionId, userId, userConfig, user.party)
     Get("/api/session/") ~> Cookie("session-id" -> sessionId) ~> connected ~> check {
       Unmarshal(response.entity).to[String].value.map(_.map(_.parseJson)) shouldEqual Some(
-        Success((sessionJson)))
+        Success((sessionJson))
+      )
     }
   }
 
   "SelectMode POST /api/session/" should "allow to SignIn with an existing user" in withCleanSessions {
     Post("/api/session/", LoginRequest(userId)) ~> connected ~> check {
       Unmarshal(response.entity).to[String].value.map(_.map(_.parseJson)) shouldEqual Some(
-        Success((sessionJson)))
+        Success((sessionJson))
+      )
       val sessionId = sessionCookie()
       Session.current(sessionId).value shouldEqual Session(user)
     }
@@ -151,7 +159,8 @@ class ServerTest
     Post("/api/session/", LoginRequest(userId + " ")) ~> connected ~> check {
       responseAs[SignIn] shouldEqual SignIn(
         method = SignInSelect(userIds = Set(userId)),
-        Some(InvalidCredentials))
+        Some(InvalidCredentials),
+      )
     }
   }
 
@@ -159,7 +168,8 @@ class ServerTest
     Post("/api/session/", LoginRequest(userId)) ~> unauthorized ~> check {
       responseAs[SignIn] shouldEqual SignIn(
         method = SignInSelect(userIds = Set()),
-        Some(InvalidCredentials))
+        Some(InvalidCredentials),
+      )
     }
   }
 
@@ -173,7 +183,8 @@ class ServerTest
     Post("/api/session/", LoginRequest(userId)) ~> connecting ~> check {
       responseAs[SignIn] shouldEqual SignIn(
         method = SignInSelect(userIds = Set()),
-        Some(NotConnected))
+        Some(NotConnected),
+      )
     }
   }
 

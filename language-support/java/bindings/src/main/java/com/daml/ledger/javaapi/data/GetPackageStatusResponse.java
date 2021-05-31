@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
@@ -10,39 +10,40 @@ import java.util.stream.Collectors;
 
 public class GetPackageStatusResponse {
 
-    // Clone of the PackageServiceOuterClass.PackageStatus enumeration
-    public enum PackageStatus {
-        UNKNOWN(0),
-        REGISTERED(1),
-        UNRECOGNIZED(-1),
-        ;
+  // Clone of the PackageServiceOuterClass.PackageStatus enumeration
+  public enum PackageStatus {
+    UNKNOWN(0),
+    REGISTERED(1),
+    UNRECOGNIZED(-1),
+    ;
 
-        private final int value;
+    private final int value;
 
-        static private Map<Integer, PackageStatus> valueToEnumMap =
-                EnumSet.allOf(PackageStatus.class).stream().collect(Collectors.toMap(e -> e.value, Function.identity()));
+    private static Map<Integer, PackageStatus> valueToEnumMap =
+        EnumSet.allOf(PackageStatus.class).stream()
+            .collect(Collectors.toMap(e -> e.value, Function.identity()));
 
-        private PackageStatus(int value) {
-            this.value = value;
-        }
-
-        static public PackageStatus valueOf(int value) {
-            return valueToEnumMap.getOrDefault(value, UNRECOGNIZED);
-        }
+    private PackageStatus(int value) {
+      this.value = value;
     }
 
-    private final PackageStatus packageStatus;
-
-    public GetPackageStatusResponse(PackageStatus packageStatus) {
-        this.packageStatus = packageStatus;
+    public static PackageStatus valueOf(int value) {
+      return valueToEnumMap.getOrDefault(value, UNRECOGNIZED);
     }
+  }
 
-    public PackageStatus getPackageStatusValue() {
-        return packageStatus;
-    }
+  private final PackageStatus packageStatus;
 
-    public static GetPackageStatusResponse fromProto(com.daml.ledger.api.v1.PackageServiceOuterClass.GetPackageStatusResponse p) {
-        return new GetPackageStatusResponse(PackageStatus.valueOf(p.getPackageStatusValue()));
-    }
+  public GetPackageStatusResponse(PackageStatus packageStatus) {
+    this.packageStatus = packageStatus;
+  }
 
+  public PackageStatus getPackageStatusValue() {
+    return packageStatus;
+  }
+
+  public static GetPackageStatusResponse fromProto(
+      com.daml.ledger.api.v1.PackageServiceOuterClass.GetPackageStatusResponse p) {
+    return new GetPackageStatusResponse(PackageStatus.valueOf(p.getPackageStatusValue()));
+  }
 }

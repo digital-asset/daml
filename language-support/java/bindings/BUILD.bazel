@@ -1,10 +1,11 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
+    "silencer_plugin",
 )
 load("//bazel_tools:proto.bzl", "proto_gen")
 load("//bazel_tools:java.bzl", "da_java_library")
@@ -86,13 +87,18 @@ da_scala_library(
             "src/test/**/*Test.scala",
         ],
     ),
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+    ],
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     visibility = [
         "//ledger-service/http-json:__subpackages__",
     ],
     deps = [
         ":bindings-java",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalacheck_scalacheck_2_12",
     ],
 )
 
@@ -102,13 +108,19 @@ da_scala_test_suite(
         "src/test/**/*Spec.scala",
         "src/test/**/*Test.scala",
     ]),
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
     deps = [
         ":bindings-java",
         ":bindings-java-tests-lib",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
     ],
 )
 

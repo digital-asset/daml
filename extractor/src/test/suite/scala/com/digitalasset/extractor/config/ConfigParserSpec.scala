@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.config
@@ -26,9 +26,8 @@ class ConfigParserSpec
   it should "parse template configuration" in forAll {
     templateConfigs: OneAnd[List, TemplateConfig] =>
       val args = requiredArgs ++ Vector("--templates", templateConfigUserInput(templateConfigs))
-      inside(ConfigParser.parse(args)) {
-        case Some((config, _)) =>
-          config.templateConfigs should ===(templateConfigs.toSet)
+      inside(ConfigParser.parse(args)) { case Some((config, _)) =>
+        config.templateConfigs should ===(templateConfigs.toSet)
       }
   }
 
@@ -38,7 +37,8 @@ class ConfigParserSpec
 
       val args = requiredArgs ++ Vector(
         "--templates",
-        templateConfigUserInput(duplicate :: templateConfigs.toList))
+        templateConfigUserInput(duplicate :: templateConfigs.toList),
+      )
 
       // scopt prints errors into STD Error stream
       val capturedStdErr = new java.io.ByteArrayOutputStream()
@@ -48,7 +48,7 @@ class ConfigParserSpec
       capturedStdErr.flush()
       capturedStdErr.close()
       result should ===(None)
-      val firstLine = capturedStdErr.toString.replaceAllLiterally("\r", "").split('\n')(0)
+      val firstLine = capturedStdErr.toString.replace("\r", "").split('\n')(0)
       firstLine should ===("Error: The list of templates must contain unique elements")
   }
 }

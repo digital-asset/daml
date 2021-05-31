@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.validation
@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
   CreateAndExercise => ProtoCreateAndExercise,
   Empty => ProtoEmpty,
   Exercise => ProtoExercise,
-  ExerciseByKey => ProtoExerciseByKey
+  ExerciseByKey => ProtoExerciseByKey,
 }
 import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
 import com.daml.lf.value.{Value => Lf}
@@ -25,7 +25,7 @@ import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
-import scala.Ordering.Implicits._
+import scala.Ordering.Implicits.infixOrderingOps
 
 final class CommandsValidator(ledgerId: LedgerId) {
 
@@ -35,12 +35,14 @@ final class CommandsValidator(ledgerId: LedgerId) {
       commands: ProtoCommands,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationTime: Option[Duration]): Either[StatusRuntimeException, domain.Commands] =
+      maxDeduplicationTime: Option[Duration],
+  ): Either[StatusRuntimeException, domain.Commands] =
     for {
       cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
       ledgerId <- matchLedgerId(ledgerId)(LedgerId(cmdLegerId))
-      workflowId <- if (commands.workflowId.isEmpty) Right(None)
-      else requireLedgerString(commands.workflowId).map(x => Some(domain.WorkflowId(x)))
+      workflowId <-
+        if (commands.workflowId.isEmpty) Right(None)
+        else requireLedgerString(commands.workflowId).map(x => Some(domain.WorkflowId(x)))
       appId <- requireLedgerString(commands.applicationId, "application_id")
         .map(domain.ApplicationId(_))
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
@@ -53,27 +55,29 @@ final class CommandsValidator(ledgerId: LedgerId) {
         .left
         .map(_ =>
           invalidArgument(
-            s"Can not represent command ledger time $ledgerEffectiveTime as a DAML timestamp"))
+            s"Can not represent command ledger time $ledgerEffectiveTime as a Daml timestamp"
+          )
+        )
       deduplicationTime <- validateDeduplicationTime(
         commands.deduplicationTime,
         maxDeduplicationTime,
-        "deduplication_time")
-    } yield
-      domain.Commands(
-        ledgerId = ledgerId,
-        workflowId = workflowId,
-        applicationId = appId,
-        commandId = commandId,
-        submitter = submitters.actAs.head,
-        submittedAt = currentUtcTime,
-        deduplicateUntil = currentUtcTime.plus(deduplicationTime),
-        commands = Commands(
-          submitters = Set(submitters.actAs.head),
-          commands = ImmArray(validatedCommands),
-          ledgerEffectiveTime = ledgerEffectiveTimestamp,
-          commandsReference = workflowId.fold("")(_.unwrap)
-        ),
+        "deduplication_time",
       )
+    } yield domain.Commands(
+      ledgerId = ledgerId,
+      workflowId = workflowId,
+      applicationId = appId,
+      commandId = commandId,
+      actAs = submitters.actAs,
+      readAs = submitters.readAs,
+      submittedAt = currentUtcTime,
+      deduplicateUntil = currentUtcTime.plus(deduplicationTime),
+      commands = Commands(
+        commands = ImmArray(validatedCommands),
+        ledgerEffectiveTime = ledgerEffectiveTimestamp,
+        commandsReference = workflowId.fold("")(_.unwrap),
+      ),
+    )
 
   private def validateLedgerTime(
       currentTime: Instant,
@@ -90,15 +94,18 @@ final class CommandsValidator(ledgerId: LedgerId) {
       case (Some(_), Some(_)) =>
         Left(
           invalidArgument(
-            "min_ledger_time_abs cannot be specified at the same time as min_ledger_time_rel"))
+            "min_ledger_time_abs cannot be specified at the same time as min_ledger_time_rel"
+          )
+        )
     }
   }
 
   private def validateInnerCommands(
-      commands: Seq[ProtoCommand],
-  ): Either[StatusRuntimeException, immutable.Seq[Command]] =
-    commands.foldLeft[Either[StatusRuntimeException, Vector[Command]]](
-      Right(Vector.empty[Command]))((commandz, command) => {
+      commands: Seq[ProtoCommand]
+  ): Either[StatusRuntimeException, immutable.Seq[ApiCommand]] =
+    commands.foldLeft[Either[StatusRuntimeException, Vector[ApiCommand]]](
+      Right(Vector.empty[ApiCommand])
+    )((commandz, command) => {
       for {
         validatedInnerCommands <- commandz
         validatedInnerCommand <- validateInnerCommand(command.command)
@@ -106,7 +113,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
     })
 
   private def validateInnerCommand(
-      command: ProtoCommand.Command): Either[StatusRuntimeException, Command] =
+      command: ProtoCommand.Command
+  ): Either[StatusRuntimeException, ApiCommand] =
     command match {
       case c: ProtoCreate =>
         for {
@@ -115,10 +123,10 @@ final class CommandsValidator(ledgerId: LedgerId) {
           createArguments <- requirePresence(c.value.createArguments, "create_arguments")
           recordId <- validateOptionalIdentifier(createArguments.recordId)
           validatedRecordField <- validateRecordFields(createArguments.fields)
-        } yield
-          CreateCommand(
-            templateId = validatedTemplateId,
-            argument = Lf.ValueRecord(recordId, validatedRecordField))
+        } yield CreateCommand(
+          templateId = validatedTemplateId,
+          argument = Lf.ValueRecord(recordId, validatedRecordField),
+        )
 
       case e: ProtoExercise =>
         for {
@@ -128,12 +136,12 @@ final class CommandsValidator(ledgerId: LedgerId) {
           choice <- requireName(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
-        } yield
-          ExerciseCommand(
-            templateId = validatedTemplateId,
-            contractId = contractId,
-            choiceId = choice,
-            argument = validatedValue)
+        } yield ExerciseCommand(
+          templateId = validatedTemplateId,
+          contractId = contractId,
+          choiceId = choice,
+          argument = validatedValue,
+        )
 
       case ek: ProtoExerciseByKey =>
         for {
@@ -144,13 +152,12 @@ final class CommandsValidator(ledgerId: LedgerId) {
           choice <- requireName(ek.value.choice, "choice")
           value <- requirePresence(ek.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
-        } yield
-          ExerciseByKeyCommand(
-            templateId = validatedTemplateId,
-            contractKey = validatedContractKey,
-            choiceId = choice,
-            argument = validatedValue
-          )
+        } yield ExerciseByKeyCommand(
+          templateId = validatedTemplateId,
+          contractKey = validatedContractKey,
+          choiceId = choice,
+          argument = validatedValue,
+        )
 
       case ce: ProtoCreateAndExercise =>
         for {
@@ -162,13 +169,12 @@ final class CommandsValidator(ledgerId: LedgerId) {
           choice <- requireName(ce.value.choice, "choice")
           value <- requirePresence(ce.value.choiceArgument, "value")
           validatedChoiceArgument <- validateValue(value)
-        } yield
-          CreateAndExerciseCommand(
-            templateId = validatedTemplateId,
-            createArgument = Lf.ValueRecord(recordId, validatedRecordField),
-            choiceId = choice,
-            choiceArgument = validatedChoiceArgument
-          )
+        } yield CreateAndExerciseCommand(
+          templateId = validatedTemplateId,
+          createArgument = Lf.ValueRecord(recordId, validatedRecordField),
+          choiceId = choice,
+          choiceArgument = validatedChoiceArgument,
+        )
       case ProtoEmpty =>
         Left(missingField("command"))
     }
@@ -176,8 +182,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
 
 object CommandsValidator {
 
-  /**
-    * Effective submitters of a command
+  /** Effective submitters of a command
     * @param actAs Guaranteed to be non-empty. Will contain exactly one element in most cases.
     * @param readAs May be empty.
     */
@@ -200,25 +205,16 @@ object CommandsValidator {
   val noSubmitters: Submitters[String] = Submitters(Set.empty, Set.empty)
 
   def validateSubmitters(
-      commands: ProtoCommands,
+      commands: ProtoCommands
   ): Either[StatusRuntimeException, Submitters[Ref.Party]] = {
     def actAsMustNotBeEmpty(effectiveActAs: Set[Ref.Party]) =
       Either.cond(effectiveActAs.nonEmpty, (), missingField("party or act_as"))
-
-    // Temporary check to reject all multi-party submissions until they are implemented
-    // Note: when removing this method, also remove the call to `actAs.head` in validateCommands()
-    def requireSingleSubmitter(actAs: Set[Ref.Party], readAs: Set[Ref.Party]) =
-      if (actAs.size > 1 || readAs.nonEmpty)
-        Left(unimplemented("Multi-party submissions are not supported"))
-      else
-        Right(())
 
     val submitters = effectiveSubmitters(commands)
     for {
       actAs <- requireParties(submitters.actAs)
       readAs <- requireParties(submitters.readAs)
       _ <- actAsMustNotBeEmpty(actAs)
-      _ <- requireSingleSubmitter(actAs, readAs)
     } yield Submitters(actAs, readAs)
   }
 }

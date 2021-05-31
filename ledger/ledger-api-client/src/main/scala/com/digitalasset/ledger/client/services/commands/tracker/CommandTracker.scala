@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.commands.tracker
@@ -20,14 +20,14 @@ import com.google.rpc.status.Status
 import io.grpc.{Status => RpcStatus}
 import org.slf4j.LoggerFactory
 
-import scala.collection.{breakOut, immutable, mutable}
+import scala.collection.compat._
+import scala.collection.{immutable, mutable}
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Implements the logic of command tracking via two streams, a submit request and command completion stream.
+/** Implements the logic of command tracking via two streams, a submit request and command completion stream.
   * These streams behave like standard `Flows`, applying tracking and processing logic along the way,
   * except that:
   * <ul><li>
@@ -43,13 +43,12 @@ import scala.util.{Failure, Success, Try}
   * yielding a map containing any commands that were not completed.
   * </li></ul>
   * We also have an output for offsets, so the most recent offsets can be reused for recovery.
-  *
   */
 // TODO(mthvedt): This should have unit tests.
 private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDuration)
-    extends GraphStageWithMaterializedValue[
-      CommandTrackerShape[Context],
-      Future[immutable.Map[String, Context]]] {
+    extends GraphStageWithMaterializedValue[CommandTrackerShape[Context], Future[
+      immutable.Map[String, Context]
+    ]] {
 
   private val logger = LoggerFactory.getLogger(this.getClass.getName)
 
@@ -65,9 +64,10 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
     Outlet[LedgerOffset]("offsetOut")
 
   override def createLogicAndMaterializedValue(
-      inheritedAttributes: Attributes): (GraphStageLogic, Future[Map[String, Context]]) = {
+      inheritedAttributes: Attributes
+  ): (GraphStageLogic, Future[Map[String, Context]]) = {
 
-    val promise = Promise[immutable.Map[String, Context]]
+    val promise = Promise[immutable.Map[String, Context]]()
 
     val logic: TimerGraphStageLogic = new TimerGraphStageLogic(shape) {
 
@@ -97,7 +97,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
             cancel(submitRequestIn)
             completeStageIfTerminal()
           }
-        }
+        },
       )
 
       setHandler(
@@ -122,19 +122,21 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
           override def onUpstreamFailure(ex: Throwable): Unit = {
             fail(resultOut, ex)
           }
-        }
+        },
       )
 
-      setHandler(resultOut, new OutHandler {
-        override def onPull(): Unit = if (!hasBeenPulled(commandResultIn)) pull(commandResultIn)
-      })
+      setHandler(
+        resultOut,
+        new OutHandler {
+          override def onPull(): Unit = if (!hasBeenPulled(commandResultIn)) pull(commandResultIn)
+        },
+      )
 
       setHandler(
         commandResultIn,
         new InHandler {
 
-          /**
-            * This port was pulled by [[resultOut]], so that port expects an output.
+          /** This port was pulled by [[resultOut]], so that port expects an output.
             * If processing the input produces one, we push it through [[resultOut]], otherwise we pull this port again.
             * If multiple outputs are produced (possible with timeouts only) we get rid of them with emitMultiple.
             */
@@ -153,7 +155,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
 
             completeStageIfTerminal()
           }
-        }
+        },
       )
 
       setHandler(
@@ -161,11 +163,18 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
         new OutHandler {
           override def onPull(): Unit =
             () //nothing to do here as the offset stream will be read with constant demand, storing the latest element
-        }
+        },
       )
 
       private def pushResultOrPullCommandResultIn(compl: Option[Ctx[Context, Completion]]): Unit = {
-        compl.fold(pull(commandResultIn))(push(resultOut, _))
+        // The command tracker detects timeouts outside the regular pull/push
+        // mechanism of the input/output ports. Basically the timeout
+        // detection jumps the line when emitting outputs on `resultOut`. If it
+        // then processes a regular completion, it tries to push to `resultOut`
+        // even though it hasn't been pulled again in the meantime. Using `emit`
+        // instead of `push` when a completion arrives makes akka take care of
+        // handling the signaling properly.
+        compl.fold(if (!hasBeenPulled(commandResultIn)) pull(commandResultIn))(emit(resultOut, _))
       }
 
       private def completeStageIfTerminal(): Unit = {
@@ -184,7 +193,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
           case Failure(throwable) =>
             logger.warn(
               s"Service responded with error for submitting command with context ${submitResponse.context}. Status of command is unknown. watching for completion...",
-              throwable
+              throwable,
             )
             None
           case Success(_) =>
@@ -197,20 +206,22 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
         submitRequest.value.commands
           .fold(
             throw new IllegalArgumentException(
-              "Commands field is missing from received SubmitRequest in CommandTracker")
-            with NoStackTrace) { commands =>
+              "Commands field is missing from received SubmitRequest in CommandTracker"
+            ) with NoStackTrace
+          ) { commands =>
             val commandId = commands.commandId
             logger.trace("Begin tracking of command {}", commandId)
             if (pendingCommands.get(commandId).nonEmpty) {
               // TODO return an error identical to the server side duplicate command error once that's defined.
               throw new IllegalStateException(
-                s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique.")
-              with NoStackTrace
+                s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique."
+              ) with NoStackTrace
             }
             val commandTimeout = {
               lazy val maxDedup = maxDeduplicationTime()
               val dedup = commands.deduplicationTime.getOrElse(
-                ProtoDuration.of(maxDedup.getSeconds, maxDedup.getNano))
+                ProtoDuration.of(maxDedup.getSeconds, maxDedup.getNano)
+              )
               Instant.now().plusSeconds(dedup.seconds).plusNanos(dedup.nanos.toLong)
             }
 
@@ -219,35 +230,41 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
                 commandId,
                 commandTimeout,
                 submitRequest.value.traceContext,
-                submitRequest.context))
+                submitRequest.context,
+              ))
           }
         ()
       }
 
       private def getOutputForTimeout(instant: Instant) = {
         logger.trace("Checking timeouts at {}", instant)
-        pendingCommands.flatMap {
-          case (commandId, trackingData) =>
+        pendingCommands.view
+          .flatMap { case (commandId, trackingData) =>
             if (trackingData.commandTimeout.isBefore(instant)) {
               pendingCommands -= commandId
               logger.info(
                 s"Command {} (command timeout {}) timed out at checkpoint {}.",
                 commandId,
                 trackingData.commandTimeout,
-                instant)
+                instant,
+              )
               List(
                 Ctx(
                   trackingData.context,
                   Completion(
                     trackingData.commandId,
                     Some(
-                      com.google.rpc.status.Status(RpcStatus.ABORTED.getCode.value(), "Timeout")),
-                    traceContext = trackingData.traceContext)
-                ))
+                      com.google.rpc.status.Status(RpcStatus.ABORTED.getCode.value(), "Timeout")
+                    ),
+                    traceContext = trackingData.traceContext,
+                  ),
+                )
+              )
             } else {
               Nil
             }
-        }(breakOut)
+          }
+          .to(immutable.Seq)
       }
 
       private def getOutputForCompletion(completion: Completion) = {
@@ -268,7 +285,8 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
 
       private def getOutputForTerminalStatusCode(
           commandId: String,
-          status: Status): Option[Ctx[Context, Completion]] = {
+          status: Status,
+      ): Option[Ctx[Context, Completion]] = {
         logger.trace("Handling failure of command {}", commandId)
         pendingCommands
           .remove(commandId)
@@ -282,9 +300,9 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
       }
 
       override def postStop(): Unit = {
-        promise.tryComplete(Success(pendingCommands.map {
-          case (k, v) => k -> v.context
-        }(breakOut)))
+        promise.tryComplete(Success(pendingCommands.view.map { case (k, v) =>
+          k -> v.context
+        }.toMap))
         super.postStop()
       }
     }

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -35,7 +35,7 @@ dependencies:
   - daml-prim
   - daml-script.dar
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location script-test.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test.dar)
       rm -rf $$TMP_DIR
     """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
@@ -53,6 +53,7 @@ genrule(
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/TestContractId.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
       cp -L $(location //daml-script/daml:daml-script-1.dev.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
@@ -66,7 +67,7 @@ dependencies:
   - daml-prim
   - daml-script-1.dev.dar
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location script-test-1.dev.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-1.dev.dar)
       rm -rf $$TMP_DIR
     """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
@@ -99,7 +100,7 @@ dependencies:
   - daml-prim
   - daml-script.dar
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location script-test-no-ledger.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location script-test-no-ledger.dar)
       rm -rf $$TMP_DIR
     """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
@@ -109,6 +110,13 @@ EOF
 da_scala_library(
     name = "test-utils",
     srcs = glob(["src/test-utils/**/*.scala"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -141,11 +149,6 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -159,6 +162,13 @@ da_scala_test_suite(
         "//ledger/test-common/test-certificates",
     ],
     resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -174,7 +184,9 @@ da_scala_test_suite(
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
-        "//ledger-service/http-json",
+        "//ledger-service/cli-opts",
+        "//ledger-service/http-json:http-json-ce",
+        "//ledger-service/http-json-cli:ce",
         "//ledger-service/jwt",
         "//ledger-service/lf-value-json",
         "//ledger/caching",
@@ -191,14 +203,12 @@ da_scala_test_suite(
         "//ledger/sandbox-common",
         "//ledger/sandbox-common:sandbox-common-scala-tests-lib",
         "//ledger/test-common",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
+        "//libs-scala/resources-grpc",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:com_typesafe_akka_akka_http_core_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -210,7 +220,7 @@ sh_test(
         "$(rootpath :script-test.dar)",
         "$(POSIX_DIFF)",
         "$(POSIX_GREP)",
-        "$(POSIX_SORT)",
+        "$(POSIX_SED)",
     ],
     data = [
         ":script-test.dar",

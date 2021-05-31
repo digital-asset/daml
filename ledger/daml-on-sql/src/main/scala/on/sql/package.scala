@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.on
@@ -10,12 +10,11 @@ import scalaz.syntax.tag._
 
 package object sql {
 
-  private[sql] val Name = LedgerName("DAML-on-SQL")
+  private[sql] val Name = LedgerName("Daml-on-SQL")
 
   private[sql] val DefaultConfig = SandboxConfig.defaultConfig.copy(
     participantId = v1.ParticipantId.assertFromString(Name.unwrap.toLowerCase()),
     ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
-    devMode = false,
     implicitPartyAllocation = false,
   )
 

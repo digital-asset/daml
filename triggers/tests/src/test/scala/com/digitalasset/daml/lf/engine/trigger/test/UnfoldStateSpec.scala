@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -38,7 +38,7 @@ class UnfoldStateSpec
 
   "iterator" should {
     "retract fromLinearSeq and end with unit" in forAll { xs: List[Int] =>
-      fromLinearSeq(xs).iterator().to[List] should ===((xs map \/.right) :+ -\/(()))
+      fromLinearSeq(xs).iterator().toList should ===((xs map \/.right) :+ -\/(()))
     }
   }
 

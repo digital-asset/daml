@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ConstraintKinds #-}
@@ -8,7 +8,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | Contexts for DAML LF static verification
+-- | Contexts for Daml-LF static verification
 module DA.Daml.LF.Verify.Context
   ( Phase(..)
   , IsPhase(..)
@@ -102,6 +102,11 @@ toBoolExpr (ETmApp (ETmApp op e1) e2) = case op of
   (ETyApp (EBuiltin BEGreaterEqNumeric) _) -> [BGtE e1 e2]
   (ETyApp (EBuiltin BELessNumeric) _) -> [BLt e1 e2]
   (ETyApp (EBuiltin BELessEqNumeric) _) -> [BLtE e1 e2]
+  (ETyApp (EBuiltin BEEqualGeneric) _) -> [BEq e1 e2]
+  (ETyApp (EBuiltin BEGreaterGeneric) _) -> [BGt e1 e2]
+  (ETyApp (EBuiltin BEGreaterEqGeneric) _) -> [BGtE e1 e2]
+  (ETyApp (EBuiltin BELessGeneric) _) -> [BLt e1 e2]
+  (ETyApp (EBuiltin BELessEqGeneric) _) -> [BLtE e1 e2]
   _ -> trace ("Warning: Unmatched Expr to BoolExpr Operator: " ++ show op) []
 toBoolExpr exp = trace ("Warning: Unmatched Expr to BoolExpr: " ++ show exp) []
 

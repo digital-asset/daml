@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services
@@ -19,10 +19,10 @@ import scala.io.Source
 import scala.util.Try
 import scala.util.control.NonFatal
 
-private[apiserver] final class ApiVersionService private (
-    implicit loggingContext: LoggingContext,
-    ec: ExecutionContext)
-    extends VersionService
+private[apiserver] final class ApiVersionService private (implicit
+    loggingContext: LoggingContext,
+    ec: ExecutionContext,
+) extends VersionService
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -31,13 +31,14 @@ private[apiserver] final class ApiVersionService private (
   private lazy val apiVersion: Try[String] = readVersion(versionFile)
 
   override def getLedgerApiVersion(
-      request: GetLedgerApiVersionRequest): Future[GetLedgerApiVersionResponse] =
+      request: GetLedgerApiVersionRequest
+  ): Future[GetLedgerApiVersionResponse] =
     Future
       .fromTry(apiVersion)
       .map(GetLedgerApiVersionResponse(_))
       .andThen(logger.logErrorsOnCall[GetLedgerApiVersionResponse])
-      .recoverWith {
-        case NonFatal(_) => internalError
+      .recoverWith { case NonFatal(_) =>
+        internalError
       }
 
   private lazy val internalError: Future[Nothing] =

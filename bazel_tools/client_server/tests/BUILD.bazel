@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -26,8 +26,8 @@ da_scala_binary(
     name = "server",
     srcs = ["server.scala"],
     main_class = "com.daml.bazeltools.clientservertest.tests.Main",
-    deps = [
-        "@maven//:com_github_scopt_scopt_2_12",
+    scala_deps = [
+        "@maven//:com_github_scopt_scopt",
     ],
 )
 
@@ -50,6 +50,7 @@ client_server_test(
 
 client_server_build(
     name = "build",
+    outs = ["build.out"],
     client = ":client",
     client_args = [
         "--foobar",

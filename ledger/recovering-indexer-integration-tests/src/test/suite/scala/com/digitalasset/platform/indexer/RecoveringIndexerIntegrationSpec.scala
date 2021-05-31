@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.indexer
@@ -6,6 +6,7 @@ package com.daml.platform.indexer
 import java.time.Instant
 import java.time.temporal.ChronoUnit.SECONDS
 import java.util.UUID
+import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -13,12 +14,10 @@ import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.memory
-import com.daml.ledger.participant.state.kvutils.api.{
-  BatchingLedgerWriterConfig,
-  KeyValueParticipantState
-}
+import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
+import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.engine.Engine
@@ -27,9 +26,10 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
-import com.daml.platform.store.dao.events.LfValueTranslation
+import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.testing.LogCollector
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._
@@ -38,8 +38,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.compat.java8.FutureConverters._
-import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 class RecoveringIndexerIntegrationSpec
@@ -48,6 +48,8 @@ class RecoveringIndexerIntegrationSpec
     with TestResourceContext
     with BeforeAndAfterEach {
   private[this] var testId: UUID = _
+
+  private implicit val telemetryContext: TelemetryContext = NoOpTelemetryContext
 
   override def beforeEach(): Unit = {
     super.beforeEach()
@@ -159,11 +161,15 @@ class RecoveringIndexerIntegrationSpec
                 )
                 .toScala
               _ <- eventually { (_, _) =>
-                Future.fromTry(Try(readLog().take(3) should contain theSameElementsInOrderAs Seq(
-                  Level.INFO -> "Starting Indexer Server",
-                  Level.INFO -> "Started Indexer Server",
-                  Level.ERROR -> "Error while running indexer, restart scheduled after 10 seconds",
-                )))
+                Future.fromTry(
+                  Try(
+                    readLog().take(3) should contain theSameElementsInOrderAs Seq(
+                      Level.INFO -> "Starting Indexer Server",
+                      Level.INFO -> "Started Indexer Server",
+                      Level.ERROR -> "Error while running indexer, restart scheduled after 10 seconds",
+                    )
+                  )
+                )
               }
             } yield Instant.now()
           }
@@ -194,17 +200,21 @@ class RecoveringIndexerIntegrationSpec
     for {
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem())
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
+      servicesExecutionContext <- ResourceOwner
+        .forExecutorService(() => Executors.newWorkStealingPool())
+        .map(ExecutionContext.fromExecutorService)
       participantState <- newParticipantState(ledgerId, participantId)(materializer, loggingContext)
       _ <- new StandaloneIndexerServer(
         readService = participantState,
         config = IndexerConfig(
-          participantId,
-          jdbcUrl,
+          participantId = participantId,
+          jdbcUrl = jdbcUrl,
           startupMode = IndexerStartupMode.MigrateAndStart,
           restartDelay = restartDelay,
         ),
+        servicesExecutionContext = servicesExecutionContext,
         metrics = new Metrics(new MetricRegistry),
-        lfValueTranslationCache = LfValueTranslation.Cache.none,
+        lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       )(materializer, loggingContext)
     } yield participantState
   }
@@ -215,10 +225,14 @@ class RecoveringIndexerIntegrationSpec
     JdbcLedgerDao.writeOwner(
       serverRole = ServerRole.Testing(getClass),
       jdbcUrl = jdbcUrl,
+      connectionPoolSize = 16,
+      connectionTimeout = 250.millis,
       eventsPageSize = 100,
+      servicesExecutionContext = executionContext,
       metrics = new Metrics(new MetricRegistry),
-      lfValueTranslationCache = LfValueTranslation.Cache.none,
-      jdbcAsyncCommits = true,
+      lfValueTranslationCache = LfValueTranslationCache.Cache.none,
+      jdbcAsyncCommitMode = DbType.AsynchronousCommit,
+      enricher = None,
     )
   }
 }
@@ -233,31 +247,40 @@ object RecoveringIndexerIntegrationSpec {
     SubmissionId.assertFromString(UUID.randomUUID().toString)
 
   private trait ParticipantStateFactory {
-    def apply(ledgerId: LedgerId, participantId: ParticipantId)(
-        implicit materializer: Materializer,
+    def apply(ledgerId: LedgerId, participantId: ParticipantId)(implicit
+        materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState]
   }
 
   private object SimpleParticipantState extends ParticipantStateFactory {
-    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(
-        implicit materializer: Materializer,
+    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(implicit
+        materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] = {
       val metrics = new Metrics(new MetricRegistry)
-      new memory.InMemoryLedgerReaderWriter.SingleParticipantBatchingOwner(
-        ledgerId,
-        BatchingLedgerWriterConfig.reasonableDefault,
-        participantId,
-        metrics = metrics,
-        engine = Engine.DevEngine()
-      ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
+      for {
+        dispatcher <- memory.dispatcherOwner
+        committerExecutionContext <- ResourceOwner
+          .forExecutorService(() => Executors.newCachedThreadPool())
+          .map(ExecutionContext.fromExecutorService)
+        readerWriter <- new memory.InMemoryLedgerReaderWriter.Owner(
+          ledgerId = ledgerId,
+          participantId = participantId,
+          keySerializationStrategy = StateKeySerializationStrategy.createDefault(),
+          metrics = metrics,
+          dispatcher = dispatcher,
+          state = memory.InMemoryState.empty,
+          engine = Engine.DevEngine(),
+          committerExecutionContext = committerExecutionContext,
+        )
+      } yield new KeyValueParticipantState(readerWriter, readerWriter, metrics)
     }
   }
 
   private object ParticipantStateThatFailsOften extends ParticipantStateFactory {
-    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(
-        implicit materializer: Materializer,
+    override def apply(ledgerId: LedgerId, participantId: ParticipantId)(implicit
+        materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] =
       SimpleParticipantState(ledgerId, participantId)
@@ -267,14 +290,13 @@ object RecoveringIndexerIntegrationSpec {
           val failingParticipantState = spy(delegate)
           doAnswer(invocation => {
             val beginAfter = invocation.getArgument[Option[Offset]](0)
-            delegate.stateUpdates(beginAfter).flatMapConcat {
-              case value @ (offset, _) =>
-                if (lastFailure.isEmpty || lastFailure.get < offset) {
-                  lastFailure = Some(offset)
-                  Source.single(value).concat(Source.failed(new StateUpdatesFailedException))
-                } else {
-                  Source.single(value)
-                }
+            delegate.stateUpdates(beginAfter).flatMapConcat { case value @ (offset, _) =>
+              if (lastFailure.isEmpty || lastFailure.get < offset) {
+                lastFailure = Some(offset)
+                Source.single(value).concat(Source.failed(new StateUpdatesFailedException))
+              } else {
+                Source.single(value)
+              }
             }
           }).when(failingParticipantState).stateUpdates(ArgumentMatchers.any[Option[Offset]]())
           failingParticipantState

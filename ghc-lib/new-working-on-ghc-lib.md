@@ -1,11 +1,11 @@
-Copyright 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
+Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: (Apache-2.0 OR BSD-3-Clause)
 
 # Working on `ghc-lib`
 
-If you need to build, test, deploy or develop [`ghc-lib`](https://github.com/digital-asset/ghc-lib) as used by DAML and utilizing the Digital Asset [GHC fork](https://github.com/digital-asset/ghc) these notes are for you.
+If you need to build, test, deploy or develop [`ghc-lib`](https://github.com/digital-asset/ghc-lib) as used by Daml and utilizing the Digital Asset [GHC fork](https://github.com/digital-asset/ghc) these notes are for you.
 
-Here are instructions for when working on DAML surface syntax, as implemented in the the digital-assert fork of `ghc`. (linked in via `ghc-lib`).
+Here are instructions for when working on Daml surface syntax, as implemented in the the digital-assert fork of `ghc`. (linked in via `ghc-lib`).
 
 
 ### Cloning the digital-assert fork of `ghc`
@@ -49,12 +49,12 @@ The quickest way to build and test is:
 
 2. `./_build/stage1/bin/ghc ./Example.hs -ddump-parsed | tee desugar.out`
 
-Step 1 gives immediate feedback on build failures, but takes about 2-3 minutes when successful. For Step 2 you need a DAML example file. The input file must end in `.hs` suffix. It must begin with the pragma: `{-# LANGUAGE DamlSyntax #-}`
+Step 1 gives immediate feedback on build failures, but takes about 2-3 minutes when successful. For Step 2 you need a Daml example file. The input file must end in `.hs` suffix. It must begin with the pragma: `{-# LANGUAGE DamlSyntax #-}`
 
 
 ### Building `daml` following a change to `ghc`
 
-Once you have the GHC patch you want to incorporate into the DAML repo, here's the steps you'll need to take:
+Once you have the GHC patch you want to incorporate into the Daml repo, here's the steps you'll need to take:
 
 1. Open a PR in the daml repo with the commit hash for the GHC patch in `ci/da-ghc-lib/compile.yml`. See [here](https://github.com/digital-asset/daml/pull/7489/commits/fedc456260f598f9924ce62d9765c3c09b8ad861)
 

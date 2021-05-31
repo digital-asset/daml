@@ -1,0 +1,28 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF 1.dev
+
+-- | Test that create throws a PreconditionFailed when the precondition is violated.
+module ExceptionCreate where
+
+import DA.Assert
+import DA.Exception
+
+template MyTemplate
+    with
+        p : Party
+    where
+        signatory p
+        ensure False
+
+test = scenario do
+    p <- getParty "Alice"
+    m <- submit p do
+        try do
+            create (MyTemplate p)
+            pure ""
+        catch
+            PreconditionFailed msg ->
+                pure msg
+    m === "Template precondition violated: MyTemplate {p = 'Alice'}"

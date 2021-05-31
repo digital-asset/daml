@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // eslint-disable  @typescript-eslint/no-explicit-any
@@ -218,7 +218,7 @@ export interface TemplatesRowData {
     __typename: 'Template';
     /** template ID */
     id: string;
-    /** template name (as it appears in the DAML source) */
+    /** template name (as it appears in the Daml source) */
     topLevelDecl: string;
     contracts: {
         /** number of contracts for this template */

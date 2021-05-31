@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Ledger API Test Tool
@@ -6,13 +6,13 @@ Ledger API Test Tool
 
 The Ledger API Test Tool is a command line tool for testing the correctness of
 implementations of the :doc:`Ledger API </app-dev/ledger-api>`,
-i.e. DAML ledgers. For example, it
+i.e. Daml ledgers. For example, it
 will show you if there are consistency or conformance problem with your
 implementation.
 
-Its intended audience are developers of DAML ledgers, who are using the
-DAML Ledger Implementation Kit to develop
-a DAML ledger on top of their distributed-ledger or database of choice.
+Its intended audience are developers of Daml ledgers, who are using the
+Daml Ledger Implementation Kit to develop
+a Daml ledger on top of their distributed-ledger or database of choice.
 
 Use this tool to verify if your Ledger API endpoint conforms to the
 :doc:`DA Ledger Model </concepts/ledger-model/index>`.
@@ -155,11 +155,11 @@ The test run will also produce a short summary of statistics which is
 printed to standard output by default but that can be written to a
 specific file path using the ``--perf-tests-report`` command line option.
 
-Try out the Ledger API Test Tool against DAML Sandbox
+Try out the Ledger API Test Tool against Daml Sandbox
 =====================================================
 
 If you wanted to test out the tool, you can run it against
-:doc:`DAML Sandbox </tools/sandbox>`. To do this:
+:doc:`Daml Sandbox </tools/sandbox>`. To do this:
 
    .. code-block:: console
 
@@ -179,7 +179,7 @@ test fails, and it will return a failure exit code when all tests succeed:
 
     ``java -jar ledger-api-test-tool.jar --must-fail localhost:6865``
 
-This is useful during development of a DAML ledger implementation, when tool
+This is useful during development of a Daml ledger implementation, when tool
 needs to be used against a known-to-be-faulty implementation (e.g. in CI). It
 will still print information about failed tests.
 
@@ -190,7 +190,7 @@ Use the command line option ``--timeout-scale-factor`` to tune timeouts applied
   by the tool.
 
 - Set ``--timeout-scale-factor`` to a floating point value higher than 1.0 to make
-  the tool wait longer for expected events coming from the DAML ledger
+  the tool wait longer for expected events coming from the Daml ledger
   implementation under test. Conversely use values smaller than 1.0 to make it
   wait shorter.
 
@@ -225,7 +225,7 @@ Retired tests
 
 A few tests can be retired over time as they could be deemed not providing the
 necessary signal to a developer or operator that an integration correctly
-implements the DAML Ledger API. Those test will nominally be kept in the
+implements the Daml Ledger API. Those test will nominally be kept in the
 test suite for a time to prevent unwanted breakages of existing CI pipelines.
 They will however not be run and they will eventually be removed. You are
 advised to remove any explicit reference to those tests while they are in

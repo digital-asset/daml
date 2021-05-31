@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.index
@@ -6,22 +6,24 @@ package com.daml.platform.index
 import java.sql.SQLException
 import java.time.Instant
 
+import akka.Done
 import akka.actor.Cancellable
 import akka.stream._
-import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
-import akka.{Done, NotUsed}
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.events.LfValueTranslation
-import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
-import com.daml.platform.store.{BaseLedger, ReadOnlyLedger}
+import com.daml.platform.store.dao.LedgerReadDao
+import com.daml.platform.store.{BaseLedger, LfValueTranslationCache, appendonlydao, dao}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
 
@@ -37,27 +39,50 @@ private[platform] object ReadOnlySqlLedger {
       serverRole: ServerRole,
       jdbcUrl: String,
       initialLedgerId: LedgerId,
+      databaseConnectionPoolSize: Int,
+      databaseConnectionTimeout: FiniteDuration,
       eventsPageSize: Int,
+      servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
-      lfValueTranslationCache: LfValueTranslation.Cache,
+      lfValueTranslationCache: LfValueTranslationCache.Cache,
+      enricher: ValueEnricher,
+      // TODO append-only: remove after removing support for the current (mutating) schema
+      enableAppendOnlySchema: Boolean,
+      maxContractStateCacheSize: Long,
+      maxContractKeyStateCacheSize: Long,
+      enableMutableContractStateCache: Boolean,
+      participantId: v1.ParticipantId,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
-      extends ResourceOwner[ReadOnlyLedger] {
-    override def acquire()(implicit context: ResourceContext): Resource[ReadOnlyLedger] =
+      extends ResourceOwner[ReadOnlySqlLedger] {
+
+    override def acquire()(implicit context: ResourceContext): Resource[ReadOnlySqlLedger] =
       for {
-        ledgerDao <- ledgerDaoOwner().acquire()
+        ledgerDao <- ledgerDaoOwner(servicesExecutionContext).acquire()
         ledgerId <- Resource.fromFuture(verifyLedgerId(ledgerDao, initialLedgerId))
-        ledgerEnd <- Resource.fromFuture(ledgerDao.lookupLedgerEnd())
-        dispatcher <- dispatcherOwner(ledgerEnd).acquire()
-        ledger <- ResourceOwner
-          .forCloseable(() => new ReadOnlySqlLedger(ledgerId, ledgerDao, dispatcher))
-          .acquire()
+        ledger <- ledgerOwner(ledgerDao, ledgerId).acquire()
       } yield ledger
+
+    private def ledgerOwner(ledgerDao: LedgerReadDao, ledgerId: LedgerId) =
+      if (enableMutableContractStateCache)
+        new ReadOnlySqlLedgerWithMutableCache.Owner(
+          ledgerDao,
+          ledgerId,
+          metrics,
+          maxContractStateCacheSize,
+          maxContractKeyStateCacheSize,
+        )
+      else
+        new ReadOnlySqlLedgerWithTranslationCache.Owner(
+          ledgerDao,
+          ledgerId,
+          lfValueTranslationCache,
+        )
 
     private def verifyLedgerId(
         ledgerDao: LedgerReadDao,
         initialLedgerId: LedgerId,
-    )(
-        implicit executionContext: ExecutionContext,
+    )(implicit
+        executionContext: ExecutionContext,
         loggingContext: LoggingContext,
     ): Future[LedgerId] = {
       val predicate: PartialFunction[Throwable, Boolean] = {
@@ -82,53 +107,55 @@ private[platform] object ReadOnlySqlLedger {
               case Some(foundLedgerId) =>
                 Future.failed(
                   new MismatchException.LedgerId(foundLedgerId, initialLedgerId)
-                  with StartupException)
+                    with StartupException
+                )
               case None =>
                 logger.info(
-                  s"Ledger ID not found in the index database on attempt $attempt/$maxAttempts. Retrying again in $retryDelay.")
+                  s"Ledger ID not found in the index database on attempt $attempt/$maxAttempts. Retrying again in $retryDelay."
+                )
                 Future.failed(new LedgerIdNotFoundException(attempt))
             }
       }
-
     }
 
-    private def ledgerDaoOwner(): ResourceOwner[LedgerReadDao] =
-      JdbcLedgerDao.readOwner(
-        serverRole,
-        jdbcUrl,
-        eventsPageSize,
-        metrics,
-        lfValueTranslationCache,
-      )
-
-    private def dispatcherOwner(ledgerEnd: Offset): ResourceOwner[Dispatcher[Offset]] =
-      Dispatcher.owner(
-        name = "sql-ledger",
-        zeroIndex = Offset.beforeBegin,
-        headAtInitialization = ledgerEnd,
-      )
+    private def ledgerDaoOwner(
+        servicesExecutionContext: ExecutionContext
+    ): ResourceOwner[LedgerReadDao] =
+      if (enableAppendOnlySchema)
+        appendonlydao.JdbcLedgerDao.readOwner(
+          serverRole,
+          jdbcUrl,
+          databaseConnectionPoolSize,
+          databaseConnectionTimeout,
+          eventsPageSize,
+          servicesExecutionContext,
+          metrics,
+          lfValueTranslationCache,
+          Some(enricher),
+          participantId,
+        )
+      else
+        dao.JdbcLedgerDao.readOwner(
+          serverRole,
+          jdbcUrl,
+          databaseConnectionPoolSize,
+          databaseConnectionTimeout,
+          eventsPageSize,
+          servicesExecutionContext,
+          metrics,
+          lfValueTranslationCache,
+          Some(enricher),
+        )
   }
-
 }
 
-private final class ReadOnlySqlLedger(
+private[index] abstract class ReadOnlySqlLedger(
     ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
+    contractStore: ContractStore,
     dispatcher: Dispatcher[Offset],
 )(implicit mat: Materializer, loggingContext: LoggingContext)
-    extends BaseLedger(ledgerId, ledgerDao, dispatcher) {
-
-  private val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =
-    RestartSource
-      .withBackoff(
-        RestartSettings(minBackoff = 1.second, maxBackoff = 10.seconds, randomFactor = 0.2))(
-        () =>
-          Source
-            .tick(0.millis, 100.millis, ())
-            .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd()))
-      .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .toMat(Sink.foreach(dispatcher.signalNewHead))(Keep.both[UniqueKillSwitch, Future[Done]])
-      .run()
+    extends BaseLedger(ledgerId, ledgerDao, contractStore, dispatcher) {
 
   // Periodically remove all expired deduplication cache entries.
   // The current approach is not ideal for multiple ReadOnlySqlLedgers sharing
@@ -150,13 +177,10 @@ private final class ReadOnlySqlLedger(
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def close(): Unit = {
-    // Terminate the dispatcher first so that it doesn't trigger new queries.
-    dispatcher.close()
-
     deduplicationCleanupKillSwitch.shutdown()
-    ledgerEndUpdateKillSwitch.shutdown()
+
     Await.result(deduplicationCleanupDone, 10.seconds)
-    Await.result(ledgerEndUpdateDone, 10.seconds)
+
     super.close()
   }
 }

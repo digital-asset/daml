@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -68,8 +68,7 @@ object Hash {
   // Thread safe
   def secureRandom(seed: Hash): () => Hash = {
     val counter = new AtomicLong
-    () =>
-      hMacBuilder(seed).add(counter.getAndIncrement()).build
+    () => hMacBuilder(seed).add(counter.getAndIncrement()).build
   }
 
   implicit val ordering: Ordering[Hash] =
@@ -77,7 +76,6 @@ object Hash {
 
   implicit val order: Order[Hash] = Order.fromScalaOrdering
 
-  @throws[HashingError]
   private[lf] val aCid2Bytes: Value.ContractId => Bytes = {
     case cid @ Value.ContractId.V1(_, _) =>
       cid.toBytes
@@ -85,9 +83,8 @@ object Hash {
       Utf8.getBytes(s)
   }
 
-  @throws[HashingError]
   private[lf] val noCid2String: Value.ContractId => Nothing =
-    _ => error("Hashing of relative contract id is not supported in contract key")
+    _ => error("Contract IDs are not supported in contract keys.")
 
   private[crypto] sealed abstract class Builder(cid2Bytes: Value.ContractId => Bytes) {
 
@@ -220,7 +217,8 @@ object Hash {
           add(v)
         case Value.ValueGenMap(entries) =>
           iterateOver(entries.iterator, entries.length)((acc, x) =>
-            acc.addTypedValue(x._1).addTypedValue(x._2))
+            acc.addTypedValue(x._1).addTypedValue(x._2)
+          )
       }
   }
 
@@ -233,6 +231,7 @@ object Hash {
     val ContractKey = Purpose(2)
     val MaintainerContractKeyUUID = Purpose(4)
     val PrivateKey = Purpose(3)
+    val ContractInstance = Purpose(5)
   }
 
   // package private for testing purpose.
@@ -317,6 +316,23 @@ object Hash {
   ): Either[String, Hash] =
     handleError(assertHashContractKey(templateId, key))
 
+  // This function assumes that `arg` is well typed, i.e. :
+  // 1 - `templateId` is the identifier for a template with a contract argument of type τ
+  // 2 - `arg` is a value of type τ
+  // The hash is not stable under suffixing of contract IDs
+  @throws[HashingError]
+  def assertHashContractInstance(templateId: Ref.Identifier, arg: Value[Value.ContractId]): Hash =
+    builder(Purpose.ContractInstance, aCid2Bytes)
+      .addIdentifier(templateId)
+      .addTypedValue(arg)
+      .build
+
+  def hashContractInstnce(
+      templateId: Ref.Identifier,
+      arg: Value[Value.ContractId],
+  ): Either[String, Hash] =
+    handleError(assertHashContractInstance(templateId, arg))
+
   def deriveSubmissionSeed(
       nonce: Hash,
       applicationId: Ref.LedgerString,
@@ -355,7 +371,7 @@ object Hash {
       .addStringSet(parties)
       .build
 
-  // For DAML-on-Corda to ensure the hashing is performed in a way that will work with upgrades.
+  // For Daml-on-Corda to ensure the hashing is performed in a way that will work with upgrades.
   def deriveMaintainerContractKeyUUID(
       keyHash: Hash,
       maintainer: Ref.Party,

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.auth
@@ -40,7 +40,7 @@ object Main {
       kid: Option[String] = None,
       parties: List[String] = List(),
       readOnly: Boolean = false,
-      admin: Boolean = false
+      admin: Boolean = false,
   ) extends Command
 
   /** By default, RSA key Ids are generated from their file name. */
@@ -59,15 +59,17 @@ object Main {
       case Some(Config(Some(GenerateJwks(Some(outputFile), publicKeys)))) =>
         // Load RSA keys. They ID of each key is its file name.
         val keys: Map[String, RSAPublicKey] = publicKeys
-          .map(
-            f =>
-              defaultKeyId(f) -> KeyUtils
-                .readRSAPublicKeyFromCrt(f)
-                .fold(
-                  t =>
-                    handleGenerateTokensError(
-                      "Error loading RSA public key from a X509 certificate file.")(t.getMessage),
-                  x => x))
+          .map(f =>
+            defaultKeyId(f) -> KeyUtils
+              .readRSAPublicKeyFromCrt(f)
+              .fold(
+                t =>
+                  handleGenerateTokensError(
+                    "Error loading RSA public key from a X509 certificate file."
+                  )(t.getMessage),
+                x => x,
+              )
+          )
           .toMap
 
         // Generate and write JWKS for all keys
@@ -77,18 +79,22 @@ object Main {
         ()
 
       case Some(
-          Config(
-            Some(
-              GenerateToken(
-                Some(outputFile),
-                Some(signingKeyFile),
-                ledgerIdO,
-                applicationIdO,
-                exp,
-                kid,
-                parties,
-                readOnly @ _,
-                admin)))) =>
+            Config(
+              Some(
+                GenerateToken(
+                  Some(outputFile),
+                  Some(signingKeyFile),
+                  ledgerIdO,
+                  applicationIdO,
+                  exp,
+                  kid,
+                  parties,
+                  readOnly @ _,
+                  admin,
+                )
+              )
+            )
+          ) =>
         val keyId = kid.getOrElse(defaultKeyId(signingKeyFile))
 
         val payload = AuthServiceJWTPayload(
@@ -105,9 +111,9 @@ object Main {
           .fold(
             t =>
               handleGenerateTokensError(
-                "Error loading RSA private key from a PKCS8/DER file. Use the following command to convert a PEM encoded private key: openssl pkcs8 -topk8 -inform PEM -outform DER -in private-key.pem -nocrypt > private-key.der.")(
-                t.getMessage),
-            x => x
+                "Error loading RSA private key from a PKCS8/DER file. Use the following command to convert a PEM encoded private key: openssl pkcs8 -topk8 -inform PEM -outform DER -in private-key.pem -nocrypt > private-key.der."
+              )(t.getMessage),
+            x => x,
           )
         val jwtPayload = AuthServiceJWTCodec.compactPrint(payload)
         val jwtHeader = s"""{"alg": "RS256", "typ": "JWT", "kid": "$keyId"}"""
@@ -124,19 +130,22 @@ object Main {
 
         Files.write(
           changeExtension(outputFile, "-bearer.txt").toPath,
-          signed.value.getBytes(StandardCharsets.UTF_8))
+          signed.value.getBytes(StandardCharsets.UTF_8),
+        )
 
         Files.write(
           changeExtension(outputFile, "-payload.json").toPath,
-          jwtPayload.getBytes(StandardCharsets.UTF_8))
+          jwtPayload.getBytes(StandardCharsets.UTF_8),
+        )
 
         Files.write(
           changeExtension(outputFile, "-header.json").toPath,
-          jwtHeader.getBytes(StandardCharsets.UTF_8))
+          jwtHeader.getBytes(StandardCharsets.UTF_8),
+        )
 
         ()
       case Some(_) =>
-        configParser.showUsage()
+        configParser.displayToErr(configParser.usage)
         sys.exit(ErrorCodes.InvalidUsage)
       case None =>
         sys.exit(ErrorCodes.InvalidUsage)
@@ -148,7 +157,7 @@ object Main {
     sys.exit(ErrorCodes.GenerateTokensError)
   }
 
-  private def parseConfig(args: Seq[String]): Option[Config] = {
+  private def parseConfig(args: collection.Seq[String]): Option[Config] = {
     configParser.parse(args, Config())
   }
 
@@ -162,18 +171,21 @@ object Main {
           .text("The output file")
           .valueName("<paths>")
           .action((x, c) =>
-            c.copy(command = c.command.map(_.asInstanceOf[GenerateJwks].copy(output = Some(x))))),
+            c.copy(command = c.command.map(_.asInstanceOf[GenerateJwks].copy(output = Some(x))))
+          ),
         opt[Seq[File]]("keys")
           .required()
           .text("List of RSA certificates (.crt)")
           .valueName("<paths>")
           .action((x, c) =>
             c.copy(
-              command = c.command.map(_.asInstanceOf[GenerateJwks].copy(publicKeys = x.toList)))),
+              command = c.command.map(_.asInstanceOf[GenerateJwks].copy(publicKeys = x.toList))
+            )
+          ),
       )
 
     cmd("generate-token")
-      .text("Generate a signed access token for the DAML ledger API")
+      .text("Generate a signed access token for the Daml ledger API")
       .action((_, c) => c.copy(command = Some(GenerateToken())))
       .children(
         opt[File]("output")
@@ -181,55 +193,70 @@ object Main {
           .text("The output file")
           .valueName("<paths>")
           .action((x, c) =>
-            c.copy(command = c.command.map(_.asInstanceOf[GenerateToken].copy(output = Some(x))))),
+            c.copy(command = c.command.map(_.asInstanceOf[GenerateToken].copy(output = Some(x))))
+          ),
         opt[File]("key")
           .required()
           .text("The RSA private key (.der)")
           .valueName("<path>")
           .action((x, c) =>
             c.copy(
-              command = c.command.map(_.asInstanceOf[GenerateToken].copy(signingKey = Some(x))))),
+              command = c.command.map(_.asInstanceOf[GenerateToken].copy(signingKey = Some(x)))
+            )
+          ),
         opt[Seq[String]]("parties")
           .required()
           .text("Parties to generate tokens for")
           .valueName("<list of parties>")
           .action((x, c) =>
-            c.copy(
-              command = c.command.map(_.asInstanceOf[GenerateToken].copy(parties = x.toList)))),
+            c.copy(command = c.command.map(_.asInstanceOf[GenerateToken].copy(parties = x.toList)))
+          ),
         opt[String]("ledgerId")
           .optional()
-          .text("Restrict validity of the token to this ledger ID. Default: None, token is valid for all ledgers.")
+          .text(
+            "Restrict validity of the token to this ledger ID. Default: None, token is valid for all ledgers."
+          )
           .action((x, c) =>
-            c.copy(
-              command = c.command.map(_.asInstanceOf[GenerateToken].copy(ledgerId = Some(x))))),
+            c.copy(command = c.command.map(_.asInstanceOf[GenerateToken].copy(ledgerId = Some(x))))
+          ),
         opt[String]("applicationId")
           .optional()
-          .text("Restrict validity of the token to this application ID. Default: None, token is valid for all applications.")
+          .text(
+            "Restrict validity of the token to this application ID. Default: None, token is valid for all applications."
+          )
           .action((x, c) =>
             c.copy(command =
-              c.command.map(_.asInstanceOf[GenerateToken].copy(applicationId = Some(x))))),
+              c.command.map(_.asInstanceOf[GenerateToken].copy(applicationId = Some(x)))
+            )
+          ),
         opt[String]("exp")
           .optional()
           .text("Token expiration date, in ISO 8601 format. Default: no expiration date.")
           .action((x, c) =>
             c.copy(command =
-              c.command.map(_.asInstanceOf[GenerateToken].copy(exp = Some(Instant.parse(x)))))),
+              c.command.map(_.asInstanceOf[GenerateToken].copy(exp = Some(Instant.parse(x))))
+            )
+          ),
         opt[String]("kid")
           .optional()
           .text("The key id, as used in JWKS. Default: the file name of the RSA private key.")
           .action((x, c) =>
             c.copy(command =
-              c.command.map(_.asInstanceOf[GenerateToken].copy(exp = Some(Instant.parse(x)))))),
+              c.command.map(_.asInstanceOf[GenerateToken].copy(exp = Some(Instant.parse(x))))
+            )
+          ),
         opt[Boolean]("admin")
           .optional()
           .text("If set, authorizes the bearer to use admin endpoints. Default: false")
           .action((x, c) =>
-            c.copy(command = c.command.map(_.asInstanceOf[GenerateToken].copy(admin = x)))),
+            c.copy(command = c.command.map(_.asInstanceOf[GenerateToken].copy(admin = x)))
+          ),
         opt[Boolean]("readonly")
           .optional()
           .text("If set, prevents the bearer from acting on the ledger. Default: false")
           .action((x, c) =>
-            c.copy(command = c.command.map(_.asInstanceOf[GenerateToken].copy(admin = x)))),
+            c.copy(command = c.command.map(_.asInstanceOf[GenerateToken].copy(admin = x)))
+          ),
       )
   }
 }

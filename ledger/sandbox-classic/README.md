@@ -2,7 +2,7 @@
 This document is to help internal engineers work with the Sandbox and the new ledger API.
 Note: If you encounter bugs. Please report issues you find in the #team-ledger-api channel.
 
-# DAML Sandbox
+# Daml Sandbox
 
 To build a fat JAR with the sandbox built from HEAD run
 
@@ -19,7 +19,7 @@ as run from the main project root directory (adjust the location of the JAR acco
 ```
   -p, --port <value>       Sandbox service port. Defaults to 6865.
   -a, --address <value>    Sandbox service host. Defaults to binding on all addresses.
-  --dalf                   Parse provided archives as DAML-LF Archives instead of DARs.
+  --dalf                   Parse provided archives as Daml-LF Archives instead of DARs.
   --static-time            Use static time, configured with TimeService through gRPC.
   -w, --wall-clock-time    Use wall clock time (UTC). When not provided, static time is used.
   -o, --sim-time-offset <value>
@@ -27,8 +27,8 @@ as run from the main project root directory (adjust the location of the JAR acco
   --no-parity              Disables Ledger Server parity mode. Features which are not supported by the Platform become available.
   --scenario <value>       If set, the sandbox will execute the given scenario on startup and store all the contracts created by it.
   --daml-lf-archive-recursion-limit <value>
-                           Set the recursion limit when decoding DAML-LF archives (.dalf files). Default is 1000
-  <archive>...             Daml archives to load. Only DAML-LF v1 Archives are currently supported.
+                           Set the recursion limit when decoding Daml-LF archives (.dalf files). Default is 1000
+  <archive>...             Daml archives to load. Only Daml-LF v1 Archives are currently supported.
   --pem <value>            TLS: The pem file to be used as the private key
   --crt <value>            TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set.
   --cacrt <value>          TLS: The crt file to be used as the trusted root CA.
@@ -39,11 +39,11 @@ as run from the main project root directory (adjust the location of the JAR acco
 
 Sandbox uses models compiled in to the DAR format.
 
-Note that the new Ledger API only supports DAML 1.0 or above codebases compiled to DAML-LF v1. Again, using the DAML packaging as suggested above will ensure that you are generating dar files that the Sandbox can consume.
+Note that the new Ledger API only supports Daml 1.0 or above codebases compiled to Daml-LF v1. Again, using the Daml packaging as suggested above will ensure that you are generating dar files that the Sandbox can consume.
 
 # Ledger API
 
-The new Ledger API uses gRPC. If you just want to create / exercise contracts, I suggest you start by looking at [`command_service.proto`](/ledger-api/grpc-definitions/com/daml/ledger/api/v1/command_service.proto), which exposes a synchronous API to the DAML ledger.
+The new Ledger API uses gRPC. If you just want to create / exercise contracts, I suggest you start by looking at [`command_service.proto`](/ledger-api/grpc-definitions/com/daml/ledger/api/v1/command_service.proto), which exposes a synchronous API to the Daml ledger.
 
 # Logging
 
@@ -64,7 +64,7 @@ $ bazel run //ledger/sandbox-classic:sandbox-classic-binary -- --profile-dir=/wr
 ```
 
 **DISCLAIMER**: Profiling is not intended to be used in production setups since
-it slows down DAML execution significantly and writes a lot of profiling
+it slows down Daml execution significantly and writes a lot of profiling
 information to disk.
 
 For every command submitted to the Sandbox, a JSON file named like

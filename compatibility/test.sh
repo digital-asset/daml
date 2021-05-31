@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 
@@ -23,10 +23,11 @@ cp ../.bazelrc .bazelrc
 # but it happens sufficiently rarely that just killing it here is
 # a cheaper solution than having to reset the node.
 # Note that lsof returns a non-zero exit code if there is no match.
-SANDBOX_PID="$(lsof -ti tcp:6865 || true)"
-if [ -n "$SANDBOX_PID" ]; then
-    kill "$SANDBOX_PID"
-fi
+## Even more rarely we end up with 2 pids returned by lsof, so we account for
+## that with a for loop.
+for pid in $(lsof -ti tcp:6865); do
+    kill $pid
+done
 
 # Set up a shared PostgreSQL instance. This is the same code as in //:build.sh.
 export POSTGRESQL_ROOT_DIR="${TMPDIR:-/tmp}/daml/postgresql"

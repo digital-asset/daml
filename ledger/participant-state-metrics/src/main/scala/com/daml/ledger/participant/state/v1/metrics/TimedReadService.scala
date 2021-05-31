@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1.metrics
@@ -14,7 +14,8 @@ final class TimedReadService(delegate: ReadService, metrics: Metrics) extends Re
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Timed.source(
       metrics.daml.services.read.getLedgerInitialConditions,
-      delegate.getLedgerInitialConditions())
+      delegate.getLedgerInitialConditions(),
+    )
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
     Timed.source(metrics.daml.services.read.stateUpdates, delegate.stateUpdates(beginAfter))

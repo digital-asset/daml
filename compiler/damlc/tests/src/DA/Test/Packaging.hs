@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Test.Packaging (main) where
 
@@ -673,7 +673,42 @@ tests Tools{damlc} = testGroup "Packaging" $
               [ "module B where"
               , "import A ()"
               ]
-          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.7 but dependencies have newer LF versions"
+          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.7 but dependencies have different LF versions"
+
+    , testCaseSteps "Error on inconsistent LF dependency" $ \step -> withTempDir $ \tmpDir -> do
+          step "Building 'a"
+          createDirectoryIfMissing True (tmpDir </> "a")
+          writeFileUTF8 (tmpDir </> "a" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "version: 0.0.1"
+              , "name: a"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "build-options: [--target=1.6]"
+              ]
+          writeFileUTF8 (tmpDir </> "a" </> "A.daml") $ unlines
+              [ "module A where"
+              ]
+          withCurrentDirectory (tmpDir </> "a") $ callProcessSilent damlc ["build", "-o", tmpDir </> "a" </> "a.dar"]
+
+          step "Building b"
+          createDirectoryIfMissing True (tmpDir </> "b")
+          writeFileUTF8 (tmpDir </> "b" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "version: 0.0.1"
+              , "name: b"
+              , "source: ."
+              , "dependencies:"
+              , "  - daml-prim"
+              , "  - daml-stdlib"
+              , "  - " <> show (tmpDir </> "a" </> "a.dar")
+              , "build-options: [--target=1.7]"
+              ]
+          writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
+              [ "module B where"
+              , "import A ()"
+              ]
+          buildProjectError (tmpDir </> "b") "" "Targeted LF version 1.7 but dependencies have different LF versions"
 
     , testCase "build-options + project-root" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "src")

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,51 +6,66 @@ load(
     "da_scala_library",
     "da_scala_test",
     "lf_scalacopts",
+    "silencer_plugin",
 )
+load("@scala_version//:index.bzl", "scala_version_suffix")
 
 hj_scalacopts = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
 ]
 
-da_scala_library(
-    name = "http-json-testing",
-    srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
-    ],
-    scalacopts = hj_scalacopts,
-    tags = ["maven_coordinates=com.daml:http-json-testing:__VERSION__"],
-    visibility = ["//visibility:public"],
-    runtime_deps = [
-        "@maven//:ch_qos_logback_logback_classic",
-    ],
-    deps = [
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//language-support/scala/bindings-akka",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger-service/http-json",
-        "//ledger-service/jwt",
-        "//ledger-service/utils",
-        "//ledger/caching",
-        "//ledger/ledger-api-auth",
-        "//ledger/ledger-api-common",
-        "//ledger/participant-integration-api",
-        "//ledger/participant-state",
-        "//ledger/sandbox-classic",
-        "//ledger/sandbox-common",
-        "//libs-scala/auth-utils",
-        "//libs-scala/ports",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_http_core_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_tpolecat_doobie_core_2_12",
-        "@maven//:org_tpolecat_doobie_free_2_12",
-        "@maven//:org_typelevel_cats_core_2_12",
-        "@maven//:org_typelevel_cats_effect_2_12",
-        "@maven//:org_typelevel_cats_free_2_12",
-    ],
-)
+[
+    da_scala_library(
+        name = "{}".format(edition),
+        srcs = glob(["src/main/scala/**/*.scala"]),
+        plugins = [
+            "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+            silencer_plugin,
+        ],
+        scala_deps = [
+            "@maven//:com_typesafe_akka_akka_actor",
+            "@maven//:com_typesafe_akka_akka_http_core",
+            "@maven//:com_typesafe_akka_akka_stream",
+            "@maven//:io_spray_spray_json",
+            "@maven//:org_scala_lang_modules_scala_collection_compat",
+            "@maven//:org_scalacheck_scalacheck",
+            "@maven//:org_scalactic_scalactic",
+            "@maven//:org_scalatest_scalatest",
+            "@maven//:org_tpolecat_doobie_core",
+            "@maven//:org_tpolecat_doobie_free",
+            "@maven//:org_typelevel_cats_core",
+            "@maven//:org_typelevel_cats_effect",
+            "@maven//:org_typelevel_cats_free",
+        ],
+        scalacopts = hj_scalacopts,
+        tags = ["maven_coordinates=com.daml:http-json-testing:__VERSION__"],
+        visibility = ["//visibility:public"],
+        runtime_deps = [
+            "@maven//:ch_qos_logback_logback_classic",
+        ],
+        deps = [
+            "//bazel_tools/runfiles:scala_runfiles",
+            "//language-support/scala/bindings-akka",
+            "//ledger-api/rs-grpc-bridge",
+            "//ledger-service/http-json:http-json-{}".format(edition),
+            "//ledger-service/http-json-cli:{}".format(edition),
+            "//ledger-service/cli-opts",
+            "//ledger-service/jwt",
+            "//ledger-service/utils",
+            "//ledger/caching",
+            "//ledger/ledger-api-auth",
+            "//ledger/ledger-api-common",
+            "//ledger/participant-integration-api",
+            "//ledger/participant-state",
+            "//ledger/sandbox-classic",
+            "//ledger/sandbox-common",
+            "//libs-scala/auth-utils",
+            "//libs-scala/contextualized-logging",
+            "//libs-scala/ports",
+        ],
+    )
+    for edition in [
+        "ce",
+        "ee",
+    ]
+]

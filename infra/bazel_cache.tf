@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 // Setup the Bazel Bucket + CDN
@@ -11,10 +11,10 @@ locals {
 module "bazel_cache" {
   source = "./modules/gcp_cdn_bucket"
 
-  labels               = "${local.labels}"
-  name                 = "${local.bazel_cache_name}"
-  project              = "${local.project}"
-  region               = "${local.region}"
+  labels               = local.labels
+  name                 = local.bazel_cache_name
+  project              = local.project
+  region               = local.region
   ssl_certificate      = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/bazel-cache"
   cache_retention_days = 60
 }
@@ -23,7 +23,7 @@ module "bazel_cache" {
 // Note: it looks like the Bazel cache does not work properly if it does not
 // have delete permission, wich is a bit scary.
 resource "google_storage_bucket_iam_member" "bazel_cache_writer" {
-  bucket = "${module.bazel_cache.bucket_name}"
+  bucket = module.bazel_cache.bucket_name
 
   # https://cloud.google.com/storage/docs/access-control/iam-roles
   role   = "roles/storage.objectAdmin"
@@ -31,5 +31,5 @@ resource "google_storage_bucket_iam_member" "bazel_cache_writer" {
 }
 
 output "bazel_cache_ip" {
-  value = "${module.bazel_cache.external_ip}"
+  value = module.bazel_cache.external_ip
 }

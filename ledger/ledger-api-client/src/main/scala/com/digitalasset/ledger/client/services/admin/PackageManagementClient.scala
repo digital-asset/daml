@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.services.admin
@@ -7,7 +7,7 @@ import com.daml.ledger.api.v1.admin.package_management_service.PackageManagement
 import com.daml.ledger.api.v1.admin.package_management_service.{
   ListKnownPackagesRequest,
   PackageDetails,
-  UploadDarFileRequest
+  UploadDarFileRequest,
 }
 import com.daml.ledger.client.LedgerClient
 import com.google.protobuf.ByteString
@@ -20,8 +20,9 @@ object PackageManagementClient {
 
 }
 
-final class PackageManagementClient(service: PackageManagementServiceStub)(
-    implicit ec: ExecutionContext) {
+final class PackageManagementClient(service: PackageManagementServiceStub)(implicit
+    ec: ExecutionContext
+) {
 
   def listKnownPackages(token: Option[String] = None): Future[Seq[PackageDetails]] =
     LedgerClient

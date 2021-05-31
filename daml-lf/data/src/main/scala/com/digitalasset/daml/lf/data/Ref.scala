@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -22,14 +22,15 @@ object Ref {
   val PackageVersion: IdString.PackageVersion.type = IdString.PackageVersion
 
   /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
-      underscore. We use them to represent [Party] literals. In this way, we avoid
-      empty identifiers, escaping problems, and other similar pitfalls.
+    *      underscore. We use them to represent [Party] literals. In this way, we avoid
+    *      empty identifiers, escaping problems, and other similar pitfalls.
     */
   type Party = IdString.Party
   val Party: IdString.Party.type = IdString.Party
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
-    * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
+    * lowercase hex-encoded hash of the package contents found in the Daml-LF Archive.
+    */
   type PackageId = IdString.PackageId
   val PackageId: IdString.PackageId.type = IdString.PackageId
 
@@ -120,7 +121,8 @@ object Ref {
         for {
           stack <- acc
           segment <- Name.fromString(string)
-        } yield stack :+ segment)
+        } yield stack :+ segment
+      )
       for {
         segments <- validatedSegments
         name <- fromNames(segments.toImmArray)
@@ -181,7 +183,7 @@ object Ref {
    * specified package. */
   final case class Identifier(packageId: PackageId, qualifiedName: QualifiedName)
       extends Ordered[Identifier] {
-    override def toString: String = packageId.toString + ":" + qualifiedName.toString
+    override def toString: String = packageId + ":" + qualifiedName.toString
 
     override def compare(that: Identifier): Int = {
       val diffPkgId = this.packageId compare that.packageId
@@ -195,12 +197,12 @@ object Ref {
   object Identifier {
     def fromString(s: String): Either[String, Identifier] = {
       splitInTwo(s, ':').fold[Either[String, Identifier]](
-        Left(s"Separator ':' between package identifier and qualified name not found in $s")) {
-        case (packageIdString, qualifiedNameString) =>
-          for {
-            packageId <- PackageId.fromString(packageIdString)
-            qualifiedName <- QualifiedName.fromString(qualifiedNameString)
-          } yield Identifier(packageId, qualifiedName)
+        Left(s"Separator ':' between package identifier and qualified name not found in $s")
+      ) { case (packageIdString, qualifiedNameString) =>
+        for {
+          packageId <- PackageId.fromString(packageIdString)
+          qualifiedName <- QualifiedName.fromString(qualifiedNameString)
+        } yield Identifier(packageId, qualifiedName)
       }
     }
 

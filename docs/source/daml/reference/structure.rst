@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Overview: template structure
@@ -6,14 +6,14 @@ Overview: template structure
 
 This page covers what a template looks like: what parts of a template there are, and where they go.
 
-For the structure of a DAML file *outside* a template, see :doc:`file-structure`.
+For the structure of a Daml file *outside* a template, see :doc:`file-structure`.
 
 .. _daml-ref-template-structure:
 
 Template outline structure
 **************************
 
-Here’s the structure of a DAML template:
+Here’s the structure of a Daml template:
 
 .. literalinclude:: ../code-snippets/Structure.daml
    :start-after: -- start of template outline snippet
@@ -102,7 +102,7 @@ Here's the structure of a choice inside a template. There are two ways of specif
 
     To specify choice observers, you must start you choice with the ``choice`` keyword.
 
-    The optional ``observer`` keyword must preceed the mandatory ``controller`` keyword.
+    The optional ``observer`` keyword must precede the mandatory ``controller`` keyword.
 
 :ref:`consumption annotation <daml-ref-consumability>`
     Optionally one of ``preconsuming``, ``postconsuming``, ``nonconsuming``, which changes the behavior of the choice with respect to privacy and if and when the contract is archived.

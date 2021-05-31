@@ -1,14 +1,15 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
 
 import java.security.SecureRandom
+import java.util.concurrent.TimeUnit
 
 import com.daml.lf.crypto
 
-trait SeedService {
-  def nextSeed: () => crypto.Hash
+final class SeedService(seed: crypto.Hash) {
+  val nextSeed: () => crypto.Hash = crypto.Hash.secureRandom(seed)
 }
 
 object SeedService {
@@ -33,36 +34,51 @@ object SeedService {
     seeding match {
       case Seeding.Strong => StrongRandom
       case Seeding.Weak => WeakRandom
-      case Seeding.Static => new StaticRandom("static random seed service")
+      case Seeding.Static => staticRandom("static random seed service")
     }
 
-  // Pseudo random generator seeded with high entropy seed.
-  // May block while gathering entropy from the underlying operating system
-  // Thread safe.
-  object StrongRandom extends SeedService {
-    override val nextSeed: () => crypto.Hash =
-      crypto.Hash.secureRandom(
-        crypto.Hash.assertFromByteArray(
-          SecureRandom.getInstanceStrong.generateSeed(crypto.Hash.underlyingHashLength)))
-  }
-
-  // Pseudo random generator seeded with low entropy seed.
-  // Do not block. Thread safe.
-  // Do not use in production mode.
-  object WeakRandom extends SeedService {
-    override val nextSeed: () => crypto.Hash = {
-      val a = Array.ofDim[Byte](crypto.Hash.underlyingHashLength)
-      scala.util.Random.nextBytes(a)
-      crypto.Hash.secureRandom(crypto.Hash.assertFromByteArray(a))
+  /** Pseudo random generator seeded with high entropy seed.
+    * May block while gathering entropy from the underlying operating system
+    * Thread safe.
+    */
+  // lazy to avoid gathering unnecessary entropy.
+  lazy val StrongRandom = {
+    val logger = org.slf4j.LoggerFactory.getLogger(this.getClass)
+    val timer = new java.util.Timer()
+    val task = new java.util.TimerTask {
+      def run(): Unit = {
+        logger.warn(
+          s"""Trying to gather entropy from the underlying operating system to initialized the contract ID seeding, but the entropy pool seems empty."""
+        )
+        logger.warn(
+          s"""In CI environments environment consider using the "${Seeding.Weak.name}" mode, that may produce insecure contract IDs but does not block on startup."""
+        )
+      }
     }
+    timer.schedule(task, TimeUnit.SECONDS.toMillis(5))
+
+    val seed = SecureRandom.getInstanceStrong.generateSeed(crypto.Hash.underlyingHashLength)
+
+    timer.cancel()
+
+    new SeedService(crypto.Hash.assertFromByteArray(seed))
   }
 
-  // Pseudo random generator seeded with a given seed.
-  // Do not block. Thread safe.
-  // Can be use to get reproducible run. Do not use in production mode.
-  final class StaticRandom(seed: String) extends SeedService {
-    override val nextSeed: () => crypto.Hash =
-      crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey(seed))
+  /** Pseudo random generator seeded with a possibly low entropy seed.
+    * Do not block. Thread safe.
+    * Do not use in production mode.
+    */
+  lazy val WeakRandom: SeedService = {
+    val seed = new Array[Byte](crypto.Hash.underlyingHashLength)
+    // uses `nextBytes` on a default SecureRandom, that should not block
+    (new SecureRandom()).nextBytes(seed)
+    new SeedService(crypto.Hash.assertFromByteArray(seed))
   }
+
+  /** Pseudo random generator seeded with a given seed.
+    * Do not block. Thread safe.
+    * Can be use to get reproducible run. Do not use in production mode.
+    */
+  def staticRandom(seed: String) = new SeedService(crypto.Hash.hashPrivateKey(seed))
 
 }

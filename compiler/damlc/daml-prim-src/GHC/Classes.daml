@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Copied from https://github.com/ghc/ghc/blob/23f6f31dd66d7c370cb8beec3f1d96a0cb577393/libraries/ghc-prim/GHC/Classes.hs
@@ -53,6 +53,9 @@ module GHC.Classes(
 
     #ifdef DAML_NUMERIC
     NumericScale (numericScale),
+    #endif
+    #ifdef DAML_BIGNUMERIC
+    IsNumeric (..),
     #endif
  ) where
 
@@ -180,6 +183,7 @@ deriving instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f, Eq g,
 deriving instance (Eq a, Eq b, Eq c, Eq d, Eq e, Eq f, Eq g,
                    Eq h, Eq i, Eq j, Eq k, Eq l, Eq m, Eq n, Eq o)
                => Eq (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
+-- Deliberately not supporting larger sizes. Do not add support for them.
 
 deriving instance (Eq a, Eq b) => Eq (Either a b)
 
@@ -204,6 +208,13 @@ instance Eq (Numeric n) where
     (==) = primitive @"BEEqualNumeric"
 #else
 instance Eq Decimal where
+    (==) = primitive @"BEEqual"
+#endif
+
+#ifdef DAML_BIGNUMERIC
+instance Eq BigNumeric where
+    (==) = primitive @"BEEqual"
+instance Eq RoundingMode where
     (==) = primitive @"BEEqual"
 #endif
 
@@ -298,6 +309,7 @@ deriving instance (Ord a, Ord b, Ord c, Ord d, Ord e, Ord f, Ord g,
 deriving instance (Ord a, Ord b, Ord c, Ord d, Ord e, Ord f, Ord g,
                    Ord h, Ord i, Ord j, Ord k, Ord l, Ord m, Ord n, Ord o)
                => Ord (a, b, c, d, e, f, g, h, i, j, k, l, m, n, o)
+-- Deliberately not supporting larger sizes. Do not add support for them.
 
 deriving instance (Ord a, Ord b) => Ord (Either a b)
 
@@ -332,6 +344,19 @@ instance Ord (Numeric n) where
     (>)  = primitive @"BEGreaterNumeric"
 #else
 instance Ord Decimal where
+    (<)  = primitive @"BELess"
+    (<=) = primitive @"BELessEq"
+    (>=) = primitive @"BEGreaterEq"
+    (>)  = primitive @"BEGreater"
+#endif
+
+#ifdef DAML_BIGNUMERIC
+instance Ord BigNumeric where
+    (<)  = primitive @"BELess"
+    (<=) = primitive @"BELessEq"
+    (>=) = primitive @"BEGreaterEq"
+    (>)  = primitive @"BEGreater"
+instance Ord RoundingMode where
     (<)  = primitive @"BELess"
     (<=) = primitive @"BELessEq"
     (>=) = primitive @"BEGreaterEq"
@@ -438,6 +463,27 @@ instance NumericScale 36 where numericScale _ = 36; numericScalePrivate _ = ()
 instance NumericScale 37 where numericScale _ = 37; numericScalePrivate _ = ()
 #endif
 
+#ifdef DAML_BIGNUMERIC
+
+-- | Types that can be represented by decimal literals in Daml.
+class IsNumeric t where
+    -- | Convert from `Numeric`. Raises an error if the number can't be
+    -- represented exactly in the target type.
+    fromNumeric : NumericScale m => Numeric m -> t
+
+    -- | Convert from `BigNumeric`. Raises an error if the number can't be
+    -- represented exactly in the target type.
+    fromBigNumeric : BigNumeric -> t
+
+instance NumericScale n => IsNumeric (Numeric n) where
+    fromNumeric = primitive @"BECastNumeric"
+    fromBigNumeric = primitive @"BEBigNumericToNumeric"
+
+instance IsNumeric BigNumeric where
+    fromNumeric = primitive @"BENumericToBigNumeric"
+    fromBigNumeric x = x
+
+#endif
 
 -- Constraint tuples
 

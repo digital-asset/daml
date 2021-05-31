@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.transaction
@@ -10,7 +10,7 @@ import com.daml.lf.value.Value
 abstract class TransactionCommitter {
   def commitTransaction(
       transactionId: Ref.LedgerString,
-      transaction: SubmittedTransaction
+      transaction: SubmittedTransaction,
   ): CommittedTransaction
 }
 
@@ -18,7 +18,7 @@ abstract class TransactionCommitter {
 object StandardTransactionCommitter extends TransactionCommitter {
   override def commitTransaction(
       transactionId: Ref.LedgerString,
-      transaction: SubmittedTransaction
+      transaction: SubmittedTransaction,
   ): CommittedTransaction =
     Transaction.commitTransaction(transaction)
 }
@@ -36,8 +36,9 @@ object LegacyTransactionCommitter extends TransactionCommitter {
     val contractMapping =
       transaction
         .localContracts[Value.ContractId]
-        .transform((_, nid) =>
-          Value.ContractId.V0(Ref.ContractIdString.assertFromString(prefix + nid.index.toString)))
+        .transform { case (_, (nid, _)) =>
+          Value.ContractId.V0(Ref.ContractIdString.assertFromString(prefix + nid.index.toString))
+        }
         .withDefault(identity)
 
     CommittedTransaction(VersionedTransaction.map2(identity[NodeId], contractMapping)(transaction))

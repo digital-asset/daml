@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
@@ -12,6 +12,7 @@ import           DA.Daml.LFConversion.UtilLF
 import           DA.Daml.LF.Ast
 import           DA.Pretty (renderPretty)
 import qualified Data.Text as T
+import qualified Data.List as L
 
 convertPrim :: Version -> String -> Type -> Expr
 -- Update
@@ -137,16 +138,16 @@ convertPrim _ "BESha256Text" (TText :-> TText) =
     EBuiltin BESha256Text
 convertPrim _ "BEPartyToQuotedText" (TParty :-> TText) =
     EBuiltin BEPartyToQuotedText
-convertPrim _ "BEPartyFromText" (TText :-> TOptional TParty) =
-    EBuiltin BEPartyFromText
-convertPrim _ "BEInt64FromText" (TText :-> TOptional TInt64) =
-    EBuiltin BEInt64FromText
-convertPrim _ "BEDecimalFromText" (TText :-> TOptional TDecimal) =
-    EBuiltin BEDecimalFromText
+convertPrim _ "BETextToParty" (TText :-> TOptional TParty) =
+    EBuiltin BETextToParty
+convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =
+    EBuiltin BETextToInt64
+convertPrim _ "BETextToDecimal" (TText :-> TOptional TDecimal) =
+    EBuiltin BETextToDecimal
 convertPrim _ "BETextToCodePoints" (TText :-> TList TInt64) =
     EBuiltin BETextToCodePoints
-convertPrim _ "BETextFromCodePoints" (TList TInt64 :-> TText) =
-    EBuiltin BETextFromCodePoints
+convertPrim _ "BECodePointsToText" (TList TInt64 :-> TText) =
+    EBuiltin BECodePointsToText
 
 -- Map operations
 
@@ -211,9 +212,9 @@ convertPrim _ "BEInt64ToDecimal" (TInt64 :-> TNumeric10) =
 convertPrim _ "BEDecimalToInt64" (TNumeric10 :-> TInt64) =
     ETyApp (EBuiltin BENumericToInt64) TNat10
 convertPrim _ "BEToText" (TNumeric10 :-> TText) =
-    ETyApp (EBuiltin BEToTextNumeric) TNat10
-convertPrim _ "BEDecimalFromText" (TText :-> TOptional TNumeric10) =
-    ETyApp (EBuiltin BENumericFromText) TNat10
+    ETyApp (EBuiltin BENumericToText) TNat10
+convertPrim _ "BETextToDecimal" (TText :-> TOptional TNumeric10) =
+    ETyApp (EBuiltin BETextToNumeric) TNat10
 
 -- Numeric primitives. These are polymorphic in the scale.
 convertPrim _ "BEAddNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
@@ -254,10 +255,38 @@ convertPrim _ "BEInt64ToNumeric" (TInt64 :-> TNumeric n) =
     ETyApp (EBuiltin BEInt64ToNumeric) n
 convertPrim _ "BENumericToInt64" (TNumeric n :-> TInt64) =
     ETyApp (EBuiltin BENumericToInt64) n
-convertPrim _ "BEToTextNumeric" (TNumeric n :-> TText) =
-    ETyApp (EBuiltin BEToTextNumeric) n
-convertPrim _ "BENumericFromText" (TText :-> TOptional (TNumeric n)) =
-    ETyApp (EBuiltin BENumericFromText) n
+convertPrim _ "BENumericToText" (TNumeric n :-> TText) =
+    ETyApp (EBuiltin BENumericToText) n
+convertPrim _ "BETextToNumeric" (TText :-> TOptional (TNumeric n)) =
+    ETyApp (EBuiltin BETextToNumeric) n
+
+convertPrim version "BEScaleBigNumeric" ty@(TBigNumeric :-> TInt64) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEScaleBigNumeric
+convertPrim version "BEPrecisionBigNumeric" ty@(TBigNumeric :-> TInt64) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEPrecisionBigNumeric
+convertPrim version "BEAddBigNumeric" ty@(TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEAddBigNumeric
+convertPrim version "BESubBigNumeric" ty@(TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BESubBigNumeric
+convertPrim version "BEMulBigNumeric" ty@(TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEMulBigNumeric
+convertPrim version "BEDivBigNumeric" ty@(TInt64 :-> TRoundingMode :-> TBigNumeric :-> TBigNumeric :-> TBigNumeric) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEDivBigNumeric
+convertPrim version "BEShiftRightBigNumeric" ty@(TInt64 :-> TBigNumeric :-> TBigNumeric) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEShiftRightBigNumeric
+convertPrim version "BENumericToBigNumeric" ty@(TNumeric n :-> TBigNumeric) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BENumericToBigNumeric `ETyApp` n
+convertPrim version "BEBigNumericToNumeric" ty@(TBigNumeric :-> TNumeric n) =
+    whenRuntimeSupports version featureBigNumeric ty $
+      EBuiltin BEBigNumericToNumeric `ETyApp` n
 
 -- Experimental text primitives.
 convertPrim _ "BETextToUpper" (TText :-> TText) = EBuiltin BETextToUpper
@@ -271,8 +300,8 @@ convertPrim _ "BETextIntercalate" (TText :-> TList TText :-> TText) = EBuiltin B
 
 -- Conversion from ContractId to Text
 
-convertPrim _ "BEToTextContractId" (TContractId t :-> TOptional TText) =
-    ETyApp (EBuiltin BEToTextContractId) t
+convertPrim _ "BEContractIdToText" (TContractId t :-> TOptional TText) =
+    ETyApp (EBuiltin BEContractIdToText) t
 
 
 -- Template Desugaring.
@@ -372,6 +401,33 @@ convertPrim version "EToAnyContractKey"
         ETmLam (mkVar "_", TApp proxy (TCon template)) $
         ETmLam (mkVar "key", key) $
         EToAny key (EVar $ mkVar "key")
+
+-- Exceptions
+convertPrim _ "BEAnyExceptionMessage" (TBuiltin BTAnyException :-> TText) =
+    EBuiltin BEAnyExceptionMessage
+
+convertPrim _ "EThrow" (ty1 :-> ty2) =
+    ETmLam (mkVar "x", ty1) (EThrow ty2 ty1 (EVar (mkVar "x")))
+convertPrim _ "EToAnyException" (ty :-> TBuiltin BTAnyException) =
+    ETmLam (mkVar "x", ty) (EToAnyException ty (EVar (mkVar "x")))
+convertPrim _ "EFromAnyException" (TBuiltin BTAnyException :-> TOptional ty) =
+    ETmLam (mkVar "x", TBuiltin BTAnyException) (EFromAnyException ty (EVar (mkVar "x")))
+
+-- TODO #8020 https://github.com/digital-asset/daml/issues/8020
+-- Make sure this indirection is eliminated when doing "try ... catch ..."
+-- in the Update monad. This may require a specific LFConversion rule.
+convertPrim _ "UTryCatch" ((TUnit :-> TUpdate t1) :-> (TBuiltin BTAnyException :-> TOptional (TUpdate t2)) :-> TUpdate t3)
+    | t1 == t2, t2 == t3
+        = ETmLam (mkVar "t", TUnit :-> TUpdate t1)
+        $ ETmLam (mkVar "c", TBuiltin BTAnyException :-> TOptional (TUpdate t2))
+        $ EUpdate
+        $ UTryCatch t3
+            (EVar (mkVar "t") `ETmApp` EUnit)
+            (mkVar "x")
+            (EVar (mkVar "c") `ETmApp` EVar (mkVar "x"))
+
+convertPrim (V1 PointDev) (L.stripPrefix "$" -> Just builtin) typ =
+    EExperimental (T.pack builtin) typ
 
 -- Unknown primitive.
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty

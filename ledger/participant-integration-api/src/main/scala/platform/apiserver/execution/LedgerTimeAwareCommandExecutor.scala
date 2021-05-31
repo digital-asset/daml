@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.execution
@@ -23,8 +23,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  /**
-    * Executes a command, advancing the ledger time as necessary.
+  /** Executes a command, advancing the ledger time as necessary.
     *
     * The command execution result is guaranteed to satisfy causal monotonicity, i.e.,
     * the resulting transaction has a ledger time greater than or equal to the ledger time of any used contract.
@@ -32,8 +31,8 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
   override def execute(
       commands: Commands,
       submissionSeed: crypto.Hash,
-  )(
-      implicit ec: ExecutionContext,
+  )(implicit
+      ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] =
     loop(commands, submissionSeed, maxRetries)
@@ -42,8 +41,8 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
       commands: Commands,
       submissionSeed: crypto.Hash,
       retriesLeft: Int,
-  )(
-      implicit ec: ExecutionContext,
+  )(implicit
+      ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     delegate
@@ -58,8 +57,8 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
           // and advance output time or re-execute the command if necessary.
           val usedContractIds: Set[ContractId] = cer.transaction
             .inputContracts[ContractId]
-            .collect[ContractId, Set[ContractId]] {
-              case id: ContractId => id
+            .collect { case id: ContractId =>
+              id
             }
           if (usedContractIds.isEmpty)
             Future.successful(Right(cer))
@@ -72,18 +71,20 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                   Future.successful(Right(cer))
                 } else if (!cer.dependsOnLedgerTime) {
                   logger.debug(
-                    s"Advancing ledger effective time for the output from ${commands.commands.ledgerEffectiveTime} to $maxUsedTime")
+                    s"Advancing ledger effective time for the output from ${commands.commands.ledgerEffectiveTime} to $maxUsedTime"
+                  )
                   Future.successful(Right(advanceOutputTime(cer, maxUsedTime)))
                 } else if (retriesLeft > 0) {
                   metrics.daml.execution.retry.mark()
                   logger.debug(
-                    s"Restarting the computation with new ledger effective time $maxUsedTime")
+                    s"Restarting the computation with new ledger effective time $maxUsedTime"
+                  )
                   loop(advanceInputTime(commands, maxUsedTime), submissionSeed, retriesLeft - 1)
                 } else {
                   Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
                 }
               })
-              .recoverWith {
+              .recover {
                 // An error while looking up the maximum ledger time for the used contracts
                 // most likely means that one of the contracts is already not active anymore,
                 // which can happen under contention.
@@ -92,8 +93,9 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
                 case error =>
                   logger.info(
                     s"Lookup of maximum ledger time failed. This can happen if there is contention on contracts used by the transaction. Used contracts: ${usedContractIds
-                      .mkString(", ")}. Details: $error")
-                  Future.successful(Left(ErrorCause.LedgerTime(maxRetries - retriesLeft)))
+                      .mkString(", ")}. Details: $error"
+                  )
+                  Left(ErrorCause.LedgerTime(maxRetries - retriesLeft))
               }
       }
   }
@@ -104,7 +106,8 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
       newTime: Option[Time.Timestamp],
   ): CommandExecutionResult =
     newTime.fold(res)(t =>
-      res.copy(transactionMeta = res.transactionMeta.copy(ledgerEffectiveTime = t)))
+      res.copy(transactionMeta = res.transactionMeta.copy(ledgerEffectiveTime = t))
+    )
 
   // Does nothing if `newTime` is empty. This happens if the transaction only regarded divulged contracts.
   private[this] def advanceInputTime(cmd: Commands, newTime: Option[Time.Timestamp]): Commands =

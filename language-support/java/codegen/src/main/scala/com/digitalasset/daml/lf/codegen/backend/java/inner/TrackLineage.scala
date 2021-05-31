@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -7,10 +7,9 @@ import java.util.{ArrayDeque, Deque}
 
 import org.slf4j.MDC
 
-import scala.collection.JavaConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 
-/**
-  * This object uses the loan pattern to generate a scope within which
+/** This object uses the loan pattern to generate a scope within which
   * the entity lineage can be tracked on a per-thread basis, meaning
   * that this approach works under the assumption that a module is
   * processed by a single thread.

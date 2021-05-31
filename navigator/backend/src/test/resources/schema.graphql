@@ -227,6 +227,6 @@ type Transaction implements Node {
   id: ID!
   offset: LedgerOffset!
   effectiveAt: Time!
-  commandId: CommandId!
+  commandId: CommandId
   events: [Event!]!
 }

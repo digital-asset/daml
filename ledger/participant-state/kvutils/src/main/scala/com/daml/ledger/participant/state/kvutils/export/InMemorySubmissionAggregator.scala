@@ -1,10 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.export
 
 import com.daml.ledger.participant.state.kvutils.export.SubmissionAggregator.WriteSetBuilder
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 import scala.collection.mutable
 
@@ -13,7 +12,7 @@ final class InMemorySubmissionAggregator(submissionInfo: SubmissionInfo, writer:
 
   import InMemorySubmissionAggregator._
 
-  private val aggregate = mutable.Buffer.empty[(Key, Value)]
+  private val aggregate = mutable.Buffer.empty[WriteItem]
 
   override def addChild(): WriteSetBuilder = new InMemoryWriteSetBuilder(aggregate)
 
@@ -24,7 +23,7 @@ final class InMemorySubmissionAggregator(submissionInfo: SubmissionInfo, writer:
 object InMemorySubmissionAggregator {
 
   final class InMemoryWriteSetBuilder private[InMemorySubmissionAggregator] (
-      aggregate: mutable.Buffer[(Key, Value)],
+      aggregate: mutable.Buffer[WriteItem]
   ) extends WriteSetBuilder {
     override def +=(data: WriteItem): Unit = aggregate.synchronized {
       aggregate += data

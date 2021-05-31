@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,14 +6,25 @@ load(
     "da_scala_library",
     "da_scala_test_suite",
 )
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 da_scala_library(
     name = "bindings",
-    srcs = glob(["src/main/**/*.scala"]),
+    srcs =
+        glob(["src/main/scala/**/*.scala"]) + glob([
+            "src/main/{}/**/*.scala".format(scala_major_version),
+        ]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
     ],
-    silent_annotations = True,
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
+    scala_exports = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+    ],
     tags = ["maven_coordinates=com.daml:bindings-scala:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -22,13 +33,11 @@ da_scala_library(
         "//daml-lf/data",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "@maven//:io_grpc_grpc_core",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
     deps = [
         "//daml-lf/data",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "@maven//:io_grpc_grpc_core",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -37,14 +46,17 @@ da_scala_test_suite(
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
     plugins = [
-        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:org_typelevel_kind_projector_{}".format(scala_version_suffix),
+    ],
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalatestplus_scalacheck_1_14",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
         ":bindings",
-        "@maven//:com_chuusai_shapeless_2_12",
-        "@maven//:org_scalacheck_scalacheck_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

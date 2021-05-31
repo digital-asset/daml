@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
@@ -12,6 +12,7 @@ module Util (
 
     Artifact(..),
     ArtifactLocation(..),
+    ArtifactFiles(..),
     BazelLocations(..),
     BazelTarget(..),
     PomData(..),
@@ -20,6 +21,7 @@ module Util (
     buildTargets,
     copyToReleaseDir,
     getBazelLocations,
+    isScalaJar,
     isDeployJar,
     loggedProcess_,
     mavenArtifactCoords,
@@ -38,6 +40,7 @@ module Util (
 import Control.Applicative
 import qualified Control.Concurrent.Async.Lifted.Safe as Async
 import qualified Control.Exception.Safe as E
+import Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Logger
 import Data.Aeson
@@ -80,6 +83,9 @@ data JarType
       -- ^ A java protobuf library (*-speed.jar).
     | Scala
       -- ^ A scala library jar, with source and scaladoc jars.
+    | JarJar
+      -- ^ A shaded jar built with jarjar. This is similar to a deploy jar
+      -- but the names of the targets are slightly different.
     deriving (Eq, Show)
 
 instance FromJSON ReleaseType where
@@ -89,6 +95,7 @@ instance FromJSON ReleaseType where
             "jar-deploy" -> pure $ Jar Deploy
             "jar-proto" -> pure $ Jar Proto
             "jar-scala" -> pure $ Jar Scala
+            "jar-jarjar" -> pure $ Jar JarJar
             _ -> fail ("Could not parse release type: " <> unpack t)
 
 data Artifact c = Artifact
@@ -126,8 +133,8 @@ instance FromJSON ArtifactLocation where
 
 -- | This maps a target declared in artifacts.yaml to the individual Bazel targets
 -- that need to be built for a release.
-buildTargets :: Artifact (Maybe ArtifactLocation) -> [BazelTarget]
-buildTargets art@Artifact{..} =
+buildTargets :: IncludeDocs -> Artifact (Maybe ArtifactLocation) -> [BazelTarget]
+buildTargets (IncludeDocs includeDocs) art@Artifact{..} =
     case artReleaseType of
         Jar jarTy ->
             let pomTar = BazelTarget (getBazelTarget artTarget <> "_pom")
@@ -136,7 +143,7 @@ buildTargets art@Artifact{..} =
                 (directory, _) = splitBazelTarget artTarget
             in [jarTarget, pomTar] <>
                map (\t -> BazelTarget ("//" <> directory <> ":" <> t))
-               (catMaybes
+               (catMaybes $
                     [ sourceJarName art
                     , scalaSourceJarName art
                     , deploySourceJarName art
@@ -144,11 +151,15 @@ buildTargets art@Artifact{..} =
                     -- therefore we cannot add it here as a "required target" to build as with the others
                     -- , protoSourceJarName art
                     , T.pack . toFilePath <$> artSourceJar
-                    , javadocJarName art
-                    , scaladocJarName art
                     , javadocDeployJarName art
                     , javadocProtoJarName art
-                    , T.pack . toFilePath <$> artJavadocJar
+                    ] <>
+                    concat [
+                       [ javadocJarName art
+                       , scaladocJarName art
+                       , T.pack . toFilePath <$> artJavadocJar
+                       ]
+                       | includeDocs
                     ])
 
 data PomData = PomData
@@ -212,6 +223,7 @@ mainFileName (Jar jarTy) name = case jarTy of
     Deploy -> name <> "_deploy.jar"
     Proto -> "lib" <> T.replace "_java" "" name <> "-speed.jar"
     Scala -> name <> ".jar"
+    JarJar -> name <> ".jar"
 
 sourceJarName :: Artifact a -> Maybe Text
 sourceJarName Artifact{..}
@@ -220,7 +232,7 @@ sourceJarName Artifact{..}
 
 scalaSourceJarName :: Artifact a -> Maybe Text
 scalaSourceJarName Artifact{..}
-  | Jar Scala <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
+  | artReleaseType `elem` [Jar Scala, Jar JarJar] = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
   | otherwise = Nothing
 
 deploySourceJarName :: Artifact a -> Maybe Text
@@ -238,7 +250,7 @@ customSourceJarName Artifact{..} = T.pack . toFilePath <$> artSourceJar
 
 scaladocJarName :: Artifact a -> Maybe Text
 scaladocJarName Artifact{..}
-   | Jar Scala <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_scaladoc.jar"
+   | artReleaseType `elem` [Jar Scala, Jar JarJar] = Just $ snd (splitBazelTarget artTarget) <> "_scaladoc.jar"
    | otherwise = Nothing
 
 javadocDeployJarName :: Artifact a -> Maybe Text
@@ -259,9 +271,16 @@ javadocJarName Artifact{..}
 customJavadocJarName :: Artifact a -> Maybe Text
 customJavadocJarName Artifact{..} = T.pack . toFilePath <$> artJavadocJar
 
+data ArtifactFiles f = ArtifactFiles
+  { artifactMain :: f
+  , artifactPom :: f
+  , artifactSources :: Maybe f
+  , artifactJavadoc :: Maybe f
+  } deriving (Functor, Foldable)
+
 -- | Given an artifact, produce a list of pairs of an input file and the corresponding output file.
-artifactFiles :: E.MonadThrow m => Artifact PomData -> m [(Path Rel File, Path Rel File)]
-artifactFiles artifact@Artifact{..} = do
+artifactFiles :: E.MonadThrow m => IncludeDocs -> Artifact PomData -> m (ArtifactFiles (Path Rel File, Path Rel File))
+artifactFiles (IncludeDocs includeDocs) artifact@Artifact{..} = do
     let PomData{..} = artMetadata
     outDir <- parseRelDir $ unpack $
         T.intercalate "/" pomGroupId #"/"# pomArtifactId #"/"# SemVer.toText pomVersion #"/"
@@ -280,12 +299,12 @@ artifactFiles artifact@Artifact{..} = do
     mbJavadocJarIn <- javadocJarPath artifact
     javadocJarOut <- releaseDocJarPath artMetadata
 
-    pure $
-        [ (directory </> mainArtifactIn, outDir </> mainArtifactOut)
-        , (directory </> pomFileIn, outDir </> pomFileOut)
-        ] <>
-        [(directory </> sourceJarIn, outDir </> sourceJarOut) | Just sourceJarIn <- pure mbSourceJarIn] <>
-        [(directory </> javadocJarIn, outDir </> javadocJarOut) | Just javadocJarIn <- pure mbJavadocJarIn]
+    pure $ ArtifactFiles
+      { artifactMain = (directory </> mainArtifactIn, outDir </> mainArtifactOut)
+      , artifactPom = (directory </> pomFileIn, outDir </> pomFileOut)
+      , artifactSources = fmap (\sourceJarIn -> (directory </> sourceJarIn, outDir </> sourceJarOut)) mbSourceJarIn
+      , artifactJavadoc = guard includeDocs *> fmap (\javadocJarIn -> (directory </> javadocJarIn, outDir </> javadocJarOut)) mbJavadocJarIn
+      }
         -- ^ Note that the Scaladoc is specified with the "javadoc" classifier.
 
 mainArtifactPath :: E.MonadThrow m => Text -> Artifact a -> m (Path Rel File)
@@ -323,8 +342,8 @@ releasePomPath PomData{..} =
 
 -- | Given an artifact, produce a list of pairs of an input file and the Maven coordinates.
 -- This corresponds to the files uploaded to Maven Central.
-mavenArtifactCoords :: E.MonadThrow m => Artifact PomData -> m [(MavenCoords, Path Rel File)]
-mavenArtifactCoords Artifact{..} = do
+mavenArtifactCoords :: E.MonadThrow m => IncludeDocs -> Artifact PomData -> m [(MavenCoords, Path Rel File)]
+mavenArtifactCoords (IncludeDocs includeDocs) Artifact{..} = do
     let PomData{..} = artMetadata
     outDir <- parseRelDir $ unpack $
         T.intercalate "/" pomGroupId #"/"# pomArtifactId #"/"# SemVer.toText pomVersion #"/"
@@ -336,10 +355,12 @@ mavenArtifactCoords Artifact{..} = do
 
     let mavenCoords classifier artifactType =
            MavenCoords { groupId = pomGroupId, artifactId = pomArtifactId, version = pomVersion, classifier, artifactType }
-    pure [ (mavenCoords Nothing $ mainExt artReleaseType, outDir </> mainArtifactFile)
+    pure $
+         [ (mavenCoords Nothing $ mainExt artReleaseType, outDir </> mainArtifactFile)
          , (mavenCoords Nothing "pom",  outDir </> pomFile)
          , (mavenCoords (Just "sources") "jar", outDir </> sourcesFile)
-         , (mavenCoords (Just "javadoc") "jar", outDir </> javadocFile)
+         ] <>
+         [ (mavenCoords (Just "javadoc") "jar", outDir </> javadocFile) | includeDocs
          ]
 
 copyToReleaseDir :: (MonadLogger m, MonadIO m) => BazelLocations -> Path Abs Dir -> Path Rel File -> Path Rel File -> m ()
@@ -351,10 +372,10 @@ copyToReleaseDir BazelLocations{..} releaseDir inp out = do
     copyFile absIn absOut
 
 isDeployJar :: ReleaseType -> Bool
-isDeployJar t =
-    case t of
-        Jar Deploy -> True
-        _ -> False
+isDeployJar = (Jar Deploy ==)
+
+isScalaJar :: ReleaseType -> Bool
+isScalaJar = (Jar Scala ==)
 
 osName ::  Text
 osName

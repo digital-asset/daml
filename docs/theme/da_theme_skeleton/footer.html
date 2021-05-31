@@ -1,4 +1,4 @@
-<!-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
+<!-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved. -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
 <footer>
@@ -21,7 +21,7 @@
       {%- if hasdoc('copyright') %}
         {% trans path=pathto('copyright'), copyright=copyright|e %}&copy; <a href="{{ path }}">Copyright</a> {{ copyright }}{% endtrans %}
       {%- else %}
-        {% trans copyright=copyright|e %}&copy; Copyright {{ copyright }}{% endtrans %}
+        {% trans copyright=copyright|e %}{{ copyright }}{% endtrans %}
       {%- endif %}
     {%- endif %}
 

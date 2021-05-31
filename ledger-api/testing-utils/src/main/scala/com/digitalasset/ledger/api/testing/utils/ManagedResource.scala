@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testing.utils
@@ -15,7 +15,8 @@ abstract class ManagedResource[Value: ClassTag] extends Resource[Value] {
   final override def value: Value =
     resource.getOrElse {
       throw new IllegalStateException(
-        s"Attempted to read non-initialized resource of ${implicitly[ClassTag[Value]].runtimeClass}")
+        s"Attempted to read non-initialized resource of ${implicitly[ClassTag[Value]].runtimeClass}"
+      )
     }
 
   final override def setup(): Unit =

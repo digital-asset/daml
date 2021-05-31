@@ -1,27 +1,27 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML Studio
+Daml Studio
 ###########
 
-DAML Studio is an integrated development environment (IDE) for DAML. It is an extension on top of `Visual Studio Code <https://code.visualstudio.com>`__ (VS Code), a cross-platform, open-source editor providing a `rich code editing experience <https://code.visualstudio.com/docs/editor/editingevolved>`__.
+Daml Studio is an integrated development environment (IDE) for Daml. It is an extension on top of `Visual Studio Code <https://code.visualstudio.com>`__ (VS Code), a cross-platform, open-source editor providing a `rich code editing experience <https://code.visualstudio.com/docs/editor/editingevolved>`__.
 
 Installing
 **********
 
-DAML Studio is included in :doc:`the DAML Connect SDK </getting-started/installation>`.
+Daml Studio is included in :doc:`the Daml Connect SDK </getting-started/installation>`.
 
-Creating your first DAML file
+Creating your first Daml file
 *****************************
 
-1. Start DAML Studio by running ``daml studio`` in the current project.
+1. Start Daml Studio by running ``daml studio`` in the current project.
 
-   This command starts Visual Studio Code and (if needs be) installs the DAML Studio extension, or upgrades it to the latest version.
+   This command starts Visual Studio Code and (if needs be) installs the Daml Studio extension, or upgrades it to the latest version.
 
-2. Make sure the DAML Studio extension is installed:
+2. Make sure the Daml Studio extension is installed:
 
    1. Click on the Extensions icon at the bottom of the VS Code sidebar.
-   2. Click on the DAML Studio extension that should be listed on the pane.
+   2. Click on the Daml Studio extension that should be listed on the pane.
 
    .. image:: daml-studio/images/daml_studio_extension_view.png
 
@@ -45,19 +45,19 @@ Your screen should now look like the image below.
 We recommend reviewing the
 `Visual Studio Code documentation <https://code.visualstudio.com/docs/editor/codebasics>`_
 to learn more about how to use it.
-To learn more about DAML, see :doc:`reference/index`.
+To learn more about Daml, see :doc:`reference/index`.
 
 Supported features
 ******************
 
-Visual Studio Code provides many helpful features for editing DAML files and we recommend reviewing
+Visual Studio Code provides many helpful features for editing Daml files and we recommend reviewing
 `Visual Studio Code Basics <https://code.visualstudio.com/docs/editor/codebasics>`__ and `Visual Studio Code Keyboard Shortcuts for OS X <https://code.visualstudio.com/shortcuts/keyboard-shortcuts-macos.pdf>`_.
-The DAML Studio extension for Visual Studio Code provides the following DAML-specific features:
+The Daml Studio extension for Visual Studio Code provides the following Daml-specific features:
 
 Symbols and problem reporting
 =============================
 
-Use the commands listed below to navigate between symbols, rename them, and inspect any problems detected in your DAML files. Symbols are identifiers such as template names,
+Use the commands listed below to navigate between symbols, rename them, and inspect any problems detected in your Daml files. Symbols are identifiers such as template names,
 lambda arguments, variables, and so on.
 
 ============================ ===============
@@ -99,14 +99,14 @@ You can `hover`_ over most symbols in the code to display additional information
 
 .. _scenario-script-results:
 
-Scenario and DAML Script results
+Scenario and Daml Script results
 ================================
 
 Top-level declarations of type ``Scenario`` or ``Script`` are decorated with
 a ``Scenario results`` or a ``Script results`` code lens.
 You can click on the code lens to inspect the
 execution transaction graph and the active contracts. The functionality
-for inspecting the results is identical for DAML Scripts
+for inspecting the results is identical for Daml Scripts
 and scenarios.
 
 For the scenario from the :download:`Iou<daml-studio/daml/Iou.daml>`
@@ -132,7 +132,7 @@ which displays why the contract is visible to each party, based on four categori
    because they witnessed an exercise that resulted in a ``fetch`` of this contract.
 
 For details on the meaning of those four categories, refer to the
-:ref:`DAML Ledger Model<da-model-privacy>`.
+:ref:`Daml Ledger Model<da-model-privacy>`.
 For the example above, the resulting table looks as follows. You can see the
 archived ``Bank`` contract and the active ``Bank`` contract whose creation
 ``Alice`` has witnessed by virtue of being an actor on the ``exercise`` that
@@ -176,14 +176,14 @@ You can navigate to the corresponding source code by clicking on the location
 shown in parenthesis (e.g. ``Iou:25:12``, which means the ``Iou`` module, line 25 and column 1).
 You can also navigate between transactions by clicking on the transaction and contract ids (e.g. ``#1:0``).
 
-DAML snippets
+Daml snippets
 =============
 
-You can automatically complete a number of "snippets" when editing a DAML
-source file. By default, hitting ``^-Space`` after typing a DAML keyword
+You can automatically complete a number of "snippets" when editing a Daml
+source file. By default, hitting ``^-Space`` after typing a Daml keyword
 displays available snippets that you can insert.
 
-To define your own workflow around DAML snippets, adjust
+To define your own workflow around Daml snippets, adjust
 your user settings in Visual Studio Code to include the following options:
 
 .. code-block:: json
@@ -207,8 +207,8 @@ snippet file.
 Common scenario errors
 **********************
 
-During DAML execution, errors can occur due to exceptions (e.g. use of "abort", or division by zero), or
-due to authorization failures. You can expect to run into the following errors when writing DAML.
+During Daml execution, errors can occur due to exceptions (e.g. use of "abort", or division by zero), or
+due to authorization failures. You can expect to run into the following errors when writing Daml.
 
 When a runtime error occurs in a scenario execution, the scenario result view shows the error
 together with the following additional information, if available:
@@ -217,7 +217,7 @@ Location of the failed commit
    If the failing part of the script was a ``submit``, the source location
    of the call to ``submit`` will be displayed.
 Stack trace
-   A list of source locations that were encoutered before the error occured. The last encountered
+   A list of source locations that were encountered before the error occurred. The last encountered
    location is the first entry in the list.
 Ledger time
    The ledger time at which the error occurred.
@@ -367,10 +367,10 @@ To fix this issue the party 'Bob' should be made a controlling party in one of t
 Working with multiple packages
 ******************************
 
-Often a DAML project consists of multiple packages, e.g., one
-containing your templates and one containing a DAML trigger so that
+Often a Daml project consists of multiple packages, e.g., one
+containing your templates and one containing a Daml trigger so that
 you can keep the templates stable while modifying the trigger.  It is
-possible to work on multiple packages in a single session of DAML
+possible to work on multiple packages in a single session of Daml
 studio but you have to keep some things in mind. You can see the
 directory structure of a simple multi-package project consisting of
 two packages ``pkga`` and ``pkgb`` below:
@@ -388,8 +388,8 @@ two packages ``pkga`` and ``pkgb`` below:
         │   └── B.daml
         └── daml.yaml
 
-``pkga`` and ``pkgb`` are regular DAML projects with a ``daml.yaml``
-and a DAML module. In addition to the ``daml.yaml`` files for the
+``pkga`` and ``pkgb`` are regular Daml projects with a ``daml.yaml``
+and a Daml module. In addition to the ``daml.yaml`` files for the
 respective packages, you also need to add a ``daml.yaml`` to the root
 of your project. This file only needs to specify the SDK
 version. Replace ``X.Y.Z`` by the SDK version you specified in the
@@ -399,11 +399,11 @@ version. Replace ``X.Y.Z`` by the SDK version you specified in the
 
     sdk-version: X.Y.Z
 
-You can then open DAML Studio once in the root of your project and
+You can then open Daml Studio once in the root of your project and
 work on files in both packages. Note that if ``pkgb`` refers to
 ``pkga.dar`` in its ``dependencies`` field, changes will not be picked
-up automatically. This is always the case even if you open DAML Studio
+up automatically. This is always the case even if you open Daml Studio
 in ``pkgb``. However, for multi-package projects there is an
 additional caveat: You have to both rebuild ``pkga.dar`` using ``daml
 build`` and then build ``pkgb`` using ``daml build`` before restarting
-DAML Studio.
+Daml Studio.

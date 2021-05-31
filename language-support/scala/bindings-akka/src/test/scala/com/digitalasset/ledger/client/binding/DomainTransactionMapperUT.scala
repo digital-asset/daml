@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
@@ -39,7 +39,10 @@ class DomainTransactionMapperUT extends AnyWordSpec with Matchers with AkkaTest 
           contractId,
           Some(Identifier("pkgId", "modName", "createdTemplateId")),
           None,
-          Some(Record()))))
+          Some(Record()),
+        )
+      )
+    )
 
   def archivedEvent(contractId: String) =
     Event(
@@ -47,7 +50,10 @@ class DomainTransactionMapperUT extends AnyWordSpec with Matchers with AkkaTest 
         ArchivedEvent(
           "archivedEventId",
           contractId,
-          Some(Identifier("pkgId", "modName", "archivedTemplateId")))))
+          Some(Identifier("pkgId", "modName", "archivedTemplateId")),
+        )
+      )
+    )
 
   def domainCreatedEvent(contractId: String) =
     DomainCreatedEvent(
@@ -56,7 +62,7 @@ class DomainTransactionMapperUT extends AnyWordSpec with Matchers with AkkaTest 
       TemplateId(Identifier("pkgId", "modName", "createdTemplateId")),
       List.empty,
       CreateArguments(Record()),
-      mockContract
+      mockContract,
     )
 
   def domainArchivedEvent(contractId: String) =
@@ -64,12 +70,13 @@ class DomainTransactionMapperUT extends AnyWordSpec with Matchers with AkkaTest 
       EventId("archivedEventId"),
       ContractId(contractId),
       TemplateId(Identifier("pkgId", "modName", "archivedTemplateId")),
-      List.empty
+      List.empty,
     )
 
   case class MockTemplate() extends Template[MockTemplate] {
-    override protected[this] def templateCompanion(
-        implicit d: DummyImplicit): TemplateCompanion[MockTemplate] =
+    override protected[this] def templateCompanion(implicit
+        d: DummyImplicit
+    ): TemplateCompanion[MockTemplate] =
       new TemplateCompanion.Empty[MockTemplate] {
         override val onlyInstance = MockTemplate()
         override val id: Primitive.TemplateId[MockTemplate] =
@@ -92,7 +99,8 @@ class DomainTransactionMapperUT extends AnyWordSpec with Matchers with AkkaTest 
       CommandId("cid"),
       time,
       events,
-      None)
+      None,
+    )
 
   "DomainTransactionMapper" should {
     "should map events to domain events" in {

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java
@@ -13,7 +13,7 @@ import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 package inner {
   case class FieldInfo(damlName: String, damlType: Type, javaName: String, javaType: TypeName)
@@ -30,28 +30,33 @@ package object inner {
 
   private[inner] def getFieldsWithTypes(
       fields: IndexedSeq[FieldWithType],
-      packagePrefixes: Map[PackageId, String]): Fields =
+      packagePrefixes: Map[PackageId, String],
+  ): Fields =
     fields.map(getFieldWithType(_, packagePrefixes))
 
   private[inner] def getFieldWithType(
       fwt: FieldWithType,
-      packagePrefixes: Map[PackageId, String]): FieldInfo =
+      packagePrefixes: Map[PackageId, String],
+  ): FieldInfo =
     FieldInfo(
       fwt._1,
       fwt._2,
       JavaEscaper.escapeString(fwt._1),
-      toJavaTypeName(fwt._2, packagePrefixes))
+      toJavaTypeName(fwt._2, packagePrefixes),
+    )
 
   private[inner] def toJavaTypeName(
       damlType: Type,
-      packagePrefixes: Map[PackageId, String]): TypeName =
+      packagePrefixes: Map[PackageId, String],
+  ): TypeName =
     damlType match {
       case TypeCon(TypeConName(ident), Seq()) =>
         ClassName.bestGuess(fullyQualifiedName(ident, packagePrefixes)).box()
       case TypeCon(TypeConName(ident), typeParameters) =>
         ParameterizedTypeName.get(
           ClassName.bestGuess(fullyQualifiedName(ident, packagePrefixes)),
-          typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
+          typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*
+        )
       case TypePrim(PrimTypeBool, _) => ClassName.get(classOf[java.lang.Boolean])
       case TypePrim(PrimTypeInt64, _) => ClassName.get(classOf[java.lang.Long])
       case TypeNumeric(_) => ClassName.get(classOf[java.math.BigDecimal])
@@ -64,31 +69,36 @@ package object inner {
           case templateClass: ClassName => templateClass.nestedClass("ContractId")
           case typeVariableName: TypeVariableName =>
             ParameterizedTypeName.get(ClassName.get(classOf[ContractId[_]]), typeVariableName)
-          case unexpected => sys.error(s"Unexpected type [$unexpected] for DAML type [$damlType]")
+          case unexpected => sys.error(s"Unexpected type [$unexpected] for Daml type [$damlType]")
         }
       case TypePrim(PrimTypeList, typeParameters) =>
         ParameterizedTypeName
           .get(
             ClassName.get(classOf[java.util.List[_]]),
-            typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
+            typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*
+          )
       case TypePrim(PrimTypeOptional, typeParameters) =>
         ParameterizedTypeName
           .get(
             ClassName.get(classOf[java.util.Optional[_]]),
-            typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
+            typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*
+          )
       case TypePrim(PrimTypeTextMap, typeParameters) =>
         ParameterizedTypeName
           .get(
             ClassName.get(classOf[java.util.Map[String, _]]),
             ClassName.get(classOf[java.lang.String]) +:
-              typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
+              typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*
+          )
       case TypePrim(PrimTypeGenMap, typeParameters) =>
         ParameterizedTypeName
           .get(
             ClassName.get(classOf[java.util.Map[_, _]]),
-            typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
+            typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*
+          )
       case TypePrim(PrimTypeUnit, _) => ClassName.get(classOf[javaapi.data.Unit])
       case TypeVar(name) => TypeVariableName.get(JavaEscaper.escapeString(name))
+      case _ => throw new IllegalArgumentException(s"Invalid Daml datatype: $damlType")
     }
 
   private[inner] def toAPITypeName(damlType: Type): TypeName =
@@ -118,7 +128,8 @@ package object inner {
 
   def fullyQualifiedName(
       identifier: Identifier,
-      packagePrefixes: Map[PackageId, String]): String = {
+      packagePrefixes: Map[PackageId, String],
+  ): String = {
     val Identifier(_, QualifiedName(module, name)) = identifier
 
     // consider all but the last name segment to be part of the java package name
@@ -137,7 +148,8 @@ package object inner {
 
   def distinctTypeVars(
       fields: Fields,
-      typeVars: IndexedSeq[String]): IndexedSeq[IndexedSeq[String]] = {
+      typeVars: IndexedSeq[String],
+  ): IndexedSeq[IndexedSeq[String]] = {
     val escapedNestedTypeVars = escapedNestedTypeVarNames(fields)
     if (escapedNestedTypeVars.sorted == typeVars.sorted) Vector(typeVars)
     else Vector(escapedNestedTypeVars, typeVars)
@@ -203,7 +215,8 @@ package object inner {
       else
         ParameterizedTypeName.get(
           name,
-          typeParams.map(_ => WildcardTypeName.subtypeOf(classOf[Object])): _*)
+          typeParams.map(_ => WildcardTypeName.subtypeOf(classOf[Object])): _*
+        )
     }
   }
 

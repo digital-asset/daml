@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator
@@ -23,8 +23,7 @@ import scala.util.Try
 
 case class ParseResult(ast: Document, operationName: Option[String], variables: JsValue)
 
-/**
-  * Provides a way of executing GraphQL queries.
+/** Provides a way of executing GraphQL queries.
   */
 trait GraphQLHandler {
   def schema: Schema[GraphQLContext, Unit]
@@ -42,8 +41,9 @@ object GraphQLHandler {
 
 case class DefaultGraphQLHandler(
     customEndpoints: GraphQLHandler.CustomEndpoints,
-    platformStore: Option[ActorRef])(
-    implicit executionContext: ExecutionContext
+    platformStore: Option[ActorRef],
+)(implicit
+    executionContext: ExecutionContext
 ) extends GraphQLHandler
     with LazyLogging {
 
@@ -56,8 +56,8 @@ case class DefaultGraphQLHandler(
     for {
       fields <- Try(request.asJsObject.fields)
       JsString(query) <- Try(fields("query"))
-      operationName = fields.get("operationName").collect {
-        case JsString(value) => value
+      operationName = fields.get("operationName").collect { case JsString(value) =>
+        value
       }
       vars: JsValue = fields.get("variables") match {
         case Some(obj: JsObject) => obj
@@ -78,9 +78,9 @@ case class DefaultGraphQLHandler(
           context,
           variables = parsed.variables,
           operationName = parsed.operationName,
-          exceptionHandler = ExceptionHandler {
-            case (_, StoreException(message)) => HandledException(message)
-          }
+          exceptionHandler = ExceptionHandler { case (_, StoreException(message)) =>
+            HandledException(message)
+          },
         )
         .map(OK -> _)
         .recover {

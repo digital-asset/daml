@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Query language
@@ -77,7 +77,7 @@ Appendix: Type-aware queries
 
 **This section is non-normative.**
 
-This is not a *JSON* query language, it is a *DAML-LF* query
+This is not a *JSON* query language, it is a *Daml-LF* query
 language. So, while we could theoretically treat queries (where not
 otherwise interpreted by the "may contain additional properties" rule
 above) without concern for what LF type (i.e. template) we're
@@ -91,7 +91,7 @@ among an unbounded number of others::
   variant C ↦ foo : Party | bar : Unit
 
   // NB: LF does not require any particular case for VariantCon or Field;
-  // these are perfectly legal types in DAML-LF packages
+  // these are perfectly legal types in Daml-LF packages
 
 In the cases of ``A`` and ``B``, ``"foo"`` is part of the query
 language, and only ``"bar"`` is treated as an LF value; in the case of

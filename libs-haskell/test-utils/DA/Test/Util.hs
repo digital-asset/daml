@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Test utils
@@ -19,7 +19,8 @@ module DA.Test.Util (
 ) where
 
 import Control.Monad
-import Control.Exception.Safe
+import Control.Monad.IO.Class
+import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Data.List.Extra (isInfixOf)
 import qualified Data.Text as T
 import System.Directory
@@ -28,6 +29,7 @@ import System.Info.Extra
 import System.Environment.Blank
 import Test.Tasty
 import Test.Tasty.HUnit
+import qualified UnliftIO.Exception as Unlift
 
 standardizeQuotes :: T.Text -> T.Text
 standardizeQuotes msg = let
@@ -48,18 +50,7 @@ withTempFileResource f = withResource newTempFile snd (f . fmap fst)
 
 withTempDirResource :: (IO FilePath -> TestTree) -> TestTree
 withTempDirResource f = withResource newTempDir delete (f . fmap fst)
-  -- The delete action provided by `newTempDir` calls `removeDirectoryRecursively`
-  -- and silently swallows errors. SDK installations are marked read-only
-  -- which means that they don’t end up being removed which is obviously
-  -- not what we intend.
-  -- As usual Windows is terrible and doesn’t let you remove the SDK
-  -- if there is a process running. Simultaneously it is also terrible
-  -- at process management so we end up with running processes
-  -- since child processes aren’t torn down properly
-  -- (Bazel will kill them later when the test finishes). Therefore,
-  -- we ignore exceptions and hope for the best. On Windows that
-  -- means we still leak directories :(
-  where delete (d, _delete) = void $ tryIO $ removePathForcibly d
+  where delete (d, _delete) = removePathForcibly d
 
 nullDevice :: FilePath
 nullDevice
@@ -76,8 +67,8 @@ withDevNull a = withTempFile $ \f -> withFile f WriteMode a
 -- Avoids System.Environment.setEnv because it treats empty strings as
 -- "delete environment variable", unlike main-tester's withEnv which
 -- consequently conflates (Just "") with Nothing.
-withEnv :: [(String, Maybe String)] -> IO t -> IO t
-withEnv vs m = bracket pushEnv popEnv (const m)
+withEnv :: MonadUnliftIO m => [(String, Maybe String)] -> m t -> m t
+withEnv vs m = Unlift.bracket (liftIO pushEnv) (liftIO . popEnv) (const m)
     where
         pushEnv :: IO [(String, Maybe String)]
         pushEnv = replaceEnv vs

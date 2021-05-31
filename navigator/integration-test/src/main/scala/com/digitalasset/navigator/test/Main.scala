@@ -1,10 +1,10 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.test
 
 import scala.collection._
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import java.util.concurrent.ConcurrentHashMap
 
 import com.daml.navigator.test.config.Arguments
@@ -22,7 +22,10 @@ object Main extends LazyLogging {
       case Some(arguments) =>
         val reporter = new LoggerReporter()
         val status = new BrowserTest(arguments)
-          .run(None, Args(reporter = reporter, configMap = new ConfigMap(Map.empty[String, Any])))
+          .run(
+            None,
+            Args(reporter = reporter, configMap = new ConfigMap(immutable.Map.empty[String, Any])),
+          )
         val success = Try(status.succeeds()).getOrElse(false)
         val exitCode = if (success) 0 else 1
         val header =
@@ -73,7 +76,7 @@ class LoggerReporter extends Reporter {
       case t: TestFailed =>
         results.put(
           s"  Test failed: ${t.testName}",
-          t.throwable.map(_.getMessage).map(e => s"      error: $e")
+          t.throwable.map(_.getMessage).map(e => s"      error: $e"),
         )
         ()
 

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Substitution in LF expressions.
@@ -182,12 +182,15 @@ applySubstInExpr subst@Subst{..} = \case
         (applySubstInExpr subst e)
     ETypeRep t -> ETypeRep
         (applySubstInType subst t)
-    EMakeAnyException t e1 e2 -> EMakeAnyException
+    EToAnyException t e -> EToAnyException
         (applySubstInType subst t)
-        (applySubstInExpr subst e1)
-        (applySubstInExpr subst e2)
+        (applySubstInExpr subst e)
     EFromAnyException t e -> EFromAnyException
         (applySubstInType subst t)
+        (applySubstInExpr subst e)
+    EThrow t1 t2 e -> EThrow
+        (applySubstInType subst t1)
+        (applySubstInType subst t2)
         (applySubstInExpr subst e)
     EUpdate u -> EUpdate
         (applySubstInUpdate subst u)
@@ -196,6 +199,8 @@ applySubstInExpr subst@Subst{..} = \case
     ELocation l e -> ELocation
         l
         (applySubstInExpr subst e)
+    EExperimental name ty ->
+        EExperimental name (applySubstInType subst ty)
 
 applySubstInAlternative :: Subst -> CaseAlternative -> CaseAlternative
 applySubstInAlternative subst (CaseAlternative p e) =

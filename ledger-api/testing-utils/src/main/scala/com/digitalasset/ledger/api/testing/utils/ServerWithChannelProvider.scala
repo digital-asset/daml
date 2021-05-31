@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testing.utils
@@ -18,10 +18,11 @@ object ServerWithChannelProvider {
   def fromServices(
       services: Iterable[BindableService],
       address: Option[SocketAddress],
-      serverName: String): ServerWithChannelProvider = {
+      serverName: String,
+  ): ServerWithChannelProvider = {
     val serverBuilder = address.fold[ServerBuilder[_ <: ServerBuilder[_]]](
-      services.foldLeft(InProcessServerBuilder.forName(serverName))(_ addService _))(a =>
-      services.foldLeft(NettyServerBuilder.forAddress(a))(_ addService _))
+      services.foldLeft(InProcessServerBuilder.forName(serverName))(_ addService _)
+    )(a => services.foldLeft(NettyServerBuilder.forAddress(a))(_ addService _))
     val server = serverBuilder
       .build()
 
@@ -29,7 +30,8 @@ object ServerWithChannelProvider {
 
     ServerWithChannelProvider(
       server,
-      () => getChannel(address.map(_ => server.getPort()), serverName))
+      () => getChannel(address.map(_ => server.getPort()), serverName),
+    )
   }
 
   private def getChannel(port: Option[Int], serverName: String) = {
@@ -38,11 +40,10 @@ object ServerWithChannelProvider {
         InProcessChannelBuilder
           .forName(serverName)
           .usePlaintext()
-      )(
-        p =>
-          ManagedChannelBuilder
-            .forAddress("127.0.0.1", p)
-            .usePlaintext()
+      )(p =>
+        ManagedChannelBuilder
+          .forAddress("127.0.0.1", p)
+          .usePlaintext()
       )
       .build()
   }

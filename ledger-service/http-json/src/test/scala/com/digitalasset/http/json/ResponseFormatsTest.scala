@@ -1,9 +1,7 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.json
-
-import com.daml.http.util.Collections._
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -19,6 +17,7 @@ import scalaz.syntax.show._
 import scalaz.{Show, \/}
 import spray.json._
 
+import scala.collection.compat._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -37,12 +36,13 @@ class ResponseFormatsTest
 
   "resultJsObject should serialize Source of Errors and JsValues" in forAll(
     Gen.listOf(errorOrJsNumber),
-    Gen.option(Gen.nonEmptyListOf(Gen.identifier))) { (input, warnings) =>
+    Gen.option(Gen.nonEmptyListOf(Gen.identifier)),
+  ) { (input, warnings) =>
     import spray.json.DefaultJsonProtocol._
 
     val jsValWarnings: Option[JsValue] = warnings.map(_.toJson)
     val (failures, successes): (Vector[JsString], Vector[JsValue]) =
-      input.toVector.partitionMap(_.leftMap(e => JsString(e.shows)))
+      input.toVector.partitionMap(_.leftMap(e => JsString(e.shows)).toEither)
 
     val jsValSource = Source[DummyError \/ JsValue](input)
 
@@ -61,7 +61,8 @@ class ResponseFormatsTest
   private def expectedResult(
       failures: Vector[JsValue],
       successes: Vector[JsValue],
-      warnings: Option[JsValue]): JsObject = {
+      warnings: Option[JsValue],
+  ): JsObject = {
 
     val map1: Map[String, JsValue] = warnings match {
       case Some(x) => Map("warnings" -> x)
@@ -75,14 +76,15 @@ class ResponseFormatsTest
         Map[String, JsValue](
           "result" -> JsArray(successes),
           "errors" -> JsArray(failures),
-          "status" -> JsNumber("501"))
+          "status" -> JsNumber("501"),
+        )
 
     JsObject(map1 ++ map2)
   }
 
   private lazy val errorOrJsNumber: Gen[DummyError \/ JsNumber] = Gen.frequency(
     1 -> dummyErrorGen.map(\/.left),
-    5 -> jsNumberGen.map(\/.right)
+    5 -> jsNumberGen.map(\/.right),
   )
 
   private lazy val dummyErrorGen: Gen[DummyError] = Gen.identifier.map(DummyError.apply)

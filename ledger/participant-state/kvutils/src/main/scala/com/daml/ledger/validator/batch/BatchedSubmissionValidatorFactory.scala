@@ -1,25 +1,24 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator.batch
 
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.validator.caching.{
   CacheUpdatePolicy,
   CachingCommitStrategy,
-  CachingDamlLedgerStateReader,
-  QueryableReadSet
+  CachingStateReader,
 }
+import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
 import com.daml.ledger.validator.{
   CommitStrategy,
   DamlLedgerStateReader,
   DefaultStateKeySerializationStrategy,
   LedgerStateOperations,
-  LedgerStateReader,
   LogAppendingCommitStrategy,
-  StateKeySerializationStrategy
+  StateKeySerializationStrategy,
 }
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -37,17 +36,18 @@ object BatchedSubmissionValidatorFactory {
 
   class LedgerStateReaderAdapter[LogResult](delegate: LedgerStateOperations[LogResult])
       extends LedgerStateReader {
-    override def read(keys: Seq[Key])(
-        implicit executionContext: ExecutionContext
-    ): Future[Seq[Option[Value]]] =
+    override def read(
+        keys: Iterable[Raw.StateKey]
+    )(implicit executionContext: ExecutionContext): Future[Seq[Option[Raw.Envelope]]] =
       delegate.readState(keys)
   }
 
   def readerAndCommitStrategyFrom[LogResult](
       ledgerStateOperations: LedgerStateOperations[LogResult],
       keySerializationStrategy: StateKeySerializationStrategy = DefaultStateKeySerializationStrategy,
-  )(implicit executionContext: ExecutionContext)
-    : (DamlLedgerStateReader, CommitStrategy[LogResult]) = {
+  )(implicit
+      executionContext: ExecutionContext
+  ): (DamlLedgerStateReader, CommitStrategy[LogResult]) = {
     val ledgerStateReader = DamlLedgerStateReader.from(
       new LedgerStateReaderAdapter[LogResult](ledgerStateOperations),
       keySerializationStrategy,
@@ -62,15 +62,18 @@ object BatchedSubmissionValidatorFactory {
   def cachingReaderAndCommitStrategyFrom[LogResult](
       ledgerStateOperations: LedgerStateOperations[LogResult],
       stateCache: Cache[DamlStateKey, DamlStateValue],
-      cacheUpdatePolicy: CacheUpdatePolicy,
+      cacheUpdatePolicy: CacheUpdatePolicy[DamlStateKey],
       keySerializationStrategy: StateKeySerializationStrategy = DefaultStateKeySerializationStrategy,
-  )(implicit executionContext: ExecutionContext)
-    : (DamlLedgerStateReader with QueryableReadSet, CommitStrategy[LogResult]) = {
-    val ledgerStateReader = CachingDamlLedgerStateReader(
+  )(implicit
+      executionContext: ExecutionContext
+  ): (DamlLedgerStateReader, CommitStrategy[LogResult]) = {
+    val ledgerStateReader = CachingStateReader(
       stateCache,
       cacheUpdatePolicy,
-      new LedgerStateReaderAdapter[LogResult](ledgerStateOperations),
-      keySerializationStrategy,
+      DamlLedgerStateReader.from(
+        new LedgerStateReaderAdapter[LogResult](ledgerStateOperations),
+        keySerializationStrategy,
+      ),
     )
     val commitStrategy = CachingCommitStrategy(
       stateCache,

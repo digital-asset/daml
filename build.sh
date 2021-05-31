@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
@@ -24,8 +24,11 @@ fi
 # Note that lsof returns a non-zero exit code if there is no match.
 SANDBOX_PID="$(lsof -ti tcp:6865 || true)"
 if [ -n "$SANDBOX_PID" ]; then
-    kill "$SANDBOX_PID"
+    echo $SANDBOX_PID | xargs kill
 fi
+
+# Temporary until all nodes have been reset
+rm -rf compiler/daml-extension/node_modules
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 bazel build //... --build_tag_filters "$tag_filter"
@@ -80,6 +83,8 @@ if [[ "$(uname)" != "Darwin" ]]; then
   da-ghci --data yes //compiler/damlc:damlc -e ':main --help'
 fi
 
-# Check that our IDE works on our codebase
-ghcide compiler/damlc/exe/Main.hs 2>&1 | tee ide-log
-grep -q "1 file worked, 0 files failed" ide-log
+# Test that ghcide at least builds starts, we don’t run it since it
+# adds 2-5 minutes to each CI run with relatively little benefit. If
+# you want to test it manually on upgrades, run
+# ghcide compiler/damlc/exe/Main.hs.
+ghcide --help

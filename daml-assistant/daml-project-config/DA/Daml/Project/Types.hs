@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE FlexibleInstances #-}
 
@@ -86,6 +86,11 @@ parseVersion src =
 -- | File path of daml installation root (by default ~/.daml on unix, %APPDATA%/daml on windows).
 newtype DamlPath = DamlPath
     { unwrapDamlPath :: FilePath
+    } deriving (Eq, Show)
+
+-- | File path to a cache directory, e.g. ~/.cache.
+newtype CachePath = CachePath
+    { unwrapCachePath :: FilePath
     } deriving (Eq, Show)
 
 -- | Absolute file path to the assistant executable, e.g., /home/foobar/.daml/bin/daml.

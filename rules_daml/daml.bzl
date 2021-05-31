@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
@@ -6,7 +6,7 @@ load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
 
 _damlc = attr.label(
     allow_single_file = True,
-    default = Label("//compiler/damlc"),
+    default = Label("//compiler/damlc:damlc-compile-only"),
     executable = True,
     cfg = "host",
     doc = "The DAML compiler.",
@@ -19,11 +19,14 @@ _zipper = attr.label(
     cfg = "host",
 )
 
+ghc_opts = ["--ghc-option=-Werror"]
+
 def _daml_configure_impl(ctx):
     project_name = ctx.attr.project_name
     project_version = ctx.attr.project_version
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
+    opts = ghc_opts + ["--target={}".format(target)] if target else ghc_opts
     ctx.actions.write(
         output = daml_yaml,
         content = """
@@ -32,12 +35,12 @@ def _daml_configure_impl(ctx):
             version: {version}
             source: .
             dependencies: []
-            build-options: [{target}]
+            build-options: [{opts} ]
         """.format(
             sdk = sdk_version,
             name = project_name,
             version = project_version,
-            target = "--target=" + target if (target) else "",
+            opts = ", ".join(opts),
         ),
     )
 
@@ -96,7 +99,7 @@ def _daml_build_impl(ctx):
             {sed} -i 's/^sdk-version:.*$/sdk-version: {sdk_version}/' $tmpdir/daml.yaml
             {cp_srcs}
             {cp_dars}
-            {damlc} build --project-root $tmpdir -o $PWD/{output_dar}
+            {damlc} build --project-root $tmpdir {ghc_opts} -o $PWD/{output_dar}
         """.format(
             config = daml_yaml.path,
             cp_srcs = "\n".join([
@@ -117,6 +120,7 @@ def _daml_build_impl(ctx):
             damlc = damlc.path,
             output_dar = output_dar.path,
             sdk_version = sdk_version,
+            ghc_opts = " ".join(ghc_opts),
         ),
     )
 
@@ -209,7 +213,7 @@ def _daml_validate_test(
         name,
         dar,
         **kwargs):
-    damlc = "//compiler/damlc"
+    damlc = "//compiler/damlc:damlc-compile-only"
     sh_inline_test(
         name = name,
         data = [damlc, dar],
@@ -232,10 +236,10 @@ def _inspect_dar(base):
         name = name,
         srcs = [
             dar,
-            "//compiler/damlc",
+            "//compiler/damlc:damlc-compile-only",
         ],
         outs = [pp],
-        cmd = "$(location //compiler/damlc) inspect $(location :" + dar + ") > $@",
+        cmd = "$(location //compiler/damlc:damlc-compile-only) inspect $(location :" + dar + ") > $@",
     )
 
 _default_project_version = "1.0.0"
@@ -245,6 +249,7 @@ def daml_compile(
         srcs,
         version = _default_project_version,
         target = None,
+        project_name = None,
         **kwargs):
     "Build a DAML project, with a generated daml.yaml."
     if len(srcs) == 0:
@@ -252,7 +257,7 @@ def daml_compile(
     daml_yaml = name + ".yaml"
     _daml_configure(
         name = name + ".configure",
-        project_name = name,
+        project_name = project_name or name,
         project_version = version,
         daml_yaml = daml_yaml,
         target = target,
@@ -318,7 +323,7 @@ def daml_test(
         srcs = [],
         deps = [],
         data_deps = [],
-        damlc = "//compiler/damlc",
+        damlc = "//compiler/damlc:damlc",
         target = None,
         **kwargs):
     sh_inline_test(
@@ -372,22 +377,27 @@ def daml_doc_test(
         ignored_srcs = [],
         flags = [],
         cpp = "@stackage-exe//hpp",
-        damlc = "//compiler/damlc",
+        damlc = "//compiler/damlc:damlc",
         **kwargs):
     sh_inline_test(
         name = name,
         data = [cpp, damlc] + srcs,
         cmd = """\
+set -eou pipefail
 CPP=$$(canonicalize_rlocation $(rootpath {cpp}))
 DAMLC=$$(canonicalize_rlocation $(rootpath {damlc}))
 FILES=($$(
   for file in {files}; do
+    IGNORED=false
     for pattern in {ignored}; do
       if [[ $$file = *$$pattern ]]; then
+        IGNORED=true
         continue
       fi
-      echo $$(canonicalize_rlocation $$i)
     done
+    if [[ $$IGNORED == "false" ]]; then
+      echo $$(canonicalize_rlocation $$file)
+    fi
   done
 ))
 

@@ -1,9 +1,9 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.execution
 
-import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
@@ -18,17 +18,19 @@ import com.daml.lf.engine.{
   ResultError,
   ResultNeedContract,
   ResultNeedKey,
+  ResultNeedLocalKeyVisible,
   ResultNeedPackage,
-  Error => DamlLfError
+  Error => DamlLfError,
+  VisibleByKey,
 }
-import com.daml.lf.language.Ast.Package
+import com.daml.lf.transaction.Node
 import com.daml.logging.LoggingContext
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.packages.DeduplicatingPackageLoader
 import com.daml.platform.store.ErrorCause
 import scalaz.syntax.tag._
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.{Failure, Success}
+import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class StoreBackedCommandExecutor(
     engine: Engine,
@@ -38,18 +40,28 @@ private[apiserver] final class StoreBackedCommandExecutor(
     metrics: Metrics,
 ) extends CommandExecutor {
 
+  private[this] val packageLoader = new DeduplicatingPackageLoader()
+
   override def execute(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,
-  )(
-      implicit ec: ExecutionContext,
+  )(implicit
+      ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     val start = System.nanoTime()
+    // The actAs and readAs parties are used for two kinds of checks by the ledger API server:
+    // When looking up contracts during command interpretation, the engine should only see contracts
+    // that are visible to at least one of the actAs or readAs parties. This visibility check is not part of the
+    // Daml ledger model.
+    // When checking Daml authorization rules, the engine verifies that the actAs parties are sufficient to
+    // authorize the resulting transaction.
+    val commitAuthorizers = commands.actAs
     val submissionResult = Timed.trackedValue(
       metrics.daml.execution.engineRunning,
-      engine.submit(commands.commands, participant, submissionSeed))
-    consume(commands.submitter, submissionResult)
+      engine.submit(commitAuthorizers, commands.commands, participant, submissionSeed),
+    )
+    consume(commands.actAs, commands.readAs, submissionResult)
       .map { submission =>
         (for {
           result <- submission
@@ -57,8 +69,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
         } yield {
           val interpretationTimeNanos = System.nanoTime() - start
           CommandExecutionResult(
-            submitterInfo = SubmitterInfo.withSingleSubmitter(
-              commands.submitter,
+            submitterInfo = SubmitterInfo(
+              commands.actAs.toList,
               commands.applicationId.unwrap,
               commands.commandId.unwrap,
               commands.deduplicateUntil,
@@ -72,25 +84,24 @@ private[apiserver] final class StoreBackedCommandExecutor(
               Some(meta.nodeSeeds),
               Some(
                 updateTx.nodes
-                  .collect { case (nodeId, node) if node.byKey => nodeId }
-                  .to[ImmArray]),
+                  .collect { case (nodeId, node: Node.GenActionNode[_, _]) if node.byKey => nodeId }
+                  .to(ImmArray)
+              ),
             ),
             transaction = updateTx,
             dependsOnLedgerTime = meta.dependsOnTime,
-            interpretationTimeNanos = interpretationTimeNanos
+            interpretationTimeNanos = interpretationTimeNanos,
           )
         }).left.map(ErrorCause.DamlLf)
       }
   }
 
-  // Concurrent map of promises to request each package only once.
-  private val packagePromises: ConcurrentHashMap[Ref.PackageId, Promise[Option[Package]]] =
-    new ConcurrentHashMap()
-
-  private def consume[A](submitter: Ref.Party, result: Result[A])(
-      implicit ec: ExecutionContext,
+  private def consume[A](actAs: Set[Ref.Party], readAs: Set[Ref.Party], result: Result[A])(implicit
+      ec: ExecutionContext,
       loggingContext: LoggingContext,
   ): Future[Either[DamlLfError, A]] = {
+    val readers = actAs ++ readAs
+    val isVisible = VisibleByKey.fromSubmitters(actAs, readAs)
 
     val lookupActiveContractTime = new AtomicLong(0L)
     val lookupActiveContractCount = new AtomicLong(0L)
@@ -109,13 +120,14 @@ private[apiserver] final class StoreBackedCommandExecutor(
           Timed
             .future(
               metrics.daml.execution.lookupActiveContract,
-              contractStore.lookupActiveContract(submitter, acoid),
+              contractStore.lookupActiveContract(readers, acoid),
             )
             .flatMap { instance =>
               lookupActiveContractTime.addAndGet(System.nanoTime() - start)
               lookupActiveContractCount.incrementAndGet()
               resolveStep(
-                Timed.trackedValue(metrics.daml.execution.engineRunning, resume(instance)))
+                Timed.trackedValue(metrics.daml.execution.engineRunning, resume(instance))
+              )
             }
 
         case ResultNeedKey(key, resume) =>
@@ -123,53 +135,43 @@ private[apiserver] final class StoreBackedCommandExecutor(
           Timed
             .future(
               metrics.daml.execution.lookupContractKey,
-              contractStore.lookupContractKey(submitter, key.globalKey))
+              contractStore.lookupContractKey(readers, key.globalKey),
+            )
             .flatMap { contractId =>
               lookupContractKeyTime.addAndGet(System.nanoTime() - start)
               lookupContractKeyCount.incrementAndGet()
               resolveStep(
-                Timed.trackedValue(metrics.daml.execution.engineRunning, resume(contractId)))
+                Timed.trackedValue(metrics.daml.execution.engineRunning, resume(contractId))
+              )
             }
+
+        case ResultNeedLocalKeyVisible(stakeholders, resume) =>
+          val visible = isVisible(stakeholders)
+          resolveStep(Timed.trackedValue(metrics.daml.execution.engineRunning, resume(visible)))
 
         case ResultNeedPackage(packageId, resume) =>
-          var gettingPackage = false
-          val promise = packagePromises.computeIfAbsent(packageId, _ => {
-            gettingPackage = true
-            Promise[Option[Package]]()
-          })
-
-          if (gettingPackage) {
-            val future =
-              Timed.future(
-                metrics.daml.execution.getLfPackage,
-                packagesService.getLfPackage(packageId))
-            future.onComplete {
-              case Success(None) | Failure(_) =>
-                // Did not find the package or got an error when looking for it. Remove the promise to allow later retries.
-                packagePromises.remove(packageId)
-
-              case Success(Some(_)) =>
-              // we don't need to treat a successful package fetch here
+          packageLoader
+            .loadPackage(
+              packageId = packageId,
+              delegate = packageId => packagesService.getLfArchive(packageId)(loggingContext),
+              metric = metrics.daml.execution.getLfPackage,
+            )
+            .flatMap { maybePackage =>
+              resolveStep(
+                Timed.trackedValue(metrics.daml.execution.engineRunning, resume(maybePackage))
+              )
             }
-            promise.completeWith(future)
-          }
-
-          promise.future.flatMap { maybePackage =>
-            resolveStep(
-              Timed.trackedValue(metrics.daml.execution.engineRunning, resume(maybePackage)))
-          }
       }
 
-    resolveStep(result).andThen {
-      case _ =>
-        metrics.daml.execution.lookupActiveContractPerExecution
-          .update(lookupActiveContractTime.get(), TimeUnit.NANOSECONDS)
-        metrics.daml.execution.lookupActiveContractCountPerExecution
-          .update(lookupActiveContractCount.get)
-        metrics.daml.execution.lookupContractKeyPerExecution
-          .update(lookupContractKeyTime.get(), TimeUnit.NANOSECONDS)
-        metrics.daml.execution.lookupContractKeyCountPerExecution
-          .update(lookupContractKeyCount.get())
+    resolveStep(result).andThen { case _ =>
+      metrics.daml.execution.lookupActiveContractPerExecution
+        .update(lookupActiveContractTime.get(), TimeUnit.NANOSECONDS)
+      metrics.daml.execution.lookupActiveContractCountPerExecution
+        .update(lookupActiveContractCount.get)
+      metrics.daml.execution.lookupContractKeyPerExecution
+        .update(lookupContractKeyTime.get(), TimeUnit.NANOSECONDS)
+      metrics.daml.execution.lookupContractKeyCountPerExecution
+        .update(lookupContractKeyCount.get())
     }
   }
 }

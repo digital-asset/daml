@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.sandbox.stores
@@ -17,20 +17,20 @@ import com.daml.ledger.participant.state.v1.{
   SubmittedTransaction,
   SubmitterInfo,
   TransactionMeta,
-  WriteService
+  WriteService,
 }
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.platform.sandbox.stores.ledger.{Ledger, PartyIdGenerator}
-
+import com.daml.telemetry.TelemetryContext
 import io.grpc.Status
 
 import scala.compat.java8.FutureConverters
 
 private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider)(
-    implicit loggingContext: LoggingContext,
+    implicit loggingContext: LoggingContext
 ) extends WriteService {
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
@@ -40,9 +40,9 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
-      "submitter" -> submitterInfo.singleSubmitterOrThrow(),
+      "actAs" -> submitterInfo.actAs.mkString(","),
       "applicationId" -> submitterInfo.applicationId,
       "commandId" -> submitterInfo.commandId,
       "deduplicateUntil" -> submitterInfo.deduplicateUntil.toString,
@@ -59,7 +59,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       hint: Option[Party],
       displayName: Option[String],
       submissionId: SubmissionId,
-  ): CompletionStage[SubmissionResult] = {
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(PartyIdGenerator.generateRandomId())
     withEnrichedLoggingContext(
       "party" -> party,
@@ -73,8 +73,8 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
   override def uploadPackages(
       submissionId: SubmissionId,
       payload: List[Archive],
-      sourceDescription: Option[String]
-  ): CompletionStage[SubmissionResult] =
+      sourceDescription: Option[String],
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
       "submissionId" -> submissionId,
       "description" -> sourceDescription.getOrElse(""),
@@ -82,7 +82,8 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
     ) { implicit loggingContext =>
       FutureConverters.toJava(
         ledger
-          .uploadPackages(submissionId, timeProvider.getCurrentTime, sourceDescription, payload))
+          .uploadPackages(submissionId, timeProvider.getCurrentTime, sourceDescription, payload)
+      )
     }
 
   // WriteConfigService
@@ -90,7 +91,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       maxRecordTime: Time.Timestamp,
       submissionId: SubmissionId,
       config: Configuration,
-  ): CompletionStage[SubmissionResult] =
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
       "maxRecordTime" -> maxRecordTime.toInstant.toString,
       "submissionId" -> submissionId,
@@ -103,6 +104,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
   // WriteParticipantPruningService - not supported by sandbox-classic
   override def prune(
       pruneUpToInclusive: Offset,
-      submissionId: SubmissionId): CompletionStage[PruningResult] =
+      submissionId: SubmissionId,
+  ): CompletionStage[PruningResult] =
     CompletableFuture.completedFuture(PruningResult.NotPruned(Status.UNIMPLEMENTED))
 }

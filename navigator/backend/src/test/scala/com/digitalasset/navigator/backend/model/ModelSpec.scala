@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.navigator.model
@@ -13,7 +13,7 @@ class ModelSpec extends AnyWordSpec with Matchers {
 
   "Navigator data model" when {
 
-    "converting DAML-LF identifiers to API and back" should {
+    "converting Daml-LF identifiers to API and back" should {
       val result = templateId.asApi.asDaml
 
       "not change the value" in {
@@ -21,7 +21,7 @@ class ModelSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    "converting DAML-LF identifiers to opaque string and parsing back" should {
+    "converting Daml-LF identifiers to opaque string and parsing back" should {
       val result = parseOpaqueIdentifier(templateId.asOpaqueString)
 
       "not change the value" in {

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.perf.scenario
@@ -28,18 +28,17 @@ class SyncQueryNewAcs
               .exec(randomAmountCreateRequest.check(status.is(200), captureContractId).silent)
           }
         }.group("Run Query") {
-            feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
-              .exec(randomAmountQueryRequest.notSilent)
+          feed(Iterator.continually(Map("amount" -> String.valueOf(randomAmount()))))
+            .exec(randomAmountQueryRequest.notSilent)
+        }.group("Archive ACS") {
+          doWhile(_ => acsSize() > 0) {
+            feed(Iterator.continually(Map("archiveContractId" -> removeNextContractIdFromAcs())))
+              .exec(archiveRequest.silent)
           }
-          .group("Archive ACS") {
-            doWhile(_ => acsSize() > 0) {
-              feed(Iterator.continually(Map("archiveContractId" -> removeNextContractIdFromAcs())))
-                .exec(archiveRequest.silent)
-            }
-          }
+        }
       }
 
   setUp(
-    syncQueryNewAcs.inject(atOnceUsers(1)),
+    syncQueryNewAcs.inject(atOnceUsers(1))
   ).protocols(httpProtocol)
 }

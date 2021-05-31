@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -8,7 +8,7 @@ import com.daml.lf.ledger.Authorize
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.Node.{NodeCreate, NodeFetch, NodeLookupByKey}
 
-import PartialTransaction.ExercisesContext
+import PartialTransaction.ExercisesContextInfo
 
 private[lf] object CheckAuthorization {
 
@@ -23,8 +23,8 @@ private[lf] object CheckAuthorization {
       List(failWith)
   }
 
-  private[lf] def authorizeCreate(create: NodeCreate[_, _])(
-      auth: Authorize,
+  private[lf] def authorizeCreate(create: NodeCreate[_])(
+      auth: Authorize
   ): List[FailedAuthorization] = {
     authorize(
       passIf = create.signatories subsetOf auth.authParties,
@@ -55,7 +55,7 @@ private[lf] object CheckAuthorization {
       })
   }
 
-  private[lf] def authorizeFetch(fetch: NodeFetch[_, _])(
+  private[lf] def authorizeFetch(fetch: NodeFetch[_])(
       auth: Authorize
   ): List[FailedAuthorization] = {
     authorize(
@@ -65,12 +65,12 @@ private[lf] object CheckAuthorization {
         optLocation = fetch.optLocation,
         stakeholders = fetch.stakeholders,
         authorizingParties = auth.authParties,
-      )
+      ),
     )
   }
 
-  private[lf] def authorizeLookupByKey(lbk: NodeLookupByKey[_, _])(
-      auth: Authorize,
+  private[lf] def authorizeLookupByKey(lbk: NodeLookupByKey[_])(
+      auth: Authorize
   ): List[FailedAuthorization] = {
     authorize(
       passIf = lbk.key.maintainers subsetOf auth.authParties,
@@ -79,12 +79,12 @@ private[lf] object CheckAuthorization {
         lbk.optLocation,
         lbk.key.maintainers,
         auth.authParties,
-      )
+      ),
     )
   }
 
-  private[lf] def authorizeExercise(ex: ExercisesContext)(
-      auth: Authorize,
+  private[lf] def authorizeExercise(ex: ExercisesContextInfo)(
+      auth: Authorize
   ): List[FailedAuthorization] = {
     authorize(
       passIf = ex.actingParties.nonEmpty,

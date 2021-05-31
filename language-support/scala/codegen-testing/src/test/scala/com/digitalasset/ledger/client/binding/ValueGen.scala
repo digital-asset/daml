@@ -1,12 +1,10 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
 
 import encoding.{ValuePrimitiveEncoding, GenEncoding}
 import org.scalacheck.{Arbitrary, Gen, Shrink}
-
-import scala.language.higherKinds
 
 private[binding] object ValueGen {
 
@@ -23,10 +21,11 @@ private[binding] object ValueGen {
     ExistsImpl(_run)
   }
 
-  private[binding] final case class ValueCheck[T](tName: String)(
-      implicit val TA: Arbitrary[T],
+  private[binding] final case class ValueCheck[T](tName: String)(implicit
+      val TA: Arbitrary[T],
       val TS: Shrink[T],
-      val TV: Value[T])
+      val TV: Value[T],
+  )
 
   import com.daml.ledger.client.binding.{Primitive => P}
 
@@ -70,7 +69,8 @@ private[binding] object ValueGen {
     override def valueTextMap[A](implicit vc: ValueCheck[A]) = {
       import vc._
       implicit val arbTM: Arbitrary[P.TextMap[A]] = Arbitrary(
-        GenEncoding.primitive.valueTextMap(TA.arbitrary))
+        GenEncoding.primitive.valueTextMap(TA.arbitrary)
+      )
       ValueCheck[P.TextMap[A]](s"Map[$tName]")
     }
 
@@ -88,26 +88,38 @@ private[binding] object ValueGen {
   private val valueChecks: Gen[Exists[ValueCheck]] =
     Gen.frequency(
       (tautologicalValueChecks.size, Gen.oneOf(tautologicalValueChecks)),
-      (1, Gen.lzy {
-        valueChecks.map { vc =>
-          Exists(TautologicalValueChecks.valueList(vc.run))
-        }
-      }),
-      (1, Gen.lzy {
-        valueChecks.map { vc =>
-          Exists(TautologicalValueChecks.valueOptional(vc.run))
-        }
-      }),
-      (1, Gen.lzy {
-        valueChecks.map { vc =>
-          Exists(TautologicalValueChecks.valueTextMap(vc.run))
-        }
-      }),
-      (1, Gen.lzy {
-        valueChecks.map { vc =>
-          Exists(TautologicalValueChecks.valueGenMap(vc.run, vc.run))
-        }
-      })
+      (
+        1,
+        Gen.lzy {
+          valueChecks.map { vc =>
+            Exists(TautologicalValueChecks.valueList(vc.run))
+          }
+        },
+      ),
+      (
+        1,
+        Gen.lzy {
+          valueChecks.map { vc =>
+            Exists(TautologicalValueChecks.valueOptional(vc.run))
+          }
+        },
+      ),
+      (
+        1,
+        Gen.lzy {
+          valueChecks.map { vc =>
+            Exists(TautologicalValueChecks.valueTextMap(vc.run))
+          }
+        },
+      ),
+      (
+        1,
+        Gen.lzy {
+          valueChecks.map { vc =>
+            Exists(TautologicalValueChecks.valueGenMap(vc.run, vc.run))
+          }
+        },
+      ),
     )
 
   private[binding] type WithValue[T] = (ValueCheck[T], T)

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
@@ -41,12 +41,11 @@ filegroup(
 # a custom node.js binary that has access to all plugins loaded by webpack at runtime.
 nodejs_binary(
     name = "webpack",
-    entry_point = "@navigator_frontend_deps//:node_modules/webpack/bin/webpack.js",
-    node_modules = "@navigator_frontend_deps//:node_modules",
     # The webpack build step requires almost all of the node_modules dependencies
-    # data = [
-    #  ...
-    # ],
+    data = [
+        "@navigator_frontend_deps//:node_modules",
+    ],
+    entry_point = "@navigator_frontend_deps//:node_modules/webpack/bin/webpack.js",
 )
 
 # TODO (drsk) We should switch the frontend rule to use the bazel typescript rules instead of

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java
@@ -8,7 +8,7 @@ import com.daml.ledger.javaapi.data.DamlTextMap
 import com.squareup.javapoet.{ClassName, TypeName}
 
 object Types {
-  // All the relevant DAML-LF primitives as they are represented in the API
+  // All the relevant Daml-LF primitives as they are represented in the API
   // ContractId is missing from the mapping because it's always used in its boxed form
   val apiBoolean = ClassName.get(classOf[javaapi.data.Bool])
   val apiInt64 = ClassName.get(classOf[javaapi.data.Int64])

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 import * as jtv from '@mojotech/json-type-validation';
 import _ from 'lodash';
@@ -21,8 +21,8 @@ export interface Serializable<T> {
 }
 
 /**
- * Interface for objects representing DAML templates. It is similar to the
- * `Template` type class in DAML.
+ * Interface for objects representing Daml templates. It is similar to the
+ * `Template` type class in Daml.
  *
  * @typeparam T The template type.
  * @typeparam K The contract key type.
@@ -47,7 +47,7 @@ export interface Template<T extends object, K = unknown, I extends string = stri
 }
 
 /**
- * Interface for objects representing DAML choices.
+ * Interface for objects representing Daml choices.
  *
  * @typeparam T The template type.
  * @typeparam K The contract key type.
@@ -107,7 +107,7 @@ export const registerTemplate = <T extends object>(template: Template<T>): void 
 export const lookupTemplate = (templateId: string): Template<object> => {
   const template = registeredTemplates[templateId];
   if (template === undefined) {
-    throw Error(`Failed to look up template ${templateId}. Make sure your @daml/types version agrees with the used DAML SDK version.`);
+    throw Error(`Failed to look up template ${templateId}. Make sure your @daml/types version agrees with the used Daml SDK version.`);
   }
   return template;
 }
@@ -139,7 +139,7 @@ export function lazyMemo<A>(mkDecoder: () => jtv.Decoder<A>): jtv.Decoder<A> {
 }
 
 /**
- * The counterpart of DAML's `()` type.
+ * The counterpart of Daml's `()` type.
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface Unit {
@@ -161,7 +161,7 @@ export const Unit: Serializable<Unit> = {
 }
 
 /**
- * The counterpart of DAML's `Bool` type.
+ * The counterpart of Daml's `Bool` type.
  */
 export type Bool = boolean;
 
@@ -174,7 +174,7 @@ export const Bool: Serializable<Bool> = {
 }
 
 /**
- * The counterpart of DAML's `Int` type.
+ * The counterpart of Daml's `Int` type.
  *
  * We represent `Int`s as string in order to avoid a loss of precision.
  */
@@ -189,7 +189,7 @@ export const Int: Serializable<Int> = {
 }
 
 /**
- * The counterpart of DAML's `Numeric` type.
+ * The counterpart of Daml's `Numeric` type.
  *
  * We represent `Numeric`s as string in order to avoid a loss of precision. The string must match
  * the regular expression `-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?`.
@@ -197,9 +197,9 @@ export const Int: Serializable<Int> = {
 export type Numeric = string;
 
 /**
- * The counterpart of DAML's `Decimal` type.
+ * The counterpart of Daml's `Decimal` type.
  *
- * In DAML, Decimal's are the same as Numeric with precision 10.
+ * In Daml, Decimal's are the same as Numeric with precision 10.
  *
  */
 export type Decimal = Numeric;
@@ -220,7 +220,7 @@ export const Numeric = (_: number): Serializable<Numeric> =>
 export const Decimal: Serializable<Decimal> = Numeric(10)
 
 /**
- * The counterpart of DAML's `Text` type.
+ * The counterpart of Daml's `Text` type.
  */
 export type Text = string;
 
@@ -233,7 +233,7 @@ export const Text: Serializable<Text> = {
 }
 
 /**
- * The counterpart of DAML's `Time` type.
+ * The counterpart of Daml's `Time` type.
  *
  * We represent `Times`s as strings with format `YYYY-MM-DDThh:mm:ss[.ssssss]Z`.
  */
@@ -248,7 +248,7 @@ export const Time: Serializable<Time> = {
 }
 
 /**
- * The counterpart of DAML's `Party` type.
+ * The counterpart of Daml's `Party` type.
  *
  * We represent `Party`s as strings matching the regular expression `[A-Za-z0-9:_\- ]+`.
  */
@@ -263,7 +263,7 @@ export const Party: Serializable<Party> = {
 }
 
 /**
- * The counterpart of DAML's `[T]` list type.
+ * The counterpart of Daml's `[T]` list type.
  *
  * We represent lists using arrays.
  *
@@ -280,7 +280,7 @@ export const List = <T>(t: Serializable<T>): Serializable<T[]> => ({
 });
 
 /**
- * The counterpart of DAML's `Date` type.
+ * The counterpart of Daml's `Date` type.
  *
  * We represent `Date`s as strings with format `YYYY-MM-DD`.
  */
@@ -301,10 +301,10 @@ export const Date: Serializable<Date> = {
 const ContractIdBrand: unique symbol = Symbol();
 
 /**
- * The counterpart of DAML's `ContractId T` type.
+ * The counterpart of Daml's `ContractId T` type.
  *
  * We represent `ContractId`s as strings. Their exact format of these strings depends on the ledger
- * the DAML application is running on.
+ * the Daml application is running on.
  *
  * The purpose of the intersection with `{ [ContractIdBrand]: T }` is to
  * prevent accidental use of a `ContractId<T>` when a `ContractId<U>` is
@@ -325,7 +325,7 @@ export const ContractId = <T>(_t: Serializable<T>): Serializable<ContractId<T>> 
 });
 
 /**
- * The counterpart of DAML's `Optional T` type.
+ * The counterpart of Daml's `Optional T` type.
  *
  * @typeparam T The type of the optionally present value.
  */
@@ -403,7 +403,7 @@ export const Optional = <T>(t: Serializable<T>): Serializable<Optional<T>> =>
   new OptionalWorker(t);
 
 /**
- * The counterpart of DAML's `TextMap T` type.
+ * The counterpart of Daml's `TextMap T` type.
  *
  * We represent `TextMap`s as dictionaries.
  *
@@ -426,7 +426,7 @@ export const TextMap = <T>(t: Serializable<T>): Serializable<TextMap<T>> => ({
 });
 
 /**
- * The counterpart of DAML's `DA.Map.Map K V` type.
+ * The counterpart of Daml's `DA.Map.Map K V` type.
  *
  * This is an immutable map which compares keys via deep equality. The order of
  * iteration is unspecified; the only guarantee is that the order in `keys` and

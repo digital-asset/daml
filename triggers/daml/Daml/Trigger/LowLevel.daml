@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -47,7 +47,9 @@ module Daml.Trigger.LowLevel
 import DA.Action.State
 import DA.Action.State.Class
 import DA.Functor ((<&>))
+#ifndef DAML_GENMAP && DAML_GENERIC_COMPARISON
 import DA.Next.Map (MapKey(..))
+#endif
 import DA.Time (RelTime(..))
 import Daml.Script.Free (Free(..), lift, foldFree)
 
@@ -91,7 +93,11 @@ newtype EventId = EventId Text
   deriving (Show, Eq)
 
 newtype CommandId = CommandId Text
+#ifndef DAML_GENMAP && DAML_GENERIC_COMPARISON
   deriving (Show, Eq, Ord, MapKey)
+#else
+  deriving (Show, Eq, Ord)
+#endif
 
 data Transaction = Transaction
  { transactionId : TransactionId

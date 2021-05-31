@@ -1,1 +1,1 @@
-Error: Attempt to divide 0 by 0.
+Error: Unhandled exception: DA.Exception.ArithmeticError:ArithmeticError@XXXXXXXX{ message = "ArithmeticError while evaluating (DIV_INT64 0 0)." }

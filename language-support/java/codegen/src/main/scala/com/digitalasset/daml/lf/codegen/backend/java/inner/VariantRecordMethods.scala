@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.codegen.backend.java.inner
@@ -16,7 +16,8 @@ private[inner] object VariantRecordMethods extends StrictLogging {
       fields: Fields,
       className: TypeName,
       typeParameters: IndexedSeq[String],
-      packagePrefixes: Map[PackageId, String]): Vector[MethodSpec] = {
+      packagePrefixes: Map[PackageId, String],
+  ): Vector[MethodSpec] = {
     val constructor = ConstructorGenerator.generateConstructor(fields)
 
     val conversionMethods = distinctTypeVars(fields, typeParameters).flatMap { params =>
@@ -31,14 +32,16 @@ private[inner] object VariantRecordMethods extends StrictLogging {
             classOf[javaapi.data.Variant],
             constructorName,
             classOf[javaapi.data.Record],
-            name)
+            name,
+          ),
       )
       val fromValue = FromValueGenerator.generateFromValueForRecordLike(
         fields,
         className,
         params,
         FromValueGenerator.variantCheck(constructorName, _, _),
-        packagePrefixes)
+        packagePrefixes,
+      )
       List(toValue, fromValue)
     }
 

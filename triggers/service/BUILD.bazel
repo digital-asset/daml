@@ -1,6 +1,9 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@oracle//:index.bzl", "oracle_testing")
+load("@build_environment//:configuration.bzl", "sdk_version")
+load("@os_info//:os_info.bzl", "is_windows")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
@@ -8,17 +11,49 @@ load(
     "da_scala_test",
     "da_scala_test_suite",
 )
-load("@build_environment//:configuration.bzl", "sdk_version")
-load("@os_info//:os_info.bzl", "is_windows")
 
-tsvc_main_scalacopts = ["-P:wartremover:traverser:org.wartremover.warts.%s" % wart for wart in [
-    "NonUnitStatements",
-]]
+tsvc_main_scalacopts = [
+    "-P:wartremover:traverser:org.wartremover.warts.%s" % wart
+    for wart in [
+        "NonUnitStatements",
+    ]
+]
+
+triggerMain = "src/main/scala/com/digitalasset/daml/lf/engine/trigger/ServiceMain.scala"
 
 da_scala_library(
     name = "trigger-service",
-    srcs = glob(["src/main/scala/**/*.scala"]),
+    srcs = glob(
+        ["src/main/scala/**/*.scala"],
+        exclude = [triggerMain],
+    ),
     resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_chuusai_shapeless",
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:com_lihaoyi_sourcecode",
+        "@maven//:com_typesafe_akka_akka_actor",
+        "@maven//:com_typesafe_akka_akka_actor_typed",
+        "@maven//:com_typesafe_akka_akka_http",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_http_spray_json",
+        "@maven//:com_typesafe_akka_akka_parsing",
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_tpolecat_doobie_core",
+        "@maven//:org_tpolecat_doobie_free",
+        "@maven//:org_tpolecat_doobie_postgres",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_effect",
+        "@maven//:org_typelevel_cats_free",
+        "@maven//:org_typelevel_cats_kernel",
+    ],
+    scala_runtime_deps = [
+        "@maven//:com_typesafe_akka_akka_slf4j",
+        "@maven//:org_tpolecat_doobie_postgres",
+    ],
     scalacopts = tsvc_main_scalacopts,
     # Uncomment this if/when the target is published to maven.
     # tags = ["maven_coordinates=com.daml:trigger-service:__VERSION__"],
@@ -26,9 +61,7 @@ da_scala_library(
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
-        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
         "@maven//:org_postgresql_postgresql",
-        "@maven//:org_tpolecat_doobie_postgres_2_12",
     ],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -44,44 +77,63 @@ da_scala_library(
         "//ledger-service/utils",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
-        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/ports",
+        "//libs-scala/doobie-slf4j",
         "//libs-scala/scala-utils",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",
-        "@maven//:com_chuusai_shapeless_2_12",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_lihaoyi_sourcecode_2_12",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:com_typesafe_akka_akka_actor_typed_2_12",
-        "@maven//:com_typesafe_akka_akka_http_2_12",
-        "@maven//:com_typesafe_akka_akka_http_core_2_12",
-        "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
-        "@maven//:com_typesafe_akka_akka_parsing_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:com_typesafe_config",
         "@maven//:com_zaxxer_HikariCP",
-        "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_flywaydb_flyway_core",
-        "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_slf4j_slf4j_api",
-        "@maven//:org_tpolecat_doobie_core_2_12",
-        "@maven//:org_tpolecat_doobie_free_2_12",
-        "@maven//:org_tpolecat_doobie_postgres_2_12",
-        "@maven//:org_typelevel_cats_core_2_12",
-        "@maven//:org_typelevel_cats_effect_2_12",
-        "@maven//:org_typelevel_cats_free_2_12",
-        "@maven//:org_typelevel_cats_kernel_2_12",
+    ],
+)
+
+scala_binary_deps = [
+    "@maven//:com_typesafe_akka_akka_actor",
+    "@maven//:com_typesafe_akka_akka_actor_typed",
+    "@maven//:com_typesafe_akka_akka_http_core",
+    "@maven//:com_typesafe_scala_logging_scala_logging",
+    "@maven//:org_scalaz_scalaz_core",
+]
+
+binary_deps = [
+    ":trigger-service",
+    "//libs-scala/ports",
+    "//libs-scala/concurrent",
+    "//daml-lf/archive:daml_lf_archive_reader",
+    "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+    "//daml-lf/data",
+    "//language-support/scala/bindings",
+    "//ledger/ledger-api-common",
+    "//libs-scala/contextualized-logging",
+    "//libs-scala/scala-utils",
+    "//triggers/service/auth:middleware-api",
+    "@maven//:org_slf4j_slf4j_api",
+]
+
+da_scala_binary(
+    name = "trigger-service-binary-ce",
+    srcs = [triggerMain],
+    main_class = "com.daml.lf.engine.trigger.ServiceMain",
+    scala_deps = scala_binary_deps,
+    visibility = ["//visibility:public"],
+    deps = binary_deps + [
+        "//runtime-components/jdbc-drivers:jdbc-drivers-ce",
     ],
 )
 
 da_scala_binary(
-    name = "trigger-service-binary",
+    name = "trigger-service-binary-ee",
+    srcs = [triggerMain],
     main_class = "com.daml.lf.engine.trigger.ServiceMain",
+    scala_deps = scala_binary_deps,
     visibility = ["//visibility:public"],
-    deps = [
-        ":trigger-service",
+    runtime_deps = [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+    ],
+    deps = binary_deps + [
+        "//runtime-components/jdbc-drivers:jdbc-drivers-ee",
     ],
 )
 
@@ -98,8 +150,18 @@ da_scala_library(
         ]
     ),
     resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:io_spray_spray_json",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_typesafe_akka_akka_actor_typed",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:com_typesafe_akka_akka_parsing",
+    ],
     deps = [
         ":trigger-service",
+        ":trigger-service-binary-ce",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -118,29 +180,34 @@ da_scala_library(
         "//ledger/sandbox-classic",
         "//ledger/sandbox-common",
         "//libs-scala/adjustable-clock",
+        "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/scala-utils",
         "//libs-scala/timer-utils",
+        "//triggers/service/auth:middleware-api",
         "//triggers/service/auth:oauth2-middleware",
         "//triggers/service/auth:oauth2-test-server",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:com_typesafe_akka_akka_actor_typed_2_12",
-        "@maven//:com_typesafe_akka_akka_http_core_2_12",
-        "@maven//:com_typesafe_akka_akka_parsing_2_12",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
-        "@maven//:io_spray_spray_json_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
 da_scala_test_suite(
     name = "test",
-    srcs = glob(["src/test-suite/scala/**/*.scala"]),
+    srcs = glob(
+        ["src/test-suite/scala/**/*.scala"],
+        exclude = ["**/*Oracle*"],
+    ),
+    scala_deps = [
+        "@maven//:io_spray_spray_json",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_github_scopt_scopt",
+    ],
     deps = [
         ":trigger-service",
         ":trigger-service-tests",
@@ -163,12 +230,45 @@ da_scala_test_suite(
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//triggers/service/auth:oauth2-test-server",
-        "@maven//:com_typesafe_akka_akka_http_core_2_12",
         "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
-        "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_flywaydb_flyway_core",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+da_scala_test_suite(
+    name = "test-oracle",
+    srcs = glob(["src/test-suite/scala/**/*Oracle*.scala"]),
+    scala_deps = [
+        "@maven//:io_spray_spray_json",
+        "@maven//:com_typesafe_akka_akka_http_core",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    tags = [] if oracle_testing else ["manual"],
+    runtime_deps = [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+    ],
+    deps = [
+        ":trigger-service",
+        ":trigger-service-tests",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_proto_java",
+        "//daml-lf/data",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger-service/jwt",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-resources",
+        "//ledger/sandbox-classic",
+        "//ledger/sandbox-common",
+        "//libs-scala/adjustable-clock",
+        "//libs-scala/oracle-testing",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//triggers/service/auth:oauth2-test-server",
+        "@maven//:eu_rekawek_toxiproxy_toxiproxy_java_2_1_3",
     ],
 )
 
@@ -200,7 +300,7 @@ dependencies:
   - daml-trigger.dar
   - daml-script.dar
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location test-model.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location test-model.dar)
       rm -rf $$TMP_DIR
     """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver
@@ -33,11 +33,13 @@ final class MetricsNamingSpec extends AnyFlatSpec with Matchers {
   }
 
   it should "keep acronyms together and change their capitalization as a single unit" in {
-    camelCaseToSnakeCase("DAML") shouldBe "daml"
-    camelCaseToSnakeCase("DAMLFactory") shouldBe "daml_factory"
-    camelCaseToSnakeCase("AbstractDAML") shouldBe "abstract_daml"
-    camelCaseToSnakeCase("AbstractDAMLFactory") shouldBe "abstract_daml_factory"
-    camelCaseToSnakeCase("AbstractDAMLProxyJVMFactory") shouldBe "abstract_daml_proxy_jvm_factory"
+    camelCaseToSnakeCase("ACRONYM") shouldBe "acronym"
+    camelCaseToSnakeCase("ACRONYMFactory") shouldBe "acronym_factory"
+    camelCaseToSnakeCase("AbstractACRONYM") shouldBe "abstract_acronym"
+    camelCaseToSnakeCase("AbstractACRONYMFactory") shouldBe "abstract_acronym_factory"
+    camelCaseToSnakeCase(
+      "AbstractACRONYMProxyJVMFactory"
+    ) shouldBe "abstract_acronym_proxy_jvm_factory"
   }
 
   it should "treat single letter words intelligently" in {
@@ -55,9 +57,15 @@ final class MetricsNamingSpec extends AnyFlatSpec with Matchers {
   import MetricsNaming.nameFor
 
   it should "produce the expected name for a selection of service methods" in {
-    nameFor(CommandServiceGrpc.METHOD_SUBMIT_AND_WAIT.getFullMethodName).toString shouldBe "command_service.submit_and_wait"
-    nameFor(CommandSubmissionServiceGrpc.METHOD_SUBMIT.getFullMethodName).toString shouldBe "command_submission_service.submit"
-    nameFor(ActiveContractsServiceGrpc.METHOD_GET_ACTIVE_CONTRACTS.getFullMethodName).toString shouldBe "active_contracts_service.get_active_contracts"
+    nameFor(
+      CommandServiceGrpc.METHOD_SUBMIT_AND_WAIT.getFullMethodName
+    ).toString shouldBe "command_service.submit_and_wait"
+    nameFor(
+      CommandSubmissionServiceGrpc.METHOD_SUBMIT.getFullMethodName
+    ).toString shouldBe "command_submission_service.submit"
+    nameFor(
+      ActiveContractsServiceGrpc.METHOD_GET_ACTIVE_CONTRACTS.getFullMethodName
+    ).toString shouldBe "active_contracts_service.get_active_contracts"
   }
 
 }

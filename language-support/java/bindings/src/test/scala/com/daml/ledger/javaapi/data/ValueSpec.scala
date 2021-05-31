@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data
@@ -14,6 +14,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
+import scala.collection.compat._
 
 class ValueSpec
     extends AnyFlatSpec
@@ -25,7 +26,8 @@ class ValueSpec
     PropertyCheckConfiguration(minSize = 1, sizeRange = 3)
 
   "Value.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
-    valueGen) { value =>
+    valueGen
+  ) { value =>
     Value.fromProto(value).toProto shouldEqual value
   }
 
@@ -63,7 +65,7 @@ class ValueSpec
   }
 
   def assertUnsuccessfulConversions(value: Value, excludedSumCase: SumCase): scala.Unit = {
-    for ((conversion, name) <- conversions.filterKeys(_ != excludedSumCase).values) {
+    for ((conversion, name) <- conversions.view.filterKeys(_ != excludedSumCase).toMap.values) {
       s"Value.$name()" should s" should return Optional.empty() for ${value.getClass.getSimpleName} instances" in {
         conversion(value) shouldEqual JOptional.empty()
       }
@@ -88,19 +90,19 @@ class ValueSpec
 
   "Timestamp" should
     "be constructed from Instant" in forAll(Gen.posNum[Long]) { micros =>
-    val expected = new Timestamp(micros)
+      val expected = new Timestamp(micros)
 
-    val instant =
-      Instant.ofEpochSecond(TimeUnit.MICROSECONDS.toSeconds(micros), micros % 1000 * 1000)
-    val timestampFromInstant = Timestamp.fromInstant(instant)
-    expected shouldEqual timestampFromInstant
-  }
+      val instant =
+        Instant.ofEpochSecond(TimeUnit.MICROSECONDS.toSeconds(micros), micros % 1000 * 1000)
+      val timestampFromInstant = Timestamp.fromInstant(instant)
+      expected shouldEqual timestampFromInstant
+    }
   "Timestamp" should
     "be constructed from millis" in forAll(Gen.posNum[Long]) { millis =>
-    val expected = new Timestamp(millis * 1000)
+      val expected = new Timestamp(millis * 1000)
 
-    val timestampFromMillis = Timestamp.fromMillis(millis)
-    expected shouldEqual timestampFromMillis
-  }
+      val timestampFromMillis = Timestamp.fromMillis(millis)
+      expected shouldEqual timestampFromMillis
+    }
 
 }

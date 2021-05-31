@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _time:
@@ -6,10 +6,10 @@
 Time
 ####
 
-The DAML language contains a function :ref:`getTime <daml-ref-gettime>` which returns the “current time”.
+The Daml language contains a function :ref:`getTime <daml-ref-gettime>` which returns the “current time”.
 However, the notion of time comes with a lot of problems in a distributed setting.
 
-This document describes the detailed semantics of time on DAML ledgers,
+This document describes the detailed semantics of time on Daml ledgers,
 centered around the two timestamps assigned to each transaction:
 the *ledger time* ``lt_TX`` and the *record time* ``rt_TX``.
 
@@ -22,7 +22,7 @@ Ledger time
 The *ledger time* ``lt_TX`` is a property of a transaction.
 It is a timestamp that defines the value of all :ref:`getTime <daml-ref-gettime>` calls in the given transaction,
 and has microsecond resolution.
-The ledger time is assigned by the submitting participant as part of the DAML command interpretation.
+The ledger time is assigned by the submitting participant as part of the Daml command interpretation.
 
 
 .. _record-time:
@@ -35,7 +35,7 @@ It is timestamp with microsecond resolution,
 and is assigned by the ledger when the transaction is recorded on the ledger.
 
 The record time should be an intuitive representation of "real time",
-but the DAML ledger model does not prescribe how exactly the record time is assigned.
+but the Daml ledger model does not prescribe how exactly the record time is assigned.
 Each ledger implementation might use a different way of representing time in a distributed setting -
 for details, contact your ledger operator.
 
@@ -45,7 +45,7 @@ for details, contact your ledger operator.
 Guarantees
 **********
 
-The ledger time of valid transaction ``TX`` must fullfil the following rules:
+The ledger time of valid transaction ``TX`` must fulfill the following rules:
 
 #. **Causal monotonicity**: for any action (create, exercise, fetch, lookup) in ``TX``
    on a contract ``C``, ``lt_TX >= lt_C``,
@@ -57,8 +57,8 @@ The ledger time of valid transaction ``TX`` must fullfil the following rules:
 Apart from that, no other guarantees are given on the ledger time.
 In particular, neither the ledger time nor the record time need to be monotonically increasing.
 
-Time has therefore to be considered slightly fuzzy in DAML, with the fuzziness depending on the skew parameters.
-DAML applications should not interpret the value returned by :ref:`getTime <daml-ref-gettime>` as a precise timestamp.
+Time has therefore to be considered slightly fuzzy in Daml, with the fuzziness depending on the skew parameters.
+Daml applications should not interpret the value returned by :ref:`getTime <daml-ref-gettime>` as a precise timestamp.
 
 
 .. _ledger-time-model:
@@ -86,10 +86,10 @@ Assigning ledger time
 *********************
 
 The ledger time is assigned automatically by the participant.
-In most cases, DAML applications will not need to worry about ledger time and record time at all.
+In most cases, Daml applications will not need to worry about ledger time and record time at all.
 
 For reference, this section describes the details of how the ledger time is currently assigned.
-The algorithm is not part of the definition of time in DAML, and may change in the future.
+The algorithm is not part of the definition of time in Daml, and may change in the future.
 
 #. When submitting commands over the ledger API,
    users can optionally specify a ``min_ledger_time_rel`` or ``min_ledger_time_abs`` argument.

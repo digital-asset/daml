@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql
@@ -19,14 +19,14 @@ import javax.sql.DataSource
 import org.flywaydb.core.Flyway
 import scalaz.syntax.bind._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 
 final class Database(
     queries: Connection => Queries,
     metrics: Metrics,
-)(
-    implicit readerConnectionPool: ConnectionPool[Reader],
+)(implicit
+    readerConnectionPool: ConnectionPool[Reader],
     writerConnectionPool: ConnectionPool[Writer],
 ) {
   def inReadTransaction[T](name: String)(
@@ -37,18 +37,20 @@ final class Database(
   def inWriteTransaction[T](name: String)(body: Queries => Future[Writer, T]): Future[Writer, T] =
     inTransaction(name)(body)
 
-  def inTransaction[X, T](name: String)(body: Queries => Future[X, T])(
-      implicit connectionPool: ConnectionPool[X],
+  def inTransaction[X, T](name: String)(body: Queries => Future[X, T])(implicit
+      connectionPool: ConnectionPool[X]
   ): Future[X, T] = {
     import connectionPool.executionContext
-    val connection = try {
-      Timed.value(
-        metrics.daml.ledger.database.transactions.acquireConnection(name),
-        connectionPool.acquireConnection())
-    } catch {
-      case exception: SQLException =>
-        throw new ConnectionAcquisitionException(name, exception)
-    }
+    val connection =
+      try {
+        Timed.value(
+          metrics.daml.ledger.database.transactions.acquireConnection(name),
+          connectionPool.acquireConnection(),
+        )
+      } catch {
+        case exception: SQLException =>
+          throw new ConnectionAcquisitionException(name, exception)
+      }
     Timed.future(
       metrics.daml.ledger.database.transactions.run(name),
       Future[X] {
@@ -57,10 +59,10 @@ final class Database(
             case Success(_) => connection.commit()
             case Failure(_) => connection.rollback()
           }
-          .andThen {
-            case _ => connection.close()
+          .andThen { case _ =>
+            connection.close()
           }
-      }.join
+      }.join,
     )
   }
 }
@@ -79,13 +81,13 @@ object Database {
   // entries missing.
   private val MaximumWriterConnectionPoolSize: Int = 1
 
-  def owner(jdbcUrl: String, metrics: Metrics)(
-      implicit loggingContext: LoggingContext,
+  def owner(jdbcUrl: String, metrics: Metrics)(implicit
+      loggingContext: LoggingContext
   ): ResourceOwner[UninitializedDatabase] =
     (jdbcUrl match {
       case "jdbc:h2:mem:" =>
         throw new InvalidDatabaseException(
-          "Unnamed in-memory H2 databases are not supported. Please name the database using the format \"jdbc:h2:mem:NAME\".",
+          "Unnamed in-memory H2 databases are not supported. Please name the database using the format \"jdbc:h2:mem:NAME\"."
         )
       case url if url.startsWith("jdbc:h2:mem:") =>
         SingleConnectionDatabase.owner(RDBMS.H2, jdbcUrl, metrics)
@@ -95,14 +97,14 @@ object Database {
         MultipleConnectionDatabase.owner(RDBMS.PostgreSQL, jdbcUrl, metrics)
       case url if url.startsWith("jdbc:sqlite::memory:") =>
         throw new InvalidDatabaseException(
-          "Unnamed in-memory SQLite databases are not supported. Please name the database using the format \"jdbc:sqlite:file:NAME?mode=memory&cache=shared\".",
+          "Unnamed in-memory SQLite databases are not supported. Please name the database using the format \"jdbc:sqlite:file:NAME?mode=memory&cache=shared\"."
         )
       case url if url.startsWith("jdbc:sqlite:") =>
         SingleConnectionDatabase.owner(RDBMS.SQLite, jdbcUrl, metrics)
       case _ =>
-        throw new InvalidDatabaseException(s"Unknown database: $jdbcUrl")
+        throw new InvalidDatabaseException(s"Unknown database")
     }).map { database =>
-      logger.info(s"Connected to the ledger over JDBC: $jdbcUrl")
+      logger.info(s"Connected to the ledger over JDBC.")
       database
     }
 
@@ -114,14 +116,18 @@ object Database {
     ): ResourceOwner[UninitializedDatabase] =
       for {
         readerDataSource <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, readOnly = true))
+          newHikariDataSource(jdbcUrl, readOnly = true)
+        )
         writerDataSource <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize))
+        )
         adminDataSource <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
         readerExecutorService <- ResourceOwner.forExecutorService(() =>
-          Executors.newCachedThreadPool())
+          Executors.newCachedThreadPool()
+        )
         writerExecutorService <- ResourceOwner.forExecutorService(() =>
-          Executors.newFixedThreadPool(MaximumWriterConnectionPoolSize))
+          Executors.newFixedThreadPool(MaximumWriterConnectionPoolSize)
+        )
       } yield {
         implicit val readerExecutionContext: ExecutionContext[Reader] =
           ExecutionContext.fromExecutorService(readerExecutorService)
@@ -145,10 +151,12 @@ object Database {
     ): ResourceOwner[UninitializedDatabase] =
       for {
         readerWriterDataSource <- ResourceOwner.forCloseable(() =>
-          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize)))
+          newHikariDataSource(jdbcUrl, maxPoolSize = Some(MaximumWriterConnectionPoolSize))
+        )
         adminDataSource <- ResourceOwner.forCloseable(() => newHikariDataSource(jdbcUrl))
         readerWriterExecutorService <- ResourceOwner.forExecutorService(() =>
-          Executors.newFixedThreadPool(MaximumWriterConnectionPoolSize))
+          Executors.newFixedThreadPool(MaximumWriterConnectionPoolSize)
+        )
       } yield {
         implicit val readerWriterExecutionContext: ExecutionContext[Reader with Writer] =
           ExecutionContext.fromExecutorService(readerWriterExecutorService)
@@ -200,8 +208,8 @@ object Database {
 
   }
 
-  class UninitializedDatabase(system: RDBMS, metrics: Metrics)(
-      implicit readerConnectionPool: ConnectionPool[Reader],
+  class UninitializedDatabase(system: RDBMS, metrics: Metrics)(implicit
+      readerConnectionPool: ConnectionPool[Reader],
       writerConnectionPool: ConnectionPool[Writer],
       adminConnectionPool: ConnectionPool[Migrator],
   ) {
@@ -219,13 +227,13 @@ object Database {
       new Database(queries = system.queries, metrics = metrics)
     }
 
-    def migrateAndReset()(
-        implicit executionContext: ExecutionContext[Migrator]
+    def migrateAndReset()(implicit
+        executionContext: ExecutionContext[Migrator]
     ): Future[Migrator, Database] = {
       val db = migrate()
       db.inTransaction("ledger_reset") { queries =>
-          Future.fromTry(queries.truncate())
-        }(adminConnectionPool)
+        Future.fromTry(queries.truncate())
+      }(adminConnectionPool)
         .map(_ => db)
     }
 
@@ -244,7 +252,7 @@ object Database {
   sealed trait Migrator extends Context
 
   private final class ConnectionPool[+P](
-      val dataSource: DataSource,
+      val dataSource: DataSource
   )(implicit val executionContext: ExecutionContext[P]) {
     def acquireConnection(): Connection = dataSource.getConnection()
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.client.binding
@@ -15,4 +15,5 @@ case class DomainTransaction(
     commandId: CommandId,
     effectiveAt: Timestamp,
     events: Seq[DomainEvent],
-    traceContext: Option[TraceContext])
+    traceContext: Option[TraceContext],
+)

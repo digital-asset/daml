@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # These rules are similar to the rules in bazel_common.
@@ -7,6 +7,8 @@
 # 2. We support Scala.
 # 3. We produce full pom files instead of only the dependency section.
 # 4. We have some special options to deal with our specific setup.
+
+load("@scala_version//:index.bzl", "scala_major_version")
 
 MavenInfo = provider(
     fields = {
@@ -25,8 +27,6 @@ _EMPTY_MAVEN_INFO = MavenInfo(
 )
 
 _MAVEN_COORDINATES_PREFIX = "maven_coordinates="
-
-_SCALA_VERSION = "2.12"
 
 # Map from a dependency to the exclusions for that dependency.
 # The exclusions will be automatically inserted in every pom file that
@@ -71,13 +71,13 @@ def _collect_maven_info_impl(_target, ctx):
             "io_bazel_rules_scala_scala_compiler": "org.scala-lang:scala-compiler",
             "io_bazel_rules_scala_scala_library": "org.scala-lang:scala-library",
             "io_bazel_rules_scala_scala_reflect": "org.scala-lang:scala-reflect",
-            "io_bazel_rules_scala_scala_parser_combinators": "org.scala-lang.modules:scala-parser-combinators",
-            "io_bazel_rules_scala_scalactic": "org.scalactic:scalactic",
-            "io_bazel_rules_scala_scalatest": "org.scalatest:scalatest",
+            "io_bazel_rules_scala_scala_parser_combinators": "org.scala-lang.modules:scala-parser-combinators_{}".format(scala_major_version),
+            "io_bazel_rules_scala_scalactic": "org.scalactic:scalactic_{}".format(scala_major_version),
+            "io_bazel_rules_scala_scalatest": "org.scalatest:scalatest_{}".format(scala_major_version),
         }
         if jar.label.workspace_name in replacements:
             return [MavenInfo(
-                maven_coordinates = "{}_{}:{}".format(replacements[jar.label.workspace_name], _SCALA_VERSION, jar_version(jar.label.name)),
+                maven_coordinates = "{}:{}".format(replacements[jar.label.workspace_name], jar_version(jar.label.name)),
                 maven_dependencies = [],
             )]
         if MavenInfo not in jar:
@@ -101,7 +101,7 @@ def _collect_maven_info_impl(_target, ctx):
             artifact_id = tag_val[1]
             version = tag_val[2]
             if has_scala_version_suffix(ctx.rule.kind, version, tags):
-                artifact_id += "_{}".format(_SCALA_VERSION)
+                artifact_id += "_{}".format(scala_major_version)
             maven_coordinates = "{}:{}:{}".format(group_id, artifact_id, version)
         if tag == "only_external_deps":
             only_external_deps = True

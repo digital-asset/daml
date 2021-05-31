@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Azure Pipelines file, see https://aka.ms/yaml
@@ -6,7 +6,7 @@
 # Do not run on PRs
 pr: none
 
-# Do not run on merge to master
+# Do not run on merge to main
 trigger: none
 
 # Do run on a schedule (hourly)
@@ -24,14 +24,14 @@ trigger: none
 #  displayName: hourly cron
 #  branches:
 #    include:
-#    - master
+#    - main
 #  always: true
 
 jobs:
   - job: docs
     timeoutInMinutes: 120
     pool:
-      name: 'linux-pool'
+      name: 'ubuntu_20_04'
       demands: assignment -equals default
     steps:
       - checkout: self
@@ -46,21 +46,12 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
           AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-      - bash: |
-          set -euo pipefail
-          MESSAGE=$(git log --pretty=format:%s -n1)
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!here> *FAILED* Daily Docs: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
-               $(Slack.team-daml)
-        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
       - template: ci/tell-slack-failed.yml
 
   - job: docker_image
     timeoutInMinutes: 60
     pool:
-      name: 'linux-pool'
+      name: 'ubuntu_20_04'
       demands: assignment -equals default
     steps:
       - checkout: self
@@ -77,9 +68,9 @@ jobs:
           chmod 600 ~/.docker/da_automation.key
           docker trust key load ~/.docker/da_automation.key --name $DOCKER_CONTENT_TRUST_USERNAME
 
-          RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '.[] | .tag_name')
+          RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -sSfL | jq -r '.[] | .tag_name')
           DIR=$(pwd)
-          VERSIONS=$(curl 'https://hub.docker.com/v2/repositories/digitalasset/daml-sdk/tags/?page_size=10000' -s)
+          VERSIONS=$(curl 'https://hub.docker.com/v2/repositories/digitalasset/daml-sdk/tags/?page_size=10000' -sSfL)
           # Our docker tags should be stable. Therefore, we only build the image if it has not already
           # been built before and we checkout the Dockerfile for the release tag.
           # We do not update docker images for older releases so only docker images for SDK releases
@@ -115,7 +106,7 @@ jobs:
   - job: vscode_marketplace
     timeoutInMinutes: 10
     pool:
-      name: 'linux-pool'
+      name: 'ubuntu_20_04'
       demands: assignment -equals default
     steps:
       - checkout: self
@@ -127,7 +118,7 @@ jobs:
           AUTH=$(echo -n "OAuth:${MARKETPLACE_TOKEN}" | base64 -w0)
           MARKET=$(curl -H "Authorization: Basic $AUTH" \
                         -H "Accept: application/json;api-version=5.0-preview.2" \
-                        -s \
+                        -sSfL \
                         "https://marketplace.visualstudio.com/_apis/gallery/publishers/DigitalAssetHoldingsLLC/extensions/daml?flags=1" \
                         | jq -r '.versions[0].version')
           # This jq expression should ensure that we always upload the
@@ -149,7 +140,7 @@ jobs:
           # _a_ version number, it doesn't handle versions at all: we can only
           # have one version on the marketplace at any given time, and any
           # upload replaces the existing version.
-          GITHUB=$(curl https://api.github.com/repos/digital-asset/daml/releases -s \
+          GITHUB=$(curl https://api.github.com/repos/digital-asset/daml/releases -sSfL \
                    | jq -r '. | map(select(.prerelease == false)
                                     | .tag_name
                                     | .[1:]
@@ -182,7 +173,7 @@ jobs:
   - job: download_stats
     timeoutInMinutes: 10
     pool:
-      name: "linux-pool"
+      name: "ubuntu_20_04"
       demands: assignment -equals default
     steps:
       - checkout: self
@@ -192,7 +183,7 @@ jobs:
           eval "$(dev-env/bin/dade-assist)"
 
           STATS=$(mktemp)
-          curl https://api.github.com/repos/digital-asset/daml/releases -s | gzip -9 > $STATS
+          curl https://api.github.com/repos/digital-asset/daml/releases -sSfL | gzip -9 > $STATS
 
           GCS_KEY=$(mktemp)
           cleanup () {

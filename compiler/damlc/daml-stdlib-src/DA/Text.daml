@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
@@ -285,7 +285,7 @@ isAlphaNum = isPred (\t -> t >= "0" && t <= "9" || t >= "a" && t <= "z" || t >= 
 
 -- | Attempt to parse an `Int` value from a given `Text`.
 parseInt : Text -> Optional Int
-parseInt = primitive @"BEInt64FromText"
+parseInt = primitive @"BETextToInt64"
 
 #ifdef DAML_NUMERIC
 -- | Attempt to parse a `Numeric` value from a given `Text`.
@@ -300,7 +300,7 @@ parseInt = primitive @"BEInt64FromText"
 --   parseNumeric "+12.0" == Some 12
 -- ```
 parseNumeric : Text -> Optional (Numeric n)
-parseNumeric = primitive @"BENumericFromText"
+parseNumeric = primitive @"BETextToNumeric"
 #endif
 
 -- | Attempt to parse a `Decimal` value from a given `Text`.
@@ -318,13 +318,13 @@ parseDecimal : Text -> Optional Decimal
 #ifdef DAML_NUMERIC
 parseDecimal = parseNumeric
 #else
-parseDecimal = primitive @"BEDecimalFromText"
+parseDecimal = primitive @"BETextToDecimal"
 #endif
 
 -- | Computes the SHA256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
 -- form. The hex encoding uses lowercase letters.
 --
--- This function will crash at runtime if you compile DAML to DAML-LF < 1.2.
+-- This function will crash at runtime if you compile Daml to Daml-LF < 1.2.
 sha256 : Text -> Text
 sha256 = primitive @"BESha256Text"
 
@@ -343,7 +343,7 @@ toCodePoints = primitive @"BETextToCodePoints"
 -- | Convert a sequence of unicode code points into a `Text`. Raises an
 -- exception if any of the code points is invalid.
 fromCodePoints : [Int] -> Text
-fromCodePoints = primitive @"BETextFromCodePoints"
+fromCodePoints = primitive @"BECodePointsToText"
 
 
 #ifdef DAML_UNSTABLE

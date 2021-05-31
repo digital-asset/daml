@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -15,7 +15,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.lf.archive.{Dar, DarReader, Decode}
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
@@ -34,8 +34,10 @@ object RunnerMain {
         defVal match {
           case DValue(TApp(TTyCon(tcon), _), _, _, _) => {
             val triggerIds = TriggerIds(tcon.packageId)
-            if (tcon == triggerIds.damlTrigger("Trigger")
-              || tcon == triggerIds.damlTriggerLowLevel("Trigger")) {
+            if (
+              tcon == triggerIds.damlTrigger("Trigger")
+              || tcon == triggerIds.damlTriggerLowLevel("Trigger")
+            ) {
               println(s"  $modName:$defName")
             }
           }
@@ -52,8 +54,8 @@ object RunnerMain {
       case Some(config) => {
         val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
           DarReader().readArchiveFromFile(config.darPath.toFile).get
-        val dar: Dar[(PackageId, Package)] = encodedDar.map {
-          case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
+        val dar: Dar[(PackageId, Package)] = encodedDar.map { case (pkgId, pkgArchive) =>
+          Decode.readArchivePayload(pkgId, pkgArchive)
         }
 
         if (config.listTriggers) {
@@ -98,7 +100,8 @@ object RunnerMain {
             client,
             config.timeProviderType.getOrElse(RunnerConfig.DefaultTimeProviderType),
             config.applicationId,
-            config.ledgerParty)
+            config.ledgerParty,
+          )
         } yield ()
 
         flow.onComplete(_ => system.terminate())

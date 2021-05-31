@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.extractor.writers.postgresql
@@ -21,13 +21,14 @@ import doobie.free.connection
 import doobie.free.connection.ConnectionIO
 
 import scala.annotation.tailrec
+import scala.collection.compat._
 import scalaz._
 import Scalaz._
 
 class MultiTableDataFormat(
     /*splat: Int, */ schemaPerPackage: Boolean,
     mergeIdentical: Boolean,
-    stripPrefix: Option[String]
+    stripPrefix: Option[String],
 ) extends DataFormat[MultiTableState] {
 
   import Queries._
@@ -43,7 +44,7 @@ class MultiTableDataFormat(
   def handleTemplate(
       state: MultiTableState,
       packageStore: PackageStore,
-      template: TemplateInfo
+      template: TemplateInfo,
   ): (MultiTableState, ConnectionIO[Unit]) = {
     val (id, params) = template
 
@@ -63,15 +64,15 @@ class MultiTableDataFormat(
       // base case when there's nothing to merge into
 
       val takenNames = if (schemaPerPackage) {
-        state.templateToTable
+        state.templateToTable.view
           .filterKeys(_.packageId == id.packageId)
-          .values
-          .map(_.withOutSchema)
+          .map(_._2.withOutSchema)
+          .toSet
       } else {
-        state.templateToTable.values.map(_.withOutSchema)
+        state.templateToTable.values.view.map(_.withOutSchema).toSet
       }
 
-      val tableName = uniqueName(takenNames.toSet, baseName)
+      val tableName = uniqueName(takenNames, baseName)
 
       val schemaOrErr: String \/ Option[String] = if (schemaPerPackage) {
         state.packageIdToNameSpace.get(id.packageId) match {
@@ -84,7 +85,8 @@ class MultiTableDataFormat(
       } else None.right
 
       schemaOrErr.fold(
-        e => (state, connection.raiseError[Unit](DataIntegrityError(e))), { schemaOpt =>
+        e => (state, connection.raiseError[Unit](DataIntegrityError(e))),
+        { schemaOpt =>
           val schema = schemaOpt.getOrElse(singleSchemaName)
           val tableNames = TableName(s"$schema.$tableName", tableName)
 
@@ -93,7 +95,7 @@ class MultiTableDataFormat(
             templateToTable = state.templateToTable + (id -> tableNames)
           )
           (updatedState, io)
-        }
+        },
       )
     } { mergeIntoTable =>
       // we're reusing the table created for an identical template
@@ -103,7 +105,7 @@ class MultiTableDataFormat(
 
       val io = setTableComment(
         mergeIntoTable.withSchema,
-        s"Template IDs:\n${mergedTemplateIds.map(idAsComment).mkString("\n")}"
+        s"Template IDs:\n${mergedTemplateIds.map(idAsComment).mkString("\n")}",
       ).update.run.void
 
       val updatedState = state.copy(
@@ -116,28 +118,27 @@ class MultiTableDataFormat(
   private def findTableOfIdenticalTemplate(
       state: MultiTableState,
       packageStore: PackageStore,
-      currentTemplate: TemplateInfo
+      currentTemplate: TemplateInfo,
   ): Option[TableName] = {
     if (mergeIdentical) {
       val knownTemplateIds = state.templateToTable.keySet
 
       val knownTemplateDefs = packageStore
-        .map {
-          case (packageId, iface) =>
-            iface.typeDecls.collect {
-              case (id, InterfaceType.Template(r, _)) =>
-                Identifier(packageId, id.qualifiedName) -> r
-            }
+        .map { case (packageId, iface) =>
+          iface.typeDecls.collect { case (id, InterfaceType.Template(r, _)) =>
+            Identifier(packageId, id.qualifiedName) -> r
+          }
         }
         .foldLeft(Map.empty[Identifier, Record.FWT])(_ ++ _)
+        .view
         .filterKeys(knownTemplateIds.contains)
+        .toMap
 
       val (thisId, thisParams) = currentTemplate
 
       for {
-        matched <- knownTemplateDefs.find {
-          case (thatId, thatParams) =>
-            thatId.name == thisId.name && thatParams == thisParams
+        matched <- knownTemplateDefs.find { case (thatId, thatParams) =>
+          thatId.name == thisId.name && thatParams == thisParams
         }
         matchedId = matched._1
         tableOfMatched <- state.templateToTable.get(matchedId)
@@ -149,7 +150,8 @@ class MultiTableDataFormat(
 
   def handlePackageId(
       state: MultiTableState,
-      packageId: String): (MultiTableState, ConnectionIO[Unit]) = {
+      packageId: String,
+  ): (MultiTableState, ConnectionIO[Unit]) = {
     if (schemaPerPackage) {
       val baseName = "package_" + packageId.take(40)
       val schemaName = uniqueName(state.packageIdToNameSpace.values.toSet, baseName)
@@ -168,7 +170,7 @@ class MultiTableDataFormat(
   def handleExercisedEvent(
       state: MultiTableState,
       transaction: TransactionTree,
-      event: ExercisedEvent
+      event: ExercisedEvent,
   ): RefreshPackages \/ ConnectionIO[Unit] = {
     for {
       table <- state.templateToTable.get(event.templateId).\/>(RefreshPackages(event.templateId))
@@ -179,7 +181,8 @@ class MultiTableDataFormat(
             table.withSchema,
             event.contractId,
             transaction.transactionId,
-            event.eventId).update.run.void
+            event.eventId,
+          ).update.run.void
         else
           connection.pure(())
 
@@ -187,7 +190,8 @@ class MultiTableDataFormat(
         insertExercise(
           event,
           transaction.transactionId,
-          transaction.rootEventIds.contains(event.eventId)).update.run.void
+          transaction.rootEventIds.contains(event.eventId),
+        ).update.run.void
 
       update *> insert
     }
@@ -196,7 +200,7 @@ class MultiTableDataFormat(
   def handleCreatedEvent(
       state: MultiTableState,
       transaction: TransactionTree,
-      event: CreatedEvent
+      event: CreatedEvent,
   ): RefreshPackages \/ ConnectionIO[Unit] = {
     for {
       table <- state.templateToTable.get(event.templateId).\/>(RefreshPackages(event.templateId))
@@ -205,7 +209,7 @@ class MultiTableDataFormat(
         table.withSchema,
         event,
         transaction.transactionId,
-        transaction.rootEventIds.contains(event.eventId)
+        transaction.rootEventIds.contains(event.eventId),
       )
 
       insertQuery.update.run.void
@@ -216,16 +220,15 @@ class MultiTableDataFormat(
       tableName: String,
       params: iface.Record.FWT,
       templateId: Identifier,
-      packageStore: PackageStore
+      packageStore: PackageStore,
   ): ConnectionIO[Unit] = {
     val drop = dropTableIfExists(tableName).update.run
 
     val columnsWithTypes = params.fields
       .map(_._1)
-      .foldLeft(List.empty[String]) {
-        case (acc, name) =>
-          val uName = uniqueName(acc.toSet, name.take(63))
-          uName :: acc
+      .foldLeft(List.empty[String]) { case (acc, name) =>
+        val uName = uniqueName(acc.toSet, name.take(63))
+        uName :: acc
       }
       .reverse
       .zip(mapColumnTypes(params, packageStore))
@@ -233,7 +236,7 @@ class MultiTableDataFormat(
     val create = createContractTable(tableName, columnsWithTypes).update.run
     val setComment = setTableComment(
       tableName,
-      s"Template IDs:\n${idAsComment(templateId)}"
+      s"Template IDs:\n${idAsComment(templateId)}",
     ).update.run
 
     val createIndexT = createIndex(tableName, NonEmptyList("_transaction_id")).update.run

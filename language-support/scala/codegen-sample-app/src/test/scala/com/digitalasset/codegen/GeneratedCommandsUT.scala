@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.codegen
@@ -35,9 +35,10 @@ class GeneratedCommandsUT extends AnyWordSpec with Matchers with Inside {
 
   "key" should {
     "make an exercise-by-key command" in {
-      inside((KeyedNumber key alice exerciseIncrement (alice, 42)).command.command) {
+      inside((KeyedNumber.key(alice).exerciseIncrement(alice, 42)).command.command) {
         case rpccmd.Command.Command.ExerciseByKey(
-            rpccmd.ExerciseByKeyCommand(Some(tid), Some(k), "Increment", Some(choiceArg))) =>
+              rpccmd.ExerciseByKeyCommand(Some(tid), Some(k), "Increment", Some(choiceArg))
+            ) =>
           import com.daml.ledger.client.binding.Value.encode
           tid should ===(KeyedNumber.id)
           k should ===(encode(alice))

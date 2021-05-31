@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.engine.trigger
@@ -10,6 +10,7 @@ import java.util.{Date, UUID}
 import java.util.concurrent.{ConcurrentHashMap, ConcurrentMap}
 
 import io.grpc.Channel
+import com.daml.auth.middleware.api.{Client => AuthClient}
 import com.daml.ledger.api.testing.utils.OwnedResource
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.platform.apiserver.services.GrpcClientResource
@@ -39,7 +40,7 @@ import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement
+  LedgerIdRequirement,
 }
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.Ref._
@@ -52,7 +53,9 @@ import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.{LockedFreePort, Port}
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.lf.engine.trigger.dao.DbTriggerDao
+import com.daml.testing.oracle.OracleAroundAll
 import com.daml.testing.postgresql.PostgresAroundAll
 import com.daml.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
@@ -66,8 +69,7 @@ import scala.concurrent.duration._
 import scala.sys.process.Process
 import scala.util.Success
 
-/**
-  * A test-fixture that persists cookies between http requests for each test-case.
+/** A test-fixture that persists cookies between http requests for each test-case.
   */
 trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
   private val cookieJar = TrieMap[String, String]()
@@ -77,37 +79,36 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
     finally cookieJar.clear()
   }
 
-  /**
-    * Adds a Cookie header for the currently stored cookies and performs the given http request.
+  /** Adds a Cookie header for the currently stored cookies and performs the given http request.
     */
-  def httpRequest(request: HttpRequest)(
-      implicit system: ActorSystem,
-      ec: ExecutionContext): Future[HttpResponse] = {
+  def httpRequest(
+      request: HttpRequest
+  )(implicit system: ActorSystem, ec: ExecutionContext): Future[HttpResponse] = {
     Http()
       .singleRequest {
         if (cookieJar.nonEmpty) {
-          val cookies = headers.Cookie(values = cookieJar.to[Seq]: _*)
+          val hd +: tl = cookieJar.view.map(headers.HttpCookiePair(_)).toSeq
+          val cookies = headers.Cookie(hd, tl: _*)
           request.addHeader(cookies)
         } else {
           request
         }
       }
-      .andThen {
-        case Success(resp) =>
-          resp.headers.foreach {
-            case headers.`Set-Cookie`(cookie) =>
-              cookieJar.update(cookie.name, cookie.value)
-            case _ =>
-          }
+      .andThen { case Success(resp) =>
+        resp.headers.foreach {
+          case headers.`Set-Cookie`(cookie) =>
+            cookieJar.update(cookie.name, cookie.value)
+          case _ =>
+        }
       }
   }
 
-  /**
-    * Same as [[httpRequest]] but will follow redirections.
+  /** Same as [[httpRequest]] but will follow redirections.
     */
-  def httpRequestFollow(request: HttpRequest, maxRedirections: Int = 10)(
-      implicit system: ActorSystem,
-      ec: ExecutionContext): Future[HttpResponse] = {
+  def httpRequestFollow(request: HttpRequest, maxRedirections: Int = 10)(implicit
+      system: ActorSystem,
+      ec: ExecutionContext,
+  ): Future[HttpResponse] = {
     httpRequest(request).flatMap {
       case resp @ HttpResponse(StatusCodes.Redirection(_), _, _, _) =>
         if (maxRedirections == 0) {
@@ -120,8 +121,7 @@ trait HttpCookies extends BeforeAndAfterEach { this: Suite =>
     }
   }
 
-  /**
-    * Remove all stored cookies.
+  /** Remove all stored cookies.
     */
   def deleteCookies(): Unit = {
     cookieJar.clear()
@@ -150,8 +150,6 @@ trait AuthMiddlewareFixture
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
   self: Suite =>
-
-  protected def authParties: Option[Set[ApiTypes.Party]]
 
   protected def authService: Option[auth.AuthService] = Some(auth.AuthServiceJWT(authVerifier))
   protected def authToken(payload: AuthServiceJWTPayload): Option[String] = Some {
@@ -182,7 +180,7 @@ trait AuthMiddlewareFixture
 
   private val authSecret: String = "secret"
   private var resource
-    : OwnedResource[ResourceContext, (AdjustableClock, OAuthServer, ServerBinding)] = null
+      : OwnedResource[ResourceContext, (AdjustableClock, OAuthServer, ServerBinding)] = null
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -194,18 +192,19 @@ trait AuthMiddlewareFixture
       } yield ()
     val ledgerId = this.getClass.getSimpleName
     resource = new OwnedResource(new ResourceOwner[(AdjustableClock, OAuthServer, ServerBinding)] {
-      override def acquire()(implicit context: ResourceContext)
-        : Resource[(AdjustableClock, OAuthServer, ServerBinding)] = {
+      override def acquire()(implicit
+          context: ResourceContext
+      ): Resource[(AdjustableClock, OAuthServer, ServerBinding)] = {
         for {
           clock <- Resource(
             Future(
-              AdjustableClock(Clock.fixed(Instant.now(), ZoneId.systemDefault()), JDuration.ZERO)))(
-            _ => Future(()))
+              AdjustableClock(Clock.fixed(Instant.now(), ZoneId.systemDefault()), JDuration.ZERO)
+            )
+          )(_ => Future(()))
           oauthConfig = OAuthConfig(
             port = Port.Dynamic,
             ledgerId = ledgerId,
             jwtSecret = authSecret,
-            parties = authParties,
             clock = Some(clock),
           )
           oauthServer = OAuthServer(oauthConfig)
@@ -214,9 +213,18 @@ trait AuthMiddlewareFixture
             .withScheme("http")
             .withAuthority(oauth.localAddress.getHostString, oauth.localAddress.getPort)
           middlewareConfig = MiddlewareConfig(
-            port = Port.Dynamic,
+            address = "localhost",
+            port = 0,
+            portFile = None,
+            callbackUri = None,
+            maxLoginRequests = MiddlewareConfig.DefaultMaxLoginRequests,
+            loginTimeout = MiddlewareConfig.DefaultLoginTimeout,
+            cookieSecure = MiddlewareConfig.DefaultCookieSecure,
             oauthAuth = uri.withPath(Path./("authorize")),
             oauthToken = uri.withPath(Path./("token")),
+            oauthAuthTemplate = None,
+            oauthTokenTemplate = None,
+            oauthRefreshTemplate = None,
             clientId = "oauth-middleware-id",
             clientSecret = "oauth-middleware-secret",
             tokenVerifier = authVerifier,
@@ -236,6 +244,7 @@ trait AuthMiddlewareFixture
 
   override protected def afterEach(): Unit = {
     authServer.resetAuthorizedParties()
+    authServer.resetAdmin()
 
     super.afterEach()
   }
@@ -254,7 +263,7 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     timeProviderType = Some(TimeProviderType.Static),
     authService = authService,
     ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
-    seeding = None,
+    seeding = Some(Seeding.Weak),
   )
 
   protected lazy val sandboxServer: SandboxServer = resource.value._1
@@ -263,8 +272,8 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
       applicationId: ApplicationId,
       admin: Boolean = false,
       actAs: List[ApiTypes.Party] = List(),
-      readAs: List[ApiTypes.Party] = List())(
-      implicit executionContext: ExecutionContext): Future[LedgerClient] =
+      readAs: List[ApiTypes.Party] = List(),
+  )(implicit executionContext: ExecutionContext): Future[LedgerClient] =
     LedgerClient(
       resource.value._2,
       LedgerClientConfiguration(
@@ -280,9 +289,10 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
             exp = None,
             admin = admin,
             actAs = actAs.map(ApiTypes.Party.unwrap),
-            readAs = readAs.map(ApiTypes.Party.unwrap)
-          ))
-      )
+            readAs = readAs.map(ApiTypes.Party.unwrap),
+          )
+        ),
+      ),
     )
 
   private var resource: OwnedResource[ResourceContext, (SandboxServer, Channel)] = null
@@ -296,7 +306,8 @@ trait SandboxFixture extends BeforeAndAfterAll with AbstractAuthFixture with Akk
     resource = new OwnedResource(for {
       sandbox <- SandboxServer.owner(sandboxConfig)
       port <- new FutureResourceOwner[ResourceContext, Port](() =>
-        sandbox.portF(context.executionContext))
+        sandbox.portF(context.executionContext)
+      )
       channel <- GrpcClientResource.owner(port)
     } yield (sandbox, channel))
     resource.setup()
@@ -327,9 +338,12 @@ trait ToxiproxyFixture extends BeforeAndAfterAll with AkkaBeforeAndAfterAll {
       else BazelRunfiles.rlocation("external/toxiproxy_dev_env/toxiproxy-server-windows-amd64.exe")
     val port = LockedFreePort.find()
     val proc = Process(Seq(exe, "--port", port.port.value.toString)).run()
-    Await.result(RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
-      Future(port.testAndUnlock(host))
-    }, Duration.Inf)
+    Await.result(
+      RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
+        Future(port.testAndUnlock(host))
+      },
+      Duration.Inf,
+    )
     val client = new ToxiproxyClient(host.getHostName, port.port.value)
     resource = (client, proc)
   }
@@ -359,7 +373,7 @@ trait ToxiSandboxFixture extends BeforeAndAfterAll with ToxiproxyFixture with Sa
     val proxy = toxiproxyClient.createProxy(
       "sandbox",
       s"${host.getHostName}:${port}",
-      s"${host.getHostName}:${sandboxPort}"
+      s"${host.getHostName}:${sandboxPort}",
     )
     lock.unlock()
     resource = (port, proxy)
@@ -394,26 +408,58 @@ trait TriggerDaoPostgresFixture
   override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
 
   // Lazy because the postgresDatabase is only available once the tests start
-  private lazy val jdbcConfig_ = JdbcConfig(postgresDatabase.url, "operator", "password")
+  private lazy val jdbcConfig_ =
+    JdbcConfig("org.postgresql.Driver", postgresDatabase.url, "operator", "password")
   private lazy val triggerDao =
     DbTriggerDao(jdbcConfig_, poolSize = dao.Connection.PoolSize.IntegrationTest)
   private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-
     Await.result(triggerDao.initialize, Duration(30, SECONDS))
   }
 
   override protected def afterEach(): Unit = {
     Await.result(triggerDao.destroy, Duration(30, SECONDS))
-
     super.afterEach()
   }
 
   override protected def afterAll(): Unit = {
-    triggerDao.destroyPermanently() fold (fail(_), identity)
+    triggerDao.destroyPermanently().fold(fail(_), identity)
+    super.afterAll()
+  }
+}
 
+trait TriggerDaoOracleFixture
+    extends AbstractTriggerDaoFixture
+    with BeforeAndAfterEach
+    with AkkaBeforeAndAfterAll
+    with OracleAroundAll {
+  self: Suite =>
+
+  override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
+
+  // Lazy because the postgresDatabase is only available once the tests start
+  private lazy val jdbcConfig_ =
+    JdbcConfig("oracle.jdbc.OracleDriver", oracleJdbcUrl, oracleUser, oraclePwd)
+  // TODO For whatever reason we need a larger pool here, otherwise
+  // the connection deadlocks. I have no idea why :(
+  private lazy val triggerDao =
+    DbTriggerDao(jdbcConfig_, poolSize = dao.Connection.PoolSize.Production)
+  private lazy implicit val executionContext: ExecutionContext = system.getDispatcher
+
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    Await.result(triggerDao.initialize, Duration(31, SECONDS))
+  }
+
+  override protected def afterEach(): Unit = {
+    Await.result(triggerDao.destroy, Duration(30, SECONDS))
+    super.afterEach()
+  }
+
+  override protected def afterAll(): Unit = {
+    triggerDao.destroyPermanently().fold(fail(_), identity)
     super.afterAll()
   }
 }
@@ -438,7 +484,10 @@ trait TriggerServiceFixture
 
   // Use a small initial interval so we can test restart behaviour more easily.
   private val minRestartInterval = FiniteDuration(1, duration.SECONDS)
-  private def triggerServiceOwner(encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]]) =
+  private def triggerServiceOwner(
+      encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
+      authCallback: Option[Uri],
+  ) =
     new ResourceOwner[ServerBinding] {
       override def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
         for {
@@ -460,12 +509,18 @@ trait TriggerServiceFixture
               r <- ServiceMain.startServer(
                 host.getHostName,
                 lock.port.value,
+                ServiceConfig.DefaultMaxAuthCallbacks,
+                ServiceConfig.DefaultAuthCallbackTimeout,
+                ServiceConfig.DefaultMaxHttpEntityUploadSize,
+                ServiceConfig.DefaultHttpEntityUploadTimeout,
                 authConfig,
+                AuthClient.RedirectToLogin.Yes,
+                authCallback,
                 ledgerConfig,
                 restartConfig,
                 encodedDars,
                 jdbcConfig,
-                logTriggerStatus
+                logTriggerStatus,
               )
               _ = lock.unlock()
             } yield r
@@ -478,14 +533,16 @@ trait TriggerServiceFixture
         } yield binding
     }
 
-  def withTriggerService[A](encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]])(
-      testFn: Uri => Future[A])(
-      implicit ec: ExecutionContext,
+  def withTriggerService[A](
+      encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]],
+      authCallback: Option[Uri] = None,
+  )(testFn: Uri => Future[A])(implicit
+      ec: ExecutionContext,
       pos: source.Position,
   ): Future[A] = {
     logger.info(s"${pos.fileName}:${pos.lineNumber}: setting up trigger service")
     implicit val context: ResourceContext = ResourceContext(ec)
-    triggerServiceOwner(encodedDars).use { binding =>
+    triggerServiceOwner(encodedDars, authCallback).use { binding =>
       val uri = Uri.from(scheme = "http", host = "localhost", port = binding.localAddress.getPort)
       testFn(uri)
     }

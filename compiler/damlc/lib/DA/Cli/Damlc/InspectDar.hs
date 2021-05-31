@@ -1,10 +1,12 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Cli.Damlc.InspectDar
     ( Format(..)
+    , getDarInfo
     , inspectDar
     , InspectInfo(..)
+    , DalfInfo(..)
     , collectInfo
     ) where
 
@@ -50,6 +52,7 @@ data DalfInfo = DalfInfo
   { dalfFilePath :: FilePath
   , dalfPackageName :: Maybe LF.PackageName
   , dalfPackageVersion :: Maybe LF.PackageVersion
+  , dalfPackage :: LF.Package
   }
 
 instance ToJSON DalfInfo where
@@ -77,6 +80,7 @@ collectInfo archive = do
               path
               (LF.packageName <$> LF.packageMetadata pkg)
               (LF.packageVersion <$> LF.packageMetadata pkg)
+              pkg
         )
     decodeEntry :: FilePath -> Either String (LF.PackageId, LF.Package)
     decodeEntry path = do
@@ -110,13 +114,15 @@ renderInfo Json info =
 
 inspectDar :: FilePath -> Format -> IO ()
 inspectDar inFile format = do
-    bytes <- B.readFile inFile
+    getDarInfo inFile >>= T.putStr . renderInfo format
+
+getDarInfo :: FilePath -> IO InspectInfo
+getDarInfo dar = do
+    bytes <- B.readFile dar
     let dar = ZipArchive.toArchive $ BSL.fromStrict bytes
     case collectInfo dar of
         Left err -> do
             hPutStrLn stderr "Failed to read dar:"
             hPutStrLn stderr err
             exitFailure
-        Right info -> do
-            T.putStr (renderInfo format info)
-
+        Right info -> pure info

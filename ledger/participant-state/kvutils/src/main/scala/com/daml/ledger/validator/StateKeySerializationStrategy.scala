@@ -1,18 +1,17 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.validator
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateKey
-import com.daml.ledger.validator.LedgerStateOperations.Key
+import com.daml.ledger.participant.state.kvutils.Raw
 
-/**
-  * Determines how we namespace and serialize state keys.
+/** Determines how we namespace and serialize state keys.
   */
 trait StateKeySerializationStrategy {
-  def serializeStateKey(key: DamlStateKey): Key
+  def serializeStateKey(key: DamlStateKey): Raw.StateKey
 
-  def deserializeStateKey(input: Key): DamlStateKey
+  def deserializeStateKey(input: Raw.StateKey): DamlStateKey
 }
 
 object StateKeySerializationStrategy {

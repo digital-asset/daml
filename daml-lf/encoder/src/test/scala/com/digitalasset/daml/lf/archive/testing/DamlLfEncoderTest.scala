@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf.testing.archive
@@ -13,7 +13,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.language.implicitConversions
 
 class DamlLfEncoderTest
@@ -47,14 +47,16 @@ class DamlLfEncoderTest
 
       val modules_1_7 = modules_1_6 + "NumericMod" + "AnyMod"
       val modules_1_8 = modules_1_7 + "SynonymMod"
-      val modules_1_dev = modules_1_8 + "GenMapMod"
+      val modules_1_11 = modules_1_8 + "GenMapMod"
+      val modules_1_dev = modules_1_11
 
       val versions = Table(
         "versions" -> "modules",
         "1.6" -> modules_1_6,
         "1.7" -> modules_1_7,
         "1.8" -> modules_1_8,
-        "1.dev" -> modules_1_dev
+        "1.11" -> modules_1_11,
+        "1.dev" -> modules_1_dev,
       )
 
       forEvery(versions) { (version, expectedModules) =>
@@ -62,7 +64,7 @@ class DamlLfEncoderTest
           UniversalArchiveReader()
             .readFile(new File(rlocation(s"daml-lf/encoder/test-$version.dar")))
 
-        dar shouldBe 'success
+        dar shouldBe Symbol("success")
 
         val findModules = dar.toOption.toList.flatMap(getNonEmptyModules).toSet
 

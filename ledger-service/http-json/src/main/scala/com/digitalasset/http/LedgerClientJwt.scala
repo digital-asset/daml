@@ -1,10 +1,11 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api
 import com.daml.ledger.api.v1.package_service
@@ -12,19 +13,22 @@ import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsRespons
 import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitRequest
+  SubmitAndWaitRequest,
 }
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
-import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import com.daml.lf.data.Ref
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.google.protobuf
 import scalaz.OneAnd
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object LedgerClientJwt {
+
+  private[this] val logger = ContextualizedLogger.get(getClass)
 
   type SubmitAndWaitForTransaction =
     (Jwt, SubmitAndWaitRequest) => Future[SubmitAndWaitForTransactionResponse]
@@ -51,23 +55,27 @@ object LedgerClientJwt {
     (Jwt, Option[Ref.Party], Option[String]) => Future[api.domain.PartyDetails]
 
   type ListPackages =
-    Jwt => Future[package_service.ListPackagesResponse]
+    Jwt => LoggingContextOf[InstanceUUID with RequestID] => Future[
+      package_service.ListPackagesResponse
+    ]
 
   type GetPackage =
-    (Jwt, String) => Future[package_service.GetPackageResponse]
+    (Jwt, String) => LoggingContextOf[InstanceUUID with RequestID] => Future[
+      package_service.GetPackageResponse
+    ]
 
   type UploadDarFile =
-    (Jwt, protobuf.ByteString) => Future[Unit]
+    (Jwt, protobuf.ByteString) => LoggingContextOf[InstanceUUID with RequestID] => Future[Unit]
 
   private def bearer(jwt: Jwt): Some[String] = Some(jwt.value: String)
 
-  def submitAndWaitForTransaction(client: LedgerClient): SubmitAndWaitForTransaction =
+  def submitAndWaitForTransaction(client: DamlLedgerClient): SubmitAndWaitForTransaction =
     (jwt, req) => client.commandServiceClient.submitAndWaitForTransaction(req, bearer(jwt))
 
-  def submitAndWaitForTransactionTree(client: LedgerClient): SubmitAndWaitForTransactionTree =
+  def submitAndWaitForTransactionTree(client: DamlLedgerClient): SubmitAndWaitForTransactionTree =
     (jwt, req) => client.commandServiceClient.submitAndWaitForTransactionTree(req, bearer(jwt))
 
-  def getTermination(client: LedgerClient)(implicit ec: ExecutionContext): GetTermination =
+  def getTermination(client: DamlLedgerClient)(implicit ec: ExecutionContext): GetTermination =
     jwt =>
       client.transactionClient.getLedgerEnd(bearer(jwt)).map {
         _.offset flatMap {
@@ -76,9 +84,9 @@ object LedgerClientJwt {
             case LedgerOffset.Value.Boundary(_) | LedgerOffset.Value.Empty => None // at beginning
           }
         }
-    }
+      }
 
-  def getActiveContracts(client: LedgerClient): GetActiveContracts =
+  def getActiveContracts(client: DamlLedgerClient): GetActiveContracts =
     (jwt, filter, verbose) =>
       client.activeContractSetClient
         .getActiveContracts(filter, verbose, bearer(jwt))
@@ -95,13 +103,15 @@ object LedgerClientJwt {
   object Terminates {
     case object AtLedgerEnd extends Terminates
     case object Never extends Terminates
-    final case class AtAbsolute(off: LedgerOffset.Value.Absolute) extends Terminates
+    final case class AtAbsolute(off: LedgerOffset.Value.Absolute) extends Terminates {
+      def toDomain: domain.Offset = domain.Offset(off.value)
+    }
   }
 
   private val ledgerEndOffset =
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
 
-  def getCreatesAndArchivesSince(client: LedgerClient): GetCreatesAndArchivesSince =
+  def getCreatesAndArchivesSince(client: DamlLedgerClient): GetCreatesAndArchivesSince =
     (jwt, filter, offset, terminates) => {
       val end = terminates.toOffset
       if (skipRequest(offset, end))
@@ -120,26 +130,38 @@ object LedgerClientJwt {
     }
   }
 
-  def listKnownParties(client: LedgerClient): ListKnownParties =
+  def listKnownParties(client: DamlLedgerClient): ListKnownParties =
     jwt => client.partyManagementClient.listKnownParties(bearer(jwt))
 
-  def getParties(client: LedgerClient): GetParties =
+  def getParties(client: DamlLedgerClient): GetParties =
     (jwt, partyIds) => client.partyManagementClient.getParties(partyIds, bearer(jwt))
 
-  def allocateParty(client: LedgerClient): AllocateParty =
+  def allocateParty(client: DamlLedgerClient): AllocateParty =
     (jwt, identifierHint, displayName) =>
       client.partyManagementClient.allocateParty(
         hint = identifierHint,
         displayName = displayName,
-        token = bearer(jwt))
+        token = bearer(jwt),
+      )
 
-  def listPackages(client: LedgerClient): ListPackages =
-    jwt => client.packageClient.listPackages(bearer(jwt))
+  def listPackages(client: DamlLedgerClient): ListPackages =
+    jwt =>
+      implicit lc => {
+        logger.trace("sending list packages request to ledger")
+        client.packageClient.listPackages(bearer(jwt))
+      }
 
-  def getPackage(client: LedgerClient): GetPackage =
-    (jwt, packageId) => client.packageClient.getPackage(packageId, token = bearer(jwt))
+  def getPackage(client: DamlLedgerClient): GetPackage =
+    (jwt, packageId) =>
+      implicit lc => {
+        logger.trace("sending get packages request to ledger")
+        client.packageClient.getPackage(packageId, token = bearer(jwt))
+      }
 
-  def uploadDar(client: LedgerClient): UploadDarFile =
+  def uploadDar(client: DamlLedgerClient): UploadDarFile =
     (jwt, byteString) =>
-      client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
+      implicit lc => {
+        logger.trace("sending upload dar request to ledger")
+        client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
+      }
 }

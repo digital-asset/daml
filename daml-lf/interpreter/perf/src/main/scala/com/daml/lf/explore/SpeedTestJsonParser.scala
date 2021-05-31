@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
@@ -16,7 +16,7 @@ object SpeedTestJsonParser extends App {
   val dar = s"daml-lf/interpreter/perf/${base}.dar"
   val darFile = new File(rlocation(dar))
 
-  println(s"Loading DAML function for: $base.$funcName");
+  println(s"Loading Daml function for: $base.$funcName");
 
   val pipeline = LoadDarFunction.load(darFile, base, funcName)
 

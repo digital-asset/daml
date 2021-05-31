@@ -1,26 +1,26 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 
-Reference: DAML packages
+Reference: Daml packages
 ########################
 
-This page gives reference information on DAML package dependencies.
+This page gives reference information on Daml package dependencies.
 
-Building DAML archives
+Building Daml archives
 **********************
 
-When a DAML project is compiled, the compiler produces a `DAML archive`. These are platform-independent packages of compiled DAML code that can be uploaded to a DAML ledger or imported in other DAML projects.
+When a Daml project is compiled, the compiler produces a `Daml archive`. These are platform-independent packages of compiled Daml code that can be uploaded to a Daml ledger or imported in other Daml projects.
 
-DAML archives have a ``.dar`` file ending. By default, when you run ``daml build``, it will generate the ``.dar`` file in the ``.daml/dist`` folder in the project root folder. For example, running ``daml build`` in project ``foo`` with project version ``0.0.1`` will result in a DAML archive ``.daml/dist/foo-0.0.1.dar``.
+Daml archives have a ``.dar`` file ending. By default, when you run ``daml build``, it will generate the ``.dar`` file in the ``.daml/dist`` folder in the project root folder. For example, running ``daml build`` in project ``foo`` with project version ``0.0.1`` will result in a Daml archive ``.daml/dist/foo-0.0.1.dar``.
 
-You can specify a different path for the DAML archive by using the ``-o`` flag:
+You can specify a different path for the Daml archive by using the ``-o`` flag:
 
 .. code-block:: sh
 
   daml build -o foo.dar
 
-For details on how to upload a DAML archive to the ledger, see the :ref:`deploy documentation <deploy-ref_overview>`. The rest of this page will focus on how to import a DAML package in other DAML projects.
+For details on how to upload a Daml archive to the ledger, see the :ref:`deploy documentation <deploy-ref_overview>`. The rest of this page will focus on how to import a Daml package in other Daml projects.
 
 .. _inspecting_dars:
 
@@ -58,7 +58,7 @@ and their package ids. Here is a (shortened) example output:
   daml-stdlib-0.0.0-a535cbc3657b8df953a50aaef5a4cd224574549c83ca4377e8219aadea14f21a "a535cbc3657b8df953a50aaef5a4cd224574549c83ca4377e8219aadea14f21a"
 
 In addition to the human-readable output, you can also get the output
-as JSON. This is easier to consume programatically and it is more
+as JSON. This is easier to consume programmatically and it is more
 robust to changes across SDK versions:
 
 .. code-block:: sh
@@ -101,31 +101,31 @@ robust to changes across SDK versions:
       ]
   }
 
-Note that ``name`` and ``version`` will be ``null`` for packages in DAML-LF < 1.8.
+Note that ``name`` and ``version`` will be ``null`` for packages in Daml-LF < 1.8.
 
-Importing DAML packages
+Importing Daml packages
 ***********************
 
-There are two ways to import a DAML package in a project: via ``dependencies``, and via ``data-dependencies``. They each have certain advantages and disadvantages. To summarize:
+There are two ways to import a Daml package in a project: via ``dependencies``, and via ``data-dependencies``. They each have certain advantages and disadvantages. To summarize:
 
-* ``dependencies`` allow you to import a DAML archive as a library. The definitions in the dependency will all be made available to the importing project. However, the dependency must be compiled with the same SDK version, so this method is only suitable for breaking up large projects into smaller projects that depend on each other, or to reuse existing libraries.
+* ``dependencies`` allow you to import a Daml archive as a library. The definitions in the dependency will all be made available to the importing project. However, the dependency must be compiled with the same SDK version, so this method is only suitable for breaking up large projects into smaller projects that depend on each other, or to reuse existing libraries.
 
-* ``data-dependencies`` allow you to import a DAML archive (.dar) or a DAML-LF package (.dalf), including packages that have already been deployed to a ledger. These packages can be compiled with any previous SDK version. On the other hand, not all definitions can be carried over perfectly, since the DAML interface needs to be reconstructed from the binary.
+* ``data-dependencies`` allow you to import a Daml archive (.dar) or a Daml-LF package (.dalf), including packages that have already been deployed to a ledger. These packages can be compiled with any previous SDK version. On the other hand, not all definitions can be carried over perfectly, since the Daml interface needs to be reconstructed from the binary.
 
 The following sections will cover these two approaches in more depth.
 
-Importing a DAML package via dependencies
+Importing a Daml package via dependencies
 =========================================
 
-A DAML project can declare a DAML archive as a dependency in the ``dependencies`` field of ``daml.yaml``. This lets you import modules and reuse definitions from another DAML project. The main limitation of this method is that the dependency must be built for the same SDK version as the importing project.
+A Daml project can declare a Daml archive as a dependency in the ``dependencies`` field of ``daml.yaml``. This lets you import modules and reuse definitions from another Daml project. The main limitation of this method is that the dependency must be built for the same SDK version as the importing project.
 
-Let's go through an example. Suppose you have an existing DAML project ``foo``, located at ``/home/user/foo``, and you want to use it as a dependency in a project ``bar``, located at ``/home/user/bar``.
+Let's go through an example. Suppose you have an existing Daml project ``foo``, located at ``/home/user/foo``, and you want to use it as a dependency in a project ``bar``, located at ``/home/user/bar``.
 
-To do so, you first need to generate the DAML archive of ``foo``. Go into ``/home/user/foo`` and run ``daml build -o foo.dar``. This will create the DAML archive, ``/home/user/foo/foo.dar``.
+To do so, you first need to generate the Daml archive of ``foo``. Go into ``/home/user/foo`` and run ``daml build -o foo.dar``. This will create the Daml archive, ``/home/user/foo/foo.dar``.
 
 .. TODO (#4925): Make the above step redundant by letting users declare projects directly. Then update this doc.
 
-Next, we will update the project config for ``bar`` to use the generated DAML archive as a dependency. Go into ``/home/user/bar`` and change the ``dependencies`` field in ``daml.yaml`` to point to the created `DAML archive`:
+Next, we will update the project config for ``bar`` to use the generated Daml archive as a dependency. Go into ``/home/user/bar`` and change the ``dependencies`` field in ``daml.yaml`` to point to the created `Daml archive`:
 
 .. code-block:: yaml
 
@@ -153,10 +153,10 @@ By default, all modules of ``foo`` are made available when importing ``foo`` as 
   exposed-modules:
   - Foo
 
-Importing a DAML archive via data-dependencies
+Importing a Daml archive via data-dependencies
 ==============================================
 
-You can import a DAML archive (.dar) or DAML-LF package (.dalf) using ``data-dependencies``. Unlike ``dependencies``, this can be used when the SDK versions do not match.
+You can import a Daml archive (.dar) or Daml-LF package (.dalf) using ``data-dependencies``. Unlike ``dependencies``, this can be used when the SDK versions do not match.
 
 For example, you can import ``foo.dar`` as follows:
 
@@ -168,21 +168,54 @@ For example, you can import ``foo.dar`` as follows:
   data-dependencies:
   - ../foo/foo.dar
 
-When importing packages this way, the DAML compiler will try to reconstruct the original DAML interface from the compiled binaries. However, to allow ``data-dependencies`` to work across SDK versions, the compiler has to abstract over some details which are not compatible across SDK versions. This means that there are some DAML features that cannot be recovered when using ``data-dependencies``. In particular:
+When importing packages this way, the Daml compiler will try to reconstruct the original Daml interface from the compiled binaries. However, to allow ``data-dependencies`` to work across SDK versions, the compiler has to abstract over some details which are not compatible across SDK versions. This means that there are some Daml features that cannot be recovered when using ``data-dependencies``. In particular:
 
 #. Export lists cannot be recovered, so imports via ``data-dependencies`` can access definitions that were originally hidden. This means it is up to the importing module to respect the data abstraction of the original module. Note that this is the same for all code that runs on the ledger, since the ledger does not provide special support for data abstraction.
 
 #. If you have a ``dependency`` that limits the modules that can be accessed via ``exposed-modules``, you can get an error if you also have a ``data-dependency`` that references something from the hidden modules (even if it is only reexported). Since ``exposed-modules`` are not available on the ledger in general, we recommend to not make use of them and instead rely on naming conventions (e.g., suffix module names with ``.Internal``) to make it clear which modules are part of the public API.
 
-#. Prior to DAML-LF version 1.8, typeclasses could not be reconstructed. This means if you have a package that is compiled with an older version of DAML-LF, typeclasses and typeclass instances will not be carried over via data-dependencies, and you won't be able to call functions that rely on typeclass instances. This includes the template functions, such as ``create``, ``signatory``, and ``exercise``, as these rely on typeclass instances.
+#. Prior to Daml-LF version 1.8, typeclasses could not be reconstructed. This means if you have a package that is compiled with an older version of Daml-LF, typeclasses and typeclass instances will not be carried over via data-dependencies, and you won't be able to call functions that rely on typeclass instances. This includes the template functions, such as ``create``, ``signatory``, and ``exercise``, as these rely on typeclass instances.
 
-#. Starting from DAML-LF version 1.8, when possible, typeclass instances will be reconstructed by re-using the typeclass definitions from dependencies, such as the typeclasses exported in ``daml-stdlib``. However, if the typeclass signature has changed, you will get an instance for a reconstructed typeclass instead, which will not interoperate with code from dependencies. Furthermore, if the typeclass definition uses the ``FunctionalDependencies`` language extension, this may cause additional problems, since the functional dependencies cannot be recovered. So this is something to keep in mind when redefining typeclasses and when using ``FunctionalDependencies``.
+#. Starting from Daml-LF version 1.8, when possible, typeclass instances will be reconstructed by re-using the typeclass definitions from dependencies, such as the typeclasses exported in ``daml-stdlib``. However, if the typeclass signature has changed, you will get an instance for a reconstructed typeclass instead, which will not interoperate with code from dependencies. Furthermore, if the typeclass definition uses the ``FunctionalDependencies`` language extension, this may cause additional problems, since the functional dependencies cannot be recovered. So this is something to keep in mind when redefining typeclasses and when using ``FunctionalDependencies``.
 
 #. Certain advanced type system features cannot be reconstructed. In particular, ``DA.Generics`` and ``DeriveGeneric`` cannot be reconstructed. This may result in certain definitions being unavailable when importing a module that uses these advanced features.
 
 .. TODO (#4932): Add warnings for advanced features that aren't supported, and add a comment on item #4.
 
-Because of their flexibility, data-dependencies are a tool that is recommended for performing DAML model upgrades. See the :ref:`upgrade documentation <upgrade-overview>` for more details.
+Because of their flexibility, data-dependencies are a tool that is recommended for performing Daml model upgrades. See the :ref:`upgrade documentation <upgrade-overview>` for more details.
+
+Referencing Daml packages already on the ledger
+===============================================
+
+Daml packages that have been uploaded to a ledger can be imported as data dependencies, given you
+have the necessary permissions to download these packages. To import such a package, add the package
+name and version separated by a colon to the data-dependencies stanza as follows:
+
+.. code-block:: yaml
+
+  ledger:
+    host: localhost
+    port: 6865
+  dependencies:
+  - daml-prim
+  - daml-stdlib
+  data-dependencies:
+  - foo:1.0.0
+
+If your ledger runs at the default host and port (``localhost:6865``), the ledger stanza can be
+omitted. This will fetch and install the package ``foo-1.0.0``. A ``daml.lock`` file is created at
+the root of your project directory, pinning the resolved packages to their exact package ID:
+
+.. code-block:: yaml
+
+  dependencies:
+  - pkgId: 51255efad65a1751bcee749d962a135a65d12b87eb81ac961142196d8bbca535
+    name: foo
+    version: 1.0.0
+
+The ``daml.lock`` file needs to be checked into version control of your project. This assures that
+package name/version tuples specified in your data dependencies are always resolved to the same
+package ID. To recreate or update your ``daml.lock`` file, delete it and run ``daml build`` again.
 
 .. _module_collisions:
 
@@ -233,7 +266,7 @@ This will alias the ``X`` in ``foo-1.0.0`` as ``Foo1.X``, and alias the ``X`` in
 
 It is also possible to add a prefix to all modules in a package using
 the ``module-prefixes`` field in your ``daml.yaml``. This is
-partiuclarly useful for upgrades where you can map all modules of
+particularly useful for upgrades where you can map all modules of
 version ``v`` of your package under ``V$v``. For the example above you
 can use the following:
 

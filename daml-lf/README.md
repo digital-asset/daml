@@ -1,4 +1,4 @@
-The unified DAML-LF interpreter and engine
+The unified Daml-LF interpreter and engine
 ==========================================
 
 This package contains the canonical in-memory LF ASTs of both the public
@@ -22,7 +22,7 @@ Components
   Protobuf utilities for reading it into a raw memory form. This should
   reflect the [official LF specification][] at any given time.  As with
   the LF specification, changes to the Protobuf definition are governed
-  by the [DAML-LF Governance process][].
+  by the [Daml-LF Governance process][].
 
 - `interface` is an ADT of the "public interface" of a given LF package,
   meaning its templates, their choices, and serializable data types in
@@ -84,13 +84,13 @@ Components
 - `testing-tools` helps you run scenarios from Scalatest.
 
 [official LF specification]: spec/daml-lf-1.rst
-[DAML-LF Governance process]: governance.rst
+[Daml-LF Governance process]: governance.rst
 [CEK machine]: https://gist.github.com/ekmett/f081b5e36bac3fed1ea6b21eb25327c6
 
 Building and testing
 --------------------
 
-DAML-LF uses Bazel to build and test the components. Please refer to top-level
+Daml-LF uses Bazel to build and test the components. Please refer to top-level
 `BAZEL.md` and `BAZEL-JVM.md` documents for high-level instructions on how to
 use Bazel and how it works within IntelliJ.
 
@@ -163,10 +163,10 @@ bazel run //daml-lf/scenario-interpreter:scenario-perf -- -p dar=/path/to/some/d
 ```
 This can be combined with the `-f 0` flag as well.
 
-These benchmarks are focused on DAML execution speed and try to avoid noise
+These benchmarks are focused on Daml execution speed and try to avoid noise
 caused by, say, I/O as much as possible.
 
-DAML-LF-REPL Usage
+Daml-LF-REPL Usage
 ------------------
 
 The REPL can be compiled with `bazel build //:daml-lf-repl` and run with
@@ -195,7 +195,7 @@ NOTE: When running via `bazel run` one needs to specify full path (or relative p
 Profiling scenarios
 -------------------
 
-DAML-LF-REPL provides a command to run a scenario and collect profiling
+Daml-LF-REPL provides a command to run a scenario and collect profiling
 information while running it. This information is then written into a file that
 can be viewed using the [speedscope](https://www.speedscope.app/) flamegraph
 visualizer. The easiest way to install speedscope is to run

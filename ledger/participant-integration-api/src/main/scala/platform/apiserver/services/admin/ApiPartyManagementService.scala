@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.platform.apiserver.services.admin
@@ -8,22 +8,24 @@ import java.util.UUID
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain.{LedgerOffset, PartyEntry}
 import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.daml.ledger.api.v1.admin.party_management_service._
 import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexTransactionsService,
-  LedgerEndService
+  LedgerEndService,
 }
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePartyService}
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
+import com.daml.platform.apiserver.services.logging
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.compat.java8.FutureConverters._
@@ -34,15 +36,15 @@ private[apiserver] final class ApiPartyManagementService private (
     transactionService: IndexTransactionsService,
     writeService: WritePartyService,
     managementServiceTimeout: Duration,
+    submissionIdGenerator: Option[Ref.Party] => v1.SubmissionId,
+)(implicit
     materializer: Materializer,
-)(implicit loggingContext: LoggingContext)
-    extends PartyManagementService
+    executionContext: ExecutionContext,
+    loggingContext: LoggingContext,
+) extends PartyManagementService
     with GrpcApiService {
 
   private val logger = ContextualizedLogger.get(this.getClass)
-
-  // Execute subsequent transforms in the thread of the previous operation.
-  private implicit val executionContext: ExecutionContext = DirectExecutionContext
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(transactionService, writeService, partyManagementService),
@@ -52,11 +54,12 @@ private[apiserver] final class ApiPartyManagementService private (
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
-    PartyManagementServiceGrpc.bindService(this, DirectExecutionContext)
+    PartyManagementServiceGrpc.bindService(this, executionContext)
 
   override def getParticipantId(
       request: GetParticipantIdRequest
   ): Future[GetParticipantIdResponse] = {
+    logger.info("Getting Participant ID")
     partyManagementService
       .getParticipantId()
       .map(pid => GetParticipantIdResponse(pid.toString))
@@ -69,45 +72,60 @@ private[apiserver] final class ApiPartyManagementService private (
     PartyDetails(details.party, details.displayName.getOrElse(""), details.isLocal)
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
-    partyManagementService
-      .getParties(request.parties.map(Ref.Party.assertFromString))
-      .map(ps => GetPartiesResponse(ps.map(mapPartyDetails)))
-      .andThen(logger.logErrorsOnCall[GetPartiesResponse])
+    withEnrichedLoggingContext(logging.parties(request.parties)) { implicit loggingContext =>
+      logger.info("Getting parties")
+      partyManagementService
+        .getParties(request.parties.map(Ref.Party.assertFromString))
+        .map(ps => GetPartiesResponse(ps.map(mapPartyDetails)))
+        .andThen(logger.logErrorsOnCall[GetPartiesResponse])
+    }
 
   override def listKnownParties(
       request: ListKnownPartiesRequest
-  ): Future[ListKnownPartiesResponse] =
+  ): Future[ListKnownPartiesResponse] = {
+    logger.info("Listing known parties")
     partyManagementService
       .listKnownParties()
       .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))
       .andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])
-
-  override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
-    // TODO: This should do proper validation.
-    def randomSubmissionId(prefix: String): Ref.IdString.LedgerString =
-      v1.SubmissionId.assertFromString(s"${prefix}_${UUID.randomUUID().toString}")
-
-    val party =
-      if (request.partyIdHint.isEmpty) None
-      else Some(Ref.Party.assertFromString(request.partyIdHint))
-    val submissionId = randomSubmissionId(prefix = party.getOrElse(""))
-
-    val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
-
-    synchronousResponse
-      .submitAndWait(submissionId, (party, displayName))(executionContext, materializer)
-      .map {
-        case PartyEntry.AllocationAccepted(_, partyDetails) =>
-          AllocatePartyResponse(
-            Some(
-              PartyDetails(
-                partyDetails.party,
-                partyDetails.displayName.getOrElse(""),
-                partyDetails.isLocal,
-              )))
-      }
-      .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
   }
+
+  override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
+    withEnrichedLoggingContext(logging.party(request.partyIdHint)) { implicit loggingContext =>
+      logger.info("Allocating party")
+      implicit val telemetryContext: TelemetryContext =
+        DefaultTelemetry.contextFromGrpcThreadLocalContext()
+      val validatedPartyIdentifier =
+        if (request.partyIdHint.isEmpty) {
+          Future.successful(None)
+        } else {
+          Ref.Party
+            .fromString(request.partyIdHint)
+            .fold(
+              error => Future.failed(ErrorFactories.invalidArgument(error)),
+              party => Future.successful(Some(party)),
+            )
+        }
+
+      validatedPartyIdentifier
+        .flatMap(party => {
+          val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
+          synchronousResponse
+            .submitAndWait(submissionIdGenerator(party), (party, displayName))
+            .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
+              AllocatePartyResponse(
+                Some(
+                  PartyDetails(
+                    partyDetails.party,
+                    partyDetails.displayName.getOrElse(""),
+                    partyDetails.isLocal,
+                  )
+                )
+              )
+            }
+        })
+        .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
+    }
 
 }
 
@@ -118,15 +136,31 @@ private[apiserver] object ApiPartyManagementService {
       transactionsService: IndexTransactionsService,
       writeBackend: WritePartyService,
       managementServiceTimeout: Duration,
-  )(implicit mat: Materializer, loggingContext: LoggingContext)
-    : PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
+      submissionIdGenerator: Option[Ref.Party] => v1.SubmissionId = CreateSubmissionId.withPrefix,
+  )(implicit
+      materializer: Materializer,
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
     new ApiPartyManagementService(
       partyManagementServiceBackend,
       transactionsService,
       writeBackend,
       managementServiceTimeout,
-      mat,
+      submissionIdGenerator,
     )
+
+  private object CreateSubmissionId {
+    // Suffix is `-` followed by a random UUID as a string
+    private val SuffixLength: Int = 1 + UUID.randomUUID().toString.length
+    private val MaxLength: Int = 255
+    private val PrefixMaxLength: Int = MaxLength - SuffixLength
+    def withPrefix(maybeParty: Option[Ref.Party]): v1.SubmissionId = {
+      val uuid = UUID.randomUUID().toString
+      val raw = maybeParty.fold(uuid)(party => s"${party.take(PrefixMaxLength)}-$uuid")
+      v1.SubmissionId.assertFromString(raw)
+    }
+  }
 
   private final class SynchronousResponseStrategy(
       ledgerEndService: LedgerEndService,
@@ -145,7 +179,7 @@ private[apiserver] object ApiPartyManagementService {
     override def submit(
         submissionId: SubmissionId,
         input: (Option[Ref.Party], Option[String]),
-    ): Future[SubmissionResult] = {
+    )(implicit telemetryContext: TelemetryContext): Future[SubmissionResult] = {
       val (party, displayName) = input
       writeService.allocateParty(party, displayName, submissionId).toScala
     }
@@ -154,13 +188,13 @@ private[apiserver] object ApiPartyManagementService {
       partyManagementService.partyEntries(offset)
 
     override def accept(
-        submissionId: SubmissionId,
+        submissionId: SubmissionId
     ): PartialFunction[PartyEntry, PartyEntry.AllocationAccepted] = {
       case entry @ PartyEntry.AllocationAccepted(Some(`submissionId`), _) => entry
     }
 
     override def reject(
-        submissionId: SubmissionId,
+        submissionId: SubmissionId
     ): PartialFunction[PartyEntry, StatusRuntimeException] = {
       case PartyEntry.AllocationRejected(`submissionId`, reason) =>
         ErrorFactories.invalidArgument(reason)

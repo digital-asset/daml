@@ -1,0 +1,28 @@
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SINCE-LF-FEATURE DAML_EXCEPTIONS
+-- @QUERY-LF [ .modules[].exceptions[] ] | length == 1
+
+-- | Test that exception syntax is correctly handled.
+-- This is the "sugared" counterpart to ExceptionDesugared.
+module ExceptionSyntax where
+
+import DA.Exception (throw)
+import DA.Assert ((===))
+
+exception MyException
+    with
+        m : Text
+    where
+        message m
+
+tryCatchExample = scenario do
+    p <- getParty "Alice"
+    x <- submit p do
+        try do
+            throw (MyException "ok")
+            pure "err"
+        catch
+            MyException m -> pure m
+    x === "ok"

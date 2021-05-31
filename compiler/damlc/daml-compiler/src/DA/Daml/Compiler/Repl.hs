@@ -1,4 +1,4 @@
--- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -35,7 +35,7 @@ import Data.Foldable
 import Data.Generics.Uniplate.Data (descendBi)
 import Data.Graph
 import Data.IORef
-import Data.List (foldl', intercalate)
+import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -45,7 +45,6 @@ import qualified Data.Text.IO as T
 import Development.IDE.Core.API
 import Development.IDE.Core.RuleTypes
 import Development.IDE.Core.RuleTypes.Daml
-import Development.IDE.Core.Rules
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Util
 import Development.IDE.LSP.Protocol
@@ -53,19 +52,14 @@ import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import ErrUtils
 import GHC
-import HsExpr (Stmt, StmtLR(..), LHsExpr)
-import HsExtension (GhcPs, GhcTc)
-import HsPat (Pat(..))
 import HscTypes (HscEnv(..), mkPrintUnqualified)
 import Language.Haskell.GhclibParserEx.Parse
 import Language.Haskell.LSP.Messages
-import Lexer (ParseResult(..))
 import Module (unitIdString)
 import OccName (OccSet, occName, elemOccSet, mkOccSet, mkVarOcc)
-import Outputable (ppr, showSDoc, showSDocForUser)
+import Outputable (parens, ppr, showSDoc, showSDocForUser)
 import qualified Outputable
 import RdrName (mkRdrUnqual)
-import SrcLoc (unLoc)
 import qualified System.Console.Repline as Repl
 import System.Exit
 import System.IO.Extra
@@ -393,15 +387,18 @@ runRepl importPkgs opts replClient logger ideState = do
           , lineNumber = 0
           , printUnqualified = getPrintUnqualified dflags tcr
           }
-    -- TODO[AH] Use Repl.evalReplOpts once we're using repline >= 0.2.2
-    let replM = Repl.evalRepl banner command options prefix tabComplete initialiser
-          where
-            banner = pure "daml> "
-            command = replLine
-            options = replOptions
-            prefix = Just ':'
-            tabComplete = Repl.Cursor $ \_ _ -> pure []
-            initialiser = pure ()
+    let replM = Repl.evalReplOpts Repl.ReplOpts
+          { banner = const (pure "daml> ")
+          , command = replLine
+          , options = replOptions
+          , prefix = Just ':'
+          , multilineCommand = Nothing
+          , tabComplete = Repl.Cursor $ \_ _ -> pure []
+          , initialiser = pure ()
+          , finaliser = do
+                  liftIO $ putStrLn "Goodbye."
+                  pure Repl.Exit
+          }
     State.evalStateT replM initReplState
   where
     handleStmt
@@ -459,10 +456,12 @@ runRepl importPkgs opts replClient logger ideState = do
         -- to decide what to do. If a case succeeds we immediately print all diagnostics.
         -- If it fails, we return them and only print them once everything failed.
         diagsRef <- liftIO $ newIORef id
+        -- here we don't want to use the `useE` function that uses cached results
+        let useE' k = MaybeT . use k
         let writeDiags diags = atomicModifyIORef diagsRef (\f -> (f . (diags:), ()))
         r <- liftIO $ withReplLogger logger writeDiags $ runAction ideState $ runMaybeT $
-            (,) <$> useE GenerateDalf (lineFilePath lineNumber)
-                <*> useE TypeCheck (lineFilePath lineNumber)
+            (,) <$> useE' GenerateDalf (lineFilePath lineNumber)
+                <*> useE' TypeCheck (lineFilePath lineNumber)
         diags <- liftIO $ ($ []) <$> readIORef diagsRef
         case r of
             Nothing -> throwError (TypeError, diags)
@@ -494,17 +493,17 @@ runRepl importPkgs opts replClient logger ideState = do
 
     mkReplOption
         :: (DynFlags -> [String] -> ExceptT Error ReplM ())
-        -> [String] -> ReplM ()
+        -> String -> ReplM ()
     mkReplOption option args = do
         ReplState {lineNumber} <- State.get
         dflags <- liftIO $
             hsc_dflags . hscEnv <$>
             runAction ideState (use_ GhcSession $ lineFilePath lineNumber)
-        r <- runExceptT $ option dflags args
+        r <- runExceptT $ option dflags (words args)
         case r of
             Left err -> liftIO $ renderError dflags err
             Right () -> pure ()
-    replOptions :: [(String, [String] -> ReplM ())]
+    replOptions :: Repl.Options ReplM
     replOptions =
       [ ("help", mkReplOption optHelp)
       , ("json", mkReplOption optJson)
@@ -603,7 +602,7 @@ data ModuleRenderings
           -- reason to run them.
         , pureArbitraryExpr :: String
           -- ^ e :: a for some a that may not be an instance of Show.
-        }
+        } deriving Show
 
 moduleImports
     :: DynFlags
@@ -638,43 +637,54 @@ renderModule dflags printUnqualified imports line binds stmt = case stmt of
     BindStatement pat expr ->
         BindingRendering $ unlines $
             moduleHeader dflags imports line <>
-            [ exprTy "Script _"
-            , exprLhs
-            , showSDoc' $ Outputable.nest 2 $ ppr (scriptStmt (Just pat) expr returnAp)
+            [showSDoc' . Outputable.vcat $
+              [ exprTy "Script _"
+              , exprLhs
+              , Outputable.nest 2 $ ppr (scriptStmt (Just pat) expr returnAp)
+              ]
             ]
     BodyStatement expr ->
         BodyRenderings
           { unitScript = unlines $
               moduleHeader dflags imports line <>
-              [ exprTy "Script ()"
-              , exprLhs
-              , showSDoc' $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
+              [showSDoc' . Outputable.vcat $
+                [ exprTy "Script ()"
+                , exprLhs
+                , Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
+                ]
               ]
           , printableScript = unlines $
               moduleHeader dflags imports line <>
-              [ exprTy "Script Text"
-              , exprLhs
-              , showSDoc' $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnShowAp)
+              [showSDoc' . Outputable.vcat $
+                [ exprTy "Script Text"
+                , exprLhs
+                , Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnShowAp)
+                ]
               ]
           , arbitraryScript = unlines $
               moduleHeader dflags imports line <>
-              [ exprTy "Script _"
-              , exprLhs
-              , showSDoc' $ Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
+              [showSDoc' . Outputable.vcat $
+                [ exprTy "Script _"
+                , exprLhs
+                , Outputable.nest 2 $ ppr (scriptStmt Nothing expr returnAp)
+                ]
               ]
           , purePrintableExpr = unlines $
               moduleHeader dflags imports line <>
-              [ exprTy "Script Text"
-              , exprLhs
-              , showSDoc' $ Outputable.nest 2 $ ppr $
-                returnShowAp expr
+              [showSDoc' . Outputable.vcat $
+                [ exprTy "Script Text"
+                , exprLhs
+                , Outputable.nest 2 $ ppr $
+                  returnShowAp expr
+                ]
               ]
           , pureArbitraryExpr = unlines $
               moduleHeader dflags imports line <>
-              [ exprTy "Script _"
-              , exprLhs
-              , showSDoc' $ Outputable.nest 2 $ ppr $
-                returnAp $ noLoc $ HsPar noExt expr
+              [showSDoc' . Outputable.vcat $
+                [ exprTy "Script _"
+                , exprLhs
+                , Outputable.nest 2 $ ppr (returnAp $ noLoc $ HsPar noExt expr)
+                ]
               ]
           }
     LetStatement binding ->
@@ -683,8 +693,8 @@ renderModule dflags printUnqualified imports line binds stmt = case stmt of
                 PatBinding pat _ -> toTupleExpr pat
         in BindingRendering $ unlines $
           moduleHeader dflags imports line <>
-          [ exprTy "Script _"
-          , exprLhs
+          [ showSDoc' $ exprTy "Script _"
+          , showSDoc' exprLhs
           , showSDoc' $ Outputable.nest 2 $ ppr $ HsDo noExt DoExpr $ noLoc
               [ noLoc $ LetStmt noExt $ toLocalBinds binding
               , noLoc $ LastStmt noExt (returnAp retExpr) False noSyntaxExpr
@@ -692,8 +702,8 @@ renderModule dflags printUnqualified imports line binds stmt = case stmt of
           ]
   where
         showSDoc' = showSDocForUser dflags printUnqualified
-        renderPat pat = showSDoc' (ppr pat)
-        renderTy ty = "(" <> showSDoc' (ppr ty) <> ") -> "
+        renderPat pat = ppr pat
+        renderTy ty = parens (ppr ty) <> " -> "
         -- build a script statement using the given wrapper (either `return` or `show`)
         -- to wrap the final result.
         scriptStmt mbPat expr wrapper =
@@ -711,11 +721,22 @@ renderModule dflags printUnqualified imports line binds stmt = case stmt of
             noLoc $ HsApp noExt showExpr $
             noLoc $ HsPar noExt x
         showExpr = noLoc $ HsVar noExt (noLoc $ mkRdrUnqual $ mkVarOcc "show")
-        exprLhs = "expr " <> unwords (map (renderPat . fst) binds) <> " = "
-        exprTy res = "expr : " <> concatMap (renderTy . snd) binds <> res
+        exprLhs = "expr " <> Outputable.hsep (map (renderPat . fst) binds) <> " = "
+        exprTy :: Outputable.SDoc -> Outputable.SDoc
+        exprTy res =
+            "expr : " <>
+            Outputable.hcat (map (renderTy . snd) binds) <>
+            res
 
 instance Applicative m => Apply (Repl.HaskelineT m) where
     liftF2 = liftA2
 
 instance Monad m => Bind (Repl.HaskelineT m) where
     (>>-) = (>>=)
+
+
+instance Semigroup Outputable.SDoc where
+    (<>) = (Outputable.<>)
+
+instance Monoid Outputable.SDoc where
+    mempty = ""

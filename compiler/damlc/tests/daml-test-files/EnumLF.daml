@@ -1,7 +1,7 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- Check that enum types get translated to DAML-LF's enum types.
+-- Check that enum types get translated to Daml-LF's enum types.
 -- @SINCE-LF 1.6
 -- @QUERY-LF .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Color"]) | has("enum")
 -- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["red"]) | .expr | has("enum_con")

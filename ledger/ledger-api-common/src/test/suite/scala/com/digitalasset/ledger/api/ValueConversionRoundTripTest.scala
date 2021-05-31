@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api
@@ -57,12 +57,15 @@ class ValueConversionRoundTripTest
         Sum.Map(api.Map(List.empty)),
         Sum.GenMap(api.GenMap(List.empty)),
         Sum.GenMap(
-          api.GenMap(List(
-            api.GenMap.Entry(Some(api.Value(Sum.Text("key1"))), Some(api.Value(Sum.Int64(1)))),
-            api.GenMap.Entry(Some(api.Value(Sum.Text("key3"))), Some(api.Value(Sum.Int64(3)))),
-            api.GenMap.Entry(Some(api.Value(Sum.Text("key2"))), Some(api.Value(Sum.Int64(2)))),
-            api.GenMap.Entry(Some(api.Value(Sum.Text("key1"))), Some(api.Value(Sum.Int64(0)))),
-          ))),
+          api.GenMap(
+            List(
+              api.GenMap.Entry(Some(api.Value(Sum.Text("key1"))), Some(api.Value(Sum.Int64(1)))),
+              api.GenMap.Entry(Some(api.Value(Sum.Text("key3"))), Some(api.Value(Sum.Int64(3)))),
+              api.GenMap.Entry(Some(api.Value(Sum.Text("key2"))), Some(api.Value(Sum.Int64(2)))),
+              api.GenMap.Entry(Some(api.Value(Sum.Text("key1"))), Some(api.Value(Sum.Int64(0)))),
+            )
+          )
+        ),
         Sum.Record(
           api.Record(
             Some(recordId),
@@ -70,10 +73,12 @@ class ValueConversionRoundTripTest
               api.RecordField("label1", Some(api.Value(Sum.Int64(1)))),
               api.RecordField("label2", Some(api.Value(Sum.Int64(2)))),
               api.RecordField("label0", Some(api.Value(Sum.Int64(3)))),
-            )
-          )),
+            ),
+          )
+        ),
         Sum.Variant(
-          api.Variant(Some(recordId), constructor, Some(DomainMocks.values.validApiParty)))
+          api.Variant(Some(recordId), constructor, Some(DomainMocks.values.validApiParty))
+        ),
       )
 
       forEvery(testCases) { testCase =>
@@ -83,8 +88,8 @@ class ValueConversionRoundTripTest
     }
 
     "should sort the entries of a map" in {
-      val entries = List("‱", "1", "😂", "😃", "a").zipWithIndex.map {
-        case (k, v) => api.Map.Entry(k, Some(api.Value(Sum.Int64(v.toLong))))
+      val entries = List("‱", "1", "😂", "😃", "a").zipWithIndex.map { case (k, v) =>
+        api.Map.Entry(k, Some(api.Value(Sum.Int64(v.toLong))))
       }
       val sortedEntries = entries.sortBy(_.key)
 
@@ -109,18 +114,17 @@ class ValueConversionRoundTripTest
         ("1" + "0" * 27 + "." + "0" * 9 + "1") -> ("1" + "0" * 27 + "." + "0" * 9 + "1"),
         ("0." + "0" * 9 + "1") -> ("0." + "0" * 9 + "1"),
         ("0" * 10 + "42") -> "42.",
-        ("0" * 10 + "42." + "0" * 10) -> "42."
+        ("0" * 10 + "42." + "0" * 10) -> "42.",
       )
 
       roundTrip(api.Value(Sum.Numeric("0"))) shouldNot equal(api.Value(Sum.Numeric("0")))
       roundTrip(api.Value(Sum.Numeric("+1.0"))) shouldNot equal(api.Value(Sum.Numeric("+1.0")))
 
-      forEvery(testCases) {
-        case (input, expected) =>
-          roundTrip(api.Value(Sum.Numeric(input))) shouldEqual Right(
-            api.Value(Sum.Numeric(expected)))
-          roundTrip(api.Value(Sum.Numeric("+" + input))) shouldEqual Right(
-            api.Value(Sum.Numeric(expected)))
+      forEvery(testCases) { case (input, expected) =>
+        roundTrip(api.Value(Sum.Numeric(input))) shouldEqual Right(api.Value(Sum.Numeric(expected)))
+        roundTrip(api.Value(Sum.Numeric("+" + input))) shouldEqual Right(
+          api.Value(Sum.Numeric(expected))
+        )
       }
     }
 
@@ -135,15 +139,13 @@ class ValueConversionRoundTripTest
         ("-1" + "0" * 27 + "." + "0" * 9 + "1") -> ("-1" + "0" * 27 + "." + "0" * 9 + "1"),
         ("-0." + "0" * 9 + "1") -> ("-0." + "0" * 9 + "1"),
         ("-" + "0" * 10 + "42") -> "-42.",
-        ("-" + "0" * 10 + "42." + "0" * 10) -> "-42."
+        ("-" + "0" * 10 + "42." + "0" * 10) -> "-42.",
       )
 
       roundTrip(api.Value(Sum.Numeric("-0"))) shouldNot equal(api.Value(Sum.Numeric("-0")))
 
-      forEvery(testCases) {
-        case (input, expected) =>
-          roundTrip(api.Value(Sum.Numeric(input))) shouldEqual Right(
-            api.Value(Sum.Numeric(expected)))
+      forEvery(testCases) { case (input, expected) =>
+        roundTrip(api.Value(Sum.Numeric(input))) shouldEqual Right(api.Value(Sum.Numeric(expected)))
       }
     }
   }

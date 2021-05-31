@@ -1,14 +1,14 @@
-.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 
-DAML-LF Transaction Specification
+Daml-LF Transaction Specification
 =================================
 
-**version 10, 25 March 2020**
+**version 13, 06 April 2021**
 
 This specification, in concert with the ``transaction.proto``
-machine-readable definition, defines a format for *DAML LF
+machine-readable definition, defines a format for *Daml-LF
 transactions*, to be used when inspecting ledger activity as a st
 ream, or submitting changes to the ledger.
 
@@ -17,9 +17,9 @@ A *ledger* can be viewed as a sequence of these transactions.
 Do not read this without ``transaction.proto``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``transaction.proto`` defines the baseline rules for *DAML-LF
+``transaction.proto`` defines the baseline rules for *Daml-LF
 transactions*; that file must be consulted in concert with this
-document for a full specification of DAML-LF transactions.  Except
+document for a full specification of Daml-LF transactions.  Except
 where required for clarity, we do not repeat rules defined and
 enforced in that file within this document.  When consulting the
 section on each message type, you must also refer to the same
@@ -39,16 +39,16 @@ impossible to define all the requirements for transactions in the
 ``.proto`` format.  All such rules are included in this document,
 instead.
 
-If you are constructing a DAML-LF transaction, it is not sufficient to
+If you are constructing a Daml-LF transaction, it is not sufficient to
 merely conform to the structure defined in ``transaction.proto``; you
 must also conform to the rules defined in this document.  A transaction
 that happens to conform to ``transaction.proto``, yet violates some rule
-of this document, is not a valid DAML-LF transaction.
+of this document, is not a valid Daml-LF transaction.
 
 Backward compatibility
 ^^^^^^^^^^^^^^^^^^^^^^
 
-DAML-LF transaction nodes, and transactions are encoded according a
+Daml-LF transaction nodes, and transactions are encoded according a
 common versioning scheme, called the *transaction version scheme*.
 Each version of this scheme, called a transaction version, is
 associated to a language version.
@@ -107,12 +107,12 @@ define some semantics vital to understanding your transaction.
 "since version"
 ~~~~~~~~~~~~~~~
 
-Every message type and field is accompanied by one or more *since
-version x* annotations in this document, preceding some description of
-semantics.  This defines when that message, field, or semantic rule
+Every message type and field is accompanied by one or more *(since
+version x)* annotations in this document, preceding some description
+of semantics.  This defines when that message, field, or semantic rule
 was introduced in the transaction specification.  Where there are
 multiple overlapping definitions of semantics for the same field of
-the form *since version x*, the correct interpretation for any
+the form *(since version x)*, the correct interpretation for any
 transaction of version *y* is that under the greatest *x* such that
 *x≤y*, failing that the second-greatest such *x*, and so on.
 
@@ -126,7 +126,7 @@ version 13* section must be ignored entirely.
 Changing this specification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Future versions of this specification must conform to the `DAML-LF
+Future versions of this specification must conform to the `Daml-LF
 Governance process`_ and preserve all invariants described above.
 Where these are in conflict, the governance process takes priority.
 
@@ -159,7 +159,7 @@ important subtlety in the comparison.
 
 Additionally, you should update the following `Version history`_.
 
-.. _`DAML-LF Governance process`: ../governance.rst
+.. _`Daml-LF Governance process`: ../governance.rst
 .. _`value`: value.rst
 
 Version history
@@ -177,16 +177,22 @@ later.
 +====================+=================+
 |                 10 |      2020-03-25 |
 +--------------------+-----------------+
-|                dev |      2020-03-25 |
+|                 11 |      2021-01-19 |
++--------------------+-----------------+
+|                 12 |      2021-01-27 |
++--------------------+-----------------+
+|                 13 |      2021-04-06 |
++--------------------+-----------------+
+|                dev |      2020-12-14 |
 +--------------------+-----------------+
 
 message Transaction
 ^^^^^^^^^^^^^^^^^^^
 
-*since version 10*
-
 A list of `message Node`_, implicitly forming a forest starting at
 ``roots``.
+
+(*since version 10*)
 
 As of version 10, these fields are included:
 
@@ -194,48 +200,42 @@ As of version 10, these fields are included:
 * repeated ``string`` roots
 * repeated `message Node`_ nodes
 
-``version`` is required and constrained as described under `field version`_.  Consumers can expect this field to be present and to
-have the semantics defined here without knowing the version of this
-value in advance.
+``version`` is required and constrained as described under `field
+version`_.  Consumers can expect this field to be present and to have
+the semantics defined here without knowing the version of this value
+in advance.
 
 ``roots`` is constrained as described under `field node_id`_.
-
-As of version 11, the
 
 field version
 ~~~~~~~~~~~~~
 
-``version`` and must be a version of this specification.
-For example, for version 11 of this specification, ``version`` must be
-``"11"``
+``version`` and must be a version of this specification.  For example,
+for version 11 of this specification, ``version`` must be ``"11"``
 
-Known versions are listed in ascending order in `Version history`_; any
-``version`` not in this list should be considered newer than any version
-in same list, and consumers must reject values with such unknown
-versions.
+Known versions are listed in ascending order in `Version history`_;
+any ``version`` not in this list should be considered newer than any
+version in same list, and consumers must reject values with such
+unknown versions.
 
 message ContractInstance
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-*since version 10*
-
-An instance of a DAML-LF template, represented by the DAML-LF value used
+An instance of a Daml-LF template, represented by the Daml-LF value used
 to construct that instance.
+
+(*since version 10*)
 
 As of version 10, these fields are included:
 
 * `message Identifier`_ template_id
-* `message VersionedValue`_ value
+* `message VersionedValue`_ arg_versioned
 * ``string`` agreement
 
-``template_id`` and ``value`` are required; ``agreement`` is optional.
+``template_id`` and ``arg_versioned`` are required; ``agreement`` is
+optional.
 
-``value`` must conform to the type of the DAML-LF associated data type
-indicated by ``template_id``.
-
-``template_id``'s structure is defined by `the value specification`_;
-the version of that specification to use when consuming it is the
-``version`` field of ``value``.
+``template_id``'s structure is defined by `the value specification`_.
 
 .. _`message Identifier`: value.rst#message-identifier
 .. _`message VersionedValue`: value.rst#message-versionedvalue
@@ -244,9 +244,9 @@ the version of that specification to use when consuming it is the
 message Node
 ^^^^^^^^^^^^
 
-*since version 10*
-
 An action on the ledger.
+
+(*since version 10*)
 
 As of version 10, these fields are included:
 
@@ -266,25 +266,30 @@ Additionally, one of the following node types *must* be included:
 * `message NodeExercise`_ exercise
 * `message NodeLookupByKey`_ lookup
 
-*since version dev*
+Field field ``create``, ``fetch``, ``exercise`` and ``lookup`` shall
+be consumed according to version 10.
+  
+(*since version 11*)
 
-As of version dev, this optional field is included:
+As of version 11, this optional field is included:
 
 * ``string`` ``version``
 
 The field ``version`` is optional.
 
-If present it must be a valid version as described under `field version`_, different from "10", and not newer
-that the version of the enclosing Transaction message. Other it is assumed to be version "10".
+If present it must be a valid version as described under `field
+version`_, different from "10", and not newer that the version of the
+enclosing Transaction message. Other it is assumed to be version "10".
 
-Field field ``create``, ``fetch``, ``exercise`` and  ``lookup`` shall be consumed according to that version.
+Field field ``create``, ``fetch``, ``exercise`` and ``lookup`` shall
+be consumed according to that version.
 
 field node_id
 ~~~~~~~~~~~~~
 
-*since version 10*
-
 An identifier for this node, unique within the transaction.
+
+(*since version 10*)
 
 There are no particular requirements on its structure or how to generate
 them, and node IDs can be reused in different transactions.  An
@@ -309,29 +314,36 @@ an invalid transaction.
 message KeyWithMaintainers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-*since version 10*
-
 A contract key paired with its induced maintainers.
 
-In this version, these fields are included:
+(*since version 10*)
 
-* `message VersionedValue`_ key
+As of version 10, these fields are included:
+
+* `message VersionedValue`_ key_versioned
 * repeated ``string`` maintainers
 
-``key`` is required.
+``key_versioned`` is required.
 
-``maintainers`` must be non-empty.
+``maintainers`` must be non-empty, whose elements are party
+identifiers.
 
-The key may not contain contract IDs.
+(*since version 12*)
 
+As of version 12, this field is included:
+
+* `message Value`_ key_unversioned
+
+``key_unversioned`` is required while ``key_versioned`` is not used
+anymore.
 
 message NodeCreate
 ^^^^^^^^^^^^^^^^^^
 
-*since version 10*
-
-The creation of a contract by instantiating a DAML-LF template with the
+The creation of a contract by instantiating a Daml-LF template with the
 given argument.
+
+(*since version 10*)
 
 As of version 10, these fields are included:
 
@@ -346,35 +358,37 @@ specification`_.
 
 ``contract_instance`` is required.
 
-Every element of ``stakeholders`` is a party identifier.
-``signatories`` must be a non-empty subset of ``stakeholders``.
+Every element of ``signatories`` and ``stakeholders`` is a party
+identifier.
 
 .. note:: *This section is non-normative.*
-
+	  
   The stakeholders of a contract are the signatories and the observers of
   said contract.
 
-  The signatories of a contract are specified in the DAML-LF definition of
+  The signatories of a contract are specified in the Daml-LF definition of
   the template for said contract. Conceptually, they are the parties that
   agreed for that contract to be created.
 
-``key_with_maintainers`` is optional. If present:
+``key_with_maintainers`` is optional. 
 
-* Its ``maintainers`` must be a subset of the ``signatories``;
-* The ``template_id` in the ``contract_instance`` must refer to a template with
-  a key definition;
-* Its ``key`` must conform to the key definition for the ``template_id``
-  in the ``contract_instance``.
+(*since version 12*)
 
-The maintainers of a contract key are specified in the DAML-LF definition of
-the template for the contract.
+As of version 12, these fields are included:
+
+* `message Identifier`_ template_id
+* `message VersionedValue`_ arg_unversioned
+* ``string`` agreement
+
+``template_id`` and ``arg_unversioned`` is required while
+``contract_instance`` is not used anymore.
 
 message NodeFetch
 ^^^^^^^^^^^^^^^^^
 
-*since version 10*
+Evidence of a Daml-LF ``fetch`` invocation.
 
-Evidence of a DAML-LF ``fetch`` invocation.
+(*since version 10*)
 
 As of version 10, these fields are included:
 
@@ -386,15 +400,14 @@ As of version 10, these fields are included:
 * `message KeyWithMaintainers`_ key_with_maintainers
 * ``string`` value_version
 
-``contract_id_struct`` is required. Its structure is defined by `the value
-specification`_.
+``contract_id_struct`` is required. Its structure is defined by `the
+value specification`_.
 
-``template_id`` is required.
+``template_id`` is required. ``template_id``'s structure is defined by
+`the value specification`_
 
-``template_id``'s structure is defined by `the value specification`_
-
-Every element of ``stakeholders``, ``signatories`` and ``actors`` is a party
-identifier.
+Every element of ``stakeholders``, ``signatories`` and ``actors`` is a
+party identifier.
 
 ``actors`` is required to be non-empty:
 
@@ -404,19 +417,20 @@ identifier.
   contract -- or in other words, they are _not_ a property of the
   contract itself.
 
-``key_with_maintainers`` is optional. It is present if and only if the
-``template_id`` field refers to a template with a DAML-LF key
-definition.  When present, the field's sub-fields ``key`` and
-``maintainers`` must conform to the key definition for the
-``template_id``.
+``key_with_maintainers`` is optional.
+
+(*since version 1.dev*)
+As of version 1.dev, this field is required:
+
+``bool`` byKey
 
 message NodeExercise
 ^^^^^^^^^^^^^^^^^^^^
 
-*since version 10*
-
 The exercise of a choice on a contract, selected from the available
-choices in the associated DAML-LF template definition.
+choices in the associated Daml-LF template definition.
+
+(*since version 10*)
 
 As of version 10, these fields are included:
 
@@ -424,35 +438,29 @@ As of version 10, these fields are included:
 * `message Identifier`_ template_id
 * repeated ``string`` actors
 * ``string`` choice
-* `message VersionedValue`_ chosen_value
+* `message VersionedValue`_ arg_versioned
 * ``bool`` consuming
 * repeated ``string`` children
 * repeated ``string`` stakeholders
 * repeated ``string`` signatories
-* `message VersionedValue`_ return_value
+* `message VersionedValue`_ result_versioned
 * `message KeyWithMaintainers`_ key_with_maintainers
 
-``contract_id_struct`` is required. Its structure is defined by `the value
-specification`_, version 3.
+``contract_id_struct`` is required. 
 
-``children`` may be empty; all other fields are required, and required
-to be non-empty.
+``children`` and ``key_with_maintainers`` may be empty; all other
+fields are required, and required to be non-empty.
 
-``template_id``'s structure is defined by `the value specification`_;
-the version of that specification to use when consuming it is the
-``version`` field of ``chosen_value``.
+``template_id``'s structure is defined by `the value specification`_.
 
-``choice`` must be the name of a choice defined in the DAML-LF template
-definition referred to by ``template_id``.
+``children`` is constrained as described under `field node_id`_.
 
-``chosen_value`` must conform to the DAML-LF argument type of the
-``choice``.
+.. note:: *This section is non-normative.*
 
-``children`` is constrained as described under `field node_id`_.  Every
-node referred to as one of ``children`` is another update to the ledger
-taken as part of this transaction and as a consequence of exercising
-this choice. Nodes in ``children`` appear in the order they were
-created during interpretation.
+  Every node referred to as one of ``children`` is another
+  update to the ledger taken as part of this transaction and as a
+  consequence of exercising this choice. Nodes in ``children`` appear
+  in the order they were created during interpretation.
 
 Every element of ``actors``, ``stakeholders``, ``signatories``, and
 ``controllers`` is a party identifier.
@@ -468,17 +476,40 @@ Every element of ``actors``, ``stakeholders``, ``signatories``, and
   _must_ be the same. For this reason the ``controllers`` field was
   removed in version 6 -- see *since version 10* below.
 
-The ``controllers`` field must be empty. Software needing to fill in
-data structures that demand both actors and controllers must use
-the ``actors`` field as the controllers.
+  The ``controllers`` field must be empty. Software needing to fill in
+  data structures that demand both actors and controllers must use the
+  ``actors`` field as the controllers.
 
+(* since version 11*)
+  
+As version 11, this field is included:
+
+* repeated ``string`` observers
+
+Every element of ``observers`` is a party identifier.
+
+(* since version 12*)
+
+As version 12, these field are included:
+ 
+* `message VersionedValue`_ arg_unversioned
+* `message VersionedValue`_ result_unversioned
+
+``arg_unversioned`` and ``result_unversioned`` are required, while
+``arg_versioned`` and ``result_versioned`` are not used anymore.
+
+
+(*since version 1.dev*)
+As of version 1.dev, this field is required:
+
+``bool`` byKey
 
 message NodeLookupByKey
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-*since version 10*
-
 The lookup of a contract by contract key.
+
+(*since version 10*)
 
 As of version 10, these fields are included:
 
@@ -487,18 +518,14 @@ As of version 10, these fields are included:
 * `message KeyWithMaintainers`_ key_with_maintainers
 * `message ContractId`_ contract_id_struct
 
-``template_id`` and ``key_with_maintainers`` are required. ``contract_id_struct`` is optional: if a
-contract with the specified key is not found it will not be present.
+``template_id`` and ``key_with_maintainers`` are
+required. ``contract_id_struct`` is optional:
 
-``template_id`` must refer to a template with a key definition.
-Its structure is defined by `the value specification`_;
-the version of that specification to use when consuming it is the
-``version`` field of ``key``.
+.. note:: *This section is non-normative.*
 
-The ``key`` in ``key_with_maintainers`` must conform to the key definition in ``template_id``.
+  if a contract with the specified key is not found it will
+  not be present.
 
-``template_id``'s structure is defined by `the value specification`_;
-the version of that specification to use when consuming it is the
-``version`` field of the ``key`` field in ``key_with_maintainers``.
+``template_id``'s structure is defined by `the value specification`_
 
 .. _`the value specification`: value.rst

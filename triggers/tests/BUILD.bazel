@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,6 +6,7 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "silencer_plugin",
 )
 load(
     "//bazel_tools/client_server:client_server_test.bzl",
@@ -58,7 +59,7 @@ dependencies:
   - daml-script.dar
 EOF
       test -z "{lf_version}" || echo "build-options: [--target={lf_version}]" >> $$TMP_DIR/daml.yaml
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location acs{suffix}.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location acs{suffix}.dar)
       rm -rf $$TMP_DIR
     """.format(
             sdk = sdk_version,
@@ -77,6 +78,16 @@ da_scala_library(
     srcs = [
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractFuncTests.scala",
         "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTest.scala",
+    ],
+    plugins = [
+        silencer_plugin,
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_akka_akka_stream",
+        "@maven//:org_scala_lang_modules_scala_collection_compat",
+        "@maven//:org_scalactic_scalactic",
+        "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
@@ -103,10 +114,6 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//triggers/runner:trigger-runner-lib",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:org_scalactic_scalactic_2_12",
-        "@maven//:org_scalatest_scalatest_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -131,6 +138,12 @@ da_scala_library(
             "//ledger/test-common/test-certificates",
         ],
         resources = ["//triggers/runner:src/main/resources/logback.xml"],
+        scala_deps = [
+            "@maven//:com_typesafe_akka_akka_stream",
+            "@maven//:org_scalacheck_scalacheck",
+            "@maven//:org_scalatestplus_scalacheck_1_14",
+            "@maven//:org_scalaz_scalaz_core",
+        ],
         deps = [
             ":test-utils",
             "//bazel_tools/runfiles:scala_runfiles",
@@ -158,10 +171,6 @@ da_scala_library(
             "//libs-scala/resources",
             "//libs-scala/scalatest-utils",
             "//triggers/runner:trigger-runner-lib",
-            "@maven//:com_typesafe_akka_akka_stream_2_12",
-            "@maven//:org_scalacheck_scalacheck_2_12",
-            "@maven//:org_scalatestplus_scalacheck_1_14_2_12",
-            "@maven//:org_scalaz_scalaz_core_2_12",
         ],
     )
     for lf_version in DAML_LF_VERSIONS
