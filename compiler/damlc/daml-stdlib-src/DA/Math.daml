@@ -27,6 +27,7 @@ infixr 8 **
 (**) : Decimal -> Decimal -> Decimal
 x ** y
   | y == 0.0 = 1.0
+  | x == 0.0 = 0.0
   | otherwise = exp (y * log x)
 
 -- | Calculate the square root of a Decimal.
