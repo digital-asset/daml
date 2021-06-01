@@ -20,11 +20,11 @@ class NormalizeRollbacksSpec extends AnyWordSpec with Matchers with Inside {
 
   import NormalizeRollbackSpec._
 
-  // TODO: https://github.com/digital-asset/daml/issues/8020
+  // TODO:
   // Below we test a set of hand-constructed testcases. Hopefully we got all edge cases!
   // But for more confidence we might consider adding scalacheck based testing.
 
-  // TODO: https://github.com/digital-asset/daml/issues/8020
+  // TODO:
   // We should test that the `meaning` of a transaction is preserved by normalization.
 
   def test(name: String)(orig: Shape.Top, expected: Shape.Top): Unit = {
