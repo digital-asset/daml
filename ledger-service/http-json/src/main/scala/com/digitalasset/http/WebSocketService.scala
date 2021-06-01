@@ -535,13 +535,13 @@ class WebSocketService(
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
       offPrefix: Option[domain.StartingOffset],
-      r: A,
+      rawRequest: A,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Source[Error \/ Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
 
-    val request = Q.adjustRequest(offPrefix, r)
+    val request = Q.adjustRequest(offPrefix, rawRequest)
 
     val StreamPredicate(resolved, unresolved, fn, dbQuery) =
       Q.predicate(request, resolveTemplateId, lookupType)
