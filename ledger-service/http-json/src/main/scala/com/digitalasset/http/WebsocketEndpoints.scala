@@ -32,15 +32,15 @@ object WebsocketEndpoints {
       .toRightDisjunction(Unauthorized(s"Missing required $tokenPrefix.[token] in subprotocol"))
   }
 
-  private def preconnect(
+  private def preconnect[Err >: Unauthorized](
       decodeJwt: ValidateJwt,
       req: WebSocketUpgrade,
       subprotocol: String,
   ) =
     for {
-      _ <- req.requestedProtocols.contains(subprotocol) either (()) or Unauthorized(
+      _ <- req.requestedProtocols.contains(subprotocol) either (()) or (Unauthorized(
         s"Missing required $tokenPrefix.[token] or $wsProtocol subprotocol"
-      )
+      ): Err)
       jwt0 <- findJwtFromSubProtocol(req)
       payload <- decodeAndParsePayload[JwtPayload](jwt0, decodeJwt)
     } yield payload

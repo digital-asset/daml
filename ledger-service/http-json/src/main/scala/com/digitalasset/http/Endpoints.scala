@@ -32,7 +32,7 @@ import com.daml.util.ExceptionOps._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, NonEmptyList, Show, \/, \/-}
+import scalaz.{-\/, EitherT, IsCovariant, NonEmptyList, Show, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
@@ -221,7 +221,7 @@ class Endpoints(
         domain.SyncResponse.covariant.map(result) { source =>
           source
             .via(handleSourceFailure)
-            .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
+            .map(_.flatMap(lfAcToJsValue).widenLeft): Source[Error \/ JsValue, NotUsed]
         }
       }
     }
@@ -233,7 +233,7 @@ class Endpoints(
       _.flatMap { case (jwt, jwtPayload, reqBody) =>
         SprayJson
           .decode[domain.GetActiveContractsRequest](reqBody)
-          .liftErr(InvalidUserInput)
+          .liftErr[Error](InvalidUserInput)
           .map { cmd =>
             val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[JsValue]] =
               contractsService.search(jwt, jwtPayload, cmd)
@@ -305,13 +305,15 @@ class Endpoints(
 
     } yield domain.OkResponse(())
 
-  private def handleFutureEitherFailure[B](fa: Future[Error \/ B])(implicit
+  private def handleFutureEitherFailure[B](fa: Future[(_ <: Error) \/ B])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ B] =
-    fa.recover { case NonFatal(e) =>
+  ): Future[Error \/ B] = {
+    val wfa: Future[Error \/ B] = IsCovariant[* \/ B] substCo fa
+    wfa.recover { case NonFatal(e) =>
       logger.error("Future failed", e)
       -\/(ServerError(e.description))
     }
+  }
 
   private def handleFutureEitherFailure[A: Show, B](fa: Future[A \/ B])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -324,7 +326,7 @@ class Endpoints(
   private def handleFutureFailure[A](fa: Future[A])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[ServerError \/ A] =
-    fa.map(a => \/-(a)).recover { case NonFatal(e) =>
+    fa.map(a => \/.r[ServerError](a)).recover { case NonFatal(e) =>
       logger.error("Future failed", e)
       -\/(ServerError(e.description))
     }
@@ -399,7 +401,7 @@ class Endpoints(
     findJwt(req) match {
       case e @ -\/(_) =>
         discard { req.entity.discardBytes(mat) }
-        Future.successful(e)
+        Future.successful(e.coerceRight)
       case \/-(j) =>
         data(req.entity).map(d => \/-((j, d)))
     }
@@ -440,7 +442,7 @@ class Endpoints(
     findJwt(req) match {
       case e @ -\/(_) =>
         discard { req.entity.discardBytes(mat) }
-        e
+        IsCovariant[* \/ (Jwt, Source[ByteString, Any])].widen(e.coerceRight)
       case \/-(j) =>
         \/-((j, req.entity.dataBytes))
     }

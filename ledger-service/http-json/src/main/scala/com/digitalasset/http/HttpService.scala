@@ -36,6 +36,7 @@ import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
+import com.daml.scalautil.WidenEither._
 import scalaz.Scalaz._
 import scalaz._
 
@@ -241,7 +242,7 @@ object HttpService {
     () => {
       for {
         token <- refreshToken(holderM).flatMap(x =>
-          toFuture(x: PackageService.Error \/ Option[String])
+          toFuture(x.widenLeft[PackageService.Error])
         )
         _ <- client.transactionClient.getLedgerEnd(token)
       } yield ()

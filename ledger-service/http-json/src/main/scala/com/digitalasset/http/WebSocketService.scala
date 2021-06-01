@@ -266,7 +266,7 @@ object WebSocketService {
           for {
             as <- SprayJson
               .decode[NelCKRH[Hint, JsValue]](jv)
-              .liftErr(InvalidUserInput)
+              .liftErr[Error](InvalidUserInput)
             bs = as.map(a => decodeWithFallback(decoder, a))
           } yield Query(bs, alg)
         if (resumingAtOffset) go(ResumingEnrichedContractKeyWithStreamQuery)

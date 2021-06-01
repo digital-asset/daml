@@ -8,6 +8,7 @@ import com.daml.http.EndpointsCompanion.{Error, InvalidUserInput}
 import com.daml.http.util.FutureUtil._
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api
+import com.daml.scalautil.WidenEither._
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
 import scalaz.std.string._
@@ -30,7 +31,7 @@ class PartiesService(
   ): Future[Error \/ domain.PartyDetails] = {
     val et: ET[domain.PartyDetails] = for {
       idHint <- either(
-        request.identifierHint.traverse(toLedgerApi)
+        request.identifierHint.traverse(toLedgerApi).widenLeft
       ): ET[Option[Ref.Party]]
 
       apiParty <- rightT(
@@ -53,7 +54,7 @@ class PartiesService(
       identifiers: OneAnd[Set, domain.Party],
   ): Future[Error \/ (Set[domain.PartyDetails], Set[domain.Party])] = {
     val et: ET[(Set[domain.PartyDetails], Set[domain.Party])] = for {
-      apiPartyIds <- either(toLedgerApiPartySet(identifiers)): ET[OneAnd[Set, Ref.Party]]
+      apiPartyIds <- either(toLedgerApiPartySet(identifiers).widenLeft): ET[OneAnd[Set, Ref.Party]]
       apiPartyDetails <- rightT(getParties(jwt, apiPartyIds)): ET[List[api.domain.PartyDetails]]
       domainPartyDetails = apiPartyDetails.iterator
         .map(domain.PartyDetails.fromLedgerApi)
