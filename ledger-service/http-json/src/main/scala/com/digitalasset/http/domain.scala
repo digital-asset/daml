@@ -187,15 +187,6 @@ object domain {
       PartyDetails(Party(p.party), p.displayName, p.isLocal)
   }
 
-  private[this] def minOption[A](implicit
-      ordering: Order[A]
-  ): (Option[A], Option[A]) => Option[A] = {
-    case (Some(a1), Some(a2)) => Some(ordering.min(a1, a2))
-    case (a1, None) if a1.isDefined => a1
-    case (None, a2) if a2.isDefined => a2
-    case _ => None
-  }
-
   sealed trait OffsetTag
 
   type Offset = String @@ OffsetTag
@@ -224,18 +215,9 @@ object domain {
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
     implicit val ordering: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))
-
-    val min: (Option[Offset], Option[Offset]) => Option[Offset] = minOption(ordering)
   }
 
   final case class StartingOffset(offset: Offset)
-
-  object StartingOffset {
-    implicit val ordering: Order[StartingOffset] =
-      Order.orderBy[StartingOffset, Offset](_.offset)(Offset.ordering)
-    val min: (Option[StartingOffset], Option[StartingOffset]) => Option[StartingOffset] =
-      minOption(ordering)
-  }
 
   type LedgerIdTag = lar.LedgerIdTag
   type LedgerId = lar.LedgerId

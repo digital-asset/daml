@@ -8,7 +8,7 @@ import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.Materializer
 import com.daml.http.EndpointsCompanion._
-import com.daml.http.domain.{JwtPayload, SearchForeverRequest, StartingOffset}
+import com.daml.http.domain.{JwtPayload, SearchForeverRequest}
 import com.daml.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
 import JsonProtocol.LfValueDatabaseCodec
 import com.daml.http.LedgerClientJwt.Terminates
@@ -173,7 +173,10 @@ object WebSocketService {
 
     def renderCreatedMetadata(p: Positive): Map[String, JsValue]
 
-    def requestOffset(request: A): Option[domain.StartingOffset]
+    def startingOffset(
+        prefix: Option[domain.StartingOffset],
+        request: A,
+    ): Option[domain.StartingOffset]
 
   }
 
@@ -265,12 +268,17 @@ object WebSocketService {
           "matchedQueries" -> p.toJson
         }
 
-      override def requestOffset(request: SearchForeverRequest): Option[StartingOffset] =
-        request.queries.toList.view
-          .map(_.offset)
-          .fold(none[domain.Offset])(domain.Offset.min)
-          .map(StartingOffset.apply)
+      import scalaz.syntax.tag._
+      private implicit val stringOrder = scalaz.Order.fromScalaOrdering[String]
 
+      override def startingOffset(
+          prefix: Option[domain.StartingOffset],
+          request: SearchForeverRequest,
+      ): Option[domain.StartingOffset] =
+        request.queries
+          .map(_.offset.fold(prefix)(offset => Some(domain.StartingOffset(offset))))
+          .minimumBy(_.fold("")(_.offset.unwrap))
+          .get // Safe on NonEmptyList
     }
 
   implicit val EnrichedContractKeyWithStreamQuery
@@ -361,9 +369,10 @@ object WebSocketService {
 
     override def renderCreatedMetadata(p: Unit) = Map.empty
 
-    override def requestOffset(
-        request: NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]]
-    ): Option[StartingOffset] = None
+    override def startingOffset(
+        prefix: Option[domain.StartingOffset],
+        request: NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]],
+    ): Option[domain.StartingOffset] = None
 
   }
 
@@ -514,9 +523,7 @@ class WebSocketService(
     val StreamPredicate(resolved, unresolved, fn, dbQuery) =
       Q.predicate(request, resolveTemplateId, lookupType)
 
-    val requestOffset = Q.requestOffset(request)
-
-    val startingOffset = domain.StartingOffset.min(offPrefix, requestOffset)
+    val startingOffset = Q.startingOffset(offPrefix, request)
 
     if (resolved.nonEmpty) {
       def prefilter: Future[
