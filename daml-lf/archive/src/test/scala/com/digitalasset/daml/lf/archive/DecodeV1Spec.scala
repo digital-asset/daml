@@ -30,10 +30,21 @@ class DecodeV1Spec
     with OptionValues
     with ScalaCheckPropertyChecks {
 
+  val unitTyp: DamlLf1.Type = DamlLf1.Type
+    .newBuilder()
+    .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.UNIT))
+    .build()
+
+  val typeTable = ImmArraySeq(TUnit)
+  val unitTypInterned = DamlLf1.Type.newBuilder().setInterned(0).build()
+
+  val unitExpr: DamlLf1.Expr = DamlLf1.Expr
+    .newBuilder()
+    .setPrimCon(DamlLf1.PrimCon.CON_UNIT)
+    .build()
+
   // TODO https://github.com/digital-asset/daml/issues/8020
   //  Add test for
-  //   - MakeAnyException
-  //   - FromAnyException
   //   - UpdateTryCatch
 
   "The entries of primTypeInfos correspond to Protobuf DamlLf1.PrimType" in {
@@ -839,17 +850,31 @@ class DecodeV1Spec
 
     }
 
-    s"translate exception builtins as is iff version >= ${LV.Features.exceptions}" in {
+    s"translate exception primitive as is iff version >= ${LV.Features.exceptions}" in {
       val exceptionBuiltinCases = Table(
-        "exception builtins" -> "expected output",
-        DamlLf1.BuiltinFunction.ANY_EXCEPTION_MESSAGE ->
+        "exception primitive" -> "expected output",
+        toProtoExpr(DamlLf1.BuiltinFunction.ANY_EXCEPTION_MESSAGE) ->
           Ast.EBuiltin(Ast.BAnyExceptionMessage),
+        DamlLf1.Expr
+          .newBuilder()
+          .setToAnyException(
+            DamlLf1.Expr.ToAnyException.newBuilder().setType(unitTypInterned).setExpr(unitExpr)
+          )
+          .build() ->
+          Ast.EToAnyException(TUnit, EUnit),
+        DamlLf1.Expr
+          .newBuilder()
+          .setFromAnyException(
+            DamlLf1.Expr.FromAnyException.newBuilder().setType(unitTypInterned).setExpr(unitExpr)
+          )
+          .build() ->
+          Ast.EFromAnyException(TUnit, EUnit),
       )
 
       forEveryVersion { version =>
-        val decoder = moduleDecoder(version)
+        val decoder = moduleDecoder(version, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
         forEvery(exceptionBuiltinCases) { (proto, scala) =>
-          val result = Try(decoder.decodeExpr(toProtoExpr(proto), "test"))
+          val result = Try(decoder.decodeExpr(proto, "test"))
 
           if (version >= LV.Features.exceptions)
             result shouldBe Success(scala)
@@ -1044,7 +1069,6 @@ class DecodeV1Spec
 
   "decodeChoice" should {
     val stringTable = ImmArraySeq("SomeChoice", "controllers", "observers", "self", "arg", "body")
-    val typeTable = ImmArraySeq(TUnit)
     val templateName = Ref.DottedName.assertFromString("Template")
     val controllersExpr = DamlLf1.Expr.newBuilder().setVarInternedStr(1).build()
     val observersExpr = DamlLf1.Expr.newBuilder().setVarInternedStr(2).build()
@@ -1052,11 +1076,6 @@ class DecodeV1Spec
 
     "reject choice with observers if lf version = 1.6" in {
       // special case for LF 1.6 that does not support string interning
-      val unitTyp: DamlLf1.Type = DamlLf1.Type
-        .newBuilder()
-        .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.UNIT))
-        .build()
-
       val protoChoiceWithoutObservers = DamlLf1.TemplateChoice
         .newBuilder()
         .setNameStr("ChoiceName")
@@ -1085,11 +1104,6 @@ class DecodeV1Spec
     }
 
     "reject choice with observers if 1.7 < lf version < 1.dev" in {
-      val unitTyp: DamlLf1.Type = DamlLf1.Type
-        .newBuilder()
-        .setPrim(DamlLf1.Type.Prim.newBuilder().setPrim(DamlLf1.PrimType.UNIT))
-        .build()
-
       val protoChoiceWithoutObservers = DamlLf1.TemplateChoice
         .newBuilder()
         .setNameInternedStr(0)
@@ -1123,16 +1137,16 @@ class DecodeV1Spec
 
     "reject choice without observers if lv version >= 1.dev" in {
 
-      val unitTyp = DamlLf1.Type.newBuilder().setInterned(0).build()
-
       val protoChoiceWithoutObservers = DamlLf1.TemplateChoice
         .newBuilder()
         .setNameInternedStr(0)
         .setConsuming(true)
         .setControllers(controllersExpr)
         .setSelfBinderInternedStr(3)
-        .setArgBinder(DamlLf1.VarWithType.newBuilder().setVarInternedStr(4).setType(unitTyp))
-        .setRetType(unitTyp)
+        .setArgBinder(
+          DamlLf1.VarWithType.newBuilder().setVarInternedStr(4).setType(unitTypInterned)
+        )
+        .setRetType(unitTypInterned)
         .setUpdate(bodyExp)
         .build()
 
