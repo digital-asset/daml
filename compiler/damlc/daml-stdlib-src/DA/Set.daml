@@ -61,6 +61,7 @@ module DA.Set
   , difference
   ) where
 
+import qualified DA.Foldable as Foldable
 import DA.Set.Types
 import DA.Map (Map)
 import DA.Map qualified as M
@@ -150,4 +151,12 @@ instance DA.Internal.Record.HasField "map" (Set k) (Map k ()) where
   getField (Set m) = m
   setField m _ = Set m
 
+
+instance Foldable.Foldable Set where
+  toList = DA.Set.toList
+  foldr f a xs = foldr f a (DA.Set.toList xs)
+  foldl f a xs = foldl f a (DA.Set.toList xs)
+  foldMap f xs = Foldable.foldMap f (DA.Set.toList xs)
+  length = size
+  null = DA.Set.null
 #endif
