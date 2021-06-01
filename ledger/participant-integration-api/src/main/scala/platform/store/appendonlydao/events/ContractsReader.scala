@@ -5,7 +5,6 @@ package com.daml.platform.store.appendonlydao.events
 
 import java.io.InputStream
 import java.time.Instant
-
 import anorm.SqlParser._
 import anorm.{RowParser, SqlParser, SqlStringInterpolation, _}
 import com.codahale.metrics.Timer
@@ -15,10 +14,7 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
 import com.daml.platform.store.appendonlydao.events.ContractsReader._
-import com.daml.platform.store.appendonlydao.events.SqlFunctions.{
-  H2SqlFunctions,
-  PostgresSqlFunctions,
-}
+import com.daml.platform.store.appendonlydao.events.SqlFunctions.{H2SqlFunctions, OracleSqlFunctions, PostgresSqlFunctions}
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
@@ -401,7 +397,7 @@ private[appendonlydao] object ContractsReader {
     def sqlFunctions = dbType match {
       case DbType.Postgres => PostgresSqlFunctions
       case DbType.H2Database => H2SqlFunctions
-      case DbType.Oracle => throw new NotImplementedError("not yet supported")
+      case DbType.Oracle => OracleSqlFunctions
     }
     new ContractsReader(
       committedContracts = ContractsTable,
