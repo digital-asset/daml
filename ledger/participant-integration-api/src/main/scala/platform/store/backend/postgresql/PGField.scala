@@ -50,8 +50,13 @@ final case class PGStringArray[FROM](extract: FROM => Iterable[String])
   override def selectFieldExpression(inputFieldName: String): String =
     s"string_to_array($inputFieldName, '|')"
 
-  override def convert: Iterable[String] => String =
-    _.mkString("|") // FIXME safeguard/escape pipe chars in from
+  override def convert: Iterable[String] => String = { in =>
+    assert(
+      in.forall(!_.contains("|")),
+      s"The following input string(s) contain the character '|', which is not expected: ${in.filter(_.contains("|")).mkString(", ")}",
+    )
+    in.mkString("|")
+  }
 }
 
 final case class PGBytea[FROM](extract: FROM => Array[Byte])
