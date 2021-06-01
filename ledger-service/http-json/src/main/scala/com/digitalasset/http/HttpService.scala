@@ -91,7 +91,7 @@ object HttpService {
       maxInboundMessageSize = maxInboundMessageSize,
     )
 
-    val bindingEt: EitherT[Future, Error, ServerBinding] = for {
+    val bindingEt: EitherT[Error, Future, ServerBinding] = for {
       client <- eitherT(
         ledgerClient(
           ledgerHost,

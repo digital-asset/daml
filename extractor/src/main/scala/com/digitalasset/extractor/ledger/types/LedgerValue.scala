@@ -11,7 +11,6 @@ import scalaz.{Optional => _, _}
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.option._
-import scalaz.syntax.bifoldable._
 import scalaz.syntax.std.either._
 import scalaz.syntax.traverse._
 import com.daml.lf.{data => lfdata}

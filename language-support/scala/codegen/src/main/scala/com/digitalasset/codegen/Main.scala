@@ -67,9 +67,10 @@ object Main extends StrictLogging {
   }
 
   private def format(map: Map[Path, Option[String]]): String = {
-    val cord = map.foldLeft(Cord("{")) { (str, kv) =>
-      str ++ kv._1.toFile.getAbsolutePath ++ "->" ++ kv._2.toString ++ ","
+    import scalaz.syntax.show._
+    val elts = map.foldLeft(Cord("{")) { (str, kv) =>
+      cord"$str${kv._1.toFile.getAbsolutePath}->${kv._2},"
     }
-    (cord ++ "}").toString
+    cord"$elts}".toString
   }
 }

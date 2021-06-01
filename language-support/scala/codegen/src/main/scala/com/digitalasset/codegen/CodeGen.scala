@@ -73,7 +73,7 @@ object CodeGen {
       case Nil =>
         throw PackageInterfaceException("Expected at least one DAR or DALF input file.")
       case f :: fs =>
-        generateCodeSafe(NonEmptyList(f, fs: _*), packageName, outputDir, mode, roots)
+        generateCodeSafe(NonEmptyList.fromSeq(f, fs), packageName, outputDir, mode, roots)
           .fold(es => throw PackageInterfaceException(formatErrors(es)), identity)
     }
 

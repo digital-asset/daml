@@ -208,7 +208,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       mat: Materializer,
   ): Future[ScriptLedgerClient.TransactionTree] = {
     import scalaz.std.list._
-    import scalaz.syntax.traverse._
+    import scalaz.syntax.traverse0._
     for {
       ledgerCommands <- Converter.toFuture(commands.traverse(toCommand(_)))
       apiCommands = Commands(
