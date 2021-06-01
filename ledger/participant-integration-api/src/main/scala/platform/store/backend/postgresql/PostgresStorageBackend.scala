@@ -132,7 +132,6 @@ object PostgresStorageBackend extends StorageBackend[PostgresDbBatch] {
       |FROM package_entries
       |WHERE ledger_offset > ?;
       |
-      |-- TODO append-only: we do not have currently an index to support efficiently this operation. either add or make sure it is okay to do full table scans here
       |DELETE
       |FROM packages
       |WHERE ledger_offset > ?;
@@ -157,7 +156,6 @@ object PostgresStorageBackend extends StorageBackend[PostgresDbBatch] {
       |FROM participant_events_non_consuming_exercise
       |WHERE event_offset > ?;
       |
-      |-- TODO append-only: we do not have currently an index to support efficiently this operation. either add or make sure it is okay to do full table scans here
       |DELETE
       |FROM parties
       |WHERE ledger_offset > ?;
