@@ -1211,7 +1211,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             [ "build"
             , "--project-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
-            , "--target", renderVersion (featureMinVersion featureDamlExceptions) ]
+            , "--target", LF.renderVersion (LF.featureMinVersion LF.featureDamlExceptions) ]
 
         step "building project that imports it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "main")
@@ -1244,7 +1244,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
         callProcessSilent damlc
             [ "build"
             , "--project-root", tmpDir </> "main"
-            , "--target", renderVersion versionDev ]
+            , "--target", LF.renderVersion LF.versionDev ]
 
     , testCaseSteps "Standard library exceptions" $ \step -> withTempDir $ \tmpDir -> do
         step "building project to be imported via data-dependencies"
@@ -1289,7 +1289,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             [ "build"
             , "--project-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
-            , "--target", renderVersion (featureMinVersion featureDamlExceptions) ]
+            , "--target", LF.renderVersion (LF.featureMinVersion LF.featureDamlExceptions) ]
 
         step "building project that imports it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "main")
@@ -1350,12 +1350,12 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
         callProcessSilent damlc
             [ "build"
             , "--project-root", tmpDir </> "main"
-            , "--target", renderVersion versionDev ]
+            , "--target", LF.renderVersion LF.versionDev ]
         step "running damlc test"
         callProcessSilent damlc
             [ "test"
             , "--project-root", tmpDir </> "main"
-            , "--target", renderVersion versionDev ]
+            , "--target", LF.renderVersion LF.versionDev ]
     ]
   where
     simpleImportTest :: String -> [String] -> [String] -> TestTree
