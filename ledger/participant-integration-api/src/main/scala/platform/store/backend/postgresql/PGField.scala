@@ -9,6 +9,11 @@ import java.time.format.DateTimeFormatter
 
 import scala.reflect.ClassTag
 
+/** Type parameters TO and CONVERTED need to comply to the following contract:
+  * - either both of them nullable (AnyRef)
+  * - or neither of them nullable (CONVERTED AnyVal, TO AnyVal or AnyRef which will be never null)
+  * This is important, since absence is automatically signaled with null references (and we still would want to support primitives)
+  */
 sealed abstract class PGField[FROM, TO, CONVERTED](implicit classTag: ClassTag[CONVERTED]) {
   def extract: FROM => TO
   def convert: TO => CONVERTED
@@ -16,8 +21,11 @@ sealed abstract class PGField[FROM, TO, CONVERTED](implicit classTag: ClassTag[C
 
   final def toArray(input: Vector[FROM]): Array[CONVERTED] =
     input.view
+      .map(extract)
       .map {
-        case notNull if notNull != null => convert(extract(notNull))
+        case null =>
+          null.asInstanceOf[CONVERTED] // this is safe if clients comply with the contract above
+        case notNull => convert(notNull)
       }
       .toArray(classTag)
 }

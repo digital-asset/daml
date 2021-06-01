@@ -26,7 +26,7 @@ object PostgresDbBatch {
   def apply(dbDtos: Vector[DBDTOV1]): PostgresDbBatch = {
     def collectWithFilter[T <: DBDTOV1: ClassTag](filter: T => Boolean): Vector[T] =
       dbDtos.collect { case dbDto: T if filter(dbDto) => dbDto }
-    def collect[T <: DBDTOV1: ClassTag]: Vector[T] = collectWithFilter((_: T) => false)
+    def collect[T <: DBDTOV1: ClassTag]: Vector[T] = collectWithFilter[T](_ => true)
     import DBDTOV1._
     import PGSchema._
     PostgresDbBatch(
