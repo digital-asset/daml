@@ -3,105 +3,78 @@
 
 package com.daml.platform.store.backend.postgresql
 
-import java.sql.PreparedStatement
+import java.lang
 import java.time.{Instant, ZoneOffset}
 import java.time.format.DateTimeFormatter
 
-sealed trait PGField[FROM, TO] {
-  def fieldName: String
-  def extractor: FROM => TO
-  def inputFieldName: String = s"${fieldName}_in"
-  def selectFieldExpression: String = inputFieldName
-  def generateArray(in: Vector[FROM]): Array[_]
-  def setDBObject(preparedStatement: PreparedStatement, index: Int, a: Array[_]): Unit =
-    preparedStatement.setObject(index + 1, a)
+import scala.reflect.ClassTag
+
+sealed abstract class PGField[FROM, TO, CONVERTED](implicit classTag: ClassTag[CONVERTED]) {
+  def extract: FROM => TO
+  def convert: TO => CONVERTED
+  def selectFieldExpression(inputFieldName: String): String = inputFieldName
+
+  final def toArray(input: Vector[FROM]): Array[CONVERTED] =
+    input.view
+      .map {
+        case notNull if notNull != null => convert(extract(notNull))
+      }
+      .toArray(classTag)
 }
 
-final case class PGTimestamp[FROM](fieldName: String, extractor: FROM => Instant)
-    extends PGField[FROM, Instant] {
-  override def selectFieldExpression: String =
+sealed abstract class TrivialPGField[FROM, TO](implicit classTag: ClassTag[TO])
+    extends PGField[FROM, TO, TO] {
+  override def convert: TO => TO = identity
+}
+
+final case class PGTimestamp[FROM](extract: FROM => Instant)
+    extends PGField[FROM, Instant, String] {
+
+  override def selectFieldExpression(inputFieldName: String): String =
     s"$inputFieldName::timestamp"
 
-  override def generateArray(in: Vector[FROM]): Array[_] =
-    in.view
-      .map(extractor)
-      .map(toPGTimestampString)
-      .toArray
-
-  private def toPGTimestampString(instant: Instant): String =
-    if (instant == null) null
-    else
-      instant
-        .atZone(ZoneOffset.UTC)
-        .toLocalDateTime
-        .format(PGTimestamp.PGTimestampFormat)
+  override def convert: Instant => String =
+    _.atZone(ZoneOffset.UTC).toLocalDateTime
+      .format(PGTimestamp.PGTimestampFormat)
 }
 
 object PGTimestamp {
   private val PGTimestampFormat =
-    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss") // FIXME +micros
+    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS")
 }
 
-final case class PGString[FROM](fieldName: String, extractor: FROM => String)
-    extends PGField[FROM, String] {
-  override def generateArray(in: Vector[FROM]): Array[_] = in.view.map(extractor).toArray
-}
+final case class PGString[FROM](extract: FROM => String) extends TrivialPGField[FROM, String]
 
-final case class PGStringArray[FROM](fieldName: String, extractor: FROM => Iterable[String])
-    extends PGField[FROM, Iterable[String]] {
-  override def selectFieldExpression: String =
+final case class PGStringArray[FROM](extract: FROM => Iterable[String])
+    extends PGField[FROM, Iterable[String], String] {
+  override def selectFieldExpression(inputFieldName: String): String =
     s"string_to_array($inputFieldName, '|')"
 
-  override def generateArray(in: Vector[FROM]): Array[_] =
-    in.view
-      .map(extractor)
-      .map(encodeTextArray)
-      .toArray
-
-  def encodeTextArray(from: Iterable[String]): String =
-    if (from == null) null
-    else
-      from.mkString("|") // FIXME safeguard/escape pipe chars in from
+  override def convert: Iterable[String] => String =
+    _.mkString("|") // FIXME safeguard/escape pipe chars in from
 }
 
-final case class PGBytea[FROM](fieldName: String, extractor: FROM => Array[Byte])
-    extends PGField[FROM, Array[Byte]] {
-  override def generateArray(in: Vector[FROM]): Array[_] = in.view.map(extractor).toArray
+final case class PGBytea[FROM](extract: FROM => Array[Byte])
+    extends TrivialPGField[FROM, Array[Byte]]
+
+final case class PGIntOptional[FROM](extract: FROM => Option[Int])
+    extends PGField[FROM, Option[Int], java.lang.Integer] {
+  override def convert: Option[Int] => Integer = _.map(x => x: java.lang.Integer).orNull
 }
 
-final case class PGIntOptional[FROM](fieldName: String, extractor: FROM => Option[Int])
-    extends PGField[FROM, Option[Int]] {
-  override def generateArray(in: Vector[FROM]): Array[_] =
-    in.view
-      .map(in => extractor(in).map(x => x: java.lang.Integer).orNull)
-      .toArray
-}
+final case class PGBigint[FROM](extract: FROM => Long) extends TrivialPGField[FROM, Long]
 
-final case class PGBigint[FROM](fieldName: String, extractor: FROM => Long)
-    extends PGField[FROM, Long] {
-  override def generateArray(in: Vector[FROM]): Array[_] = in.view.map(extractor).toArray
-}
-
-final case class PGSmallintOptional[FROM](fieldName: String, extractor: FROM => Option[Int])
-    extends PGField[FROM, Option[Int]] {
-  override def selectFieldExpression: String =
+final case class PGSmallintOptional[FROM](extract: FROM => Option[Int])
+    extends PGField[FROM, Option[Int], java.lang.Integer] {
+  override def selectFieldExpression(inputFieldName: String): String =
     s"$inputFieldName::smallint"
 
-  override def generateArray(in: Vector[FROM]): Array[_] =
-    in.view
-      .map(in => extractor(in).map(x => x: java.lang.Integer).orNull)
-      .toArray
+  override def convert: Option[Int] => Integer = _.map(x => x: java.lang.Integer).orNull
 }
 
-final case class PGBoolean[FROM](fieldName: String, extractor: FROM => Boolean)
-    extends PGField[FROM, Boolean] {
-  override def generateArray(in: Vector[FROM]): Array[_] = in.view.map(extractor).toArray
-}
+final case class PGBoolean[FROM](extract: FROM => Boolean) extends TrivialPGField[FROM, Boolean]
 
-final case class PGBooleanOptional[FROM](fieldName: String, extractor: FROM => Option[Boolean])
-    extends PGField[FROM, Option[Boolean]] {
-  override def generateArray(in: Vector[FROM]): Array[_] =
-    in.view
-      .map(in => extractor(in).map(x => x: java.lang.Boolean).orNull)
-      .toArray
+final case class PGBooleanOptional[FROM](extract: FROM => Option[Boolean])
+    extends PGField[FROM, Option[Boolean], java.lang.Boolean] {
+  override def convert: Option[Boolean] => lang.Boolean = _.map(x => x: java.lang.Boolean).orNull
 }
