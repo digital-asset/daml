@@ -43,10 +43,6 @@ class DecodeV1Spec
     .setPrimCon(DamlLf1.PrimCon.CON_UNIT)
     .build()
 
-  // TODO https://github.com/digital-asset/daml/issues/8020
-  //  Add test for
-  //   - UpdateTryCatch
-
   "The entries of primTypeInfos correspond to Protobuf DamlLf1.PrimType" in {
 
     (Set(
@@ -883,6 +879,38 @@ class DecodeV1Spec
               error shouldBe a[ParseError]
             }
         }
+      }
+    }
+
+    s"translate UpdateTryCatch as is iff version >= ${LV.Features.exceptions}" in {
+      val tryCatchProto =
+        DamlLf1.Update.TryCatch
+          .newBuilder()
+          .setReturnType(unitTypInterned)
+          .setTryExpr(unitExpr)
+          .setVarInternedStr(0)
+          .setCatchExpr(unitExpr)
+          .build()
+      val tryCatchUpdateProto = DamlLf1.Update.newBuilder().setTryCatch(tryCatchProto).build()
+      val tryCatchExprProto = DamlLf1.Expr.newBuilder().setUpdate(tryCatchUpdateProto).build()
+      val tryCatchExprScala = Ast.EUpdate(
+        Ast.UpdateTryCatch(
+          typ = TUnit,
+          body = EUnit,
+          binder = Ref.Name.assertFromString("a"),
+          handler = EUnit,
+        )
+      )
+      val stringTable = ImmArraySeq("a")
+      forEveryVersion { version =>
+        val decoder = moduleDecoder(version, stringTable, ImmArraySeq.empty, typeTable)
+        val result = Try(decoder.decodeExpr(tryCatchExprProto, "test"))
+        if (version >= LV.Features.exceptions)
+          result shouldBe Success(tryCatchExprScala)
+        else
+          inside(result) { case Failure(error) =>
+            error shouldBe a[ParseError]
+          }
       }
     }
 
