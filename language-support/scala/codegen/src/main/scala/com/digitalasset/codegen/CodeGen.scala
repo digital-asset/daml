@@ -26,8 +26,8 @@ import scalaz.std.string._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.option._
 import scalaz.syntax.bind._
+import scalaz.syntax.foldable10._
 import scalaz.syntax.traverse._
-import scalaz.syntax.traverse10._
 
 import scala.collection.compat._
 import scala.util.{Failure, Success}

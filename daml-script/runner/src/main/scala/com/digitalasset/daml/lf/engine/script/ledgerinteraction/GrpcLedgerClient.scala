@@ -147,7 +147,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
-    import scalaz.syntax.traverse._
+    import scalaz.syntax.traverse0._
     val ledgerCommands = commands.traverse(toCommand(_)) match {
       case Left(err) => throw new ConverterException(err)
       case Right(cmds) => cmds
