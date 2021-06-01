@@ -1197,7 +1197,7 @@ private[platform] object JdbcLedgerDao {
         |where ledger_offset>{startExclusive} and ledger_offset<={endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
 
-    protected[JdbcLedgerDao] def SQL_GET_CONFIGURATION_ENTRIES =
+    protected[JdbcLedgerDao] def SQL_GET_CONFIGURATION_ENTRIES: String =
       """select * from configuration_entries where
         |ledger_offset > {startExclusive} and ledger_offset <= {endInclusive}
         |order by ledger_offset asc limit {pageSize} offset {queryOffset}""".stripMargin
@@ -1225,7 +1225,7 @@ private[platform] object JdbcLedgerDao {
         reason: RejectionReason,
     ): SimpleSql[Row] = {
       SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
-        .toArray[String]}, ${submitterInfo.commandId}, ${reason.value()}, ${reason.description})"
+        .toArray[String]}, ${submitterInfo.commandId}, ${reason.description}, ${reason.description})"
     }
 
     protected[JdbcLedgerDao] def escapeReservedWord(word: String): String
@@ -1417,7 +1417,7 @@ private[platform] object JdbcLedgerDao {
     ): SimpleSql[Row] = {
       import com.daml.platform.store.OracleArrayConversions._
       SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
-        .toArray[String]}, ${submitterInfo.commandId}, ${reason.value()}, ${reason.description})"
+        .toArray[String]}, ${submitterInfo.commandId}, ${reason.description}, ${reason.description})"
     }
 
     // spaces which are subsequently trimmed left only for readability
