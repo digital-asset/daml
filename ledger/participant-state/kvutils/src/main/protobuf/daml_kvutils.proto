@@ -527,7 +527,7 @@ enum CommandSubmissionResult {
   COMMAND_SUBMISSION_RESULT_REJECTED = 1;
   // The submission was executed and accepted. The rank-based command
   // deduplication logic guarantees that all further submission, independent
-  // of their rank, will be rejected as 'Duplicate'.
+  // of their rank, will be rejected as 'Duplicate' until the DamlCommandDedupKey is deleted.
   COMMAND_SUBMISSION_RESULT_ACCEPTED = 2;
 }
 
