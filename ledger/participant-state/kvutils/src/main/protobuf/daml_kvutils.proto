@@ -508,7 +508,7 @@ message DamlCommandDedupValue {
 
   // The rank of the submission whose result is stored. Ranks are compared in
   // lexicographic order.
-  // Optional.Provided for rank-based deduplication.
+  // Optional. Provided for rank-based deduplication.
   bytes submission_rank = 4;
 
   // The result of the submission.
