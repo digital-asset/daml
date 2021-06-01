@@ -33,7 +33,7 @@ object CidMapper {
   type NoCidChecker[-A1, +A2] = CidChecker[A1, A2, Nothing]
 
   type CidSuffixer[-A1, +A2] =
-    CidMapper[A1, A2, Value.ContractId, Value.ContractId.V1]
+    CidMapper[A1, A2, Value.ContractId, Value.ContractId]
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private val _trivialMapper: CidMapper[Any, Any, Nothing, Any] =
@@ -74,10 +74,7 @@ trait CidContainer[+A] {
     suffixer.traverse[String] {
       case Value.ContractId.V1(discriminator, Bytes.Empty) =>
         Value.ContractId.V1.build(discriminator, f(discriminator))
-      case acoid @ Value.ContractId.V1(_, _) =>
-        Right(acoid)
-      case acoid @ Value.ContractId.V0(_) =>
-        Left(s"expect a Contract ID V1, found $acoid")
+      case acoid => Right(acoid)
     }(self)
   }
 
