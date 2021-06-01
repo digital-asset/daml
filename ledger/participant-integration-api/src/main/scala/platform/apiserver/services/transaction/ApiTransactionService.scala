@@ -38,7 +38,7 @@ private[apiserver] object ApiTransactionService {
   def create(
       ledgerId: LedgerId,
       transactionsService: IndexTransactionsService,
-      metrics: Metrics
+      metrics: Metrics,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -54,7 +54,7 @@ private[apiserver] object ApiTransactionService {
 
 private[apiserver] final class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
-    metrics: Metrics
+    metrics: Metrics,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends TransactionService
     with ErrorFactories {
@@ -82,7 +82,8 @@ private[apiserver] final class ApiTransactionService private (
         .via(logger.logErrorsOnStream)
         .map(item => {
           transactionCounter.inc()
-          item})
+          item
+        })
     }
 
   private def transactionsLoggable(transactions: GetTransactionsResponse): String =
@@ -126,7 +127,8 @@ private[apiserver] final class ApiTransactionService private (
         .via(logger.logErrorsOnStream)
         .map(item => {
           transactionTreeCounter.inc()
-          item})
+          item
+        })
     }
 
   override def getTransactionByEventId(

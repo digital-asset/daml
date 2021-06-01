@@ -27,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiCommandCompletionService private (
     completionsService: IndexCompletionsService,
-    metrics: Metrics
+    metrics: Metrics,
 )(implicit
     protected val materializer: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -84,7 +84,8 @@ private[apiserver] final class ApiCommandCompletionService private (
 
 private[apiserver] object ApiCommandCompletionService {
 
-  def create(ledgerId: LedgerId, completionsService: IndexCompletionsService, metrics: Metrics)(implicit
+  def create(ledgerId: LedgerId, completionsService: IndexCompletionsService, metrics: Metrics)(
+      implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,

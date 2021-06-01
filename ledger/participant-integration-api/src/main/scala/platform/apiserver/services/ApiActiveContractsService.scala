@@ -23,7 +23,7 @@ import scala.concurrent.ExecutionContext
 
 private[apiserver] final class ApiActiveContractsService private (
     backend: ACSBackend,
-    metrics: Metrics
+    metrics: Metrics,
 )(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -48,7 +48,8 @@ private[apiserver] final class ApiActiveContractsService private (
           .via(logger.logErrorsOnStream)
           .map(item => {
             acsCounter.inc()
-            item})
+            item
+          })
     }
 
   override def bindService(): ServerServiceDefinition =
