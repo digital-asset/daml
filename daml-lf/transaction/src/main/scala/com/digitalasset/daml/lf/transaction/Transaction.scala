@@ -846,6 +846,7 @@ object Transaction {
 
   /** Transaction nodes */
   type Node = Node.GenNode[NodeId, Value.ContractId]
+  type ActionNode = Node.GenActionNode[NodeId, Value.ContractId]
   type LeafNode = Node.LeafOnlyActionNode[Value.ContractId]
 
   /** (Complete) transactions, which are the result of interpreting a
