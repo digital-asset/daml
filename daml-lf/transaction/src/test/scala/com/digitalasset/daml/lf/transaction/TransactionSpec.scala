@@ -280,6 +280,13 @@ class TransactionSpec
       tx1 shouldBe Right(tx.map2(identity, mapping2))
 
     }
+    "suffixing v0 contract id should be a no op" in {
+
+      val v0Cid = V.ValueContractId(V.ContractId.V0.assertFromString("#deadbeef"))
+      val Right(v0CidSuffixed) = v0Cid.suffixCid(_ => Bytes.assertFromString("cafe"))
+      v0Cid shouldBe v0CidSuffixed
+
+    }
   }
 
   "contractKeys" - {
