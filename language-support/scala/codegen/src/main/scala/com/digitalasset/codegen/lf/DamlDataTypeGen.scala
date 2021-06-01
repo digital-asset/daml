@@ -623,7 +623,11 @@ object DamlDataTypeGen {
   private val SubtreesMax = 5
 
   private def tupleUp[A](fieldNames: Seq[A]): Option[TupleNesting[A]] =
-    scalaz.IList.fromSeq(fieldNames).toNel.map(xs => LFUtil.tupleNesting(xs, RootMax, SubtreesMax)).toOption
+    scalaz.IList
+      .fromSeq(fieldNames)
+      .toNel
+      .map(xs => LFUtil.tupleNesting(xs, RootMax, SubtreesMax))
+      .toOption
 
   private def shapeTuple(ns: TupleNesting[TermName]): Tree =
     ns.fold(x => q"(..$x)")(x => q"(..${x.list.toList})")

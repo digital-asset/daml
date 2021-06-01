@@ -135,7 +135,9 @@ object LFUtilSpec {
 
   private[this] implicit def shrNel[A]: Shrink[NonEmptyList[A]] = // suppressing A's shrink
     Shrink { nela =>
-      Shrink.shrink((nela.head, nela.tail.toVector)) map { case (h, t) => NonEmptyList.fromSeq(h, t) }
+      Shrink.shrink((nela.head, nela.tail.toVector)) map { case (h, t) =>
+        NonEmptyList.fromSeq(h, t)
+      }
     }
 
   import com.daml.lf.iface._

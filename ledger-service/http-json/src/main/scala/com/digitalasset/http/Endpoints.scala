@@ -411,7 +411,7 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[(Jwt, JsValue)] =
     for {
-      t2 <- eitherT(input(req)): ET[(Jwt, String)]
+      t2 <- eitherT(input(req).widenLeftF): ET[(Jwt, String)]
       jsVal <- either(SprayJson.parse(t2._2).liftErr(InvalidUserInput)): ET[JsValue]
     } yield (t2._1, jsVal)
 
@@ -501,7 +501,7 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[A] =
     for {
-      t3 <- eitherT(input(req)): ET[(Jwt, _)]
+      t3 <- eitherT(input(req).biwidenF): ET[(Jwt, _)]
       a <- eitherT(handleFutureFailure(fn(t3._1))): ET[A]
     } yield a
 

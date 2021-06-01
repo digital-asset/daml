@@ -52,7 +52,8 @@ object LedgerValue {
       case Sum.Timestamp(value) =>
         lfdata.Time.Timestamp.fromLong(value).toDisjunction map V.ValueTimestamp
       case Sum.Party(value) => Ref.Party.fromString(value).toDisjunction map V.ValueParty
-      case Sum.Date(value) => lfdata.Time.Date.fromDaysSinceEpoch(value).toDisjunction map V.ValueDate
+      case Sum.Date(value) =>
+        lfdata.Time.Date.fromDaysSinceEpoch(value).toDisjunction map V.ValueDate
       case Sum.Unit(_) => V.ValueUnit.right
       case Sum.Empty => -\/("uninitialized Value")
     }

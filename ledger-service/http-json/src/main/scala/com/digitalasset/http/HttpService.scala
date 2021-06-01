@@ -241,9 +241,7 @@ object HttpService {
   ): () => Future[Unit] =
     () => {
       for {
-        token <- refreshToken(holderM).flatMap(x =>
-          toFuture(x.widenLeft[PackageService.Error])
-        )
+        token <- refreshToken(holderM).flatMap(x => toFuture(x.widenLeft[PackageService.Error]))
         _ <- client.transactionClient.getLedgerEnd(token)
       } yield ()
     }
