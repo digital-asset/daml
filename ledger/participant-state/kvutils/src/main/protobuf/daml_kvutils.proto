@@ -522,7 +522,7 @@ enum CommandSubmissionResult {
   COMMAND_SUBMISSION_RESULT_UNSPECIFIED = 0;
   // The submission was executed, but did not pass validation, and was
   // rejected with a reason other than 'Duplicate'. The rank-based command
-  // deduplication logic guarantees that all further submissions with the same
+  // deduplication logic guarantees that all further submissions with the same or lower
   // rank will be rejected as 'Duplicate'.
   COMMAND_SUBMISSION_RESULT_REJECTED = 1;
   // The submission was executed and accepted. The rank-based command
