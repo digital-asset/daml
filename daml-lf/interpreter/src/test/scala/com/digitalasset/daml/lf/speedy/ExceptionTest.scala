@@ -23,56 +23,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-  "builtin exceptions: to/from-any-exception" should {
-
-    // Convertion to/from AnyException works as expected:
-    // specifically: we can only extract the inner value if the
-    // expected-type (on: from_any_exception) matches the actual-type (on: to_any_exception)
-
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
-       module M {
-         record @serializable Ex1 = { message: Text } ;
-         exception Ex1 = {
-           message \(e: M:Ex1) -> M:Ex1 {message} e
-         };
-         record @serializable Ex2 = { message: Text } ;
-         exception Ex2 = {
-           message \(e: M:Ex2) -> M:Ex2 {message} e
-         };
-         record @serializable Ex3 = { message: Text } ;
-         exception Ex3 = {
-           message \(e: M:Ex3) -> M:Ex3 {message} e
-         };
-         val A1 : AnyException = to_any_exception @M:Ex1 (M:Ex1 { message = "1" });
-         val A2 : AnyException = to_any_exception @M:Ex2 (M:Ex2 { message = "2" });
-         val A3 : AnyException = to_any_exception @M:Ex3 (M:Ex3 { message = "3" });
-         val from1 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @M:Ex1 e of None -> "NONE" | Some x -> M:Ex1 { message} x;
-         val from2 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @M:Ex2 e of None -> "NONE" | Some x -> M:Ex2 { message} x;
-         val from3 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @M:Ex3 e of None -> "NONE" | Some x -> M:Ex3 { message} x;
-       }
-      """)
-
-    val testCases = Table[String, String](
-      ("expression", "string-result"),
-      ("M:from1 M:A1", "1"),
-      ("M:from2 M:A2", "2"),
-      ("M:from3 M:A3", "3"),
-      ("M:from1 M:A2", "NONE"),
-      ("M:from1 M:A3", "NONE"),
-      ("M:from2 M:A1", "NONE"),
-      ("M:from2 M:A3", "NONE"),
-      ("M:from3 M:A1", "NONE"),
-      ("M:from3 M:A2", "NONE"),
-    )
-
-    forEvery(testCases) { (exp: String, res: String) =>
-      s"""eval[$exp] --> "$res"""" in {
-        val expected: SResult = SResultFinalValue(SValue.SText(res))
-        runExpr(pkgs)(e"$exp") shouldBe expected
-      }
-    }
-  }
-
   // TODO https://github.com/digital-asset/daml/issues/8020
   //   Add builtin errors back into this test (ArithmeticError and ContractError).
   //   In these cases the message should probably just be "ArithmeticError" and "ContractError".

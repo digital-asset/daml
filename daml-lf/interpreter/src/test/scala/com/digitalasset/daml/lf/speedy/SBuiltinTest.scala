@@ -1504,6 +1504,28 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
   }
 
+  "To/FromAnyException" - {
+    val testCases = Table[String, String](
+      ("expression", "string-result"),
+      ("Mod:from1 Mod:A1", "1"),
+      ("Mod:from2 Mod:A2", "2"),
+      ("Mod:from3 Mod:A3", "3"),
+      ("Mod:from1 Mod:A2", "NONE"),
+      ("Mod:from1 Mod:A3", "NONE"),
+      ("Mod:from2 Mod:A1", "NONE"),
+      ("Mod:from2 Mod:A3", "NONE"),
+      ("Mod:from3 Mod:A1", "NONE"),
+      ("Mod:from3 Mod:A2", "NONE"),
+    )
+
+    forEvery(testCases) { (exp: String, res: String) =>
+      s"""eval[$exp] --> "$res"""" in {
+        val expected = Right(SValue.SText(res))
+        eval(e"$exp") shouldBe expected
+      }
+    }
+  }
+
 }
 
 object SBuiltinTest {
@@ -1519,6 +1541,25 @@ object SBuiltinTest {
           exception Exception = {
               message \(e: Mod:Exception) -> "some nice error message"
           } ;
+
+          record @serializable Ex1 = { message: Text } ;
+          exception Ex1 = {
+            message \(e: Mod:Ex1) -> Mod:Ex1 {message} e
+          };
+          record @serializable Ex2 = { message: Text } ;
+          exception Ex2 = {
+            message \(e: Mod:Ex2) -> Mod:Ex2 {message} e
+          };
+          record @serializable Ex3 = { message: Text } ;
+          exception Ex3 = {
+            message \(e: Mod:Ex3) -> Mod:Ex3 {message} e
+          };
+          val A1 : AnyException = to_any_exception @Mod:Ex1 (Mod:Ex1 { message = "1" });
+          val A2 : AnyException = to_any_exception @Mod:Ex2 (Mod:Ex2 { message = "2" });
+          val A3 : AnyException = to_any_exception @Mod:Ex3 (Mod:Ex3 { message = "3" });
+          val from1 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @Mod:Ex1 e of None -> "NONE" | Some x -> Mod:Ex1 { message} x;
+          val from2 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @Mod:Ex2 e of None -> "NONE" | Some x -> Mod:Ex2 { message} x;
+          val from3 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @Mod:Ex3 e of None -> "NONE" | Some x -> Mod:Ex3 { message} x;
         }
 
     """
