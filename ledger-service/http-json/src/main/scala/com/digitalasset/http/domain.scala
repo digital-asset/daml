@@ -272,9 +272,9 @@ object domain {
     def fromEvent(event: lav1.event.Event): Error \/ Contract[lav1.value.Value] =
       event.event match {
         case lav1.event.Event.Event.Created(created) =>
-          ActiveContract.fromLedgerApi(created).map(a => Contract(\/-(a)))
+          ActiveContract.fromLedgerApi(created).map(a => Contract[lav1.value.Value](\/-(a)))
         case lav1.event.Event.Event.Archived(archived) =>
-          ArchivedContract.fromLedgerApi(archived).map(a => Contract(-\/(a)))
+          ArchivedContract.fromLedgerApi(archived).map(a => Contract[lav1.value.Value](-\/(a)))
         case lav1.event.Event.Event.Empty =>
           val errorMsg = s"Expected either Created or Archived event, got: Empty"
           -\/(Error(Symbol("Contract_fromLedgerApi"), errorMsg))
@@ -293,11 +293,14 @@ object domain {
         case head +: tail =>
           eventsById(head).kind match {
             case lav1.transaction.TreeEvent.Kind.Created(created) =>
-              val a = ActiveContract.fromLedgerApi(created).map(a => Contract(\/-(a)))
+              val a =
+                ActiveContract.fromLedgerApi(created).map(a => Contract[lav1.value.Value](\/-(a)))
               val newAcc = ^(acc, a)(_ :+ _)
               loop(tail, newAcc)
             case lav1.transaction.TreeEvent.Kind.Exercised(exercised) =>
-              val a = ArchivedContract.fromLedgerApi(exercised).map(_.map(a => Contract(-\/(a))))
+              val a = ArchivedContract
+                .fromLedgerApi(exercised)
+                .map(_.map(a => Contract[lav1.value.Value](-\/(a))))
               val newAcc = ^(acc, a)(_ ++ _.toVector)
               loop(exercised.childEventIds.toVector ++ tail, newAcc)
             case lav1.transaction.TreeEvent.Kind.Empty =>

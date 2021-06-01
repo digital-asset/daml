@@ -211,9 +211,9 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
         case JsObject(fields) =>
           fields.toList match {
             case List((`archivedKey`, archived)) =>
-              domain.Contract(-\/(ArchivedContractFormat.read(archived)))
+              domain.Contract[JsValue](-\/(ArchivedContractFormat.read(archived)))
             case List((`activeKey`, active)) =>
-              domain.Contract(\/-(ActiveContractFormat.read(active)))
+              domain.Contract[JsValue](\/-(ActiveContractFormat.read(active)))
             case _ =>
               deserializationError(
                 s"Contract must be either {$archivedKey: obj} or {$activeKey: obj}, got: $fields"

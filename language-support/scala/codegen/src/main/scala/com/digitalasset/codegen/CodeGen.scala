@@ -241,7 +241,7 @@ object CodeGen {
     val filePlans = topFiles.map { case (fil, trees) =>
       \/-((None, fil, trees)): FilePlan
     } ++ treeErrors
-      .map(e => -\/(_): FilePlan)
+      .map(e => -\/(e): FilePlan)
 
     // Finally we generate the "event decoder" and "package ID source"
     val specials =
@@ -290,6 +290,7 @@ object CodeGen {
       List[ScopedDataType[Variant[List[(Ref.Name, RT)] \/ VT]]],
       List[ScopedDataType[Enum]],
   ) = {
+    type VariantField = List[(Ref.Name, RT)] \/ VT
 
     val (records, variants, enums) = splitNTDs(definitions)
 
@@ -314,8 +315,8 @@ object CodeGen {
               .filter((_: Identifier) == syntheticRecord)
               .flatMap(_ => recordMap get key)
               .cata(
-                nr => (Set(key), (vn, -\/(nr.dataType.fields.toList))),
-                (noDeletion, (vn, \/-(vt))),
+                nr => (Set(key), (vn, -\/(nr.dataType.fields.toList): VariantField)),
+                (noDeletion, (vn, \/-(vt): VariantField)),
               )
           }
           (deleted, ScopedDataType(ident, vTypeVars, Variant(sdt)))

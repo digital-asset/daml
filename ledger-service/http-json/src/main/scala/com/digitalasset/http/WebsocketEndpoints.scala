@@ -67,9 +67,9 @@ class WebsocketEndpoints(
             implicit lc =>
               Future.successful(
                 (for {
-                  upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> InvalidUserInput(
-                    s"Cannot upgrade client's connection to websocket"
-                  )
+                  upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> (InvalidUserInput(
+                    "Cannot upgrade client's connection to websocket"
+                  ): Error)
                   _ = logger.info(s"GOT $wsProtocol")
 
                   payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
@@ -89,9 +89,9 @@ class WebsocketEndpoints(
             implicit lc =>
               Future.successful(
                 (for {
-                  upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> InvalidUserInput(
+                  upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> (InvalidUserInput(
                     s"Cannot upgrade client's connection to websocket"
-                  )
+                  ): Error)
                   payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
                   (jwt, jwtPayload) = payload
                 } yield handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](

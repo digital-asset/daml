@@ -411,7 +411,7 @@ object ValuePredicate {
     def unapply(it: JsValue): Option[PredicateParseError \/ Boundaries[A]] =
       it match {
         case JsObject(fields) if fields.keySet exists keys =>
-          def badRangeSyntax(s: String): PredicateParseError \/ Nothing =
+          def badRangeSyntax[Bot](s: String): PredicateParseError \/ Bot =
             predicateParseError(s"Invalid range query, as $s: $it")
 
           def side(exK: String, inK: String) = {

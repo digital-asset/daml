@@ -130,7 +130,7 @@ object WebSocketService {
           else
             SprayJson
               .decode[domain.Offset](offJv)
-              .liftErr(InvalidUserInput)
+              .liftErr[Error](InvalidUserInput)
               .map(offset => domain.StartingOffset(offset))
         }
       case _ => None
@@ -183,7 +183,7 @@ object WebSocketService {
         import JsonProtocol._
         SprayJson
           .decode[SearchForeverRequest](jv)
-          .liftErr(InvalidUserInput)
+          .liftErr[Error](InvalidUserInput)
           .map(Query(_, this))
       }
 
