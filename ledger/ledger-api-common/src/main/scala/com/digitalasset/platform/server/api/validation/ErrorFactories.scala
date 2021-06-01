@@ -42,6 +42,7 @@ trait ErrorFactories {
   def unimplemented(description: String): StatusRuntimeException =
     grpcError(Status.UNIMPLEMENTED.withDescription(description))
 
+  // permission denied is intentionally without description to ensure we don't leak security relevant information by accident
   def permissionDenied(): StatusRuntimeException =
     grpcError(Status.PERMISSION_DENIED)
 

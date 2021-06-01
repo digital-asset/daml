@@ -28,9 +28,9 @@ final class ExceptionsIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, party)) =>
     for {
       t <- ledger.create(party, ExceptionTester(party))
-      failure <- ledger.exercise(party, t.exerciseThrowUncaught(_)).mustFail("unhandled exception")
+      failure <- ledger.exercise(party, t.exerciseThrowUncaught(_)).mustFail("Unhandled exception")
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "unhandled exception")
+      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Unhandled exception")
     }
   })
 

@@ -32,7 +32,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       (_, t1) <- store(singleCreate)
       (_, t2) <- store(singleCreate)
       (_, _) <- store(singleExercise(nonTransient(t2).loneElement))
-      (_, _) <- store(fullyTransient)
+      (_, _) <- store(fullyTransient())
       (_, t5) <- store(singleCreate)
       (_, t6) <- store(singleCreate)
       after <- ledgerDao.lookupLedgerEnd()
@@ -77,7 +77,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       (_, _) <- store(singleCreate)
       (_, c) <- store(singleCreate)
       (_, _) <- store(singleExercise(nonTransient(c).loneElement))
-      (_, _) <- store(fullyTransient)
+      (_, _) <- store(fullyTransient())
       (_, _) <- store(singleCreate)
       (_, _) <- store(singleCreate)
       activeContractsAfter <- activeContractsOf(

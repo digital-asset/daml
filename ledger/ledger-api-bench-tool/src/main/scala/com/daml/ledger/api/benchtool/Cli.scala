@@ -3,63 +3,73 @@
 
 package com.daml.ledger.api.benchtool
 
+import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.Identifier
-import scopt.{OParser, Read}
+import scopt.{OptionParser, Read}
 
 import scala.concurrent.duration.FiniteDuration
+import scala.util.{Failure, Success, Try}
 
 object Cli {
-  def config(args: Array[String]): Option[Config] =
-    OParser.parse(parser, args, Config.Default)
-
-  private val parser = {
-    val builder = OParser.builder[Config]
+  private val ProgramName: String = "ledger-api-bench-tool"
+  private val parser: OptionParser[Config] = new OptionParser[Config](ProgramName) {
     import Reads._
-    import builder._
-    OParser.sequence(
-      programName("ledger-api-bench-tool"),
-      head("A tool for measuring transaction streaming performance of a ledger."),
-      opt[(String, Int)]("endpoint")(endpointRead)
-        .abbr("e")
-        .text("Ledger API endpoint")
-        .valueName("<hostname>:<port>")
-        .optional()
-        .action { case ((hostname, port), config) =>
-          config.copy(ledger = config.ledger.copy(hostname = hostname, port = port))
-        },
-      opt[Config.StreamConfig]("consume-stream")
-        .abbr("s")
-        .unbounded()
-        .minOccurs(1)
-        .text(
-          s"Stream configuration."
-        )
-        .valueName(
-          "stream-type=<transactions|transaction-trees>,name=<streamName>,party=<party>[,begin-offset=<offset>][,end-offset=<offset>][,template-ids=<id1>|<id2>]"
-        )
-        .action { case (streamConfig, config) =>
-          config.copy(streams = config.streams :+ streamConfig)
-        },
-      opt[FiniteDuration]("log-interval")
-        .abbr("r")
-        .text("Stream metrics log interval.")
-        .action { case (period, config) => config.copy(reportingPeriod = period) },
-      opt[Int]("core-pool-size")
-        .text("Initial size of the worker thread pool.")
-        .optional()
-        .action { case (size, config) =>
-          config.copy(concurrency = config.concurrency.copy(corePoolSize = size))
-        },
-      opt[Int]("max-pool-size")
-        .text("Maximum size of the worker thread pool.")
-        .optional()
-        .action { case (size, config) =>
-          config.copy(concurrency = config.concurrency.copy(maxPoolSize = size))
-        },
-      help("help").text("Prints this information"),
+
+    head("A tool for measuring transaction streaming performance of a ledger.")
+
+    opt[(String, Int)]("endpoint")(endpointRead)
+      .abbr("e")
+      .text("Ledger API endpoint")
+      .valueName("<hostname>:<port>")
+      .optional()
+      .action { case ((hostname, port), config) =>
+        config.copy(ledger = config.ledger.copy(hostname = hostname, port = port))
+      }
+
+    opt[Config.StreamConfig]("consume-stream")
+      .abbr("s")
+      .unbounded()
+      .minOccurs(1)
+      .text(
+        s"Stream configuration."
+      )
+      .valueName(
+        "stream-type=<transactions|transaction-trees>,name=<streamName>,party=<party>[,begin-offset=<offset>][,end-offset=<offset>][,template-ids=<id1>|<id2>][,max-delay=<seconds>]"
+      )
+      .action { case (streamConfig, config) =>
+        config.copy(streams = config.streams :+ streamConfig)
+      }
+
+    opt[FiniteDuration]("log-interval")
+      .abbr("r")
+      .text("Stream metrics log interval.")
+      .action { case (period, config) => config.copy(reportingPeriod = period) }
+
+    opt[Int]("core-pool-size")
+      .text("Initial size of the worker thread pool.")
+      .optional()
+      .action { case (size, config) =>
+        config.copy(concurrency = config.concurrency.copy(corePoolSize = size))
+      }
+
+    opt[Int]("max-pool-size")
+      .text("Maximum size of the worker thread pool.")
+      .optional()
+      .action { case (size, config) =>
+        config.copy(concurrency = config.concurrency.copy(maxPoolSize = size))
+      }
+
+    TlsConfigurationCli.parse(parser = this, colSpacer = "        ")((f, c) =>
+      c.copy(tls = f(c.tls))
     )
+
+    help("help").text("Prints this information")
+
   }
+
+  def config(args: Array[String]): Option[Config] =
+    parser.parse(args, Config.Default)
 
   private object Reads {
     implicit val streamConfigRead: Read[Config.StreamConfig] =
@@ -72,6 +82,19 @@ object Cli {
 
         def optionalStringField(fieldName: String): Either[String, Option[String]] =
           Right(m.get(fieldName))
+
+        def optionalLongField(fieldName: String): Either[String, Option[Long]] =
+          optionalField[Long](fieldName, _.toLong)
+
+        def optionalDoubleField(fieldName: String): Either[String, Option[Double]] =
+          optionalField[Double](fieldName, _.toDouble)
+
+        def optionalField[T](fieldName: String, f: String => T): Either[String, Option[T]] = {
+          Try(m.get(fieldName).map(f)) match {
+            case Success(value) => Right(value)
+            case Failure(_) => Left(s"Invalid value for field name: $fieldName")
+          }
+        }
 
         def offset(stringValue: String): LedgerOffset =
           LedgerOffset.defaultInstance.withAbsolute(stringValue)
@@ -90,6 +113,8 @@ object Cli {
           }
           beginOffset <- optionalStringField("begin-offset").map(_.map(offset))
           endOffset <- optionalStringField("end-offset").map(_.map(offset))
+          maxDelaySeconds <- optionalLongField("max-delay")
+          minConsumptionSpeed <- optionalDoubleField("min-consumption-speed")
         } yield Config.StreamConfig(
           name = name,
           streamType = streamType,
@@ -97,6 +122,10 @@ object Cli {
           templateIds = templateIds,
           beginOffset = beginOffset,
           endOffset = endOffset,
+          objectives = Config.StreamConfig.Objectives(
+            maxDelaySeconds = maxDelaySeconds,
+            minConsumptionSpeed = minConsumptionSpeed,
+          ),
         )
 
         config.fold(error => throw new IllegalArgumentException(error), identity)

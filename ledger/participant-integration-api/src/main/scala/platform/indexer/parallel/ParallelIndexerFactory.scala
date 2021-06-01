@@ -119,6 +119,7 @@ object ParallelIndexerFactory {
     *
     * @param lastOffset The latest offset available in the batch. Needed for tail ingestion.
     * @param lastSeqEventId The latest sequential-event-id in the batch, or if none present there, then the latest from before. Needed for tail ingestion.
+    * @param lastRecordTime The latest record time in the batch, in milliseconds since Epoch. Needed for metrics population.
     * @param batch The batch of variable type.
     * @param batchSize Size of the batch measured in number of updates. Needed for metrics population.
     * @param averageStartTime The nanosecond timestamp of the start of the previous processing stage. Needed for metrics population: how much time is spend by a particular update in a certain stage.
@@ -126,6 +127,7 @@ object ParallelIndexerFactory {
   case class Batch[+T](
       lastOffset: Offset,
       lastSeqEventId: Long,
+      lastRecordTime: Long,
       batch: T,
       batchSize: Int,
       averageStartTime: Long,
@@ -152,6 +154,7 @@ object ParallelIndexerFactory {
     Batch(
       lastOffset = input.last._1._1,
       lastSeqEventId = 0, // will be filled later in the sequential step
+      lastRecordTime = input.last._1._2.recordTime.toInstant.toEpochMilli,
       batch = batch,
       batchSize = input.size,
       averageStartTime = input.view.map(_._2 / input.size).sum,
@@ -163,6 +166,7 @@ object ParallelIndexerFactory {
     Batch(
       lastOffset = null,
       lastSeqEventId = initialSeqId, // this is the only property of interest in the zero element
+      lastRecordTime = 0,
       batch = Vector.empty,
       batchSize = 0,
       averageStartTime = 0,
@@ -245,6 +249,7 @@ object ParallelIndexerFactory {
       Batch[DB_BATCH](
         lastOffset = curr.lastOffset,
         lastSeqEventId = curr.lastSeqEventId,
+        lastRecordTime = curr.lastRecordTime,
         batch = zeroDbBatch, // not used anymore
         batchSize = 0, // not used anymore
         averageStartTime = 0, // not used anymore
@@ -269,6 +274,8 @@ object ParallelIndexerFactory {
             ),
           )
           metrics.daml.indexer.ledgerEndSequentialId.updateValue(batch.lastSeqEventId)
+          metrics.daml.indexer.lastReceivedRecordTime.updateValue(batch.lastRecordTime)
+          metrics.daml.indexer.lastReceivedOffset.updateValue(batch.lastOffset.toHexString)
           logger.info("Ledger end updated")
           batch
         }

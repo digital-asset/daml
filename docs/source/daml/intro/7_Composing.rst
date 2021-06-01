@@ -32,7 +32,7 @@ You can start a new project with a skeleton structure using ``daml new project_n
 
 You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: It includes dependencies. You should always include ``daml-prim`` and ``daml-stdlib``. The former contains internals of compiler and Daml Runtime, the latter gives access to the Daml Standard Library. ``daml-script`` contains the types and standard library for Daml Script.
 
-You compile a Daml project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is Daml's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. ``dar`` files are fully self-contained in that they contain all dependencies of the main package. More on all of this in :doc:`8_Dependencies`.
+You compile a Daml project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/project_name-project_version.dar``. A ``dar`` file is Daml's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. ``dar`` files are fully self-contained in that they contain all dependencies of the main package. More on all of this in :doc:`9_Dependencies`.
 
 Project structure
 -----------------
@@ -302,4 +302,4 @@ This is because the ``create`` action of these contracts are in the transitive c
 Next up
 -------
 
-The model presented here is safe and sound so we could deploy it to production and start trading. But the journey doesn't stop there. In :doc:`8_Dependencies` you will learn how to extend an already running application to enhance it with new features. In that context you'll learn a bit more about the architecture of Daml, about dependencies, and identifiers.
+In :doc:`8_Exceptions`, we will learn about how errors in your model can be handled in Daml.

@@ -236,7 +236,6 @@ private[validation] object Typing {
       BBigNumericToText -> (TBigNumeric ->: TText),
       // Exception functions
       BAnyExceptionMessage -> (TAnyException ->: TText),
-      BAnyExceptionIsArithmeticError -> (TAnyException ->: TBool),
       // Unstable text functions
       BTextToUpper -> (TText ->: TText),
       BTextToLower -> (TText ->: TText),

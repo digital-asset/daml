@@ -126,7 +126,6 @@ object HttpService {
       _ = schedulePackageReload(packageService, packageReloadInterval)
 
       commandService = new CommandService(
-        packageService.resolveTemplateId,
         LedgerClientJwt.submitAndWaitForTransaction(client),
         LedgerClientJwt.submitAndWaitForTransactionTree(client),
       )

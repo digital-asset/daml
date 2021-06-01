@@ -4,16 +4,22 @@
 package com.daml.ledger.api.benchtool
 
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
-import com.daml.ledger.api.benchtool.metrics.{Creator, MeteredStreamObserver, TransactionMetrics}
+import com.daml.ledger.api.benchtool.metrics.{
+  Creator,
+  MeteredStreamObserver,
+  MetricsManager,
+  TransactionMetrics,
+}
 import com.daml.ledger.api.benchtool.services.{LedgerIdentityService, TransactionService}
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.{
@@ -25,12 +31,17 @@ import java.util.concurrent.{
 }
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 object LedgerApiBenchTool {
   def main(args: Array[String]): Unit = {
     Cli.config(args) match {
       case Some(config) =>
         val benchmark = runBenchmark(config)(ExecutionContext.Implicits.global)
+          .recover { case ex =>
+            println(s"Error: ${ex.getMessage}")
+            sys.exit(1)
+          }(scala.concurrent.ExecutionContext.Implicits.global)
         Await.result(benchmark, atMost = Duration.Inf)
         ()
       case _ =>
@@ -46,7 +57,7 @@ object LedgerApiBenchTool {
 
     val resources = for {
       executorService <- threadPoolExecutorOwner(config.concurrency)
-      channel <- channelOwner(config.ledger, executorService)
+      channel <- channelOwner(config.ledger, config.tls, executorService)
       system <- actorSystemResourceOwner()
     } yield (channel, system)
 
@@ -59,36 +70,57 @@ object LedgerApiBenchTool {
           streamConfig.streamType match {
             case Config.StreamConfig.StreamType.Transactions =>
               TransactionMetrics
-                .transactionsMetricsManager(streamConfig.name, config.reportingPeriod)(system)
+                .transactionsMetricsManager(
+                  streamConfig.name,
+                  config.reportingPeriod,
+                  streamConfig.objectives,
+                )(system)
                 .flatMap { manager =>
                   val observer: MeteredStreamObserver[GetTransactionsResponse] =
                     new MeteredStreamObserver[GetTransactionsResponse](
                       streamConfig.name,
                       logger,
                       manager,
-                    )
+                    )(system)
                   transactionService.transactions(streamConfig, observer)
                 }
             case Config.StreamConfig.StreamType.TransactionTrees =>
               TransactionMetrics
-                .transactionTreesMetricsManager(streamConfig.name, config.reportingPeriod)(system)
+                .transactionTreesMetricsManager(
+                  streamConfig.name,
+                  config.reportingPeriod,
+                  streamConfig.objectives,
+                )(system)
                 .flatMap { manager =>
                   val observer =
                     new MeteredStreamObserver[GetTransactionTreesResponse](
                       streamConfig.name,
                       logger,
                       manager,
-                    )
+                    )(system)
                   transactionService.transactionTrees(streamConfig, observer)
                 }
           }
         }
-        .map(_ => ())
+        .transform {
+          case Success(results) =>
+            if (results.contains(MetricsManager.Message.MetricsResult.ObjectivesViolated))
+              Failure(new RuntimeException("Metrics objectives not met."))
+            else Success(())
+          case Failure(ex) =>
+            Failure(ex)
+        }
     }
   }
 
-  // TODO: add TLS compatible with the ledger-api-test-tool
-  private def channelOwner(ledger: Config.Ledger, executor: Executor): ResourceOwner[Channel] = {
+  private def channelOwner(
+      ledger: Config.Ledger,
+      tls: TlsConfiguration,
+      executor: Executor,
+  ): ResourceOwner[Channel] = {
+    logger.info(
+      s"Setting up a managed channel to a ledger at: ${ledger.hostname}:${ledger.port}..."
+    )
     val MessageChannelSizeBytes: Int = 32 * 1024 * 1024 // 32 MiB
     val ShutdownTimeout: FiniteDuration = 5.seconds
 
@@ -97,6 +129,16 @@ object LedgerApiBenchTool {
       .executor(executor)
       .maxInboundMessageSize(MessageChannelSizeBytes)
       .usePlaintext()
+
+    if (tls.enabled) {
+      tls.client.map { sslContext =>
+        logger.info(s"Setting up a managed channel with transport security...")
+        channelBuilder
+          .useTransportSecurity()
+          .sslContext(sslContext)
+          .negotiationType(NegotiationType.TLS)
+      }
+    }
 
     ResourceOwner.forChannel(channelBuilder, ShutdownTimeout)
   }

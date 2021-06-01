@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   TransactionCommitter,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepResult}
-import com.daml.ledger.participant.state.v1.RejectionReason
+import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 
@@ -44,7 +44,7 @@ private[keys] object KeyMonotonicityValidation {
         recordTime,
         transactionCommitter.buildRejectionLogEntry(
           transactionEntry,
-          RejectionReason.InvalidLedgerTime("Causal monotonicity violated"),
+          RejectionReasonV0.InvalidLedgerTime("Causal monotonicity violated"),
         ),
       )
   }

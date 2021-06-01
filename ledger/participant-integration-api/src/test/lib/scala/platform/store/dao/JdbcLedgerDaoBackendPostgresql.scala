@@ -15,4 +15,6 @@ private[dao] trait JdbcLedgerDaoBackendPostgresql
   override protected val dbType: DbType = DbType.Postgres
 
   override protected def jdbcUrl: String = postgresDatabase.url
+
+  override protected val enableAppendOnlySchema: Boolean = false
 }

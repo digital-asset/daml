@@ -296,8 +296,10 @@ sealed abstract class HasTxNodes[Nid, +Cid] {
       case (acc, _: Node.NodeRollback[_]) => acc
     }
 
-  // TODO: https://github.com/digital-asset/daml/issues/8020
-  //  for now we assume that rollback node cannot be a root of a transaction.
+  // We assume that rollback node cannot be a root of a transaction.
+  // This is correct for an unprojected transaction. For a project transaction,
+  // Canton handles rollback nodes itself so this is assumption still holds
+  // within the Engine.
   @throws[IllegalArgumentException]
   def rootNodes: ImmArray[Node.GenActionNode[Nid, Cid]] =
     roots.map(nid =>
@@ -844,6 +846,7 @@ object Transaction {
 
   /** Transaction nodes */
   type Node = Node.GenNode[NodeId, Value.ContractId]
+  type ActionNode = Node.GenActionNode[NodeId, Value.ContractId]
   type LeafNode = Node.LeafOnlyActionNode[Value.ContractId]
 
   /** (Complete) transactions, which are the result of interpreting a

@@ -10,7 +10,7 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.{DamlEUnhandledException, SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
+import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue, SResultNeedPackage}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value
@@ -1469,8 +1469,8 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         inside(
           evalSExpr(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).toArray), false)
         ) {
-          case Left(DamlEUnhandledException(SArithmeticError(name_, args_)))
-              if name_ == name && (args.iterator.map(lit2string) sameElements args_.iterator) =>
+          case Left(DamlEUnhandledException(SArithmeticError(SText(msg))))
+              if msg == s"ArithmeticError while evaluating ($name ${args.iterator.map(lit2string).mkString(" ")})." =>
         }
       }
     }
@@ -1481,6 +1481,49 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     "ERROR" - {
       "throws an exception " in {
         eval(e"""ERROR "message" """) shouldBe a[Left[_, _]]
+      }
+    }
+  }
+
+  "AnyExceptionMessage" - {
+    "request unknown packageId" in {
+      eval(
+        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @Mod:Exception (Mod:Exception {}))"""
+      ) shouldBe Right(SText("some nice error message"))
+      eval(
+        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @Mod:ExceptionAppend (Mod:ExceptionAppend { front = "Hello", back = "world"}))"""
+      ) shouldBe Right(SText("Helloworld"))
+      eval(
+        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-':Mod:Exception {}))"""
+      ) shouldBe Left(SErrorCrash(s"need package '-unknown-package-'"))
+    }
+
+    s"should not request package for ArithmeticError" in {
+      eval(
+        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981':DA.Exception.ArithmeticError:ArithmeticError ('f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981':DA.Exception.ArithmeticError:ArithmeticError { message = "Arithmetic error" }))"""
+      ) shouldBe Right(SText("Arithmetic error"))
+    }
+
+  }
+
+  "To/FromAnyException" - {
+    val testCases = Table[String, String](
+      ("expression", "string-result"),
+      ("Mod:from1 Mod:A1", "1"),
+      ("Mod:from2 Mod:A2", "2"),
+      ("Mod:from3 Mod:A3", "3"),
+      ("Mod:from1 Mod:A2", "NONE"),
+      ("Mod:from1 Mod:A3", "NONE"),
+      ("Mod:from2 Mod:A1", "NONE"),
+      ("Mod:from2 Mod:A3", "NONE"),
+      ("Mod:from3 Mod:A1", "NONE"),
+      ("Mod:from3 Mod:A2", "NONE"),
+    )
+
+    forEvery(testCases) { (exp: String, res: String) =>
+      s"""eval[$exp] --> "$res"""" in {
+        val expected = Right(SValue.SText(res))
+        eval(e"$exp") shouldBe expected
       }
     }
   }
@@ -1496,12 +1539,41 @@ object SBuiltinTest {
           record MyUnit = { };
           record Tuple a b = { fst: a, snd: b };
           enum Color = Red | Green | Blue;
+          record @serializable Exception = {} ;
+          exception Exception = {
+              message \(e: Mod:Exception) -> "some nice error message"
+          } ;
+
+         record @serializable ExceptionAppend = { front: Text, back: Text } ;
+         exception ExceptionAppend = {
+           message \(e: Mod:ExceptionAppend) -> APPEND_TEXT (Mod:ExceptionAppend {front} e) (Mod:ExceptionAppend {back} e)
+         };
+
+          record @serializable Ex1 = { message: Text } ;
+          exception Ex1 = {
+            message \(e: Mod:Ex1) -> Mod:Ex1 {message} e
+          };
+          record @serializable Ex2 = { message: Text } ;
+          exception Ex2 = {
+            message \(e: Mod:Ex2) -> Mod:Ex2 {message} e
+          };
+          record @serializable Ex3 = { message: Text } ;
+          exception Ex3 = {
+            message \(e: Mod:Ex3) -> Mod:Ex3 {message} e
+          };
+          val A1 : AnyException = to_any_exception @Mod:Ex1 (Mod:Ex1 { message = "1" });
+          val A2 : AnyException = to_any_exception @Mod:Ex2 (Mod:Ex2 { message = "2" });
+          val A3 : AnyException = to_any_exception @Mod:Ex3 (Mod:Ex3 { message = "3" });
+          val from1 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @Mod:Ex1 e of None -> "NONE" | Some x -> Mod:Ex1 { message} x;
+          val from2 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @Mod:Ex2 e of None -> "NONE" | Some x -> Mod:Ex2 { message} x;
+          val from3 : AnyException -> Text = \(e:AnyException) -> case from_any_exception @Mod:Ex3 e of None -> "NONE" | Some x -> Mod:Ex3 { message} x;
         }
 
     """
 
   val compiledPackages =
-    PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg)).toOption.get
+    PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg))
+      .fold(sys.error(_), identity)
 
   private def eval(e: Expr, onLedger: Boolean = true): Either[SError, SValue] = {
     evalSExpr(compiledPackages.compiler.unsafeCompile(e), onLedger)
@@ -1527,6 +1599,7 @@ object SBuiltinTest {
       val value = machine.run() match {
         case SResultFinalValue(v) => v
         case SResultError(err) => throw Goodbye(err)
+        case SResultNeedPackage(pkgId, _) => throw Goodbye(SErrorCrash(s"need package '$pkgId'"))
         case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
       }
 

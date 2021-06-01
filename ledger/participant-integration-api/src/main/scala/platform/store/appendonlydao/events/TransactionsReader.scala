@@ -28,6 +28,7 @@ import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream}
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.ContractStateEvent
+import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.utils.Telemetry
 import com.daml.telemetry
 import com.daml.telemetry.{SpanAttribute, Spans}
@@ -63,6 +64,10 @@ private[appendonlydao] final class TransactionsReader(
 
   // TODO: make this parameter configurable
   private val ContractStateEventsStreamParallelismLevel = 4
+
+  private val TransactionEventsFetchParallelism = 8
+
+  private val MinParallelFetchChunkSize = 10
 
   private def offsetFor(response: GetTransactionsResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
@@ -244,6 +249,78 @@ private[appendonlydao] final class TransactionsReader(
         )
       )
       .map(EventsTable.Entry.toGetTransactionResponse)
+  }
+
+  override def getTransactionLogUpdates(
+      startExclusive: (Offset, Long),
+      endInclusive: (Offset, Long),
+  )(implicit
+      loggingContext: LoggingContext
+  ): Source[((Offset, Long), TransactionLogUpdate), NotUsed] = {
+    val endMarker = Source.single(
+      endInclusive -> TransactionLogUpdate.LedgerEndMarker(
+        eventOffset = endInclusive._1,
+        eventSequentialId = endInclusive._2,
+      )
+    )
+
+    val eventsSource = Source
+      .fromIterator(() =>
+        TransactionsReader
+          .splitRange(
+            startExclusive._2,
+            endInclusive._2,
+            TransactionEventsFetchParallelism,
+            MinParallelFetchChunkSize,
+          )
+          .iterator
+      )
+      // Dispatch database fetches in parallel
+      .mapAsync(TransactionEventsFetchParallelism) { range =>
+        dispatcher.executeSql(dbMetrics.getTransactionLogUpdates) { implicit conn =>
+          QueryNonPruned.executeSqlOrThrow(
+            query = TransactionLogUpdatesReader.readRawEvents(range),
+            minOffsetExclusive = startExclusive._1,
+            error = pruned =>
+              s"Active contracts request after ${startExclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+          )
+        }
+      }
+      .flatMapConcat(v => Source.fromIterator(() => v.iterator))
+      // Decode transaction log updates in parallel
+      .mapAsync(TransactionEventsFetchParallelism) { raw =>
+        Timed.future(
+          metrics.daml.index.decodeTransactionLogUpdate,
+          Future(TransactionLogUpdatesReader.toTransactionEvent(raw)),
+        )
+      }
+
+    InstrumentedSource
+      .bufferedSource(
+        original = groupContiguous(eventsSource)(by = _.transactionId)
+          .map { v =>
+            val tx = toTransaction(v)
+            (tx.offset, tx.events.last.eventSequentialId) -> tx
+          }
+          .mapMaterializedValue(_ => NotUsed),
+        counter = metrics.daml.index.transactionLogUpdatesBufferSize,
+        size = outputStreamBufferSize,
+      )
+      .concat(endMarker)
+  }
+
+  private def toTransaction(
+      events: Vector[TransactionLogUpdate.Event]
+  ): TransactionLogUpdate.Transaction = {
+    val first = events.head
+    TransactionLogUpdate.Transaction(
+      transactionId = first.transactionId,
+      commandId = first.commandId,
+      workflowId = first.workflowId,
+      effectiveAt = first.ledgerEffectiveTime,
+      offset = first.eventOffset,
+      events = events,
+    )
   }
 
   override def getActiveContracts(
@@ -444,5 +521,59 @@ private[appendonlydao] final class TransactionsReader(
         span.end()
     }
     mat
+  }
+}
+
+private[appendonlydao] object TransactionsReader {
+
+  /** Splits a range of events into equally-sized sub-ranges.
+    *
+    * @param startExclusive The start exclusive of the range to be split
+    * @param endInclusive The end inclusive of the range to be split
+    * @param numberOfChunks The number of desired target sub-ranges
+    * @param minChunkSize Minimum sub-range size.
+    * @return The ordered sequence of sub-ranges with non-overlapping bounds.
+    */
+  private[appendonlydao] def splitRange(
+      startExclusive: Long,
+      endInclusive: Long,
+      numberOfChunks: Int,
+      minChunkSize: Int,
+  ): Vector[EventsRange[Long]] = {
+    val rangeSize = endInclusive - startExclusive
+
+    numberOfChunks match {
+      case _ if numberOfChunks < 1 =>
+        throw new IllegalArgumentException(
+          s"You can only split a range in a strictly positive number of chunks ($numberOfChunks)"
+        )
+
+      case _ if numberOfChunks == 1 || minChunkSize >= rangeSize =>
+        Vector(EventsRange(startExclusive, endInclusive))
+
+      case _ if (rangeSize / numberOfChunks.toLong) < minChunkSize.toLong =>
+        val effectiveNumberOfChunks = rangeSize / minChunkSize.toLong
+        splitUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks.toInt)
+
+      case _ =>
+        splitUnsafe(startExclusive, endInclusive, numberOfChunks)
+    }
+  }
+
+  private def splitUnsafe(
+      startExclusive: Long,
+      endInclusive: Long,
+      numberOfChunks: Int,
+  ) = {
+    val rangeSize = endInclusive - startExclusive
+    val step = math.ceil(rangeSize / numberOfChunks.toDouble).toLong
+
+    val aux = (0 until numberOfChunks - 1).map { idx =>
+      val startExclusiveChunk = startExclusive + step * idx
+      val endInclusiveChunk = startExclusiveChunk + step
+      EventsRange(startExclusiveChunk, endInclusiveChunk)
+    }.toVector
+
+    aux :+ EventsRange(aux.last.endInclusive, endInclusive)
   }
 }

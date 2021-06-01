@@ -26,6 +26,7 @@ final case class Config[Extra](
     mode: Mode,
     ledgerId: String,
     archiveFiles: Seq[Path],
+    commandConfig: CommandConfiguration,
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
@@ -36,7 +37,6 @@ final case class Config[Extra](
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
-    trackerRetentionPeriod: FiniteDuration,
     engineMode: EngineMode,
     enableAppendOnlySchema: Boolean, // TODO append-only: remove after removing support for the current (mutating) schema
     enableMutableContractStateCache: Boolean,
@@ -48,8 +48,6 @@ final case class Config[Extra](
 
 object Config {
   val DefaultPort: Port = Port(6865)
-  val DefaultTrackerRetentionPeriod: FiniteDuration =
-    CommandConfiguration.DefaultTrackerRetentionPeriod
 
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
 
@@ -58,6 +56,7 @@ object Config {
       mode = Mode.Run,
       ledgerId = UUID.randomUUID().toString,
       archiveFiles = Vector.empty,
+      commandConfig = CommandConfiguration.default,
       tlsConfig = None,
       participants = Vector.empty,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
@@ -68,7 +67,6 @@ object Config {
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
-      trackerRetentionPeriod = DefaultTrackerRetentionPeriod,
       engineMode = EngineMode.Stable,
       enableAppendOnlySchema = false,
       enableMutableContractStateCache = false,
@@ -151,7 +149,6 @@ object Config {
               "server-jdbc-url, " +
               "api-server-connection-pool-size" +
               "api-server-connection-timeout" +
-              "max-commands-in-flight, " +
               "management-service-timeout, " +
               "run-mode, " +
               "shard-name, " +
@@ -242,8 +239,6 @@ object Config {
               .map(_.toBoolean)
               .getOrElse(ParticipantIndexerConfig.DefaultEnableCompression)
 
-            val maxCommandsInFlight =
-              kv.get("max-commands-in-flight").map(_.toInt)
             val managementServiceTimeout = kv
               .get("management-service-timeout")
               .map(Duration.parse)
@@ -281,7 +276,6 @@ object Config {
               ),
               apiServerDatabaseConnectionPoolSize = apiServerConnectionPoolSize,
               apiServerDatabaseConnectionTimeout = apiServerConnectionTimeout,
-              maxCommandsInFlight = maxCommandsInFlight,
               managementServiceTimeout = managementServiceTimeout,
               maxContractStateCacheSize = maxContractStateCacheSize,
               maxContractKeyStateCacheSize = maxContractKeyStateCacheSize,
@@ -333,13 +327,43 @@ object Config {
             config.withTlsConfig(c => c.copy(clientAuth = clientAuth))
           )
 
+        opt[Int]("max-commands-in-flight")
+          .optional()
+          .action((value, config) =>
+            config.copy(commandConfig = config.commandConfig.copy(maxCommandsInFlight = value))
+          )
+          .text(
+            "Maximum number of submitted commands waiting for completion for each party (only applied when using the CommandService). Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 256."
+          )
+
+        opt[Int]("max-parallel-submissions")
+          .optional()
+          .action((value, config) =>
+            config.copy(commandConfig = config.commandConfig.copy(maxParallelSubmissions = value))
+          )
+          .text(
+            "Maximum number of successfully interpreted commands waiting to be sequenced (applied only when running sandbox-classic). The threshold is shared across all parties. Overflowing it will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512."
+          )
+
+        opt[Int]("input-buffer-size")
+          .optional()
+          .action((value, config) =>
+            config.copy(commandConfig = config.commandConfig.copy(inputBufferSize = value))
+          )
+          .text(
+            "The maximum number of commands waiting to be submitted for each party. Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512."
+          )
+
         opt[Duration]("tracker-retention-period")
           .optional()
           .action((value, config) =>
-            config.copy(trackerRetentionPeriod = FiniteDuration(value.getSeconds, TimeUnit.SECONDS))
+            config.copy(commandConfig =
+              config.commandConfig
+                .copy(retentionPeriod = FiniteDuration(value.getSeconds, TimeUnit.SECONDS))
+            )
           )
           .text(
-            s"How long will the command service keep an active command tracker for a given party. A longer period cuts down on the tracker instantiation cost for a party that seldom acts. A shorter period causes a quick removal of unused trackers. Default is $DefaultTrackerRetentionPeriod."
+            s"How long will the command service keep an active command tracker for a given party. A longer period cuts down on the tracker instantiation cost for a party that seldom acts. A shorter period causes a quick removal of unused trackers. Default is ${CommandConfiguration.DefaultTrackerRetentionPeriod}."
           )
 
         opt[Int]("max-inbound-message-size")

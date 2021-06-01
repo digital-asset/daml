@@ -82,21 +82,15 @@ final class Conversions(
 
     err match {
       case SError.SErrorCrash(reason) => setCrash(reason)
+
       case SError.SRequiresOnLedger(operation) => setCrash(operation)
 
-      case SError.DamlEMatchError(reason) =>
-        setCrash(reason)
-      case SError.DamlEUnhandledException(exc) =>
-        val exceptionBuilder = proto.ScenarioError.Exception.newBuilder
-        exc match {
-          case error: SValue.SArithmeticError =>
-            exceptionBuilder.setBuiltin(error.message)
-          case SValue.SAnyException(_, sValue) =>
-            exceptionBuilder.setUser(convertValue(sValue.toValue))
-        }
-        builder.setUnhandledException(exceptionBuilder)
-      case SError.DamlEUserError(msg) =>
-        builder.setUserError(msg)
+      case SError.DamlEMatchError(reason) => setCrash(reason)
+
+      case SError.DamlEUnhandledException(excep) =>
+        builder.setUnhandledException(convertValue(excep.value.toValue))
+
+      case SError.DamlEUserError(msg) => builder.setUserError(msg)
 
       case SError.DamlETransactionError(reason) =>
         setCrash(reason)

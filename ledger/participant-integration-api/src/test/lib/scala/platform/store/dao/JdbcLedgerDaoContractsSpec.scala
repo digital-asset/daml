@@ -168,9 +168,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       failure <- contractsReader.lookupMaximumLedgerTime(Set(randomContractId)).failed
     } yield {
       failure shouldBe an[IllegalArgumentException]
-      failure.getMessage should startWith(
-        "One or more of the following contract identifiers has not been found"
-      )
+      assertIsLedgerTimeLookupError(failure.getMessage)
     }
   }
 
@@ -188,13 +186,12 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   it should "allow the retrieval of the maximum ledger time even when there are divulged contracts" in {
     val divulgedContractId = ContractId.assertFromString(s"#divulged-${UUID.randomUUID}")
     for {
-      (_, _) <- store(
-        divulgedContracts = Map(
-          (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
-        ),
-        blindingInfo = None,
-        offsetAndTx = singleNonConsumingExercise(divulgedContractId),
+      // Some contract divulged (its create node was not witnessed by any party on this participant)
+      (_, _) <- storeCommitedContractDivulgence(
+        id = divulgedContractId,
+        divulgees = Set(charlie),
       )
+      // An unrelated create node witnessed by some party on this participant
       (_, tx) <- store(singleCreate)
       contractIds = nonTransient(tx) + divulgedContractId
       result <- contractsReader.lookupMaximumLedgerTime(contractIds)
@@ -205,15 +202,31 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     }
   }
 
+  it should "allow the retrieval of the maximum ledger time when a local contract is also divulged" in {
+    for {
+      // Create node witnessed by some party on this participant
+      (_, tx) <- store(singleCreate)
+      contractId = nonTransient(tx).loneElement
+      // Contract divulged to some other party on this participant
+      (_, _) <- storeCommitedContractDivulgence(
+        id = contractId,
+        divulgees = Set(charlie),
+      )
+      result <- contractsReader.lookupMaximumLedgerTime(Set(contractId))
+    } yield {
+      inside(result) { case Some(tx.ledgerEffectiveTime) =>
+        succeed
+      }
+    }
+  }
+
   it should "allow the retrieval of the maximum ledger time even when there are only divulged contracts" in {
     val divulgedContractId = ContractId.assertFromString(s"#divulged-${UUID.randomUUID}")
     for {
-      (_, _) <- store(
-        divulgedContracts = Map(
-          (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
-        ),
-        blindingInfo = None,
-        offsetAndTx = singleNonConsumingExercise(divulgedContractId),
+      // Some contract divulged (its create node was not witnessed by any party on this participant)
+      (_, _) <- storeCommitedContractDivulgence(
+        id = divulgedContractId,
+        divulgees = Set(charlie),
       )
       result <- contractsReader.lookupMaximumLedgerTime(Set(divulgedContractId))
     } yield {
@@ -222,26 +235,35 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
   }
 
   it should "not allow the retrieval of the maximum ledger time of archived divulged contracts" in {
-    val divulgedContractId = ContractId.assertFromString(s"#divulged-${UUID.randomUUID}")
     for {
-      // This divulges and archives a contract in the same transaction
-      (_, _) <- store(
-        divulgedContracts = Map(
-          (divulgedContractId, someVersionedContractInstance) -> Set(charlie)
-        ),
-        blindingInfo = None,
-        offsetAndTx = singleExercise(divulgedContractId),
+      // Create node witnessed by some party on this participant
+      (_, tx) <- store(singleCreate)
+      divulgedContractId = nonTransient(tx).loneElement
+      // Contract divulged to some other party on this participant
+      (_, _) <- storeCommitedContractDivulgence(
+        id = divulgedContractId,
+        divulgees = Set(charlie),
       )
+      // Consuming exercise node witnessed by some party on this participant
+      _ <- store(singleExercise(divulgedContractId))
       failure <- contractsReader.lookupMaximumLedgerTime(Set(divulgedContractId)).failed
     } yield {
       failure shouldBe an[IllegalArgumentException]
-      failure.getMessage should startWith(
-        "One or more of the following contract identifiers has not been found"
-      )
+      assertIsLedgerTimeLookupError(failure.getMessage)
     }
   }
 
   it should "store contracts with a transient contract in the global divulgence" in {
     store(fullyTransientWithChildren).flatMap(_ => succeed)
+  }
+
+  // dao.JdbcLedgerDao uses the pattern 'One or more of the following contract identifiers has not been found'
+  // appendonly.JdbcLedgerDao uses the pattern 'The following contracts have not been found'
+  // They both use different error classes.
+  // TODO append-only: remove references to errors produced by the mutating schema
+  private[this] def assertIsLedgerTimeLookupError(actualErrorString: String) = {
+    val errorStringMutating = "One or more of the following contract identifiers has not been found"
+    val errorStringAppendOnly = "The following contracts have not been found"
+    actualErrorString should (startWith(errorStringMutating) or startWith(errorStringAppendOnly))
   }
 }

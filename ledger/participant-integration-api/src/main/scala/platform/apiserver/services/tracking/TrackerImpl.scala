@@ -97,9 +97,9 @@ private[services] object TrackerImpl {
         delayTimer,
       )
       .viaMat(tracker)(Keep.both)
-      .toMat(Sink.foreach { case Ctx(promise, result) =>
+      .toMat(Sink.foreach { case Ctx(promise, result, _) =>
         result match {
-          case compl @ Completion(_, Some(Status(Code.OK.value, _, _)), _, _) =>
+          case compl @ Completion(_, Some(Status(Code.OK.value, _, _, _)), _, _) =>
             logger.trace("Completing promise with success")
             promise.trySuccess(compl)
           case Completion(_, statusO, _, _) =>

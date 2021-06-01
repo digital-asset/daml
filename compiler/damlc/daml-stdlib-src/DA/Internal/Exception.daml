@@ -115,11 +115,7 @@ instance HasToAnyException ArithmeticError where
     toAnyException = primitive @"EToAnyException"
 
 instance HasFromAnyException ArithmeticError where
-    fromAnyException e
-        | primitive @"BEAnyExceptionIsArithmeticError" e =
-            Some (ArithmeticError (message e))
-        | otherwise =
-            primitive @"EFromAnyException" e
+    fromAnyException = primitive @"EFromAnyException"
 
 --------------------------------------------------------------
 

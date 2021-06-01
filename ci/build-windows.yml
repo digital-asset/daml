@@ -43,27 +43,22 @@ steps:
     parameters:
       var_name: bash-lib
 
-  # TODO: remove once new signing is working (see #9758)
-  - bash: |
-      OUTPUT_DIR='$(Build.StagingDirectory)'/test-signing
-      mkdir -p $OUTPUT_DIR
-      cp "bazel-bin/release/windows-installer/daml-sdk-installer-ce.exe" "$OUTPUT_DIR/installer.exe"
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/test-signing
-      artifactName: test-signing
-
   - bash: |
       set -euo pipefail
       mkdir -p '$(Build.StagingDirectory)'/release
       ./ci/copy-windows-release-artifacts.sh ${{parameters.release_tag}} '$(Build.StagingDirectory)'/release
     name: publish
     env:
-      SIGNING_KEY: $(microsoft-code-signing)
+      AZURE_KEY_VAULT_URL: $(AZURE_KEY_VAULT_URL)
+      AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
+      AZURE_CLIENT_SECRET: $(AZURE_CLIENT_SECRET)
+      AZURE_TENANT_ID: $(AZURE_TENANT_ID)
+      AZURE_KEY_VAULT_CERTIFICATE: $(AZURE_KEY_VAULT_CERTIFICATE)
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    eq(variables['Build.SourceBranchName'], 'main'))
+
   - task: PublishPipelineArtifact@0
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),

@@ -62,16 +62,12 @@ sealed trait SValue {
         V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
       case SContractId(coid) =>
         V.ValueContractId(coid)
-      case SArithmeticError(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SArithmeticError")
       case SStruct(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SStruct")
       case SAny(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SAny")
       case SBigNumeric(_) =>
         throw SErrorCrash("SValue.toValue: unexpected SBigNumeric")
-      case SAnyException(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SAnyException")
       case STypeRep(_) =>
         throw SErrorCrash("SValue.toValue: unexpected STypeRep")
       case STNat(_) =>
@@ -111,10 +107,6 @@ sealed trait SValue {
         )
       case SAny(ty, value) =>
         SAny(ty, value.mapContractId(f))
-      case SAnyException(ty, value) =>
-        SAnyException(ty, value.mapContractId(f))
-      case excep: SArithmeticError =>
-        excep
     }
 }
 
@@ -206,14 +198,42 @@ object SValue {
       SMap(isTextMap: Boolean, entries.iterator)
   }
 
+  // represents Any And AnyException
   final case class SAny(ty: Type, value: SValue) extends SValue
-  sealed abstract class SException extends SValue
-  final case class SAnyException(ty: Type, value: SValue) extends SException
-  final case class SArithmeticError(
-      builtinName: String,
-      args: ImmArray[String],
-  ) extends SException {
-    def message = s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")})."
+
+  object SAnyException {
+    def apply(tyCon: Ref.TypeConName, value: SRecord): SAny = SAny(TTyCon(tyCon), value)
+
+    def unapply(any: SAny): Option[SRecord] =
+      any match {
+        case SAny(TTyCon(tyCon0), record @ SRecord(tyCon1, _, _)) if tyCon0 == tyCon1 =>
+          Some(record)
+        case _ =>
+          None
+      }
+  }
+
+  object SArithmeticError {
+    // The package ID should match the ID of the stable package daml-prim-DA-Exception-ArithmeticError
+    // See test compiler/damlc/tests/src/stable-packages.sh
+    val tyCon: Ref.TypeConName = Ref.Identifier.assertFromString(
+      "f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981:DA.Exception.ArithmeticError:ArithmeticError"
+    )
+    val typ: Type = TTyCon(tyCon)
+    val fields: ImmArray[Ref.Name] = ImmArray(Ref.Name.assertFromString("message"))
+    def apply(builtinName: String, args: ImmArray[String]): SAny = {
+      val array = new util.ArrayList[SValue](1)
+      array.add(
+        SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
+      )
+      SAny(typ, SRecord(tyCon, fields, array))
+    }
+    // Assumes excep is properly typed
+    def unapply(excep: SAny): Option[SValue] =
+      excep match {
+        case SAnyException(SRecord(`tyCon`, _, args)) => Some(args.get(0))
+        case _ => None
+      }
   }
 
   // Corresponds to a Daml-LF Nat type reified as a Speedy value.

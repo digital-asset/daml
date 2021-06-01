@@ -146,11 +146,16 @@ object domain {
       // TODO(Leo): add Option[WorkflowId] back
   )
 
-  final case class CreateCommand[+LfV](
-      templateId: TemplateId.OptionalPkg,
+  final case class CreateCommand[+LfV, TmplId](
+      templateId: TmplId,
       payload: LfV,
       meta: Option[CommandMeta],
-  )
+  ) {
+    def traversePayload[G[_]: Applicative, LfVB](
+        f: LfV => G[LfVB]
+    ): G[CreateCommand[LfVB, TmplId]] =
+      Bitraverse[CreateCommand].leftTraverse.traverse(this)(f)
+  }
 
   final case class ExerciseCommand[+LfV, +Ref](
       reference: Ref,
@@ -159,8 +164,8 @@ object domain {
       meta: Option[CommandMeta],
   )
 
-  final case class CreateAndExerciseCommand[+Payload, +Arg](
-      templateId: TemplateId.OptionalPkg,
+  final case class CreateAndExerciseCommand[+Payload, +Arg, +TmplId](
+      templateId: TmplId,
       payload: Payload,
       choice: domain.Choice,
       argument: Arg,
@@ -518,11 +523,13 @@ object domain {
   }
 
   object CreateCommand {
-    implicit val traverseInstance: Traverse[CreateCommand] = new Traverse[CreateCommand] {
-      override def traverseImpl[G[_]: Applicative, A, B](
-          fa: CreateCommand[A]
-      )(f: A => G[B]): G[CreateCommand[B]] =
-        f(fa.payload).map(a => fa.copy(payload = a))
+    implicit val bitraverseInstance: Bitraverse[CreateCommand] = new Bitraverse[CreateCommand] {
+      override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+          fab: CreateCommand[A, B]
+      )(f: A => G[C], g: B => G[D]): G[CreateCommand[C, D]] = {
+        import scalaz.syntax.applicative._
+        ^(f(fab.payload), g(fab.templateId))((c, d) => fab.copy(payload = c, templateId = d))
+      }
     }
   }
 
@@ -564,18 +571,6 @@ object domain {
         ): Error \/ LfType =
           g(templateId, fa.choice)
             .leftMap(e => Error(Symbol("ExerciseCommand_hasTemplateId_lfType"), e.shows))
-      }
-  }
-
-  object CreateAndExerciseCommand {
-    implicit val bitraverseInstance: Bitraverse[CreateAndExerciseCommand] =
-      new Bitraverse[CreateAndExerciseCommand] {
-        override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
-            fab: CreateAndExerciseCommand[A, B]
-        )(f: A => G[C], g: B => G[D]): G[CreateAndExerciseCommand[C, D]] = {
-          import scalaz.syntax.applicative._
-          ^(f(fab.payload), g(fab.argument))((p, a) => fab.copy(payload = p, argument = a))
-        }
       }
   }
 
