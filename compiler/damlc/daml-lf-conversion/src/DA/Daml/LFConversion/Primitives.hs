@@ -413,9 +413,6 @@ convertPrim _ "EToAnyException" (ty :-> TBuiltin BTAnyException) =
 convertPrim _ "EFromAnyException" (TBuiltin BTAnyException :-> TOptional ty) =
     ETmLam (mkVar "x", TBuiltin BTAnyException) (EFromAnyException ty (EVar (mkVar "x")))
 
--- TODO #8020 https://github.com/digital-asset/daml/issues/8020
--- Make sure this indirection is eliminated when doing "try ... catch ..."
--- in the Update monad. This may require a specific LFConversion rule.
 convertPrim _ "UTryCatch" ((TUnit :-> TUpdate t1) :-> (TBuiltin BTAnyException :-> TOptional (TUpdate t2)) :-> TUpdate t3)
     | t1 == t2, t2 == t3
         = ETmLam (mkVar "t", TUnit :-> TUpdate t1)
