@@ -498,7 +498,7 @@ message DamlCommandDedupValue {
   // Ledgers MAY delete them after this time measured against their local
   // clock.
   // Note: we exploit that Ledger API clients are advised to not reuse
-  // DamlCommandDedupKeys, as they cannot assume that their timely removal.
+  // DamlCommandDedupKeys, as they cannot assume their timely removal.
   google.protobuf.Timestamp deduplicated_until = 2;
 
   // The identity of the submission whose rank and result is stored.
