@@ -520,7 +520,7 @@ object Endpoints {
   import json.JsonProtocol._
   import util.ErrorOps._
 
-  private type ET[A] = EitherT[Future, Error, A]
+  private type ET[A] = EitherT[Error, Future, A]
 
   private type ApiRecord = lav1.value.Record
   private type ApiValue = lav1.value.Value

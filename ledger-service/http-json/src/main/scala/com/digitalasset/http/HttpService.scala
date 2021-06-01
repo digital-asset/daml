@@ -53,7 +53,7 @@ object HttpService {
   // default to 10 minutes for ledger connection retry period when ledger is not ready on start
   private val MaxInitialLedgerConnectRetryAttempts = 600
 
-  private type ET[A] = EitherT[Future, Error, A]
+  private type ET[A] = EitherT[Error, Future, A]
 
   object Error {
     def fromLedgerClientError(e: LedgerClientBase.Error): Error = Error(e.message)

@@ -80,7 +80,7 @@ class PartiesService(
 object PartiesService {
   import com.daml.http.util.ErrorOps._
 
-  private type ET[A] = EitherT[Future, Error, A]
+  private type ET[A] = EitherT[Error, Future, A]
 
   def toLedgerApiPartySet(
       ps: OneAnd[Set, domain.Party]
