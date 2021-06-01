@@ -1,59 +1,56 @@
-// Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
+package com.daml.platform.store.backend.oracle
 
-package com.daml.platform.store.backend.postgresql
+import com.daml.platform.store.backend.postgresql.RawDBBatchPostgreSQLV1
+import com.daml.platform.store.backend.{DBDTOV1, StorageBackend}
 
 import java.sql.{Connection, PreparedStatement}
 
-import com.daml.platform.store.backend.{DBDTOV1, StorageBackend}
-
-object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
-
+object OracleStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
   private val preparedInsertEventsBatchDivulgence: Connection => PreparedStatement =
     _.prepareStatement(
       """
-      |INSERT INTO participant_events_divulgence
-      | (
-      |   event_offset,
-      |   contract_id,
-      |   command_id,
-      |   workflow_id,
-      |   application_id,
-      |   submitters,
-      |   create_argument,
-      |   template_id,
-      |   tree_event_witnesses,
-      |   event_sequential_id,
-      |   create_argument_compression
-      | )
-      | SELECT
-      |   event_offset_in,
-      |   contract_id_in,
-      |   command_id_in,
-      |   workflow_id_in,
-      |   application_id_in,
-      |   string_to_array(submitters_in, '|'),
-      |   create_argument_in,
-      |   template_id_in,
-      |   string_to_array(tree_event_witnesses_in, '|'),
-      |   event_sequential_id_in,
-      |   create_argument_compression_in::smallint
-      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?)
-      | as t(
-      |   event_offset_in,
-      |   contract_id_in,
-      |   command_id_in,
-      |   workflow_id_in,
-      |   application_id_in,
-      |   submitters_in,
-      |   create_argument_in,
-      |   template_id_in,
-      |   tree_event_witnesses_in,
-      |   event_sequential_id_in,
-      |   create_argument_compression_in
-      | );
-      |
-      |""".stripMargin
+        |INSERT INTO participant_events_divulgence
+        | (
+        |   event_offset,
+        |   contract_id,
+        |   command_id,
+        |   workflow_id,
+        |   application_id,
+        |   submitters,
+        |   create_argument,
+        |   template_id,
+        |   tree_event_witnesses,
+        |   event_sequential_id,
+        |   create_argument_compression
+        | )
+        | SELECT
+        |   event_offset_in,
+        |   contract_id_in,
+        |   command_id_in,
+        |   workflow_id_in,
+        |   application_id_in,
+        |   string_to_array(submitters_in, '|'),
+        |   create_argument_in,
+        |   template_id_in,
+        |   string_to_array(tree_event_witnesses_in, '|'),
+        |   event_sequential_id_in,
+        |   create_argument_compression_in::smallint
+        | FROM unnest(?,?,?,?,?,?,?,?,?,?,?)
+        | as t(
+        |   event_offset_in,
+        |   contract_id_in,
+        |   command_id_in,
+        |   workflow_id_in,
+        |   application_id_in,
+        |   submitters_in,
+        |   create_argument_in,
+        |   template_id_in,
+        |   tree_event_witnesses_in,
+        |   event_sequential_id_in,
+        |   create_argument_compression_in
+        | );
+        |
+        |""".stripMargin
     )
 
   private val preparedInsertEventsBatchCreate: Connection => PreparedStatement = _.prepareStatement(
@@ -138,199 +135,199 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
   private val preparedInsertEventsBatchConsumingExercise: Connection => PreparedStatement =
     _.prepareStatement(
       """
-      |INSERT INTO participant_events_consuming_exercise
-      | (
-      |   event_id,
-      |   event_offset,
-      |   contract_id,
-      |   transaction_id,
-      |   ledger_effective_time,
-      |   node_index,
-      |   command_id,
-      |   workflow_id,
-      |   application_id,
-      |   submitters,
-      |   create_key_value,
-      |   exercise_choice,
-      |   exercise_argument,
-      |   exercise_result,
-      |   exercise_actors,
-      |   exercise_child_event_ids,
-      |   template_id,
-      |   flat_event_witnesses,
-      |   tree_event_witnesses,
-      |   event_sequential_id,
-      |   create_key_value_compression,
-      |   exercise_argument_compression,
-      |   exercise_result_compression
-      | )
-      | SELECT
-      |   event_id_in,
-      |   event_offset_in,
-      |   contract_id_in,
-      |   transaction_id_in,
-      |   ledger_effective_time_in::timestamp,
-      |   node_index_in,
-      |   command_id_in,
-      |   workflow_id_in,
-      |   application_id_in,
-      |   string_to_array(submitters_in, '|'),
-      |   create_key_value_in,
-      |   exercise_choice_in,
-      |   exercise_argument_in,
-      |   exercise_result_in,
-      |   string_to_array(exercise_actors_in, '|'),
-      |   string_to_array(exercise_child_event_ids_in, '|'),
-      |   template_id_in,
-      |   string_to_array(flat_event_witnesses_in, '|'),
-      |   string_to_array(tree_event_witnesses_in, '|'),
-      |   event_sequential_id_in,
-      |   create_key_value_compression_in::smallint,
-      |   exercise_argument_compression_in::smallint,
-      |   exercise_result_compression_in::smallint
-      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-      | as t(
-      |   event_id_in,
-      |   event_offset_in,
-      |   contract_id_in,
-      |   transaction_id_in,
-      |   ledger_effective_time_in,
-      |   node_index_in,
-      |   command_id_in,
-      |   workflow_id_in,
-      |   application_id_in,
-      |   submitters_in,
-      |   create_key_value_in,
-      |   exercise_choice_in,
-      |   exercise_argument_in,
-      |   exercise_result_in,
-      |   exercise_actors_in,
-      |   exercise_child_event_ids_in,
-      |   template_id_in,
-      |   flat_event_witnesses_in,
-      |   tree_event_witnesses_in,
-      |   event_sequential_id_in,
-      |   create_key_value_compression_in,
-      |   exercise_argument_compression_in,
-      |   exercise_result_compression_in
-      | );
-      |
-      |""".stripMargin
+        |INSERT INTO participant_events_consuming_exercise
+        | (
+        |   event_id,
+        |   event_offset,
+        |   contract_id,
+        |   transaction_id,
+        |   ledger_effective_time,
+        |   node_index,
+        |   command_id,
+        |   workflow_id,
+        |   application_id,
+        |   submitters,
+        |   create_key_value,
+        |   exercise_choice,
+        |   exercise_argument,
+        |   exercise_result,
+        |   exercise_actors,
+        |   exercise_child_event_ids,
+        |   template_id,
+        |   flat_event_witnesses,
+        |   tree_event_witnesses,
+        |   event_sequential_id,
+        |   create_key_value_compression,
+        |   exercise_argument_compression,
+        |   exercise_result_compression
+        | )
+        | SELECT
+        |   event_id_in,
+        |   event_offset_in,
+        |   contract_id_in,
+        |   transaction_id_in,
+        |   ledger_effective_time_in::timestamp,
+        |   node_index_in,
+        |   command_id_in,
+        |   workflow_id_in,
+        |   application_id_in,
+        |   string_to_array(submitters_in, '|'),
+        |   create_key_value_in,
+        |   exercise_choice_in,
+        |   exercise_argument_in,
+        |   exercise_result_in,
+        |   string_to_array(exercise_actors_in, '|'),
+        |   string_to_array(exercise_child_event_ids_in, '|'),
+        |   template_id_in,
+        |   string_to_array(flat_event_witnesses_in, '|'),
+        |   string_to_array(tree_event_witnesses_in, '|'),
+        |   event_sequential_id_in,
+        |   create_key_value_compression_in::smallint,
+        |   exercise_argument_compression_in::smallint,
+        |   exercise_result_compression_in::smallint
+        | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        | as t(
+        |   event_id_in,
+        |   event_offset_in,
+        |   contract_id_in,
+        |   transaction_id_in,
+        |   ledger_effective_time_in,
+        |   node_index_in,
+        |   command_id_in,
+        |   workflow_id_in,
+        |   application_id_in,
+        |   submitters_in,
+        |   create_key_value_in,
+        |   exercise_choice_in,
+        |   exercise_argument_in,
+        |   exercise_result_in,
+        |   exercise_actors_in,
+        |   exercise_child_event_ids_in,
+        |   template_id_in,
+        |   flat_event_witnesses_in,
+        |   tree_event_witnesses_in,
+        |   event_sequential_id_in,
+        |   create_key_value_compression_in,
+        |   exercise_argument_compression_in,
+        |   exercise_result_compression_in
+        | );
+        |
+        |""".stripMargin
     )
 
   private val preparedInsertEventsBatchNonConsumingExercise: Connection => PreparedStatement =
     _.prepareStatement(
       """
-      |INSERT INTO participant_events_non_consuming_exercise
-      | (
-      |   event_id,
-      |   event_offset,
-      |   contract_id,
-      |   transaction_id,
-      |   ledger_effective_time,
-      |   node_index,
-      |   command_id,
-      |   workflow_id,
-      |   application_id,
-      |   submitters,
-      |   create_key_value,
-      |   exercise_choice,
-      |   exercise_argument,
-      |   exercise_result,
-      |   exercise_actors,
-      |   exercise_child_event_ids,
-      |   template_id,
-      |   flat_event_witnesses,
-      |   tree_event_witnesses,
-      |   event_sequential_id,
-      |   create_key_value_compression,
-      |   exercise_argument_compression,
-      |   exercise_result_compression
-      | )
-      | SELECT
-      |   event_id_in,
-      |   event_offset_in,
-      |   contract_id_in,
-      |   transaction_id_in,
-      |   ledger_effective_time_in::timestamp,
-      |   node_index_in,
-      |   command_id_in,
-      |   workflow_id_in,
-      |   application_id_in,
-      |   string_to_array(submitters_in, '|'),
-      |   create_key_value_in,
-      |   exercise_choice_in,
-      |   exercise_argument_in,
-      |   exercise_result_in,
-      |   string_to_array(exercise_actors_in, '|'),
-      |   string_to_array(exercise_child_event_ids_in, '|'),
-      |   template_id_in,
-      |   string_to_array(flat_event_witnesses_in, '|'),
-      |   string_to_array(tree_event_witnesses_in, '|'),
-      |   event_sequential_id_in,
-      |   create_key_value_compression_in::smallint,
-      |   exercise_argument_compression_in::smallint,
-      |   exercise_result_compression_in::smallint
-      | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-      | as t(
-      |   event_id_in,
-      |   event_offset_in,
-      |   contract_id_in,
-      |   transaction_id_in,
-      |   ledger_effective_time_in,
-      |   node_index_in,
-      |   command_id_in,
-      |   workflow_id_in,
-      |   application_id_in,
-      |   submitters_in,
-      |   create_key_value_in,
-      |   exercise_choice_in,
-      |   exercise_argument_in,
-      |   exercise_result_in,
-      |   exercise_actors_in,
-      |   exercise_child_event_ids_in,
-      |   template_id_in,
-      |   flat_event_witnesses_in,
-      |   tree_event_witnesses_in,
-      |   event_sequential_id_in,
-      |   create_key_value_compression_in,
-      |   exercise_argument_compression_in,
-      |   exercise_result_compression_in
-      | );
-      |
-      |""".stripMargin
+        |INSERT INTO participant_events_non_consuming_exercise
+        | (
+        |   event_id,
+        |   event_offset,
+        |   contract_id,
+        |   transaction_id,
+        |   ledger_effective_time,
+        |   node_index,
+        |   command_id,
+        |   workflow_id,
+        |   application_id,
+        |   submitters,
+        |   create_key_value,
+        |   exercise_choice,
+        |   exercise_argument,
+        |   exercise_result,
+        |   exercise_actors,
+        |   exercise_child_event_ids,
+        |   template_id,
+        |   flat_event_witnesses,
+        |   tree_event_witnesses,
+        |   event_sequential_id,
+        |   create_key_value_compression,
+        |   exercise_argument_compression,
+        |   exercise_result_compression
+        | )
+        | SELECT
+        |   event_id_in,
+        |   event_offset_in,
+        |   contract_id_in,
+        |   transaction_id_in,
+        |   ledger_effective_time_in::timestamp,
+        |   node_index_in,
+        |   command_id_in,
+        |   workflow_id_in,
+        |   application_id_in,
+        |   string_to_array(submitters_in, '|'),
+        |   create_key_value_in,
+        |   exercise_choice_in,
+        |   exercise_argument_in,
+        |   exercise_result_in,
+        |   string_to_array(exercise_actors_in, '|'),
+        |   string_to_array(exercise_child_event_ids_in, '|'),
+        |   template_id_in,
+        |   string_to_array(flat_event_witnesses_in, '|'),
+        |   string_to_array(tree_event_witnesses_in, '|'),
+        |   event_sequential_id_in,
+        |   create_key_value_compression_in::smallint,
+        |   exercise_argument_compression_in::smallint,
+        |   exercise_result_compression_in::smallint
+        | FROM unnest(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        | as t(
+        |   event_id_in,
+        |   event_offset_in,
+        |   contract_id_in,
+        |   transaction_id_in,
+        |   ledger_effective_time_in,
+        |   node_index_in,
+        |   command_id_in,
+        |   workflow_id_in,
+        |   application_id_in,
+        |   submitters_in,
+        |   create_key_value_in,
+        |   exercise_choice_in,
+        |   exercise_argument_in,
+        |   exercise_result_in,
+        |   exercise_actors_in,
+        |   exercise_child_event_ids_in,
+        |   template_id_in,
+        |   flat_event_witnesses_in,
+        |   tree_event_witnesses_in,
+        |   event_sequential_id_in,
+        |   create_key_value_compression_in,
+        |   exercise_argument_compression_in,
+        |   exercise_result_compression_in
+        | );
+        |
+        |""".stripMargin
     )
 
   private val preparedInsertConfigurationEntryBatch: Connection => PreparedStatement =
     _.prepareStatement(
       """
-      |INSERT INTO configuration_entries
-      | (
-      |   ledger_offset,
-      |   recorded_at,
-      |   submission_id,
-      |   typ,
-      |   configuration,
-      |   rejection_reason
-      | )
-      | SELECT
-      |   ledger_offset_in,
-      |   recorded_at_in::timestamp,
-      |   submission_id_in,
-      |   typ_in,
-      |   configuration_in,
-      |   rejection_reason_in
-      | FROM unnest(?,?,?,?,?,?)
-      | as t(
-      |   ledger_offset_in,
-      |   recorded_at_in,
-      |   submission_id_in,
-      |   typ_in,
-      |   configuration_in,
-      |   rejection_reason_in
-      | );
-      |
-      |""".stripMargin
+        |INSERT INTO configuration_entries
+        | (
+        |   ledger_offset,
+        |   recorded_at,
+        |   submission_id,
+        |   typ,
+        |   configuration,
+        |   rejection_reason
+        | )
+        | SELECT
+        |   ledger_offset_in,
+        |   recorded_at_in::timestamp,
+        |   submission_id_in,
+        |   typ_in,
+        |   configuration_in,
+        |   rejection_reason_in
+        | FROM unnest(?,?,?,?,?,?)
+        | as t(
+        |   ledger_offset_in,
+        |   recorded_at_in,
+        |   submission_id_in,
+        |   typ_in,
+        |   configuration_in,
+        |   rejection_reason_in
+        | );
+        |
+        |""".stripMargin
     )
 
   private val preparedInsertPackageEntryBatch: Connection => PreparedStatement = _.prepareStatement(
@@ -464,64 +461,66 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
   private val preparedInsertCommandCompletionBatch: Connection => PreparedStatement =
     _.prepareStatement(
       """
-      |INSERT INTO participant_command_completions
-      | (
-      |   completion_offset,
-      |   record_time,
-      |   application_id,
-      |   submitters,
-      |   command_id,
-      |   transaction_id,
-      |   status_code,
-      |   status_message
-      | )
-      | SELECT
-      |   completion_offset_in,
-      |   record_time_in::timestamp,
-      |   application_id_in,
-      |   string_to_array(submitters_in, '|'),
-      |   command_id_in,
-      |   transaction_id_in,
-      |   status_code_in,
-      |   status_message_in
-      | FROM unnest(?,?,?,?,?,?,?,?)
-      | as t(
-      |   completion_offset_in,
-      |   record_time_in,
-      |   application_id_in,
-      |   submitters_in,
-      |   command_id_in,
-      |   transaction_id_in,
-      |   status_code_in,
-      |   status_message_in
-      | );
-      |
-      |""".stripMargin
+        |INSERT INTO participant_command_completions
+        | (
+        |   completion_offset,
+        |   record_time,
+        |   application_id,
+        |   submitters,
+        |   command_id,
+        |   transaction_id,
+        |   status_code,
+        |   status_message
+        | )
+        | SELECT
+        |   completion_offset_in,
+        |   record_time_in::timestamp,
+        |   application_id_in,
+        |   string_to_array(submitters_in, '|'),
+        |   command_id_in,
+        |   transaction_id_in,
+        |   status_code_in,
+        |   status_message_in
+        | FROM unnest(?,?,?,?,?,?,?,?)
+        | as t(
+        |   completion_offset_in,
+        |   record_time_in,
+        |   application_id_in,
+        |   submitters_in,
+        |   command_id_in,
+        |   transaction_id_in,
+        |   status_code_in,
+        |   status_message_in
+        | );
+        |
+        |""".stripMargin
     )
 
   private val preparedDeleteCommandSubmissionBatch: Connection => PreparedStatement =
     _.prepareStatement(
       """
-      |DELETE FROM participant_command_submissions
-      |WHERE deduplication_key IN (
-      |  SELECT deduplication_key_in
-      |  FROM unnest(?)
-      |  as t(deduplication_key_in)
-      |)
-      |
-      |""".stripMargin
+        |DELETE FROM participant_command_submissions
+        |WHERE deduplication_key IN (
+        |  SELECT deduplication_key_in
+        |  FROM unnest(?)
+        |  as t(deduplication_key_in)
+        |)
+        |
+        |""".stripMargin
     )
 
   override def insertBatch(
-      connection: Connection,
-      rawDBBatchPostgreSQLV1: RawDBBatchPostgreSQLV1,
-  ): Unit = {
+                            connection: Connection,
+                            rawDBBatchPostgreSQLV1: RawDBBatchPostgreSQLV1,
+                          ): Unit = {
     def execute(preparedStatementFactory: Connection => PreparedStatement, params: Any*): Unit = {
+
       val preparedStatement = preparedStatementFactory(connection)
       params.view.zipWithIndex.foreach { case (param, zeroBasedIndex) =>
-        preparedStatement.setObject(zeroBasedIndex + 1, param)
+        println("param is" + zeroBasedIndex + param + " \n")
+//        preparedStatement.setObject(zeroBasedIndex, param)
       }
-      preparedStatement.execute()
+//      preparedStatement.execute()
       preparedStatement.close()
       ()
     }
@@ -747,49 +746,49 @@ object PostgresStorageBackend extends StorageBackend[RawDBBatchPostgreSQLV1] {
   private val preparedDeleteIngestionOverspillEntries: Connection => PreparedStatement =
     _.prepareStatement(
       """
-      |DELETE
-      |FROM configuration_entries
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM package_entries
-      |WHERE ledger_offset > ?;
-      |
-      |-- TODO append-only: we do not have currently an index to support efficiently this operation. either add or make sure it is okay to do full table scans here
-      |DELETE
-      |FROM packages
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM participant_command_completions
-      |WHERE completion_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_divulgence
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_create
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_consuming_exercise
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_non_consuming_exercise
-      |WHERE event_offset > ?;
-      |
-      |-- TODO append-only: we do not have currently an index to support efficiently this operation. either add or make sure it is okay to do full table scans here
-      |DELETE
-      |FROM parties
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM party_entries
-      |WHERE ledger_offset > ?;
-      |
-      |""".stripMargin
+        |DELETE
+        |FROM configuration_entries
+        |WHERE ledger_offset > ?;
+        |
+        |DELETE
+        |FROM package_entries
+        |WHERE ledger_offset > ?;
+        |
+        |-- TODO append-only: we do not have currently an index to support efficiently this operation. either add or make sure it is okay to do full table scans here
+        |DELETE
+        |FROM packages
+        |WHERE ledger_offset > ?;
+        |
+        |DELETE
+        |FROM participant_command_completions
+        |WHERE completion_offset > ?;
+        |
+        |DELETE
+        |FROM participant_events_divulgence
+        |WHERE event_offset > ?;
+        |
+        |DELETE
+        |FROM participant_events_create
+        |WHERE event_offset > ?;
+        |
+        |DELETE
+        |FROM participant_events_consuming_exercise
+        |WHERE event_offset > ?;
+        |
+        |DELETE
+        |FROM participant_events_non_consuming_exercise
+        |WHERE event_offset > ?;
+        |
+        |-- TODO append-only: we do not have currently an index to support efficiently this operation. either add or make sure it is okay to do full table scans here
+        |DELETE
+        |FROM parties
+        |WHERE ledger_offset > ?;
+        |
+        |DELETE
+        |FROM party_entries
+        |WHERE ledger_offset > ?;
+        |
+        |""".stripMargin
     )
 
   override def batch(dbDtos: Vector[DBDTOV1]): RawDBBatchPostgreSQLV1 = {

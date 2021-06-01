@@ -3,11 +3,14 @@
 
 package com.daml.platform.store.backend
 
-import java.sql.Connection
-
+import java.sql.{Connection, ResultSet}
 import com.daml.ledger.participant.state.v1.Offset
+import com.daml.lf.data.Ref
 import com.daml.platform.store.DbType
+import com.daml.platform.store.backend.oracle.OracleStorageBackend
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackend
+
+import scala.collection.mutable
 
 /** Encapsulates the interface which hides database technology specific implementations for parallel ingestion.
   *
@@ -54,7 +57,40 @@ trait StorageBackend[DB_BATCH] {
     * @param connection to be used to get the LedgerEnd
     * @return the LedgerEnd, which should be the basis for further indexing
     */
-  def ledgerEnd(connection: Connection): StorageBackend.LedgerEnd
+  def ledgerEnd(connection: Connection): StorageBackend.LedgerEnd = {
+    val queryStatement = connection.createStatement()
+    val params = fetch(
+      queryStatement.executeQuery(
+        """
+          |SELECT
+          |  ledger_end,
+          |  ledger_end_sequential_id
+          |FROM
+          |  parameters
+          |
+          |""".stripMargin
+      )
+    )(rs =>
+      StorageBackend.LedgerEnd(
+        lastOffset =
+          if (rs.getString(1) == null) None
+          else Some(Offset.fromHexString(Ref.HexString.assertFromString(rs.getString(1)))),
+        lastEventSeqId = Option(rs.getLong(2)),
+      )
+    )
+    queryStatement.close()
+    assert(params.size == 1)
+    params.head
+  }
+
+  private def fetch[T](resultSet: ResultSet)(parse: ResultSet => T): Vector[T] = {
+    val buffer = mutable.ArrayBuffer.empty[T]
+    while (resultSet.next()) {
+      buffer += parse(resultSet)
+    }
+    resultSet.close()
+    buffer.toVector
+  }
 }
 
 object StorageBackend {
@@ -66,6 +102,6 @@ object StorageBackend {
     dbType match {
       case DbType.H2Database => throw new UnsupportedOperationException("H2 not supported yet")
       case DbType.Postgres => PostgresStorageBackend
-      case DbType.Oracle => throw new UnsupportedOperationException("Oracle not supported yet")
+      case DbType.Oracle => OracleStorageBackend
     }
 }
