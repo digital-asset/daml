@@ -23,53 +23,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-  // TODO https://github.com/digital-asset/daml/issues/8020
-  //   Add builtin errors back into this test (ArithmeticError and ContractError).
-  //   In these cases the message should probably just be "ArithmeticError" and "ContractError".
-
-  "ANY_EXCEPTION_MESSAGE" should {
-
-    // Application of ANY_EXCEPTION_MESSAGE for various cases:
-    // 2 user-defined exceptions.
-    // MyException1 contains the message text directly
-    // MyException2 composes the message string from two text contained in the payload
-
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
-       module M {
-
-         record @serializable MyException1 = { message: Text } ;
-         exception MyException1 = {
-           message \(e: M:MyException1) -> M:MyException1 {message} e
-         };
-
-        val e1 : AnyException = to_any_exception @M:MyException1 (M:MyException1 { message = "Message1" });
-        val t1 : Text = ANY_EXCEPTION_MESSAGE M:e1;
-
-         record @serializable MyException2 = { front: Text, back: Text } ;
-
-         exception MyException2 = {
-           message \(e: M:MyException2) -> APPEND_TEXT (M:MyException2 {front} e) (M:MyException2 {back} e)
-         };
-
-        val e2 : AnyException = to_any_exception @M:MyException2 (M:MyException2 { front = "Mess", back = "age2" });
-        val t2 : Text = ANY_EXCEPTION_MESSAGE M:e2;
-       }
-      """)
-
-    val testCases = Table[String, String](
-      ("expression", "expected-string"),
-      ("M:t1", "Message1"),
-      ("M:t2", "Message2"),
-    )
-
-    forEvery(testCases) { (exp: String, res: String) =>
-      s"""eval[$exp] --> "$res"""" in {
-        val expected: SResult = SResultFinalValue(SValue.SText(res))
-        runExpr(pkgs)(e"$exp") shouldBe expected
-      }
-    }
-  }
-
   "unhandled throw" should {
 
     // TODO https://github.com/digital-asset/daml/issues/8020
@@ -584,10 +537,6 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     data.assertRight(
       PureCompiledPackages(rawPkgs, Compiler.Config.Dev.copy(stacktracing = FullStackTrace))
     )
-  }
-
-  private def runExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult = {
-    Speedy.Machine.fromPureExpr(pkgs1, e).run()
   }
 
   private def runUpdateExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult = {

@@ -1486,11 +1486,13 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   }
 
   "AnyExceptionMessage" - {
-
     "request unknown packageId" in {
       eval(
         e"""ANY_EXCEPTION_MESSAGE (to_any_exception @Mod:Exception (Mod:Exception {}))"""
       ) shouldBe Right(SText("some nice error message"))
+      eval(
+        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @Mod:ExceptionAppend (Mod:ExceptionAppend { front = "Hello", back = "world"}))"""
+      ) shouldBe Right(SText("Helloworld"))
       eval(
         e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-':Mod:Exception {}))"""
       ) shouldBe Left(SErrorCrash(s"need package '-unknown-package-'"))
@@ -1542,6 +1544,11 @@ object SBuiltinTest {
               message \(e: Mod:Exception) -> "some nice error message"
           } ;
 
+         record @serializable ExceptionAppend = { front: Text, back: Text } ;
+         exception ExceptionAppend = {
+           message \(e: Mod:ExceptionAppend) -> APPEND_TEXT (Mod:ExceptionAppend {front} e) (Mod:ExceptionAppend {back} e)
+         };
+
           record @serializable Ex1 = { message: Text } ;
           exception Ex1 = {
             message \(e: Mod:Ex1) -> Mod:Ex1 {message} e
@@ -1565,7 +1572,8 @@ object SBuiltinTest {
     """
 
   val compiledPackages =
-    PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg)).toOption.get
+    PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg))
+      .fold(sys.error(_), identity)
 
   private def eval(e: Expr, onLedger: Boolean = true): Either[SError, SValue] = {
     evalSExpr(compiledPackages.compiler.unsafeCompile(e), onLedger)
