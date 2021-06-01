@@ -1150,7 +1150,7 @@ convertExpr env0 e = do
                 t' <- convertType env t
                 x' <- convertExpr env x
                 y' <- convertExpr env y
-                pure (UTryCatch t' (ETmApp x' EUnit) (convVar b) y', args)
+                pure (EUpdate (UTryCatch t' (ETmApp x' EUnit) (convVar b) y'), args)
             _ ->
                 fmap (, allArgs) $ convertExpr env tryCatch
 
