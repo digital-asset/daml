@@ -9,13 +9,13 @@ import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageVersion, LookupError, Interface}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
+import com.daml.lf.validation.{EUnknownDefinition, Validation, ValidationError}
 import org.slf4j.LoggerFactory
 
 import scala.annotation.{nowarn, tailrec}
@@ -95,11 +95,11 @@ private[lf] object Compiler {
     * they transitively reference are in the [[packages]] in the compiler.
     */
   def compilePackages(
-      signatures: PackageId PartialFunction PackageSignature,
+      interface: Interface,
       packages: Map[PackageId, Package],
       compilerConfig: Compiler.Config,
   ): Either[String, Map[SDefinitionRef, SDefinition]] = {
-    val compiler = new Compiler(signatures, compilerConfig)
+    val compiler = new Compiler(interface, compilerConfig)
     try {
       Right(packages.foldLeft(Map.empty[SDefinitionRef, SDefinition]) { case (acc, (pkgId, pkg)) =>
         acc ++ compiler.unsafeCompilePackage(pkgId, pkg)
@@ -125,11 +125,17 @@ private[lf] object Compiler {
 }
 
 private[lf] final class Compiler(
-    signatures: PackageId PartialFunction PackageSignature,
+    interface: Interface,
     config: Compiler.Config,
 ) {
 
   import Compiler._
+
+  private[this] def handleLookup[X](x: Either[LookupError, X]) =
+    x match {
+      case Right(value) => value
+      case Left(err) => SError.crash(err.pretty)
+    }
 
   // Stack-trace support is disabled by avoiding the construction of SELocation nodes.
   private[this] def maybeSELocation(loc: Location, sexp: SExpr): SExpr = {
@@ -314,7 +320,7 @@ private[lf] final class Compiler(
   /** Validates and compiles all the definitions in the package provided.
     *
     * Fails with [[PackageNotFound]] if the package or any of the packages it refers
-    * to are not in the [[signatures]].
+    * to are not in the [[interface]].
     *
     * @throws ValidationError if the package does not pass validations.
     */
@@ -329,8 +335,8 @@ private[lf] final class Compiler(
 
     val t0 = Time.Timestamp.now()
 
-    signatures.lift(pkgId) match {
-      case Some(pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
+    interface.lookupPackage(pkgId) match {
+      case Right(pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
         throw CompilationError(
           s"Disallowed language version in package $pkgId: " +
             s"Expected version between ${config.allowedLanguageVersions.min.pretty} and ${config.allowedLanguageVersions.max.pretty} but got ${pkg.languageVersion.pretty}"
@@ -341,8 +347,8 @@ private[lf] final class Compiler(
     config.packageValidation match {
       case Compiler.NoPackageValidation =>
       case Compiler.FullPackageValidation =>
-        Validation.checkPackage(signatures, pkgId, pkg).left.foreach {
-          case EUnknownDefinition(_, LEPackage(pkgId_)) =>
+        Validation.checkPackage(interface, pkgId, pkg).left.foreach {
+          case EUnknownDefinition(_, LookupError.LEPackage(pkgId_)) =>
             logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
             throw PackageNotFound(pkgId_)
           case e =>
@@ -389,7 +395,10 @@ private[lf] final class Compiler(
       case ERecCon(tApp, fields) =>
         compileERecCon(tApp, fields)
       case ERecProj(tapp, field, record) =>
-        SBRecProj(tapp.tycon, lookupRecordIndex(tapp, field))(
+        SBRecProj(
+          tapp.tycon,
+          handleLookup(interface.lookupRecordFieldInfo(tapp.tycon, field)).index,
+        )(
           compile(record)
         )
       case erecupd: ERecUpd =>
@@ -430,14 +439,12 @@ private[lf] final class Compiler(
         SEValue.None
       case ESome(_, body) =>
         SBSome(compile(body))
-      case EEnumCon(tyCon, constructor) =>
-        val enumDef =
-          lookupEnum(tyCon).getOrElse(throw CompilationError(s"enum $tyCon not found"))
-        SEValue(SEnum(tyCon, constructor, enumDef.constructorRank(constructor)))
+      case EEnumCon(tyCon, consName) =>
+        val rank = handleLookup(interface.lookupEnumConstructor(tyCon, consName))
+        SEValue(SEnum(tyCon, consName, rank))
       case EVariantCon(tapp, variant, arg) =>
-        val variantDef = lookupVariant(tapp.tycon)
-          .getOrElse(throw CompilationError(s"variant ${tapp.tycon} not found"))
-        SBVariantCon(tapp.tycon, variant, variantDef.constructorRank(variant))(compile(arg))
+        val rank = handleLookup(interface.lookupVariantConstructor(tapp.tycon, variant)).rank
+        SBVariantCon(tapp.tycon, variant, rank)(compile(arg))
       case let: ELet =>
         compileELet(let)
       case EUpdate(upd) =>
@@ -646,14 +653,12 @@ private[lf] final class Compiler(
     val tapp = erecupd.tycon
     val (record, fields, updates) = collectRecUpds(erecupd)
     if (fields.length == 1) {
-      SBRecUpd(tapp.tycon, lookupRecordIndex(tapp, fields.head))(
-        compile(record),
-        compile(updates.head),
-      )
+      val index = handleLookup(interface.lookupRecordFieldInfo(tapp.tycon, fields.head)).index
+      SBRecUpd(tapp.tycon, index)(compile(record), compile(updates.head))
     } else {
-      SBRecUpdMulti(tapp.tycon, fields.map(lookupRecordIndex(tapp, _)).to(ImmArray))(
-        (record :: updates).map(compile): _*
-      )
+      val indices =
+        fields.map(name => handleLookup(interface.lookupRecordFieldInfo(tapp.tycon, name)).index)
+      SBRecUpdMulti(tapp.tycon, indices.to(ImmArray))((record :: updates).map(compile): _*)
     }
   }
 
@@ -664,22 +669,14 @@ private[lf] final class Compiler(
       mapToArray(alts) { case CaseAlt(pat, expr) =>
         pat match {
           case CPVariant(tycon, variant, binder) =>
-            val variantDef =
-              lookupVariant(tycon).getOrElse(throw CompilationError(s"variant $tycon not found"))
+            val rank = handleLookup(interface.lookupVariantConstructor(tycon, variant)).rank
             withBinders(binder) { _ =>
-              SCaseAlt(
-                SCPVariant(tycon, variant, variantDef.constructorRank(variant)),
-                compile(expr),
-              )
+              SCaseAlt(SCPVariant(tycon, variant, rank), compile(expr))
             }
 
           case CPEnum(tycon, constructor) =>
-            val enumDef =
-              lookupEnum(tycon).getOrElse(throw CompilationError(s"enum $tycon not found"))
-            SCaseAlt(
-              SCPEnum(tycon, constructor, enumDef.constructorRank(constructor)),
-              compile(expr),
-            )
+            val rank = handleLookup(interface.lookupEnumConstructor(tycon, constructor))
+            SCaseAlt(SCPEnum(tycon, constructor, rank), compile(expr))
 
           case CPNil =>
             SCaseAlt(SCPNil, compile(expr))
@@ -1034,41 +1031,6 @@ private[lf] final class Compiler(
       case ELocation(_, expr1) => stripLocs(expr1)
       case _ => expr
     }
-
-  private[this] def lookupPackage(pkgId: PackageId): PackageSignature =
-    if (signatures.isDefinedAt(pkgId)) signatures(pkgId)
-    else throw PackageNotFound(pkgId)
-
-  private[this] def lookupDefinitionSignature(tycon: TypeConName): Option[DefinitionSignature] =
-    lookupPackage(tycon.packageId).modules
-      .get(tycon.qualifiedName.module)
-      .flatMap(mod => mod.definitions.get(tycon.qualifiedName.name))
-
-  private[this] def lookupVariant(tycon: TypeConName): Option[DataVariant] =
-    lookupDefinitionSignature(tycon).flatMap {
-      case DDataType(_, _, data: DataVariant) =>
-        Some(data)
-      case _ =>
-        None
-    }
-
-  private[this] def lookupEnum(tycon: TypeConName): Option[DataEnum] =
-    lookupDefinitionSignature(tycon).flatMap {
-      case DDataType(_, _, data: DataEnum) =>
-        Some(data)
-      case _ =>
-        None
-    }
-
-  private[this] def lookupRecordIndex(tapp: TypeConApp, field: FieldName): Int =
-    lookupDefinitionSignature(tapp.tycon)
-      .flatMap {
-        case DDataType(_, _, DataRecord(fields)) =>
-          val idx = fields.indexWhere(_._1 == field)
-          if (idx < 0) None else Some(idx)
-        case _ => None
-      }
-      .getOrElse(throw CompilationError(s"record type ${tapp.pretty} not found"))
 
   private[this] def withEnv[A](f: Unit => A): A = {
     val oldEnv = env

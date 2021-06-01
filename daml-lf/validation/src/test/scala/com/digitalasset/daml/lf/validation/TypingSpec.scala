@@ -5,9 +5,9 @@ package com.daml.lf.validation
 
 import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageVersion => LV}
+import com.daml.lf.language.{LookupError, Interface, LanguageVersion => LV}
 import com.daml.lf.testing.parser.Implicits._
-import com.daml.lf.testing.parser.{defaultPackageId, defaultLanguageVersion}
+import com.daml.lf.testing.parser.{defaultLanguageVersion, defaultPackageId}
 import com.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
@@ -455,9 +455,9 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: EEmptyConsFront => },
         //ExpVal
         E"⸨ Mod:g ⸩" -> //
-          { case EUnknownDefinition(_, LEDataType(_)) => },
+          { case EUnknownDefinition(_, LookupError.LEDataType(_)) => },
         E"⸨ Mod:R ⸩" -> //
-          { case EUnknownDefinition(_, LEValue(_)) => },
+          { case EUnknownDefinition(_, LookupError.LEValue(_)) => },
         //ExpRecCon
         E"Λ (σ : ⋆). λ (e₁ : Bool) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁, f2 = e₂ } ⸩" -> //
           { case _: ETypeMismatch => },
@@ -587,7 +587,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: EExpectedAnyType => },
         // ExpToAnyException
         E"λ (r: Mod:T) → ⸨ to_any_exception @(Mod:T) r ⸩" -> //
-          { case EUnknownDefinition(_, LEException(_)) => },
+          { case EUnknownDefinition(_, LookupError.LEException(_)) => },
         E"λ (t: Bool) → ⸨ to_any_exception @Bool t ⸩" -> //
           { case _: EExpectedExceptionType => },
         E"Λ (τ :⋆). λ (t: ∀ (α : ⋆). Int64) → ⸨ to_any_exception @(∀ (α : ⋆). Int64) t ⸩" -> //
@@ -598,7 +598,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: ETypeMismatch => },
         // ExpFromAnyException
         E"λ (t: AnyException) → ⸨ from_any_exception @Mod:T t ⸩" -> //
-          { case EUnknownDefinition(_, LEException(_)) => },
+          { case EUnknownDefinition(_, LookupError.LEException(_)) => },
         E"λ (t: Any) → ⸨ from_any_exception @Bool t ⸩" -> //
           { case _: EExpectedExceptionType => },
         E"λ (t: ∀ (α : ⋆). Int64) → ⸨ from_any_exception @(∀ (α : ⋆). Int64) t ⸩" -> //
@@ -609,9 +609,9 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         E"⸨ throw @Mod:R @Mod:E nothing ⸩" -> //
           { case _: EKindMismatch => },
         E"Λ (τ :⋆). λ (e : Mod:U) →  ⸨ throw @τ @Mod:U e ⸩" -> //
-          { case EUnknownDefinition(_, LEException(_)) => },
+          { case EUnknownDefinition(_, LookupError.LEException(_)) => },
         E"Λ (τ :⋆). λ (e : Mod:U) →  ⸨ throw @τ @Mod:U e ⸩" -> //
-          { case EUnknownDefinition(_, LEException(_)) => },
+          { case EUnknownDefinition(_, LookupError.LEException(_)) => },
         E"Λ (τ :⋆). λ (e : Bool) →  ⸨ throw @τ @Bool e ⸩" -> //
           { case _: EExpectedExceptionType => },
         E"Λ (τ :⋆). λ (e: ∀ (α : ⋆). Int64) →  ⸨ throw @τ @(∀ (α : ⋆). Int64) e ⸩" -> //
@@ -689,14 +689,14 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: ETypeMismatch => },
         // UpdCreate
         E"λ (e: Mod:U) → ⸨ create @Mod:U nothing ⸩" -> //
-          { case EUnknownDefinition(_, LETemplate(_)) => },
+          { case EUnknownDefinition(_, LookupError.LETemplate(_)) => },
         E"Λ (σ : ⋆). λ (e: σ) → ⸨ create @Mod:T e ⸩" -> //
           { case _: ETypeMismatch => },
         // UpdExercise
         E"λ (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:U Ch nothing e₂ e₃ ⸩" -> //
-          { case EUnknownDefinition(_, LETemplate(_)) => },
+          { case EUnknownDefinition(_, LookupError.LETemplate(_)) => },
         E"λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:T Not e₁ e₂ e₃ ⸩" -> //
-          { case EUnknownDefinition(_, LEChoice(_, _)) => },
+          { case EUnknownDefinition(_, LookupError.LEChoice(_, _)) => },
         E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: σ) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
           { case _: ETypeMismatch => },
         E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List σ) (e₃: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
@@ -707,14 +707,14 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: ETypeMismatch => },
         // FecthByKey & lookupByKey
         E"""⸨ fetch_by_key @Mod:U "Bob" ⸩""" -> //
-          { case EUnknownDefinition(_, LETemplate(_)) => },
+          { case EUnknownDefinition(_, LookupError.LETemplate(_)) => },
         E"""⸨ fetch_by_key @Mod:T "Bob" ⸩""" -> //
           { case _: ETypeMismatch => },
         E"""⸨ lookup_by_key @Mod:T "Bob" ⸩""" -> //
           { case _: ETypeMismatch => },
         // UpdFetch
         E"Λ (σ: ⋆). λ (e: ContractId Mod:U) → ⸨ fetch @Mod:U e ⸩" -> //
-          { case EUnknownDefinition(_, LETemplate(_)) => },
+          { case EUnknownDefinition(_, LookupError.LETemplate(_)) => },
         E"Λ (σ : ⋆). λ (e: σ) → ⸨ fetch @Mod:T e ⸩" -> //
           { case _: ETypeMismatch => },
         // ScenarioEmbedExpr
@@ -980,7 +980,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       )
 
       def checkModule(pkg: Package, modName: String) = Typing.checkModule(
-        new World(Map(defaultPackageId -> pkg)),
+        Interface(Map(defaultPackageId -> pkg)),
         defaultPackageId,
         pkg.modules(DottedName.assertFromString(modName)),
       )
@@ -1050,7 +1050,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       """
 
     def checkModule(pkg: Package, modName: String) = Typing.checkModule(
-      new World(Map(defaultPackageId -> pkg)),
+      Interface(Map(defaultPackageId -> pkg)),
       defaultPackageId,
       pkg.modules(DottedName.assertFromString(modName)),
     )
@@ -1079,8 +1079,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
       """
 
     val mod = pkg.modules(DottedName.assertFromString("TypeVarShadowing2"))
-    val world = new World(Map(defaultPackageId -> pkg))
-    Typing.checkModule(world, defaultPackageId, mod)
+    Typing.checkModule(Interface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
   }
 
   "expand type synonyms correctly" in {
@@ -1144,8 +1143,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
     def checkModule(mod: Module) = {
       val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
-      val world = new World(Map(defaultPackageId -> pkg))
-      Typing.checkModule(world, defaultPackageId, mod)
+      Typing.checkModule(Interface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
     }
 
     val negativeTestCases = Table(
@@ -1167,8 +1165,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
     def checkModule(mod: Module) = {
       val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
-      val world = new World(Map(defaultPackageId -> pkg))
-      Typing.checkModule(world, defaultPackageId, mod)
+      Typing.checkModule(Interface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
     }
 
     val negativeTestCases = Table(
@@ -1190,8 +1187,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
 
     def checkModule(mod: Module) = {
       val pkg = Package.apply(List(mod), List.empty, defaultLanguageVersion, None)
-      val world = new World(Map(defaultPackageId -> pkg))
-      Typing.checkModule(world, defaultPackageId, mod)
+      Typing.checkModule(Interface(Map(defaultPackageId -> pkg)), defaultPackageId, mod)
     }
 
     val negativeTestCases = Table(
@@ -1263,6 +1259,6 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
      """
 
   private val env =
-    Typing.Env(LV.default, new World(Map(defaultPackageId -> pkg)), NoContext)
+    Typing.Env(LV.default, Interface(Map(defaultPackageId -> pkg)), NoContext)
 
 }

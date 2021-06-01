@@ -8,7 +8,7 @@ package preprocessing
 import java.util
 
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.transaction.{GenTransaction, NodeId}
 import com.daml.lf.value.Value
@@ -23,6 +23,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
   import transactionPreprocessor._
   import commandPreprocessor._
   import valueTranslator.unsafeTranslateValue
+  import compiledPackages.interface
 
   // This pulls all the dependencies of in `typesToProcess0` and `tyConAlreadySeen0`
   private def getDependencies(
@@ -63,31 +64,27 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
           typ match {
             case Ast.TApp(fun, arg) =>
               go(fun :: arg :: typesToProcess, tmplToProcess0, tyConAlreadySeen0, tmplsAlreadySeen0)
-            case Ast.TTyCon(tyCon @ Ref.Identifier(pkgId, qualifiedName))
-                if !tyConAlreadySeen0(tyCon) =>
-              compiledPackages.signatures.lift(pkgId) match {
-                case Some(pkg) =>
-                  pkg.lookupDataType(qualifiedName) match {
-                    case Right(Ast.DDataType(_, _, dataType)) =>
-                      val typesToProcess = dataType match {
-                        case Ast.DataRecord(fields) =>
-                          fields.foldRight(typesToProcess0)(_._2 :: _)
-                        case Ast.DataVariant(variants) =>
-                          variants.foldRight(typesToProcess0)(_._2 :: _)
-                        case Ast.DataEnum(_) =>
-                          typesToProcess0
-                      }
-                      go(
-                        typesToProcess,
-                        tmplToProcess0,
-                        tyConAlreadySeen0 + tyCon,
-                        tmplsAlreadySeen0,
-                      )
-                    case Left(e) =>
-                      ResultError(Error(e))
+            case Ast.TTyCon(tyCon) if !tyConAlreadySeen0(tyCon) =>
+              interface.lookupDataType(tyCon) match {
+                case Right(Ast.DDataType(_, _, dataType)) =>
+                  val typesToProcess = dataType match {
+                    case Ast.DataRecord(fields) =>
+                      fields.foldRight(typesToProcess0)(_._2 :: _)
+                    case Ast.DataVariant(variants) =>
+                      variants.foldRight(typesToProcess0)(_._2 :: _)
+                    case Ast.DataEnum(_) =>
+                      typesToProcess0
                   }
-                case None =>
+                  go(
+                    typesToProcess,
+                    tmplToProcess0,
+                    tyConAlreadySeen0 + tyCon,
+                    tmplsAlreadySeen0,
+                  )
+                case Left(LookupError.LEPackage(pkgId)) =>
                   pullPackage(pkgId)
+                case Left(e) =>
+                  ResultError(Error(e.pretty))
               }
             case Ast.TTyCon(_) | Ast.TNat(_) | Ast.TBuiltin(_) | Ast.TVar(_) =>
               go(typesToProcess, tmplToProcess0, tyConAlreadySeen0, tmplsAlreadySeen0)
@@ -99,21 +96,17 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
             case tmplId :: tmplsToProcess if tmplsAlreadySeen0(tmplId) =>
               go(Nil, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
             case tmplId :: tmplsToProcess =>
-              val pkgId = tmplId.packageId
-              compiledPackages.getSignature(pkgId) match {
-                case Some(pkg) =>
-                  pkg.lookupTemplate(tmplId.qualifiedName) match {
-                    case Right(template) =>
-                      val typs0 = template.choices.map(_._2.argBinder._2).toList
-                      val typs1 =
-                        if (tyConAlreadySeen0(tmplId)) typs0 else Ast.TTyCon(tmplId) :: typs0
-                      val typs2 = template.key.fold(typs1)(_.typ :: typs1)
-                      go(typs2, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
-                    case Left(error) =>
-                      ResultError(Error(error))
-                  }
-                case None =>
+              interface.lookupTemplate(tmplId) match {
+                case Right(template) =>
+                  val typs0 = template.choices.map(_._2.argBinder._2).toList
+                  val typs1 =
+                    if (tyConAlreadySeen0(tmplId)) typs0 else Ast.TTyCon(tmplId) :: typs0
+                  val typs2 = template.key.fold(typs1)(_.typ :: typs1)
+                  go(typs2, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
+                case Left(LookupError.LEPackage(pkgId)) =>
                   pullPackage(pkgId)
+                case Left(error) =>
+                  ResultError(Error(error.pretty))
               }
             case Nil =>
               ResultDone(tyConAlreadySeen0 -> tmplsAlreadySeen0)
@@ -183,9 +176,10 @@ private[preprocessing] object Preprocessor {
     throw PreprocessorError(e)
 
   @throws[PreprocessorException]
-  def assertRight[X](either: Either[String, X]): X = either match {
-    case Left(e) => fail(e)
+  def handleLookup[X](either: Either[LookupError, X]): X = either match {
     case Right(v) => v
+    case Left(LookupError.LEPackage(pkgId)) => throw PreprocessorMissingPackage(pkgId)
+    case Left(e) => throw PreprocessorError(Error(e.pretty))
   }
 
   @inline

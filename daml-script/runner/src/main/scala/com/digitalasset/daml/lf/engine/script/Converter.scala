@@ -162,7 +162,7 @@ object Converter {
   }
 
   private def fromAnyChoice(
-      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
+      lookupChoice: (Identifier, Name) => Either[String, GenTemplateChoice[_]],
       translator: preprocessing.ValueTranslator,
       templateId: Identifier,
       choiceName: ChoiceName,
@@ -361,7 +361,7 @@ object Converter {
   }
 
   def translateExerciseResult(
-      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
+      lookupChoice: (Identifier, Name) => Either[String, GenTemplateChoice[_]],
       translator: preprocessing.ValueTranslator,
       result: ScriptLedgerClient.ExerciseResult,
   ) = {
@@ -376,7 +376,7 @@ object Converter {
   }
 
   def translateTransactionTree(
-      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
+      lookupChoice: (Identifier, Name) => Either[String, GenTemplateChoice[_]],
       translator: preprocessing.ValueTranslator,
       scriptIds: ScriptIds,
       tree: ScriptLedgerClient.TransactionTree,
@@ -424,7 +424,7 @@ object Converter {
   // fill in the values for the continuation.
   def fillCommandResults(
       compiledPackages: CompiledPackages,
-      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
+      lookupChoice: (Identifier, Name) => Either[String, GenTemplateChoice[_]],
       translator: preprocessing.ValueTranslator,
       initialFreeAp: SValue,
       allEventResults: Seq[ScriptLedgerClient.CommandResult],
@@ -675,7 +675,7 @@ object Converter {
         } catch {
           case e: Exception => Left(s"LF conversion failed: ${e.toString}")
         }
-      valueTranslator = new preprocessing.ValueTranslator(compiledPackages)
+      valueTranslator = new preprocessing.ValueTranslator(compiledPackages.interface)
       sValue <- valueTranslator
         .translateValue(ty, lfValue)
         .left

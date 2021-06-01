@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.daml.lf.language.Ast.{Package, PackageSignature}
-import com.daml.lf.language.{Util => AstUtil}
+import com.daml.lf.language.{Interface, Util => AstUtil}
 import com.daml.lf.speedy.Compiler
 import com.daml.lf.speedy.Compiler.CompilationError
 
@@ -21,16 +21,18 @@ import scala.collection.concurrent.{Map => ConcurrentMap}
   */
 private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Config)
     extends MutableCompiledPackages(compilerConfig) {
-  private[this] val _signatures: ConcurrentMap[PackageId, PackageSignature] =
+  private[this] val signatures: ConcurrentMap[PackageId, PackageSignature] =
     new ConcurrentHashMap().asScala
-  private[this] val _defns: ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SDefinition] =
+  private[this] val definitions
+      : ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SDefinition] =
     new ConcurrentHashMap()
-  private[this] val _packageDeps: ConcurrentHashMap[PackageId, Set[PackageId]] =
+  private[this] val packageDeps: ConcurrentHashMap[PackageId, Set[PackageId]] =
     new ConcurrentHashMap()
 
-  override def getSignature(pId: PackageId): Option[PackageSignature] = _signatures.get(pId)
+  override def packageIds: scala.collection.Set[PackageId] = signatures.keySet
+  override def interface: Interface = Interface(signatures)
   override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SDefinition] =
-    Option(_defns.get(dref))
+    Option(definitions.get(dref))
 
   /** Might ask for a package if the package you're trying to add references it.
     *
@@ -56,7 +58,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
         val pkgId: PackageId = toCompile.head
         toCompile = toCompile.tail
 
-        if (!_signatures.contains(pkgId)) {
+        if (!signatures.contains(pkgId)) {
 
           val pkg = state.packages.get(pkgId) match {
             case None => return ResultError(Error(s"Could not find package $pkgId"))
@@ -65,7 +67,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
 
           // Load dependencies of this package and transitively its dependencies.
           for (dependency <- pkg.directDeps) {
-            if (!_signatures.contains(dependency) && !state.seenDependencies.contains(dependency)) {
+            if (!signatures.contains(dependency) && !state.seenDependencies.contains(dependency)) {
               return ResultNeedPackage(
                 dependency,
                 {
@@ -87,16 +89,13 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
           // map using 'computeIfAbsent' which will ensure we only compile the
           // package once. Other concurrent calls to add this package will block
           // waiting for the first one to finish.
-          if (!_signatures.contains(pkgId)) {
-            val signature = AstUtil.toSignature(pkg)
-            val signatureLookup: PartialFunction[PackageId, PackageSignature] = { case `pkgId` =>
-              signature
-            }
+          if (!signatures.contains(pkgId)) {
+            val tempSignature = language.Interface(Map(pkgId -> pkg) orElse signatures)
+
             // Compile the speedy definitions for this package.
             val defns =
               try {
-                new speedy.Compiler(signatureLookup orElse _signatures, compilerConfig)
-                  .unsafeCompilePackage(pkgId, pkg)
+                new speedy.Compiler(tempSignature, compilerConfig).unsafeCompilePackage(pkgId, pkg)
               } catch {
                 case CompilationError(msg) =>
                   return ResultError(Error(s"Compilation Error: $msg"))
@@ -104,16 +103,16 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                   return ResultError(Error(s"Validation Error: ${e.pretty}"))
               }
             defns.foreach { case (defnId, defn) =>
-              _defns.put(defnId, defn)
+              definitions.put(defnId, defn)
             }
             // Compute the transitive dependencies of the new package. Since we are adding
             // packages in dependency order we can just union the dependencies of the
             // direct dependencies to get the complete transitive dependencies.
             val deps = pkg.directDeps.foldLeft(pkg.directDeps) { case (deps, dependency) =>
-              deps union _packageDeps.get(dependency)
+              deps union packageDeps.get(dependency)
             }
-            _packageDeps.put(pkgId, deps)
-            _signatures.put(pkgId, signature)
+            packageDeps.put(pkgId, deps)
+            signatures.put(pkgId, AstUtil.toSignature(pkg))
           }
         }
       }
@@ -122,16 +121,13 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
     }
 
   def clear(): Unit = this.synchronized[Unit] {
-    _signatures.clear()
-    _packageDeps.clear()
-    _defns.clear()
+    signatures.clear()
+    packageDeps.clear()
+    definitions.clear()
   }
 
-  override def packageIds: Set[PackageId] =
-    _signatures.keySet.toSet
-
   def getPackageDependencies(pkgId: PackageId): Option[Set[PackageId]] =
-    Option(_packageDeps.get(pkgId))
+    Option(packageDeps.get(pkgId))
 }
 
 object ConcurrentCompiledPackages {

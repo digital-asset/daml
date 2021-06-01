@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.validation
+package com.daml.lf
+package validation
 
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
@@ -37,5 +38,13 @@ private[validation] object Util {
         name.segments.map(i => Ref.Name.assertFromString(i.toUpperCase))
       )
   }
+
+  private[validation] def handleLookup[X](ctx: => Context, x: Either[language.LookupError, X]) =
+    x match {
+      case Right(value) =>
+        value
+      case Left(err) =>
+        throw EUnknownDefinition(ctx, err)
+    }
 
 }

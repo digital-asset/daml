@@ -9,7 +9,7 @@ import java.util
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Util => AstUtil}
+import com.daml.lf.language.{LookupError, Util => AstUtil}
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.daml.lf.speedy.SError._
@@ -479,7 +479,7 @@ private[lf] object Speedy {
                   ctrl = defn.body
               }
             case None =>
-              if (compiledPackages.getSignature(ref.packageId).isDefined)
+              if (compiledPackages.packageIds.contains(ref.packageId))
                 crash(
                   s"definition $ref not found even after caller provided new set of packages"
                 )
@@ -490,7 +490,7 @@ private[lf] object Speedy {
                     { packages =>
                       this.compiledPackages = packages
                       // To avoid infinite loop in case the packages are not updated properly by the caller
-                      assert(compiledPackages.getSignature(ref.packageId).isDefined)
+                      assert(compiledPackages.packageIds.contains(ref.packageId))
                       lookupVal(eval)
                     },
                   )
@@ -670,6 +670,12 @@ private[lf] object Speedy {
     // Raises an exception if missing a package.
     private[speedy] def importValue(typ0: Type, value0: V[V.ContractId]): Unit = {
 
+      def assertRight[X](x: Either[LookupError, X]) =
+        x match {
+          case Right(value) => value
+          case Left(error) => crash(error.pretty)
+        }
+
       def go(ty: Type, value: V[V.ContractId]): SValue = {
         def typeMismatch = crash(s"mismatching type: $ty and value: $value")
 
@@ -742,39 +748,30 @@ private[lf] object Speedy {
                 typeMismatch
             }
           case TTyCon(tyCon) =>
-            val signature = compiledPackages.signatures(tyCon.packageId)
             value match {
               case V.ValueRecord(_, fields) =>
-                signature.lookupRecord(tyCon.qualifiedName) match {
-                  case Right((params, DataRecord(fieldsDef))) =>
-                    lazy val subst = (params.toSeq.view.map(_._1) zip argTypes).toMap
-                    val n = fields.length
-                    val values = new util.ArrayList[SValue](n)
-                    (fieldsDef.iterator zip fields.iterator).foreach {
-                      case ((_, fieldType), (_, fieldValue)) =>
-                        values.add(go(AstUtil.substitute(fieldType, subst), fieldValue))
-                        ()
-                    }
-                    SValue.SRecord(tyCon, fieldsDef.map(_._1), values)
-                  case Left(err) => crash(err)
+                val (params, DataRecord(fieldsDef)) =
+                  assertRight(compiledPackages.interface.lookupDataRecord(tyCon))
+                lazy val subst = (params.toSeq.view.map(_._1) zip argTypes).toMap
+                val n = fields.length
+                val values = new util.ArrayList[SValue](n)
+                (fieldsDef.iterator zip fields.iterator).foreach {
+                  case ((_, fieldType), (_, fieldValue)) =>
+                    values.add(go(AstUtil.substitute(fieldType, subst), fieldValue))
+                    ()
                 }
+                SValue.SRecord(tyCon, fieldsDef.map(_._1), values)
               case V.ValueVariant(_, constructor, value) =>
-                signature.lookupVariant(tyCon.qualifiedName) match {
-                  case Right((params, variantDef)) =>
-                    val rank = variantDef.constructorRank(constructor)
-                    val typDef = variantDef.variants(rank)._2
-                    val valType =
-                      AstUtil.substitute(typDef, params.toSeq.view.map(_._1) zip argTypes)
-                    SValue.SVariant(tyCon, constructor, rank, go(valType, value))
-                  case Left(err) => crash(err)
-                }
+                val info =
+                  assertRight(
+                    compiledPackages.interface.lookupVariantConstructor(tyCon, constructor)
+                  )
+                val valType = info.concreteType(argTypes)
+                SValue.SVariant(tyCon, constructor, info.rank, go(valType, value))
               case V.ValueEnum(_, constructor) =>
-                signature.lookupEnum(tyCon.qualifiedName) match {
-                  case Right(enumDef) =>
-                    val rank = enumDef.constructorRank(constructor)
-                    SValue.SEnum(tyCon, constructor, rank)
-                  case Left(err) => crash(err)
-                }
+                val rank =
+                  assertRight(compiledPackages.interface.lookupEnumConstructor(tyCon, constructor))
+                SValue.SEnum(tyCon, constructor, rank)
               case _ =>
                 typeMismatch
             }
@@ -804,7 +801,9 @@ private[lf] object Speedy {
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
     ): Machine = {
       val pkg2TxVersion =
-        compiledPackages.packageLanguageVersion.andThen(TransactionVersion.assignNodeVersion)
+        compiledPackages.interface.packageLanguageVersion.andThen(
+          TransactionVersion.assignNodeVersion
+        )
       new Machine(
         ctrl = expr,
         returnValue = null,

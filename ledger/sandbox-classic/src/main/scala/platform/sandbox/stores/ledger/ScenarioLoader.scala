@@ -11,7 +11,6 @@ import com.daml.lf.data.Ref.DefinitionRef
 import com.daml.lf.data.{Relation => _, _}
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
-import com.daml.lf.language.Ast.Definition
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.ScenarioRunner
 import com.daml.platform.packages.InMemoryPackageStore
@@ -128,7 +127,7 @@ private[sandbox] object ScenarioLoader {
       engine: Engine,
       transactionSeed: Hash,
       scenarioRef: DefinitionRef,
-      scenarioDef: Definition,
+      scenarioDef: Ast.Definition,
   ) = ScenarioRunner.getScenarioLedger(engine, scenarioRef, scenarioDef, transactionSeed)
 
   private def identifyScenario(
@@ -160,10 +159,11 @@ private[sandbox] object ScenarioLoader {
         val pkg = packages
           .getLfPackageSync(packageId)
           .getOrElse(sys.error(s"Listed package $packageId not found"))
-        pkg.lookupDefinition(scenarioQualName) match {
-          case Right(x) =>
-            List((Ref.Identifier(packageId, scenarioQualName) -> x))
-          case Left(_) => List()
+        pkg.modules
+          .get(scenarioQualName.module)
+          .flatMap(_.definitions.get(scenarioQualName.name)) match {
+          case Some(x) => List(Ref.Identifier(packageId, scenarioQualName) -> x)
+          case None => List()
         }
       }
       .toList

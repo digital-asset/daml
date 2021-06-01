@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.validation
+package com.daml.lf
+package validation
 
 import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.testing.parser.Implicits._
@@ -144,16 +145,20 @@ class PartyLiteralsSpec extends AnyWordSpec with TableDrivenPropertyChecks with 
         "PositiveTestCase8",
       )
 
-      val world = new World(Map(defaultPackageId -> pkg))
+      val interface = language.Interface(Map(defaultPackageId -> pkg))
 
       checkModule(
-        world,
+        interface,
         defaultPackageId,
         pkg.modules(DottedName.assertFromString("NegativeTestCase")),
       )
       forEvery(positiveTestCases) { modName =>
         an[EForbiddenPartyLiterals] should be thrownBy
-          checkModule(world, defaultPackageId, pkg.modules(DottedName.assertFromString(modName)))
+          checkModule(
+            interface,
+            defaultPackageId,
+            pkg.modules(DottedName.assertFromString(modName)),
+          )
       }
     }
 

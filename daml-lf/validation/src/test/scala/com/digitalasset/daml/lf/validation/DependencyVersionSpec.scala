@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.validation
+package com.daml.lf
+package validation
 
 import com.daml.lf.data.Ref.{DottedName, Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast._
@@ -69,18 +70,13 @@ class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks w
 
     forEvery(negativeTestCases) { pkgs =>
       pkgs.foreach { case (pkgId, pkg) =>
-        DependencyVersion.checkPackage(new World(pkgs), pkgId, pkg)
+        DependencyVersion.checkPackage(language.Interface(pkgs), pkgId, pkg)
       }
     }
 
     forEvery(postiveTestCase) { case ((pkgdId, _), pkgs) =>
-      val world = new World(pkgs)
       an[EModuleVersionDependencies] should be thrownBy
-        DependencyVersion.checkPackage(
-          world,
-          pkgdId,
-          pkgs(pkgdId),
-        )
+        DependencyVersion.checkPackage(language.Interface(pkgs), pkgdId, pkgs(pkgdId))
     }
 
   }

@@ -68,8 +68,7 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
   protected val dar = DarReader().readArchiveFromFile(darFile).get.map { case (pkgId, archive) =>
     Decode.readArchivePayload(pkgId, archive)
   }
-  protected val compiledPackages =
-    PureCompiledPackages(dar.all.toMap, speedy.Compiler.Config.Dev).toOption.get
+  protected val compiledPackages = PureCompiledPackages.assertBuild(dar.all.toMap)
 
   protected def getRunner(client: LedgerClient, name: QualifiedName, party: String): Runner = {
     val triggerId = Identifier(packageId, name)
