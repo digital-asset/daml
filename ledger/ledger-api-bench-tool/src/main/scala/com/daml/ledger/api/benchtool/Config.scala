@@ -18,23 +18,42 @@ case class Config(
 )
 
 object Config {
-  case class StreamConfig(
-      name: String,
-      streamType: Config.StreamConfig.StreamType,
-      party: String,
-      templateIds: Option[List[Identifier]],
-      beginOffset: Option[LedgerOffset],
-      endOffset: Option[LedgerOffset],
-      objectives: StreamConfig.Objectives,
-  )
+  trait StreamConfig {
+    def name: String
+    def party: String
+  }
 
   object StreamConfig {
-    sealed trait StreamType
-    object StreamType {
-      case object Transactions extends StreamType
-      case object TransactionTrees extends StreamType
-      case object ActiveContracts extends StreamType
-    }
+    case class TransactionsStreamConfig(
+        name: String,
+        party: String,
+        templateIds: Option[List[Identifier]],
+        beginOffset: Option[LedgerOffset],
+        endOffset: Option[LedgerOffset],
+        objectives: StreamConfig.Objectives,
+    ) extends StreamConfig
+
+    case class TransactionTreesStreamConfig(
+        name: String,
+        party: String,
+        templateIds: Option[List[Identifier]],
+        beginOffset: Option[LedgerOffset],
+        endOffset: Option[LedgerOffset],
+        objectives: StreamConfig.Objectives,
+    ) extends StreamConfig
+
+    case class ActiveContractsStreamConfig(
+        name: String,
+        party: String,
+        templateIds: Option[List[Identifier]],
+    ) extends StreamConfig
+
+    case class CompletionsStreamConfig(
+        name: String,
+        party: String,
+        applicationId: String,
+        beginOffset: Option[LedgerOffset],
+    ) extends StreamConfig
 
     case class Objectives(
         maxDelaySeconds: Option[Long],

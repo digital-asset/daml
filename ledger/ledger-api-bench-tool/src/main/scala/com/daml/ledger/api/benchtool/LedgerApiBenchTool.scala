@@ -3,9 +3,10 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.metrics.{MetricsCollector, StreamMetrics, MetricsSet}
+import com.daml.ledger.api.benchtool.metrics.{MetricsCollector, MetricsSet, StreamMetrics}
 import com.daml.ledger.api.benchtool.services.{
   ActiveContractsService,
+  CommandCompletionService,
   LedgerIdentityService,
   TransactionService,
 }
@@ -60,43 +61,53 @@ object LedgerApiBenchTool {
       val ledgerId: String = ledgerIdentityService.fetchLedgerId()
       val transactionService = new TransactionService(channel, ledgerId)
       val activeContractsService = new ActiveContractsService(channel, ledgerId)
+      val commandCompletionService = new CommandCompletionService(channel, ledgerId)
       Future
-        .traverse(config.streams) { streamConfig =>
-          streamConfig.streamType match {
-            case Config.StreamConfig.StreamType.Transactions =>
-              StreamMetrics
-                .observer(
-                  streamName = streamConfig.name,
-                  logInterval = config.reportingPeriod,
-                  metrics = MetricsSet.transactionMetrics(streamConfig.objectives),
-                  logger = logger,
-                )(system, ec)
-                .flatMap { observer =>
-                  transactionService.transactions(streamConfig, observer)
-                }
-            case Config.StreamConfig.StreamType.TransactionTrees =>
-              StreamMetrics
-                .observer(
-                  streamName = streamConfig.name,
-                  logInterval = config.reportingPeriod,
-                  metrics = MetricsSet.transactionTreesMetrics(streamConfig.objectives),
-                  logger = logger,
-                )(system, ec)
-                .flatMap { observer =>
-                  transactionService.transactionTrees(streamConfig, observer)
-                }
-            case Config.StreamConfig.StreamType.ActiveContracts =>
-              StreamMetrics
-                .observer(
-                  streamName = streamConfig.name,
-                  logInterval = config.reportingPeriod,
-                  metrics = MetricsSet.activeContractsMetrics,
-                  logger = logger,
-                )(system, ec)
-                .flatMap { observer =>
-                  activeContractsService.getActiveContracts(streamConfig, observer)
-                }
-          }
+        .traverse(config.streams) {
+          case streamConfig: Config.StreamConfig.TransactionsStreamConfig =>
+            StreamMetrics
+              .observer(
+                streamName = streamConfig.name,
+                logInterval = config.reportingPeriod,
+                metrics = MetricsSet.transactionMetrics(streamConfig.objectives),
+                logger = logger,
+              )(system, ec)
+              .flatMap { observer =>
+                transactionService.transactions(streamConfig, observer)
+              }
+          case streamConfig: Config.StreamConfig.TransactionTreesStreamConfig =>
+            StreamMetrics
+              .observer(
+                streamName = streamConfig.name,
+                logInterval = config.reportingPeriod,
+                metrics = MetricsSet.transactionTreesMetrics(streamConfig.objectives),
+                logger = logger,
+              )(system, ec)
+              .flatMap { observer =>
+                transactionService.transactionTrees(streamConfig, observer)
+              }
+          case streamConfig: Config.StreamConfig.ActiveContractsStreamConfig =>
+            StreamMetrics
+              .observer(
+                streamName = streamConfig.name,
+                logInterval = config.reportingPeriod,
+                metrics = MetricsSet.activeContractsMetrics,
+                logger = logger,
+              )(system, ec)
+              .flatMap { observer =>
+                activeContractsService.getActiveContracts(streamConfig, observer)
+              }
+          case streamConfig: Config.StreamConfig.CompletionsStreamConfig =>
+            StreamMetrics
+              .observer(
+                streamName = streamConfig.name,
+                logInterval = config.reportingPeriod,
+                metrics = MetricsSet.completionsMetrics,
+                logger = logger,
+              )(system, ec)
+              .flatMap { observer =>
+                commandCompletionService.completions(streamConfig, observer)
+              }
         }
         .transform {
           case Success(results) =>
