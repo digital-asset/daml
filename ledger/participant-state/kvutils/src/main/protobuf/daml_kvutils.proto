@@ -487,10 +487,9 @@ message DamlCommandDedupKey {
 // same rank instead of executing them.
 //
 // DamlCommandDedupValues are tagged with an expiry date to allow ledgers to
-// reclaim storage space by deleting them. The expiry date is provided either
-// directly or indirectly by Ledger API clients. They are expected to provide
-// a close, but not too close expiry date, so that ledger can reclaim storage
-// space timely without the clients experiencing duplicate submissions.
+// reclaim storage space by deleting them. The expiry date is computed by the 
+// submitting participant based on the `LedgerConfiguration.max_deduplicate_until` 
+// of the configuration active at the time of submission.
 message DamlCommandDedupValue {
   reserved 1; // was record_time
 
@@ -502,7 +501,7 @@ message DamlCommandDedupValue {
   google.protobuf.Timestamp deduplicated_until = 2;
 
   // The identity of the submission whose rank and result is stored.
-  // This identity is typically a UUID provided by Ledger API clients.
+  // This identity is ledger string provided by Ledger API clients.
   // Optional. Provided for rank-based deduplication.
   string submission_id = 5;
 
