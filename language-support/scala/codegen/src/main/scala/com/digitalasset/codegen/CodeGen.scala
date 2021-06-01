@@ -107,7 +107,7 @@ object CodeGen {
   ): ValidationNel[String, NonEmptyList[EnvironmentInterface]] = {
     val reader = UniversalArchiveReader()
     val parse: File => String \/ Dar[Payload] = parseFile(reader)
-    files.traverse(f => decodeInterface(parse)(f).validationNel)
+    files.traverse(f => decodeInterface(parse)(f).toValidationNel)
   }
 
   private def parseFile(reader: UniversalArchiveReader[Payload])(f: File): String \/ Dar[Payload] =
