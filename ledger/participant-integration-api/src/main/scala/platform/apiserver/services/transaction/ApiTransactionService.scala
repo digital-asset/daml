@@ -22,6 +22,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.services.logging
 import com.daml.ledger
 import com.daml.platform.server.api.services.domain.TransactionService
@@ -37,6 +38,7 @@ private[apiserver] object ApiTransactionService {
   def create(
       ledgerId: LedgerId,
       transactionsService: IndexTransactionsService,
+      metrics: Metrics
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -44,14 +46,15 @@ private[apiserver] object ApiTransactionService {
       loggingContext: LoggingContext,
   ): GrpcTransactionService with BindableService =
     new GrpcTransactionService(
-      new ApiTransactionService(transactionsService),
+      new ApiTransactionService(transactionsService, metrics),
       ledgerId,
       PartyNameChecker.AllowAllParties,
     )
 }
 
 private[apiserver] final class ApiTransactionService private (
-    transactionsService: IndexTransactionsService
+    transactionsService: IndexTransactionsService,
+    metrics: Metrics
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends TransactionService
     with ErrorFactories {
@@ -59,6 +62,9 @@ private[apiserver] final class ApiTransactionService private (
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val subscriptionIdCounter = new AtomicLong()
+
+  private val transactionTreeCounter = metrics.daml.lapi.streams.transactionTrees
+  private val transactionCounter = metrics.daml.lapi.streams.transactions
 
   override def getTransactions(
       request: GetTransactionsRequest
@@ -74,6 +80,9 @@ private[apiserver] final class ApiTransactionService private (
         .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
         .via(logger.debugStream(transactionsLoggable))
         .via(logger.logErrorsOnStream)
+        .map(item => {
+          transactionCounter.inc()
+          item})
     }
 
   private def transactionsLoggable(transactions: GetTransactionsResponse): String =
@@ -115,6 +124,9 @@ private[apiserver] final class ApiTransactionService private (
         )
         .via(logger.debugStream(transactionTreesLoggable))
         .via(logger.logErrorsOnStream)
+        .map(item => {
+          transactionTreeCounter.inc()
+          item})
     }
 
   override def getTransactionByEventId(
