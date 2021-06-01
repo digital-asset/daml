@@ -489,7 +489,7 @@ message DamlCommandDedupKey {
 // DamlCommandDedupValues are tagged with an expiry date to allow ledgers to
 // reclaim storage space by deleting them. The expiry date is provided either
 // directly or indirectly by Ledger API clients. They are expected to provide
-// a close, but not too close expiry data, so that ledger can reclaim storage
+// a close, but not too close expiry date, so that ledger can reclaim storage
 // space timely without the clients experiencing duplicate submissions.
 message DamlCommandDedupValue {
   reserved 1; // was record_time
