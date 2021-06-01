@@ -249,6 +249,14 @@ message DamlTransactionRejectionEntry {
 
   reserved 5; // was reason.maximum_record_time_exceeded
 
+  // Whether this rejection should be considered a definite answer
+  // as defined in rank-based deduplication; i.e., whether this rejection
+  // signals that no other transaction with the same change-id and equal or lower submission_rank
+  // can be accepted or rejected.
+  //
+  // False for all rejections before rank-based deduplication was implemented.
+  bool definite_answer = 11;
+
   oneof reason {
     Inconsistent inconsistent = 2;
     Disputed disputed = 3;
