@@ -3,11 +3,9 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
-import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
-import akka.util.Timeout
 import com.daml.ledger.api.benchtool.Config.StreamConfig.Objectives
 import com.daml.ledger.api.benchtool.metrics.objectives.{MaxDelay, MinConsumptionSpeed}
-import com.daml.ledger.api.benchtool.util.MetricReporter
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
@@ -15,58 +13,9 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.google.protobuf.timestamp.Timestamp
 
 import java.time.Clock
-import scala.concurrent.Future
-import scala.concurrent.duration._
 
-object TransactionMetrics {
-  implicit val timeout: Timeout = Timeout(3.seconds)
-  import akka.actor.typed.scaladsl.AskPattern._
-
-  def transactionsMetricsManager(
-      streamName: String,
-      logInterval: FiniteDuration,
-      objectives: Objectives,
-  )(implicit
-      system: ActorSystem[SpawnProtocol.Command]
-  ): Future[ActorRef[MetricsManager.Message]] = {
-    system.ask(
-      SpawnProtocol.Spawn(
-        behavior = MetricsManager(
-          streamName = streamName,
-          metrics = transactionMetrics(objectives),
-          logInterval = logInterval,
-          reporter = MetricReporter.Default,
-        ),
-        name = s"${streamName}-manager",
-        props = Props.empty,
-        _,
-      )
-    )
-  }
-
-  def transactionTreesMetricsManager(
-      streamName: String,
-      logInterval: FiniteDuration,
-      objectives: Objectives,
-  )(implicit
-      system: ActorSystem[SpawnProtocol.Command]
-  ): Future[ActorRef[MetricsManager.Message]] = {
-    system.ask(
-      SpawnProtocol.Spawn(
-        behavior = MetricsManager(
-          streamName = streamName,
-          metrics = transactionTreesMetrics(objectives),
-          logInterval = logInterval,
-          reporter = MetricReporter.Default,
-        ),
-        name = s"${streamName}-manager",
-        props = Props.empty,
-        _,
-      )
-    )
-  }
-
-  private def transactionMetrics(objectives: Objectives): List[Metric[GetTransactionsResponse]] =
+object MetricsSet {
+  def transactionMetrics(objectives: Objectives): List[Metric[GetTransactionsResponse]] =
     all[GetTransactionsResponse](
       countingFunction = _.transactions.length,
       sizingFunction = _.serializedSize.toLong,
@@ -76,7 +25,7 @@ object TransactionMetrics {
       objectives = objectives,
     )
 
-  private def transactionTreesMetrics(
+  def transactionTreesMetrics(
       objectives: Objectives
   ): List[Metric[GetTransactionTreesResponse]] =
     all[GetTransactionTreesResponse](
@@ -86,6 +35,19 @@ object TransactionMetrics {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
       },
       objectives = objectives,
+    )
+
+  def activeContractsMetrics: List[Metric[GetActiveContractsResponse]] =
+    List[Metric[GetActiveContractsResponse]](
+      CountRateMetric.empty[GetActiveContractsResponse](
+        countingFunction = _.activeContracts.length
+      ),
+      TotalCountMetric.empty[GetActiveContractsResponse](
+        countingFunction = _.activeContracts.length
+      ),
+      SizeMetric.empty[GetActiveContractsResponse](
+        sizingFunction = _.serializedSize.toLong
+      ),
     )
 
   private def all[T](

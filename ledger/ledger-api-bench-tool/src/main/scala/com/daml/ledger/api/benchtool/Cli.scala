@@ -35,7 +35,7 @@ object Cli {
         s"Stream configuration."
       )
       .valueName(
-        "stream-type=<transactions|transaction-trees>,name=<streamName>,party=<party>[,begin-offset=<offset>][,end-offset=<offset>][,template-ids=<id1>|<id2>][,max-delay=<seconds>]"
+        "stream-type=<transactions|transaction-trees|active-contracts>,name=<streamName>,party=<party>[,begin-offset=<offset>][,end-offset=<offset>][,template-ids=<id1>|<id2>][,max-delay=<seconds>]"
       )
       .action { case (streamConfig, config) =>
         config.copy(streams = config.streams :+ streamConfig)
@@ -105,6 +105,7 @@ object Cli {
           streamType <- stringField("stream-type").flatMap[String, Config.StreamConfig.StreamType] {
             case "transactions" => Right(Config.StreamConfig.StreamType.Transactions)
             case "transaction-trees" => Right(Config.StreamConfig.StreamType.TransactionTrees)
+            case "active-contracts" => Right(Config.StreamConfig.StreamType.ActiveContracts)
             case invalid => Left(s"Invalid stream type: $invalid")
           }
           templateIds <- optionalStringField("template-ids").flatMap {

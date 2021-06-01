@@ -33,6 +33,7 @@ object Config {
     object StreamType {
       case object Transactions extends StreamType
       case object TransactionTrees extends StreamType
+      case object ActiveContracts extends StreamType
     }
 
     case class Objectives(
