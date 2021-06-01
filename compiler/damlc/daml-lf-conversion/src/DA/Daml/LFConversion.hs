@@ -1143,14 +1143,14 @@ convertExpr env0 e = do
             EVal semi' <- convertExpr env semi
             let bind' = EVal semi'{qualObject = mkVal ">>="}
             pure $ mkEApps bind' [TyArg monad', TmArg dict', TyArg t1', TyArg t2', TmArg x', TmArg (ETmLam (mkVar "_", t1') y')]
-    go env tryCatch@(VarIn DA_Internal_Exception "_tryCatch") allArgs@(LType monad : LExpr _dict : LType t : LExpr x : LExpr (Lam b y)) = do
+    go env tryCatch@(VarIn DA_Internal_Exception "_tryCatch") allArgs@(LType monad : LExpr _dict : LType t : LExpr x : LExpr (Lam b y) : args) = do
         monad' <- convertType env monad
         case monad' of
             TBuiltin BTUpdate -> do
                 t' <- convertType env t
                 x' <- convertExpr env x
                 y' <- convertExpr env y
-                pure (UTryCatch t' (ETmApp x' EUnit) (convVar b) y')
+                pure (UTryCatch t' (ETmApp x' EUnit) (convVar b) y', args)
             _ ->
                 fmap (, allArgs) $ convertExpr env tryCatch
 
