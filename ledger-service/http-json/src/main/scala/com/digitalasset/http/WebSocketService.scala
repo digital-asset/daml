@@ -173,9 +173,13 @@ object WebSocketService {
 
     def renderCreatedMetadata(p: Positive): Map[String, JsValue]
 
-    def startingOffset(
+    def adjustRequest(
         prefix: Option[domain.StartingOffset],
         request: A,
+    ): A
+
+    def startingOffset(
+        request: A
     ): Option[domain.StartingOffset]
 
   }
@@ -268,17 +272,30 @@ object WebSocketService {
           "matchedQueries" -> p.toJson
         }
 
+      override def adjustRequest(
+          maybePrefix: Option[domain.StartingOffset],
+          request: SearchForeverRequest,
+      ): SearchForeverRequest =
+        maybePrefix.fold(request)(prefix =>
+          request.copy(
+            queries = request.queries.map(query =>
+              query.copy(offset = query.offset.orElse(Some(prefix.offset)))
+            )
+          )
+        )
+
       import scalaz.syntax.tag._
       private implicit val stringOrder = scalaz.Order.fromScalaOrdering[String]
 
       override def startingOffset(
-          prefix: Option[domain.StartingOffset],
-          request: SearchForeverRequest,
+          request: SearchForeverRequest
       ): Option[domain.StartingOffset] =
         request.queries
-          .map(_.offset.fold(prefix)(offset => Some(domain.StartingOffset(offset))))
-          .minimumBy(_.fold("")(_.offset.unwrap))
+          .map(_.offset)
+          .minimumBy(_.fold("")(_.unwrap))
           .get // Safe on NonEmptyList
+          .map(domain.StartingOffset(_))
+
     }
 
   implicit val EnrichedContractKeyWithStreamQuery
@@ -369,9 +386,13 @@ object WebSocketService {
 
     override def renderCreatedMetadata(p: Unit) = Map.empty
 
-    override def startingOffset(
+    override def adjustRequest(
         prefix: Option[domain.StartingOffset],
         request: NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]],
+    ): NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]] = request
+
+    override def startingOffset(
+        request: NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]]
     ): Option[domain.StartingOffset] = None
 
   }
@@ -514,16 +535,18 @@ class WebSocketService(
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
       offPrefix: Option[domain.StartingOffset],
-      request: A,
+      r: A,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Source[Error \/ Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
 
+    val request = Q.adjustRequest(offPrefix, r)
+
     val StreamPredicate(resolved, unresolved, fn, dbQuery) =
       Q.predicate(request, resolveTemplateId, lookupType)
 
-    val startingOffset = Q.startingOffset(offPrefix, request)
+    val startingOffset = Q.startingOffset(request)
 
     if (resolved.nonEmpty) {
       def prefilter: Future[

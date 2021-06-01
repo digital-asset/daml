@@ -1041,17 +1041,16 @@ abstract class AbstractWebsocketServiceIntegrationTest
             "USD" -> 1,
           ),
         )
-        // FIXME Fails, for some reason the ACS is fetched but it shouldn't, investigating
-//        _ <- test(
-//          end = offset3,
-//          queryFrom = Some(offset2),
-//          eurFrom = None,
-//          usdFrom = Some(offset1),
-//          expected = Map(
-//            "EUR" -> 1,
-//            "USD" -> 2,
-//          ),
-//        )
+        _ <- test(
+          end = offset3,
+          queryFrom = Some(offset2),
+          eurFrom = None,
+          usdFrom = Some(offset1),
+          expected = Map(
+            "EUR" -> 1,
+            "USD" -> 2,
+          ),
+        )
         // FIXME Fails, the ACS blocks must be filtered
 //        _ <- test(
 //          end = offset3,
