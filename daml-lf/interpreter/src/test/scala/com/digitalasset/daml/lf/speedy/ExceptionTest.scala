@@ -25,9 +25,6 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
   "unhandled throw" should {
 
-    // TODO https://github.com/digital-asset/daml/issues/8020
-    //   Add some builtin errors to this test.
-
     // Behaviour when no handler catches a throw:
     // 1: User Exception thrown; no try-catch in scope
     // 2. User Exception thrown; try catch in scope, but handler does not catch
@@ -52,6 +49,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
          exception E2 = { message \(e: M:E2) -> throw @Text @M:E1 (M:E1 {}) } ; //throw from the message function
          val unhandled4 : Update Int64 = upure @Int64 (throw @Int64 @M:E2 (M:E2 {})) ;
 
+         val divZero : Update Int64 = upure @Int64 (DIV_INT64 1 0) ;
        }
       """)
 
@@ -66,6 +64,20 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             SValue.SRecord(tyCon, data.ImmArray.empty, new util.ArrayList()),
           )
         )
+    val arithmeticCon = data.Ref.Identifier.assertFromString(
+      "f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981:DA.Exception.ArithmeticError:ArithmeticError"
+    )
+    val fields = new util.ArrayList[SValue]()
+    fields.add(SValue.SText("ArithmeticError while evaluating (DIV_INT64 1 0)."))
+    val divZeroE =
+      SValue.SAny(
+        TTyCon(arithmeticCon),
+        SValue.SRecord(
+          arithmeticCon,
+          data.ImmArray(data.Ref.Name.assertFromString("message")),
+          fields,
+        ),
+      )
 
     val testCases = Table[String, SResult](
       ("expression", "expected"),
@@ -73,6 +85,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       ("M:unhandled2", SResultError(DamlEUnhandledException(e1))),
       ("M:unhandled3", SResultError(DamlEUnhandledException(e1))),
       ("M:unhandled4", SResultError(DamlEUnhandledException(e2))),
+      ("M:divZero", SResultError(DamlEUnhandledException(divZeroE))),
     )
 
     forEvery(testCases) { (exp: String, expected: SResult) =>
