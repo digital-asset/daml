@@ -1211,7 +1211,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             [ "build"
             , "--project-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
-            , "--target", LF.renderVersion (LF.featureMinVersion LF.featureDamlExceptions) ]
+            , "--target", LF.renderVersion (LF.featureMinVersion LF.featureExceptions) ]
 
         step "building project that imports it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "main")
@@ -1289,7 +1289,7 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
             [ "build"
             , "--project-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
-            , "--target", LF.renderVersion (LF.featureMinVersion LF.featureDamlExceptions) ]
+            , "--target", LF.renderVersion (LF.featureMinVersion LF.featureExceptions) ]
 
         step "building project that imports it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "main")
