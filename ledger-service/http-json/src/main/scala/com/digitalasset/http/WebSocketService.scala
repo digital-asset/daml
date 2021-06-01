@@ -268,12 +268,7 @@ object WebSocketService {
       override def requestOffset(request: SearchForeverRequest): Option[StartingOffset] =
         request.queries.toList.view
           .map(_.offset)
-          .fold(none[domain.Offset]) {
-            case (Some(o1), Some(o2)) => Some(domain.Offset.ordering.min(o1, o2))
-            case (o1, None) if o1.isDefined => o1
-            case (None, o2) if o2.isDefined => o2
-            case _ => None
-          }
+          .fold(none[domain.Offset])(domain.Offset.min)
           .map(StartingOffset.apply)
 
     }
@@ -521,13 +516,7 @@ class WebSocketService(
 
     val requestOffset = Q.requestOffset(request)
 
-    val startingOffset =
-      (offPrefix, requestOffset) match {
-        case (Some(a), Some(b)) => Some(domain.StartingOffset.ordering.min(a, b))
-        case (a, None) if a.isDefined => a
-        case (None, b) if b.isDefined => b
-        case _ => None
-      }
+    val startingOffset = domain.StartingOffset.min(offPrefix, requestOffset)
 
     if (resolved.nonEmpty) {
       def prefilter: Future[
