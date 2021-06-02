@@ -33,7 +33,7 @@ Still, Daml applications may be affected in the following ways:
 .. warning::
   Participants may know of contracts for which they don't know the current activeness status. This happens through :ref:`divulgence <da-model-divulgence>` where a party learns of the existence of a contract without being guaranteed to ever see its archival. Such contracts are pruned by the feature described on this page as not doing so could easily lead to an ever growing participant state.
   
-During command submission, parties can currently resolve the contract ids of divulged contracts. This is mutually incompatible with the pruning behaviour described above. Daml code that may end up running on pruned participants should therefore never rely on that behaviour.```
+During command submission, parties can currently resolve the contract ids of divulged contracts. This is mutually incompatible with the pruning behaviour described above. Daml code that may end up running on pruned participants should therefore never rely on that behaviour.
 
 How the Daml Ledger API is affected
 -----------------------------------
