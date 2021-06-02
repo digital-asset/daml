@@ -7,7 +7,7 @@ import java.sql.{Connection, PreparedStatement, ResultSet}
 
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
-import com.daml.platform.store.backend.{DBDTOV1, StorageBackend}
+import com.daml.platform.store.backend.{DbDto, StorageBackend}
 
 import scala.collection.mutable
 
@@ -179,5 +179,5 @@ private[backend] object PostgresStorageBackend extends StorageBackend[PostgresDb
     buffer.toVector
   }
 
-  override def batch(dbDtos: Vector[DBDTOV1]): PostgresDbBatch = PostgresDbBatch(dbDtos)
+  override def batch(dbDtos: Vector[DbDto]): PostgresDbBatch = PostgresDbBatch(dbDtos)
 }

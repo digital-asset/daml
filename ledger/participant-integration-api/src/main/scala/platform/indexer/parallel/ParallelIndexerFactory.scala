@@ -19,7 +19,7 @@ import com.daml.platform.indexer.{IndexFeedHandle, Indexer}
 import com.daml.platform.store.{DbType, backend}
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
-import com.daml.platform.store.backend.{DBDTOV1, StorageBackend}
+import com.daml.platform.store.backend.{DbDto, StorageBackend}
 import com.daml.resources
 
 import scala.concurrent.Future
@@ -69,7 +69,7 @@ object ParallelIndexerFactory {
           metrics = metrics,
           connectionAsyncCommitMode = DbType.AsynchronousCommit,
         )
-      toDbDto = backend.UpdateToDBDTOV1(
+      toDbDto = backend.UpdateToDbDto(
         participantId = participantId,
         translation = translation,
         compressionStrategy = compressionStrategy,
@@ -136,10 +136,10 @@ object ParallelIndexerFactory {
 
   def inputMapper(
       metrics: Metrics,
-      toDbDto: Offset => Update => Iterator[DBDTOV1],
+      toDbDto: Offset => Update => Iterator[DbDto],
   )(implicit
       loggingContext: LoggingContext
-  ): Iterable[((Offset, Update), Long)] => Batch[Vector[DBDTOV1]] = { input =>
+  ): Iterable[((Offset, Update), Long)] => Batch[Vector[DbDto]] = { input =>
     metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
     input.foreach { case ((offset, update), _) =>
       LoggingContext.withEnrichedLoggingContext(
@@ -162,7 +162,7 @@ object ParallelIndexerFactory {
     )
   }
 
-  def seqMapperZero(initialSeqId: Long): Batch[Vector[DBDTOV1]] =
+  def seqMapperZero(initialSeqId: Long): Batch[Vector[DbDto]] =
     Batch(
       lastOffset = null,
       lastSeqEventId = initialSeqId, // this is the only property of interest in the zero element
@@ -174,20 +174,20 @@ object ParallelIndexerFactory {
     )
 
   def seqMapper(metrics: Metrics)(
-      previous: Batch[Vector[DBDTOV1]],
-      current: Batch[Vector[DBDTOV1]],
-  ): Batch[Vector[DBDTOV1]] = {
+      previous: Batch[Vector[DbDto]],
+      current: Batch[Vector[DbDto]],
+  ): Batch[Vector[DbDto]] = {
     var eventSeqId = previous.lastSeqEventId
     val batchWithSeqIds = current.batch.map {
-      case dbDto: DBDTOV1.EventCreate =>
+      case dbDto: DbDto.EventCreate =>
         eventSeqId += 1
         dbDto.copy(event_sequential_id = eventSeqId)
 
-      case dbDto: DBDTOV1.EventExercise =>
+      case dbDto: DbDto.EventExercise =>
         eventSeqId += 1
         dbDto.copy(event_sequential_id = eventSeqId)
 
-      case dbDto: DBDTOV1.EventDivulgence =>
+      case dbDto: DbDto.EventDivulgence =>
         eventSeqId += 1
         dbDto.copy(event_sequential_id = eventSeqId)
 
@@ -206,9 +206,9 @@ object ParallelIndexerFactory {
   }
 
   def batcher[DB_BATCH](
-      batchF: Vector[DBDTOV1] => DB_BATCH,
+      batchF: Vector[DbDto] => DB_BATCH,
       metrics: Metrics,
-  ): Batch[Vector[DBDTOV1]] => Batch[DB_BATCH] = { inBatch =>
+  ): Batch[Vector[DbDto]] => Batch[DB_BATCH] = { inBatch =>
     val dbBatch = batchF(inBatch.batch)
     val nowNanos = System.nanoTime()
     metrics.daml.parallelIndexer.batching.duration.update(

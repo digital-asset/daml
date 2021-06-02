@@ -7,12 +7,12 @@ import java.time.Instant
 
 import com.daml.scalautil.NeverEqualsOverride
 
-sealed trait DBDTOV1
+sealed trait DbDto
     extends NeverEqualsOverride
     with Product
     with Serializable // to aid type inference for case class implementors
 
-object DBDTOV1 {
+object DbDto {
 
   final case class EventDivulgence(
       event_offset: Option[String],
@@ -26,7 +26,7 @@ object DBDTOV1 {
       create_argument: Option[Array[Byte]],
       create_argument_compression: Option[Int],
       event_sequential_id: Long,
-  ) extends DBDTOV1
+  ) extends DbDto
 
   final case class EventCreate(
       event_offset: Option[String],
@@ -51,7 +51,7 @@ object DBDTOV1 {
       create_argument_compression: Option[Int],
       create_key_value_compression: Option[Int],
       event_sequential_id: Long,
-  ) extends DBDTOV1
+  ) extends DbDto
 
   final case class EventExercise(
       consuming: Boolean,
@@ -78,7 +78,7 @@ object DBDTOV1 {
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
       event_sequential_id: Long,
-  ) extends DBDTOV1
+  ) extends DbDto
 
   final case class ConfigurationEntry(
       ledger_offset: String,
@@ -87,7 +87,7 @@ object DBDTOV1 {
       typ: String,
       configuration: Array[Byte],
       rejection_reason: Option[String],
-  ) extends DBDTOV1
+  ) extends DbDto
 
   final case class PackageEntry(
       ledger_offset: String,
@@ -95,7 +95,7 @@ object DBDTOV1 {
       submission_id: Option[String],
       typ: String,
       rejection_reason: Option[String],
-  ) extends DBDTOV1
+  ) extends DbDto
 
   final case class Package(
       package_id: String,
@@ -105,7 +105,7 @@ object DBDTOV1 {
       known_since: Instant,
       ledger_offset: String,
       _package: Array[Byte],
-  ) extends DBDTOV1
+  ) extends DbDto
 
   final case class PartyEntry(
       ledger_offset: String,
@@ -116,7 +116,7 @@ object DBDTOV1 {
       typ: String,
       rejection_reason: Option[String],
       is_local: Option[Boolean],
-  ) extends DBDTOV1
+  ) extends DbDto
 
   final case class Party(
       party: String,
@@ -124,7 +124,7 @@ object DBDTOV1 {
       explicit: Boolean,
       ledger_offset: Option[String],
       is_local: Boolean,
-  ) extends DBDTOV1
+  ) extends DbDto
 
   final case class CommandCompletion(
       completion_offset: String,
@@ -135,8 +135,8 @@ object DBDTOV1 {
       transaction_id: Option[String],
       status_code: Option[Int],
       status_message: Option[String],
-  ) extends DBDTOV1
+  ) extends DbDto
 
-  final case class CommandDeduplication(deduplication_key: String) extends DBDTOV1
+  final case class CommandDeduplication(deduplication_key: String) extends DbDto
 
 }

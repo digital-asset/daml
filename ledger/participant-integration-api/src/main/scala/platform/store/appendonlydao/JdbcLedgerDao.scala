@@ -46,7 +46,7 @@ import com.daml.platform.store.appendonlydao.events.{
   PostCommitValidation,
   TransactionsReader,
 }
-import com.daml.platform.store.backend.{StorageBackend, UpdateToDBDTOV1}
+import com.daml.platform.store.backend.{StorageBackend, UpdateToDbDto}
 import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
 import com.daml.platform.store.dao.{
@@ -298,7 +298,7 @@ private class JdbcLedgerDao(
               recordTime = Time.Timestamp.assertFromInstant(recordedAt),
               submissionId = SubmissionId.assertFromString(submissionId),
               participantId =
-                v1.ParticipantId.assertFromString("1"), // not used for DBDTO generation
+                v1.ParticipantId.assertFromString("1"), // not used for DbDto generation
               newConfiguration = configuration,
             )
 
@@ -307,7 +307,7 @@ private class JdbcLedgerDao(
               recordTime = Time.Timestamp.assertFromInstant(recordedAt),
               submissionId = SubmissionId.assertFromString(submissionId),
               participantId =
-                v1.ParticipantId.assertFromString("1"), // not used for DBDTO generation
+                v1.ParticipantId.assertFromString("1"), // not used for DbDto generation
               proposedConfiguration = configuration,
               rejectionReason = reason,
             )
@@ -574,11 +574,11 @@ private class JdbcLedgerDao(
                       ledgerEffectiveTime =
                         Time.Timestamp.assertFromInstant(tx.ledgerEffectiveTime),
                       workflowId = tx.workflowId,
-                      submissionTime = null, // not used for DBDTO generation
-                      submissionSeed = null, // not used for DBDTO generation
-                      optUsedPackages = None, // not used for DBDTO generation
-                      optNodeSeeds = None, // not used for DBDTO generation
-                      optByKeyNodes = None, // not used for DBDTO generation
+                      submissionTime = null, // not used for DbDto generation
+                      submissionSeed = null, // not used for DbDto generation
+                      optUsedPackages = None, // not used for DbDto generation
+                      optNodeSeeds = None, // not used for DbDto generation
+                      optByKeyNodes = None, // not used for DbDto generation
                     ),
                     transaction = tx.transaction,
                     transactionId = tx.transactionId,
@@ -960,11 +960,11 @@ private class JdbcLedgerDao(
                   transactionMeta = TransactionMeta(
                     ledgerEffectiveTime = Time.Timestamp.assertFromInstant(ledgerEffectiveTime),
                     workflowId = workflowId,
-                    submissionTime = null, // not used for DBDTO generation
-                    submissionSeed = null, // not used for DBDTO generation
-                    optUsedPackages = None, // not used for DBDTO generation
-                    optNodeSeeds = None, // not used for DBDTO generation
-                    optByKeyNodes = None, // not used for DBDTO generation
+                    submissionTime = null, // not used for DbDto generation
+                    submissionSeed = null, // not used for DbDto generation
+                    optUsedPackages = None, // not used for DbDto generation
+                    optNodeSeeds = None, // not used for DbDto generation
+                    optByKeyNodes = None, // not used for DbDto generation
                   ),
                   transaction = transaction,
                   transactionId = transactionId,
@@ -1116,7 +1116,7 @@ private[platform] object JdbcLedgerDao {
   ): SequentialWriteDao =
     SequentialWriteDaoImpl(
       storageBackend = StorageBackend.of(dbType),
-      updateToDbDtos = UpdateToDBDTOV1(
+      updateToDbDtos = UpdateToDbDto(
         participantId = participantId,
         translation = new LfValueTranslation(
           cache = lfValueTranslationCache,
