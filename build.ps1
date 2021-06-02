@@ -59,6 +59,6 @@ bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/build_exec
 
 bazel shutdown
 
-if ($env:SKIP_TESTS = "False") {
+if ($env:SKIP_TESTS -ceq "False") {
     bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/test_execution_windows.log //...
 }
