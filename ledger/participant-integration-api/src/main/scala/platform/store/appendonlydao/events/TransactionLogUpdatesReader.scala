@@ -11,7 +11,6 @@ import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.serialization.{Compression, ValueSerializer}
 
 object TransactionLogUpdatesReader {
-
   def toTransactionEvent(
       raw: RawTransactionEvent
   ): TransactionLogUpdate.Event =
@@ -37,6 +36,7 @@ object TransactionLogUpdatesReader {
           ),
           treeEventWitnesses = raw.treeEventWitnesses,
           flatEventWitnesses = raw.flatEventWitnesses,
+          submitters = raw.submitters,
           choice = raw.exerciseChoice.mandatory("exercise_choice"),
           actingParties = raw.exerciseActors
             .mandatory("exercise_actors")
@@ -92,6 +92,7 @@ object TransactionLogUpdatesReader {
           contractKey = maybeGlobalKey,
           treeEventWitnesses = raw.treeEventWitnesses,
           flatEventWitnesses = raw.flatEventWitnesses,
+          submitters = raw.submitters,
           createArgument = createArgumentDecompressed,
           createSignatories = raw.createSignatories.mandatory("create_signatories").toSet,
           createObservers = raw.createObservers.mandatory("create_observers").toSet,

@@ -61,7 +61,9 @@ object TransactionLogUpdate {
     def commandId: String
     def workflowId: String
     def ledgerEffectiveTime: Instant
+    def treeEventWitnesses: Set[String]
     def flatEventWitnesses: Set[String]
+    def submitters: Set[String]
     def templateId: Identifier
     def contractId: ContractId
   }
@@ -80,6 +82,7 @@ object TransactionLogUpdate {
       contractKey: Option[LfValue.VersionedValue[events.ContractId]],
       treeEventWitnesses: Set[String],
       flatEventWitnesses: Set[String],
+      submitters: Set[String],
       createArgument: LfValue.VersionedValue[events.ContractId],
       createSignatories: Set[String],
       createObservers: Set[String],
@@ -100,6 +103,7 @@ object TransactionLogUpdate {
       contractKey: Option[LfValue.VersionedValue[events.ContractId]],
       treeEventWitnesses: Set[String],
       flatEventWitnesses: Set[String],
+      submitters: Set[String],
       choice: String,
       actingParties: Set[IdString.Party],
       children: Seq[String],

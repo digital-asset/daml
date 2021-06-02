@@ -376,6 +376,7 @@ object StorageBackend {
       createArgumentCompression: Option[Int],
       treeEventWitnesses: Set[String],
       flatEventWitnesses: Set[String],
+      submitters: Set[String],
       exerciseChoice: Option[String],
       exerciseArgument: Option[InputStream],
       exerciseArgumentCompression: Option[Int],
