@@ -1,11 +1,11 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 import java.util
 
-import com.daml.lf.PureCompiledPackages
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SResult.SResultFinalValue
