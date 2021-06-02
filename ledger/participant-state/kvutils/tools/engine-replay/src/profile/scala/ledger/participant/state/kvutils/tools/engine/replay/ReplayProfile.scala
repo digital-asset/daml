@@ -77,7 +77,7 @@ object ReplayProfile {
     val benchmark = if (config.adapt) {
       Replay.adapt(
         loadedPackages,
-        engine.compiledPackages().packageLanguageVersion,
+        engine.compiledPackages().interface.packageLanguageVersion,
         originalBenchmark,
       )
     } else {

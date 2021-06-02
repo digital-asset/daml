@@ -103,7 +103,7 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        s"Couldn't find requested choice $badChoice",
+        s"unknown choice $badChoice",
       )
     }
   })
