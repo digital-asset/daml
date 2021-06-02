@@ -34,7 +34,7 @@ package com.daml.ledger.api.v1;
 //     If this doesn't work, we can alternatively add a flag to all RPC requests.
 //     For transparency, consider encoding the whole ``google.rpc.Status message`` in the message.
 //
-//    TODO(v2) We shoule use the same JSON encoding here as what we get from our JSON API server.
+//    TODO(v2) We should use the same JSON encoding here as what we get from our JSON API server.
 //     We want to keep the human-readable message in one of the JSON fields.
 //
 // 4. For now, only ``ErrorInfo`` is used to communicate error details.
