@@ -17,6 +17,7 @@ import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandCompletionService
@@ -25,7 +26,8 @@ import io.grpc.ServerServiceDefinition
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiCommandCompletionService private (
-    completionsService: IndexCompletionsService
+    completionsService: IndexCompletionsService,
+    metrics: Metrics,
 )(implicit
     protected val materializer: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -51,6 +53,7 @@ private[apiserver] final class ApiCommandCompletionService private (
           .getCompletions(offset, request.applicationId, request.parties)
           .via(logger.debugStream(completionsLoggable))
           .via(logger.logErrorsOnStream)
+          .via(StreamMetrics.countElements(metrics.daml.lapi.streams.completions))
     }
 
   private def completionsLoggable(response: CompletionStreamResponse): String =
@@ -76,14 +79,15 @@ private[apiserver] final class ApiCommandCompletionService private (
 
 private[apiserver] object ApiCommandCompletionService {
 
-  def create(ledgerId: LedgerId, completionsService: IndexCompletionsService)(implicit
+  def create(ledgerId: LedgerId, completionsService: IndexCompletionsService, metrics: Metrics)(
+      implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): GrpcCommandCompletionService with GrpcApiService = {
     val impl: CommandCompletionService =
-      new ApiCommandCompletionService(completionsService)
+      new ApiCommandCompletionService(completionsService, metrics)
 
     new GrpcCommandCompletionService(ledgerId, impl, PartyNameChecker.AllowAllParties)
       with GrpcApiService {

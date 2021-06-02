@@ -14,6 +14,7 @@ import com.daml.ledger.api.validation.TransactionFilterValidator
 import com.daml.ledger.participant.state.index.v2.{IndexActiveContractsService => ACSBackend}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.ActiveContractsServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
@@ -21,7 +22,8 @@ import io.grpc.{BindableService, ServerServiceDefinition}
 import scala.concurrent.ExecutionContext
 
 private[apiserver] final class ApiActiveContractsService private (
-    backend: ACSBackend
+    backend: ACSBackend,
+    metrics: Metrics,
 )(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -42,6 +44,7 @@ private[apiserver] final class ApiActiveContractsService private (
           .validate(request.getFilter)
           .fold(Source.failed, backend.getActiveContracts(_, request.verbose))
           .via(logger.logErrorsOnStream)
+          .via(StreamMetrics.countElements(metrics.daml.lapi.streams.acs))
     }
 
   override def bindService(): ServerServiceDefinition =
@@ -50,13 +53,13 @@ private[apiserver] final class ApiActiveContractsService private (
 
 private[apiserver] object ApiActiveContractsService {
 
-  def create(ledgerId: LedgerId, backend: ACSBackend)(implicit
+  def create(ledgerId: LedgerId, backend: ACSBackend, metrics: Metrics)(implicit
       mat: Materializer,
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): ActiveContractsService with GrpcApiService =
-    new ActiveContractsServiceValidation(new ApiActiveContractsService(backend), ledgerId)
+    new ActiveContractsServiceValidation(new ApiActiveContractsService(backend, metrics), ledgerId)
       with BindableService {
       override def bindService(): ServerServiceDefinition =
         ActiveContractsServiceGrpc.bindService(this, executionContext)

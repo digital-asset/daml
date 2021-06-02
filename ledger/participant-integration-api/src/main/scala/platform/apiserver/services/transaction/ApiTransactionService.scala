@@ -22,7 +22,8 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.apiserver.services.logging
+import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.ledger
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
@@ -37,6 +38,7 @@ private[apiserver] object ApiTransactionService {
   def create(
       ledgerId: LedgerId,
       transactionsService: IndexTransactionsService,
+      metrics: Metrics,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -44,14 +46,15 @@ private[apiserver] object ApiTransactionService {
       loggingContext: LoggingContext,
   ): GrpcTransactionService with BindableService =
     new GrpcTransactionService(
-      new ApiTransactionService(transactionsService),
+      new ApiTransactionService(transactionsService, metrics),
       ledgerId,
       PartyNameChecker.AllowAllParties,
     )
 }
 
 private[apiserver] final class ApiTransactionService private (
-    transactionsService: IndexTransactionsService
+    transactionsService: IndexTransactionsService,
+    metrics: Metrics,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends TransactionService
     with ErrorFactories {
@@ -74,6 +77,7 @@ private[apiserver] final class ApiTransactionService private (
         .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
         .via(logger.debugStream(transactionsLoggable))
         .via(logger.logErrorsOnStream)
+        .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
     }
 
   private def transactionsLoggable(transactions: GetTransactionsResponse): String =
@@ -115,6 +119,7 @@ private[apiserver] final class ApiTransactionService private (
         )
         .via(logger.debugStream(transactionTreesLoggable))
         .via(logger.logErrorsOnStream)
+        .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
     }
 
   override def getTransactionByEventId(
