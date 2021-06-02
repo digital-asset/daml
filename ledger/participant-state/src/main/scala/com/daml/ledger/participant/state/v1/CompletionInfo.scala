@@ -16,7 +16,6 @@ package com.daml.ledger.participant.state.v1
   *   The particular choice depends on the particular implementation.
   *   This allows auditing the deduplication guarantee described in the [[ReadService.stateUpdates]].
   *
-  *   A [[DeduplicationPeriod.DeduplicationWindow]] ends at the record time of the [[Update]].
   *   Optional as some implementations may not be able to provide this deduplication information.
   *   If an implementation does not provide this deduplication information,
   *   it MUST adhere to the deduplication guarantee under a sensible interpretation
