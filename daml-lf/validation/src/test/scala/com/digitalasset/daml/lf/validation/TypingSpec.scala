@@ -455,9 +455,9 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: EEmptyConsFront => },
         //ExpVal
         E"⸨ Mod:g ⸩" -> //
-          { case EUnknownDefinition(_, LookupError.LEDataType(_)) => },
+          { case EUnknownDefinition(_, LookupError.DataType(_)) => },
         E"⸨ Mod:R ⸩" -> //
-          { case EUnknownDefinition(_, LookupError.LEValue(_)) => },
+          { case EUnknownDefinition(_, LookupError.Value(_)) => },
         //ExpRecCon
         E"Λ (σ : ⋆). λ (e₁ : Bool) (e₂ : List σ) → ⸨ Mod:R @σ { f1 = e₁, f2 = e₂ } ⸩" -> //
           { case _: ETypeMismatch => },
@@ -587,7 +587,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: EExpectedAnyType => },
         // ExpToAnyException
         E"λ (r: Mod:T) → ⸨ to_any_exception @(Mod:T) r ⸩" -> //
-          { case EUnknownDefinition(_, LookupError.LEException(_)) => },
+          { case EUnknownDefinition(_, LookupError.Exception(_)) => },
         E"λ (t: Bool) → ⸨ to_any_exception @Bool t ⸩" -> //
           { case _: EExpectedExceptionType => },
         E"Λ (τ :⋆). λ (t: ∀ (α : ⋆). Int64) → ⸨ to_any_exception @(∀ (α : ⋆). Int64) t ⸩" -> //
@@ -598,7 +598,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: ETypeMismatch => },
         // ExpFromAnyException
         E"λ (t: AnyException) → ⸨ from_any_exception @Mod:T t ⸩" -> //
-          { case EUnknownDefinition(_, LookupError.LEException(_)) => },
+          { case EUnknownDefinition(_, LookupError.Exception(_)) => },
         E"λ (t: Any) → ⸨ from_any_exception @Bool t ⸩" -> //
           { case _: EExpectedExceptionType => },
         E"λ (t: ∀ (α : ⋆). Int64) → ⸨ from_any_exception @(∀ (α : ⋆). Int64) t ⸩" -> //
@@ -609,9 +609,9 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
         E"⸨ throw @Mod:R @Mod:E nothing ⸩" -> //
           { case _: EKindMismatch => },
         E"Λ (τ :⋆). λ (e : Mod:U) →  ⸨ throw @τ @Mod:U e ⸩" -> //
-          { case EUnknownDefinition(_, LookupError.LEException(_)) => },
+          { case EUnknownDefinition(_, LookupError.Exception(_)) => },
         E"Λ (τ :⋆). λ (e : Mod:U) →  ⸨ throw @τ @Mod:U e ⸩" -> //
-          { case EUnknownDefinition(_, LookupError.LEException(_)) => },
+          { case EUnknownDefinition(_, LookupError.Exception(_)) => },
         E"Λ (τ :⋆). λ (e : Bool) →  ⸨ throw @τ @Bool e ⸩" -> //
           { case _: EExpectedExceptionType => },
         E"Λ (τ :⋆). λ (e: ∀ (α : ⋆). Int64) →  ⸨ throw @τ @(∀ (α : ⋆). Int64) e ⸩" -> //
@@ -689,14 +689,14 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: ETypeMismatch => },
         // UpdCreate
         E"λ (e: Mod:U) → ⸨ create @Mod:U nothing ⸩" -> //
-          { case EUnknownDefinition(_, LookupError.LETemplate(_)) => },
+          { case EUnknownDefinition(_, LookupError.Template(_)) => },
         E"Λ (σ : ⋆). λ (e: σ) → ⸨ create @Mod:T e ⸩" -> //
           { case _: ETypeMismatch => },
         // UpdExercise
         E"λ (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:U Ch nothing e₂ e₃ ⸩" -> //
-          { case EUnknownDefinition(_, LookupError.LETemplate(_)) => },
+          { case EUnknownDefinition(_, LookupError.Template(_)) => },
         E"λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: Int64) → ⸨ exercise @Mod:T Not e₁ e₂ e₃ ⸩" -> //
-          { case EUnknownDefinition(_, LookupError.LEChoice(_, _)) => },
+          { case EUnknownDefinition(_, LookupError.Choice(_, _)) => },
         E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List Party) (e₃: σ) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
           { case _: ETypeMismatch => },
         E"Λ (σ : ⋆).λ (e₁: ContractId Mod:T) (e₂: List σ) (e₃: Int64) → ⸨ exercise @Mod:T Ch e₁ e₂ e₃ ⸩" -> //
@@ -707,14 +707,14 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: ETypeMismatch => },
         // FecthByKey & lookupByKey
         E"""⸨ fetch_by_key @Mod:U "Bob" ⸩""" -> //
-          { case EUnknownDefinition(_, LookupError.LETemplate(_)) => },
+          { case EUnknownDefinition(_, LookupError.Template(_)) => },
         E"""⸨ fetch_by_key @Mod:T "Bob" ⸩""" -> //
           { case _: ETypeMismatch => },
         E"""⸨ lookup_by_key @Mod:T "Bob" ⸩""" -> //
           { case _: ETypeMismatch => },
         // UpdFetch
         E"Λ (σ: ⋆). λ (e: ContractId Mod:U) → ⸨ fetch @Mod:U e ⸩" -> //
-          { case EUnknownDefinition(_, LookupError.LETemplate(_)) => },
+          { case EUnknownDefinition(_, LookupError.Template(_)) => },
         E"Λ (σ : ⋆). λ (e: σ) → ⸨ fetch @Mod:T e ⸩" -> //
           { case _: ETypeMismatch => },
         // ScenarioEmbedExpr

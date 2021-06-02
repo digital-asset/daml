@@ -348,7 +348,7 @@ private[lf] final class Compiler(
       case Compiler.NoPackageValidation =>
       case Compiler.FullPackageValidation =>
         Validation.checkPackage(interface, pkgId, pkg).left.foreach {
-          case EUnknownDefinition(_, LookupError.LEPackage(pkgId_)) =>
+          case EUnknownDefinition(_, LookupError.Package(pkgId_)) =>
             logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
             throw PackageNotFound(pkgId_)
           case e =>
