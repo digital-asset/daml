@@ -40,6 +40,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.metrics.{Metrics, Timed}
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -63,7 +64,8 @@ class Endpoints(
   import Uri.Path._
 
   def all(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ): PartialFunction[HttpRequest, Future[HttpResponse]] = {
     val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
       InstanceUUID with RequestID
@@ -90,10 +92,10 @@ class Endpoints(
       case req @ HttpRequest(GET, Uri.Path("/v1/packages"), _, _, _) =>
         (implicit lc => httpResponse(listPackages(req)))
       // format: off
-                case req @ HttpRequest(GET,
-                    Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
-                    _, _, _) => (implicit lc => downloadPackage(req, packageId))
-                // format: on
+      case req @ HttpRequest(GET,
+          Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
+          _, _, _) => (implicit lc => downloadPackage(req, packageId))
+      // format: on
       case req @ HttpRequest(POST, Uri.Path("/v1/packages"), _, _, _) =>
         (implicit lc => httpResponse(uploadDarFile(req)))
       case HttpRequest(GET, Uri.Path("/livez"), _, _, _) =>
@@ -103,16 +105,16 @@ class Endpoints(
     }
     import scalaz.std.partialFunction._, scalaz.syntax.arrow._
     (dispatch &&& { case r => r }) andThen { case (lcFhr, req) =>
-      extendWithRequestIdLogCtx(implicit lc =>
-        // TODO: Refactor this somehow into an own function
-        for {
-          _ <- Future.unit
-          _ = logger.trace(s"Incoming request on ${req.uri}")
-          t0 = System.nanoTime()
-          res <- lcFhr(lc)
-          _ = logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
-        } yield res
-      )
+      extendWithRequestIdLogCtx(implicit lc => {
+        val t0 = System.nanoTime
+        logger.trace(s"Incoming request on ${req.uri}")
+        Timed
+          .future(metrics.daml.http_json_api.httpRequest, lcFhr(lc))
+          .map(res => {
+            logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+            res
+          })
+      })
     }
   }
 

@@ -17,6 +17,7 @@ import EndpointsCompanion._
 import com.daml.http.domain.JwtPayload
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.metrics.{Metrics, Timed}
 
 object WebsocketEndpoints {
   private[http] val tokenPrefix: String = "jwt.token."
@@ -58,6 +59,7 @@ class WebsocketEndpoints(
   def transactionWebSocket(implicit
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ) = {
     val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
       InstanceUUID with RequestID
@@ -106,16 +108,16 @@ class WebsocketEndpoints(
     }
     import scalaz.std.partialFunction._, scalaz.syntax.arrow._
     (dispatch &&& { case r => r }) andThen { case (lcFhr, req) =>
-      extendWithRequestIdLogCtx(implicit lc =>
-        // TODO: Refactor this somehow into an own function
-        for {
-          _ <- Future.unit
-          _ = logger.trace(s"Incoming request on ${req.uri}")
-          t0 = System.nanoTime()
-          res <- lcFhr(lc)
-          _ = logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
-        } yield res
-      )
+      extendWithRequestIdLogCtx(implicit lc => {
+        val t0 = System.nanoTime
+        logger.trace(s"Incoming request on ${req.uri}")
+        Timed
+          .future(metrics.daml.http_json_api.websocketRequest, lcFhr(lc))
+          .map(res => {
+            logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+            res
+          })
+      })
     }
   }
 
