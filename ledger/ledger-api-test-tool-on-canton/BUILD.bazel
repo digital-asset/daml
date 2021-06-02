@@ -82,7 +82,7 @@ conformance_test(
         ",ParticipantPruningIT" +  # see "conformance-test-participant-pruning" below
         ",ConfigManagementServiceIT,LedgerConfigurationServiceIT" +  # dynamic config management not supported by Canton
         ",ClosedWorldIT" +  # Canton currently fails this test with a different error (missing namespace in "unallocated" party id)
-        ",CommandServiceIT,CommandSubmissionCompletionI" +  # FIXME: canton should be updated with last SDK to produce proper output message for those tests to pass
+        ",CommandServiceIT:CSCreateAndBadExerciseChoice,CommandSubmissionCompletionIT:CSCRefuseBadChoice" +  # FIXME: canton should be updated with last SDK to produce proper output message for those tests to pass
         # Excluding tests that require contract key uniqueness and RWArchiveVsFailedLookupByKey (finding a lookup failure after contract creation)
         ",RaceConditionIT:WWDoubleNonTransientCreate,RaceConditionIT:WWArchiveVsNonTransientCreate,RaceConditionIT:RWTransientCreateVsNonTransientCreate,RaceConditionIT:RWArchiveVsFailedLookupByKey",
     ],
