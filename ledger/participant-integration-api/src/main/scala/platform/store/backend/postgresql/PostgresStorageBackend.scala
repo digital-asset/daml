@@ -11,7 +11,7 @@ import com.daml.platform.store.backend.{DBDTOV1, StorageBackend}
 
 import scala.collection.mutable
 
-object PostgresStorageBackend extends StorageBackend[PostgresDbBatch] {
+private[backend] object PostgresStorageBackend extends StorageBackend[PostgresDbBatch] {
 
   private val preparedDeleteCommandSubmissions =
     """
@@ -37,7 +37,10 @@ object PostgresStorageBackend extends StorageBackend[PostgresDbBatch] {
     }
 
     def executeTable(pgTable: PGTable[_], data: Array[Array[_]]): Unit =
-      if (data(0).length > 0) execute(pgTable.insertStatement, pgTable.setupData(data, _))
+      if (
+        data(0).length > 0
+      ) // data(0) accesses the array of data for the first column of the table. This is safe because tables without columns are not supported. Also because of the transposed data-structure here all columns will have data-arrays of the same length.
+        execute(pgTable.insertStatement, pgTable.setupData(data, _))
 
     executeTable(PGSchema.commandCompletions, postgresDbBatch.commandCompletionsBatch)
     executeTable(PGSchema.configurationEntries, postgresDbBatch.configurationEntriesBatch)

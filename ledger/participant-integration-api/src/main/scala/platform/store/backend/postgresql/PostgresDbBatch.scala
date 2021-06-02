@@ -8,7 +8,7 @@ import com.daml.scalautil.NeverEqualsOverride
 
 import scala.reflect.ClassTag
 
-case class PostgresDbBatch(
+private[postgresql] case class PostgresDbBatch(
     eventsBatchDivulgence: Array[Array[_]],
     eventsBatchCreate: Array[Array[_]],
     eventsBatchConsumingExercise: Array[Array[_]],
@@ -22,7 +22,7 @@ case class PostgresDbBatch(
     commandDeduplicationBatch: Array[String],
 ) extends NeverEqualsOverride
 
-object PostgresDbBatch {
+private[postgresql] object PostgresDbBatch {
   def apply(dbDtos: Vector[DBDTOV1]): PostgresDbBatch = {
     def collectWithFilter[T <: DBDTOV1: ClassTag](filter: T => Boolean): Vector[T] =
       dbDtos.collect { case dbDto: T if filter(dbDto) => dbDto }

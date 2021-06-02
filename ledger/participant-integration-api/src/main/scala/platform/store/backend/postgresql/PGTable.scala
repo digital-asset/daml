@@ -5,7 +5,7 @@ package com.daml.platform.store.backend.postgresql
 
 import java.sql.PreparedStatement
 
-case class PGTable[FROM](
+private[postgresql] case class PGTable[FROM](
     tableName: String,
     fields: Vector[(String, PGField[FROM, _, _])],
     insertSuffix: String = "",
@@ -43,7 +43,7 @@ case class PGTable[FROM](
     }
 }
 
-object PGTable {
+private[postgresql] object PGTable {
   def apply[FROM](tableName: String)(fields: (String, PGField[FROM, _, _])*): PGTable[FROM] =
     PGTable(tableName, fields.toVector)
 }

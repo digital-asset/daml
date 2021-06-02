@@ -5,7 +5,7 @@ package com.daml.platform.store.backend.postgresql
 
 import com.daml.platform.store.backend.DBDTOV1
 
-object PGSchema {
+private[postgresql] object PGSchema {
   val eventsDivulgence: PGTable[DBDTOV1.EventDivulgence] = PGTable("participant_events_divulgence")(
     "event_offset" -> PGString(_.event_offset.orNull),
     "command_id" -> PGString(_.command_id.orNull),
