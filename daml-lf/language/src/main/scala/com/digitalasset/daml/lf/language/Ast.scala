@@ -576,6 +576,7 @@ object Ast {
 
   type DValue = GenDValue[Expr]
   object DValue extends GenDValueCompanion[Expr]
+  type DValueSignature = GenDValue[Unit]
   object DValueSignature extends GenDValueCompanion[Unit]
 
   type Definition = GenDefinition[Expr]

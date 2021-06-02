@@ -30,7 +30,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
     new ConcurrentHashMap()
 
   override def packageIds: scala.collection.Set[PackageId] = signatures.keySet
-  override def interface: Interface = Interface(signatures)
+  override def interface: Interface = new Interface(signatures)
   override def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SDefinition] =
     Option(definitions.get(dref))
 
@@ -90,12 +90,15 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
           // package once. Other concurrent calls to add this package will block
           // waiting for the first one to finish.
           if (!signatures.contains(pkgId)) {
-            val tempSignature = language.Interface(Map(pkgId -> pkg) orElse signatures)
+            val pkgSignature = AstUtil.toSignature(pkg)
+            val extendedSignatures =
+              new language.Interface(Map(pkgId -> pkgSignature) orElse signatures)
 
             // Compile the speedy definitions for this package.
             val defns =
               try {
-                new speedy.Compiler(tempSignature, compilerConfig).unsafeCompilePackage(pkgId, pkg)
+                new speedy.Compiler(extendedSignatures, compilerConfig)
+                  .unsafeCompilePackage(pkgId, pkg)
               } catch {
                 case CompilationError(msg) =>
                   return ResultError(Error(s"Compilation Error: $msg"))
@@ -112,7 +115,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
               deps union packageDeps.get(dependency)
             }
             packageDeps.put(pkgId, deps)
-            signatures.put(pkgId, AstUtil.toSignature(pkg))
+            signatures.put(pkgId, pkgSignature)
           }
         }
       }

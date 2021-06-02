@@ -224,7 +224,7 @@ class ReplService(
     val (pkgId, pkg) = Decode.decodeArchiveFromInputStream(req.getPackage.newInput)
     val newSignatures = signatures.updated(pkgId, AstUtil.toSignature(pkg))
     val newCompiledDefinitions = compiledDefinitions ++
-      new Compiler(language.Interface(newSignatures), compilerConfig)
+      new Compiler(new language.Interface(newSignatures), compilerConfig)
         .unsafeCompilePackage(pkgId, pkg)
     signatures = newSignatures
     compiledDefinitions = newCompiledDefinitions
@@ -260,7 +260,7 @@ class ReplService(
     }
 
     val signatures = this.signatures.updated(homePackageId, AstUtil.toSignature(pkg))
-    val interface = language.Interface(signatures)
+    val interface = new language.Interface(signatures)
     val defs =
       new Compiler(interface, compilerConfig).unsafeCompilePackage(homePackageId, pkg)
     val compiledPackages =

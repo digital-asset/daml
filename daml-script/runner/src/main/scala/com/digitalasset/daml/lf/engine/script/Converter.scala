@@ -162,7 +162,7 @@ object Converter {
   }
 
   private def fromAnyChoice(
-      lookupChoice: (Identifier, Name) => Either[String, GenTemplateChoice[_]],
+      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
       translator: preprocessing.ValueTranslator,
       templateId: Identifier,
       choiceName: ChoiceName,
@@ -361,7 +361,7 @@ object Converter {
   }
 
   def translateExerciseResult(
-      lookupChoice: (Identifier, Name) => Either[String, GenTemplateChoice[_]],
+      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
       translator: preprocessing.ValueTranslator,
       result: ScriptLedgerClient.ExerciseResult,
   ) = {
@@ -376,7 +376,7 @@ object Converter {
   }
 
   def translateTransactionTree(
-      lookupChoice: (Identifier, Name) => Either[String, GenTemplateChoice[_]],
+      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
       translator: preprocessing.ValueTranslator,
       scriptIds: ScriptIds,
       tree: ScriptLedgerClient.TransactionTree,
@@ -424,7 +424,7 @@ object Converter {
   // fill in the values for the continuation.
   def fillCommandResults(
       compiledPackages: CompiledPackages,
-      lookupChoice: (Identifier, Name) => Either[String, GenTemplateChoice[_]],
+      lookupChoice: (Identifier, Name) => Either[String, TemplateChoiceSignature],
       translator: preprocessing.ValueTranslator,
       initialFreeAp: SValue,
       allEventResults: Seq[ScriptLedgerClient.CommandResult],

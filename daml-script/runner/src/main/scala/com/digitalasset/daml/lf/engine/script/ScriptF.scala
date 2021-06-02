@@ -14,7 +14,6 @@ import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.Ast
-import com.daml.lf.language.Ast.{GenTemplateChoice, Type}
 import com.daml.lf.speedy.SError.DamlEUserError
 import com.daml.lf.speedy.SExpr.{SEApp, SEValue}
 import com.daml.lf.speedy.{SExpr, SValue}
@@ -78,16 +77,16 @@ object ScriptF {
       _clients =
         _clients.copy(party_participants = _clients.party_participants + (party -> participant))
     }
-    def lookupChoice(id: Identifier, choice: Name): Either[String, GenTemplateChoice[_]] =
+    def lookupChoice(id: Identifier, choice: Name): Either[String, Ast.TemplateChoiceSignature] =
       compiledPackages.interface.lookupChoice(id, choice).left.map(_.pretty)
 
-    def lookupKeyTy(id: Identifier): Either[String, Type] =
+    def lookupKeyTy(id: Identifier): Either[String, Ast.Type] =
       compiledPackages.interface.lookupTemplateKey(id) match {
         case Right(key) => Right(key.typ)
         case Left(err) => Left(err.pretty)
       }
 
-    def translateValue(ty: Type, value: Value[ContractId]): Either[String, SValue] =
+    def translateValue(ty: Ast.Type, value: Value[ContractId]): Either[String, SValue] =
       valueTranslator.translateValue(ty, value).left.map(_.toString)
 
   }

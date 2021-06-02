@@ -7,20 +7,20 @@ package language
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 
-private[lf] case class Interface(signatures: PartialFunction[PackageId, GenPackage[_]]) {
+private[lf] class Interface(signatures: PartialFunction[PackageId, PackageSignature]) {
 
   import Interface._
 
-  def lookupPackage(pkgId: PackageId): Either[LookupError, GenPackage[_]] =
+  def lookupPackage(pkgId: PackageId): Either[LookupError, PackageSignature] =
     signatures.lift(pkgId).toRight(LookupError.Package(pkgId))
 
   def lookupModule(
       pkgId: PackageId,
       modName: ModuleName,
-  ): Either[LookupError, GenModule[_]] =
+  ): Either[LookupError, ModuleSignature] =
     lookupPackage(pkgId).flatMap(_.modules.get(modName).toRight(LookupError.Module(pkgId, modName)))
 
-  def lookupDefinition(name: TypeConName): Either[LookupError, GenDefinition[_]] =
+  def lookupDefinition(name: TypeConName): Either[LookupError, DefinitionSignature] =
     lookupModule(name.packageId, name.qualifiedName.module).flatMap(
       _.definitions.get(name.qualifiedName.name).toRight(LookupError.Definition(name))
     )
@@ -101,7 +101,7 @@ private[lf] case class Interface(signatures: PartialFunction[PackageId, GenPacka
       }
     }
 
-  def lookupTemplate(name: TypeConName): Either[LookupError, GenTemplate[_]] =
+  def lookupTemplate(name: TypeConName): Either[LookupError, TemplateSignature] =
     lookupModule(name.packageId, name.qualifiedName.module).flatMap(
       _.templates.get(name.qualifiedName.name).toRight(LookupError.Template(name))
     )
@@ -109,21 +109,21 @@ private[lf] case class Interface(signatures: PartialFunction[PackageId, GenPacka
   def lookupChoice(
       tmpName: TypeConName,
       chName: ChoiceName,
-  ): Either[LookupError, GenTemplateChoice[_]] =
+  ): Either[LookupError, TemplateChoiceSignature] =
     lookupTemplate(tmpName).flatMap(
       _.choices.get(chName).toRight(LookupError.Choice(tmpName, chName))
     )
 
-  def lookupTemplateKey(name: TypeConName): Either[LookupError, GenTemplateKey[_]] =
+  def lookupTemplateKey(name: TypeConName): Either[LookupError, TemplateKeySignature] =
     lookupTemplate(name).flatMap(_.key.toRight(LookupError.TemplateKey(name)))
 
-  def lookupValue(name: ValueRef): Either[LookupError, GenDValue[_]] =
+  def lookupValue(name: ValueRef): Either[LookupError, DValueSignature] =
     lookupDefinition(name).flatMap {
-      case valueDef: GenDValue[_] => Right(valueDef)
+      case valueDef: DValueSignature => Right(valueDef)
       case _ => Left(LookupError.Value(name))
     }
 
-  def lookupException(name: TypeConName): Either[LookupError, GenDefException[_]] =
+  def lookupException(name: TypeConName): Either[LookupError, DefExceptionSignature] =
     lookupModule(name.packageId, name.qualifiedName.module).flatMap(
       _.exceptions.get(name.qualifiedName.name).toRight(LookupError.Exception(name))
     )
@@ -135,7 +135,10 @@ private[lf] case class Interface(signatures: PartialFunction[PackageId, GenPacka
 
 object Interface {
 
-  val Empty = Interface(PartialFunction.empty)
+  val Empty = new Interface(PartialFunction.empty)
+
+  def apply(packages: Map[PackageId, Package]): Interface =
+    new Interface(Util.toSignatures(packages))
 
   case class DataRecordInfo(
       dataType: DDataType,
