@@ -41,6 +41,7 @@ import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 import scala.util.{Success, Try}
 
+// TODO append-only: Remove this class once the mutating schema is removed
 final class SqlLedgerSpecAppendOnly
     extends AsyncWordSpec
     with Matchers
