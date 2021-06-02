@@ -248,7 +248,7 @@ excluded_test_tool_tests = [
         "start": "1.0.0",
         "platform_ranges": [
             {
-                "start": "0.0.0",
+                "end": "0.0.0",
                 "exclusions": [
                     "CommandServiceIT:CSCreateAndBadExerciseChoice",
                     "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
@@ -256,6 +256,18 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+            "end": "0.0.0",
+            "platform_ranges": [
+                {
+                    "start": "0.0.0",
+                    "exclusions": [
+                        "CommandServiceIT:CSCreateAndBadExerciseChoice",
+                        "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
+                    ],
+                },
+            ],
+        },
 ]
 
 def in_range(version, range):
