@@ -581,7 +581,7 @@ private object PostgresQueries extends Queries {
 }
 
 private object OracleQueries extends Queries {
-  import Queries._
+  import Queries._, InitDdl.CreateIndex
   import Implicits._
 
   type SqlInterpol = Queries.SqlInterpolation.Unused
@@ -613,6 +613,16 @@ private object OracleQueries extends Queries {
         ,""" ++ jsonColumn(sql"signatories") ++ sql"""
         ,""" ++ jsonColumn(sql"observers") ++ sql"""
         """
+
+  private[this] val indexContractsPartySets = Seq(sql"signatories", sql"observers") map { col =>
+    CreateIndex(sql"""
+      CREATE SEARCH INDEX contract_${col}_idx
+      ON contract ($col) FOR JSON
+    """)
+  }
+
+  protected[this] override def initDatabaseDdls =
+    super.initDatabaseDdls ++ indexContractsPartySets
 
   protected[this] type DBContractKey = JsValue
 
