@@ -18,15 +18,15 @@ final case class EnvironmentInterface(
 )
 
 object EnvironmentInterface {
-  def fromReaderInterfaces(i: Interface, o: Interface*): EnvironmentInterface =
-    (i +: o).foldLeft(EnvironmentInterface(Map.empty, Map.empty)) {
-      case (acc, Interface(packageId, optMetadata, typeDecls)) =>
-        acc.copy(
-          metadata =
-            optMetadata.fold(acc.metadata)(metadata => acc.metadata.updated(packageId, metadata)),
-          typeDecls = acc.typeDecls ++ typeDecls.mapKeys(Identifier(packageId, _)),
-        )
-    }
+  def fromReaderInterfaces(i: Interface, o: Interface*): EnvironmentInterface = {
+    val typeDecls = (i +: o).iterator.flatMap { case Interface(packageId, _, typeDecls) =>
+      typeDecls mapKeys (Identifier(packageId, _))
+    }.toMap
+    val metadata = (i +: o).iterator.flatMap { case Interface(packageId, metadata, _) =>
+      metadata.map(md => packageId -> md)
+    }.toMap
+    EnvironmentInterface(metadata, typeDecls)
+  }
 
   def fromReaderInterfaces(dar: Dar[Interface]): EnvironmentInterface =
     fromReaderInterfaces(dar.main, dar.dependencies: _*)
