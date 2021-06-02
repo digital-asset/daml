@@ -22,7 +22,7 @@ private[lf] case class Interface(signatures: PartialFunction[PackageId, GenPacka
 
   def lookupDefinition(name: TypeConName): Either[LookupError, GenDefinition[_]] =
     lookupModule(name.packageId, name.qualifiedName.module).flatMap(
-      _.definitions.get(name.qualifiedName.name).toRight(LookupError.DataType(name))
+      _.definitions.get(name.qualifiedName.name).toRight(LookupError.Definition(name))
     )
 
   def lookupTypeSyn(name: TypeSynName): Either[LookupError, DTypeSyn] =

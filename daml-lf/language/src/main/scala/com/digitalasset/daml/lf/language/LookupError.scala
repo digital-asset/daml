@@ -19,6 +19,10 @@ object LookupError {
     def pretty: String = s"unknown module: $moduleRef"
   }
 
+  final case class Definition(conName: TypeConName) extends LookupError {
+    def pretty: String = s"unknown definition: ${conName.qualifiedName}"
+  }
+
   final case class TypeSyn(syn: TypeSynName) extends LookupError {
     def pretty: String = s"unknown type synonym: ${syn.qualifiedName}"
   }
