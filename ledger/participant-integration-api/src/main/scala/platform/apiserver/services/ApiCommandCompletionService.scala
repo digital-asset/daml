@@ -39,8 +39,6 @@ private[apiserver] final class ApiCommandCompletionService private (
 
   private val subscriptionIdCounter = new AtomicLong()
 
-  private val completionCounter = metrics.daml.lapi.streams.completions
-
   override def completionStreamSource(
       request: CompletionStreamRequest
   ): Source[CompletionStreamResponse, NotUsed] =
@@ -55,10 +53,7 @@ private[apiserver] final class ApiCommandCompletionService private (
           .getCompletions(offset, request.applicationId, request.parties)
           .via(logger.debugStream(completionsLoggable))
           .via(logger.logErrorsOnStream)
-          .map(item => {
-            completionCounter.inc()
-            item
-          })
+          .via(StreamMetrics.countElements(metrics.daml.lapi.streams.completions))
     }
 
   private def completionsLoggable(response: CompletionStreamResponse): String =

@@ -23,7 +23,7 @@ import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.platform.apiserver.services.logging
+import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.ledger
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
@@ -63,9 +63,6 @@ private[apiserver] final class ApiTransactionService private (
 
   private val subscriptionIdCounter = new AtomicLong()
 
-  private val transactionTreeCounter = metrics.daml.lapi.streams.transactionTrees
-  private val transactionCounter = metrics.daml.lapi.streams.transactions
-
   override def getTransactions(
       request: GetTransactionsRequest
   ): Source[GetTransactionsResponse, NotUsed] =
@@ -80,10 +77,7 @@ private[apiserver] final class ApiTransactionService private (
         .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
         .via(logger.debugStream(transactionsLoggable))
         .via(logger.logErrorsOnStream)
-        .map(item => {
-          transactionCounter.inc()
-          item
-        })
+        .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
     }
 
   private def transactionsLoggable(transactions: GetTransactionsResponse): String =
@@ -125,10 +119,7 @@ private[apiserver] final class ApiTransactionService private (
         )
         .via(logger.debugStream(transactionTreesLoggable))
         .via(logger.logErrorsOnStream)
-        .map(item => {
-          transactionTreeCounter.inc()
-          item
-        })
+        .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactionTrees))
     }
 
   override def getTransactionByEventId(

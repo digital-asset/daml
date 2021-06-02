@@ -34,8 +34,6 @@ private[apiserver] final class ApiActiveContractsService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val acsCounter = metrics.daml.lapi.streams.acs
-
   override protected def getActiveContractsSource(
       request: GetActiveContractsRequest
   ): Source[GetActiveContractsResponse, NotUsed] =
@@ -46,10 +44,7 @@ private[apiserver] final class ApiActiveContractsService private (
           .validate(request.getFilter)
           .fold(Source.failed, backend.getActiveContracts(_, request.verbose))
           .via(logger.logErrorsOnStream)
-          .map(item => {
-            acsCounter.inc()
-            item
-          })
+          .via(StreamMetrics.countElements(metrics.daml.lapi.streams.acs))
     }
 
   override def bindService(): ServerServiceDefinition =
