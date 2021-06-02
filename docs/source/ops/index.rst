@@ -30,6 +30,9 @@ Still, Daml applications may be affected in the following ways:
 - Command deduplication and command tracker retention should always configured in such a way, that the associated windows don't overlap with the pruning window, so that their operation is unaffected by pruning.
 - Pruning may affect the behavior of Ledger API calls that allow to read data from the ledger: see the next sub-section for more information about API impacts.
 
+.. warning::
+   Participant pruning and the use of *divulged contracts* during interpretation are in conflict with each other. A participant may never learn about the archival of a divulged contract and has no reliable way to detect when a divulged contract can safely be removed from the participant node, resulting in an ever growing participant node database and failed command submissions due to a potentially outdated view of the contract on the participant. Users are advised to not use divulged contracts in their Daml workflows.
+
 How the Daml Ledger API is affected
 -----------------------------------
 
