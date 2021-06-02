@@ -747,7 +747,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
     go(createCount)
   }
 
-  private[this] def readAcsAt(until: domain.Offset): Consume.FCC[JsValue, Map[String, JsValue]] = {
+  private[this] def activeContractsAt(
+      until: domain.Offset
+  ): Consume.FCC[JsValue, Map[String, JsValue]] = {
     val dslSyntax = Consume.syntax[JsValue]
     import dslSyntax._
     def go(
@@ -759,10 +761,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
       } else {
         for {
           ContractDelta(creates, deletes, offset) <- readOne
-          _ = println("#" * 80)
-          _ = println(offset)
-          _ = println(creates)
-          _ = println(deletes)
           next <- go(acs ++ creates -- deletes.map(_.contractId.unwrap), offset)
         } yield next
       }
@@ -994,16 +992,12 @@ abstract class AbstractWebsocketServiceIntegrationTest
       def go(killSwitch: UniqueKillSwitch): Sink[JsValue, Future[Assertion]] = {
         Consume.interpret(
           for {
-            contracts <- readAcsAt(end)
+            contracts <- activeContractsAt(end)
             result = contracts
               .map(_._2.asJsObject.fields("currency").asInstanceOf[JsString].value)
               .groupBy(identity)
               .map { case (k, vs) => k -> vs.size }
             ContractDelta(Vector(), _, _) <- readOne
-            _ = println("*" * 80)
-            _ = println(contracts)
-            _ = println(result)
-            _ = println("*" * 80)
             _ = killSwitch.shutdown()
             _ <- drain
           } yield withClue(clue) { result shouldEqual expected }
