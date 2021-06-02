@@ -20,7 +20,11 @@ import scala.collection.compat._
 class UtilTest extends UtilTestHelpers with ScalaCheckDrivenPropertyChecks {
 
   val packageInterface =
-    I.Interface(packageId = PackageId.assertFromString("abcdef"), typeDecls = Map.empty)
+    I.Interface(
+      packageId = PackageId.assertFromString("abcdef"),
+      metadata = None,
+      typeDecls = Map.empty,
+    )
   val scalaPackageParts = Array("com", "digitalasset")
   val scalaPackage: String = scalaPackageParts.mkString(".")
   val util =

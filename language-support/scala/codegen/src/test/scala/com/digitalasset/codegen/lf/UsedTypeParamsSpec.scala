@@ -18,7 +18,7 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
   private[this] def reftc(name: String, typArgs: iface.Type*) =
     iface.TypeCon(iface.TypeConName(ref(name)), ImmArraySeq(typArgs: _*))
 
-  private val sampleEi: iface.EnvironmentInterface = iface.EnvironmentInterface {
+  private val sampleDecls = {
     import iface.{DefDataType => DT, Record, Variant, TypeVar => TVar}, com.daml.lf.data.ImmArray.{
       ImmArraySeq => IASeq
     }, Ref.Name.{assertFromString => rn}
@@ -123,6 +123,8 @@ class UsedTypeParamsSpec extends AnyWordSpec with Matchers with TableDrivenPrope
       ),
     ).map { case (k, v) => (ref(k), iface.InterfaceType.Normal(v)) }
   }
+
+  val sampleEi = iface.EnvironmentInterface(Map.empty, sampleDecls)
 
   private val exVariances =
     Seq(
