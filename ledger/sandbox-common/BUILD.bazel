@@ -16,6 +16,9 @@ da_scala_library(
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_effect",
+        "@maven//:org_typelevel_cats_kernel",
     ],
     tags = ["maven_coordinates=com.daml:sandbox-common:__VERSION__"],
     visibility = [

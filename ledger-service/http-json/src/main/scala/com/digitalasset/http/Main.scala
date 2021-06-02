@@ -7,12 +7,16 @@ import java.nio.file.Path
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
+import cats.{Applicative, Monad}
+import cats.effect.concurrent.Deferred
+import cats.effect.{Concurrent, ConcurrentEffect, ContextShift, IO, Resource, Timer}
 import com.daml.cliopts.Logging.LogEncoder
-import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.grpc.adapter.AkkaExecutionSequencerPool
 import com.daml.runtime.JdbcDrivers
-import com.daml.scalautil.Statement.discard
 import com.daml.http.dbbackend.ContractDao
-import scalaz.{-\/, \/, \/-}
+import scalaz.{-\/, \/-}
+import com.daml.metrics.Metrics
+import com.daml.platform.sandbox.metrics.MetricsReporting
 import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
@@ -20,8 +24,9 @@ import com.daml.cliopts.{GlobalLogLevel, Logging}
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 
+import java.time.{Duration => JDuration}
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContextExecutor}
 import scala.util.{Failure, Success, Try}
 
 object Main {
@@ -48,6 +53,35 @@ object Main {
     // Here we set all things which are related to logging but not to
     // any env vars in the logback.xml file.
     config.logLevel.foreach(GlobalLogLevel.set("Ledger HTTP-JSON API"))
+  }
+
+  def executeWithShutdownHookNet[F[_], A](
+      program: Deferred[F, Unit] => F[A],
+      shutdownHookTimeout: FiniteDuration = 10.seconds,
+  )(implicit
+      F: Applicative[F],
+      globalConcurrentEffect: ConcurrentEffect[F],
+      globalTimer: Timer[F],
+      loggingCtx: LoggingContextOf[InstanceUUID],
+  ): F[A] = {
+    import cats.FlatMap.ops.toAllFlatMapOps
+    for {
+      _ <- F.pure(()): F[Unit]
+      shutdownHookCalled <- Deferred[F, Unit](globalConcurrentEffect)
+      didProgramAlreadyEnd <- Deferred[F, Unit](globalConcurrentEffect)
+      _ = sys.addShutdownHook {
+        globalConcurrentEffect.toIO(shutdownHookCalled.complete(())).unsafeRunSync()
+
+        logger.debug(
+          s"Shutdown hook will wait $shutdownHookTimeout for the application to exit gracefully otherwise it will forcefully shutdown"
+        )
+        globalConcurrentEffect
+          .toIO(Concurrent.timeoutTo(didProgramAlreadyEnd.get, shutdownHookTimeout, F.unit))
+          .unsafeRunSync()
+      }
+      result <- program(shutdownHookCalled)
+      _ <- didProgramAlreadyEnd.complete(())
+    } yield result
   }
 
   def main(args: Array[String]): Unit = {
@@ -86,68 +120,160 @@ object Main {
         ")"
     )
 
-    implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
-    implicit val mat: Materializer = Materializer(asys)
-    implicit val aesf: ExecutionSequencerFactory =
-      new AkkaExecutionSequencerPool("clientPool")(asys)
-    implicit val ec: ExecutionContext = asys.dispatcher
-
-    def terminate(): Unit = discard { Await.result(asys.terminate(), 10.seconds) }
-
-    val contractDao = config.jdbcConfig.map(c => ContractDao(c.driver, c.url, c.user, c.password))
-
-    (contractDao, config.jdbcConfig) match {
-      case (Some(dao), Some(c)) if c.createSchema =>
-        logger.info("Creating DB schema...")
-        import dao.{logHandler, jdbcDriver}
-        Try(dao.transact(ContractDao.initialize).unsafeRunSync()) match {
-          case Success(()) =>
-            logger.info("DB schema created. Terminating process...")
-            terminate()
-            System.exit(ErrorCodes.Ok)
-          case Failure(e) =>
-            logger.error("Failed creating DB schema", e)
-            terminate()
-            System.exit(ErrorCodes.StartupError)
-        }
-      case _ =>
-    }
-
-    val serviceF: Future[HttpService.Error \/ ServerBinding] =
-      HttpService.start(
-        startSettings = config,
-        contractDao = contractDao,
+    def program(shutdownHookCalled: Deferred[IO, Unit]) = {
+      import cats.FlatMap.ops.toAllFlatMapOps
+      val waitTime = 5.seconds
+      config.metricsReporter.foreach(reporter =>
+        logger.info(s"Using the $reporter metrics reporter")
       )
+      val metricsReporting = new MetricsReporting(
+        getClass.getName,
+        config.metricsReporter,
+        JDuration.ofNanos(config.metricsReportingInterval.toNanos),
+      )
+      def createActor[F[_]](name: String)(implicit F: Monad[F]): Resource[F, ActorSystem] =
+        Resource.make(F.pure(ActorSystem(name)))(asys =>
+          for {
+            _ <- F.pure(logger.debug(s"Terminating actor system (waiting up to $waitTime)"))
+            terminateFuture <- F.pure(asys.terminate())
+            _ <- F.pure(Await.ready(terminateFuture, waitTime))
+            _ = logger.debug("Actor system terminated")
+          } yield ()
+        )
+      def createMaterializer[F[_]](asys: ActorSystem)(implicit
+          F: Monad[F]
+      ): Resource[F, Materializer] =
+        Resource.make(F.pure(Materializer(asys)))(mat =>
+          F.pure(mat).flatMap(mat => F.pure(mat.shutdown()))
+        )
+      val resources =
+        for {
+          asys <- createActor[IO]("http-json-ledger-api")
+          _ = logger.debug("Started actor system")
+          mat <- createMaterializer[IO](asys)
+          metrics <- metricsReporting.acquire[IO]()
+          _ = logger.debug("Acquired metrics")
+        } yield (asys, mat, metrics)
+      resources
+        .use { case (asys, mat, metrics) =>
+          implicit val asysInstance: ActorSystem = asys
+          implicit val matInstance: Materializer = mat
+          implicit val sequencePool: AkkaExecutionSequencerPool = new AkkaExecutionSequencerPool(
+            "clientPool"
+          )(asys)
+          implicit val ec: ExecutionContextExecutor = asys.dispatcher
+          implicit val metricsI: Metrics = metrics
+          implicit val contextShift: ContextShift[IO] = IO.contextShift(ec)
+          implicit val timer: Timer[IO] = IO.timer(ec)
+          val contractDao =
+            config.jdbcConfig.map(c => ContractDao(c.driver, c.url, c.user, c.password))
 
-    discard {
-      sys.addShutdownHook {
-        HttpService
-          .stop(serviceF)
-          .onComplete { fa =>
-            logFailure("Shutdown error", fa)
-            terminate()
+          (contractDao, config.jdbcConfig) match {
+            case (Some(dao), Some(c)) if c.createSchema =>
+              logger.info("Creating DB schema...")
+              import dao.{jdbcDriver, logHandler}
+              Try(dao.transact(ContractDao.initialize).unsafeRunSync()) match {
+                case Success(()) =>
+                  logger.info("DB schema created. Terminating process...")
+                  IO(ErrorCodes.Ok)
+                case Failure(e) =>
+                  logger.error("Failed creating DB schema", e)
+                  IO(ErrorCodes.StartupError)
+              }
+            case _ =>
+              def shutdownServer(serverBinding: ServerBinding) = {
+                IO(logger.info(s"Shutting down server (waiting up to $waitTime")) *>
+                  IO.fromFuture(IO(serverBinding.terminate(waitTime)))
+                    .attempt
+                    .map {
+                      case Left(fa) => logger.error("Shutdown error", fa)
+                      case _ => logger.trace("Server stopped")
+                    }
+              }
+              logger.debug(
+                "No DB schema had to be created, proceeding with starting the server"
+              )
+              for {
+                serverStarted <- Deferred[IO, ServerBinding]
+                _ = logger.debug("Initialized serverStarted deferred")
+
+                // Here we _try_ to shutdown the server, because we could still be in the startup of the server
+                // thus having no server binding available.
+                // If there is no server binding available the application will be forcefully shutdown,
+                // because Scala futures sadly cannot be cancelled.
+                handleShutdownHookCalled =
+                  for {
+                    _ <- shutdownHookCalled.get
+                    _ <- IO(
+                      logger.info(
+                        s"Shutdown hook called, trying to retrieve server binding (waiting up to $waitTime)"
+                      )
+                    )
+                    res <- serverStarted.get
+                      .map(Some(_))
+                      .timeoutTo(waitTime, IO(None))
+                      .flatMap {
+                        case Some(serverBinding) =>
+                          shutdownServer(serverBinding) *> IO(ErrorCodes.Ok)
+                        // No server binding means no graceful shutdown of the server
+                        case None =>
+                          IO(
+                            logger.info(
+                              "No server binding available, the shutdown hook will run into a timeout and do a force shutdown"
+                            )
+                          ) *> IO(ErrorCodes.StartupError)
+                      }
+                  } yield res
+                serverRes =
+                  IO.fromFuture(
+                    IO(
+                      HttpService.start(
+                        startSettings = config,
+                        contractDao = contractDao,
+                      )
+                    )
+                  ).attempt
+                    .flatMap {
+                      case Right(\/-(serverBinding)) =>
+                        logger.info(s"Started server: $serverBinding")
+                        serverStarted.complete(serverBinding) *> IO.never *> IO(ErrorCodes.Ok)
+                      case Right(-\/(e)) =>
+                        logger.error(s"Cannot start server: $e")
+                        IO(ErrorCodes.StartupError)
+                      case Left(e) =>
+                        logger.error("Cannot start server", e)
+                        IO(ErrorCodes.StartupError)
+                    }
+                res <- IO
+                  .race(handleShutdownHookCalled, serverRes)
+                  .map(_.merge)
+              } yield res
           }
-      }
+        }
     }
 
-    serviceF.onComplete {
-      case Success(\/-(a)) =>
-        logger.info(s"Started server: $a")
-      case Success(-\/(e)) =>
-        logger.error(s"Cannot start server: $e")
-        terminate()
-        System.exit(ErrorCodes.StartupError)
-      case Failure(e) =>
-        logger.error("Cannot start server", e)
-        terminate()
-        System.exit(ErrorCodes.StartupError)
-    }
-  }
-
-  private def logFailure[A](msg: String, fa: Try[A])(implicit
-      lc: LoggingContextOf[InstanceUUID]
-  ): Unit = fa match {
-    case Failure(e) => logger.error(msg, e)
-    case _ =>
+    val globalEc = scala.concurrent.ExecutionContext.global
+    val globalCs = IO.contextShift(globalEc)
+    val globalConcurrent = IO.ioConcurrentEffect(globalCs)
+    val globalTimer = IO.timer(globalEc)
+    System.exit(
+      executeWithShutdownHookNet(
+        program(_: Deferred[IO, Unit]).attempt
+          .map(
+            _.fold(
+              exception => {
+                logger.error("Startup failed", exception)
+                ErrorCodes.StartupError
+              },
+              identity,
+            )
+          )
+      )(
+        implicitly[Applicative[IO]],
+        globalConcurrent,
+        globalTimer,
+        lc,
+      ).unsafeRunSync()
+    )
   }
 }

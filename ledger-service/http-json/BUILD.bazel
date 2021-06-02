@@ -65,11 +65,18 @@ hj_scalacopts = lf_scalacopts + [
             "//ledger-service/utils",
             "//ledger/ledger-api-auth",
             "//ledger/ledger-api-common",
+            "//ledger/metrics",
             "//libs-scala/auth-utils",
+            "//libs-scala/concurrent",
             "//libs-scala/contextualized-logging",
             "//libs-scala/doobie-slf4j",
             "//libs-scala/ports",
             "//libs-scala/scala-utils",
+            "@maven//:io_dropwizard_metrics_metrics_core",
+            "//ledger/sandbox-common:sandbox-common-{}".format(edition),
+            "//ledger/ledger-resources",
+            "//ledger/participant-integration-api",
+            "//libs-scala/resources",
         ],
     )
     for edition in [
@@ -140,7 +147,10 @@ json_deps = {
 da_scala_binary(
     name = "http-json-binary",
     main_class = "com.daml.http.Main",
-    resources = [":src/main/resources/logback.xml"],
+    resources = [
+        ":src/main/resources/application.conf",
+        ":src/main/resources/logback.xml",
+    ],
     scala_deps = json_scala_deps,
     scalacopts = hj_scalacopts,
     tags = [

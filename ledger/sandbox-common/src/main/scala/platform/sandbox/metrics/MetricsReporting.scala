@@ -6,6 +6,7 @@ package com.daml.platform.sandbox.metrics
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
+import cats.effect.{Sync, Resource => CatsEffectResource}
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
 import com.codahale.metrics.{MetricRegistry, Reporter, Slf4jReporter}
@@ -36,6 +37,25 @@ final class MetricsReporting(
     extraMetricsReporter: Option[MetricsReporter],
     extraMetricsReportingInterval: Duration,
 ) extends ResourceOwner[Metrics] {
+
+  def acquire[F[_]]()(implicit F: Sync[F]): CatsEffectResource[F, Metrics] = {
+    val registry = new MetricRegistry
+    registry.registerAll(new JvmMetricSet)
+    for {
+      slf4JReporter <- CatsEffectResource.fromAutoCloseable(F.pure(newSlf4jReporter(registry)))
+      jmxReporter <- CatsEffectResource.fromAutoCloseable(F.pure(newJmxReporter(registry)))
+      _ = jmxReporter.start()
+      _ <-
+        extraMetricsReporter
+          .fold(CatsEffectResource.pure(()): CatsEffectResource[F, Unit])(reporter =>
+            CatsEffectResource
+              .fromAutoCloseable(F.pure(reporter.register(registry)))
+              .map(_.start(extraMetricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+          )
+      _ <- CatsEffectResource.make(F.pure(slf4JReporter))(reporter => F.pure(reporter.report()))
+    } yield new Metrics(registry)
+  }
+
   def acquire()(implicit context: ResourceContext): Resource[Metrics] = {
     val registry = new MetricRegistry
     registry.registerAll(new JvmMetricSet)

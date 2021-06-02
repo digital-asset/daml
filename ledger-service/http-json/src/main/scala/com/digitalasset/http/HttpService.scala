@@ -34,6 +34,7 @@ import com.daml.ledger.client.{LedgerClient => DamlLedgerClient}
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.metrics.Metrics
 import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
 import scalaz.Scalaz._
@@ -71,6 +72,7 @@ object HttpService {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ): Future[Error \/ ServerBinding] = {
 
     logger.info("HTTP Server pre-startup")
