@@ -58,6 +58,29 @@ message Completion {
   // Optional for historic completions where this data is not available.
   string submission_rank = 5;
 
+  // The actual deduplication window used for the submission, which is derived from ``Commands.deduplication``.
+  // The ledger may convert the deduplication period into other descriptions and extend the period
+  // in implementation-specified ways.
+  // Used to audit the deduplication guarantee described in ``commands.proto``.
+  //
+  // Optional; the deduplication guarantee applies even if the completion omits the deduplication period.
+  oneof deduplication {
+    // Specifies the start of the deduplication period by a completion stream offset.
+    //
+    // Must be a valid LedgerString (as described in ``value.proto``).
+    string deduplication_offset = 8;
+
+    // The deduplication period starts with the first completion whose record time is no earlier than this timepoint.
+    google.protobuf.Timestamp deduplication_start = 9;
+
+    // Specifies the length of the deduplication period.
+    // The deduplication period starts with the first completion whose record time is at most
+    // the given duration before the record time of this completion event.
+    //
+    // Must be non-negative.
+    google.protobuf.Duration deduplication_duration = 10;
+  }
+
   // The trace context submitted with the command.
   // This field is a future extension point and is currently not supported.
   // Optional

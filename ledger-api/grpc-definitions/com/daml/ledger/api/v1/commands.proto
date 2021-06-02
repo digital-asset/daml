@@ -71,7 +71,7 @@ message Commands {
   // If omitted, the participant chooses the start of the deduplication period at its discretion.
   // Optional
   oneof deduplication {
-    // Same semantics as deduplication_since
+    // Same semantics as deduplication_duration
     //
     // DEPRECATED
     google.protobuf.Duration deduplication_time = 9;
@@ -88,11 +88,11 @@ message Commands {
     google.protobuf.Timestamp deduplication_start = 15;
 
     // Specifies the length of the deduplication period.
-    // The participant or Daml ledger converts the duration into a timestamp ``deduplication_start`` since
+    // The participant or Daml ledger converts the duration into a timestamp ``deduplication_start``
     // by subtracting the duration from its local clock at some point during processing the submission.
     //
     // Must be non-negative.
-    google.protobuf.Duration deduplication_since = 16;
+    google.protobuf.Duration deduplication_duration = 16;
   }
 
   // Lower bound for the ledger time assigned to the resulting transaction.
