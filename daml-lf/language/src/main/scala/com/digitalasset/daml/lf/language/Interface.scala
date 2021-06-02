@@ -25,12 +25,16 @@ private[lf] case class Interface(signatures: PartialFunction[PackageId, GenPacka
       _.definitions.get(name.qualifiedName.name).toRight(LookupError.Definition(name))
     )
 
+  // Throws a Definition LookupError, if name does not maps to a Definition.
+  // Throws a TypeSyn LookupError, if name map to a Definition which is not a DTypeSyn.
   def lookupTypeSyn(name: TypeSynName): Either[LookupError, DTypeSyn] =
     lookupDefinition(name).flatMap {
       case typeSyn: DTypeSyn => Right(typeSyn)
       case _ => Left(LookupError.TypeSyn(name))
     }
 
+  // Throws a Definition LookupError, if name does not maps to a Definition.
+  // Throws a TypeSyn LookupError, if name map to a Definition which is not a DDataType.
   def lookupDataType(name: TypeConName): Either[LookupError, DDataType] =
     lookupDefinition(name).flatMap {
       case dataType: DDataType => Right(dataType)
