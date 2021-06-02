@@ -37,7 +37,9 @@ final class ValueEnricher(engine: Engine) {
       engine
         .loadPackages(List(pkgId))
         .flatMap(_ => Result.fromEither(lookup.left.map(err => Error(err.toString))))
-    case Left(error) => ResultError(Error(error.pretty))
+    case Left(error) =>
+      // TODO: should throw a more precise error
+      ResultError(Error(error.pretty))
   }
 
   def enrichChoiceArgument(

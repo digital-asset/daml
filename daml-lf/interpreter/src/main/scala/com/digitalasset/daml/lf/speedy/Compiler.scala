@@ -134,7 +134,9 @@ private[lf] final class Compiler(
   private[this] def handleLookup[X](x: Either[LookupError, X]) =
     x match {
       case Right(value) => value
-      case Left(err) => SError.crash(err.pretty)
+      case Left(err) =>
+        // TODO: should throw a more precise error
+        SError.crash(err.pretty)
     }
 
   // Stack-trace support is disabled by avoiding the construction of SELocation nodes.

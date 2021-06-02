@@ -179,7 +179,9 @@ private[preprocessing] object Preprocessor {
   def handleLookup[X](either: Either[LookupError, X]): X = either match {
     case Right(v) => v
     case Left(LookupError.Package(pkgId)) => throw PreprocessorMissingPackage(pkgId)
-    case Left(e) => throw PreprocessorError(Error(e.pretty))
+    case Left(e) =>
+      // TODO: should throw a more precise error
+      throw PreprocessorError(Error(e.pretty))
   }
 
   @inline
