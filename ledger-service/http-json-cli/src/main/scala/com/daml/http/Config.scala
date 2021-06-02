@@ -6,7 +6,6 @@ package com.daml.http
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
-
 import akka.stream.ThrottleMode
 import com.daml.util.ExceptionOps._
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -16,9 +15,9 @@ import scalaz.{Show, \/}
 
 import scala.concurrent.duration._
 import scala.util.Try
-
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
+import com.daml.platform.configuration.MetricsReporter
 
 // The internal transient scopt structure *and* StartSettings; external `start`
 // users should extend StartSettings or DefaultStartSettings themselves
@@ -41,6 +40,8 @@ private[http] final case class Config(
     nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
     logLevel: Option[LogLevel] = None, // the default is in logback.xml
     logEncoder: LogEncoder = LogEncoder.Plain,
+    metricsReporter: Option[MetricsReporter] = None,
+    metricsReportingInterval: FiniteDuration = 10 seconds,
 ) extends StartSettings
 
 private[http] object Config {

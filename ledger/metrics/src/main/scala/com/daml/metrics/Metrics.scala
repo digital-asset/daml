@@ -682,5 +682,12 @@ final class Metrics(val registry: MetricRegistry) {
         val prune: Timer = registry.timer(Prefix :+ "prune")
       }
     }
+
+    object http_json_api {
+      private val Prefix: MetricName = daml.Prefix :+ "http_json_api"
+
+      val httpRequest: Timer = registry.timer(Prefix :+ "http_request")
+      val websocketRequest: Timer = registry.timer(Prefix :+ "websocket_request")
+    }
   }
 }
