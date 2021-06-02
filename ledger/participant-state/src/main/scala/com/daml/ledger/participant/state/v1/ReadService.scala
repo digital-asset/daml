@@ -73,27 +73,28 @@ trait ReadService extends ReportsHealth {
     *   are parameters specified in the ledger [[com.daml.ledger.participant.state.v1.TimeModel]]
     *   of the last [[Update.ConfigurationChanged]] before the [[Update.TransactionAccepted]].
     *
-    * - *command deduplication*: Let there be a [[Update.TransactionAccepted]] with [[SubmitterInfo]]
-    *   or a [[Update.CommandRejected]] with [[SubmitterInfo]] and [[Update.CommandRejected.definiteAnswer]] at offset `off2`
-    *   and let `off1` be the completion offset where the [[SubmitterInfo.deduplicationPeriod]] starts.
-    *   Then there is no other [[Update.TransactionAccepted]] with [[SubmitterInfo]] for the same [[SubmitterInfo.changeId]]
+    * - *command deduplication*: Let there be a [[Update.TransactionAccepted]] with [[CompletionInfo]]
+    *   or a [[Update.CommandRejected]] with [[CompletionInfo]] and [[Update.CommandRejected.definiteAnswer]] at offset `off2`
+    *   and let `off1` be the completion offset where the [[CompletionInfo.optDeduplicationPeriod]] starts.
+    *   Then there is no other [[Update.TransactionAccepted]] with [[CompletionInfo]] for the same [[CompletionInfo.changeId]]
     *   between the offsets `off1` and `off2` inclusive.
     *
     *   So if a command submission has resulted in a [[Update.TransactionAccepted]],
     *   other command submissions with the same [[SubmitterInfo.changeId]] must be deduplicated
-    *   if the earlier's [[Update.TransactionAccepted]] falls within the latter's [[SubmitterInfo.deduplicationPeriod]].
+    *   if the earlier's [[Update.TransactionAccepted]] falls within the latter's [[CompletionInfo.optDeduplicationPeriod]].
     *
-    *   Implementations MAY extend the deduplication period arbitrarily and reject a command submission as a duplicate
-    *   even if its deduplication period does not include the earlier's [[Update.TransactionAccepted]].
+    *   Implementations MAY extend the deduplication period from [[SubmitterInfo]] arbitrarily
+    *   and reject a command submission as a duplicate even if its deduplication period does not include
+    *   the earlier's [[Update.TransactionAccepted]].
     *   A [[Update.CommandRejected]] completion does not trigger deduplication and implementations SHOULD
     *   process such resubmissions normally, subject to the submission rank guarantee listed below.
     *
-    * - *submission rank*: Let there be a [[Update.TransactionAccepted]] with [[SubmitterInfo]]
-    *   or a [[Update.CommandRejected]] with [[SubmitterInfo]] and [[Update.CommandRejected.definiteAnswer]] at offset `off`.
-    *   Let `rank` be the [[SubmitterInfo.submissionRank]] of the [[Update]].
-    *   Then there is no other [[Update.TransactionAccepted]] or [[Update.CommandRejected]] with [[SubmitterInfo]]
-    *   for the same [[SubmitterInfo.changeId]] with offset at least `off`
-    *   whose [[SubmitterInfo.submissionRank]] is less or equal to `rank`.
+    * - *submission rank*: Let there be a [[Update.TransactionAccepted]] with [[CompletionInfo]]
+    *   or a [[Update.CommandRejected]] with [[CompletionInfo]] and [[Update.CommandRejected.definiteAnswer]] at offset `off`.
+    *   Let `rank` be the [[CompletionInfo.submissionRank]] of the [[Update]].
+    *   Then there is no other [[Update.TransactionAccepted]] or [[Update.CommandRejected]] with [[CompletionInfo]]
+    *   for the same [[CompletionInfo.changeId]] with offset at least `off`
+    *   whose [[CompletionInfo.submissionRank]] is less or equal to `rank`.
     *
     *   If the [[WriteService]] detects that a command submission would violate the submission rank guarantee
     *   if accepted or rejected, it either returns a [[SubmissionResult.SynchronousError]] error or
@@ -101,7 +102,7 @@ trait ReadService extends ReportsHealth {
     *
     * - *finality*: If the corresponding [[WriteService]] acknowledges a submitted transaction or rejection
     *   with [[SubmissionResult.Acknowledged]], the [[ReadService]] SHOULD make sure that
-    *   it eventually produces a [[Update.TransactionAccepted]] or [[Update.CommandRejected]] with this [[SubmitterInfo]],
+    *   it eventually produces a [[Update.TransactionAccepted]] or [[Update.CommandRejected]] with the corresponding [[CompletionInfo]],
     *   even if there are crashes or lost network messages.
     *
     * The second class of properties relates multiple calls to [[ReadService.stateUpdates]] to each other.

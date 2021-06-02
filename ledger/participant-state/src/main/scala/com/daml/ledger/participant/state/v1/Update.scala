@@ -190,7 +190,7 @@ object Update {
     *   List of divulged contracts. See [[DivulgedContract]] for details.
     */
   final case class TransactionAccepted(
-      optSubmitterInfo: Option[SubmitterInfo],
+      optCompletionInfo: Option[CompletionInfo],
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
       transactionId: TransactionId,
@@ -204,14 +204,13 @@ object Update {
   /** Signal that a command submitted via [[WriteService]] was rejected.
     *
     * @param recordTime     The record time of the completion
-    * @param submitterInfo  The information provided by the submitter of the command that
-    *                       created this transaction.
+    * @param completionInfo The completion information for the submission
     * @param reasonTemplate A template for generating the gRPC status code with error details.
     *                       See ``error.proto`` for the status codes of common rejection reasons.
     */
   final case class CommandRejected(
       recordTime: Timestamp,
-      submitterInfo: SubmitterInfo,
+      completionInfo: CompletionInfo,
       reasonTemplate: CommandRejected.RejectionReasonTemplate,
   ) extends Update {
     override def description: String = {
