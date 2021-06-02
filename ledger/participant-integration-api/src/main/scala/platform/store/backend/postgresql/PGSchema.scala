@@ -3,10 +3,10 @@
 
 package com.daml.platform.store.backend.postgresql
 
-import com.daml.platform.store.backend.DBDTOV1
+import com.daml.platform.store.backend.DbDto
 
 private[postgresql] object PGSchema {
-  val eventsDivulgence: PGTable[DBDTOV1.EventDivulgence] = PGTable("participant_events_divulgence")(
+  val eventsDivulgence: PGTable[DbDto.EventDivulgence] = PGTable("participant_events_divulgence")(
     "event_offset" -> PGString(_.event_offset.orNull),
     "command_id" -> PGString(_.command_id.orNull),
     "workflow_id" -> PGString(_.workflow_id.orNull),
@@ -20,7 +20,7 @@ private[postgresql] object PGSchema {
     "create_argument_compression" -> PGSmallintOptional(_.create_argument_compression),
   )
 
-  val eventsCreate: PGTable[DBDTOV1.EventCreate] = PGTable("participant_events_create")(
+  val eventsCreate: PGTable[DbDto.EventCreate] = PGTable("participant_events_create")(
     "event_offset" -> PGString(_.event_offset.orNull),
     "transaction_id" -> PGString(_.transaction_id.orNull),
     "ledger_effective_time" -> PGTimestamp(_.ledger_effective_time.orNull),
@@ -45,8 +45,8 @@ private[postgresql] object PGSchema {
     "create_key_value_compression" -> PGSmallintOptional(_.create_key_value_compression),
   )
 
-  val exerciseFields: Vector[(String, PGField[DBDTOV1.EventExercise, _, _])] =
-    Vector[(String, PGField[DBDTOV1.EventExercise, _, _])](
+  val exerciseFields: Vector[(String, PGField[DbDto.EventExercise, _, _])] =
+    Vector[(String, PGField[DbDto.EventExercise, _, _])](
       "event_id" -> PGString(_.event_id.orNull),
       "event_offset" -> PGString(_.event_offset.orNull),
       "contract_id" -> PGString(_.contract_id),
@@ -72,13 +72,13 @@ private[postgresql] object PGSchema {
       "exercise_result_compression" -> PGSmallintOptional(_.exercise_result_compression),
     )
 
-  val eventsConsumingExercise: PGTable[DBDTOV1.EventExercise] =
+  val eventsConsumingExercise: PGTable[DbDto.EventExercise] =
     PGTable(tableName = "participant_events_consuming_exercise", exerciseFields)
 
-  val eventsNonConsumingExercise: PGTable[DBDTOV1.EventExercise] =
+  val eventsNonConsumingExercise: PGTable[DbDto.EventExercise] =
     PGTable(tableName = "participant_events_non_consuming_exercise", exerciseFields)
 
-  val configurationEntries: PGTable[DBDTOV1.ConfigurationEntry] = PGTable("configuration_entries")(
+  val configurationEntries: PGTable[DbDto.ConfigurationEntry] = PGTable("configuration_entries")(
     "ledger_offset" -> PGString(_.ledger_offset),
     "recorded_at" -> PGTimestamp(_.recorded_at),
     "submission_id" -> PGString(_.submission_id),
@@ -87,7 +87,7 @@ private[postgresql] object PGSchema {
     "rejection_reason" -> PGString(_.rejection_reason.orNull),
   )
 
-  val packageEntries: PGTable[DBDTOV1.PackageEntry] = PGTable("package_entries")(
+  val packageEntries: PGTable[DbDto.PackageEntry] = PGTable("package_entries")(
     "ledger_offset" -> PGString(_.ledger_offset),
     "recorded_at" -> PGTimestamp(_.recorded_at),
     "submission_id" -> PGString(_.submission_id.orNull),
@@ -95,10 +95,10 @@ private[postgresql] object PGSchema {
     "rejection_reason" -> PGString(_.rejection_reason.orNull),
   )
 
-  val packages: PGTable[DBDTOV1.Package] = PGTable(
+  val packages: PGTable[DbDto.Package] = PGTable(
     tableName = "packages",
     insertSuffix = "on conflict (package_id) do nothing",
-    fields = Vector[(String, PGField[DBDTOV1.Package, _, _])](
+    fields = Vector[(String, PGField[DbDto.Package, _, _])](
       "package_id" -> PGString(_.package_id),
       "upload_id" -> PGString(_.upload_id),
       "source_description" -> PGString(_.source_description.orNull),
@@ -109,7 +109,7 @@ private[postgresql] object PGSchema {
     ),
   )
 
-  val partyEntries: PGTable[DBDTOV1.PartyEntry] = PGTable("party_entries")(
+  val partyEntries: PGTable[DbDto.PartyEntry] = PGTable("party_entries")(
     "ledger_offset" -> PGString(_.ledger_offset),
     "recorded_at" -> PGTimestamp(_.recorded_at),
     "submission_id" -> PGString(_.submission_id.orNull),
@@ -120,7 +120,7 @@ private[postgresql] object PGSchema {
     "is_local" -> PGBooleanOptional(_.is_local),
   )
 
-  val parties: PGTable[DBDTOV1.Party] = PGTable("parties")(
+  val parties: PGTable[DbDto.Party] = PGTable("parties")(
     "party" -> PGString(_.party),
     "display_name" -> PGString(_.display_name.orNull),
     "explicit" -> PGBoolean(_.explicit),
@@ -128,7 +128,7 @@ private[postgresql] object PGSchema {
     "is_local" -> PGBoolean(_.is_local),
   )
 
-  val commandCompletions: PGTable[DBDTOV1.CommandCompletion] =
+  val commandCompletions: PGTable[DbDto.CommandCompletion] =
     PGTable("participant_command_completions")(
       "completion_offset" -> PGString(_.completion_offset),
       "record_time" -> PGTimestamp(_.record_time),

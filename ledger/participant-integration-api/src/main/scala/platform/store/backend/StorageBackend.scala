@@ -18,10 +18,10 @@ trait StorageBackend[DB_BATCH] {
   /** The CPU intensive batching operation hides the batching logic, and the mapping to the database specific representation of the inserted data.
     * This should be pure CPU logic without IO.
     *
-    * @param dbDtos is a collection of DBDTOV1 from which the batch is formed
+    * @param dbDtos is a collection of DbDto from which the batch is formed
     * @return the database-specific batch DTO, which can be inserted via insertBatch
     */
-  def batch(dbDtos: Vector[DBDTOV1]): DB_BATCH
+  def batch(dbDtos: Vector[DbDto]): DB_BATCH
 
   /** Using a JDBC connection, a batch will be inserted into the database.
     * No significant CPU load, mostly blocking JDBC communication with the database backend.

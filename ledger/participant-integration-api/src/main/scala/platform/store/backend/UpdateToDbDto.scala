@@ -13,17 +13,17 @@ import com.daml.platform.store.appendonlydao.JdbcLedgerDao
 import com.daml.platform.store.appendonlydao.events._
 import com.daml.platform.store.dao.DeduplicationKeyMaker
 
-object UpdateToDBDTOV1 {
+object UpdateToDbDto {
 
   def apply(
       participantId: ParticipantId,
       translation: LfValueTranslation,
       compressionStrategy: CompressionStrategy,
-  ): Offset => Update => Iterator[DBDTOV1] = { offset =>
+  ): Offset => Update => Iterator[DbDto] = { offset =>
     {
       case u: Update.CommandRejected =>
         Iterator(
-          DBDTOV1.CommandCompletion(
+          DbDto.CommandCompletion(
             completion_offset = offset.toHexString,
             record_time = u.recordTime.toInstant,
             application_id = u.submitterInfo.applicationId,
@@ -33,7 +33,7 @@ object UpdateToDBDTOV1 {
             status_code = Some(u.reason.code.value()),
             status_message = Some(u.reason.description),
           ),
-          DBDTOV1.CommandDeduplication(
+          DbDto.CommandDeduplication(
             DeduplicationKeyMaker.make(
               domain.CommandId(u.submitterInfo.commandId),
               u.submitterInfo.actAs,
@@ -43,7 +43,7 @@ object UpdateToDBDTOV1 {
 
       case u: Update.ConfigurationChanged =>
         Iterator(
-          DBDTOV1.ConfigurationEntry(
+          DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = u.submissionId,
@@ -55,7 +55,7 @@ object UpdateToDBDTOV1 {
 
       case u: Update.ConfigurationChangeRejected =>
         Iterator(
-          DBDTOV1.ConfigurationEntry(
+          DbDto.ConfigurationEntry(
             ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = u.submissionId,
@@ -67,7 +67,7 @@ object UpdateToDBDTOV1 {
 
       case u: Update.PartyAddedToParticipant =>
         Iterator(
-          DBDTOV1.PartyEntry(
+          DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = u.submissionId,
@@ -77,7 +77,7 @@ object UpdateToDBDTOV1 {
             rejection_reason = None,
             is_local = Some(u.participantId == participantId),
           ),
-          DBDTOV1.Party(
+          DbDto.Party(
             party = u.party,
             display_name = Some(u.displayName),
             explicit = true,
@@ -88,7 +88,7 @@ object UpdateToDBDTOV1 {
 
       case u: Update.PartyAllocationRejected =>
         Iterator(
-          DBDTOV1.PartyEntry(
+          DbDto.PartyEntry(
             ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = Some(u.submissionId),
@@ -103,7 +103,7 @@ object UpdateToDBDTOV1 {
       case u: Update.PublicPackageUpload =>
         val uploadId = u.submissionId.getOrElse(UUID.randomUUID().toString)
         val packages = u.archives.iterator.map { archive =>
-          DBDTOV1.Package(
+          DbDto.Package(
             package_id = archive.getHash,
             upload_id = uploadId,
             source_description = u.sourceDescription,
@@ -114,7 +114,7 @@ object UpdateToDBDTOV1 {
           )
         }
         val packageEntries = u.submissionId.iterator.map(submissionId =>
-          DBDTOV1.PackageEntry(
+          DbDto.PackageEntry(
             ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = Some(submissionId),
@@ -126,7 +126,7 @@ object UpdateToDBDTOV1 {
 
       case u: Update.PublicPackageUploadRejected =>
         Iterator(
-          DBDTOV1.PackageEntry(
+          DbDto.PackageEntry(
             ledger_offset = offset.toHexString,
             recorded_at = u.recordTime.toInstant,
             submission_id = Some(u.submissionId),
@@ -152,12 +152,12 @@ object UpdateToDBDTOV1 {
           )
           .reverse
 
-        val events: Iterator[DBDTOV1] = preorderTraversal.iterator
+        val events: Iterator[DbDto] = preorderTraversal.iterator
           .collect { // It is okay to collect: blinding info is already there, we are free at hand to filter out the fetch and lookup nodes here already
             case (nodeId, create: Create) =>
               val eventId = EventId(u.transactionId, nodeId)
               val (createArgument, createKeyValue) = translation.serialize(eventId, create)
-              DBDTOV1.EventCreate(
+              DbDto.EventCreate(
                 event_offset = Some(offset.toHexString),
                 transaction_id = Some(u.transactionId),
                 ledger_effective_time = Some(u.transactionMeta.ledgerEffectiveTime.toInstant),
@@ -195,7 +195,7 @@ object UpdateToDBDTOV1 {
               val eventId = EventId(u.transactionId, nodeId)
               val (exerciseArgument, exerciseResult, createKeyValue) =
                 translation.serialize(eventId, exercise)
-              DBDTOV1.EventExercise(
+              DbDto.EventExercise(
                 consuming = exercise.consuming,
                 event_offset = Some(offset.toHexString),
                 transaction_id = Some(u.transactionId),
@@ -239,7 +239,7 @@ object UpdateToDBDTOV1 {
           // only store divulgence events, which are divulging to parties
           case (contractId, visibleToParties) if visibleToParties.nonEmpty =>
             val contractInst = divulgedContractIndex.get(contractId).map(_.contractInst)
-            DBDTOV1.EventDivulgence(
+            DbDto.EventDivulgence(
               event_offset = Some(offset.toHexString),
               command_id = u.optSubmitterInfo.map(_.commandId),
               workflow_id = u.transactionMeta.workflowId,
@@ -258,7 +258,7 @@ object UpdateToDBDTOV1 {
         }
 
         val completions = u.optSubmitterInfo.iterator.map { submitterInfo =>
-          DBDTOV1.CommandCompletion(
+          DbDto.CommandCompletion(
             completion_offset = offset.toHexString,
             record_time = u.recordTime.toInstant,
             application_id = submitterInfo.applicationId,
