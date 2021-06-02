@@ -618,6 +618,7 @@ private object OracleQueries extends Queries {
     CreateIndex(sql"""
       CREATE SEARCH INDEX contract_${col}_idx
       ON contract ($col) FOR JSON
+      PARAMETERS('DATAGUIDE OFF')
     """)
   }
 
