@@ -1032,6 +1032,28 @@ abstract class AbstractWebsocketServiceIntegrationTest
       _ <- createIou("USD")
       offset3 <- ledgerEnd(6)
       _ <- test(
+        clue = "No offsets",
+        end = offset3,
+        queryFrom = None,
+        eurFrom = None,
+        usdFrom = None,
+        expected = Map(
+          "EUR" -> 3,
+          "USD" -> 3,
+        ),
+      )
+      _ <- test(
+        clue = "Offset message only",
+        end = offset3,
+        queryFrom = Some(offset2),
+        eurFrom = None,
+        usdFrom = None,
+        expected = Map(
+          "EUR" -> 1,
+          "USD" -> 1,
+        ),
+      )
+      _ <- test(
         clue = "Per-query offsets only",
         end = offset3,
         queryFrom = None,
