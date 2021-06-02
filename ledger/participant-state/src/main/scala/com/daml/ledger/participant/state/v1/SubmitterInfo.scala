@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.v1
 
 import com.google.protobuf.ByteString
 
-/** Information provided by the submitter of changes submitted to the ledger.
+/** Collects context information the submission.
   *
   * Note that this is used for party-originating changes only. They are
   * usually issued via the Ledger API.
@@ -27,6 +27,8 @@ import com.google.protobuf.ByteString
   *
   * @param submissionRank The rank of the submission among all submissions with the same change ID.
   *   Used for the submission rank guarantee described in the [[ReadService.stateUpdates]].
+  *
+  * @param ledgerConfiguration The ledger configuration used during interpretation
   */
 final case class SubmitterInfo(
     actAs: List[Party],
@@ -35,6 +37,7 @@ final case class SubmitterInfo(
     deduplicationPeriod: DeduplicationPeriod,
     submissionId: SubmissionId,
     submissionRank: Offset,
+    ledgerConfiguration: Configuration,
 ) {
 
   /** The ID for the ledger change */

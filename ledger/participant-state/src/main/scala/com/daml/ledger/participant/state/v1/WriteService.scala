@@ -86,7 +86,6 @@ trait WriteService
     * @param submitterInfo               the information provided by the submitter for
     *                                    correlating this submission with its acceptance or rejection on the
     *                                    associated [[ReadService]].
-    * @param submissionContext           the context used to create this submission
     * @param transactionMeta             the meta-data accessible to all consumers of the transaction.
     *                                    See [[TransactionMeta]] for more information.
     * @param transaction                 the submitted transaction. This transaction can contain local
@@ -100,7 +99,6 @@ trait WriteService
     */
   def submitTransaction(
       submitterInfo: SubmitterInfo,
-      submissionContext: SubmissionContext,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
@@ -126,15 +124,12 @@ trait WriteService
     *
     * @param submitterInfo the information provided by the submitter for correlating this submission
     *                      with its rejection on the associated [[ReadService]].
-    * @param submissionContext the submission context of the rejected submission
     * @param submissionTime the submission time of the rejected submission like in [[TransactionMeta.submissionTime]]
     * @param reason The rejection reason to be included in the [[Update.CommandRejected]]
     * @param telemetryContext Implicit context for tracing.
     */
   def rejectSubmission(
       submitterInfo: SubmitterInfo,
-      submissionContext: SubmissionContext,
-      // TODO(v2) should we move `submissionTime` from [[TransactionMeta]] into the [[SubmissionContext]]?
       submissionTime: Time.Timestamp,
       reason: com.google.rpc.Status,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
