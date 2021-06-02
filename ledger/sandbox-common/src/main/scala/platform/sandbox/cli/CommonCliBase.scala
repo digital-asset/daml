@@ -306,7 +306,7 @@ class CommonCliBase(name: LedgerName) {
         .optional()
         .action((_, config) => config.copy(enableCompression = true))
         .text(
-          s"By default compression is off, his switch enables it. This has only effect for append-only ingestion." // TODO append-only: fix description
+          s"By default compression is off, this switch enables it. This has only effect for append-only ingestion." // TODO append-only: fix description
         )
 
       help("help").text("Print the usage text")
