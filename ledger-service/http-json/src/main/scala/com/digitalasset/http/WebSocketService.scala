@@ -179,7 +179,8 @@ object WebSocketService {
     ): A
 
     def startingOffset(
-        request: A
+        prefix: Option[domain.StartingOffset],
+        request: A,
     ): Option[domain.StartingOffset]
 
   }
@@ -288,7 +289,8 @@ object WebSocketService {
       private implicit val stringOrder = scalaz.Order.fromScalaOrdering[String]
 
       override def startingOffset(
-          request: SearchForeverRequest
+          prefix: Option[domain.StartingOffset],
+          request: SearchForeverRequest,
       ): Option[domain.StartingOffset] =
         request.queries
           .map(_.offset)
@@ -392,8 +394,9 @@ object WebSocketService {
     ): NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]] = request
 
     override def startingOffset(
-        request: NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]]
-    ): Option[domain.StartingOffset] = None
+        prefix: Option[domain.StartingOffset],
+        request: NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]],
+    ): Option[domain.StartingOffset] = prefix
 
   }
 
@@ -546,7 +549,7 @@ class WebSocketService(
     val StreamPredicate(resolved, unresolved, fn, dbQuery) =
       Q.predicate(request, resolveTemplateId, lookupType)
 
-    val startingOffset = Q.startingOffset(request)
+    val startingOffset = Q.startingOffset(offPrefix, request)
 
     if (resolved.nonEmpty) {
       def prefilter: Future[
