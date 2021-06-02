@@ -314,7 +314,7 @@ class EngineTest
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res.left.value.msg should startWith(
-        "template without contract key: BasicTests:CallablePayout"
+        s"template without contract key $templateId"
       )
     }
 

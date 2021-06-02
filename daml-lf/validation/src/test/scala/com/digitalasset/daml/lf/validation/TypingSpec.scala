@@ -455,7 +455,7 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: EEmptyConsFront => },
         //ExpVal
         E"⸨ Mod:g ⸩" -> //
-          { case EUnknownDefinition(_, LookupError.DataType(_)) => },
+          { case EUnknownDefinition(_, LookupError.Definition(_)) => },
         E"⸨ Mod:R ⸩" -> //
           { case EUnknownDefinition(_, LookupError.Value(_)) => },
         //ExpRecCon
@@ -469,6 +469,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: EFieldMismatch => },
         E"Λ (σ : ⋆) (τ: ⋆). λ (e₁ : Int64) (e₂ : List σ) (e₃:τ) → ⸨ Mod:R @σ { f1 = e₁, f2 = e₂, f3 = e₃} ⸩" -> //
           { case _: EFieldMismatch => },
+        E"Λ (σ : ⋆). λ (e₁ : Bool) (e₂ : List σ) → ⸨ Mod:g @σ { f1 = e₁, f2 = e₂ } ⸩" -> //
+          { case EUnknownDefinition(_, LookupError.Definition(_)) => },
+        E"Λ (σ : ⋆). λ (e₁ : Bool) (e₂ : List σ) → ⸨ Mod:S @σ { f1 = e₁, f2 = e₂ } ⸩" -> //
+          { case EUnknownDefinition(_, LookupError.DataType(_)) => },
         // ExpRecProj
         E"Λ (σ : ⋆ → ⋆). ⸨ Mod:R @σ {f2} nothing⸩" -> //
           { case _: EKindMismatch => },
@@ -496,6 +500,10 @@ class TypingSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matcher
           { case _: EKindMismatch => },
         E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ Mod:Tree:Leaf @τ e ⸩" -> //
           { case _: ETypeMismatch => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ Mod:g:Leaf @τ e ⸩" -> //
+          { case EUnknownDefinition(_, LookupError.Definition(_)) => },
+        E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → ⸨ Mod:S:Leaf @τ e ⸩" -> //
+          { case EUnknownDefinition(_, LookupError.DataType(_)) => },
         // ExpStructCon
         E"Λ (τ₁: ⋆) (τ₂: ⋆). λ (e₁: τ₁) (e₂: τ₂) → ⸨ ⟨ f₁ = e₁, f₁ = e₂ ⟩ ⸩" -> //
           { case _: EDuplicateField => },
