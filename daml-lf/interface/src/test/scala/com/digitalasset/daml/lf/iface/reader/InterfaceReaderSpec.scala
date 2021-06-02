@@ -10,9 +10,11 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{DottedName, QualifiedName}
 import com.daml.lf.language.Ast
+import com.daml.lf.language.LanguageVersion
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import scalaz.\/-
 
 import scala.language.implicitConversions
 
@@ -163,6 +165,24 @@ class InterfaceReaderSpec extends AnyWordSpec with Matchers with Inside {
     )
 
     actual.typeDecls shouldBe expectedResult
+  }
+
+  "Package metadata should be extracted if present" in {
+    def pkg(metadata: Option[Ast.PackageMetadata]) =
+      Ast.Package(
+        modules = Seq.empty,
+        directDeps = Set.empty,
+        languageVersion = LanguageVersion.default,
+        metadata = metadata,
+      )
+    val notPresent = pkg(None)
+    val name = Ref.PackageName.assertFromString("my-package")
+    val version = Ref.PackageVersion.assertFromString("1.2.3")
+    val present = pkg(Some(Ast.PackageMetadata(name, version)))
+    InterfaceReader.readInterface(() => \/-((packageId, notPresent)))._2.metadata shouldBe None
+    InterfaceReader.readInterface(() => \/-((packageId, present)))._2.metadata shouldBe Some(
+      PackageMetadata(name, version)
+    )
   }
 
   private def wrappInModule(dataName: DottedName, dfn: Ast.DDataType) =
