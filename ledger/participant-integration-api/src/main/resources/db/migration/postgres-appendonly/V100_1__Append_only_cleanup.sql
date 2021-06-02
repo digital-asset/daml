@@ -30,7 +30,6 @@ DROP TABLE participant_events CASCADE;
 --   10: create event
 --   20: consuming exercise event
 --   25: non-consuming exercise event
--- TODO append-only: EITHER only include columns that are used in queries that use this view OR verify that the query planning
 -- is not negatively affected by a long list of columns that are never used.
 CREATE VIEW participant_events
 AS
