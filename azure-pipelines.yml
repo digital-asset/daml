@@ -194,6 +194,9 @@ jobs:
       set -euo pipefail
       eval "$(./dev-env/bin/dade-assist)"
 
+      ## refresh tags, in case someone deleted one
+      git fetch --prune --prune-tags
+
       source $(bash_lib)
 
       DELAY=1
