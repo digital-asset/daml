@@ -587,11 +587,12 @@ object Ast {
 
   final case class DataRecord(fields: ImmArray[(FieldName, Type)]) extends DataCons {
     lazy val fieldInfo: Map[FieldName, (Type, Int)] =
-      fields.iterator.zipWithIndex.map { case ((field, typ), rank) => field -> (typ, rank) }.toMap
+      fields.iterator.zipWithIndex.map { case ((field, typ), rank) => (field, (typ, rank)) }.toMap
   }
   final case class DataVariant(variants: ImmArray[(VariantConName, Type)]) extends DataCons {
     lazy val constructorInfo: Map[VariantConName, (Type, Int)] =
-      variants.iterator.zipWithIndex.map { case ((cons, typ), rank) => cons -> (typ, rank) }.toMap
+      variants.iterator.zipWithIndex.map { case ((cons, typ), rank) => (cons, (typ, rank)) }.toMap
+    variants.iterator.zipWithIndex.map { case ((cons, typ), rank) => (cons, (typ, rank)) }.toMap
   }
   final case class DataEnum(constructors: ImmArray[EnumConName]) extends DataCons {
     lazy val constructorRank: Map[EnumConName, Int] = constructors.iterator.zipWithIndex.toMap
