@@ -1038,10 +1038,10 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
         case PLF.Expr.SumCase.TO_ANY_EXCEPTION =>
           assertSince(LV.Features.exceptions, "Expr.to_any_exception")
-          val makeAnyException = lfExpr.getToAnyException
+          val toAnyException = lfExpr.getToAnyException
           EToAnyException(
-            typ = decodeType(makeAnyException.getType),
-            value = decodeExpr(makeAnyException.getExpr, definition),
+            typ = decodeType(toAnyException.getType),
+            value = decodeExpr(toAnyException.getExpr, definition),
           )
 
         case PLF.Expr.SumCase.FROM_ANY_EXCEPTION =>

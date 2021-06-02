@@ -5,6 +5,8 @@ package com.daml.ledger.api.benchtool.metrics
 
 import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 
+import java.time.Duration
+
 trait Metric[Elem] {
 
   type V <: MetricValue
@@ -13,11 +15,11 @@ trait Metric[Elem] {
 
   def onNext(value: Elem): Metric[Elem]
 
-  def periodicValue(): (Metric[Elem], V)
+  def periodicValue(periodDuration: Duration): (Metric[Elem], V)
 
-  def finalValue(totalDurationSeconds: Double): V
+  def finalValue(totalDuration: Duration): V
 
-  def violatedObjectives: Map[Objective, V] = Map.empty
+  def violatedObjective: Option[(Objective, V)] = None
 
   def name: String = getClass.getSimpleName
 

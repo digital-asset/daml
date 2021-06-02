@@ -4,72 +4,66 @@
 package com.daml.ledger.api.benchtool.metrics
 
 import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
+import com.daml.ledger.api.benchtool.util.TimeUtil
 import com.google.protobuf.timestamp.Timestamp
 
-import java.time.{Clock, Duration, Instant}
+import java.time.{Clock, Duration}
 
 final case class DelayMetric[T](
     recordTimeFunction: T => Seq[Timestamp],
     clock: Clock,
-    objectives: Map[ServiceLevelObjective[DelayMetric.Value], Option[DelayMetric.Value]],
+    objective: Option[(ServiceLevelObjective[DelayMetric.Value], Option[DelayMetric.Value])],
     delaysInCurrentInterval: List[Duration] = List.empty,
 ) extends Metric[T] {
+  import DelayMetric._
 
-  override type V = DelayMetric.Value
-  override type Objective = ServiceLevelObjective[DelayMetric.Value]
+  override type V = Value
+  override type Objective = ServiceLevelObjective[Value]
 
   override def onNext(value: T): DelayMetric[T] = {
     val now = clock.instant()
-    val newDelays: List[Duration] = recordTimeFunction(value).toList.map { recordTime =>
-      Duration.between(
-        Instant.ofEpochSecond(recordTime.seconds.toLong, recordTime.nanos.toLong),
-        now,
-      )
-    }
+    val newDelays: List[Duration] = recordTimeFunction(value).toList
+      .map(TimeUtil.durationBetween(_, now))
     this.copy(delaysInCurrentInterval = delaysInCurrentInterval ::: newDelays)
   }
 
-  private def updatedObjectives(
-      newValue: DelayMetric.Value
-  ): Map[ServiceLevelObjective[DelayMetric.Value], Option[DelayMetric.Value]] = {
-    objectives
-      .map { case (objective, currentViolatingValue) =>
-        // verify if the new value violates objective's requirements
-        if (objective.isViolatedBy(newValue)) {
-          currentViolatingValue match {
-            case None =>
-              // if the new value violates objective's requirements and there is no other violating value,
-              // record the new value
-              objective -> Some(newValue)
-            case Some(currentValue) =>
-              // if the new value violates objective's requirements and there is already a value that violates
-              // requirements, record the maximum value of the two
-              objective -> Some(Ordering[V].max(currentValue, newValue))
-          }
-        } else {
-          objective -> currentViolatingValue
-        }
-      }
-  }
-
-  override def periodicValue(): (Metric[T], DelayMetric.Value) = {
-    val value: DelayMetric.Value = DelayMetric.Value(periodicMeanDelay.map(_.getSeconds))
+  override def periodicValue(periodDuration: Duration): (Metric[T], Value) = {
+    val value = Value(periodicMeanDelay.map(_.getSeconds))
     val updatedMetric = this.copy(
       delaysInCurrentInterval = List.empty,
-      objectives = updatedObjectives(value),
+      objective = updatedObjective(value),
     )
     (updatedMetric, value)
   }
 
-  override def finalValue(totalDurationSeconds: Double): DelayMetric.Value =
-    DelayMetric.Value(None)
+  override def finalValue(totalDuration: Duration): Value =
+    Value(None)
 
-  override def violatedObjectives
-      : Map[ServiceLevelObjective[DelayMetric.Value], DelayMetric.Value] =
-    objectives
-      .collect {
-        case (objective, value) if value.isDefined => objective -> value.get
+  override def violatedObjective: Option[(ServiceLevelObjective[Value], Value)] =
+    objective.collect {
+      case (objective, value) if value.isDefined => objective -> value.get
+    }
+
+  private def updatedObjective(
+      newValue: Value
+  ): Option[(ServiceLevelObjective[DelayMetric.Value], Option[DelayMetric.Value])] =
+    objective.map { case (objective, currentViolatingValue) =>
+      // verify if the new value violates objective's requirements
+      if (objective.isViolatedBy(newValue)) {
+        currentViolatingValue match {
+          case None =>
+            // if the new value violates objective's requirements and there is no other violating value,
+            // record the new value
+            objective -> Some(newValue)
+          case Some(currentValue) =>
+            // if the new value violates objective's requirements and there is already a value that violates
+            // requirements, record the maximum value of the two
+            objective -> Some(Ordering[V].max(currentValue, newValue))
+        }
+      } else {
+        objective -> currentViolatingValue
       }
+    }
 
   private def periodicMeanDelay: Option[Duration] =
     if (delaysInCurrentInterval.nonEmpty)
@@ -85,19 +79,16 @@ object DelayMetric {
 
   def empty[T](
       recordTimeFunction: T => Seq[Timestamp],
-      objectives: List[ServiceLevelObjective[Value]],
       clock: Clock,
+      objective: Option[ServiceLevelObjective[Value]] = None,
   ): DelayMetric[T] =
     DelayMetric(
       recordTimeFunction = recordTimeFunction,
       clock = clock,
-      objectives = objectives.map(objective => objective -> None).toMap,
+      objective = objective.map(objective => objective -> None),
     )
 
-  final case class Value(meanDelaySeconds: Option[Long]) extends MetricValue {
-    override def formatted: List[String] =
-      List(s"mean delay: ${meanDelaySeconds.getOrElse("-")} [s]")
-  }
+  final case class Value(meanDelaySeconds: Option[Long]) extends MetricValue
 
   object Value {
     implicit val valueOrdering: Ordering[Value] = (x: Value, y: Value) => {

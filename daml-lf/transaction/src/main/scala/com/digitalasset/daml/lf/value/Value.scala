@@ -437,8 +437,8 @@ object Value extends CidContainer1[Value] {
 
     implicit val noCidMapper: CidMapper.NoCidChecker[ContractId, Nothing] =
       CidMapper.basicMapperInstance[ContractId, Nothing]
-    implicit val cidSuffixer: CidMapper.CidSuffixer[ContractId, ContractId.V1] =
-      CidMapper.basicMapperInstance[ContractId, ContractId.V1]
+    implicit val cidSuffixer: CidMapper.CidSuffixer[ContractId, ContractId] =
+      CidMapper.basicMapperInstance[ContractId, ContractId]
   }
 
   @deprecated("use com.daml.lf.transaction.NodeId", since = "1.4.0")

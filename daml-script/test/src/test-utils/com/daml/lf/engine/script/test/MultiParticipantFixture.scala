@@ -58,7 +58,6 @@ trait MultiParticipantFixture
     indexerConfig = ParticipantIndexerConfig(
       allowExistingSchema = false
     ),
-    maxCommandsInFlight = None,
   )
   private val participantId2 = v1.ParticipantId.assertFromString("participant2")
   private val participant2 = ParticipantConfig(
@@ -72,7 +71,6 @@ trait MultiParticipantFixture
     indexerConfig = ParticipantIndexerConfig(
       allowExistingSchema = false
     ),
-    maxCommandsInFlight = None,
   )
   override protected lazy val suiteResource = {
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)

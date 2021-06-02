@@ -23,99 +23,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-  // TODO https://github.com/digital-asset/daml/issues/8020
-  //   Turn this into a test for to-any-exception / from-any-exception
-  //   using only user-defined types, since builtin exception types are going away.
-
-  // "builtin exceptions: to/from-any-exception" should {
-
-  //   // Convertion to/from AnyException works as expected:
-  //   // specifically: we can only extract the inner value if the
-  //   // expected-type (on: from_any_exception) matches the actual-type (on: to_any_exception)
-
-  //   val pkgs: PureCompiledPackages = typeAndCompile(p"""
-  //      module M {
-  //        val G : AnyException = to_any_exception @GeneralError (MAKE_GENERAL_ERROR "G");
-  //        val A : AnyException = to_any_exception @ArithmeticError (MAKE_ARITHMETIC_ERROR "A");
-  //        val C : AnyException = to_any_exception @ContractError (MAKE_CONTRACT_ERROR "C");
-  //        val fromG : AnyException -> Text = \(e:AnyException) -> case from_any_exception @GeneralError e of None -> "NONE" | Some x -> GENERAL_ERROR_MESSAGE x;
-  //        val fromA : AnyException -> Text = \(e:AnyException) -> case from_any_exception @ArithmeticError e of None -> "NONE" | Some x -> ARITHMETIC_ERROR_MESSAGE x;
-  //        val fromC : AnyException -> Text = \(e:AnyException) -> case from_any_exception @ContractError e of None -> "NONE" | Some x -> CONTRACT_ERROR_MESSAGE x;
-  //      }
-  //     """)
-
-  //   val testCases = Table[String, String](
-  //     ("expression", "string-result"),
-  //     ("M:fromG M:G", "G"),
-  //     ("M:fromA M:A", "A"),
-  //     ("M:fromC M:C", "C"),
-  //     ("M:fromG M:A", "NONE"),
-  //     ("M:fromG M:C", "NONE"),
-  //     ("M:fromA M:G", "NONE"),
-  //     ("M:fromA M:C", "NONE"),
-  //     ("M:fromC M:G", "NONE"),
-  //     ("M:fromC M:A", "NONE"),
-  //   )
-
-  //   forEvery(testCases) { (exp: String, res: String) =>
-  //     s"""eval[$exp] --> "$res"""" in {
-  //       val expected: SResult = SResultFinalValue(SValue.SText(res))
-  //       runExpr(pkgs)(e"$exp") shouldBe expected
-  //     }
-  //   }
-  // }
-
-  // TODO https://github.com/digital-asset/daml/issues/8020
-  //   Add builtin errors back into this test (ArithmeticError and ContractError).
-  //   In these cases the message should probably just be "ArithmeticError" and "ContractError".
-
-  "ANY_EXCEPTION_MESSAGE" should {
-
-    // Application of ANY_EXCEPTION_MESSAGE for various cases:
-    // 2 user-defined exceptions.
-    // MyException1 contains the message text directly
-    // MyException2 composes the message string from two text contained in the payload
-
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
-       module M {
-
-         record @serializable MyException1 = { message: Text } ;
-         exception MyException1 = {
-           message \(e: M:MyException1) -> M:MyException1 {message} e
-         };
-
-        val e1 : AnyException = to_any_exception @M:MyException1 (M:MyException1 { message = "Message1" });
-        val t1 : Text = ANY_EXCEPTION_MESSAGE M:e1;
-
-         record @serializable MyException2 = { front: Text, back: Text } ;
-
-         exception MyException2 = {
-           message \(e: M:MyException2) -> APPEND_TEXT (M:MyException2 {front} e) (M:MyException2 {back} e)
-         };
-
-        val e2 : AnyException = to_any_exception @M:MyException2 (M:MyException2 { front = "Mess", back = "age2" });
-        val t2 : Text = ANY_EXCEPTION_MESSAGE M:e2;
-       }
-      """)
-
-    val testCases = Table[String, String](
-      ("expression", "expected-string"),
-      ("M:t1", "Message1"),
-      ("M:t2", "Message2"),
-    )
-
-    forEvery(testCases) { (exp: String, res: String) =>
-      s"""eval[$exp] --> "$res"""" in {
-        val expected: SResult = SResultFinalValue(SValue.SText(res))
-        runExpr(pkgs)(e"$exp") shouldBe expected
-      }
-    }
-  }
-
   "unhandled throw" should {
-
-    // TODO https://github.com/digital-asset/daml/issues/8020
-    //   Add some builtin errors to this test.
 
     // Behaviour when no handler catches a throw:
     // 1: User Exception thrown; no try-catch in scope
@@ -141,6 +49,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
          exception E2 = { message \(e: M:E2) -> throw @Text @M:E1 (M:E1 {}) } ; //throw from the message function
          val unhandled4 : Update Int64 = upure @Int64 (throw @Int64 @M:E2 (M:E2 {})) ;
 
+         val divZero : Update Int64 = upure @Int64 (DIV_INT64 1 0) ;
        }
       """)
 
@@ -155,6 +64,20 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
             SValue.SRecord(tyCon, data.ImmArray.empty, new util.ArrayList()),
           )
         )
+    val arithmeticCon = data.Ref.Identifier.assertFromString(
+      "f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981:DA.Exception.ArithmeticError:ArithmeticError"
+    )
+    val fields = new util.ArrayList[SValue]()
+    fields.add(SValue.SText("ArithmeticError while evaluating (DIV_INT64 1 0)."))
+    val divZeroE =
+      SValue.SAny(
+        TTyCon(arithmeticCon),
+        SValue.SRecord(
+          arithmeticCon,
+          data.ImmArray(data.Ref.Name.assertFromString("message")),
+          fields,
+        ),
+      )
 
     val testCases = Table[String, SResult](
       ("expression", "expected"),
@@ -162,6 +85,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       ("M:unhandled2", SResultError(DamlEUnhandledException(e1))),
       ("M:unhandled3", SResultError(DamlEUnhandledException(e1))),
       ("M:unhandled4", SResultError(DamlEUnhandledException(e2))),
+      ("M:divZero", SResultError(DamlEUnhandledException(divZeroE))),
     )
 
     forEvery(testCases) { (exp: String, expected: SResult) =>
@@ -626,10 +550,6 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     data.assertRight(
       PureCompiledPackages(rawPkgs, Compiler.Config.Dev.copy(stacktracing = FullStackTrace))
     )
-  }
-
-  private def runExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult = {
-    Speedy.Machine.fromPureExpr(pkgs1, e).run()
   }
 
   private def runUpdateExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult = {

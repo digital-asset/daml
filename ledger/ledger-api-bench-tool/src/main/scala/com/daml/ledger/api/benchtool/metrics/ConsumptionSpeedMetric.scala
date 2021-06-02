@@ -3,18 +3,17 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
-import com.daml.ledger.api.benchtool.metrics.Metric.rounded
 import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
+import com.daml.ledger.api.benchtool.util.TimeUtil
 import com.google.protobuf.timestamp.Timestamp
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 final case class ConsumptionSpeedMetric[T](
-    periodMillis: Long,
     recordTimeFunction: T => Seq[Timestamp],
-    objectives: Map[ServiceLevelObjective[ConsumptionSpeedMetric.Value], Option[
-      ConsumptionSpeedMetric.Value
-    ]],
+    objective: Option[
+      (ServiceLevelObjective[ConsumptionSpeedMetric.Value], Option[ConsumptionSpeedMetric.Value])
+    ],
     previousLatest: Option[Instant] = None,
     currentPeriodLatest: Option[Instant] = None,
 ) extends Metric[T] {
@@ -27,15 +26,10 @@ final case class ConsumptionSpeedMetric[T](
     val recordTimes = recordTimeFunction(value)
     val newPreviousLatest =
       previousLatest match {
-        case None =>
-          recordTimes.headOption.map { recordTime =>
-            Instant.ofEpochSecond(recordTime.seconds.toLong, recordTime.nanos.toLong)
-          }
+        case None => recordTimes.headOption.map(TimeUtil.timestampToInstant)
         case v => v
       }
-    val newCurrentPeriodLatest = recordTimes.lastOption.map { recordTime =>
-      Instant.ofEpochSecond(recordTime.seconds.toLong, recordTime.nanos.toLong)
-    }
+    val newCurrentPeriodLatest = recordTimes.lastOption.map(TimeUtil.timestampToInstant)
 
     this.copy(
       previousLatest = newPreviousLatest,
@@ -43,35 +37,36 @@ final case class ConsumptionSpeedMetric[T](
     )
   }
 
-  override def periodicValue(): (Metric[T], Value) = {
-    val value = Value(periodicSpeed)
+  override def periodicValue(periodDuration: Duration): (Metric[T], Value) = {
+    val value = Value(Some(periodicSpeed(periodDuration)))
     val updatedMetric = this.copy(
       previousLatest = if (currentPeriodLatest.isDefined) currentPeriodLatest else previousLatest,
       currentPeriodLatest = None,
-      objectives = updatedObjectives(value),
+      objective = updatedObjectives(value),
     )
     (updatedMetric, value)
   }
 
-  override def finalValue(totalDurationSeconds: Double): Value =
+  override def finalValue(totalDuration: Duration): Value =
     Value(None)
 
-  override def violatedObjectives: Map[ServiceLevelObjective[Value], Value] =
-    objectives
-      .collect {
-        case (objective, value) if value.isDefined => objective -> value.get
-      }
-
-  private def periodicSpeed: Option[Double] =
-    (previousLatest, currentPeriodLatest) match {
-      case (Some(previous), Some(current)) =>
-        Some((current.toEpochMilli - previous.toEpochMilli).toDouble / periodMillis)
-      case _ =>
-        Some(0.0)
+  override def violatedObjective: Option[(ServiceLevelObjective[Value], Value)] =
+    objective.collect {
+      case (objective, value) if value.isDefined => objective -> value.get
     }
 
-  private def updatedObjectives(newValue: Value): Map[ServiceLevelObjective[Value], Option[Value]] =
-    objectives.map { case (objective, currentMaxValue) =>
+  private def periodicSpeed(periodDuration: Duration): Double =
+    (previousLatest, currentPeriodLatest) match {
+      case (Some(previous), Some(current)) =>
+        (current.toEpochMilli - previous.toEpochMilli).toDouble / periodDuration.toMillis
+      case _ =>
+        0.0
+    }
+
+  private def updatedObjectives(newValue: Value): Option[
+    (ServiceLevelObjective[ConsumptionSpeedMetric.Value], Option[ConsumptionSpeedMetric.Value])
+  ] =
+    objective.map { case (objective, currentMaxValue) =>
       if (objective.isViolatedBy(newValue)) {
         currentMaxValue match {
           case None =>
@@ -88,20 +83,16 @@ final case class ConsumptionSpeedMetric[T](
 object ConsumptionSpeedMetric {
 
   def empty[T](
-      periodMillis: Long,
       recordTimeFunction: T => Seq[Timestamp],
-      objectives: List[ServiceLevelObjective[Value]],
+      objective: Option[ServiceLevelObjective[Value]] = None,
   ): ConsumptionSpeedMetric[T] =
     ConsumptionSpeedMetric(
-      periodMillis,
       recordTimeFunction,
-      objectives.map(objective => objective -> None).toMap,
+      objective.map(objective => objective -> None),
     )
 
-  final case class Value(relativeSpeed: Option[Double]) extends MetricValue {
-    override def formatted: List[String] =
-      List(s"speed: ${relativeSpeed.map(rounded).getOrElse("-")} [-]")
-  }
+  // TODO: remove option
+  final case class Value(relativeSpeed: Option[Double]) extends MetricValue
 
   object Value {
     implicit val ordering: Ordering[Value] = (x: Value, y: Value) => {
@@ -116,5 +107,4 @@ object ConsumptionSpeedMetric {
       }
     }
   }
-
 }

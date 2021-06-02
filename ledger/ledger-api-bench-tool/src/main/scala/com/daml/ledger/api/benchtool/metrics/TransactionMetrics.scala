@@ -7,6 +7,7 @@ import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
 import akka.util.Timeout
 import com.daml.ledger.api.benchtool.Config.StreamConfig.Objectives
 import com.daml.ledger.api.benchtool.metrics.objectives.{MaxDelay, MinConsumptionSpeed}
+import com.daml.ledger.api.benchtool.util.MetricReporter
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
@@ -32,8 +33,9 @@ object TransactionMetrics {
       SpawnProtocol.Spawn(
         behavior = MetricsManager(
           streamName = streamName,
-          metrics = transactionMetrics(logInterval, objectives),
+          metrics = transactionMetrics(objectives),
           logInterval = logInterval,
+          reporter = MetricReporter.Default,
         ),
         name = s"${streamName}-manager",
         props = Props.empty,
@@ -53,8 +55,9 @@ object TransactionMetrics {
       SpawnProtocol.Spawn(
         behavior = MetricsManager(
           streamName = streamName,
-          metrics = transactionTreesMetrics(logInterval, objectives),
+          metrics = transactionTreesMetrics(objectives),
           logInterval = logInterval,
+          reporter = MetricReporter.Default,
         ),
         name = s"${streamName}-manager",
         props = Props.empty,
@@ -63,12 +66,8 @@ object TransactionMetrics {
     )
   }
 
-  private def transactionMetrics(
-      reportingPeriod: FiniteDuration,
-      objectives: Objectives,
-  ): List[Metric[GetTransactionsResponse]] =
+  private def transactionMetrics(objectives: Objectives): List[Metric[GetTransactionsResponse]] =
     all[GetTransactionsResponse](
-      reportingPeriod = reportingPeriod,
       countingFunction = _.transactions.length,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
@@ -78,11 +77,9 @@ object TransactionMetrics {
     )
 
   private def transactionTreesMetrics(
-      reportingPeriod: FiniteDuration,
-      objectives: Objectives,
+      objectives: Objectives
   ): List[Metric[GetTransactionTreesResponse]] =
     all[GetTransactionTreesResponse](
-      reportingPeriod = reportingPeriod,
       countingFunction = _.transactions.length,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
@@ -92,23 +89,30 @@ object TransactionMetrics {
     )
 
   private def all[T](
-      reportingPeriod: FiniteDuration,
       countingFunction: T => Int,
       sizingFunction: T => Long,
       recordTimeFunction: T => Seq[Timestamp],
       objectives: Objectives,
   ): List[Metric[T]] = {
-    val reportingPeriodMillis = reportingPeriod.toMillis
-    val delayObjectives =
-      objectives.maxDelaySeconds.map(MaxDelay).toList
-    val consumptionSpeedObjectives =
-      objectives.minConsumptionSpeed.map(MinConsumptionSpeed).toList
     List[Metric[T]](
-      CountMetric.empty[T](reportingPeriodMillis, countingFunction),
-      SizeMetric.empty[T](reportingPeriodMillis, sizingFunction),
-      DelayMetric.empty[T](recordTimeFunction, delayObjectives, Clock.systemUTC()),
-      ConsumptionSpeedMetric
-        .empty[T](reportingPeriodMillis, recordTimeFunction, consumptionSpeedObjectives),
+      CountRateMetric.empty[T](
+        countingFunction = countingFunction
+      ),
+      TotalCountMetric.empty[T](
+        countingFunction = countingFunction
+      ),
+      ConsumptionSpeedMetric.empty[T](
+        recordTimeFunction = recordTimeFunction,
+        objective = objectives.minConsumptionSpeed.map(MinConsumptionSpeed),
+      ),
+      DelayMetric.empty[T](
+        recordTimeFunction = recordTimeFunction,
+        clock = Clock.systemUTC(),
+        objective = objectives.maxDelaySeconds.map(MaxDelay),
+      ),
+      SizeMetric.empty[T](
+        sizingFunction = sizingFunction
+      ),
     )
   }
 }

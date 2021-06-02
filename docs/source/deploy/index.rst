@@ -33,8 +33,8 @@ for production use today.
    * - `Sextant for Daml <https://blockchaintp.com/sextant/daml/>`__
      - `Amazon QLDB <https://aws.amazon.com/qldb/>`__
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
-   * - `project : DABL <https://projectdabl.com/>`__
-     - `Managed cloud environment <https://projectdabl.com/>`__
+   * - `Daml Hub <https://hub.daml.com/>`__
+     - `Managed cloud enviroment <https://projectdabl.com/>`__
      - `Digital Asset <https://digitalasset.com/>`__
    * - `Hyperledger Besu <https://besu.hyperledger.org/>`__
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
@@ -85,4 +85,3 @@ The following table lists the ledgers that are implementing support for running 
    * - `Canton <https://www.canton.io/>`__
      - `Digital Asset <https://digitalasset.com/>`__ reference implementation
      - `canton.io <https://www.canton.io/>`__
-

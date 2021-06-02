@@ -709,10 +709,15 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
       val owners = (1 to 10).map(value =>
         new AbstractResourceOwner[TestContext, Int] {
           override def acquire()(implicit context: TestContext): Resource[Int] = {
-            acquireOrder += value
+            acquireOrder.synchronized {
+              acquireOrder += value
+            }
             Resource(Future(value))(v =>
               Future {
-                released += v
+                released.synchronized {
+                  released += v
+                }
+                ()
               }
             )
           }
@@ -747,11 +752,16 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
         new AbstractResourceOwner[TestContext, Int] {
           override def acquire()(implicit context: TestContext): Resource[Int] =
             Resource(Future {
-              acquired += value
+              acquired.synchronized {
+                acquired += value
+              }
               value
             })(v =>
               Future {
-                released += v
+                released.synchronized {
+                  released += v
+                }
+                ()
               }
             )
         }
@@ -785,7 +795,9 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers {
           override def acquire()(implicit context: TestContext): Resource[Int] = {
             Resource(Future(value)) { v =>
               Delayed.by((v * 200).milliseconds) {
-                releaseOrder += v
+                releaseOrder.synchronized {
+                  releaseOrder += v
+                }
                 ()
               }
             }
