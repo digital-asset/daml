@@ -17,6 +17,7 @@ option java_multiple_files = true;
 option csharp_namespace = "Com.Daml.Ledger.Participant.State.Protobuf";
 
 import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 
 message LedgerConfiguration {
   // The version of the configuration message. Defines the semantics
@@ -32,10 +33,20 @@ message LedgerConfiguration {
   // ledger effective time and maximum record time of transactions.
   LedgerTimeModel time_model = 3;
 
-  // The maximum value for the ``deduplication_time`` parameter of command submissions
+  // The upper bound on the ``deduplication_duration`` parameter of command submissions
   // (as described in ``commands.proto``). This defines the maximum time window during which
   // commands can be deduplicated.
   google.protobuf.Duration max_deduplication_time = 4;
+
+  // The time at which this configuration was submitted.
+  //
+  // This submission time is bounded by this configuration's time_model to its record time ``rt`` 
+  // such that ``rt - time_model.min_skew <= submission_time <= rt + time_model.max_skew``.
+  google.protobuf.Timestamp submission_time = 5;
+
+  // The uppper bound on the ``deduplication_duration`` parameter of command submissions
+  // induced by past configurations that were in effect before this configuration.
+  google.protobuf.Duration past_deduplication_time_upper_bound = 6;
 }
 
 message LedgerTimeModel {
