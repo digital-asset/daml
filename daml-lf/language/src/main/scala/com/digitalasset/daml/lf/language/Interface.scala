@@ -4,11 +4,12 @@
 package com.daml.lf
 package language
 
-import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 
 private[lf] case class Interface(signatures: PartialFunction[PackageId, GenPackage[_]]) {
+
+  import Interface._
 
   def lookupPackage(pkgId: PackageId): Either[LookupError, GenPackage[_]] =
     signatures.lift(pkgId).toRight(LookupError.Package(pkgId))
@@ -38,74 +39,59 @@ private[lf] case class Interface(signatures: PartialFunction[PackageId, GenPacka
 
   def lookupDataRecord(
       tyCon: TypeConName
-  ): Either[LookupError, (ImmArray[(TypeVarName, Kind)], DataRecord)] =
+  ): Either[LookupError, DataRecordInfo] =
     lookupDataType(tyCon).flatMap { dataType =>
       dataType.cons match {
-        case record: DataRecord => Right(dataType.params -> record)
+        case record: DataRecord => Right(DataRecordInfo(dataType, record))
         case _ => Left(LookupError.DataRecord(tyCon))
       }
     }
-
-  case class RecordFieldInfo(
-      typeParams: ImmArray[(TypeVarName, Kind)],
-      typ: Type,
-      index: Int,
-  )
 
   def lookupRecordFieldInfo(
       tyCon: TypeConName,
       fieldName: FieldName,
   ): Either[LookupError, RecordFieldInfo] =
-    lookupDataRecord(tyCon).flatMap { case (typeParams, record) =>
-      record.fieldInfo.get(fieldName) match {
-        case Some((typ, index)) => Right(RecordFieldInfo(typeParams, typ, index))
+    lookupDataRecord(tyCon).flatMap { recordDataInfo =>
+      recordDataInfo.dataRecord.fieldInfo.get(fieldName) match {
+        case Some((typ, index)) => Right(RecordFieldInfo(recordDataInfo, typ, index))
         case None => Left(LookupError.DataRecordField(tyCon, fieldName))
       }
     }
 
   def lookupDataVariant(
       tyCon: TypeConName
-  ): Either[LookupError, (ImmArray[(TypeVarName, Kind)], DataVariant)] =
-    lookupDataType(tyCon).flatMap { dataType =>
+  ): Either[LookupError, DataVariantInfo] =
+    lookupDataType(tyCon).flatMap(dataType =>
       dataType.cons match {
-        case cons: DataVariant => Right(dataType.params -> cons)
+        case cons: DataVariant => Right(DataVariantInfo(dataType, cons))
         case _ => Left(LookupError.DataVariant(tyCon))
       }
-    }
-
-  case class VariantConstructorInfo(
-      typeParams: ImmArray[(TypeVarName, Kind)],
-      typDef: Type,
-      rank: Int,
-  ) {
-    def concreteType(argTypes: Seq[Type]): Type =
-      Util.substitute(typDef, typeParams.toSeq.view.map(_._1) zip argTypes)
-  }
+    )
 
   def lookupVariantConstructor(
       tyCon: TypeConName,
       consName: VariantConName,
   ): Either[LookupError, VariantConstructorInfo] =
-    lookupDataVariant(tyCon).flatMap { case (typParams, data) =>
-      data.constructorInfo.get(consName) match {
-        case Some((typ, rank)) => Right(VariantConstructorInfo(typParams, typ, rank))
+    lookupDataVariant(tyCon).flatMap(variantInfo =>
+      variantInfo.dataVariant.constructorInfo.get(consName) match {
+        case Some((typ, rank)) => Right(VariantConstructorInfo(variantInfo, typ, rank))
         case None => Left(LookupError.DataVariantConstructor(tyCon, consName))
       }
-    }
+    )
 
   def lookupDataEnum(
       tyCon: TypeConName
-  ): Either[LookupError, (ImmArray[(TypeVarName, Kind)], DataEnum)] =
+  ): Either[LookupError, DataEnumInfo] =
     lookupDataType(tyCon).flatMap { dataType =>
       dataType.cons match {
-        case cons: DataEnum => Right(dataType.params -> cons)
+        case cons: DataEnum => Right(DataEnumInfo(dataType, cons))
         case _ => Left(LookupError.DataEnum(tyCon))
       }
     }
 
   def lookupEnumConstructor(tyCon: TypeConName, consName: EnumConName): Either[LookupError, Int] =
-    lookupDataEnum(tyCon).flatMap { case (_, data) =>
-      data.constructorRank.get(consName) match {
+    lookupDataEnum(tyCon).flatMap { dataEnumInfo =>
+      dataEnumInfo.dataEnum.constructorRank.get(consName) match {
         case Some(rank) => Right(rank)
         case None => Left(LookupError.DataVariantConstructor(tyCon, consName))
       }
@@ -144,5 +130,46 @@ private[lf] case class Interface(signatures: PartialFunction[PackageId, GenPacka
 }
 
 object Interface {
+
   val Empty = Interface(PartialFunction.empty)
+
+  case class DataRecordInfo(
+      dataType: DDataType,
+      dataRecord: DataRecord,
+  ) {
+    def subst(argTypes: Seq[Type]): Map[TypeVarName, Type] =
+      (dataType.params.toSeq.view.map(_._1) zip argTypes).toMap
+  }
+
+  case class RecordFieldInfo(
+      dataRecordInfo: DataRecordInfo,
+      typDef: Ast.Type,
+      index: Int,
+  ) {
+    def concreteType(argTypes: Seq[Type]): Type =
+      Util.substitute(typDef, dataRecordInfo.subst(argTypes))
+  }
+
+  case class DataVariantInfo(
+      dataType: DDataType,
+      dataVariant: DataVariant,
+  ) {
+    def subst(argTypes: Seq[Type]): Map[TypeVarName, Type] =
+      (dataType.params.toSeq.view.map(_._1) zip argTypes).toMap
+  }
+
+  case class VariantConstructorInfo(
+      dataVariantInfo: DataVariantInfo,
+      typDef: Type,
+      rank: Int,
+  ) {
+    def concreteType(argTypes: Seq[Type]): Type =
+      Util.substitute(typDef, dataVariantInfo.subst(argTypes))
+  }
+
+  case class DataEnumInfo(
+      dataType: DDataType,
+      dataEnum: DataEnum,
+  )
+
 }

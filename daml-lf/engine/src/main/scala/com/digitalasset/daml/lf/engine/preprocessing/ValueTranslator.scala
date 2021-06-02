@@ -162,8 +162,8 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                       s"Mismatching record id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
-                val (dataTypParams, DataRecord(recordFlds)) =
-                  handleLookup(interface.lookupDataRecord(tyCon))
+                val lookupResult = handleLookup(interface.lookupDataRecord(tyCon))
+                val recordFlds = lookupResult.dataRecord.fields
                 // note that we check the number of fields _before_ checking if we can do
                 // field reordering by looking at the labels. this means that it's forbidden to
                 // repeat keys even if we provide all the labels, which might be surprising
@@ -174,7 +174,7 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
                     s"Expecting ${recordFlds.length} field for record $tyCon, but got ${flds.length}"
                   )
                 }
-                val subst = dataTypParams.toSeq.view.map(_._1).zip(tyArgs).toMap
+                val subst = lookupResult.subst(tyArgs)
                 val fields = labeledRecordToMap(flds) match {
                   case None =>
                     (recordFlds zip flds).map { case ((lbl, typ), (mbLbl, v)) =>

@@ -184,7 +184,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
       eval(e"""to_any @Test:T1 (Test:T1 {party = 'Alice'})""", anyPkgs) shouldEqual
         Right(
           SAny(
-            Ast.TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T1"))),
+            TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T1"))),
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
               ImmArray(Name.assertFromString("party")),

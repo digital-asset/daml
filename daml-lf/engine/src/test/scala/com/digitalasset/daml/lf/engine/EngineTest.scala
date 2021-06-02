@@ -162,8 +162,9 @@ class EngineTest
   "valid data variant identifier" should {
     "found and return the argument types" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:Tree")
-      val Right((params, DataVariant(variants))) =
-        basicTestsSignatures.lookupDataVariant(id)
+      val Right(lookupResult) = basicTestsSignatures.lookupDataVariant(id)
+      val params = lookupResult.dataType.params
+      val variants = lookupResult.dataVariant.variants
       params should have length 1
       variants.find(_._1 == "Leaf") shouldBe Some(("Leaf", TVar(params(0)._1)))
     }
@@ -172,16 +173,16 @@ class EngineTest
   "valid data record identifier" should {
     "found and return the argument types" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
-      val Right((_, DataRecord(fields))) = basicTestsSignatures.lookupDataRecord(id)
-      fields shouldBe ImmArray(("foo", TBuiltin(BTText)))
+      val Right(lookupResult) = basicTestsSignatures.lookupDataRecord(id)
+      lookupResult.dataRecord.fields shouldBe ImmArray(("foo", TBuiltin(BTText)))
     }
   }
 
   "valid template Identifier" should {
     "return the right argument type" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
-      val Right((_, DataRecord(fields))) = basicTestsSignatures.lookupDataRecord(id)
-      fields shouldBe ImmArray(("p", TBuiltin(BTParty)))
+      val Right(lookupResult) = basicTestsSignatures.lookupDataRecord(id)
+      lookupResult.dataRecord.fields shouldBe ImmArray(("p", TBuiltin(BTParty)))
     }
   }
 

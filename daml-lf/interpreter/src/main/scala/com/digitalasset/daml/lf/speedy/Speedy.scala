@@ -750,17 +750,17 @@ private[lf] object Speedy {
           case TTyCon(tyCon) =>
             value match {
               case V.ValueRecord(_, fields) =>
-                val (params, DataRecord(fieldsDef)) =
+                val lookupResult =
                   assertRight(compiledPackages.interface.lookupDataRecord(tyCon))
-                lazy val subst = (params.toSeq.view.map(_._1) zip argTypes).toMap
+                lazy val subst = lookupResult.subst(argTypes)
                 val n = fields.length
                 val values = new util.ArrayList[SValue](n)
-                (fieldsDef.iterator zip fields.iterator).foreach {
+                (lookupResult.dataRecord.fields.iterator zip fields.iterator).foreach {
                   case ((_, fieldType), (_, fieldValue)) =>
                     values.add(go(AstUtil.substitute(fieldType, subst), fieldValue))
                     ()
                 }
-                SValue.SRecord(tyCon, fieldsDef.map(_._1), values)
+                SValue.SRecord(tyCon, lookupResult.dataRecord.fields.map(_._1), values)
               case V.ValueVariant(_, constructor, value) =>
                 val info =
                   assertRight(
