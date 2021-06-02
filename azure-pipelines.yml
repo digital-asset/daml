@@ -195,8 +195,7 @@ jobs:
       eval "$(./dev-env/bin/dade-assist)"
 
       ## refresh tags, in case someone deleted one
-      git tag -d $(git tag -l)
-      git fetch
+      git fetch --prune --prune-tags
 
       source $(bash_lib)
 
