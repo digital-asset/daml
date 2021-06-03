@@ -128,6 +128,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
   private[this] val nextSubmissionId: () => String = nextId("submission")
   val nextKeyId: () => String = nextId("key")
 
+  override def toString: String = s"participant $endpointId"
+
   /** Gets the absolute offset of the ledger end at a point in time. Use [[end]] if you need
     * a reference to the moving end of the ledger.
     */
@@ -704,7 +706,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   private[infrastructure] def preallocateParties(
       n: Int,
-      participants: Iterable[ParticipantTestContext],
+      participantsUnderTest: Iterable[ParticipantTestContext],
   ): Future[Vector[Party]] =
     for {
       parties <-
@@ -713,7 +715,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
         } else {
           reservePartyNames(n)
         }
-      _ <- waitForParties(participants, parties.toSet)
+      _ <- waitForParties(participantsUnderTest, parties.toSet)
     } yield parties
 
   private def reservePartyNames(n: Int): Future[Vector[Party]] =
