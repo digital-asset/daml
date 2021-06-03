@@ -171,5 +171,6 @@ class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames
   cliopts.Metrics.metricsReporterParse(this)(
     (f, c) => c.copy(metricsReporter = f(c.metricsReporter)),
     (f, c) => c.copy(metricsReportingInterval = f(c.metricsReportingInterval)),
+    hide = true,
   )
 }
