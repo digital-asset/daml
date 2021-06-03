@@ -128,6 +128,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
   private[this] val nextSubmissionId: () => String = nextId("submission")
   val nextKeyId: () => String = nextId("key")
 
+  override def toString: String = s"participant $endpointId"
+
   /** Gets the absolute offset of the ledger end at a point in time. Use [[end]] if you need
     * a reference to the moving end of the ledger.
     */
