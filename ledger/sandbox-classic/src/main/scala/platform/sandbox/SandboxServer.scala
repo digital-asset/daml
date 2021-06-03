@@ -7,7 +7,6 @@ import java.io.File
 import java.nio.file.Files
 import java.time.Instant
 import java.util.concurrent.Executors
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
@@ -32,7 +31,7 @@ import com.daml.lf.transaction.{
 }
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, MetricsReporting}
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{InvalidConfigException, PartyConfiguration}
 import com.daml.platform.packages.InMemoryPackageStore
@@ -40,7 +39,6 @@ import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
-import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.daml.platform.sandbox.stores.ledger._

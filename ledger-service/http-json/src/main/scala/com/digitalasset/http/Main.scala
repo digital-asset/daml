@@ -21,13 +21,11 @@ import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 
-import com.daml.platform.sandbox.metrics.MetricsReporting
+import com.daml.metrics.MetricsReporting
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-
-import java.time.{Duration => JDuration}
 
 object Main {
 
@@ -100,7 +98,7 @@ object Main {
     val metricsReporting = new MetricsReporting(
       getClass.getName,
       config.metricsReporter,
-      JDuration.ofNanos(config.metricsReportingInterval.toNanos),
+      config.metricsReportingInterval,
     )
     val metricsResource = metricsReporting.acquire()
 

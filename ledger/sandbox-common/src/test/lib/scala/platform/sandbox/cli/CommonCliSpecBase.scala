@@ -6,14 +6,12 @@ package com.daml.platform.sandbox.cli
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.file.{Files, Paths}
-import java.time.Duration
-
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.test.ModelTestDar
-import com.daml.platform.configuration.MetricsReporter
-import com.daml.platform.configuration.MetricsReporter.{Graphite, Prometheus}
+import com.daml.metrics.MetricsReporter
+import com.daml.metrics.MetricsReporter.{Graphite, Prometheus}
 import com.daml.platform.sandbox.cli.CommonCliSpecBase._
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
@@ -21,6 +19,7 @@ import com.daml.ports.Port
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import scala.concurrent.duration._
 
 import scala.jdk.CollectionConverters._
 
@@ -269,7 +268,7 @@ abstract class CommonCliSpecBase(
     "parse the metrics reporting interval when given" in {
       checkOption(
         Array("--metrics-reporting-interval", "PT1M30S"),
-        _.copy(metricsReportingInterval = Duration.ofSeconds(90)),
+        _.copy(metricsReportingInterval = 90.seconds),
       )
     }
   }

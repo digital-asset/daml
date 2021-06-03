@@ -91,11 +91,23 @@ class Endpoints(
         (implicit lc => httpResponse(allocateParty(req)))
       case req @ HttpRequest(GET, Uri.Path("/v1/packages"), _, _, _) =>
         (implicit lc => httpResponse(listPackages(req)))
-      // format: off
-      case req @ HttpRequest(GET,
-          Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
-          _, _, _) => (implicit lc => downloadPackage(req, packageId))
-      // format: on
+
+      case req @ HttpRequest(
+            GET,
+            Uri(
+              _,
+              _,
+              Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))),
+              _,
+              _,
+            ),
+            _,
+            _,
+            _,
+          ) => (
+        implicit lc => downloadPackage(req, packageId)
+      )
+
       case req @ HttpRequest(POST, Uri.Path("/v1/packages"), _, _, _) =>
         (implicit lc => httpResponse(uploadDarFile(req)))
       case HttpRequest(GET, Uri.Path("/livez"), _, _, _) =>

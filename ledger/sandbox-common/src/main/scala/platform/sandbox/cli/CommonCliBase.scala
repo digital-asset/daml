@@ -5,7 +5,6 @@ package com.daml.platform.sandbox.cli
 
 import java.io.File
 import java.time.Duration
-
 import com.daml.buildinfo.BuildInfo
 import com.daml.jwt.JwtVerifierConfigurationCli
 import com.daml.ledger.api.auth.AuthServiceJWT
@@ -16,7 +15,6 @@ import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.MetricsReporter
 import com.daml.platform.sandbox.cli.CommonCliBase._
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.services.time.TimeProviderType
@@ -213,14 +211,6 @@ class CommonCliBase(name: LedgerName) {
           s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${SandboxConfig.DefaultEventsPageSize}."
         )
         .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
-
-      opt[MetricsReporter]("metrics-reporter")
-        .optional()
-        .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
-
-      opt[Duration]("metrics-reporting-interval")
-        .optional()
-        .action((interval, config) => config.copy(metricsReportingInterval = interval))
 
       opt[Int]("max-commands-in-flight")
         .optional()

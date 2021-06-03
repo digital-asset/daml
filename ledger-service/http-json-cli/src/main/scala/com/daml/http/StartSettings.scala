@@ -9,7 +9,7 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import scala.concurrent.duration.FiniteDuration
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
-import com.daml.platform.configuration.MetricsReporter
+import com.daml.metrics.MetricsReporter
 
 // defined separately from Config so
 //  1. it is absolutely lexically apparent what `import startSettings._` means

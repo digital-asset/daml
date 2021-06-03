@@ -1,18 +1,17 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.configuration
+package com.daml.metrics
 
-import java.net.InetSocketAddress
-import java.util
-import java.util.concurrent.TimeUnit
-
-import com.codahale.metrics._
-import com.codahale.metrics.Timer
+import com.codahale.metrics.{Timer, _}
 import io.prometheus.client.CollectorRegistry
 import io.prometheus.client.dropwizard.DropwizardExports
 import io.prometheus.client.exporter.HTTPServer
 import org.slf4j.LoggerFactory
+
+import java.net.InetSocketAddress
+import java.util
+import java.util.concurrent.TimeUnit
 
 object PrometheusReporter {
 

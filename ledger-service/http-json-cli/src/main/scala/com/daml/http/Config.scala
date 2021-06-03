@@ -17,7 +17,7 @@ import scala.concurrent.duration._
 import scala.util.Try
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
-import com.daml.platform.configuration.MetricsReporter
+import com.daml.metrics.MetricsReporter
 
 // The internal transient scopt structure *and* StartSettings; external `start`
 // users should extend StartSettings or DefaultStartSettings themselves
