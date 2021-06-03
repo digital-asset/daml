@@ -245,10 +245,23 @@ excluded_test_tool_tests = [
         ],
     },
     {
+        "end": last_nongranular_test_tool,
+        "platform_ranges": [
+            {
+                "start": "1.14.0-snapshot.20210602.7086.1",
+                "exclusions": [
+                    "CommandServiceIT",
+                    "CommandSubmissionCompletionIT",
+                ],
+            },
+        ],
+    },
+    {
+        "start": first_nongranular_test_tool,
         "end": "1.14.0-snapshot.20210602.7086.0.f36f556b",
         "platform_ranges": [
             {
-                "start": "1.14.0-snapshot.20210602.7086.1.f36f556b",
+                "start": "1.14.0-snapshot.20210602.7086.1",
                 "exclusions": [
                     "CommandServiceIT:CSCreateAndBadExerciseChoice",
                     "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
@@ -257,7 +270,7 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": "1.14.0-snapshot.20210602.7086.1.f36f556b",
+        "start": "1.14.0-snapshot.20210602.7086.1",
         "platform_ranges": [
             {
                 "end": "1.14.0-snapshot.20210602.7086.0.f36f556b",
