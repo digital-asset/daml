@@ -706,7 +706,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   private[infrastructure] def preallocateParties(
       n: Int,
-      participants: Iterable[ParticipantTestContext],
+      participantsUnderTest: Iterable[ParticipantTestContext],
   ): Future[Vector[Party]] =
     for {
       parties <-
@@ -715,7 +715,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
         } else {
           reservePartyNames(n)
         }
-      _ <- waitForParties(participants, parties.toSet)
+      _ <- waitForParties(participantsUnderTest, parties.toSet)
     } yield parties
 
   private def reservePartyNames(n: Int): Future[Vector[Party]] =
