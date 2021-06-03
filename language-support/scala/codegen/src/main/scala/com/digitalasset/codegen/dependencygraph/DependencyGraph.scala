@@ -27,7 +27,7 @@ private final case class LFDependencyGraph(private val util: lf.LFUtil)
   def orderedDependencies(
       library: EnvironmentInterface
   ): OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[DefTemplateWithRecord.FWT]] = {
-    val EnvironmentInterface(decls) = library
+    val decls = library.typeDecls
     // invariant: no type decl name equals any template alias
     val typeDeclNodes =
       decls.to(ImmArraySeq).collect { case (qualName, InterfaceType.Normal(typeDecl)) =>
