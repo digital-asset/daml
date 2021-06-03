@@ -23,7 +23,7 @@ object EnvironmentInterface {
       typeDecls mapKeys (Identifier(packageId, _))
     }.toMap
     val metadata = (i +: o).iterator.flatMap { case Interface(packageId, metadata, _) =>
-      metadata.map(md => packageId -> md)
+      metadata.iterator.map(md => packageId -> md)
     }.toMap
     EnvironmentInterface(metadata, typeDecls)
   }
