@@ -146,7 +146,7 @@ the course of the traversal, we visit each action node twice.
 Here's what the execution order traversal looks like on a transaction:
 
 .. https://lucid.app/lucidchart/7e7b8030-9989-4033-b8bf-d433661ea1fa/edit
-.. image:: ./images/exceptions-causal-execution-nested.svg
+.. image:: ./images/exception-causal-execution-nested.svg
    :align: center
 
 From this traversal, the causal execution order is defined as follows:
