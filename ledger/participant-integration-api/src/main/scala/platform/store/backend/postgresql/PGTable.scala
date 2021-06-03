@@ -11,17 +11,17 @@ private[postgresql] case class PGTable[FROM](
     insertSuffix: String = "",
 ) {
   val insertStatement: String = {
-    def comaSeparatedOf(extractor: ((String, PGField[FROM, _, _])) => String): String =
+    def commaSeparatedOf(extractor: ((String, PGField[FROM, _, _])) => String): String =
       fields.view
         .map(extractor)
         .mkString(",")
     def inputFieldName: String => String = fieldName => s"${fieldName}_in"
-    val tableFields = comaSeparatedOf(_._1)
-    val selectFields = comaSeparatedOf { case (fieldName, field) =>
+    val tableFields = commaSeparatedOf(_._1)
+    val selectFields = commaSeparatedOf { case (fieldName, field) =>
       field.selectFieldExpression(inputFieldName(fieldName))
     }
-    val unnestFields = comaSeparatedOf(_ => "?")
-    val inputFields = comaSeparatedOf(fieldDef => inputFieldName(fieldDef._1))
+    val unnestFields = commaSeparatedOf(_ => "?")
+    val inputFields = commaSeparatedOf(fieldDef => inputFieldName(fieldDef._1))
     s"""
        |INSERT INTO $tableName
        |   ($tableFields)
