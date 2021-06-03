@@ -20,7 +20,7 @@ import com.daml.lf.transaction.{BlindingInfo, NodeId, TransactionVersion, Versio
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.{crypto, transaction}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.indexer.ExecuteUpdate.ExecuteUpdateFlow
 import com.daml.platform.indexer.OffsetUpdate.PreparedTransactionInsert
 import com.daml.platform.store.DbType
@@ -52,7 +52,7 @@ final class ExecuteUpdateSpec
   private val txMock = transaction.CommittedTransaction(
     VersionedTransaction[NodeId, ContractId](TransactionVersion.VDev, Map.empty, ImmArray.empty)
   )
-  private val someMetrics = new Metrics(new MetricRegistry)
+  private val someMetrics = new ParticipantMetrics(new MetricRegistry)
   private val someParticipantId = ParticipantId.assertFromString("some-participant")
   private val prepareUpdateParallelism = 2
   private val ledgerEffectiveTime = Instant.EPOCH
@@ -138,7 +138,7 @@ final class ExecuteUpdateSpec
   private class ExecuteUpdateMock(
       val ledgerDao: LedgerDao,
       val participantId: ParticipantId,
-      val metrics: Metrics,
+      val metrics: ParticipantMetrics,
       val loggingContext: LoggingContext,
       val executionContext: ExecutionContext,
       val flow: ExecuteUpdateFlow,

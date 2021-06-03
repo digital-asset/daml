@@ -9,7 +9,7 @@ import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit.SECONDS
 
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.ports.Port
 import com.google.protobuf.Message
 import io.grpc._
@@ -35,7 +35,7 @@ private[apiserver] object GrpcServer {
       maxInboundMessageSize: Int,
       sslContext: Option[SslContext] = None,
       interceptors: List[ServerInterceptor] = List.empty,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       servicesExecutor: Executor,
       services: Iterable[BindableService],
   ): ResourceOwner[Server] = {

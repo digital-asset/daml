@@ -10,7 +10,7 @@ import anorm.SqlParser._
 import anorm.{RowParser, SqlParser, SqlStringInterpolation}
 import com.codahale.metrics.Timer
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{ParticipantMetrics, Timed}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader._
@@ -29,7 +29,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[dao] sealed class ContractsReader(
     val committedContracts: PostCommitValidationData,
     dispatcher: DbDispatcher,
-    metrics: Metrics,
+    metrics: ParticipantMetrics,
     sqlFunctions: SqlFunctions,
 )(implicit ec: ExecutionContext)
     extends LedgerDaoContractsReader {
@@ -144,7 +144,7 @@ private[dao] object ContractsReader {
   private[dao] def apply(
       dispatcher: DbDispatcher,
       dbType: DbType,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
   )(implicit ec: ExecutionContext): ContractsReader = {
     def sqlFunctions = dbType match {
       case DbType.Postgres => PostgresSqlFunctions

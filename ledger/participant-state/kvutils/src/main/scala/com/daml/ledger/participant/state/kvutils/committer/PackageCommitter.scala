@@ -17,7 +17,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, VisibleByKey}
 import com.daml.lf.language.Ast
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.google.protobuf.ByteString
 
 import scala.jdk.CollectionConverters._
@@ -34,7 +34,7 @@ private[committer] object PackageCommitter {
 
 final private[kvutils] class PackageCommitter(
     engine: Engine,
-    override protected val metrics: Metrics,
+    override protected val metrics: ParticipantMetrics,
     validationMode: PackageValidationMode = PackageValidationMode.Lenient,
     preloadingMode: PackagePreloadingMode = PackagePreloadingMode.Asynchronous,
 ) extends Committer[PackageCommitter.Result] {

@@ -23,7 +23,7 @@ import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
 import com.daml.lf.data.Bytes
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer
@@ -184,7 +184,7 @@ final class JdbcIndexerSpec
       startupMode = IndexerStartupMode.MigrateAndStart,
       asyncCommitMode = jdbcAsyncCommitMode,
     )
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = new ParticipantMetrics(new MetricRegistry)
     new indexer.JdbcIndexer.Factory(
       config = config,
       readService = mockedReadService(),
@@ -199,7 +199,7 @@ final class JdbcIndexerSpec
   }
 
   private def mockedUpdateFlowOwnerBuilder(
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       participantId: v1.ParticipantId,
       mockFlow: Flow[OffsetUpdate, Unit, NotUsed],
   ): ExecuteUpdate.FlowOwnerBuilder = {

@@ -13,7 +13,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 
 import scala.concurrent.ExecutionContext
 
@@ -26,7 +26,7 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       ledgerId: LedgerId,
       participantId: ParticipantId,
       testId: String,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] =
     for {
       dispatcher <- dispatcherOwner

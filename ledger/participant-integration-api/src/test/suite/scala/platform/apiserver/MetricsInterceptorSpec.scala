@@ -15,7 +15,7 @@ import com.daml.grpc.adapter.utils.implementations.AkkaImplementation
 import com.daml.grpc.sampleservice.Responding
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.apiserver.MetricsInterceptorSpec._
 import com.daml.platform.apiserver.services.GrpcClientResource
 import com.daml.platform.hello.HelloServiceGrpc.HelloService
@@ -46,7 +46,7 @@ final class MetricsInterceptorSpec
   behavior of "MetricsInterceptor"
 
   it should "count the number of calls to a given endpoint" in {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = new ParticipantMetrics(new MetricRegistry)
     serverWithMetrics(metrics, new AkkaImplementation).use { channel =>
       for {
         _ <- Future.sequence(
@@ -61,7 +61,7 @@ final class MetricsInterceptorSpec
   }
 
   it should "time calls to an endpoint" in {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = new ParticipantMetrics(new MetricRegistry)
     serverWithMetrics(metrics, new DelayedHelloService(1.second)).use { channel =>
       for {
         _ <- HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt = 7))
@@ -79,7 +79,7 @@ final class MetricsInterceptorSpec
   }
 
   it should "time calls to a streaming endpoint" in {
-    val metrics = new Metrics(new MetricRegistry)
+    val metrics = new ParticipantMetrics(new MetricRegistry)
     serverWithMetrics(metrics, new DelayedHelloService(1.second)).use { channel =>
       for {
         _ <- new StreamConsumer[HelloResponse](observer =>
@@ -101,7 +101,10 @@ final class MetricsInterceptorSpec
 
 object MetricsInterceptorSpec {
 
-  def serverWithMetrics(metrics: Metrics, service: BindableService): ResourceOwner[Channel] =
+  def serverWithMetrics(
+      metrics: ParticipantMetrics,
+      service: BindableService,
+  ): ResourceOwner[Channel] =
     for {
       server <- serverOwner(new MetricsInterceptor(metrics), service)
       channel <- GrpcClientResource.owner(Port(server.getPort))

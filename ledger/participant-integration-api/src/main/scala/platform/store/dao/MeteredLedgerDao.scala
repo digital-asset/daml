@@ -17,7 +17,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{ParticipantMetrics, Timed}
 import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.dao.events.TransactionsWriter
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
@@ -31,7 +31,7 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader
 
 import scala.concurrent.Future
 
-private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: Metrics)
+private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: ParticipantMetrics)
     extends LedgerReadDao {
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
@@ -147,7 +147,7 @@ private[platform] class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: 
     Timed.future(metrics.daml.index.db.prune, ledgerDao.prune(pruneUpToInclusive))
 }
 
-private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
+private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: ParticipantMetrics)
     extends MeteredLedgerReadDao(ledgerDao, metrics)
     with LedgerDao {
 

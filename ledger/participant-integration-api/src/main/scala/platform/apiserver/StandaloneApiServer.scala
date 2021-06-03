@@ -18,7 +18,7 @@ import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedServic
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
@@ -48,7 +48,7 @@ final class StandaloneApiServer(
     optWriteService: Option[WriteService],
     authService: AuthService,
     healthChecks: HealthChecks,
-    metrics: Metrics,
+    metrics: ParticipantMetrics,
     timeServiceBackend: Option[TimeServiceBackend] = None,
     otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
     otherInterceptors: List[ServerInterceptor] = List.empty,

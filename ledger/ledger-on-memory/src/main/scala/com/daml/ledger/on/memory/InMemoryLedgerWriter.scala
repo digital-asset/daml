@@ -28,7 +28,7 @@ import com.daml.ledger.validator.preexecution.{
 import com.daml.ledger.validator.reading.{DamlLedgerStateReader, LedgerStateReader}
 import com.daml.ledger.validator.{SerializingStateReader, StateKeySerializationStrategy}
 import com.daml.lf.engine.Engine
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.telemetry.TelemetryContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 
@@ -42,7 +42,7 @@ final class InMemoryLedgerWriter private[memory] (
     state: InMemoryState,
     committer: Committer,
     committerExecutionContext: ExecutionContext,
-    metrics: Metrics,
+    metrics: ParticipantMetrics,
 ) extends LedgerWriter {
   override def commit(
       correlationId: String,
@@ -79,7 +79,7 @@ object InMemoryLedgerWriter {
   final class Owner(
       participantId: ParticipantId,
       keySerializationStrategy: StateKeySerializationStrategy,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       timeProvider: TimeProvider = DefaultTimeProvider,
       stateValueCache: StateValueCache = Cache.none,
       dispatcher: Dispatcher[Index],

@@ -8,11 +8,11 @@ import com.daml.ledger.validator.{
   LedgerStateOperations,
   TimedLedgerStateOperations,
 }
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class InMemoryLedgerStateAccess(state: InMemoryState, metrics: Metrics)
+final class InMemoryLedgerStateAccess(state: InMemoryState, metrics: ParticipantMetrics)
     extends LedgerStateAccess[Index] {
   override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T])(implicit
       executionContext: ExecutionContext

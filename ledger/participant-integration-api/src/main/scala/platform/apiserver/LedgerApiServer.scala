@@ -8,7 +8,7 @@ import java.util.concurrent.Executor
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.ports.Port
 import io.grpc.ServerInterceptor
 
@@ -22,7 +22,7 @@ private[daml] final class LedgerApiServer(
     tlsConfiguration: Option[TlsConfiguration] = None,
     interceptors: List[ServerInterceptor] = List.empty,
     servicesExecutor: Executor,
-    metrics: Metrics,
+    metrics: ParticipantMetrics,
 )(implicit loggingContext: LoggingContext)
     extends ResourceOwner[ApiServer] {
 

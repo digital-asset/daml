@@ -7,7 +7,7 @@ import akka.stream.Materializer
 import com.daml.ledger.participant.state.v1.ReadService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.LfValueTranslationCache
 
@@ -17,7 +17,7 @@ final class StandaloneIndexerServer(
     readService: ReadService,
     config: IndexerConfig,
     servicesExecutionContext: ExecutionContext,
-    metrics: Metrics,
+    metrics: ParticipantMetrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
     extends ResourceOwner[Unit] {

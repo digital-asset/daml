@@ -47,7 +47,7 @@ private[appendonlydao] final class TransactionsReader(
     dispatcher: DbDispatcher,
     dbType: DbType,
     pageSize: Int,
-    metrics: Metrics,
+    metrics: ParticipantMetrics,
     lfValueTranslation: LfValueTranslation,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {

@@ -18,7 +18,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInst, ValueRecord, ValueText}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.store.appendonlydao.EventSequentialId
 import com.daml.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
 import com.daml.platform.store.cache.ContractStateValue.{Active, Archived}
@@ -395,7 +395,7 @@ object MutableCacheBackedContractStoreSpec {
       readerFixture,
       signalNewLedgerHead,
       sourceSubscriber,
-      new Metrics(new MetricRegistry),
+      new ParticipantMetrics(new MetricRegistry),
       maxContractsCacheSize = cachesSize,
       maxKeyCacheSize = cachesSize,
       minBackoffStreamRestart = 10.millis,

@@ -20,7 +20,7 @@ import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.{GlobalKey, TransactionCoder, TransactionOuterClass}
 import com.daml.lf.value.ValueCoder
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 
 import scala.jdk.CollectionConverters._
 
@@ -32,14 +32,14 @@ import scala.jdk.CollectionConverters._
 // than sandbox to actually support static time.
 class KeyValueCommitting private[daml] (
     engine: Engine,
-    metrics: Metrics,
+    metrics: ParticipantMetrics,
     inStaticTimeMode: Boolean,
 ) {
   import KeyValueCommitting.submissionOutputs
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  def this(engine: Engine, metrics: Metrics) = this(engine, metrics, false)
+  def this(engine: Engine, metrics: ParticipantMetrics) = this(engine, metrics, false)
 
   /** Processes a Daml submission, given the allocated log entry id, the submission and its resolved inputs.
     * Produces the log entry to be committed, and Daml state updates.

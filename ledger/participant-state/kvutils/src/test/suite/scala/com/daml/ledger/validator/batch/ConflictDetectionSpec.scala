@@ -7,7 +7,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.lf.value.ValueOuterClass
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.google.protobuf.ByteString
 import org.mockito.MockitoSugar
 import org.scalatest.Inside
@@ -238,7 +238,7 @@ class ConflictDetectionSpec extends AsyncWordSpec with Matchers with Inside with
     txRejectionEntry
   }
 
-  private def metrics(): Metrics = new Metrics(new MetricRegistry)
+  private def metrics(): ParticipantMetrics = new ParticipantMetrics(new MetricRegistry)
 
   private def aPartyLogEntry(party: String): DamlLogEntry = {
     val builder = DamlLogEntry.newBuilder

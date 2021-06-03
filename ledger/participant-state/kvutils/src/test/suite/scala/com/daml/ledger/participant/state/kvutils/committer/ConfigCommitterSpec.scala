@@ -11,14 +11,14 @@ import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class ConfigCommitterSpec extends AnyWordSpec with Matchers {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  private val metrics = new Metrics(new MetricRegistry)
+  private val metrics = new ParticipantMetrics(new MetricRegistry)
   private val aRecordTime = Timestamp(100)
   private val aConfigurationSubmission = DamlConfigurationSubmission.newBuilder
     .setSubmissionId("an ID")

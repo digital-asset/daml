@@ -20,7 +20,6 @@ import com.daml.cliopts.{GlobalLogLevel, Logging}
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-
 import com.daml.metrics.MetricsReporting
 
 import scala.concurrent.duration._
@@ -99,6 +98,7 @@ object Main {
       getClass.getName,
       config.metricsReporter,
       config.metricsReportingInterval,
+      new JsonApiMetrics(_),
     )
     val metricsResource = metricsReporting.acquire()
 

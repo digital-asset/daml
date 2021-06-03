@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{LedgerConfiguration, PartyConfiguration}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
@@ -96,11 +96,11 @@ trait ConfigProvider[ExtraConfig] {
   def createMetrics(
       participantConfig: ParticipantConfig,
       config: Config[ExtraConfig],
-  ): Metrics = {
+  ): ParticipantMetrics = {
     val registryName = participantConfig.participantId + participantConfig.shardName
       .map("-" + _)
       .getOrElse("")
-    new Metrics(SharedMetricRegistries.getOrCreate(registryName))
+    new ParticipantMetrics(SharedMetricRegistries.getOrCreate(registryName))
   }
 }
 

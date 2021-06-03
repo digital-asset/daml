@@ -28,12 +28,14 @@ import scala.concurrent.duration.Duration
   * Note that metrics are in general light-weight and add negligible overhead.
   * They are not visible to everyday users so they can be safely enabled all the time.
   */
-final class MetricsReporting(
+final class MetricsReporting[T <: Metrics](
     jmxDomain: String,
     extraMetricsReporter: Option[MetricsReporter],
     extraMetricsReportingInterval: Duration,
-) extends ResourceOwner[Metrics] {
-  def acquire()(implicit context: ResourceContext): Resource[Metrics] = {
+    createMetrics: MetricRegistry => T,
+) extends ResourceOwner[T] {
+
+  def acquire()(implicit context: ResourceContext): Resource[T] = {
     val registry = new MetricRegistry
     registry.registerAll(new JvmMetricSet)
     for {
@@ -48,7 +50,7 @@ final class MetricsReporting(
       _ <- Resource(Future.successful(slf4JReporter))(reporter =>
         Future.successful(reporter.report())
       )
-    } yield new Metrics(registry)
+    } yield createMetrics(registry)
   }
 
   private def newJmxReporter(registry: MetricRegistry): JmxReporter =
@@ -65,8 +67,8 @@ final class MetricsReporting(
       .withLoggingLevel(LoggingLevel.DEBUG)
       .build()
 
-  private def acquire[T <: Reporter](reporter: => T)(implicit
+  private def acquire[R <: Reporter](reporter: => R)(implicit
       context: ResourceContext
-  ): Resource[T] =
+  ): Resource[R] =
     ResourceOwner.forCloseable(() => reporter).acquire()
 }

@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.LfValueTranslationCache
 
@@ -27,7 +27,7 @@ private[platform] object JdbcIndex {
       databaseConnectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: ValueEnricher,
       enableAppendOnlySchema: Boolean,

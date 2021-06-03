@@ -37,7 +37,6 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
@@ -79,7 +78,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ec: ExecutionContext,
   ): Future[A] = {
     implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
-    implicit val metrics: Metrics = new Metrics(new MetricRegistry())
+    implicit val metrics: JsonApiMetrics = new JsonApiMetrics(new MetricRegistry())
     val applicationId = ApplicationId(testName)
 
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence

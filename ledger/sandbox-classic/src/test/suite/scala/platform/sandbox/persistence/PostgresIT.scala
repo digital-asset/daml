@@ -7,7 +7,7 @@ import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.FlywayMigrations
 import com.daml.platform.store.dao.{HikariJdbcConnectionProvider, JdbcConnectionProvider}
@@ -23,7 +23,7 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
 
   private var connectionProviderResource: Resource[JdbcConnectionProvider] = _
   private var connectionProvider: JdbcConnectionProvider = _
-  private val metrics = new Metrics(SharedMetricRegistries.getOrCreate("PostgresIT"))
+  private val metrics = new ParticipantMetrics(SharedMetricRegistries.getOrCreate("PostgresIT"))
 
   override def beforeAll(): Unit = {
     super.beforeAll()

@@ -23,7 +23,7 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdMode, MismatchException}
@@ -80,7 +80,7 @@ private[sandbox] object SqlLedger {
       startMode: SqlStartMode,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Engine,
       validatePartyAllocation: Boolean = false,

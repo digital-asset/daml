@@ -15,7 +15,7 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
-import com.daml.http.{HttpService, StartSettings, nonrepudiation}
+import com.daml.http.{HttpService, JsonApiMetrics, StartSettings, nonrepudiation}
 import com.daml.jwt.domain.DecodedJwt
 import com.daml.jwt.{HMAC256Verifier, JwtSigner}
 import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
@@ -61,7 +61,7 @@ import spray.json._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
 import scala.util.control.NonFatal
-import com.daml.metrics.{Metrics, MetricsReporter}
+import com.daml.metrics.MetricsReporter
 import com.codahale.metrics.MetricRegistry
 
 trait JsonApiFixture
@@ -171,7 +171,7 @@ trait JsonApiFixture
                   jsonApiExecutionSequencerFactory,
                   jsonApiActorSystem.dispatcher,
                   lc,
-                  metrics = new Metrics(new MetricRegistry()),
+                  metrics = new JsonApiMetrics(new MetricRegistry()),
                 )
                 .flatMap({
                   case -\/(e) => Future.failed(new IllegalStateException(e.toString))

@@ -33,7 +33,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
 import scala.annotation.tailrec
@@ -53,7 +53,7 @@ import scala.jdk.CollectionConverters._
 private[kvutils] class TransactionCommitter(
     defaultConfig: Configuration,
     engine: Engine,
-    override protected val metrics: Metrics,
+    override protected val metrics: ParticipantMetrics,
     inStaticTimeMode: Boolean,
 ) extends Committer[DamlTransactionEntrySummary] {
 

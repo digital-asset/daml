@@ -25,7 +25,7 @@ import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{ParticipantMetrics, Timed}
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
@@ -37,7 +37,7 @@ object BatchedSubmissionValidator {
       params: BatchedSubmissionValidatorParameters,
       committer: KeyValueCommitting,
       conflictDetection: ConflictDetection,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       ledgerDataExporter: LedgerDataExporter,
       logEntryIdComputationStrategy: LogEntryIdComputationStrategy =
         HashingLogEntryIdComputationStrategy,
@@ -79,7 +79,7 @@ class BatchedSubmissionValidator[CommitResult] private[validator] (
     params: BatchedSubmissionValidatorParameters,
     committer: KeyValueCommitting,
     conflictDetection: ConflictDetection,
-    damlMetrics: Metrics,
+    damlMetrics: ParticipantMetrics,
     ledgerDataExporter: LedgerDataExporter,
     logEntryIdComputationStrategy: LogEntryIdComputationStrategy,
 ) {

@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ledger.validator.StateKeySerializationStrategy
 import com.daml.lf.engine.Engine
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 
 import scala.concurrent.ExecutionContext
@@ -21,7 +21,7 @@ object InMemoryLedgerReaderWriter {
       ledgerId: LedgerId,
       participantId: ParticipantId,
       keySerializationStrategy: StateKeySerializationStrategy,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       timeProvider: TimeProvider = InMemoryLedgerWriter.DefaultTimeProvider,
       stateValueCache: InMemoryLedgerWriter.StateValueCache = Cache.none,
       dispatcher: Dispatcher[Index],

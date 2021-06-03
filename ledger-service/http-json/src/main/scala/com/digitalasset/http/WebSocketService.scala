@@ -35,7 +35,6 @@ import Liskov.<~<
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.Metrics
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
 import scala.collection.compat._
@@ -389,7 +388,7 @@ class WebSocketService(
       jwtPayload: JwtPayload,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
+      metrics: JsonApiMetrics,
   ): Flow[Message, Message, _] =
     wsMessageHandler[A](jwt, jwtPayload)
       .via(applyConfig)
@@ -402,7 +401,7 @@ class WebSocketService(
 
   private def connCounter[A](implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
-      metrics: Metrics,
+      metrics: JsonApiMetrics,
   ): Flow[A, A, NotUsed] =
     Flow[A]
       .watchTermination() { (_, future) =>

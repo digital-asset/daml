@@ -17,7 +17,6 @@ import EndpointsCompanion._
 import com.daml.http.domain.JwtPayload
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.Metrics
 
 object WebsocketEndpoints {
   private[http] val tokenPrefix: String = "jwt.token."
@@ -58,7 +57,7 @@ class WebsocketEndpoints(
 
   def transactionWebSocket(implicit
       lc: LoggingContextOf[InstanceUUID],
-      metrics: Metrics,
+      metrics: JsonApiMetrics,
   ) = {
     val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
       InstanceUUID with RequestID
@@ -119,7 +118,10 @@ class WebsocketEndpoints(
       jwtPayload: domain.JwtPayload,
       req: WebSocketUpgrade,
       protocol: String,
-  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID], metrics: Metrics): HttpResponse = {
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: JsonApiMetrics,
+  ): HttpResponse = {
     val handler: Flow[Message, Message, _] =
       webSocketService.transactionMessageHandler[A](jwt, jwtPayload)
     req.handleMessages(handler, Some(protocol))

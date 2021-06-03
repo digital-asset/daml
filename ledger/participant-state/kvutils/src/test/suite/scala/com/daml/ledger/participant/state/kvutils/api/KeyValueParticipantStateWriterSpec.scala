@@ -19,7 +19,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.test.TransactionBuilder
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import org.mockito.captor.{ArgCaptor, Captor}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -184,7 +184,7 @@ object KeyValueParticipantStateWriterSpec {
     optByKeyNodes = None,
   )
 
-  private def newMetrics(): Metrics = new Metrics(new MetricRegistry)
+  private def newMetrics(): ParticipantMetrics = new ParticipantMetrics(new MetricRegistry)
 
   private def newRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())

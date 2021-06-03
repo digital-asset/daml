@@ -12,7 +12,7 @@ import com.daml.ledger.on.sql.Database._
 import com.daml.ledger.on.sql.queries._
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{ParticipantMetrics, Timed}
 import com.daml.resources.ProgramResource.StartupException
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
@@ -24,7 +24,7 @@ import scala.util.{Failure, Success}
 
 final class Database(
     queries: Connection => Queries,
-    metrics: Metrics,
+    metrics: ParticipantMetrics,
 )(implicit
     readerConnectionPool: ConnectionPool[Reader],
     writerConnectionPool: ConnectionPool[Writer],
@@ -81,7 +81,7 @@ object Database {
   // entries missing.
   private val MaximumWriterConnectionPoolSize: Int = 1
 
-  def owner(jdbcUrl: String, metrics: Metrics)(implicit
+  def owner(jdbcUrl: String, metrics: ParticipantMetrics)(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[UninitializedDatabase] =
     (jdbcUrl match {
@@ -112,7 +112,7 @@ object Database {
     def owner(
         system: RDBMS,
         jdbcUrl: String,
-        metrics: Metrics,
+        metrics: ParticipantMetrics,
     ): ResourceOwner[UninitializedDatabase] =
       for {
         readerDataSource <- ResourceOwner.forCloseable(() =>
@@ -147,7 +147,7 @@ object Database {
     def owner(
         system: RDBMS,
         jdbcUrl: String,
-        metrics: Metrics,
+        metrics: ParticipantMetrics,
     ): ResourceOwner[UninitializedDatabase] =
       for {
         readerWriterDataSource <- ResourceOwner.forCloseable(() =>
@@ -208,7 +208,7 @@ object Database {
 
   }
 
-  class UninitializedDatabase(system: RDBMS, metrics: Metrics)(implicit
+  class UninitializedDatabase(system: RDBMS, metrics: ParticipantMetrics)(implicit
       readerConnectionPool: ConnectionPool[Reader],
       writerConnectionPool: ConnectionPool[Writer],
       adminConnectionPool: ConnectionPool[Migrator],

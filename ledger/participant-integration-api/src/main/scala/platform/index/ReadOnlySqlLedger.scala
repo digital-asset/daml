@@ -18,7 +18,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
@@ -43,7 +43,7 @@ private[platform] object ReadOnlySqlLedger {
       databaseConnectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: ValueEnricher,
       // TODO append-only: remove after removing support for the current (mutating) schema

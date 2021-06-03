@@ -29,7 +29,7 @@ import com.daml.ledger.client.services.commands.{CommandCompletionSource, Comman
 import com.daml.ledger.participant.state.v1.{Configuration => LedgerConfiguration}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.ApiCommandService._
 import com.daml.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
@@ -50,7 +50,7 @@ private[apiserver] final class ApiCommandService private (
     services: LocalServices,
     configuration: ApiCommandService.Configuration,
     ledgerConfigProvider: LedgerConfigProvider,
-    metrics: Metrics,
+    metrics: ParticipantMetrics,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -195,7 +195,7 @@ private[apiserver] object ApiCommandService {
       services: LocalServices,
       timeProvider: TimeProvider,
       ledgerConfigProvider: LedgerConfigProvider,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,

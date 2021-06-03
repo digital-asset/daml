@@ -32,7 +32,7 @@ import com.daml.lf.transaction.ReplayNodeMismatch
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.apiserver.execution.CommandExecutor
 import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.store.ErrorCause
@@ -305,7 +305,7 @@ class ApiSubmissionServiceSpec
         seedService = SeedService.WeakRandom,
         commandExecutor = commandExecutor,
         configuration = ApiSubmissionService.Configuration(implicitPartyAllocation),
-        metrics = new Metrics(mockMetricRegistry),
+        metrics = new ParticipantMetrics(mockMetricRegistry),
       )
     }
   }

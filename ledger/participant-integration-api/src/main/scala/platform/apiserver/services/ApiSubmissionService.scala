@@ -30,7 +30,7 @@ import com.daml.lf.engine.{ContractNotFound, DuplicateContractKey, ReplayMismatc
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.telemetry.TelemetryContext
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
@@ -60,7 +60,7 @@ private[apiserver] object ApiSubmissionService {
       seedService: SeedService,
       commandExecutor: CommandExecutor,
       configuration: ApiSubmissionService.Configuration,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
@@ -102,7 +102,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
     seedService: SeedService,
     commandExecutor: CommandExecutor,
     configuration: ApiSubmissionService.Configuration,
-    metrics: Metrics,
+    metrics: ParticipantMetrics,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends CommandSubmissionService
     with ErrorFactories

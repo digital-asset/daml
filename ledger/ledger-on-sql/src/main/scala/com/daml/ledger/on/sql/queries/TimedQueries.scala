@@ -7,12 +7,12 @@ import com.daml.ledger.on.sql.Index
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.v1.LedgerId
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{ParticipantMetrics, Timed}
 
 import scala.collection.immutable
 import scala.util.Try
 
-final class TimedQueries(delegate: Queries, metrics: Metrics) extends Queries {
+final class TimedQueries(delegate: Queries, metrics: ParticipantMetrics) extends Queries {
 
   override def selectLatestLogEntryId(): Try[Option[Index]] =
     Timed.value(

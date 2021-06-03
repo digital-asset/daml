@@ -19,12 +19,12 @@ import com.daml.ledger.validator.batch.{
   ConflictDetection,
 }
 import com.daml.lf.engine.Engine
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 
 import scala.concurrent.{ExecutionContext, Future}
 
 final class LogAppendingCommitStrategySupport(
-    metrics: Metrics
+    metrics: ParticipantMetrics
 )(implicit executionContext: ExecutionContext)
     extends CommitStrategySupport[Index] {
   private val state = InMemoryState.empty

@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.kvutils.api.CommitMetadata
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.LedgerStateAccess
 import com.daml.lf.data.Ref
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.google.protobuf.ByteString
@@ -54,7 +54,7 @@ class InMemoryLedgerWriterSpec
         state = InMemoryState.empty,
         committer = mockCommitter,
         committerExecutionContext = executionContext,
-        metrics = new Metrics(new MetricRegistry),
+        metrics = new ParticipantMetrics(new MetricRegistry),
       )
 
       instance

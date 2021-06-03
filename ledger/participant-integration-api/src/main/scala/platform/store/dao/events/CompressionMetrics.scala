@@ -4,7 +4,7 @@
 package com.daml.platform.store.dao.events
 
 import com.codahale.metrics.Histogram
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 
 final class CompressionMetrics(
     val createArgument: CompressionMetrics.Field,
@@ -17,7 +17,7 @@ object CompressionMetrics {
 
   final class Field(val compressed: Histogram, val uncompressed: Histogram)
 
-  def apply(metrics: Metrics): CompressionMetrics = {
+  def apply(metrics: ParticipantMetrics): CompressionMetrics = {
     new CompressionMetrics(
       createArgument = new Field(
         compressed = metrics.daml.index.db.compression.createArgumentCompressed,

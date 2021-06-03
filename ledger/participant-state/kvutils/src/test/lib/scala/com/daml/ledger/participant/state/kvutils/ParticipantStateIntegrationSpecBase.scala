@@ -25,7 +25,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.platform.common.MismatchException
 import com.daml.platform.testing.TestDarReader
@@ -68,7 +68,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       ledgerId: LedgerId,
       participantId: ParticipantId,
       testId: String,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] =
@@ -78,7 +78,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(i
       ledgerId: LedgerId
   ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit loggingContext =>
-      participantStateFactory(ledgerId, participantId, testId, new Metrics(new MetricRegistry))
+      participantStateFactory(
+        ledgerId,
+        participantId,
+        testId,
+        new ParticipantMetrics(new MetricRegistry),
+      )
     }
 
   override protected def beforeEach(): Unit = {

@@ -17,7 +17,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.daml.ports.Port
@@ -83,7 +83,7 @@ case class TlsFixture(
             address = None,
             tlsConfiguration = Some(serverTlsConfiguration),
             servicesExecutor = servicesExecutor,
-            metrics = new Metrics(new MetricRegistry),
+            metrics = new ParticipantMetrics(new MetricRegistry),
           )
         )
     }

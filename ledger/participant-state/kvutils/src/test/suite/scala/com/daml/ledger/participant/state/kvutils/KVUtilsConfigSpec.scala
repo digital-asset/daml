@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -24,7 +24,7 @@ class KVUtilsConfigSpec extends AnyWordSpec with Matchers {
   "configuration" should {
 
     "be able to build, pack, unpack and parse" in {
-      val keyValueSubmission = new KeyValueSubmission(new Metrics(new MetricRegistry))
+      val keyValueSubmission = new KeyValueSubmission(new ParticipantMetrics(new MetricRegistry))
       val subm = keyValueSubmission.unpackDamlSubmission(
         keyValueSubmission.packDamlSubmission(
           keyValueSubmission.configurationToSubmission(

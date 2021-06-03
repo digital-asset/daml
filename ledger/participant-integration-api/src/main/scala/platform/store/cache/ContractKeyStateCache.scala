@@ -5,12 +5,12 @@ package com.daml.platform.store.cache
 
 import com.daml.caching.SizedCache
 import com.daml.lf.transaction.GlobalKey
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 
 import scala.concurrent.ExecutionContext
 
 object ContractKeyStateCache {
-  def apply(cacheSize: Long, metrics: Metrics)(implicit
+  def apply(cacheSize: Long, metrics: ParticipantMetrics)(implicit
       ec: ExecutionContext
   ): StateCache[GlobalKey, ContractKeyStateValue] =
     StateCache(

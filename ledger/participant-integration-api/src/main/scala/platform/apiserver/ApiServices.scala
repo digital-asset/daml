@@ -20,7 +20,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.apiserver.execution.{
   LedgerTimeAwareCommandExecutor,
   StoreBackedCommandExecutor,
@@ -82,7 +82,7 @@ private[daml] object ApiServices {
       partyConfig: PartyConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       healthChecks: HealthChecks,
       seedService: SeedService,
       managementServiceTimeout: Duration,

@@ -31,7 +31,7 @@ import com.daml.lf.transaction.{
 }
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, MetricsReporting}
+import com.daml.metrics.{ParticipantMetrics, MetricsReporting}
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{InvalidConfigException, PartyConfiguration}
 import com.daml.platform.packages.InMemoryPackageStore
@@ -86,6 +86,7 @@ object SandboxServer {
         classOf[SandboxServer].getName,
         config.metricsReporter,
         config.metricsReportingInterval,
+        new ParticipantMetrics(_),
       )
       actorSystem <- ResourceOwner.forActorSystem(() => ActorSystem(name.unwrap.toLowerCase()))
       materializer <- ResourceOwner.forMaterializer(() => Materializer(actorSystem))
@@ -114,7 +115,7 @@ object SandboxServer {
 
   final class SandboxState(
       materializer: Materializer,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       packageStore: InMemoryPackageStore,
       // nested resource so we can release it independently when restarting
       apiServerResource: Resource[ApiServer],
@@ -128,7 +129,7 @@ object SandboxServer {
     private[SandboxServer] def reset(
         newApiServer: (
             Materializer,
-            Metrics,
+            ParticipantMetrics,
             InMemoryPackageStore,
             Port,
         ) => Resource[ApiServer]
@@ -150,7 +151,7 @@ final class SandboxServer(
     name: LedgerName,
     config: SandboxConfig,
     materializer: Materializer,
-    metrics: Metrics,
+    metrics: ParticipantMetrics,
 ) extends AutoCloseable {
 
   private[this] val engine = {
@@ -181,7 +182,7 @@ final class SandboxServer(
 
   // Only used for testing.
   def this(config: SandboxConfig, materializer: Materializer) =
-    this(DefaultName, config, materializer, new Metrics(new MetricRegistry))
+    this(DefaultName, config, materializer, new ParticipantMetrics(new MetricRegistry))
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
   private val seedingService = SeedService(config.seeding.getOrElse(SeedService.Seeding.Weak))
@@ -269,7 +270,7 @@ final class SandboxServer(
 
   private def buildAndStartApiServer(
       materializer: Materializer,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode,
       currentPort: Option[Port],

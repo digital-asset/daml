@@ -8,7 +8,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.LfValueTranslationCache
 import org.scalatest.LoneElement
@@ -31,7 +31,7 @@ private[dao] trait JdbcLedgerDaoPostCommitValidationSpec extends LoneElement {
         connectionTimeout = 250.millis,
         eventsPageSize = eventsPageSize,
         servicesExecutionContext = executionContext,
-        metrics = new Metrics(new MetricRegistry),
+        metrics = new ParticipantMetrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         enricher = None,
       )

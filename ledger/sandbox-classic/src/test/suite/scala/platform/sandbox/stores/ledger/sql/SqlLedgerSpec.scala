@@ -20,7 +20,7 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.LegacyTransactionCommitter
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.common.{LedgerIdMode, MismatchException}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
@@ -304,7 +304,7 @@ final class SqlLedgerSpec
         startMode = SqlStartMode.MigrateAndStart,
         eventsPageSize = 100,
         servicesExecutionContext = executionContext,
-        metrics = new Metrics(metrics),
+        metrics = new ParticipantMetrics(metrics),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         engine = new Engine(),
         validatePartyAllocation = validatePartyAllocation,

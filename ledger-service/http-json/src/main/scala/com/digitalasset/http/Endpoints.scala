@@ -40,7 +40,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.Timed
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -65,7 +65,7 @@ class Endpoints(
 
   def all(implicit
       lc: LoggingContextOf[InstanceUUID],
-      metrics: Metrics,
+      metrics: JsonApiMetrics,
   ): PartialFunction[HttpRequest, Future[HttpResponse]] = {
     val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
       InstanceUUID with RequestID

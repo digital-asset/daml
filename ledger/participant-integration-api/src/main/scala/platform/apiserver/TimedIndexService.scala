@@ -34,11 +34,11 @@ import com.daml.lf.language.Ast
 import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{ParticipantMetrics, Timed}
 
 import scala.concurrent.Future
 
-private[daml] final class TimedIndexService(delegate: IndexService, metrics: Metrics)
+private[daml] final class TimedIndexService(delegate: IndexService, metrics: ParticipantMetrics)
     extends IndexService {
 
   override def listLfPackages()(implicit

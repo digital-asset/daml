@@ -14,7 +14,7 @@ import com.daml.ledger.api.v1.command_submission_service.{
   SubmitRequest => ApiSubmitRequest,
 }
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{ParticipantMetrics, Timed}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.ProxyCloseable
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
@@ -31,7 +31,7 @@ class GrpcCommandSubmissionService(
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Option[Duration],
-    metrics: Metrics,
+    metrics: ParticipantMetrics,
 )(implicit executionContext: ExecutionContext)
     extends ApiCommandSubmissionService
     with ProxyCloseable

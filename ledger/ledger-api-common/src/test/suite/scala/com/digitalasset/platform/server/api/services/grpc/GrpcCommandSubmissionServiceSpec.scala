@@ -19,7 +19,7 @@ import com.daml.ledger.api.testing.utils.MockMessages.{
 }
 import com.daml.ledger.api.v1.commands.{Command, CreateCommand}
 import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.telemetry.{SpanAttribute, TelemetryContext, TelemetrySpecBase}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -48,7 +48,7 @@ class GrpcCommandSubmissionServiceSpec
         currentLedgerTime = () => Instant.EPOCH,
         currentUtcTime = () => Instant.EPOCH,
         maxDeduplicationTime = () => Some(Duration.ZERO),
-        metrics = new Metrics(new MetricRegistry),
+        metrics = new ParticipantMetrics(new MetricRegistry),
       )
 
       val span = anEmptySpan()

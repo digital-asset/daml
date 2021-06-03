@@ -29,7 +29,7 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.test.TransactionBuilder.{Create, Exercise}
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
-import com.daml.metrics.Metrics
+import com.daml.metrics.ParticipantMetrics
 import com.google.protobuf.ByteString
 import org.mockito.MockitoSugar
 import org.scalatest.Inspectors.forEvery
@@ -43,7 +43,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private val txBuilder = TransactionBuilder()
-  private val metrics = new Metrics(new MetricRegistry)
+  private val metrics = new ParticipantMetrics(new MetricRegistry)
   private val transactionCommitter =
     createTransactionCommitter() // Stateless, can be shared between tests
   private val aDamlTransactionEntry = createEmptyTransactionEntry(List("aSubmitter"))

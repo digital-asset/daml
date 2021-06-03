@@ -42,7 +42,7 @@ import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{ParticipantMetrics, Timed}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{CurrentOffset, OffsetStep}
 import com.daml.platform.store.Conversions._
@@ -88,7 +88,7 @@ private class JdbcLedgerDao(
     servicesExecutionContext: ExecutionContext,
     eventsPageSize: Int,
     performPostCommitValidation: Boolean,
-    metrics: Metrics,
+    metrics: ParticipantMetrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
     validatePartyAllocation: Boolean,
     idempotentEntryInserts: Boolean,
@@ -1016,7 +1016,7 @@ private[platform] object JdbcLedgerDao {
       connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       enricher: Option[ValueEnricher],
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerReadDao] = {
@@ -1042,7 +1042,7 @@ private[platform] object JdbcLedgerDao {
       connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode,
       enricher: Option[ValueEnricher],
@@ -1072,7 +1072,7 @@ private[platform] object JdbcLedgerDao {
       connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       validatePartyAllocation: Boolean = false,
       enricher: Option[ValueEnricher],
@@ -1126,7 +1126,7 @@ private[platform] object JdbcLedgerDao {
       eventsPageSize: Int,
       validate: Boolean,
       servicesExecutionContext: ExecutionContext,
-      metrics: Metrics,
+      metrics: ParticipantMetrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       validatePartyAllocation: Boolean = false,
       jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
