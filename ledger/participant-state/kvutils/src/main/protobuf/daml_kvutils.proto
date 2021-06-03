@@ -160,23 +160,36 @@ message DamlSubmitterInfo {
 
   reserved 4; // was maximum_record_time
 
-  // Timestamp until which the ledger MUST deduplicate this submission.
+  // Timestamp until which the ledger MUST deduplicate against this submission.
   // Measured against the ledger's clock.
   google.protobuf.Timestamp deduplicate_until = 5;
+
+  // Duration that determines the range of existing DamlLogEntries against which this
+  // submission is expected to be deduplicated. More concretely, the expectation is that the
+  // ledger guarantees that for any existing entry e0 and the entry e1 created from this submission
+  // it holds that 
+  //
+  //    if (e0.record_time >= e1.record_time - e1.deduplication_duration) AND
+  //       (e0.command_id, e0.application_id, e0.submitters) == 
+  //       (e1.command_id, e1.application_id, e1.submitters)
+  //    then e0.record_time + e0.deduplicate_until >= e1.record_time
+  //
+  // This fields is intended to be used for auditing and testing purposes.
+  google.protobuf.Duration deduplication_duration = 6;
 
   // The generation of the ledger configuration used to build this submission.
   // Used to reject submissions if the configuration at commit time is different
   // from the one of the configuration at submission time.
   // Optional.
-  uint64 ledger_configuration_generation = 6;
+  uint64 ledger_configuration_generation = 7;
 
   // Identity of the submission. This should always be freshly allocated by
   // Ledger API clients.
-  string submission_id = 7;
+  string submission_id = 8;
 
   // Rank of the submission, which is used to allow for safely stopping retrying. See
   // DamlCommandDedupValue for details on the deduplication logic.
-  bytes submission_rank = 8;
+  bytes submission_rank = 9;
 }
 
 // Daml transaction entry, used in both `DamlSubmission` and `DamlLogEntry`.
@@ -436,10 +449,11 @@ message DamlRejectSubmissionEntry {
 // Effectively, this message changes the rejection reason of the Ledger-API-server-submitted rejection.
 message DamlRejectSubmissionRejectionEntry {
   DamlSubmitterInfo submitter_info = 1;
-
+  
   oneof reason {
     Duplicate duplicate_submission = 2;
-    GenerationMismatch generation_mismatch = 3;
+    InvalidLedgerTime invalid_ledger_time = 3;
+    GenerationMismatch generation_mismatch = 4;
   } 
 }
 
@@ -678,7 +692,7 @@ message MaximumRecordTimeExceeded {
   string details = 1;
 }
 
-// The ledger time of the transaction submission violates some constraint.
+// The submission's ledger time or submission time violates the time model constraints.
 message InvalidLedgerTime {
   string details = 1;
 }
