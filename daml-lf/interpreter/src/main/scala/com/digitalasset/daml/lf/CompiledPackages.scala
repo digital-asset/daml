@@ -5,7 +5,7 @@ package com.daml.lf
 
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.{Package, PackageSignature}
-import com.daml.lf.language.{LanguageVersion, Util}
+import com.daml.lf.language.{Interface, Util}
 import com.daml.lf.speedy.SExpr.SDefinitionRef
 import com.daml.lf.speedy.{Compiler, SDefinition}
 
@@ -15,30 +15,24 @@ import com.daml.lf.speedy.{Compiler, SDefinition}
 private[lf] abstract class CompiledPackages(
     compilerConfig: Compiler.Config
 ) {
-  def getSignature(pkgId: PackageId): Option[PackageSignature]
   def getDefinition(dref: SDefinitionRef): Option[SDefinition]
-
-  def signatures: PartialFunction[PackageId, PackageSignature] = Function.unlift(this.getSignature)
-  def packageIds: Set[PackageId]
+  def packageIds: scala.collection.Set[PackageId]
+  def interface: Interface
   def definitions: PartialFunction[SDefinitionRef, SDefinition] =
     Function.unlift(this.getDefinition)
 
-  def packageLanguageVersion: PartialFunction[PackageId, LanguageVersion] =
-    signatures andThen (_.languageVersion)
-
-  final def compiler: Compiler = new Compiler(signatures, compilerConfig)
+  final def compiler: Compiler = new Compiler(interface, compilerConfig)
 }
 
 /** Important: use the constructor only if you _know_ you have all the definitions! Otherwise
   * use the apply in the companion object, which will compile them for you.
   */
 private[lf] final class PureCompiledPackages(
-    signatures: Map[PackageId, PackageSignature],
-    defns: Map[SDefinitionRef, SDefinition],
+    val packageIds: Set[PackageId],
+    val interface: Interface,
+    val defns: Map[SDefinitionRef, SDefinition],
     compilerConfig: Compiler.Config,
 ) extends CompiledPackages(compilerConfig) {
-  override def packageIds: Set[PackageId] = signatures.keySet
-  override def getSignature(pkgId: PackageId): Option[PackageSignature] = signatures.get(pkgId)
   override def getDefinition(dref: SDefinitionRef): Option[SDefinition] = defns.get(dref)
 }
 
@@ -48,20 +42,28 @@ private[lf] object PureCompiledPackages {
     * use the other apply, which will compile them for you.
     */
   def apply(
-      signatures: Map[PackageId, PackageSignature],
+      packages: Map[PackageId, PackageSignature],
       defns: Map[SDefinitionRef, SDefinition],
       compilerConfig: Compiler.Config,
   ): PureCompiledPackages =
-    new PureCompiledPackages(signatures, defns, compilerConfig)
+    new PureCompiledPackages(packages.keySet, new Interface(packages), defns, compilerConfig)
 
-  def apply(
+  def build(
       packages: Map[PackageId, Package],
       compilerConfig: Compiler.Config = Compiler.Config.Default,
   ): Either[String, PureCompiledPackages] = {
-    val signatures = Util.toSignatures(packages)
     Compiler
-      .compilePackages(signatures, packages, compilerConfig)
-      .map(apply(signatures, _, compilerConfig))
+      .compilePackages(Interface(packages), packages, compilerConfig)
+      .map(apply(Util.toSignatures(packages), _, compilerConfig))
   }
+
+  def assertBuild(
+      packages: Map[PackageId, Package],
+      compilerConfig: Compiler.Config = Compiler.Config.Default,
+  ): PureCompiledPackages =
+    data.assertRight(build(packages, compilerConfig))
+
+  lazy val Empty: PureCompiledPackages =
+    PureCompiledPackages(Map.empty, Map.empty, Compiler.Config.Default)
 
 }

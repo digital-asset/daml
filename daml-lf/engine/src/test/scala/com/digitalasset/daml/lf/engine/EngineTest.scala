@@ -87,7 +87,7 @@ class EngineTest
     "daml-lf/tests/BasicTests.dar"
   )
 
-  val basicTestsSignatures = toSignature(basicTestsPkg)
+  val basicTestsSignatures = language.Interface(Map(basicTestsPkgId -> basicTestsPkg))
 
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
@@ -162,8 +162,9 @@ class EngineTest
   "valid data variant identifier" should {
     "found and return the argument types" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:Tree")
-      val Right((params, DataVariant(variants))) =
-        basicTestsSignatures.lookupVariant(id.qualifiedName)
+      val Right(lookupResult) = basicTestsSignatures.lookupDataVariant(id)
+      val params = lookupResult.dataType.params
+      val variants = lookupResult.dataVariant.variants
       params should have length 1
       variants.find(_._1 == "Leaf") shouldBe Some(("Leaf", TVar(params(0)._1)))
     }
@@ -172,16 +173,16 @@ class EngineTest
   "valid data record identifier" should {
     "found and return the argument types" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
-      val Right((_, DataRecord(fields))) = basicTestsSignatures.lookupRecord(id.qualifiedName)
-      fields shouldBe ImmArray(("foo", TBuiltin(BTText)))
+      val Right(lookupResult) = basicTestsSignatures.lookupDataRecord(id)
+      lookupResult.dataRecord.fields shouldBe ImmArray(("foo", TBuiltin(BTText)))
     }
   }
 
   "valid template Identifier" should {
     "return the right argument type" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
-      val Right((_, DataRecord(fields))) = basicTestsSignatures.lookupRecord(id.qualifiedName)
-      fields shouldBe ImmArray(("p", TBuiltin(BTParty)))
+      val Right(lookupResult) = basicTestsSignatures.lookupDataRecord(id)
+      lookupResult.dataRecord.fields shouldBe ImmArray(("p", TBuiltin(BTParty)))
     }
   }
 
@@ -313,7 +314,7 @@ class EngineTest
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       res.left.value.msg should startWith(
-        "Impossible to exercise by key, no key is defined for template"
+        s"template without contract key $templateId"
       )
     }
 
@@ -1097,7 +1098,7 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        basicTestsSignatures.lookupDataType("BasicTests:MyNestedRec")
+        basicTestsSignatures.lookupDataType(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"))
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"), ImmArray.empty),
@@ -1117,7 +1118,9 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        basicTestsSignatures.lookupDataType("BasicTests:TypeWithParameters")
+        basicTestsSignatures.lookupDataType(
+          Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")
+        )
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -1138,7 +1141,9 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        basicTestsSignatures.lookupDataType("BasicTests:TypeWithParameters")
+        basicTestsSignatures.lookupDataType(
+          Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")
+        )
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -1156,7 +1161,9 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        basicTestsSignatures.lookupDataType("BasicTests:TypeWithParameters")
+        basicTestsSignatures.lookupDataType(
+          Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")
+        )
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -1174,7 +1181,9 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        basicTestsSignatures.lookupDataType("BasicTests:TypeWithParameters")
+        basicTestsSignatures.lookupDataType(
+          Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")
+        )
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
@@ -1192,7 +1201,9 @@ class EngineTest
       )
 
       val Right(DDataType(_, ImmArray(), _)) =
-        basicTestsSignatures.lookupDataType("BasicTests:TypeWithParameters")
+        basicTestsSignatures.lookupDataType(
+          Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters")
+        )
       val res = preprocessor
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),

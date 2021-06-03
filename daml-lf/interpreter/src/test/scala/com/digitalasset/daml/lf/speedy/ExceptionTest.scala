@@ -7,9 +7,9 @@ package speedy
 import java.util
 
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Party, PackageId}
+import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageVersion, Interface}
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SError.DamlEUnhandledException
@@ -545,11 +545,11 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
   }
 
   private def typeAndCompile(pkg: Package): PureCompiledPackages = {
-    val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
-    Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId, pkg)
-    data.assertRight(
-      PureCompiledPackages(rawPkgs, Compiler.Config.Dev.copy(stacktracing = FullStackTrace))
-    )
+    import defaultParserParameters.defaultPackageId
+    val rawPkgs = Map(defaultPackageId -> pkg)
+    Validation.checkPackage(Interface(rawPkgs), defaultPackageId, pkg)
+    val compilerConfig = Compiler.Config.Dev.copy(stacktracing = FullStackTrace)
+    PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
   }
 
   private def runUpdateExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult = {
@@ -678,13 +678,9 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       } """
     }
     val pkgs = {
-      val rawPkgs: Map[PackageId, GenPackage[Expr]] = Map(
-        oldPid -> oldPackage,
-        newPid -> newPackage,
-      )
-      data.assertRight(
-        PureCompiledPackages(rawPkgs, Compiler.Config.Dev.copy(stacktracing = FullStackTrace))
-      )
+      val rawPkgs = Map(oldPid -> oldPackage, newPid -> newPackage)
+      val compilerConfig = Compiler.Config.Dev.copy(stacktracing = FullStackTrace)
+      PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
     }
 
     implicit val defaultParserParameters: ParserParameters[this.type] = {

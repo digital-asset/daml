@@ -1572,8 +1572,7 @@ object SBuiltinTest {
     """
 
   val compiledPackages =
-    PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg))
-      .fold(sys.error(_), identity)
+    PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
 
   private def eval(e: Expr, onLedger: Boolean = true): Either[SError, SValue] = {
     evalSExpr(compiledPackages.compiler.unsafeCompile(e), onLedger)

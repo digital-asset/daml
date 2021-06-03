@@ -116,8 +116,9 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       if (unloadPackages.nonEmpty || newPackages.nonEmpty) {
         val invalidPackages = unloadModules ++ newPackages.keys
         val newExtSignature = extSignatures -- unloadPackages ++ AstUtil.toSignatures(newPackages)
+        val interface = new language.Interface(newExtSignature)
         val newExtDefns = extDefns.view.filterKeys(sdef => !invalidPackages(sdef.packageId)) ++
-          assertRight(Compiler.compilePackages(newExtSignature, newPackages, compilerConfig))
+          assertRight(Compiler.compilePackages(interface, newPackages, compilerConfig))
         // we update only if we manage to compile the new packages
         extSignatures = newExtSignature
         extDefns = newExtDefns.toMap
@@ -128,12 +129,12 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
         newModules
       }
 
-    val allSignatures = this.allSignatures
-    val compiler = new Compiler(allSignatures, compilerConfig)
+    val interface = new language.Interface(this.allSignatures)
+    val compiler = new Compiler(interface, compilerConfig)
 
     modulesToCompile.foreach { mod =>
       if (!omitValidation)
-        assertRight(Validation.checkModule(allSignatures, homePackageId, mod).left.map(_.pretty))
+        assertRight(Validation.checkModule(interface, homePackageId, mod).left.map(_.pretty))
       modDefns +=
         mod.name -> compiler.unsafeCompileModule(homePackageId, mod).toMap
     }
@@ -156,8 +157,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
 
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     val defns = this.defns
-    val compiledPackages =
-      PureCompiledPackages(allSignatures, defns, compilerConfig)
+    val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
     for {
       defn <- defns.get(LfDefRef(identifier))
     } yield Speedy.Machine.fromScenarioSExpr(
@@ -192,8 +192,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       mat: Materializer,
   ): Future[Option[(ScenarioLedger, (Speedy.Machine, Speedy.Machine), Either[SError, SValue])]] = {
     val defns = this.defns
-    val compiledPackages =
-      PureCompiledPackages(allSignatures, defns, compilerConfig)
+    val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
     val expectedScriptId = DottedName.assertFromString("Daml.Script")
     val Some(scriptPackageId) = allSignatures.collectFirst {
       case (pkgId, pkg) if pkg.modules contains expectedScriptId => pkgId

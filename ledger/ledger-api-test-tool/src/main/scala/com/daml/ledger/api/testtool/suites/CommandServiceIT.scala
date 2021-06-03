@@ -543,7 +543,7 @@ final class CommandServiceIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        s"Couldn't find requested choice $missingChoice",
+        s"unknown choice $missingChoice",
       )
     }
   })

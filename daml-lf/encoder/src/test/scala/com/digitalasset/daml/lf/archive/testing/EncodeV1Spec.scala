@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.testing.archive
+package com.daml.lf
+package testing.archive
 
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
@@ -183,7 +184,7 @@ object EncodeV1Spec {
 
   private def validate(pkgId: PackageId, pkg: Package): Unit =
     Validation
-      .checkPackage(Map(pkgId -> pkg), pkgId, pkg)
+      .checkPackage(language.Interface(Map(pkgId -> pkg)), pkgId, pkg)
       .left
       .foreach(e => sys.error(e.toString))
 

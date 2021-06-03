@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.validation
+package com.daml.lf
+package validation
 
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
@@ -9,40 +10,6 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageVersion
 
 import scala.Ordering.Implicits.infixOrderingOps
-
-sealed abstract class LookupError extends Product with Serializable {
-  def pretty: String
-}
-final case class LEPackage(packageId: PackageId) extends LookupError {
-  def pretty: String = s"unknown package: $packageId"
-}
-final case class LEModule(packageId: PackageId, moduleRef: ModuleName) extends LookupError {
-  def pretty: String = s"unknown module: $moduleRef"
-}
-final case class LETypeSyn(syn: TypeSynName) extends LookupError {
-  def pretty: String = s"unknown type synonym: ${syn.qualifiedName}"
-}
-final case class LEDataType(conName: TypeConName) extends LookupError {
-  def pretty: String = s"unknown data type: ${conName.qualifiedName}"
-}
-final case class LEDataVariant(conName: TypeConName) extends LookupError {
-  def pretty: String = s"unknown variant: ${conName.qualifiedName}"
-}
-final case class LEDataEnum(conName: TypeConName) extends LookupError {
-  def pretty: String = s"unknown enumeration: ${conName.qualifiedName}"
-}
-final case class LEValue(valName: ValueRef) extends LookupError {
-  def pretty: String = s"unknown value: ${valName.qualifiedName}"
-}
-final case class LETemplate(conName: TypeConName) extends LookupError {
-  def pretty: String = s"unknown template: ${conName.qualifiedName}"
-}
-final case class LEChoice(conName: TypeConName, choiceName: ChoiceName) extends LookupError {
-  def pretty: String = s"unknown choice: ${conName.qualifiedName}:$choiceName"
-}
-final case class LEException(conName: TypeConName) extends LookupError {
-  def pretty: String = s"unknown exception: ${conName.qualifiedName}"
-}
 
 sealed abstract class Context extends Product with Serializable {
   def pretty: String
@@ -202,7 +169,7 @@ final case class EIllegalShadowingExprVar(context: Context, varName: ExprVarName
 final case class EUnknownExprVar(context: Context, varName: ExprVarName) extends ValidationError {
   protected def prettyInternal: String = s"unknown expr variable: $varName"
 }
-final case class EUnknownDefinition(context: Context, lookupError: LookupError)
+final case class EUnknownDefinition(context: Context, lookupError: language.LookupError)
     extends ValidationError {
   protected def prettyInternal: String = lookupError.pretty
 }
