@@ -458,21 +458,33 @@ object ValueGenerators {
     node <- danglingRefGenNodeWithVersion(version)
   } yield node
 
+  private[this] def refGenNode(g: Gen[Tx.Node]): Gen[(NodeId, Tx.Node)] =
+    for {
+      id <- Arbitrary.arbInt.arbitrary.map(NodeId(_))
+      node <- g
+    } yield (id, node)
+
   /** Version of danglingRefGenNode that allows to set the version of the node.
     *    Note that this only ensures that the node can be normalized to the given version.
     *    It does not normalize the node itself.
     */
+  def danglingRefGenActionNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Tx.Node)] =
+    refGenNode(
+      Gen.oneOf(
+        malformedCreateNodeGenWithVersion(version),
+        danglingRefExerciseNodeGenWithVersion(version),
+        fetchNodeGenWithVersion(version),
+      )
+    )
+
   def danglingRefGenNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Tx.Node)] = {
-    val create = malformedCreateNodeGenWithVersion(version)
-    val exe = danglingRefExerciseNodeGenWithVersion(version)
-    val fetch = fetchNodeGenWithVersion(version)
-    for {
-      id <- Arbitrary.arbInt.arbitrary.map(NodeId(_))
-      node <-
-        if (version >= minExceptions)
-          Gen.oneOf(create, exe, fetch, danglingRefRollbackNodeGen)
-        else Gen.oneOf(create, exe, fetch)
-    } yield (id, node)
+    if (version < minExceptions)
+      danglingRefGenActionNodeWithVersion(version)
+    else
+      Gen.frequency(
+        3 -> danglingRefGenActionNodeWithVersion(version),
+        1 -> refGenNode(danglingRefRollbackNodeGen),
+      )
   }
 
   @deprecated("use danglingRefGenNode instead", since = "100.11.17")

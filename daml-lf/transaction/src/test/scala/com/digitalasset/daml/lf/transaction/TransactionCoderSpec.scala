@@ -335,20 +335,18 @@ class TransactionCoderSpec
 
     "fail if try to encode a node in a version newer than the transaction" in {
 
-      forAll(danglingRefGenNode, versionInStrictIncreasingOrder(), minSuccessful(10)) {
+      forAll(danglingRefGenActionNode, versionInStrictIncreasingOrder(), minSuccessful(10)) {
         case ((nodeId, node), (txVersion, nodeVersion)) =>
-          whenever(!node.isInstanceOf[NodeRollback[_]]) {
-            val normalizedNode = normalizeNode(updateVersion(node, nodeVersion))
+          val normalizedNode = normalizeNode(updateVersion(node, nodeVersion))
 
-            TransactionCoder
-              .encodeNode(
-                TransactionCoder.NidEncoder,
-                ValueCoder.CidEncoder,
-                txVersion,
-                nodeId,
-                normalizedNode,
-              ) shouldBe Symbol("left")
-          }
+          TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              txVersion,
+              nodeId,
+              normalizedNode,
+            ) shouldBe Symbol("left")
       }
     }
 
@@ -650,30 +648,28 @@ class TransactionCoderSpec
       val gen = for {
         ver <- versionInStrictIncreasingOrder(postV10versions)
         (txVersion, nodeVersion) = ver
-        node <- danglingRefGenNodeWithVersion(nodeVersion)
+        node <- danglingRefGenActionNodeWithVersion(nodeVersion)
       } yield (ver, node)
 
       forAll(gen) { case ((txVersion, nodeVersion), (nodeId, node)) =>
-        whenever(!node.isInstanceOf[NodeRollback[_]]) {
-          val normalizedNode = normalizeNode(updateVersion(node, nodeVersion))
+        val normalizedNode = normalizeNode(updateVersion(node, nodeVersion))
 
-          val Right(encoded) = TransactionCoder
-            .encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              nodeVersion,
-              nodeId,
-              normalizedNode,
-            )
+        val Right(encoded) = TransactionCoder
+          .encodeNode(
+            TransactionCoder.NidEncoder,
+            ValueCoder.CidEncoder,
+            nodeVersion,
+            nodeId,
+            normalizedNode,
+          )
 
-          TransactionCoder.decodeVersionedNode(
-            TransactionCoder.NidDecoder,
-            ValueCoder.CidDecoder,
-            txVersion,
-            encoded,
-          ) shouldBe Symbol("left")
+        TransactionCoder.decodeVersionedNode(
+          TransactionCoder.NidDecoder,
+          ValueCoder.CidDecoder,
+          txVersion,
+          encoded,
+        ) shouldBe Symbol("left")
 
-        }
       }
     }
 
