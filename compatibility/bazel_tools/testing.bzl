@@ -257,7 +257,7 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "end": "v1.14.0-snapshot.20210602.7086.0.f36f556b",
+        "end": "1.14.0-snapshot.20210602.7086.0.f36f556b",
         "platform_ranges": [
             {
                 "start": "0.0.0",
@@ -272,7 +272,7 @@ excluded_test_tool_tests = [
         "start": "0.0.0",
         "platform_ranges": [
             {
-                "end": "v1.14.0-snapshot.20210602.7086.0.f36f556b",
+                "end": "1.14.0-snapshot.20210602.7086.0.f36f556b",
                 "exclusions": [
                     "CommandServiceIT:CSCreateAndBadExerciseChoice",
                     "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
