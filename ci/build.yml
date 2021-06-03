@@ -185,6 +185,8 @@ jobs:
     release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
     trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
     is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    skip_tests: $[ and(eq(variables.is_release, 'true'),
+                       eq(variables['Build.SourceBranchName'], 'main')) ]
   timeoutInMinutes: 360
   pool:
     name: 'windows-pool'
@@ -200,6 +202,13 @@ jobs:
     - template: build-windows.yml
       parameters:
         release_tag: $(release_tag)
+        # Azure pipeline’s variable and parameter expansion is utter garbage.
+        # For whatever reason `env` values only seem to be able to use macro syntax
+        # and not runtime expression. is_release however is a runtime variable
+        # so template conditions won’t work. Therefore we define the variable here
+        # with a runtime expression, set the parameter to the (unexpanded) string "$(skip_tests)"
+        # and then splice that in via a template parameter.
+        skip_tests: $(skip_tests)
         is_release: variables.is_release
     - task: PublishBuildArtifacts@1
       condition: succeededOrFailed()
