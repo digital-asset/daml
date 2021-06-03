@@ -4829,7 +4829,7 @@ program exception using
 BigNumeric
 ..........
 
-Daml-LF 1.14 is the first version that supports Exception.
+Daml-LF 1.14 is the first version that supports Exceptions.
 
 The deserialization process will reject any Daml-LF 1.13 (or earlier)
 program exception using:
