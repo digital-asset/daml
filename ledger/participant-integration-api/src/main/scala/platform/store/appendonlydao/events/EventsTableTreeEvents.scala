@@ -116,7 +116,7 @@ private[events] object EventsTableTreeEvents {
       sqlFunctions.arrayIntersectionWhereClause("tree_event_witnesses", requestingParty)
     SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
                  event_kind = 20 as exercise_consuming,
-                 case when submitters = array[$requestingParty]::text[] then command_id else '' end as command_id
+                 case when submitters = array[$requestingParty] then command_id else '' end as command_id
           from participant_events
           join parameters on
               (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
@@ -167,7 +167,7 @@ private[events] object EventsTableTreeEvents {
       read = (range, limitExpr) => SQL"""
         select #$selectColumns, array[$requestingParty] as event_witnesses,
                event_kind = 20 as exercise_consuming,
-               case when submitters = array[$requestingParty]::text[] then command_id else '' end as command_id
+               case when submitters = array[$requestingParty] then command_id else '' end as command_id
         from participant_events
         where event_sequential_id > ${range.startExclusive}
               and event_sequential_id <= ${range.endInclusive}

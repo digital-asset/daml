@@ -49,20 +49,20 @@ CREATE TABLE participant_events_divulgence (
    event_sequential_id bigint NOT NULL, -- event identification: same ordering as event_offset
 
     -- * event identification
-    event_offset text, -- offset of the transaction that divulged the contract
+    event_offset varchar, -- offset of the transaction that divulged the contract
 
     -- * transaction metadata
-    workflow_id text,
+    workflow_id varchar,
 
     -- * submitter info (only visible on submitting participant)
-    command_id text,
-    application_id text,
-    submitters text[],
+    command_id varchar,
+    application_id varchar,
+    submitters varchar[],
 
     -- * shared event information
-    contract_id text NOT NULL,
-    template_id text,
-    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- informees
+    contract_id varchar NOT NULL,
+    template_id varchar,
+    tree_event_witnesses varchar[] DEFAULT '{}'::varchar[] NOT NULL, -- informees
 
     -- * contract data
     create_argument bytea,
@@ -81,40 +81,40 @@ CREATE TABLE participant_events_create (
     node_index integer NOT NULL,              -- event metadata
 
     -- * event identification
-    event_offset text NOT NULL,
+    event_offset varchar NOT NULL,
 
     -- * transaction metadata
-    transaction_id text NOT NULL,
-    workflow_id text,
+    transaction_id varchar NOT NULL,
+    workflow_id varchar,
 
     -- * submitter info (only visible on submitting participant)
-    command_id text,
-    application_id text,
-    submitters text[],
+    command_id varchar,
+    application_id varchar,
+    submitters varchar[],
 
     -- * event metadata
-    event_id text NOT NULL,       -- string representation of (transaction_id, node_index)
+    event_id varchar NOT NULL,       -- string representation of (transaction_id, node_index)
 
     -- * shared event information
-    contract_id text NOT NULL,
-    template_id text NOT NULL,
-    flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- stakeholders
-    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- informees
+    contract_id varchar NOT NULL,
+    template_id varchar NOT NULL,
+    flat_event_witnesses varchar[] DEFAULT '{}'::varchar[] NOT NULL, -- stakeholders
+    tree_event_witnesses varchar[] DEFAULT '{}'::varchar[] NOT NULL, -- informees
 
     -- * contract data
     create_argument bytea NOT NULL,
-    create_signatories text[] NOT NULL,
-    create_observers text[] NOT NULL,
-    create_agreement_text text,
+    create_signatories varchar[] NOT NULL,
+    create_observers varchar[] NOT NULL,
+    create_agreement_text varchar,
     create_key_value bytea,
-    create_key_hash text,
+    create_key_hash varchar,
 
     -- * compression flags
     create_argument_compression SMALLINT,
     create_key_value_compression SMALLINT
 );
 -- disable compression for columns containing data that is generally incompressible, this reduces the CPU usage
--- text and bytea values are compressed by default, "STORAGE EXTERNAL" disables the compression
+-- varchar and bytea values are compressed by default, "STORAGE EXTERNAL" disables the compression
 ALTER TABLE participant_events_create ALTER COLUMN create_key_hash SET STORAGE EXTERNAL;
 
 
@@ -128,35 +128,35 @@ CREATE TABLE participant_events_consuming_exercise (
     node_index integer NOT NULL,              -- event metadata
 
     -- * event identification
-    event_offset text NOT NULL,
+    event_offset varchar NOT NULL,
 
     -- * transaction metadata
-    transaction_id text NOT NULL,
-    workflow_id text,
+    transaction_id varchar NOT NULL,
+    workflow_id varchar,
 
     -- * submitter info (only visible on submitting participant)
-    command_id text,
-    application_id text,
-    submitters text[],
+    command_id varchar,
+    application_id varchar,
+    submitters varchar[],
 
     -- * event metadata
-    event_id text NOT NULL,        -- string representation of (transaction_id, node_index)
+    event_id varchar NOT NULL,        -- string representation of (transaction_id, node_index)
 
     -- * shared event information
-    contract_id text NOT NULL,
-    template_id text NOT NULL,
-    flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- stakeholders
-    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- informees
+    contract_id varchar NOT NULL,
+    template_id varchar NOT NULL,
+    flat_event_witnesses varchar[] DEFAULT '{}'::varchar[] NOT NULL, -- stakeholders
+    tree_event_witnesses varchar[] DEFAULT '{}'::varchar[] NOT NULL, -- informees
 
     -- * information about the corresponding create event
     create_key_value bytea,        -- used for the mutable state cache
 
     -- * choice data
-    exercise_choice text NOT NULL,
+    exercise_choice varchar NOT NULL,
     exercise_argument bytea NOT NULL,
     exercise_result bytea,
-    exercise_actors text[] NOT NULL,
-    exercise_child_event_ids text[] NOT NULL,
+    exercise_actors varchar[] NOT NULL,
+    exercise_child_event_ids varchar[] NOT NULL,
 
     -- * compression flags
     create_key_value_compression SMALLINT,
@@ -175,35 +175,35 @@ CREATE TABLE participant_events_non_consuming_exercise (
     node_index integer NOT NULL,              -- event metadata
 
     -- * event identification
-    event_offset text NOT NULL,
+    event_offset varchar NOT NULL,
 
     -- * transaction metadata
-    transaction_id text NOT NULL,
-    workflow_id text,
+    transaction_id varchar NOT NULL,
+    workflow_id varchar,
 
     -- * submitter info (only visible on submitting participant)
-    command_id text,
-    application_id text,
-    submitters text[],
+    command_id varchar,
+    application_id varchar,
+    submitters varchar[],
 
     -- * event metadata
-    event_id text NOT NULL,        -- string representation of (transaction_id, node_index)
+    event_id varchar NOT NULL,        -- string representation of (transaction_id, node_index)
 
     -- * shared event information
-    contract_id text NOT NULL,
-    template_id text NOT NULL,
-    flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- stakeholders
-    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- informees
+    contract_id varchar NOT NULL,
+    template_id varchar NOT NULL,
+    flat_event_witnesses varchar[] DEFAULT '{}'::varchar[] NOT NULL, -- stakeholders
+    tree_event_witnesses varchar[] DEFAULT '{}'::varchar[] NOT NULL, -- informees
 
     -- * information about the corresponding create event
     create_key_value bytea,        -- used for the mutable state cache
 
     -- * choice data
-    exercise_choice text NOT NULL,
+    exercise_choice varchar NOT NULL,
     exercise_argument bytea NOT NULL,
     exercise_result bytea,
-    exercise_actors text[] NOT NULL,
-    exercise_child_event_ids text[] NOT NULL,
+    exercise_actors varchar[] NOT NULL,
+    exercise_child_event_ids varchar[] NOT NULL,
 
     -- * compression flags
     create_key_value_compression SMALLINT,

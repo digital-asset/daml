@@ -158,7 +158,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       QueryParts.ByArith(
         read = (range, limitExpr) => SQL"""
             select #$selectColumns, array[$party] as event_witnesses,
-                   case when submitters = array[$party]::text[] then command_id else '' end as command_id
+                   case when submitters = array[$party] then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
@@ -178,7 +178,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       QueryParts.ByArith(
         read = (range, limitExpr) => SQL"""
             select #$selectColumns, array[$party] as event_witnesses,
-                   case when submitters = array[$party]::text[] then command_id else '' end as command_id
+                   case when submitters = array[$party] then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
@@ -312,7 +312,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       def witnessesWhereClause(prefix: String) =
         sqlFunctions.arrayIntersectionWhereClause(s"$prefix.flat_event_witnesses", party)
       SQL"""select #$selectColumns, array[$party] as event_witnesses,
-                   case when active_cs.submitters = array[$party]::text[] then active_cs.command_id else '' end as command_id
+                   case when active_cs.submitters = array[$party] then active_cs.command_id else '' end as command_id
             from participant_events as active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > ${range.startExclusive._2: Long}
@@ -338,7 +338,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("active_cs.flat_event_witnesses", party)
       SQL"""select #$selectColumns, array[$party] as event_witnesses,
-                   case when active_cs.submitters = array[$party]::text[] then active_cs.command_id else '' end as command_id
+                   case when active_cs.submitters = array[$party] then active_cs.command_id else '' end as command_id
             from participant_events as active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > ${range.startExclusive._2: Long}

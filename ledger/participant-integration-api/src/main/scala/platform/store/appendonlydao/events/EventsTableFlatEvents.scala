@@ -125,7 +125,7 @@ private[events] object EventsTableFlatEvents {
       // TODO varchars are not texts according to postgreSQL - we need to do lot of casting. since these are primarlily the same I suggest for the final approach to pick either and align
       sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", requestingParty)
     SQL"""select #$selectColumns, array[$requestingParty] as event_witnesses,
-                 case when submitters = array[$requestingParty]::text[] then command_id else '' end as command_id
+                 case when submitters = array[$requestingParty] then command_id else '' end as command_id
           from participant_events
           join parameters on
               (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
