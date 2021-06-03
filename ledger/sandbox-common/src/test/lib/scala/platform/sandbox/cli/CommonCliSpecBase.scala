@@ -19,7 +19,7 @@ import com.daml.ports.Port
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import scala.concurrent.duration._
+import scala.concurrent.duration.DurationInt
 
 import scala.jdk.CollectionConverters._
 
