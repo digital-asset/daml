@@ -20,6 +20,7 @@ lf_version_configuration = {
     "legacy": "1.8",
     "stable": "1.12",
     "latest": "1.13",
+    "preview": "1.14",
     "dev": "1.dev",
 }
 
@@ -49,11 +50,14 @@ LF_VERSIONS = [
     "1.11",
     "1.12",
     "1.13",
+    "1.14",
     "dev",
 ]
 
 # All LF versions for which we have protobufs.
-PROTO_LF_VERSIONS = LF_VERSIONS
+# TODO https://github.com/digital-asset/daml/issues/8020
+#     freeze LF 1.14 proto
+PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if ver != "1.14"]
 
 # The subset of LF versions accepted by //daml-lf/encoder
 ENCODER_LF_VERSIONS = ["1.dev" if ver == "dev" else ver for ver in LF_VERSIONS]
@@ -72,6 +76,7 @@ LF_VERSION_PACKAGE_DIGITALASSET = {
     "1.11": "daml",
     "1.12": "daml",
     "1.13": "daml",
+    "1.14": "daml",
 }
 
 def lf_version_package(version):

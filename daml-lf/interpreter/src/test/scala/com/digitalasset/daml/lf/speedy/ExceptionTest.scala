@@ -65,7 +65,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
           )
         )
     val arithmeticCon = data.Ref.Identifier.assertFromString(
-      "f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981:DA.Exception.ArithmeticError:ArithmeticError"
+      "cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError"
     )
     val fields = new util.ArrayList[SValue]()
     fields.add(SValue.SText("ArithmeticError while evaluating (DIV_INT64 1 0)."))

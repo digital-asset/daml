@@ -238,6 +238,9 @@ Version: 1.12
 Version: 1.13
 .............
 
+.. TODO: https://github.com/digital-asset/daml/issues/8020
+     add explanations about Arithmetic Error
+
 * Introduction date:
 
      2021-04-06
@@ -250,10 +253,23 @@ Version: 1.13
     - add `BigNumeric` builtins
 
 
-Version: 1.dev (development)
-............................
+Version: 1.14 (preview)
+.......................
+
+* Introduction date:
+
+     2021-06-03
+
+* Description:
 
   + **Add** exception handling.
+    - Add `AnyException` primitive type
+    - Add `ToAnyException`, `FromAnyException`, and `Throw` expressions
+    - Add `TryCatch` update
+    - Add `ANY_EXCEPTION_MESSAGE` builtin functions,
+
+Version: 1.dev (development)
+............................
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -608,7 +624,7 @@ Then we can define our kinds, types, and expressions::
        |  'TypeRep'                                 -- BTTypeRep [Daml-LF ≥ 1.7]
        |  'Update'                                  -- BTyUpdate
        |  'Scenario'                                -- BTyScenario
-       |  'AnyException'                            -- BTyAnyException [Daml-LF ≥ 1.dev]
+       |  'AnyException'                            -- BTyAnyException [Daml-LF ≥ 1.14]
 
   Types (mnemonic: tau for type)
     τ, σ
@@ -662,9 +678,9 @@ Then we can define our kinds, types, and expressions::
        | 'type_rep' @τ                              -- ExpToTypeRep: A type representation [Daml-LF ≥ 1.7]
        |  u                                         -- ExpUpdate: Update expression
        |  s                                         -- ExpScenario: Scenario expression
-       | 'throw' @σ @τ e                            -- ExpThrow: throw exception [Daml-LF ≥ 1.dev]
-       | 'to_any_exception' @τ e                    -- ExpToAnyException: Turn a concrete exception into an 'AnyException' [Daml-LF ≥ 1.dev]
-       | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException' [Daml-LF ≥ 1.dev]
+       | 'throw' @σ @τ e                            -- ExpThrow: throw exception [Daml-LF ≥ 1.14]
+       | 'to_any_exception' @τ e                    -- ExpToAnyException: Turn a concrete exception into an 'AnyException' [Daml-LF ≥ 1.14]
+       | 'from_any_exception' @τ e                  -- ExpFromAnyException: Extract a concrete exception from an 'AnyException' [Daml-LF ≥ 1.14]
 
   Patterns
     p
@@ -691,7 +707,7 @@ Then we can define our kinds, types, and expressions::
        |  'fetch_by_key' @τ e                       -- UpdateFecthByKey
        |  'lookup_by_key' @τ e                      -- UpdateLookUpByKey
        |  'embed_expr' @τ e                         -- UpdateEmbedExpr
-       |  'try' @τ e₁ 'catch' x. e₂                 -- UpdateTryCatch [Daml-LF ≥ 1.dev]
+       |  'try' @τ e₁ 'catch' x. e₂                 -- UpdateTryCatch [Daml-LF ≥ 1.14]
 
   Scenario
     s ::= 'spure' @τ e                              -- ScenarioPure
@@ -770,7 +786,7 @@ available for usage::
             , 'choices' { ChDef₁, …, ChDefₘ }
             , KeyDef
             }
-       |  'exception' T ↦ { 'message' e }           -- DefException [Daml-LF ≥ 1.dev]
+       |  'exception' T ↦ { 'message' e }           -- DefException [Daml-LF ≥ 1.14]
 
   Module (mnemonic: delta for definitions)
     Δ ::= ε                                         -- DefCtxEmpty
@@ -1000,7 +1016,7 @@ We now formally defined *well-formed types*. ::
    ————————————————————————————————————————————— TyScenario
      Γ  ⊢  'Scenario' : ⋆ → ⋆
 
-   ————————————————————————————————————————————— TyAnyException [Daml-LF ≥ 1.dev]
+   ————————————————————————————————————————————— TyAnyException [Daml-LF ≥ 1.14]
      Γ  ⊢  'AnyException' : ⋆
 
 
@@ -1209,17 +1225,17 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  σ  :  ⋆
       ⊢ₑ  τ
       Γ  ⊢  e  :  τ
-    ——————————————————————————————————————————————————————————————— ExpThrow [Daml-LF ≥ 1.dev]
+    ——————————————————————————————————————————————————————————————— ExpThrow [Daml-LF ≥ 1.14]
       Γ  ⊢  'throw' @σ @τ @e  :  σ
 
       ⊢ₑ  τ
       Γ  ⊢  e  :  τ
-    ——————————————————————————————————————————————————————————————— ExpToAnyException [Daml-LF ≥ 1.dev]
+    ——————————————————————————————————————————————————————————————— ExpToAnyException [Daml-LF ≥ 1.14]
       Γ  ⊢  'to_any_exception' @τ e  :  'AnyException'
 
       ⊢ₑ  τ
       Γ  ⊢  e  :  'AnyException'
-    ——————————————————————————————————————————————————————————————— ExpFromAnyException [Daml-LF ≥ 1.dev]
+    ——————————————————————————————————————————————————————————————— ExpFromAnyException [Daml-LF ≥ 1.14]
       Γ  ⊢  'from_any_exception' @τ e  :  'Optional' τ
 
       Γ  ⊢  τ  :  ⋆      Γ  ⊢  e  :  τ
@@ -1292,7 +1308,7 @@ Then we define *well-formed expressions*. ::
       τ  ↠  τ'
       Γ  ⊢  e₁  :  'Update' τ'
       x : 'AnyException' · Γ  ⊢  e₂  :  'Optional' ('Update' τ')
-    ——————————————————————————————————————————————————————————————— UpdTryCatch [Daml-LF ≥ 1.dev]
+    ——————————————————————————————————————————————————————————————— UpdTryCatch [Daml-LF ≥ 1.14]
       Γ  ⊢  'try' @τ e₁ 'catch' x. e₂  :  'Update' τ'
 
       Γ  ⊢  τ  : ⋆      Γ  ⊢  e  :  τ
@@ -1585,7 +1601,7 @@ for the ``DefTemplate`` rule). ::
     'record' T ↦ { f₁ : τ₁, …, fₙ : τₙ }  ∈  〚Ξ〛Mod
     ⊢ₛ  Mod:T
     ⊢  e  :  Mod:T → 'Text'
-  ——————————————————————————————————————————————————————————————— DefException [Daml-LF ≥ 1.dev]
+  ——————————————————————————————————————————————————————————————— DefException [Daml-LF ≥ 1.14]
     ⊢  'exception' T ↦ { 'message' e }
 
                           ┌───────────────────┐
@@ -4389,57 +4405,15 @@ Conversions functions
 Error functions
 ~~~~~~~~~~~~~~~
 
-* ``ERROR : ∀ (α : ⋆) . 'Text' → α``
+** ``ERROR : ∀ (α : ⋆) . 'Text' → α``
 
-  Throws a ``'GeneralError'`` with the string as message. Formally the function
-  is defined as a shortcut for the function::
-
-    'ERROR' ≡
-        Λ (α : ⋆). λ (x : 'Text').
-        'throw' @α @'GeneralError' ('MAKE_GENERAL_ERROR' x)
+  Throws a fatal error with the string as message.
 
 * ``ANY_EXCEPTION_MESSAGE : 'AnyException' → 'Text'``
 
-  [*Available in version >= 1.dev*]
+  [*Available in version >= 1.14*]
 
   Extract the error message from an ``'AnyException'``.
-
-* ``MAKE_GENERAL_ERROR : 'Text' → 'GeneralError'``
-
-  [*Available in version >= 1.dev*]
-
-  Construct a ``'GeneralError'`` from its error message.
-
-* ``GENERAL_ERROR_MESSAGE : 'GeneralError' → 'Text'``
-
-  [*Available in version >= 1.dev*]
-
-  Extract the error message from a ``'GeneralError'``.
-
-* ``MAKE_ARITHMETIC_ERROR : 'Text' → 'ArithmeticError'``
-
-  [*Available in version >= 1.dev*]
-
-  Construct an ``'ArithmeticError'`` from its error message.
-
-* ``ARITHMETIC_ERROR_MESSAGE : 'ArithmeticError' → 'Text'``
-
-  [*Available in version >= 1.dev*]
-
-  Extract the error message from ``'ArithmeticError'``.
-
-* ``MAKE_CONTRACT_ERROR : 'Text' → 'ContractError'``
-
-  [*Available in version >= 1.dev*]
-
-  Construct a ``'ContractError'`` from its error message.
-
-* ``CONTRACT_ERROR_MESSAGE : 'ContractError' → 'Text'``
-
-  [*Available in version >= 1.dev*]
-
-  Extract the error message from a ``'ContractError'``.
-
 
 Debugging functions
 ~~~~~~~~~~~~~~~~~~~
@@ -4855,13 +4829,14 @@ program exception using
 BigNumeric
 ..........
 
-Daml-LF 1.13 is the first version that supports BigNumeric.
+Daml-LF 1.14 is the first version that supports Exceptions.
 
-The deserialization process will reject any Daml-LF 1.12 (or earlier)
+The deserialization process will reject any Daml-LF 1.13 (or earlier)
 program exception using:
-- the `PrimType` value `BIGNUMERIC` or `ROUNDING_MODE`,
-- the field `rounding_mode` in `Expr` message, or
-- any of the `BigNumeric functions`_.
+- `AnyException` primitive type,
+- `ToAnyException`, `FromAnyException`, and `Throw` expressions,
+- `TryCatch` update,
+- `ANY_EXCEPTION_MESSAGE` builtin functions.
 
 
 .. Local Variables:
