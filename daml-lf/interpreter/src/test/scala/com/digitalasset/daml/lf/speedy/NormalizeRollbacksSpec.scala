@@ -16,6 +16,8 @@ import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.{NodeId, GenTransaction}
 import com.daml.lf.value.{Value => V}
 
+import com.daml.lf.transaction.{TxTree, TxTreeTop}
+
 class NormalizeRollbacksSpec extends AnyWordSpec with Matchers with Inside {
 
   import NormalizeRollbackSpec._
@@ -29,8 +31,9 @@ class NormalizeRollbacksSpec extends AnyWordSpec with Matchers with Inside {
 
   def test(name: String)(orig: Shape.Top, expected: Shape.Top): Unit = {
     s"normalize: ($orig) -- $name" should {
-      val tx = Shape.toTransaction(orig)
-      val txN = NormalizeRollbacks.normalizeTx(tx) // code under test
+      val txt = Shape.toTransactionTree(orig)
+      val txtN = NormalizeRollbacks.normalizeTx(txt) // code under test
+      val txN = txtN.toStandardTransaction
       val shapeN = Shape.ofTransaction(txN)
       "be as expected" in {
         assert(shapeN == expected)
@@ -177,6 +180,9 @@ object NormalizeRollbackSpec {
   type Node = GenNode[Nid, Cid]
   type RB = NodeRollback[Nid]
 
+  type TXT = TxTreeTop[Cid]
+  type Tree = TxTree[Cid]
+
   def preOrderNidsOfTxIsIncreasingFromZero(tx: TX): Boolean = {
     def check(x1: Int, xs: List[Int]): Boolean = {
       xs match {
@@ -252,27 +258,21 @@ object NormalizeRollbackSpec {
     final case class Exercise(x: List[Shape]) extends Shape
     final case class Rollback(x: List[Shape]) extends Shape
 
-    def toTransaction(top: Top): TX = {
-      val ids = Iterator.from(0).map(NodeId(_))
-      var nodes: Map[Nid, Node] = Map.empty
-      def add(node: Node): Nid = {
-        val nodeId = ids.next()
-        nodes += (nodeId -> node)
-        nodeId
-      }
-      def toNid(shape: Shape): Nid = {
+    def toTransactionTree(top: Top): TXT = {
+      def toTree(shape: Shape): Tree = {
         shape match {
-          case Create(n) => add(dummyCreateNode(n))
+          case Create(n) => TxTree(dummyCreateNode(n))
           case Exercise(shapes) =>
-            val children = shapes.map(toNid)
-            add(dummyExerciseNode(ImmArray(children)))
+            val children = shapes.map(toTree)
+            TxTree(dummyExerciseNode(ImmArray(children)))
           case Rollback(shapes) =>
-            val children = shapes.map(toNid)
-            add(NodeRollback[Nid](children = ImmArray(children)))
+            val children = shapes.map(toTree)
+            TxTree(NodeRollback[Tree](children = ImmArray(children)))
         }
+
       }
-      val roots: List[Nid] = top.xs.map(toNid)
-      GenTransaction(nodes, ImmArray(roots))
+      val roots: List[Tree] = top.xs.map(toTree)
+      TxTreeTop(ImmArray(roots))
     }
 
     def ofTransaction(tx: TX): Top = {
@@ -309,8 +309,8 @@ object NormalizeRollbackSpec {
     )
 
   private def dummyExerciseNode(
-      children: ImmArray[NodeId]
-  ): NodeExercises[NodeId, V.ContractId] =
+      children: ImmArray[Tree]
+  ): NodeExercises[Tree, V.ContractId] =
     NodeExercises(
       targetCoid = toCid("dummyTargetCoid"),
       templateId = Ref.Identifier(

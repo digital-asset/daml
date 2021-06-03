@@ -897,10 +897,13 @@ object Transaction {
   /** Signals that the contract-id `coid` was expected to be active, but
     * is not.
     */
+
+  private type Tree = TxTree[Value.ContractId]
+
   final case class ContractNotActive(
       coid: Value.ContractId,
       templateId: TypeConName,
-      consumedBy: NodeId,
+      consumedBy: Option[Tree],
   ) extends TransactionError
 
   /** Signals that within the transaction we got to a point where
@@ -924,8 +927,8 @@ object Transaction {
   ) extends TransactionError
 
   final case class AuthFailureDuringExecution(
-      nid: NodeId,
-      fa: FailedAuthorization,
+      //nid: NodeId, //NICK
+      fa: FailedAuthorization
   ) extends TransactionError
 
   @deprecated("use Validation.isRepledBy", since = "1.10.0")

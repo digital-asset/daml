@@ -1667,8 +1667,8 @@ private[lf] object SBuiltin {
     */
   private[speedy] def checkAborted(ptx: PartialTransaction): Unit =
     ptx.aborted match {
-      case Some(Tx.AuthFailureDuringExecution(nid, fa)) =>
-        throw DamlEFailedAuthorization(nid, fa)
+      case Some(Tx.AuthFailureDuringExecution(fa)) =>
+        throw DamlEFailedAuthorization(fa)
       case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
         throw DamlELocalContractNotActive(coid, tid, consumedBy)
       case Some(Tx.DuplicateContractKey(key)) =>
