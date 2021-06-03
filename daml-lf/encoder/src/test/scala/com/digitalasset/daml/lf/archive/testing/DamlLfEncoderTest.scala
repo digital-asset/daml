@@ -48,7 +48,8 @@ class DamlLfEncoderTest
       val modules_1_7 = modules_1_6 + "NumericMod" + "AnyMod"
       val modules_1_8 = modules_1_7 + "SynonymMod"
       val modules_1_11 = modules_1_8 + "GenMapMod"
-      val modules_1_dev = modules_1_11
+      val modules_1_13 = modules_1_11 + "BigNumericMod"
+      val modules_1_dev = modules_1_13 + "ExceptionMod"
 
       val versions = Table(
         "versions" -> "modules",
@@ -56,6 +57,7 @@ class DamlLfEncoderTest
         "1.7" -> modules_1_7,
         "1.8" -> modules_1_8,
         "1.11" -> modules_1_11,
+        "1.13" -> modules_1_13,
         "1.dev" -> modules_1_dev,
       )
 
@@ -68,7 +70,9 @@ class DamlLfEncoderTest
 
         val findModules = dar.toOption.toList.flatMap(getNonEmptyModules).toSet
 
-        findModules shouldBe expectedModules
+        findModules diff expectedModules shouldBe Set()
+        expectedModules diff findModules shouldBe Set()
+
       }
     }
 

@@ -148,6 +148,13 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                   throw @(Update Unit) @Mod:MyException (Mod:MyException {message = "oops"})
                 catch e -> Some @(Update Unit) (upure @Unit ())
             in upure @Unit ();
+                     
+           val myAnyException: AnyException =
+             to_any_exception @Mod:MyException (Mod:MyException {message = "oops"});
+           
+           val maybeException: Option Mod:MyException =
+             from_any_exception @Mod:MyException Mod:myAnyException;
+             
          }
         
       """
