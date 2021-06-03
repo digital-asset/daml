@@ -24,7 +24,7 @@ object LanguageVersion {
 
   private[lf] val All = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
 
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_dev) = All
+  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_dev) = All
 
   object Features {
     val default = v1_6
@@ -46,7 +46,7 @@ object LanguageVersion {
     val internedTypes = v1_11
     val choiceObservers = v1_11
     val bigNumeric = v1_13
-    val exceptions = v1_dev
+    val exceptions = v1_14
 
     /** Unstable, experimental features. This should stay in 1.dev forever.
       * Features implemented with this flag should be moved to a separate
@@ -67,7 +67,7 @@ object LanguageVersion {
   // All the stable and preview versions
   // Equals `Stable` if no preview version is available
   val EarlyAccessVersions: VersionRange[LanguageVersion] =
-    StableVersions
+    StableVersions.copy(max = v1_14)
 
   // All the versions
   val DevVersions: VersionRange[LanguageVersion] =

@@ -19,9 +19,10 @@ object TransactionVersion {
   case object V11 extends TransactionVersion("11", 11)
   case object V12 extends TransactionVersion("12", 12)
   case object V13 extends TransactionVersion("13", 13)
+  case object V14 extends TransactionVersion("14", 14)
   case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
-  val All = List(V10, V11, V12, V13, VDev)
+  val All = List(V10, V11, V12, V13, V14, VDev)
 
   private[daml] implicit val Ordering: scala.Ordering[TransactionVersion] =
     scala.Ordering.by(_.index)
@@ -47,9 +48,8 @@ object TransactionVersion {
   private[lf] val minNoVersionValue = V12
   private[lf] val minTypeErasure = V12
   //nothing was added in V13, so there are no vals: "minSomething = V13"
-  private[lf] val minExceptions = VDev
-  // TODO Move to a stable version https://github.com/digital-asset/daml/issues/7622
-  private[lf] val minByKey = VDev
+  private[lf] val minExceptions = V14
+  private[lf] val minByKey = V14
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
     import LanguageVersion._
@@ -60,6 +60,7 @@ object TransactionVersion {
       v1_11 -> V11,
       v1_12 -> V12,
       v1_13 -> V13,
+      v1_14 -> V14,
       v1_dev -> VDev,
     )
   }

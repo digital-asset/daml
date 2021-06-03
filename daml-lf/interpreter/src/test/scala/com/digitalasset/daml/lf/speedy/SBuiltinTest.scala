@@ -1500,7 +1500,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
     s"should not request package for ArithmeticError" in {
       eval(
-        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981':DA.Exception.ArithmeticError:ArithmeticError ('f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981':DA.Exception.ArithmeticError:ArithmeticError { message = "Arithmetic error" }))"""
+        e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a':DA.Exception.ArithmeticError:ArithmeticError ('cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a':DA.Exception.ArithmeticError:ArithmeticError { message = "Arithmetic error" }))"""
       ) shouldBe Right(SText("Arithmetic error"))
     }
 

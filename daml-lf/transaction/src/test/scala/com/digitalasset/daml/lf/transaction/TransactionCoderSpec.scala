@@ -34,9 +34,10 @@ class TransactionCoderSpec
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  import TransactionVersion.{V10, V11, V12, V13, VDev, minExceptions}
+  import TransactionVersion.{V10, V11, V12, V13, V14, VDev, minExceptions}
 
-  private[this] val transactionVersions = Table("transaction version", V10, V11, V12, V13, VDev)
+  private[this] val transactionVersions =
+    Table("transaction version", V10, V11, V12, V13, V14, VDev)
 
   "encode-decode" should {
 
@@ -336,16 +337,18 @@ class TransactionCoderSpec
 
       forAll(danglingRefGenNode, versionInStrictIncreasingOrder(), minSuccessful(10)) {
         case ((nodeId, node), (txVersion, nodeVersion)) =>
-          val normalizedNode = normalizeNode(updateVersion(node, nodeVersion))
+          whenever(!node.isInstanceOf[NodeRollback[_]]) {
+            val normalizedNode = normalizeNode(updateVersion(node, nodeVersion))
 
-          TransactionCoder
-            .encodeNode(
-              TransactionCoder.NidEncoder,
-              ValueCoder.CidEncoder,
-              txVersion,
-              nodeId,
-              normalizedNode,
-            ) shouldBe Symbol("left")
+            TransactionCoder
+              .encodeNode(
+                TransactionCoder.NidEncoder,
+                ValueCoder.CidEncoder,
+                txVersion,
+                nodeId,
+                normalizedNode,
+              ) shouldBe Symbol("left")
+          }
       }
     }
 
@@ -651,24 +654,26 @@ class TransactionCoderSpec
       } yield (ver, node)
 
       forAll(gen) { case ((txVersion, nodeVersion), (nodeId, node)) =>
-        val normalizedNode = normalizeNode(updateVersion(node, nodeVersion))
+        whenever(!node.isInstanceOf[NodeRollback[_]]) {
+          val normalizedNode = normalizeNode(updateVersion(node, nodeVersion))
 
-        val Right(encoded) = TransactionCoder
-          .encodeNode(
-            TransactionCoder.NidEncoder,
-            ValueCoder.CidEncoder,
-            nodeVersion,
-            nodeId,
-            normalizedNode,
-          )
+          val Right(encoded) = TransactionCoder
+            .encodeNode(
+              TransactionCoder.NidEncoder,
+              ValueCoder.CidEncoder,
+              nodeVersion,
+              nodeId,
+              normalizedNode,
+            )
 
-        TransactionCoder.decodeVersionedNode(
-          TransactionCoder.NidDecoder,
-          ValueCoder.CidDecoder,
-          txVersion,
-          encoded,
-        ) shouldBe Symbol("left")
+          TransactionCoder.decodeVersionedNode(
+            TransactionCoder.NidDecoder,
+            ValueCoder.CidDecoder,
+            txVersion,
+            encoded,
+          ) shouldBe Symbol("left")
 
+        }
       }
     }
 

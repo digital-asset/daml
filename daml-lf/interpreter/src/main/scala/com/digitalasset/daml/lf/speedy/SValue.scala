@@ -217,7 +217,7 @@ object SValue {
     // The package ID should match the ID of the stable package daml-prim-DA-Exception-ArithmeticError
     // See test compiler/damlc/tests/src/stable-packages.sh
     val tyCon: Ref.TypeConName = Ref.Identifier.assertFromString(
-      "f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981:DA.Exception.ArithmeticError:ArithmeticError"
+      "cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError"
     )
     val typ: Type = TTyCon(tyCon)
     val fields: ImmArray[Ref.Name] = ImmArray(Ref.Name.assertFromString("message"))
