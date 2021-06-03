@@ -257,7 +257,7 @@ excluded_test_tool_tests = [
         ],
     },
     {
-        "start": first_nongranular_test_tool,
+        "start": first_granular_test_tool,
         "end": "1.14.0-snapshot.20210602.7086.0.f36f556b",
         "platform_ranges": [
             {
