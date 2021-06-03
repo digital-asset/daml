@@ -122,12 +122,55 @@ And the third:
 
 As you can see, in each of these continuities, no contract was consumed twice.
 
-Transaction Normalization
-+++++++++++++++++++++++++
+Causal Execution Order
+~~~~~~~~~~~~~~~~~~~~~~
 
-The same "before-after" relation can be represented in more than one way using
-rollback nodes. For example, the following three transactions have the same
-"before-after" relation among their ledger actions (`act1`, `act2`, and `act3`):
+A related order on transactions is the **causal execution order**, which
+is necessary for defining transaction equivalence.
+
+This order is defined like the "before-after" relation, but instead of
+visiting each action node once in a preorder traversal, it visits each
+action node twice: first on the way down, and then on the way up.
+
+Formally, this order is defined on the set `{Begin, End} × ({Tx} ∪ Actions)`.
+`Begin` and `End` are tags to represent the first and second visit on each
+node, and `Tx` is a symbol that represent the transaction as a whole.
+
+To define the order, we start with an "execution order traversal" of this set.
+We begin with `(Begin, Tx)`, then we traverse each top-level node in order, and
+we end with `(End, Tx)`. To traverse an action `act`, we visit `(Begin, act)`, then
+we traverse the subactions of `act`, and then we visit `(End, act)`. To traverse
+a rollback node, we simply traverse each of its children in order. Thus during
+the course of the traversal, we visit each action node twice.
+
+Here's what the execution order traversal looks like on a transaction:
+
+.. https://lucid.app/lucidchart/7e7b8030-9989-4033-b8bf-d433661ea1fa/edit
+.. image:: ./images/exceptions-causal-execution-nested.svg
+   :align: center
+
+From this traversal, the causal execution order is defined as follows:
+`(tag1, act1) < (tag2, act2)` if and only if `(tag1, act1)`
+comes before `(tag2, act2)` in this traversal, and any rollback nodes
+that are ancestors of `act1` are also an ancestors of `act2`.
+
+Note that this implies `(Begin, act) < (End, act)` for all actions `act`.
+If `act2` is a subaction of `act1`, we always have
+`(Begin, act1) < (Begin, act2)`, but we only have
+`(End, act2) < (End, act1)` if there are no rollback nodes in
+between `act1` and `act2`.
+
+We can also recover the original "before-after" relation from the causal
+execution order, because for any two actions `act1` and `act2` we have
+`(Begin, act1) < (Begin, act2)` in the causal execution order if and only
+if `act1` comes before `act2` in the "before-after" relation.
+
+Transaction Equivalence
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The same causal execution order can be represented in more than
+one way using rollback nodes. For example, the following three transactions have
+the same causal execution order among their ledger actions (`act1`, `act2`, and `act3`):
 
 .. https://lucid.app/lucidchart/3aa5922f-ec30-4896-8bbc-56703549c7e5/edit
 .. image:: ./images/exception-normalization-1.svg
@@ -135,23 +178,11 @@ rollback nodes. For example, the following three transactions have the same
    :width: 80%
 
 Because of this, these three transactions are equivalent.
-More generally, two transactions are equivalent if:
+More generally, two transactions are equivalent if they have the same
+set of actions, and the same causal execution order.
 
-- The transactions are the same when you ignore all rollback nodes. That is,
-  if you remove every rollback node and absorb its children into its parent,
-  then two transactions are the same. Equivalently, the transactions have
-  the same ledger actions with the same preorder traversal and subaction relation.
-
-- The transactions have the same "before-after" relation between their actions.
-
-- The transactions have the same set of "rollback children".
-  A "rollback child" is an action whose direct parent is a rollback node.
-
-For all three transactions above, the "transaction tree ignoring rollbacks"
-consists only of top-level actions (`act1`, `act2`, and `act3`), the
-"before-after" relation only says that `act2` comes before `act3`,
-and all three actions are rollback children. Thus all three transactions
-are equivalent.
+Transaction Normalization
++++++++++++++++++++++++++
 
 **Transaction normalization** is the process by which equivalent transactions
 are converted into the same transaction. In the case above, all three
