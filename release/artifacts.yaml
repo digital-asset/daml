@@ -169,11 +169,11 @@
   type: jar-scala
 - target: //ledger/sandbox-on-x:sandbox-on-x-app
   type: jar-scala
-- target: //ledger/test-common:dar-files-1.12-lib
+- target: //ledger/test-common:dar-files-1.13-lib
   type: jar-scala
 - target: //ledger/test-common:dar-files-1.dev-lib
   type: jar-scala
-- target: //ledger/test-common:test-common-1.12
+- target: //ledger/test-common:test-common-1.13
   type: jar-scala
 - target: //ledger/test-common:test-common-1.dev
   type: jar-scala

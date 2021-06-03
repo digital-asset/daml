@@ -138,9 +138,9 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
             _ <- makeFile "Foo.daml" $ T.unlines
                 [ "module Foo where"
                 , "foo : Int"
-                , "foo = 10.5"
+                , "foo = 10.5: Decimal"
                 ]
-            expectOneError (foo,2,6) "Couldn't match expected type"
+            expectOneError (foo,2,6) "Couldn't match type"
 
     ,   testCase' "Set buffer modified to introduce error then clear it" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
@@ -153,9 +153,9 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
             setBufferModified foo $ T.unlines
                 [ "module Foo where"
                 , "foo : Int"
-                , "foo = 10.5"
+                 , "foo = 10.5: Decimal"
                 ]
-            expectOneError (foo,2,6) "Couldn't match expected type"
+            expectOneError (foo,2,6) "Couldn't match type"
             setBufferNotModified foo
             expectNoErrors
 
