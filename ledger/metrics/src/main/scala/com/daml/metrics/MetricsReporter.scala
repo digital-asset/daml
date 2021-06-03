@@ -1,15 +1,14 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.configuration
-
-import java.net.{InetSocketAddress, URI}
-import java.nio.file.{Files, Path, Paths}
+package com.daml.metrics
 
 import com.codahale.metrics
 import com.codahale.metrics.{MetricRegistry, ScheduledReporter}
 import scopt.Read
 
+import java.net.{InetSocketAddress, URI}
+import java.nio.file.{Files, Path, Paths}
 import scala.util.control.NonFatal
 
 sealed abstract class MetricsReporter {
@@ -94,12 +93,12 @@ object MetricsReporter {
       new URI(value)
     } catch {
       case NonFatal(exception) =>
-        throw new InvalidConfigException(cliHint + " " + exception.getMessage)
+        throw new RuntimeException(cliHint + " " + exception.getMessage)
     }
 
   val cliHint: String =
     """Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]"."""
 
-  private def invalidRead: InvalidConfigException =
-    new InvalidConfigException(cliHint)
+  private def invalidRead =
+    new RuntimeException(cliHint)
 }

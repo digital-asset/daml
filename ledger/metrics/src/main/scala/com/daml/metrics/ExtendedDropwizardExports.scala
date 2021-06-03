@@ -1,14 +1,14 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.configuration
-
-import java.util.Collections
-import scala.jdk.CollectionConverters._
+package com.daml.metrics
 
 import com.codahale.metrics.{MetricRegistry, Snapshot}
 import io.prometheus.client.Collector.MetricFamilySamples
 import io.prometheus.client.dropwizard.DropwizardExportsAccess
+
+import java.util.Collections
+import scala.jdk.CollectionConverters._
 
 final class ExtendedDropwizardExports(metricRegistry: MetricRegistry)
     extends DropwizardExportsAccess(metricRegistry) {

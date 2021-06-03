@@ -61,10 +61,8 @@ import spray.json._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
 import scala.util.control.NonFatal
-
-import com.daml.metrics.Metrics
+import com.daml.metrics.{Metrics, MetricsReporter}
 import com.codahale.metrics.MetricRegistry
-import com.daml.platform.configuration.MetricsReporter
 
 trait JsonApiFixture
     extends AbstractSandboxFixture
