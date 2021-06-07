@@ -308,9 +308,8 @@ private[events] object EventsTableFlatEventsRangeQueries {
         party: Party,
         pageSize: Int,
     ): QueryParts = {
-      // TODO inline the def, only used once
-      def witnessesWhereClause(prefix: String) =
-        sqlFunctions.arrayIntersectionWhereClause(s"$prefix.flat_event_witnesses", party)
+      val witnessesWhereClause =
+        sqlFunctions.arrayIntersectionWhereClause(s"active_cs.flat_event_witnesses", party)
       SQL"""select #$selectColumns, array[$party] as event_witnesses,
                    case when active_cs.submitters = array[$party]::text[] then active_cs.command_id else '' end as command_id
             from participant_events as active_cs
@@ -325,7 +324,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
                       archived_cs.event_kind = 20 and -- consuming
                       archived_cs.event_offset <= ${range.endInclusive._1: Offset}
                   )
-                  and #${witnessesWhereClause("active_cs")}
+                  and #$witnessesWhereClause
             order by active_cs.event_sequential_id limit $pageSize"""
     }
 
