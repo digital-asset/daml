@@ -10,6 +10,7 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.Source
 import akka.stream.{Materializer, QueueOfferResult}
+import ch.qos.logback.classic.Level
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.TransactionVersion
@@ -21,6 +22,7 @@ import com.daml.platform.store.appendonlydao.events.{Contract, Key, Party}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
+import com.daml.platform.testing.LogCollector
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
@@ -42,6 +44,8 @@ final class BuffersUpdaterSpec
   override implicit val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(2000, Millis)), interval = scaled(Span(50, Millis)))
 
+  private def readLog(): Seq[(Level, String)] = LogCollector.read[this.type, BuffersUpdater]
+
   "event stream consumption" should {
     "populate the in-memory buffers using the transaction log updates subscription" in {
       val (queue, source) = Source
@@ -62,13 +66,13 @@ final class BuffersUpdaterSpec
       }
       val contractStateMock = scala.collection.mutable.ArrayBuffer.empty[ContractStateEvent]
 
-      val buffersUpdater = new BuffersUpdater(
+      val buffersUpdater = BuffersUpdater(
         subscribeToTransactionLogUpdates = { (_, _) => source },
         updateTransactionsBuffer = updateTransactionsBufferMock,
         toContractStateEvents = Map(updateMock -> contractStateEventMocks.iterator),
         updateMutableCache = contractStateMock += _,
         minBackoffStreamRestart = 10.millis,
-        _ => fail("should not be triggered"),
+        sysExitWithCode = _ => fail("should not be triggered"),
       )(materializer, loggingContext, scala.concurrent.ExecutionContext.global)
 
       queue.offer((someOffset, someEventSeqId) -> updateMock) shouldBe QueueOfferResult.Enqueued
@@ -120,13 +124,13 @@ final class BuffersUpdaterSpec
         ()
       }
 
-      val buffersUpdater = new BuffersUpdater(
+      val buffersUpdater = BuffersUpdater(
         subscribeToTransactionLogUpdates = sourceSubscriptionFixture,
         updateTransactionsBuffer = updateTransactionsBufferMock,
         toContractStateEvents = Map.empty.withDefaultValue(Iterator.empty),
         updateMutableCache = _ => (),
         minBackoffStreamRestart = 1.millis,
-        _ => fail("should not be triggered"),
+        sysExitWithCode = _ => fail("should not be triggered"),
       )(materializer, loggingContext, scala.concurrent.ExecutionContext.global)
 
       eventually {
@@ -153,17 +157,22 @@ final class BuffersUpdaterSpec
 
       val shutdownCodeCapture = new AtomicInteger(Integer.MIN_VALUE)
 
-      new BuffersUpdater(
+      BuffersUpdater(
         subscribeToTransactionLogUpdates = sourceSubscriptionFixture,
         updateTransactionsBuffer = updateTransactionsBufferMock,
         toContractStateEvents = Map.empty,
         updateMutableCache = _ => (),
         minBackoffStreamRestart = 1.millis,
-        shutdownCodeCapture.set,
+        sysExitWithCode = shutdownCodeCapture.set,
       )(materializer, loggingContext, scala.concurrent.ExecutionContext.global)
 
       eventually {
         shutdownCodeCapture.get() shouldBe 1
+        val (lastErrorLevel, lastError) = readLog().last
+        lastErrorLevel shouldBe Level.ERROR
+        lastError should startWith(
+          "The transaction log updates stream encountered a non-recoverable error and will shutdown"
+        )
       }
     }
   }
@@ -225,6 +234,25 @@ final class BuffersUpdaterSpec
         exerciseArgument = null,
         exerciseResult = null,
       )
+      val createdEvent = TransactionLogUpdate.CreatedEvent(
+        contractId = createdCid,
+        eventOffset = createdOffset,
+        transactionId = null,
+        nodeIndex = 0,
+        eventSequentialId = createdEventSeqId,
+        eventId = null,
+        ledgerEffectiveTime = createdLedgerEffectiveTime,
+        templateId = createdTemplateId,
+        commandId = null,
+        workflowId = null,
+        contractKey = Some(createdContractKey),
+        treeEventWitnesses = Set("bob"), // Unused in ContractStateEvent
+        flatEventWitnesses = createdFlatEventWitnesses,
+        createArgument = createArgument,
+        createSignatories = null,
+        createObservers = null,
+        createAgreementText = Some(createAgreement),
+      )
       val transaction = TransactionLogUpdate.Transaction(
         transactionId = "some-tx-id",
         commandId = "some-cmd-id",
@@ -232,25 +260,7 @@ final class BuffersUpdaterSpec
         effectiveAt = Instant.EPOCH,
         offset = Offset.beforeBegin,
         events = Vector(
-          TransactionLogUpdate.CreatedEvent(
-            contractId = createdCid,
-            eventOffset = createdOffset,
-            transactionId = null,
-            nodeIndex = 0,
-            eventSequentialId = createdEventSeqId,
-            eventId = null,
-            ledgerEffectiveTime = createdLedgerEffectiveTime,
-            templateId = createdTemplateId,
-            commandId = null,
-            workflowId = null,
-            contractKey = Some(createdContractKey),
-            treeEventWitnesses = Set("bob"), // Unused in ContractStateEvent
-            flatEventWitnesses = createdFlatEventWitnesses,
-            createArgument = createArgument,
-            createSignatories = null,
-            createObservers = null,
-            createAgreementText = Some(createAgreement),
-          ),
+          createdEvent,
           consumingExercise,
           consumingExercise.copy(
             consuming = false, // Non-consuming exercise should not appear in ContractStateEvents

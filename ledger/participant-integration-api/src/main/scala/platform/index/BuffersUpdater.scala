@@ -24,26 +24,22 @@ import scala.util.control.NonFatal
 
 /** Creates and manages a subscription to a transaction log updates source
   * (see [[com.daml.platform.store.dao.LedgerDaoTransactionsReader.getTransactionLogUpdates]]
-  * and uses for updating:
+  * and uses it for updating:
   *    * The transactions buffer used for in-memory Ledger API serving.
   *    * The mutable contract state cache.
   *
   * @param subscribeToTransactionLogUpdates Subscribe to the transaction log updates stream starting at a specific
   *                                         `(Offset, EventSequentialId)`.
-  * @param updateTransactionsBuffer Trigger externally the update of the transactions buffer.
-  * @param toContractStateEvents Converts [[TransactionLogUpdate]]s to [[ContractStateEvent]]s.
-  * @param updateMutableCache Trigger externally the update of the mutable contract state cache.
-  *                           (see [[com.daml.platform.store.cache.MutableCacheBackedContractStore]])
+  * @param updateCaches Takes a `(Offset, TransactionLogUpdate)` pair and uses it to update the caches/buffers.
   * @param minBackoffStreamRestart Minimum back-off before restarting the transaction log updates stream.
+  * @param sysExitWithCode Triggers a system exit (i.e. `sys.exit`) with a specific exit code.
   * @param mat The Akka materializer.
   * @param loggingContext The logging context.
   * @param executionContext The execution context.
   */
 private[index] class BuffersUpdater(
     subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
-    updateTransactionsBuffer: (Offset, TransactionLogUpdate) => Unit,
-    toContractStateEvents: TransactionLogUpdate => Iterator[ContractStateEvent],
-    updateMutableCache: ContractStateEvent => Unit,
+    updateCaches: (Offset, TransactionLogUpdate) => Unit,
     minBackoffStreamRestart: FiniteDuration,
     sysExitWithCode: Int => Unit,
 )(implicit mat: Materializer, loggingContext: LoggingContext, executionContext: ExecutionContext)
@@ -61,7 +57,7 @@ private[index] class BuffersUpdater(
         RestartSettings(
           minBackoff = minBackoffStreamRestart,
           maxBackoff = 10.seconds,
-          randomFactor = 0.2,
+          randomFactor = 0.0,
         )
       )(() => subscribeToTransactionLogUpdates.tupled(updaterIndex.get))
       .map { case ((offset, eventSequentialId), update) =>
@@ -88,19 +84,6 @@ private[index] class BuffersUpdater(
       sysExitWithCode(1)
   }
 
-  private def updateCaches(
-      offset: Offset,
-      transactionLogUpdate: TransactionLogUpdate,
-  ): Unit = {
-    updateTransactionsBuffer(offset, transactionLogUpdate)
-
-    toContractStateEvents(transactionLogUpdate)
-      .foreach { contractStateEvent =>
-        updateMutableCache(contractStateEvent)
-        contractStateEvent
-      }
-  }
-
   override def close(): Unit = {
     transactionLogUpdatesKillSwitch.shutdown()
 
@@ -112,21 +95,40 @@ private[index] object BuffersUpdater {
   type SubscribeToTransactionLogUpdates =
     (Offset, Long) => Source[((Offset, Long), TransactionLogUpdate), NotUsed]
 
+  /** [[BuffersUpdater]] convenience builder.
+    *
+    * @param subscribeToTransactionLogUpdates Subscribe to the transaction log updates stream starting at a specific
+    *                                         `(Offset, EventSequentialId)`.
+    * @param updateTransactionsBuffer Trigger externally the update of the transactions buffer.
+    * @param updateMutableCache Trigger externally the update of the mutable contract state cache.
+    *                           (see [[com.daml.platform.store.cache.MutableCacheBackedContractStore]])
+    * @param toContractStateEvents Converts [[TransactionLogUpdate]]s to [[ContractStateEvent]]s.
+    * @param minBackoffStreamRestart Minimum back-off before restarting the transaction log updates stream.
+    * @param sysExitWithCode Triggers a system exit (i.e. `sys.exit`) with a specific exit code.
+    * @param mat The Akka materializer.
+    * @param loggingContext The logging context.
+    * @param executionContext The execution context.
+    */
   def apply(
       subscribeToTransactionLogUpdates: SubscribeToTransactionLogUpdates,
       updateTransactionsBuffer: (Offset, TransactionLogUpdate) => Unit,
       updateMutableCache: ContractStateEvent => Unit,
+      toContractStateEvents: TransactionLogUpdate => Iterator[ContractStateEvent] =
+        convertToContractStateEvents,
+      minBackoffStreamRestart: FiniteDuration = 100.millis,
+      sysExitWithCode: Int => Unit = sys.exit(_),
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
       executionContext: ExecutionContext,
   ): BuffersUpdater = new BuffersUpdater(
     subscribeToTransactionLogUpdates = subscribeToTransactionLogUpdates,
-    updateTransactionsBuffer = updateTransactionsBuffer,
-    toContractStateEvents = convertToContractStateEvents,
-    updateMutableCache = updateMutableCache,
-    minBackoffStreamRestart = 100.millis,
-    sys.exit(_),
+    updateCaches = (offset, transactionLogUpdate) => {
+      updateTransactionsBuffer(offset, transactionLogUpdate)
+      toContractStateEvents(transactionLogUpdate).foreach(updateMutableCache)
+    },
+    minBackoffStreamRestart = minBackoffStreamRestart,
+    sysExitWithCode = sysExitWithCode,
   )
 
   private[index] def convertToContractStateEvents(
