@@ -397,11 +397,11 @@ server_conformance_test(
     ],
 )
 
-# TODO https://github.com/digital-asset/daml/issues/8020
-# Drop/modify once exceptions are out of 1.dev
 server_conformance_test(
     name = "conformance-test-exceptions",
-    lf_versions = ["dev"],
+    # TODO https://github.com/digital-asset/daml/issues/8020
+    # Switch to "stable" once LF 1.14 is released.
+    lf_versions = ["preview"],
     server_args = [
         "--wall-clock-time",
         "--contract-id-seeding=testing-weak",
@@ -413,12 +413,11 @@ server_conformance_test(
     ],
 )
 
-# TODO https://github.com/digital-asset/daml/issues/8020
-# TODO append-only: only for temporary testing
-# Drop/modify once exceptions are out of 1.dev
 server_conformance_test(
     name = "conformance-test-exceptions-append-only",
-    lf_versions = ["dev"],
+    # TODO https://github.com/digital-asset/daml/issues/8020
+    # Switch to "stable" once LF 1.14 is released.
+    lf_versions = ["preview"],
     server_args = [
         "--wall-clock-time",
         "--contract-id-seeding=testing-weak",
