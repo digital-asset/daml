@@ -63,14 +63,20 @@ private[dao] object SqlFunctions {
     // TODO https://github.com/digital-asset/daml/issues/9493
     // This is likely extremely inefficient due to the multiple full tablescans on unindexed varray column
     override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String =
-      parties
-        .map(party => s"('$party') IN (SELECT * FROM TABLE($arrayColumn))")
-        .mkString("(", " or ", ")")
+      s"""JSON_EXISTS($arrayColumn, '$$[*]?(@ in ("${parties.mkString("\", \"")}"))')"""
 
-    override def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
-      s"CAST(MULTISET(select unique $arrayColumn.* FROM TABLE($arrayColumn) $arrayColumn intersect select * from TABLE(VARCHAR_ARRAY(${format(parties)}))) as VARCHAR_ARRAY)"
 
-    override def toArray(value: String) = s"VARCHAR_ARRAY('$value')"
+
+    override def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String = {
+    val res = s"""(select json_arrayagg(value) from (select value
+        |from json_table($arrayColumn, '$$[*]' columns (value PATH '$$'))
+        |where ${parties.map {party => s"value = '$party'"}.mkString(" or ")}))
+        |""".stripMargin
+      println("array intersection values", res)
+      res
+    }
+
+    override def toArray(value: String) = s"""'["$value"]'"""
 
     override def limitClause(numRows: Int) = s"fetch next $numRows rows only"
 

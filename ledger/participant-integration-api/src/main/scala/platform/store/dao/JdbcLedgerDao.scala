@@ -64,6 +64,8 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
+import spray.json._
+import spray.json.DefaultJsonProtocol._
 
 private final case class ParsedPartyData(
     party: String,
@@ -1374,6 +1376,7 @@ private[platform] object JdbcLedgerDao {
       ()
     }
 
+
     override protected[JdbcLedgerDao] def prepareCompletionInsert(
         submitterInfo: SubmitterInfo,
         offset: Offset,
@@ -1381,8 +1384,7 @@ private[platform] object JdbcLedgerDao {
         recordTime: Instant,
     ): SimpleSql[Row] = {
       import com.daml.platform.store.OracleArrayConversions._
-      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
-        .toArray[String]}, ${submitterInfo.commandId}, $transactionId)"
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs.toJson.compactPrint}, ${submitterInfo.commandId}, $transactionId)"
     }
 
     override protected[JdbcLedgerDao] def prepareRejectionInsert(
@@ -1392,8 +1394,7 @@ private[platform] object JdbcLedgerDao {
         reason: RejectionReason,
     ): SimpleSql[Row] = {
       import com.daml.platform.store.OracleArrayConversions._
-      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
-        .toArray[String]}, ${submitterInfo.commandId}, ${reason.code.value()}, ${reason.description})"
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs.toJson.compactPrint}, ${submitterInfo.commandId}, ${reason.code.value()}, ${reason.description})"
     }
 
     // spaces which are subsequently trimmed left only for readability

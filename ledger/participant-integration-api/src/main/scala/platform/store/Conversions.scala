@@ -6,7 +6,6 @@ package com.daml.platform.store
 import java.sql.{Connection, JDBCType, PreparedStatement, Timestamp, Types}
 import java.time.Instant
 import java.util.Date
-
 import anorm.Column.nonNull
 import anorm._
 import com.daml.ledger.EventId
@@ -19,12 +18,32 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value
 import com.zaxxer.hikari.pool.HikariProxyConnection
 import io.grpc.Status.Code
-
+import spray.json._
+import DefaultJsonProtocol._
+import java.io.BufferedReader
 import scala.language.implicitConversions
 
 private[platform] object OracleArrayConversions {
   import oracle.jdbc.OracleConnection
+  implicit object PartyJsonFormat extends RootJsonFormat[Party] {
+    def write(c: Party) =
+      JsString(c)
 
+    def read(value: JsValue) = value match {
+      case JsString(s) => s.asInstanceOf[Party]
+      case _ => deserializationError("Party expected")
+    }
+  }
+
+  implicit object LedgerStringJsonFormat extends RootJsonFormat[Ref.LedgerString] {
+    def write(c: Ref.LedgerString) =
+      JsString(c)
+
+    def read(value: JsValue) = value match {
+      case JsString(s) => s.asInstanceOf[Ref.LedgerString]
+      case _ => deserializationError("Ledger string expected")
+    }
+  }
   implicit object StringArrayParameterMetadata extends ParameterMetaData[Array[String]] {
     override def sqlType: String = "ARRAY"
     override def jdbcType: Int = java.sql.Types.ARRAY
@@ -209,12 +228,43 @@ private[platform] object Conversions {
   // booleans are stored as BigDecimal 0/1 in oracle, need to do implicit conversion when reading from db
   implicit val bigDecimalColumnToBoolean: Column[Boolean] = nonNull { (value, meta) =>
     val MetaDataItem(qualified, _, _) = meta
+
     value match {
       case bd: java.math.BigDecimal => Right(bd.equals(new java.math.BigDecimal(1)))
       case bool: Boolean => Right(bool)
       case _ => Left(TypeDoesNotMatch(s"Cannot convert $value: to Boolean for column $qualified"))
     }
   }
+  object DefaultImplicitArrayColumn {
+    val default = Column.of[Array[String]]
+  }
+
+
+  object ArrayColumnToStringArray {
+    implicit val arrayColumnToStringArray: Column[Array[String]] = nonNull { (value, meta) =>
+
+      DefaultImplicitArrayColumn.default(value, meta) match {
+        case Right(value) => Right(value)
+        case Left(_) =>
+          val MetaDataItem(qualified, _, _) = meta
+          value match {
+            case jsonArrayString: String => Right(jsonArrayString.parseJson.convertTo[Array[String]])
+            case arry: java.sql.Array => Right(arry.getArray.asInstanceOf[Array[String]])
+            case clob: java.sql.Clob =>
+              try {
+                val reader = clob.getCharacterStream
+                val jsonArrayString = LazyList.continually(new BufferedReader(reader).readLine()).takeWhile(_ != null).mkString("")
+                Right(jsonArrayString.parseJson.convertTo[Array[String]])
+              }
+              catch  {
+                case _: Throwable => Left(TypeDoesNotMatch(s"Cannot convert $value: received CLOB but couuld not convert to string array for column $qualified"))
+              }
+            case _ => Left(TypeDoesNotMatch(s"Cannot convert $value: to string array for column $qualified"))
+          }
+      }
+    }
+  }
+
 
   // PackageId
 

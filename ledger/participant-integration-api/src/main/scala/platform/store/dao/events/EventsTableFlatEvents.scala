@@ -182,7 +182,7 @@ private[events] object EventsTableFlatEvents {
       filter: FilterRelation,
       pageSize: Int,
   ): SqlSequence[Vector[EventsTable.Entry[Raw.FlatEvent]]] =
-    getActiveContractsQueries(sqlFunctions)(
+    getActiveContractsQueries(sqlFunctions).apply(
       range,
       filter,
       pageSize,

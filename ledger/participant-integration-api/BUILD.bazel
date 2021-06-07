@@ -73,6 +73,7 @@ scala_compile_deps = [
     "@maven//:org_scala_lang_modules_scala_collection_compat",
     "@maven//:org_scala_lang_modules_scala_java8_compat",
     "@maven//:org_scalaz_scalaz_core",
+    "@maven//:io_spray_spray_json",
 ]
 
 runtime_deps = [
@@ -296,7 +297,9 @@ da_scala_test_suite(
     ],
     jvm_flags = [
         "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
-    ],
+        "-Doracle.jdbc.Trace=true",
+        "-Djava.util.logging.config.file=/Users/danielporter/daml/ledger/participant-integration-api/src/test/resources/OracleLog.properties"
+],
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",

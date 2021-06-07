@@ -6,29 +6,21 @@ package com.daml.platform.store.dao.events
 import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
-
 import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
 import anorm.{RowParser, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
-import com.daml.ledger.api.v1.transaction.{
-  TreeEvent,
-  Transaction => ApiTransaction,
-  TransactionTree => ApiTransactionTree,
-}
-import com.daml.ledger.api.v1.transaction_service.{
-  GetFlatTransactionResponse,
-  GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsResponse,
-}
+import com.daml.ledger.api.v1.transaction.{TreeEvent, Transaction => ApiTransaction, TransactionTree => ApiTransactionTree}
+import com.daml.ledger.api.v1.transaction_service.{GetFlatTransactionResponse, GetTransactionResponse, GetTransactionTreesResponse, GetTransactionsResponse}
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.daml.platform.index.TransactionConversion
 import com.daml.platform.store.Conversions.{identifier, instant, offset}
 import com.daml.platform.store.DbType
 import com.google.protobuf.timestamp.Timestamp
+
+
 
 private[events] abstract class EventsTable {
 
@@ -45,6 +37,8 @@ private[events] object EventsTable {
   private type SharedRow =
     Offset ~ String ~ Int ~ Long ~ String ~ String ~ Instant ~ Identifier ~ Option[String] ~
       Option[String] ~ Array[String]
+
+  import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
 
   private val sharedRow: RowParser[SharedRow] =
     offset("event_offset") ~
@@ -151,6 +145,7 @@ private[events] object EventsTable {
     def toGetActiveContractsResponse(
         events: Vector[Entry[Event]]
     ): Vector[GetActiveContractsResponse] = {
+      println("all events returned", events)
       events.map {
         case entry if entry.event.isCreated =>
           GetActiveContractsResponse(

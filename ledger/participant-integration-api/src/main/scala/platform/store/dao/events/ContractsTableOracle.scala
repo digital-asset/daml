@@ -12,13 +12,29 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.store.dao.events.ContractsTable.Executable
 import com.daml.platform.store.serialization.Compression
 import com.daml.platform.store.OracleArrayConversions._
+import spray.json._
+import spray.json.DefaultJsonProtocol._
 
 object ContractsTableOracle extends ContractsTable {
 
   private val insertContractQuery: String =
     s"""insert /*+ ignore_row_on_dupkey_index(participant_contracts(contract_id)) */
-       | into participant_contracts (contract_id, template_id, create_argument, create_argument_compression, create_ledger_effective_time, create_key_hash, create_stakeholders)
-       | values ({contract_id}, {template_id}, {create_argument}, {create_argument_compression}, {create_ledger_effective_time}, {create_key_hash}, {create_stakeholders})""".stripMargin
+       | into participant_contracts (
+       |  contract_id,
+       |  template_id,
+       |  create_argument,
+       |  create_argument_compression,
+       |  create_ledger_effective_time,
+       |  create_key_hash,
+       |  create_stakeholders)
+       | values (
+       |  {contract_id},
+       |  {template_id},
+       |  {create_argument},
+       |  {create_argument_compression},
+       |  {create_ledger_effective_time},
+       |  {create_key_hash},
+       |  {create_stakeholders})""".stripMargin
 
   override def toExecutables(
       info: TransactionIndexing.ContractsInfo,
@@ -43,7 +59,7 @@ object ContractsTableOracle extends ContractsTable {
       "template_id" -> templateId,
       "create_argument" -> createArgument,
       "create_ledger_effective_time" -> ledgerEffectiveTime,
-      "create_stakeholders" -> stakeholders.toArray[String],
+      "create_stakeholders" -> stakeholders.toJson.compactPrint,
       "create_key_hash" -> key.map(_.hash),
       "create_argument_compression" -> createArgumentCompression.id,
     )
