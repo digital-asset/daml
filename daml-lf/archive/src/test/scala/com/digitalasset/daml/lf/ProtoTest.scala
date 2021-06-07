@@ -8,7 +8,7 @@ import java.util.zip.ZipFile
 
 import com.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.{daml_lf_1_6, daml_lf_1_7, daml_lf_1_8}
-import com.daml.{daml_lf_1_12, daml_lf_1_13, daml_lf_dev}
+import com.daml.{daml_lf_1_12, daml_lf_1_13, daml_lf_1_14, daml_lf_dev}
 import com.google.protobuf.CodedInputStream
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.Assertion
@@ -307,6 +307,51 @@ class ProtoTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks
           "daml_lf.proto",
           "2038b49e33825c4730b0119472073f3d5da9b0bd3df2f6d21d9d338c04a49c47",
           "3a00793bbb591746778b13994ba1abb1763dad0612bbdafd88d97f250da37d7d",
+        ),
+      )
+
+      forEvery(files) { case (fileName, linuxHash, windowsHash) =>
+        List(linuxHash, windowsHash) should contain(hashFile(resolve(fileName)))
+      }
+    }
+  }
+
+  "daml_lf_1_14.DamlLf" should {
+    "read dalf" in {
+      decodeTestWrapper(
+        darFile,
+        { cis =>
+          val archive = daml_lf_1_14.DamlLf.Archive.parseFrom(cis)
+          val payload = daml_lf_1_14.DamlLf.ArchivePayload.parseFrom(archive.getPayload)
+          payload.hasDamlLf1 shouldBe true
+        },
+      )
+    }
+  }
+
+  "daml_lf_1_14 files" should {
+
+    // Do not change this test.
+    // The test checks the snapshot of the proto definition are not modified.
+
+    val rootDir = "daml-lf/archive/src/main/protobuf/com/daml/daml_lf_1_14"
+
+    def resolve(file: String) =
+      resource(rlocation(s"$rootDir/$file"))
+
+    "not be modified" in {
+
+      val files = Table(
+        ("file", "Linux hash", "windows hash"),
+        (
+          "daml_lf_1.proto",
+          "500eefd480e9af6940adf12e7ec4c2cf4975d4cb9b25096c15edb0d57d364de8",
+          "13254e65dba50ab348964aadf5e13348ab35e09dc166d7d95d2e54357a457a6b",
+        ),
+        (
+          "daml_lf.proto",
+          "455dfb894ce9648a86dadb408d1ee96c36d180e0f1d625706371ea9eca95c767",
+          "0dbd4947753cab68ce8ebab9cfeb0c286a1bf948186429964cbeb9cc9f7ef0dd",
         ),
       )
 
