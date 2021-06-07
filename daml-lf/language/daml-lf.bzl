@@ -55,9 +55,7 @@ LF_VERSIONS = [
 ]
 
 # All LF versions for which we have protobufs.
-# TODO https://github.com/digital-asset/daml/issues/8020
-#     freeze LF 1.14 proto
-PROTO_LF_VERSIONS = [ver for ver in LF_VERSIONS if ver != "1.14"]
+PROTO_LF_VERSIONS = LF_VERSIONS
 
 # The subset of LF versions accepted by //daml-lf/encoder
 ENCODER_LF_VERSIONS = ["1.dev" if ver == "dev" else ver for ver in LF_VERSIONS]
