@@ -395,8 +395,7 @@ class TransactionSpec
     import Transaction._
     // TODO: https://github.com/digital-asset/daml/issues/9914
     // change to TransactionVersion.StableVersions.max LF 1.14 is released
-    val builder = TransactionBuilder(TransactionVersion.EarlyAccessVersions.max)
-    val dummyBuilder = TransactionBuilder(TransactionVersion.VDev)
+    val dummyBuilder = TransactionBuilder(TransactionVersion.EarlyAccessVersions.max)
     val parties = List("Alice")
     val tmplId = Ref.Identifier.assertFromString("-pkg-:Mod:T")
     def keyValue(s: String) = V.ValueText(s)
