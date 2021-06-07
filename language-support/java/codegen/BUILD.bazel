@@ -139,36 +139,6 @@ scala_source_jar(
     srcs = [],
 )
 
-[
-    [
-        dar_to_java(
-            name = "test-model-%s" % target,
-            src = "//daml-lf/encoder:testing-dar-%s" % target,
-            package_prefix = "test",
-        ),
-        java_test(
-            name = "tests-%s" % target,
-            srcs = glob([
-                "src/test/java/**/*ForAll*.java",
-                "src/test/java/**/*For%s*.java" % mangle_for_java(target),
-            ]),
-            test_class = "com.daml.testing.AllTestsFor%s" % mangle_for_java(target),
-            deps = [
-                ":test-model-%s.jar" % target,
-                "//language-support/java/bindings:bindings-java",
-                "@maven//:com_google_protobuf_protobuf_java",
-                "@maven//:org_junit_jupiter_junit_jupiter_api",
-                "@maven//:org_junit_jupiter_junit_jupiter_engine",
-                "@maven//:org_junit_platform_junit_platform_runner",
-            ],
-        ),
-    ]
-    # TODO https://github.com/digital-asset/daml/issues/8020
-    #     update test for LF 1.14
-    for target in COMPILER_LF_VERSIONS
-    if target != "1.14"
-]
-
 ########################################################
 ####  Integration Tests
 ########################################################
@@ -239,17 +209,6 @@ daml_compile(
 )
 
 daml_compile(
-    name = "integration-tests-model-1_13",
-    srcs = glob(
-        [
-            "src/it/daml/Tests/*.daml",
-            "src/it/daml/Tests/Lib1_113.daml",
-        ],
-    ),
-    target = "1.13",
-)
-
-daml_compile(
     name = "integration-tests-model-1_dev",
     srcs = glob(
         [
@@ -262,6 +221,27 @@ daml_compile(
 
 [
     [
+        dar_to_java(
+            name = "test-model-%s" % target,
+            src = "//daml-lf/encoder:testing-dar-%s" % target,
+            package_prefix = "test",
+        ),
+        java_test(
+            name = "tests-%s" % target,
+            srcs = glob([
+                "src/test/java/**/*ForAll*.java",
+                "src/test/java/**/*For%s*.java" % mangle_for_java(target),
+            ]),
+            test_class = "com.daml.testing.AllTestsFor%s" % mangle_for_java(target),
+            deps = [
+                ":test-model-%s.jar" % target,
+                "//language-support/java/bindings:bindings-java",
+                "@maven//:com_google_protobuf_protobuf_java",
+                "@maven//:org_junit_jupiter_junit_jupiter_api",
+                "@maven//:org_junit_jupiter_junit_jupiter_engine",
+                "@maven//:org_junit_platform_junit_platform_runner",
+            ],
+        ),
         #
         #
         # Compile the DAR files with and without a package to allow
@@ -296,7 +276,8 @@ daml_compile(
     # TODO https://github.com/digital-asset/daml/issues/8020
     #     update test for LF 1.14
     for target in COMPILER_LF_VERSIONS
-    if target != "1.14"
+    # we skip 1.13 and 1.14 as their serializable types are the same as 1.12
+    if target != "1.13" and target != "1.14"
 ]
 
 ########################################################
