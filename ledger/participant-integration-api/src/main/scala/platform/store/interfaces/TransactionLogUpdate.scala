@@ -18,7 +18,7 @@ import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequen
   * Used as data source template for in-memory fan-out buffers for Ledger API streams serving.
   * @see [[com.daml.platform.store.dao.LedgerDaoTransactionsReader.getTransactionLogUpdates()]]
   */
-trait TransactionLogUpdate extends Product with Serializable
+sealed trait TransactionLogUpdate extends Product with Serializable
 
 object TransactionLogUpdate {
 

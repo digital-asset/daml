@@ -11,7 +11,7 @@ import akka.stream.{KillSwitches, Materializer, RestartSettings, UniqueKillSwitc
 import akka.{Done, NotUsed}
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.v1.Offset
-import com.daml.ledger.resources.Resource
+import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
@@ -37,36 +37,20 @@ class MutableCacheBackedContractStore(
     metrics: Metrics,
     contractsReader: LedgerDaoContractsReader,
     signalNewLedgerHead: SignalNewLedgerHead,
-    subscribeToContractStateEvents: SubscribeToContractStateEvents,
     private[cache] val keyCache: StateCache[GlobalKey, ContractKeyStateValue],
     private[cache] val contractsCache: StateCache[ContractId, ContractStateValue],
-    minBackoffStreamRestart: FiniteDuration,
-)(implicit mat: Materializer, executionContext: ExecutionContext, loggingContext: LoggingContext)
-    extends ContractStore
-    with AutoCloseable {
+)(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
+    extends ContractStore {
 
   private val logger = ContextualizedLogger.get(getClass)
 
   private[cache] val cacheIndex = new CacheIndex()
 
-  private val (contractStateUpdateKillSwitch, contractStateUpdateDone) =
-    RestartSource
-      .withBackoff(
-        RestartSettings(
-          minBackoff = minBackoffStreamRestart,
-          maxBackoff = 10.seconds,
-          randomFactor = 0.2,
-        )
-      )(() =>
-        subscribeToContractStateEvents
-          .tupled(cacheIndex.get)
-          .wireTap(debugEvents(_))
-          .alsoTo(Sink.foreach(updateCaches))
-          .map(updateOffsets)
-      )
-      .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
-      .run()
+  def push(event: ContractStateEvent): Unit = {
+    debugEvents(event)
+    updateCaches(event)
+    updateOffsets(event)
+  }
 
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
       loggingContext: LoggingContext
@@ -290,12 +274,6 @@ class MutableCacheBackedContractStore(
           s"Ledger end reached: $eventOffset -> $eventSequentialId"
         )
     }
-
-  override def close(): Unit = {
-    contractStateUpdateKillSwitch.shutdown()
-
-    discard(Await.ready(contractStateUpdateDone, 10.seconds))
-  }
 }
 
 object MutableCacheBackedContractStore {
@@ -308,13 +286,10 @@ object MutableCacheBackedContractStore {
   private[cache] def apply(
       contractsReader: LedgerDaoContractsReader,
       signalNewLedgerHead: SignalNewLedgerHead,
-      subscribeToContractStateEvents: SubscribeToContractStateEvents,
       metrics: Metrics,
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
-      minBackoffStreamRestart: FiniteDuration = 100.millis,
   )(implicit
-      mat: Materializer,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): MutableCacheBackedContractStore =
@@ -322,21 +297,17 @@ object MutableCacheBackedContractStore {
       metrics,
       contractsReader,
       signalNewLedgerHead,
-      subscribeToContractStateEvents,
       ContractKeyStateCache(maxKeyCacheSize, metrics),
       ContractsStateCache(maxContractsCacheSize, metrics),
-      minBackoffStreamRestart,
     )
 
   def owner(
       contractsReader: LedgerDaoContractsReader,
       signalNewLedgerHead: Offset => Unit,
-      subscribeToContractStateEvents: SubscribeToContractStateEvents,
       metrics: Metrics,
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
   )(implicit
-      mat: Materializer,
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): Resource[MutableCacheBackedContractStore] =
@@ -344,12 +315,68 @@ object MutableCacheBackedContractStore {
       MutableCacheBackedContractStore(
         contractsReader,
         signalNewLedgerHead,
-        subscribeToContractStateEvents,
         metrics,
         maxContractsCacheSize,
         maxKeyCacheSize,
       )
     )
+
+  def ownerWithSubscription(
+      subscribeToContractStateEvents: SubscribeToContractStateEvents,
+      contractsReader: LedgerDaoContractsReader,
+      signalNewLedgerHead: Offset => Unit,
+      metrics: Metrics,
+      maxContractsCacheSize: Long,
+      maxKeyCacheSize: Long,
+      minBackoffStreamRestart: FiniteDuration = 100.millis,
+  )(implicit
+      materializer: Materializer,
+      loggingContext: LoggingContext,
+      executionContext: ExecutionContext,
+      resourceContext: ResourceContext,
+  ): Resource[MutableCacheBackedContractStore] = {
+
+    val contractStoreOwner = owner(
+      contractsReader = contractsReader,
+      signalNewLedgerHead = signalNewLedgerHead,
+      metrics = metrics,
+      maxContractsCacheSize = maxContractsCacheSize,
+      maxKeyCacheSize = maxKeyCacheSize,
+    )
+
+    val subscribingContractStoreOwner = (contractStore: MutableCacheBackedContractStore) =>
+      ResourceOwner.forCloseable[AutoCloseable](() =>
+        new AutoCloseable {
+          private val (contractStateUpdateKillSwitch, contractStateUpdateDone) =
+            RestartSource
+              .withBackoff(
+                RestartSettings(
+                  minBackoff = minBackoffStreamRestart,
+                  maxBackoff = 10.seconds,
+                  randomFactor = 0.2,
+                )
+              )(() =>
+                subscribeToContractStateEvents
+                  .tupled(contractStore.cacheIndex.get)
+                  .map(contractStore.push)
+              )
+              .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+              .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
+              .run()
+
+          override def close(): Unit = {
+            contractStateUpdateKillSwitch.shutdown()
+
+            discard(Await.ready(contractStateUpdateDone, 10.seconds))
+          }
+        }
+      )
+
+    for {
+      contractStore <- contractStoreOwner
+      _ <- subscribingContractStoreOwner(contractStore).acquire()
+    } yield contractStore
+  }
 
   final case class ContractNotFound(contractIds: Set[ContractId])
       extends IllegalArgumentException(

@@ -33,4 +33,6 @@ case class ApiServerConfig(
     maxContractStateCacheSize: Long,
     maxContractKeyStateCacheSize: Long,
     enableMutableContractStateCache: Boolean,
+    maxTransactionsInMemoryFanOutBufferSize: Long,
+    enableInMemoryFanOutForLedgerApi: Boolean,
 )

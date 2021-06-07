@@ -29,8 +29,8 @@ import scala.math.Ordering.Implicits.infixOrderingOps
   * @tparam O The offset type.
   * @tparam E The entry buffer type.
   */
-private[cache] final class EventsBuffer[O: Ordering, E](
-    maxBufferSize: Int,
+private[platform] final class EventsBuffer[O: Ordering, E](
+    maxBufferSize: Long,
     metrics: Metrics,
     bufferQualifier: String,
     isRangeEndMarker: E => Boolean,
@@ -67,7 +67,7 @@ private[cache] final class EventsBuffer[O: Ordering, E](
 
         // The range end markers are not appended to the buffer
         if (!isRangeEndMarker(entry)) {
-          if (auxBufferVector.size == maxBufferSize) {
+          if (auxBufferVector.size.toLong == maxBufferSize) {
             auxBufferVector = auxBufferVector.drop(1)
           }
           auxBufferVector = auxBufferVector :+ offset -> entry
