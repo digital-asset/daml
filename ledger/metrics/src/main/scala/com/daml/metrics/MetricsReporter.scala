@@ -3,12 +3,13 @@
 
 package com.daml.metrics
 
+import java.net.{InetSocketAddress, URI}
+import java.nio.file.{Files, Path, Paths}
+
 import com.codahale.metrics
 import com.codahale.metrics.{MetricRegistry, ScheduledReporter}
 import scopt.Read
 
-import java.net.{InetSocketAddress, URI}
-import java.nio.file.{Files, Path, Paths}
 import scala.util.control.NonFatal
 
 sealed abstract class MetricsReporter {
