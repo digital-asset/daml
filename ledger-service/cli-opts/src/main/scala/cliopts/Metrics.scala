@@ -12,6 +12,8 @@ import scala.util.Try
 object Metrics {
   private case class DurationFormat(unwrap: FiniteDuration)
 
+  // We're trying to parse the java duration first for backwards compatibility as
+  // removing it and only supporting the scala duration variant would be a breaking change.
   private implicit val scoptDurationFormat: scopt.Read[DurationFormat] = scopt.Read.reads {
     duration =>
       Try {
