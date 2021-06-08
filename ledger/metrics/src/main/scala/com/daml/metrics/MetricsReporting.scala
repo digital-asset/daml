@@ -43,7 +43,7 @@ final class MetricsReporting(
         .map(_.start())
       _ <- extraMetricsReporter.fold(Resource.unit) { reporter =>
         acquire(reporter.register(registry))
-          .map(_.start(extraMetricsReportingInterval.toNanos, TimeUnit.NANOSECONDS))
+          .map(_.start(extraMetricsReportingInterval.toSeconds, TimeUnit.SECONDS))
       }
       // Trigger a report to the SLF4J logger on shutdown.
       _ <- Resource(Future.successful(slf4JReporter))(reporter =>
