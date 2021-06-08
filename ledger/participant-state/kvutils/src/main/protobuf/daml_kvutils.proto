@@ -169,8 +169,8 @@ message DamlSubmitterInfo {
   // it holds that 
   //
   //    if (e1.record_time >= e0.record_time >= e1.record_time - e1.deduplication_duration) AND
-  //       (e0.command_id, e0.application_id, e0.submitters) == 
-  //       (e1.command_id, e1.application_id, e1.submitters)
+  //       (e0.command_id, e0.application_id, e0.submitters.toSet) == 
+  //       (e1.command_id, e1.application_id, e1.submitters.toSet)
   //    then e0.record_time + cdv0.deduplicate_until >= e1.record_time
   //
   // Note that the ledger MAY extend the deduplication_duration; e.g., to the 
@@ -477,10 +477,10 @@ message DamlRejectSubmissionRejectionEntry {
   DamlSubmitterInfo submitter_info = 1;
   
   oneof reason {
-    Duplicate duplicate_submission = 2;
+    GenerationMismatch generation_mismatch = 2;
     InvalidLedgerTime invalid_ledger_time = 3;
     DeduplicationDurationTooLarge deduplication_duration_too_large = 4;
-    GenerationMismatch generation_mismatch = 5;
+    Duplicate duplicate_submission = 5;
   } 
 }
 
