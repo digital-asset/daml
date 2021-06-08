@@ -266,9 +266,16 @@ abstract class CommonCliSpecBase(
       config shouldEqual None
     }
 
-    "parse the metrics reporting interval when given" in {
+    "parse the metrics reporting interval (java duration format) when given" in {
       checkOption(
         Array("--metrics-reporting-interval", "PT1M30S"),
+        _.copy(metricsReportingInterval = 90.seconds),
+      )
+    }
+
+    "parse the metrics reporting interval (scala duration format) when given" in {
+      checkOption(
+        Array("--metrics-reporting-interval", "1.5min"),
         _.copy(metricsReportingInterval = 90.seconds),
       )
     }
