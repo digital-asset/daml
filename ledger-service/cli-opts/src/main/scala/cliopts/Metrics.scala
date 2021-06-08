@@ -24,18 +24,18 @@ object Metrics {
       }
     }
 
-    val optMr =
+    val optionMetricsReporter =
       opt[MetricsReporter]("metrics-reporter")
         .action((reporter, config) => metricsReporter(_ => Some(reporter), config))
         .optional()
         .text(s"Start a metrics reporter. ${MetricsReporter.cliHint}")
-    hideIfRequested(optMr)
+    hideIfRequested(optionMetricsReporter)
 
-    val optFd =
+    val optionMetricsReportingInterval =
       opt[FiniteDuration]("metrics-reporting-interval")
         .action((interval, config) => metricsReportingInterval(_ => interval, config))
         .optional()
         .text("Set metric reporting interval.")
-    hideIfRequested(optFd)
+    hideIfRequested(optionMetricsReportingInterval)
   }
 }
