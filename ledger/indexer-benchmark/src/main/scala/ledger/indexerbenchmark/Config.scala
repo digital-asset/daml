@@ -4,6 +4,7 @@
 package com.daml.ledger.indexerbenchmark
 
 import java.time.Duration
+
 import com.daml.lf.data.Ref
 import com.daml.metrics.MetricsReporter
 import com.daml.platform.configuration.Readers._

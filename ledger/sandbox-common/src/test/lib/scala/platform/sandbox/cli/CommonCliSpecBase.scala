@@ -6,6 +6,8 @@ package com.daml.platform.sandbox.cli
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.file.{Files, Paths}
+import scala.concurrent.duration.DurationInt
+
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
@@ -19,7 +21,6 @@ import com.daml.ports.Port
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import scala.concurrent.duration.DurationInt
 
 import scala.jdk.CollectionConverters._
 

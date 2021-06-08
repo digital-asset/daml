@@ -3,12 +3,12 @@
 
 package com.daml.metrics
 
+import java.util.Collections
+import scala.jdk.CollectionConverters._
+
 import com.codahale.metrics.{MetricRegistry, Snapshot}
 import io.prometheus.client.Collector.MetricFamilySamples
 import io.prometheus.client.dropwizard.DropwizardExportsAccess
-
-import java.util.Collections
-import scala.jdk.CollectionConverters._
 
 final class ExtendedDropwizardExports(metricRegistry: MetricRegistry)
     extends DropwizardExportsAccess(metricRegistry) {

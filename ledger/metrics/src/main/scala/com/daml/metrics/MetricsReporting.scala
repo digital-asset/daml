@@ -3,14 +3,15 @@
 
 package com.daml.metrics
 
+import scala.concurrent.duration.Duration
+import java.util.concurrent.TimeUnit
+
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
 import com.codahale.metrics.{MetricRegistry, Reporter, Slf4jReporter}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 
-import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
-import scala.concurrent.duration.Duration
 
 /** Manages metrics and reporters.
   *

@@ -6,6 +6,7 @@ package com.daml.http
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
+
 import akka.stream.ThrottleMode
 import com.daml.util.ExceptionOps._
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -15,6 +16,7 @@ import scalaz.{Show, \/}
 
 import scala.concurrent.duration._
 import scala.util.Try
+
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.metrics.MetricsReporter

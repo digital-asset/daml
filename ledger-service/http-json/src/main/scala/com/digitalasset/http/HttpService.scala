@@ -76,6 +76,7 @@ object HttpService {
   ): Future[Error \/ ServerBinding] = {
 
     logger.info("HTTP Server pre-startup")
+
     import startSettings._
 
     implicit val settings: ServerSettings = ServerSettings(asys).withTransparentHeadRequests(true)
