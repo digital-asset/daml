@@ -109,7 +109,7 @@ class Endpoints(
         val t0 = System.nanoTime
         logger.trace(s"Incoming request on ${req.uri}")
         Timed
-          .future(metrics.daml.http_json_api.httpRequest, lcFhr(lc))
+          .future(metrics.daml.HttpJsonApi.httpRequest, lcFhr(lc))
           .map(res => {
             logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
             res

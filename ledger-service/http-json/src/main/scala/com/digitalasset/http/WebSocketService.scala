@@ -407,20 +407,20 @@ class WebSocketService(
     Flow[A]
       .watchTermination() { (_, future) =>
         discard { numConns.incrementAndGet }
-        metrics.daml.http_json_api.websocketRequest.inc()
+        metrics.daml.HttpJsonApi.websocketRequest.inc()
         logger.info(
           s"New websocket client has connected, current number of clients:${numConns.get()}"
         )
         future onComplete {
           case Success(_) =>
             discard { numConns.decrementAndGet }
-            metrics.daml.http_json_api.websocketRequest.dec()
+            metrics.daml.HttpJsonApi.websocketRequest.dec()
             logger.info(
               s"Websocket client has disconnected. Current number of clients: ${numConns.get()}"
             )
           case Failure(ex) =>
             discard { numConns.decrementAndGet }
-            metrics.daml.http_json_api.websocketRequest.dec()
+            metrics.daml.HttpJsonApi.websocketRequest.dec()
             logger.info(
               s"Websocket client interrupted on Failure: ${ex.getMessage}. remaining number of clients: ${numConns.get()}"
             )
