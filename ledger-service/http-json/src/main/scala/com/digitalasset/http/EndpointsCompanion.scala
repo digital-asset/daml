@@ -62,7 +62,7 @@ object EndpointsCompanion {
                   applicationId <- payload.applicationId
                     .toRightDisjunction(Unauthorized("applicationId missing in access token"))
                   actAs <- payload.actAs match {
-                    case p +: ps => \/-(NonEmptyList(p, ps: _*))
+                    case p +: ps => \/.r[Unauthorized](NonEmptyList(p, ps: _*))
                     case _ =>
                       -\/(Unauthorized(s"Expected one or more parties in actAs but got none"))
                   }

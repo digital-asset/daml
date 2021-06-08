@@ -218,8 +218,7 @@ object HttpService {
         .traverse { holder =>
           holder.refresh()
           holder.token
-            .map(\/-(_))
-            .getOrElse(-\/(PackageService.ServerError("Unable to load token")))
+            .toRightDisjunction(PackageService.ServerError("Unable to load token"))
         }
     )
 
@@ -234,7 +233,8 @@ object HttpService {
       packageClient: PackageClient,
       holderM: Option[TokenHolder],
   )(implicit ec: ExecutionContext): PackageService.ReloadPackageStore =
-    (ids: Set[String]) => refreshToken(holderM).flatMap(_.traverseM(doLoad(packageClient, ids, _)))
+    (ids: Set[String]) =>
+      refreshToken(holderM).flatMap(_.traverseM(doLoad(packageClient, ids, _))).widenLeftF
 
   // We can reuse the token we use for packages since both
   // require only public claims

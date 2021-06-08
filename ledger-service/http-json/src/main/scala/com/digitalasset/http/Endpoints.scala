@@ -20,6 +20,7 @@ import com.daml.lf
 import com.daml.http.ContractsService.SearchResult
 import com.daml.http.EndpointsCompanion._
 import com.daml.scalautil.Statement.discard
+import com.daml.scalautil.WidenEither._
 import com.daml.http.domain.{JwtPayload, JwtWritePayload, TemplateId}
 import com.daml.http.json._
 import com.daml.http.util.Collections.toNonEmptySet
@@ -31,6 +32,7 @@ import com.daml.ledger.api.{v1 => lav1}
 import com.daml.util.ExceptionOps._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
+import scalaz.syntax.show._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, IsCovariant, NonEmptyList, Show, \/, \/-}
 import spray.json._
@@ -223,7 +225,7 @@ class Endpoints(
         domain.SyncResponse.covariant.map(result) { source =>
           source
             .via(handleSourceFailure)
-            .map(_.flatMap(lfAcToJsValue).widenLeft): Source[Error \/ JsValue, NotUsed]
+            .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
         }
       }
     }
@@ -307,35 +309,26 @@ class Endpoints(
 
     } yield domain.OkResponse(())
 
-  private def handleFutureEitherFailure[B](fa: Future[(_ <: Error) \/ B])(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ B] = {
-    val wfa: Future[Error \/ B] = IsCovariant[* \/ B] substCo fa
-    wfa.recover { case NonFatal(e) =>
-      logger.error("Future failed", e)
-      -\/(ServerError(e.description))
-    }
-  }
-
-  private def handleFutureEitherFailure[A: Show, B](fa: Future[A \/ B])(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[ServerError \/ B] =
-    fa.map(_.liftErr(ServerError)).recover { case NonFatal(e) =>
+  private def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
+      A: IntoServerError[A],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+  ): Future[Error \/ B] =
+    fa.map(_ leftMap A.run).recover { case NonFatal(e) =>
       logger.error("Future failed", e)
       -\/(ServerError(e.description))
     }
 
-  private def handleFutureFailure[A](fa: Future[A])(implicit
+  private def handleFutureFailure[E >: ServerError, A](fa: Future[A])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[ServerError \/ A] =
-    fa.map(a => \/.r[ServerError](a)).recover { case NonFatal(e) =>
+  ): Future[E \/ A] =
+    fa.map(a => \/.r[E](a)).recover { case NonFatal(e) =>
       logger.error("Future failed", e)
       -\/(ServerError(e.description))
     }
 
   private def handleSourceFailure[E: Show, A](implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Flow[E \/ A, ServerError \/ A, NotUsed] =
+  ): Flow[E \/ A, Error \/ A, NotUsed] =
     Flow
       .fromFunction((_: E \/ A).liftErr(ServerError))
       .recover { case NonFatal(e) =>
@@ -441,13 +434,13 @@ class Endpoints(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Error \/ (Jwt, Source[ByteString, Any]) =
-    findJwt(req) match {
-      case e @ -\/(_) =>
+    findJwt(req).bimap(
+      { e =>
         discard { req.entity.discardBytes(mat) }
-        IsCovariant[* \/ (Jwt, Source[ByteString, Any])].widen(e.coerceRight)
-      case \/-(j) =>
-        \/-((j, req.entity.dataBytes))
-    }
+        e
+      },
+      j => (j, req.entity.dataBytes),
+    )
 
   private[this] def findJwt(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -495,7 +488,7 @@ class Endpoints(
           o.toRightDisjunction(InvalidUserInput(ErrorMessages.cannotResolveTemplateId(reference)))
         a.flatMap {
           case -\/((tpId, key)) => lfValueToApiValue(key).map(k => -\/((tpId, k)))
-          case a @ \/-((_, _)) => \/-(a)
+          case a @ \/-((_, _)) => \/-(a.coerceLeft)
         }
       }
 
@@ -530,6 +523,14 @@ object Endpoints {
   private type ApiValue = lav1.value.Value
 
   private type LfValue = lf.value.Value[lf.value.Value.ContractId]
+
+  private final class IntoServerError[-A](val run: A => Error) extends AnyVal
+  private object IntoServerError extends IntoServerErrorLow {
+    implicit val id: IntoServerError[Error] = new IntoServerError(identity)
+  }
+  private sealed abstract class IntoServerErrorLow {
+    implicit def shown[A: Show]: IntoServerError[A] = new IntoServerError(a => ServerError(a.shows))
+  }
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).liftErr(ServerError)

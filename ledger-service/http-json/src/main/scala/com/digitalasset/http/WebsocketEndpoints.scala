@@ -37,7 +37,7 @@ object WebsocketEndpoints {
       decodeJwt: ValidateJwt,
       req: WebSocketUpgrade,
       subprotocol: String,
-  ) =
+  ): Err \/ (Jwt, JwtPayload) =
     for {
       _ <- req.requestedProtocols.contains(subprotocol) either (()) or (Unauthorized(
         s"Missing required $tokenPrefix.[token] or $wsProtocol subprotocol"
@@ -73,7 +73,7 @@ class WebsocketEndpoints(
                   ): Error)
                   _ = logger.info(s"GOT $wsProtocol")
 
-                  payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
+                  payload <- preconnect[Error](decodeJwt, upgradeReq, wsProtocol)
                   (jwt, jwtPayload) = payload
                 } yield handleWebsocketRequest[domain.SearchForeverRequest](
                   jwt,
@@ -93,7 +93,7 @@ class WebsocketEndpoints(
                   upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> (InvalidUserInput(
                     s"Cannot upgrade client's connection to websocket"
                   ): Error)
-                  payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
+                  payload <- preconnect[Error](decodeJwt, upgradeReq, wsProtocol)
                   (jwt, jwtPayload) = payload
                 } yield handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
                   jwt,

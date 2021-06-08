@@ -58,7 +58,7 @@ class DomainJsonEncoder(
       ]
   ): JsonError \/ JsValue =
     for {
-      payload <- apiRecordToJsObject(cmd.payload): JsonError \/ JsValue
+      payload <- apiRecordToJsObject(cmd.payload).widenRight[JsValue]
       argument <- apiValueToJsValue(cmd.argument)
       y <- SprayJson.encode(cmd.copy(payload = payload, argument = argument)).liftErr(JsonError)
 

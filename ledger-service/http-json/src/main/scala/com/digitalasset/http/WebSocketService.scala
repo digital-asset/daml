@@ -36,6 +36,7 @@ import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
+import com.daml.scalautil.WidenEither._
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
 import scala.collection.compat._
@@ -155,7 +156,11 @@ object WebSocketService {
 
   sealed abstract class StreamQueryReader[A] {
     case class Query[Q](q: Q, alg: StreamQuery[Q])
-    def parse(resumingAtOffset: Boolean, decoder: DomainJsonDecoder, jv: JsValue): Error \/ Query[_]
+    def parse(
+        resumingAtOffset: Boolean,
+        decoder: DomainJsonDecoder,
+        jv: JsValue,
+    ): Error \/ (_ <: Query[_])
   }
 
   sealed trait StreamQuery[A] {
