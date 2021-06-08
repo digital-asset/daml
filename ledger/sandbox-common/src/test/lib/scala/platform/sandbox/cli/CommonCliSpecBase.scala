@@ -268,7 +268,7 @@ abstract class CommonCliSpecBase(
 
     "parse the metrics reporting interval when given" in {
       checkOption(
-        Array("--metrics-reporting-interval", "1.5m"),
+        Array("--metrics-reporting-interval", "PT1M30S"),
         _.copy(metricsReportingInterval = 90.seconds),
       )
     }
