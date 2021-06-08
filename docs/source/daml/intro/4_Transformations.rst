@@ -64,7 +64,7 @@ You exercise choices using the ``exercise`` function, which takes a ``ContractId
 
 ``exerciseCmd`` returns a ``Commands r`` where ``r`` is the return
 type specified on the choice, allowing the new ``ContractId Contact``
-to be stored in the variable ``new_contactCid``. Just like for
+to be stored in the variable ``newContactCid``. Just like for
 ``createCmd`` and ``create``, there is also ``exerciseCmd`` and
 ``exercise``. The versions with the ``cmd`` suffix is always used on
 the client side to build up the list of commands on the ledger. The

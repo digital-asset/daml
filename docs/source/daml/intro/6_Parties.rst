@@ -69,7 +69,7 @@ Note how we have used the fact that templates are records here to store the ``Io
   :start-after: -- IOU_PROPOSAL_SCENARIO_BEGIN
   :end-before: -- IOU_PROPOSAL_SCENARIO_END
 
-The ``IouProposal`` contract carries the authorithy of ``iou.issuer`` by virtue of them being a signatory. By exercising the ``IouProposal_Accept`` choice, Bob adds his authority to that of Alice, which is why an ``Iou`` with both signatories can be created in the context of that choice.
+The ``IouProposal`` contract carries the authority of ``iou.issuer`` by virtue of them being a signatory. By exercising the ``IouProposal_Accept`` choice, Bob adds his authority to that of Alice, which is why an ``Iou`` with both signatories can be created in the context of that choice.
 
 The choice is called ``IouProposal_Accept``, not ``Accept``, because propose-accept patterns are very common. In fact, you'll see another one just below. As each choice defines a record type, you cannot have two choices of the same name in scope. It's a good idea to qualify choice names to ensure uniqueness.
 
