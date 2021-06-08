@@ -220,11 +220,13 @@ object WebSocketService {
             (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
           }
         def fn(a: domain.ActiveContract[LfV], o: Option[domain.Offset]): Option[Positive] = {
+          import domain.Offset.ordering
+          import scalaz.syntax.order._
           q.get(a.templateId).flatMap { preds =>
             preds.collect(Function unlift { case ((_, p), ix) =>
               val matchesPredicate = p(a.payload)
               val matchesOffset = indexedOffsets(ix).flatMap(q => o.map((_, q))).fold(true) {
-                case (o, q) => domain.Offset.ordering.greaterThan(o, q)
+                case (o, q) => o > q
               }
               (matchesPredicate && matchesOffset).option(ix)
             })
