@@ -17,12 +17,11 @@ object Metrics {
   ): Unit = {
     import parser.opt
 
-    def hideIfRequested[A](opt: OptionDef[A, C]): Unit = {
+    def hideIfRequested[A](opt: OptionDef[A, C]): Unit =
       if (hide) {
         opt.hidden()
         ()
       }
-    }
 
     val optionMetricsReporter =
       opt[MetricsReporter]("metrics-reporter")
