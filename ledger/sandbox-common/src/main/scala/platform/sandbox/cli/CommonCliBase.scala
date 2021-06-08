@@ -302,7 +302,7 @@ class CommonCliBase(name: LedgerName) {
 
       com.daml.cliopts.Metrics.metricsReporterParse(this)(
         (setter, config) => config.copy(metricsReporter = setter(config.metricsReporter)),
-        (f, c) => c.copy(metricsReportingInterval = f(c.metricsReportingInterval)),
+        (setter, config) => config.copy(metricsReportingInterval = setter(config.metricsReportingInterval)),
       )
 
       help("help").text("Print the usage text")
