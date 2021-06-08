@@ -15,11 +15,11 @@ object Metrics {
   private implicit val scoptDurationFormat: scopt.Read[DurationFormat] = scopt.Read.reads {
     duration =>
       Try {
-        Duration(duration)
-      }.orElse(Try {
         Duration.fromNanos(
           java.time.Duration.parse(duration).toNanos
         )
+      }.orElse(Try {
+        Duration(duration)
       }).flatMap(duration =>
         Try {
           if (!duration.isFinite)
