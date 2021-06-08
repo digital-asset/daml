@@ -40,6 +40,7 @@ import scala.util.{Failure, Success}
 /** @param dispatcher Executes the queries prepared by this object
   * @param executionContext Runs transformations on data fetched from the database, including Daml-LF value deserialization
   * @param pageSize The number of events to fetch at a time the database when serving streaming calls
+  * @param decodeStateEventParallelism The parallelism for decoding state events
   * @param lfValueTranslation The delegate in charge of translating serialized Daml-LF values
   * @see [[PaginatingAsyncStream]]
   */
@@ -47,6 +48,7 @@ private[appendonlydao] final class TransactionsReader(
     dispatcher: DbDispatcher,
     dbType: DbType,
     pageSize: Int,
+    decodeStateEventParallelism: Int,
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
 )(implicit executionContext: ExecutionContext)
@@ -61,9 +63,6 @@ private[appendonlydao] final class TransactionsReader(
   // TransactionReader adds an Akka stream buffer at the end of all streaming queries.
   // This significantly improves the performance of the transaction service.
   private val outputStreamBufferSize = 128
-
-  // TODO: make this parameter configurable
-  private val ContractStateEventsStreamParallelismLevel = 4
 
   private val TransactionEventsFetchParallelism = 8
 
@@ -401,7 +400,7 @@ private[appendonlydao] final class TransactionsReader(
       query,
       nextPageRangeContracts(endInclusive),
     )(EventsRange(startExclusive, endInclusive)).async
-      .mapAsync(ContractStateEventsStreamParallelismLevel) { raw =>
+      .mapAsync(decodeStateEventParallelism) { raw =>
         Timed.future(
           metrics.daml.index.decodeStateEvent,
           Future(ContractStateEventsReader.toContractStateEvent(raw, lfValueTranslation)),

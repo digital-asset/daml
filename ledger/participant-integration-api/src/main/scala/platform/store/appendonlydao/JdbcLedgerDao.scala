@@ -92,6 +92,7 @@ private class JdbcLedgerDao(
     dbType: DbType,
     servicesExecutionContext: ExecutionContext,
     eventsPageSize: Int,
+    eventsDecodingParallelism: Int,
     performPostCommitValidation: Boolean,
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -914,7 +915,14 @@ private class JdbcLedgerDao(
     )
 
   override val transactionsReader: TransactionsReader =
-    new TransactionsReader(dbDispatcher, dbType, eventsPageSize, metrics, translation)(
+    new TransactionsReader(
+      dispatcher = dbDispatcher,
+      dbType = dbType,
+      pageSize = eventsPageSize,
+      decodeStateEventParallelism = eventsDecodingParallelism,
+      metrics = metrics,
+      lfValueTranslation = translation,
+    )(
       servicesExecutionContext
     )
 
@@ -1021,6 +1029,7 @@ private[platform] object JdbcLedgerDao {
       connectionPoolSize: Int,
       connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
+      eventsDecodingParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -1033,6 +1042,7 @@ private[platform] object JdbcLedgerDao {
       connectionPoolSize,
       connectionTimeout,
       eventsPageSize,
+      eventsDecodingParallelism,
       validate = false,
       servicesExecutionContext,
       metrics,
@@ -1049,6 +1059,7 @@ private[platform] object JdbcLedgerDao {
       connectionPoolSize: Int,
       connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
+      eventsDecodingParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -1063,6 +1074,7 @@ private[platform] object JdbcLedgerDao {
       dbType.maxSupportedWriteConnections(connectionPoolSize),
       connectionTimeout,
       eventsPageSize,
+      eventsDecodingParallelism,
       validate = false,
       servicesExecutionContext,
       metrics,
@@ -1081,6 +1093,7 @@ private[platform] object JdbcLedgerDao {
       connectionPoolSize: Int,
       connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
+      eventsDecodingParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -1096,6 +1109,7 @@ private[platform] object JdbcLedgerDao {
       dbType.maxSupportedWriteConnections(connectionPoolSize),
       connectionTimeout,
       eventsPageSize,
+      eventsDecodingParallelism,
       validate = true,
       servicesExecutionContext,
       metrics,
@@ -1158,6 +1172,7 @@ private[platform] object JdbcLedgerDao {
       connectionPoolSize: Int,
       connectionTimeout: FiniteDuration,
       eventsPageSize: Int,
+      eventsDecodingParallelism: Int,
       validate: Boolean,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
@@ -1183,6 +1198,7 @@ private[platform] object JdbcLedgerDao {
       dbType,
       servicesExecutionContext,
       eventsPageSize,
+      eventsDecodingParallelism,
       validate,
       metrics,
       lfValueTranslationCache,

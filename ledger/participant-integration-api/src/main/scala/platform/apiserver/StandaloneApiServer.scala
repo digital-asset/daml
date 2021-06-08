@@ -79,6 +79,7 @@ final class StandaloneApiServer(
           databaseConnectionPoolSize = config.databaseConnectionPoolSize,
           databaseConnectionTimeout = config.databaseConnectionTimeout,
           eventsPageSize = config.eventsPageSize,
+          eventsDecodingParallelism = config.eventsDecodingParallelism,
           servicesExecutionContext = servicesExecutionContext,
           metrics = metrics,
           lfValueTranslationCache = lfValueTranslationCache,
