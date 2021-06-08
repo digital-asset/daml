@@ -86,8 +86,8 @@ def mangle_for_java(name):
     return name.replace(".", "_")
 
 def _to_major_minor(v):
-    (majorStr, minorStr) = v.partition(".")
-    (int(majorStr), int(minorStr))
+    (majorStr, _, minorStr) = v.partition(".")
+    return (int(majorStr), int(minorStr))
 
 def _cmp(a, b):
     if a == b:
