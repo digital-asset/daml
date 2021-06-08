@@ -173,4 +173,5 @@ class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames
     (f, c) => c.copy(metricsReportingInterval = f(c.metricsReportingInterval)),
     hide = true,
   )
+
 }
