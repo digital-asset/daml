@@ -88,6 +88,9 @@ object MetricsReporter {
     }
   }
 
+  val cliHint: String =
+    """Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]"."""
+
   def parseUri(value: String): URI =
     try {
       new URI(value)
@@ -95,9 +98,6 @@ object MetricsReporter {
       case NonFatal(exception) =>
         throw new RuntimeException(cliHint, exception)
     }
-
-  val cliHint: String =
-    """Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]"."""
 
   private def invalidRead =
     new RuntimeException(cliHint)
