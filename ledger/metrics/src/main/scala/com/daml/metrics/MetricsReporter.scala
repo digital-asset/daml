@@ -93,7 +93,7 @@ object MetricsReporter {
       new URI(value)
     } catch {
       case NonFatal(exception) =>
-        throw new RuntimeException(cliHint + " " + exception.getMessage)
+        throw new RuntimeException(cliHint, exception)
     }
 
   val cliHint: String =
