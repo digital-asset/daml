@@ -7,7 +7,7 @@ import java.net.InetSocketAddress
 import java.util
 import java.util.concurrent.TimeUnit
 
-import com.codahale.metrics.{Timer, _}
+import com.codahale.metrics._
 import io.prometheus.client.CollectorRegistry
 import io.prometheus.client.dropwizard.DropwizardExports
 import io.prometheus.client.exporter.HTTPServer
