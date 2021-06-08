@@ -1,17 +1,15 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.sandbox.metrics
+package com.daml.metrics
 
-import java.time.Duration
+import scala.concurrent.duration.Duration
 import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
 import com.codahale.metrics.{MetricRegistry, Reporter, Slf4jReporter}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.metrics.{JvmMetricSet, Metrics}
-import com.daml.platform.configuration.MetricsReporter
 
 import scala.concurrent.Future
 
@@ -45,7 +43,7 @@ final class MetricsReporting(
         .map(_.start())
       _ <- extraMetricsReporter.fold(Resource.unit) { reporter =>
         acquire(reporter.register(registry))
-          .map(_.start(extraMetricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+          .map(_.start(extraMetricsReportingInterval.toSeconds, TimeUnit.SECONDS))
       }
       // Trigger a report to the SLF4J logger on shutdown.
       _ <- Resource(Future.successful(slf4JReporter))(reporter =>

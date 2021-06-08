@@ -18,7 +18,10 @@ import scalaz.std.option._
 import scalaz.syntax.show._
 import com.daml.cliopts.{GlobalLogLevel, Logging}
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
+import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+
+import com.daml.metrics.MetricsReporting
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -91,8 +94,18 @@ object Main {
     implicit val aesf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("clientPool")(asys)
     implicit val ec: ExecutionContext = asys.dispatcher
+    implicit val rc: ResourceContext = ResourceContext(ec)
+    val metricsReporting = new MetricsReporting(
+      getClass.getName,
+      config.metricsReporter,
+      config.metricsReportingInterval,
+    )
+    val metricsResource = metricsReporting.acquire()
 
-    def terminate(): Unit = discard { Await.result(asys.terminate(), 10.seconds) }
+    def terminate(): Unit = discard {
+      Await.result(metricsResource.release(), 10.seconds)
+      Await.result(asys.terminate(), 10.seconds)
+    }
 
     val contractDao = config.jdbcConfig.map(c => ContractDao(c.driver, c.url, c.user, c.password))
 
@@ -113,14 +126,20 @@ object Main {
       case _ =>
     }
 
-    val serviceF: Future[HttpService.Error \/ ServerBinding] =
-      HttpService.start(
-        startSettings = config,
-        contractDao = contractDao,
+    val serviceF: Future[HttpService.Error \/ ServerBinding] = {
+      metricsResource.asFuture.flatMap(implicit metrics =>
+        HttpService.start(
+          startSettings = config,
+          contractDao = contractDao,
+        )
       )
+    }
 
     discard {
       sys.addShutdownHook {
+        metricsResource
+          .release()
+          .onComplete(fa => logFailure("Error releasing metricsResource", fa))
         HttpService
           .stop(serviceF)
           .onComplete { fa =>
