@@ -9,6 +9,7 @@ import com.daml.lf.data.Ref
 import java.security.MessageDigest
 import scalaz.syntax.tag._
 
+// TODO append-only: move to store
 object DeduplicationKeyMaker {
   def make(commandId: domain.CommandId, submitters: List[Ref.Party]): String =
     commandId.unwrap + "%" + hashSubmitters(submitters.sorted(Ordering.String).distinct)

@@ -7,6 +7,7 @@ import java.sql.Connection
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1.{CommittedTransaction, RejectionReasonV0}
+import com.daml.platform.store.backend.{ContractStorageBackend, PartyStorageBackend}
 
 /** Performs post-commit validation on transactions for Sandbox Classic.
   * This is intended exclusively as a temporary replacement for
@@ -49,8 +50,10 @@ private[appendonlydao] object PostCommitValidation {
       None
   }
 
-  final class BackedBy(data: PostCommitValidationData, validatePartyAllocation: Boolean)
-      extends PostCommitValidation {
+  final class BackedBy(
+      dao: PartyStorageBackend with ContractStorageBackend,
+      validatePartyAllocation: Boolean,
+  ) extends PostCommitValidation {
 
     def validate(
         transaction: CommittedTransaction,
@@ -85,8 +88,8 @@ private[appendonlydao] object PostCommitValidation {
       if (referredContracts.isEmpty) {
         None
       } else {
-        data
-          .lookupMaximumLedgerTime(referredContracts)
+        dao
+          .maximumLedgerTime(referredContracts)(connection)
           .map(validateCausalMonotonicity(_, transactionLedgerEffectiveTime))
           .getOrElse(Some(UnknownContract))
       }
@@ -111,7 +114,7 @@ private[appendonlydao] object PostCommitValidation {
         transaction: CommittedTransaction
     )(implicit connection: Connection): Option[RejectionReasonV0] = {
       val informees = transaction.informees
-      val allocatedInformees = data.lookupParties(informees.toSeq).map(_.party)
+      val allocatedInformees = dao.parties(informees.toSeq)(connection).map(_.party)
       if (allocatedInformees.toSet == informees)
         None
       else
@@ -129,7 +132,7 @@ private[appendonlydao] object PostCommitValidation {
         transaction: CommittedTransaction
     )(implicit connection: Connection): Option[RejectionReasonV0] =
       transaction
-        .foldInExecutionOrder[Result](Right(State.empty(data)))(
+        .foldInExecutionOrder[Result](Right(State.empty(dao)))(
           exerciseBegin = (acc, _, exe) => {
             val newAcc = acc.flatMap(validateKeyUsages(exe, _))
             (newAcc, true)
@@ -201,13 +204,13 @@ private[appendonlydao] object PostCommitValidation {
     * @param rollbackStack Stack of states at the beginning of rollback nodes so we can
     *  restore the state at the end of the rollback. The most recent rollback
     *  comes first.
-    * @param data Data about committed contracts for post-commit validation purposes.
+    * @param dao Dao about committed contracts for post-commit validation purposes.
     *  This is never changed during the traversal of the transaction.
     */
   private final case class State(
       private val currentState: ActiveState,
       private val rollbackStack: List[ActiveState],
-      private val data: PostCommitValidationData,
+      private val dao: PartyStorageBackend with ContractStorageBackend,
   ) {
 
     def validateCreate(maybeKey: Option[Key], id: ContractId)(implicit
@@ -257,14 +260,14 @@ private[appendonlydao] object PostCommitValidation {
     private def lookup(key: Key)(implicit connection: Connection): Option[ContractId] =
       currentState.contracts.get(key.hash).orElse {
         if (currentState.removed(key.hash)) None
-        else data.lookupContractKeyGlobally(key)
+        else dao.contractKeyGlobally(key)(connection)
       }
 
   }
 
   private object State {
-    def empty(data: PostCommitValidationData): State =
-      State(ActiveState(Map.empty, Set.empty), Nil, data)
+    def empty(dao: PartyStorageBackend with ContractStorageBackend): State =
+      State(ActiveState(Map.empty, Set.empty), Nil, dao)
   }
 
   private[events] val DuplicateKey: RejectionReasonV0 =

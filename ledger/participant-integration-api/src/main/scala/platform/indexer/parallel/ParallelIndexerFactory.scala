@@ -257,7 +257,7 @@ object ParallelIndexerFactory {
       )
 
   def ingestTail[DB_BATCH](
-      ingestTailFunction: (Connection, StorageBackend.Params) => Unit,
+      ingestTailFunction: StorageBackend.Params => Connection => Unit,
       dbDispatcher: DbDispatcher,
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
@@ -267,12 +267,11 @@ object ParallelIndexerFactory {
       ) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
           ingestTailFunction(
-            connection,
             StorageBackend.Params(
               ledgerEnd = batch.lastOffset,
               eventSeqId = batch.lastSeqEventId,
-            ),
-          )
+            )
+          )(connection)
           metrics.daml.indexer.ledgerEndSequentialId.updateValue(batch.lastSeqEventId)
           metrics.daml.indexer.lastReceivedRecordTime.updateValue(batch.lastRecordTime)
           metrics.daml.indexer.lastReceivedOffset.updateValue(batch.lastOffset.toHexString)

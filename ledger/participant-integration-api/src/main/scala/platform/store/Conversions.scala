@@ -23,6 +23,8 @@ import java.io.BufferedReader
 import scala.language.implicitConversions
 import java.util.stream.Collectors
 
+// TODO append-only: split this file on cleanup, and move anorm/db conversion related stuff to the right place
+
 private[platform] object OracleArrayConversions {
   implicit object PartyJsonFormat extends RootJsonFormat[Party] {
     def write(c: Party) =

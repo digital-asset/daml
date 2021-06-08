@@ -4,7 +4,6 @@
 package com.daml.platform.store.appendonlydao
 
 import akka.stream.scaladsl.Source
-import anorm.{BatchSql, NamedParameter}
 import com.daml.lf.transaction.Node.KeyWithMaintainers
 
 // TODO append-only: revisit visibility, and necessity during cleanup
@@ -109,8 +108,5 @@ package object events {
       key: KeyWithMaintainers[lfval[ContractId]],
   ) =
     Key.assertBuild(template, key.key)
-
-  def batch(query: String, parameters: Seq[Seq[NamedParameter]]): Option[BatchSql] =
-    if (parameters.isEmpty) None else Some(BatchSql(query, parameters.head, parameters.tail: _*))
 
 }
