@@ -164,17 +164,15 @@ message DamlSubmitterInfo {
   // Duration that determines the range of existing DamlLogEntries against which this
   // submission deduplicated.
   //  
-  // The ledger guarantees that for any existing entry e0 the deduplicate_until field of
+  // The Committer guarantees that for any existing entry e0 the deduplicate_until field of
   // its associated DamlCommandDedupValue cdv0 and the entry e1 created from this submission
   // it holds that 
   //
-  //    if (e1.record_time >= e0.record_time >= e1.record_time - e1.deduplication_duration) AND
-  //       (e0.command_id, e0.application_id, e0.submitters.toSet) == 
-  //       (e1.command_id, e1.application_id, e1.submitters.toSet)
+  //    if (e1.record_time >= e0.record_time >= e1.record_time - e1.deduplication_duration)
   //    then e0.record_time + cdv0.deduplicate_until >= e1.record_time
   //
-  // Note that the ledger MAY extend the deduplication_duration; e.g., to the 
-  // LedgerConfiguration.max_deduplication_time.
+  // Note that the Ledger API allows extending the deduplication_duration, which our
+  // Committer uses liberally to always extend it to LedgerConfiguration.max_deduplication_time.
   google.protobuf.Duration deduplication_duration = 6;
 
   // The generation of the ledger configuration used to build this submission.
