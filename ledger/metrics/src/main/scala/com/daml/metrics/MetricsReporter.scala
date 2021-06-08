@@ -100,6 +100,6 @@ object MetricsReporter {
         throw new RuntimeException(cliHint, exception)
     }
 
-  private def invalidRead =
+  private def invalidRead: RuntimeException =
     new RuntimeException(cliHint)
 }
