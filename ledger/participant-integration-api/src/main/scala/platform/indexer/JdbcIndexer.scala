@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common
 import com.daml.platform.common.MismatchException
@@ -36,7 +36,7 @@ object JdbcIndexer {
       config: IndexerConfig,
       readService: ReadService,
       servicesExecutionContext: ExecutionContext,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
       updateFlowOwnerBuilder: ExecuteUpdate.FlowOwnerBuilder,
       serverRole: ServerRole,
       flywayMigrations: FlywayMigrations,
@@ -48,7 +48,7 @@ object JdbcIndexer {
         config: IndexerConfig,
         readService: ReadService,
         servicesExecutionContext: ExecutionContext,
-        metrics: ParticipantMetrics,
+        metrics: Metrics,
         lfValueTranslationCache: LfValueTranslationCache.Cache,
     )(implicit materializer: Materializer, loggingContext: LoggingContext) =
       this(
@@ -246,7 +246,7 @@ object JdbcIndexer {
   */
 private[daml] class JdbcIndexer private[indexer] (
     startExclusive: Option[Offset],
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
     executeUpdate: ExecuteUpdate,
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends Indexer {

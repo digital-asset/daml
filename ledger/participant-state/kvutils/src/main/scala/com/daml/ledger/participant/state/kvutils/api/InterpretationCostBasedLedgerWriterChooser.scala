@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.kvutils.api
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.telemetry.TelemetryContext
 
 import scala.concurrent.Future
@@ -59,7 +59,7 @@ object InterpretationCostBasedLedgerWriterChooser {
       estimatedInterpretationCostThreshold: Long,
       cheapTransactionsDelegate: LedgerWriter,
       expensiveTransactionsDelegate: LedgerWriter,
-      damlMetrics: ParticipantMetrics,
+      damlMetrics: Metrics,
   ): InterpretationCostBasedLedgerWriterChooser = {
     val metrics = damlMetrics.daml.kvutils.writer
     new InterpretationCostBasedLedgerWriterChooser(

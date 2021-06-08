@@ -31,7 +31,7 @@ import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.LanguageVersion
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.{MetricsReporting, ParticipantMetrics}
+import com.daml.metrics.{MetricsReporting, ParticipantMetrics => Metrics}
 import com.daml.platform.apiserver._
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.PartyConfiguration
@@ -122,7 +122,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           getClass.getName,
           config.metricsReporter,
           config.metricsReportingInterval,
-          new ParticipantMetrics(_),
+          new Metrics(_),
         )
         lfValueTranslationCache = LfValueTranslationCache.Cache.newInstrumentedInstance(
           eventConfiguration = config.lfValueTranslationEventCacheConfiguration,

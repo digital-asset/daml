@@ -21,12 +21,12 @@ import com.daml.ledger.validator.preexecution.{
 }
 import com.daml.ledger.validator.{SerializingStateReader, StateKeySerializationStrategy}
 import com.daml.lf.engine.Engine
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 final class RawPreExecutingCommitStrategySupport(
-    metrics: ParticipantMetrics
+    metrics: Metrics
 )(implicit executionContext: ExecutionContext)
     extends CommitStrategySupport[Index] {
   override val stateKeySerializationStrategy: StateKeySerializationStrategy =

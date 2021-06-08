@@ -20,7 +20,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics._
+import com.daml.metrics.{ParticipantMetrics => Metrics, _}
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
@@ -49,7 +49,7 @@ private[dao] final class TransactionsReader(
     dispatcher: DbDispatcher,
     dbType: DbType,
     pageSize: Int,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {

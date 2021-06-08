@@ -10,12 +10,12 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{ParticipantMetrics, Timed}
+import com.daml.metrics.{ParticipantMetrics => Metrics, Timed}
 import com.daml.platform.index.MeteredReadOnlyLedger
 
 import scala.concurrent.Future
 
-private class MeteredLedger(ledger: Ledger, metrics: ParticipantMetrics)
+private class MeteredLedger(ledger: Ledger, metrics: Metrics)
     extends MeteredReadOnlyLedger(ledger, metrics)
     with Ledger {
 
@@ -67,6 +67,6 @@ private class MeteredLedger(ledger: Ledger, metrics: ParticipantMetrics)
 }
 
 private[sandbox] object MeteredLedger {
-  def apply(ledger: Ledger, metrics: ParticipantMetrics): Ledger =
+  def apply(ledger: Ledger, metrics: Metrics): Ledger =
     new MeteredLedger(ledger, metrics)
 }

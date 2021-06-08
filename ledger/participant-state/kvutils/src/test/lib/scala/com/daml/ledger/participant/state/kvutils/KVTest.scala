@@ -19,7 +19,7 @@ import com.daml.lf.engine.{Engine, VisibleByKey}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Transaction
 import com.daml.logging.LoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 import scalaz.{Reader, State}
@@ -54,7 +54,7 @@ object KVTest {
     SimplePackagePartyTestDar
   )
 
-  private[kvutils] val metrics = new ParticipantMetrics(new MetricRegistry)
+  private[kvutils] val metrics = new Metrics(new MetricRegistry)
 
   private def initialTestState: KVTestState = {
     val engine = Engine.DevEngine()

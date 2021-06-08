@@ -16,7 +16,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.LoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.index.LedgerBackedIndexService
@@ -58,7 +58,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       templateStore: InMemoryPackageStore,
       eventsPageSize: Int,
       servicesExecutionContext: ExecutionContext,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       engine: Engine,
       enableAppendOnlySchema: Boolean,
@@ -101,7 +101,7 @@ private[sandbox] object SandboxIndexAndWriteService {
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       transactionCommitter: TransactionCommitter,
       templateStore: InMemoryPackageStore,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,

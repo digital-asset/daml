@@ -10,7 +10,7 @@ import com.daml.lf.data.Ref
 import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.logging.LoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.events.{QueryNonPruned, SqlFunctions}
@@ -20,7 +20,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[dao] final class CommandCompletionsReader(
     dispatcher: DbDispatcher,
     dbType: DbType,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
     executionContext: ExecutionContext,
 ) extends LedgerDaoCommandCompletionsReader {
 

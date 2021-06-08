@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.value.Value.ContractId
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.google.protobuf.ByteString
 
 import scala.jdk.CollectionConverters._
@@ -23,7 +23,7 @@ import scala.jdk.CollectionConverters._
   * and embedding should happen through conversion into a byte string (via
   * [[KeyValueSubmission!.packDamlSubmission]]).
   */
-class KeyValueSubmission(metrics: ParticipantMetrics) {
+class KeyValueSubmission(metrics: Metrics) {
 
   /** Given the assigned log entry id, compute the output state entries that would result
     * from committing the given transaction.

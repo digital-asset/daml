@@ -11,9 +11,9 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.lf.value.ValueCoder
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 
-class ConflictDetection(val damlMetrics: ParticipantMetrics) {
+class ConflictDetection(val damlMetrics: Metrics) {
   private val logger = ContextualizedLogger.get(getClass)
   private val metrics = damlMetrics.daml.kvutils.conflictdetection
 

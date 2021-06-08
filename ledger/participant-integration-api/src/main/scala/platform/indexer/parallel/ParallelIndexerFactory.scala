@@ -12,7 +12,7 @@ import akka.stream.{KillSwitch, KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{InstrumentedSource, ParticipantMetrics}
+import com.daml.metrics.{InstrumentedSource, ParticipantMetrics => Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.indexer.{IndexFeedHandle, Indexer}
@@ -44,7 +44,7 @@ object ParallelIndexerFactory {
       submissionBatchSize: Long,
       tailingRateLimitPerSecond: Int,
       batchWithinMillis: Long,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
     for {
       inputMapperExecutor <- asyncPool(
@@ -135,7 +135,7 @@ object ParallelIndexerFactory {
   )
 
   def inputMapper(
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
       toDbDto: Offset => Update => Iterator[DBDTOV1],
   )(implicit
       loggingContext: LoggingContext
@@ -173,7 +173,7 @@ object ParallelIndexerFactory {
       offsets = Vector.empty,
     )
 
-  def seqMapper(metrics: ParticipantMetrics)(
+  def seqMapper(metrics: Metrics)(
       previous: Batch[Vector[DBDTOV1]],
       current: Batch[Vector[DBDTOV1]],
   ): Batch[Vector[DBDTOV1]] = {
@@ -207,7 +207,7 @@ object ParallelIndexerFactory {
 
   def batcher[DB_BATCH](
       batchF: Vector[DBDTOV1] => DB_BATCH,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
   ): Batch[Vector[DBDTOV1]] => Batch[DB_BATCH] = { inBatch =>
     val dbBatch = batchF(inBatch.batch)
     val nowNanos = System.nanoTime()
@@ -224,7 +224,7 @@ object ParallelIndexerFactory {
   def ingester[DB_BATCH](
       ingestFunction: (Connection, DB_BATCH) => Unit,
       dbDispatcher: DbDispatcher,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
       LoggingContext.withEnrichedLoggingContext(
@@ -259,7 +259,7 @@ object ParallelIndexerFactory {
   def ingestTail[DB_BATCH](
       ingestTailFunction: (Connection, StorageBackend.Params) => Unit,
       dbDispatcher: DbDispatcher,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
       LoggingContext.withEnrichedLoggingContext(

@@ -16,7 +16,7 @@ import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.{engine => LfEngine}
 import com.daml.lf.value.Value.VersionedValue
 import com.daml.logging.LoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.packages.DeduplicatingPackageLoader
 import com.daml.platform.participant.util.LfEngineToApi
 import com.daml.platform.store.LfValueTranslationCache
@@ -35,7 +35,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class LfValueTranslation(
     val cache: LfValueTranslationCache.Cache,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
     enricherO: Option[LfEngine.ValueEnricher],
     loadPackage: (
         LfPackageId,

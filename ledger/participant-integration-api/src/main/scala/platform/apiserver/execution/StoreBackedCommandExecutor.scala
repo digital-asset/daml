@@ -25,7 +25,7 @@ import com.daml.lf.engine.{
 }
 import com.daml.lf.transaction.Node
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{ParticipantMetrics, Timed}
+import com.daml.metrics.{ParticipantMetrics => Metrics, Timed}
 import com.daml.platform.packages.DeduplicatingPackageLoader
 import com.daml.platform.store.ErrorCause
 import scalaz.syntax.tag._
@@ -37,7 +37,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     participant: Ref.ParticipantId,
     packagesService: IndexPackagesService,
     contractStore: ContractStore,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
 ) extends CommandExecutor {
 
   private[this] val packageLoader = new DeduplicatingPackageLoader()

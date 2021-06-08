@@ -15,7 +15,7 @@ import com.daml.ledger.validator.{
   ValidationFailed,
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{ParticipantMetrics, Timed}
+import com.daml.metrics.{ParticipantMetrics => Metrics, Timed}
 
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
@@ -42,7 +42,7 @@ class PreExecutingSubmissionValidator[StateValue, ReadSet, WriteSet](
     ],
     logEntryIdComputationStrategy: LogEntryIdComputationStrategy =
       HashingLogEntryIdComputationStrategy,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
 )(implicit hasDamlStateValue: HasDamlStateValue[StateValue]) {
   private val logger = ContextualizedLogger.get(getClass)
 

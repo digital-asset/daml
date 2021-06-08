@@ -9,7 +9,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Time
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -18,7 +18,7 @@ private[apiserver] final class LedgerTimeAwareCommandExecutor(
     delegate: CommandExecutor,
     contractStore: ContractStore,
     maxRetries: Int,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
 ) extends CommandExecutor {
 
   private val logger = ContextualizedLogger.get(this.getClass)

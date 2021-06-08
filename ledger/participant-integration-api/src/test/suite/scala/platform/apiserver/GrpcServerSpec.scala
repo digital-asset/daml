@@ -14,7 +14,7 @@ import com.daml.ledger.client.configuration.{
   LedgerIdRequirement,
 }
 import com.daml.ledger.resources.{ResourceOwner, TestResourceContext}
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.apiserver.GrpcServerSpec._
 import com.daml.platform.hello.{HelloRequest, HelloServiceGrpc}
 import com.daml.ports.Port
@@ -109,7 +109,7 @@ object GrpcServerSpec {
         address = None,
         desiredPort = Port.Dynamic,
         maxInboundMessageSize = maxInboundMessageSize,
-        metrics = new ParticipantMetrics(new MetricRegistry),
+        metrics = new Metrics(new MetricRegistry),
         servicesExecutor = executor,
         services = Seq(new ReferenceImplementation),
       )

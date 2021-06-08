@@ -5,7 +5,7 @@ package com.daml.ledger.validator
 
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.participant.state.kvutils.Raw
-import com.daml.metrics.{ParticipantMetrics, Timed}
+import com.daml.metrics.{ParticipantMetrics => Metrics, Timed}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -124,7 +124,7 @@ abstract class NonBatchingLedgerStateOperations[LogResult]
 
 final class TimedLedgerStateOperations[LogResult](
     delegate: LedgerStateOperations[LogResult],
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
 ) extends LedgerStateOperations[LogResult] {
 
   override def readState(

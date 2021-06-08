@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 import com.codahale.metrics.MetricRegistry
 import com.daml.caching.{CaffeineCache, ConcurrentCache}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
@@ -22,7 +22,7 @@ import scala.util.Success
 
 class StateCacheSpec extends AnyFlatSpec with Matchers with MockitoSugar with Eventually {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
-  private val cacheUpdateTimer = new ParticipantMetrics(
+  private val cacheUpdateTimer = new Metrics(
     new MetricRegistry
   ).daml.execution.cache.registerCacheUpdate
 

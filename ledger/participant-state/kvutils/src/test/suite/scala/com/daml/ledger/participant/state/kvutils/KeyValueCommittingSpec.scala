@@ -22,13 +22,13 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import java.time.Instant
 
 class KeyValueCommittingSpec extends AnyWordSpec with Matchers {
-  private val metrics: ParticipantMetrics = new ParticipantMetrics(new MetricRegistry)
+  private val metrics: Metrics = new Metrics(new MetricRegistry)
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 
   private val alice = Party.assertFromString("Alice")

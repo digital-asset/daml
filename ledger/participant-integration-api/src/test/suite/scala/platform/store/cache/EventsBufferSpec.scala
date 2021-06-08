@@ -6,7 +6,7 @@ package com.daml.platform.store.cache
 import java.util.concurrent.Executors
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.store.cache.EventsBuffer.{RequestOffBufferBounds, UnorderedException}
 import org.scalatest.Succeeded
 import org.scalatest.compatible.Assertion
@@ -188,7 +188,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
   )(test: EventsBuffer[Int, Int] => Assertion): Assertion = {
     val buffer = new EventsBuffer[Int, Int](
       maxBufferSize,
-      new ParticipantMetrics(new MetricRegistry),
+      new Metrics(new MetricRegistry),
       "integers",
       _ == Int.MaxValue, // Signifies ledger end
     )

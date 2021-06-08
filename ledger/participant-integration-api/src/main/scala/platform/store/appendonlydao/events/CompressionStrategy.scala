@@ -5,7 +5,7 @@ package com.daml.platform.store.appendonlydao.events
 
 import java.io.ByteArrayOutputStream
 
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.store.serialization.Compression
 
 final case class CompressionStrategy(
@@ -17,15 +17,15 @@ final case class CompressionStrategy(
 
 object CompressionStrategy {
 
-  def none(metrics: ParticipantMetrics): CompressionStrategy =
+  def none(metrics: Metrics): CompressionStrategy =
     buildUniform(Compression.Algorithm.None, metrics)
 
-  def allGZIP(metrics: ParticipantMetrics): CompressionStrategy =
+  def allGZIP(metrics: Metrics): CompressionStrategy =
     buildUniform(Compression.Algorithm.GZIP, metrics)
 
   def buildUniform(
       algorithm: Compression.Algorithm,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
   ): CompressionStrategy =
     build(algorithm, algorithm, algorithm, algorithm, metrics)
 
@@ -34,7 +34,7 @@ object CompressionStrategy {
       createKeyValueAlgorithm: Compression.Algorithm,
       exerciseArgumentAlgorithm: Compression.Algorithm,
       exerciseResultAlgorithm: Compression.Algorithm,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
   ): CompressionStrategy = CompressionStrategy(
     createArgumentCompression =
       FieldCompressionStrategy(createArgumentAlgorithm, CompressionMetrics.createArgument(metrics)),

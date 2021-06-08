@@ -13,7 +13,7 @@ import com.daml.lf.engine.{Engine, ResultDone}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction.{SubmittedTransaction, Transaction}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -53,7 +53,7 @@ class StoreBackedCommandExecutorSpec
         Ref.ParticipantId.assertFromString("anId"),
         mock[IndexPackagesService],
         mock[ContractStore],
-        new ParticipantMetrics(new MetricRegistry),
+        new Metrics(new MetricRegistry),
       )
       val mockDomainCommands = mock[Commands]
       val mockLfCommands = mock[com.daml.lf.command.Commands]

@@ -12,13 +12,12 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.{Ref, Time}
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.telemetry.TelemetryContext
 
 import scala.compat.java8.FutureConverters
 
-class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: ParticipantMetrics)
-    extends WriteService {
+class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) extends WriteService {
 
   private val keyValueSubmission = new KeyValueSubmission(metrics)
 

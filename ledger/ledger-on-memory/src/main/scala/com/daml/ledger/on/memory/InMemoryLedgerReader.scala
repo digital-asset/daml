@@ -9,7 +9,7 @@ import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.participant.state.kvutils.OffsetBuilder
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord}
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset}
-import com.daml.metrics.{ParticipantMetrics, Timed}
+import com.daml.metrics.{ParticipantMetrics => Metrics, Timed}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 
@@ -17,7 +17,7 @@ class InMemoryLedgerReader(
     override val ledgerId: LedgerId,
     dispatcher: Dispatcher[Index],
     state: InMemoryState,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
 ) extends LedgerReader {
   override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher

@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.kvutils.{Envelope, OffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, Update}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.google.protobuf.ByteString
 import org.mockito.Mockito.when
 import org.mockito.MockitoSugar._
@@ -283,7 +283,7 @@ object KeyValueParticipantStateReaderSpec {
   ): KeyValueParticipantStateReader =
     new KeyValueParticipantStateReader(
       reader,
-      new ParticipantMetrics(new MetricRegistry),
+      new Metrics(new MetricRegistry),
       logEntryToUpdate,
       () => None,
       failOnUnexpectedEvent,

@@ -4,31 +4,31 @@
 package com.daml.platform.store.appendonlydao.events
 
 import com.codahale.metrics.Histogram
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 
 object CompressionMetrics {
 
   final class Field(val compressed: Histogram, val uncompressed: Histogram)
 
-  def createArgument(metrics: ParticipantMetrics): CompressionMetrics.Field =
+  def createArgument(metrics: Metrics): CompressionMetrics.Field =
     new Field(
       compressed = metrics.daml.index.db.compression.createArgumentCompressed,
       uncompressed = metrics.daml.index.db.compression.createArgumentUncompressed,
     )
 
-  def createKeyValue(metrics: ParticipantMetrics) =
+  def createKeyValue(metrics: Metrics) =
     new Field(
       compressed = metrics.daml.index.db.compression.createKeyValueCompressed,
       uncompressed = metrics.daml.index.db.compression.createKeyValueUncompressed,
     )
 
-  def exerciseArgument(metrics: ParticipantMetrics) =
+  def exerciseArgument(metrics: Metrics) =
     new Field(
       compressed = metrics.daml.index.db.compression.exerciseArgumentCompressed,
       uncompressed = metrics.daml.index.db.compression.exerciseArgumentUncompressed,
     )
 
-  def exerciseResult(metrics: ParticipantMetrics) =
+  def exerciseResult(metrics: Metrics) =
     new Field(
       compressed = metrics.daml.index.db.compression.exerciseResultCompressed,
       uncompressed = metrics.daml.index.db.compression.exerciseResultUncompressed,

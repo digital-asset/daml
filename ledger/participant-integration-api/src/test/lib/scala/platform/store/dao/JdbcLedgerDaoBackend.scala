@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, ValueEnricher}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.dao.JdbcLedgerDaoBackend.{TestLedgerId, TestParticipantId}
 import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
@@ -55,7 +55,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         connectionTimeout = 250.millis,
         eventsPageSize = eventsPageSize,
         servicesExecutionContext = executionContext,
-        metrics = new ParticipantMetrics(new MetricRegistry),
+        metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         jdbcAsyncCommitMode = DbType.AsynchronousCommit,
         enricher = Some(new ValueEnricher(new Engine())),
@@ -70,7 +70,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         connectionTimeout = 250.millis,
         eventsPageSize = eventsPageSize,
         servicesExecutionContext = executionContext,
-        metrics = new ParticipantMetrics(new MetricRegistry),
+        metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         jdbcAsyncCommitMode = DbType.AsynchronousCommit,
         enricher = Some(new ValueEnricher(new Engine())),

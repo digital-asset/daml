@@ -15,7 +15,7 @@ import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.StandardTransactionCommitter
 import com.daml.logging.LoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.packages.InMemoryPackageStore
@@ -89,7 +89,7 @@ private[sandbox] object LedgerResource {
           startMode = SqlStartMode.ResetAndStart,
           eventsPageSize = 100,
           servicesExecutionContext = servicesExecutionContext,
-          metrics = new ParticipantMetrics(metrics),
+          metrics = new Metrics(metrics),
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
           engine = new Engine(),
         )

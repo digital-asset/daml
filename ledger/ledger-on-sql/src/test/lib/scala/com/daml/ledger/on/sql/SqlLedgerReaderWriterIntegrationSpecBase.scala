@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedServic
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 
 abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: String)
     extends ParticipantStateIntegrationSpecBase(implementationName) {
@@ -23,7 +23,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       ledgerId: LedgerId,
       participantId: ParticipantId,
       testId: String,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[ParticipantState] =
     new SqlLedgerReaderWriter.Owner(
       ledgerId,

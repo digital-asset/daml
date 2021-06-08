@@ -14,7 +14,7 @@ import com.daml.ledger.api.validation.TransactionFilterValidator
 import com.daml.ledger.participant.state.index.v2.{IndexActiveContractsService => ACSBackend}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.ActiveContractsServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
@@ -23,7 +23,7 @@ import scala.concurrent.ExecutionContext
 
 private[apiserver] final class ApiActiveContractsService private (
     backend: ACSBackend,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
 )(implicit
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -53,7 +53,7 @@ private[apiserver] final class ApiActiveContractsService private (
 
 private[apiserver] object ApiActiveContractsService {
 
-  def create(ledgerId: LedgerId, backend: ACSBackend, metrics: ParticipantMetrics)(implicit
+  def create(ledgerId: LedgerId, backend: ACSBackend, metrics: Metrics)(implicit
       mat: Materializer,
       esf: ExecutionSequencerFactory,
       executionContext: ExecutionContext,

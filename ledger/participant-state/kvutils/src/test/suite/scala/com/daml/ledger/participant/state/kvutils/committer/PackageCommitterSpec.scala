@@ -17,7 +17,7 @@ import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.logging.LoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.google.protobuf.ByteString
 import org.scalatest.ParallelTestExecution
 import org.scalatest.matchers.should.Matchers
@@ -85,7 +85,7 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       validationMode: PackageValidationMode,
       preloadingMode: PackagePreloadingMode,
   ) {
-    val metrics = new ParticipantMetrics(new MetricRegistry)
+    val metrics = new Metrics(new MetricRegistry)
     var engine: Engine = _
     var packageCommitter: PackageCommitter = _
     var state = Map.empty[DamlStateKey, DamlStateValue]

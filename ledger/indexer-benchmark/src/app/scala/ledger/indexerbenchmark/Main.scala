@@ -21,7 +21,7 @@ import com.daml.ledger.participant.state.kvutils.api.{
   LedgerRecord,
 }
 import com.daml.ledger.participant.state.v1.{LedgerId, Offset, Update}
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 
 import scala.concurrent.Future
 
@@ -68,7 +68,7 @@ object Main {
     }
 
     val metricRegistry = new MetricRegistry
-    val metrics = new ParticipantMetrics(metricRegistry)
+    val metrics = new Metrics(metricRegistry)
     val keyValueStateReader = KeyValueParticipantStateReader(
       keyValueSource,
       metrics,

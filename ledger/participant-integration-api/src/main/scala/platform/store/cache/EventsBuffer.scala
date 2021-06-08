@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.cache
 
-import com.daml.metrics.{ParticipantMetrics, Timed}
+import com.daml.metrics.{ParticipantMetrics => Metrics, Timed}
 import com.daml.platform.store.cache.EventsBuffer.{
   BufferStateRef,
   RequestOffBufferBounds,
@@ -31,7 +31,7 @@ import scala.math.Ordering.Implicits.infixOrderingOps
   */
 private[cache] final class EventsBuffer[O: Ordering, E](
     maxBufferSize: Int,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
     bufferQualifier: String,
     isRangeEndMarker: E => Boolean,
 ) {

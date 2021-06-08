@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.v1.{
 import com.daml.ledger.{TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
-import com.daml.metrics.{ParticipantMetrics, Timed}
+import com.daml.metrics.{ParticipantMetrics => Metrics, Timed}
 import com.daml.platform.store.DbType
 
 private[platform] object TransactionsWriter {
@@ -25,18 +25,18 @@ private[platform] object TransactionsWriter {
       contractsTableExecutables: ContractsTable.Executables,
       contractWitnessesTableExecutables: ContractWitnessesTable.Executables,
   ) {
-    def write(metrics: ParticipantMetrics)(implicit connection: Connection): Unit = {
+    def write(metrics: Metrics)(implicit connection: Connection): Unit = {
       writeEvents(metrics)
       writeState(metrics)
     }
 
-    def writeEvents(metrics: ParticipantMetrics)(implicit connection: Connection): Unit =
+    def writeEvents(metrics: Metrics)(implicit connection: Connection): Unit =
       Timed.value(
         metrics.daml.index.db.storeTransactionDbMetrics.eventsBatch,
         eventsTableExecutables.execute(),
       )
 
-    def writeState(metrics: ParticipantMetrics)(implicit connection: Connection): Unit = {
+    def writeState(metrics: Metrics)(implicit connection: Connection): Unit = {
       import metrics.daml.index.db.storeTransactionDbMetrics._
 
       // Delete the witnesses of contracts that being removed first, to
@@ -65,7 +65,7 @@ private[platform] object TransactionsWriter {
 
 private[platform] final class TransactionsWriter(
     dbType: DbType,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
     compressionStrategy: CompressionStrategy,
     compressionMetrics: CompressionMetrics,

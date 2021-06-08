@@ -15,13 +15,12 @@ import com.daml.ledger.participant.state.kvutils.api.{
 import com.daml.ledger.participant.state.kvutils.export.WriteSet
 import com.daml.ledger.participant.state.kvutils.{OffsetBuilder, Raw}
 import com.daml.ledger.participant.state.v1.{LedgerId, LedgerInitialConditions, Offset, Update}
-import com.daml.metrics.ParticipantMetrics
-
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import scala.collection.immutable
 import scala.collection.mutable.ListBuffer
 
 final class LogAppendingReadServiceFactory(
-    metrics: ParticipantMetrics
+    metrics: Metrics
 ) extends ReplayingReadServiceFactory {
   private val recordedBlocks = ListBuffer.empty[LedgerRecord]
 

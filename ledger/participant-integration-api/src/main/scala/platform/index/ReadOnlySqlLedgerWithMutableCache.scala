@@ -13,7 +13,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.index.ReadOnlySqlLedgerWithMutableCache.DispatcherLagMeter
@@ -31,7 +31,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
   final class Owner(
       ledgerDao: LedgerReadDao,
       ledgerId: LedgerId,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
       maxContractStateCacheSize: Long,
       maxContractKeyStateCacheSize: Long,
   )(implicit mat: Materializer, loggingContext: LoggingContext)

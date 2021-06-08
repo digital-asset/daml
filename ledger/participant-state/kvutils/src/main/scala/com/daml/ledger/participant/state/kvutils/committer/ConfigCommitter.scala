@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 
 private[kvutils] object ConfigCommitter {
 
@@ -28,7 +28,7 @@ private[kvutils] object ConfigCommitter {
 private[kvutils] class ConfigCommitter(
     defaultConfig: Configuration,
     maximumRecordTime: Timestamp,
-    override protected val metrics: ParticipantMetrics,
+    override protected val metrics: Metrics,
 ) extends Committer[ConfigCommitter.Result] {
 
   import ConfigCommitter._

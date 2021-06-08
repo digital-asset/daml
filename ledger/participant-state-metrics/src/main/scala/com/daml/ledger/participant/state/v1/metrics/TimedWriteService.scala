@@ -9,11 +9,10 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Time
-import com.daml.metrics.{ParticipantMetrics, Timed}
+import com.daml.metrics.{ParticipantMetrics => Metrics, Timed}
 import com.daml.telemetry.TelemetryContext
 
-final class TimedWriteService(delegate: WriteService, metrics: ParticipantMetrics)
-    extends WriteService {
+final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends WriteService {
 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,

@@ -29,7 +29,7 @@ import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{ParticipantMetrics, Timed}
+import com.daml.metrics.{ParticipantMetrics => Metrics, Timed}
 import com.daml.telemetry.TelemetryContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
@@ -42,7 +42,7 @@ import scala.{concurrent => sc}
 final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
     database: Database,
     dispatcher: Dispatcher[Index],
     committer: ValidatingCommitter[Index],
@@ -90,7 +90,7 @@ object SqlLedgerReaderWriter {
   final class Owner(
       ledgerId: LedgerId,
       participantId: ParticipantId,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
       engine: Engine,
       jdbcUrl: String,
       resetOnStartup: Boolean,
@@ -196,7 +196,7 @@ object SqlLedgerReaderWriter {
     }
   }
 
-  private final class SqlLedgerStateAccess(database: Database, metrics: ParticipantMetrics)
+  private final class SqlLedgerStateAccess(database: Database, metrics: Metrics)
       extends LedgerStateAccess[Index] {
     override def inTransaction[T](body: LedgerStateOperations[Index] => sc.Future[T])(implicit
         executionContext: sc.ExecutionContext

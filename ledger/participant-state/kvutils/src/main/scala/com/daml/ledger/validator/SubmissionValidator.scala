@@ -18,7 +18,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{ParticipantMetrics, Timed}
+import com.daml.metrics.{ParticipantMetrics => Metrics, Timed}
 import com.google.protobuf.ByteString
 
 import scala.annotation.{nowarn, tailrec}
@@ -42,7 +42,7 @@ class SubmissionValidator[LogResult] private[validator] (
     allocateLogEntryId: () => DamlLogEntryId,
     checkForMissingInputs: Boolean,
     stateValueCache: StateValueCache,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
 ) {
 
   private val logger = ContextualizedLogger.get(getClass)
@@ -324,7 +324,7 @@ object SubmissionValidator {
       checkForMissingInputs: Boolean = false,
       stateValueCache: StateValueCache = Cache.none,
       engine: Engine,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
   ): SubmissionValidator[LogResult] = {
     createForTimeMode(
       ledgerStateAccess,
@@ -344,7 +344,7 @@ object SubmissionValidator {
       checkForMissingInputs: Boolean = false,
       stateValueCache: StateValueCache = Cache.none,
       engine: Engine,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
       inStaticTimeMode: Boolean,
   ): SubmissionValidator[LogResult] =
     new SubmissionValidator(

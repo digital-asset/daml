@@ -11,7 +11,7 @@ import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{DatabaseMetrics, ParticipantMetrics}
+import com.daml.metrics.{DatabaseMetrics, ParticipantMetrics => Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.store.DbType
 import com.google.common.util.concurrent.ThreadFactoryBuilder
@@ -87,7 +87,7 @@ private[platform] object DbDispatcher {
       jdbcUrl: String,
       connectionPoolSize: Int,
       connectionTimeout: FiniteDuration,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
       connectionAsyncCommitMode: DbType.AsyncCommitMode,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher] =
     for {

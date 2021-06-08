@@ -6,7 +6,7 @@ package com.daml.platform.store
 import com.daml.caching
 import com.daml.ledger.EventId
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 
 /** Definitions of caches used for serializing and deserializing Daml-LF values.
   * The cache is shared between the read and write path:
@@ -34,7 +34,7 @@ object LfValueTranslationCache {
     def newInstrumentedInstance(
         eventConfiguration: caching.SizedCache.Configuration,
         contractConfiguration: caching.SizedCache.Configuration,
-        metrics: ParticipantMetrics,
+        metrics: Metrics,
     ): Cache =
       Cache(
         events = EventCache.newInstrumentedInstance(eventConfiguration, metrics),
@@ -49,7 +49,7 @@ object LfValueTranslationCache {
 
     def newInstrumentedInstance(
         configuration: caching.SizedCache.Configuration,
-        metrics: ParticipantMetrics,
+        metrics: Metrics,
     ): EventCache =
       caching.SizedCache.from(
         configuration = configuration,
@@ -92,7 +92,7 @@ object LfValueTranslationCache {
 
     def newInstrumentedInstance(
         configuration: caching.SizedCache.Configuration,
-        metrics: ParticipantMetrics,
+        metrics: Metrics,
     ): ContractCache =
       caching.SizedCache.from(
         configuration = configuration,

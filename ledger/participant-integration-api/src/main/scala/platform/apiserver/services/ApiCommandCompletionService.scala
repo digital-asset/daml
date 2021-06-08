@@ -17,7 +17,7 @@ import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandCompletionService
@@ -27,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiCommandCompletionService private (
     completionsService: IndexCompletionsService,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
 )(implicit
     protected val materializer: Materializer,
     protected val esf: ExecutionSequencerFactory,
@@ -82,7 +82,7 @@ private[apiserver] object ApiCommandCompletionService {
   def create(
       ledgerId: LedgerId,
       completionsService: IndexCompletionsService,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,

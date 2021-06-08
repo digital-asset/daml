@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.ResourceContext
 import com.daml.logging.LoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.ApiOffset
 import com.daml.platform.configuration.ServerRole
 
@@ -52,7 +52,7 @@ object IndexMetadata {
         connectionTimeout = 250.millis,
         eventsPageSize = 1000,
         servicesExecutionContext = executionContext,
-        metrics = new ParticipantMetrics(new MetricRegistry),
+        metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         enricher = None,
         participantId = v1.ParticipantId.assertFromString(
@@ -67,7 +67,7 @@ object IndexMetadata {
         connectionTimeout = 250.millis,
         eventsPageSize = 1000,
         servicesExecutionContext = executionContext,
-        metrics = new ParticipantMetrics(new MetricRegistry),
+        metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
         enricher = None,
       )

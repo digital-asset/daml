@@ -6,14 +6,14 @@ package com.daml.platform.apiserver.execution
 import com.daml.ledger.api.domain
 import com.daml.lf.crypto
 import com.daml.logging.LoggingContext
-import com.daml.metrics.{ParticipantMetrics, Timed}
+import com.daml.metrics.{ParticipantMetrics => Metrics, Timed}
 import com.daml.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] class TimedCommandExecutor(
     delegate: CommandExecutor,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
 ) extends CommandExecutor {
 
   override def execute(

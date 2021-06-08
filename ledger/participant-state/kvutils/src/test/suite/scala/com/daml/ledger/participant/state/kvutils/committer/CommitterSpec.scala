@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
 import com.daml.ledger.participant.state.v1.{Configuration, TimeModel}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -172,7 +172,7 @@ class CommitterSpec
             "third" -> stepReturning(StepStop(DamlLogEntry.getDefaultInstance)),
           )
 
-        override protected val metrics: ParticipantMetrics = newMetrics()
+        override protected val metrics: Metrics = newMetrics()
       }
 
       instance.runSteps(mock[CommitContext], aDamlSubmission) shouldBe expectedLogEntry
@@ -195,7 +195,7 @@ class CommitterSpec
             "second" -> stepReturning(StepContinue(2)),
           )
 
-        override protected val metrics: ParticipantMetrics = newMetrics()
+        override protected val metrics: Metrics = newMetrics()
       }
 
       assertThrows[RuntimeException](instance.runSteps(mock[CommitContext], aDamlSubmission))
@@ -278,7 +278,7 @@ object CommitterSpec {
     maxDeduplicationTime = Duration.ofMinutes(1),
   )
 
-  private def newMetrics() = new ParticipantMetrics(new MetricRegistry)
+  private def newMetrics() = new Metrics(new MetricRegistry)
 
   private def createCommitter(): Committer[Int] = new Committer[Int] {
     override protected val committerName: String = "test"
@@ -295,7 +295,7 @@ object CommitterSpec {
         "result" -> stepReturning(StepStop(aLogEntry))
       )
 
-    override protected val metrics: ParticipantMetrics = newMetrics()
+    override protected val metrics: Metrics = newMetrics()
   }
 
   private def aConfigurationStateValue: DamlStateValue =

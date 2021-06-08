@@ -15,7 +15,7 @@ import com.daml.ledger.validator.SubmissionValidatorSpec._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.google.protobuf.{ByteString, Empty}
 import org.mockito.captor.ArgCaptor
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -39,7 +39,7 @@ class SubmissionValidatorSpec
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val instance = SubmissionValidator.create(
         new FakeStateAccess(mockStateOperations),
-        metrics = new ParticipantMetrics(new MetricRegistry),
+        metrics = new Metrics(new MetricRegistry),
         engine = Engine.DevEngine(),
       )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
@@ -57,7 +57,7 @@ class SubmissionValidatorSpec
       val instance = SubmissionValidator.create(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         checkForMissingInputs = true,
-        metrics = new ParticipantMetrics(new MetricRegistry),
+        metrics = new Metrics(new MetricRegistry),
         engine = Engine.DevEngine(),
       )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
@@ -71,7 +71,7 @@ class SubmissionValidatorSpec
       val mockStateOperations = mock[LedgerStateOperations[Unit]]
       val instance = SubmissionValidator.create(
         new FakeStateAccess(mockStateOperations),
-        metrics = new ParticipantMetrics(new MetricRegistry),
+        metrics = new Metrics(new MetricRegistry),
         engine = Engine.DevEngine(),
       )
       instance
@@ -102,7 +102,7 @@ class SubmissionValidatorSpec
         allocateLogEntryId = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
-        metrics = new ParticipantMetrics(new MetricRegistry),
+        metrics = new Metrics(new MetricRegistry),
       )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         inside(_) { case Left(ValidationError(reason)) =>
@@ -127,7 +127,7 @@ class SubmissionValidatorSpec
       ).thenReturn(Future.successful(expectedLogResult))
       val expectedLogEntryId = aLogEntryId()
       val mockLogEntryIdGenerator = mockFunctionReturning(expectedLogEntryId)
-      val metrics = new ParticipantMetrics(new MetricRegistry)
+      val metrics = new Metrics(new MetricRegistry)
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         processSubmission = SubmissionValidator
@@ -173,7 +173,7 @@ class SubmissionValidatorSpec
         allocateLogEntryId = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
-        metrics = new ParticipantMetrics(new MetricRegistry),
+        metrics = new Metrics(new MetricRegistry),
       )
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
@@ -213,7 +213,7 @@ class SubmissionValidatorSpec
         allocateLogEntryId = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
-        metrics = new ParticipantMetrics(new MetricRegistry),
+        metrics = new Metrics(new MetricRegistry),
       )
       val batchEnvelope =
         Envelope.enclose(
@@ -250,7 +250,7 @@ class SubmissionValidatorSpec
         allocateLogEntryId = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
-        metrics = new ParticipantMetrics(new MetricRegistry),
+        metrics = new Metrics(new MetricRegistry),
       )
       val batchEnvelope =
         Envelope.enclose(
@@ -295,7 +295,7 @@ class SubmissionValidatorSpec
         allocateLogEntryId = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
-        metrics = new ParticipantMetrics(new MetricRegistry),
+        metrics = new Metrics(new MetricRegistry),
       )
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())

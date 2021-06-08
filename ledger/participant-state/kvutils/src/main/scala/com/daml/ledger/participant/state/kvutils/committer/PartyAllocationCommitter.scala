@@ -9,7 +9,7 @@ import com.daml.ledger.participant.state.kvutils.committer.Committer.buildLogEnt
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 
 private[kvutils] object PartyAllocationCommitter {
   type Result = DamlPartyAllocationEntry.Builder
@@ -18,7 +18,7 @@ private[kvutils] object PartyAllocationCommitter {
 }
 
 private[kvutils] class PartyAllocationCommitter(
-    override protected val metrics: ParticipantMetrics
+    override protected val metrics: Metrics
 ) extends Committer[PartyAllocationCommitter.Result] {
 
   import PartyAllocationCommitter._

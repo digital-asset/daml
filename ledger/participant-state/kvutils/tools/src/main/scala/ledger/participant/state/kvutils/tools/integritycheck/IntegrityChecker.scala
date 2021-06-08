@@ -19,7 +19,7 @@ import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{Indexer, IndexerConfig, IndexerStartupMode, JdbcIndexer}
 import com.daml.platform.store.LfValueTranslationCache
@@ -29,10 +29,10 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Futu
 import scala.util.{Failure, Success}
 
 class IntegrityChecker[LogResult](
-    commitStrategySupportBuilder: ParticipantMetrics => CommitStrategySupport[LogResult]
+    commitStrategySupportBuilder: Metrics => CommitStrategySupport[LogResult]
 ) {
   private val metricRegistry = new MetricRegistry
-  private val metrics = new ParticipantMetrics(metricRegistry)
+  private val metrics = new Metrics(metricRegistry)
   private val commitStrategySupport = commitStrategySupportBuilder(metrics)
   private val writeSetComparison = commitStrategySupport.writeSetComparison
 
@@ -81,7 +81,7 @@ class IntegrityChecker[LogResult](
       expectedReadServiceFactory: ReplayingReadServiceFactory,
       actualReadServiceFactory: ReplayingReadServiceFactory,
       stateUpdates: StateUpdateComparison,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
   )(implicit
       executionContext: ExecutionContext,
       materializer: Materializer,
@@ -122,7 +122,7 @@ class IntegrityChecker[LogResult](
 
   private def indexStateUpdates(
       config: Config,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
       readService: ReplayingReadService,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] = {
     implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
@@ -236,7 +236,7 @@ class IntegrityChecker[LogResult](
   private def migrateAndStartIndexer(
       config: IndexerConfig,
       readService: ReadService,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
   )(implicit
       resourceContext: ResourceContext,
@@ -264,7 +264,7 @@ class IntegrityChecker[LogResult](
 
 object IntegrityChecker {
   type CommitStrategySupportFactory[LogResult] =
-    (ParticipantMetrics, ExecutionContext) => CommitStrategySupport[LogResult]
+    (Metrics, ExecutionContext) => CommitStrategySupport[LogResult]
 
   abstract class CheckFailedException(message: String) extends RuntimeException(message)
 

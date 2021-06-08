@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.Resource
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{ParticipantMetrics, Timed}
+import com.daml.metrics.{ParticipantMetrics => Metrics, Timed}
 import com.daml.platform.store.appendonlydao.EventSequentialId
 import com.daml.platform.store.cache.ContractKeyStateValue._
 import com.daml.platform.store.cache.ContractStateValue._
@@ -34,7 +34,7 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 class MutableCacheBackedContractStore(
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
     contractsReader: LedgerDaoContractsReader,
     signalNewLedgerHead: SignalNewLedgerHead,
     subscribeToContractStateEvents: SubscribeToContractStateEvents,
@@ -309,7 +309,7 @@ object MutableCacheBackedContractStore {
       contractsReader: LedgerDaoContractsReader,
       signalNewLedgerHead: SignalNewLedgerHead,
       subscribeToContractStateEvents: SubscribeToContractStateEvents,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
       minBackoffStreamRestart: FiniteDuration = 100.millis,
@@ -332,7 +332,7 @@ object MutableCacheBackedContractStore {
       contractsReader: LedgerDaoContractsReader,
       signalNewLedgerHead: Offset => Unit,
       subscribeToContractStateEvents: SubscribeToContractStateEvents,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
   )(implicit

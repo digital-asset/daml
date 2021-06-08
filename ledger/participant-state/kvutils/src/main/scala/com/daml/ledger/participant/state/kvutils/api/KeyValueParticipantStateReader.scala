@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.preexecution.TimeUpdatesProvider
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
-import com.daml.metrics.{ParticipantMetrics, Timed}
+import com.daml.metrics.{ParticipantMetrics => Metrics, Timed}
 
 /** Adapts a [[LedgerReader]] instance to [[ReadService]].
   * Performs translation between the offsets required by the underlying reader and [[ReadService]]:
@@ -26,7 +26,7 @@ import com.daml.metrics.{ParticipantMetrics, Timed}
   */
 class KeyValueParticipantStateReader private[api] (
     reader: LedgerReader,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
     logEntryToUpdate: (DamlLogEntryId, DamlLogEntry, Option[Timestamp]) => List[Update],
     timeUpdatesProvider: TimeUpdatesProvider,
     failOnUnexpectedEvent: Boolean,
@@ -83,7 +83,7 @@ class KeyValueParticipantStateReader private[api] (
 object KeyValueParticipantStateReader {
   def apply(
       reader: LedgerReader,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
       timeUpdatesProvider: TimeUpdatesProvider = TimeUpdatesProvider.ReasonableDefault,
       failOnUnexpectedEvent: Boolean = true,
   ): KeyValueParticipantStateReader =

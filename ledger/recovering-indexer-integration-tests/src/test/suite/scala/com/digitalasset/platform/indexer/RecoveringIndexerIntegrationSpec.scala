@@ -23,7 +23,7 @@ import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.daml.platform.store.{DbType, LfValueTranslationCache}
@@ -213,7 +213,7 @@ class RecoveringIndexerIntegrationSpec
           restartDelay = restartDelay,
         ),
         servicesExecutionContext = servicesExecutionContext,
-        metrics = new ParticipantMetrics(new MetricRegistry),
+        metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       )(materializer, loggingContext)
     } yield participantState
@@ -229,7 +229,7 @@ class RecoveringIndexerIntegrationSpec
       connectionTimeout = 250.millis,
       eventsPageSize = 100,
       servicesExecutionContext = executionContext,
-      metrics = new ParticipantMetrics(new MetricRegistry),
+      metrics = new Metrics(new MetricRegistry),
       lfValueTranslationCache = LfValueTranslationCache.Cache.none,
       jdbcAsyncCommitMode = DbType.AsynchronousCommit,
       enricher = None,
@@ -258,7 +258,7 @@ object RecoveringIndexerIntegrationSpec {
         materializer: Materializer,
         loggingContext: LoggingContext,
     ): ResourceOwner[ParticipantState] = {
-      val metrics = new ParticipantMetrics(new MetricRegistry)
+      val metrics = new Metrics(new MetricRegistry)
       for {
         dispatcher <- memory.dispatcherOwner
         committerExecutionContext <- ResourceOwner

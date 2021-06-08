@@ -20,7 +20,7 @@ import com.daml.ledger.participant.state.kvutils.export.SubmissionInfo
 import com.daml.ledger.participant.state.kvutils.tools.integritycheck.RawPreExecutingCommitStrategySupportSpec._
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.google.protobuf.{Empty, Timestamp}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -31,7 +31,7 @@ class RawPreExecutingCommitStrategySupportSpec
     with AkkaBeforeAndAfterAll {
   "support" should {
     "commit, and provide the write set" in {
-      val metrics = new ParticipantMetrics(new MetricRegistry)
+      val metrics = new Metrics(new MetricRegistry)
       val baseTime = ZonedDateTime.of(2021, 1, 1, 12, 0, 0, 0, ZoneOffset.UTC).toInstant
       val support = new RawPreExecutingCommitStrategySupport(metrics)
 
@@ -73,7 +73,7 @@ class RawPreExecutingCommitStrategySupportSpec
     }
 
     "go out of bounds if the MRT is invalid with respect to the submission record time" in {
-      val metrics = new ParticipantMetrics(new MetricRegistry)
+      val metrics = new Metrics(new MetricRegistry)
       val baseTime = ZonedDateTime.of(2021, 2, 1, 12, 0, 0, 0, ZoneOffset.UTC).toInstant
       val support = new RawPreExecutingCommitStrategySupport(metrics)
 

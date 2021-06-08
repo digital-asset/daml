@@ -23,7 +23,7 @@ import com.daml.ledger.participant.state.v1.{
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext.newLoggingContext
-import com.daml.metrics.{JvmMetricSet, ParticipantMetrics}
+import com.daml.metrics.{JvmMetricSet, ParticipantMetrics => Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.JdbcIndexer
 import com.daml.platform.store.LfValueTranslationCache
@@ -58,7 +58,7 @@ class IndexerBenchmark() {
   ): Future[Unit] = {
     newLoggingContext { implicit loggingContext =>
       val metricRegistry = new MetricRegistry
-      val metrics = new ParticipantMetrics(metricRegistry)
+      val metrics = new Metrics(metricRegistry)
       metrics.registry.registerAll(new JvmMetricSet)
 
       val system = ActorSystem("IndexerBenchmark")

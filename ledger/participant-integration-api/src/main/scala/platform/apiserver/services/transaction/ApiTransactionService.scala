@@ -22,7 +22,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.ledger
 import com.daml.platform.server.api.services.domain.TransactionService
@@ -38,7 +38,7 @@ private[apiserver] object ApiTransactionService {
   def create(
       ledgerId: LedgerId,
       transactionsService: IndexTransactionsService,
-      metrics: ParticipantMetrics,
+      metrics: Metrics,
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
@@ -54,7 +54,7 @@ private[apiserver] object ApiTransactionService {
 
 private[apiserver] final class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
-    metrics: ParticipantMetrics,
+    metrics: Metrics,
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends TransactionService
     with ErrorFactories {

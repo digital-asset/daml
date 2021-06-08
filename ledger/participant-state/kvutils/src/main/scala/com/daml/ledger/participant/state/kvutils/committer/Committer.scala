@@ -20,7 +20,7 @@ import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.ParticipantMetrics
+import com.daml.metrics.{ParticipantMetrics => Metrics}
 
 /** A committer either processes or pre-executes a submission, with its inputs into an ordered set of output state and
   * a log entry or multiple log entries in case of pre-execution.
@@ -76,7 +76,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
 
   protected def steps: Iterable[(StepInfo, CommitStep[PartialResult])]
 
-  protected val metrics: ParticipantMetrics
+  protected val metrics: Metrics
 
   /** A committer can `run` a submission and produce a log entry and output states. */
   def run(

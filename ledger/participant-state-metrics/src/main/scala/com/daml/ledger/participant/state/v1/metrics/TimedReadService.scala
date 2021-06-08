@@ -7,10 +7,9 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset, ReadService, Update}
-import com.daml.metrics.{ParticipantMetrics, Timed}
+import com.daml.metrics.{ParticipantMetrics => Metrics, Timed}
 
-final class TimedReadService(delegate: ReadService, metrics: ParticipantMetrics)
-    extends ReadService {
+final class TimedReadService(delegate: ReadService, metrics: Metrics) extends ReadService {
 
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Timed.source(
