@@ -300,6 +300,11 @@ class CommonCliBase(name: LedgerName) {
           s"By default compression is off, this switch enables it. This has only effect for append-only ingestion." // TODO append-only: fix description
         )
 
+      com.daml.cliopts.Metrics.metricsReporterParse(this)(
+        (f, c) => c.copy(metricsReporter = f(c.metricsReporter)),
+        (f, c) => c.copy(metricsReportingInterval = f(c.metricsReportingInterval)),
+      )
+
       help("help").text("Print the usage text")
 
       checkConfig(c => {
