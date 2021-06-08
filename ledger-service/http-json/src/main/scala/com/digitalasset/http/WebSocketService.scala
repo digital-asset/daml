@@ -286,6 +286,7 @@ object WebSocketService {
         )
 
       import scalaz.syntax.tag._
+      import scalaz.syntax.foldable1._
       private implicit val stringOrder = scalaz.Order.fromScalaOrdering[String]
 
       override def startingOffset(
@@ -294,8 +295,7 @@ object WebSocketService {
       ): Option[domain.StartingOffset] =
         request.queries
           .map(_.offset)
-          .minimumBy(_.fold("")(_.unwrap))
-          .get // Safe on NonEmptyList
+          .minimumBy1(_.fold("")(_.unwrap))
           .map(domain.StartingOffset(_))
 
     }
