@@ -752,11 +752,13 @@ abstract class AbstractWebsocketServiceIntegrationTest
   ): Consume.FCC[JsValue, Map[String, JsValue]] = {
     val dslSyntax = Consume.syntax[JsValue]
     import dslSyntax._
+    import domain.Offset.ordering
+    import scalaz.syntax.order._
     def go(
         acs: Map[String, JsValue],
         latest: Option[domain.Offset],
     ): Consume.FCC[JsValue, Map[String, JsValue]] =
-      if (latest.fold(false)(domain.Offset.ordering.greaterThanOrEqual(_, until))) {
+      if (latest.fold(false)(_ >= until)) {
         point(acs)
       } else {
         for {
