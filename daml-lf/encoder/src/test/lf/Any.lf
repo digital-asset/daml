@@ -1,6 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+#if TARGET >= 1.7
+
 module AnyMod {
 
     val int2Any: Int64 -> Any = \ (x: Int64) -> to_any @Int64 x;
@@ -10,3 +12,5 @@ module AnyMod {
     val intRep: TypeRep = type_rep @Int64;
 
 }
+
+#endif

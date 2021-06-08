@@ -250,7 +250,14 @@ private[daml] class EncodeV1(minor: LV.Minor) {
             if (bType == BTNumeric && (languageVersion < LV.Features.numeric))
               PLF.PrimType.DECIMAL -> ignoreOneDecimalScaleParameter(args)
             else
-              builtinTypeInfoMap(bType).proto -> args
+              builtinTypeInfoMap
+                .getOrElse(
+                  bType,
+                  sys.error(
+                    s"builtin type $bType not supported by version ${languageVersion.pretty}"
+                  ),
+                )
+                .proto -> args
           builder.setPrim(
             PLF.Type.Prim.newBuilder().setPrim(proto).accumulateLeft(typs)(_ addArgs _)
           )
@@ -296,7 +303,14 @@ private[daml] class EncodeV1(minor: LV.Minor) {
 
     @inline
     private implicit def encodeBuiltins(builtinFunction: BuiltinFunction): PLF.BuiltinFunction =
-      directBuiltinFunctionMap(builtinFunction).proto
+      directBuiltinFunctionMap
+        .getOrElse(
+          builtinFunction,
+          sys.error(
+            s"builtin function $builtinFunction not supported by version ${languageVersion.pretty}"
+          ),
+        )
+        .proto
 
     private implicit def encodeTyConApp(tyCon: TypeConApp): PLF.Type.Con =
       PLF.Type.Con
@@ -802,9 +816,12 @@ private[daml] class EncodeV1(minor: LV.Minor) {
 
   }
 
+  private def notSupportedError(description: String): Unit =
+    throw Encode.Error(s"$description is not supported by Daml-LF 1.$minor")
+
   private def assertSince(minVersion: LV, description: String): Unit =
     if (languageVersion < minVersion)
-      throw EncodeError(s"$description is not supported by Daml-LF 1.$minor")
+      notSupportedError(description)
 
 }
 

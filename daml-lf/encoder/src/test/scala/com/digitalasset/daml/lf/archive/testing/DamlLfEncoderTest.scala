@@ -27,22 +27,22 @@ class DamlLfEncoderTest
     "be readable" in {
 
       val modules_1_6 = Set[DottedName](
-        "UnitMod",
         "BoolMod",
-        "Int64Mod",
-        "TextMod",
-        "DecimalMod",
+        "ComparisonBuiltinMod",
         "DateMod",
-        "TimestampMod",
+        "DecimalMod",
+        "EnumMod",
+        "Int64Mod",
         "ListMod",
+        "OptionMod",
         "PartyMod",
         "RecordMod",
-        "VariantMod",
-        "BuiltinMod",
         "TemplateMod",
-        "OptionMod",
         "TextMapMod",
-        "EnumMod",
+        "TextMod",
+        "TimestampMod",
+        "UnitMod",
+        "VariantMod",
       )
 
       val modules_1_7 = modules_1_6 + "NumericMod" + "AnyMod"

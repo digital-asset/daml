@@ -49,9 +49,9 @@ object Encode {
 
   }
 
-  case class EncodeError(message: String) extends RuntimeException
+  case class Error(message: String) extends RuntimeException
 
-  private[testing] def unexpectedError(): Unit = throw EncodeError("unexpected error")
+  private[testing] def unexpectedError(): Unit = throw Error("unexpected error")
 
   private[testing] def expect(b: Boolean): Unit = if (!b) unexpectedError()
 }

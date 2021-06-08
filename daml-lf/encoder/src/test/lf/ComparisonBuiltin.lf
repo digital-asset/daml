@@ -1,12 +1,12 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-module BuiltinMod {
+module ComparisonBuiltinMod {
+
+#if TARGET < 1.11
 
   val equal_int64: Int64 -> Int64 -> Bool =
     EQUAL @Int64;
-  val equal_decimal: (Numeric 10) -> (Numeric 10) -> Bool =
-    EQUAL @(Numeric 10);
   val equal_text: Text -> Text -> Bool =
     EQUAL @Text;
   val equal_party: Party -> Party -> Bool =
@@ -17,8 +17,6 @@ module BuiltinMod {
     EQUAL @Date;
   val less_eq_int64: Int64 -> Int64 -> Bool =
     LESS_EQ @Int64;
-  val less_eq_decimal: (Numeric 10) -> (Numeric 10) -> Bool =
-    LESS_EQ @(Numeric 10);
   val less_eq_text: Text -> Text -> Bool =
     LESS_EQ @Text;
   val less_eq_timestamp: Timestamp -> Timestamp -> Bool =
@@ -29,8 +27,6 @@ module BuiltinMod {
     LESS_EQ @Party;
   val less_int64: Int64 -> Int64 -> Bool =
     LESS @Int64;
-  val less_decimal: (Numeric 10) -> (Numeric 10) -> Bool =
-    LESS @(Numeric 10);
   val less_text: Text -> Text -> Bool =
     LESS @Text;
   val less_party: Party -> Party -> Bool =
@@ -41,8 +37,6 @@ module BuiltinMod {
     LESS @Date;
   val greater_eq_int64: Int64 -> Int64 -> Bool =
     GREATER_EQ @Int64;
-  val greater_eq_decimal: (Numeric 10) -> (Numeric 10) -> Bool =
-    GREATER_EQ @(Numeric 10);
   val greater_eq_text: Text -> Text -> Bool =
     GREATER_EQ @Text;
   val greater_eq_party: Party -> Party -> Bool =
@@ -53,8 +47,6 @@ module BuiltinMod {
     GREATER_EQ @Date;
   val greater_int64: Int64 -> Int64 -> Bool =
     GREATER @Int64;
-  val greater_decimal: (Numeric 10) -> (Numeric 10) -> Bool =
-    GREATER @(Numeric 10);
   val greater_text: Text -> Text -> Bool =
     GREATER @Text;
   val greater_party: Party -> Party -> Bool =
@@ -63,5 +55,44 @@ module BuiltinMod {
     GREATER @Timestamp;
   val greater_date: Date -> Date -> Bool =
     GREATER @Date;
+
+#if TARGET <= 1.6
+  val equal_decimal: (Numeric 10) -> (Numeric 10) -> Bool =
+    EQUAL @(Numeric 10);
+  val less_eq_decimal: (Numeric 10) -> (Numeric 10) -> Bool =
+    LESS_EQ @(Numeric 10);
+  val less_decimal: (Numeric 10) -> (Numeric 10) -> Bool =
+    LESS @(Numeric 10);
+  val greater_eq_decimal: (Numeric 10) -> (Numeric 10) -> Bool =
+    GREATER_EQ @(Numeric 10);
+  val greater_decimal: (Numeric 10) -> (Numeric 10) -> Bool =
+    GREATER @(Numeric 10);
+#else
+  val equal_numeric: forall (n:nat). (Numeric n) -> (Numeric n) -> Bool =
+    EQUAL_NUMERIC;
+  val less_eq_numeric: forall (n:nat). (Numeric n) -> (Numeric n) -> Bool =
+    LESS_EQ_NUMERIC;
+  val less_numeric: forall (n:nat). (Numeric n) -> (Numeric n) -> Bool =
+    LESS_NUMERIC;
+  val greater_eq_numeric: forall (n:nat). (Numeric n) -> (Numeric n) -> Bool =
+    GREATER_EQ_NUMERIC;
+  val greater_numeric: forall (n:nat). (Numeric n) -> (Numeric n) -> Bool =
+    GREATER_NUMERIC;
+#endif
+
+#else
+
+  val equal: forall (a: *). a -> a -> Bool =
+    EQUAL;
+  val less_eq: forall (a: *). a -> a -> Bool =
+    LESS_EQ;
+  val less: forall (a: *). a -> a -> Bool =
+    LESS;
+  val greater_eq: forall (a: *). a -> a -> Bool =
+    GREATER_EQ;
+  val greater: forall (a: *). a -> a -> Bool =
+    GREATER;
+
+#endif
 
 }

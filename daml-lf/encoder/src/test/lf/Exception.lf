@@ -1,6 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+#if TARGET >= 1.14
+
 module ExceptionMod {
 
   record @serializable Exception = { message: Text } ;
@@ -25,3 +27,5 @@ module ExceptionMod {
   val aMessage: Text = ANY_EXCEPTION_MESSAGE ExceptionMod:anAnyException;
 
 }
+
+#endif

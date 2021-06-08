@@ -1,6 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+#if TARGET >= 1.7
+
 module NumericMod {
 
   record @serializable Box = {
@@ -45,3 +47,5 @@ module NumericMod {
   };
 
 }
+
+#endif

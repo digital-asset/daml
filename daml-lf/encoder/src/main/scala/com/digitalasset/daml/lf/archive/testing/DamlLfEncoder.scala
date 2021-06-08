@@ -4,7 +4,7 @@
 package com.daml.lf.archive.testing
 
 import java.io.File
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 
 import com.daml.lf.archive.{Dar, DarWriter}
 import com.daml.lf.data.Ref
@@ -16,14 +16,13 @@ import com.daml.SdkVersion
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
-import scala.io.Source
 import scala.util.control.NonFatal
 
 private[daml] object DamlLfEncoder extends App {
 
   import Encode._
 
-  private def error[X](message: String): X = {
+  private def error(message: String): Nothing = {
     System.err.println(message)
     System.exit(1)
     throw new Error("You should not get this error")
@@ -41,23 +40,44 @@ private[daml] object DamlLfEncoder extends App {
           languageVersion = appArgs.languageVersion,
         )
 
-      makeDar(readSources(appArgs.inputFiles), Paths.get(appArgs.outputFile).toFile)
+      makeDar(
+        readAndPreprocessSources(appArgs.inputFiles, appArgs.languageVersion),
+        Paths.get(appArgs.outputFile).toFile,
+      )
 
     } catch {
-      case e: EncodeError =>
-        error(s"Encoding error: ${e.message}")
       case NonFatal(e) =>
-        error(s"error: $e")
+        error(s"Unhandled error: $e" ++ e.getStackTrace.mkString("\n"))
     }
 
-  private def readSources(files: Seq[String]): String =
-    files.view.flatMap(file => Source.fromFile(Paths.get(file).toFile, "UTF8")).mkString
+  private def readAndPreprocessSources(
+      files: Seq[String],
+      languageVersion: LanguageVersion,
+  ): Iterator[(Path, String)] = {
+    files.iterator.map { file =>
+      val path = Paths.get(file)
+      val source = scala.io.Source.fromFile(path.toFile, "UTF8")
+      try {
+        path -> Preprocessor.preprocess(path, source.getLines(), languageVersion)
+      } catch {
+        case e: Preprocessor.Error =>
+          error(e.getMessage)
+      } finally {
+        source.close
+      }
+    }
+  }
 
   private def makeArchive(
-      source: String
+      sources: Iterator[(Path, String)]
   )(implicit parserParameters: ParserParameters[this.type]) = {
 
-    val modules = parseModules[this.type](source).fold(error, identity)
+    val modules = sources.flatMap { case (file, source) =>
+      parseModules[this.type](source) match {
+        case Right(value) => value
+        case Left(err) => error(s"Parsing error in $file: $err")
+      }
+    }.toList
 
     val metadata =
       if (parserParameters.languageVersion >= LanguageVersion.Features.packageMetadata) {
@@ -69,15 +89,28 @@ private[daml] object DamlLfEncoder extends App {
         )
       } else None
 
-    val pkg = Ast.Package(modules, Set.empty[PackageId], parserParameters.languageVersion, metadata)
+    val pkg = Ast.Package(
+      modules,
+      Set.empty[PackageId],
+      parserParameters.languageVersion,
+      metadata,
+    )
     val pkgs = Interface(Map(pkgId -> pkg))
 
-    Validation.checkPackage(pkgs, pkgId, pkg).left.foreach(e => error(e.pretty))
+    Validation.checkPackage(pkgs, pkgId, pkg) match {
+      case Left(e) => error("Validation Error " + e.pretty)
+      case _ =>
+    }
 
-    encodeArchive(pkgId -> pkg, parserParameters.languageVersion)
+    try {
+      encodeArchive(pkgId -> pkg, parserParameters.languageVersion)
+    } catch {
+      case e: Encode.Error =>
+        error(s"Encoding error: ${e.message}")
+    }
   }
 
-  private def makeDar(source: String, file: File)(implicit
+  private def makeDar(source: Iterator[(Path, String)], file: File)(implicit
       parserParameters: ParserParameters[this.type]
   ) = {
     val archive = makeArchive(source)
@@ -130,7 +163,7 @@ private[daml] object DamlLfEncoder extends App {
     version.split("""\.""").toSeq match {
       case Seq("1", minor)
           if LanguageMajorVersion.V1.supportsMinorVersion(minor) || minor == "dev" =>
-        LanguageVersion(LanguageMajorVersion.V1, LanguageVersion.Minor(minor))
+        LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor(minor))
       case _ =>
         error(s"version '$version' not supported")
     }

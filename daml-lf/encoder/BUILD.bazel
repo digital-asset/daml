@@ -85,21 +85,10 @@ da_scala_binary(
 )
 
 [
-    filegroup(
-        name = "lf_%s" % target,
-        srcs = glob([
-            "src/test/lf/*_all_*.lf",
-            "src/test/lf/*_%s_*.lf" % target,
-        ]),
-    )
-    for target in ENCODER_LF_VERSIONS
-]
-
-[
     [
         genrule(
             name = "testing-dar-%s" % target,
-            srcs = [":lf_%s" % target],
+            srcs = glob(["src/test/lf/*.lf"]),
             outs = ["test-%s.dar" % target],
             cmd = "$(location :encoder_binary) $(SRCS) --output $@ --target %s" % target,
             tools = [":encoder_binary"],

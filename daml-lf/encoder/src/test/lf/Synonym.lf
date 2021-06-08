@@ -1,6 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+#if TARGET >= 1.8
+
 module SynonymMod {
 
   synonym Functor (f: * -> *) = <fmap: forall a b . (a -> b) -> f a -> f b> ;
@@ -8,3 +10,5 @@ module SynonymMod {
   val optionFunctorDict : |SynonymMod:Functor Option| = <fmap = ERROR @(forall a b. (a -> b) -> Option a -> Option b) "not implemented" > ;
 
 }
+
+#endif
