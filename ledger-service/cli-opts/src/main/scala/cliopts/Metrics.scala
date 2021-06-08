@@ -23,7 +23,7 @@ object Metrics {
       }).flatMap(duration =>
         Try {
           if (!duration.isFinite)
-            throw new RuntimeException(s"Input duration $duration is not finite")
+            throw new IllegalArgumentException(s"Input duration $duration is not finite")
           else DurationFormat(FiniteDuration(duration.toNanos, NANOSECONDS))
         }
       ).get
