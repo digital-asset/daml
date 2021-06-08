@@ -277,6 +277,15 @@ final class Metrics(val registry: MetricRegistry) {
 
         val apiServices: MetricName = Prefix :+ "api-services"
       }
+
+      object streams {
+        private val Prefix: MetricName = lapi.Prefix :+ "streams"
+
+        val transactionTrees: Counter = registry.counter(Prefix :+ "transaction_trees_sent")
+        val transactions: Counter = registry.counter(Prefix :+ "transactions_sent")
+        val completions: Counter = registry.counter(Prefix :+ "completions_sent")
+        val acs: Counter = registry.counter(Prefix :+ "acs_sent")
+      }
     }
 
     object ledger {
@@ -672,6 +681,13 @@ final class Metrics(val registry: MetricRegistry) {
         val submitConfiguration: Timer = registry.timer(Prefix :+ "submit_configuration")
         val prune: Timer = registry.timer(Prefix :+ "prune")
       }
+    }
+
+    object HttpJsonApi {
+      private val Prefix: MetricName = daml.Prefix :+ "http_json_api"
+
+      val httpRequest: Timer = registry.timer(Prefix :+ "http_request")
+      val websocketRequest: Counter = registry.counter(Prefix :+ "websocket_request")
     }
   }
 }

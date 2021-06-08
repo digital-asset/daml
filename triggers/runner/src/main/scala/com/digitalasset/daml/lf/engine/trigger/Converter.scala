@@ -498,7 +498,7 @@ object Converter {
   }
 
   def apply(compiledPackages: CompiledPackages, triggerIds: TriggerIds): Converter = {
-    val valueTranslator = new preprocessing.ValueTranslator(compiledPackages)
+    val valueTranslator = new preprocessing.ValueTranslator(compiledPackages.interface)
     Converter(
       fromTransaction(valueTranslator, triggerIds, _),
       fromCompletion(triggerIds, _),

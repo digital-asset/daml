@@ -78,14 +78,13 @@ object PlaySpeedy {
       }.toMap
 
     println(s"Compiling packages... ${config.stacktracing}")
-    val compiledPackages: CompiledPackages = PureCompiledPackages(
-      packagesMap,
-      Compiler.Config.Default.copy(stacktracing = config.stacktracing),
-    ) match {
-      case Right(x) => x
-      case Left(x) =>
-        throw new MachineProblem(s"Unexpecteded result when compiling $x")
-    }
+    val compilerConfig = Compiler.Config.Default.copy(stacktracing = config.stacktracing)
+    val compiledPackages =
+      PureCompiledPackages.build(packagesMap, compilerConfig) match {
+        case Right(x) => x
+        case Left(x) =>
+          throw new MachineProblem(s"Unexpecteded result when compiling $x")
+      }
 
     val machine: Machine = {
       println(s"Setup machine for: ${config.funcName}(${config.argValue})")

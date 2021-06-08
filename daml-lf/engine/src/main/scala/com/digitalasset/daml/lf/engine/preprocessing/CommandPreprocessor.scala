@@ -15,41 +15,9 @@ import scala.annotation.tailrec
 private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) {
 
   import Preprocessor._
+  import compiledPackages.interface
 
-  val valueTranslator = new ValueTranslator(compiledPackages)
-
-  @throws[PreprocessorException]
-  private def unsafeGetPackage(pkgId: Ref.PackageId) =
-    compiledPackages.getSignature(pkgId).getOrElse(throw PreprocessorMissingPackage(pkgId))
-
-  @throws[PreprocessorException]
-  private def unsafeGetTemplate(templateId: Ref.Identifier) =
-    assertRight(
-      unsafeGetPackage(templateId.packageId).lookupTemplate(templateId.qualifiedName)
-    )
-
-  @throws[PreprocessorException]
-  private def unsafeGetChoiceArgType(
-      tmplId: Ref.Identifier,
-      tmpl: Ast.TemplateSignature,
-      choiceId: Ref.ChoiceName,
-  ) =
-    tmpl.choices.get(choiceId) match {
-      case Some(choice) => choice.argBinder._2
-      case None =>
-        val choiceNames = tmpl.choices.toList.map(_._1)
-        fail(
-          s"Couldn't find requested choice $choiceId for template $tmplId. Available choices: $choiceNames"
-        )
-    }
-
-  @throws[PreprocessorException]
-  private def unsafeGetContractKeyType(tmplId: Ref.Identifier, tmpl: Ast.TemplateSignature) =
-    tmpl.key match {
-      case Some(ck) => ck.typ
-      case None =>
-        fail(s"Impossible to exercise by key, no key is defined for template $tmplId")
-    }
+  val valueTranslator = new ValueTranslator(interface)
 
   @throws[PreprocessorException]
   def unsafePreprocessCreate(
@@ -67,9 +35,8 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
       choiceId: Ref.ChoiceName,
       argument: Value[Value.ContractId],
   ): (speedy.Command.Exercise, Set[Value.ContractId]) = {
-    val template = unsafeGetTemplate(templateId)
-    val choiceArgType = unsafeGetChoiceArgType(templateId, template, choiceId)
-    val (arg, argCids) = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
+    val choice = handleLookup(interface.lookupChoice(templateId, choiceId)).argBinder._2
+    val (arg, argCids) = valueTranslator.unsafeTranslateValue(choice, argument)
     val cids = argCids + contractId
     speedy.Command.Exercise(templateId, SValue.SContractId(contractId), choiceId, arg) -> cids
   }
@@ -81,9 +48,8 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
       choiceId: Ref.ChoiceName,
       argument: Value[Value.ContractId],
   ): (speedy.Command.ExerciseByKey, Set[Value.ContractId]) = {
-    val template = unsafeGetTemplate(templateId)
-    val choiceArgType = unsafeGetChoiceArgType(templateId, template, choiceId)
-    val ckTtype = unsafeGetContractKeyType(templateId, template)
+    val choiceArgType = handleLookup(interface.lookupChoice(templateId, choiceId)).argBinder._2
+    val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
     val (arg, argCids) = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
     val (key, keyCids) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
     keyCids.foreach { coid =>
@@ -101,8 +67,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
   ): (speedy.Command.CreateAndExercise, Set[Value.ContractId]) = {
     val (createArg, createArgCids) =
       valueTranslator.unsafeTranslateValue(Ast.TTyCon(templateId), createArgument)
-    val template = unsafeGetTemplate(templateId)
-    val choiceArgType = unsafeGetChoiceArgType(templateId, template, choiceId)
+    val choiceArgType = handleLookup(interface.lookupChoice(templateId, choiceId)).argBinder._2
     val (choiceArg, choiceArgCids) =
       valueTranslator.unsafeTranslateValue(choiceArgType, choiceArgument)
     speedy.Command
@@ -119,8 +84,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
       templateId: Ref.ValueRef,
       contractKey: Value[Nothing],
   ): speedy.Command.LookupByKey = {
-    val template = unsafeGetTemplate(templateId)
-    val ckTtype = unsafeGetContractKeyType(templateId, template)
+    val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
     val (key, keyCids) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
     keyCids.foreach { coid =>
       fail(s"Contract IDs are not supported in contract keys: $coid")
@@ -154,12 +118,12 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
       case command.FetchCommand(templateId, coid) =>
         (speedy.Command.Fetch(templateId, SValue.SContractId(coid)), Set(coid))
       case command.FetchByKeyCommand(templateId, key) =>
-        val ckTtype = unsafeGetContractKeyType(templateId, unsafeGetTemplate(templateId))
+        val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
         val (sKey, cids) = valueTranslator.unsafeTranslateValue(ckTtype, key)
         assert(cids.isEmpty)
         (speedy.Command.FetchByKey(templateId, sKey), Set.empty)
       case command.LookupByKeyCommand(templateId, key) =>
-        val ckTtype = unsafeGetContractKeyType(templateId, unsafeGetTemplate(templateId))
+        val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
         val (sKey, cids) = valueTranslator.unsafeTranslateValue(ckTtype, key)
         assert(cids.isEmpty)
         (speedy.Command.LookupByKey(templateId, sKey), Set.empty)

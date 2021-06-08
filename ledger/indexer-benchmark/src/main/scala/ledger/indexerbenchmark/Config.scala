@@ -6,7 +6,7 @@ package com.daml.ledger.indexerbenchmark
 import java.time.Duration
 
 import com.daml.lf.data.Ref
-import com.daml.platform.configuration.MetricsReporter
+import com.daml.metrics.MetricsReporter
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import scopt.OptionParser

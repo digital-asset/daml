@@ -133,7 +133,7 @@ private[daml] object ApiServices {
         ledgerConfigProvider: LedgerConfigProvider,
     )(implicit executionContext: ExecutionContext): List[BindableService] = {
       val apiTransactionService =
-        ApiTransactionService.create(ledgerId, transactionsService)
+        ApiTransactionService.create(ledgerId, transactionsService, metrics)
 
       val apiLedgerIdentityService =
         ApiLedgerIdentityService.create(() => identityService.getLedgerId())
@@ -147,10 +147,10 @@ private[daml] object ApiServices {
         ApiLedgerConfigurationService.create(ledgerId, configurationService)
 
       val apiCompletionService =
-        ApiCommandCompletionService.create(ledgerId, completionsService)
+        ApiCommandCompletionService.create(ledgerId, completionsService, metrics)
 
       val apiActiveContractsService =
-        ApiActiveContractsService.create(ledgerId, activeContractsService)
+        ApiActiveContractsService.create(ledgerId, activeContractsService, metrics)
 
       val apiTimeServiceOpt =
         optTimeServiceBackend.map(tsb =>

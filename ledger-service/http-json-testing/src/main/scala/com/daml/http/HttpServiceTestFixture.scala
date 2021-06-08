@@ -11,6 +11,7 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
+import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -36,6 +37,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.logging.LoggingContextOf
+import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
@@ -77,6 +79,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ec: ExecutionContext,
   ): Future[A] = {
     implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
+    implicit val metrics: Metrics = new Metrics(new MetricRegistry())
     val applicationId = ApplicationId(testName)
 
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence

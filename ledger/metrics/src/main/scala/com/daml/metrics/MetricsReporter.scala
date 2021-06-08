@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.configuration
+package com.daml.metrics
 
 import java.net.{InetSocketAddress, URI}
 import java.nio.file.{Files, Path, Paths}
@@ -89,17 +89,17 @@ object MetricsReporter {
     }
   }
 
+  val cliHint: String =
+    """Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]"."""
+
   def parseUri(value: String): URI =
     try {
       new URI(value)
     } catch {
       case NonFatal(exception) =>
-        throw new InvalidConfigException(cliHint + " " + exception.getMessage)
+        throw new RuntimeException(cliHint, exception)
     }
 
-  val cliHint: String =
-    """Must be one of "console", "csv:///PATH", "graphite://HOST[:PORT][/METRIC_PREFIX]", or "prometheus://HOST[:PORT]"."""
-
-  private def invalidRead: InvalidConfigException =
-    new InvalidConfigException(cliHint)
+  private def invalidRead: RuntimeException =
+    new RuntimeException(cliHint)
 }

@@ -77,6 +77,9 @@ trait ConfigProvider[ExtraConfig] {
       maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
       maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
       enableMutableContractStateCache = config.enableMutableContractStateCache,
+      maxTransactionsInMemoryFanOutBufferSize =
+        participantConfig.maxTransactionsInMemoryFanOutBufferSize,
+      enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
     )
 
   def partyConfig(config: Config[ExtraConfig]): PartyConfiguration =

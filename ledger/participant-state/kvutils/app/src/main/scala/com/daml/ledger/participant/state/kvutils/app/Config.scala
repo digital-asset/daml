@@ -14,8 +14,9 @@ import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.metrics.MetricsReporter
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration, MetricsReporter}
+import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
@@ -40,6 +41,7 @@ final case class Config[Extra](
     engineMode: EngineMode,
     enableAppendOnlySchema: Boolean, // TODO append-only: remove after removing support for the current (mutating) schema
     enableMutableContractStateCache: Boolean,
+    enableInMemoryFanOutForLedgerApi: Boolean,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -70,6 +72,7 @@ object Config {
       engineMode = EngineMode.Stable,
       enableAppendOnlySchema = false,
       enableMutableContractStateCache = false,
+      enableInMemoryFanOutForLedgerApi = false,
       extra = extra,
     )
 
@@ -252,6 +255,10 @@ object Config {
               .get("contract-key-state-cache-max-size")
               .map(_.toLong)
               .getOrElse(ParticipantConfig.DefaultMaxContractKeyStateCacheSize)
+            val maxTransactionsInMemoryFanOutBufferSize = kv
+              .get("ledger-api-transactions-buffer-max-size")
+              .map(_.toLong)
+              .getOrElse(ParticipantConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize)
             val partConfig = ParticipantConfig(
               runMode,
               participantId,
@@ -279,6 +286,7 @@ object Config {
               managementServiceTimeout = managementServiceTimeout,
               maxContractStateCacheSize = maxContractStateCacheSize,
               maxContractKeyStateCacheSize = maxContractKeyStateCacheSize,
+              maxTransactionsInMemoryFanOutBufferSize = maxTransactionsInMemoryFanOutBufferSize,
             )
             config.copy(participants = config.participants :+ partConfig)
           })
@@ -486,6 +494,14 @@ object Config {
             "Experimental contract state cache for command execution. Should not be used in production."
           )
           .action((_, config) => config.copy(enableMutableContractStateCache = true))
+
+        opt[Unit]("buffered-ledger-api-streams-unsafe")
+          .optional()
+          .hidden()
+          .text(
+            "Experimental buffer for Ledger API streaming queries. Should not be used in production."
+          )
+          .action((_, config) => config.copy(enableInMemoryFanOutForLedgerApi = true))
       }
     extraOptions(parser)
     parser

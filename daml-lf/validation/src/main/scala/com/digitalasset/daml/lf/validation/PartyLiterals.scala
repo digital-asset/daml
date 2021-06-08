@@ -5,35 +5,38 @@ package com.daml.lf.validation
 
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.Interface
 import com.daml.lf.validation.iterable.ExprIterable
 
 private[validation] object PartyLiterals {
 
+  import Util.handleLookup
+
   @throws[EForbiddenPartyLiterals]
-  def checkModule(world: World, pkgId: PackageId, module: Module): Unit = {
+  def checkModule(interface: Interface, pkgId: PackageId, module: Module): Unit = {
     module.definitions.foreach {
       case (defName, DValue(typ @ _, noPartyLiterals, body, isTest @ _)) =>
         def context = ContextDefValue(pkgId, module.name, defName)
         if (noPartyLiterals)
-          checkExpr(world, context, body)
+          checkExpr(interface, context, body)
         else if (module.featureFlags.forbidPartyLiterals)
           throw EForbiddenPartyLiterals(context, ValRefWithPartyLiterals(context.ref))
       case _ =>
     }
     module.templates.foreach { case (defName, template) =>
       def context = ContextDefValue(pkgId, module.name, defName)
-      ExprIterable(template).foreach(checkExpr(world, context, _))
+      ExprIterable(template).foreach(checkExpr(interface, context, _))
     }
   }
 
-  private def checkExpr(world: World, context: => Context, expr: Expr): Unit =
+  private def checkExpr(interface: Interface, context: => Context, expr: Expr): Unit =
     expr match {
       case EPrimLit(party: PLParty) =>
         throw EForbiddenPartyLiterals(context, PartyLiteral(party.value))
-      case EVal(valRef) if !world.lookupValue(context, valRef).noPartyLiterals =>
+      case EVal(valRef) if !handleLookup(context, interface.lookupValue(valRef)).noPartyLiterals =>
         throw EForbiddenPartyLiterals(context, ValRefWithPartyLiterals(valRef))
       case otherwise =>
-        ExprIterable(otherwise).foreach(checkExpr(world, context, _))
+        ExprIterable(otherwise).foreach(checkExpr(interface, context, _))
     }
 
 }

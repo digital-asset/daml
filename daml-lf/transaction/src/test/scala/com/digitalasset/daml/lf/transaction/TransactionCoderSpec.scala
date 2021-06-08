@@ -34,9 +34,10 @@ class TransactionCoderSpec
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  import TransactionVersion.{V10, V11, V12, V13, VDev, minExceptions}
+  import TransactionVersion.{V10, V11, V12, V13, V14, VDev, minExceptions}
 
-  private[this] val transactionVersions = Table("transaction version", V10, V11, V12, V13, VDev)
+  private[this] val transactionVersions =
+    Table("transaction version", V10, V11, V12, V13, V14, VDev)
 
   "encode-decode" should {
 
@@ -334,7 +335,7 @@ class TransactionCoderSpec
 
     "fail if try to encode a node in a version newer than the transaction" in {
 
-      forAll(danglingRefGenNode, versionInStrictIncreasingOrder(), minSuccessful(10)) {
+      forAll(danglingRefGenActionNode, versionInStrictIncreasingOrder(), minSuccessful(10)) {
         case ((nodeId, node), (txVersion, nodeVersion)) =>
           val normalizedNode = normalizeNode(updateVersion(node, nodeVersion))
 
@@ -527,7 +528,7 @@ class TransactionCoderSpec
       val gen = for {
         ver <- versionInIncreasingOrder(postV10Versions)
         (nodeVersion, txVersion) = ver
-        node <- danglingRefGenNodeWithVersion(nodeVersion)
+        node <- danglingRefGenActionNodeWithVersion(nodeVersion)
       } yield (ver, node)
 
       forAll(gen, minSuccessful(5)) { case ((nodeVersion, txVersion), (nodeId, node)) =>
@@ -647,7 +648,7 @@ class TransactionCoderSpec
       val gen = for {
         ver <- versionInStrictIncreasingOrder(postV10versions)
         (txVersion, nodeVersion) = ver
-        node <- danglingRefGenNodeWithVersion(nodeVersion)
+        node <- danglingRefGenActionNodeWithVersion(nodeVersion)
       } yield (ver, node)
 
       forAll(gen) { case ((txVersion, nodeVersion), (nodeId, node)) =>

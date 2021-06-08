@@ -240,4 +240,4 @@ da_scala_benchmark_jmh(
         "//ledger/participant-state/kvutils",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
-) if scala_major_version == "2.12" else None
+)

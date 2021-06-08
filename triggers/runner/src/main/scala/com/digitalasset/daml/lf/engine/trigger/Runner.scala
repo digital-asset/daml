@@ -130,14 +130,11 @@ object Trigger extends StrictLogging {
 
     val compiler = compiledPackages.compiler
     for {
-      pkg <- compiledPackages
-        .getSignature(triggerId.packageId)
-        .toRight(s"Could not find package: ${triggerId.packageId}")
-      definition <- pkg.lookupDefinition(triggerId.qualifiedName)
+      definition <- compiledPackages.interface.lookupDefinition(triggerId).left.map(_.pretty)
       expr <- definition match {
-        case DValueSignature(TApp(TTyCon(tcon), stateTy), _, _, _) =>
+        case GenDValue(TApp(TTyCon(tcon), stateTy), _, _, _) =>
           detectTriggerType(tcon, stateTy)
-        case DValueSignature(ty, _, _, _) => Left(s"$ty is not a valid type for a trigger")
+        case GenDValue(ty, _, _, _) => Left(s"$ty is not a valid type for a trigger")
         case _ => Left(s"Trigger must points to a value but points to $definition")
       }
       triggerIds = TriggerIds(expr.ty.tycon.packageId)
@@ -179,8 +176,8 @@ object Trigger extends StrictLogging {
     val machine = Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)
     Machine.stepToValue(machine) match {
       case SVariant(_, "AllInDar", _, _) => {
-        val packages: Seq[(PackageId, PackageSignature)] = compiledPackages.packageIds
-          .map(pkgId => (pkgId, compiledPackages.getSignature(pkgId).get))
+        val packages = compiledPackages.packageIds
+          .map(pkgId => (pkgId, compiledPackages.interface.lookupPackage(pkgId).toOption.get))
           .toSeq
         val templateIds = packages.flatMap({ case (pkgId, pkg) =>
           pkg.modules.toList.flatMap({ case (modName, module) =>
@@ -706,7 +703,7 @@ object Runner extends StrictLogging {
       party: String,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] = {
     val darMap = dar.all.toMap
-    val compiledPackages = PureCompiledPackages(darMap) match {
+    val compiledPackages = PureCompiledPackages.build(darMap) match {
       case Left(err) => throw new RuntimeException(s"Failed to compile packages: $err")
       case Right(pkgs) => pkgs
     }

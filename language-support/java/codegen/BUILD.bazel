@@ -164,6 +164,8 @@ scala_source_jar(
         ),
     ]
     for target in COMPILER_LF_VERSIONS
+    # we skip 1.13 and 1.14 as their serializable types are the same as 1.12
+    if target != "1.13" and target != "1.14"
 ]
 
 ########################################################
@@ -291,6 +293,8 @@ daml_compile(
         ),
     ]
     for target in COMPILER_LF_VERSIONS
+    # we skip 1.13 and 1.14 as their serializable types are the same as 1.12
+    if target != "1.13" and target != "1.14"
 ]
 
 ########################################################

@@ -1,16 +1,14 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 import java.util
 
-import com.daml.lf.PureCompiledPackages
-import com.daml.lf.data
 import com.daml.lf.language.Ast
-import com.daml.lf.language.Ast.{Expr, Package}
 import com.daml.lf.speedy.Compiler.FullStackTrace
-import com.daml.lf.speedy.SResult.{SResultFinalValue}
+import com.daml.lf.speedy.SResult.SResultFinalValue
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.validation.Validation
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -19,7 +17,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-  val pkg: Package =
+  val pkg =
     p"""
        module F {
 
@@ -104,17 +102,21 @@ class TailCallTest extends AnyWordSpec with Matchers with TableDrivenPropertyChe
   }
 
   private def typeAndCompile(pkg: Ast.Package): PureCompiledPackages = {
-    val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
-    Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId, pkg)
-    data.assertRight(
-      PureCompiledPackages(rawPkgs, Compiler.Config.Default.copy(stacktracing = FullStackTrace))
+    import defaultParserParameters.defaultPackageId
+    val rawPkgs = Map(defaultPackageId -> pkg)
+    Validation.checkPackage(
+      language.Interface(rawPkgs),
+      defaultParserParameters.defaultPackageId,
+      pkg,
     )
+    val compilerConfig = Compiler.Config.Default.copy(stacktracing = FullStackTrace)
+    PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
   }
 
   val pkgs = typeAndCompile(pkg)
 
   // Evaluate an expression with optionally bounded env and kont stacks
-  private def runExpr(e: Expr, envBound: Option[Int], kontBound: Option[Int]): SValue = {
+  private def runExpr(e: Ast.Expr, envBound: Option[Int], kontBound: Option[Int]): SValue = {
     // create the machine
     val machine = Speedy.Machine.fromPureExpr(pkgs, e)
     // maybe replace the env-stack with a bounded version

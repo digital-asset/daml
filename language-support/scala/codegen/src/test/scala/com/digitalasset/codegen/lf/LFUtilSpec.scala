@@ -145,6 +145,7 @@ object LFUtilSpec {
 
   private[this] val fooRec = Record(ImmArraySeq.empty)
   val envInterfaceWithKey = EnvironmentInterface(
+    Map.empty,
     Map(
       "a:b:HasKey" -> InterfaceType.Template(
         fooRec,
@@ -155,6 +156,6 @@ object LFUtilSpec {
       ),
       "a:b:NoKey" -> InterfaceType.Template(fooRec, DefTemplate(Map.empty, None)),
       "a:b:It" -> InterfaceType.Normal(DefDataType(ImmArraySeq.empty, fooRec)),
-    ) mapKeys Ref.Identifier.assertFromString
+    ) mapKeys Ref.Identifier.assertFromString,
   )
 }

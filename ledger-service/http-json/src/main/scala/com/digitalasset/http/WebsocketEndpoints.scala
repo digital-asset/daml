@@ -12,11 +12,12 @@ import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.\/
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import EndpointsCompanion._
 import com.daml.http.domain.JwtPayload
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.metrics.Metrics
 
 object WebsocketEndpoints {
   private[http] val tokenPrefix: String = "jwt.token."
@@ -56,8 +57,8 @@ class WebsocketEndpoints(
   private[this] val logger = ContextualizedLogger.get(getClass)
 
   def transactionWebSocket(implicit
-      ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ) = {
     val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
       InstanceUUID with RequestID
@@ -106,16 +107,10 @@ class WebsocketEndpoints(
     }
     import scalaz.std.partialFunction._, scalaz.syntax.arrow._
     (dispatch &&& { case r => r }) andThen { case (lcFhr, req) =>
-      extendWithRequestIdLogCtx(implicit lc =>
-        // TODO: Refactor this somehow into an own function
-        for {
-          _ <- Future.unit
-          _ = logger.trace(s"Incoming request on ${req.uri}")
-          t0 = System.nanoTime()
-          res <- lcFhr(lc)
-          _ = logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
-        } yield res
-      )
+      extendWithRequestIdLogCtx(implicit lc => {
+        logger.trace(s"Incoming request on ${req.uri}")
+        lcFhr(lc)
+      })
     }
   }
 
@@ -124,7 +119,7 @@ class WebsocketEndpoints(
       jwtPayload: domain.JwtPayload,
       req: WebSocketUpgrade,
       protocol: String,
-  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): HttpResponse = {
+  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID], metrics: Metrics): HttpResponse = {
     val handler: Flow[Message, Message, _] =
       webSocketService.transactionMessageHandler[A](jwt, jwtPayload)
     req.handleMessages(handler, Some(protocol))

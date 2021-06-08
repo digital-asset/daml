@@ -163,8 +163,7 @@ object CodeGen {
 
     if (regexes.isEmpty) ei
     else {
-      val EnvironmentInterface(tds) = ei
-      EnvironmentInterface(tds transform {
+      ei.copy(typeDecls = ei.typeDecls transform {
         case (id, tpl @ InterfaceType.Template(_, _)) if !matchesRoots(id) =>
           InterfaceType.Normal(tpl.`type`)
         case (_, other) => other

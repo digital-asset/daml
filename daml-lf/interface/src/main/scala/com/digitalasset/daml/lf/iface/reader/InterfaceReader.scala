@@ -68,7 +68,8 @@ object InterfaceReader {
     def alterErrors(e: InterfaceReaderError.Tree => InterfaceReaderError.Tree): State =
       copy(errors = e(errors))
 
-    def asOut(packageId: PackageId): iface.Interface = iface.Interface(packageId, this.typeDecls)
+    def asOut(packageId: PackageId, metadata: Option[PackageMetadata]): iface.Interface =
+      iface.Interface(packageId, metadata, this.typeDecls)
   }
 
   private[reader] object State {
@@ -88,7 +89,7 @@ object InterfaceReader {
 
   private val dummyPkgId = PackageId.assertFromString("-dummyPkg-")
 
-  private val dummyInterface = iface.Interface(dummyPkgId, Map.empty)
+  private val dummyInterface = iface.Interface(dummyPkgId, None, Map.empty)
 
   def readInterface(
       f: () => String \/ (PackageId, Ast.Package)
@@ -103,10 +104,16 @@ object InterfaceReader {
           import scalaz.std.iterable._
           lfPackage.modules.values.foldMap(foldModule)
         }
-        val r = (filterOutUnserializableErrors(s.errors), s.asOut(templateGroupId))
+        val r = (
+          filterOutUnserializableErrors(s.errors),
+          s.asOut(templateGroupId, lfPackage.metadata.map(toIfaceMetadata(_))),
+        )
         lfprintln(s"result: $r")
         r
     }
+
+  private def toIfaceMetadata(metadata: Ast.PackageMetadata): PackageMetadata =
+    PackageMetadata(metadata.name, metadata.version)
 
   private def filterOutUnserializableErrors(
       es: InterfaceReaderError.Tree

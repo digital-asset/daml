@@ -61,7 +61,7 @@ class ReplayBenchmark {
       benchmark = if (adapt) {
         Replay.adapt(
           loadedPackages,
-          engine.compiledPackages().packageLanguageVersion,
+          engine.compiledPackages().interface.packageLanguageVersion,
           originalBenchmark,
         )
       } else {

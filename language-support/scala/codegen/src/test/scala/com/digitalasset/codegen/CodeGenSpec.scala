@@ -23,7 +23,7 @@ class CodeGenSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropert
     }
 
     "delete all templates given impossible regex" in forAll(trivialEnvInterfaceGen) { ei =>
-      val noTemplates = ei copy (ei.typeDecls transform {
+      val noTemplates = ei copy (typeDecls = ei.typeDecls transform {
         case (_, tmpl @ InterfaceType.Template(_, _)) => InterfaceType.Normal(tmpl.`type`)
         case (_, v) => v
       })
@@ -46,9 +46,12 @@ object CodeGenSpec {
     val fooNorm = InterfaceType.Normal(DefDataType(ImmArraySeq.empty, fooRec))
     implicit val idArb: Arbitrary[Identifier] = Arbitrary(idGen)
     arbitrary[Map[Identifier, Boolean]] map { ids =>
-      EnvironmentInterface(ids transform { (_, isTemplate) =>
-        if (isTemplate) fooTmpl else fooNorm
-      })
+      EnvironmentInterface(
+        Map.empty,
+        ids transform { (_, isTemplate) =>
+          if (isTemplate) fooTmpl else fooNorm
+        },
+      )
     }
   }
 }

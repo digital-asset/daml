@@ -1,19 +1,24 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.benchmark
+package com.daml.lf
+package benchmark
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.language.Ast.{PackageSignature, TTyCon}
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.daml.lf.transaction.{TransactionCoder, TransactionVersion}
 import com.daml.lf.value.ValueOuterClass
-import com.daml.lf.value.ValueOuterClass.Identifier
 
-import scala.collection.JavaConverters.{asScalaIteratorConverter, iterableAsScalaIterableConverter}
+import scala.jdk.CollectionConverters._
 import scala.Ordering.Implicits._
 
-final class TypedValueExtractor(signatures: PartialFunction[PackageId, PackageSignature]) {
+final class TypedValueExtractor(interface: language.Interface) {
+
+  private[this] def handleLookup[X](lookup: => Either[language.LookupError, X]) =
+    lookup match {
+      case Right(value) => value
+      case Left(error) => sys.error(error.pretty)
+    }
 
   private[this] def getValue(
       version: TransactionVersion,
@@ -34,10 +39,9 @@ final class TypedValueExtractor(signatures: PartialFunction[PackageId, PackageSi
       node.getNodeTypeCase match {
         case NodeTypeCase.CREATE =>
           val create = node.getCreate
-          val (packageId, qualifiedName) = {
-            import scala.Ordering.Implicits.infixOrderingOps
+          val templateId = {
             TransactionCoder.decodeVersion(node.getVersion) match {
-              case Right(ver) if (ver >= TransactionVersion.V12) =>
+              case Right(ver) if ver >= TransactionVersion.V12 =>
                 validateIdentifier(create.getTemplateId)
               case Right(_) =>
                 validateIdentifier(create.getContractInstance.getTemplateId)
@@ -45,35 +49,30 @@ final class TypedValueExtractor(signatures: PartialFunction[PackageId, PackageSi
                 sys.error(message.errorMessage)
             }
           }
-          val template =
-            signatures(packageId).lookupTemplate(qualifiedName).fold(sys.error, identity)
-          val argument =
+          val template = handleLookup(interface.lookupTemplate(templateId))
+          val argument = TypedValue(
+            getValue(
+              version,
+              create.getContractInstance.getArgVersioned,
+              create.getArgUnversioned,
+            ),
+            language.Ast.TTyCon(templateId),
+          )
+          val key = template.key.map(key =>
             TypedValue(
               getValue(
                 version,
-                create.getContractInstance.getArgVersioned,
-                create.getArgUnversioned,
+                create.getKeyWithMaintainers.getKeyVersioned,
+                create.getKeyWithMaintainers.getKeyUnversioned,
               ),
-              TTyCon(TypeConName(packageId, qualifiedName)),
+              key.typ,
             )
-          val key =
-            template.key.map(key =>
-              TypedValue(
-                getValue(
-                  version,
-                  create.getKeyWithMaintainers.getKeyVersioned,
-                  create.getKeyWithMaintainers.getKeyUnversioned,
-                ),
-                key.typ,
-              )
-            )
+          )
           argument :: key.toList
         case NodeTypeCase.EXERCISE =>
           val exercise = node.getExercise
-          val (packageId, qualifiedName) =
-            validateIdentifier(exercise.getTemplateId)
-          val template =
-            signatures(packageId).lookupTemplate(qualifiedName).fold(sys.error, identity)
+          val templateId = validateIdentifier(exercise.getTemplateId)
+          val template = handleLookup(interface.lookupTemplate(templateId))
           val choice = ChoiceName.assertFromString(exercise.getChoice)
           val argument =
             TypedValue(
@@ -96,13 +95,12 @@ final class TypedValueExtractor(signatures: PartialFunction[PackageId, PackageSi
       }
     }
 
-  private def validateIdentifier(templateId: Identifier): (PackageId, QualifiedName) = {
-    val packageId = PackageId.assertFromString(templateId.getPackageId)
-    val qualifiedName = QualifiedName(
-      ModuleName.assertFromSegments(templateId.getModuleNameList.asScala),
-      DottedName.assertFromSegments(templateId.getNameList.asScala),
+  private[this] def validateIdentifier(templateId: ValueOuterClass.Identifier): Identifier =
+    Identifier(
+      packageId = PackageId.assertFromString(templateId.getPackageId),
+      qualifiedName = QualifiedName(
+        ModuleName.assertFromSegments(templateId.getModuleNameList.asScala),
+        DottedName.assertFromSegments(templateId.getNameList.asScala),
+      ),
     )
-    (packageId, qualifiedName)
-  }
-
 }

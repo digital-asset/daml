@@ -63,8 +63,7 @@ conformance_test(
     ],
     lf_versions = [
         "stable",
-        # FIXME: add latest once canton-test-runner supports LF 1.13
-        #  "latest",
+        "latest",
     ],
     ports = [
         5011,
@@ -104,8 +103,7 @@ conformance_test(
     ],
     lf_versions = [
         "stable",
-        # FIXME: add latest once canton-test-runner supports LF 1.13
-        #  "latest",
+        "latest",
     ],
     ports = [
         5011,

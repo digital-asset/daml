@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.suites
 
+import java.util.regex.Pattern
+
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
@@ -103,7 +105,11 @@ final class CommandSubmissionCompletionIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        s"Couldn't find requested choice $badChoice",
+        Some(
+          Pattern.compile(
+            "(unknown|Couldn't find requested) choice " + badChoice
+          )
+        ),
       )
     }
   })

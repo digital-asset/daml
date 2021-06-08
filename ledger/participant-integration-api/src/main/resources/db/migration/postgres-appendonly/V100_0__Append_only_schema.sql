@@ -34,73 +34,75 @@ INSERT INTO participant_migration_history_v100 VALUES (
 --   2. Copy data from the old mutable tables into the new tables
 --   3. Drop the old mutable tables
 --   4. Create a view that contains the union of all events
+--
+-- Note on event sequential IDs:
+-- These IDs must be assigned sequentially by the indexer such that for all events ev1, ev2 it holds that
+-- (ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
 ---------------------------------------------------------------------------------------------------
 
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: divulgence
 ---------------------------------------------------------------------------------------------------
--- TODO append-only: reorder small fields to the end to avoid unnecessary padding.
 CREATE TABLE participant_events_divulgence (
+    -- * fixed-size columns first to avoid padding
+   event_sequential_id bigint NOT NULL, -- event identification: same ordering as event_offset
+
     -- * event identification
-    event_sequential_id bigint NOT NULL,
-    -- NOTE: this must be assigned sequentially by the indexer such that
-    -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
     event_offset text, -- offset of the transaction that divulged the contract
 
     -- * transaction metadata
-    command_id text,
     workflow_id text,
+
+    -- * submitter info (only visible on submitting participant)
+    command_id text,
     application_id text,
     submitters text[],
 
     -- * shared event information
     contract_id text NOT NULL,
     template_id text,
-    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL,       -- informees for create, exercise, and divulgance events
+    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- informees
 
-    -- * divulgence and create events
+    -- * contract data
     create_argument bytea,
 
     -- * compression flags
     create_argument_compression SMALLINT
 );
 
-
 ---------------------------------------------------------------------------------------------------
 -- Events table: create
 ---------------------------------------------------------------------------------------------------
--- TODO append-only: reorder small fields to the end to avoid unnecessary padding.
 CREATE TABLE participant_events_create (
-    -- * event identification
-    event_sequential_id bigint NOT NULL,
-    -- NOTE: this must be assigned sequentially by the indexer such that
-    -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
+    -- * fixed-size columns first to avoid padding
+    event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
+    ledger_effective_time timestamp NOT NULL, -- transaction metadata
+    node_index integer NOT NULL,              -- event metadata
 
+    -- * event identification
     event_offset text NOT NULL,
 
     -- * transaction metadata
     transaction_id text NOT NULL,
-    ledger_effective_time timestamp without time zone NOT NULL,
-    command_id text,
     workflow_id text,
+
+    -- * submitter info (only visible on submitting participant)
+    command_id text,
     application_id text,
     submitters text[],
 
     -- * event metadata
-    node_index integer NOT NULL,
-    event_id text NOT NULL,        -- string representation of (transaction_id, node_index)
+    event_id text NOT NULL,       -- string representation of (transaction_id, node_index)
 
     -- * shared event information
     contract_id text NOT NULL,
     template_id text NOT NULL,
-    flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL,       -- stakeholders of create events and consuming exercise events
-    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL,       -- informees for create, exercise, and divulgance events
+    flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- stakeholders
+    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- informees
 
-    -- * divulgence and create events
+    -- * contract data
     create_argument bytea NOT NULL,
-
-    -- * create events only
     create_signatories text[] NOT NULL,
     create_observers text[] NOT NULL,
     create_agreement_text text,
@@ -119,37 +121,37 @@ ALTER TABLE participant_events_create ALTER COLUMN create_key_hash SET STORAGE E
 ---------------------------------------------------------------------------------------------------
 -- Events table: consuming exercise
 ---------------------------------------------------------------------------------------------------
--- TODO append-only: reorder small fields to the end to avoid unnecessary padding.
 CREATE TABLE participant_events_consuming_exercise (
-    -- * event identification
-    event_sequential_id bigint NOT NULL,
-    -- NOTE: this must be assigned sequentially by the indexer such that
-    -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
+    -- * fixed-size columns first to avoid padding
+    event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
+    ledger_effective_time timestamp NOT NULL, -- transaction metadata
+    node_index integer NOT NULL,              -- event metadata
 
+    -- * event identification
     event_offset text NOT NULL,
 
     -- * transaction metadata
     transaction_id text NOT NULL,
-    ledger_effective_time timestamp without time zone NOT NULL,
-    command_id text,
     workflow_id text,
+
+    -- * submitter info (only visible on submitting participant)
+    command_id text,
     application_id text,
     submitters text[],
 
     -- * event metadata
-    node_index integer NOT NULL,
     event_id text NOT NULL,        -- string representation of (transaction_id, node_index)
 
     -- * shared event information
     contract_id text NOT NULL,
     template_id text NOT NULL,
-    flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL,       -- stakeholders of create events and consuming exercise events
-    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL,       -- informees for create, exercise, and divulgance events
+    flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- stakeholders
+    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- informees
 
     -- * information about the corresponding create event
     create_key_value bytea,        -- used for the mutable state cache
 
-    -- * exercise events (consuming and non_consuming)
+    -- * choice data
     exercise_choice text NOT NULL,
     exercise_argument bytea NOT NULL,
     exercise_result bytea,
@@ -166,37 +168,37 @@ CREATE TABLE participant_events_consuming_exercise (
 ---------------------------------------------------------------------------------------------------
 -- Events table: non-consuming exercise
 ---------------------------------------------------------------------------------------------------
--- TODO append-only: reorder small fields to the end to avoid unnecessary padding.
 CREATE TABLE participant_events_non_consuming_exercise (
-    -- * event identification
-    event_sequential_id bigint NOT NULL,
-    -- NOTE: this must be assigned sequentially by the indexer such that
-    -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
+    -- * fixed-size columns first to avoid padding
+    event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
+    ledger_effective_time timestamp NOT NULL, -- transaction metadata
+    node_index integer NOT NULL,              -- event metadata
 
+    -- * event identification
     event_offset text NOT NULL,
 
     -- * transaction metadata
     transaction_id text NOT NULL,
-    ledger_effective_time timestamp without time zone NOT NULL,
-    command_id text,
     workflow_id text,
+
+    -- * submitter info (only visible on submitting participant)
+    command_id text,
     application_id text,
     submitters text[],
 
     -- * event metadata
-    node_index integer NOT NULL,
     event_id text NOT NULL,        -- string representation of (transaction_id, node_index)
 
     -- * shared event information
     contract_id text NOT NULL,
     template_id text NOT NULL,
-    flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL,       -- stakeholders of create events and consuming exercise events
-    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL,       -- informees for create, exercise, and divulgance events
+    flat_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- stakeholders
+    tree_event_witnesses text[] DEFAULT '{}'::text[] NOT NULL, -- informees
 
     -- * information about the corresponding create event
     create_key_value bytea,        -- used for the mutable state cache
 
-    -- * exercise events (consuming and non_consuming)
+    -- * choice data
     exercise_choice text NOT NULL,
     exercise_argument bytea NOT NULL,
     exercise_result bytea,

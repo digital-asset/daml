@@ -129,7 +129,8 @@ custom-setup
     Cabal,
     directory,
     filepath,
-    process
+    process,
+    proto3-suite
 
 library
   default-language: Haskell2010
