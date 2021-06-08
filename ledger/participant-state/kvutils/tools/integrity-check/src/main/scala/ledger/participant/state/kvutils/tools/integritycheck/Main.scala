@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import com.daml.metrics.{ParticipantMetrics => Metrics}
+
 import scala.concurrent.ExecutionContext
 
 object Main {

@@ -4,10 +4,12 @@
 package com.daml.http
 
 import java.nio.file.Path
+
 import com.daml.ledger.api.tls.TlsConfiguration
 
 import scala.concurrent.duration.FiniteDuration
 import ch.qos.logback.classic.{Level => LogLevel}
+
 import com.daml.cliopts.Logging.LogEncoder
 import com.daml.metrics.MetricsReporter
 

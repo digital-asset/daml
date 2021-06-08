@@ -7,6 +7,7 @@ import java.io.File
 import java.time.{Clock, Instant}
 import java.util.UUID
 import java.util.concurrent.Executors
+
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
@@ -50,6 +51,7 @@ import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future, Promise}
+
 import scala.util.Try
 
 /** Runs Sandbox with a KV SQL ledger backend.
