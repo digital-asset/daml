@@ -136,7 +136,7 @@ object EndpointsCompanion {
 
   private[http] def decodeAndParsePayload[A](jwt: Jwt, decodeJwt: ValidateJwt)(implicit
       parse: ParsePayload[A]
-  ): Unauthorized \/ (jwt.type, A) = {
+  ): Unauthorized \/ (Jwt, A) = {
     for {
       a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
       p <- parse.parsePayload(a)

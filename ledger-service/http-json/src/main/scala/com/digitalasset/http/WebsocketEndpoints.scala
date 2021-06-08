@@ -23,15 +23,14 @@ object WebsocketEndpoints {
   private[http] val tokenPrefix: String = "jwt.token."
   private[http] val wsProtocol: String = "daml.ws.auth"
 
-  private def findJwtFromSubProtocol(
+  private def findJwtFromSubProtocol[Err >: Unauthorized](
       upgradeToWebSocket: WebSocketUpgrade
-  ): Unauthorized \/ Jwt = {
+  ): Err \/ Jwt =
     upgradeToWebSocket.requestedProtocols
       .collectFirst {
         case p if p startsWith tokenPrefix => Jwt(p drop tokenPrefix.length)
       }
       .toRightDisjunction(Unauthorized(s"Missing required $tokenPrefix.[token] in subprotocol"))
-  }
 
   private def preconnect[Err >: Unauthorized](
       decodeJwt: ValidateJwt,

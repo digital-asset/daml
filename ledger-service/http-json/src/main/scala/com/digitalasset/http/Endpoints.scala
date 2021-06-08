@@ -420,7 +420,7 @@ class Endpoints(
   )(implicit
       parse: ParsePayload[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
-  ): Future[Unauthorized \/ (Jwt, P, String)] =
+  ): Future[Error \/ (Jwt, P, String)] =
     input(req).map(_.flatMap(withJwtPayload[String, P]))
 
   private[http] def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
