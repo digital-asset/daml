@@ -392,6 +392,15 @@ object Config {
           )
           .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
+        opt[Int]("events-decoding-parallelism")
+          .optional()
+          .text(
+            s"Number of events decoded in parallel. Default is ${IndexConfiguration.DefaultEventsDecodingParallelism}."
+          )
+          .action((eventsDecodingParallelism, config) =>
+            config.copy(eventsDecodingParallelism = eventsDecodingParallelism)
+          )
+
         opt[Long]("max-state-value-cache-size")
           .optional()
           .text(

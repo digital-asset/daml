@@ -213,6 +213,15 @@ class CommonCliBase(name: LedgerName) {
         )
         .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
+      opt[Int]("events-decoding-parallelism")
+        .optional()
+        .text(
+          s"Number of events decoded in parallel. Default is ${SandboxConfig.DefaultEventsDecodingParallelism}."
+        )
+        .action((eventsDecodingParallelism, config) =>
+          config.copy(eventsDecodingParallelism = eventsDecodingParallelism)
+        )
+
       opt[Int]("max-commands-in-flight")
         .optional()
         .action((value, config) =>
