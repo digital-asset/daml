@@ -127,7 +127,7 @@ mkBuiltinGreater v ty =
 
 preconditionFailedTypeCon :: Qualified TypeConName
 preconditionFailedTypeCon = Qualified
-    { qualPackage = PRImport (PackageId "dc9576d7b3a816944d0d07c7e2d57f8ebe247187f9e08629d6fa9b1020a77b5d")
+    { qualPackage = PRImport (PackageId "f20de1e4e37b92280264c08bf15eca0be0bc5babd7a7b5e574997f154c00cb78")
     , qualModule = ModuleName ["DA", "Exception", "PreconditionFailed"]
     , qualObject = TypeConName ["PreconditionFailed"]
     }

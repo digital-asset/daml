@@ -398,7 +398,7 @@ java_import(
     jars = glob(["lib/**/*.jar"]),
 )
         """,
-            sha256 = "2ab610e13cadef0756aa1eebf8be9c40192b7cca1774ebd0df06c662628a6c4d",
-            strip_prefix = "canton-community-0.24.0",
-            urls = ["https://www.canton.io/releases/canton-community-0.24.0.tar.gz"],
+            sha256 = "e97468ddb6b4bd03b05c714fecbf8a2127ba697001a7980a31dd781e7fffa53f",
+            strip_prefix = "canton-community-0.25.0-SNAPSHOT",
+            urls = ["https://www.canton.io/releases/canton-community-20210606.tar.gz"],
         )

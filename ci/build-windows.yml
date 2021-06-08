@@ -4,6 +4,7 @@
 parameters:
   release_tag: ''
   is_release: ''
+  skip_tests: ''
 
 steps:
   - bash: ci/configure-bazel.sh
@@ -29,8 +30,7 @@ steps:
       #   commit's own build (albeit with 0.0.0 as version number), and once as
       #   part of the release PR that triggered the build (with correct version
       #   number).
-      SKIP_TESTS: ${{and(eq(parameters.is_release, 'true'),
-                         eq(variables['Build.SourceBranchName'], 'main'))}}
+      SKIP_TESTS: ${{parameters.skip_tests}}
 
   - task: PublishBuildArtifacts@1
     condition: failed()

@@ -616,9 +616,8 @@ class ComparisonSBuiltinTest extends AnyWordSpec with Matchers with TableDrivenP
 
   }
 
-  private[this] val compiledPackages = PureCompiledPackages(
-    Map(pkgId1 -> pkg1, pkgId2 -> pkg2)
-  ).toOption.get
+  private[this] val compiledPackages =
+    PureCompiledPackages.assertBuild(Map(pkgId1 -> pkg1, pkgId2 -> pkg2))
 
   private[this] val binderType = {
     implicit def parserParameters: ParserParameters[this.type] = parserParameters1

@@ -6,7 +6,7 @@ package com.daml.platform.store.appendonlydao
 import java.sql.Connection
 
 import com.daml.ledger.participant.state.v1.{Offset, Update}
-import com.daml.platform.store.backend.{DBDTOV1, StorageBackend}
+import com.daml.platform.store.backend.{DbDto, StorageBackend}
 
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -16,7 +16,7 @@ trait SequentialWriteDao {
 
 case class SequentialWriteDaoImpl[DB_BATCH](
     storageBackend: StorageBackend[DB_BATCH],
-    updateToDbDtos: Offset => Update => Iterator[DBDTOV1],
+    updateToDbDtos: Offset => Update => Iterator[DbDto],
 ) extends SequentialWriteDao {
 
   private var lastEventSeqId: Long = _
@@ -33,11 +33,11 @@ case class SequentialWriteDaoImpl[DB_BATCH](
     lastEventSeqId
   }
 
-  private def adaptEventSeqIds(dbDtos: Iterator[DBDTOV1]): Vector[DBDTOV1] =
+  private def adaptEventSeqIds(dbDtos: Iterator[DbDto]): Vector[DbDto] =
     dbDtos.map {
-      case e: DBDTOV1.EventCreate => e.copy(event_sequential_id = nextEventSeqId)
-      case e: DBDTOV1.EventDivulgence => e.copy(event_sequential_id = nextEventSeqId)
-      case e: DBDTOV1.EventExercise => e.copy(event_sequential_id = nextEventSeqId)
+      case e: DbDto.EventCreate => e.copy(event_sequential_id = nextEventSeqId)
+      case e: DbDto.EventDivulgence => e.copy(event_sequential_id = nextEventSeqId)
+      case e: DbDto.EventExercise => e.copy(event_sequential_id = nextEventSeqId)
       case notEvent => notEvent
     }.toVector
 

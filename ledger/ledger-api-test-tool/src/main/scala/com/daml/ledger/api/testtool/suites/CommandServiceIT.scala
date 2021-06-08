@@ -300,7 +300,7 @@ final class CommandServiceIT extends LedgerTestSuite {
         Status.Code.INVALID_ARGUMENT,
         Some(
           Pattern.compile(
-            "Interpretation error: Error: (User abort: Assertion failed\\.|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"Assertion failed\" \\}\\.) Details: Last location: \\[[^\\]]*\\], partial transaction: root node"
+            "Interpretation error: Error: (User abort: Assertion failed.|Unhandled exception: [0-9a-zA-Z\\.:]*@[0-9a-f]*\\{ message = \"Assertion failed\" \\}\\.) [Dd]etails(: |=)Last location: \\[[^\\]]*\\], partial transaction: root node"
           )
         ),
       )
@@ -543,7 +543,11 @@ final class CommandServiceIT extends LedgerTestSuite {
       assertGrpcError(
         failure,
         Status.Code.INVALID_ARGUMENT,
-        s"Couldn't find requested choice $missingChoice",
+        Some(
+          Pattern.compile(
+            "(unknown|Couldn't find requested) choice " + missingChoice
+          )
+        ),
       )
     }
   })

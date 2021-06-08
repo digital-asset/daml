@@ -20,6 +20,7 @@ lf_version_configuration = {
     "legacy": "1.8",
     "stable": "1.12",
     "latest": "1.13",
+    "preview": "1.14",
     "dev": "1.dev",
 }
 
@@ -49,6 +50,7 @@ LF_VERSIONS = [
     "1.11",
     "1.12",
     "1.13",
+    "1.14",
     "dev",
 ]
 
@@ -72,6 +74,7 @@ LF_VERSION_PACKAGE_DIGITALASSET = {
     "1.11": "daml",
     "1.12": "daml",
     "1.13": "daml",
+    "1.14": "daml",
 }
 
 def lf_version_package(version):

@@ -10,3 +10,5 @@ final class ResetServiceH2DatabaseIT
     extends ResetServiceDatabaseIT
     with SandboxFixture
     with SandboxBackend.H2Database
+
+// TODO append-only: add a test for H2 on the append-only schema

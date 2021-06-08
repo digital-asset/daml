@@ -94,8 +94,8 @@ object CommandRetryFlow {
         )
 
         val convertToRetry = b.add(Flow[Out[RetryInfo[C]]].map {
-          case Ctx(retryInfo, failedCompletion, _) =>
-            Ctx(retryInfo.newRetry, createRetry(retryInfo, failedCompletion))
+          case Ctx(retryInfo, failedCompletion, telemetryContext) =>
+            Ctx(retryInfo.newRetry, createRetry(retryInfo, failedCompletion), telemetryContext)
         })
 
         // format: off

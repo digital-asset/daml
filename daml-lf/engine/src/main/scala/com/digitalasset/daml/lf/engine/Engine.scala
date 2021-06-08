@@ -16,7 +16,7 @@ import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
 import java.nio.file.Files
 
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageVersion, Interface}
 import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value.ContractId
 
@@ -217,7 +217,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
   }
 
   private[engine] def loadPackages(pkgIds: List[PackageId]): Result[Unit] =
-    pkgIds.dropWhile(compiledPackages.signatures.isDefinedAt) match {
+    pkgIds.dropWhile(compiledPackages.packageIds.contains) match {
       case pkgId :: rest =>
         ResultNeedPackage(
           pkgId,
@@ -415,7 +415,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       pkgIds: Set[PackageId],
       pkgs: Map[PackageId, Package],
   ): Either[Error, Unit] = {
-    val allSignatures = pkgs orElse compiledPackages().signatures
     for {
       _ <- pkgs
         .collectFirst {
@@ -427,7 +426,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         }
         .toLeft(())
       _ <- {
-        val unknownPackages = pkgIds.filterNot(allSignatures.isDefinedAt)
+        val unknownPackages = pkgIds.filterNot(pkgs.isDefinedAt)
         Either.cond(
           unknownPackages.isEmpty,
           (),
@@ -435,7 +434,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         )
       }
       _ <- {
-        val missingDeps = pkgIds.flatMap(pkgId => allSignatures(pkgId).directDeps).filterNot(pkgIds)
+        val missingDeps = pkgs.valuesIterator.flatMap(_.directDeps).toSet.filterNot(pkgIds)
         Either.cond(
           missingDeps.isEmpty,
           (),
@@ -445,12 +444,13 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           ),
         )
       }
+      interface = Interface(pkgs)
       _ <- {
         pkgs.iterator
           // we trust already loaded packages
           .collect {
-            case (pkgId, pkg) if !compiledPackages.signatures.isDefinedAt(pkgId) =>
-              Validation.checkPackage(allSignatures, pkgId, pkg)
+            case (pkgId, pkg) if !compiledPackages.packageIds.contains(pkgId) =>
+              Validation.checkPackage(interface, pkgId, pkg)
           }
           .collectFirst { case Left(err) => Error(err.pretty) }
       }.toLeft(())

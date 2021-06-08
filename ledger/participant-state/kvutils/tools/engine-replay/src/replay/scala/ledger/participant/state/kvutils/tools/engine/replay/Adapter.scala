@@ -17,6 +17,8 @@ private[replay] final class Adapter(
     pkgLangVersion: Ref.PackageId => LanguageVersion,
 ) {
 
+  private val interface = com.daml.lf.language.Interface(packages)
+
   def adapt(tx: Tx.Transaction): SubmittedTransaction =
     tx.foldWithPathState(TxBuilder(pkgLangVersion), Option.empty[NodeId])(
       (builder, parent, _, node) =>
@@ -100,11 +102,15 @@ private[replay] final class Adapter(
     cache.getOrElseUpdate(id, assertRight(lookup(id)))
 
   private[this] def lookup(id: Ref.Identifier): Either[String, Ref.Identifier] = {
-    val pkgIds = packages.collect {
-      case (pkgId, pkg) if pkg.lookupDefinition(id.qualifiedName).isRight => pkgId
+    val pkgIds = packages.keysIterator.flatMap { pkgId =>
+      val renamed = id.copy(packageId = pkgId)
+      if (interface.lookupDefinition(renamed).isRight)
+        List(renamed)
+      else
+        List.empty
     }
     pkgIds.toSeq match {
-      case Seq(pkgId) => Right(id.copy(packageId = pkgId))
+      case Seq(newId) => Right(newId)
       case Seq() => Left(s"no package found for ${id.qualifiedName}")
       case _ => Left(s"2 or more packages found for ${id.qualifiedName}")
     }

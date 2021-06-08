@@ -25,7 +25,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
 
   "push" when {
     "max buffer size reached" should {
-      "drop oldest" in withBuffer(3) { buffer =>
+      "drop oldest" in withBuffer(3L) { buffer =>
         buffer.slice(0, LastOffset) shouldBe BufferElements.drop(2)
         buffer.push(21, 42)
         buffer.slice(0, 21) shouldBe BufferElements.drop(3) :+ 21 -> 42
@@ -33,7 +33,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     }
 
     "element with smaller offset added" should {
-      "throw" in withBuffer(3) { buffer =>
+      "throw" in withBuffer(3L) { buffer =>
         intercept[UnorderedException[Int]] {
           buffer.push(1, 2)
         }.getMessage shouldBe s"Elements appended to the buffer should have strictly increasing offsets: 13 vs 1"
@@ -41,7 +41,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     }
 
     "element with equal offset added" should {
-      "throw" in withBuffer(3) { buffer =>
+      "throw" in withBuffer(3L) { buffer =>
         intercept[UnorderedException[Int]] {
           buffer.push(13, 2)
         }.getMessage shouldBe s"Elements appended to the buffer should have strictly increasing offsets: 13 vs 13"
@@ -49,7 +49,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     }
 
     "range end with equal offset added" should {
-      "accept it" in withBuffer(3) { buffer =>
+      "accept it" in withBuffer(3L) { buffer =>
         buffer.push(13, Int.MaxValue)
         buffer.slice(0, 13) shouldBe BufferElements.drop(2)
       }
@@ -183,7 +183,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
   }
 
   private def withBuffer(
-      maxBufferSize: Int = 5,
+      maxBufferSize: Long = 5L,
       elems: immutable.Vector[(Int, Int)] = BufferElements,
   )(test: EventsBuffer[Int, Int] => Assertion): Assertion = {
     val buffer = new EventsBuffer[Int, Int](

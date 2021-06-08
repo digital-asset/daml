@@ -7,9 +7,9 @@ package speedy
 import java.util
 
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Party, PackageId}
+import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageVersion, Interface}
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
 import com.daml.lf.speedy.SError.DamlEUnhandledException
@@ -65,7 +65,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
           )
         )
     val arithmeticCon = data.Ref.Identifier.assertFromString(
-      "f1cf1ff41057ce327248684089b106d0a1f27c2f092d30f663c919addf173981:DA.Exception.ArithmeticError:ArithmeticError"
+      "cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError"
     )
     val fields = new util.ArrayList[SValue]()
     fields.add(SValue.SText("ArithmeticError while evaluating (DIV_INT64 1 0)."))
@@ -545,11 +545,11 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
   }
 
   private def typeAndCompile(pkg: Package): PureCompiledPackages = {
-    val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
-    Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId, pkg)
-    data.assertRight(
-      PureCompiledPackages(rawPkgs, Compiler.Config.Dev.copy(stacktracing = FullStackTrace))
-    )
+    import defaultParserParameters.defaultPackageId
+    val rawPkgs = Map(defaultPackageId -> pkg)
+    Validation.checkPackage(Interface(rawPkgs), defaultPackageId, pkg)
+    val compilerConfig = Compiler.Config.Dev.copy(stacktracing = FullStackTrace)
+    PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
   }
 
   private def runUpdateExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult = {
@@ -678,13 +678,9 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
       } """
     }
     val pkgs = {
-      val rawPkgs: Map[PackageId, GenPackage[Expr]] = Map(
-        oldPid -> oldPackage,
-        newPid -> newPackage,
-      )
-      data.assertRight(
-        PureCompiledPackages(rawPkgs, Compiler.Config.Dev.copy(stacktracing = FullStackTrace))
-      )
+      val rawPkgs = Map(oldPid -> oldPackage, newPid -> newPackage)
+      val compilerConfig = Compiler.Config.Dev.copy(stacktracing = FullStackTrace)
+      PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
     }
 
     implicit val defaultParserParameters: ParserParameters[this.type] = {

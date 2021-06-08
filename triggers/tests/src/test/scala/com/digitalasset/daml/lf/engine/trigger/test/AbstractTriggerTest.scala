@@ -69,7 +69,7 @@ trait AbstractTriggerTest extends SandboxFixture with TestCommands {
     Decode.readArchivePayload(pkgId, archive)
   }
   protected val compiledPackages =
-    PureCompiledPackages(dar.all.toMap, speedy.Compiler.Config.Dev).toOption.get
+    PureCompiledPackages.assertBuild(dar.all.toMap, speedy.Compiler.Config.Dev)
 
   protected def getRunner(client: LedgerClient, name: QualifiedName, party: String): Runner = {
     val triggerId = Identifier(packageId, name)

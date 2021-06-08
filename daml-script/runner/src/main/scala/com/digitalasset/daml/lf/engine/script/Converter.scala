@@ -675,7 +675,7 @@ object Converter {
         } catch {
           case e: Exception => Left(s"LF conversion failed: ${e.toString}")
         }
-      valueTranslator = new preprocessing.ValueTranslator(compiledPackages)
+      valueTranslator = new preprocessing.ValueTranslator(compiledPackages.interface)
       sValue <- valueTranslator
         .translateValue(ty, lfValue)
         .left

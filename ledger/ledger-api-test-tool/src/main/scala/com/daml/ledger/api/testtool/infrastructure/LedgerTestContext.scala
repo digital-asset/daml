@@ -38,15 +38,17 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
     * Each test allocates participants, then deconstructs the result and uses the various ledgers
     * and parties throughout the test.
     */
-  def allocate(allocation: ParticipantAllocation): Future[Participants] =
+  def allocate(allocation: ParticipantAllocation): Future[Participants] = {
+    val participantAllocations = allocation.partyCounts.map(nextParticipant() -> _)
+    val participantsUnderTest = participantAllocations.map(_._1)
     Future
-      .sequence(allocation.partyCounts.map(partyCount => {
-        val participant = nextParticipant()
+      .sequence(participantAllocations.map { case (participant, partyCount) =>
         participant
-          .preallocateParties(partyCount.count, participants)
+          .preallocateParties(partyCount.count, participantsUnderTest)
           .map(parties => Participant(participant, parties: _*))
-      }))
+      })
       .map(Participants(_: _*))
+  }
 
   private[this] def nextParticipant(): ParticipantTestContext =
     participantsRing.synchronized {

@@ -259,9 +259,9 @@ final class ExceptionsIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(aLedger, aParty), Participant(bLedger, bParty)) =>
       for {
-        fetcher <- bLedger.create(aParty, Fetcher(aParty, bParty))
-        withKey0 <- bLedger.create(aParty, WithKey(aParty, 0, List.empty))
-        withKey1 <- bLedger.create(aParty, WithKey(aParty, 1, List.empty))
+        fetcher <- aLedger.create(aParty, Fetcher(aParty, bParty))
+        withKey0 <- aLedger.create(aParty, WithKey(aParty, 0, List.empty))
+        withKey1 <- aLedger.create(aParty, WithKey(aParty, 1, List.empty))
         _ <- synchronize(aLedger, bLedger)
         fetchFailure <- bLedger
           .exercise(bParty, fetcher.exerciseFetch_(_, withKey0))

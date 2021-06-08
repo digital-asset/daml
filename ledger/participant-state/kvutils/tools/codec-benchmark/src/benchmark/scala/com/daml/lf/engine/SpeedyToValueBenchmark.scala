@@ -18,7 +18,7 @@ class SpeedyToValueBenchmark extends BenchmarkWithLedgerExport {
   override def setup(): Unit = {
     super.setup()
     val decodedValues = submissions.values.map(_.mapValue(assertDecode)).toVector
-    val translator = new ValueTranslator(submissions.compiledPackages)
+    val translator = new ValueTranslator(submissions.compiledPackages.interface)
     speedyValues = decodedValues.map(x => assertTranslate(translator)(x.mapValue(_.value)))
   }
 
