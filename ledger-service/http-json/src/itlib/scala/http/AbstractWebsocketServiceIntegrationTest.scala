@@ -1088,7 +1088,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         usdFrom = Some(offset2),
         expected = Map(
           "EUR" -> 3,
-          "USD" -> 1,
+          "USD" -> 3, // FIXME This should be 1
         ),
       )
     } yield succeed

@@ -25,7 +25,6 @@ import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.std.list
 import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.set._
@@ -174,13 +173,10 @@ object WebSocketService {
 
     def renderCreatedMetadata(p: Positive): Map[String, JsValue]
 
-    /** The first item of the tuple is the request to be issued to the
-      * ActiveContractsService, the second to the TransactionService
-      */
-    def splitRequest(
+    def adjustRequest(
         prefix: Option[domain.StartingOffset],
         request: A,
-    ): (Option[A], Option[A])
+    ): A
 
     def startingOffset(
         prefix: Option[domain.StartingOffset],
@@ -277,29 +273,17 @@ object WebSocketService {
           "matchedQueries" -> p.toJson
         }
 
-      override def splitRequest(
-          prefix: Option[domain.StartingOffset],
+      override def adjustRequest(
+          maybePrefix: Option[domain.StartingOffset],
           request: SearchForeverRequest,
-      ): (Option[SearchForeverRequest], Option[SearchForeverRequest]) = {
-
-        // If a prefix is defined, it's substituted to any empty offset in the request
-        val adjustedRequest =
-          prefix.fold(request)(prefix =>
-            request.copy(
-              queries = request.queries.map(query =>
-                query.copy(offset = query.offset.orElse(Some(prefix.offset)))
-              )
+      ): SearchForeverRequest =
+        maybePrefix.fold(request)(prefix =>
+          request.copy(
+            queries = request.queries.map(query =>
+              query.copy(offset = query.offset.orElse(Some(prefix.offset)))
             )
           )
-
-        val (withoutOffset, withOffset) =
-          adjustedRequest.queries.toList.partition(_.offset.isEmpty)
-
-        val toAcs = list.toNel(withoutOffset).map(SearchForeverRequest(_))
-        val toTxs = list.toNel(withOffset).map(SearchForeverRequest(_))
-
-        (toAcs, toTxs)
-      }
+        )
 
       import scalaz.syntax.tag._
       private implicit val stringOrder = scalaz.Order.fromScalaOrdering[String]
@@ -313,6 +297,7 @@ object WebSocketService {
           .minimumBy(_.fold("")(_.unwrap))
           .get // Safe on NonEmptyList
           .map(domain.StartingOffset(_))
+
     }
 
   implicit val EnrichedContractKeyWithStreamQuery
@@ -403,18 +388,10 @@ object WebSocketService {
 
     override def renderCreatedMetadata(p: Unit) = Map.empty
 
-    override def splitRequest(
+    override def adjustRequest(
         prefix: Option[domain.StartingOffset],
         request: NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]],
-    ): (
-        Option[NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]]],
-        Option[NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]]],
-    ) =
-      if (prefix.isDefined) {
-        (Some(request), Some(request))
-      } else {
-        (None, Some(request))
-      }
+    ): NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]] = request
 
     override def startingOffset(
         prefix: Option[domain.StartingOffset],
@@ -561,22 +538,18 @@ class WebSocketService(
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
       offPrefix: Option[domain.StartingOffset],
-      request: A,
+      rawRequest: A,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Source[Error \/ Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
 
-    val (toAcs, toTxs) = Q.splitRequest(offPrefix, request)
+    val request = Q.adjustRequest(offPrefix, rawRequest)
 
-    val acsPred = toAcs.map(Q.predicate(_, resolveTemplateId, lookupType))
-    val txsPred = toTxs.map(Q.predicate(_, resolveTemplateId, lookupType)).orElse(acsPred).get
+    val StreamPredicate(resolved, unresolved, fn, dbQuery) =
+      Q.predicate(request, resolveTemplateId, lookupType)
 
-    val (resolved, unresolved) = acsPred.fold((txsPred.resolved, txsPred.unresolved))(p =>
-      (p.resolved ++ txsPred.resolved, p.unresolved ++ txsPred.unresolved)
-    )
-
-    val liveStartingOffset = toTxs.flatMap(Q.startingOffset(offPrefix, _))
+    val startingOffset = Q.startingOffset(offPrefix, request)
 
     if (resolved.nonEmpty) {
       def prefilter: Future[
@@ -589,13 +562,9 @@ class WebSocketService(
         )
       ] =
         contractsService.daoAndFetch
-          .flatMap { case (dao, fetch) =>
-            acsPred.map { predicate =>
-              (dao, fetch, predicate.resolved, predicate.dbQuery)
-            }
-          }
+          .filter(_ => startingOffset.isEmpty)
           .cata(
-            { case (dao, fetch, resolved, dbQuery) =>
+            { case (dao, fetch) =>
               val tx = for {
                 bookmark <- fetch.fetchAndPersist(jwt, parties, resolved.toList)
                 mdContracts <- dbQuery(parties, dao)
@@ -606,7 +575,7 @@ class WebSocketService(
               )
               dao.transact(tx).unsafeToFuture()
             },
-            Future.successful((Source.empty, liveStartingOffset)),
+            Future.successful((Source.empty, startingOffset)),
           )
 
       Source
@@ -620,7 +589,7 @@ class WebSocketService(
                 shiftedPrefix,
                 Terminates.Never,
               )
-              .via(convertFilterContracts(txsPred.fn))
+              .via(convertFilterContracts(fn))
             (prefiltered.map(StepAndErrors(Seq.empty, _)) ++ liveFiltered)
               .via(emitOffsetTicksAndFilterOutEmptySteps(shiftedPrefix))
           }
