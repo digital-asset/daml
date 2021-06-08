@@ -15,8 +15,9 @@ import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.metrics.MetricsReporter
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration, MetricsReporter}
+import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser

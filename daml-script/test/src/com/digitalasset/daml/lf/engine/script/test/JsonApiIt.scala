@@ -52,9 +52,11 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json._
 
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
 import scala.util.control.NonFatal
+import com.daml.metrics.{Metrics, MetricsReporter}
+import com.codahale.metrics.MetricRegistry
 
 trait JsonApiFixture
     extends AbstractSandboxFixture
@@ -152,6 +154,8 @@ trait JsonApiFixture
                 override val allowNonHttps = true
                 override val logLevel = None
                 override val logEncoder = LogEncoder.Plain
+                override val metricsReporter: Option[MetricsReporter] = None
+                override val metricsReportingInterval: FiniteDuration = 10.seconds
               }
               HttpService
                 .start(config)(
@@ -160,6 +164,7 @@ trait JsonApiFixture
                   jsonApiExecutionSequencerFactory,
                   jsonApiActorSystem.dispatcher,
                   lc,
+                  metrics = new Metrics(new MetricRegistry()),
                 )
                 .flatMap({
                   case -\/(e) => Future.failed(new IllegalStateException(e.toString))

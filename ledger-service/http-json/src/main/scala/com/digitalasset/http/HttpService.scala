@@ -35,6 +35,7 @@ import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.metrics.Metrics
 import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
 import com.daml.util.ExceptionOps._
@@ -49,6 +50,7 @@ import scala.util.control.NonFatal
 
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
+import com.daml.metrics.MetricsReporter
 
 object HttpService {
 
@@ -85,6 +87,8 @@ object HttpService {
     val healthTimeoutSeconds: Int
     val logLevel: Option[LogLevel]
     val logEncoder: LogEncoder
+    val metricsReporter: Option[MetricsReporter]
+    val metricsReportingInterval: FiniteDuration
   }
 
   trait DefaultStartSettings extends StartSettings {
@@ -105,6 +109,7 @@ object HttpService {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext,
       lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ): Future[Error \/ (ServerBinding, Option[ContractDao])] = {
 
     logger.info("HTTP Server pre-startup")

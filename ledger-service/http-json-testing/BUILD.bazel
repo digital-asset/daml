@@ -54,6 +54,7 @@ da_scala_library(
         "//ledger/caching",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
+        "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/sandbox-classic",
@@ -61,5 +62,6 @@ da_scala_library(
         "//libs-scala/auth-utils",
         "//libs-scala/contextualized-logging",
         "//libs-scala/ports",
+        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )

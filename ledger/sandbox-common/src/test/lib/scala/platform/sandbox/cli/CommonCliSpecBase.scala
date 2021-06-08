@@ -6,13 +6,13 @@ package com.daml.platform.sandbox.cli
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.file.{Files, Paths}
-import java.time.Duration
+import scala.concurrent.duration.DurationInt
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
-import com.daml.platform.configuration.MetricsReporter
-import com.daml.platform.configuration.MetricsReporter.Graphite
+import com.daml.metrics.MetricsReporter
+import com.daml.metrics.MetricsReporter.Graphite
 import com.daml.platform.sandbox.cli.CommonCliSpecBase._
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
@@ -231,8 +231,8 @@ abstract class CommonCliSpecBase(
 
     "parse the metrics reporting interval when given" in {
       checkOption(
-        Array("--metrics-reporting-interval", "PT1M30S"),
-        _.copy(metricsReportingInterval = Duration.ofSeconds(90)),
+        Array("--metrics-reporting-interval", "1.5m"),
+        _.copy(metricsReportingInterval = 90.seconds),
       )
     }
   }
