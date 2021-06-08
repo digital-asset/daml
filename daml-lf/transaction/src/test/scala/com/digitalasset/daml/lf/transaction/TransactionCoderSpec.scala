@@ -528,7 +528,7 @@ class TransactionCoderSpec
       val gen = for {
         ver <- versionInIncreasingOrder(postV10Versions)
         (nodeVersion, txVersion) = ver
-        node <- danglingRefGenNodeWithVersion(nodeVersion)
+        node <- danglingRefGenActionNodeWithVersion(nodeVersion)
       } yield (ver, node)
 
       forAll(gen, minSuccessful(5)) { case ((nodeVersion, txVersion), (nodeId, node)) =>
