@@ -221,8 +221,6 @@ Stack trace
    location is the first entry in the list.
 Ledger time
    The ledger time at which the error occurred.
-Partial transaction
-   The transaction that is being constructed, but not yet committed to the ledger.
 Committed transaction
    Transactions that were successfully committed to the ledger prior to the error.
 Trace
@@ -243,8 +241,6 @@ The ``abort``, ``assert`` and ``debug`` inbuilt functions can be used in updates
       Aborted:  stop
 
     Ledger time: 1970-01-01T00:00:00Z
-
-    Partial transaction:
 
     Trace:
       "hello, world!"
@@ -270,13 +266,6 @@ in the contract, but not authorizing the create:
           failed due to a missing authorization from 'Bob'
 
     Ledger time: 1970-01-01T00:00:00Z
-
-    Partial transaction:
-      Sub-transactions:
-         #0
-         └─> create CreateAuthFailure:Example
-             with
-               party1 = 'Alice'; party2 = 'Bob'
 
 To create the "Example" contract one would need to bring both parties to
 authorize the creation via a choice, for example 'Alice' could create a contract
@@ -304,15 +293,6 @@ choice 'Consume' of which he is not a controller
           failed due to a missing authorization from 'Alice'
 
     Ledger time: 1970-01-01T00:00:00Z
-
-    Partial transaction:
-      Sub-transactions:
-         #0
-         └─> fetch #0:0 (ExerciseAuthFailure:Example)
-
-         #1
-         └─> 'Alice' exercises Consume on #0:0 (ExerciseAuthFailure:Example)
-                     with
 
     Committed transactions:
       TX #0 1970-01-01T00:00:00Z (unknown source)
@@ -349,8 +329,6 @@ to exercise the contract the following error would occur:
       Disclosed to: 'Alice'
 
     Ledger time: 1970-01-01T00:00:00Z
-
-    Partial transaction:
 
     Committed transactions:
       TX #0 1970-01-01T00:00:00Z (unknown source)
