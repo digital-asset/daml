@@ -19,6 +19,7 @@ import scala.util.Try
 
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
+import com.daml.metrics.MetricsReporter
 
 // The internal transient scopt structure *and* StartSettings; external `start`
 // users should extend StartSettings or DefaultStartSettings themselves
@@ -41,6 +42,8 @@ private[http] final case class Config(
     nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
     logLevel: Option[LogLevel] = None, // the default is in logback.xml
     logEncoder: LogEncoder = LogEncoder.Plain,
+    metricsReporter: Option[MetricsReporter] = None,
+    metricsReportingInterval: FiniteDuration = 10 seconds,
 ) extends StartSettings
 
 private[http] object Config {

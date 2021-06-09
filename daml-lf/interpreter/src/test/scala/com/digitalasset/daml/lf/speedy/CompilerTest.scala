@@ -36,7 +36,7 @@ class CompilerTest extends AnyWordSpec with Matchers {
 
   "unsafeCompile" should {
 
-    val compiledPackages = assertRight(PureCompiledPackages(Map(pkgId -> pkg)))
+    val compiledPackages = PureCompiledPackages.assertBuild(Map(pkgId -> pkg))
 
     "handle 10k commands" in {
 

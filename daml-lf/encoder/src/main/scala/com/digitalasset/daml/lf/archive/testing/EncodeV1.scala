@@ -637,6 +637,14 @@ private[daml] class EncodeV1(minor: LV.Minor) {
               .setExceptionType(excTy)
               .setExceptionExpr(exc)
           )
+        case EToAnyException(ty, body) =>
+          assertSince(LV.Features.exceptions, "Expr.ToAnyException")
+          builder.setToAnyException(PLF.Expr.ToAnyException.newBuilder().setType(ty).setExpr(body))
+        case EFromAnyException(ty, body) =>
+          assertSince(LV.Features.exceptions, "Expr.FromAnyException")
+          builder.setFromAnyException(
+            PLF.Expr.FromAnyException.newBuilder().setType(ty).setExpr(body)
+          )
         case EExperimental(name, ty) =>
           assertSince(LV.v1_dev, "Expr.experimental")
           builder.setExperimental(PLF.Expr.Experimental.newBuilder().setName(name).setType(ty))

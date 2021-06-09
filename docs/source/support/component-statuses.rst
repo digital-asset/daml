@@ -24,7 +24,10 @@ Ledger API
      - 
    * - `Dev Versions of Proto definitions distributed via GitHub Releases <protobufs_>`_
      - Alpha
-     - 
+     -
+   * - Use of divulged contracts in later transactions
+     - Stable, Deprecated
+     - 2021-06-16
 
 Integration Components
 ----------------------

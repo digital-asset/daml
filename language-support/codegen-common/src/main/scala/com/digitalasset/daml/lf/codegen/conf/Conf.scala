@@ -7,7 +7,21 @@ import java.nio.file.{Path, Paths}
 
 import ch.qos.logback.classic.Level
 import com.daml.buildinfo.BuildInfo
+import com.daml.lf.data.Ref.{PackageName, PackageVersion}
 import scopt.{OptionParser, Read}
+
+sealed trait PackageReference extends Product with Serializable
+
+object PackageReference {
+  // TODO (MK) https://github.com/digital-asset/daml/issues/9934
+  // We probably want to allow package id references here
+  // but this needs to be supported in damlc first.
+  final case class NameVersion(name: PackageName, version: PackageVersion)
+      extends PackageReference {
+    override final def toString(): String =
+      s"$name-$version"
+  }
+}
 
 /** @param darFiles The [[Set]] of Daml-LF [[Path]]s to convert into code. It MUST contain
   *                        all the Daml-LF packages dependencies.
@@ -17,6 +31,7 @@ import scopt.{OptionParser, Read}
 final case class Conf(
     darFiles: Map[Path, Option[String]] = Map(),
     outputDirectory: Path,
+    modulePrefixes: Map[PackageReference, String] = Map.empty,
     decoderPkgAndClass: Option[(String, String)] = None,
     verbosity: Level = Level.ERROR,
     roots: List[String] = Nil,

@@ -1,10 +1,10 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine
+package com.daml.lf
+package engine
 package preprocessing
 
-import com.daml.lf.CompiledPackages
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Util => AstUtil}
@@ -14,7 +14,7 @@ import com.daml.lf.value.Value._
 
 import scala.annotation.tailrec
 
-private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) {
+private[engine] final class ValueTranslator(interface: language.Interface) {
 
   import Preprocessor._
 
@@ -37,10 +37,6 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
 
     go(fields, Map.empty)
   }
-
-  @throws[PreprocessorException]
-  private def unsafeGetPackage(pkgId: Ref.PackageId) =
-    compiledPackages.getSignature(pkgId).getOrElse(throw PreprocessorMissingPackage(pkgId))
 
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.
@@ -141,7 +137,6 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                 typeMismatch
             }
           case TTyCon(tyCon) =>
-            val pkg = unsafeGetPackage(tyCon.packageId)
             value match {
               // variant
               case ValueVariant(mbId, constructorName, val0) =>
@@ -151,25 +146,14 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                       s"Mismatching variant id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
-                val (dataTypParams, variantDef) = assertRight(
-                  pkg.lookupVariant(tyCon.qualifiedName)
+                val info = handleLookup(interface.lookupVariantConstructor(tyCon, constructorName))
+                val replacedTyp = info.concreteType(tyArgs)
+                SValue.SVariant(
+                  tyCon,
+                  constructorName,
+                  info.rank,
+                  go(replacedTyp, val0, newNesting),
                 )
-                variantDef.constructorRank.get(constructorName) match {
-                  case None =>
-                    fail(
-                      s"Couldn't find provided variant constructor $constructorName in variant $tyCon"
-                    )
-                  case Some(rank) =>
-                    val (_, argTyp) = variantDef.variants(rank)
-                    val replacedTyp =
-                      AstUtil.substitute(argTyp, dataTypParams.toSeq.view.map(_._1).zip(tyArgs))
-                    SValue.SVariant(
-                      tyCon,
-                      constructorName,
-                      rank,
-                      go(replacedTyp, val0, newNesting),
-                    )
-                }
               // records
               case ValueRecord(mbId, flds) =>
                 mbId.foreach(id =>
@@ -178,8 +162,8 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                       s"Mismatching record id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
-                val (dataTypParams, DataRecord(recordFlds)) =
-                  assertRight(pkg.lookupRecord(tyCon.qualifiedName))
+                val lookupResult = handleLookup(interface.lookupDataRecord(tyCon))
+                val recordFlds = lookupResult.dataRecord.fields
                 // note that we check the number of fields _before_ checking if we can do
                 // field reordering by looking at the labels. this means that it's forbidden to
                 // repeat keys even if we provide all the labels, which might be surprising
@@ -190,7 +174,7 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                     s"Expecting ${recordFlds.length} field for record $tyCon, but got ${flds.length}"
                   )
                 }
-                val subst = dataTypParams.toSeq.view.map(_._1).zip(tyArgs).toMap
+                val subst = lookupResult.subst(tyArgs)
                 val fields = labeledRecordToMap(flds) match {
                   case None =>
                     (recordFlds zip flds).map { case ((lbl, typ), (mbLbl, v)) =>
@@ -224,13 +208,8 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
                       s"Mismatching enum id, the type tells us $tyCon, but the value tells us $id"
                     )
                 )
-                val dataDef = assertRight(pkg.lookupEnum(tyCon.qualifiedName))
-                dataDef.constructorRank.get(constructor) match {
-                  case Some(rank) =>
-                    SValue.SEnum(tyCon, constructor, rank)
-                  case None =>
-                    fail(s"Couldn't find provided variant constructor $constructor in enum $tyCon")
-                }
+                val rank = handleLookup(interface.lookupEnumConstructor(tyCon, constructor))
+                SValue.SEnum(tyCon, constructor, rank)
               case _ =>
                 typeMismatch
             }

@@ -13,10 +13,13 @@ final case class Ctx[+Context, +Value](
     telemetryContext: TelemetryContext = NoOpTelemetryContext,
 ) {
 
-  def map[T](transform: Value => T): Ctx[Context, T] = Ctx(context, transform(value))
+  def map[T](transform: Value => T): Ctx[Context, T] =
+    Ctx(context, transform(value), telemetryContext)
 
-  def enrich[NewContext](enrichingFunction: (Context, Value) => NewContext) =
-    Ctx(enrichingFunction(context, value), value)
+  def enrich[NewContext](
+      enrichingFunction: (Context, Value) => NewContext
+  ): Ctx[NewContext, Value] =
+    Ctx(enrichingFunction(context, value), value, telemetryContext)
 
 }
 

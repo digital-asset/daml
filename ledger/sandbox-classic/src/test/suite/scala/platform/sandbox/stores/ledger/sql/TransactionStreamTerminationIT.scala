@@ -42,6 +42,7 @@ class TransactionStreamTerminationIT
     PatienceConfig(scaled(Span(15000, Millis)), scaled(Span(150, Millis)))
 
   override protected def config: SandboxConfig = super.config.copy(
+    // TODO: this class does not use SandboxBackend.H2Database, the jdbc url provided here will have no effect
     jdbcUrl = Some("jdbc:h2:mem:static_time;db_close_delay=-1"),
     timeProviderType = Some(TimeProviderType.Static),
   )

@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy.repl
+package com.daml.lf
+package speedy.repl
 
 import akka.actor.ActorSystem
 import akka.stream._
@@ -223,7 +224,8 @@ class ReplService(
     val (pkgId, pkg) = Decode.decodeArchiveFromInputStream(req.getPackage.newInput)
     val newSignatures = signatures.updated(pkgId, AstUtil.toSignature(pkg))
     val newCompiledDefinitions = compiledDefinitions ++
-      new Compiler(newSignatures, compilerConfig).unsafeCompilePackage(pkgId, pkg)
+      new Compiler(new language.Interface(newSignatures), compilerConfig)
+        .unsafeCompilePackage(pkgId, pkg)
     signatures = newSignatures
     compiledDefinitions = newCompiledDefinitions
     respObs.onNext(LoadPackageResponse.newBuilder.build)
@@ -258,12 +260,11 @@ class ReplService(
     }
 
     val signatures = this.signatures.updated(homePackageId, AstUtil.toSignature(pkg))
-    val defs = new Compiler(signatures, compilerConfig).unsafeCompilePackage(homePackageId, pkg)
-    val compiledPackages = new PureCompiledPackages(
-      signatures,
-      compiledDefinitions ++ defs,
-      compilerConfig,
-    )
+    val interface = new language.Interface(signatures)
+    val defs =
+      new Compiler(interface, compilerConfig).unsafeCompilePackage(homePackageId, pkg)
+    val compiledPackages =
+      PureCompiledPackages(signatures, compiledDefinitions ++ defs, compilerConfig)
     val runner =
       new Runner(compiledPackages, Script.Action(scriptExpr, ScriptIds(scriptPackageId)), timeMode)
     runner

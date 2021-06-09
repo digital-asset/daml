@@ -375,10 +375,8 @@ object SBuiltinBigNumericTest {
 
     """
 
-  val compiledPackages = {
-    val x = PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg))
-    x.toOption.get
-  }
+  val compiledPackages =
+    PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
 
   private def eval(e: Expr, onLedger: Boolean = true): Either[SError, SValue] = {
     evalSExpr(compiledPackages.compiler.unsafeCompile(e), onLedger)

@@ -5,6 +5,7 @@ package com.daml.lf
 package speedy
 package explore
 
+import com.daml.lf.language.Interface
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
@@ -24,7 +25,7 @@ object PlaySpeedy {
 
   def main(args0: List[String]) = {
     val config: Config = parseArgs(args0)
-    val compiler: Compiler = new Compiler(Map.empty, compilerConfig)
+    val compiler: Compiler = new Compiler(Interface.Empty, compilerConfig)
 
     val names: List[String] = config.names match {
       case Nil => examples.toList.map(_._1)
@@ -34,7 +35,7 @@ object PlaySpeedy {
     names.foreach { name =>
       val (expected, expr) = examples(name)
       val converted = compiler.unsafeClosureConvert(expr)
-      val machine = Speedy.Machine.fromPureSExpr(noPackages, converted)
+      val machine = Speedy.Machine.fromPureSExpr(PureCompiledPackages.Empty, converted)
       runMachine(name, machine, expected)
     }
   }
@@ -63,9 +64,6 @@ object PlaySpeedy {
     loop(args0)
     Config(names)
   }
-
-  private val noPackages =
-    PureCompiledPackages(Map.empty, Map.empty, Compiler.Config.Default)
 
   def runMachine(name: String, machine: Machine, expected: Int): Unit = {
 

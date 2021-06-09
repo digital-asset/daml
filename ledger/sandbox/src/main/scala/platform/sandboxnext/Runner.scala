@@ -39,7 +39,7 @@ import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneI
 import com.daml.platform.sandbox.banner.Banner
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.sandbox.config.SandboxConfig.EngineMode
-import com.daml.platform.sandbox.metrics.MetricsReporting
+import com.daml.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.services.time.TimeProviderType
@@ -243,6 +243,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   maxContractStateCacheSize = 0L,
                   maxContractKeyStateCacheSize = 0L,
                   enableMutableContractStateCache = false,
+                  maxTransactionsInMemoryFanOutBufferSize = 0L,
+                  enableInMemoryFanOutForLedgerApi = false,
                 ),
                 engine = engine,
                 commandConfig = config.commandConfig,

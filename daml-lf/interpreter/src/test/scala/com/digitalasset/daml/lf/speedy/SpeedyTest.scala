@@ -8,7 +8,6 @@ import java.util
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Struct}
-import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SBuiltin._
@@ -185,7 +184,7 @@ class SpeedyTest extends AnyWordSpec with Matchers {
       eval(e"""to_any @Test:T1 (Test:T1 {party = 'Alice'})""", anyPkgs) shouldEqual
         Right(
           SAny(
-            Ast.TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T1"))),
+            TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T1"))),
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
               ImmArray(Name.assertFromString("party")),
@@ -515,12 +514,12 @@ object SpeedyTest {
     case _ => false
   }
 
-  private def typeAndCompile(pkg: Ast.Package): PureCompiledPackages = {
-    val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
-    Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId, pkg)
-    data.assertRight(
-      PureCompiledPackages(rawPkgs, Compiler.Config.Default.copy(stacktracing = FullStackTrace))
-    )
+  private def typeAndCompile(pkg: Package): PureCompiledPackages = {
+    import defaultParserParameters.defaultPackageId
+    val rawPkgs = Map(defaultPackageId -> pkg)
+    Validation.checkPackage(language.Interface(rawPkgs), defaultPackageId, pkg)
+    val compilerConfig = Compiler.Config.Default.copy(stacktracing = FullStackTrace)
+    PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
   }
 
   private def intList(xs: Long*): String =

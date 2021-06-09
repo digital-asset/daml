@@ -52,7 +52,6 @@ compile_deps = [
     "@maven//:com_google_guava_guava",
     "@maven//:com_zaxxer_HikariCP",
     "@maven//:io_dropwizard_metrics_metrics_core",
-    "@maven//:io_dropwizard_metrics_metrics_graphite",
     "@maven//:io_grpc_grpc_netty",
     "@maven//:io_grpc_grpc_services",
     "@maven//:io_netty_netty_handler",
@@ -61,9 +60,6 @@ compile_deps = [
     "@maven//:io_opentelemetry_opentelemetry_api",
     "@maven//:io_opentelemetry_opentelemetry_context",
     "@maven//:org_slf4j_slf4j_api",
-    "@maven//:io_prometheus_simpleclient",
-    "@maven//:io_prometheus_simpleclient_dropwizard",
-    "@maven//:io_prometheus_simpleclient_httpserver",
     # this oracle import is problematic for daml assistant build
     "@maven//:com_oracle_database_jdbc_ojdbc8",
 ]

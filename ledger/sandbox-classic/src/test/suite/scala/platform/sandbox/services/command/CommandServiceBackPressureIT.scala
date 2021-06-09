@@ -18,7 +18,11 @@ import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
 import com.daml.platform.participant.util.ValueConversions._
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.config.SandboxConfig
-import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.daml.platform.sandbox.services.{
+  SandboxFixture,
+  SandboxEnableAppendOnlySchema,
+  TestCommands,
+}
 import io.grpc.Status
 import org.scalatest.{Assertion, Inspectors}
 import org.scalatest.matchers.should.Matchers
@@ -28,7 +32,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-class CommandServiceBackPressureIT
+sealed trait CommandServiceBackPressureITBase
     extends AsyncWordSpec
     with Matchers
     with Inspectors
@@ -113,3 +117,15 @@ class CommandServiceBackPressureIT
     )
 
 }
+
+// CommandServiceBackPressureIT on a Postgresql ledger
+final class CommandServiceBackPressurePostgresIT
+    extends CommandServiceBackPressureITBase
+    with SandboxBackend.Postgresql
+
+// CommandServiceBackPressureIT on a Postgresql ledger with the append-only schema
+// TODO append-only: remove this class once the append-only schema is the default one
+final class CommandServiceBackPressureAppendOnlyIT
+    extends CommandServiceBackPressureITBase
+    with SandboxBackend.Postgresql
+    with SandboxEnableAppendOnlySchema

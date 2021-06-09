@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.configuration
+package com.daml.metrics
 
 import java.util.Collections
 import scala.jdk.CollectionConverters._
