@@ -33,7 +33,6 @@ object TransactionLogUpdate {
     */
   final case class Transaction(
       transactionId: String,
-      commandId: String,
       workflowId: String,
       effectiveAt: Instant,
       offset: Offset,

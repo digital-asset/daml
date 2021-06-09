@@ -48,11 +48,10 @@ private[events] class BufferedTransactionsReader(
       toApiTx = toFlatTransaction,
       apiResponseCtor = GetTransactionsResponse(_),
       fetchTransactions = delegate.getFlatTransactions(_, _, _, _)(loggingContext),
-      sourceTimer = metrics.daml.services.index.getFlatTransactionsSource,
+      sourceTimer = metrics.daml.services.index.streamsBuffer.getFlatTransactions,
       resolvedFromBufferCounter =
-        metrics.daml.services.index.streamsBuffer.flatTransactionEventsResolvedFromBuffer,
-      totalRetrievedCounter =
-        metrics.daml.services.index.streamsBuffer.totalFlatTransactionsRetrieved,
+        metrics.daml.services.index.streamsBuffer.flatTransactionsBuffered,
+      totalRetrievedCounter = metrics.daml.services.index.streamsBuffer.flatTransactionsTotal,
       bufferSizeCounter =
         // TODO in-memory fan-out: Specialize the metric per consumer
         metrics.daml.services.index.flatTransactionsBufferSize,
@@ -71,11 +70,10 @@ private[events] class BufferedTransactionsReader(
       toApiTx = toTransactionTree,
       apiResponseCtor = GetTransactionTreesResponse(_),
       fetchTransactions = delegate.getTransactionTrees(_, _, _, _)(loggingContext),
-      sourceTimer = metrics.daml.services.index.getTransactionTreesSource,
+      sourceTimer = metrics.daml.services.index.streamsBuffer.getTransactionTrees,
       resolvedFromBufferCounter =
-        metrics.daml.services.index.streamsBuffer.transactionTreeEventsResolvedFromBuffer,
-      totalRetrievedCounter =
-        metrics.daml.services.index.streamsBuffer.totalTransactionTreesRetrieved,
+        metrics.daml.services.index.streamsBuffer.transactionTreesBuffered,
+      totalRetrievedCounter = metrics.daml.services.index.streamsBuffer.transactionTreesTotal,
       bufferSizeCounter =
         // TODO in-memory fan-out: Specialize the metric per consumer
         metrics.daml.services.index.transactionTreesBufferSize,
@@ -113,7 +111,7 @@ private[events] class BufferedTransactionsReader(
       loggingContext: LoggingContext
   ): Source[((Offset, EventSequentialId), TransactionLogUpdate), NotUsed] =
     throw new UnsupportedOperationException(
-      s"getTransactionUpdates is not supported on ${getClass.getSimpleName}"
+      s"getTransactionLogUpdates is not supported on ${getClass.getSimpleName}"
     )
 }
 

@@ -661,26 +661,26 @@ final class Metrics(val registry: MetricRegistry) {
           def slice(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "slice")
           def prune(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "prune")
 
-          val totalTransactionTreesRetrieved: Counter =
-            registry.counter(Prefix :+ "total_transactions_trees_retrieved")
-          val transactionTreeEventsResolvedFromBuffer: Counter =
-            registry.counter(Prefix :+ "transaction_tree_events_from_buffer")
+          val transactionTreesTotal: Counter =
+            registry.counter(Prefix :+ "transaction_trees_total")
+          val transactionTreesBuffered: Counter =
+            registry.counter(Prefix :+ "transaction_trees_buffered")
 
-          val totalFlatTransactionsRetrieved: Counter =
-            registry.counter(Prefix :+ "total_flat_transactions_retrieved")
-          val flatTransactionEventsResolvedFromBuffer: Counter =
-            registry.counter(Prefix :+ "flat_transaction_events_from_buffer")
+          val flatTransactionsTotal: Counter =
+            registry.counter(Prefix :+ "flat_transactions_total")
+          val flatTransactionsBuffered: Counter =
+            registry.counter(Prefix :+ "flat_transactions_buffered")
+
+          val getTransactionTrees: Timer =
+            registry.timer(Prefix :+ "get_transaction_trees")
+          val getFlatTransactions: Timer =
+            registry.timer(Prefix :+ "get_flat_transactions")
         }
 
-        val getTransactionTreesSource: Timer =
-          registry.timer(Prefix :+ "get_transaction_trees_source")
-        val getFlatTransactionsSource: Timer =
-          registry.timer(Prefix :+ "get_flat_transactions_source")
-
         val transactionTreesBufferSize: Counter =
-          registry.counter(Prefix :+ "transaction_trees_output_buffer_size")
+          registry.counter(Prefix :+ "transaction_trees_buffer_size")
         val flatTransactionsBufferSize: Counter =
-          registry.counter(Prefix :+ "flat_transactions_output_buffer_size")
+          registry.counter(Prefix :+ "flat_transactions_buffer_size")
       }
 
       object read {

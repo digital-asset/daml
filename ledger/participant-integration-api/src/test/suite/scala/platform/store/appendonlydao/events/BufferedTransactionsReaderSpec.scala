@@ -54,7 +54,7 @@ class BufferedTransactionsReaderSpec
       (apiTx2, apiResponse2),
       (apiTx3, apiResponse3),
       (apiTx4, apiResponse4),
-    ) = (1 to 4).map(idx => s"Some API TX $idx" -> s"Some API response $idx")
+    ) = (1 to 4).map(idx => s"Some API TX $idx" -> s"Some API response $idx from buffer")
 
     val toApiTx: (TransactionLogUpdate, Object, Boolean) => Future[Option[String]] = {
       case (`update1`, `otherFilter`, false) => Future.successful(None)
@@ -96,11 +96,10 @@ class BufferedTransactionsReaderSpec
           toApiTx = toApiTx,
           apiResponseCtor = apiResponseCtor,
           fetchTransactions = fetchTransactions,
-          sourceTimer = metrics.daml.services.index.getTransactionTreesSource,
+          sourceTimer = metrics.daml.services.index.streamsBuffer.getTransactionTrees,
           resolvedFromBufferCounter =
-            metrics.daml.services.index.streamsBuffer.transactionTreeEventsResolvedFromBuffer,
-          totalRetrievedCounter =
-            metrics.daml.services.index.streamsBuffer.totalTransactionTreesRetrieved,
+            metrics.daml.services.index.streamsBuffer.transactionTreesBuffered,
+          totalRetrievedCounter = metrics.daml.services.index.streamsBuffer.transactionTreesTotal,
           bufferSizeCounter = metrics.daml.services.index.transactionTreesBufferSize,
           outputStreamBufferSize = 128,
         )
@@ -140,18 +139,20 @@ class BufferedTransactionsReaderSpec
 
     "request before buffer start" should {
       "fetch from buffer and storage" in {
+        val anotherResponseForOffset2 = "Response fetched from storage"
         readerGetTransactionsGeneric(
           eventsBuffer = transactionsBuffer,
           startExclusive = offset1,
           endInclusive = offset3,
           fetchTransactions = {
             case (`offset1`, `offset2`, `filter`, false) =>
-              Source.single(offset2 -> apiResponse4)
-            case unexpected => fail(s"Unexpected $unexpected")
+              Source.single(offset2 -> anotherResponseForOffset2)
+            case unexpected =>
+              fail(s"Unexpected fetch transactions subscription start: $unexpected")
           },
         ).map(
           _ should contain theSameElementsInOrderAs Seq(
-            offset2 -> apiResponse4, // apiResponse4 on purpose in order to distinguish from fetched from buffer
+            offset2 -> anotherResponseForOffset2,
             offset3 -> apiResponse3,
           )
         )
@@ -195,7 +196,6 @@ object BufferedTransactionsReaderSpec {
   private def transactionLogUpdate(discriminator: String) =
     TransactionLogUpdate.Transaction(
       transactionId = discriminator,
-      commandId = "",
       workflowId = "",
       effectiveAt = Instant.EPOCH,
       offset = Offset.beforeBegin,

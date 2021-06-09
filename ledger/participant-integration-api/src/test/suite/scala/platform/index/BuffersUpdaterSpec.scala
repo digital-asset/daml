@@ -256,7 +256,6 @@ final class BuffersUpdaterSpec
       )
       val transaction = TransactionLogUpdate.Transaction(
         transactionId = "some-tx-id",
-        commandId = "some-cmd-id",
         workflowId = "some-workflow-id",
         effectiveAt = Instant.EPOCH,
         offset = Offset.beforeBegin,
