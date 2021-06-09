@@ -34,7 +34,7 @@ object SprayJson {
   }
 
   def parse(str: String): JsonReaderError \/ JsValue =
-    \/.fromTryCatchNonFatal(JsonParser(str)).leftMap(e => JsonReaderError(str, e.description))
+    \/.attempt(JsonParser(str))(e => JsonReaderError(str, e.description))
 
   def decode[A: JsonReader](str: String): JsonReaderError \/ A =
     for {
@@ -43,7 +43,7 @@ object SprayJson {
     } yield a
 
   def decode[A: JsonReader](a: JsValue): JsonReaderError \/ A =
-    \/.fromTryCatchNonFatal(a.convertTo[A]).leftMap(e => JsonReaderError(a.toString, e.description))
+    \/.attempt(a.convertTo[A])(e => JsonReaderError(a.toString, e.description))
 
   def decode1[F[_], A](str: String)(implicit
       ev1: JsonReader[F[JsValue]],
@@ -83,7 +83,7 @@ object SprayJson {
 
   def encode[A: JsonWriter](a: A): JsonWriterError \/ JsValue = {
     import spray.json._
-    \/.fromTryCatchNonFatal(a.toJson).leftMap(e => JsonWriterError(a, e.description))
+    \/.attempt(a.toJson)(e => JsonWriterError(a, e.description))
   }
 
   def encodeUnsafe[A: JsonWriter](a: A): JsValue = {

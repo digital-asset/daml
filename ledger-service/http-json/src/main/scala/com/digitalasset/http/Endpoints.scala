@@ -533,7 +533,7 @@ object Endpoints {
   }
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
-    \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).liftErr(ServerError)
+    \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError)
 
   private def lfValueToApiValue(a: LfValue): Error \/ ApiValue =
     JsValueToApiValueConverter.lfValueToApiValue(a).liftErr(ServerError)

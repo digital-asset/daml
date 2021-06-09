@@ -353,7 +353,7 @@ private[http] object ContractsFetch {
         */
       def divertToHead(implicit noM: M <~< NotUsed): Flow[A, Y, Future[Z]] = {
         type CK[-T] = (T, Future[Z]) => Future[Z]
-        divertToMat(Sink.head)(noM.subst[CK](Keep.right[NotUsed, Future[Z]]))
+        divertToMat(Sink.head)(noM.substCt[CK](Keep.right[NotUsed, Future[Z]]))
       }
     }
   }

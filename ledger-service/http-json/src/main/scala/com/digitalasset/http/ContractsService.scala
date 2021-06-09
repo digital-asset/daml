@@ -450,7 +450,7 @@ class ContractsService(
     ValuePredicate.fromTemplateJsObject(q, templateId, lookupType)
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
-    \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
+    \/.attempt(LfValueCodec.apiValueToJsValue(a))(e =>
       Error(Symbol("lfValueToJsValue"), e.description)
     )
 
