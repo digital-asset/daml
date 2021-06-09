@@ -394,7 +394,7 @@ object ValuePredicate {
   private final val Inclusive = true
   private final val Exclusive = false
 
-  type Boundaries[+A] = (Inclusive, A) \&/ (Inclusive, A)
+  type Boundaries[A] = (Inclusive, A) \&/ (Inclusive, A)
 
   private[this] final case class RangeExpr[A](
       scalar: JsValue PartialFunction A,

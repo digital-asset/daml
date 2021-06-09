@@ -446,9 +446,9 @@ class WebSocketService(
       .map { case (oeso, ejv) =>
         for {
           offPrefix <- oeso.sequence
-          jv <- ejv
+          jv <- ejv.widenLeft[Error]
           a <- Q.parse(resumingAtOffset = offPrefix.isDefined, decoder, jv)
-        } yield (offPrefix, a)
+        } yield (offPrefix, a: Q.Query[_])
       }
       .via(
         allowOnlyFirstInput(
@@ -546,7 +546,7 @@ class WebSocketService(
         .map(jsv => \/-(wsMessage(jsv)))
     } else {
       reportUnresolvedTemplateIds(unresolved)
-        .map(jsv => \/-(wsMessage(jsv)))
+        .map(jsv => \/-[Error, Message](wsMessage(jsv)))
         .concat(Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId))))
     }
   }

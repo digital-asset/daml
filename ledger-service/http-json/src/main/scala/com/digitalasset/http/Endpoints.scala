@@ -330,7 +330,7 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Flow[E \/ A, Error \/ A, NotUsed] =
     Flow
-      .fromFunction((_: E \/ A).liftErr(ServerError))
+      .fromFunction((_: E \/ A).liftErr[Error](ServerError))
       .recover { case NonFatal(e) =>
         logger.error("Source failed", e)
         -\/(ServerError(e.description))
@@ -421,13 +421,13 @@ class Endpoints(
       parse: ParsePayload[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
   ): Future[Error \/ (Jwt, P, String)] =
-    input(req).map(_.flatMap(withJwtPayload[String, P]))
+    input(req).map(_.flatMap(withJwtPayload[String, P])).widenLeftF
 
   private[http] def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
       parse: ParsePayload[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
   ): ET[(Jwt, P, JsValue)] =
-    inputJsVal(req).flatMap(x => either(withJwtPayload[JsValue, P](x)))
+    inputJsVal(req).flatMap(x => either(withJwtPayload[JsValue, P](x).widenLeft))
 
   private[http] def inputSource(
       req: HttpRequest
