@@ -151,7 +151,9 @@ class CommandService(
       jwtPayload: JwtWritePayload,
       meta: Option[domain.CommandMeta],
       command: lav1.commands.Command.Command,
-  )(implicit lc: LoggingContextOf[InstanceUUID]): lav1.command_service.SubmitAndWaitRequest = {
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): lav1.command_service.SubmitAndWaitRequest = {
     val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
     withEnrichedLoggingContext(
       label[lar.CommandId],
