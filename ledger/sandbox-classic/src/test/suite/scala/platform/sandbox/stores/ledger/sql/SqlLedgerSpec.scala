@@ -303,7 +303,7 @@ final class SqlLedgerSpec
         transactionCommitter = LegacyTransactionCommitter,
         startMode = SqlStartMode.MigrateAndStart,
         eventsPageSize = 100,
-        eventsDecodingParallelism = 4,
+        eventsProcessingParallelism = 4,
         servicesExecutionContext = executionContext,
         metrics = new Metrics(metrics),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,

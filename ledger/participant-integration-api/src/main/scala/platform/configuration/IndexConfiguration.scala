@@ -6,6 +6,6 @@ package com.daml.platform.configuration
 object IndexConfiguration {
 
   val DefaultEventsPageSize: Int = 1000
-  val DefaultEventsDecodingParallelism: Int = 4
+  val DefaultEventsProcessingParallelism: Int = 4
 
 }

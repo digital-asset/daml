@@ -32,7 +32,7 @@ final case class Config[Extra](
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
     eventsPageSize: Int,
-    eventsDecodingParallelism: Int,
+    eventsProcessingParallelism: Int,
     stateValueCache: caching.WeightedCache.Configuration,
     lfValueTranslationEventCache: caching.SizedCache.Configuration,
     lfValueTranslationContractCache: caching.SizedCache.Configuration,
@@ -64,7 +64,7 @@ object Config {
       participants = Vector.empty,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
-      eventsDecodingParallelism = IndexConfiguration.DefaultEventsDecodingParallelism,
+      eventsProcessingParallelism = IndexConfiguration.DefaultEventsProcessingParallelism,
       stateValueCache = caching.WeightedCache.Configuration.none,
       lfValueTranslationEventCache = caching.SizedCache.Configuration.none,
       lfValueTranslationContractCache = caching.SizedCache.Configuration.none,
@@ -392,13 +392,13 @@ object Config {
           )
           .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
-        opt[Int]("events-decoding-parallelism")
+        opt[Int]("events-processing-parallelism")
           .optional()
           .text(
-            s"Number of events decoded in parallel. Default is ${IndexConfiguration.DefaultEventsDecodingParallelism}."
+            s"Number of events loaded and decoded in parallel. Default is ${IndexConfiguration.DefaultEventsProcessingParallelism}."
           )
-          .action((eventsDecodingParallelism, config) =>
-            config.copy(eventsDecodingParallelism = eventsDecodingParallelism)
+          .action((eventsProcessingParallelism, config) =>
+            config.copy(eventsProcessingParallelism = eventsProcessingParallelism)
           )
 
         opt[Long]("max-state-value-cache-size")
