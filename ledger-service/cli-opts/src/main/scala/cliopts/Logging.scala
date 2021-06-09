@@ -7,12 +7,6 @@ import ch.qos.logback.classic.{Level => LogLevel}
 
 object Logging {
 
-  sealed trait PathKind
-  object PathKind {
-    final case class OutsideOfJar(path: String) extends PathKind
-    final case class InsideOfJar(path: String) extends PathKind
-  }
-
   def reconfigure(clazz: Class[_]): Unit = {
     // Try reconfiguring the library
     import ch.qos.logback.core.joran.spi.JoranException
@@ -22,13 +16,8 @@ object Logging {
     import scala.util.Using
     import java.io.InputStream
     import java.io.FileInputStream
-    val path: PathKind =
-      System.getProperty("logback.configurationFile") match {
-        case null => PathKind.InsideOfJar("logback.xml")
-        case path => PathKind.OutsideOfJar(path)
-      }
-    def reloadConfig(stream: => InputStream): Unit =
-      Using.resource(stream) { stream =>
+    def reloadConfig(path: String, openStream: String => InputStream): Unit =
+      Using.resource(openStream(path)) { stream =>
         try {
           val context = LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext]
           val configurator = new JoranConfigurator()
@@ -44,10 +33,9 @@ object Logging {
             je.printStackTrace(System.err)
         } finally stream.close()
       }
-    path match {
-      case PathKind.OutsideOfJar(path) => reloadConfig(new FileInputStream(path))
-      case PathKind.InsideOfJar(pathToLogbackFileInJarFile) =>
-        reloadConfig(clazz.getClassLoader.getResource(pathToLogbackFileInJarFile).openStream())
+    System.getProperty("logback.configurationFile") match {
+      case null => reloadConfig("logback.xml", clazz.getClassLoader.getResource(_).openStream())
+      case path => reloadConfig(path, new FileInputStream(_))
     }
   }
 
