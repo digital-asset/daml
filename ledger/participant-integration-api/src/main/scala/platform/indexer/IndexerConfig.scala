@@ -18,7 +18,7 @@ case class IndexerConfig(
     databaseConnectionTimeout: FiniteDuration = DefaultDatabaseConnectionTimeout,
     restartDelay: FiniteDuration = DefaultRestartDelay,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
-    eventsDecodingParallelism: Int = IndexConfiguration.DefaultEventsDecodingParallelism,
+    eventsProcessingParallelism: Int = IndexConfiguration.DefaultEventsProcessingParallelism,
     updatePreparationParallelism: Int = DefaultUpdatePreparationParallelism,
     allowExistingSchema: Boolean = false,
     // TODO append-only: remove after removing support for the current (mutating) schema

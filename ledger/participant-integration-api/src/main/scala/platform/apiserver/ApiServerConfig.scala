@@ -25,7 +25,7 @@ case class ApiServerConfig(
     tlsConfig: Option[TlsConfiguration],
     maxInboundMessageSize: Int,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
-    eventsDecodingParallelism: Int = IndexConfiguration.DefaultEventsDecodingParallelism,
+    eventsProcessingParallelism: Int = IndexConfiguration.DefaultEventsProcessingParallelism,
     portFile: Option[Path],
     seeding: Seeding,
     managementServiceTimeout: Duration,

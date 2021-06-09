@@ -130,7 +130,7 @@ object JdbcIndexer {
             config.databaseConnectionPoolSize,
             config.databaseConnectionTimeout,
             config.eventsPageSize,
-            config.eventsDecodingParallelism,
+            config.eventsProcessingParallelism,
             servicesExecutionContext,
             metrics,
             lfValueTranslationCache,

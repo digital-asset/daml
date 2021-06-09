@@ -44,7 +44,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
 
   protected def daoOwner(
       eventsPageSize: Int,
-      eventsDecodingParallelism: Int,
+      eventsProcessingParallelism: Int,
   )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] =
@@ -72,7 +72,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         connectionPoolSize = 16,
         connectionTimeout = 250.millis,
         eventsPageSize = eventsPageSize,
-        eventsDecodingParallelism = eventsDecodingParallelism,
+        eventsProcessingParallelism = eventsProcessingParallelism,
         servicesExecutionContext = executionContext,
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
