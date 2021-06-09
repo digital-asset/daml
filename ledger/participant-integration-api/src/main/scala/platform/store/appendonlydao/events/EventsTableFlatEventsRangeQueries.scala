@@ -162,6 +162,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
+                  and (event_kind = 10 or event_kind = 20)
                   and #$witnessesWhereClause
             order by event_sequential_id #$limitExpr"""
       )
@@ -182,6 +183,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
+                  and (event_kind = 10 or event_kind = 20)
                   and #$witnessesWhereClause
                   and template_id in ($templateIds)
             order by event_sequential_id #$limitExpr"""
@@ -206,6 +208,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
+                  and (event_kind = 10 or event_kind = 20)
                   and #$witnessesWhereClause
             order by event_sequential_id #$limitExpr"""
       )
@@ -230,6 +233,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
+                  and (event_kind = 10 or event_kind = 20)
                   and #$witnessesWhereClause
                   and template_id in ($templateIds)
             order by event_sequential_id #$limitExpr"""
@@ -259,6 +263,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
+                  and (event_kind = 10 or event_kind = 20)
                   and #$partiesAndTemplatesCondition
             order by event_sequential_id #$limitExpr"""
       )
@@ -290,6 +295,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
             from participant_events
             where event_sequential_id > ${range.startExclusive}
                   and event_sequential_id <= ${range.endInclusive}
+                  and (event_kind = 10 or event_kind = 20)
                   and (#$witnessesWhereClause or #$partiesAndTemplatesCondition)
             order by event_sequential_id #$limitExpr"""
       )
