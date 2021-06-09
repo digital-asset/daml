@@ -64,8 +64,6 @@ private[appendonlydao] final class TransactionsReader(
   // This significantly improves the performance of the transaction service.
   private val outputStreamBufferSize = 128
 
-  private val TransactionEventsFetchParallelism = 8
-
   private val MinParallelFetchChunkSize = 10
 
   private def offsetFor(response: GetTransactionsResponse): Offset =
@@ -269,13 +267,13 @@ private[appendonlydao] final class TransactionsReader(
           .splitRange(
             startExclusive._2,
             endInclusive._2,
-            TransactionEventsFetchParallelism,
+            eventProcessingParallelism,
             MinParallelFetchChunkSize,
           )
           .iterator
       )
       // Dispatch database fetches in parallel
-      .mapAsync(TransactionEventsFetchParallelism) { range =>
+      .mapAsync(eventProcessingParallelism) { range =>
         dispatcher.executeSql(dbMetrics.getTransactionLogUpdates) { implicit conn =>
           QueryNonPruned.executeSqlOrThrow(
             query = TransactionLogUpdatesReader.readRawEvents(range),
@@ -287,7 +285,7 @@ private[appendonlydao] final class TransactionsReader(
       }
       .flatMapConcat(v => Source.fromIterator(() => v.iterator))
       // Decode transaction log updates in parallel
-      .mapAsync(TransactionEventsFetchParallelism) { raw =>
+      .mapAsync(eventProcessingParallelism) { raw =>
         Timed.future(
           metrics.daml.index.decodeTransactionLogUpdate,
           Future(TransactionLogUpdatesReader.toTransactionEvent(raw)),
