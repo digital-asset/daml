@@ -33,7 +33,7 @@ class FlowUtilTest
     val error = "Error"
     val errorNum = Math.max(xs.size - 1, 0)
     val expected: Vector[String \/ Int] =
-      xs.take(1).map(\/-(_)) ++ Vector.fill(errorNum)(-\/(error))
+      xs.take(1).map(\/.r[String](_)) ++ Vector.fill(errorNum)(-\/(error))
     val input: Source[String \/ Int, NotUsed] =
       Source.fromIterator(() => xs.iterator).map(\/-(_))
 
