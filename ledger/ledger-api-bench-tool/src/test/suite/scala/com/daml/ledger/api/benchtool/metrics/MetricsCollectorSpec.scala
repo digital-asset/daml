@@ -11,9 +11,9 @@ import akka.actor.testkit.typed.scaladsl.{
   TestProbe,
 }
 import akka.actor.typed.{ActorRef, Behavior}
-import com.daml.ledger.api.benchtool.metrics.MetricsManager.Message
+import com.daml.ledger.api.benchtool.metrics.MetricsCollector.Message
 import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
-import com.daml.ledger.api.benchtool.metrics.{Metric, MetricValue, MetricsManager}
+import com.daml.ledger.api.benchtool.metrics.{Metric, MetricValue, MetricsCollector}
 import com.daml.ledger.api.benchtool.util.MetricReporter
 import org.scalatest.wordspec.AnyWordSpecLike
 
@@ -21,21 +21,23 @@ import java.time.Duration
 import scala.concurrent.duration._
 import scala.util.Random
 
-class MetricsManagerSpec extends ScalaTestWithActorTestKit(ManualTime.config) with AnyWordSpecLike {
+class MetricsCollectorSpec
+    extends ScalaTestWithActorTestKit(ManualTime.config)
+    with AnyWordSpecLike {
 
-  "The MetricsManager" should {
+  "The MetricsCollector" should {
 
     val manualTime: ManualTime = ManualTime()
 
     "log periodic report" in {
       val logInterval = 100.millis
-      val manager = spawnManager(logInterval)
+      val collector = spawn(logInterval)
 
       val first = "first"
       val second = "second"
 
-      manager ! MetricsManager.Message.NewValue(first)
-      manager ! MetricsManager.Message.NewValue(second)
+      collector ! MetricsCollector.Message.NewValue(first)
+      collector ! MetricsCollector.Message.NewValue(second)
 
       manualTime.timePasses(logInterval - 1.milli)
 
@@ -48,51 +50,51 @@ class MetricsManagerSpec extends ScalaTestWithActorTestKit(ManualTime.config) wi
     }
 
     "respond with metrics result on StreamCompleted message" in {
-      val manager = spawnManager()
+      val collector = spawn()
       val probe = aTestProbe()
 
-      manager ! MetricsManager.Message.StreamCompleted(probe.ref)
-      probe.expectMessage(MetricsManager.Message.MetricsResult.Ok)
+      collector ! MetricsCollector.Message.StreamCompleted(probe.ref)
+      probe.expectMessage(MetricsCollector.Message.MetricsResult.Ok)
     }
 
     "respond with information about violated objectives" in {
-      val manager = spawnManager()
+      val collector = spawn()
       val probe = aTestProbe()
 
-      manager ! MetricsManager.Message.NewValue("a value")
-      manager ! MetricsManager.Message.NewValue(TestObjective.TestViolatingValue)
-      manager ! MetricsManager.Message.StreamCompleted(probe.ref)
+      collector ! MetricsCollector.Message.NewValue("a value")
+      collector ! MetricsCollector.Message.NewValue(TestObjective.TestViolatingValue)
+      collector ! MetricsCollector.Message.StreamCompleted(probe.ref)
 
-      probe.expectMessage(MetricsManager.Message.MetricsResult.ObjectivesViolated)
+      probe.expectMessage(MetricsCollector.Message.MetricsResult.ObjectivesViolated)
     }
 
     "stop when the stream completes" in {
       val probe = aTestProbe()
-      val behaviorTestKit = BehaviorTestKit(managerBehavior())
+      val behaviorTestKit = BehaviorTestKit(behavior())
 
       behaviorTestKit.isAlive shouldBe true
 
-      behaviorTestKit.run(MetricsManager.Message.StreamCompleted(probe.ref))
+      behaviorTestKit.run(MetricsCollector.Message.StreamCompleted(probe.ref))
 
       behaviorTestKit.isAlive shouldBe false
     }
   }
 
   private def aTestProbe(): TestProbe[Message.MetricsResult] =
-    testKit.createTestProbe[MetricsManager.Message.MetricsResult]()
+    testKit.createTestProbe[MetricsCollector.Message.MetricsResult]()
 
-  private def spawnManager(
+  private def spawn(
       logInterval: FiniteDuration = 100.millis
-  ): ActorRef[MetricsManager.Message] =
+  ): ActorRef[MetricsCollector.Message] =
     testKit.spawn(
-      behavior = managerBehavior(logInterval),
+      behavior = behavior(logInterval),
       name = Random.alphanumeric.take(10).mkString,
     )
 
-  private def managerBehavior(
+  private def behavior(
       logInterval: FiniteDuration = 100.millis
-  ): Behavior[MetricsManager.Message] =
-    MetricsManager[String](
+  ): Behavior[MetricsCollector.Message] =
+    MetricsCollector[String](
       streamName = "testStream",
       metrics = List(TestMetric()),
       logInterval = logInterval,
