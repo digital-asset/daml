@@ -696,6 +696,43 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       rejectionReason should startWith("DuplicateKeys")
     }
 
+    "return DuplicateKeys when a local contract conflicts with a global contract" in {
+      val builder = TransactionBuilder()
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      val transaction = builder.buildSubmitted()
+      val context = commitContextWithContractStateKeys(conflictingKey -> Some(s"#$freshContractId"))
+      val result = validate(context, transaction)
+      result shouldBe a[StepStop]
+      val rejectionReason =
+        getTransactionRejectionReason(result).getInconsistent.getDetails
+      rejectionReason should startWith("DuplicateKeys")
+    }
+
+    "succeeds when a global contract gets archived before a local contract gets created" in {
+      val globalCid = s"#$freshContractId"
+      val globalCreate = newCreateNodeWithFixedKey(globalCid)
+      val context = commitContextWithContractStateKeys(conflictingKey -> Some(globalCid))
+      val builder = TransactionBuilder()
+      builder.add(archive(globalCreate, Set("Alice")))
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      val transaction = builder.buildSubmitted()
+      val result = validate(context, transaction)
+      result shouldBe a[StepContinue[_]]
+    }
+
+    "succeeds when a local contract gets archived before another local contract gets created" in {
+      val localCid = s"#$freshContractId"
+      val context = commitContextWithContractStateKeys(conflictingKey -> None)
+      val builder = TransactionBuilder()
+      val localCreate = newCreateNodeWithFixedKey(localCid)
+      builder.add(localCreate)
+      builder.add(archive(localCreate, Set("Alice")))
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      val transaction = builder.buildSubmitted()
+      val result = validate(context, transaction)
+      result shouldBe a[StepContinue[_]]
+    }
+
     "return DuplicateKeys when a create in a rollback conflicts with a global key" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
@@ -760,7 +797,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
     "return InconsistentKeys on conflict local and global contracts even if global was archived in a rollback" in {
       val builder = TransactionBuilder()
-      val globalCid = s"#freshContractId"
+      val globalCid = s"#$freshContractId"
       val rollback = builder.add(builder.rollback())
       builder.add(archive(globalCid, Set("Alice")), rollback)
       builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
