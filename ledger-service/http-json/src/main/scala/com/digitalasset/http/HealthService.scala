@@ -12,7 +12,7 @@ import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 final class HealthService(
-    getLedgerEnd: HealthService.GetHealthCheckResponse,
+    getLedgerHealth: HealthService.GetHealthCheckResponse,
     contractDao: Option[dbbackend.ContractDao],
     timeoutSeconds: Int,
 ) {
@@ -20,7 +20,7 @@ final class HealthService(
   import HealthService._
   def ready()(implicit ec: ExecutionContext): Future[ReadyResponse] =
     for {
-      ledger <- getLedgerEnd().transform {
+      ledger <- getLedgerHealth().transform {
         case Failure(err) => Success(false, Some(err.toString))
         case Success(resp) =>
           Success(
