@@ -171,11 +171,9 @@ object CodeGenRunner extends StrictLogging {
     }.toList
     allModules.groupBy(_._1).foreach { case (m, grouped) =>
       if (grouped.length > 1) {
-        val pkgIds = grouped.map(_._2)
+        val pkgIds = grouped.view.map(_._2).mkString(", ")
         throw new IllegalArgumentException(
-          s"""Duplicate module $m found in multiple packages ${pkgIds.mkString(
-            ", "
-          )}. To resolve the conflict rename the modules in one of the packages via `module-prefixes`."""
+          s"""Duplicate module $m found in multiple packages $pkgIds. To resolve the conflict rename the modules in one of the packages via `module-prefixes`."""
         )
       }
     }
