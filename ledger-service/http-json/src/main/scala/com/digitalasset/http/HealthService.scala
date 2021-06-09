@@ -21,11 +21,10 @@ final class HealthService(
   def ready()(implicit ec: ExecutionContext): Future[ReadyResponse] =
     for {
       ledger <- getLedgerHealth().transform {
-        case Failure(err) => Success(false, Some(err.toString))
+        case Failure(err) => Success((false, Some(err.toString)))
         case Success(resp) =>
           Success(
-            resp.status == HealthCheckResponse.ServingStatus.SERVING,
-            Some(resp.status.toString),
+            (resp.status == HealthCheckResponse.ServingStatus.SERVING, Some(resp.status.toString))
           )
       }
       optDb <- contractDao.traverse(opt =>
