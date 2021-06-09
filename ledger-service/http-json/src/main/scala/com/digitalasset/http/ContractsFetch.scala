@@ -427,7 +427,7 @@ private[http] object ContractsFetch {
   /** Split a series of ACS responses into two channels: one with contracts, the
     * other with a single result, the last offset.
     */
-  private[this] def acsAndBoundary
+  private[http] def acsAndBoundary
       : Graph[FanOutShape2[lav1.active_contracts_service.GetActiveContractsResponse, Seq[
         lav1.event.CreatedEvent,
       ], BeginBookmark[String]], NotUsed] =

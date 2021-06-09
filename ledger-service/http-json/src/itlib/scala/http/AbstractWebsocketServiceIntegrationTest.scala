@@ -20,7 +20,7 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
-import spray.json.{JsNull, JsObject, JsString, JsValue}
+import spray.json.{JsArray, JsNull, JsNumber, JsObject, JsString, JsValue}
 
 import scala.annotation.nowarn
 import scala.concurrent.duration._
@@ -747,9 +747,15 @@ abstract class AbstractWebsocketServiceIntegrationTest
     go(createCount)
   }
 
-  private[this] def activeContractsAt(
-      until: domain.Offset
+  /** Updates the ACS retrieved with [[readAcsN]] until the given offset
+    */
+  private[this] def updateAcs(
+      acs: Vector[(String, JsValue)],
+      expectLivenessMarker: Boolean,
+      until: domain.Offset,
   ): Consume.FCC[JsValue, Map[String, JsValue]] = {
+    val dummyLivenessMarker =
+      JsObject("events" -> JsArray.empty, "offset" -> JsNumber(0)).asInstanceOf[JsValue]
     val dslSyntax = Consume.syntax[JsValue]
     import dslSyntax._
     import domain.Offset.ordering
@@ -759,14 +765,22 @@ abstract class AbstractWebsocketServiceIntegrationTest
         latest: Option[domain.Offset],
     ): Consume.FCC[JsValue, Map[String, JsValue]] =
       if (latest.fold(false)(_ >= until)) {
-        point(acs)
+        for {
+          ContractDelta(creates, deletes, _) <- readOne
+        } yield acs ++ creates -- deletes.map(_.contractId.unwrap)
       } else {
         for {
           ContractDelta(creates, deletes, offset) <- readOne
           next <- go(acs ++ creates -- deletes.map(_.contractId.unwrap), offset)
         } yield next
       }
-    go(acs = Map.empty, latest = None)
+    for {
+      // Ignoring the live marker, w/ per-query offsets it can come in with an offset greater than `until`
+      ContractDelta(Vector(), _, _) <-
+        if (expectLivenessMarker) readOne
+        else point(dummyLivenessMarker)
+      updatedAcs <- go(acs = Map.from(acs), latest = None)
+    } yield updatedAcs
   }
 
   "fetch should should return an error if empty list of (templateId, key) pairs is passed" in withHttpService {
@@ -985,23 +999,26 @@ abstract class AbstractWebsocketServiceIntegrationTest
     }
     def test(
         clue: String,
+        expectedAcsSize: Int,
         end: domain.Offset,
         queryFrom: Option[domain.Offset],
         eurFrom: Option[domain.Offset],
         usdFrom: Option[domain.Offset],
         expected: Map[String, Int],
     ): Future[Assertion] = {
+      val expectLivenessMarker = expectedAcsSize != 0
       def go(killSwitch: UniqueKillSwitch): Sink[JsValue, Future[Assertion]] = {
         Consume.interpret(
           for {
-            contracts <- activeContractsAt(end)
+            acs <- readAcsN(expectedAcsSize)
+            contracts <- updateAcs(acs, expectLivenessMarker, end)
             result = contracts
               .map(_._2.asJsObject.fields("currency").asInstanceOf[JsString].value)
               .groupBy(identity)
               .map { case (k, vs) => k -> vs.size }
+            // If this fails with a match error, there is something else lingering in the stream
             ContractDelta(Vector(), _, _) <- readOne
             _ = killSwitch.shutdown()
-            _ <- drain
           } yield withClue(clue) { result shouldEqual expected }
         )
       }
@@ -1030,6 +1047,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       _ <- test(
         clue = "No offsets",
         end = offset3,
+        expectedAcsSize = 6,
         queryFrom = None,
         eurFrom = None,
         usdFrom = None,
@@ -1041,6 +1059,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       _ <- test(
         clue = "Offset message only",
         end = offset3,
+        expectedAcsSize = 0,
         queryFrom = Some(offset2),
         eurFrom = None,
         usdFrom = None,
@@ -1052,6 +1071,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       _ <- test(
         clue = "Per-query offsets only",
         end = offset3,
+        expectedAcsSize = 0,
         queryFrom = None,
         eurFrom = Some(offset1),
         usdFrom = Some(offset2),
@@ -1063,6 +1083,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       _ <- test(
         clue = "Absent per-query offset is overridden by offset message",
         end = offset3,
+        expectedAcsSize = 0,
         queryFrom = Some(offset2),
         eurFrom = None,
         usdFrom = Some(offset1),
@@ -1074,6 +1095,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
       _ <- test(
         clue = "Offset message does not override per-query offsets",
         end = offset3,
+        expectedAcsSize = 0,
         queryFrom = Some(offset2),
         eurFrom = Some(offset1),
         usdFrom = Some(offset1),
@@ -1085,12 +1107,13 @@ abstract class AbstractWebsocketServiceIntegrationTest
       _ <- test(
         clue = "Per-query offset with ACS query",
         end = offset3,
+        expectedAcsSize = 3,
         queryFrom = None,
         eurFrom = None,
         usdFrom = Some(offset2),
         expected = Map(
           "EUR" -> 3,
-          "USD" -> 3, // FIXME This should be 1
+          "USD" -> 1,
         ),
       )
     } yield succeed
