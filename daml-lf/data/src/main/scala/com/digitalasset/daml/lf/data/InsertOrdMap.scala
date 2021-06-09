@@ -60,9 +60,12 @@ object InsertOrdMap extends InsertOrdMapCompanion {
 
   implicit def insertMapShow[K: Show, V: Show]: Show[InsertOrdMap[K, V]] =
     Show.show { m =>
-      cord"""InsertOrdMap[${m.view.map { case (k, v) =>
-        cord"$k->$v"
-      }.toVector intercalate Cord(", ")}]"""
+      cord"InsertOrdMap[" :: m.view
+        .map { case (k, v) =>
+          cord"$k->$v"
+        }
+        .toVector
+        .intercalate(Cord(", ")) :: cord"]"
     }
 
 }

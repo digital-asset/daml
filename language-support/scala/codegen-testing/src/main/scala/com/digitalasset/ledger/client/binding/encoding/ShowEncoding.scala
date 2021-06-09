@@ -30,12 +30,12 @@ abstract class ShowEncoding extends LfTypeEncoding {
   override def record[A](recordId: Identifier, fi: RecordFields[A]): Out[A] = {
     implicit val A: Show[A] = fi
     show { a: A =>
-      cord"${name(recordId)}($a)"
+      Cord(name(recordId)) :: cord"($a)"
     }
   }
 
   override def emptyRecord[A](recordId: Identifier, element: () => A): Out[A] = {
-    val shown = cord"${name(recordId)}()"
+    val shown = Cord(name(recordId)) :: cord"()"
     show { _: A =>
       shown
     }
@@ -66,7 +66,7 @@ abstract class ShowEncoding extends LfTypeEncoding {
   )(select: A PartialFunction B): VariantCases[A] = {
     implicit val B: Show[B] = o
     show { a: A =>
-      select.lift(a).fold(Cord())(b => cord"$caseName($b)")
+      select.lift(a).fold(Cord())(b => Cord(caseName) :: cord"($b)")
     }
   }
 
