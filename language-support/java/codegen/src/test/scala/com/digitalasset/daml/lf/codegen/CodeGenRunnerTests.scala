@@ -91,7 +91,7 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
       CodeGenRunner.detectModuleCollisions(
         Map.empty,
         Seq(interface("pkg1", "A", "A.B"), interface("pkg2", "B", "A.B.C")),
-      ) === ()
+      ) === (())
     )
   }
 
@@ -118,7 +118,7 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
       CodeGenRunner.detectModuleCollisions(
         Map(PackageId.assertFromString("pkg2") -> "Pkg2"),
         Seq(interface("pkg1", "A"), interface("pkg2", "A")),
-      ) === ()
+      ) === (())
     )
   }
 
