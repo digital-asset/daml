@@ -13,7 +13,7 @@ One option for doing that is to represent errors explicitly via
 ``Either`` or ``Option`` as shown in :doc:`3_Data`. This approach has
 the advantage that it is very explicit about which operations can fail
 and which cannot. However, it also has some downsides. First, it can
-be invasive for operations where aborting the transacton is often the
+be invasive for operations where aborting the transaction is often the
 desired behavior, e.g., changing division to return ``Either`` or an
 ``Option`` to handle division by zero would be a very invasive change
 and many callsites might not want to handle the error case explicitly.

@@ -7,8 +7,9 @@ import java.io.File
 import java.nio.file.{Path, Paths}
 
 import ch.qos.logback.classic.Level
+import com.daml.lf.data.Ref.{PackageName, PackageVersion}
 import com.daml.assistant.config._
-import io.circe.ACursor
+import io.circe.{ACursor, KeyDecoder}
 
 import scala.util.Try
 
@@ -30,6 +31,7 @@ object CodegenConfigReader {
     for {
       dar <- darPath(sdkConf)
       packagePrefix <- packagePrefix(sdkConf, dest)
+      modulePrefixes <- modulePrefixes(sdkConf)
       outputDirectory <- outputDirectory(sdkConf, dest)
       decoderPkgAndClass <- decoderPkgAndClass(sdkConf, dest)
       verbosity <- verbosity(sdkConf, dest): Result[Option[Int]]
@@ -37,6 +39,7 @@ object CodegenConfigReader {
       root <- root(sdkConf, dest): Result[Option[List[String]]]
     } yield Conf(
       darFiles = Map(dar -> packagePrefix),
+      modulePrefixes = modulePrefixes,
       outputDirectory = outputDirectory,
       decoderPkgAndClass = decoderPkgAndClass,
       verbosity = logLevel,
@@ -71,6 +74,14 @@ object CodegenConfigReader {
     codegen(sdkConf, mode)
       .downField("package-prefix")
       .as[Option[String]]
+      .left
+      .map(configParseError)
+
+  private def modulePrefixes(sdkConf: ProjectConfig): Result[Map[PackageReference, String]] =
+    sdkConf.content.hcursor
+      .downField("module-prefixes")
+      .as[Option[Map[PackageReference, String]]]
+      .map(_.getOrElse(Map.empty))
       .left
       .map(configParseError)
 
@@ -145,4 +156,21 @@ object CodegenConfigReader {
 
   private def resultR[A](a: A): Result[A] =
     Right(a): Result[A]
+
+  implicit val decodePackageReference: KeyDecoder[PackageReference] =
+    new KeyDecoder[PackageReference] {
+      // TODO (MK) https://github.com/digital-asset/daml/issues/9934
+      // For now we only allow name-vesion pairs to match the compiler. Once the compiler
+      // accepts package ids we can allow for those here as well.
+      final def apply(key: String): Option[PackageReference] = nameVersion(key)
+
+      private def nameVersion(key: String): Option[PackageReference] = key.split("-") match {
+        case Array(name, version) =>
+          for {
+            name <- PackageName.fromString(name).toOption
+            version <- PackageVersion.fromString(version).toOption
+          } yield PackageReference.NameVersion(name, version)
+        case _ => None
+      }
+    }
 }

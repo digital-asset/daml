@@ -490,7 +490,7 @@ exerciseCmd cId arg = Commands $ Ap (\f -> f (Exercise (templateTypeRep @t) (coe
 exerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Commands r
 exerciseByKeyCmd key arg = Commands $ Ap (\f -> f (ExerciseByKey (templateTypeRep @t) (toAnyContractKey @t key) (toAnyChoice @t arg) identity) (pure fromLedgerValue))
 
--- | Create a contract and exercise a choice on it in the same transacton.
+-- | Create a contract and exercise a choice on it in the same transaction.
 createAndExerciseCmd : forall t c r. Choice t c r => t -> c -> Commands r
 createAndExerciseCmd tplArg choiceArg = Commands $ Ap (\f -> f (CreateAndExercise (toAnyTemplate tplArg) (toAnyChoice @t choiceArg) identity) (pure fromLedgerValue))
 
