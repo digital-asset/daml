@@ -13,7 +13,7 @@ object Logging {
     final case class InsideOfJar(path: String) extends PathKind
   }
 
-  def reconfigure(clazz: Class[_], path: PathKind): Unit = {
+  def reconfigure(clazz: Class[_]): Unit = {
     // Try reconfiguring the library
     import ch.qos.logback.core.joran.spi.JoranException
     import ch.qos.logback.classic.LoggerContext
@@ -22,6 +22,11 @@ object Logging {
     import scala.util.Using
     import java.io.InputStream
     import java.io.FileInputStream
+    val path: PathKind =
+      System.getProperty("logback.configurationFile") match {
+        case null => PathKind.InsideOfJar("logback.xml")
+        case path => PathKind.OutsideOfJar(path)
+      }
     def reloadConfig(stream: => InputStream): Unit =
       Using.resource(stream) { stream =>
         try {

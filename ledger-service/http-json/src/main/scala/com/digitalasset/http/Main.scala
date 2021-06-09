@@ -7,7 +7,7 @@ import java.nio.file.Path
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
-import com.daml.cliopts.Logging.{LogEncoder, PathKind}
+import com.daml.cliopts.Logging.LogEncoder
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.runtime.JdbcDrivers
 import com.daml.scalautil.Statement.discard
@@ -46,12 +46,7 @@ object Main {
       case LogEncoder.Plain => () // This is the default
       case LogEncoder.Json =>
         Logging.setUseJsonLogEncoderSystemProp()
-        val path: PathKind =
-          System.getProperty("logback.configurationFile") match {
-            case null => PathKind.InsideOfJar("logback.xml")
-            case path => PathKind.OutsideOfJar(path)
-          }
-        Logging.reconfigure(getClass, path)
+        Logging.reconfigure(getClass)
     }
     // Here we set all things which are related to logging but not to
     // any env vars in the logback.xml file.
