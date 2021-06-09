@@ -93,7 +93,7 @@ object domain {
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
-  case class Contract[+LfV](value: ArchivedContract \/ ActiveContract[LfV])
+  case class Contract[LfV](value: ArchivedContract \/ ActiveContract[LfV])
 
   type InputContractRef[LfV] =
     (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId)
@@ -174,7 +174,7 @@ object domain {
       meta: Option[CommandMeta],
   )
 
-  final case class ExerciseResponse[+LfV](
+  final case class ExerciseResponse[LfV](
       exerciseResult: LfV,
       events: List[Contract[LfV]],
   )
