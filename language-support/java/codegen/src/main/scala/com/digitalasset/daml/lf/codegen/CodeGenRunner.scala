@@ -138,20 +138,18 @@ object CodeGenRunner extends StrictLogging {
     val resolvedModulePrefixes: Map[PackageId, String] = modulePrefixes.view.map { case (k, v) =>
       resolveRef(k) -> v.toLowerCase
     }.toMap
-    val resolvedPrefixes: Map[PackageId, String] =
-      (pkgPrefixes.keySet union resolvedModulePrefixes.keySet).view.map { k =>
-        val prefix = (pkgPrefixes.get(k), resolvedModulePrefixes.get(k)) match {
-          case (None, None) =>
-            throw new RuntimeException(
-              "Internal error: key in pkgPrefixes and resolvedModulePrefixes could not be found in either of them"
-            )
-          case (Some(a), None) => a.stripSuffix(".")
-          case (None, Some(b)) => b.stripSuffix(".")
-          case (Some(a), Some(b)) => s"""${a.stripSuffix(".")}.${b.stripSuffix(".")}"""
-        }
-        k -> prefix
-      }.toMap
-    resolvedPrefixes
+    (pkgPrefixes.keySet union resolvedModulePrefixes.keySet).view.map { k =>
+      val prefix = (pkgPrefixes.get(k), resolvedModulePrefixes.get(k)) match {
+        case (None, None) =>
+          throw new RuntimeException(
+            "Internal error: key in pkgPrefixes and resolvedModulePrefixes could not be found in either of them"
+          )
+        case (Some(a), None) => a.stripSuffix(".")
+        case (None, Some(b)) => b.stripSuffix(".")
+        case (Some(a), Some(b)) => s"""${a.stripSuffix(".")}.${b.stripSuffix(".")}"""
+      }
+      k -> prefix
+    }.toMap
   }
 
   /** Verify that no two module names collide when the given
