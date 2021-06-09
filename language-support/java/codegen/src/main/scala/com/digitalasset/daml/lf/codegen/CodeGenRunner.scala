@@ -135,9 +135,9 @@ object CodeGenRunner extends StrictLogging {
           ),
         )
     }
-    val resolvedModulePrefixes: Map[PackageId, String] = modulePrefixes.view.map { case (k, v) =>
+    val resolvedModulePrefixes: Map[PackageId, String] = modulePrefixes.map { case (k, v) =>
       resolveRef(k) -> v.toLowerCase
-    }.toMap
+    }
     (pkgPrefixes.keySet union resolvedModulePrefixes.keySet).view.map { k =>
       val prefix = (pkgPrefixes.get(k), resolvedModulePrefixes.get(k)) match {
         case (None, None) =>
