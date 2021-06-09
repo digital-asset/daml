@@ -84,10 +84,10 @@ da_scala_test(
     scala_deps = [
         "@maven//:com_typesafe_scala_logging_scala_logging",
         "@maven//:org_scalatest_scalatest",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     versioned_scala_deps = {
         "2.12": [
-            "@maven//:org_scalaz_scalaz_core",
             "@maven//:org_scala_lang_modules_scala_collection_compat",
         ],
     },

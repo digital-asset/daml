@@ -87,10 +87,12 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
   }
 
   it should "succeed if there are no collisions" in {
-    CodeGenRunner.detectModuleCollisions(
-      Map.empty,
-      Seq(interface("pkg1", "A", "A.B"), interface("pkg2", "B", "A.B.C")),
-    ) shouldBe (())
+    assert(
+      CodeGenRunner.detectModuleCollisions(
+        Map.empty,
+        Seq(interface("pkg1", "A", "A.B"), interface("pkg2", "B", "A.B.C")),
+      ) === ()
+    )
   }
 
   it should "fail if there is a collision" in {
@@ -112,10 +114,12 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
   }
 
   it should "succeed if collision is resolved by prefixing" in {
-    CodeGenRunner.detectModuleCollisions(
-      Map(PackageId.assertFromString("pkg2") -> "Pkg2"),
-      Seq(interface("pkg1", "A"), interface("pkg2", "A")),
-    ) shouldBe (())
+    assert(
+      CodeGenRunner.detectModuleCollisions(
+        Map(PackageId.assertFromString("pkg2") -> "Pkg2"),
+        Seq(interface("pkg1", "A"), interface("pkg2", "A")),
+      ) === ()
+    )
   }
 
   behavior of "resolvePackagePrefixes"
@@ -135,12 +139,14 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
     val interface1 = interface(pkg1, None)
     val interface2 = interface(pkg2, Some(PackageMetadata(name2, version)))
     val interface3 = interface(pkg3, Some(PackageMetadata(name3, version)))
-    CodeGenRunner.resolvePackagePrefixes(
-      pkgPrefixes,
-      modulePrefixes,
-      Seq(interface1, interface2, interface3),
-    ) shouldBe
-      Map(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2.a.b", pkg3 -> "c.d")
+    assert(
+      CodeGenRunner.resolvePackagePrefixes(
+        pkgPrefixes,
+        modulePrefixes,
+        Seq(interface1, interface2, interface3),
+      ) ===
+        Map(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2.a.b", pkg3 -> "c.d")
+    )
   }
   it should "fail if module-prefixes references non-existing package" in {
     val name2 = PackageName.assertFromString("name2")
@@ -148,7 +154,7 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
     val modulePrefixes =
       Map[PackageReference, String](PackageReference.NameVersion(name2, version) -> "A.B")
     assertThrows[IllegalArgumentException] {
-      CodeGenRunner.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty) shouldBe None
+      CodeGenRunner.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty)
     }
   }
 }
