@@ -364,8 +364,8 @@ final class ContractKeysIT extends LedgerTestSuite {
   })
 
   test(
-    "CKDivulgedContractKeyVisibility",
-    "A contract key of a divulged contract should not be visible",
+    "CKDivulgedContractKeyReusability",
+    "Subsequent divulged contracts can use the same contract key",
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger1, party1), Participant(ledger2, party2)) =>
