@@ -28,7 +28,7 @@ object Main extends StrictLogging {
     }
 
   def generateCode(conf: Conf): Unit = conf match {
-    case Conf(darMap, outputDir, decoderPkgAndClass, verbosity, roots) =>
+    case Conf(darMap, outputDir, modulePrefixes @ _, decoderPkgAndClass, verbosity, roots) =>
       setGlobalLogLevel(verbosity)
       logUnsupportedEventDecoderOverride(decoderPkgAndClass)
       val (dars, packageName) = darsAndOnePackageName(darMap)
