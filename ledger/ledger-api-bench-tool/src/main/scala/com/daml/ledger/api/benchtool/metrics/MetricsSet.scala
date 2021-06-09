@@ -6,6 +6,7 @@ package com.daml.ledger.api.benchtool.metrics
 import com.daml.ledger.api.benchtool.Config.StreamConfig.Objectives
 import com.daml.ledger.api.benchtool.metrics.objectives.{MaxDelay, MinConsumptionSpeed}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
@@ -46,6 +47,19 @@ object MetricsSet {
         countingFunction = _.activeContracts.length
       ),
       SizeMetric.empty[GetActiveContractsResponse](
+        sizingFunction = _.serializedSize.toLong
+      ),
+    )
+
+  def completionsMetrics: List[Metric[CompletionStreamResponse]] =
+    List[Metric[CompletionStreamResponse]](
+      CountRateMetric.empty(
+        countingFunction = _.completions.length
+      ),
+      TotalCountMetric.empty(
+        countingFunction = _.completions.length
+      ),
+      SizeMetric.empty(
         sizingFunction = _.serializedSize.toLong
       ),
     )

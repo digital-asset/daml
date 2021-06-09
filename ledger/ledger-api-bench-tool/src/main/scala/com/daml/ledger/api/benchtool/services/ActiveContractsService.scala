@@ -22,7 +22,7 @@ final class ActiveContractsService(
     ActiveContractsServiceGrpc.stub(channel)
 
   def getActiveContracts[Result](
-      config: Config.StreamConfig,
+      config: Config.StreamConfig.ActiveContractsStreamConfig,
       observer: ObserverWithResult[GetActiveContractsResponse, Result],
   ): Future[Result] = {
     service.getActiveContracts(getActiveContractsRequest(ledgerId, config), observer)
@@ -30,7 +30,10 @@ final class ActiveContractsService(
     observer.result
   }
 
-  private def getActiveContractsRequest(ledgerId: String, config: Config.StreamConfig) = {
+  private def getActiveContractsRequest(
+      ledgerId: String,
+      config: Config.StreamConfig.ActiveContractsStreamConfig,
+  ) = {
     val templatesFilter = config.templateIds match {
       case Some(ids) =>
         Filters.defaultInstance.withInclusive(
