@@ -34,7 +34,7 @@ import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, IsCovariant, NonEmptyList, Show, \/, \/-}
+import scalaz.{-\/, EitherT, NonEmptyList, Show, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
