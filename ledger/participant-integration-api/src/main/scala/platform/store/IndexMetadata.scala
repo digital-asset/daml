@@ -51,7 +51,7 @@ object IndexMetadata {
         connectionPoolSize = 1,
         connectionTimeout = 250.millis,
         eventsPageSize = 1000,
-        eventsProcessingParallelism = 4,
+        eventsProcessingParallelism = 8,
         servicesExecutionContext = executionContext,
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,

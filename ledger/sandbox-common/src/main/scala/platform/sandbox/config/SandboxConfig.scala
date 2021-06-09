@@ -67,7 +67,7 @@ object SandboxConfig {
   val DefaultDatabaseConnectionTimeout: FiniteDuration = 250.millis
 
   val DefaultEventsPageSize: Int = 1000
-  val DefaultEventsProcessingParallelism: Int = 4
+  val DefaultEventsProcessingParallelism: Int = 8
 
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
 
