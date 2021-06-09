@@ -112,7 +112,7 @@ object CodeGenRunner extends StrictLogging {
   /** Given the package prefixes specified per DAR and the module-prefixes specified in
     * daml.yaml, produce the combined prefixes per package id.
     */
-  def resolvePackagePrefixes(
+  private [codegen] def resolvePackagePrefixes(
       pkgPrefixes: Map[PackageId, String],
       modulePrefixes: Map[PackageReference, String],
       interfaces: Seq[Interface],
@@ -155,7 +155,7 @@ object CodeGenRunner extends StrictLogging {
   /** Verify that no two module names collide when the given
     * prefixes are applied.
     */
-  def detectModuleCollisions(
+  private [codegen] def detectModuleCollisions(
       pkgPrefixes: Map[PackageId, String],
       interfaces: Seq[Interface],
   ): Unit = {
