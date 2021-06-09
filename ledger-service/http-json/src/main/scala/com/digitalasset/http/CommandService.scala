@@ -22,6 +22,7 @@ import com.daml.http.util.{Commands, Transactions}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
+import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
@@ -150,18 +151,25 @@ class CommandService(
       jwtPayload: JwtWritePayload,
       meta: Option[domain.CommandMeta],
       command: lav1.commands.Command.Command,
-  ): lav1.command_service.SubmitAndWaitRequest = {
-
+  )(implicit lc: LoggingContextOf[InstanceUUID]): lav1.command_service.SubmitAndWaitRequest = {
     val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
-
-    Commands.submitAndWaitRequest(
-      jwtPayload.ledgerId,
-      jwtPayload.applicationId,
-      commandId,
-      jwtPayload.actAs,
-      jwtPayload.readAs,
-      command,
+    withEnrichedLoggingContext(
+      label[lar.CommandId],
+      Map("command_id" -> commandId.toString),
     )
+      .run { implicit lc =>
+        logger.info(
+          s"Doing a command submit and wait request"
+        )
+        Commands.submitAndWaitRequest(
+          jwtPayload.ledgerId,
+          jwtPayload.applicationId,
+          commandId,
+          jwtPayload.actAs,
+          jwtPayload.readAs,
+          command,
+        )
+      }
   }
 
   private def exactlyOneActiveContract(
