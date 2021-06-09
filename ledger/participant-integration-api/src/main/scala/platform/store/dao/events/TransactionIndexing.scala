@@ -209,6 +209,8 @@ object TransactionIndexing {
       val allContractIds = allCreatedContractIds.union(archived)
       val netCreates = created.filterNot(c => archived(c.coid))
       val netArchives = archived.filterNot(allCreatedContractIds)
+      val netArchivesByKey = netCreates.flatMap(create => create.key.map(convertLfValueKey(create.templateId, _))
+        .map(_.hash.bytes.toByteArray).toList)
       val netDivulgedContracts = divulgedContracts.filterNot(c => allContractIds(c.contractId))
       val netTransactionVisibility =
         Relation.from(visibility.result()).view.filterKeys(!archived(_)).toMap
@@ -231,6 +233,7 @@ object TransactionIndexing {
           netCreates = netCreates,
           netArchives = netArchives,
           divulgedContracts = netDivulgedContracts,
+          netArchivesByKey = netArchivesByKey,
         ),
         contractWitnesses = ContractWitnessesInfo(
           netArchives = netArchives,
@@ -258,6 +261,7 @@ object TransactionIndexing {
   final case class ContractsInfo(
       netCreates: Set[Create],
       netArchives: Set[ContractId],
+      netArchivesByKey: Set[Array[Byte]],
       divulgedContracts: Iterable[DivulgedContract],
   )
 
