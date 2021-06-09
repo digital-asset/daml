@@ -5,8 +5,6 @@ package com.daml.cliopts
 
 import ch.qos.logback.classic.{Level => LogLevel}
 
-import java.io.FileInputStream
-
 object Logging {
 
   sealed trait PathKind
@@ -23,7 +21,8 @@ object Logging {
     import org.slf4j.LoggerFactory
     import scala.util.Using
     import java.io.InputStream
-    def reloadConfig(stream: => InputStream) = {
+    import java.io.FileInputStream
+    def reloadConfig(stream: => InputStream): Unit =
       Using.resource(stream) { stream =>
         try {
           val context = LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext]
@@ -38,11 +37,8 @@ object Logging {
               s"reconfigured failed using url $path: $je"
             )
             je.printStackTrace(System.err)
-        } finally {
-          stream.close()
-        }
+        } finally stream.close()
       }
-    }
     path match {
       case PathKind.OutsideOfJar(path) => reloadConfig(new FileInputStream(path))
       case PathKind.InsideOfJar(pathToLogbackFileInJarFile) =>
