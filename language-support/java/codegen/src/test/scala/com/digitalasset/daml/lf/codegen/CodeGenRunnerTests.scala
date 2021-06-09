@@ -124,14 +124,14 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
     val pkg1 = PackageId.assertFromString("pkg-1")
     val pkg2 = PackageId.assertFromString("pkg-2")
     val pkg3 = PackageId.assertFromString("pkg-3")
-    val pkgPrefixes = Seq(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2").toMap
+    val pkgPrefixes = Map(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2")
     val name2 = PackageName.assertFromString("name2")
     val name3 = PackageName.assertFromString("name3")
     val version = PackageVersion.assertFromString("1.0.0")
-    val modulePrefixes = Seq[(PackageReference, String)](
+    val modulePrefixes = Map[PackageReference, String](
       PackageReference.NameVersion(name2, version) -> "A.B",
       PackageReference.NameVersion(name3, version) -> "C.D",
-    ).toMap
+    )
     val interface1 = interface(pkg1, None)
     val interface2 = interface(pkg2, Some(PackageMetadata(name2, version)))
     val interface3 = interface(pkg3, Some(PackageMetadata(name3, version)))
@@ -140,13 +140,13 @@ class CodeGenRunnerTests extends AnyFlatSpec with Matchers with BazelRunfiles {
       modulePrefixes,
       Seq(interface1, interface2, interface3),
     ) shouldBe
-      Seq(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2.a.b", pkg3 -> "c.d").toMap
+      Map(pkg1 -> "com.pkg1", pkg2 -> "com.pkg2.a.b", pkg3 -> "c.d")
   }
   it should "fail if module-prefixes references non-existing package" in {
     val name2 = PackageName.assertFromString("name2")
     val version = PackageVersion.assertFromString("1.0.0")
     val modulePrefixes =
-      Seq[(PackageReference, String)](PackageReference.NameVersion(name2, version) -> "A.B").toMap
+      Map[PackageReference, String](PackageReference.NameVersion(name2, version) -> "A.B")
     assertThrows[IllegalArgumentException] {
       CodeGenRunner.resolvePackagePrefixes(Map.empty, modulePrefixes, Seq.empty) shouldBe None
     }
