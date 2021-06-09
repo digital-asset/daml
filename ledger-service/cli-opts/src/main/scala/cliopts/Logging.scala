@@ -5,31 +5,48 @@ package com.daml.cliopts
 
 import ch.qos.logback.classic.{Level => LogLevel}
 
+import java.io.FileInputStream
+
 object Logging {
 
-  def reconfigure(clazz: Class[_], pathToLogbackFileInJarFile: String): Unit = {
+  sealed trait PathKind
+  object PathKind {
+    final case class OutsideOfJar(path: String) extends PathKind
+    final case class InsideOfJar(path: String) extends PathKind
+  }
+
+  def reconfigure(clazz: Class[_], path: PathKind): Unit = {
     // Try reconfiguring the library
     import ch.qos.logback.core.joran.spi.JoranException
     import ch.qos.logback.classic.LoggerContext
     import ch.qos.logback.classic.joran.JoranConfigurator
     import org.slf4j.LoggerFactory
     import scala.util.Using
-    Using.resource(clazz.getClassLoader.getResource(pathToLogbackFileInJarFile).openStream()) {
-      stream =>
+    import java.io.InputStream
+    def reloadConfig(stream: => InputStream) = {
+      Using.resource(stream) { stream =>
         try {
           val context = LoggerFactory.getILoggerFactory.asInstanceOf[LoggerContext]
-          val configurator = new JoranConfigurator
+          val configurator = new JoranConfigurator()
           configurator.setContext(context)
           context.reset()
           configurator.doConfigure(stream)
         } catch {
           case je: JoranException =>
             // Fallback to System.err.println because the logger won't work in any way anymore.
-            System.err.println(s"reconfigured failed using url $pathToLogbackFileInJarFile: $je")
+            System.err.println(
+              s"reconfigured failed using url $path: $je"
+            )
             je.printStackTrace(System.err)
         } finally {
           stream.close()
         }
+      }
+    }
+    path match {
+      case PathKind.OutsideOfJar(path) => reloadConfig(new FileInputStream(path))
+      case PathKind.InsideOfJar(pathToLogbackFileInJarFile) =>
+        reloadConfig(clazz.getClassLoader.getResource(pathToLogbackFileInJarFile).openStream())
     }
   }
 
