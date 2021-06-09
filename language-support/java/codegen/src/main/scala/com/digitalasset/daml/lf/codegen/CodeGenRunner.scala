@@ -161,14 +161,14 @@ object CodeGenRunner extends StrictLogging {
       pkgPrefixes: Map[PackageId, String],
       interfaces: Seq[Interface],
   ): Unit = {
-    val allModules: List[(String, PackageId)] = interfaces.view.flatMap { interface =>
-      val modules = interface.typeDecls.keys.view.map(name => name.module).toSet
-      modules.map(m =>
-        pkgPrefixes
-          .get(interface.packageId)
-          .fold(m.toString)(prefix => s"$prefix.$m") -> interface.packageId
-      )
-    }.toList
+    val allModules: Seq[(String, PackageId)] =
+      for {
+        interface <- interfaces
+        modules = interface.typeDecls.keySet.map(_.module)
+        module <- modules
+        maybePrefix = pkgPrefixes.get(interface.packageId)
+        prefixedName = maybePrefix.fold(module.toString)(prefix => s"$prefix.$module")
+      } yield prefixedName -> interface.packageId
     allModules.groupBy(_._1).foreach { case (m, grouped) =>
       if (grouped.length > 1) {
         val pkgIds = grouped.view.map(_._2).mkString(", ")
