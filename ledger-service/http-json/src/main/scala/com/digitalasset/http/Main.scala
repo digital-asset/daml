@@ -42,7 +42,7 @@ object Main {
       case LogEncoder.Plain => () // This is the default
       case LogEncoder.Json =>
         Logging.setUseJsonLogEncoderSystemProp()
-        Logging.reconfigure(getClass, "logback.xml")
+        Logging.reconfigure(getClass)
     }
     // Here we set all things which are related to logging but not to
     // any env vars in the logback.xml file.
