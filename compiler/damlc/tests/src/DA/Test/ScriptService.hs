@@ -243,25 +243,11 @@ main =
                     [ "Scenario execution failed on commit at Test:57:3:"
                     , ".*"
                     , ".*failed due to a missing authorization.*"
-                    , ".*"
-                    , ".*"
-                    , ".*"
-                    , "Partial transaction:"
-                    , "  Sub-transactions:"
-                    , "     0"
-                    , ".*create Test:Helper.*"
                     ]
                 expectScriptFailure rs (vr "testPartialSubmitMustFail") $ \r ->
                   matchRegex r $ T.unlines
                     [ "Scenario execution failed on commit at Test:62:3:"
                     , "  Aborted:  Expected submit to fail but it succeeded"
-                    , ".*"
-                    , ".*"
-                    , ".*"
-                    , "Partial transaction:"
-                    , "  Sub-transactions:"
-                    , "     0"
-                    , ".*create Test:Helper.*"
                     ]
                 pure (),
               testCase "query" $

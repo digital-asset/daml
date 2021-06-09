@@ -104,21 +104,22 @@ final class Conversions(
             .setArg(convertValue(arg))
             .build
         )
-      case SError.DamlELocalContractNotActive(coid, tid, consumedBy) =>
+      //TODO: remove consumedBy from DamlELocalContractNotActive
+      case SError.DamlELocalContractNotActive(coid, tid, consumedBy @ _) =>
         builder.setUpdateLocalContractNotActive(
           proto.ScenarioError.ContractNotActive.newBuilder
             .setContractRef(mkContractRef(coid, tid))
-            .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
             .build
         )
       case SError.DamlEDuplicateContractKey(key) =>
         builder.setScenarioCommitError(
           proto.CommitError.newBuilder.setUniqueKeyViolation(convertGlobalKey(key)).build
         )
-      case SError.DamlEFailedAuthorization(nid, fa) =>
+      //TODO: remove nid from DamlEFailedAuthorization
+      case SError.DamlEFailedAuthorization(nid @ _, fa) =>
         builder.setScenarioCommitError(
           proto.CommitError.newBuilder
-            .setFailedAuthorizations(convertFailedAuthorization(nid, fa))
+            .setFailedAuthorizations(convertFailedAuthorization(fa))
             .build
         )
 
@@ -246,13 +247,11 @@ final class Conversions(
   }
 
   def convertFailedAuthorization(
-      nodeId: NodeId,
-      fa: FailedAuthorization,
+      fa: FailedAuthorization
   ): proto.FailedAuthorizations = {
     val builder = proto.FailedAuthorizations.newBuilder
     builder.addFailedAuthorizations {
       val faBuilder = proto.FailedAuthorization.newBuilder
-      faBuilder.setNodeId(convertTxNodeId(nodeId))
       fa match {
         case FailedAuthorization.CreateMissingAuthorization(
               templateId,
@@ -401,12 +400,10 @@ final class Conversions(
       .build
   }
 
-  def convertPartialTransaction(ptx: SPartialTransaction): proto.PartialTransaction = {
+  def convertPartialTransaction(ptx: SPartialTransaction): proto.PartialTransaction = { //TODO: remove PartialTransaction from proto
     val builder = proto.PartialTransaction.newBuilder
-      .addAllNodes(ptx.nodes.map(convertNode).asJava)
-      .addAllRoots(
-        ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava
-      )
+      .addAllNodes(Nil.map(convertNode).asJava)
+      .addAllRoots(Nil.map(convertTxNodeId).asJava)
 
     @tailrec
     def unwindToExercise(

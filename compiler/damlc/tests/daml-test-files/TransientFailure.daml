@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR exercises C on #1:1
+-- @ERROR Assertion failed
 module TransientFailure where
 
 template T'
