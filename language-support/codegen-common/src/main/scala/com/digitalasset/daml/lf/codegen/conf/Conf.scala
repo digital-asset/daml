@@ -13,7 +13,8 @@ import scopt.{OptionParser, Read}
 sealed trait PackageReference extends Product with Serializable
 
 object PackageReference {
-  // TODO (MK): We probably want to allow package id references here
+  // TODO (MK) https://github.com/digital-asset/daml/issues/9934
+  // We probably want to allow package id references here
   // but this needs to be supported in damlc first.
   final case class NameVersion(name: PackageName, version: PackageVersion)
       extends PackageReference {
