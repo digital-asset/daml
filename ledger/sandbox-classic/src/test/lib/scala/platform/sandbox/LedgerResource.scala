@@ -88,7 +88,7 @@ private[sandbox] object LedgerResource {
           transactionCommitter = StandardTransactionCommitter,
           startMode = SqlStartMode.ResetAndStart,
           eventsPageSize = 100,
-          eventsProcessingParallelism = 4,
+          eventsProcessingParallelism = 8,
           servicesExecutionContext = servicesExecutionContext,
           metrics = new Metrics(metrics),
           lfValueTranslationCache = LfValueTranslationCache.Cache.none,
