@@ -174,7 +174,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
             val visible = SVisibleByKey.fromSubmitters(actAs.toSet, readAs)(stakeholders)
             cb(visible)
           case SResultFinalValue(SUnit) =>
-            onLedger.ptx.finish match {
+            onLedger.ptxInternal.finish match {
               case PartialTransaction.CompleteTransaction(tx) =>
                 ScenarioLedger.commitTransaction(
                   actAs = actAs.toSet,
