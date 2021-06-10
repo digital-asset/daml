@@ -3359,9 +3359,11 @@ catchable by the ``TryCatch`` update expression. Those exceptions are
 not built in the language but are standard exceptions defined in user
 land. The builtin functions from an engine compliant with the current
 specification should be able to produce and handle (notably the
-``ANY_EXCEPTION_MESSAGE`` builtin function) such exceptions even if the package they are defined in has not been loaded.
-construction, projection, update or conversion from/back
-`'AnyException'`, requires the definition packages to be loaded.
+``ANY_EXCEPTION_MESSAGE`` builtin function) such exceptions even if
+the package they are defined in has not been loaded.  Any other usage
+like on the exception payload, like construction, projection, update
+or conversion from/back `'AnyException'`, requires the definition
+packages to be loaded.
 
 As of LF 1.14 the only non-fatal exceptions that a builtin function
 can throw is the ``ArithmeticError`` record defined in the module
@@ -3374,24 +3376,24 @@ whose content is as follow::
    metadata daml-prim-DA-Exception-ArithmeticError-1.0.0
 
    module DA.Exception.ArithmeticError {
-      record @serializable ArithmeticError ↦ { message : Text } ;
-      val $WArithmeticError : Text -> DA.Exception.ArithmeticError:ArithmeticError =
+      record @serializable ArithmeticError = { message : Text } ;
+      val $WArithmeticError :Text -> DA.Exception.ArithmeticError:ArithmeticError =
          λ message : Text .
             DA.Exception.ArithmeticError:ArithmeticError { message = message };
-      exception ArithmeticError ↦ {
+      exception ArithmeticError = {
          'message' λ x : DA.Exception.ArithmeticError:ArithmeticError.
             DA.Exception.ArithmeticError:ArithmeticError { message } x
       } ;
    }
 
-The package can be produced in a stable way by Daml SDK 1.14 or latter
-with the command::
+.. The package can be produced in a stable way by Daml SDK 1.14 or
+   latter with the command
+   ``bazel build //compiler/damlc/stable-packages:stable-packages``
 
-  bazel build //compiler/damlc/stable-packages:stable-packages
-
-In the following, we will say that the call of a built-in function ``F :
-∀ (α₁ … αₘ : nat) . τ₁ → … → τ₂ → τ`` "throws an ``ArithmeticError``"
-to mean its evaluation is equivalent to the evaluation of::
+In the following, we will say that the call of a built-in function
+``F : ∀ (α₁ … αₘ : nat) . τ₁ → … → τ₂ → τ`` "throws an
+``ArithmeticError`` exception" to mean its evaluation is equivalent to
+the evaluation of::
 
   Throw cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError {
      message = "ArithmeticError while evaluating (F @n₁ … @nₘ v₁ … vₙ)."
@@ -3887,10 +3889,10 @@ BigNumeric functions
     unless both neighbors are equidistant, in which case round towards
     the even neighbor.
 
-  - ``'ROUNDING_UNNECESSARY'`` : Throws ``ArithmeticError`` if the
-    exact result cannot be represented.
+  - ``'ROUNDING_UNNECESSARY'`` : Throws an ``ArithmeticError``
+    exception if the exact result cannot be represented.
 
-  Throws an ``ArithmeticError`` if the output is not a valid
+  Throws an ``ArithmeticError``` if the output is not a valid
   BigNumeric.
 
   [*Available in version ≥ 1.13*]
