@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.Scheduler
 import akka.pattern.after
+import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.resources.{Resource, ResourceContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
@@ -25,6 +26,8 @@ private[indexer] final class RecoveringIndexer(
     scheduler: Scheduler,
     executionContext: ExecutionContext,
     restartDelay: FiniteDuration,
+    updateHealthStatus: HealthStatus => Unit,
+    healthReporter: ReportsHealth,
 )(implicit loggingContext: LoggingContext) {
   private implicit val ec: ExecutionContext = executionContext
   private implicit val resourceContext: ResourceContext = ResourceContext(executionContext)
@@ -36,7 +39,7 @@ private[indexer] final class RecoveringIndexer(
     * @param subscribe A function that creates a new indexer and calls subscribe() on it.
     * @return A future that completes with [[akka.Done]] when the indexer finishes processing all read service updates.
     */
-  def start(subscribe: () => Resource[IndexFeedHandle]): Resource[Future[Unit]] = {
+  def start(subscribe: () => Resource[IndexFeedHandle]): Resource[(ReportsHealth, Future[Unit])] = {
     val complete = Promise[Unit]()
 
     logger.info("Starting Indexer Server")
@@ -44,6 +47,7 @@ private[indexer] final class RecoveringIndexer(
 
     val firstSubscription = subscribe().map(handle => {
       logger.info("Started Indexer Server")
+      updateHealthStatus(HealthStatus.healthy)
       handle
     })
     subscription.set(firstSubscription)
@@ -81,6 +85,7 @@ private[indexer] final class RecoveringIndexer(
             if (subscription.compareAndSet(oldSubscription, newSubscription)) {
               resubscribeOnFailure(newSubscription)
               newSubscription.asFuture.map { _ =>
+                updateHealthStatus(HealthStatus.healthy)
                 logger.info("Restarted Indexer Server")
               }
             } else { // we must have stopped the server during the restart
@@ -107,21 +112,21 @@ private[indexer] final class RecoveringIndexer(
               complete.future
 
             case Failure(exception) =>
-              logger.error(
+              reportErrorState(
                 s"Error while running indexer, restart scheduled after $restartDelay",
                 exception,
               )
+
               currentSubscription
                 .release()
                 .recover { case _ => () } // releasing may yield the same error as above
                 .flatMap(_ => resubscribe(currentSubscription))
           }
         case Failure(exception) =>
-          logger
-            .error(
-              s"Error while starting indexer, restart scheduled after $restartDelay",
-              exception,
-            )
+          reportErrorState(
+            s"Error while starting indexer, restart scheduled after $restartDelay",
+            exception,
+          )
           resubscribe(currentSubscription)
           ()
       }
@@ -130,7 +135,7 @@ private[indexer] final class RecoveringIndexer(
       subscription
         .get()
         .asFuture
-        .transform(_ => Success(complete.future))
+        .transform(_ => Success(healthReporter -> complete.future))
     )(_ => {
       logger.info("Stopping Indexer Server")
       subscription
@@ -141,5 +146,28 @@ private[indexer] final class RecoveringIndexer(
           logger.info("Stopped Indexer Server")
         })
     })
+  }
+
+  private def reportErrorState(errMsg: String, exception: Throwable): Unit = {
+    updateHealthStatus(HealthStatus.unhealthy)
+    logger.error(errMsg, exception)
+  }
+}
+
+private[indexer] object RecoveringIndexer {
+  def apply(scheduler: Scheduler, executionContext: ExecutionContext, restartDelay: FiniteDuration)(
+      implicit loggingContext: LoggingContext
+  ): RecoveringIndexer = {
+    val healthStatusRef = new AtomicReference[HealthStatus](HealthStatus.unhealthy)
+
+    val healthReporter: ReportsHealth = () => healthStatusRef.get()
+
+    new RecoveringIndexer(
+      scheduler = scheduler,
+      executionContext = executionContext,
+      restartDelay = restartDelay,
+      updateHealthStatus = healthStatusRef.set,
+      healthReporter = healthReporter,
+    )
   }
 }
