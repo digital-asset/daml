@@ -4,6 +4,7 @@
 package com.daml.platform.indexer
 
 import akka.stream.Materializer
+import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.ledger.participant.state.v1.ReadService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -20,11 +21,11 @@ final class StandaloneIndexerServer(
     metrics: Metrics,
     lfValueTranslationCache: LfValueTranslation.Cache,
 )(implicit materializer: Materializer, loggingContext: LoggingContext)
-    extends ResourceOwner[Unit] {
+    extends ResourceOwner[ReportsHealth] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  override def acquire()(implicit context: ResourceContext): Resource[Unit] = {
+  override def acquire()(implicit context: ResourceContext): Resource[ReportsHealth] = {
     val indexerFactory = new JdbcIndexer.Factory(
       ServerRole.Indexer,
       config,
@@ -33,34 +34,37 @@ final class StandaloneIndexerServer(
       metrics,
       lfValueTranslationCache,
     )
-    val indexer = new RecoveringIndexer(
+    val indexer = RecoveringIndexer(
       materializer.system.scheduler,
       materializer.executionContext,
       config.restartDelay,
     )
     config.startupMode match {
       case IndexerStartupMode.MigrateOnly =>
-        Resource.unit
+        Resource.successful(() => HealthStatus.healthy)
       case IndexerStartupMode.MigrateAndStart =>
         Resource
           .fromFuture(indexerFactory.migrateSchema(config.allowExistingSchema))
           .flatMap(startIndexer(indexer, _))
-          .map { _ =>
+          .map { healthReporter =>
             logger.debug("Waiting for the indexer to initialize the database.")
+            healthReporter
           }
       case IndexerStartupMode.ResetAndStart =>
         Resource
           .fromFuture(indexerFactory.resetSchema())
           .flatMap(startIndexer(indexer, _))
-          .map { _ =>
+          .map { healthReporter =>
             logger.debug("Waiting for the indexer to initialize the database.")
+            healthReporter
           }
       case IndexerStartupMode.ValidateAndStart =>
         Resource
           .fromFuture(indexerFactory.validateSchema())
           .flatMap(startIndexer(indexer, _))
-          .map { _ =>
+          .map { healthReporter =>
             logger.debug("Waiting for the indexer to initialize the database.")
+            healthReporter
           }
     }
   }
@@ -68,8 +72,8 @@ final class StandaloneIndexerServer(
   private def startIndexer(
       indexer: RecoveringIndexer,
       initializedIndexerFactory: ResourceOwner[JdbcIndexer],
-  )(implicit context: ResourceContext): Resource[Unit] =
+  )(implicit context: ResourceContext): Resource[ReportsHealth] =
     indexer
       .start(() => initializedIndexerFactory.flatMap(_.subscription(readService)).acquire())
-      .map(_ => ())
+      .map { case (indexerHealthReporter, _) => indexerHealthReporter }
 }

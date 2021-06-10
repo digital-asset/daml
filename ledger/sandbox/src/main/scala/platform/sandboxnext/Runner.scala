@@ -183,7 +183,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
               servicesExecutionContext <- ResourceOwner
                 .forExecutorService(() => Executors.newWorkStealingPool())
                 .map(ExecutionContext.fromExecutorService)
-              _ <- new StandaloneIndexerServer(
+              indexerReportsHealth <- new StandaloneIndexerServer(
                 readService = readService,
                 config = IndexerConfig(
                   participantId = config.participantId,
@@ -244,7 +244,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 ledgerConfig = config.ledgerConfig,
                 optWriteService = Some(writeService),
                 authService = authService,
-                healthChecks = healthChecks,
+                healthChecks = healthChecks + ("indexer" -> indexerReportsHealth),
                 metrics = metrics,
                 timeServiceBackend = timeServiceBackend,
                 otherServices = List(resetService),
