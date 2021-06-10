@@ -334,19 +334,30 @@ final class ContractKeysIT extends LedgerTestSuite {
   })
 
   test(
-    "CKDivulgedContractKeyReusability",
-    "Subsequent divulged contracts can use the same contract key",
+    "CKDisclosedContractKeyReusability",
+    "Subsequent disclosed contracts can use the same contract key",
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
     case Participants(Participant(ledger1, party1), Participant(ledger2, party2)) =>
       for {
+        // Create a helper contract and exercise a choice creating and disclosing a WithKey contract
         creator1 <- ledger1.create(party1, WithKeyCreator(party1, party2))
         withKey1 <- ledger1.exerciseAndGetContract[WithKey](
           party1,
           creator1.exerciseWithKeyCreator_DiscloseCreate(_, party1),
         )
 
+        // Verify that the withKey1 contract is usable by the party2
+        fetcher <- ledger1.create(party1, WithKeyFetcher(party1, party2))
+        _ <- ledger2.exercise(party2, fetcher.exerciseWithKeyFetcher_Fetch(_, withKey1))
+
+        // Archive the disclosed contract
         _ <- ledger1.exercise(party1, withKey1.exerciseWithKey_Archive(_))
+
+        // Verify that fetching the contract is no longer possible after it was archived
+        _ <- ledger2
+          .exercise(party2, fetcher.exerciseWithKeyFetcher_Fetch(_, withKey1))
+          .mustFail("fetching an archived contract")
 
         // Repeat the same steps for the second time
         creator2 <- ledger1.create(party1, WithKeyCreator(party1, party2))

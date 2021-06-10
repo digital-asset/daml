@@ -687,3 +687,16 @@ template WithKeyCreator
         p : Party
       controller p
       do create (WithKey p1)
+
+template WithKeyFetcher
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    choice WithKeyFetcher_Fetch : WithKey
+      with
+        contractId : ContractId WithKey
+      controller p2
+      do fetch contractId
