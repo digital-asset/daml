@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool.suites
 
 import java.util.regex.Pattern
-
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
@@ -12,6 +11,7 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.client.binding.Primitive.ContractId
 import com.daml.ledger.test.model.DA.Types.Tuple2
 import com.daml.ledger.test.model.Test.Delegated._
 import com.daml.ledger.test.model.Test.Delegation._
@@ -379,10 +379,15 @@ final class ContractKeysIT extends LedgerTestSuite {
 
         // Verify that the withKey1 contract is usable by the party2
         fetcher <- ledger1.create(party1, WithKeyFetcher(party1, party2))
+
+        _ <- synchronize(ledger1, ledger2)
+
         _ <- ledger2.exercise(party2, fetcher.exerciseWithKeyFetcher_Fetch(_, withKey1))
 
         // Archive the disclosed contract
         _ <- ledger1.exercise(party1, withKey1.exerciseWithKey_Archive(_))
+
+        _ <- synchronize(ledger1, ledger2)
 
         // Verify that fetching the contract is no longer possible after it was archived
         _ <- ledger2
@@ -396,8 +401,44 @@ final class ContractKeysIT extends LedgerTestSuite {
           creator2.exerciseWithKeyCreator_DiscloseCreate(_, party1),
         )
 
-        // Create a dummy contract to verify that the second participant is working
-        _ <- ledger2.create(party2, WithKeyCreator(party2, party1))
+        // Synchronize to verify that the second participant is working
+        _ <- synchronize(ledger1, ledger2)
+      } yield ()
+  })
+  import scalaz.syntax.tag._
+  test(
+    "CKDisclosedContractKeyReusabilityAsSubmitter",
+    "Subsequent disclosed contracts can use the same contract key (disclosure because of submitting)",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(ledger1, party1), Participant(ledger2, party2)) =>
+      for {
+        // Create a helper contract and exercise a choice creating and disclosing a WithKey contract
+        creator1 <- ledger1.create(party1, WithKeyCreatorAlternative(party1, party2))
+
+        _ <- synchronize(ledger1, ledger2)
+
+        _ <- ledger2.exercise(
+          party2,
+          creator1.exerciseWithKeyCreatorAlternative_DiscloseCreate(_),
+        )
+
+        _ <- synchronize(ledger1, ledger2)
+
+        Seq(withKey1Event) <- ledger1.activeContractsByTemplateId(List(WithKey.id.unwrap), party1)
+        withKey1 = ContractId.apply[WithKey](withKey1Event.contractId)
+        // Archive the disclosed contract
+        _ <- ledger1.exercise(party1, withKey1.exerciseWithKey_Archive(_))
+
+        _ <- synchronize(ledger1, ledger2)
+
+        // Repeat the same steps for the second time
+        _ <- ledger2.exercise(
+          party2,
+          creator1.exerciseWithKeyCreatorAlternative_DiscloseCreate(_),
+        )
+
+        _ <- synchronize(ledger1, ledger2)
       } yield ()
   })
 
