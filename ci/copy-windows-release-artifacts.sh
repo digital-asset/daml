@@ -8,18 +8,25 @@ OUTPUT_DIR=$2
 
 mkdir -p $OUTPUT_DIR/github
 mkdir -p $OUTPUT_DIR/artifactory
-INSTALLER=daml-sdk-$RELEASE_TAG-windows.exe
-mv "bazel-bin/release/windows-installer/daml-sdk-installer.exe" "$OUTPUT_DIR/github/$INSTALLER"
-chmod +wx "$OUTPUT_DIR/github/$INSTALLER"
-cleanup () {
-    rm -f signing_key.pfx
-}
-trap cleanup EXIT
-echo "$SIGNING_KEY" | base64 -d > signing_key.pfx
-for path in "$OUTPUT_DIR/github/$INSTALLER"; do
-    MSYS_NO_PATHCONV=1 signtool.exe sign '/f' signing_key.pfx '/fd' sha256 '/tr' "http://timestamp.digicert.com" '/v' "$path"
-done
-rm signing_key.pfx
-trap - EXIT
+INSTALLER="$OUTPUT_DIR/github/daml-sdk-$RELEASE_TAG-windows.exe"
+mv "bazel-bin/release/windows-installer/daml-sdk-installer.exe" "$INSTALLER"
+chmod +wx "$INSTALLER"
+
+if ! [ -f /C/Users/u/.dotnet/tools/azuresigntool.exe ]; then
+    "/C/Program Files/dotnet/dotnet.exe" tool install --global AzureSignTool
+fi
+
+/C/Users/u/.dotnet/tools/azuresigntool.exe sign \
+  --azure-key-vault-url "$AZURE_KEY_VAULT_URL" \
+  --azure-key-vault-client-id "$AZURE_CLIENT_ID" \
+  --azure-key-vault-client-secret "$AZURE_CLIENT_SECRET" \
+  --azure-key-vault-certificate "$AZURE_KEY_VAULT_CERTIFICATE" \
+  --description "Daml SDK installer" \
+  --description-url "https://daml.com" \
+  --timestamp-rfc3161 "http://timestamp.digicert.com" \
+  --file-digest sha384 \
+  --verbose \
+  "$INSTALLER"
+
 TARBALL=daml-sdk-$RELEASE_TAG-windows.tar.gz
 cp bazel-bin/release/sdk-release-tarball.tar.gz "$OUTPUT_DIR/github/$TARBALL"
