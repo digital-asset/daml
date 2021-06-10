@@ -228,43 +228,55 @@ private[platform] object Conversions {
   // booleans are stored as BigDecimal 0/1 in oracle, need to do implicit conversion when reading from db
   implicit val bigDecimalColumnToBoolean: Column[Boolean] = nonNull { (value, meta) =>
     val MetaDataItem(qualified, _, _) = meta
-
     value match {
       case bd: java.math.BigDecimal => Right(bd.equals(new java.math.BigDecimal(1)))
       case bool: Boolean => Right(bool)
       case _ => Left(TypeDoesNotMatch(s"Cannot convert $value: to Boolean for column $qualified"))
     }
   }
+
   object DefaultImplicitArrayColumn {
     val default = Column.of[Array[String]]
   }
 
-
   object ArrayColumnToStringArray {
+    // This is used to allow us to convert oracle CLOB fields storing JSON text into Array[String].
+    // We first summon the default Anorm column for an Array[String], and run that - this preserves
+    // the behavior PostgreSQL is expecting. If that fails, we then try our Oracle specific deserialization
+    // strategies
     implicit val arrayColumnToStringArray: Column[Array[String]] = nonNull { (value, meta) =>
-
       DefaultImplicitArrayColumn.default(value, meta) match {
         case Right(value) => Right(value)
         case Left(_) =>
           val MetaDataItem(qualified, _, _) = meta
           value match {
-            case jsonArrayString: String => Right(jsonArrayString.parseJson.convertTo[Array[String]])
-            case arry: java.sql.Array => Right(arry.getArray.asInstanceOf[Array[String]])
+            case jsonArrayString: String =>
+              Right(jsonArrayString.parseJson.convertTo[Array[String]])
             case clob: java.sql.Clob =>
               try {
                 val reader = clob.getCharacterStream
-                val jsonArrayString = LazyList.continually(new BufferedReader(reader).readLine()).takeWhile(_ != null).mkString("")
+                val jsonArrayString = LazyList
+                  .continually(new BufferedReader(reader).readLine())
+                  .takeWhile(_ != null)
+                  .mkString("")
                 Right(jsonArrayString.parseJson.convertTo[Array[String]])
+              } catch {
+                case e: Throwable =>
+                  Left(
+                    TypeDoesNotMatch(
+                      s"Cannot convert $value: received CLOB but failed to deserialize to " +
+                        s"string array for column $qualified. Error message: ${e.getMessage}"
+                    )
+                  )
               }
-              catch  {
-                case _: Throwable => Left(TypeDoesNotMatch(s"Cannot convert $value: received CLOB but couuld not convert to string array for column $qualified"))
-              }
-            case _ => Left(TypeDoesNotMatch(s"Cannot convert $value: to string array for column $qualified"))
+            case _ =>
+              Left(
+                TypeDoesNotMatch(s"Cannot convert $value: to string array for column $qualified")
+              )
           }
       }
     }
   }
-
 
   // PackageId
 

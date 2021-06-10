@@ -7,18 +7,6 @@
 
 -- subsequently dropped by V30__
 
--- custom array of varchar2 type used by several columns across tables
--- declaring upfront so this type is defined globally
-create type VARCHAR_ARRAY as VARRAY (32767) OF VARCHAR2(4000);
-/
-create type SMALLINT_ARRAY as VARRAY (32767) of SMALLINT;
-/
-create type BYTE_ARRAY_ARRAY as VARRAY (32767) of RAW(2000);
-/
-create type TIMESTAMP_ARRAY as VARRAY (32767) of TIMESTAMP;
-/
-create type BOOLEAN_ARRAY as VARRAY (32767) of NUMBER(1, 0);
-/
 CREATE TABLE parameters
 -- this table is meant to have a single row storing all the parameters we have
 (
@@ -201,7 +189,6 @@ CREATE TABLE participant_command_completions
     status_message    NVARCHAR2(1000)  -- null for successful command and checkpoints
 );
 
--- TODO https://github.com/digital-asset/daml/issues/9493
 create index participant_command_completions_idx on participant_command_completions(completion_offset, application_id);
 
 ---------------------------------------------------------------------------------------------------
@@ -280,7 +267,6 @@ create index participant_events_event_sequential_id on participant_events (event
 -- 5. we need this index to convert event_offset to event_sequential_id
 create index participant_events_event_offset on participant_events (event_offset);
 
--- TODO https://github.com/digital-asset/daml/issues/9493
 create index participant_events_flat_event_witnesses_idx on participant_events (JSON_ARRAY(flat_event_witnesses));
 create index participant_events_tree_event_witnesses_idx on participant_events (JSON_ARRAY(tree_event_witnesses));
 

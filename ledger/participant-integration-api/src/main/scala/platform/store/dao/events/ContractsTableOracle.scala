@@ -19,22 +19,8 @@ object ContractsTableOracle extends ContractsTable {
 
   private val insertContractQuery: String =
     s"""insert /*+ ignore_row_on_dupkey_index(participant_contracts(contract_id)) */
-       | into participant_contracts (
-       |  contract_id,
-       |  template_id,
-       |  create_argument,
-       |  create_argument_compression,
-       |  create_ledger_effective_time,
-       |  create_key_hash,
-       |  create_stakeholders)
-       | values (
-       |  {contract_id},
-       |  {template_id},
-       |  {create_argument},
-       |  {create_argument_compression},
-       |  {create_ledger_effective_time},
-       |  {create_key_hash},
-       |  {create_stakeholders})""".stripMargin
+       | into participant_contracts (contract_id, template_id, create_argument, create_argument_compression, create_ledger_effective_time, create_key_hash, create_stakeholders)
+       | values ({contract_id}, {template_id}, {create_argument}, {create_argument_compression}, {create_ledger_effective_time}, {create_key_hash}, {create_stakeholders})""".stripMargin
 
   override def toExecutables(
       info: TransactionIndexing.ContractsInfo,

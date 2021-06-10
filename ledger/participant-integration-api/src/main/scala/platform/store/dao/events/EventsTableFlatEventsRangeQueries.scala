@@ -58,17 +58,14 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
       pageSize: Int,
   ): SqlSequence[Vector[EventsTable.Entry[Raw.FlatEvent]]] = {
     require(filter.nonEmpty, "The request must be issued by at least one party")
-    println("in apply function")
     // Route the request to the correct underlying query
     val frqK = if (filter.size == 1) {
       val (party, templateIds) = filter.iterator.next()
       if (templateIds.isEmpty) {
         // Single-party request, no specific template identifier
-        println("single wildcard party")
         singleWildcardParty(offset, party, pageSize)
       } else {
         // Single-party request, restricted to a set of template identifiers
-        println("single party with templates")
         singlePartyWithTemplates(offset, party, templateIds, pageSize)
       }
     } else {
@@ -76,7 +73,6 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
       // If no party requests specific template identifiers
       val parties = filter.keySet
       if (filter.forall(_._2.isEmpty)) {
-        println("only wildcard parties")
         onlyWildcardParties(
           offset = offset,
           parties = parties,
@@ -86,7 +82,6 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
         // If all parties request the same template identifier
         val templateIds = filter.valuesIterator.flatten.toSet
         if (filter.valuesIterator.forall(_ == templateIds)) {
-          println("same templates")
           sameTemplates(
             offset,
             parties = parties,
@@ -98,7 +93,6 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
           val partiesAndTemplateIds = Relation.flatten(filter).toSet
           val wildcardParties = filter.filter(_._2.isEmpty).keySet
           if (wildcardParties.isEmpty) {
-            println("mixed templates")
             mixedTemplates(
               offset,
               partiesAndTemplateIds = partiesAndTemplateIds,
@@ -106,7 +100,6 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
             )
           } else {
             // If there are wildcard parties and different template identifiers
-            println("mixed templates with wildcard parties")
             mixedTemplatesWithWildcardParties(
               offset,
               wildcardParties,
@@ -117,7 +110,6 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
         }
       }
     }
-    println("printing frqk", frqK)
     frqK match {
       case QueryParts.ByArith(read) =>
         EventsRange.readPage(
@@ -165,15 +157,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       QueryParts.ByArith(
         read = (range, limitOpt) => {
           val limitClause = limitOpt.map(sqlFunctions.limitClause).getOrElse("")
-          println("printing query 1",           s"""
-            select #$selectColumns, #${sqlFunctions.toArray(party)} as event_witnesses,
-                   case when #${sqlFunctions
-            .arrayIntersectionWhereClause("submitters", party)} then command_id else '' end as command_id
-            from participant_events
-            where event_sequential_id > ${range.startExclusive}
-                  and event_sequential_id <= ${range.endInclusive}
-                  and #$witnessesWhereClause
-            order by event_sequential_id #$limitClause""")
+
           SQL"""
             select #$selectColumns, #${sqlFunctions.toArray(party)} as event_witnesses,
                    case when #${sqlFunctions
@@ -198,16 +182,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       QueryParts.ByArith(
         read = (range, limitOpt) => {
           val limitClause = limitOpt.map(sqlFunctions.limitClause).getOrElse("")
-          println("printing query 2",           s"""
-            select #$selectColumns, #${sqlFunctions.toArray(party)} as event_witnesses,
-                   case when #${sqlFunctions
-            .arrayIntersectionWhereClause("submitters", party)} then command_id else '' end as command_id
-            from participant_events
-            where event_sequential_id > ${range.startExclusive}
-                  and event_sequential_id <= ${range.endInclusive}
-                  and #$witnessesWhereClause
-                  and template_id in ($templateIds)
-            order by event_sequential_id #$limitClause""")
+
           SQL"""
             select #$selectColumns, #${sqlFunctions.toArray(party)} as event_witnesses,
                    case when #${sqlFunctions
@@ -236,14 +211,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       QueryParts.ByArith(
         read = (range, limitOpt) => {
           val limitClause = limitOpt.map(sqlFunctions.limitClause).getOrElse("")
-          println("printing thing 3",           s"""
-            select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when #$submittersInPartiesClause then command_id else '' end as command_id
-            from participant_events
-            where event_sequential_id > ${range.startExclusive}
-                  and event_sequential_id <= ${range.endInclusive}
-                  and #$witnessesWhereClause
-            order by event_sequential_id #$limitClause""")
+
           SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
@@ -271,15 +239,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       QueryParts.ByArith(
         read = (range, limitOpt) => {
           val limitClause = limitOpt.map(sqlFunctions.limitClause).getOrElse("")
-          println("printing query 4",          s"""
-            select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when #$submittersInPartiesClause then command_id else '' end as command_id
-            from participant_events
-            where event_sequential_id > ${range.startExclusive}
-                  and event_sequential_id <= ${range.endInclusive}
-                  and #$witnessesWhereClause
-                  and template_id in ($templateIds)
-            order by event_sequential_id #$limitClause""")
+
           SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
@@ -312,14 +272,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       QueryParts.ByArith(
         read = (range, limitOpt) => {
           val limitClause = limitOpt.map(sqlFunctions.limitClause).getOrElse("")
-          println("printing thing 5",  s"""
-            select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when #$submittersInPartiesClause then command_id else '' end as command_id
-            from participant_events
-            where event_sequential_id > ${range.startExclusive}
-                  and event_sequential_id <= ${range.endInclusive}
-                  and #$partiesAndTemplatesCondition
-            order by event_sequential_id #$limitClause""")
+
           SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
@@ -354,14 +307,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
       QueryParts.ByArith(
         read = (range, limitOpt) => {
           val limitClause = limitOpt.map(sqlFunctions.limitClause).getOrElse("")
-          println("printing query 6",           s"""
-            select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when #$submittersInPartiesClause then command_id else '' end as command_id
-            from participant_events
-            where event_sequential_id > ${range.startExclusive}
-                  and event_sequential_id <= ${range.endInclusive}
-                  and (#$witnessesWhereClause or #$partiesAndTemplatesCondition)
-            order by event_sequential_id #$limitClause""")
+
           SQL"""
             select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
@@ -390,17 +336,6 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
 
-      println("printing query 7",       s"""select #$selectColumns, #${sqlFunctions.toArray(party)} as event_witnesses,
-                   case when #${sqlFunctions
-        .arrayIntersectionWhereClause("submitters", party)} then command_id else '' end as command_id
-            from participant_events
-            where create_argument is not null
-                  and event_sequential_id > ${range.startExclusive._2: Long}
-                  and event_sequential_id <= ${range.endInclusive._2: Long}
-                  and (create_consumed_at is null or
-                  create_consumed_at > ${range.endInclusive._1: Offset})
-                  and #$witnessesWhereClause
-            order by event_sequential_id #${sqlFunctions.limitClause(pageSize)}""")
       SQL"""select #$selectColumns, #${sqlFunctions.toArray(party)} as event_witnesses,
                    case when #${sqlFunctions
         .arrayIntersectionWhereClause("submitters", party)} then command_id else '' end as command_id
@@ -423,17 +358,6 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val witnessesWhereClause =
         sqlFunctions.arrayIntersectionWhereClause("flat_event_witnesses", party)
 
-      println("single party with templates query",       s"""select #$selectColumns, #${sqlFunctions.toArray(party)} as event_witnesses,
-                   case when #${sqlFunctions
-        .arrayIntersectionWhereClause("submitters", party)} then command_id else '' end as command_id
-            from participant_events
-            where create_argument is not null
-                  and event_sequential_id > ${range.startExclusive._2: Long}
-                  and event_sequential_id <= ${range.endInclusive._2: Long}
-                  and (create_consumed_at is null or create_consumed_at > ${range.endInclusive._1: Offset})
-                  and #$witnessesWhereClause
-                  and template_id in ($templateIds)
-            order by event_sequential_id #${sqlFunctions.limitClause(pageSize)}""")
       SQL"""select #$selectColumns, #${sqlFunctions.toArray(party)} as event_witnesses,
                    case when #${sqlFunctions
         .arrayIntersectionWhereClause("submitters", party)} then command_id else '' end as command_id
@@ -459,15 +383,6 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val submittersInPartiesClause =
         sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
 
-      println("printing query 8",       s"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when #$submittersInPartiesClause then command_id else '' end as command_id
-            from participant_events
-            where create_argument is not null
-                  and event_sequential_id > ${range.startExclusive._2: Long}
-                  and event_sequential_id <= ${range.endInclusive._2: Long}
-                  and (create_consumed_at is null or create_consumed_at > ${range.endInclusive._1: Offset})
-                  and #$witnessesWhereClause
-            order by event_sequential_id #${sqlFunctions.limitClause(pageSize)}""")
       SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
@@ -492,16 +407,6 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val submittersInPartiesClause =
         sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
 
-      println("printing query 9",       s"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when #$submittersInPartiesClause then command_id else '' end as command_id
-            from participant_events
-            where create_argument is not null
-                  and event_sequential_id > ${range.startExclusive._2: Long}
-                  and event_sequential_id <= ${range.endInclusive._2: Long}
-                  and (create_consumed_at is null or create_consumed_at > ${range.endInclusive._1: Offset})
-                  and #$witnessesWhereClause
-                  and template_id in ($templateIds)
-            order by event_sequential_id #${sqlFunctions.limitClause(pageSize)}""")
       SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
@@ -531,16 +436,6 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val submittersInPartiesClause =
         sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
 
-      println("printing query 10",       s"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when #$submittersInPartiesClause then command_id else '' end as command_id
-            from participant_events
-            where create_argument is not null
-                  and event_sequential_id > ${range.startExclusive._2: Long}
-                  and event_sequential_id <= ${range.endInclusive._2: Long}
-                  and (create_consumed_at is null or create_consumed_at > ${range.endInclusive._1: Offset})
-                  and #$partiesAndTemplatesCondition
-            order by event_sequential_id #${sqlFunctions.limitClause(pageSize)}"""
-      )
       SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
@@ -572,16 +467,6 @@ private[events] object EventsTableFlatEventsRangeQueries {
       val submittersInPartiesClause =
         sqlFunctions.arrayIntersectionWhereClause("submitters", parties)
 
-      println("printing query 11",       s"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
-                   case when #$submittersInPartiesClause then command_id else '' end as command_id
-            from participant_events
-            where create_argument is not null
-                  and event_sequential_id > ${range.startExclusive._2: Long}
-                  and event_sequential_id <= ${range.endInclusive._2: Long}
-                  and (create_consumed_at is null or create_consumed_at > ${range.endInclusive._1: Offset})
-                  and (#$witnessesWhereClause or #$partiesAndTemplatesCondition)
-            order by event_sequential_id #${sqlFunctions.limitClause(pageSize)}"""
-      )
       SQL"""select #$selectColumns, #$filteredWitnesses as event_witnesses,
                    case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events

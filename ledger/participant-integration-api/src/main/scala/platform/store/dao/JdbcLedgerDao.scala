@@ -1376,7 +1376,6 @@ private[platform] object JdbcLedgerDao {
       ()
     }
 
-
     override protected[JdbcLedgerDao] def prepareCompletionInsert(
         submitterInfo: SubmitterInfo,
         offset: Offset,
@@ -1394,7 +1393,8 @@ private[platform] object JdbcLedgerDao {
         reason: RejectionReason,
     ): SimpleSql[Row] = {
       import com.daml.platform.store.OracleArrayConversions._
-      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs.toJson.compactPrint}, ${submitterInfo.commandId}, ${reason.code.value()}, ${reason.description})"
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs.toJson.compactPrint}, ${submitterInfo.commandId}, ${reason.code
+        .value()}, ${reason.description})"
     }
 
     // spaces which are subsequently trimmed left only for readability
