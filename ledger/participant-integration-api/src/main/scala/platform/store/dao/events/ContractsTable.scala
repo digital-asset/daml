@@ -23,6 +23,14 @@ private[events] abstract class ContractsTable extends PostCommitValidationData {
   private def deleteContract(contractId: ContractId): Vector[NamedParameter] =
     Vector[NamedParameter]("contract_id" -> contractId)
 
+  // This query blanks out contract keys for all previous contracts irrespective of how they were created
+  // a) for disclosed contracts
+  // b) for contracts where parties hosted by this participant are stakeholders
+  // The contracts covered by case b) are an empty set, considering the guarantees of the committer that
+  // all transactions communicated via the update stream adhere to the ledger model i.e. all conflict on
+  // contract keys have been resolved at this point. Such contracts must have been archived already
+  // either in a previous or current transaction. What we are left with effectively are contracts covered
+  // by case a).
   private val nullifyPastKeysQuery =
     s"update participant_contracts set create_key_hash = null where create_key_hash = {create_key_hash}"
 
@@ -41,7 +49,16 @@ private[events] abstract class ContractsTable extends PostCommitValidationData {
   }
 
   protected def buildNullifyPastKeys(info: TransactionIndexing.ContractsInfo): Option[BatchSql] = {
-    val nullifyPastKey = info.netKeyNullifies.iterator.map(nullifyPastKeys).toSeq
+    val nullifyPastKey = info.netCreates
+      .flatMap(create =>
+        create.key
+          .map(convertLfValueKey(create.templateId, _))
+          .map(_.hash.bytes.toByteArray)
+          .toList
+      )
+      .iterator
+      .map(nullifyPastKeys)
+      .toSeq
     batch(nullifyPastKeysQuery, nullifyPastKey)
   }
 
@@ -82,7 +99,7 @@ private[events] object ContractsTable {
   final case class Executables(
       deleteContracts: Option[BatchSql],
       insertContracts: Executable,
-      keyNullifies: Option[BatchSql],
+      nullifyPastKeys: Option[BatchSql],
   )
 
   def apply(dbType: DbType): ContractsTable =

@@ -49,8 +49,8 @@ private[platform] object TransactionsWriter {
         Timed.value(deleteContractsBatch, deleteContracts.execute())
       }
 
-      for (keyNullifies <- contractsTableExecutables.keyNullifies) {
-        keyNullifies.execute()
+      for (nullifyPastKeys <- contractsTableExecutables.nullifyPastKeys) {
+        Timed.value(nullifyPastKeysBatch, nullifyPastKeys.execute())
       }
 
       Timed.value(insertContractsBatch, contractsTableExecutables.insertContracts.execute())
