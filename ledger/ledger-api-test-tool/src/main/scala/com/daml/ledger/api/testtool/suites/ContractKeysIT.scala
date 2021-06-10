@@ -332,4 +332,31 @@ final class ContractKeysIT extends LedgerTestSuite {
       )
     }
   })
+
+  test(
+    "CKDivulgedContractKeyReusability",
+    "Subsequent divulged contracts can use the same contract key",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => {
+    case Participants(Participant(ledger1, party1), Participant(ledger2, party2)) =>
+      for {
+        creator1 <- ledger1.create(party1, WithKeyCreator(party1, party2))
+        withKey1 <- ledger1.exerciseAndGetContract[WithKey](
+          party1,
+          creator1.exerciseWithKeyCreator_DiscloseCreate(_, party1),
+        )
+
+        _ <- ledger1.exercise(party1, withKey1.exerciseWithKey_Archive(_))
+
+        // Repeat the same steps for the second time
+        creator2 <- ledger1.create(party1, WithKeyCreator(party1, party2))
+        _ <- ledger1.exerciseAndGetContract[WithKey](
+          party1,
+          creator2.exerciseWithKeyCreator_DiscloseCreate(_, party1),
+        )
+
+        // Create a dummy contract to verify that the second participant is working
+        _ <- ledger2.create(party2, WithKeyCreator(party2, party1))
+      } yield ()
+  })
 }
