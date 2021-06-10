@@ -529,10 +529,10 @@ jobs:
         # release only run on releases and is skipped otherwise.
         if [[ "$(Linux.status)" != "Succeeded"
             || "$(Linux_oracle.status)" != "Succeeded"
-            || "$(Linux_scala_2_12.status)" != "Succeeded"
             || "$(macOS.status)" != "Succeeded"
             || "$(Windows.status)" != "Succeeded"
             || ("$(is_release)" == "false" && "$(compatibility_linux.status)" != "Succeeded")
+            || ("$(is_release)" == "false" && "$(Linux_scala_2_12.status)" != "Succeeded")
             || "$(release.status)" == "Canceled" ]]; then
             exit 1
         fi
