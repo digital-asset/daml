@@ -79,7 +79,11 @@ private[events] object ContractsTable {
     def execute()(implicit connection: Connection): Unit
   }
 
-  final case class Executables(deleteContracts: Option[BatchSql], insertContracts: Executable, keyNullifies: Option[BatchSql])
+  final case class Executables(
+      deleteContracts: Option[BatchSql],
+      insertContracts: Executable,
+      keyNullifies: Option[BatchSql],
+  )
 
   def apply(dbType: DbType): ContractsTable =
     dbType match {
