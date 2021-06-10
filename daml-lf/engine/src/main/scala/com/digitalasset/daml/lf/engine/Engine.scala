@@ -301,8 +301,8 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         case SResultError(err) =>
           return ResultError(
             Error(
-              s"Interpretation error: ${Pretty.prettyError(err, onLedger.ptx).render(80)}",
-              s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptx.nodesToString}",
+              s"Interpretation error: ${Pretty.prettyError(err, onLedger.ptxInternal).render(80)}",
+              s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptxInternal.nodesToString}",
             )
           )
 
@@ -363,14 +363,14 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       }
     }
 
-    onLedger.ptx.finish match {
+    onLedger.ptxInternal.finish match {
       case PartialTransaction.CompleteTransaction(tx) =>
         val meta = Tx.Metadata(
           submissionSeed = None,
-          submissionTime = onLedger.ptx.submissionTime,
+          submissionTime = onLedger.ptxInternal.submissionTime,
           usedPackages = Set.empty,
           dependsOnTime = onLedger.dependsOnTime,
-          nodeSeeds = onLedger.ptx.actionNodeSeeds.toImmArray,
+          nodeSeeds = onLedger.ptxInternal.actionNodeSeeds.toImmArray,
         )
         config.profileDir.foreach { dir =>
           val desc = Engine.profileDesc(tx)

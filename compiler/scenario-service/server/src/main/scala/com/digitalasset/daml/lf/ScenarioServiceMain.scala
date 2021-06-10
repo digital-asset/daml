@@ -119,7 +119,7 @@ class ScenarioService(implicit
                       new Conversions(
                         context.homePackageId,
                         ledger,
-                        onLedger.ptx,
+                        onLedger.incompleteTransaction(),
                         machine.traceLog,
                         onLedger.commitLocation,
                         machine.stackTrace(),
@@ -131,7 +131,7 @@ class ScenarioService(implicit
                       new Conversions(
                         context.homePackageId,
                         ledger,
-                        onLedger.ptx,
+                        onLedger.incompleteTransaction(),
                         machine.traceLog,
                         onLedger.commitLocation,
                         machine.stackTrace(),
@@ -185,7 +185,7 @@ class ScenarioService(implicit
                       new Conversions(
                         context.homePackageId,
                         ledger,
-                        onLedger.ptx,
+                        onLedger.incompleteTransaction(),
                         clientMachine.traceLog,
                         onLedger.commitLocation,
                         ledgerMachine.stackTrace(),
@@ -197,7 +197,7 @@ class ScenarioService(implicit
                       new Conversions(
                         context.homePackageId,
                         ledger,
-                        onLedger.ptx,
+                        onLedger.incompleteTransaction(),
                         clientMachine.traceLog,
                         onLedger.commitLocation,
                         ledgerMachine.stackTrace(),
