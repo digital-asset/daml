@@ -384,6 +384,11 @@ final class ContractKeysIT extends LedgerTestSuite {
         // Archive the disclosed contract
         _ <- ledger1.exercise(party1, withKey1.exerciseWithKey_Archive(_))
 
+        // Verify that fetching the contract is no longer possible after it was archived
+        _ <- ledger2
+          .exercise(party2, fetcher.exerciseWithKeyFetcher_Fetch(_, withKey1))
+          .mustFail("fetching an archived contract")
+
         // Repeat the same steps for the second time
         creator2 <- ledger1.create(party1, WithKeyCreator(party1, party2))
         _ <- ledger1.exerciseAndGetContract[WithKey](
