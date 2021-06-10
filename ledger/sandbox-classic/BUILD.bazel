@@ -101,7 +101,10 @@ alias(
 da_scala_binary(
     name = "sandbox-classic-binary",
     main_class = "com.daml.platform.sandbox.SandboxMain",
-    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+    resources = [
+        "src/main/resources/logback.xml",
+        "//ledger/sandbox-common:src/main/resources/com/daml/platform/sandbox/logback.base.xml",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-classic",
@@ -111,7 +114,10 @@ da_scala_binary(
 da_scala_binary(
     name = "sandbox-classic-ephemeral-postgresql",
     main_class = "com.daml.platform.sandbox.persistence.MainWithEphemeralPostgresql",
-    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
+    resources = [
+        "src/main/resources/logback.xml",
+        "//ledger/sandbox-common:src/main/resources/com/daml/platform/sandbox/logback.base.xml",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-classic",
