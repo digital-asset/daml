@@ -35,6 +35,7 @@ private[transaction] object ContractKeysValidation {
           case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty =>
             k -> v.getContractKeyState.getContractId
         }
+      // State before the transaction
       val contractKeyDamlStateKeys: Set[DamlStateKey] =
         contractKeyDamlStateKeysToContractIds.keySet
       val contractKeysToContractIds: Map[DamlContractKey, RawContractId] =
@@ -65,21 +66,18 @@ private[transaction] object ContractKeysValidation {
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       transactionEntry: DamlTransactionEntrySummary,
   ): StepResult[DamlTransactionEntrySummary] = {
+
     val keysValidationOutcome = transactionEntry.transaction
       .foldInExecutionOrder[KeyValidationStatus](
-        Right(
-          KeyValidationState(activeStateKeys = contractKeyDamlStateKeys)
-        )
+        Right(KeyValidationState(activeStateKeys = contractKeyDamlStateKeys))
       )(
-        (keyValidationStatus, _, exerciseBeginNode) =>
-          checkNodeContractKey(
-            exerciseBeginNode,
-            contractKeysToContractIds,
-            keyValidationStatus,
+        exerciseBegin = (status, _, exerciseBeginNode) =>
+          onCurrentStatus(status)(
+            checkNodeContractKey(exerciseBeginNode, contractKeysToContractIds, _)
           ),
-        (keyValidationStatus, _, leafNode) =>
-          checkNodeContractKey(leafNode, contractKeysToContractIds, keyValidationStatus),
-        (accum, _, _) => accum,
+        leaf = (status, _, leafNode) =>
+          onCurrentStatus(status)(checkNodeContractKey(leafNode, contractKeysToContractIds, _)),
+        exerciseEnd = (accum, _, _) => accum,
       )
 
     keysValidationOutcome match {
@@ -105,18 +103,21 @@ private[transaction] object ContractKeysValidation {
   private def checkNodeContractKey(
       node: Node.GenNode[NodeId, ContractId],
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
-      keyValidationStatus: KeyValidationStatus,
+      initialState: KeyValidationState,
   ): KeyValidationStatus =
     for {
-      initialState <- keyValidationStatus
-      stateAfterUniquenessCheck <- checkNodeKeyUniqueness(
-        node,
-        initialState,
+      stateAfterUniquenessCheck <- initialState.onActiveStateKeys(
+        checkNodeKeyUniqueness(
+          node,
+          _,
+        )
       )
-      finalState <- checkNodeKeyConsistency(
-        contractKeysToContractIds,
-        node,
-        stateAfterUniquenessCheck,
+      finalState <- stateAfterUniquenessCheck.onSubmittedContractKeysToContractIds(
+        checkNodeKeyConsistency(
+          contractKeysToContractIds,
+          node,
+          _,
+        )
       )
     } yield finalState
 
@@ -126,21 +127,39 @@ private[transaction] object ContractKeysValidation {
   private[keys] case object Duplicate extends KeyValidationError
   private[keys] case object Inconsistent extends KeyValidationError
 
+  /** The state used during key validation.
+    *
+    * @param activeStateKeys The currently active contract keys for uniqueness
+    *  checks, starting with the keys active before the transaction.
+    * @param submittedContractKeysToContractIds Map of keys to their expected assignment at
+    *  the beginning of the transaction, starting with an empty map.
+    *  E.g., a create (with nothing before) means the key must have been inactive
+    *  at the beginning.
+    */
   private[keys] final class KeyValidationState private[ContractKeysValidation] (
       private[keys] val activeStateKeys: Set[DamlStateKey],
-      private[keys] val submittedContractKeysToContractIds: Map[DamlContractKey, Option[
-        RawContractId
-      ]],
+      private[keys] val submittedContractKeysToContractIds: KeyConsistencyValidation.State,
   ) {
-    def +(state: KeyValidationState): KeyValidationState = {
-      val newContractKeyMappings =
-        state.submittedContractKeysToContractIds -- submittedContractKeysToContractIds.keySet
-      new KeyValidationState(
-        activeStateKeys = state.activeStateKeys,
-        submittedContractKeysToContractIds =
-          submittedContractKeysToContractIds ++ newContractKeyMappings,
+
+    def onSubmittedContractKeysToContractIds(
+        f: KeyConsistencyValidation.State => KeyConsistencyValidation.Status
+    ): KeyValidationStatus =
+      f(submittedContractKeysToContractIds).map(newSubmitted =>
+        new KeyValidationState(
+          activeStateKeys = this.activeStateKeys,
+          submittedContractKeysToContractIds = newSubmitted,
+        )
       )
-    }
+
+    def onActiveStateKeys(
+        f: Set[DamlStateKey] => Either[KeyValidationError, Set[DamlStateKey]]
+    ): KeyValidationStatus =
+      f(activeStateKeys).map(newActive =>
+        new KeyValidationState(
+          activeStateKeys = newActive,
+          submittedContractKeysToContractIds = this.submittedContractKeysToContractIds,
+        )
+      )
   }
 
   private[keys] object KeyValidationState {
@@ -157,4 +176,8 @@ private[transaction] object ContractKeysValidation {
 
   private[keys] type KeyValidationStatus =
     Either[KeyValidationError, KeyValidationState]
+
+  def onCurrentStatus[E, A](
+      status: Either[E, A]
+  )(f: A => Either[E, A]): Either[E, A] = status.flatMap(f)
 }
