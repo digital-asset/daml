@@ -104,6 +104,13 @@ jobs:
     - template: report-end.yml
 
 - job: Linux_scala_2_12
+  # We disable this for release builds. The actual release happens via the regular Linux builds
+  # and running tests on two scala versions doesn’t add any value if the tests already
+  # passed on the respective PRs that added the changes. The only difference here
+  # is the release version which should not affect things differently depending on the
+  # Scala version.
+  condition: and(succeeded(),
+                 eq(dependencies.check_for_release.outputs['out.is_release'], 'false'))
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -111,9 +118,6 @@ jobs:
     release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
     release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
     trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    # For old release builds, this job is redundant since the default is already 2.12.
-    # However, since bugfix releases are not very frequent we opt for the simple solution
-    # of simply running this build either way.
     is_release: $[ eq(dependencies.check_for_release.outputs['out.is_release'], 'true') ]
   timeoutInMinutes: 360
   pool:
