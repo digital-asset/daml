@@ -21,6 +21,7 @@ import spray.json._
 import DefaultJsonProtocol._
 import java.io.BufferedReader
 import scala.language.implicitConversions
+import java.util.stream.Collectors
 
 private[platform] object OracleArrayConversions {
   implicit object PartyJsonFormat extends RootJsonFormat[Party] {
@@ -158,6 +159,7 @@ private[platform] object Conversions {
     // We first summon the default Anorm column for an Array[String], and run that - this preserves
     // the behavior PostgreSQL is expecting. If that fails, we then try our Oracle specific deserialization
     // strategies
+
     implicit val arrayColumnToStringArray: Column[Array[String]] = nonNull { (value, meta) =>
       DefaultImplicitArrayColumn.default(value, meta) match {
         case Right(value) => Right(value)
@@ -169,10 +171,9 @@ private[platform] object Conversions {
             case clob: java.sql.Clob =>
               try {
                 val reader = clob.getCharacterStream
-                val jsonArrayString = LazyList
-                  .continually(new BufferedReader(reader).readLine())
-                  .takeWhile(_ != null)
-                  .mkString("")
+                val br = new BufferedReader(reader)
+                val jsonArrayString = br.lines.collect(Collectors.joining)
+                reader.close
                 Right(jsonArrayString.parseJson.convertTo[Array[String]])
               } catch {
                 case e: Throwable =>

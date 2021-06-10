@@ -72,13 +72,13 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
       // Multi-party requests
       // If no party requests specific template identifiers
       val parties = filter.keySet
-      if (filter.forall(_._2.isEmpty)) {
+      if (filter.forall(_._2.isEmpty))
         onlyWildcardParties(
           offset = offset,
           parties = parties,
           pageSize = pageSize,
         )
-      } else {
+      else {
         // If all parties request the same template identifier
         val templateIds = filter.valuesIterator.flatten.toSet
         if (filter.valuesIterator.forall(_ == templateIds)) {
