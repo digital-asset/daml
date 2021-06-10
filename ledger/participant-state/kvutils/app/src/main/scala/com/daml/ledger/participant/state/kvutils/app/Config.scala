@@ -392,10 +392,10 @@ object Config {
           )
           .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
-        opt[Int]("events-processing-parallelism")
+        opt[Int]("buffers-prefetching-parallelism")
           .optional()
           .text(
-            s"Number of events loaded and decoded in parallel. Default is ${IndexConfiguration.DefaultEventsProcessingParallelism}."
+            s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${IndexConfiguration.DefaultEventsProcessingParallelism}."
           )
           .action((eventsProcessingParallelism, config) =>
             config.copy(eventsProcessingParallelism = eventsProcessingParallelism)
