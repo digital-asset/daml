@@ -7,8 +7,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlContractKey
 import com.daml.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.damlContractKey
 import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.ContractKeysValidation.{
   Inconsistent,
-  KeyValidationState,
-  KeyValidationStatus,
+  KeyValidationError,
   RawContractId,
 }
 import com.daml.lf.data.Ref.TypeConName
@@ -17,11 +16,15 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
 private[keys] object KeyConsistencyValidation {
+  type State = Map[DamlContractKey, Option[RawContractId]]
+  type Status =
+    Either[KeyValidationError, State]
+
   def checkNodeKeyConsistency(
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       node: Node.GenNode[NodeId, ContractId],
-      keyValidationState: KeyValidationState,
-  ): KeyValidationStatus =
+      submittedContractKeysToContractIds: Map[DamlContractKey, Option[RawContractId]],
+  ): Status =
     node match {
       case exercise: Node.NodeExercises[NodeId, ContractId] =>
         checkKeyConsistency(
@@ -29,7 +32,7 @@ private[keys] object KeyConsistencyValidation {
           exercise.key,
           Some(exercise.targetCoid),
           exercise.templateId,
-          keyValidationState,
+          submittedContractKeysToContractIds,
         )
 
       case create: Node.NodeCreate[ContractId] =>
@@ -38,7 +41,7 @@ private[keys] object KeyConsistencyValidation {
           create.key,
           None,
           create.templateId,
-          keyValidationState,
+          submittedContractKeysToContractIds,
         )
 
       case fetch: Node.NodeFetch[ContractId] =>
@@ -47,7 +50,7 @@ private[keys] object KeyConsistencyValidation {
           fetch.key,
           Some(fetch.coid),
           fetch.templateId,
-          keyValidationState,
+          submittedContractKeysToContractIds,
         )
 
       case lookupByKey: Node.NodeLookupByKey[ContractId] =>
@@ -56,7 +59,7 @@ private[keys] object KeyConsistencyValidation {
           Some(lookupByKey.key),
           lookupByKey.result,
           lookupByKey.templateId,
-          keyValidationState,
+          submittedContractKeysToContractIds,
         )
     }
 
@@ -65,34 +68,36 @@ private[keys] object KeyConsistencyValidation {
       key: Option[Node.KeyWithMaintainers[Value[ContractId]]],
       targetContractId: Option[ContractId],
       templateId: TypeConName,
-      keyValidationState: KeyValidationState,
-  ): KeyValidationStatus =
+      submittedContractKeysToContractIds: Map[DamlContractKey, Option[RawContractId]],
+  ): Status =
     key match {
-      case None => Right(keyValidationState)
+      case None => Right(submittedContractKeysToContractIds)
       case Some(submittedKeyWithMaintainers) =>
         val submittedDamlContractKey =
           damlContractKey(templateId, submittedKeyWithMaintainers.key)
-        val newKeyValidationState =
-          keyValidationState + ConsistencyKeyValidationState(
-            submittedContractKeysToContractIds = Map(
-              submittedDamlContractKey ->
-                targetContractId.map(_.coid)
+        val newSubmittedContractKeysToContractIds =
+          if (submittedContractKeysToContractIds.contains(submittedDamlContractKey)) {
+            submittedContractKeysToContractIds
+          } else {
+            submittedContractKeysToContractIds.updated(
+              submittedDamlContractKey,
+              targetContractId.map(_.coid),
             )
-          )
+          }
         checkKeyConsistency(
           contractKeysToContractIds,
           submittedDamlContractKey,
-          newKeyValidationState,
+          newSubmittedContractKeysToContractIds,
         )
     }
 
   private def checkKeyConsistency(
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       submittedDamlContractKey: DamlContractKey,
-      keyValidationState: KeyValidationState,
-  ): KeyValidationStatus =
+      submittedContractKeysToContractIds: Map[DamlContractKey, Option[RawContractId]],
+  ): Status =
     if (
-      keyValidationState.submittedContractKeysToContractIds
+      submittedContractKeysToContractIds
         .get(
           submittedDamlContractKey
         )
@@ -100,12 +105,5 @@ private[keys] object KeyConsistencyValidation {
     )
       Left(Inconsistent)
     else
-      Right(keyValidationState)
-
-  private def ConsistencyKeyValidationState(
-      submittedContractKeysToContractIds: Map[DamlContractKey, Option[
-        RawContractId
-      ]]
-  ): KeyValidationState =
-    KeyValidationState(submittedContractKeysToContractIds)
+      Right(submittedContractKeysToContractIds)
 }

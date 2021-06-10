@@ -39,6 +39,7 @@ import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
 import com.daml.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
+import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
 import scalaz._
 
@@ -172,8 +173,10 @@ object HttpService extends StrictLogging {
         ),
       )
 
+      ledgerHealthService = HealthGrpc.stub(client.channel)
+
       healthService = new HealthService(
-        getLedgerEnd(pkgManagementClient, tokenHolder),
+        () => ledgerHealthService.check(HealthCheckRequest()),
         contractDao,
         healthTimeoutSeconds,
       )
