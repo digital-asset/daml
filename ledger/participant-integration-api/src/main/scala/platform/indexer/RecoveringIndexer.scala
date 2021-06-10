@@ -143,14 +143,15 @@ private[indexer] final class RecoveringIndexer(
         .release()
         .flatMap(_ => complete.future)
         .map(_ => {
+          updateHealthStatus(HealthStatus.unhealthy)
           logger.info("Stopped Indexer Server")
         })
     })
   }
 
-  private def reportErrorState(errMsg: String, exception: Throwable): Unit = {
+  private def reportErrorState(errorMessage: String, exception: Throwable): Unit = {
     updateHealthStatus(HealthStatus.unhealthy)
-    logger.error(errMsg, exception)
+    logger.error(errorMessage, exception)
   }
 }
 
