@@ -246,7 +246,7 @@ Version: 1.13
 
   + **Add** Add BigNumeric support (arbitrary precision decimals).
     - add `BigNumeric` primitive type
-    - add `RoundingMode` primitive type
+    - add `RoundingMode` primitive type and literals
     - add `BigNumeric` builtins
 
 
@@ -4856,33 +4856,41 @@ program using the field ``observers`` in the ``TemplateChoice``
 message. The missing ``observers`` field is interpreted as an
 empty list of observers.
 
-Exception
-.........
-
-[*Available in versions >= 1.1dev*]
-
-The deserialization process will reject any Daml-LF 1.11 (or earlier)
-program exception using
-
-- the field ``throw``, ``to_any_exception``, or ``from_any_exception``
-  in the ``Expr`` message,
-- the field ``try`` in the Update message,
-- any of the builtin functions ``MAKE_GENERAL_ERROR``,
-  ``MAKE_ARITHMETIC_ERROR``, ``MAKE_CONTRACT_ERROR``,
-  ``ANY_EXCEPTION_MESSAGE``, ``GENERAL_ERROR_MESSAGE``, or
-  ``ARITHMETIC_ERROR_MESSAGE``.
-
 BigNumeric
 ..........
+
+[*Available in versions >= 1.13*]
+
+The deserialization process will reject any Daml-LF 1.12 (or earlier)
+program using:
+
+- ``BigNumeric`` primitive type,
+- ``RoundingMode`` primitive type,
+- any of the literals ``ROUNDING_UP``, ``ROUNDING_DOWN``,
+  ``ROUNDING_CEILING``, ``ROUNDING_FLOOR``, ``ROUNDING_HALF_UP``,
+  ``ROUNDING_HALF_DOWN``, ``ROUNDING_HALF_EVEN``,
+  ``ROUNDING_UNNECESSARY``,
+- any of the builtins ``SCALE_BIGNUMERIC``, ``PRECISION_BIGNUMERIC``,
+  ``ADD_BIGNUMERIC``, ``SUB_BIGNUMERIC``, ``MUL_BIGNUMERIC``,
+  ``DIV_BIGNUMERIC``, ``SHIFT_RIGHT_BIGNUMERIC``,
+  ``BIGNUMERIC_TO_NUMERIC``, ``NUMERIC_TO_BIGNUMERIC``,
+  ``BIGNUMERIC_TO_TEXT``.
+
+Exception
+..........
+
+[*Available in versions >= 1.14*]
 
 Daml-LF 1.14 is the first version that supports Exceptions.
 
 The deserialization process will reject any Daml-LF 1.13 (or earlier)
 program exception using:
-- `AnyException` primitive type,
-- `ToAnyException`, `FromAnyException`, and `Throw` expressions,
-- `TryCatch` update,
-- `ANY_EXCEPTION_MESSAGE` builtin functions.
+
+- ``AnyException` primitive type,
+- ``ToAnyException``, ``FromAnyException``, and ``Throw`` expressions,
+- ``TryCatch`` update,
+- ``ANY_EXCEPTION_MESSAGE`` builtin functions.
+
 
 
 .. Local Variables:
