@@ -3359,9 +3359,7 @@ catchable by the ``TryCatch`` update expression. Those exceptions are
 not built in the language but are standard exceptions defined in user
 land. The builtin functions from an engine compliant with the current
 specification should be able to produce and handle (notably the
-``ANY_EXCEPTION_MESSAGE`` builtin function) such exceptions without
-the packages where those exception are defined to be explicitly
-loaded.  Any other usage like on the exception payload, like
+``ANY_EXCEPTION_MESSAGE`` builtin function) such exceptions even if the package they are defined in has not been loaded.
 construction, projection, update or conversion from/back
 `'AnyException'`, requires the definition packages to be loaded.
 
