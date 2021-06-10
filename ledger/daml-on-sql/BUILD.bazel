@@ -62,10 +62,7 @@ da_scala_library(
 da_scala_binary(
     name = "daml-on-sql-binary",
     main_class = "com.daml.on.sql.Main",
-    resources = [
-        "src/main/resources/logback.xml",
-        "//ledger/sandbox-common:src/main/resources/com/daml/platform/sandbox/logback.base.xml",
-    ],
+    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     deps = [
         ":daml-on-sql",
     ],
@@ -74,10 +71,7 @@ da_scala_binary(
 da_scala_binary(
     name = "daml-on-sql-ephemeral-postgresql",
     main_class = "com.daml.on.sql.MainWithEphemeralPostgresql",
-    resources = [
-        "src/main/resources/logback.xml",
-        "//ledger/sandbox-common:src/main/resources/com/daml/platform/sandbox/logback.base.xml",
-    ],
+    resources = ["//ledger/sandbox-common:src/main/resources/logback.xml"],
     deps = [
         ":daml-on-sql",
         ":daml-on-sql-test-lib",
