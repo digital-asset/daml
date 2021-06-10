@@ -12,15 +12,9 @@ import Value.{NodeId => _, _}
 import com.daml.lf.transaction.Node._
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.Time
 import com.daml.lf.scenario.ScenarioLedger.TransactionId
 import com.daml.lf.scenario._
-import com.daml.lf.transaction.{
-  ContractKeyUniquenessMode,
-  NodeId,
-  TransactionVersion,
-  Transaction => Tx,
-}
+import com.daml.lf.transaction.{NodeId, TransactionVersion, Transaction => Tx}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SBuiltin._
@@ -31,10 +25,10 @@ import com.daml.lf.speedy.SBuiltin._
 
 private[lf] object Pretty {
 
-  def prettyError(err: SError, ptx: PartialTransaction): Doc =
+  def prettyError(err: SError): Doc =
     text("Error:") & (err match {
       case ex: SErrorDamlException =>
-        prettyDamlException(ex, ptx)
+        prettyDamlException(ex)
       case SErrorCrash(reason) =>
         text(s"CRASH: $reason")
       case SRequiresOnLedger(operation) =>
@@ -44,23 +38,13 @@ private[lf] object Pretty {
         prettyScenarioError(serr)
     })
 
-  def prettyError(err: SError): Doc = {
-    val ptx = PartialTransaction.initial(
-      (_ => TransactionVersion.minVersion),
-      ContractKeyUniquenessMode.On,
-      submissionTime = Time.Timestamp.MinValue,
-      initialSeeds = InitialSeeding.NoSeed,
-    )
-    prettyError(err, ptx)
-  }
-
   def prettyParty(p: Party): Doc =
     char('\'') + text(p) + char('\'')
 
-  def prettyDamlException(ex: SErrorDamlException, ptx: PartialTransaction): Doc =
+  def prettyDamlException(ex: SErrorDamlException): Doc =
     ex match {
-      case DamlEFailedAuthorization(nid, fa) =>
-        text(prettyFailedAuthorization(nid, fa))
+      case DamlEFailedAuthorization(fa) =>
+        text(prettyFailedAuthorization(NodeId(999), fa)) //NICK
       case DamlEUnhandledException(SAny(_, value)) =>
         text(s"Unhandled exception:") & prettyValue(true)(value.toValue)
       case DamlEUserError(message) =>
@@ -78,14 +62,14 @@ private[lf] object Pretty {
         text("Update failed due to fetch of an inactive contract") & prettyContractId(coid) &
           char('(') + (prettyTypeConName(tid)) + text(").") /
           text(s"The contract had been consumed in sub-transaction #$consumedBy:") +
-          (ptx.nodes.get(consumedBy) match {
+          (consumedBy match {
             // FIXME(JM): How should we show this? If the node pointed to by consumedBy
             // is not in nodes, it must not be done yet, hence the contract is recursively
             // exercised.
             case None =>
               (line + text("Recursive exercise of ") + prettyTypeConName(tid)).nested(4)
-            case Some(node) =>
-              (line + prettyPartialTransactionNode(node)).nested(4)
+            case Some(tree) =>
+              (line + prettyPartialTransactionNode(tree)).nested(4)
           })
 
       case DamlELocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
@@ -130,15 +114,15 @@ private[lf] object Pretty {
     }
 
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
-  def prettyPartialTransactionNode(node: PartialTransaction.Node): Doc =
-    node match {
+  def prettyPartialTransactionNode(tree: PartialTransaction.Tree): Doc =
+    tree.node match {
       case NodeRollback(_) =>
         text("rollback")
       case create: NodeCreate[Value.ContractId] =>
         "create" &: prettyContractInst(create.coinst)
       case fetch: NodeFetch[Value.ContractId] =>
         "fetch" &: prettyContractId(fetch.coid)
-      case ex: NodeExercises[NodeId, Value.ContractId] =>
+      case ex: NodeExercises[_, Value.ContractId] =>
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
           text("exercises") & text(ex.choiceId) + char(':') + prettyIdentifier(ex.templateId) &
           text("on") & prettyContractId(ex.targetCoid) /

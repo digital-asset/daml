@@ -527,10 +527,10 @@ object Repl {
       .map { expr =>
         val (machine, errOrLedger) =
           state.scenarioRunner.run(expr)
-        machine.withOnLedger("invokeTest") { onLedger =>
+        machine.withOnLedger("invokeTest") { _ =>
           errOrLedger match {
             case Left((err, ledger @ _)) =>
-              println(prettyError(err, onLedger.ptx).render(128))
+              println(prettyError(err).render(128))
               (false, state)
             case Right((diff @ _, steps @ _, ledger, value @ _)) =>
               // NOTE(JM): cannot print this, output used in tests.
@@ -561,13 +561,13 @@ object Repl {
     allTests.foreach { case (name, body) =>
       print(name + ": ")
       val (machine, errOrLedger) = state.scenarioRunner.run(body)
-      machine.withOnLedger("cmdTestAll") { onLedger =>
+      machine.withOnLedger("cmdTestAll") { _ =>
         errOrLedger match {
           case Left((err, ledger @ _)) =>
             println(
               "failed at " +
                 prettyLoc(machine.lastLocation).render(128) +
-                ": " + prettyError(err, onLedger.ptx).render(128)
+                ": " + prettyError(err).render(128)
             )
             failures += 1
           case Right((diff, steps, ledger @ _, value @ _)) =>
@@ -595,10 +595,10 @@ object Repl {
         println("Collecting profile...")
         val (machine, errOrLedger) =
           state.scenarioRunner.run(expr)
-        machine.withOnLedger("cmdProfile") { onLedger =>
+        machine.withOnLedger("cmdProfile") { _ =>
           errOrLedger match {
             case Left((err, ledger @ _)) =>
-              println(prettyError(err, onLedger.ptx).render(128))
+              println(prettyError(err).render(128))
               (false, state)
             case Right((diff @ _, steps @ _, ledger @ _, value @ _)) =>
               println("Writing profile...")

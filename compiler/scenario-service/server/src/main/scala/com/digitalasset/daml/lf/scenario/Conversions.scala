@@ -28,14 +28,15 @@ final class Conversions(
   private val packageIdSelf: proto.PackageIdentifier =
     proto.PackageIdentifier.newBuilder.setSelf(empty).build
 
+  //TODO: How can we get this information from the tree-rep tx?
   // The ledger data will not contain information from the partial transaction at this point.
   // We need the mapping for converting error message so we manually add it here.
-  private val ptxCoidToNodeId = ptx.nodes
+  /*private val ptxCoidToNodeId = ptx.nodes
     .collect { case (nodeId, node: N.NodeCreate[V.ContractId]) =>
       node.coid -> ledger.ptxEventId(nodeId)
-    }
+    }*/
 
-  private val coidToEventId = ledger.ledgerData.coidToNodeId ++ ptxCoidToNodeId
+  private val coidToEventId = ledger.ledgerData.coidToNodeId //++ ptxCoidToNodeId
 
   private val nodes =
     ledger.ledgerData.nodeInfos.map(Function.tupled(convertNode))
@@ -104,21 +105,21 @@ final class Conversions(
             .setArg(convertValue(arg))
             .build
         )
-      case SError.DamlELocalContractNotActive(coid, tid, consumedBy) =>
+      case SError.DamlELocalContractNotActive(coid, tid, consumedBy @ _) =>
         builder.setUpdateLocalContractNotActive(
           proto.ScenarioError.ContractNotActive.newBuilder
             .setContractRef(mkContractRef(coid, tid))
-            .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
+            //.setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
             .build
         )
       case SError.DamlEDuplicateContractKey(key) =>
         builder.setScenarioCommitError(
           proto.CommitError.newBuilder.setUniqueKeyViolation(convertGlobalKey(key)).build
         )
-      case SError.DamlEFailedAuthorization(nid, fa) =>
+      case SError.DamlEFailedAuthorization(fa) =>
         builder.setScenarioCommitError(
           proto.CommitError.newBuilder
-            .setFailedAuthorizations(convertFailedAuthorization(nid, fa))
+            .setFailedAuthorizations(convertFailedAuthorization(NodeId(999), fa)) //NICK
             .build
         )
 
@@ -403,10 +404,9 @@ final class Conversions(
 
   def convertPartialTransaction(ptx: SPartialTransaction): proto.PartialTransaction = {
     val builder = proto.PartialTransaction.newBuilder
-      .addAllNodes(ptx.nodes.map(convertNode).asJava)
-      .addAllRoots(
-        ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava
-      )
+    //TODO: How can we get this information from the tree-rep tx?
+    //.addAllNodes(ptx.nodes.map(convertNode).asJava)
+    //.addAllRoots(ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava)
 
     @tailrec
     def unwindToExercise(

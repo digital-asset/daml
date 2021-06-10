@@ -7,7 +7,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
 import com.daml.lf.ledger.FailedAuthorization
-import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
+import com.daml.lf.transaction.{GlobalKey, Transaction => Tx}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.ScenarioLedger
@@ -67,7 +67,7 @@ object SError {
   final case class DamlELocalContractNotActive(
       coid: ContractId,
       templateId: TypeConName,
-      consumedBy: NodeId,
+      consumedBy: Option[PartialTransaction.Tree],
   ) extends SErrorDamlException
 
   final case class DamlELocalContractKeyNotVisible(
@@ -130,8 +130,8 @@ object SError {
 
   /** There was an authorization failure during execution. */
   final case class DamlEFailedAuthorization(
-      nid: NodeId,
-      fa: FailedAuthorization,
+      //nid: NodeId, //NICK: can't have a node-id anymore; but we could have a Tree.
+      fa: FailedAuthorization
   ) extends SErrorDamlException
 
   /** A fetch or exercise was being made against a contract that has not
