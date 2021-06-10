@@ -32,6 +32,7 @@ final case class Config[Extra](
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
     eventsPageSize: Int,
+    eventsProcessingParallelism: Int,
     stateValueCache: caching.WeightedCache.Configuration,
     lfValueTranslationEventCache: caching.SizedCache.Configuration,
     lfValueTranslationContractCache: caching.SizedCache.Configuration,
@@ -63,6 +64,7 @@ object Config {
       participants = Vector.empty,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
+      eventsProcessingParallelism = IndexConfiguration.DefaultEventsProcessingParallelism,
       stateValueCache = caching.WeightedCache.Configuration.none,
       lfValueTranslationEventCache = caching.SizedCache.Configuration.none,
       lfValueTranslationContractCache = caching.SizedCache.Configuration.none,
@@ -389,6 +391,15 @@ object Config {
             s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexConfiguration.DefaultEventsPageSize}."
           )
           .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
+
+        opt[Int]("buffers-prefetching-parallelism")
+          .optional()
+          .text(
+            s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${IndexConfiguration.DefaultEventsProcessingParallelism}."
+          )
+          .action((eventsProcessingParallelism, config) =>
+            config.copy(eventsProcessingParallelism = eventsProcessingParallelism)
+          )
 
         opt[Long]("max-state-value-cache-size")
           .optional()
