@@ -27,7 +27,7 @@ object ContractsTableH2 extends ContractsTable {
   ): ContractsTable.Executables = ContractsTable.Executables(
     deleteContracts = buildDeletes(info),
     insertContracts = buildInserts(tx, info, serialized),
-    buildDeletesByKey(info),
+    buildNullifyPastKeys(info),
   )
 
   private def insertContract(

@@ -23,10 +23,10 @@ private[events] abstract class ContractsTable extends PostCommitValidationData {
   private def deleteContract(contractId: ContractId): Vector[NamedParameter] =
     Vector[NamedParameter]("contract_id" -> contractId)
 
-  private val deleteContractByKeyQuery =
-    s"delete from participant_contracts where create_key_hash = {create_key_hash}"
+  private val nullifyPastKeysQuery =
+    s"update participant_contracts set create_key_hash = null where create_key_hash = {create_key_hash}"
 
-  private def deleteContractByKey(contractKeyHash: Array[Byte]): Vector[NamedParameter] =
+  private def nullifyPastKeys(contractKeyHash: Array[Byte]): Vector[NamedParameter] =
     Vector[NamedParameter]("create_key_hash" -> contractKeyHash)
 
   def toExecutables(
@@ -40,9 +40,9 @@ private[events] abstract class ContractsTable extends PostCommitValidationData {
     batch(deleteContractQuery, deletes)
   }
 
-  protected def buildDeletesByKey(info: TransactionIndexing.ContractsInfo): Option[BatchSql] = {
-    val deletesByKey = info.netArchivesByKey.iterator.map(deleteContractByKey).toSeq
-    batch(deleteContractByKeyQuery, deletesByKey)
+  protected def buildNullifyPastKeys(info: TransactionIndexing.ContractsInfo): Option[BatchSql] = {
+    val nullifyPastKey = info.netKeyNullifies.iterator.map(nullifyPastKeys).toSeq
+    batch(nullifyPastKeysQuery, nullifyPastKey)
   }
 
   override final def lookupContractKeyGlobally(
@@ -79,7 +79,7 @@ private[events] object ContractsTable {
     def execute()(implicit connection: Connection): Unit
   }
 
-  final case class Executables(deleteContracts: Option[BatchSql], insertContracts: Executable, deleteContractsByKey: Option[BatchSql])
+  final case class Executables(deleteContracts: Option[BatchSql], insertContracts: Executable, keyNullifies: Option[BatchSql])
 
   def apply(dbType: DbType): ContractsTable =
     dbType match {
