@@ -407,12 +407,12 @@ final class Conversions(
       .addAllNodes(tx.nodes.map(convertNode).asJava)
       .addAllRoots(tx.roots.toList.map(convertTxNodeId).asJava)
 
-    incomplete.exerciseContextMaybe.foreach { ctx =>
+    incomplete.exerciseContextMaybe.foreach { exe =>
       val ecBuilder = proto.ExerciseContext.newBuilder
-        .setTargetId(mkContractRef(ctx.targetCoid, ctx.templateId))
-        .setChoiceId(ctx.choiceId)
-        .setChosenValue(convertValue(ctx.chosenValue))
-      ctx.optLocation.map(loc => ecBuilder.setExerciseLocation(convertLocation(loc)))
+        .setTargetId(mkContractRef(exe.targetCoid, exe.templateId))
+        .setChoiceId(exe.choiceId)
+        .setChosenValue(convertValue(exe.chosenValue))
+      exe.optLocation.map(loc => ecBuilder.setExerciseLocation(convertLocation(loc)))
       builder.setExerciseContext(ecBuilder.build)
     }
     builder.build

@@ -40,7 +40,7 @@ private[lf] object PartialTransaction {
   private type TX = GenTransaction[NodeId, Value.ContractId]
   private type ExerciseNode = Node.NodeExercises[NodeId, Value.ContractId]
 
-  private final case class ConcreteIncompleteTx(
+  private final case class IncompleteTxImpl(
       val transaction: TX,
       val exerciseContextMaybe: Option[ExerciseNode],
   ) extends TxIncompleteTransaction
@@ -356,7 +356,7 @@ private[lf] case class PartialTransaction(
       case _: PartialTransaction.RootContextInfo => None
     }
 
-    ConcreteIncompleteTx(
+    IncompleteTxImpl(
       GenTransaction(
         nodes,
         ImmArray(context.children.toImmArray.toSeq.sortBy(_.index)),
