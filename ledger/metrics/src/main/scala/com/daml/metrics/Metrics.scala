@@ -410,6 +410,8 @@ final class Metrics(val registry: MetricRegistry) {
           val deleteContractWitnessesBatch: Timer =
             registry.timer(dbPrefix :+ "delete_contract_witnesses_batch")
           val deleteContractsBatch: Timer = registry.timer(dbPrefix :+ "delete_contracts_batch")
+          val nullifyPastKeysBatch: Timer =
+            registry.timer(dbPrefix :+ "nullify_contract_keys_batch")
           val insertContractsBatch: Timer = registry.timer(dbPrefix :+ "insert_contracts_batch")
           val insertContractWitnessesBatch: Timer =
             registry.timer(dbPrefix :+ "insert_contract_witnesses_batch")

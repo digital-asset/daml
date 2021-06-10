@@ -662,3 +662,52 @@ template MultiPartyContract
       do
         actualCid <- lookupByKey @MultiPartyContract keyToFetch
         assertMsg "LookupOtherByKey value matches" (expectedCid == actualCid)
+
+template WithKey
+  with
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+    controller p can
+      WithKey_Archive : ()
+        do
+          return ()
+
+template WithKeyCreator
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    choice WithKeyCreator_DiscloseCreate : ContractId WithKey
+      with
+        p : Party
+      controller p
+      do create (WithKey p1)
+
+template WithKeyCreatorAlternative
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    nonconsuming choice WithKeyCreatorAlternative_DiscloseCreate : ContractId WithKey
+      controller p2
+      do create (WithKey p1)
+
+template WithKeyFetcher
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    choice WithKeyFetcher_Fetch : WithKey
+      with
+        contractId : ContractId WithKey
+      controller p2
+      do fetch contractId
