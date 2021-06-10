@@ -24,9 +24,7 @@ private[keys] object KeyUniquenessValidation {
           if exercise.key.isDefined && exercise.consuming =>
         val stateKey =
           Conversions.globalKeyToStateKey(globalKey(exercise.templateId, exercise.key.get.key))
-        Right(
-          activeStateKeys - stateKey
-        )
+        Right(activeStateKeys - stateKey)
 
       case create: Node.NodeCreate[ContractId] if create.key.isDefined =>
         val stateKey =

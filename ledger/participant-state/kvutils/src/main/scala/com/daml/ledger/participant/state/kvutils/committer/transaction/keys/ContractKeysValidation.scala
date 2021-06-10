@@ -71,11 +71,10 @@ private[transaction] object ContractKeysValidation {
       .foldInExecutionOrder[KeyValidationStatus](
         Right(KeyValidationState(activeStateKeys = contractKeyDamlStateKeys))
       )(
-        exerciseBegin = (status, _, exerciseBeginNode) => {
+        exerciseBegin = (status, _, exerciseBeginNode) =>
           onCurrentStatus(status)(
             checkNodeContractKey(exerciseBeginNode, contractKeysToContractIds, _)
-          )
-        },
+          ),
         leaf = (status, _, leafNode) =>
           onCurrentStatus(status)(checkNodeContractKey(leafNode, contractKeysToContractIds, _)),
         exerciseEnd = (accum, _, _) => accum,
@@ -131,9 +130,9 @@ private[transaction] object ContractKeysValidation {
   /** The state used during key validation.
     *
     * @param activeStateKeys The currently active contract keys for uniqueness
-    *  checks starting with the keys active before the transaction.
+    *  checks, starting with the keys active before the transaction.
     * @param submittedContractKeysToContractIds Map of keys to their expected assignment at
-    *  the beginning of the transaction starting with an empty map.
+    *  the beginning of the transaction, starting with an empty map.
     *  E.g., a create (with nothing before) means the key must have been inactive
     *  at the beginning.
     */
