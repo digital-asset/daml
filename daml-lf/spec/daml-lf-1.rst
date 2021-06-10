@@ -238,9 +238,6 @@ Version: 1.12
 Version: 1.13
 .............
 
-.. TODO: https://github.com/digital-asset/daml/issues/8020
-     add explanations about Arithmetic Error
-
 * Introduction date:
 
      2021-04-06
@@ -249,7 +246,7 @@ Version: 1.13
 
   + **Add** Add BigNumeric support (arbitrary precision decimals).
     - add `BigNumeric` primitive type
-    - add `RoundingMode` primitive type
+    - add `RoundingMode` primitive type and literals
     - add `BigNumeric` builtins
 
 
@@ -538,6 +535,7 @@ The literals represent actual Daml-LF values:
   the number of digits of its unscaled value (ignoring possible
   leading zeros). By convention the scale and the precision of zero
   are 0.  Daml-LF distinguishes two kinds of decimal numbers:
+
   + A ``LitNumeric`` represents those decimal numbers that have a
     precision of at most 38 and a scale between ``0`` and ``37``
     (bounds inclusive).
@@ -545,6 +543,7 @@ The literals represent actual Daml-LF values:
     most 2¹⁵ significant digits at the right and the left of the
     decimal point. Equivalently those are decimal numbers that respect
     `scale ≤ 2¹⁵` and `precision - scale < 2¹⁵`.
+
 * A ``LitDate`` represents the number of day since
   ``1970-01-01`` with allowed range from ``0001-01-01`` to
   ``9999-12-31`` and using a year-month-day format.
@@ -1892,12 +1891,12 @@ need to be evaluated further. ::
      ⊢ᵥ  〚e₁ ↦ e₁'; … ; eₙ ↦ eₙ'〛
 
      0 ≤ k < m
-     𝕋(F) = ∀ (α₁: ⋆) … (αₘ: ⋆). σ₁ → … → σₙ → σ
+     𝕋(F) = ∀ (α₁: k₁) … ∀ (αₘ: kₘ). σ₁ → … → σₙ → σ
    ——————————————————————————————————————————————————— ValExpBuiltin₁
      ⊢ᵥ  F @τ₁ … @τₖ
 
      0 ≤ k < n
-     𝕋(F) = ∀ (α₁: ⋆) … (αₘ: ⋆). σ₁ → … → σₙ → σ
+     𝕋(F) = ∀ (α₁: k₁) … ∀ (αₘ: kₘ). σ₁ → … → σₙ → σ
      ⊢ᵥ  e₁      …      ⊢ᵥ  eₖ
    ——————————————————————————————————————————————————— ValExpBuiltin₂
      ⊢ᵥ  F @τ₁ … @τₘ e₁ … eₖ
@@ -2375,7 +2374,7 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpSome
       'Some' @τ e  ⇓  Ok ('Some' @τ v)
 
-      𝕋(F) = ∀ (α₁: ⋆). … ∀ (αₘ: ⋆). σ₁ → … → σₙ → σ
+      𝕋(F) = ∀ (α₁: k₁) … ∀ (αₘ: kₘ). σ₁ → … → σₙ → σ
       e₁  ⇓  Ok v₁
         ⋮
       eᵢ₋₁  ⇓  Ok vᵢ₋₁
@@ -2383,7 +2382,7 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpBuiltinErr
       F @τ₁ … @τₘ e₁ … eₙ  ⇓  Err E
 
-      𝕋(F) = ∀ (α₁: ⋆). … ∀ (αₘ: ⋆). σ₁ → … → σₙ → σ
+      𝕋(F) = ∀ (α₁: k₁) … ∀ (αₘ: kₘ). σ₁ → … → σₙ → σ
       e₁  ⇓  Ok v₁
         ⋮
       eₙ  ⇓  Ok vₙ
@@ -2526,18 +2525,6 @@ exact output.
       eₘ v  ⇓  Ok vₘ
     —————————————————————————————————————————————————————————————————————— EvExpAnyExceptionMessageRecord
       'ANY_EXCEPTION_MESSAGE' e  ⇓  Ok vₘ
-
-      e  ⇓  Ok ('to_any_exception' @'GeneralError' ('MAKE_GENERAL_ERROR' v))
-    —————————————————————————————————————————————————————————————————————— EvExpAnyExceptionMessageGeneral
-      'ANY_EXCEPTION_MESSAGE' e  ⇓  Ok v
-
-      e  ⇓  Ok ('to_any_exception' @'ArithmeticError' ('MAKE_ARITHMETIC_ERROR' v))
-    —————————————————————————————————————————————————————————————————————— EvExpAnyExceptionMessageArithmetic
-      'ANY_EXCEPTION_MESSAGE' e  ⇓  Ok v
-
-      e  ⇓  Ok ('to_any_exception' @'ContractError' ('MAKE_CONTRACT_ERROR' v))
-    —————————————————————————————————————————————————————————————————————— EvExpAnyExceptionMessageContract
-      'ANY_EXCEPTION_MESSAGE' e  ⇓  Ok v
 
       e  ⇓  Err E
     —————————————————————————————————————————————————————————————————————— EvExpUpPureErr
@@ -3364,6 +3351,58 @@ This section lists the built-in functions supported by Daml-LF 1.
 The functions come with their types and a description of their
 behavior.
 
+About Exceptions
+~~~~~~~~~~~~~~~~
+
+Some builtin functions can throw non-fatal exceptions, i.e. exceptions
+catchable by the ``TryCatch`` update expression. Those exceptions are
+not built in the language but are standard exceptions defined in user
+land. The builtin functions from an engine compliant with the current
+specification should be able to produce and handle (notably the
+``ANY_EXCEPTION_MESSAGE`` builtin function) such exceptions even if
+the package they are defined in has not been loaded.  Any other usage
+on the exception payload, like construction, projection, update or
+conversion from/back `'AnyException'`, requires the definition
+packages to be loaded.
+
+As of LF 1.14 the only non-fatal exceptions that a builtin function
+can throw is the ``ArithmeticError`` record defined in the module
+``DA.Exception.ArithmeticError`` of the package
+``'cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a'``
+whose content is as follow::
+
+   package cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a
+   daml-lf 1.14
+   metadata daml-prim-DA-Exception-ArithmeticError-1.0.0
+
+   module DA.Exception.ArithmeticError {
+      record @serializable ArithmeticError = { message : Text } ;
+      val $WArithmeticError :Text -> DA.Exception.ArithmeticError:ArithmeticError =
+         λ message : Text .
+            DA.Exception.ArithmeticError:ArithmeticError { message = message };
+      exception ArithmeticError = {
+         'message' λ x : DA.Exception.ArithmeticError:ArithmeticError.
+            DA.Exception.ArithmeticError:ArithmeticError { message } x
+      } ;
+   }
+
+.. The package can be produced in a stable way by Daml SDK 1.14 or
+   latter with the command
+   ``bazel build //compiler/damlc/stable-packages:stable-packages``
+
+In the following, we will say that the call of a built-in function
+``F : ∀ (α₁ … αₘ : nat) . τ₁ → … → τ₂ → τ`` "throws an
+``ArithmeticError`` exception" to mean its evaluation is equivalent to
+the evaluation of::
+
+  Throw cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError {
+     message = "ArithmeticError while evaluating (F @n₁ … @nₘ v₁ … vₙ)."
+  }
+
+
+where ``n₁ … nₘ v₁ … vₙ`` are the string representations of the
+arguments passed to the function.
+
 Generic comparison functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -3550,8 +3589,8 @@ updates.
 
     —————————————————————————————————————————————————————————————————————— EvLessEqScenario
       𝕆('LESS_EQ' @('Scenario' σ) v v' = Err 'Try to compare functions'
-..
-  FIXME: https://github.com/digital-asset/daml/issues/2256
+
+.. FIXME: https://github.com/digital-asset/daml/issues/2256
     Handle contract IDs
 
 
@@ -3637,34 +3676,36 @@ Int64 functions
 
 * ``ADD_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
-  Adds the two integers. In case of an overflow, throws an exception
-  ``'MAKE_ARITHMETIC_ERROR' t``, where ``t = "Overflow: ADD_INT64 {m} {n}"``
-  for ``m`` and ``n`` the actual values of the operands.
+  Adds the two integers. Throws an ``ArithmeticError`` exception in
+  case of overflow.
 
 * ``SUB_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
-  Subtracts the second integer from the first one. Throws an error in
-  case of overflow.
+  Subtracts the second integer from the first one. Throws an
+  ``ArithmeticError`` exception in case of overflow.
 
 * ``MUL_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
-  Multiplies the two integers. Throws an error in case of overflow.
+  Multiplies the two integers. Throws an ``ArithmeticError`` exception
+  in case of overflow.
 
 * ``DIV_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
   Returns the quotient of division of the first integer by the second
-  one. Throws an error if the first integer is ``−2⁶³`` and the second
-  one is ``-1``.
+  one.  Throws an ``ArithmeticError`` exception
+  - if the second argument is ``0``, or
+  - if the first argument is ``−2⁶³`` and the second  one is ``-1``.
 
 * ``MOD_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
   Returns the remainder of the division of the first integer by the
-  second one.
+  second one.  Throws an ``ArithmeticError`` exception if the second
+  argument is ``0``.
 
 * ``EXP_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
-  Returns the exponentiation of the first integer by the second
-  one. Throws an error in case of overflow.
+  Returns the exponentiation of the first integer by the second one.
+  Throws an ``ArithmeticError`` exception in case of overflow.
 
 * ``LESS_EQ_INT64 : 'Int64' → 'Int64' → 'Bool'``
 
@@ -3673,8 +3714,8 @@ Int64 functions
 
 * ``GREATER_EQ_INT64 : 'Int64' → 'Int64' → 'Bool'``
 
-  Returns ``'True'`` if the first integer is greater or equal than
-  the second, ``'False'`` otherwise.
+  Returns ``'True'`` if the first integer is greater or equal than the
+  second, ``'False'`` otherwise.
 
 * ``LESS_INT64 : 'Int64' → 'Int64' → 'Bool'``
 
@@ -3700,7 +3741,7 @@ Int64 functions
 * ``TEXT_TO_INT64 : 'Text' → 'Optional' 'Int64'``
 
   Given a string representation of an integer returns the integer wrapped
-  in ``Some``. If the input does not match the regexp ``[+-]?\d+`` or
+  in ``Some``.  If the input does not match the regexp ``[+-]?\d+`` or
   if the result of the conversion overflows, returns ``None``.
 
 Numeric functions
@@ -3709,23 +3750,24 @@ Numeric functions
 * ``ADD_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α  → 'Numeric' α``
 
   Adds the two decimals.  The scale of the inputs and the output is
-  given by the type parameter `α`.  Throws an error in case of
-  overflow.
+  given by the type parameter `α`.  Throws an ``ArithmeticError``
+  exception in case of overflow.
 
 * ``SUB_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
 
-  Subtracts the second decimal from the first one.  The
-  scale of the inputs and the output is given by the type parameter
-  `α`.  Throws an error if overflow.
+  Subtracts the second decimal from the first one.  The scale of the
+  inputs and the output is given by the type parameter `α`.  Throws an
+  ``ArithmeticError`` exception in case of overflow.
 
 * ``MUL_NUMERIC : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
 
   Multiplies the two numerics and rounds the result to the closest
   multiple of ``10⁻ᵅ`` using `banker's rounding convention
-  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.
-  The type parameters `α₁`, `α₂`, `α` define the scale of the first
-  input, the second input, and the output, respectively. Throws an
-  error in case of overflow.
+  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.  The
+  type parameters `α₁`, `α₂`, `α` define the scale of the first input,
+  the second input, and the output, respectively.  Throws an
+  ``ArithmeticError`` exception in case of overflow.
+
 
 * ``DIV_NUMERIC : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
 
@@ -3734,18 +3776,19 @@ Numeric functions
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_ (where
   `n` is given as the type parameter).  The type parameters `α₁`,
   `α₂`, `α` define the scale of the first input, the second input, and
-  the output, respectively. Throws an error in case of overflow.
+  the output, respectively.  Throws an ``ArithmeticError`` exception
+  if the second argument is ``0.0`` or if the computation overflow.
 
 * ``CAST_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
 
   Converts a decimal of scale `α₁` to a decimal scale `α₂` while
-  keeping the value the same. Throws an exception in case of
-  overflow or precision loss.
+  keeping the value the same. Throws an ``ArithmeticError`` exception
+  in case of overflow or precision loss.
 
 * ``SHIFT_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
 
   Converts a decimal of scale `α₁` to a decimal scale `α₂` to another
-  by shifting the decimal point. Thus the ouput will be equal to the input
+  by shifting the decimal point. Thus the output will be equal to the input
   multiplied by `1E(α₁-α₂)`.
 
 * ``LESS_EQ_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
@@ -3828,11 +3871,11 @@ BigNumeric functions
 
   - ``'ROUNDING_UP'`` : Round away from zero
 
-  - ``'ROUNDING_DOWN'`` : Rounds towards zero
+  - ``'ROUNDING_DOWN'`` : Round towards zero
 
-  - ``'ROUNDING_CEILING'`` : Rounds towards positive infinity.
+  - ``'ROUNDING_CEILING'`` : Round towards positive infinity.
 
-  - ``'ROUNDING_FLOOR'`` : Rounds towards negative infinity
+  - ``'ROUNDING_FLOOR'`` : Round towards negative infinity
 
   - ``'ROUNDING_HALF_UP'`` : Round towards the nearest neighbor unless
     both neighbors are equidistant, in which case round away from
@@ -3842,14 +3885,14 @@ BigNumeric functions
     unless both neighbors are equidistant, in which case round towards
     zero.
 
-  - ``'ROUNDING_HALF_EVEN'`` : Rounds towards the nearest neighbor
+  - ``'ROUNDING_HALF_EVEN'`` : Round towards the nearest neighbor
     unless both neighbors are equidistant, in which case round towards
     the even neighbor.
 
-  - ``'ROUNDING_UNNECESSARY'`` : Throw `ArithmeticError` if the exact result cannot be
-    represented.
+  - ``'ROUNDING_UNNECESSARY'`` : Throw an ``ArithmeticError``
+    exception if the exact result cannot be represented.
 
-  Throws an ``ArithmeticError`` if the output is not a valid
+  Throws an ``ArithmeticError``` if the output is not a valid
   BigNumeric.
 
   [*Available in version ≥ 1.13*]
@@ -3868,9 +3911,9 @@ BigNumeric functions
 
 * ``SHIFT_RIGHT_BIGNUMERIC : 'Int64' → 'BigNumeric' → 'BigNumeric'``
 
-  Multiply the second argument by 10 to the negative power of the first
-  argument. Throws an ``ArithmeticError`` in case the result cannot be
-  represented without loss of precision.
+  Multiply the second argument by 10 to the negative power of the
+  first argument. Throws an ``ArithmeticError`` in case the result
+  cannot be represented without loss of precision.
 
   [*Available in version ≥ 1.13*]
 
@@ -4376,14 +4419,15 @@ Conversions functions
 * ``INT64_TO_NUMERIC : ∀ (α : nat) . 'Int64' → 'Numeric' α``
 
   Returns a numeric representation of the integer.  The scale of the
-  output and the output is given by the type parameter `α`. Throws an
-  error in case of overflow.
+  output and the output is given by the type parameter `α`.  Throws an
+  ``ArithmeticError`` exception in case of overflow.
 
 * ``NUMERIC_TO_INT64 : ∀ (α : nat) . 'Numeric' α → 'Int64'``
 
   Returns the integral part of the given numeric -- in other words,
   rounds towards 0. The scale of the input and the output is given by
-  the type parameter `α`.  Throws an error in case of overflow.
+  the type parameter `α`.  Throws an ``ArithmeticError`` exception in
+  case of overflow.
 
 * ``TIMESTAMP_TO_UNIX_MICROSECONDS : 'Timestamp' → 'Int64'``
 
@@ -4391,8 +4435,8 @@ Conversions functions
 
 * ``UNIX_MICROSECONDS_TO_TIMESTAMP : 'Int64' → 'Date'``
 
-  Converts the integer in a timestamp. Throws an error in case of
-  overflow.
+  Converts the integer in a timestamp.  Throws an ``ArithmeticError``
+  exception in case of overflow.
 
 * ``DATE_TO_UNIX_DAYS : 'Date' → 'Int64'``
 
@@ -4400,7 +4444,8 @@ Conversions functions
 
 * ``UNIX_DAYS_TO_DATE : 'Int64' → 'Date'``
 
-  Converts the integer in date. Throws an error in case of overflow.
+  Converts the integer in date.  Throws an ``ArithmeticError``
+  exception in case of overflow.
 
 Error functions
 ~~~~~~~~~~~~~~~
@@ -4811,32 +4856,41 @@ program using the field ``observers`` in the ``TemplateChoice``
 message. The missing ``observers`` field is interpreted as an
 empty list of observers.
 
-Exception
-.........
-
-[*Available in versions >= 1.1dev*]
-
-The deserialization process will reject any Daml-LF 1.11 (or earlier)
-program exception using
-- the field ``throw``, ``to_any_exception``, or ``from_any_exception``
-  in the ``Expr`` message,
-- the field ``try`` in the ``Update message,
-- any of the builtin functions ``MAKE_GENERAL_ERROR``,
-  ``MAKE_ARITHMETIC_ERROR``, ``MAKE_CONTRACT_ERROR``,
-  ``ANY_EXCEPTION_MESSAGE``, ``GENERAL_ERROR_MESSAGE``, or
-  ``ARITHMETIC_ERROR_MESSAGE`.
-
 BigNumeric
 ..........
+
+[*Available in versions >= 1.13*]
+
+The deserialization process will reject any Daml-LF 1.12 (or earlier)
+program using:
+
+- ``BigNumeric`` primitive type,
+- ``RoundingMode`` primitive type,
+- any of the literals ``ROUNDING_UP``, ``ROUNDING_DOWN``,
+  ``ROUNDING_CEILING``, ``ROUNDING_FLOOR``, ``ROUNDING_HALF_UP``,
+  ``ROUNDING_HALF_DOWN``, ``ROUNDING_HALF_EVEN``,
+  ``ROUNDING_UNNECESSARY``,
+- any of the builtins ``SCALE_BIGNUMERIC``, ``PRECISION_BIGNUMERIC``,
+  ``ADD_BIGNUMERIC``, ``SUB_BIGNUMERIC``, ``MUL_BIGNUMERIC``,
+  ``DIV_BIGNUMERIC``, ``SHIFT_RIGHT_BIGNUMERIC``,
+  ``BIGNUMERIC_TO_NUMERIC``, ``NUMERIC_TO_BIGNUMERIC``,
+  ``BIGNUMERIC_TO_TEXT``.
+
+Exception
+..........
+
+[*Available in versions >= 1.14*]
 
 Daml-LF 1.14 is the first version that supports Exceptions.
 
 The deserialization process will reject any Daml-LF 1.13 (or earlier)
 program exception using:
-- `AnyException` primitive type,
-- `ToAnyException`, `FromAnyException`, and `Throw` expressions,
-- `TryCatch` update,
-- `ANY_EXCEPTION_MESSAGE` builtin functions.
+
+- ``AnyException` primitive type,
+- ``ToAnyException``, ``FromAnyException``, and ``Throw`` expressions,
+- ``TryCatch`` update,
+- ``ANY_EXCEPTION_MESSAGE`` builtin functions.
+
 
 
 .. Local Variables:
