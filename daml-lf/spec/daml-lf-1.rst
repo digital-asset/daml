@@ -3871,11 +3871,11 @@ BigNumeric functions
 
   - ``'ROUNDING_UP'`` : Round away from zero
 
-  - ``'ROUNDING_DOWN'`` : Rounds towards zero
+  - ``'ROUNDING_DOWN'`` : Round towards zero
 
-  - ``'ROUNDING_CEILING'`` : Rounds towards positive infinity.
+  - ``'ROUNDING_CEILING'`` : Round towards positive infinity.
 
-  - ``'ROUNDING_FLOOR'`` : Rounds towards negative infinity
+  - ``'ROUNDING_FLOOR'`` : Round towards negative infinity
 
   - ``'ROUNDING_HALF_UP'`` : Round towards the nearest neighbor unless
     both neighbors are equidistant, in which case round away from
@@ -3885,11 +3885,11 @@ BigNumeric functions
     unless both neighbors are equidistant, in which case round towards
     zero.
 
-  - ``'ROUNDING_HALF_EVEN'`` : Rounds towards the nearest neighbor
+  - ``'ROUNDING_HALF_EVEN'`` : Round towards the nearest neighbor
     unless both neighbors are equidistant, in which case round towards
     the even neighbor.
 
-  - ``'ROUNDING_UNNECESSARY'`` : Throws an ``ArithmeticError``
+  - ``'ROUNDING_UNNECESSARY'`` : Throw an ``ArithmeticError``
     exception if the exact result cannot be represented.
 
   Throws an ``ArithmeticError``` if the output is not a valid
