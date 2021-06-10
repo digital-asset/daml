@@ -708,6 +708,17 @@ template WithKeyCreator
       controller p
       do create (WithKey p1)
 
+template WithKeyCreatorAlternative
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    nonconsuming choice WithKeyCreatorAlternative_DiscloseCreate : ContractId WithKey
+      controller p2
+      do create (WithKey p1)
+
 template WithKeyFetcher
   with
     p1 : Party
