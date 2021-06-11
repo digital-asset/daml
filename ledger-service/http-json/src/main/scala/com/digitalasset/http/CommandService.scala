@@ -49,7 +49,7 @@ class CommandService(
   ): Future[Error \/ ActiveContract[lav1.value.Value]] = {
     logger.trace("sending create command to ledger")
     val command = createCommand(input)
-    val request = submitAndWaitRequest(jwtPayload, input.meta, command)
+    val request = submitAndWaitRequest(jwtPayload, input.meta, command, "create")
     val et: ET[ActiveContract[lav1.value.Value]] = for {
       response <- rightT(logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request)))
       contract <- either(exactlyOneActiveContract(response))
@@ -66,7 +66,7 @@ class CommandService(
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
     logger.trace("sending exercise command to ledger")
     val command = exerciseCommand(input)
-    val request = submitAndWaitRequest(jwtPayload, input.meta, command)
+    val request = submitAndWaitRequest(jwtPayload, input.meta, command, "exercise")
 
     val et: ET[ExerciseResponse[lav1.value.Value]] = for {
       response <- rightT(
@@ -88,7 +88,7 @@ class CommandService(
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
     logger.trace("sending create and exercise command to ledger")
     val command = createAndExerciseCommand(input)
-    val request = submitAndWaitRequest(jwtPayload, input.meta, command)
+    val request = submitAndWaitRequest(jwtPayload, input.meta, command, "createAndExercise")
     val et: ET[ExerciseResponse[lav1.value.Value]] = for {
       response <- rightT(
         logResult(Symbol("createAndExercise"), submitAndWaitForTransactionTree(jwt, request))
@@ -151,6 +151,7 @@ class CommandService(
       jwtPayload: JwtWritePayload,
       meta: Option[domain.CommandMeta],
       command: lav1.commands.Command.Command,
+      commandKind: String,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): lav1.command_service.SubmitAndWaitRequest = {
@@ -161,7 +162,7 @@ class CommandService(
     )
       .run { implicit lc =>
         logger.info(
-          s"Doing a command submit and wait request"
+          s"Submitting $commandKind command and synchronously waiting for completion"
         )
         Commands.submitAndWaitRequest(
           jwtPayload.ledgerId,
