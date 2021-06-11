@@ -162,7 +162,7 @@ class CommandService(
     )
       .run { implicit lc =>
         logger.info(
-          s"Submitting $commandKind command and synchronously waiting for completion"
+          s"Submitting $commandKind command"
         )
         Commands.submitAndWaitRequest(
           jwtPayload.ledgerId,
