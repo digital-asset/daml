@@ -18,7 +18,9 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
 
   import Preprocessor._
 
-  @throws[PreprocessorException]
+  private[this] def fail(s: String) = throw Error.Preprocessing.Generic(s)
+
+  @throws[Error.Preprocessing.SubError]
   private def labeledRecordToMap(
       fields: ImmArray[(Option[String], Value[ContractId])]
   ): Option[Map[String, Value[ContractId]]] = {
@@ -40,7 +42,7 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
 
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.
-  @throws[PreprocessorException]
+  @throws[Error.Preprocessing.SubError]
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
       value: Value[ContractId],
@@ -222,7 +224,10 @@ private[engine] final class ValueTranslator(interface: language.Interface) {
   }
 
   // This does not try to pull missing packages, return an error instead.
-  def translateValue(ty: Type, value: Value[ContractId]): Either[Error, SValue] =
+  def translateValue(
+      ty: Type,
+      value: Value[ContractId],
+  ): Either[Error.Preprocessing.SubError, SValue] =
     safelyRun(unsafeTranslateValue(ty, value)._1)
 
 }

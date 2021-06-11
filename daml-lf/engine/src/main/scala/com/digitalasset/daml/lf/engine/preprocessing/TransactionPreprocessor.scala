@@ -81,7 +81,7 @@ private[preprocessing] final class TransactionPreprocessor(
    * See review comments in https://github.com/digital-asset/daml/pull/9370
    * for more details.
    */
-  @throws[PreprocessorException]
+  @throws[Error.Preprocessing.SubError]
   def unsafeTranslateTransactionRoots[Cid <: Value.ContractId](
       tx: GenTransaction[NodeId, Cid]
   ): (ImmArray[speedy.Command], Set[ContractId]) = {

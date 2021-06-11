@@ -19,7 +19,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
 
   val valueTranslator = new ValueTranslator(interface)
 
-  @throws[PreprocessorException]
+  @throws[Error.Preprocessing.SubError]
   def unsafePreprocessCreate(
       templateId: Ref.Identifier,
       argument: Value[Value.ContractId],
@@ -28,7 +28,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     speedy.Command.Create(templateId, arg) -> argCids
   }
 
-  @throws[PreprocessorException]
+  @throws[Error.Preprocessing.SubError]
   def unsafePreprocessExercise(
       templateId: Ref.Identifier,
       contractId: Value.ContractId,
@@ -41,7 +41,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     speedy.Command.Exercise(templateId, SValue.SContractId(contractId), choiceId, arg) -> cids
   }
 
-  @throws[PreprocessorException]
+  @throws[Error.Preprocessing.SubError]
   def unsafePreprocessExerciseByKey(
       templateId: Ref.Identifier,
       contractKey: Value[Value.ContractId],
@@ -58,7 +58,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     speedy.Command.ExerciseByKey(templateId, key, choiceId, arg) -> argCids
   }
 
-  @throws[PreprocessorException]
+  @throws[Error.Preprocessing.SubError]
   def unsafePreprocessCreateAndExercise(
       templateId: Ref.ValueRef,
       createArgument: Value[Value.ContractId],
@@ -79,7 +79,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
       ) -> (createArgCids | choiceArgCids)
   }
 
-  @throws[PreprocessorException]
+  @throws[Error.Preprocessing.SubError]
   private[preprocessing] def unsafePreprocessLookupByKey(
       templateId: Ref.ValueRef,
       contractKey: Value[Nothing],
@@ -130,7 +130,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     }
   }
 
-  @throws[PreprocessorException]
+  @throws[Error.Preprocessing.SubError]
   def unsafePreprocessCommands(
       cmds: ImmArray[command.ApiCommand]
   ): (ImmArray[speedy.Command], Set[Value.ContractId]) = {
