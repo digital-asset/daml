@@ -138,7 +138,7 @@ final class Runner[T <: ReadWriteService, Extra](
               )
               .map(ExecutionContext.fromExecutorService)
               .acquire()
-            _ <- participantConfig.mode match {
+            healthChecksWithIndexer <- participantConfig.mode match {
               case ParticipantRunMode.Combined | ParticipantRunMode.Indexer =>
                 new StandaloneIndexerServer(
                   readService = readService,
@@ -146,9 +146,9 @@ final class Runner[T <: ReadWriteService, Extra](
                   servicesExecutionContext = servicesExecutionContext,
                   metrics = metrics,
                   lfValueTranslationCache = lfValueTranslationCache,
-                ).acquire()
+                ).acquire().map(indexerHealth => healthChecks + ("indexer" -> indexerHealth))
               case ParticipantRunMode.LedgerApiServer =>
-                Resource.unit
+                Resource.successful(healthChecks)
             }
             _ <- participantConfig.mode match {
               case ParticipantRunMode.Combined | ParticipantRunMode.LedgerApiServer =>
@@ -160,7 +160,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   ledgerConfig = factory.ledgerConfig(config),
                   optWriteService = Some(writeService),
                   authService = factory.authService(config),
-                  healthChecks = healthChecks,
+                  healthChecks = healthChecksWithIndexer,
                   metrics = metrics,
                   timeServiceBackend = factory.timeServiceBackend(config),
                   otherInterceptors = factory.interceptors(config),
