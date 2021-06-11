@@ -55,10 +55,20 @@ bazel shutdown
 # It isn’t clear where exactly those errors are coming from.
 bazel fetch @nodejs_dev_env//...
 
-bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/build_execution_windows.log //...
+bazel build //... `
+  `-`-profile build-profile.json `
+  `-`-experimental_profile_include_target_label `
+  `-`-build_event_json_file build-events.json `
+  `-`-build_event_publish_all_actions `
+  `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/build_execution_windows.log
 
 bazel shutdown
 
 if ($env:SKIP_TESTS -ceq "False") {
-    bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/test_execution_windows.log //...
+    bazel test //... `
+      `-`-profile test-profile.json `
+      `-`-experimental_profile_include_target_label `
+      `-`-build_event_json_file test-events.json `
+      `-`-build_event_publish_all_actions `
+      `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/logs/test_execution_windows.log
 }
