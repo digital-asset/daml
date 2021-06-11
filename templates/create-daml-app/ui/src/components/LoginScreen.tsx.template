@@ -45,16 +45,14 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
 
   useEffect(() => {
     const url = new URL(window.location.toString());
-    const token = url.searchParams.get('token');
-    if (token === null) {
-      return;
-    }
     const party = url.searchParams.get('party');
     if (party === null) {
-      throw Error("When 'token' is passed via URL, 'party' must be passed too.");
+      return;
     }
     url.search = '';
     window.history.replaceState(window.history.state, '', url.toString());
+    const tokenCookiePair = document.cookie.split('; ').find(row => row.startsWith('DAMLHUB_LEDGER_ACCESS_TOKEN')) || '';
+    const token = tokenCookiePair.slice(tokenCookiePair.indexOf('=') + 1);
     login({token, party, ledgerId});
   }, [login]);
 
