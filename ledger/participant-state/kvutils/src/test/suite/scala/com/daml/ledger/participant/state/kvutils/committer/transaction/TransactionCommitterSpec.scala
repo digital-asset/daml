@@ -22,7 +22,7 @@ import com.daml.ledger.participant.state.kvutils.{Conversions, committer}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, RejectionReasonV0}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{Engine, ReplayMismatch}
+import com.daml.lf.engine.{Engine, Error => LfError}
 import com.daml.lf.transaction
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -418,7 +418,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     def checkRejectionReason(
         mkReason: String => RejectionReason
     )(mismatch: transaction.ReplayMismatch[NodeId, Value.ContractId]) = {
-      val replayMismatch = ReplayMismatch(mismatch)
+      val replayMismatch = LfError.Validation(LfError.Validation.ReplayMismatch(mismatch))
       transactionCommitter.rejectionReasonForValidationError(replayMismatch) shouldBe mkReason(
         replayMismatch.msg
       )
