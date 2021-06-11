@@ -43,6 +43,10 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
     window.location.assign(`https://login.projectdabl.com/auth/login?ledgerId=${ledgerId}`);
   }
 
+  const getCookieValue = (name: string): string => (
+    document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)')?.pop() || ''
+  )
+
   useEffect(() => {
     const url = new URL(window.location.toString());
     const party = url.searchParams.get('party');
@@ -51,8 +55,7 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
     }
     url.search = '';
     window.history.replaceState(window.history.state, '', url.toString());
-    const tokenCookiePair = document.cookie.split('; ').find(row => row.startsWith('DAMLHUB_LEDGER_ACCESS_TOKEN')) || '';
-    const token = tokenCookiePair.slice(tokenCookiePair.indexOf('=') + 1);
+    const token = getCookieValue('DAMLHUB_LEDGER_ACCESS_TOKEN');
     login({token, party, ledgerId});
   }, [login]);
 
