@@ -28,6 +28,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.{Error => LfError}
+import com.daml.lf.language.LookupError
 import com.daml.lf.transaction.ReplayNodeMismatch
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
@@ -204,7 +205,11 @@ class ApiSubmissionServiceSpec
         )
       ) -> Status.ABORTED,
       ErrorCause.DamlLf(
-        LfError.Preprocessing(LfError.Preprocessing.Lookup(null))
+        LfError.Preprocessing(
+          LfError.Preprocessing.Lookup(
+            LookupError.Package(Ref.PackageId.assertFromString("-pkgId"))
+          )
+        )
       ) -> Status.INVALID_ARGUMENT,
       ErrorCause.DamlLf(
         LfError.Interpretation(LfError.Interpretation.Authorization(""))
