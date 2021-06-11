@@ -26,7 +26,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.engine.{ContractNotFound, DuplicateContractKey, ReplayMismatch}
+import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -286,7 +286,12 @@ private[apiserver] final class ApiSubmissionService private[services] (
     errorCause match {
       case cause @ ErrorCause.DamlLf(error) =>
         error match {
-          case ContractNotFound(_) | DuplicateContractKey(_) | ReplayMismatch(_) =>
+          // TODO https://github.com/digital-asset/daml/issues/9974
+          //  Review once LF errors are properly structured
+          case LfError.Interpretation(
+                LfError.Interpretation.ContractNotFound(_) |
+                LfError.Interpretation.DuplicateContractKey(_)
+              ) | LfError.Validation(LfError.Validation.ReplayMismatch(_)) =>
             Status.ABORTED.withDescription(cause.explain)
           case _ => Status.INVALID_ARGUMENT.withDescription(cause.explain)
         }
