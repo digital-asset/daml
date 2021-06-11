@@ -75,12 +75,6 @@ jobs:
       value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
     - name: is_release
       value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
-    - name: git_branch_sha
-      value: $[ dependencies.git_sha.outputs['out.branch'] ]
-    - name: git_main_sha
-      value: $[ dependencies.git_sha.outputs['out.main'] ]
-    - name: git_fork_point_sha
-      value: $[ dependencies.git_sha.outputs['out.fork_point'] ]
     - template: job-variables.yml
   timeoutInMinutes: 360
   pool:
@@ -137,12 +131,6 @@ jobs:
       value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
     - name: is_release
       value: $[ eq(dependencies.check_for_release.outputs['out.is_release'], 'true') ]
-    - name: git_branch_sha
-      value: $[ dependencies.git_sha.outputs['out.branch'] ]
-    - name: git_main_sha
-      value: $[ dependencies.git_sha.outputs['out.main'] ]
-    - name: git_fork_point_sha
-      value: $[ dependencies.git_sha.outputs['out.fork_point'] ]
     - template: job-variables.yml
   timeoutInMinutes: 360
   pool:
@@ -187,12 +175,6 @@ jobs:
       value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
     - name: is_release
       value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
-    - name: git_branch_sha
-      value: $[ dependencies.git_sha.outputs['out.branch'] ]
-    - name: git_main_sha
-      value: $[ dependencies.git_sha.outputs['out.main'] ]
-    - name: git_fork_point_sha
-      value: $[ dependencies.git_sha.outputs['out.fork_point'] ]
     - template: job-variables.yml
   steps:
     - template: report-start.yml
@@ -237,12 +219,6 @@ jobs:
     - name: skip_tests
       value: $[ and(eq(variables.is_release, 'true'),
                        eq(variables['Build.SourceBranchName'], 'main')) ]
-    - name: git_branch_sha
-      value: $[ dependencies.git_sha.outputs['out.branch'] ]
-    - name: git_main_sha
-      value: $[ dependencies.git_sha.outputs['out.main'] ]
-    - name: git_fork_point_sha
-      value: $[ dependencies.git_sha.outputs['out.fork_point'] ]
     - template: job-variables.yml
   timeoutInMinutes: 360
   pool:
