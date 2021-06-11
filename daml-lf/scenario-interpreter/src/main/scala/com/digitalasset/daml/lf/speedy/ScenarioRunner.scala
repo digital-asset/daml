@@ -247,7 +247,7 @@ final case class ScenarioRunner(
 
     ledger.ledgerData.activeKeys.get(gk) match {
       case None =>
-        missingWith(SErrorCrash(s"Key $gk not found"))
+        missingWith(DamlEContractKeyNotFound(gk))
       case Some(acoid) =>
         ledger.lookupGlobalContract(
           view = ScenarioLedger.ParticipantView(actAs, readAs),

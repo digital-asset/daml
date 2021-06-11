@@ -301,6 +301,9 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           // produce a different gRPC error code.
           return ResultError(Error.Interpretation(Error.Interpretation.DuplicateContractKey(key)))
 
+        case SResultError(SError.DamlEContractKeyNotFound(key)) =>
+          return ResultError(Error.Interpretation.ContractKeyNotFound(key))
+
         case SResultError(err) =>
           return ResultError(
             Error.Interpretation.Generic(
@@ -340,11 +343,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
               if (cb(SKeyLookupResult(result)))
                 interpretLoop(machine, time)
               else
-                ResultError(
-                  Error.Interpretation.Generic(
-                    s"dependency error: couldn't find key ${gk.globalKey}"
-                  )
-                ),
+                ResultError(Error.Interpretation.ContractKeyNotFound(gk.globalKey)),
           )
 
         case SResultNeedLocalKeyVisible(stakeholders, _, cb) =>
