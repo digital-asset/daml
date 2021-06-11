@@ -13,24 +13,26 @@ One option for doing that is to represent errors explicitly via
 ``Either`` or ``Option`` as shown in :doc:`3_Data`. This approach has
 the advantage that it is very explicit about which operations are
 allowed to fail without aborting the entire transaction. However, it
-also has two major downsides. First, it can be invasive for operations
-where aborting the transaction is often the desired behavior, e.g.,
-changing division to return ``Either`` or an ``Option`` to handle
-division by zero would be a very invasive change and many callsites
-might not want to handle the error case explicitly. Second, and more
-importantly, this approach does not allow rolling back ledger actions
-that have happened before the point where failure is detected; if a
-contract got created before we hit the error, there is no way to undo
-that except for aborting the entire transaction (which is what we were
+also has two major downsides. First, it can
+be invasive for operations where aborting the transaction is often the
+desired behavior, e.g., changing division to return ``Either`` or an
+``Option`` to handle division by zero would be a very invasive change
+and many callsites might not want to handle the error case explicitly.
+Second, and more importantly, this approach does not allow rolling
+back ledger actions that have happened before the point where failure is
+detected; if a contract
+got created before we hit the error, there is no way to undo that
+except for aborting the entire transaction (which is what we were
 trying to avoid in the first place).
 
 By contrast, exceptions provide a way to handle certain types of
 errors in such a way that, on the one hand, most of the code that is
 allowed to fail can be written just like normal code, and, on the
 other hand, the programmer can clearly delimit which part of the
-current transaction should be rolled back on failure. All of that
-still happens within the same transaction and is thereby atomic
-contrary to handling the error outside of Daml.
+current transaction should be rolled back on failure.
+All of that still happens within the same
+transaction and is thereby atomic contrary to handling the error
+outside of Daml.
 
 .. hint::
 
@@ -39,7 +41,7 @@ contrary to handling the error outside of Daml.
 Our example for the use of exceptions will be a simple shop
 template. Users can order items by calling a choice and transfer money
 (in the form of an Iou issued by their bank) from their account to the
-owner's in return.
+owner in return.
 
 First, we need to setup a template to represent the account of a user.
 
