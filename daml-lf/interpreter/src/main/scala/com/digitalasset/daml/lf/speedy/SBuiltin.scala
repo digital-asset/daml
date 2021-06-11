@@ -1168,7 +1168,7 @@ private[lf] object SBuiltin {
         machine.ctrl = importCid(cid)
       override def handleInactiveKey(machine: Machine, gkey: GlobalKey): Unit =
         // TODO (MK) Produce a proper error here.
-        crash(s"Could not find key $gkey")
+        crash(s"Could not find key $gkey eanirtdu")
       override def handleActiveKey(machine: Machine, cid: V.ContractId): Unit =
         machine.returnValue = SContractId(cid)
     }
