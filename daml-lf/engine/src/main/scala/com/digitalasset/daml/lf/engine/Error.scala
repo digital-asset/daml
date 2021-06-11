@@ -88,7 +88,7 @@ object Error {
     }
 
     final case class ContractKeyNotFound(key: GlobalKey) extends Error {
-      override def msg = s"Contract with key $key could not be found"
+      override def msg = s"dependency error: couldn't find key: $key"
     }
 
     /** See com.daml.lf.transaction.Transaction.DuplicateContractKey
