@@ -35,10 +35,11 @@ object Error {
     }
 
     // TODO: get ride of Generic
-    final case class Generic(msg: String, override val detailMsg: String = "") extends SubError
-
-    final case class Internal(method: String, msg: String, override val detailMsg: String = "")
+    final case class Generic(override val msg: String, override val detailMsg: String)
         extends SubError
+    object Generic {
+      def apply(msg: String): Generic = new Generic(msg, msg)
+    }
 
     final case class Validation(validationError: validation.ValidationError) extends SubError {
       def msg: String = validationError.pretty
@@ -57,16 +58,17 @@ object Error {
     }
 
     // TODO: get ride of Generic
-    final case class Generic(msg: String, override val detailMsg: String = "") extends SubError
-
-    final case class Internal(method: String, msg: String, override val detailMsg: String = "")
+    final case class Generic(override val msg: String, override val detailMsg: String)
         extends SubError
+    object Generic {
+      def apply(msg: String): Generic = new Generic(msg, msg)
+    }
 
     final case class Lookup(lookupError: language.LookupError) extends SubError {
       def msg: String = lookupError.pretty
     }
 
-    object MissingPackage {
+    private[engine] object MissingPackage {
       def unapply(error: Lookup): Option[Ref.PackageId] =
         error.lookupError match {
           case language.LookupError.Package(packageId) => Some(packageId)
@@ -86,10 +88,12 @@ object Error {
     }
 
     // TODO: get ride of Generic
-    final case class Generic(msg: String, override val detailMsg: String = "") extends SubError
-
-    final case class Internal(method: String, msg: String, override val detailMsg: String = "")
+    final case class Generic(override val msg: String, override val detailMsg: String)
         extends SubError
+
+    object Generic {
+      def apply(msg: String): Generic = new Generic(msg, msg)
+    }
 
     final case class ContractNotFound(ci: Value.ContractId) extends SubError {
       override def msg = s"Contract could not be found with id $ci"
@@ -107,7 +111,7 @@ object Error {
     }
 
     final case class Authorization(override val msg: String) extends SubError {
-      override def detailMsg: String = ""
+      override def detailMsg: String = msg
     }
 
   }
@@ -123,7 +127,10 @@ object Error {
     }
 
     // TODO: get ride of Generic
-    final case class Generic(msg: String, override val detailMsg: String = "") extends SubError
+    final case class Generic(msg: String, override val detailMsg: String) extends SubError
+    object Generic {
+      def apply(msg: String): Generic = new Generic(msg, msg)
+    }
 
     final case class ReplayMismatch(
         mismatch: transaction.ReplayMismatch[transaction.NodeId, Value.ContractId]
