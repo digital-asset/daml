@@ -34,7 +34,7 @@ object Error {
       override def detailMsg: String = msg
     }
 
-    // TODO: get ride of Generic
+    // TODO: get rid of Generic
     final case class Generic(override val msg: String, override val detailMsg: String)
         extends SubError
     object Generic {
@@ -57,7 +57,7 @@ object Error {
       override def detailMsg: String = msg
     }
 
-    // TODO: get ride of Generic
+    // TODO: get rid of Generic
     final case class Generic(override val msg: String, override val detailMsg: String)
         extends SubError
     object Generic {
@@ -87,7 +87,7 @@ object Error {
       override def detailMsg: String = msg
     }
 
-    // TODO: get ride of Generic
+    // TODO: get rid of Generic
     final case class Generic(override val msg: String, override val detailMsg: String)
         extends SubError
 
@@ -111,7 +111,6 @@ object Error {
     }
 
     final case class Authorization(override val msg: String) extends SubError {
-      override def detailMsg: String = msg
     }
 
   }
@@ -126,7 +125,7 @@ object Error {
       override def detailMsg: String = msg
     }
 
-    // TODO: get ride of Generic
+    // TODO: get rid of Generic
     final case class Generic(msg: String, override val detailMsg: String) extends SubError
     object Generic {
       def apply(msg: String): Generic = new Generic(msg, msg)
