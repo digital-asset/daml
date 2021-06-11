@@ -1953,7 +1953,8 @@ class EngineTest
     "be validable in whole" in {
       def validate(tx: SubmittedTransaction, metaData: Tx.Metadata) =
         for {
-          submitter <- tx.guessSubmitter.left.map(Error.Validation.Generic(_).toError)
+          submitter <-
+            tx.guessSubmitter.left.map(msg => Error.Validation(Error.Validation.Generic(msg)))
           res <- engine
             .validate(Set(submitter), tx, let, participant, metaData.submissionTime, submissionSeed)
             .consume(

@@ -160,11 +160,11 @@ private[preprocessing] object Preprocessor {
     a
   }
 
-  @throws[Error.Preprocessing.SubError]
+  @throws[Error.Preprocessing.Error]
   def fail(s: String): Nothing =
     throw Error.Preprocessing.Generic(s)
 
-  @throws[Error.Preprocessing.SubError]
+  @throws[Error.Preprocessing.Error]
   def handleLookup[X](either: Either[LookupError, X]): X = either match {
     case Right(v) => v
     case Left(error) => throw Error.Preprocessing.Lookup(error)
@@ -181,7 +181,7 @@ private[preprocessing] object Preprocessor {
       } catch {
         case Error.Preprocessing.MissingPackage(_) =>
           handleMissingPackages.flatMap(_ => start)
-        case e: Error.Preprocessing.SubError =>
+        case e: Error.Preprocessing.Error =>
           ResultError(e)
       }
 
@@ -189,11 +189,11 @@ private[preprocessing] object Preprocessor {
   }
 
   @inline
-  def safelyRun[X](unsafeRun: => X): Either[Error.Preprocessing.SubError, X] =
+  def safelyRun[X](unsafeRun: => X): Either[Error.Preprocessing.Error, X] =
     try {
       Right(unsafeRun)
     } catch {
-      case e: Error.Preprocessing.SubError =>
+      case e: Error.Preprocessing.Error =>
         Left(e)
     }
 

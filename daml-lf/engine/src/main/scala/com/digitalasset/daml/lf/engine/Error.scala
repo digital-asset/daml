@@ -9,66 +9,54 @@ import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import com.daml.lf.value.Value
 
 sealed abstract class Error {
-  def subError: Error.SubError
-  final def msg: String = subError.msg
-  final def detailMsg: String = msg
+  def msg: String
 }
 
 object Error {
 
-  sealed abstract class SubError extends RuntimeException with scala.util.control.NoStackTrace {
-    // msg is intended to be a single line message
-    def msg: String
-    // details for debugging should be included here
-    def detailMsg: String
-    def toError: Error
-  }
-
   // Error happening during Package loading
-  final case class Package(subError: Package.SubError) extends Error
+  final case class Package(packageError: Package.Error) extends Error {
+    def msg: String = packageError.msg
+  }
 
   object Package {
 
-    sealed abstract class SubError extends Error.SubError {
-      final def toError: Package = Package(this)
-      override def detailMsg: String = msg
+    sealed abstract class Error {
+      def msg: String
     }
 
-    // TODO: get rid of Generic
-    final case class Generic(override val msg: String, override val detailMsg: String)
-        extends SubError
-    object Generic {
-      def apply(msg: String): Generic = new Generic(msg, msg)
-    }
+    // TODO https://github.com/digital-asset/daml/issues/9974
+    //  get rid of Generic
+    final case class Generic(override val msg: String) extends Error
 
-    final case class Validation(validationError: validation.ValidationError) extends SubError {
+    final case class Validation(validationError: validation.ValidationError) extends Error {
       def msg: String = validationError.pretty
     }
 
   }
 
   // Error happening during command/transaction preprocessing
-  final case class Preprocessing(subError: Preprocessing.SubError) extends Error
+  final case class Preprocessing(processingError: Preprocessing.Error) extends Error {
+    def msg: String = processingError.msg
+  }
 
   object Preprocessing {
 
-    sealed abstract class SubError extends Error.SubError {
-      final def toError: Preprocessing = Preprocessing(this)
-      override def detailMsg: String = msg
+    sealed abstract class Error extends RuntimeException with scala.util.control.NoStackTrace {
+      def msg: String
     }
 
-    // TODO: get rid of Generic
-    final case class Generic(override val msg: String, override val detailMsg: String)
-        extends SubError
-    object Generic {
-      def apply(msg: String): Generic = new Generic(msg, msg)
-    }
+    // TODO https://github.com/digital-asset/daml/issues/9974
+    //  get rid of Generic
+    final case class Generic(override val msg: String) extends Error
 
-    final case class Lookup(lookupError: language.LookupError) extends SubError {
+    final case class Lookup(lookupError: language.LookupError) extends Error {
       def msg: String = lookupError.pretty
     }
 
     private[engine] object MissingPackage {
+      def apply(pkgId: Ref.PackageId): Lookup =
+        Lookup(language.LookupError.Package(pkgId))
       def unapply(error: Lookup): Option[Ref.PackageId] =
         error.lookupError match {
           case language.LookupError.Package(packageId) => Some(packageId)
@@ -78,65 +66,60 @@ object Error {
   }
 
   // Error happening during interpretation
-  final case class Interpretation(subError: Interpretation.SubError) extends Error
+  final case class Interpretation(interpretationError: Interpretation.Error) extends Error {
+    def msg: String = interpretationError.msg
+  }
 
   object Interpretation {
 
-    sealed abstract class SubError extends Error.SubError {
-      final def toError: Interpretation = Interpretation(this)
-      override def detailMsg: String = msg
+    sealed abstract class Error {
+      def msg: String
     }
 
-    // TODO: get rid of Generic
-    final case class Generic(override val msg: String, override val detailMsg: String)
-        extends SubError
-
+    // TODO https://github.com/digital-asset/daml/issues/9974
+    //  get rid of Generic
+    final case class Generic(override val msg: String, detailMsg: String) extends Error
     object Generic {
-      def apply(msg: String): Generic = new Generic(msg, msg)
+      def apply(msg: String): Generic = Generic(msg, msg)
     }
 
-    final case class ContractNotFound(ci: Value.ContractId) extends SubError {
+    final case class ContractNotFound(ci: Value.ContractId) extends Error {
       override def msg = s"Contract could not be found with id $ci"
     }
 
-    final case class GlobalKeyNotFound(globalKey: GlobalKeyWithMaintainers) extends SubError {
+    final case class GlobalKeyNotFound(globalKey: GlobalKeyWithMaintainers) extends Error {
       override def msg = s"dependency error: couldn't find key ${globalKey.globalKey}"
     }
 
     /** See com.daml.lf.transaction.Transaction.DuplicateContractKey
       * for more information.
       */
-    final case class DuplicateContractKey(key: GlobalKey) extends SubError {
+    final case class DuplicateContractKey(key: GlobalKey) extends Error {
       override def msg = s"Duplicate contract key $key"
     }
 
-    final case class Authorization(override val msg: String) extends SubError {
-    }
+    final case class Authorization(override val msg: String) extends Error
 
   }
 
   // Error happening during transaction validation
-  final case class Validation(subError: Validation.SubError) extends Error
+  final case class Validation(validationError: Validation.Error) extends Error {
+    override def msg = validationError.msg
+  }
 
   object Validation {
 
-    sealed abstract class SubError extends Error.SubError {
-      final def toError: Validation = Validation(this)
-      override def detailMsg: String = msg
+    sealed abstract class Error {
+      def msg: String
     }
 
     // TODO: get rid of Generic
-    final case class Generic(msg: String, override val detailMsg: String) extends SubError
-    object Generic {
-      def apply(msg: String): Generic = new Generic(msg, msg)
-    }
+    final case class Generic(msg: String) extends Error
 
     final case class ReplayMismatch(
         mismatch: transaction.ReplayMismatch[transaction.NodeId, Value.ContractId]
-    ) extends SubError {
+    ) extends Error {
       override def msg: String = mismatch.msg
-
-      override def detailMsg: String = ""
     }
 
   }

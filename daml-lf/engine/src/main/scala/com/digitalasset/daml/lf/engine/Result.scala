@@ -71,7 +71,14 @@ object ResultDone {
 }
 final case class ResultError(err: Error) extends Result[Nothing]
 object ResultError {
-  def apply(subErr: Error.SubError): ResultError = ResultError(subErr.toError)
+  def apply(packageError: Error.Package.Error): ResultError =
+    ResultError(Error.Package(packageError))
+  def apply(preprocessingError: Error.Preprocessing.Error): ResultError =
+    ResultError(Error.Preprocessing(preprocessingError))
+  def apply(interpretationError: Error.Interpretation.Error): ResultError =
+    ResultError(Error.Interpretation(interpretationError))
+  def apply(validationError: Error.Validation.Error): ResultError =
+    ResultError(Error.Validation(validationError))
 }
 
 /** Intermediate result indicating that a [[ContractInst]] is required to complete the computation.

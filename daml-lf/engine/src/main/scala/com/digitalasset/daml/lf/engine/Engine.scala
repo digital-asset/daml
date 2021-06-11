@@ -423,7 +423,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
   def validatePackages(
       pkgIds: Set[PackageId],
       pkgs: Map[PackageId, Package],
-  ): Either[Error.Package.SubError, Unit] = {
+  ): Either[Error.Package.Error, Unit] = {
     for {
       _ <- pkgs
         .collectFirst {
