@@ -130,8 +130,9 @@ class Endpoints(
         decoder.decodeCreateCommand(reqBody).liftErr(InvalidUserInput)
       ): ET[domain.CreateCommand[ApiRecord, TemplateId.RequiredPkg]]
 
+      // If this fails the error is already logged in the CommandService
       ac <- eitherT(
-        handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd))
+        handleFutureEitherFailureNoLogging(commandService.create(jwt, jwtPayload, cmd))
       ): ET[domain.ActiveContract[ApiValue]]
 
       jsVal <- either(SprayJson.encode1(ac).liftErr(ServerError)): ET[JsValue]
@@ -158,8 +159,11 @@ class Endpoints(
 
       resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef)
 
+      // If this fails the error is already logged in the CommandService
       resp <- eitherT(
-        handleFutureEitherFailure(commandService.exercise(jwt, jwtPayload, resolvedCmd))
+        handleFutureEitherFailureNoLogging(
+          commandService.exercise(jwt, jwtPayload, resolvedCmd)
+        )
       ): ET[domain.ExerciseResponse[ApiValue]]
 
       jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
@@ -178,8 +182,11 @@ class Endpoints(
         decoder.decodeCreateAndExerciseCommand(reqBody).liftErr(InvalidUserInput)
       ): ET[domain.CreateAndExerciseCommand[ApiRecord, ApiValue, TemplateId.RequiredPkg]]
 
+      // If this fails the error is already logged in the CommandService
       resp <- eitherT(
-        handleFutureEitherFailure(commandService.createAndExercise(jwt, jwtPayload, cmd))
+        handleFutureEitherFailureNoLogging(
+          commandService.createAndExercise(jwt, jwtPayload, cmd)
+        )
       ): ET[domain.ExerciseResponse[ApiValue]]
 
       jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
@@ -315,11 +322,10 @@ class Endpoints(
       -\/(ServerError(e.description))
     }
 
-  private def handleFutureEitherFailure[A: Show, B](fa: Future[A \/ B])(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+  private def handleFutureEitherFailureNoLogging[A: Show, B](
+      fa: Future[A \/ B]
   ): Future[ServerError \/ B] =
     fa.map(_.liftErr(ServerError)).recover { case NonFatal(e) =>
-      logger.error("Future failed", e)
       -\/(ServerError(e.description))
     }
 
