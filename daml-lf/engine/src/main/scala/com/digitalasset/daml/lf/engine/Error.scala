@@ -4,73 +4,124 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value._
+import com.daml.lf.data.Ref
+import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
+import com.daml.lf.value.Value
 
-//TODO: Errors
-sealed trait Error {
-  // msg is intended to be a single line message
+sealed abstract class Error {
   def msg: String
-
-  // details for debugging should be included here
-  def detailMsg: String
-  override def toString: String = "Error(" + msg + ")"
 }
 
 object Error {
 
-  def withError[A](e: Error)(optional: Option[A]): Either[Error, A] = {
-    optional.fold[Either[Error, A]](Left(e))(v => Right(v))
+  // Error happening during Package loading
+  final case class Package(packageError: Package.Error) extends Error {
+    def msg: String = packageError.msg
   }
 
-  /** small conversion from option to either error with specific error */
-  implicit class optionError[A](o: Option[A]) {
-    def errorIfEmpty(e: Error) = withError(e)(o)
+  object Package {
+
+    sealed abstract class Error {
+      def msg: String
+    }
+
+    // TODO https://github.com/digital-asset/daml/issues/9974
+    //  get rid of Generic
+    final case class Generic(override val msg: String) extends Error
+
+    final case class Validation(validationError: validation.ValidationError) extends Error {
+      def msg: String = validationError.pretty
+    }
+
   }
 
-  def apply(description: String) = new Error {
-    val msg = description
-    override def detailMsg = msg
+  // Error happening during command/transaction preprocessing
+  final case class Preprocessing(processingError: Preprocessing.Error) extends Error {
+    def msg: String = processingError.msg
   }
 
-  def apply(description: String, details: String) = new Error {
-    val msg = description
-    val detailMsg = details
+  object Preprocessing {
+
+    sealed abstract class Error extends RuntimeException with scala.util.control.NoStackTrace {
+      def msg: String
+    }
+
+    // TODO https://github.com/digital-asset/daml/issues/9974
+    //  get rid of Generic
+    final case class Generic(override val msg: String) extends Error
+
+    final case class Lookup(lookupError: language.LookupError) extends Error {
+      def msg: String = lookupError.pretty
+    }
+
+    private[engine] object MissingPackage {
+      def apply(pkgId: Ref.PackageId): Lookup =
+        Lookup(language.LookupError.Package(pkgId))
+      def unapply(error: Lookup): Option[Ref.PackageId] =
+        error.lookupError match {
+          case language.LookupError.Package(packageId) => Some(packageId)
+          case _ => None
+        }
+    }
   }
 
-}
+  // Error happening during interpretation
+  final case class Interpretation(interpretationError: Interpretation.Error) extends Error {
+    def msg: String = interpretationError.msg
+  }
 
-final case class ContractNotFound(ci: ContractId) extends Error {
-  override def msg = s"Contract could not be found with id $ci"
-  override def detailMsg: String = msg
-}
+  object Interpretation {
 
-/** See com.daml.lf.transaction.Transaction.DuplicateContractKey
-  * for more information.
-  */
-final case class DuplicateContractKey(key: GlobalKey) extends Error {
-  override def msg = s"Duplicate contract key $key"
-  override def detailMsg: String = msg
-}
+    sealed abstract class Error {
+      def msg: String
+    }
 
-final case class ValidationError(override val msg: String)
-    extends RuntimeException(s"ValidationError: $msg", null, true, false)
-    with Error {
-  override def detailMsg: String = msg
-}
+    // TODO https://github.com/digital-asset/daml/issues/9974
+    //  get rid of Generic
+    final case class Generic(override val msg: String, detailMsg: String) extends Error
+    object Generic {
+      def apply(msg: String): Generic = Generic(msg, msg)
+    }
 
-final case class ReplayMismatch(
-    mismatch: transaction.ReplayMismatch[transaction.NodeId, ContractId]
-) extends RuntimeException(s"ValidationError: ${mismatch.msg}", null, true, false)
-    with Error {
-  override def msg: String = mismatch.msg
-  override def detailMsg: String = mismatch.msg
-}
+    final case class ContractNotFound(ci: Value.ContractId) extends Error {
+      override def msg = s"Contract could not be found with id $ci"
+    }
 
-final case class AuthorizationError(override val msg: String) extends Error {
-  override def detailMsg: String = msg
-}
+    final case class GlobalKeyNotFound(globalKey: GlobalKeyWithMaintainers) extends Error {
+      override def msg = s"dependency error: couldn't find key ${globalKey.globalKey}"
+    }
 
-final case class SerializationError(override val msg: String) extends Error {
-  override def detailMsg: String = s"Cannot serialize the transaction: $msg"
+    /** See com.daml.lf.transaction.Transaction.DuplicateContractKey
+      * for more information.
+      */
+    final case class DuplicateContractKey(key: GlobalKey) extends Error {
+      override def msg = s"Duplicate contract key $key"
+    }
+
+    final case class Authorization(override val msg: String) extends Error
+
+  }
+
+  // Error happening during transaction validation
+  final case class Validation(validationError: Validation.Error) extends Error {
+    override def msg = validationError.msg
+  }
+
+  object Validation {
+
+    sealed abstract class Error {
+      def msg: String
+    }
+
+    // TODO: get rid of Generic
+    final case class Generic(msg: String) extends Error
+
+    final case class ReplayMismatch(
+        mismatch: transaction.ReplayMismatch[transaction.NodeId, Value.ContractId]
+    ) extends Error {
+      override def msg: String = mismatch.msg
+    }
+
+  }
+
 }

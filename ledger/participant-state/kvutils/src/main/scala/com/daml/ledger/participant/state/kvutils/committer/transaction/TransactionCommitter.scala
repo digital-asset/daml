@@ -17,7 +17,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{Blinding, Engine, ReplayMismatch, VisibleByKey}
+import com.daml.lf.engine.{Blinding, Engine, Error => LfError, VisibleByKey}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{
   BlindingInfo,
@@ -309,7 +309,7 @@ private[kvutils] class TransactionCommitter(
   }
 
   private[transaction] def rejectionReasonForValidationError(
-      validationError: com.daml.lf.engine.Error
+      validationError: LfError
   ): RejectionReasonV0 = {
     def disputed: RejectionReasonV0 =
       RejectionReasonV0.Disputed(validationError.msg)
@@ -326,8 +326,10 @@ private[kvutils] class TransactionCommitter(
       }
 
     validationError match {
-      case ReplayMismatch(
-            ReplayNodeMismatch(recordedTx, recordedNodeId, replayedTx, replayedNodeId)
+      case LfError.Validation(
+            LfError.Validation.ReplayMismatch(
+              ReplayNodeMismatch(recordedTx, recordedNodeId, replayedTx, replayedNodeId)
+            )
           ) =>
         // If the problem is that a key lookup has changed and the results do not involve contracts created in this transaction,
         // then it's a consistency problem.

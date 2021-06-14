@@ -12,10 +12,18 @@ private[platform] sealed abstract class ErrorCause extends Product with Serializ
 private[platform] object ErrorCause {
 
   final case class DamlLf(error: LfError) extends ErrorCause {
+
+    // TODO https://github.com/digital-asset/daml/issues/9974
+    //  Review once LF errors are properly structured
     override def explain: String = {
-      val details =
-        if (error.msg == error.detailMsg) "N/A"
-        else error.detailMsg
+      val details = {
+        error match {
+          case LfError.Interpretation(LfError.Interpretation.Generic(_, detailMsg)) =>
+            detailMsg
+          case _ =>
+            "N/A"
+        }
+      }
       s"Command interpretation error in LF-DAMLe: ${error.msg}. Details: $details."
     }
   }

@@ -208,7 +208,9 @@ object KVTest {
               .map(value => Conversions.decodeContractId(value.getContractKeyState.getContractId)),
           localKeyVisible = VisibleByKey.fromSubmitters(Set(submitter)),
         )
-        .fold(error => throw new RuntimeException(error.detailMsg), identity)
+        // TODO https://github.com/digital-asset/daml/issues/9974
+        //  Review how the error is displayed once LF errors are properly structured
+        .fold(error => throw new RuntimeException(error.msg), identity)
     }
 
   def runSimpleCommand(

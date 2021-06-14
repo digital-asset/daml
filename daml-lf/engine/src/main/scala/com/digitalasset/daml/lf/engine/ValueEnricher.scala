@@ -36,10 +36,14 @@ final class ValueEnricher(engine: Engine) {
     case Left(LookupError.Package(pkgId)) =>
       engine
         .loadPackages(List(pkgId))
-        .flatMap(_ => Result.fromEither(lookup.left.map(err => Error(err.toString))))
+        .flatMap(_ =>
+          lookup match {
+            case Right(value) => ResultDone(value)
+            case Left(err) => ResultError(Error.Preprocessing.Lookup(err))
+          }
+        )
     case Left(error) =>
-      // TODO: should throw a more precise error
-      ResultError(Error(error.pretty))
+      ResultError(Error.Preprocessing.Lookup(error))
   }
 
   def enrichChoiceArgument(

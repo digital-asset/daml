@@ -70,6 +70,16 @@ object ResultDone {
   val Unit: ResultDone[Unit] = new ResultDone(())
 }
 final case class ResultError(err: Error) extends Result[Nothing]
+object ResultError {
+  def apply(packageError: Error.Package.Error): ResultError =
+    ResultError(Error.Package(packageError))
+  def apply(preprocessingError: Error.Preprocessing.Error): ResultError =
+    ResultError(Error.Preprocessing(preprocessingError))
+  def apply(interpretationError: Error.Interpretation.Error): ResultError =
+    ResultError(Error.Interpretation(interpretationError))
+  def apply(validationError: Error.Validation.Error): ResultError =
+    ResultError(Error.Validation(validationError))
+}
 
 /** Intermediate result indicating that a [[ContractInst]] is required to complete the computation.
   * To resume the computation, the caller must invoke `resume` with the following argument:
@@ -143,7 +153,7 @@ object Result {
     ResultNeedPackage(
       packageId,
       {
-        case None => ResultError(Error(s"Couldn't find package $packageId"))
+        case None => ResultError(Error.Interpretation.Generic(s"Couldn't find package $packageId"))
         case Some(pkg) => resume(pkg)
       },
     )
@@ -155,7 +165,7 @@ object Result {
     ResultNeedContract(
       acoid,
       {
-        case None => ResultError(ContractNotFound(acoid))
+        case None => ResultError(Error.Interpretation.ContractNotFound(acoid))
         case Some(contract) => resume(contract)
       },
     )
@@ -210,11 +220,6 @@ object Result {
           }
       }
     go(BackStack.empty, results0).map(_.toImmArray)
-  }
-
-  def fromEither[A](err: Either[Error, A]): Result[A] = err match {
-    case Left(e) => ResultError(e)
-    case Right(x) => ResultDone(x)
   }
 
   def assert(assertion: Boolean)(err: Error): Result[Unit] =
