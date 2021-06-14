@@ -39,15 +39,15 @@ final class Metrics(val registry: MetricRegistry) {
         registry.meter(Prefix :+ "valid_submissions")
 
       def inputBufferLength(party: String): Counter =
-        registry.counter(Prefix :+ party :+ "input_buffer_length")
+        registry.counter(Prefix :+ party.substring(0, 64) :+ "input_buffer_length")
       def inputBufferCapacity(party: String): Counter =
-        registry.counter(Prefix :+ party :+ "input_buffer_capacity")
+        registry.counter(Prefix :+ party.substring(0, 64) :+ "input_buffer_capacity")
       def inputBufferDelay(party: String): Timer =
-        registry.timer(Prefix :+ party :+ "input_buffer_delay")
+        registry.timer(Prefix :+ party.substring(0, 64) :+ "input_buffer_delay")
       def maxInFlightLength(party: String): Counter =
-        registry.counter(Prefix :+ party :+ "max_in_flight_length")
+        registry.counter(Prefix :+ party.substring(0, 64) :+ "max_in_flight_length")
       def maxInFlightCapacity(party: String): Counter =
-        registry.counter(Prefix :+ party :+ "max_in_flight_capacity")
+        registry.counter(Prefix :+ party.substring(0, 64) :+ "max_in_flight_capacity")
     }
 
     object execution {
