@@ -11,7 +11,7 @@ import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.daml.lf.language.Ast.{Package, PackageSignature}
 import com.daml.lf.language.{Interface, Util => AstUtil}
 import com.daml.lf.speedy.Compiler
-import com.daml.lf.speedy.Compiler.CompilationError
+import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
 import scala.collection.concurrent.{Map => ConcurrentMap}
@@ -64,7 +64,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
             case None =>
               return ResultError(
                 Error.Package.Internal(
-                  "com.daml.lf.engine.ConcurrentCompiledPackages#addPackage",
+                  NameOf.qualifiedNameOfCurrentFunc,
                   s"broken invariant: Could not find package $pkgId",
                 )
               )
@@ -107,15 +107,26 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                 new speedy.Compiler(extendedSignatures, compilerConfig)
                   .unsafeCompilePackage(pkgId, pkg)
               } catch {
-                case CompilationError(msg) =>
+                case e: validation.ValidationError =>
+                  return ResultError(Error.Package.Validation(e))
+                case Compiler.LanguageVersionError(
+                      packageId,
+                      languageVersion,
+                      allowedLanguageVersions,
+                    ) =>
                   return ResultError(
+                    Error.Package
+                      .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions)
+                  )
+                case Compiler.CompilationError(msg) =>
+                  return ResultError(
+                    // compilation errors are internal since typechecking should
+                    // catch any errors arising during compilation
                     Error.Package.Internal(
-                      "com.daml.lf.engine.ConcurrentCompiledPackages#addPackage",
+                      NameOf.qualifiedNameOfCurrentFunc,
                       s"Compilation Error: $msg",
                     )
                   )
-                case e: validation.ValidationError =>
-                  return ResultError(Error.Package.Validation(e))
               }
             defns.foreach { case (defnId, defn) =>
               definitions.put(defnId, defn)

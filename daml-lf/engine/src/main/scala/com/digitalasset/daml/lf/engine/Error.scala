@@ -25,11 +25,7 @@ object Error {
       def msg: String
     }
 
-    // TODO https://github.com/digital-asset/daml/issues/9974
-    //  get rid of Generic
-    final case class Generic(override val msg: String) extends Error
-
-    final case class Internal(method: String, override val msg: String, detailMsg: String = "")
+    final case class Internal(nameOfFunc: String, override val msg: String, detailMsg: String = "")
         extends Error
 
     final case class Validation(validationError: validation.ValidationError) extends Error {
@@ -37,7 +33,8 @@ object Error {
     }
 
     final case class MissingPackages(packageIds: Set[Ref.PackageId]) extends Error {
-      override def msg: String = s"package(s) ${packageIds.mkString(",")} not found"
+      val s = if (packageIds.size <= 1) "" else "s"
+      override def msg: String = s"Couldn't find package$s ${packageIds.mkString(",")}"
     }
     private[engine] object MissingPackage {
       def apply(packageId: Ref.PackageId): MissingPackages = MissingPackages(Set(packageId))

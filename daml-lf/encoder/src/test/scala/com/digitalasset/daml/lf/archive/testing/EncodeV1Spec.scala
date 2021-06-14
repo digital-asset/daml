@@ -160,7 +160,8 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       """
 
       validate(pkgId, pkg)
-      val archive = Encode.encodeArchive(pkgId -> pkg, defaultParserParameters.languageVersion)
+      val archive =
+        Encode.encodeArchive(pkgId -> pkg, defaultParserParameters.languageVersion)
       val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
 
       val pkg1 = normalize(decodedPackage, hashCode, pkgId)
