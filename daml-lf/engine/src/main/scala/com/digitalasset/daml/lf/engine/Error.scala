@@ -29,8 +29,37 @@ object Error {
     //  get rid of Generic
     final case class Generic(override val msg: String) extends Error
 
+    final case class Internal(method: String, override val msg: String, detailMsg: String = "")
+        extends Error
+
     final case class Validation(validationError: validation.ValidationError) extends Error {
       def msg: String = validationError.pretty
+    }
+
+    final case class MissingPackages(packageIds: Set[Ref.PackageId]) extends Error {
+      override def msg: String = s"package(s) ${packageIds.mkString(",")} not found"
+    }
+    private[engine] object MissingPackage {
+      def apply(packageId: Ref.PackageId): MissingPackages = MissingPackages(Set(packageId))
+    }
+
+    final case class AllowedLanguageVersion(
+        packageId: Ref.PackageId,
+        languageVersion: language.LanguageVersion,
+        allowedLanguageVersions: VersionRange[language.LanguageVersion],
+    ) extends Error {
+      def msg: String =
+        s"Disallowed language version in package $packageId: " +
+          s"Expected version between ${allowedLanguageVersions.min.pretty} and ${allowedLanguageVersions.max.pretty} but got ${languageVersion.pretty}"
+    }
+
+    final case class SelfConsistency(
+        packageIds: Set[Ref.PackageId],
+        missingDependencies: Set[Ref.PackageId],
+    ) extends Error {
+      def msg: String =
+        s"The set of packages ${packageIds.mkString("{'", "', '", "'}")} is not self consistent, " +
+          s"the missing dependencies are ${missingDependencies.mkString("{'", "', '", "'}")}."
     }
 
   }

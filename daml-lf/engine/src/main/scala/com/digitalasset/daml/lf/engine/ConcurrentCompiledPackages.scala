@@ -61,7 +61,13 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
         if (!signatures.contains(pkgId)) {
 
           val pkg = state.packages.get(pkgId) match {
-            case None => return ResultError(Error.Package.Generic(s"Could not find package $pkgId"))
+            case None =>
+              return ResultError(
+                Error.Package.Internal(
+                  "com.daml.lf.engine.ConcurrentCompiledPackages#addPackage",
+                  s"broken invariant: Could not find package $pkgId",
+                )
+              )
             case Some(pkg_) => pkg_
           }
 
@@ -72,7 +78,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                 dependency,
                 {
                   case None =>
-                    ResultError(Error.Package.Generic(s"Could not find package $dependency"))
+                    ResultError(Error.Package.MissingPackage(dependency))
                   case Some(dependencyPkg) =>
                     addPackageInternal(
                       AddPackageState(
@@ -102,7 +108,12 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                   .unsafeCompilePackage(pkgId, pkg)
               } catch {
                 case CompilationError(msg) =>
-                  return ResultError(Error.Package.Generic(s"Compilation Error: $msg"))
+                  return ResultError(
+                    Error.Package.Internal(
+                      "com.daml.lf.engine.ConcurrentCompiledPackages#addPackage",
+                      s"Compilation Error: $msg",
+                    )
+                  )
                 case e: validation.ValidationError =>
                   return ResultError(Error.Package.Validation(e))
               }
@@ -142,5 +153,8 @@ object ConcurrentCompiledPackages {
       packages: Map[PackageId, Package], // the packages we're currently compiling
       seenDependencies: Set[PackageId], // the dependencies we've found so far
       toCompile: List[PackageId],
-  )
+  ) {
+    // Invariant
+    // assert(toCompile.forall(packages.contains))
+  }
 }
