@@ -61,7 +61,6 @@ compile_deps = [
     "@maven//:io_opentelemetry_opentelemetry_context",
     "@maven//:org_slf4j_slf4j_api",
     # this oracle import is problematic for daml assistant build
-    "@maven//:com_oracle_database_jdbc_ojdbc8",
 ]
 
 scala_compile_deps = [
@@ -73,6 +72,7 @@ scala_compile_deps = [
     "@maven//:org_scala_lang_modules_scala_collection_compat",
     "@maven//:org_scala_lang_modules_scala_java8_compat",
     "@maven//:org_scalaz_scalaz_core",
+    "@maven//:io_spray_spray_json",
 ]
 
 runtime_deps = [
@@ -148,7 +148,6 @@ da_scala_library(
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:com_h2database_h2",
-        "@maven//:com_oracle_database_jdbc_ojdbc8",
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
@@ -307,7 +306,6 @@ da_scala_test_suite(
     ],
     tags = [] if oracle_testing else ["manual"],
     runtime_deps = [
-        "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
     deps = [
         ":participant-integration-api",

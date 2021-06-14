@@ -4,10 +4,13 @@
 package com.daml.platform.indexer
 
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.ActorSystem
 import akka.pattern.after
 import ch.qos.logback.classic.Level
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.health.HealthStatus.{healthy, unhealthy}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner, TestResourceContext}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.RecoveringIndexerSpec._
@@ -26,9 +29,10 @@ final class RecoveringIndexerSpec
     with Matchers
     with TestResourceContext
     with BeforeAndAfterEach {
-
   private[this] implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
   private[this] var actorSystem: ActorSystem = _
+
+  private val someTimeout = 10.millis
 
   override def beforeEach(): Unit = {
     super.beforeEach()
@@ -46,38 +50,41 @@ final class RecoveringIndexerSpec
   "RecoveringIndexer" should {
     "work when the stream completes" in {
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, 10.millis)
+        RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, someTimeout)
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.millis)
+        SubscribeResult("A", SuccessfullyCompletes, someTimeout, someTimeout)
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
-      resource.asFuture.flatten
-        .transformWith(finallyRelease(resource))
-        .map { _ =>
-          testIndexer.actions shouldBe Seq[IndexerEvent](
-            EventSubscribeCalled("A"),
-            EventSubscribeSuccess("A"),
-            EventStreamComplete("A"),
-            EventStopCalled("A"),
-          )
-          readLog() should contain theSameElementsInOrderAs Seq(
-            Level.INFO -> "Starting Indexer Server",
-            Level.INFO -> "Started Indexer Server",
-            Level.INFO -> "Successfully finished processing state updates",
-            Level.INFO -> "Stopping Indexer Server",
-            Level.INFO -> "Stopped Indexer Server",
-          )
-          testIndexer.openSubscriptions shouldBe mutable.Set.empty
-        }
+      for {
+        (healthReporter, complete) <- resource.asFuture
+        _ <- complete.transformWith(finallyRelease(resource))
+      } yield {
+        testIndexer.actions shouldBe Seq[IndexerEvent](
+          EventSubscribeCalled("A"),
+          EventSubscribeSuccess("A"),
+          EventStreamComplete("A"),
+          EventStopCalled("A"),
+        )
+        readLog() should contain theSameElementsInOrderAs Seq(
+          Level.INFO -> "Starting Indexer Server",
+          Level.INFO -> "Started Indexer Server",
+          Level.INFO -> "Successfully finished processing state updates",
+          Level.INFO -> "Stopping Indexer Server",
+          Level.INFO -> "Stopped Indexer Server",
+        )
+        testIndexer.openSubscriptions shouldBe mutable.Set.empty
+        // When the indexer is shutdown, its status should be unhealthy/not serving
+        healthReporter.currentHealth() shouldBe unhealthy
+      }
     }
 
     "work when the stream is stopped" in {
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, 10.millis)
+        RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, someTimeout)
       // Stream completes after 10s, but is released before that happens
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SuccessfullyCompletes, 10.millis, 10.seconds)
+        SubscribeResult("A", SuccessfullyCompletes, someTimeout, 10.seconds)
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
@@ -85,7 +92,7 @@ final class RecoveringIndexerSpec
       for {
         _ <- akka.pattern.after(100.millis, actorSystem.scheduler)(Future.unit)
         _ <- resource.release()
-        complete <- resource.asFuture
+        (healthReporter, complete) <- resource.asFuture
         _ <- complete
       } yield {
         testIndexer.actions shouldBe Seq[IndexerEvent](
@@ -101,87 +108,144 @@ final class RecoveringIndexerSpec
           Level.INFO -> "Stopped Indexer Server",
         )
         testIndexer.openSubscriptions shouldBe mutable.Set.empty
+        // When the indexer is shutdown, its status should be unhealthy/not serving
+        healthReporter.currentHealth() shouldBe HealthStatus.unhealthy
       }
     }
 
     "wait until the subscription completes" in {
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, 10.millis)
+        RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, someTimeout)
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SuccessfullyCompletes, 100.millis, 10.millis)
+        SubscribeResult("A", SuccessfullyCompletes, 100.millis, someTimeout)
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
-      resource.asFuture
-        .map { complete =>
-          // at this point the read log should at least contain logs informing about a successful indexer server startup
+      for {
+        (healthReporter, complete) <- resource.asFuture
+        _ <- Future {
           readLog().take(2) should contain theSameElementsInOrderAs Seq(
             Level.INFO -> "Starting Indexer Server",
             Level.INFO -> "Started Indexer Server",
           )
-          complete
         }
-        .flatten
-        .transformWith(finallyRelease(resource))
-        .map { _ =>
-          readLog() should contain theSameElementsInOrderAs Seq(
-            Level.INFO -> "Starting Indexer Server",
-            Level.INFO -> "Started Indexer Server",
-            Level.INFO -> "Successfully finished processing state updates",
-            Level.INFO -> "Stopping Indexer Server",
-            Level.INFO -> "Stopped Indexer Server",
-          )
-          testIndexer.openSubscriptions shouldBe mutable.Set.empty
-        }
+        _ <- complete.transformWith(finallyRelease(resource))
+      } yield {
+        readLog() should contain theSameElementsInOrderAs Seq(
+          Level.INFO -> "Starting Indexer Server",
+          Level.INFO -> "Started Indexer Server",
+          Level.INFO -> "Successfully finished processing state updates",
+          Level.INFO -> "Stopping Indexer Server",
+          Level.INFO -> "Stopped Indexer Server",
+        )
+        testIndexer.openSubscriptions shouldBe mutable.Set.empty
+        healthReporter.currentHealth() shouldBe HealthStatus.unhealthy
+      }
     }
 
     "recover from failure" in {
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, 10.millis)
+        RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, someTimeout)
       // Subscribe fails, then the stream fails, then the stream completes without errors.
       val testIndexer = new TestIndexer(
-        SubscribeResult("A", SubscriptionFails, 10.millis, 10.millis),
-        SubscribeResult("B", StreamFails, 10.millis, 10.millis),
-        SubscribeResult("C", SuccessfullyCompletes, 10.millis, 10.millis),
+        SubscribeResult("A", SubscriptionFails, someTimeout, someTimeout),
+        SubscribeResult("B", StreamFails, someTimeout, someTimeout),
+        SubscribeResult("C", SuccessfullyCompletes, someTimeout, someTimeout),
       )
 
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
 
-      resource.asFuture.flatten
-        .transformWith(finallyRelease(resource))
-        .map { _ =>
-          testIndexer.actions shouldBe Seq[IndexerEvent](
-            EventSubscribeCalled("A"),
-            EventSubscribeFail("A"),
-            EventSubscribeCalled("B"),
-            EventSubscribeSuccess("B"),
-            EventStreamFail("B"),
-            EventStopCalled("B"),
-            EventSubscribeCalled("C"),
-            EventSubscribeSuccess("C"),
-            EventStreamComplete("C"),
-            EventStopCalled("C"),
-          )
-          readLog() should contain theSameElementsInOrderAs Seq(
-            Level.INFO -> "Starting Indexer Server",
-            Level.ERROR -> "Error while starting indexer, restart scheduled after 10 milliseconds",
-            Level.INFO -> "Restarting Indexer Server",
-            Level.INFO -> "Restarted Indexer Server",
-            Level.ERROR -> "Error while running indexer, restart scheduled after 10 milliseconds",
-            Level.INFO -> "Restarting Indexer Server",
-            Level.INFO -> "Restarted Indexer Server",
-            Level.INFO -> "Successfully finished processing state updates",
-            Level.INFO -> "Stopping Indexer Server",
-            Level.INFO -> "Stopped Indexer Server",
-          )
-          testIndexer.openSubscriptions shouldBe mutable.Set.empty
-        }
+      for {
+        (_, complete) <- resource.asFuture
+        _ <- complete.transformWith(finallyRelease(resource))
+      } yield {
+        testIndexer.actions shouldBe Seq[IndexerEvent](
+          EventSubscribeCalled("A"),
+          EventSubscribeFail("A"),
+          EventSubscribeCalled("B"),
+          EventSubscribeSuccess("B"),
+          EventStreamFail("B"),
+          EventStopCalled("B"),
+          EventSubscribeCalled("C"),
+          EventSubscribeSuccess("C"),
+          EventStreamComplete("C"),
+          EventStopCalled("C"),
+        )
+        readLog() should contain theSameElementsInOrderAs Seq(
+          Level.INFO -> "Starting Indexer Server",
+          Level.ERROR -> "Error while starting indexer, restart scheduled after 10 milliseconds",
+          Level.INFO -> "Restarting Indexer Server",
+          Level.INFO -> "Restarted Indexer Server",
+          Level.ERROR -> "Error while running indexer, restart scheduled after 10 milliseconds",
+          Level.INFO -> "Restarting Indexer Server",
+          Level.INFO -> "Restarted Indexer Server",
+          Level.INFO -> "Successfully finished processing state updates",
+          Level.INFO -> "Stopping Indexer Server",
+          Level.INFO -> "Stopped Indexer Server",
+        )
+        testIndexer.openSubscriptions shouldBe mutable.Set.empty
+      }
+    }
+
+    "report correct health status updates on failures and recoveries" in {
+      val healthStatusLogCapture = mutable.ArrayBuffer.empty[HealthStatus]
+      val healthStatusRef = new AtomicReference[HealthStatus]()
+
+      val recoveringIndexer =
+        new RecoveringIndexer(
+          actorSystem.scheduler,
+          actorSystem.dispatcher,
+          someTimeout,
+          updateHealthStatus = healthStatus => {
+            healthStatusLogCapture += healthStatus
+            healthStatusRef.set(healthStatus)
+          },
+          () => healthStatusRef.get(),
+        )
+      // Subscribe fails, then the stream fails, then the stream completes without errors.
+      val testIndexer = new TestIndexer(
+        SubscribeResult("A", SubscriptionFails, someTimeout, someTimeout),
+        SubscribeResult("B", StreamFails, someTimeout, someTimeout),
+        SubscribeResult("C", SuccessfullyCompletes, someTimeout, someTimeout),
+      )
+
+      val resource = recoveringIndexer.start(() => testIndexer.subscribe())
+
+      for {
+        (healthReporter, complete) <- resource.asFuture
+        _ <- complete.transformWith(finallyRelease(resource))
+      } yield {
+        testIndexer.actions shouldBe Seq[IndexerEvent](
+          EventSubscribeCalled("A"),
+          EventSubscribeFail("A"),
+          EventSubscribeCalled("B"),
+          EventSubscribeSuccess("B"),
+          EventStreamFail("B"),
+          EventStopCalled("B"),
+          EventSubscribeCalled("C"),
+          EventSubscribeSuccess("C"),
+          EventStreamComplete("C"),
+          EventStopCalled("C"),
+        )
+
+        testIndexer.openSubscriptions shouldBe mutable.Set.empty
+
+        healthStatusLogCapture should contain theSameElementsInOrderAs Seq(
+          unhealthy,
+          healthy,
+          unhealthy,
+          healthy,
+          unhealthy,
+        )
+        // When the indexer is shutdown, its status should be unhealthy/not serving
+        healthReporter.currentHealth() shouldBe HealthStatus.unhealthy
+      }
     }
 
     "respect restart delay" in {
       val restartDelay = 500.millis
       val recoveringIndexer =
-        new RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, restartDelay)
+        RecoveringIndexer(actorSystem.scheduler, actorSystem.dispatcher, restartDelay)
       // Subscribe fails, then the stream completes without errors. Note the restart delay of 500ms.
       val testIndexer = new TestIndexer(
         SubscribeResult("A", SubscriptionFails, 0.millis, 0.millis),
@@ -190,7 +254,8 @@ final class RecoveringIndexerSpec
 
       val t0 = System.nanoTime()
       val resource = recoveringIndexer.start(() => testIndexer.subscribe())
-      resource.asFuture.flatten
+      resource.asFuture
+        .flatMap(_._2)
         .transformWith(finallyRelease(resource))
         .map { _ =>
           val t1 = System.nanoTime()

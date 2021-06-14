@@ -61,7 +61,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
         if (!signatures.contains(pkgId)) {
 
           val pkg = state.packages.get(pkgId) match {
-            case None => return ResultError(Error(s"Could not find package $pkgId"))
+            case None => return ResultError(Error.Package.Generic(s"Could not find package $pkgId"))
             case Some(pkg_) => pkg_
           }
 
@@ -71,7 +71,8 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
               return ResultNeedPackage(
                 dependency,
                 {
-                  case None => ResultError(Error(s"Could not find package $dependency"))
+                  case None =>
+                    ResultError(Error.Package.Generic(s"Could not find package $dependency"))
                   case Some(dependencyPkg) =>
                     addPackageInternal(
                       AddPackageState(
@@ -101,9 +102,9 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                   .unsafeCompilePackage(pkgId, pkg)
               } catch {
                 case CompilationError(msg) =>
-                  return ResultError(Error(s"Compilation Error: $msg"))
+                  return ResultError(Error.Package.Generic(s"Compilation Error: $msg"))
                 case e: validation.ValidationError =>
-                  return ResultError(Error(s"Validation Error: ${e.pretty}"))
+                  return ResultError(Error.Package.Validation(e))
               }
             defns.foreach { case (defnId, defn) =>
               definitions.put(defnId, defn)

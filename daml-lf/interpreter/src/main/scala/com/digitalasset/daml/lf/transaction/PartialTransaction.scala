@@ -17,11 +17,13 @@ import com.daml.lf.transaction.{
   SubmittedTransaction,
   Transaction => Tx,
   TransactionVersion => TxVersion,
+  IncompleteTransaction => TxIncompleteTransaction,
 }
 import com.daml.lf.value.Value
 
 import scala.collection.immutable.HashMap
 import scala.Ordering.Implicits.infixOrderingOps
+import scala.annotation.tailrec
 
 private[lf] object PartialTransaction {
 
@@ -34,6 +36,14 @@ private[lf] object PartialTransaction {
   type NodeIdx = Value.NodeIdx
   type Node = Node.GenNode[NodeId, Value.ContractId]
   type LeafNode = Node.LeafOnlyActionNode[Value.ContractId]
+
+  private type TX = GenTransaction[NodeId, Value.ContractId]
+  private type ExerciseNode = Node.NodeExercises[NodeId, Value.ContractId]
+
+  private final case class IncompleteTxImpl(
+      val transaction: TX,
+      val exerciseContextMaybe: Option[ExerciseNode],
+  ) extends TxIncompleteTransaction
 
   sealed abstract class ContextInfo {
     val actionChildSeed: Int => crypto.Hash
@@ -333,6 +343,28 @@ private[lf] case class PartialTransaction(
         IncompleteTransaction(this)
     }
 
+  // construct an IncompleteTransaction from the partial-transaction
+  def finishIncomplete: TxIncompleteTransaction = {
+
+    @tailrec
+    def unwindToExercise(
+        contextInfo: PartialTransaction.ContextInfo
+    ): Option[PartialTransaction.ExercisesContextInfo] = contextInfo match {
+      case ctx: PartialTransaction.ExercisesContextInfo => Some(ctx)
+      case ctx: PartialTransaction.TryContextInfo =>
+        unwindToExercise(ctx.parent.info)
+      case _: PartialTransaction.RootContextInfo => None
+    }
+
+    IncompleteTxImpl(
+      GenTransaction(
+        nodes,
+        ImmArray(context.children.toImmArray.toSeq.sortBy(_.index)),
+      ),
+      unwindToExercise(context.info).map(makeExNode(_)),
+    )
+  }
+
   /** Extend the 'PartialTransaction' with a node for creating a
     * contract instance.
     */
@@ -572,27 +604,12 @@ private[lf] case class PartialTransaction(
   def endExercises(value: Value[Value.ContractId]): PartialTransaction =
     context.info match {
       case ec: ExercisesContextInfo =>
-        val version = packageToTransactionVersion(ec.templateId.packageId)
-        val exerciseNode = Node.NodeExercises(
-          targetCoid = ec.targetId,
-          templateId = ec.templateId,
-          choiceId = ec.choiceId,
-          optLocation = ec.optLocation,
-          consuming = ec.consuming,
-          actingParties = ec.actingParties,
-          chosenValue = ec.chosenValue,
-          stakeholders = ec.stakeholders,
-          signatories = ec.signatories,
-          choiceObservers = ec.choiceObservers,
-          children = context.children.toImmArray,
-          exerciseResult = Some(value),
-          key = ec.contractKey,
-          byKey = ec.byKey,
-          version = version,
-        )
+        val exerciseNode =
+          makeExNode(ec).copy(children = context.children.toImmArray, exerciseResult = Some(value))
         val nodeId = ec.nodeId
         copy(
-          context = ec.parent.addActionChild(nodeId, version min context.minChildVersion),
+          context =
+            ec.parent.addActionChild(nodeId, exerciseNode.version min context.minChildVersion),
           nodes = nodes.updated(nodeId, exerciseNode),
           actionNodeSeeds = actionNodeSeeds :+ (nodeId -> ec.actionNodeSeed),
         )
@@ -605,33 +622,38 @@ private[lf] case class PartialTransaction(
   def abortExercises: PartialTransaction =
     context.info match {
       case ec: ExercisesContextInfo =>
-        val version = packageToTransactionVersion(ec.templateId.packageId)
-        val exerciseNode = Node.NodeExercises(
-          targetCoid = ec.targetId,
-          templateId = ec.templateId,
-          choiceId = ec.choiceId,
-          optLocation = ec.optLocation,
-          consuming = ec.consuming,
-          actingParties = ec.actingParties,
-          chosenValue = ec.chosenValue,
-          stakeholders = ec.stakeholders,
-          signatories = ec.signatories,
-          choiceObservers = ec.choiceObservers,
-          children = context.children.toImmArray,
-          exerciseResult = None,
-          key = ec.contractKey,
-          byKey = ec.byKey,
-          version = version,
-        )
+        val exerciseNode = makeExNode(ec).copy(children = context.children.toImmArray)
         val nodeId = ec.nodeId
         val actionNodeSeed = context.nextActionChildSeed
         copy(
-          context = ec.parent.addActionChild(nodeId, version min context.minChildVersion),
+          context =
+            ec.parent.addActionChild(nodeId, exerciseNode.version min context.minChildVersion),
           nodes = nodes.updated(nodeId, exerciseNode),
           actionNodeSeeds = actionNodeSeeds :+ (nodeId -> actionNodeSeed),
         )
       case _ => throw new RuntimeException("abortExercises called in non-exercise context")
     }
+
+  private[this] def makeExNode(ec: ExercisesContextInfo): ExerciseNode = {
+    val version = packageToTransactionVersion(ec.templateId.packageId)
+    Node.NodeExercises[NodeId, Value.ContractId](
+      targetCoid = ec.targetId,
+      templateId = ec.templateId,
+      choiceId = ec.choiceId,
+      optLocation = ec.optLocation,
+      consuming = ec.consuming,
+      actingParties = ec.actingParties,
+      chosenValue = ec.chosenValue,
+      stakeholders = ec.stakeholders,
+      signatories = ec.signatories,
+      choiceObservers = ec.choiceObservers,
+      children = ImmArray(Nil),
+      exerciseResult = None,
+      key = ec.contractKey,
+      byKey = ec.byKey,
+      version = version,
+    )
+  }
 
   /** Open a Try context.
     *  Must be closed by `endTry`, `abortTry`, or `rollbackTry`.

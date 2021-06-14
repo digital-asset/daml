@@ -11,7 +11,6 @@ import akka.{Done, NotUsed}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.index.BuffersUpdater._
-import com.daml.platform.store.appendonlydao.EventSequentialId
 import com.daml.platform.store.appendonlydao.events.{Contract, Key, Party}
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -48,7 +47,7 @@ private[index] class BuffersUpdater(
   private val logger = ContextualizedLogger.get(getClass)
 
   private[index] val updaterIndex = new AtomicReference(
-    Offset.beforeBegin -> EventSequentialId.beforeBegin
+    Offset.beforeBegin -> 0L // TODO: append-only: FIXME consolidating parameters table
   )
 
   private val (transactionLogUpdatesKillSwitch, transactionLogUpdatesDone) =

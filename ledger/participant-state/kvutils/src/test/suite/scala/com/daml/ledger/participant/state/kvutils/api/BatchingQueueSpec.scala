@@ -46,7 +46,7 @@ class BatchingQueueSpec
         res <- queue.offer(correlatedSubmission)
       } yield {
         res should be(SubmissionResult.Acknowledged)
-        eventually {
+        eventually(Timeout(1.second)) {
           queue.state should be(RunningBatchingQueueState.Failed)
         }
       }

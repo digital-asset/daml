@@ -16,7 +16,12 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin.checkAborted
-import com.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
+import com.daml.lf.transaction.{
+  ContractKeyUniquenessMode,
+  Node,
+  IncompleteTransaction,
+  TransactionVersion,
+}
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
@@ -109,7 +114,7 @@ private[lf] object Speedy {
       val validating: Boolean,
       val contractKeyUniqueness: ContractKeyUniquenessMode,
       /* The current partial transaction */
-      var ptx: PartialTransaction,
+      private[speedy] var ptx: PartialTransaction,
       /* Committers of the action. */
       var committers: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
@@ -119,7 +124,12 @@ private[lf] object Speedy {
       // global contract discriminators, that are discriminators from contract created in previous transactions
       var globalDiscriminators: Set[crypto.Hash],
       var cachedContracts: Map[V.ContractId, CachedContract],
-  ) extends LedgerMode
+  ) extends LedgerMode {
+
+    private[lf] def ptxInternal: PartialTransaction = ptx //deprecated
+    private[lf] def incompleteTransaction(): IncompleteTransaction = ptx.finishIncomplete
+
+  }
 
   private[lf] final case object OffLedger extends LedgerMode
 

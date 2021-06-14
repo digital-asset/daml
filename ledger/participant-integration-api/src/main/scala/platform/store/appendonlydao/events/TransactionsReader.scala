@@ -23,9 +23,8 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics._
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.ApiOffset
-import com.daml.platform.store.DbType
-import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream}
+import com.daml.platform.store.backend.StorageBackend
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.ContractStateEvent
 import com.daml.platform.store.interfaces.TransactionLogUpdate
@@ -40,32 +39,34 @@ import scala.util.{Failure, Success}
 /** @param dispatcher Executes the queries prepared by this object
   * @param executionContext Runs transformations on data fetched from the database, including Daml-LF value deserialization
   * @param pageSize The number of events to fetch at a time the database when serving streaming calls
+  * @param eventProcessingParallelism The parallelism for loading and decoding state events
   * @param lfValueTranslation The delegate in charge of translating serialized Daml-LF values
   * @see [[PaginatingAsyncStream]]
   */
 private[appendonlydao] final class TransactionsReader(
     dispatcher: DbDispatcher,
-    dbType: DbType,
+    queryNonPruned: QueryNonPruned,
+    storageBackend: StorageBackend[_],
     pageSize: Int,
+    eventProcessingParallelism: Int,
     metrics: Metrics,
     lfValueTranslation: LfValueTranslation,
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
   private val dbMetrics = metrics.daml.index.db
-
-  private val sqlFunctions = SqlFunctions(dbType)
+  private val eventSeqIdReader =
+    new EventsRange.EventSeqIdReader(storageBackend.maxEventSeqIdForOffset)
+  private val getTransactions =
+    new EventsTableFlatEventsRangeQueries.GetTransactions(storageBackend)
+  private val getActiveContracts =
+    new EventsTableFlatEventsRangeQueries.GetActiveContracts(storageBackend)
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   // TransactionReader adds an Akka stream buffer at the end of all streaming queries.
   // This significantly improves the performance of the transaction service.
   private val outputStreamBufferSize = 128
-
-  // TODO: make this parameter configurable
-  private val ContractStateEventsStreamParallelismLevel = 4
-
-  private val TransactionEventsFetchParallelism = 8
 
   private val MinParallelFetchChunkSize = 10
 
@@ -85,6 +86,7 @@ private[appendonlydao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[EventsTable.Entry[E]] =
     deserializeEvent(verbose)(entry).map(event => entry.copy(event = event))
 
+  // TODO append-only: as consolidating event queries, consider consolidating functionality serving the flatTransactions and transactionTrees
   override def getFlatTransactions(
       startExclusive: Offset,
       endInclusive: Offset,
@@ -100,14 +102,12 @@ private[appendonlydao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
         logger.debug(s"getFlatTransactions query($range)")
-        QueryNonPruned.executeSqlOrThrow(
-          EventsTableFlatEvents
-            .preparePagedGetFlatTransactions(sqlFunctions)(
-              range = EventsRange(range.startExclusive._2, range.endInclusive._2),
-              filter = filter,
-              pageSize = pageSize,
-            )
-            .executeSql,
+        queryNonPruned.executeSqlOrThrow(
+          getTransactions(
+            EventsRange(range.startExclusive._2, range.endInclusive._2),
+            filter,
+            pageSize,
+          ).executeSql,
           range.startExclusive._1,
           pruned =>
             s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
@@ -147,16 +147,14 @@ private[appendonlydao] final class TransactionsReader(
   override def lookupFlatTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] = {
-    val query =
-      EventsTableFlatEvents.prepareLookupFlatTransactionById(sqlFunctions)(
-        transactionId,
-        requestingParties,
-      )
+  )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     dispatcher
-      .executeSql(dbMetrics.lookupFlatTransactionById) { implicit connection =>
-        query.asVectorOf(EventsTableFlatEvents.rawFlatEventParser)
-      }
+      .executeSql(dbMetrics.lookupFlatTransactionById)(
+        route(requestingParties)(
+          single = storageBackend.flatTransactionSingleParty(transactionId, _) _,
+          multi = storageBackend.flatTransactionMultiParty(transactionId, _) _,
+        )
+      )
       .flatMap(rawEvents =>
         Timed.value(
           timer = dbMetrics.lookupFlatTransactionById.translationTimer,
@@ -164,7 +162,6 @@ private[appendonlydao] final class TransactionsReader(
         )
       )
       .map(EventsTable.Entry.toGetFlatTransactionResponse)
-  }
 
   override def getTransactionTrees(
       startExclusive: Offset,
@@ -185,14 +182,35 @@ private[appendonlydao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
         logger.debug(s"getTransactionTrees query($range)")
-        QueryNonPruned.executeSqlOrThrow(
-          EventsTableTreeEvents
-            .preparePagedGetTransactionTrees(sqlFunctions)(
-              eventsRange = EventsRange(range.startExclusive._2, range.endInclusive._2),
-              requestingParties = requestingParties,
-              pageSize = pageSize,
-            )
-            .executeSql,
+        queryNonPruned.executeSqlOrThrow(
+          route(requestingParties)(
+            single = party =>
+              EventsRange.readPage(
+                read = (range, limit, fetchSizeHint) =>
+                  storageBackend.transactionTreeEventsSingleParty(
+                    startExclusive = range.startExclusive,
+                    endInclusive = range.endInclusive,
+                    requestingParty = party,
+                    limit = limit,
+                    fetchSizeHint = fetchSizeHint,
+                  ),
+                range = EventsRange(range.startExclusive._2, range.endInclusive._2),
+                pageSize = pageSize,
+              ),
+            multi = parties =>
+              EventsRange.readPage(
+                read = (range, limit, fetchSizeHint) =>
+                  storageBackend.transactionTreeEventsMultiParty(
+                    startExclusive = range.startExclusive,
+                    endInclusive = range.endInclusive,
+                    requestingParties = parties,
+                    limit = limit,
+                    fetchSizeHint = fetchSizeHint,
+                  ),
+                range = EventsRange(range.startExclusive._2, range.endInclusive._2),
+                pageSize = pageSize,
+              ),
+          ).executeSql,
           range.startExclusive._1,
           pruned =>
             s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
@@ -232,16 +250,14 @@ private[appendonlydao] final class TransactionsReader(
   override def lookupTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] = {
-    val query =
-      EventsTableTreeEvents.prepareLookupTransactionTreeById(sqlFunctions)(
-        transactionId,
-        requestingParties,
-      )
+  )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     dispatcher
-      .executeSql(dbMetrics.lookupTransactionTreeById) { implicit connection =>
-        query.asVectorOf(EventsTableTreeEvents.rawTreeEventParser)
-      }
+      .executeSql(dbMetrics.lookupTransactionTreeById)(
+        route(requestingParties)(
+          single = storageBackend.transactionTreeSingleParty(transactionId, _) _,
+          multi = storageBackend.transactionTreeMultiParty(transactionId, _) _,
+        )
+      )
       .flatMap(rawEvents =>
         Timed.value(
           timer = dbMetrics.lookupTransactionTreeById.translationTimer,
@@ -249,7 +265,6 @@ private[appendonlydao] final class TransactionsReader(
         )
       )
       .map(EventsTable.Entry.toGetTransactionResponse)
-  }
 
   override def getTransactionLogUpdates(
       startExclusive: (Offset, Long),
@@ -270,16 +285,19 @@ private[appendonlydao] final class TransactionsReader(
           .splitRange(
             startExclusive._2,
             endInclusive._2,
-            TransactionEventsFetchParallelism,
+            eventProcessingParallelism,
             MinParallelFetchChunkSize,
           )
           .iterator
       )
       // Dispatch database fetches in parallel
-      .mapAsync(TransactionEventsFetchParallelism) { range =>
+      .mapAsync(eventProcessingParallelism) { range =>
         dispatcher.executeSql(dbMetrics.getTransactionLogUpdates) { implicit conn =>
-          QueryNonPruned.executeSqlOrThrow(
-            query = TransactionLogUpdatesReader.readRawEvents(range),
+          queryNonPruned.executeSqlOrThrow(
+            query = storageBackend.rawEvents(
+              startExclusive = range.startExclusive,
+              endInclusive = range.endInclusive,
+            )(conn),
             minOffsetExclusive = startExclusive._1,
             error = pruned =>
               s"Active contracts request after ${startExclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
@@ -288,7 +306,7 @@ private[appendonlydao] final class TransactionsReader(
       }
       .flatMapConcat(v => Source.fromIterator(() => v.iterator))
       // Decode transaction log updates in parallel
-      .mapAsync(TransactionEventsFetchParallelism) { raw =>
+      .mapAsync(eventProcessingParallelism) { raw =>
         Timed.future(
           metrics.daml.index.decodeTransactionLogUpdate,
           Future(TransactionLogUpdatesReader.toTransactionEvent(raw)),
@@ -337,14 +355,12 @@ private[appendonlydao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
         logger.debug(s"getActiveContracts query($range)")
-        QueryNonPruned.executeSqlOrThrow(
-          EventsTableFlatEvents
-            .preparePagedGetActiveContracts(sqlFunctions)(
-              range = range,
-              filter = filter,
-              pageSize = pageSize,
-            )
-            .executeSql,
+        queryNonPruned.executeSqlOrThrow(
+          getActiveContracts(
+            range,
+            filter,
+            pageSize,
+          ).executeSql,
           activeAt,
           pruned =>
             s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",
@@ -381,8 +397,10 @@ private[appendonlydao] final class TransactionsReader(
 
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
-        QueryNonPruned.executeSqlOrThrow(
-          ContractStateEventsReader.readRawEvents(range),
+        queryNonPruned.executeSqlOrThrow(
+          storageBackend.contractStateEvents(range.startExclusive._2, range.endInclusive._2)(
+            connection
+          ),
           range.startExclusive._1,
           pruned =>
             s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
@@ -401,7 +419,7 @@ private[appendonlydao] final class TransactionsReader(
       query,
       nextPageRangeContracts(endInclusive),
     )(EventsRange(startExclusive, endInclusive)).async
-      .mapAsync(ContractStateEventsStreamParallelismLevel) { raw =>
+      .mapAsync(eventProcessingParallelism) { raw =>
         Timed.future(
           metrics.daml.index.decodeStateEvent,
           Future(ContractStateEventsReader.toContractStateEvent(raw, lfValueTranslation)),
@@ -419,7 +437,7 @@ private[appendonlydao] final class TransactionsReader(
     EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
 
   private def nextPageRangeContracts(endEventSeqId: (Offset, Long))(
-      raw: ContractStateEventsReader.RawContractStateEvent
+      raw: StorageBackend.RawContractStateEvent
   ): EventsRange[(Offset, Long)] =
     EventsRange(
       startExclusive = (raw.offset, raw.eventSequentialId),
@@ -431,8 +449,8 @@ private[appendonlydao] final class TransactionsReader(
   ): Future[EventsRange[(Offset, Long)]] =
     dispatcher
       .executeSql(dbMetrics.getAcsEventSeqIdRange)(implicit connection =>
-        QueryNonPruned.executeSql(
-          EventsRange.readEventSeqIdRange(activeAt)(connection),
+        queryNonPruned.executeSql(
+          eventSeqIdReader.readEventSeqIdRange(activeAt)(connection),
           activeAt,
           pruned =>
             s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",
@@ -452,8 +470,10 @@ private[appendonlydao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[EventsRange[(Offset, Long)]] =
     dispatcher
       .executeSql(dbMetrics.getEventSeqIdRange)(implicit connection =>
-        QueryNonPruned.executeSql(
-          EventsRange.readEventSeqIdRange(EventsRange(startExclusive, endInclusive))(connection),
+        queryNonPruned.executeSql(
+          eventSeqIdReader.readEventSeqIdRange(EventsRange(startExclusive, endInclusive))(
+            connection
+          ),
           startExclusive,
           pruned =>
             s"Transactions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
@@ -498,14 +518,14 @@ private[appendonlydao] final class TransactionsReader(
   private def streamContractStateEvents(
       queryMetric: DatabaseMetrics,
       query: EventsRange[(Offset, Long)] => Connection => Vector[
-        ContractStateEventsReader.RawContractStateEvent
+        StorageBackend.RawContractStateEvent
       ],
-      getNextPageRange: ContractStateEventsReader.RawContractStateEvent => EventsRange[
+      getNextPageRange: StorageBackend.RawContractStateEvent => EventsRange[
         (Offset, Long)
       ],
   )(range: EventsRange[(Offset, Long)])(implicit
       loggingContext: LoggingContext
-  ): Source[ContractStateEventsReader.RawContractStateEvent, NotUsed] =
+  ): Source[StorageBackend.RawContractStateEvent, NotUsed] =
     PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
       if (EventsRange.isEmpty(range1))
         Future.successful(Vector.empty)

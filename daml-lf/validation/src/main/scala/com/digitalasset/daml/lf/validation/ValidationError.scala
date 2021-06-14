@@ -151,7 +151,6 @@ case object URBigNumeric extends UnserializabilityReason {
 
 abstract class ValidationError extends java.lang.RuntimeException with Product with Serializable {
   def context: Context
-  override def toString: String = productPrefix + productIterator.mkString("(", ", ", ")")
   def pretty: String = s"validation error in ${context.pretty}: $prettyInternal"
   override def getMessage: String = pretty
   protected def prettyInternal: String

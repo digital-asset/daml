@@ -24,7 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * wrap events from the database while delaying deserialization
   * so that it doesn't happen on the database thread pool.
   */
-private[events] sealed trait Raw[+E] {
+sealed trait Raw[+E] {
 
   /** Fill the blanks left in the raw event by running
     * the deserialization on contained values.
@@ -42,13 +42,14 @@ private[events] sealed trait Raw[+E] {
 
 }
 
-private[events] object Raw {
+// TODO append-only: FIXME move
+object Raw {
 
   /** Since created events can be both a flat event or a tree event
     * we share common code between the two variants here. What's left
     * out is wrapping the result in the proper envelope.
     */
-  private[events] sealed abstract class Created[E](
+  sealed abstract class Created[E](
       val partial: PbCreatedEvent,
       val createArgument: InputStream,
       val createArgumentCompression: Compression.Algorithm,
@@ -67,7 +68,7 @@ private[events] object Raw {
       lfValueTranslation.deserialize(this, verbose).map(wrapInEvent)
   }
 
-  private object Created {
+  object Created {
     def apply(
         eventId: String,
         contractId: String,

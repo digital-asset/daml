@@ -43,18 +43,19 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
     window.location.assign(`https://login.projectdabl.com/auth/login?ledgerId=${ledgerId}`);
   }
 
+  const getCookieValue = (name: string): string => (
+    document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)')?.pop() || ''
+  )
+
   useEffect(() => {
     const url = new URL(window.location.toString());
-    const token = url.searchParams.get('token');
-    if (token === null) {
-      return;
-    }
     const party = url.searchParams.get('party');
     if (party === null) {
-      throw Error("When 'token' is passed via URL, 'party' must be passed too.");
+      return;
     }
     url.search = '';
     window.history.replaceState(window.history.state, '', url.toString());
+    const token = getCookieValue('DAMLHUB_LEDGER_ACCESS_TOKEN');
     login({token, party, ledgerId});
   }, [login]);
 

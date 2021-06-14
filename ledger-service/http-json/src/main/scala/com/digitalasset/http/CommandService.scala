@@ -22,6 +22,7 @@ import com.daml.http.util.{Commands, Transactions}
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
+import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
@@ -48,7 +49,7 @@ class CommandService(
   ): Future[Error \/ ActiveContract[lav1.value.Value]] = {
     logger.trace("sending create command to ledger")
     val command = createCommand(input)
-    val request = submitAndWaitRequest(jwtPayload, input.meta, command)
+    val request = submitAndWaitRequest(jwtPayload, input.meta, command, "create")
     val et: ET[ActiveContract[lav1.value.Value]] = for {
       response <- rightT(logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request)))
       contract <- either(exactlyOneActiveContract(response))
@@ -65,7 +66,7 @@ class CommandService(
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
     logger.trace("sending exercise command to ledger")
     val command = exerciseCommand(input)
-    val request = submitAndWaitRequest(jwtPayload, input.meta, command)
+    val request = submitAndWaitRequest(jwtPayload, input.meta, command, "exercise")
 
     val et: ET[ExerciseResponse[lav1.value.Value]] = for {
       response <- rightT(
@@ -87,7 +88,7 @@ class CommandService(
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
     logger.trace("sending create and exercise command to ledger")
     val command = createAndExerciseCommand(input)
-    val request = submitAndWaitRequest(jwtPayload, input.meta, command)
+    val request = submitAndWaitRequest(jwtPayload, input.meta, command, "createAndExercise")
     val et: ET[ExerciseResponse[lav1.value.Value]] = for {
       response <- rightT(
         logResult(Symbol("createAndExercise"), submitAndWaitForTransactionTree(jwt, request))
@@ -102,9 +103,10 @@ class CommandService(
   private def logResult[A](op: Symbol, fa: Future[A])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[A] = {
+    val opName = op.name
     fa.onComplete {
-      case Failure(e) => logger.error(s"$op failure", e)
-      case Success(a) => logger.debug(s"$op success: $a")
+      case Failure(e) => logger.error(s"$opName failure", e)
+      case Success(a) => logger.debug(s"$opName success: $a")
     }
     fa
   }
@@ -150,18 +152,28 @@ class CommandService(
       jwtPayload: JwtWritePayload,
       meta: Option[domain.CommandMeta],
       command: lav1.commands.Command.Command,
+      commandKind: String,
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): lav1.command_service.SubmitAndWaitRequest = {
-
     val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
-
-    Commands.submitAndWaitRequest(
-      jwtPayload.ledgerId,
-      jwtPayload.applicationId,
-      commandId,
-      jwtPayload.actAs,
-      jwtPayload.readAs,
-      command,
+    withEnrichedLoggingContext(
+      label[lar.CommandId],
+      Map("command_id" -> commandId.toString),
     )
+      .run { implicit lc =>
+        logger.info(
+          s"Submitting $commandKind command"
+        )
+        Commands.submitAndWaitRequest(
+          jwtPayload.ledgerId,
+          jwtPayload.applicationId,
+          commandId,
+          jwtPayload.actAs,
+          jwtPayload.readAs,
+          command,
+        )
+      }
   }
 
   private def exactlyOneActiveContract(

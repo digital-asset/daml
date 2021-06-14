@@ -15,7 +15,6 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.appendonlydao.EventSequentialId
 import com.daml.platform.store.cache.ContractKeyStateValue._
 import com.daml.platform.store.cache.ContractStateValue._
 import com.daml.platform.store.cache.MutableCacheBackedContractStore._
@@ -390,7 +389,9 @@ object MutableCacheBackedContractStore {
 
   private[cache] class CacheIndex {
     private val offsetRef =
-      new AtomicReference(Offset.beforeBegin -> EventSequentialId.beforeBegin)
+      new AtomicReference(
+        Offset.beforeBegin -> 0L
+      ) // TODO append-only: FIXME parameters table consolidation
 
     def set(offset: Offset, sequentialId: EventSequentialId): Unit =
       offsetRef.set(offset -> sequentialId)

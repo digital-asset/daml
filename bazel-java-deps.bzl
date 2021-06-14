@@ -63,6 +63,7 @@ def install_java_deps():
             "commons-io:commons-io:2.5",
             "com.oracle.database.jdbc:ojdbc8:19.8.0.0",
             "com.sparkjava:spark-core:2.9.1",
+            "com.oracle.database.jdbc.debug:ojdbc8_g:19.8.0.0",
             "com.squareup:javapoet:1.11.1",
             "com.storm-enroute:scalameter_{}:0.19".format(scala_major_version),
             "com.storm-enroute:scalameter-core_{}:0.19".format(scala_major_version),
