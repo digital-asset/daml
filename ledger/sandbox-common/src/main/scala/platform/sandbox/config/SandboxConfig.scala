@@ -46,6 +46,7 @@ final case class SandboxConfig(
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: FiniteDuration,
     eventsPageSize: Int,
+    eventsProcessingParallelism: Int,
     lfValueTranslationEventCacheConfiguration: SizedCache.Configuration,
     lfValueTranslationContractCacheConfiguration: SizedCache.Configuration,
     profileDir: Option[Path],
@@ -66,6 +67,7 @@ object SandboxConfig {
   val DefaultDatabaseConnectionTimeout: FiniteDuration = 250.millis
 
   val DefaultEventsPageSize: Int = 1000
+  val DefaultEventsProcessingParallelism: Int = 8
 
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
 
@@ -104,6 +106,7 @@ object SandboxConfig {
       metricsReporter = None,
       metricsReportingInterval = 10.seconds,
       eventsPageSize = DefaultEventsPageSize,
+      eventsProcessingParallelism = DefaultEventsProcessingParallelism,
       lfValueTranslationEventCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       profileDir = None,

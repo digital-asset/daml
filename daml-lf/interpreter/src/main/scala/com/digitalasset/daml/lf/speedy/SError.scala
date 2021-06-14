@@ -78,6 +78,12 @@ object SError {
       stakeholders: Set[Party],
   ) extends SErrorDamlException
 
+  /** Fetch-by-key failed
+    */
+  final case class DamlEContractKeyNotFound(
+      key: GlobalKey
+  ) extends SErrorDamlException
+
   /** Two contracts with the same key were active at the same time.
     * See com.daml.lf.transaction.Transaction.DuplicateContractKey
     * for more details.

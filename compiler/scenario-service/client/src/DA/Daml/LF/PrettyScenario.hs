@@ -328,6 +328,18 @@ prettyScenarioErrorError (Just err) =  do
         , label_ "Stakeholders:"
             $ prettyParties scenarioError_ContractKeyNotVisibleStakeholders
         ]
+    ScenarioErrorErrorScenarioContractKeyNotFound ScenarioError_ContractKeyNotFound{..} ->
+      pure $ vcat
+        [ "Attempt to fetch or exercise by key but no contract with that key was found."
+        , label_ "Template:"
+            $ prettyMay "<missing template id>"
+                (prettyDefName world)
+                scenarioError_ContractKeyNotFoundTemplateId
+        , label_ "Key: "
+          $ prettyMay "<missing key>"
+              (prettyValue' False 0 world)
+              scenarioError_ContractKeyNotFoundKey
+        ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =

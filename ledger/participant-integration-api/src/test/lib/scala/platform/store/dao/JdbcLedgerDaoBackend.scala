@@ -42,7 +42,10 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
 
   protected def enableAppendOnlySchema: Boolean
 
-  protected def daoOwner(eventsPageSize: Int)(implicit
+  protected def daoOwner(
+      eventsPageSize: Int,
+      eventsProcessingParallelism: Int,
+  )(implicit
       loggingContext: LoggingContext
   ): ResourceOwner[LedgerDao] =
     if (!enableAppendOnlySchema) {
@@ -69,6 +72,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         connectionPoolSize = 16,
         connectionTimeout = 250.millis,
         eventsPageSize = eventsPageSize,
+        eventsProcessingParallelism = eventsProcessingParallelism,
         servicesExecutionContext = executionContext,
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
@@ -92,7 +96,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         _ <- Resource.fromFuture(
           new FlywayMigrations(jdbcUrl).migrate(enableAppendOnlySchema = enableAppendOnlySchema)
         )
-        dao <- daoOwner(100).acquire()
+        dao <- daoOwner(100, 4).acquire()
         _ <- Resource.fromFuture(dao.initializeLedger(TestLedgerId))
         _ <- Resource.fromFuture(dao.initializeParticipantId(TestParticipantId))
       } yield dao

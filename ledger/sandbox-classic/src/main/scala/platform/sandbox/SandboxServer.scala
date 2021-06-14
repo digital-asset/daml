@@ -251,7 +251,9 @@ final class SandboxServer(
             },
           )
           .left
-          .foreach(err => sys.error(err.detailMsg))
+          // TODO https://github.com/digital-asset/daml/issues/9974
+          //  Review how the error is displayed once LF errors are properly structured
+          .foreach(err => sys.error(err.msg))
       }
     }
     config.scenario match {
@@ -328,6 +330,7 @@ final class SandboxServer(
             transactionCommitter = transactionCommitter,
             templateStore = packageStore,
             eventsPageSize = config.eventsPageSize,
+            eventsProcessingParallelism = config.eventsProcessingParallelism,
             servicesExecutionContext = servicesExecutionContext,
             metrics = metrics,
             lfValueTranslationCache = lfValueTranslationCache,

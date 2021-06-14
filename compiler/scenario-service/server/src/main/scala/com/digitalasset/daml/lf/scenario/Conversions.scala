@@ -6,18 +6,17 @@ package com.daml.lf.scenario
 import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
-import com.daml.lf.speedy.{SError, SValue, PartialTransaction => SPartialTransaction, TraceLog}
-import com.daml.lf.transaction.{GlobalKey, Node => N, NodeId}
+import com.daml.lf.speedy.{SError, SValue, TraceLog}
+import com.daml.lf.transaction.{GlobalKey, IncompleteTransaction, Node => N, NodeId}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
 
-import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 
 final class Conversions(
     homePackageId: Ref.PackageId,
     ledger: ScenarioLedger,
-    ptx: SPartialTransaction,
+    incomplete: IncompleteTransaction,
     traceLog: TraceLog,
     commitLocation: Option[Ref.Location],
     stackTrace: ImmArray[Ref.Location],
@@ -30,7 +29,7 @@ final class Conversions(
 
   // The ledger data will not contain information from the partial transaction at this point.
   // We need the mapping for converting error message so we manually add it here.
-  private val ptxCoidToNodeId = ptx.nodes
+  private val ptxCoidToNodeId = incomplete.transaction.nodes
     .collect { case (nodeId, node: N.NodeCreate[V.ContractId]) =>
       node.coid -> ledger.ptxEventId(nodeId)
     }
@@ -77,7 +76,7 @@ final class Conversions(
     builder.addAllStackTrace(stackTrace.map(convertLocation).toSeq.asJava)
 
     builder.setPartialTransaction(
-      convertPartialTransaction(ptx)
+      convertPartialTransaction(incomplete)
     )
 
     err match {
@@ -181,6 +180,14 @@ final class Conversions(
             .addAllActAs(actAs.map(convertParty(_)).asJava)
             .addAllReadAs(readAs.map(convertParty(_)).asJava)
             .addAllStakeholders(stakeholders.map(convertParty).asJava)
+            .build
+        )
+
+      case SError.DamlEContractKeyNotFound(gk) =>
+        builder.setScenarioContractKeyNotFound(
+          proto.ScenarioError.ContractKeyNotFound.newBuilder
+            .setTemplateId(convertIdentifier(gk.templateId))
+            .setKey(convertValue(gk.key))
             .build
         )
 
@@ -401,29 +408,19 @@ final class Conversions(
       .build
   }
 
-  def convertPartialTransaction(ptx: SPartialTransaction): proto.PartialTransaction = {
+  def convertPartialTransaction(incomplete: IncompleteTransaction): proto.PartialTransaction = {
+    val tx = incomplete.transaction
+
     val builder = proto.PartialTransaction.newBuilder
-      .addAllNodes(ptx.nodes.map(convertNode).asJava)
-      .addAllRoots(
-        ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava
-      )
+      .addAllNodes(tx.nodes.map(convertNode).asJava)
+      .addAllRoots(tx.roots.toList.map(convertTxNodeId).asJava)
 
-    @tailrec
-    def unwindToExercise(
-        contextInfo: SPartialTransaction.ContextInfo
-    ): Option[SPartialTransaction.ExercisesContextInfo] = contextInfo match {
-      case ctx: SPartialTransaction.ExercisesContextInfo => Some(ctx)
-      case ctx: SPartialTransaction.TryContextInfo =>
-        unwindToExercise(ctx.parent.info)
-      case _: SPartialTransaction.RootContextInfo => None
-    }
-
-    unwindToExercise(ptx.context.info).foreach { ctx =>
+    incomplete.exerciseContextMaybe.foreach { exe =>
       val ecBuilder = proto.ExerciseContext.newBuilder
-        .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
-        .setChoiceId(ctx.choiceId)
-        .setChosenValue(convertValue(ctx.chosenValue))
-      ctx.optLocation.map(loc => ecBuilder.setExerciseLocation(convertLocation(loc)))
+        .setTargetId(mkContractRef(exe.targetCoid, exe.templateId))
+        .setChoiceId(exe.choiceId)
+        .setChosenValue(convertValue(exe.chosenValue))
+      exe.optLocation.map(loc => ecBuilder.setExerciseLocation(convertLocation(loc)))
       builder.setExerciseContext(ecBuilder.build)
     }
     builder.build

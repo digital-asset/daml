@@ -16,7 +16,7 @@ import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
 import java.nio.file.Files
 
-import com.daml.lf.language.{LanguageVersion, Interface}
+import com.daml.lf.language.{Interface, LanguageVersion}
 import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value.ContractId
 
@@ -212,7 +212,10 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       validationResult <-
         transaction.Validation
           .isReplayedBy(tx, rtx)
-          .fold(e => ResultError(ReplayMismatch(e)), _ => ResultDone.Unit)
+          .fold(
+            e => ResultError(Error.Validation.ReplayMismatch(e)),
+            _ => ResultDone.Unit,
+          )
     } yield validationResult
   }
 
@@ -225,7 +228,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
             case Some(pkg) =>
               compiledPackages.addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
             case None =>
-              ResultError(Error(s"package $pkgId not found"))
+              ResultError(Error.Package.Generic(s"package $pkgId not found"))
           },
         )
       case Nil =>
@@ -243,7 +246,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         case speedy.Compiler.PackageNotFound(_) =>
           handleMissingDependencies.flatMap(_ => start)
         case speedy.Compiler.CompilationError(error) =>
-          ResultError(Error(s"CompilationError: $error"))
+          ResultError(Error.Package.Generic(s"CompilationError: $error"))
       }
     start
   }
@@ -296,13 +299,16 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         case SResultError(SError.DamlEDuplicateContractKey(key)) =>
           // Special-cased because duplicate key errors
           // produce a different gRPC error code.
-          return ResultError(DuplicateContractKey(key))
+          return ResultError(Error.Interpretation(Error.Interpretation.DuplicateContractKey(key)))
+
+        case SResultError(SError.DamlEContractKeyNotFound(key)) =>
+          return ResultError(Error.Interpretation.ContractKeyNotFound(key))
 
         case SResultError(err) =>
           return ResultError(
-            Error(
-              s"Interpretation error: ${Pretty.prettyError(err, onLedger.ptx).render(80)}",
-              s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptx.nodesToString}",
+            Error.Interpretation.Generic(
+              s"Interpretation error: ${Pretty.prettyError(err, onLedger.ptxInternal).render(80)}",
+              s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptxInternal.nodesToString}",
             )
           )
 
@@ -337,7 +343,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
               if (cb(SKeyLookupResult(result)))
                 interpretLoop(machine, time)
               else
-                ResultError(Error(s"dependency error: couldn't find key ${gk.globalKey}")),
+                ResultError(Error.Interpretation.ContractKeyNotFound(gk.globalKey)),
           )
 
         case SResultNeedLocalKeyVisible(stakeholders, _, cb) =>
@@ -350,27 +356,27 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           )
 
         case _: SResultScenarioCommit =>
-          return ResultError(Error("unexpected ScenarioCommit"))
+          return ResultError(Error.Interpretation.Generic("unexpected ScenarioCommit"))
 
         case _: SResultScenarioInsertMustFail =>
-          return ResultError(Error("unexpected ScenarioInsertMustFail"))
+          return ResultError(Error.Interpretation.Generic("unexpected ScenarioInsertMustFail"))
         case _: SResultScenarioMustFail =>
-          return ResultError(Error("unexpected ScenarioMustFail"))
+          return ResultError(Error.Interpretation.Generic("unexpected ScenarioMustFail"))
         case _: SResultScenarioPassTime =>
-          return ResultError(Error("unexpected ScenarioPassTime"))
+          return ResultError(Error.Interpretation.Generic("unexpected ScenarioPassTime"))
         case _: SResultScenarioGetParty =>
-          return ResultError(Error("unexpected ScenarioGetParty"))
+          return ResultError(Error.Interpretation.Generic("unexpected ScenarioGetParty"))
       }
     }
 
-    onLedger.ptx.finish match {
+    onLedger.ptxInternal.finish match {
       case PartialTransaction.CompleteTransaction(tx) =>
         val meta = Tx.Metadata(
           submissionSeed = None,
-          submissionTime = onLedger.ptx.submissionTime,
+          submissionTime = onLedger.ptxInternal.submissionTime,
           usedPackages = Set.empty,
           dependsOnTime = onLedger.dependsOnTime,
-          nodeSeeds = onLedger.ptx.actionNodeSeeds.toImmArray,
+          nodeSeeds = onLedger.ptxInternal.actionNodeSeeds.toImmArray,
         )
         config.profileDir.foreach { dir =>
           val desc = Engine.profileDesc(tx)
@@ -380,7 +386,9 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         }
         ResultDone((tx, meta))
       case PartialTransaction.IncompleteTransaction(ptx) =>
-        ResultError(Error(s"Interpretation error: ended with partial result: $ptx"))
+        ResultError(
+          Error.Interpretation.Generic(s"Interpretation error: ended with partial result: $ptx")
+        )
     }
   }
 
@@ -414,12 +422,12 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
   def validatePackages(
       pkgIds: Set[PackageId],
       pkgs: Map[PackageId, Package],
-  ): Either[Error, Unit] = {
+  ): Either[Error.Package.Error, Unit] = {
     for {
       _ <- pkgs
         .collectFirst {
           case (pkgId, pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
-            Error(
+            Error.Package.Generic(
               s"Disallowed language version in package $pkgId: " +
                 s"Expected version between ${config.allowedLanguageVersions.min.pretty} and ${config.allowedLanguageVersions.max.pretty} but got ${pkg.languageVersion.pretty}"
             )
@@ -430,7 +438,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         Either.cond(
           unknownPackages.isEmpty,
           (),
-          Error(s"Unknown packages ${unknownPackages.mkString(", ")}"),
+          Error.Package.Generic(s"Unknown packages ${unknownPackages.mkString(", ")}"),
         )
       }
       _ <- {
@@ -438,7 +446,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         Either.cond(
           missingDeps.isEmpty,
           (),
-          Error(
+          Error.Package.Generic(
             s"The set of packages ${pkgIds.mkString("{'", "', '", "'}")} is not self consistent, the missing dependencies are ${missingDeps
               .mkString("{'", "', '", "'}")}."
           ),
@@ -452,7 +460,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
             case (pkgId, pkg) if !compiledPackages.packageIds.contains(pkgId) =>
               Validation.checkPackage(interface, pkgId, pkg)
           }
-          .collectFirst { case Left(err) => Error(err.pretty) }
+          .collectFirst { case Left(err) => Error.Package.Validation(err) }
       }.toLeft(())
 
     } yield ()

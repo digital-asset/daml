@@ -213,6 +213,15 @@ class CommonCliBase(name: LedgerName) {
         )
         .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
+      opt[Int]("buffers-prefetching-parallelism")
+        .optional()
+        .text(
+          s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${SandboxConfig.DefaultEventsProcessingParallelism}."
+        )
+        .action((eventsProcessingParallelism, config) =>
+          config.copy(eventsProcessingParallelism = eventsProcessingParallelism)
+        )
+
       opt[Int]("max-commands-in-flight")
         .optional()
         .action((value, config) =>

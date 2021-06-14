@@ -740,7 +740,22 @@ class EngineTest
       val submitResult = engine
         .submit(submitters, Commands(ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
-      submitResult.left.value.msg should startWith("dependency error: couldn't find key")
+      inside(submitResult) { case Left(err) =>
+        err shouldBe Error.Interpretation(
+          Error.Interpretation.ContractKeyNotFound(
+            GlobalKey.assertBuild(
+              BasicTests_WithKey,
+              ValueRecord(
+                Some(BasicTests_WithKey),
+                ImmArray(
+                  (Some[Ref.Name]("p"), ValueParty(alice)),
+                  (Some[Ref.Name]("k"), ValueInt64(43)),
+                ),
+              ),
+            )
+          )
+        )
+      }
     }
   }
 
@@ -911,7 +926,7 @@ class EngineTest
       }
     }
 
-    "crash if the contract key does not exists" in {
+    "error if the engine fails to find the key" in {
       val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
 
       val cmds = ImmArray(
@@ -940,8 +955,64 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       inside(result) { case Left(err) =>
-        err.msg should include(
-          s"couldn't find key GlobalKey($basicTestsPkgId:BasicTests:WithKey, ValueRecord(Some($basicTestsPkgId:BasicTests:WithKey),ImmArray((Some(p),ValueParty(Alice)),(Some(k),ValueInt64(43)))))"
+        err shouldBe Error.Interpretation(
+          Error.Interpretation.ContractKeyNotFound(
+            GlobalKey.assertBuild(
+              BasicTests_WithKey,
+              ValueRecord(
+                Some(BasicTests_WithKey),
+                ImmArray(
+                  (Some[Ref.Name]("p"), ValueParty(alice)),
+                  (Some[Ref.Name]("k"), ValueInt64(43)),
+                ),
+              ),
+            )
+          )
+        )
+      }
+    }
+    "error if Speedy fails to find the key" in {
+      val templateId = Identifier(basicTestsPkgId, "BasicTests:FailedFetchByKey")
+
+      // This first does a negative lookupByKey which succeeds
+      // and then a fetchByKey which fails in speedy without calling back to the engine.
+      val cmds = ImmArray(
+        speedy.Command.CreateAndExercise(
+          templateId = templateId,
+          SRecord(templateId, ImmArray.empty, ArrayList(SParty(alice))),
+          "FetchAfterLookup",
+          SRecord(templateId, ImmArray.empty, ArrayList(SInt64(43))),
+        )
+      )
+
+      val submitters = Set(alice)
+
+      val result = engine
+        .interpretCommands(
+          validating = false,
+          submitters = submitters,
+          commands = cmds,
+          ledgerTime = now,
+          submissionTime = now,
+          seeding = InitialSeeding.TransactionSeed(seed),
+          globalCids = Set.empty,
+        )
+        .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
+
+      inside(result) { case Left(err) =>
+        err shouldBe Error.Interpretation(
+          Error.Interpretation.ContractKeyNotFound(
+            GlobalKey.assertBuild(
+              BasicTests_WithKey,
+              ValueRecord(
+                Some(BasicTests_WithKey),
+                ImmArray(
+                  (Some[Ref.Name]("p"), ValueParty(alice)),
+                  (Some[Ref.Name]("k"), ValueInt64(43)),
+                ),
+              ),
+            )
+          )
         )
       }
     }
@@ -1953,7 +2024,8 @@ class EngineTest
     "be validable in whole" in {
       def validate(tx: SubmittedTransaction, metaData: Tx.Metadata) =
         for {
-          submitter <- tx.guessSubmitter.left.map(ValidationError)
+          submitter <-
+            tx.guessSubmitter.left.map(msg => Error.Validation(Error.Validation.Generic(msg)))
           res <- engine
             .validate(Set(submitter), tx, let, participant, metaData.submissionTime, submissionSeed)
             .consume(
