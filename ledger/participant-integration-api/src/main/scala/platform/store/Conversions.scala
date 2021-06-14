@@ -3,10 +3,9 @@
 
 package com.daml.platform.store
 
-import java.sql.{Connection, JDBCType, PreparedStatement, Timestamp, Types}
+import java.sql.{PreparedStatement, Timestamp, Types}
 import java.time.Instant
 import java.util.Date
-
 import anorm.Column.nonNull
 import anorm._
 import com.daml.ledger.EventId
@@ -17,14 +16,33 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.value.Value
-import com.zaxxer.hikari.pool.HikariProxyConnection
 import io.grpc.Status.Code
-
+import spray.json._
+import DefaultJsonProtocol._
+import java.io.BufferedReader
 import scala.language.implicitConversions
+import java.util.stream.Collectors
 
 private[platform] object OracleArrayConversions {
-  import oracle.jdbc.OracleConnection
+  implicit object PartyJsonFormat extends RootJsonFormat[Party] {
+    def write(c: Party) =
+      JsString(c)
 
+    def read(value: JsValue) = value match {
+      case JsString(s) => s.asInstanceOf[Party]
+      case _ => deserializationError("Party expected")
+    }
+  }
+
+  implicit object LedgerStringJsonFormat extends RootJsonFormat[Ref.LedgerString] {
+    def write(c: Ref.LedgerString) =
+      JsString(c)
+
+    def read(value: JsValue) = value match {
+      case JsString(s) => s.asInstanceOf[Ref.LedgerString]
+      case _ => deserializationError("Ledger string expected")
+    }
+  }
   implicit object StringArrayParameterMetadata extends ParameterMetaData[Array[String]] {
     override def sqlType: String = "ARRAY"
     override def jdbcType: Int = java.sql.Types.ARRAY
@@ -37,90 +55,6 @@ private[platform] object OracleArrayConversions {
     val jdbcType = Types.INTEGER
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  abstract sealed class ArrayToStatement[T](oracleTypeName: String)
-      extends ToStatement[Array[T]]
-      with NotNullGuard {
-    override def set(s: PreparedStatement, index: Int, v: Array[T]): Unit = {
-      if (v == (null: AnyRef)) {
-        s.setNull(index, JDBCType.ARRAY.getVendorTypeNumber, oracleTypeName)
-      } else {
-        s.setObject(
-          index,
-          unwrapConnection(s).createARRAY(oracleTypeName, v.asInstanceOf[Array[AnyRef]]),
-          JDBCType.ARRAY.getVendorTypeNumber,
-        )
-      }
-    }
-  }
-
-  implicit object ByteArrayArrayToStatement
-      extends ArrayToStatement[Array[Byte]]("BYTE_ARRAY_ARRAY")
-
-  implicit object TimestampArrayToStatement extends ArrayToStatement[Timestamp]("TIMESTAMP_ARRAY")
-
-  implicit object RefPartyArrayToStatement extends ArrayToStatement[Ref.Party]("VARCHAR_ARRAY")
-
-  implicit object CharArrayToStatement extends ArrayToStatement[String]("VARCHAR_ARRAY")
-
-  implicit object IntegerArrayToStatement extends ArrayToStatement[Integer]("SMALLINT_ARRAY")
-
-  implicit object BooleanArrayToStatement
-      extends ArrayToStatement[java.lang.Boolean]("BOOLEAN_ARRAY")
-
-  implicit object InstantArrayToStatement extends ToStatement[Array[Instant]] {
-    override def set(s: PreparedStatement, index: Int, v: Array[Instant]): Unit = {
-      s.setObject(
-        index,
-        unwrapConnection(s).createARRAY("TIMESTAMP_ARRAY", v.map(java.sql.Timestamp.from)),
-        JDBCType.ARRAY.getVendorTypeNumber,
-      )
-    }
-  }
-
-  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  implicit object StringOptionArrayArrayToStatement extends ToStatement[Option[Array[String]]] {
-    override def set(s: PreparedStatement, index: Int, stringOpts: Option[Array[String]]): Unit = {
-      stringOpts match {
-        case None => s.setNull(index, JDBCType.ARRAY.getVendorTypeNumber, "VARCHAR_ARRAY")
-        case Some(arr) =>
-          s.setObject(
-            index,
-            unwrapConnection(s)
-              .createARRAY("VARCHAR_ARRAY", arr.asInstanceOf[Array[AnyRef]]),
-            JDBCType.ARRAY.getVendorTypeNumber,
-          )
-      }
-    }
-  }
-
-  object IntToSmallIntConversions {
-
-    implicit object IntOptionArrayArrayToStatement extends ToStatement[Array[Option[Int]]] {
-      override def set(s: PreparedStatement, index: Int, intOpts: Array[Option[Int]]): Unit = {
-        val intOrNullsArray = intOpts.map(_.map(new Integer(_)).orNull)
-        s.setObject(
-          index,
-          unwrapConnection(s)
-            .createARRAY("SMALLINT_ARRAY", intOrNullsArray.asInstanceOf[Array[AnyRef]]),
-          JDBCType.ARRAY.getVendorTypeNumber,
-        )
-      }
-    }
-  }
-
-  private def unwrapConnection[T](s: PreparedStatement): OracleConnection = {
-    s.getConnection match {
-      case hikari: HikariProxyConnection =>
-        hikari.unwrap(classOf[OracleConnection])
-      case oracle: OracleConnection =>
-        oracle
-      case c: Connection =>
-        sys.error(
-          s"Unsupported connection type for creating Oracle integer array: ${c.getClass.getSimpleName}"
-        )
-    }
-  }
 }
 
 private[platform] object JdbcArrayConversions {
@@ -213,6 +147,49 @@ private[platform] object Conversions {
       case bd: java.math.BigDecimal => Right(bd.equals(new java.math.BigDecimal(1)))
       case bool: Boolean => Right(bool)
       case _ => Left(TypeDoesNotMatch(s"Cannot convert $value: to Boolean for column $qualified"))
+    }
+  }
+
+  object DefaultImplicitArrayColumn {
+    val default = Column.of[Array[String]]
+  }
+
+  object ArrayColumnToStringArray {
+    // This is used to allow us to convert oracle CLOB fields storing JSON text into Array[String].
+    // We first summon the default Anorm column for an Array[String], and run that - this preserves
+    // the behavior PostgreSQL is expecting. If that fails, we then try our Oracle specific deserialization
+    // strategies
+
+    implicit val arrayColumnToStringArray: Column[Array[String]] = nonNull { (value, meta) =>
+      DefaultImplicitArrayColumn.default(value, meta) match {
+        case Right(value) => Right(value)
+        case Left(_) =>
+          val MetaDataItem(qualified, _, _) = meta
+          value match {
+            case jsonArrayString: String =>
+              Right(jsonArrayString.parseJson.convertTo[Array[String]])
+            case clob: java.sql.Clob =>
+              try {
+                val reader = clob.getCharacterStream
+                val br = new BufferedReader(reader)
+                val jsonArrayString = br.lines.collect(Collectors.joining)
+                reader.close
+                Right(jsonArrayString.parseJson.convertTo[Array[String]])
+              } catch {
+                case e: Throwable =>
+                  Left(
+                    TypeDoesNotMatch(
+                      s"Cannot convert $value: received CLOB but failed to deserialize to " +
+                        s"string array for column $qualified. Error message: ${e.getMessage}"
+                    )
+                  )
+              }
+            case _ =>
+              Left(
+                TypeDoesNotMatch(s"Cannot convert $value: to string array for column $qualified")
+              )
+          }
+      }
     }
   }
 
