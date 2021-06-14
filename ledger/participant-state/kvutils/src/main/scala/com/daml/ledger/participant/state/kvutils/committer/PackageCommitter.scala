@@ -222,16 +222,10 @@ final private[kvutils] class PackageCommitter(
       Right(pkgsCache)
 
   private def validatePackages(
-      uploadEntry: DamlPackageUploadEntry.Builder,
-      pkgs: Map[Ref.PackageId, Ast.Package],
+      pkgs: Map[Ref.PackageId, Ast.Package]
   ): Either[String, Unit] =
     metrics.daml.kvutils.committer.packageUpload.validateTimer.time { () =>
-      val allPkgIds = uploadEntry.getArchivesList
-        .iterator()
-        .asScala
-        .map(pkg => Ref.PackageId.assertFromString(pkg.getHash))
-        .toSet
-      engine.validatePackages(allPkgIds, pkgs).left.map(_.msg)
+      engine.validatePackages(pkgs).left.map(_.msg)
     }
 
   // Strict validation
@@ -243,7 +237,7 @@ final private[kvutils] class PackageCommitter(
       val Result(uploadEntry, packagesCache) = partialResult
       val result = for {
         packages <- decodePackagesIfNeeded(packagesCache, uploadEntry.getArchivesList.asScala)
-        _ <- validatePackages(uploadEntry, packages)
+        _ <- validatePackages(packages)
       } yield StepContinue(Result(uploadEntry, packages))
 
       result match {

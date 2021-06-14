@@ -420,8 +420,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     * preloaded.
     */
   def validatePackages(
-      pkgIds: Set[PackageId],
-      pkgs: Map[PackageId, Package],
+      pkgs: Map[PackageId, Package]
   ): Either[Error.Package.Error, Unit] = {
     for {
       _ <- pkgs
@@ -434,14 +433,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         }
         .toLeft(())
       _ <- {
-        val unknownPackages = pkgIds.filterNot(pkgs.isDefinedAt)
-        Either.cond(
-          unknownPackages.isEmpty,
-          (),
-          Error.Package.Generic(s"Unknown packages ${unknownPackages.mkString(", ")}"),
-        )
-      }
-      _ <- {
+        val pkgIds = pkgs.keySet
         val missingDeps = pkgs.valuesIterator.flatMap(_.directDeps).toSet.filterNot(pkgIds)
         Either.cond(
           missingDeps.isEmpty,
