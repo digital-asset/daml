@@ -5,6 +5,7 @@ package com.daml.http
 
 import akka.NotUsed
 import akka.http.scaladsl.model.StatusCodes
+import akka.stream.{FlowShape, Shape, Outlet, Inlet, Graph}
 import akka.stream.scaladsl._
 import akka.stream.Materializer
 import com.daml.lf
@@ -35,6 +36,12 @@ import spray.json.JsValue
 
 import scala.collection.compat._
 import scala.concurrent.{ExecutionContext, Future}
+
+private final case class SourceShape2[L, R](out1: Outlet[L], out2: Outlet[R]) extends Shape {
+  override val inlets: Seq[Inlet[_]] = Seq.empty
+  override val outlets: Seq[Outlet[_]] = Seq(out1, out2)
+  override def deepCopy() = copy(out1.carbonCopy(), out2.carbonCopy())
+}
 
 class ContractsService(
     resolveTemplateId: PackageService.ResolveTemplateId,
@@ -405,6 +412,39 @@ class ContractsService(
   /** An ACS ++ transaction stream of `templateIds`, starting at `startOffset`
     * and ending at `terminates`.
     */
+  private[http] def startfromACS(
+      jwt: Jwt,
+      parties: OneAnd[Set, lar.Party],
+      templateIds: List[domain.TemplateId.RequiredPkg],
+  ): Graph[SourceShape2[ContractStreamStep.LAV1, Option[domain.StartingOffset]], NotUsed] = {
+
+    val txnFilter = util.Transactions.transactionFilterFor(parties, templateIds)
+    def source = getActiveContracts(jwt, txnFilter, true)
+
+    import com.daml.scalautil.Statement.discard
+
+    GraphDSL.create() { implicit b =>
+      import GraphDSL.Implicits._
+      val acsSource = b.add(source)
+      val boundary = b.add(ContractsFetch.acsAndBoundary)
+      val flowMap = b add (Flow[Seq[api.event.CreatedEvent]].map(ces =>
+        ContractStreamStep.Acs(ces.toVector): ContractStreamStep.LAV1
+      )
+      )
+      discard { acsSource ~> boundary.in }
+      discard { boundary.out0 ~> flowMap }
+      val acsMap = b.add(
+        Flow[util.BeginBookmark[String]]
+          .map(_.toOption.map(o => domain.StartingOffset(domain.Offset(o))))
+      )
+      discard { boundary.out1 ~> acsMap }
+      new SourceShape2(flowMap.out, acsMap.out)
+    }
+  }
+
+  /** An ACS ++ transaction stream of `templateIds`, starting at `startOffset`
+    * and ending at `terminates`.
+    */
   private[http] def insertDeleteStepSource(
       jwt: Jwt,
       parties: OneAnd[Set, lar.Party],
@@ -435,6 +475,44 @@ class ContractsService(
       fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
       NotUsed
     }
+  }
+
+  /** An ACS ++ transaction stream of `templateIds`, starting at `startOffset`
+    * and ending at `terminates`.
+    */
+  private[http] def insertDeleteStepSourceFromOffset(
+      jwt: Jwt,
+      parties: OneAnd[Set, lar.Party],
+      templateIds: List[domain.TemplateId.RequiredPkg],
+  ): Flow[Option[domain.StartingOffset], ContractStreamStep.LAV1, NotUsed] = {
+
+    val txnFilter = util.Transactions.transactionFilterFor(parties, templateIds)
+
+    val transactionsSince
+        : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
+      getCreatesAndArchivesSince(
+        jwt,
+        txnFilter,
+        _: api.ledger_offset.LedgerOffset,
+        Terminates.Never,
+      )
+
+    Flow.fromGraph(GraphDSL.create() { implicit b =>
+      import GraphDSL.Implicits._
+      import ContractsFetch.{transactionsFollowingBoundary}
+      val f = b.add(
+        Flow[Option[domain.StartingOffset]].map(o =>
+          o.fold[util.BeginBookmark[String]](util.LedgerBegin)(o =>
+            Tag.unsubst(util.AbsoluteBookmark(o.offset))
+          )
+        )
+      )
+      val r = b.add(transactionsFollowingBoundary(transactionsSince))
+      val trash = b.add(Sink.ignore)
+      f ~> r.in
+      r.out1 ~> trash
+      FlowShape(f.in, r.out0)
+    })
   }
 
   private def apiAcToLfAc(

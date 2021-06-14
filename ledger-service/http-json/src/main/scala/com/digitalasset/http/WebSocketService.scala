@@ -5,13 +5,12 @@ package com.daml.http
 
 import akka.NotUsed
 import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
-import akka.stream.scaladsl.{Flow, Sink, Source}
-import akka.stream.Materializer
+import akka.stream.scaladsl.{Flow, Sink, Source, GraphDSL, Broadcast, Concat, Unzip}
+import akka.stream.{Materializer, Graph, SourceShape}
 import com.daml.http.EndpointsCompanion._
 import com.daml.http.domain.{JwtPayload, SearchForeverRequest}
 import com.daml.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
 import JsonProtocol.LfValueDatabaseCodec
-import com.daml.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import util.{BeginBookmark, ContractStreamStep, InsertDeleteStep}
 import ContractStreamStep.LiveBegin
@@ -490,51 +489,79 @@ class WebSocketService(
       Q.predicate(request, resolveTemplateId, lookupType)
 
     if (resolved.nonEmpty) {
-      def prefilter: Future[
-        (
-            Source[
-              ContractStreamStep[Nothing, (domain.ActiveContract[JsValue], Q.Positive)],
-              NotUsed,
-            ],
-            Option[domain.StartingOffset],
-        )
-      ] =
-        contractsService.daoAndFetch
-          .filter(_ => offPrefix.isEmpty)
-          .cata(
-            { case (dao, fetch) =>
-              val tx = for {
-                bookmark <- fetch.fetchAndPersist(jwt, parties, resolved.toList)
-                mdContracts <- dbQuery(parties, dao)
-              } yield (
-                Source.single(mdContracts).map(ContractStreamStep.Acs(_)) ++ Source
-                  .single(ContractStreamStep.LiveBegin(bookmark.map(_.toDomain))),
-                bookmark.toOption map (term => domain.StartingOffset(term.toDomain)),
-              )
-              dao.transact(tx).unsafeToFuture()
-            },
-            Future.successful((Source.empty, offPrefix)),
-          )
-
-      Source
-        .lazyFutureSource(() =>
-          prefilter.map { case (prefiltered, shiftedPrefix) =>
-            val liveFiltered = contractsService
-              .insertDeleteStepSource(
-                jwt,
-                parties,
-                resolved.toList,
-                shiftedPrefix,
-                Terminates.Never,
-              )
-              .via(convertFilterContracts(fn))
-            (prefiltered.map(StepAndErrors(Seq.empty, _)) ++ liveFiltered)
-              .via(emitOffsetTicksAndFilterOutEmptySteps(shiftedPrefix))
+      val acs: Graph[SourceShape2[StepAndErrors[Q.Positive, JsValue], Option[
+        domain.StartingOffset
+      ]], NotUsed] = offPrefix match {
+        case Some(offset) =>
+          GraphDSL.create() { implicit b =>
+            val acs = b.add(Source.empty[StepAndErrors[Q.Positive, JsValue]])
+            val offsetSource = b.add(Source.single(Some(offset): Option[domain.StartingOffset]))
+            new SourceShape2(acs.out, offsetSource.out)
           }
-        )
-        .mapMaterializedValue { _: Future[NotUsed] =>
-          NotUsed
+        case None =>
+          contractsService.daoAndFetch match {
+            case None =>
+              GraphDSL.create() { implicit b =>
+                import GraphDSL.Implicits._
+                val acs = b.add(contractsService.startfromACS(jwt, parties, resolved.toList))
+                val flow = b.add(convertFilterContracts(fn))
+                discard { acs.out1 ~> flow }
+                new SourceShape2(flow.out, acs.out2)
+              }
+            case Some((dao, fetch)) =>
+              GraphDSL.create() { implicit b =>
+                import GraphDSL.Implicits._
+                val s = b.add(
+                  Source.lazyFuture[
+                    (StepAndErrors[Q.Positive, JsValue], Option[domain.StartingOffset])
+                  ] { () =>
+                    val tx =
+                      for {
+                        bookmark <- fetch.fetchAndPersist(jwt, parties, resolved.toList)
+                        mdContracts <- dbQuery(parties, dao)
+                      } yield (
+                        (StepAndErrors(Seq.empty, ContractStreamStep.Acs(mdContracts))),
+                        bookmark.toOption.map(term => domain.StartingOffset(term.toDomain)),
+                      )
+                    dao.transact(tx).unsafeToFuture()
+                  }
+                )
+                val unzip =
+                  b.add(Unzip[StepAndErrors[Q.Positive, JsValue], Option[domain.StartingOffset]]())
+                s ~> unzip.in
+                new SourceShape2(unzip.out0, unzip.out1)
+              }
+          }
+      }
+
+      val source = Source.fromGraph(GraphDSL.create() { implicit b =>
+        import GraphDSL.Implicits._
+        val acsShape = b.add(acs)
+        val dupOff = b add Broadcast[Option[domain.StartingOffset]](2)
+        val transactions =
+          b.add(contractsService.insertDeleteStepSourceFromOffset(jwt, parties, resolved.toList))
+        val out = b.add(Concat[StepAndErrors[Q.Positive, JsValue]](3))
+        val liveStart = Flow fromFunction { off: Option[domain.StartingOffset] =>
+          StepAndErrors(
+            Seq.empty,
+            LiveBegin(off match {
+              case None => util.LedgerBegin
+              case Some(o) => util.AbsoluteBookmark(o.offset)
+            }),
+          )
         }
+
+        discard { acsShape.out2 ~> dupOff }
+        discard { dupOff ~> transactions.in }
+
+        discard { acsShape.out1 ~> out }
+        discard { dupOff ~> liveStart.filter(_ => offPrefix.isEmpty) ~> out }
+        discard { transactions.out ~> convertFilterContracts(fn) ~> out }
+        SourceShape(out.out)
+      })
+
+      source
+        .via(emitOffsetTicksAndFilterOutEmptySteps(offPrefix))
         .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
         .prepend(reportUnresolvedTemplateIds(unresolved))

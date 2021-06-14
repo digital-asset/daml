@@ -16,7 +16,7 @@ import akka.stream.scaladsl.{
   SinkQueueWithCancel,
   Source,
 }
-import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
+import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer, BidiShape}
 import com.daml.scalautil.Statement.discard
 import com.daml.http.dbbackend.{ContractDao, SupportedJdbcDriver}
 import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
@@ -371,9 +371,26 @@ private[http] object ContractsFetch {
   ], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
+      val acsAndOffset = b.add(ContractsFetch.acsAndBoundary)
+      val stepsAndOffset = b.add(fromAcsFollowingAndBoundary(transactionsSince))
+      acsAndOffset.out0 ~> stepsAndOffset.in1
+      acsAndOffset.out1 ~> stepsAndOffset.in2
+      new FanOutShape2(acsAndOffset.in, stepsAndOffset.out1, stepsAndOffset.out2)
+    }
+
+  private[http] def fromAcsFollowingAndBoundary(
+      transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed]
+  ): Graph[BidiShape[
+    Seq[lav1.event.CreatedEvent],
+    ContractStreamStep.LAV1,
+    BeginBookmark[String],
+    BeginBookmark[String],
+  ], NotUsed] =
+    GraphDSL.create() { implicit b =>
+      import GraphDSL.Implicits._
       import ContractStreamStep.{LiveBegin, Acs}
       type Off = BeginBookmark[String]
-      val acs = b add acsAndBoundary
+      val acsMap = b add (Flow[Seq[lav1.event.CreatedEvent]].map(ces => Acs(ces.toVector)))
       val dupOff = b add Broadcast[Off](2)
       val liveStart = Flow fromFunction { off: Off =>
         LiveBegin(domain.Offset.tag.subst(off))
@@ -381,13 +398,12 @@ private[http] object ContractsFetch {
       val txns = b add transactionsFollowingBoundary(transactionsSince)
       val allSteps = b add Concat[ContractStreamStep.LAV1](3)
       // format: off
-      discard { dupOff <~ acs.out1 }
-      discard {           acs.out0.map(ces => Acs(ces.toVector)) ~> allSteps }
+      discard {           acsMap ~> allSteps }
       discard { dupOff       ~> liveStart                        ~> allSteps }
       discard {                      txns.out0                   ~> allSteps }
       discard { dupOff            ~> txns.in }
       // format: on
-      new FanOutShape2(acs.in, allSteps.out, txns.out1)
+      new BidiShape(acsMap.in, allSteps.out, dupOff.in, txns.out1)
     }
 
   /** Interpreting the transaction stream so it conveniently depends on
@@ -427,7 +443,7 @@ private[http] object ContractsFetch {
   /** Split a series of ACS responses into two channels: one with contracts, the
     * other with a single result, the last offset.
     */
-  private[this] def acsAndBoundary
+  private[http] def acsAndBoundary
       : Graph[FanOutShape2[lav1.active_contracts_service.GetActiveContractsResponse, Seq[
         lav1.event.CreatedEvent,
       ], BeginBookmark[String]], NotUsed] =
