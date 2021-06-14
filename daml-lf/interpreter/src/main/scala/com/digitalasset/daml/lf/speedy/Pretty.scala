@@ -88,6 +88,12 @@ private[lf] object Pretty {
               (line + prettyPartialTransactionNode(node)).nested(4)
           })
 
+      case DamlEContractKeyNotFound(gk) =>
+        text(
+          "Update failed due to fetch-by-key or exercise-by-key which did not find a contract with key"
+        ) &
+          prettyValue(false)(gk.key) & char('(') + prettyIdentifier(gk.templateId) + char(')')
+
       case DamlELocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
         text(
           "Update failed due to a fetch, lookup or exercise by key of contract not visible to the reading parties"

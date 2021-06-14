@@ -183,6 +183,14 @@ final class Conversions(
             .build
         )
 
+      case SError.DamlEContractKeyNotFound(gk) =>
+        builder.setScenarioContractKeyNotFound(
+          proto.ScenarioError.ContractKeyNotFound.newBuilder
+            .setTemplateId(convertIdentifier(gk.templateId))
+            .setKey(convertValue(gk.key))
+            .build
+        )
+
       case SError.ScenarioErrorCommitError(commitError) =>
         builder.setScenarioCommitError(
           convertCommitError(commitError)

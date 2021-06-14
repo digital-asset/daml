@@ -196,6 +196,11 @@ message ScenarioError {
     repeated Party stakeholders = 5;
   }
 
+  message ContractKeyNotFound {
+    Identifier template_id = 1;
+    Value key = 2;
+  }
+
   message ContractNotEffective {
     ContractRef contract_ref = 1;
     sfixed64 effective_at = 2;
@@ -257,6 +262,7 @@ message ScenarioError {
     Empty scenario_mustfail_succeeded = 22;
     string scenario_invalid_party_name = 23;
     ContractKeyNotVisible scenario_contract_key_not_visible = 24;
+    ContractKeyNotFound scenario_contract_key_not_found = 27;
     string scenario_party_already_exists = 25;
   }
 }

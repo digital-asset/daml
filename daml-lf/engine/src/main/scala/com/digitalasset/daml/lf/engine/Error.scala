@@ -5,7 +5,7 @@ package com.daml.lf
 package engine
 
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
+import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 
 sealed abstract class Error {
@@ -87,8 +87,8 @@ object Error {
       override def msg = s"Contract could not be found with id $ci"
     }
 
-    final case class GlobalKeyNotFound(globalKey: GlobalKeyWithMaintainers) extends Error {
-      override def msg = s"dependency error: couldn't find key ${globalKey.globalKey}"
+    final case class ContractKeyNotFound(key: GlobalKey) extends Error {
+      override def msg = s"dependency error: couldn't find key: $key"
     }
 
     /** See com.daml.lf.transaction.Transaction.DuplicateContractKey
