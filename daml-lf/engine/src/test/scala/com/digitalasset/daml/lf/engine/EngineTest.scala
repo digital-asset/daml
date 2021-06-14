@@ -741,16 +741,18 @@ class EngineTest
         .submit(submitters, Commands(ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
       inside(submitResult) { case Left(err) =>
-        err shouldBe Error.Interpretation.ContractKeyNotFound(
-          GlobalKey.assertBuild(
-            BasicTests_WithKey,
-            ValueRecord(
-              Some(BasicTests_WithKey),
-              ImmArray(
-                (Some[Ref.Name]("p"), ValueParty(alice)),
-                (Some[Ref.Name]("k"), ValueInt64(43)),
+        err shouldBe Error.Interpretation(
+          Error.Interpretation.ContractKeyNotFound(
+            GlobalKey.assertBuild(
+              BasicTests_WithKey,
+              ValueRecord(
+                Some(BasicTests_WithKey),
+                ImmArray(
+                  (Some[Ref.Name]("p"), ValueParty(alice)),
+                  (Some[Ref.Name]("k"), ValueInt64(43)),
+                ),
               ),
-            ),
+            )
           )
         )
       }
@@ -953,16 +955,18 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       inside(result) { case Left(err) =>
-        err shouldBe Error.Interpretation.ContractKeyNotFound(
-          GlobalKey.assertBuild(
-            BasicTests_WithKey,
-            ValueRecord(
-              Some(BasicTests_WithKey),
-              ImmArray(
-                (Some[Ref.Name]("p"), ValueParty(alice)),
-                (Some[Ref.Name]("k"), ValueInt64(43)),
+        err shouldBe Error.Interpretation(
+          Error.Interpretation.ContractKeyNotFound(
+            GlobalKey.assertBuild(
+              BasicTests_WithKey,
+              ValueRecord(
+                Some(BasicTests_WithKey),
+                ImmArray(
+                  (Some[Ref.Name]("p"), ValueParty(alice)),
+                  (Some[Ref.Name]("k"), ValueInt64(43)),
+                ),
               ),
-            ),
+            )
           )
         )
       }
@@ -996,16 +1000,18 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       inside(result) { case Left(err) =>
-        err shouldBe Error.Interpretation.ContractKeyNotFound(
-          GlobalKey.assertBuild(
-            BasicTests_WithKey,
-            ValueRecord(
-              Some(BasicTests_WithKey),
-              ImmArray(
-                (Some[Ref.Name]("p"), ValueParty(alice)),
-                (Some[Ref.Name]("k"), ValueInt64(43)),
+        err shouldBe Error.Interpretation(
+          Error.Interpretation.ContractKeyNotFound(
+            GlobalKey.assertBuild(
+              BasicTests_WithKey,
+              ValueRecord(
+                Some(BasicTests_WithKey),
+                ImmArray(
+                  (Some[Ref.Name]("p"), ValueParty(alice)),
+                  (Some[Ref.Name]("k"), ValueInt64(43)),
+                ),
               ),
-            ),
+            )
           )
         )
       }
