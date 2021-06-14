@@ -139,11 +139,11 @@ private class ContractsFetch(
       lc: LoggingContextOf[InstanceUUID],
   ): ConnectionIO[BeginBookmark[domain.Offset]] = {
 
-    import doobie.implicits._
+    import doobie.implicits._ // , cats.syntax.apply._
 
     def loop(maxAttempts: Int): ConnectionIO[BeginBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
-      contractsIo_(jwt, parties, disableAcs, absEnd, templateId).exceptSql {
+      (contractsIo_(jwt, parties, disableAcs, absEnd, templateId) /* <* fconn.commit*/ ).exceptSql {
         case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
           logger.debug(s"contractsIo, exception: ${e.description}, state: ${e.getSQLState}")
           fconn.rollback flatMap (_ => loop(maxAttempts - 1))
