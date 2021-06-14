@@ -103,9 +103,10 @@ class CommandService(
   private def logResult[A](op: Symbol, fa: Future[A])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[A] = {
+    val opName = op.name
     fa.onComplete {
-      case Failure(e) => logger.error(s"$op failure", e)
-      case Success(a) => logger.debug(s"$op success: $a")
+      case Failure(e) => logger.error(s"$opName failure", e)
+      case Success(a) => logger.debug(s"$opName success: $a")
     }
     fa
   }
