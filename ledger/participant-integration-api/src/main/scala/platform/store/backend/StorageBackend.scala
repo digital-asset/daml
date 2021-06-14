@@ -7,7 +7,6 @@ import java.sql.{Connection, ResultSet}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.platform.store.DbType
-import com.daml.platform.store.backend.oracle.OracleStorageBackend
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackend
 
 import scala.collection.mutable
@@ -102,6 +101,6 @@ object StorageBackend {
     dbType match {
       case DbType.H2Database => throw new UnsupportedOperationException("H2 not supported yet")
       case DbType.Postgres => PostgresStorageBackend
-      case DbType.Oracle => OracleStorageBackend
+      case DbType.Oracle => throw new UnsupportedOperationException("H2 not supported yet")
     }
 }

@@ -8,17 +8,12 @@ import java.util.Date
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
-import anorm.{Macro, RowParser, SQL, SqlParser}
+import anorm.{Macro, RowParser, SQL, SimpleSql, SqlParser, Row, SqlStringInterpolation}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.index.v2.{
-  CommandDeduplicationDuplicate,
-  CommandDeduplicationNew,
-  CommandDeduplicationResult,
-  PackageDetails,
-}
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationDuplicate, CommandDeduplicationNew, CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.ResourceOwner
@@ -37,37 +32,21 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
 import com.daml.platform.store.appendonlydao.CommandCompletionsTable.prepareCompletionsDelete
-import com.daml.platform.store.appendonlydao.events.{
-  CompressionStrategy,
-  ContractsReader,
-  EventsTableDelete,
-  LfValueTranslation,
-  PostCommitValidation,
-  TransactionsReader,
-}
+import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, ContractsReader, EventsTableDelete, LfValueTranslation, PostCommitValidation, TransactionsReader}
 import com.daml.platform.store.backend.{StorageBackend, UpdateToDbDto}
 import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
 import com.daml.platform.store.dao.events.TransactionsWriter.PreparedInsert
-import com.daml.platform.store.dao.{
-  DeduplicationKeyMaker,
-  LedgerDao,
-  LedgerReadDao,
-  MeteredLedgerDao,
-  MeteredLedgerReadDao,
-  PersistenceResponse,
-}
-import com.daml.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry,
-}
+import com.daml.platform.store.dao.{DeduplicationKeyMaker, LedgerDao, LedgerReadDao, MeteredLedgerDao, MeteredLedgerReadDao, PersistenceResponse}
+import com.daml.platform.store.entries.{ConfigurationEntry, LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
+
+import spray.json._
+import spray.json.DefaultJsonProtocol._
 
 private final case class ParsedPartyData(
     party: String,
@@ -1437,8 +1416,7 @@ private[platform] object JdbcLedgerDao {
         recordTime: Instant,
     ): SimpleSql[Row] = {
       import com.daml.platform.store.OracleArrayConversions._
-      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
-        .toArray[String]}, ${submitterInfo.commandId}, $transactionId)"
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs.toJson.compactPrint}, ${submitterInfo.commandId}, $transactionId)"
     }
 
     override protected[JdbcLedgerDao] def prepareRejectionInsert(
@@ -1448,8 +1426,8 @@ private[platform] object JdbcLedgerDao {
         reason: RejectionReason,
     ): SimpleSql[Row] = {
       import com.daml.platform.store.OracleArrayConversions._
-      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
-        .toArray[String]}, ${submitterInfo.commandId}, ${reason.description}, ${reason.description})"
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs.toJson.compactPrint}, ${submitterInfo.commandId}, ${reason.code
+        .value()}, ${reason.description})"
     }
 
     // spaces which are subsequently trimmed left only for readability
