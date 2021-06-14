@@ -30,6 +30,7 @@ import com.daml.lf.value.Value
 import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.Speedy.Validating
 import com.daml.lf.command._
 import com.daml.lf.transaction.Node.{GenActionNode, GenNode}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedValue
@@ -671,7 +672,7 @@ class EngineTest
         .flatMap { case (cmds, globalCids) =>
           engine
             .interpretCommands(
-              validating = false,
+              validating = Validating.Off,
               submitters = Set(party),
               commands = cmds,
               ledgerTime = let,
@@ -795,7 +796,7 @@ class EngineTest
         .flatMap { case (cmds, globalCids) =>
           engine
             .interpretCommands(
-              validating = false,
+              validating = Validating.Off,
               submitters = submitters,
               commands = cmds,
               ledgerTime = let,
@@ -885,7 +886,7 @@ class EngineTest
 
       val result = engine
         .interpretCommands(
-          validating = false,
+          validating = Validating.Off,
           submitters = submitters,
           commands = cmds,
           ledgerTime = now,
@@ -923,7 +924,7 @@ class EngineTest
 
       val result = engine
         .interpretCommands(
-          validating = false,
+          validating = Validating.Off,
           submitters = submitters,
           commands = cmds,
           ledgerTime = now,
@@ -958,7 +959,7 @@ class EngineTest
 
       val result = engine
         .interpretCommands(
-          validating = false,
+          validating = Validating.Off,
           submitters = submitters,
           commands = cmds,
           ledgerTime = now,
@@ -1003,7 +1004,7 @@ class EngineTest
 
       val result = engine
         .interpretCommands(
-          validating = false,
+          validating = Validating.Off,
           submitters = submitters,
           commands = cmds,
           ledgerTime = now,
@@ -1057,7 +1058,7 @@ class EngineTest
         .flatMap { case (cmds, globalCids) =>
           engine
             .interpretCommands(
-              validating = false,
+              validating = Validating.Off,
               submitters = submitters,
               commands = cmds,
               ledgerTime = let,
@@ -1333,7 +1334,7 @@ class EngineTest
       .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
     val Right((rtx, _)) = engine
       .interpretCommands(
-        validating = false,
+        validating = Validating.Off,
         submitters = submitters,
         commands = cmds,
         ledgerTime = let,
@@ -1499,7 +1500,7 @@ class EngineTest
         .flatMap { case (cmds, globalCids) =>
           engine
             .interpretCommands(
-              validating = false,
+              validating = Validating.Off,
               submitters = submitters,
               commands = cmds,
               ledgerTime = let,
@@ -1779,7 +1780,7 @@ class EngineTest
 
       val result = engine
         .interpretCommands(
-          validating = false,
+          validating = Validating.Off,
           submitters = submitters,
           commands = cmds,
           ledgerTime = now,
@@ -1843,7 +1844,7 @@ class EngineTest
 
       val Right((tx, _)) = engine
         .interpretCommands(
-          validating = false,
+          validating = Validating.Off,
           submitters = submitters,
           commands = ImmArray(cmd),
           ledgerTime = now,
@@ -1918,7 +1919,7 @@ class EngineTest
 
       val Right((tx, _)) = engine
         .interpretCommands(
-          validating = false,
+          validating = Validating.Off,
           submitters = submitters,
           commands = cmds,
           ledgerTime = now,
@@ -2109,7 +2110,7 @@ class EngineTest
 
       val result = engine
         .interpretCommands(
-          validating = false,
+          validating = Validating.Off,
           submitters = Set(alice),
           commands = cmds,
           ledgerTime = now,
@@ -2138,7 +2139,7 @@ class EngineTest
 
       val result = engine
         .interpretCommands(
-          validating = false,
+          validating = Validating.Off,
           submitters = submitters,
           commands = cmds,
           ledgerTime = now,
@@ -2169,7 +2170,7 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
       val result = engine
         .interpretCommands(
-          validating = false,
+          validating = Validating.Off,
           submitters = submitters,
           commands = cmds,
           ledgerTime = now,
@@ -2242,7 +2243,7 @@ class EngineTest
           .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
         engine
           .interpretCommands(
-            validating = false,
+            validating = Validating.Off,
             submitters = Set(party),
             commands = cmds,
             ledgerTime = let,
@@ -2368,7 +2369,7 @@ class EngineTest
           )
         engine
           .interpretCommands(
-            validating = false,
+            validating = Validating.Off,
             submitters = submitters,
             commands = cmds,
             ledgerTime = let,
@@ -2485,7 +2486,7 @@ class EngineTest
           )
         val result = engine
           .interpretCommands(
-            validating = false,
+            validating = Validating.Off,
             submitters = submitters,
             commands = cmds,
             ledgerTime = let,

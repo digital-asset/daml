@@ -7,6 +7,7 @@ package speedy
 import java.util
 
 import com.daml.lf.data._
+import com.daml.lf.speedy.Speedy.Validating
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -49,7 +50,7 @@ class CompilerTest extends AnyWordSpec with Matchers {
         )
         .toImmArray
 
-      compiledPackages.compiler.unsafeCompile(cmds) shouldBe a[SExpr]
+      compiledPackages.compiler.unsafeCompile(Validating.Off, cmds) shouldBe a[SExpr]
     }
   }
 

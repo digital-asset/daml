@@ -15,6 +15,7 @@ import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.Speedy.Validating
 import com.daml.lf.validation.{EUnknownDefinition, Validation, ValidationError}
 import org.slf4j.LoggerFactory
 
@@ -262,8 +263,8 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeCompile(cmds: ImmArray[Command]): SExpr =
-    validate(compilationPipeline(compileCommands(cmds)))
+  def unsafeCompile(validating: Validating, cmds: ImmArray[Command]): SExpr =
+    validate(compilationPipeline(compileCommands(validating, cmds)))
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -1491,16 +1492,36 @@ private[lf] final class Compiler(
       }
     }
 
-  private[this] def compileCommand(cmd: Command): SExpr = cmd match {
+  private val SEUpdatePureUnit = unaryFunction(_ => SEValue.Unit)
+
+  private val handleEverything: SExpr = SBSome(SEUpdatePureUnit)
+
+  private[this] def catchEverything(e: SExpr): SExpr = {
+    unaryFunction { tokenPos =>
+      SETryCatch(
+        app(e, svar(tokenPos)),
+        withEnv { _ =>
+          val binderPos = nextPosition()
+          SBTryHandler(handleEverything, svar(binderPos), svar(tokenPos))
+        },
+      )
+    }
+  }
+
+  private[this] def compileCommand(validating: Validating, cmd: Command): SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       CreateDefRef(templateId)(SEValue(argument))
     case Command.Exercise(templateId, contractId, choiceId, argument) =>
-      compileExercise(
+      val ex = compileExercise(
         tmplId = templateId,
         contractId = SEValue(contractId),
         choiceId = choiceId,
         argument = SEValue(argument),
       )
+      validating match {
+        case Validating.Off => ex
+        case Validating.On => catchEverything(ex) //NICK: should this wrapped on a list of commands?
+      }
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
       compileExerciseByKey(templateId, SEValue(contractKey), choiceId, SEValue(argument))
     case Command.Fetch(templateId, coid) =>
@@ -1518,21 +1539,22 @@ private[lf] final class Compiler(
       LookupByKeyDefRef(templateId)(SEValue(contractKey))
   }
 
-  private val SEUpdatePureUnit = unaryFunction(_ => SEValue.Unit)
-
-  private[this] def compileCommands(bindings: ImmArray[Command]): SExpr =
+  private[this] def compileCommands(validating: Validating, bindings: ImmArray[Command]): SExpr =
     // commands are compile similarly as update block
     // see compileBlock
     bindings.toList match {
       case Nil =>
         SEUpdatePureUnit
       case first :: rest =>
-        let(compileCommand(first)) { firstPos =>
+        let(compileCommand(validating, first)) { firstPos =>
           unaryFunction { tokenPos =>
             let(app(svar(firstPos), svar(tokenPos))) { _ =>
               // we cannot process `rest` recursively without exposing ourselves to stack overflow.
               val exprs = rest.iterator.map { cmd =>
-                val expr = app(compileCommand(cmd), svar(tokenPos))
+                val expr = app(
+                  compileCommand(validating, cmd),
+                  svar(tokenPos),
+                ) //NICK: pass token to avoid eta
                 nextPosition()
                 expr
               }.toList

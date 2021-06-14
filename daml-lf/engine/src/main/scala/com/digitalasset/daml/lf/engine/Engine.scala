@@ -9,7 +9,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, Pretty, SError, SExpr}
-import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.Speedy.{Machine, Validating}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.transaction.Node._
@@ -96,7 +96,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       .preprocessCommands(cmds.commands)
       .flatMap { case (processedCmds, globalCids) =>
         interpretCommands(
-          validating = false,
+          validating = Validating.Off,
           submitters = submitters,
           commands = processedCmds,
           ledgerTime = cmds.ledgerEffectiveTime,
@@ -143,7 +143,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       (speedyCommand, globalCids) = commandWithCids
       // reinterpret is never used for submission, only for validation.
       result <- interpretCommands(
-        validating = true,
+        validating = Validating.On,
         submitters = submitters,
         commands = ImmArray(speedyCommand),
         ledgerTime = ledgerEffectiveTime,
@@ -166,7 +166,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       commandsWithCids <- preprocessor.translateTransactionRoots(tx.transaction)
       (commands, globalCids) = commandsWithCids
       result <- interpretCommands(
-        validating = true,
+        validating = Validating.On,
         submitters = submitters,
         commands = commands,
         ledgerTime = ledgerEffectiveTime,
@@ -264,7 +264,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     * [[seeding]] is seeding used to derive node seed and contractId discriminator.
     */
   private[engine] def interpretCommands(
-      validating: Boolean,
+      validating: Validating,
       /* See documentation for `Speedy.Machine` for the meaning of this field */
       submitters: Set[Party],
       commands: ImmArray[speedy.Command],
@@ -274,7 +274,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       globalCids: Set[Value.ContractId],
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     runSafely(NameOf.qualifiedNameOfCurrentFunc) {
-      val sexpr = compiledPackages.compiler.unsafeCompile(commands)
+      val sexpr = compiledPackages.compiler.unsafeCompile(validating, commands)
       val machine = Machine(
         compiledPackages = compiledPackages,
         submissionTime = submissionTime,
