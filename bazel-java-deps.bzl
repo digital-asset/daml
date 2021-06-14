@@ -20,6 +20,7 @@ load(
 
 version_specific = {
     "2.12": [
+        "org.scala-lang:scala-library:2.12.13"
     ],
     "2.13": [
         "org.scala-lang.modules:scala-parallel-collections_2.13:1.0.0",
@@ -37,7 +38,7 @@ version_specific = {
 
 netty_version = "4.1.58.Final"
 grpc_version = "1.35.0"
-akka_version = "2.6.13"
+akka_version = "2.6.15"
 
 def install_java_deps():
     maven_install(
