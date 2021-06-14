@@ -20,7 +20,6 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractInst, ValueRecord, ValueText}
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
-import com.daml.platform.store.appendonlydao.EventSequentialId
 import com.daml.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
 import com.daml.platform.store.cache.ContractStateValue.{Active, Archived}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.{
@@ -143,7 +142,7 @@ class MutableCacheBackedContractStoreSpec
 
       val sourceSubscriptionFixture
           : (Offset, EventSequentialId) => Source[ContractStateEvent, NotUsed] = {
-        case (Offset.beforeBegin, EventSequentialId.beforeBegin) =>
+        case (Offset.beforeBegin, 0L) => // TODO append-only: FIXME parameters table consolidation
           Source
             .fromIterator(() => Iterator(created, archived, dummy))
             // Simulate the source failure at the last event

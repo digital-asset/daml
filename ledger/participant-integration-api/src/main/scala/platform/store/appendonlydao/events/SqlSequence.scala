@@ -3,8 +3,6 @@
 
 package com.daml.platform.store.appendonlydao.events
 
-import com.daml.platform.store.SimpleSqlAsVectorOf._
-import anorm.{ResultSetParser, Row, RowParser, SimpleSql}
 import scalaz.{-\/, Free, Functor, \/-}
 
 import java.sql.Connection
@@ -38,11 +36,9 @@ object SqlSequence {
     }
   }
 
-  def apply[A](s: SimpleSql[_], p: ResultSetParser[A]): T[A] =
-    Free liftF new Element(implicit conn => s as p)
-
-  def vector[A](s: SimpleSql[Row], p: RowParser[A]): T[Vector[A]] =
-    Free liftF new Element(implicit conn => s asVectorOf p)
+  // TODO append-only: This probably defeats the purpose, only needed to limit the impact of the SQL query abstraction change. Consider to remove SqlSequence.
+  def plainQuery[A](query: Connection => A): T[A] =
+    Free liftF new Element(query)
 
   def point[A](a: A): T[A] = Free point a
 }
