@@ -60,6 +60,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
           prefetchingDispatcher,
           generalDispatcher,
           dispatcherLagMeter,
+          ledgerEndOffset -> ledgerEndSequentialId,
         )
       } yield ledger
 
@@ -83,6 +84,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],
         generalDispatcher: Dispatcher[Offset],
         dispatcherLagMeter: DispatcherLagMeter,
+        startExclusive: (Offset, Long),
     )(implicit
         resourceContext: ResourceContext
     ) =
@@ -93,20 +95,26 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
           dispatcherLagMeter,
         )
       else
-        ledgerWithMutableCache(cacheUpdatesDispatcher, generalDispatcher, dispatcherLagMeter)
+        ledgerWithMutableCache(
+          cacheUpdatesDispatcher,
+          generalDispatcher,
+          dispatcherLagMeter,
+          startExclusive,
+        )
 
     private def ledgerWithMutableCache(
         cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],
         generalDispatcher: Dispatcher[Offset],
         dispatcherLagMeter: DispatcherLagMeter,
+        startExclusive: (Offset, Long),
     )(implicit resourceContext: ResourceContext) =
       for {
         contractStore <- MutableCacheBackedContractStore
           .ownerWithSubscription(
-            subscribeToContractStateEvents = (offset, eventSequentialId) =>
+            subscribeToContractStateEvents = maybeOffsetSeqId =>
               cacheUpdatesDispatcher
                 .startingAt(
-                  offset -> eventSequentialId,
+                  maybeOffsetSeqId.getOrElse(startExclusive),
                   RangeSource(
                     ledgerDao.transactionsReader.getContractStateEvents(_, _)
                   ),
@@ -155,6 +163,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         _ <- ResourceOwner
           .forCloseable(() =>
             BuffersUpdater(
+              // TODO in-memory fan-out: Resubscribe from ledger end on ledger (re)start
               subscribeToTransactionLogUpdates = (offset, eventSequentialId) =>
                 cacheUpdatesDispatcher
                   .startingAt(
