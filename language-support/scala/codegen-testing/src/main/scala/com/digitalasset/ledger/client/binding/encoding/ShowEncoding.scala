@@ -44,7 +44,7 @@ abstract class ShowEncoding extends LfTypeEncoding {
   override def field[A](fieldName: String, o: Out[A]): Field[A] = {
     implicit val A: Show[A] = o
     show { a: A =>
-      cord"$fieldName = $a"
+      Cord(fieldName) :: cord" = $a"
     }
   }
 

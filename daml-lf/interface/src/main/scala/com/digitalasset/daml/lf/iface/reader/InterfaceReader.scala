@@ -33,12 +33,12 @@ object InterfaceReader {
   private def invalidDataTypeDefinition[Bot](
       ctx: QualifiedName,
       reason: String,
-  ) = -\/[InterfaceReaderError, Bot](InvalidDataTypeDefinition(errorMessage(ctx, reason)))
+  ): InterfaceReaderError \/ Bot = -\/(InvalidDataTypeDefinition(errorMessage(ctx, reason)))
 
   private def unserializableDataType[Bot](
       ctx: QualifiedName,
       reason: String,
-  ) = -\/[InterfaceReaderError, Bot](UnserializableDataType(errorMessage(ctx, reason)))
+  ): InterfaceReaderError \/ Bot = -\/(UnserializableDataType(errorMessage(ctx, reason)))
 
   object InterfaceReaderError {
     type Tree = Errors[ErrorLoc, InterfaceReaderError]

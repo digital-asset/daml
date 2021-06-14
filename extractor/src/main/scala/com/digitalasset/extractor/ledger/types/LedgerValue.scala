@@ -95,7 +95,7 @@ object LedgerValue {
       entries <- apiMap.entries.toList.traverse {
         case api.value.Map.Entry(k, Some(v)) => v.sum.convert.map(k -> _)
         case api.value.Map.Entry(_, None) =>
-          -\/[String, (String, LedgerValue)]("value field of Map.Entry must be defined")
+          \/.l[(String, LedgerValue)]("value field of Map.Entry must be defined")
       }
       map <- SortedLookupList.fromImmArray(ImmArray(entries)).toDisjunction
     } yield V.ValueTextMap(map)
