@@ -3,14 +3,14 @@
 
 package com.daml.platform.store.backend.postgresql
 
-import java.sql.PreparedStatement
+import java.sql.Connection
 
 private[postgresql] case class PGTable[FROM](
     tableName: String,
     fields: Vector[(String, PGField[FROM, _, _])],
     insertSuffix: String = "",
 ) {
-  val insertStatement: String = {
+  private val insertStatement: String = {
     def commaSeparatedOf(extractor: ((String, PGField[FROM, _, _])) => String): String =
       fields.view
         .map(extractor)
@@ -37,9 +37,15 @@ private[postgresql] case class PGTable[FROM](
   def prepareData(in: Vector[FROM]): Array[Array[_]] =
     fields.view.map(_._2.toArray(in)).toArray
 
-  def setupData(data: Array[Array[_]], preparedStatement: PreparedStatement): Unit =
-    fields.indices.foreach { i =>
-      preparedStatement.setObject(i + 1, data(i))
+  def executeInsert(data: Array[Array[_]], connection: Connection): Unit =
+    if (data(0).length > 0) { // data(0) accesses the array of data for the first column of the table. This is safe because tables without columns are not supported. Also because of the transposed data-structure here all columns will have data-arrays of the same length.
+      val preparedStatement = connection.prepareStatement(insertStatement)
+      fields.indices.foreach { i =>
+        preparedStatement.setObject(i + 1, data(i))
+      }
+      preparedStatement.execute()
+      preparedStatement.close()
+      ()
     }
 }
 

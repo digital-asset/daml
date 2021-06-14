@@ -35,40 +35,32 @@ private[backend] object PostgresStorageBackend
       connection: Connection,
       postgresDbBatch: PostgresDbBatch,
   ): Unit = {
+    PGSchema.commandCompletions.executeInsert(postgresDbBatch.commandCompletionsBatch, connection)
+    PGSchema.configurationEntries.executeInsert(
+      postgresDbBatch.configurationEntriesBatch,
+      connection,
+    )
+    PGSchema.eventsDivulgence.executeInsert(postgresDbBatch.eventsBatchDivulgence, connection)
+    PGSchema.eventsCreate.executeInsert(postgresDbBatch.eventsBatchCreate, connection)
+    PGSchema.eventsConsumingExercise.executeInsert(
+      postgresDbBatch.eventsBatchConsumingExercise,
+      connection,
+    )
+    PGSchema.eventsNonConsumingExercise.executeInsert(
+      postgresDbBatch.eventsBatchNonConsumingExercise,
+      connection,
+    )
+    PGSchema.packageEntries.executeInsert(postgresDbBatch.packageEntriesBatch, connection)
+    PGSchema.packages.executeInsert(postgresDbBatch.packagesBatch, connection)
+    PGSchema.parties.executeInsert(postgresDbBatch.partiesBatch, connection)
+    PGSchema.partyEntries.executeInsert(postgresDbBatch.partyEntriesBatch, connection)
 
-    def execute(statement: String, setupData: PreparedStatement => Unit): Unit = {
-      val preparedStatement = connection.prepareStatement(statement)
-      setupData(preparedStatement)
+    if (postgresDbBatch.commandDeduplicationBatch.length > 0) {
+      val preparedStatement = connection.prepareStatement(preparedDeleteCommandSubmissions)
+      preparedStatement.setObject(1, postgresDbBatch.commandDeduplicationBatch)
       preparedStatement.execute()
       preparedStatement.close()
-      ()
     }
-
-    def executeTable(pgTable: PGTable[_], data: Array[Array[_]]): Unit =
-      if (
-        data(0).length > 0
-      ) // data(0) accesses the array of data for the first column of the table. This is safe because tables without columns are not supported. Also because of the transposed data-structure here all columns will have data-arrays of the same length.
-        execute(pgTable.insertStatement, pgTable.setupData(data, _))
-
-    executeTable(PGSchema.commandCompletions, postgresDbBatch.commandCompletionsBatch)
-    executeTable(PGSchema.configurationEntries, postgresDbBatch.configurationEntriesBatch)
-    executeTable(PGSchema.eventsDivulgence, postgresDbBatch.eventsBatchDivulgence)
-    executeTable(PGSchema.eventsCreate, postgresDbBatch.eventsBatchCreate)
-    executeTable(PGSchema.eventsConsumingExercise, postgresDbBatch.eventsBatchConsumingExercise)
-    executeTable(
-      PGSchema.eventsNonConsumingExercise,
-      postgresDbBatch.eventsBatchNonConsumingExercise,
-    )
-    executeTable(PGSchema.packageEntries, postgresDbBatch.packageEntriesBatch)
-    executeTable(PGSchema.packages, postgresDbBatch.packagesBatch)
-    executeTable(PGSchema.parties, postgresDbBatch.partiesBatch)
-    executeTable(PGSchema.partyEntries, postgresDbBatch.partyEntriesBatch)
-
-    if (postgresDbBatch.commandDeduplicationBatch.length > 0)
-      execute(
-        preparedDeleteCommandSubmissions,
-        _.setObject(1, postgresDbBatch.commandDeduplicationBatch),
-      )
   }
 
   override def initialize(connection: Connection): StorageBackend.LedgerEnd = {
