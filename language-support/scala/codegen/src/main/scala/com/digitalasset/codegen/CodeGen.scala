@@ -26,8 +26,7 @@ import scalaz.std.string._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.option._
 import scalaz.syntax.bind._
-import scalaz.syntax.foldable10._
-import scalaz.syntax.traverse._
+import scalaz.syntax.traverse1._
 
 import scala.collection.compat._
 import scala.util.{Failure, Success}
@@ -73,7 +72,7 @@ object CodeGen {
       case Nil =>
         throw PackageInterfaceException("Expected at least one DAR or DALF input file.")
       case f :: fs =>
-        generateCodeSafe(NonEmptyList.fromSeq(f, fs), packageName, outputDir, mode, roots)
+        generateCodeSafe(NonEmptyList(f, fs: _*), packageName, outputDir, mode, roots)
           .fold(es => throw PackageInterfaceException(formatErrors(es)), identity)
     }
 
@@ -107,7 +106,7 @@ object CodeGen {
   ): ValidationNel[String, NonEmptyList[EnvironmentInterface]] = {
     val reader = UniversalArchiveReader()
     val parse: File => String \/ Dar[Payload] = parseFile(reader)
-    files.traverse(f => decodeInterface(parse)(f).toValidationNel)
+    files.traverse(f => decodeInterface(parse)(f).validationNel)
   }
 
   private def parseFile(reader: UniversalArchiveReader[Payload])(f: File): String \/ Dar[Payload] =

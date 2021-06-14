@@ -29,6 +29,8 @@ class NamespaceSpec
 }
 
 object NamespaceSpec {
+  import com.daml.codegen.lf.HierarchicalOutput.`scalaz ==>> future`
+
   def paths[K, A](n: Namespace[K, A]): Vector[(List[K], A)] =
     n.foldTreeStrict[Vector[(List[K], A)]] { (a, kVecs) =>
       kVecs.foldMapWithKey { (k, vec) =>

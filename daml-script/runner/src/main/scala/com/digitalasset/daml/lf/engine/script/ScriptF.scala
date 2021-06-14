@@ -23,8 +23,7 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.script.converter.Converter.JavaList
 import scalaz.{Foldable, OneAnd}
-import scalaz.syntax.foldable0._
-import scalaz.syntax.traverse0._
+import scalaz.syntax.traverse._
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.std.option._

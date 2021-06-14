@@ -34,7 +34,7 @@ import scala.util.{Failure, Success, Try}
 
 object Main extends StrictLogging {
 
-  private type ET[A] = EitherT[Throwable, Future, A]
+  private type ET[A] = EitherT[Future, Throwable, A]
 
   sealed abstract class ExitCode(val code: Int) extends Product with Serializable
   object ExitCode {

@@ -61,7 +61,7 @@ class LFUtilSpec extends AnyWordSpec with Matchers with Inside with ScalaCheckPr
         s <- choice
         elt <- vals
         c <- containerOfN[Seq, A](s - 1, vals)
-      } yield NonEmptyList.fromSeq(elt, c)
+      } yield NonEmptyList(elt, c: _*)
 
     "value is a sample" should {
       "group flatly, but with right-bias" in forEvery(tupleNestingSamples) {
@@ -135,9 +135,7 @@ object LFUtilSpec {
 
   private[this] implicit def shrNel[A]: Shrink[NonEmptyList[A]] = // suppressing A's shrink
     Shrink { nela =>
-      Shrink.shrink((nela.head, nela.tail.toVector)) map { case (h, t) =>
-        NonEmptyList.fromSeq(h, t)
-      }
+      Shrink.shrink((nela.head, nela.tail.toVector)) map { case (h, t) => NonEmptyList(h, t: _*) }
     }
 
   import com.daml.lf.iface._

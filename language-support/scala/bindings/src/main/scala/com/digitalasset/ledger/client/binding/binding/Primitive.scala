@@ -9,8 +9,8 @@ import java.util.TimeZone
 import com.daml.ledger.api.refinements.ApiTypes
 import com.daml.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
 import com.daml.ledger.client.binding.encoding.ExerciseOn
-import scalaz.===
 import scalaz.Id.Id
+import scalaz.Leibniz.===
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.tag._
 

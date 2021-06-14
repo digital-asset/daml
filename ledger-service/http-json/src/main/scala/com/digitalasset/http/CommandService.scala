@@ -257,7 +257,7 @@ object CommandService {
     }
   }
 
-  private type ET[A] = EitherT[Error, Future, A]
+  private type ET[A] = EitherT[Future, Error, A]
 
   type ExerciseCommandRef = domain.ResolvedContractRef[lav1.value.Value]
 

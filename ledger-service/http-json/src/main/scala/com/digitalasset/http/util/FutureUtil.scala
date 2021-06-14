@@ -26,19 +26,19 @@ object FutureUtil {
 
   def liftET[E]: LiftET[E] = new LiftET(0)
   final class LiftET[E](private val ignore: Int) extends AnyVal {
-    def apply[F[_]: Functor, A](fa: F[A]): EitherT[E, F, A] = EitherT.rightT(fa)
+    def apply[F[_]: Functor, A](fa: F[A]): EitherT[F, E, A] = EitherT.rightT(fa)
   }
 
-  def eitherT[A, B](fa: Future[A \/ B]): EitherT[A, Future, B] =
-    EitherT.eitherT(fa)
+  def eitherT[A, B](fa: Future[A \/ B]): EitherT[Future, A, B] =
+    EitherT.eitherT[Future, A, B](fa)
 
-  def either[A, B](d: A \/ B)(implicit ev: Applicative[Future]): EitherT[A, Future, B] =
-    EitherT.either(d)
+  def either[A, B](d: A \/ B)(implicit ev: Applicative[Future]): EitherT[Future, A, B] =
+    EitherT.either[Future, A, B](d)
 
-  def rightT[A, B](fa: Future[B])(implicit ev: Functor[Future]): EitherT[A, Future, B] =
+  def rightT[A, B](fa: Future[B])(implicit ev: Functor[Future]): EitherT[Future, A, B] =
     EitherT.rightT(fa)
 
-  def leftT[A, B](fa: Future[A])(implicit ev: Functor[Future]): EitherT[A, Future, B] =
+  def leftT[A, B](fa: Future[A])(implicit ev: Functor[Future]): EitherT[Future, A, B] =
     EitherT.leftT(fa)
 
   def stripLeft[A: Show, B](fa: Future[A \/ B])(implicit ec: ExecutionContext): Future[B] =

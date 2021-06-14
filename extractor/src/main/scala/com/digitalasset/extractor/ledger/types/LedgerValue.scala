@@ -47,13 +47,12 @@ object LedgerValue {
       case Sum.Numeric(value) =>
         lfdata.Numeric
           .fromUnscaledBigDecimal(new java.math.BigDecimal(value))
-          .toDisjunction map V.ValueNumeric
+          .disjunction map V.ValueNumeric
       case Sum.Text(value) => V.ValueText(value).right
       case Sum.Timestamp(value) =>
-        lfdata.Time.Timestamp.fromLong(value).toDisjunction map V.ValueTimestamp
-      case Sum.Party(value) => Ref.Party.fromString(value).toDisjunction map V.ValueParty
-      case Sum.Date(value) =>
-        lfdata.Time.Date.fromDaysSinceEpoch(value).toDisjunction map V.ValueDate
+        lfdata.Time.Timestamp.fromLong(value).disjunction map V.ValueTimestamp
+      case Sum.Party(value) => Ref.Party.fromString(value).disjunction map V.ValueParty
+      case Sum.Date(value) => lfdata.Time.Date.fromDaysSinceEpoch(value).disjunction map V.ValueDate
       case Sum.Unit(_) => V.ValueUnit.right
       case Sum.Empty => -\/("uninitialized Value")
     }
@@ -68,7 +67,7 @@ object LedgerValue {
   private def convertVariant(apiVariant: api.value.Variant) = {
     for {
       tycon <- apiVariant.variantId traverse convertIdentifier map (_.flatten)
-      ctor <- Ref.Name.fromString(apiVariant.constructor).toDisjunction
+      ctor <- Ref.Name.fromString(apiVariant.constructor).disjunction
       apiValue <- variantValueLens(apiVariant)
       value <- apiValue.convert
     } yield V.ValueVariant(tycon, ctor, value)
@@ -77,7 +76,7 @@ object LedgerValue {
   private def convertEnum(apiEnum: api.value.Enum) =
     for {
       tyCon <- apiEnum.enumId traverse convertIdentifier map (_.flatten)
-      ctor <- Ref.Name.fromString(apiEnum.constructor).toDisjunction
+      ctor <- Ref.Name.fromString(apiEnum.constructor).disjunction
     } yield V.ValueEnum(tyCon, ctor)
 
   private def convertRecord(apiRecord: api.value.Record) = {
@@ -94,10 +93,9 @@ object LedgerValue {
     for {
       entries <- apiMap.entries.toList.traverse {
         case api.value.Map.Entry(k, Some(v)) => v.sum.convert.map(k -> _)
-        case api.value.Map.Entry(_, None) =>
-          \/.l[(String, LedgerValue)]("value field of Map.Entry must be defined")
+        case api.value.Map.Entry(_, None) => -\/("value field of Map.Entry must be defined")
       }
-      map <- SortedLookupList.fromImmArray(ImmArray(entries)).toDisjunction
+      map <- SortedLookupList.fromImmArray(ImmArray(entries)).disjunction
     } yield V.ValueTextMap(map)
 
   private def convertGenMap(apiMap: api.value.GenMap): String \/ OfCid[V.ValueGenMap] =
@@ -127,7 +125,7 @@ object LedgerValue {
           ent <- Ref.DottedName fromString entityName
         } yield Ref.Identifier(pkgId, Ref.QualifiedName(mod, ent))
       }
-      .toDisjunction
+      .disjunction
   }
 
   private[this] implicit final class `either covariant`[A](private val self: A) extends AnyVal {

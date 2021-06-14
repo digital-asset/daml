@@ -46,7 +46,7 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
 
   implicit def NonEmptyListReader[A: JsonReader]: JsonReader[NonEmptyList[A]] = {
     case JsArray(hd +: tl) =>
-      NonEmptyList.fromSeq(hd.convertTo[A], tl map (_.convertTo[A]))
+      NonEmptyList(hd.convertTo[A], tl map (_.convertTo[A]): _*)
     case _ => deserializationError("must be a JSON array with at least 1 element")
   }
 

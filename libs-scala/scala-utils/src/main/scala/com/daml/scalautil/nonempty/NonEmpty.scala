@@ -4,10 +4,9 @@
 package com.daml.scalautil.nonempty
 
 import scala.collection.{immutable => imm}, imm.Map, imm.Set
-import scalaz.===
 import scalaz.Id.Id
 import scalaz.{Foldable, Traverse}
-import scalaz.Leibniz
+import scalaz.Leibniz, Leibniz.===
 import scalaz.Liskov, Liskov.<~<
 import NonEmptyCollCompat._
 

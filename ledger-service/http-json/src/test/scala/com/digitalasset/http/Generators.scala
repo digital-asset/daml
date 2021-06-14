@@ -5,7 +5,7 @@ package com.daml.http
 
 import com.daml.ledger.api.{v1 => lav1}
 import org.scalacheck.Gen
-import scalaz.\/
+import scalaz.{-\/, \/, \/-}
 import spray.json.{JsNumber, JsObject, JsString, JsValue}
 
 object Generators {
@@ -58,7 +58,7 @@ object Generators {
   def partyGen: Gen[domain.Party] = domain.Party subst Gen.identifier
 
   def scalazEitherGen[A, B](a: Gen[A], b: Gen[B]): Gen[A \/ B] =
-    Gen.oneOf(a.map(\/.l[B](_)), b.map(\/.r[A](_)))
+    Gen.oneOf(a.map(-\/(_)), b.map(\/-(_)))
 
   def inputContractRefGen[LfV](lfv: Gen[LfV]): Gen[domain.InputContractRef[LfV]] =
     scalazEitherGen(

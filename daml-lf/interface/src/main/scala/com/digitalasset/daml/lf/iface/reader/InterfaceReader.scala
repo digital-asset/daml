@@ -8,8 +8,7 @@ package reader
 import com.daml.daml_lf_dev.DamlLf
 import scalaz.{Enum => _, _}
 import scalaz.syntax.monoid._
-import scalaz.syntax.foldable0._
-import scalaz.syntax.traverse0._
+import scalaz.syntax.traverse._
 import scalaz.std.list._
 import scalaz.std.option._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref}

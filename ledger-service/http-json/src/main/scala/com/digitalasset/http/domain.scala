@@ -17,9 +17,7 @@ import scalaz.std.string._
 import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
-import scalaz.syntax.functor0._
-import scalaz.syntax.foldable0._
-import scalaz.syntax.traverse0._
+import scalaz.syntax.traverse._
 import scalaz.{
   -\/,
   @@,

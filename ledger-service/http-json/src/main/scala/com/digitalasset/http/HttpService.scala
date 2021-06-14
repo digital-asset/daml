@@ -37,7 +37,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
 import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
-import com.daml.scalautil.WidenEither._
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
 import scalaz._
@@ -56,7 +55,7 @@ object HttpService {
   // default to 10 minutes for ledger connection retry period when ledger is not ready on start
   private val MaxInitialLedgerConnectRetryAttempts = 600
 
-  private type ET[A] = EitherT[Error, Future, A]
+  private type ET[A] = EitherT[Future, Error, A]
 
   object Error {
     def fromLedgerClientError(e: LedgerClientBase.Error): Error = Error(e.message)
@@ -94,7 +93,7 @@ object HttpService {
       maxInboundMessageSize = maxInboundMessageSize,
     )
 
-    val bindingEt: EitherT[Error, Future, ServerBinding] = for {
+    val bindingEt: EitherT[Future, Error, ServerBinding] = for {
       client <- eitherT(
         ledgerClient(
           ledgerHost,
@@ -236,8 +235,7 @@ object HttpService {
       packageClient: PackageClient,
       holderM: Option[TokenHolder],
   )(implicit ec: ExecutionContext): PackageService.ReloadPackageStore =
-    (ids: Set[String]) =>
-      refreshToken(holderM).flatMap(_.traverseM(doLoad(packageClient, ids, _))).widenLeftF
+    (ids: Set[String]) => refreshToken(holderM).flatMap(_.traverseM(doLoad(packageClient, ids, _)))
 
   // We can reuse the token we use for packages since both
   // require only public claims
@@ -246,7 +244,9 @@ object HttpService {
   ): () => Future[Unit] =
     () => {
       for {
-        token <- refreshToken(holderM).flatMap(x => toFuture(x.widenLeft[PackageService.Error]))
+        token <- refreshToken(holderM).flatMap(x =>
+          toFuture(x: PackageService.Error \/ Option[String])
+        )
         _ <- client.transactionClient.getLedgerEnd(token)
       } yield ()
     }

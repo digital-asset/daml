@@ -5,7 +5,7 @@ package com.daml.http.json
 
 import com.daml.http.domain
 import com.daml.ledger.api.{v1 => lav1}
-import scalaz.{\/, IsCovariant}
+import scalaz.\/
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
@@ -17,11 +17,6 @@ class DomainJsonEncoder(
 ) {
 
   import com.daml.http.util.ErrorOps._
-
-  private[this] val apiRecordToJsValue =
-    IsCovariant[JsonError \/ *].substCo[lav1.value.Record => +*, JsObject, JsValue](
-      apiRecordToJsObject
-    )
 
   def encodeExerciseCommand(
       cmd: domain.ExerciseCommand[lav1.value.Value, domain.ContractLocator[lav1.value.Value]]
@@ -45,7 +40,7 @@ class DomainJsonEncoder(
   ): JsonError \/ JsValue =
     for {
       x <- cmd.traversePayload(
-        apiRecordToJsValue
+        apiRecordToJsObject(_)
       ): JsonError \/ domain.CreateCommand[JsValue, domain.TemplateId.OptionalPkg]
       y <- SprayJson.encode(x).liftErr(JsonError)
 
@@ -63,7 +58,7 @@ class DomainJsonEncoder(
       ]
   ): JsonError \/ JsValue =
     for {
-      payload <- apiRecordToJsValue(cmd.payload)
+      payload <- apiRecordToJsObject(cmd.payload): JsonError \/ JsValue
       argument <- apiValueToJsValue(cmd.argument)
       y <- SprayJson.encode(cmd.copy(payload = payload, argument = argument)).liftErr(JsonError)
 

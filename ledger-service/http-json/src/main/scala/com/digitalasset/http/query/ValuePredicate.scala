@@ -20,8 +20,7 @@ import scalaz.Tags.Conjunction
 import scalaz.std.anyVal._
 import scalaz.std.tuple._
 import scalaz.std.vector._
-import scalaz.syntax.functor0._
-import scalaz.syntax.apply0._
+import scalaz.syntax.apply._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.order._
 import scalaz.syntax.tag._

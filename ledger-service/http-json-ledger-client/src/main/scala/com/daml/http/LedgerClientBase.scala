@@ -62,9 +62,9 @@ trait LedgerClientBase extends StrictLogging {
            | (attempt $i/$maxInitialConnectRetryAttempts)""".stripMargin)
         buildLedgerClient(ledgerHost, ledgerPort, clientConfig, nonRepudiationConfig)
       }
-      .map(\/.r[LedgerClientBase.Error](_))
+      .map(_.right)
       .recover { case NonFatal(e) =>
-        \/.l[DamlLedgerClient](
+        \/.left(
           LedgerClientBase.Error(
             s"""Maximum initial connection retry attempts($maxInitialConnectRetryAttempts) reached,
                | Cannot connect to ledger server: ${e.description}""".stripMargin
@@ -82,9 +82,9 @@ trait LedgerClientBase extends StrictLogging {
       aesf: ExecutionSequencerFactory,
   ): Future[LedgerClientBase.Error \/ DamlLedgerClient] =
     buildLedgerClient(ledgerHost, ledgerPort, clientConfig, nonRepudiationConfig)
-      .map(\/.r[LedgerClientBase.Error](_))
+      .map(_.right)
       .recover { case NonFatal(e) =>
-        \/.l[DamlLedgerClient](
+        \/.left(
           LedgerClientBase.Error(s"Cannot connect to the ledger server, error: ${e.description}")
         )
       }

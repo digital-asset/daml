@@ -76,8 +76,7 @@ case class Participants[+T](
   def getPartiesParticipant(parties: OneAnd[Set, Party]): Either[String, T] = {
     import scalaz.syntax.foldable._
     for {
-      participants <- NonEmptyList
-        .fromSeq[Party](parties.head, parties.tail.toSeq)
+      participants <- NonEmptyList[Party](parties.head, parties.tail.toList: _*)
         .traverse(getPartyParticipant(_))
       participant <-
         if (participants.all(_ == participants.head)) {

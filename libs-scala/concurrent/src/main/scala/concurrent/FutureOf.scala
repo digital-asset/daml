@@ -4,12 +4,12 @@
 package com.daml.concurrent
 
 import scala.language.implicitConversions
-import scala.annotation.nowarn
 import scala.{concurrent => sc}
 import scala.util.Try
 
-import scalaz.{===, Catchable, Cobind, Isomorphism, Leibniz, MonadError, Nondeterminism, Semigroup}
-import Isomorphism.{<~>, naturalRefl}
+import scalaz.{Catchable, Cobind, Isomorphism, Leibniz, MonadError, Nondeterminism, Semigroup}
+import Isomorphism.<~>
+import Leibniz.===
 import scalaz.std.scalaFuture._
 
 sealed abstract class FutureOf {
@@ -32,9 +32,6 @@ object FutureOf {
     override private[concurrent] def subst[F[_[+_]], EC](ff: F[sc.Future]) = ff
   }
 
-  // expansion should be an exact copy of the implicit's type from
-  // scalaz/std/Future.scala
-  @nowarn("msg=Catchable .* is deprecated \\(since 7.3.0")
   type ScalazF[F[+_]] = Nondeterminism[F]
     with Cobind[F]
     with MonadError[F, Throwable]
@@ -62,7 +59,7 @@ object FutureOf {
 
   def swapExecutionContext[L, R]: Future[L, *] <~> Future[R, *] =
     Instance.subst[Lambda[`t[+_]` => t <~> Future[R, *]], L](
-      Instance.subst[Lambda[`t[+_]` => sc.Future <~> t], R](naturalRefl)
+      Instance.subst[Lambda[`t[+_]` => sc.Future <~> t], R](implicitly[sc.Future <~> sc.Future])
     )
 
   /** Common methods like `map` and `flatMap` are not provided directly; instead,

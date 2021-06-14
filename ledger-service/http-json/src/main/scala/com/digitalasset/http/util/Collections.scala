@@ -9,7 +9,7 @@ object Collections {
 
   implicit final class `cdhuc Nel Ops`[A](private val self: NonEmptyList[A]) extends AnyVal {
     def collect[B](f: A PartialFunction B): Option[NonEmptyList[B]] =
-      self.list.collect(f).toNel.toOption
+      self.list.collect(f).toNel
   }
 
   def toNonEmptySet[A](as: NonEmptyList[A]): OneAnd[Set, A] = {

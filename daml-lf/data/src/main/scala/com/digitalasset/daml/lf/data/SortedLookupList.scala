@@ -8,8 +8,7 @@ import ScalazEqual.{equalBy, orderBy}
 import scalaz.{Applicative, Equal, Order, Traverse}
 import scalaz.std.tuple._
 import scalaz.std.string._
-import scalaz.syntax.functor0._
-import scalaz.syntax.traverse0._
+import scalaz.syntax.traverse._
 
 import scala.collection.immutable.HashMap
 import scala.collection.compat._

@@ -67,11 +67,10 @@ object Main extends StrictLogging {
   }
 
   private def format(map: Map[Path, Option[String]]): String = {
-    import scalaz.syntax.foldable._, scalaz.std.iterable._
     // use intercalate instead if you don't want the trailing comma
-    val elts = (map: Iterable[(Path, Option[String])]).foldMap { case (k, v) =>
-      Cord(k.toFile.getAbsolutePath) :: Cord("->") :: Cord(v.toString) :: Cord(",")
+    val cord = map.foldLeft(Cord("{")) { (str, kv) =>
+      str ++ kv._1.toFile.getAbsolutePath ++ "->" ++ kv._2.toString ++ ","
     }
-    (Cord("{") :: elts :: Cord("}")).toString
+    (cord ++ "}").toString
   }
 }

@@ -48,7 +48,7 @@ private[trigger] sealed abstract class UnfoldState[T, A] {
           \/-(a)
         case Some(et @ -\/(_)) =>
           last = None
-          et.coerceRight
+          et
         case None =>
           throw new IllegalStateException("iterator read past end")
       }
@@ -223,7 +223,7 @@ private[trigger] object UnfoldState {
                 \/-(b)
               case Some(et @ -\/(_)) =>
                 last = None
-                et.coerceRight
+                et
               case None =>
                 throw new IllegalStateException("iterator read past end")
             }

@@ -9,28 +9,11 @@ import com.daml.lf.data.Ref.{DottedName, Name}
 import scala.language.implicitConversions
 import scala.collection.compat._
 import scala.collection.immutable.Map
-import scalaz.{
-  -\/,
-  ==>>,
-  @@,
-  Applicative,
-  Cord,
-  Maybe,
-  Monoid,
-  Order,
-  Semigroup,
-  Tag,
-  Traverse,
-  \/,
-  \/-,
-}
+import scalaz.{-\/, ==>>, @@, Applicative, Cord, Monoid, Order, Semigroup, Tag, Traverse, \/, \/-}
 import scalaz.std.map._
 import scalaz.std.string._
 import scalaz.syntax.monoid._
-import scalaz.syntax.foldable0._
-import scalaz.syntax.functor0._
-import scalaz.syntax.traverse0._
-import scalaz.syntax.std.option._
+import scalaz.syntax.traverse._
 
 // Free[K ==>> ?, A] with an incompatible semigroup and strict representation
 final case class Errors[K, A](run: A \/ (K ==>> Errors[K, A])) {
@@ -41,12 +24,12 @@ final case class Errors[K, A](run: A \/ (K ==>> Errors[K, A])) {
   }
 
   def collectAndPrune[B](f: A PartialFunction B)(implicit K: Order[K]): Errors[K, B] = {
-    def go(self: Errors[K, A]): Maybe[Errors[K, B]] =
+    def go(self: Errors[K, A]): Option[Errors[K, B]] =
       self.run.fold(
-        a => f.lift(a).toMaybe map Errors.point,
+        a => f.lift(a) map Errors.point,
         { m =>
-          val m2 = m mapMaybe go
-          if (m2.isEmpty) Maybe.Empty() else Maybe.Just(Errors(\/-(m2)))
+          val m2 = m mapOption go
+          if (m2.isEmpty) None else Some(Errors(\/-(m2)))
         },
       )
     go(this) getOrElse Errors.zeroErrors
@@ -135,7 +118,7 @@ object Errors {
   private[reader] def traverseIndexedErrs[F[_]: Traverse, K, A, Loc: Order, E: Semigroup, B](
       map: F[(K, A)]
   )(f: A => (Errors[Loc, E] \/ B))(implicit kloc: K => Loc): Errors[Loc, E] \/ F[B] =
-    map.traverse { case (k, a) => locate(kloc(k), f(a)).toValidation }.toDisjunction
+    map.traverse { case (k, a) => locate(kloc(k), f(a)).validation }.disjunction
 
   /** Like `traverseIndexedErrs` for maps specifically. If result is
     * right, the keyset is guaranteed to be the same.
@@ -143,7 +126,7 @@ object Errors {
   private[reader] def traverseIndexedErrsMap[K, A, Loc: Order, E: Semigroup, B](map: Map[K, A])(
       f: A => (Errors[Loc, E] \/ B)
   )(implicit kloc: K => Loc): Errors[Loc, E] \/ Map[K, B] =
-    map.transform((k, a) => locate(kloc(k), f(a)).toValidation).sequence.toDisjunction
+    map.transform((k, a) => locate(kloc(k), f(a)).validation).sequence.disjunction
 
   private[reader] def stringReport[Loc, E](
       errors: Errors[Loc, E]
@@ -152,8 +135,15 @@ object Errors {
     errors
       .fold[Vector[Cord]](
         e => Vector(msg(e)),
-        _ foldMapWithKey ((l, cs) => loc(l) +: cs.map(Cord("  ") ++ _)),
+        _ foldMapWithKey ((l, cs) => loc(l) +: cs.map("  " +: _)),
       )
       .suml
+  }
+
+  private[this] implicit final class `scalaz ==>> future`[A, B](private val self: A ==>> B)
+      extends AnyVal {
+    // added (more efficiently) in scalaz 7.3
+    def foldMapWithKey[C: Monoid](f: (A, B) => C): C =
+      self.foldlWithKey(mzero[C])((c, a, b) => c |+| f(a, b))
   }
 }

@@ -369,7 +369,7 @@ object LFUtil {
     val groupedRights = if (rightCount > 0) unfoldIList((0, ungroupedRights)) {
       case (idx, remaining) =>
         val (here, remaining2) = remaining splitAt ((ungroupedCount + idx) / rightCount)
-        here.toNel.toOption map ((_, (1 + idx, remaining2))) orElse {
+        here.toNel map ((_, (1 + idx, remaining2))) orElse {
           assert(remaining.isEmpty, "unfold must group all")
           None
         }
