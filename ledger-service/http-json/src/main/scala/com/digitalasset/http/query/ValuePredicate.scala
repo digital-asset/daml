@@ -346,7 +346,7 @@ object ValuePredicate {
       case JsNumber(q) if q.isValidLong =>
         q.toLongExact
       case JsString(q) =>
-        q.parseLong.fold(e => predicateParseError(e), identity)
+        q.parseLong.fold(e => throw e, identity)
     },
     { case V.ValueInt64(v) => v },
   )(V.ValueInt64)
