@@ -16,7 +16,7 @@ final class DomainSpec extends AnyFreeSpec with Matchers {
   "JwtWritePayload" - {
     "parties deduplicates between actAs and readAs" in {
       val payload =
-        JwtWritePayload(ledgerId, appId, actAs = NonEmptyList(alice), readAs = List(alice, bob))
+        JwtWritePayload(ledgerId, appId, submitter = NonEmptyList(alice), readAs = List(alice, bob))
       payload.parties shouldBe OneAnd(alice, Set(bob))
     }
   }

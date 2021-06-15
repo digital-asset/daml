@@ -123,7 +123,7 @@ class Endpoints(
     }
   }
 
-  def withJwtPayloadLoggingContext[T[_], A](jwtPayload: JwtPayloadG[T])(
+  def withJwtPayloadLoggingContext[A](jwtPayload: JwtPayloadG)(
       fn: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => A
   )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): A =
     withEnrichedLoggingContext(

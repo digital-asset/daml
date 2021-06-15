@@ -55,11 +55,11 @@ object domain {
 
   trait JwtPayloadTag
 
-  trait JwtPayloadG[T[_]] {
+  trait JwtPayloadG {
     val ledgerId: LedgerId
     val applicationId: ApplicationId
     val readAs: List[Party]
-    val actAs: T[Party]
+    val actAs: List[Party]
     val parties: OneAnd[Set, Party]
   }
 
@@ -68,9 +68,10 @@ object domain {
   final case class JwtWritePayload(
       ledgerId: LedgerId,
       applicationId: ApplicationId,
-      actAs: NonEmptyList[Party],
+      submitter: NonEmptyList[Party],
       readAs: List[Party],
-  ) extends JwtPayloadG[NonEmptyList] {
+  ) extends JwtPayloadG {
+    override val actAs: List[Party] = submitter.toList
     override val parties: OneAnd[Set, Party] =
       oneAndSet(actAs.head, actAs.tail.toSet union readAs.toSet)
   }
@@ -83,7 +84,7 @@ object domain {
       readAs: List[Party],
       actAs: List[Party],
       parties: OneAnd[Set, Party],
-  ) extends JwtPayloadG[List] {}
+  ) extends JwtPayloadG {}
 
   object JwtPayload {
     def apply(
