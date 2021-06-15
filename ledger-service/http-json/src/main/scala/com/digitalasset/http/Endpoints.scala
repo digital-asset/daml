@@ -21,7 +21,7 @@ import com.daml.lf
 import com.daml.http.ContractsService.SearchResult
 import com.daml.http.EndpointsCompanion._
 import com.daml.scalautil.Statement.discard
-import com.daml.http.domain.{JwtPayload, JwtWritePayload, TemplateId}
+import com.daml.http.domain.{JwtPayload, JwtPayloadG, JwtPayloadTag, JwtWritePayload, TemplateId}
 import com.daml.http.json._
 import com.daml.http.util.Collections.toNonEmptySet
 import com.daml.http.util.FutureUtil.{either, eitherT}
@@ -123,11 +123,11 @@ class Endpoints(
     }
   }
 
-  def withJwtPayloadLoggingContext[A](jwtPayload: JwtPayload)(
-      fn: LoggingContextOf[JwtPayload with InstanceUUID with RequestID] => A
+  def withJwtPayloadLoggingContext[T[_], A](jwtPayload: JwtPayloadG[T])(
+      fn: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => A
   )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): A =
     withEnrichedLoggingContext(
-      LoggingContextOf.label[JwtPayload],
+      LoggingContextOf.label[JwtPayloadTag],
       Map(
         "ledger_id" -> jwtPayload.ledgerId.toString,
         "act_as" -> jwtPayload.actAs.toString,
@@ -143,7 +143,9 @@ class Endpoints(
           Jwt,
           JwtWritePayload,
           JsValue,
-      ) => LoggingContextOf[JwtWritePayload with InstanceUUID with RequestID] => ET[T[ApiValue]]
+      ) => LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => ET[
+        T[ApiValue]
+      ]
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
       ev1: JsonWriter[T[JsValue]],
@@ -151,18 +153,7 @@ class Endpoints(
   ): ET[domain.SyncResponse[JsValue]] = for {
     t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
     (jwt, jwtPayload, reqBody) = t3
-    resp <-
-      withEnrichedLoggingContext(
-        LoggingContextOf.label[JwtWritePayload],
-        Map(
-          "ledger_id" -> jwtPayload.ledgerId.toString,
-          "act_as" -> jwtPayload.actAs.toString,
-          "application_id" -> jwtPayload.applicationId.toString,
-          "read_as" -> jwtPayload.readAs.toString,
-        ),
-      )
-        .run(fn(jwt, jwtPayload, reqBody))
-
+    resp <- withJwtPayloadLoggingContext(jwtPayload)(fn(jwt, jwtPayload, reqBody))
     jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
   } yield domain.OkResponse(jsVal)
 
@@ -523,7 +514,7 @@ class Endpoints(
       jwtPayload: JwtWritePayload,
       reference: domain.ContractLocator[LfValue],
   )(implicit
-      lc: LoggingContextOf[JwtWritePayload with InstanceUUID with RequestID]
+      lc: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID]
   ): Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
       .resolveContractReference(jwt, jwtPayload.parties, reference)
