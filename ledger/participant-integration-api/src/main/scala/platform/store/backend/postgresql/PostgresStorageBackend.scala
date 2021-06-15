@@ -18,37 +18,14 @@ import com.daml.platform.store.backend.common.{CommonStorageBackend, TemplatedSt
 import com.daml.platform.store.backend.{DbDto, StorageBackend}
 
 private[backend] object PostgresStorageBackend
-    extends StorageBackend[PostgresDbBatch]
-    with CommonStorageBackend[PostgresDbBatch] {
+    extends StorageBackend[AppendOnlySchema.Batch]
+    with CommonStorageBackend[AppendOnlySchema.Batch] {
 
   override def insertBatch(
       connection: Connection,
-      postgresDbBatch: PostgresDbBatch,
-  ): Unit = {
-    PGSchema.commandCompletions.executeUpdate(postgresDbBatch.commandCompletionsBatch, connection)
-    PGSchema.configurationEntries.executeUpdate(
-      postgresDbBatch.configurationEntriesBatch,
-      connection,
-    )
-    PGSchema.eventsDivulgence.executeUpdate(postgresDbBatch.eventsBatchDivulgence, connection)
-    PGSchema.eventsCreate.executeUpdate(postgresDbBatch.eventsBatchCreate, connection)
-    PGSchema.eventsConsumingExercise.executeUpdate(
-      postgresDbBatch.eventsBatchConsumingExercise,
-      connection,
-    )
-    PGSchema.eventsNonConsumingExercise.executeUpdate(
-      postgresDbBatch.eventsBatchNonConsumingExercise,
-      connection,
-    )
-    PGSchema.packageEntries.executeUpdate(postgresDbBatch.packageEntriesBatch, connection)
-    PGSchema.packages.executeUpdate(postgresDbBatch.packagesBatch, connection)
-    PGSchema.parties.executeUpdate(postgresDbBatch.partiesBatch, connection)
-    PGSchema.partyEntries.executeUpdate(postgresDbBatch.partyEntriesBatch, connection)
-    PGSchema.commandSubmissionDeletes.executeUpdate(
-      postgresDbBatch.commandSubmissionDeleteBatch,
-      connection,
-    )
-  }
+      postgresDbBatch: AppendOnlySchema.Batch,
+  ): Unit =
+    PGSchema.schema.executeUpdate(postgresDbBatch, connection)
 
   override def initialize(connection: Connection): StorageBackend.LedgerEnd = {
     val result @ StorageBackend.LedgerEnd(offset, _) = ledgerEnd(connection)
@@ -111,7 +88,8 @@ private[backend] object PostgresStorageBackend
       |""".stripMargin
     )
 
-  override def batch(dbDtos: Vector[DbDto]): PostgresDbBatch = PostgresDbBatch(dbDtos)
+  override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
+    PGSchema.schema.prepareData(dbDtos)
 
   val SQL_INSERT_COMMAND: String =
     """insert into participant_command_submissions as pcs (deduplication_key, deduplicate_until)
