@@ -409,11 +409,12 @@ class ContractsService(
       templateIds: List[domain.TemplateId.RequiredPkg],
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
     val txnFilter = util.Transactions.transactionFilterFor(parties, templateIds)
-    getActiveContracts(jwt, txnFilter, true).map {
-      case GetActiveContractsResponse(offset, _, activeContracts, _) =>
+    getActiveContracts(jwt, txnFilter, true)
+      .map { case GetActiveContractsResponse(offset, _, activeContracts, _) =>
         if (activeContracts.nonEmpty) Acs(activeContracts.toVector)
         else LiveBegin(AbsoluteBookmark(domain.Offset(offset)))
-    }
+      }
+      .wireTap(step => println(s",,, ACS $step"))
   }
 
   /** An ACS ++ transaction stream of `templateIds`, starting at `startOffset`
@@ -445,10 +446,12 @@ class ContractsService(
           .viaMat(transactionsFollowingBoundary(transactionsSince).divertToHead)(Keep.right),
       source.viaMat(acsFollowingAndBoundary(transactionsSince).divertToHead)(Keep.right),
     )
-    contractsAndBoundary mapMaterializedValue { fob =>
-      fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
-      NotUsed
-    }
+    contractsAndBoundary
+      .mapMaterializedValue { fob =>
+        fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
+        NotUsed
+      }
+      .wireTap(step => println(s"^^^ TXS $step"))
   }
 
   private def apiAcToLfAc(

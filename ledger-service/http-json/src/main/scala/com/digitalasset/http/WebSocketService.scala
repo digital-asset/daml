@@ -568,9 +568,14 @@ class WebSocketService(
           bookmark <- fetch.fetchAndPersist(jwt, parties, predicate.resolved.toList)
           mdContracts <- predicate.dbQuery(parties, dao)
         } yield {
-          val acs = Source.single(StepAndErrors(Seq.empty, ContractStreamStep.Acs(mdContracts)))
+          val acs =
+            if (mdContracts.nonEmpty) {
+              Source.single(StepAndErrors(Seq.empty, ContractStreamStep.Acs(mdContracts)))
+            } else {
+              Source.empty
+            }
           val liveMarker = liveBegin(bookmark.map(_.toDomain))
-          acs ++ liveMarker
+          (acs ++ liveMarker).wireTap(step => println(s"--- DBS $step"))
         }
         dao.transact(tx).unsafeToFuture()
       },
@@ -671,6 +676,7 @@ class WebSocketService(
         .map(_.mapPos(Q.renderCreatedMetadata).render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => \/-(wsMessage(jsv)))
+        .wireTap(msg => println(s"%%%%%% $msg"))
     } else {
       reportUnresolvedTemplateIds(unresolved)
         .map(jsv => \/-(wsMessage(jsv)))
