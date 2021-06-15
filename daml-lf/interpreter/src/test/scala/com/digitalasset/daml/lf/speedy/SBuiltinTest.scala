@@ -101,10 +101,18 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
 
     "MOD_INT64" - {
       "is remainder with respect to DIV_INT64, i.e. b*(a/b) + (a%b) == a" in {
-        eval(e"ADD_INT64 (MUL_INT64  3 (DIV_INT64  10  3)) (MOD_INT64  10  3)") shouldBe Right(SInt64(10))
-        eval(e"ADD_INT64 (MUL_INT64 -3 (DIV_INT64  10 -3)) (MOD_INT64  10 -3)") shouldBe Right(SInt64(10))
-        eval(e"ADD_INT64 (MUL_INT64  3 (DIV_INT64 -10  3)) (MOD_INT64 -10  3)") shouldBe Right(SInt64(-10))
-        eval(e"ADD_INT64 (MUL_INT64 -3 (DIV_INT64 -10 -3)) (MOD_INT64 -10 -3)") shouldBe Right(SInt64(-10))
+        eval(e"ADD_INT64 (MUL_INT64  3 (DIV_INT64  10  3)) (MOD_INT64  10  3)") shouldBe Right(
+          SInt64(10)
+        )
+        eval(e"ADD_INT64 (MUL_INT64 -3 (DIV_INT64  10 -3)) (MOD_INT64  10 -3)") shouldBe Right(
+          SInt64(10)
+        )
+        eval(e"ADD_INT64 (MUL_INT64  3 (DIV_INT64 -10  3)) (MOD_INT64 -10  3)") shouldBe Right(
+          SInt64(-10)
+        )
+        eval(e"ADD_INT64 (MUL_INT64 -3 (DIV_INT64 -10 -3)) (MOD_INT64 -10 -3)") shouldBe Right(
+          SInt64(-10)
+        )
       }
     }
 
