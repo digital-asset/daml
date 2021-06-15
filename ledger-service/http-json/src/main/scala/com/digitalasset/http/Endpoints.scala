@@ -159,7 +159,9 @@ class Endpoints(
       resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef)
 
       resp <- eitherT(
-        handleFutureEitherFailure(commandService.exercise(jwt, jwtPayload, resolvedCmd))
+        handleFutureEitherFailure(
+          commandService.exercise(jwt, jwtPayload, resolvedCmd)
+        )
       ): ET[domain.ExerciseResponse[ApiValue]]
 
       jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
@@ -179,7 +181,9 @@ class Endpoints(
       ): ET[domain.CreateAndExerciseCommand[ApiRecord, ApiValue, TemplateId.RequiredPkg]]
 
       resp <- eitherT(
-        handleFutureEitherFailure(commandService.createAndExercise(jwt, jwtPayload, cmd))
+        handleFutureEitherFailure(
+          commandService.createAndExercise(jwt, jwtPayload, cmd)
+        )
       ): ET[domain.ExerciseResponse[ApiValue]]
 
       jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
