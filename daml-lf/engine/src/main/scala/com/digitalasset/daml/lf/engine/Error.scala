@@ -5,7 +5,8 @@ package com.daml.lf
 package engine
 
 import com.daml.lf.data.Ref
-import com.daml.lf.transaction.GlobalKey
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.{GlobalKey, NodeId}
 import com.daml.lf.value.Value
 
 sealed abstract class Error {
@@ -68,16 +69,24 @@ object Error {
 
   object Preprocessing {
 
-    sealed abstract class Error extends RuntimeException with scala.util.control.NoStackTrace {
+    sealed abstract class Error
+        extends RuntimeException
+        with scala.util.control.NoStackTrace
+        with Product {
       def msg: String
+
+      override def toString: String =
+        productPrefix + productIterator.mkString("(", ",", ")")
     }
 
-    // TODO https://github.com/digital-asset/daml/issues/9974
-    //  get rid of Generic
-    final case class Generic(override val msg: String) extends Error
+    final case class Internal(
+        nameOfFunc: String,
+        override val msg: String,
+        detailMsg: String = "",
+    ) extends Error
 
     final case class Lookup(lookupError: language.LookupError) extends Error {
-      def msg: String = lookupError.pretty
+      override def msg: String = lookupError.pretty
     }
 
     private[engine] object MissingPackage {
@@ -89,6 +98,37 @@ object Error {
           case _ => None
         }
     }
+
+    final case class Type(
+        typ: Ast.Type,
+        value: Value[Value.ContractId],
+        override val msg: String,
+    ) extends Error
+
+    final case class ValueNesting(value: Value[Value.ContractId]) extends Error {
+      override def msg: String =
+        s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}"
+    }
+
+    final case class ContractIdInContractKey(
+        templateId: Ref.TypeConName,
+        key: Value[Value.ContractId],
+        contractId: Value.ContractId,
+    ) extends Error {
+      override def msg: String =
+        s"Contract IDs are not supported in contract key of $templateId: $contractId"
+    }
+
+    final case class RootNode(nodeId: NodeId, override val msg: String) extends Error
+
+    final case class ContractIdFreshness(
+        localContractIds: Set[Value.ContractId],
+        globalContractIds: Set[Value.ContractId],
+    ) extends Error {
+      assert(localContractIds exists globalContractIds)
+      def msg: String = "Conflicting discriminators between a global and local contract ID."
+    }
+
   }
 
   // Error happening during interpretation

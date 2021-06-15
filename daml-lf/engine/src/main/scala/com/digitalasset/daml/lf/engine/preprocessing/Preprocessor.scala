@@ -12,6 +12,7 @@ import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.transaction.{GenTransaction, NodeId}
 import com.daml.lf.value.Value
+import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
 
@@ -88,7 +89,11 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
             case Ast.TTyCon(_) | Ast.TNat(_) | Ast.TBuiltin(_) | Ast.TVar(_) =>
               go(typesToProcess, tmplToProcess0, tyConAlreadySeen0, tmplsAlreadySeen0)
             case Ast.TSynApp(_, _) | Ast.TForall(_, _) | Ast.TStruct(_) =>
-              ResultError(Error.Preprocessing.Generic(s"unserializable type ${typ.pretty}"))
+              // We assume that getDependencies is always given serializable types
+              ResultError(
+                Error.Preprocessing
+                  .Internal(NameOf.qualifiedNameOfCurrentFunc, s"unserializable type ${typ.pretty}")
+              )
           }
         case Nil =>
           tmplToProcess0 match {
@@ -159,10 +164,6 @@ private[preprocessing] object Preprocessor {
     as.foreach(a.add)
     a
   }
-
-  @throws[Error.Preprocessing.Error]
-  def fail(s: String): Nothing =
-    throw Error.Preprocessing.Generic(s)
 
   @throws[Error.Preprocessing.Error]
   def handleLookup[X](either: Either[LookupError, X]): X = either match {

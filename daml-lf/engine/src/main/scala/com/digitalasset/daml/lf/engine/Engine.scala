@@ -19,6 +19,7 @@ import java.nio.file.Files
 import com.daml.lf.language.{Interface, LanguageVersion}
 import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value.ContractId
+import com.daml.nameof.NameOf
 
 /** Allows for evaluating [[Commands]] and validating [[Transaction]]s.
   * <p>
@@ -237,7 +238,8 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
 
   @inline
   private[lf] def runSafely[X](
-      handleMissingDependencies: => Result[Unit]
+      funcName: String,
+      handleMissingDependencies: => Result[Unit],
   )(run: => Result[X]): Result[X] = {
     def start: Result[X] =
       try {
@@ -246,7 +248,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         case speedy.Compiler.PackageNotFound(_) =>
           handleMissingDependencies.flatMap(_ => start)
         case speedy.Compiler.CompilationError(error) =>
-          ResultError(Error.Preprocessing.Generic(s"CompilationError: $error"))
+          ResultError(Error.Preprocessing.Internal(funcName, s"CompilationError: $error"))
       }
     start
   }
@@ -269,7 +271,8 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       globalCids: Set[Value.ContractId],
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     runSafely(
-      loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
+      NameOf.qualifiedNameOfCurrentFunc,
+      loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList),
     ) {
       val sexpr = compiledPackages.compiler.unsafeCompile(commands)
       val machine = Machine(

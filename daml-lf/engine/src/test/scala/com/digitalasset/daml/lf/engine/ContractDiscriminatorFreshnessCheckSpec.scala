@@ -333,8 +333,8 @@ class ContractDiscriminatorFreshnessCheckSpec
           .translateTransactionRoots(GenTransaction(newNodes, tx.roots))
           .consume(_ => None, pkgs, _ => None, _ => VisibleByKey.Visible)
 
-      inside(result) { case Left(err) =>
-        err.msg should include("Conflicting discriminators")
+      inside(result) { case Left(Error.Preprocessing(err)) =>
+        err shouldBe a[Error.Preprocessing.ContractIdFreshness]
       }
 
     }

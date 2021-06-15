@@ -12,13 +12,18 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
+import org.scalatest.Inside
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class PreprocessorSpec
+    extends AnyWordSpec
+    with Matchers
+    with TableDrivenPropertyChecks
+    with Inside {
 
   import Preprocessor.ArrayList
 
@@ -26,10 +31,18 @@ class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropert
 
   private implicit def toName(s: String): Ref.Name = Ref.Name.assertFromString(s)
 
-  val recordCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Record"))
-  val variantCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Variant"))
-  val enumCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Enum"))
-  val tricky = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Tricky"))
+  private[this] val recordCon =
+    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Record"))
+  private[this] val variantCon =
+    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Variant"))
+  private[this] val enumCon =
+    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Enum"))
+  private[this] val tricky =
+    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Tricky"))
+  private[this] val myListTyCons =
+    Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:MyList"))
+  private[this] val myNilCons = Ref.Name.assertFromString("MyNil")
+  private[this] val myConsCons = Ref.Name.assertFromString("MyCons")
 
   val pkg =
     p"""
@@ -40,6 +53,9 @@ class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropert
           enum Enum = value1 | value2;
 
           record Tricky (b: * -> *) = { x : b Unit };
+
+          record MyCons = { head : Int64, tail: Module:MyList };
+          variant MyList = MyNil : Unit | MyCons: Module:MyCons ;
 
         }
 
@@ -131,6 +147,28 @@ class PreprocessorSpec extends AnyWordSpec with Matchers with TableDrivenPropert
           if (value1 != value2)
             translateValue(typ1, value2) shouldBe a[ResultError]
         }
+      }
+    }
+
+    "fails on too deep values" in {
+
+      def mkMyList(n: Int) =
+        Iterator.range(0, n).foldLeft[Value[Nothing]](ValueVariant(None, myNilCons, ValueUnit)) {
+          case (v, n) =>
+            ValueVariant(
+              None,
+              myConsCons,
+              ValueRecord(None, ImmArray(None -> ValueInt64(n.toLong), None -> v)),
+            )
+        }
+
+      val notTooBig = mkMyList(49)
+      val tooBig = mkMyList(50)
+
+      translateValue(Ast.TTyCon(myListTyCons), notTooBig) shouldBe a[ResultDone[_]]
+      inside(translateValue(Ast.TTyCon(myListTyCons), tooBig)) {
+        case ResultError(Error.Preprocessing(err)) =>
+          err shouldBe Error.Preprocessing.ValueNesting(tooBig)
       }
     }
   }
