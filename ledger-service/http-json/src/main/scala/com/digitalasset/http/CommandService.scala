@@ -110,7 +110,7 @@ class CommandService(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] =
     withTemplateChoiceLoggingContext(input.templateId, input.choice).run { implicit lc =>
-      logger.trace(s"sending create and exercise command to ledger")
+      logger.trace("sending create and exercise command to ledger")
       val command = createAndExerciseCommand(input)
       val request = submitAndWaitRequest(jwtPayload, input.meta, command, "createAndExercise")
       val et: ET[ExerciseResponse[lav1.value.Value]] = for {
