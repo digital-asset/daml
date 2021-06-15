@@ -5,7 +5,9 @@ package com.daml.http
 
 import akka.actor.{ActorSystem, Cancellable}
 import akka.http.scaladsl.Http
+import akka.stream.scaladsl.Sink
 import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
 import com.daml.auth.TokenHolder
@@ -190,16 +192,31 @@ object HttpService {
         websocketService,
       )
 
+      ignoreConParam = (res: Future[HttpResponse]) => (_: Http.IncomingConnection) => res
+
       defaultEndpoints =
-        jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound
+        jsonEndpoints.all orElse
+          (websocketEndpoints.transactionWebSocket andThen ignoreConParam) orElse
+          (EndpointsCompanion.notFound andThen ignoreConParam)
 
       allEndpoints = staticContentConfig.cata(
-        c => StaticContentEndpoints.all(c) orElse defaultEndpoints,
+        c =>
+          (StaticContentEndpoints.all(c) andThen ignoreConParam) orElse
+            defaultEndpoints,
         defaultEndpoints,
       )
 
       binding <- liftET[Error](
-        Http().newServerAt(address, httpPort).withSettings(settings).bind(allEndpoints)
+        Http()
+          .newServerAt(address, httpPort)
+          .withSettings(settings)
+          .connectionSource()
+          .to {
+            Sink.foreach { connection =>
+              connection.handleWithAsyncHandler(allEndpoints(_)(connection))
+            }
+          }
+          .run()
       )
 
       _ <- either(portFile.cata(f => createPortFile(f, binding), \/-(()))): ET[Unit]
