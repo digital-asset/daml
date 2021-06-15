@@ -134,7 +134,7 @@ class Endpoints(
         "application_id" -> jwtPayload.applicationId.toString,
         "read_as" -> jwtPayload.readAs.toString,
       ),
-    ).run(lc => fn(lc))
+    ).run(fn)
 
   // I think this is not the best name.
   // Naming things is hard :/
