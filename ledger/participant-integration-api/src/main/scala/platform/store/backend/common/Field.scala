@@ -4,6 +4,7 @@
 package com.daml.platform.store.backend.common
 
 import java.lang
+import java.time.Instant
 
 import scala.reflect.ClassTag
 
@@ -66,4 +67,19 @@ case class BooleanField[FROM](extract: FROM => Boolean) extends TrivialField[FRO
 case class BooleanOptional[FROM](extract: FROM => Option[Boolean])
     extends Field[FROM, Option[Boolean], java.lang.Boolean] {
   override def convert: Option[Boolean] => lang.Boolean = _.map(Boolean.box).orNull
+}
+
+case class Timestamp[FROM](extract: FROM => Instant) extends TrivialField[FROM, Instant]
+
+case class TimestampOptional[FROM](extract: FROM => Option[Instant])
+    extends TrivialOptionalField[FROM, Instant]
+
+case class StringArray[FROM](extract: FROM => Iterable[String])
+    extends Field[FROM, Iterable[String], Array[String]] {
+  override def convert: Iterable[String] => Array[String] = _.toArray
+}
+
+case class StringArrayOptional[FROM](extract: FROM => Option[Iterable[String]])
+    extends Field[FROM, Option[Iterable[String]], Array[String]] {
+  override def convert: Option[Iterable[String]] => Array[String] = _.map(_.toArray).orNull
 }

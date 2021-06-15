@@ -26,10 +26,15 @@ object AppendOnlySchema {
     def stringOptional[FROM, _](extractor: FROM => Option[String]): Field[FROM, Option[String], _] =
       StringOptional(extractor)
 
-    def stringArray[FROM, _](extractor: FROM => Iterable[String]): Field[FROM, Iterable[String], _]
+    def stringArray[FROM, _](
+        extractor: FROM => Iterable[String]
+    ): Field[FROM, Iterable[String], _] =
+      StringArray(extractor)
+
     def stringArrayOptional[FROM, _](
         extractor: FROM => Option[Iterable[String]]
-    ): Field[FROM, Option[Iterable[String]], _]
+    ): Field[FROM, Option[Iterable[String]], _] =
+      StringArrayOptional(extractor)
 
     def bytea[FROM, _](extractor: FROM => Array[Byte]): Field[FROM, Array[Byte], _] =
       Bytea(extractor)
@@ -45,10 +50,13 @@ object AppendOnlySchema {
     def smallintOptional[FROM, _](extractor: FROM => Option[Int]): Field[FROM, Option[Int], _] =
       SmallintOptional(extractor)
 
-    def timestamp[FROM, _](extractor: FROM => Instant): Field[FROM, Instant, _]
+    def timestamp[FROM, _](extractor: FROM => Instant): Field[FROM, Instant, _] =
+      Timestamp(extractor)
+
     def timestampOptional[FROM, _](
         extractor: FROM => Option[Instant]
-    ): Field[FROM, Option[Instant], _]
+    ): Field[FROM, Option[Instant], _] =
+      TimestampOptional(extractor)
 
     def intOptional[FROM, _](extractor: FROM => Option[Int]): Field[FROM, Option[Int], _] =
       IntOptional(extractor)
