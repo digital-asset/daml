@@ -7,7 +7,7 @@ package speedy
 import java.util
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
+import com.daml.lf.data.{ImmArray, Numeric, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{LanguageVersion, LookupError, Interface}
 import com.daml.lf.speedy.Anf.flattenToAnf
@@ -34,6 +34,11 @@ import scala.reflect.ClassTag
 private[lf] object Compiler {
 
   case class CompilationError(error: String) extends RuntimeException(error, null, true, false)
+  case class LanguageVersionError(
+      packageId: Ref.PackageId,
+      languageVersion: language.LanguageVersion,
+      allowedLanguageVersions: VersionRange[language.LanguageVersion],
+  ) extends RuntimeException(s"Disallowed language version $languageVersion", null, true, false)
   case class PackageNotFound(pkgId: PackageId)
       extends RuntimeException(s"Package not found $pkgId", null, true, false)
 
@@ -339,10 +344,7 @@ private[lf] final class Compiler(
 
     interface.lookupPackage(pkgId) match {
       case Right(pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
-        throw CompilationError(
-          s"Disallowed language version in package $pkgId: " +
-            s"Expected version between ${config.allowedLanguageVersions.min.pretty} and ${config.allowedLanguageVersions.max.pretty} but got ${pkg.languageVersion.pretty}"
-        )
+        throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
       case _ =>
     }
 

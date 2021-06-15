@@ -17,7 +17,6 @@ import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.value.Value.{ContractId, ValueInt64, ValueText, VersionedValue}
 import com.daml.logging.LoggingContext
 import com.daml.platform.index.BuffersUpdaterSpec.{contractStateEventMock, transactionLogUpdateMock}
-import com.daml.platform.store.appendonlydao.EventSequentialId
 import com.daml.platform.store.appendonlydao.events.{Contract, Key, Party}
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.daml.platform.store.dao.events.ContractStateEvent
@@ -95,7 +94,7 @@ final class BuffersUpdaterSpec
           Offset,
           EventSequentialId,
       ) => Source[((Offset, Long), TransactionLogUpdate), NotUsed] = {
-        case (Offset.beforeBegin, EventSequentialId.beforeBegin) =>
+        case (Offset.beforeBegin, 0L) => // TODO: append-only: FIXME consolidating parameters table
           Source(
             immutable.Iterable(
               offset1 -> update1,
@@ -228,6 +227,7 @@ final class BuffersUpdaterSpec
         commandId = null,
         workflowId = null,
         treeEventWitnesses = null,
+        submitters = null,
         choice = null,
         actingParties = null,
         children = null,
@@ -248,6 +248,7 @@ final class BuffersUpdaterSpec
         contractKey = Some(createdContractKey),
         treeEventWitnesses = Set("bob"), // Unused in ContractStateEvent
         flatEventWitnesses = createdFlatEventWitnesses,
+        submitters = null,
         createArgument = createArgument,
         createSignatories = null,
         createObservers = null,
@@ -255,7 +256,6 @@ final class BuffersUpdaterSpec
       )
       val transaction = TransactionLogUpdate.Transaction(
         transactionId = "some-tx-id",
-        commandId = "some-cmd-id",
         workflowId = "some-workflow-id",
         effectiveAt = Instant.EPOCH,
         offset = Offset.beforeBegin,

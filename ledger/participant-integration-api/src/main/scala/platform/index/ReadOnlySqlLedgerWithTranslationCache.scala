@@ -71,6 +71,7 @@ private final class ReadOnlySqlLedgerWithTranslationCache(
     extends ReadOnlySqlLedger(
       ledgerId,
       ledgerDao,
+      ledgerDao.transactionsReader,
       contractStore,
       dispatcher,
     ) {

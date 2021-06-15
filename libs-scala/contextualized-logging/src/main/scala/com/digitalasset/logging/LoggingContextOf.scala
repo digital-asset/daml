@@ -5,6 +5,7 @@ package com.daml.logging
 
 import scala.annotation.nowarn
 import scala.language.implicitConversions
+import scala.collection.compat._
 
 /** [[LoggingContext]] with a phantom type parameter representing what kind of
   * details are in it.  If a function that accepts a LoggingContext is supposed
@@ -47,6 +48,10 @@ object LoggingContextOf {
       loggingContext: LoggingContextOf[A]
   ): withEnrichedLoggingContext[P, A] =
     new withEnrichedLoggingContext(kvs, loggingContext.extend[P])
+
+  def withEnrichedLoggingContext[P, A](label: label[P], kvs: (String, String)*)(implicit
+      loggingContext: LoggingContextOf[A]
+  ): withEnrichedLoggingContext[P, A] = withEnrichedLoggingContext(label, Map.from(kvs))
 
   final class withEnrichedLoggingContext[P, A] private[LoggingContextOf] (
       kvs: Map[String, String],

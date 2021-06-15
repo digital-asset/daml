@@ -74,7 +74,7 @@ class ApiPackageManagementServiceSpec
 
     val mockEngine = mock[Engine]
     when(
-      mockEngine.validatePackages(any[Set[PackageId]], any[Map[PackageId, Ast.Package]])
+      mockEngine.validatePackages(any[Map[PackageId, Ast.Package]])
     ).thenReturn(Right(()))
 
     val mockIndexTransactionsService = mock[IndexTransactionsService]

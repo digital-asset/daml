@@ -7,6 +7,7 @@ import java.util.concurrent.Executors
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.metrics.Metrics
+import com.daml.platform.store.cache.BufferSlice.Prefix
 import com.daml.platform.store.cache.EventsBuffer.{RequestOffBufferBounds, UnorderedException}
 import org.scalatest.Succeeded
 import org.scalatest.compatible.Assertion
@@ -26,9 +27,9 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
   "push" when {
     "max buffer size reached" should {
       "drop oldest" in withBuffer(3L) { buffer =>
-        buffer.slice(0, LastOffset) shouldBe BufferElements.drop(2)
+        buffer.slice(0, LastOffset) shouldBe Prefix(BufferElements.drop(2))
         buffer.push(21, 42)
-        buffer.slice(0, 21) shouldBe BufferElements.drop(3) :+ 21 -> 42
+        buffer.slice(0, 21) shouldBe Prefix(BufferElements.drop(3) :+ 21 -> 42)
       }
     }
 
@@ -51,14 +52,14 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     "range end with equal offset added" should {
       "accept it" in withBuffer(3L) { buffer =>
         buffer.push(13, Int.MaxValue)
-        buffer.slice(0, 13) shouldBe BufferElements.drop(2)
+        buffer.slice(0, 13) shouldBe Prefix(BufferElements.drop(2))
       }
     }
 
     "range end with greater offset added" should {
       "not allow new element with lower offset" in withBuffer(3) { buffer =>
         buffer.push(15, Int.MaxValue)
-        buffer.slice(0, 13) shouldBe BufferElements.drop(2)
+        buffer.slice(0, 13) shouldBe Prefix(BufferElements.drop(2))
         intercept[UnorderedException[Int]] {
           buffer.push(14, 28)
         }.getMessage shouldBe s"Elements appended to the buffer should have strictly increasing offsets: 15 vs 14"
@@ -69,26 +70,26 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
   "getEvents" when {
     "called with inclusive range" should {
       "return the full buffer contents" in withBuffer() { buffer =>
-        buffer.slice(0, 13) shouldBe BufferElements
+        buffer.slice(0, 13) shouldBe Prefix(BufferElements)
       }
     }
 
     "called with range end before buffer range" should {
       "not include elements past the requested end inclusive" in withBuffer() { buffer =>
-        buffer.slice(0, 12) shouldBe BufferElements.dropRight(1)
-        buffer.slice(0, 8) shouldBe BufferElements.dropRight(1)
+        buffer.slice(0, 12) shouldBe Prefix(BufferElements.dropRight(1))
+        buffer.slice(0, 8) shouldBe Prefix(BufferElements.dropRight(1))
       }
     }
 
     "called with range start exclusive past the buffer start range" in withBuffer() { buffer =>
-      buffer.slice(4, 13) shouldBe BufferElements.drop(2)
-      buffer.slice(5, 13) shouldBe BufferElements.drop(3)
+      buffer.slice(4, 13) shouldBe BufferSlice.Inclusive(BufferElements.drop(2))
+      buffer.slice(5, 13) shouldBe BufferSlice.Inclusive(BufferElements.drop(3))
     }
 
     "called with endInclusive exceeding buffer range" should {
       "fail with exception" in withBuffer() { buffer =>
         intercept[RequestOffBufferBounds[Int]] {
-          buffer.slice(4, 15) shouldBe Vector(5 -> 10, 8 -> 16, 13 -> 26)
+          buffer.slice(4, 15)
         }.getMessage shouldBe s"Request endInclusive (15) is higher than bufferEnd (13)"
       }
     }
@@ -111,7 +112,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
               for {
                 _ <- Future(buffer.push(1000 + idx, 1000 + idx))(pushExecutor)
                 _ <- Future(buffer.slice(900 + idx, 1000 + idx))(sliceExecutor)
-                  .map(_ should contain theSameElementsInOrderAs expected)(sliceExecutor)
+                  .map(_.slice should contain theSameElementsInOrderAs expected)(sliceExecutor)
               } yield Succeeded
             },
             atMost = 1.seconds,
@@ -126,35 +127,35 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
     "element found" should {
       "prune inclusive" in withBuffer() { buffer =>
         buffer.prune(5)
-        buffer.slice(0, LastOffset) shouldBe Vector(8 -> 16, 13 -> 26)
+        buffer.slice(0, LastOffset) shouldBe Prefix(Vector(8 -> 16, 13 -> 26))
       }
     }
 
     "element not present" should {
       "prune inclusive" in withBuffer() { buffer =>
         buffer.prune(6)
-        buffer.slice(0, LastOffset) shouldBe Vector(8 -> 16, 13 -> 26)
+        buffer.slice(0, LastOffset) shouldBe Prefix(Vector(8 -> 16, 13 -> 26))
       }
     }
 
     "element before series" should {
       "not prune" in withBuffer() { buffer =>
         buffer.prune(1)
-        buffer.slice(0, LastOffset) shouldBe BufferElements
+        buffer.slice(0, LastOffset) shouldBe Prefix(BufferElements)
       }
     }
 
     "element after series" should {
       "prune all" in withBuffer() { buffer =>
         buffer.prune(15)
-        buffer.slice(0, LastOffset) shouldBe Vector.empty
+        buffer.slice(0, LastOffset) shouldBe BufferSlice.Empty
       }
     }
 
     "one element in buffer" should {
       "prune all" in withBuffer(1, Vector(1 -> 2)) { buffer =>
         buffer.prune(1)
-        buffer.slice(0, 1) shouldBe Vector.empty
+        buffer.slice(0, 1) shouldBe BufferSlice.Empty
       }
     }
   }

@@ -188,18 +188,10 @@ final private[kvutils] class PackageCommitter(
   ): Either[String, Map[Ref.PackageId, Ast.Package]] =
     metrics.daml.kvutils.committer.packageUpload.decodeTimer.time { () =>
       type Result = Either[List[String], Map[Ref.PackageId, Ast.Package]]
-      val knownPackages = engine.compiledPackages().packageIds.toSet[String]
-
       archives
         .foldLeft[Result](Right(Map.empty)) { (acc, arch) =>
           try {
-            if (knownPackages(arch.getHash)) {
-              // If the package is already known by the engine, we don't decode it but still verify its hash.
-              lf.archive.Reader.HashChecker.decodeArchive(arch)
-              acc
-            } else {
-              acc.map(_ + lf.archive.Decode.decodeArchive(arch))
-            }
+            acc.map(_ + lf.archive.Decode.decodeArchive(arch))
           } catch {
             case NonFatal(e) =>
               Left(
@@ -222,16 +214,10 @@ final private[kvutils] class PackageCommitter(
       Right(pkgsCache)
 
   private def validatePackages(
-      uploadEntry: DamlPackageUploadEntry.Builder,
-      pkgs: Map[Ref.PackageId, Ast.Package],
+      pkgs: Map[Ref.PackageId, Ast.Package]
   ): Either[String, Unit] =
     metrics.daml.kvutils.committer.packageUpload.validateTimer.time { () =>
-      val allPkgIds = uploadEntry.getArchivesList
-        .iterator()
-        .asScala
-        .map(pkg => Ref.PackageId.assertFromString(pkg.getHash))
-        .toSet
-      engine.validatePackages(allPkgIds, pkgs).left.map(_.msg)
+      engine.validatePackages(pkgs).left.map(_.msg)
     }
 
   // Strict validation
@@ -243,7 +229,7 @@ final private[kvutils] class PackageCommitter(
       val Result(uploadEntry, packagesCache) = partialResult
       val result = for {
         packages <- decodePackagesIfNeeded(packagesCache, uploadEntry.getArchivesList.asScala)
-        _ <- validatePackages(uploadEntry, packages)
+        _ <- validatePackages(packages)
       } yield StepContinue(Result(uploadEntry, packages))
 
       result match {

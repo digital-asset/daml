@@ -346,7 +346,7 @@ conformance_test(
     server = ":conformance-test-postgresql-bin",
     server_args = [
         "--contract-id-seeding=testing-weak",
-        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=1",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1,ledger-api-transactions-buffer-max-size=10",
         "--index-append-only-schema-unsafe",
         "--mutable-contract-state-cache-unsafe",
         "--buffered-ledger-api-streams-unsafe",
@@ -354,7 +354,6 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
-        "--include=ContractKeysIT,DivulgenceIT,TransactionServiceIT,RaceConditionIT",
     ],
 )
 
