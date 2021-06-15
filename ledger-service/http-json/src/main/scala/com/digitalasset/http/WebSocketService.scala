@@ -679,7 +679,6 @@ class WebSocketService(
         .map(_.mapPos(Q.renderCreatedMetadata).render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => \/-(wsMessage(jsv)))
-        .wireTap(msg => println(s"%%%%%% $msg"))
     } else {
       reportUnresolvedTemplateIds(unresolved)
         .map(jsv => \/-(wsMessage(jsv)))
