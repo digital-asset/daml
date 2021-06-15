@@ -17,7 +17,7 @@ import scala.reflect.ClassTag
   *                   TO => CONVERTED is intended to be injected at PGField definition time.
   *                   CONVERTED might be nullable, primitive, boxed-type, whatever the JDBC API requires
   */
-private[postgresql] sealed abstract class Field[FROM, TO, CONVERTED](implicit
+abstract class Field[FROM, TO, CONVERTED](implicit
     classTag: ClassTag[CONVERTED]
 ) {
   def extract: FROM => TO
@@ -30,17 +30,15 @@ private[postgresql] sealed abstract class Field[FROM, TO, CONVERTED](implicit
       .toArray(classTag)
 }
 
-private[postgresql] sealed abstract class TrivialPGField[FROM, TO](implicit classTag: ClassTag[TO])
-    extends Field[FROM, TO, TO] {
+abstract class TrivialField[FROM, TO](implicit classTag: ClassTag[TO]) extends Field[FROM, TO, TO] {
   override def convert: TO => TO = identity
 }
 
-private[postgresql] sealed trait TrivialOptionalPGField[FROM, TO >: Null <: AnyRef]
-    extends Field[FROM, Option[TO], TO] {
+trait TrivialOptionalField[FROM, TO >: Null <: AnyRef] extends Field[FROM, Option[TO], TO] {
   override def convert: Option[TO] => TO = _.orNull
 }
 
-private[postgresql] sealed trait PGTimestampBase[FROM, TO] extends Field[FROM, TO, String] {
+private[postgresql] trait PGTimestampBase[FROM, TO] extends Field[FROM, TO, String] {
   override def selectFieldExpression(inputFieldName: String): String =
     s"$inputFieldName::timestamp"
 
@@ -52,23 +50,22 @@ private[postgresql] sealed trait PGTimestampBase[FROM, TO] extends Field[FROM, T
       .format(PGTimestampFormat)
 }
 
-private[postgresql] final case class PGTimestamp[FROM](extract: FROM => Instant)
+private[postgresql] case class PGTimestamp[FROM](extract: FROM => Instant)
     extends PGTimestampBase[FROM, Instant] {
   override def convert: Instant => String = convertBase
 }
 
-private[postgresql] final case class PGTimestampOptional[FROM](extract: FROM => Option[Instant])
+private[postgresql] case class PGTimestampOptional[FROM](extract: FROM => Option[Instant])
     extends PGTimestampBase[FROM, Option[Instant]] {
   override def convert: Option[Instant] => String = _.map(convertBase).orNull
 }
 
-private[postgresql] final case class PGString[FROM](extract: FROM => String)
-    extends TrivialPGField[FROM, String]
+case class StringField[FROM](extract: FROM => String) extends TrivialField[FROM, String]
 
-private[postgresql] final case class PGStringOptional[FROM](extract: FROM => Option[String])
-    extends TrivialOptionalPGField[FROM, String]
+case class StringOptional[FROM](extract: FROM => Option[String])
+    extends TrivialOptionalField[FROM, String]
 
-private[postgresql] sealed trait PGStringArrayBase[FROM, TO] extends Field[FROM, TO, String] {
+private[postgresql] trait PGStringArrayBase[FROM, TO] extends Field[FROM, TO, String] {
   override def selectFieldExpression(inputFieldName: String): String =
     s"string_to_array($inputFieldName, '|')"
 
@@ -81,32 +78,30 @@ private[postgresql] sealed trait PGStringArrayBase[FROM, TO] extends Field[FROM,
   }
 }
 
-private[postgresql] final case class PGStringArray[FROM](extract: FROM => Iterable[String])
+private[postgresql] case class PGStringArray[FROM](extract: FROM => Iterable[String])
     extends PGStringArrayBase[FROM, Iterable[String]] {
   override def convert: Iterable[String] => String = convertBase
 }
 
-private[postgresql] final case class PGStringArrayOptional[FROM](
+private[postgresql] case class PGStringArrayOptional[FROM](
     extract: FROM => Option[Iterable[String]]
 ) extends PGStringArrayBase[FROM, Option[Iterable[String]]] {
   override def convert: Option[Iterable[String]] => String = _.map(convertBase).orNull
 }
 
-private[postgresql] final case class PGBytea[FROM](extract: FROM => Array[Byte])
-    extends TrivialPGField[FROM, Array[Byte]]
+case class Bytea[FROM](extract: FROM => Array[Byte]) extends TrivialField[FROM, Array[Byte]]
 
-private[postgresql] final case class PGByteaOptional[FROM](extract: FROM => Option[Array[Byte]])
-    extends TrivialOptionalPGField[FROM, Array[Byte]]
+case class ByteaOptional[FROM](extract: FROM => Option[Array[Byte]])
+    extends TrivialOptionalField[FROM, Array[Byte]]
 
-private[postgresql] final case class PGIntOptional[FROM](extract: FROM => Option[Int])
+case class IntOptional[FROM](extract: FROM => Option[Int])
     extends Field[FROM, Option[Int], java.lang.Integer] {
   override def convert: Option[Int] => Integer = _.map(Int.box).orNull
 }
 
-private[postgresql] final case class PGBigint[FROM](extract: FROM => Long)
-    extends TrivialPGField[FROM, Long]
+case class Bigint[FROM](extract: FROM => Long) extends TrivialField[FROM, Long]
 
-private[postgresql] final case class PGSmallintOptional[FROM](extract: FROM => Option[Int])
+case class SmallintOptional[FROM](extract: FROM => Option[Int])
     extends Field[FROM, Option[Int], java.lang.Integer] {
   override def selectFieldExpression(inputFieldName: String): String =
     s"$inputFieldName::smallint"
@@ -114,10 +109,9 @@ private[postgresql] final case class PGSmallintOptional[FROM](extract: FROM => O
   override def convert: Option[Int] => Integer = _.map(Int.box).orNull
 }
 
-private[postgresql] final case class PGBoolean[FROM](extract: FROM => Boolean)
-    extends TrivialPGField[FROM, Boolean]
+case class BooleanField[FROM](extract: FROM => Boolean) extends TrivialField[FROM, Boolean]
 
-private[postgresql] final case class PGBooleanOptional[FROM](extract: FROM => Option[Boolean])
+case class BooleanOptional[FROM](extract: FROM => Option[Boolean])
     extends Field[FROM, Option[Boolean], java.lang.Boolean] {
   override def convert: Option[Boolean] => lang.Boolean = _.map(Boolean.box).orNull
 }

@@ -21,32 +21,57 @@ object AppendOnlySchema {
   type Batch = Array[Array[Array[_]]]
 
   trait FieldStrategy {
-    def string[FROM, _](extractor: FROM => String): Field[FROM, String, _]
-    def stringOptional[FROM, _](extractor: FROM => Option[String]): Field[FROM, Option[String], _]
+    def string[FROM, _](extractor: FROM => String): Field[FROM, String, _] =
+      StringField(extractor)
+
+    def stringOptional[FROM, _](extractor: FROM => Option[String]): Field[FROM, Option[String], _] =
+      StringOptional(extractor)
+
     def stringArray[FROM, _](extractor: FROM => Iterable[String]): Field[FROM, Iterable[String], _]
     def stringArrayOptional[FROM, _](
         extractor: FROM => Option[Iterable[String]]
     ): Field[FROM, Option[Iterable[String]], _]
-    def bytea[FROM, _](extractor: FROM => Array[Byte]): Field[FROM, Array[Byte], _]
+
+    def bytea[FROM, _](extractor: FROM => Array[Byte]): Field[FROM, Array[Byte], _] =
+      Bytea(extractor)
+
     def byteaOptional[FROM, _](
         extractor: FROM => Option[Array[Byte]]
-    ): Field[FROM, Option[Array[Byte]], _]
-    def bigint[FROM, _](extractor: FROM => Long): Field[FROM, Long, _]
-    def smallintOptional[FROM, _](extractor: FROM => Option[Int]): Field[FROM, Option[Int], _]
+    ): Field[FROM, Option[Array[Byte]], _] =
+      ByteaOptional(extractor)
+
+    def bigint[FROM, _](extractor: FROM => Long): Field[FROM, Long, _] =
+      Bigint(extractor)
+
+    def smallintOptional[FROM, _](extractor: FROM => Option[Int]): Field[FROM, Option[Int], _] =
+      SmallintOptional(extractor)
+
     def timestamp[FROM, _](extractor: FROM => Instant): Field[FROM, Instant, _]
     def timestampOptional[FROM, _](
         extractor: FROM => Option[Instant]
     ): Field[FROM, Option[Instant], _]
-    def intOptional[FROM, _](extractor: FROM => Option[Int]): Field[FROM, Option[Int], _]
-    def boolean[FROM, _](extractor: FROM => Boolean): Field[FROM, Boolean, _]
+
+    def intOptional[FROM, _](extractor: FROM => Option[Int]): Field[FROM, Option[Int], _] =
+      IntOptional(extractor)
+
+    def boolean[FROM, _](extractor: FROM => Boolean): Field[FROM, Boolean, _] =
+      BooleanField(extractor)
+
     def booleanOptional[FROM, _](
         extractor: FROM => Option[Boolean]
-    ): Field[FROM, Option[Boolean], _]
+    ): Field[FROM, Option[Boolean], _] =
+      BooleanOptional(extractor)
+
+    def insert[FROM](tableName: String)(fields: (String, Field[FROM, _, _])*): Table[FROM]
+    def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM]
+    def packageInsert(tableName: String)(
+        fields: (String, Field[DbDto.Package, _, _])*
+    ): Table[DbDto.Package]
   }
 
   def apply(fieldStrategy: FieldStrategy): Schema[DbDto] = {
     val eventsDivulgence: Table[DbDto.EventDivulgence] =
-      PGTable.transposedInsert("participant_events_divulgence")(
+      fieldStrategy.insert("participant_events_divulgence")(
         "event_offset" -> fieldStrategy.stringOptional(_.event_offset),
         "command_id" -> fieldStrategy.stringOptional(_.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_.workflow_id),
@@ -63,7 +88,7 @@ object AppendOnlySchema {
       )
 
     val eventsCreate: Table[DbDto.EventCreate] =
-      PGTable.transposedInsert("participant_events_create")(
+      fieldStrategy.insert("participant_events_create")(
         "event_offset" -> fieldStrategy.stringOptional(_.event_offset),
         "transaction_id" -> fieldStrategy.stringOptional(_.transaction_id),
         "ledger_effective_time" -> fieldStrategy.timestampOptional(_.ledger_effective_time),
@@ -126,13 +151,13 @@ object AppendOnlySchema {
       )
 
     val eventsConsumingExercise: Table[DbDto.EventExercise] =
-      PGTable.transposedInsert("participant_events_consuming_exercise")(exerciseFields: _*)
+      fieldStrategy.insert("participant_events_consuming_exercise")(exerciseFields: _*)
 
     val eventsNonConsumingExercise: Table[DbDto.EventExercise] =
-      PGTable.transposedInsert("participant_events_non_consuming_exercise")(exerciseFields: _*)
+      fieldStrategy.insert("participant_events_non_consuming_exercise")(exerciseFields: _*)
 
     val configurationEntries: Table[DbDto.ConfigurationEntry] =
-      PGTable.transposedInsert("configuration_entries")(
+      fieldStrategy.insert("configuration_entries")(
         "ledger_offset" -> fieldStrategy.string(_.ledger_offset),
         "recorded_at" -> fieldStrategy.timestamp(_.recorded_at),
         "submission_id" -> fieldStrategy.string(_.submission_id),
@@ -142,7 +167,7 @@ object AppendOnlySchema {
       )
 
     val packageEntries: Table[DbDto.PackageEntry] =
-      PGTable.transposedInsert("package_entries")(
+      fieldStrategy.insert("package_entries")(
         "ledger_offset" -> fieldStrategy.string(_.ledger_offset),
         "recorded_at" -> fieldStrategy.timestamp(_.recorded_at),
         "submission_id" -> fieldStrategy.stringOptional(_.submission_id),
@@ -150,21 +175,19 @@ object AppendOnlySchema {
         "rejection_reason" -> fieldStrategy.stringOptional(_.rejection_reason),
       )
 
-    val packages: Table[DbDto.Package] = PGTable.transposedInsertWithSuffix(
-      tableName = "packages",
-      insertSuffix = "on conflict (package_id) do nothing",
-    )(
-      "package_id" -> fieldStrategy.string(_.package_id),
-      "upload_id" -> fieldStrategy.string(_.upload_id),
-      "source_description" -> fieldStrategy.stringOptional(_.source_description),
-      "size" -> fieldStrategy.bigint(_.size),
-      "known_since" -> fieldStrategy.timestamp(_.known_since),
-      "ledger_offset" -> fieldStrategy.string(_.ledger_offset),
-      "package" -> fieldStrategy.bytea(_._package),
-    )
+    val packages: Table[DbDto.Package] =
+      fieldStrategy.packageInsert("packages")(
+        "package_id" -> fieldStrategy.string(_.package_id),
+        "upload_id" -> fieldStrategy.string(_.upload_id),
+        "source_description" -> fieldStrategy.stringOptional(_.source_description),
+        "size" -> fieldStrategy.bigint(_.size),
+        "known_since" -> fieldStrategy.timestamp(_.known_since),
+        "ledger_offset" -> fieldStrategy.string(_.ledger_offset),
+        "package" -> fieldStrategy.bytea(_._package),
+      )
 
     val partyEntries: Table[DbDto.PartyEntry] =
-      PGTable.transposedInsert("party_entries")(
+      fieldStrategy.insert("party_entries")(
         "ledger_offset" -> fieldStrategy.string(_.ledger_offset),
         "recorded_at" -> fieldStrategy.timestamp(_.recorded_at),
         "submission_id" -> fieldStrategy.stringOptional(_.submission_id),
@@ -176,7 +199,7 @@ object AppendOnlySchema {
       )
 
     val parties: Table[DbDto.Party] =
-      PGTable.transposedInsert("parties")(
+      fieldStrategy.insert("parties")(
         "party" -> fieldStrategy.string(_.party),
         "display_name" -> fieldStrategy.stringOptional(_.display_name),
         "explicit" -> fieldStrategy.boolean(_.explicit),
@@ -185,7 +208,7 @@ object AppendOnlySchema {
       )
 
     val commandCompletions: Table[DbDto.CommandCompletion] =
-      PGTable.transposedInsert("participant_command_completions")(
+      fieldStrategy.insert("participant_command_completions")(
         "completion_offset" -> fieldStrategy.string(_.completion_offset),
         "record_time" -> fieldStrategy.timestamp(_.record_time),
         "application_id" -> fieldStrategy.string(_.application_id),
@@ -197,7 +220,7 @@ object AppendOnlySchema {
       )
 
     val commandSubmissionDeletes: Table[DbDto.CommandDeduplication] =
-      PGTable.transposedDelete("participant_command_submissions")(
+      fieldStrategy.delete("participant_command_submissions")(
         "deduplication_key" -> fieldStrategy.string(_.deduplication_key)
       )
 
@@ -246,14 +269,6 @@ object AppendOnlySchema {
 
 private[postgresql] object PGSchema {
   private val PGFieldStrategy = new FieldStrategy {
-    override def string[FROM, _](extractor: FROM => String): Field[FROM, String, _] =
-      PGString(extractor)
-
-    override def stringOptional[FROM, _](
-        extractor: FROM => Option[String]
-    ): Field[FROM, Option[String], _] =
-      PGStringOptional(extractor)
-
     override def stringArray[FROM, _](
         extractor: FROM => Iterable[String]
     ): Field[FROM, Iterable[String], _] =
@@ -264,22 +279,6 @@ private[postgresql] object PGSchema {
     ): Field[FROM, Option[Iterable[String]], _] =
       PGStringArrayOptional(extractor)
 
-    override def bytea[FROM, _](extractor: FROM => Array[Byte]): Field[FROM, Array[Byte], _] =
-      PGBytea(extractor)
-
-    override def byteaOptional[FROM, _](
-        extractor: FROM => Option[Array[Byte]]
-    ): Field[FROM, Option[Array[Byte]], _] =
-      PGByteaOptional(extractor)
-
-    override def bigint[FROM, _](extractor: FROM => Long): Field[FROM, Long, _] =
-      PGBigint(extractor)
-
-    override def smallintOptional[FROM, _](
-        extractor: FROM => Option[Int]
-    ): Field[FROM, Option[Int], _] =
-      PGSmallintOptional(extractor)
-
     override def timestamp[FROM, _](extractor: FROM => Instant): Field[FROM, Instant, _] =
       PGTimestamp(extractor)
 
@@ -288,16 +287,20 @@ private[postgresql] object PGSchema {
     ): Field[FROM, Option[Instant], _] =
       PGTimestampOptional(extractor)
 
-    override def intOptional[FROM, _](extractor: FROM => Option[Int]): Field[FROM, Option[Int], _] =
-      PGIntOptional(extractor)
+    override def insert[FROM](tableName: String)(
+        fields: (String, Field[FROM, _, _])*
+    ): Table[FROM] =
+      PGTable.transposedInsert(tableName)(fields: _*)
 
-    override def boolean[FROM, _](extractor: FROM => Boolean): Field[FROM, Boolean, _] =
-      PGBoolean(extractor)
+    override def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM] =
+      PGTable.transposedDelete(tableName)(field)
 
-    override def booleanOptional[FROM, _](
-        extractor: FROM => Option[Boolean]
-    ): Field[FROM, Option[Boolean], _] =
-      PGBooleanOptional(extractor)
+    override def packageInsert(
+        tableName: String
+    )(fields: (String, Field[DbDto.Package, _, _])*): Table[DbDto.Package] =
+      PGTable.transposedInsertWithSuffix(tableName, "on conflict (package_id) do nothing")(
+        fields: _*
+      )
   }
 
   val schema: Schema[DbDto] = AppendOnlySchema(PGFieldStrategy)
