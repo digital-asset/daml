@@ -47,7 +47,7 @@ class CommandService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ActiveContract[lav1.value.Value]] = {
-    logger.trace("sending create command to ledger")
+    logger.trace(s"sending create command to ledger, templateId: ${input.templateId}")
     val command = createCommand(input)
     val request = submitAndWaitRequest(jwtPayload, input.meta, command, "create")
     val et: ET[ActiveContract[lav1.value.Value]] = for {
@@ -64,7 +64,8 @@ class CommandService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
-    logger.trace("sending exercise command to ledger")
+    logger.trace(s"sending exercise command to ledger, templateId: ${input.reference
+      .fold(_._1, _._1)}, choice: ${input.choice}")
     val command = exerciseCommand(input)
     val request = submitAndWaitRequest(jwtPayload, input.meta, command, "exercise")
 
@@ -85,7 +86,9 @@ class CommandService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
-    logger.trace("sending create and exercise command to ledger")
+    logger.trace(
+      s"sending create and exercise command to ledger, templateId: ${input.templateId}, choice: ${input.choice}"
+    )
     val command = createAndExerciseCommand(input)
     val request = submitAndWaitRequest(jwtPayload, input.meta, command, "createAndExercise")
     val et: ET[ExerciseResponse[lav1.value.Value]] = for {
