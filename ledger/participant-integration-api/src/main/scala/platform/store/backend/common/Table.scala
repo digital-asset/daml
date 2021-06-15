@@ -14,3 +14,50 @@ abstract class BaseTable[FROM](fields: Seq[(String, Field[FROM, _, _])]) extends
   override def prepareData(in: Vector[FROM]): Array[Array[_]] =
     fields.view.map(_._2.toArray(in)).toArray
 }
+
+object Table {
+  private def batchedInsertBase[FROM](
+      insertStatement: String
+  )(fields: Seq[(String, Field[FROM, _, _])]): Table[FROM] =
+    new BaseTable[FROM](fields) {
+      override def executeUpdate: Array[Array[_]] => Connection => Unit = data =>
+        connection =>
+          if (data(0).length > 0) { // data(0) accesses the array of data for the first column of the table. This is safe because tables without columns are not supported. Also because of the transposed data-structure here all columns will have data-arrays of the same length.
+            val preparedStatement = connection.prepareStatement(insertStatement)
+            data(0).indices.foreach { dataIndex =>
+              fields.indices.foreach { fieldIndex =>
+                preparedStatement.setObject(fieldIndex + 1, data(fieldIndex)(dataIndex))
+              }
+              preparedStatement.addBatch()
+            }
+            preparedStatement.executeBatch()
+            preparedStatement.close()
+            ()
+          }
+    }
+
+  private def batchedInsertStatement(
+      tableName: String,
+      fields: Seq[(String, Field[_, _, _])],
+  ): String = {
+    def commaSeparatedOf(extractor: ((String, Field[_, _, _])) => String): String =
+      fields.view
+        .map(extractor)
+        .mkString(",")
+    val tableFields = commaSeparatedOf(_._1)
+    val selectFields = commaSeparatedOf { case (_, field) =>
+      field.selectFieldExpression("?")
+    }
+    s"""
+       |INSERT INTO $tableName
+       |   ($tableFields)
+       | VALUES
+       |   ($selectFields)
+       |""".stripMargin
+  }
+
+  def batchedInsert[FROM](tableName: String)(
+      fields: (String, Field[FROM, _, _])*
+  ): Table[FROM] =
+    batchedInsertBase(batchedInsertStatement(tableName, fields))(fields)
+}
