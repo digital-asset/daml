@@ -124,8 +124,8 @@ class Endpoints(
   }
 
   def withJwtPayloadLoggingContext[A, B](jwtPayload: JwtPayload)(
-      fn: LoggingContextOf[JwtPayload with InstanceUUID with RequestID] => A
-  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): A =
+      fn: LoggingContextOf[JwtPayload with B] => A
+  )(implicit lc: LoggingContextOf[B]): A =
     withEnrichedLoggingContext(
       LoggingContextOf.label[JwtPayload],
       Map(
