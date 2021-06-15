@@ -215,7 +215,8 @@ object WebSocketService {
         import scalaz.syntax.foldable._
         import util.Collections._
 
-        val indexedOffsets = request.queries.map(_.offset).toVector
+        val indexedOffsets: Vector[Option[domain.Offset]] =
+          request.queries.map(_.offset).toVector
 
         val (resolved, unresolved, q) = request.queries.zipWithIndex
           .foldMap { case (gacr, ix) =>
