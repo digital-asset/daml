@@ -660,7 +660,27 @@ final class Metrics(val registry: MetricRegistry) {
           def push(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "push")
           def slice(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "slice")
           def prune(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "prune")
+
+          val transactionTreesTotal: Counter =
+            registry.counter(Prefix :+ "transaction_trees_total")
+          val transactionTreesBuffered: Counter =
+            registry.counter(Prefix :+ "transaction_trees_buffered")
+
+          val flatTransactionsTotal: Counter =
+            registry.counter(Prefix :+ "flat_transactions_total")
+          val flatTransactionsBuffered: Counter =
+            registry.counter(Prefix :+ "flat_transactions_buffered")
+
+          val getTransactionTrees: Timer =
+            registry.timer(Prefix :+ "get_transaction_trees")
+          val getFlatTransactions: Timer =
+            registry.timer(Prefix :+ "get_flat_transactions")
         }
+
+        val transactionTreesBufferSize: Counter =
+          registry.counter(Prefix :+ "transaction_trees_buffer_size")
+        val flatTransactionsBufferSize: Counter =
+          registry.counter(Prefix :+ "flat_transactions_buffer_size")
       }
 
       object read {

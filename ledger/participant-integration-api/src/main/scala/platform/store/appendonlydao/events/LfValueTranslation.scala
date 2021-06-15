@@ -153,7 +153,7 @@ final class LfValueTranslation(
     }
   }
 
-  private[this] def toApiValue(
+  def toApiValue(
       value: LfValue,
       verbose: Boolean,
       attribute: => String,
@@ -178,7 +178,7 @@ final class LfValueTranslation(
     )
   }
 
-  private[this] def toApiRecord(
+  def toApiRecord(
       value: LfValue,
       verbose: Boolean,
       attribute: => String,
@@ -218,7 +218,7 @@ final class LfValueTranslation(
   private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: InputStream) =
     ValueSerializer.deserializeValue(algorithm.decompress(value))
 
-  private[this] def enricher: ValueEnricher = {
+  def enricher: ValueEnricher = {
     // Note: LfValueTranslation is used by JdbcLedgerDao for both serialization and deserialization.
     // Sometimes the JdbcLedgerDao is used in a way that it never needs to deserialize data in verbose mode
     // (e.g., the indexer, or some tests). In this case, the enricher is not required.

@@ -5,6 +5,7 @@ package com.daml.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
+
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
@@ -361,7 +362,7 @@ private final class SqlLedger(
     timeProvider: TimeProvider,
     persistenceQueue: PersistenceQueue,
     transactionCommitter: TransactionCommitter,
-) extends BaseLedger(ledgerId, ledgerDao, contractStore, dispatcher)
+) extends BaseLedger(ledgerId, ledgerDao, ledgerDao.transactionsReader, contractStore, dispatcher)
     with Ledger {
 
   private val logger = ContextualizedLogger.get(this.getClass)

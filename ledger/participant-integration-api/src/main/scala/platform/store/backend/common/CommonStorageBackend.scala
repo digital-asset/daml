@@ -819,6 +819,7 @@ trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
       int("create_argument_compression").? ~
       array[String]("tree_event_witnesses") ~
       array[String]("flat_event_witnesses") ~
+      array[String]("submitters") ~
       str("exercise_choice").? ~
       binaryStream("exercise_argument").? ~
       int("exercise_argument_compression").? ~
@@ -830,7 +831,7 @@ trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
       offset("event_offset")).map {
       case eventKind ~ transactionId ~ nodeIndex ~ commandId ~ workflowId ~ eventId ~ contractId ~ templateId ~ ledgerEffectiveTime ~ createSignatories ~
           createObservers ~ createAgreementText ~ createKeyValue ~ createKeyCompression ~
-          createArgument ~ createArgumentCompression ~ treeEventWitnesses ~ flatEventWitnesses ~ exerciseChoice ~
+          createArgument ~ createArgumentCompression ~ treeEventWitnesses ~ flatEventWitnesses ~ submitters ~ exerciseChoice ~
           exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~
           exerciseChildEventIds ~ eventSequentialId ~ offset =>
         RawTransactionEvent(
@@ -852,6 +853,7 @@ trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
           createArgumentCompression,
           treeEventWitnesses.toSet,
           flatEventWitnesses.toSet,
+          submitters.toSet,
           exerciseChoice,
           exerciseArgument,
           exerciseArgumentCompression,
@@ -887,6 +889,7 @@ trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
            create_argument_compression,
            tree_event_witnesses,
            flat_event_witnesses,
+           submitters,
            exercise_choice,
            exercise_argument,
            exercise_argument_compression,

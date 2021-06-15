@@ -333,7 +333,6 @@ private[appendonlydao] final class TransactionsReader(
     val first = events.head
     TransactionLogUpdate.Transaction(
       transactionId = first.transactionId,
-      commandId = first.commandId,
       workflowId = first.workflowId,
       effectiveAt = first.ledgerEffectiveTime,
       offset = first.eventOffset,
