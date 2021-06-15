@@ -3692,7 +3692,7 @@ Int64 functions
 * ``DIV_INT64 : 'Int64' → 'Int64' → 'Int64'``
 
   Returns the quotient of division of the first integer by the second
-  one.  Rounds towards 0 if the real quotient is not an integer.
+  one.  Rounds toward 0 if the real quotient is not an integer.
   Throws an ``ArithmeticError`` exception
   - if the second argument is ``0``, or
   - if the first argument is ``−2⁶³`` and the second  one is ``-1``.
