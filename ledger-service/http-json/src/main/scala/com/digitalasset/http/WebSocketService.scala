@@ -412,7 +412,7 @@ object WebSocketService {
         maybePrefix: Option[domain.StartingOffset],
         request: NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]],
     ): Option[NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]]] =
-      maybePrefix.fold(Option(request))(_ => None)
+      maybePrefix.cata(_ => None, Some(request))
 
     override def liveStartingOffset(
         prefix: Option[domain.StartingOffset],
@@ -617,7 +617,7 @@ class WebSocketService(
             .cata(
               _.map { acsAndLiveMarker =>
                 acsAndLiveMarker.flatMapConcat {
-                  case acs @ StepAndErrors(_, _ @Acs(_)) => Source.single(acs)
+                  case acs @ StepAndErrors(_, Acs(_)) => Source.single(acs)
                   case liveBegin @ StepAndErrors(_, LiveBegin(offset)) =>
                     // Produce the predicate that is going to be applied to the incoming transaction stream
                     // We need to apply this to the request with all the offsets shifted so that each stream
@@ -640,12 +640,12 @@ class WebSocketService(
                       )
                       .via(convertFilterContracts(fn))
                       .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
-                  case _ @StepAndErrors(_, Txn(_, _)) =>
+                  case StepAndErrors(_, Txn(_, _)) =>
                     throw new IllegalStateException("Transaction in ACS")
                 }
               }, {
                 // Get the earliest available offset from where to start from
-                val liveStartingOffset = Q.liveStartingOffset(None, request)
+                val liveStartingOffset = Q.liveStartingOffset(offPrefix, request)
                 val StreamPredicate(_, _, fn, _) =
                   Q.predicate(request, resolveTemplateId, lookupType)
 
