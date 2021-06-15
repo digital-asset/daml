@@ -78,7 +78,7 @@ class MutableCacheBackedContractStoreSpec
           cachesSize = 2L,
           ContractsReaderFixture(),
           capture_signalLedgerHead,
-          (_, _) => source,
+          _ => source,
         ).asFuture
         c1 <- createdEvent(cId_1, contract1, Some(someKey), Set(charlie), 1L, t1)
         _ <- eventually {
@@ -141,15 +141,16 @@ class MutableCacheBackedContractStoreSpec
       )
 
       val sourceSubscriptionFixture
-          : (Offset, EventSequentialId) => Source[ContractStateEvent, NotUsed] = {
-        case (Offset.beforeBegin, 0L) => // TODO append-only: FIXME parameters table consolidation
+          : Option[(Offset, EventSequentialId)] => Source[ContractStateEvent, NotUsed] = {
+        case None =>
           Source
             .fromIterator(() => Iterator(created, archived, dummy))
             // Simulate the source failure at the last event
             .map(x => if (x == dummy) throw new RuntimeException("some transient failure") else x)
-        case (_, 2L) =>
+        case Some((_, 2L)) =>
           Source.fromIterator(() => Iterator(anotherCreate))
-        case _ => Source.empty
+        case subscriptionOffset =>
+          fail(s"Unexpected subscription offsets $subscriptionOffset")
       }
 
       for {
@@ -163,7 +164,7 @@ class MutableCacheBackedContractStoreSpec
           store.contractsCache.get(cId_1) shouldBe Some(Archived(Set(charlie)))
           store.contractsCache.get(cId_2) shouldBe Some(Active(contract2, Set(alice), t2))
           store.keyCache.get(someKey) shouldBe Some(Assigned(cId_2, Set(alice)))
-          store.cacheIndex.get shouldBe offset3 -> 3L
+          store.cacheIndex.get shouldBe Some(offset3 -> 3L)
         }
       } yield succeed
     }
@@ -386,8 +387,8 @@ object MutableCacheBackedContractStoreSpec {
       cachesSize: Long,
       readerFixture: LedgerDaoContractsReader = ContractsReaderFixture(),
       signalNewLedgerHead: Offset => Unit = _ => (),
-      sourceSubscriber: (Offset, EventSequentialId) => Source[ContractStateEvent, NotUsed] =
-        (_: Offset, _: EventSequentialId) => Source.empty,
+      sourceSubscriber: Option[(Offset, EventSequentialId)] => Source[ContractStateEvent, NotUsed] =
+        _ => Source.empty,
   )(implicit loggingContext: LoggingContext, materializer: Materializer) = {
 
     {
