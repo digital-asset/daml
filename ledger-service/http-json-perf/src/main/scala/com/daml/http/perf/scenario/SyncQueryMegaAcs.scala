@@ -31,8 +31,8 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
     ),
     (
       "all matches by template ID distribution",
-      Seq(aliceJwt),
-      Seq(Seq(Seq.empty -> 1)),
+      Seq(notAliceJwt),
+      Seq(Seq(Seq.empty -> 1), Seq(Seq(notAliceParty) -> 1, Seq.empty -> 99)),
       Seq(Seq(UseIou -> 1, UseNotIou -> 99)),
     ),
   ).flatMap { case (label, readAses, observerses, whichTemplates) =>
