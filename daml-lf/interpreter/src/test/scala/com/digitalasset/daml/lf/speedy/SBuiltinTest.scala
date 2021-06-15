@@ -80,6 +80,13 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
     }
 
     "DIV_INT64" - {
+      "is symmetric, i.e. rounds towards 0" in {
+        eval(e"DIV_INT64 10 3") shouldBe Right(SInt64(3))
+        eval(e"DIV_INT64 10 -3") shouldBe Right(SInt64(-3))
+        eval(e"DIV_INT64 -10 3") shouldBe Right(SInt64(-3))
+        eval(e"DIV_INT64 -10 -3") shouldBe Right(SInt64(3))
+      }
+
       "throws an exception if it overflows" in {
         eval(e"DIV_INT64 $MaxInt64 -1") shouldBe Right(SInt64(-MaxInt64))
         eval(e"DIV_INT64 $MinInt64 -1") shouldBe a[Left[_, _]]
@@ -89,6 +96,15 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         eval(e"DIV_INT64 1 $MaxInt64") shouldBe Right(SInt64(0))
         eval(e"DIV_INT64 1 0") shouldBe a[Left[_, _]]
         eval(e"DIV_INT64 $aBigOddInt64 0") shouldBe a[Left[_, _]]
+      }
+    }
+
+    "MOD_INT64" - {
+      "is remainder with respect to DIV_INT64, i.e. b*(a/b) + (a%b) == a" in {
+        eval(e"ADD_INT64 (MUL_INT64  3 (DIV_INT64  10  3)) (MOD_INT64  10  3)") shouldBe Right(SInt64(10))
+        eval(e"ADD_INT64 (MUL_INT64 -3 (DIV_INT64  10 -3)) (MOD_INT64  10 -3)") shouldBe Right(SInt64(10))
+        eval(e"ADD_INT64 (MUL_INT64  3 (DIV_INT64 -10  3)) (MOD_INT64 -10  3)") shouldBe Right(SInt64(-10))
+        eval(e"ADD_INT64 (MUL_INT64 -3 (DIV_INT64 -10 -3)) (MOD_INT64 -10 -3)") shouldBe Right(SInt64(-10))
       }
     }
 
