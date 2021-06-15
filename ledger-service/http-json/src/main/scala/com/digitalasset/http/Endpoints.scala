@@ -314,17 +314,15 @@ class Endpoints(
 
     } yield domain.OkResponse(())
 
-  private def handleFutureEitherFailure[A: Show, B](fa: Future[A \/ B])(implicit
+  private def handleFutureEitherFailure[B](fa: Future[Error \/ B])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[ServerError \/ B] =
+  ): Future[Error \/ B] =
     fa.recover { case NonFatal(e) =>
       logger.error("Future failed", e)
       -\/(ServerError(e.description))
     }
 
-  private def handleFutureEitherFailure[A: Show, B](
-      fa: Future[A \/ B]
-  )(implicit
+  private def handleFutureEitherFailure[A: Show, B](fa: Future[A \/ B])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[ServerError \/ B] =
     fa.map(_.liftErr(ServerError)).recover { case NonFatal(e) =>
