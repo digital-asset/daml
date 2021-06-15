@@ -575,7 +575,7 @@ class WebSocketService(
               Source.empty
             }
           val liveMarker = liveBegin(bookmark.map(_.toDomain))
-          (acs ++ liveMarker).wireTap(step => println(s"--- DBS $step"))
+          acs ++ liveMarker
         }
         dao.transact(tx).unsafeToFuture()
       },
