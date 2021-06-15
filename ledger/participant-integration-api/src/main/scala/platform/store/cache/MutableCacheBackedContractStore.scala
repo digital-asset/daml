@@ -15,7 +15,6 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.transaction.GlobalKey
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
-import com.daml.platform.store.appendonlydao.EventSequentialId
 import com.daml.platform.store.cache.ContractKeyStateValue._
 import com.daml.platform.store.cache.ContractStateValue._
 import com.daml.platform.store.cache.MutableCacheBackedContractStore._
@@ -281,7 +280,9 @@ object MutableCacheBackedContractStore {
   // Signal externally that the cache has caught up until the provided ledger head offset
   type SignalNewLedgerHead = Offset => Unit
   // Subscribe to the contract state events stream starting at a specific event_offset and event_sequential_id
-  type SubscribeToContractStateEvents = (Offset, Long) => Source[ContractStateEvent, NotUsed]
+  // or from the beginning, if not provided
+  type SubscribeToContractStateEvents =
+    Option[(Offset, Long)] => Source[ContractStateEvent, NotUsed]
 
   private[cache] def apply(
       contractsReader: LedgerDaoContractsReader,
@@ -356,8 +357,7 @@ object MutableCacheBackedContractStore {
                   randomFactor = 0.2,
                 )
               )(() =>
-                subscribeToContractStateEvents
-                  .tupled(contractStore.cacheIndex.get)
+                subscribeToContractStateEvents(contractStore.cacheIndex.get)
                   .map(contractStore.push)
               )
               .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
@@ -389,16 +389,14 @@ object MutableCacheBackedContractStore {
       )
 
   private[cache] class CacheIndex {
-    private val offsetRef =
-      new AtomicReference(Offset.beforeBegin -> EventSequentialId.beforeBegin)
+    private val offsetRef: AtomicReference[Option[(Offset, EventSequentialId)]] =
+      new AtomicReference(Option.empty)
 
     def set(offset: Offset, sequentialId: EventSequentialId): Unit =
-      offsetRef.set(offset -> sequentialId)
+      offsetRef.set(Some(offset -> sequentialId))
 
-    def get: (Offset, EventSequentialId) = offsetRef.get()
+    def get: Option[(Offset, EventSequentialId)] = offsetRef.get()
 
-    def getSequentialId: EventSequentialId = offsetRef.get()._2
-
-    def getOffset: Offset = offsetRef.get()._1
+    def getSequentialId: EventSequentialId = get.map(_._2).getOrElse(0L)
   }
 }
