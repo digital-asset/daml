@@ -228,7 +228,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
             case Some(pkg) =>
               compiledPackages.addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
             case None =>
-              ResultError(Error.Package.Generic(s"package $pkgId not found"))
+              ResultError(Error.Package.MissingPackage(pkgId))
           },
         )
       case Nil =>
@@ -246,7 +246,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         case speedy.Compiler.PackageNotFound(_) =>
           handleMissingDependencies.flatMap(_ => start)
         case speedy.Compiler.CompilationError(error) =>
-          ResultError(Error.Package.Generic(s"CompilationError: $error"))
+          ResultError(Error.Preprocessing.Generic(s"CompilationError: $error"))
       }
     start
   }
@@ -426,24 +426,16 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       _ <- pkgs
         .collectFirst {
           case (pkgId, pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
-            Error.Package.Generic(
-              s"Disallowed language version in package $pkgId: " +
-                s"Expected version between ${config.allowedLanguageVersions.min.pretty} and ${config.allowedLanguageVersions.max.pretty} but got ${pkg.languageVersion.pretty}"
+            Error.Package.AllowedLanguageVersion(
+              pkgId,
+              pkg.languageVersion,
+              config.allowedLanguageVersions,
             )
         }
         .toLeft(())
-      _ <- {
-        val pkgIds = pkgs.keySet
-        val missingDeps = pkgs.valuesIterator.flatMap(_.directDeps).toSet.filterNot(pkgIds)
-        Either.cond(
-          missingDeps.isEmpty,
-          (),
-          Error.Package.Generic(
-            s"The set of packages ${pkgIds.mkString("{'", "', '", "'}")} is not self consistent, the missing dependencies are ${missingDeps
-              .mkString("{'", "', '", "'}")}."
-          ),
-        )
-      }
+      pkgIds = pkgs.keySet
+      missingDeps = pkgs.valuesIterator.flatMap(_.directDeps).toSet.filterNot(pkgIds)
+      _ <- Either.cond(missingDeps.isEmpty, (), Error.Package.SelfConsistency(pkgIds, missingDeps))
       interface = Interface(pkgs)
       _ <- {
         pkgs.iterator

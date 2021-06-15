@@ -25,12 +25,38 @@ object Error {
       def msg: String
     }
 
-    // TODO https://github.com/digital-asset/daml/issues/9974
-    //  get rid of Generic
-    final case class Generic(override val msg: String) extends Error
+    final case class Internal(nameOfFunc: String, override val msg: String, detailMsg: String = "")
+        extends Error
 
     final case class Validation(validationError: validation.ValidationError) extends Error {
       def msg: String = validationError.pretty
+    }
+
+    final case class MissingPackages(packageIds: Set[Ref.PackageId]) extends Error {
+      val s = if (packageIds.size <= 1) "" else "s"
+      override def msg: String = s"Couldn't find package$s ${packageIds.mkString(",")}"
+    }
+    private[engine] object MissingPackage {
+      def apply(packageId: Ref.PackageId): MissingPackages = MissingPackages(Set(packageId))
+    }
+
+    final case class AllowedLanguageVersion(
+        packageId: Ref.PackageId,
+        languageVersion: language.LanguageVersion,
+        allowedLanguageVersions: VersionRange[language.LanguageVersion],
+    ) extends Error {
+      def msg: String =
+        s"Disallowed language version in package $packageId: " +
+          s"Expected version between ${allowedLanguageVersions.min.pretty} and ${allowedLanguageVersions.max.pretty} but got ${languageVersion.pretty}"
+    }
+
+    final case class SelfConsistency(
+        packageIds: Set[Ref.PackageId],
+        missingDependencies: Set[Ref.PackageId],
+    ) extends Error {
+      def msg: String =
+        s"The set of packages ${packageIds.mkString("{'", "', '", "'}")} is not self consistent, " +
+          s"the missing dependencies are ${missingDependencies.mkString("{'", "', '", "'}")}."
     }
 
   }

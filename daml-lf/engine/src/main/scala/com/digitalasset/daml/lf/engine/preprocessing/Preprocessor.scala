@@ -54,7 +54,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                 )
               } yield r
             case None =>
-              ResultError(Error.Package.Generic(s"Couldn't find package $pkgId"))
+              ResultError(Error.Package.MissingPackage(pkgId))
           },
         )
 
