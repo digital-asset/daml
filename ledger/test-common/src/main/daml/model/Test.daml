@@ -690,10 +690,6 @@ template WithKey
     signatory p
     key p : Party
     maintainer key
-    controller p can
-      WithKey_Archive : ()
-        do
-          return ()
 
 template WithKeyCreator
   with
