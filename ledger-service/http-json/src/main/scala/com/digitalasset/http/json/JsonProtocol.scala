@@ -258,10 +258,10 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
     implicit val primitive: JsonReader[BaseRequest] = jsonFormat2(BaseRequest.apply)
     jsv => {
       val BaseRequest(tids, query) = jsv.convertTo[BaseRequest]
-      val extras = jsv.asJsObject.fields.keySet diff validKeys
-      if (extras.nonEmpty)
+      val unsupported = jsv.asJsObject.fields.keySet diff validKeys
+      if (unsupported.nonEmpty)
         deserializationError(
-          s"unsupported query fields $extras; likely should be within 'query' subobject"
+          s"unsupported query fields $unsupported; likely should be within 'query' subobject"
         )
       val extraFields = jsv.asJsObject.fields.filter { case (fieldName, _) =>
         validExtraFields(fieldName)
