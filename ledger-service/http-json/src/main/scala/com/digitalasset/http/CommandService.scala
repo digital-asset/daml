@@ -3,9 +3,11 @@
 
 package com.daml.http
 
+import com.daml.http.domain.TemplateId.RequiredPkg
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.http.domain.{
   ActiveContract,
+  Choice,
   Contract,
   CreateAndExerciseCommand,
   CreateCommand,
@@ -40,22 +42,42 @@ class CommandService(
 
   import CommandService._
 
+  def withTemplateLoggingContext[T](
+      templateId: TemplateId.RequiredPkg
+  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[TemplateId.RequiredPkg, T] =
+    withEnrichedLoggingContext(
+      label[TemplateId.RequiredPkg],
+      ("template_id", templateId.toString),
+    )
+
+  def withTemplateChoiceLoggingContext[T](
+      templateId: TemplateId.RequiredPkg,
+      choice: domain.Choice,
+  )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[Choice, RequiredPkg with T] =
+    withTemplateLoggingContext(templateId).run(
+      withEnrichedLoggingContext(
+        label[domain.Choice],
+        ("choice", choice.toString),
+      )(_)
+    )
+
   def create(
       jwt: Jwt,
       jwtPayload: JwtWritePayload,
       input: CreateCommand[lav1.value.Record, TemplateId.RequiredPkg],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ ActiveContract[lav1.value.Value]] = {
-    logger.trace("sending create command to ledger")
-    val command = createCommand(input)
-    val request = submitAndWaitRequest(jwtPayload, input.meta, command, "create")
-    val et: ET[ActiveContract[lav1.value.Value]] = for {
-      response <- logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request))
-      contract <- either(exactlyOneActiveContract(response))
-    } yield contract
-    et.run
-  }
+  ): Future[Error \/ ActiveContract[lav1.value.Value]] =
+    withTemplateLoggingContext(input.templateId).run { implicit lc =>
+      logger.trace(s"sending create command to ledger")
+      val command = createCommand(input)
+      val request = submitAndWaitRequest(jwtPayload, input.meta, command, "create")
+      val et: ET[ActiveContract[lav1.value.Value]] = for {
+        response <- logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request))
+        contract <- either(exactlyOneActiveContract(response))
+      } yield contract
+      et.run
+    }
 
   def exercise(
       jwt: Jwt,
@@ -63,20 +85,22 @@ class CommandService(
       input: ExerciseCommand[lav1.value.Value, ExerciseCommandRef],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
-    logger.trace("sending exercise command to ledger")
-    val command = exerciseCommand(input)
-    val request = submitAndWaitRequest(jwtPayload, input.meta, command, "exercise")
+  ): Future[Error \/ ExerciseResponse[lav1.value.Value]] =
+    withTemplateChoiceLoggingContext(input.reference.fold(_._1, _._1), input.choice).run {
+      implicit lc =>
+        logger.trace("sending exercise command to ledger")
+        val command = exerciseCommand(input)
+        val request = submitAndWaitRequest(jwtPayload, input.meta, command, "exercise")
 
-    val et: ET[ExerciseResponse[lav1.value.Value]] = for {
-      response <-
-        logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request))
-      exerciseResult <- either(exerciseResult(response))
-      contracts <- either(contracts(response))
-    } yield ExerciseResponse(exerciseResult, contracts)
+        val et: ET[ExerciseResponse[lav1.value.Value]] = for {
+          response <-
+            logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request))
+          exerciseResult <- either(exerciseResult(response))
+          contracts <- either(contracts(response))
+        } yield ExerciseResponse(exerciseResult, contracts)
 
-    et.run
-  }
+        et.run
+    }
 
   def createAndExercise(
       jwt: Jwt,
@@ -84,21 +108,22 @@ class CommandService(
       input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value, TemplateId.RequiredPkg],
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
-    logger.trace("sending create and exercise command to ledger")
-    val command = createAndExerciseCommand(input)
-    val request = submitAndWaitRequest(jwtPayload, input.meta, command, "createAndExercise")
-    val et: ET[ExerciseResponse[lav1.value.Value]] = for {
-      response <- logResult(
-        Symbol("createAndExercise"),
-        submitAndWaitForTransactionTree(jwt, request),
-      )
-      exerciseResult <- either(exerciseResult(response))
-      contracts <- either(contracts(response))
-    } yield ExerciseResponse(exerciseResult, contracts)
+  ): Future[Error \/ ExerciseResponse[lav1.value.Value]] =
+    withTemplateChoiceLoggingContext(input.templateId, input.choice).run { implicit lc =>
+      logger.trace("sending create and exercise command to ledger")
+      val command = createAndExerciseCommand(input)
+      val request = submitAndWaitRequest(jwtPayload, input.meta, command, "createAndExercise")
+      val et: ET[ExerciseResponse[lav1.value.Value]] = for {
+        response <- logResult(
+          Symbol("createAndExercise"),
+          submitAndWaitForTransactionTree(jwt, request),
+        )
+        exerciseResult <- either(exerciseResult(response))
+        contracts <- either(contracts(response))
+      } yield ExerciseResponse(exerciseResult, contracts)
 
-    et.run
-  }
+      et.run
+    }
 
   private def logResult[A](op: Symbol, fa: Future[A])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
