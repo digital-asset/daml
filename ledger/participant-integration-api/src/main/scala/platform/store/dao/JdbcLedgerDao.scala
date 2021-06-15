@@ -219,7 +219,7 @@ private class JdbcLedgerDao(
       rejectionReason: Option[String],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     withEnrichedLoggingContext(Logging.submissionId(submissionId)) { implicit loggingContext =>
-      logger.info("Storing a configuration entry")
+      logger.info("Storing configuration entry")
       dbDispatcher.executeSql(
         metrics.daml.index.db.storeConfigurationEntryDbMetrics
       ) { implicit conn =>
@@ -476,13 +476,15 @@ private class JdbcLedgerDao(
       transactionId: TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
+    logger.info("Storing transaction")
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
         insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
         updateLedgerEnd(offsetStep)
         Ok
       }
+  }
 
   override def storeTransaction(
       preparedInsert: PreparedInsert,
