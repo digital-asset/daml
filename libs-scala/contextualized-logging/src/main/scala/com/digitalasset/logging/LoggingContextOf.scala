@@ -48,6 +48,10 @@ object LoggingContextOf {
   ): withEnrichedLoggingContext[P, A] =
     new withEnrichedLoggingContext(kvs, loggingContext.extend[P])
 
+  def withEnrichedLoggingContext[P, A](label: label[P], kvs: (String, String)*)(implicit
+      loggingContext: LoggingContextOf[A]
+  ): withEnrichedLoggingContext[P, A] = withEnrichedLoggingContext(label, Map.from(kvs))
+
   final class withEnrichedLoggingContext[P, A] private[LoggingContextOf] (
       kvs: Map[String, String],
       loggingContext: LoggingContextOf[P with A],
