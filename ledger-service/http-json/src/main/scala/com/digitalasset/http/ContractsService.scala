@@ -450,7 +450,6 @@ class ContractsService(
         fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
         NotUsed
       }
-      .wireTap(step => println(s"^^^ TXS $step"))
   }
 
   private def apiAcToLfAc(
