@@ -414,7 +414,6 @@ class ContractsService(
         if (activeContracts.nonEmpty) Acs(activeContracts.toVector)
         else LiveBegin(AbsoluteBookmark(domain.Offset(offset)))
       }
-      .wireTap(step => println(s",,, ACS $step"))
   }
 
   /** An ACS ++ transaction stream of `templateIds`, starting at `startOffset`
