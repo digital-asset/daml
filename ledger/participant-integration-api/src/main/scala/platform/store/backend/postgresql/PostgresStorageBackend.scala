@@ -14,7 +14,11 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Party, Raw}
-import com.daml.platform.store.backend.common.{CommonStorageBackend, TemplatedStorageBackend}
+import com.daml.platform.store.backend.common.{
+  AppendOnlySchema,
+  CommonStorageBackend,
+  TemplatedStorageBackend,
+}
 import com.daml.platform.store.backend.{DbDto, StorageBackend}
 
 private[backend] object PostgresStorageBackend
