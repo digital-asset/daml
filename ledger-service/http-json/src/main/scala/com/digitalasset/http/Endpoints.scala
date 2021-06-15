@@ -4,6 +4,7 @@
 package com.daml.http
 
 import akka.NotUsed
+import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{
@@ -67,7 +68,7 @@ class Endpoints(
   def all(implicit
       lc: LoggingContextOf[InstanceUUID],
       metrics: Metrics,
-  ): PartialFunction[HttpRequest, Future[HttpResponse]] = {
+  ): PartialFunction[HttpRequest, Http.IncomingConnection => Future[HttpResponse]] = {
     val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
       InstanceUUID with RequestID
     ] => Future[HttpResponse]] = {
@@ -106,16 +107,18 @@ class Endpoints(
     }
     import scalaz.std.partialFunction._, scalaz.syntax.arrow._
     (dispatch &&& { case r => r }) andThen { case (lcFhr, req) =>
-      extendWithRequestIdLogCtx(implicit lc => {
-        val t0 = System.nanoTime
-        logger.trace(s"Incoming request on ${req.uri}")
-        Timed
-          .future(metrics.daml.HttpJsonApi.httpRequest, lcFhr(lc))
-          .map(res => {
-            logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
-            res
-          })
-      })
+      (connection: Http.IncomingConnection) =>
+        extendWithRequestIdLogCtx(implicit lc => {
+          val t0 = System.nanoTime
+          logger.info(s"Incoming request on ${req.uri} from ${connection.remoteAddress}")
+          Timed
+            .future(metrics.daml.HttpJsonApi.httpRequest, lcFhr(lc))
+            .map(res => {
+              logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+              logger.info(s"Responding to client with HTTP ${res.status}")
+              res
+            })
+        })
     }
   }
 
@@ -160,7 +163,9 @@ class Endpoints(
       resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef)
 
       resp <- eitherT(
-        handleFutureEitherFailure(commandService.exercise(jwt, jwtPayload, resolvedCmd))
+        handleFutureEitherFailure(
+          commandService.exercise(jwt, jwtPayload, resolvedCmd)
+        )
       ): ET[domain.ExerciseResponse[ApiValue]]
 
       jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
@@ -180,7 +185,9 @@ class Endpoints(
       ): ET[domain.CreateAndExerciseCommand[ApiRecord, ApiValue, TemplateId.RequiredPkg]]
 
       resp <- eitherT(
-        handleFutureEitherFailure(commandService.createAndExercise(jwt, jwtPayload, cmd))
+        handleFutureEitherFailure(
+          commandService.createAndExercise(jwt, jwtPayload, cmd)
+        )
       ): ET[domain.ExerciseResponse[ApiValue]]
 
       jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]

@@ -109,7 +109,6 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
   ): Unit = {
     actual.transactionId shouldBe expected.transactionId
     actual.workflowId shouldBe expected.workflowId.value
-    actual.commandId shouldBe expected.commandId.value
     actual.effectiveAt shouldBe expected.ledgerEffectiveTime
     actual.offset shouldBe expectedOffset
 

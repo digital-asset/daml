@@ -51,7 +51,7 @@ class CommandService(
     val command = createCommand(input)
     val request = submitAndWaitRequest(jwtPayload, input.meta, command, "create")
     val et: ET[ActiveContract[lav1.value.Value]] = for {
-      response <- rightT(logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request)))
+      response <- logResult(Symbol("create"), submitAndWaitForTransaction(jwt, request))
       contract <- either(exactlyOneActiveContract(response))
     } yield contract
     et.run
@@ -69,9 +69,8 @@ class CommandService(
     val request = submitAndWaitRequest(jwtPayload, input.meta, command, "exercise")
 
     val et: ET[ExerciseResponse[lav1.value.Value]] = for {
-      response <- rightT(
+      response <-
         logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request))
-      )
       exerciseResult <- either(exerciseResult(response))
       contracts <- either(contracts(response))
     } yield ExerciseResponse(exerciseResult, contracts)
@@ -90,8 +89,9 @@ class CommandService(
     val command = createAndExerciseCommand(input)
     val request = submitAndWaitRequest(jwtPayload, input.meta, command, "createAndExercise")
     val et: ET[ExerciseResponse[lav1.value.Value]] = for {
-      response <- rightT(
-        logResult(Symbol("createAndExercise"), submitAndWaitForTransactionTree(jwt, request))
+      response <- logResult(
+        Symbol("createAndExercise"),
+        submitAndWaitForTransactionTree(jwt, request),
       )
       exerciseResult <- either(exerciseResult(response))
       contracts <- either(contracts(response))
@@ -102,13 +102,18 @@ class CommandService(
 
   private def logResult[A](op: Symbol, fa: Future[A])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[A] = {
+  ): ET[A] = {
     val opName = op.name
-    fa.onComplete {
-      case Failure(e) => logger.error(s"$opName failure", e)
-      case Success(a) => logger.debug(s"$opName success: $a")
+    EitherT {
+      fa.transformWith {
+        case Failure(e) =>
+          logger.error(s"$opName failure", e)
+          Future.successful(-\/(Error(None, e.toString)))
+        case Success(a) =>
+          logger.debug(s"$opName success: $a")
+          Future.successful(\/-(a))
+      }
     }
-    fa
   }
 
   private def createCommand(
@@ -184,7 +189,7 @@ class CommandService(
       case xs @ _ =>
         -\/(
           Error(
-            Symbol("exactlyOneActiveContract"),
+            Some(Symbol("exactlyOneActiveContract")),
             s"Expected exactly one active contract, got: $xs",
           )
         )
@@ -195,7 +200,7 @@ class CommandService(
   ): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
-        Error(Symbol("activeContracts"), s"Received response without transaction: $response")
+        Error(Some(Symbol("activeContracts")), s"Received response without transaction: $response")
       )
       .flatMap(activeContracts)
 
@@ -205,7 +210,7 @@ class CommandService(
     Transactions
       .allCreatedEvents(tx)
       .traverse(ActiveContract.fromLedgerApi(_))
-      .leftMap(e => Error(Symbol("activeContracts"), e.shows))
+      .leftMap(e => Error(Some(Symbol("activeContracts")), e.shows))
   }
 
   private def contracts(
@@ -213,14 +218,17 @@ class CommandService(
   ): Error \/ List[Contract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
-        Error(Symbol("contracts"), s"Received response without transaction: $response")
+        Error(Some(Symbol("contracts")), s"Received response without transaction: $response")
       )
       .flatMap(contracts)
 
   private def contracts(
       tx: lav1.transaction.TransactionTree
   ): Error \/ List[Contract[lav1.value.Value]] =
-    Contract.fromTransactionTree(tx).leftMap(e => Error(Symbol("contracts"), e.shows)).map(_.toList)
+    Contract
+      .fromTransactionTree(tx)
+      .leftMap(e => Error(Some(Symbol("contracts")), e.shows))
+      .map(_.toList)
 
   private def exerciseResult(
       a: lav1.command_service.SubmitAndWaitForTransactionTreeResponse
@@ -233,7 +241,7 @@ class CommandService(
 
     result.toRightDisjunction(
       Error(
-        Symbol("choiceArgument"),
+        Some(Symbol("choiceArgument")),
         s"Cannot get exerciseResult from the first ExercisedEvent of gRPC response: ${a.toString}",
       )
     )
@@ -249,11 +257,14 @@ class CommandService(
 }
 
 object CommandService {
-  final case class Error(id: Symbol, message: String)
+  final case class Error(id: Option[Symbol], message: String)
 
   object Error {
-    implicit val errorShow: Show[Error] = Show shows { e =>
-      s"CommandService Error, ${e.id: Symbol}: ${e.message: String}"
+    implicit val errorShow: Show[Error] = Show shows {
+      case Error(None, message) =>
+        s"CommandService Error, $message"
+      case Error(Some(id), message) =>
+        s"CommandService Error, $id: $message"
     }
   }
 
