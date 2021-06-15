@@ -731,3 +731,19 @@ template WithKeyFetcher
         contractId : ContractId WithKey
       controller p2
       do fetch contractId
+
+
+template WithKeyDivulgenceHelper
+  with
+    divulgedTo : Party
+    withKeyOwner : Party
+  where
+    signatory divulgedTo
+
+    controller withKeyOwner can
+      nonconsuming WithKeyDivulgenceHelper_Fetch: ()
+        with
+          withKeyToFetch: ContractId WithKey
+        do
+          _ <- fetch withKeyToFetch
+          return ()
