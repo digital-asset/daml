@@ -67,6 +67,7 @@ object Main extends StrictLogging {
   }
 
   private def format(map: Map[Path, Option[String]]): String = {
+    // use intercalate instead if you don't want the trailing comma
     val cord = map.foldLeft(Cord("{")) { (str, kv) =>
       str ++ kv._1.toFile.getAbsolutePath ++ "->" ++ kv._2.toString ++ ","
     }

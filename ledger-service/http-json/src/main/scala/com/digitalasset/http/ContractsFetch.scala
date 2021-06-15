@@ -180,10 +180,10 @@ private class ContractsFetch(
     import scalaz.std.option._
     for {
       ac <- domain.ActiveContract fromLedgerApi ce leftMap (de =>
-        new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"),
+        new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"): Exception,
       )
-      lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause)
-      lfArg <- apiValueToLfValue(ac.payload) leftMap (_.cause)
+      lfKey <- ac.key.traverse(apiValueToLfValue).leftMap(_.cause: Exception)
+      lfArg <- apiValueToLfValue(ac.payload) leftMap (_.cause: Exception)
     } yield DBContract(
       contractId = ac.contractId.unwrap,
       templateId = ac.templateId,

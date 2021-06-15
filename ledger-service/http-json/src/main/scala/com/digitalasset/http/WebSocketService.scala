@@ -131,7 +131,7 @@ object WebSocketService {
           else
             SprayJson
               .decode[domain.Offset](offJv)
-              .liftErr(InvalidUserInput)
+              .liftErr[Error](InvalidUserInput)
               .map(offset => domain.StartingOffset(offset))
         }
       case _ => None
@@ -155,7 +155,11 @@ object WebSocketService {
 
   sealed abstract class StreamQueryReader[A] {
     case class Query[Q](q: Q, alg: StreamQuery[Q])
-    def parse(resumingAtOffset: Boolean, decoder: DomainJsonDecoder, jv: JsValue): Error \/ Query[_]
+    def parse(
+        resumingAtOffset: Boolean,
+        decoder: DomainJsonDecoder,
+        jv: JsValue,
+    ): Error \/ (_ <: Query[_])
   }
 
   sealed trait StreamQuery[A] {
@@ -184,7 +188,7 @@ object WebSocketService {
         import JsonProtocol._
         SprayJson
           .decode[SearchForeverRequest](jv)
-          .liftErr(InvalidUserInput)
+          .liftErr[Error](InvalidUserInput)
           .map(Query(_, this))
       }
 
@@ -267,7 +271,7 @@ object WebSocketService {
           for {
             as <- SprayJson
               .decode[NelCKRH[Hint, JsValue]](jv)
-              .liftErr(InvalidUserInput)
+              .liftErr[Error](InvalidUserInput)
             bs = as.map(a => decodeWithFallback(decoder, a))
           } yield Query(bs, alg)
         if (resumingAtOffset) go(ResumingEnrichedContractKeyWithStreamQuery)
@@ -443,7 +447,7 @@ class WebSocketService(
           offPrefix <- oeso.sequence
           jv <- ejv
           a <- Q.parse(resumingAtOffset = offPrefix.isDefined, decoder, jv)
-        } yield (offPrefix, a)
+        } yield (offPrefix, a: Q.Query[_])
       }
       .via(
         allowOnlyFirstInput(

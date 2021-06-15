@@ -237,8 +237,7 @@ object HttpService {
         .traverse { holder =>
           holder.refresh()
           holder.token
-            .map(\/-(_))
-            .getOrElse(-\/(PackageService.ServerError("Unable to load token")))
+            .toRightDisjunction(PackageService.ServerError("Unable to load token"))
         }
     )
 

@@ -39,14 +39,14 @@ object LedgerReader {
       diffIds = newPackageIds.filterNot(loadedPackageIds): List[String] // keeping the order
       result <-
         if (diffIds.isEmpty) UpToDate
-        else load(client, diffIds, token)
+        else load[Option[PackageStore]](client, diffIds, token)
     } yield result
 
-  private def load(
+  private def load[PS >: Some[PackageStore]](
       client: PackageClient,
       packageIds: List[String],
       token: Option[String],
-  ): Future[Error \/ Some[PackageStore]] =
+  ): Future[Error \/ PS] =
     packageIds
       .traverse(client.getPackage(_, token))
       .map(createPackageStoreFromArchives)
@@ -68,14 +68,14 @@ object LedgerReader {
       packageResponse: GetPackageResponse
   ): Error \/ Interface = {
     import packageResponse._
-    \/.fromTryCatchNonFatal {
+    \/.attempt {
       val cos = Reader.damlLfCodedInputStream(archivePayload.newInput)
       val payload = DamlLf.ArchivePayload.parseFrom(cos)
       val (errors, out) =
         InterfaceReader.readInterface(PackageId.assertFromString(hash) -> payload)
-      if (!errors.empty) \/.left("Errors reading LF archive:\n" + errors.toString)
-      else \/.right(out)
-    }.leftMap(_.getLocalizedMessage).join
+      (if (!errors.empty) -\/("Errors reading LF archive:\n" + errors.toString)
+       else \/-(out)): Error \/ Interface
+    }(_.getLocalizedMessage).join
   }
 
   def damlLfTypeLookup(packageStore: () => PackageStore)(id: Identifier): Option[DefDataType.FWT] =

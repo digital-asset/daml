@@ -32,6 +32,7 @@ import com.daml.ledger.api.{v1 => lav1}
 import com.daml.util.ExceptionOps._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
+import scalaz.syntax.show._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, NonEmptyList, Show, \/, \/-}
 import spray.json._
@@ -242,7 +243,7 @@ class Endpoints(
       _.flatMap { case (jwt, jwtPayload, reqBody) =>
         SprayJson
           .decode[domain.GetActiveContractsRequest](reqBody)
-          .liftErr(InvalidUserInput)
+          .liftErr[Error](InvalidUserInput)
           .map { cmd =>
             val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[JsValue]] =
               contractsService.search(jwt, jwtPayload, cmd)
@@ -314,25 +315,18 @@ class Endpoints(
 
     } yield domain.OkResponse(())
 
-  private def handleFutureEitherFailure[B](fa: Future[Error \/ B])(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+  private def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
+      A: IntoServerError[A],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): Future[Error \/ B] =
-    fa.recover { case NonFatal(e) =>
+    fa.map(_ leftMap A.run).recover { case NonFatal(e) =>
       logger.error("Future failed", e)
       -\/(ServerError(e.description))
     }
 
-  private def handleFutureEitherFailure[A: Show, B](fa: Future[A \/ B])(implicit
+  private def handleFutureFailure[E >: ServerError, A](fa: Future[A])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[ServerError \/ B] =
-    fa.map(_.liftErr(ServerError)).recover { case NonFatal(e) =>
-      logger.error("Future failed", e)
-      -\/(ServerError(e.description))
-    }
-
-  private def handleFutureFailure[A](fa: Future[A])(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[ServerError \/ A] =
+  ): Future[E \/ A] =
     fa.map(a => \/-(a)).recover { case NonFatal(e) =>
       logger.error("Future failed", e)
       -\/(ServerError(e.description))
@@ -340,9 +334,9 @@ class Endpoints(
 
   private def handleSourceFailure[E: Show, A](implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Flow[E \/ A, ServerError \/ A, NotUsed] =
+  ): Flow[E \/ A, Error \/ A, NotUsed] =
     Flow
-      .fromFunction((_: E \/ A).liftErr(ServerError))
+      .fromFunction((_: E \/ A).liftErr[Error](ServerError))
       .recover { case NonFatal(e) =>
         logger.error("Source failed", e)
         -\/(ServerError(e.description))
@@ -432,7 +426,7 @@ class Endpoints(
   )(implicit
       parse: ParsePayload[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
-  ): Future[Unauthorized \/ (Jwt, P, String)] =
+  ): Future[Error \/ (Jwt, P, String)] =
     input(req).map(_.flatMap(withJwtPayload[String, P]))
 
   private[http] def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
@@ -446,13 +440,13 @@ class Endpoints(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Error \/ (Jwt, Source[ByteString, Any]) =
-    findJwt(req) match {
-      case e @ -\/(_) =>
+    findJwt(req).bimap(
+      { e =>
         discard { req.entity.discardBytes(mat) }
         e
-      case \/-(j) =>
-        \/-((j, req.entity.dataBytes))
-    }
+      },
+      j => (j, req.entity.dataBytes),
+    )
 
   private[this] def findJwt(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -536,8 +530,16 @@ object Endpoints {
 
   private type LfValue = lf.value.Value[lf.value.Value.ContractId]
 
+  private final class IntoServerError[-A](val run: A => Error) extends AnyVal
+  private object IntoServerError extends IntoServerErrorLow {
+    implicit val id: IntoServerError[Error] = new IntoServerError(identity)
+  }
+  private sealed abstract class IntoServerErrorLow {
+    implicit def shown[A: Show]: IntoServerError[A] = new IntoServerError(a => ServerError(a.shows))
+  }
+
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
-    \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).liftErr(ServerError)
+    \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError)
 
   private def lfValueToApiValue(a: LfValue): Error \/ ApiValue =
     JsValueToApiValueConverter.lfValueToApiValue(a).liftErr(ServerError)

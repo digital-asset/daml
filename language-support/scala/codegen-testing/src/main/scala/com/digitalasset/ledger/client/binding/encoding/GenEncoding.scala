@@ -66,7 +66,7 @@ object GenEncoding extends GenEncoding {
 
   class VariantCasesImpl extends Plus[VariantCases] {
     def plus[A](a: VariantCases[A], b: => VariantCases[A]): VariantCases[A] =
-      a <+> b
+      (a: OneAnd[Vector, Gen[A]]) <+> b
   }
 
   class primitiveImpl extends ValuePrimitiveEncoding[Out] {
