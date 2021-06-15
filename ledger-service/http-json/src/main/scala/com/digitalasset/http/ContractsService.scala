@@ -445,11 +445,10 @@ class ContractsService(
           .viaMat(transactionsFollowingBoundary(transactionsSince).divertToHead)(Keep.right),
       source.viaMat(acsFollowingAndBoundary(transactionsSince).divertToHead)(Keep.right),
     )
-    contractsAndBoundary
-      .mapMaterializedValue { fob =>
-        fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
-        NotUsed
-      }
+    contractsAndBoundary mapMaterializedValue { fob =>
+      fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
+      NotUsed
+    }
   }
 
   private def apiAcToLfAc(
