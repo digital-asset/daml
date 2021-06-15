@@ -19,7 +19,7 @@ private[postgresql] case class PostgresDbBatch(
     partiesBatch: Array[Array[_]],
     partyEntriesBatch: Array[Array[_]],
     commandCompletionsBatch: Array[Array[_]],
-    commandDeduplicationBatch: Array[String],
+    commandSubmissionDeleteBatch: Array[Array[_]],
 ) extends NeverEqualsOverride
 
 private[postgresql] object PostgresDbBatch {
@@ -42,7 +42,8 @@ private[postgresql] object PostgresDbBatch {
       partiesBatch = parties.prepareData(collect[Party]),
       partyEntriesBatch = partyEntries.prepareData(collect[PartyEntry]),
       commandCompletionsBatch = commandCompletions.prepareData(collect[CommandCompletion]),
-      commandDeduplicationBatch = collect[CommandDeduplication].map(_.deduplication_key).toArray,
+      commandSubmissionDeleteBatch =
+        commandSubmissionDeletes.prepareData(collect[CommandDeduplication]),
     )
   }
 

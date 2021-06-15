@@ -21,46 +21,33 @@ private[backend] object PostgresStorageBackend
     extends StorageBackend[PostgresDbBatch]
     with CommonStorageBackend[PostgresDbBatch] {
 
-  private val preparedDeleteCommandSubmissions =
-    """
-      |DELETE FROM participant_command_submissions
-      |WHERE deduplication_key IN (
-      |  SELECT deduplication_key_in
-      |  FROM unnest(?)
-      |  as t(deduplication_key_in)
-      |)
-      |""".stripMargin
-
   override def insertBatch(
       connection: Connection,
       postgresDbBatch: PostgresDbBatch,
   ): Unit = {
-    PGSchema.commandCompletions.executeInsert(postgresDbBatch.commandCompletionsBatch, connection)
-    PGSchema.configurationEntries.executeInsert(
+    PGSchema.commandCompletions.executeUpdate(postgresDbBatch.commandCompletionsBatch, connection)
+    PGSchema.configurationEntries.executeUpdate(
       postgresDbBatch.configurationEntriesBatch,
       connection,
     )
-    PGSchema.eventsDivulgence.executeInsert(postgresDbBatch.eventsBatchDivulgence, connection)
-    PGSchema.eventsCreate.executeInsert(postgresDbBatch.eventsBatchCreate, connection)
-    PGSchema.eventsConsumingExercise.executeInsert(
+    PGSchema.eventsDivulgence.executeUpdate(postgresDbBatch.eventsBatchDivulgence, connection)
+    PGSchema.eventsCreate.executeUpdate(postgresDbBatch.eventsBatchCreate, connection)
+    PGSchema.eventsConsumingExercise.executeUpdate(
       postgresDbBatch.eventsBatchConsumingExercise,
       connection,
     )
-    PGSchema.eventsNonConsumingExercise.executeInsert(
+    PGSchema.eventsNonConsumingExercise.executeUpdate(
       postgresDbBatch.eventsBatchNonConsumingExercise,
       connection,
     )
-    PGSchema.packageEntries.executeInsert(postgresDbBatch.packageEntriesBatch, connection)
-    PGSchema.packages.executeInsert(postgresDbBatch.packagesBatch, connection)
-    PGSchema.parties.executeInsert(postgresDbBatch.partiesBatch, connection)
-    PGSchema.partyEntries.executeInsert(postgresDbBatch.partyEntriesBatch, connection)
-
-    if (postgresDbBatch.commandDeduplicationBatch.length > 0) {
-      val preparedStatement = connection.prepareStatement(preparedDeleteCommandSubmissions)
-      preparedStatement.setObject(1, postgresDbBatch.commandDeduplicationBatch)
-      preparedStatement.execute()
-      preparedStatement.close()
-    }
+    PGSchema.packageEntries.executeUpdate(postgresDbBatch.packageEntriesBatch, connection)
+    PGSchema.packages.executeUpdate(postgresDbBatch.packagesBatch, connection)
+    PGSchema.parties.executeUpdate(postgresDbBatch.partiesBatch, connection)
+    PGSchema.partyEntries.executeUpdate(postgresDbBatch.partyEntriesBatch, connection)
+    PGSchema.commandSubmissionDeletes.executeUpdate(
+      postgresDbBatch.commandSubmissionDeleteBatch,
+      connection,
+    )
   }
 
   override def initialize(connection: Connection): StorageBackend.LedgerEnd = {
