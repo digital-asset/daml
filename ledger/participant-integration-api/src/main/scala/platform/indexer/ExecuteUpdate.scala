@@ -129,7 +129,7 @@ trait ExecuteUpdate {
 
   private[indexer] def updateMetadata(
       metadataUpdateStep: OffsetUpdate
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
+  ): Future[PersistenceResponse] = {
     val OffsetUpdate(offsetStep, update) = metadataUpdateStep
     update match {
       case PartyAddedToParticipant(
