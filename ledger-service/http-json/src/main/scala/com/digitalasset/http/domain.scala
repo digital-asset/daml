@@ -53,15 +53,26 @@ object domain {
   private def oneAndSet[A](p: A, sp: Set[A]) =
     OneAnd(p, sp - p)
 
+  trait JwtPayloadTag
+
+  trait JwtPayloadG[T[_]] {
+    val ledgerId: LedgerId
+    val applicationId: ApplicationId
+    val readAs: List[Party]
+    val actAs: T[Party]
+    val parties: OneAnd[Set, Party]
+  }
+
   // Until we get multi-party submissions, write endpoints require a single party in actAs but we
   // can have multiple parties in readAs.
-  case class JwtWritePayload(
+  final case class JwtWritePayload(
       ledgerId: LedgerId,
       applicationId: ApplicationId,
       actAs: NonEmptyList[Party],
       readAs: List[Party],
-  ) {
-    val parties: OneAnd[Set, Party] = oneAndSet(actAs.head, actAs.tail.toSet union readAs.toSet)
+  ) extends JwtPayloadG[NonEmptyList] {
+    override val parties: OneAnd[Set, Party] =
+      oneAndSet(actAs.head, actAs.tail.toSet union readAs.toSet)
   }
 
   // JWT payload that preserves readAs and actAs and supports multiple parties. This is currently only used for
@@ -72,7 +83,7 @@ object domain {
       readAs: List[Party],
       actAs: List[Party],
       parties: OneAnd[Set, Party],
-  ) {}
+  ) extends JwtPayloadG[List] {}
 
   object JwtPayload {
     def apply(
