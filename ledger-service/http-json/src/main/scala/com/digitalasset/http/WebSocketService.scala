@@ -178,11 +178,15 @@ object WebSocketService {
         request: A,
     ): Option[A]
 
+    /** Perform any necessary adjustment to the request based on the prefix
+      */
     def adjustRequest(
         prefix: Option[domain.StartingOffset],
         request: A,
     ): A
 
+    /** Specify the offset from which the live part of the query should start
+      */
     def liveStartingOffset(
         prefix: Option[domain.StartingOffset],
         request: A,
