@@ -302,7 +302,8 @@ object WebSocketService {
         )
 
       import scalaz.syntax.foldable1._
-      import domain.Offset.orderingOptional
+      import domain.Offset.ordering
+      import scalaz.std.option.optionOrder
 
       override def liveStartingOffset(
           prefix: Option[domain.StartingOffset],

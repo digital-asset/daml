@@ -215,8 +215,7 @@ object domain {
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
     implicit val ordering: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))
-    implicit val orderingOptional: Order[Option[Offset]] =
-      Order.orderBy[Option[Offset], String](_.fold("")(Offset.unwrap))
+
   }
 
   final case class StartingOffset(offset: Offset)
