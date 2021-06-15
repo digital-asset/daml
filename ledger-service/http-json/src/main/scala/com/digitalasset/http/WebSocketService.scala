@@ -622,7 +622,10 @@ class WebSocketService(
             .cata(
               _.map { acsAndLiveMarker =>
                 acsAndLiveMarker.flatMapConcat {
-                  case acs @ StepAndErrors(_, Acs(_)) => Source.single(acs)
+                  case acs @ StepAndErrors(_, Acs(_)) if acs.nonEmpty =>
+                    Source.single(acs)
+                  case StepAndErrors(_, Acs(_)) =>
+                    Source.empty
                   case liveBegin @ StepAndErrors(_, LiveBegin(offset)) =>
                     // Produce the predicate that is going to be applied to the incoming transaction stream
                     // We need to apply this to the request with all the offsets shifted so that each stream
