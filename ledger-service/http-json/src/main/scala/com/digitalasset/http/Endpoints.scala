@@ -132,7 +132,7 @@ class Endpoints(
 
       // If this fails the error is already logged in the CommandService
       ac <- eitherT(
-        handleFutureEitherFailureNoLogging(commandService.create(jwt, jwtPayload, cmd))
+        handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd))
       ): ET[domain.ActiveContract[ApiValue]]
 
       jsVal <- either(SprayJson.encode1(ac).liftErr(ServerError)): ET[JsValue]
@@ -161,7 +161,7 @@ class Endpoints(
 
       // If this fails the error is already logged in the CommandService
       resp <- eitherT(
-        handleFutureEitherFailureNoLogging(
+        handleFutureEitherFailure(
           commandService.exercise(jwt, jwtPayload, resolvedCmd)
         )
       ): ET[domain.ExerciseResponse[ApiValue]]
@@ -184,7 +184,7 @@ class Endpoints(
 
       // If this fails the error is already logged in the CommandService
       resp <- eitherT(
-        handleFutureEitherFailureNoLogging(
+        handleFutureEitherFailure(
           commandService.createAndExercise(jwt, jwtPayload, cmd)
         )
       ): ET[domain.ExerciseResponse[ApiValue]]
@@ -322,10 +322,13 @@ class Endpoints(
       -\/(ServerError(e.description))
     }
 
-  private def handleFutureEitherFailureNoLogging[A: Show, B](
+  private def handleFutureEitherFailure[A: Show, B](
       fa: Future[A \/ B]
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[ServerError \/ B] =
     fa.map(_.liftErr(ServerError)).recover { case NonFatal(e) =>
+      logger.error("Future failed", e)
       -\/(ServerError(e.description))
     }
 
