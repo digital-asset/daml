@@ -481,13 +481,15 @@ private class JdbcLedgerDao(
       transactionId: TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
+    logger.info("Storing transaction")
     dbDispatcher
       .executeSql(metrics.daml.index.db.storeTransactionDbMetrics) { implicit conn =>
         insertCompletions(submitterInfo, transactionId, recordTime, offsetStep)
         updateLedgerEnd(offsetStep)
         Ok
       }
+  }
 
   override def storeTransaction(
       preparedInsert: PreparedInsert,
