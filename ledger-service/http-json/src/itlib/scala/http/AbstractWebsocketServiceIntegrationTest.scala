@@ -23,6 +23,7 @@ import scalaz.{-\/, \/-}
 import spray.json.{JsArray, JsNull, JsNumber, JsObject, JsString, JsValue}
 
 import scala.annotation.nowarn
+import scala.collection.compat._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
