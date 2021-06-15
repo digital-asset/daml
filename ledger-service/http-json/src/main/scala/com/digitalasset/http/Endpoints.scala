@@ -130,7 +130,6 @@ class Endpoints(
         decoder.decodeCreateCommand(reqBody).liftErr(InvalidUserInput)
       ): ET[domain.CreateCommand[ApiRecord, TemplateId.RequiredPkg]]
 
-      // If the future fails the error is already logged in the CommandService
       ac <- eitherT(
         handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd))
       ): ET[domain.ActiveContract[ApiValue]]
@@ -159,7 +158,6 @@ class Endpoints(
 
       resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef)
 
-      // If the future fails the error is already logged in the CommandService
       resp <- eitherT(
         handleFutureEitherFailure(
           commandService.exercise(jwt, jwtPayload, resolvedCmd)
@@ -182,7 +180,6 @@ class Endpoints(
         decoder.decodeCreateAndExerciseCommand(reqBody).liftErr(InvalidUserInput)
       ): ET[domain.CreateAndExerciseCommand[ApiRecord, ApiValue, TemplateId.RequiredPkg]]
 
-      // If the future fails the error is already logged in the CommandService
       resp <- eitherT(
         handleFutureEitherFailure(
           commandService.createAndExercise(jwt, jwtPayload, cmd)

@@ -108,7 +108,7 @@ class CommandService(
       fa.transformWith {
         case Failure(e) =>
           logger.error(s"$opName failure", e)
-          Future.successful(-\/(FutureFailedButAlreadyLogged(e)))
+          Future.successful(-\/(Error(None, e.toString)))
         case Success(a) =>
           logger.debug(s"$opName success: $a")
           Future.successful(\/-(a))
@@ -188,8 +188,8 @@ class CommandService(
       case Seq(x) => \/-(x)
       case xs @ _ =>
         -\/(
-          CommandError(
-            Symbol("exactlyOneActiveContract"),
+          Error(
+            Some(Symbol("exactlyOneActiveContract")),
             s"Expected exactly one active contract, got: $xs",
           )
         )
@@ -200,7 +200,7 @@ class CommandService(
   ): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
-        CommandError(Symbol("activeContracts"), s"Received response without transaction: $response")
+        Error(Some(Symbol("activeContracts")), s"Received response without transaction: $response")
       )
       .flatMap(activeContracts)
 
@@ -210,7 +210,7 @@ class CommandService(
     Transactions
       .allCreatedEvents(tx)
       .traverse(ActiveContract.fromLedgerApi(_))
-      .leftMap(e => CommandError(Symbol("activeContracts"), e.shows))
+      .leftMap(e => Error(Some(Symbol("activeContracts")), e.shows))
   }
 
   private def contracts(
@@ -218,7 +218,7 @@ class CommandService(
   ): Error \/ List[Contract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
-        CommandError(Symbol("contracts"), s"Received response without transaction: $response")
+        Error(Some(Symbol("contracts")), s"Received response without transaction: $response")
       )
       .flatMap(contracts)
 
@@ -227,7 +227,7 @@ class CommandService(
   ): Error \/ List[Contract[lav1.value.Value]] =
     Contract
       .fromTransactionTree(tx)
-      .leftMap(e => CommandError(Symbol("contracts"), e.shows))
+      .leftMap(e => Error(Some(Symbol("contracts")), e.shows))
       .map(_.toList)
 
   private def exerciseResult(
@@ -240,8 +240,8 @@ class CommandService(
     } yield exResult
 
     result.toRightDisjunction(
-      CommandError(
-        Symbol("choiceArgument"),
+      Error(
+        Some(Symbol("choiceArgument")),
         s"Cannot get exerciseResult from the first ExercisedEvent of gRPC response: ${a.toString}",
       )
     )
@@ -257,15 +257,13 @@ class CommandService(
 }
 
 object CommandService {
-  sealed trait Error
-  final case class FutureFailedButAlreadyLogged(err: Throwable) extends Error
-  final case class CommandError(id: Symbol, message: String) extends Error
+  final case class Error(id: Option[Symbol], message: String)
 
   object Error {
     implicit val errorShow: Show[Error] = Show shows {
-      case FutureFailedButAlreadyLogged(err) =>
-        s"CommandService Error, $err"
-      case CommandError(id, message) =>
+      case Error(None, message) =>
+        s"CommandService Error, $message"
+      case Error(Some(id), message) =>
         s"CommandService Error, $id: $message"
     }
   }
