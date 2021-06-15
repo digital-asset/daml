@@ -31,7 +31,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.ExecuteUpdate.ExecuteUpdateFlow
 import com.daml.platform.indexer.OffsetUpdate.PreparedTransactionInsert
-import com.daml.platform.indexer.PipelinedExecuteUpdate.PipelinedUpdateWithTimer
+import com.daml.platform.indexer.PipelinedExecuteUpdate.InstrumentedUpdate
 import com.daml.platform.store.DbType
 import com.daml.platform.store.dao.{LedgerWriteDao, PersistenceResponse}
 import com.daml.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
@@ -85,7 +85,6 @@ object ExecuteUpdate {
 trait ExecuteUpdate {
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private[indexer] implicit val loggingContext: LoggingContext
   private[indexer] implicit val executionContext: ExecutionContext
 
   private[indexer] def participantId: v1.ParticipantId
@@ -129,7 +128,7 @@ trait ExecuteUpdate {
 
   private[indexer] def updateMetadata(
       metadataUpdateStep: OffsetUpdate
-  ): Future[PersistenceResponse] = {
+  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] = {
     val OffsetUpdate(offsetStep, update) = metadataUpdateStep
     update match {
       case PartyAddedToParticipant(
@@ -354,55 +353,54 @@ class PipelinedExecuteUpdate(
     private[indexer] val metrics: Metrics,
     private[indexer] val participantId: v1.ParticipantId,
     private[indexer] val updatePreparationParallelism: Int,
-)(implicit val executionContext: ExecutionContext, val loggingContext: LoggingContext)
+    globalLoggingContext: LoggingContext,
+)(implicit val executionContext: ExecutionContext)
     extends ExecuteUpdate {
 
   private def insertTransactionState(
-      timedPipelinedUpdate: PipelinedUpdateWithTimer
-  ): Future[PipelinedUpdateWithTimer] = timedPipelinedUpdate.preparedUpdate match {
+      instrumentedUpdate: InstrumentedUpdate
+  ): Future[InstrumentedUpdate] = instrumentedUpdate.preparedUpdate match {
     case PreparedTransactionInsert(_, _, preparedInsert) =>
       Timed.future(
         metrics.daml.index.db.storeTransactionState,
-        ledgerDao.storeTransactionState(preparedInsert).map(_ => timedPipelinedUpdate),
+        ledgerDao
+          .storeTransactionState(preparedInsert)(instrumentedUpdate.loggingContext)
+          .map(_ => instrumentedUpdate),
       )
-    case _ => Future.successful(timedPipelinedUpdate)
+    case _ => Future.successful(instrumentedUpdate)
   }
 
   private def insertTransactionEvents(
-      timedPipelinedUpdate: PipelinedUpdateWithTimer
-  ): Future[PipelinedUpdateWithTimer] = timedPipelinedUpdate.preparedUpdate match {
+      instrumentedUpdate: InstrumentedUpdate
+  ): Future[InstrumentedUpdate] = instrumentedUpdate.preparedUpdate match {
     case PreparedTransactionInsert(_, _, preparedInsert) =>
       Timed.future(
         metrics.daml.index.db.storeTransactionEvents,
         ledgerDao
-          .storeTransactionEvents(preparedInsert)
-          .map(_ => timedPipelinedUpdate),
+          .storeTransactionEvents(preparedInsert)(instrumentedUpdate.loggingContext)
+          .map(_ => instrumentedUpdate),
       )
-    case _ => Future.successful(timedPipelinedUpdate)
+    case _ => Future.successful(instrumentedUpdate)
   }
 
   private def completeInsertion(
-      timedPipelinedUpdate: PipelinedUpdateWithTimer
+      instrumentedUpdate: InstrumentedUpdate
   ): Future[PersistenceResponse] = {
-    val pipelinedUpdate = timedPipelinedUpdate.preparedUpdate
-    withEnrichedLoggingContext(
-      loggingContextFor(pipelinedUpdate.offsetStep.offset, pipelinedUpdate.update)
-    ) { implicit loggingContext =>
-      Timed.future(
-        metrics.daml.indexer.stateUpdateProcessing, {
-          pipelinedUpdate match {
-            case OffsetUpdate.PreparedTransactionInsert(offsetStep, tx, _) =>
-              completeTransactionInsertion(
-                offsetStep,
-                tx,
-                timedPipelinedUpdate.transactionInsertionTimer,
-              )
-            case metadataUpdate =>
-              updateMetadata(metadataUpdate)
-          }
-        },
-      )
-    }
+    val pipelinedUpdate = instrumentedUpdate.preparedUpdate
+    Timed.future(
+      metrics.daml.indexer.stateUpdateProcessing, {
+        pipelinedUpdate match {
+          case OffsetUpdate.PreparedTransactionInsert(offsetStep, tx, _) =>
+            completeTransactionInsertion(
+              offsetStep,
+              tx,
+              instrumentedUpdate.transactionInsertionTimer,
+            )(instrumentedUpdate.loggingContext)
+          case metadataUpdate =>
+            updateMetadata(metadataUpdate)(instrumentedUpdate.loggingContext)
+        }
+      },
+    )
   }
 
   private def completeTransactionInsertion(
@@ -429,7 +427,19 @@ class PipelinedExecuteUpdate(
     Flow[OffsetUpdate]
       .mapAsync(updatePreparationParallelism)(prepareUpdate)
       .async
-      .map(PipelinedUpdateWithTimer(_, metrics.daml.index.db.storeTransaction.time()))
+      .map { preparedTransactionInsert =>
+        val enricher = loggingContextFor(
+          preparedTransactionInsert.offsetStep.offset,
+          preparedTransactionInsert.update,
+        )
+        withEnrichedLoggingContext(enricher)(
+          InstrumentedUpdate(
+            preparedTransactionInsert,
+            metrics.daml.index.db.storeTransaction.time(),
+            _,
+          )
+        )(globalLoggingContext)
+      }
       .mapAsync(1)(insertTransactionState)
       .async
       .mapAsync(1)(insertTransactionEvents)
@@ -449,17 +459,20 @@ object PipelinedExecuteUpdate {
       loggingContext: LoggingContext,
   ): ResourceOwner[PipelinedExecuteUpdate] =
     ResourceOwner.forValue(() =>
-      new PipelinedExecuteUpdate(ledgerDao, metrics, participantId, updatePreparationParallelism)(
-        executionContext,
+      new PipelinedExecuteUpdate(
+        ledgerDao,
+        metrics,
+        participantId,
+        updatePreparationParallelism,
         loggingContext,
-      )
+      )(executionContext)
     )
 
-  private case class PipelinedUpdateWithTimer(
+  private case class InstrumentedUpdate(
       preparedUpdate: OffsetUpdate,
       transactionInsertionTimer: Timer.Context,
+      loggingContext: LoggingContext,
   )
-
 }
 
 class AtomicExecuteUpdate(
@@ -468,57 +481,58 @@ class AtomicExecuteUpdate(
     private[indexer] val participantId: v1.ParticipantId,
     private[indexer] val updatePreparationParallelism: Int,
 )(
-    private[indexer] implicit val loggingContext: LoggingContext,
+    private[indexer] val globalLoggingContext: LoggingContext,
     private[indexer] val executionContext: ExecutionContext,
 ) extends ExecuteUpdate {
 
   private[indexer] val flow: ExecuteUpdateFlow =
     Flow[OffsetUpdate]
       .mapAsync(updatePreparationParallelism)(prepareUpdate)
-      .mapAsync(1) { case offsetUpdate @ OffsetUpdate(offsetStep, update) =>
-        withEnrichedLoggingContext(loggingContextFor(offsetStep.offset, update)) {
-          implicit loggingContext =>
-            Timed.future(
-              metrics.daml.indexer.stateUpdateProcessing,
-              executeUpdate(offsetUpdate),
-            )
-        }
+      .mapAsync(1) { offsetUpdate =>
+        Timed.future(
+          metrics.daml.indexer.stateUpdateProcessing,
+          executeUpdate(offsetUpdate),
+        )
       }
       .map(_ => ())
 
   private def executeUpdate(
       preparedUpdate: OffsetUpdate
-  )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
-    preparedUpdate match {
-      case PreparedTransactionInsert(
-            offsetStep,
-            TransactionAccepted(
-              optSubmitterInfo,
-              transactionMeta,
-              transaction,
-              transactionId,
-              recordTime,
-              divulgedContracts,
-              _,
+  ): Future[PersistenceResponse] = {
+    val enricher = loggingContextFor(preparedUpdate.offsetStep.offset, preparedUpdate.update)
+    withEnrichedLoggingContext(enricher) { implicit loggingContext =>
+      preparedUpdate match {
+        case PreparedTransactionInsert(
+              offsetStep,
+              TransactionAccepted(
+                optSubmitterInfo,
+                transactionMeta,
+                transaction,
+                transactionId,
+                recordTime,
+                divulgedContracts,
+                _,
+              ),
+              preparedInsert,
+            ) =>
+          Timed.future(
+            metrics.daml.index.db.storeTransaction,
+            ledgerDao.storeTransaction(
+              preparedInsert,
+              submitterInfo = optSubmitterInfo,
+              transactionId = transactionId,
+              recordTime = recordTime.toInstant,
+              ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
+              offsetStep = offsetStep,
+              transaction = transaction,
+              divulged = divulgedContracts,
             ),
-            preparedInsert,
-          ) =>
-        Timed.future(
-          metrics.daml.index.db.storeTransaction,
-          ledgerDao.storeTransaction(
-            preparedInsert,
-            submitterInfo = optSubmitterInfo,
-            transactionId = transactionId,
-            recordTime = recordTime.toInstant,
-            ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-            offsetStep = offsetStep,
-            transaction = transaction,
-            divulged = divulgedContracts,
-          ),
-        )
+          )
 
-      case metadataUpdate => updateMetadata(metadataUpdate)
-    }
+        case metadataUpdate => updateMetadata(metadataUpdate)
+      }
+    }(globalLoggingContext)
+  }
 }
 
 object AtomicExecuteUpdate {
