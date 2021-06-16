@@ -9,12 +9,14 @@ trait CliBase {
       args: collection.Seq[String],
       supportedJdbcDriverNames: Set[String],
       getEnvVar: String => Option[String] = sys.env.get,
-  ): Option[Config] =
-    configParser(getEnvVar, supportedJdbcDriverNames).parse(args, Config.Empty)
+  ): Option[Config] = {
+    implicit val jdn: Config.SupportedJdbcDriverNames =
+      Config.SupportedJdbcDrivers(supportedJdbcDriverNames)
+    configParser(getEnvVar).parse(args, Config.Empty)
+  }
 
-  protected def configParser(
-      getEnvVar: String => Option[String],
-      supportedJdbcDriverNames: Set[String],
+  protected[this] def configParser(getEnvVar: String => Option[String])(implicit
+      supportedJdbcDriverNames: Config.SupportedJdbcDriverNames
   ): OptionParser
 
 }
