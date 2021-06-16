@@ -612,7 +612,6 @@ private object OracleQueries extends Queries {
     sql"""
         ,${jsonColumn(sql"signatories")}
         ,${jsonColumn(sql"observers")}
-        ,${jsonColumn(sql"stakeholders")}
         """
 
   private[this] val indexContractsPartySets =
@@ -634,20 +633,15 @@ private object OracleQueries extends Queries {
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
   )(implicit log: LogHandler, ipol: SqlInterpol): ConnectionIO[Int] = {
     import spray.json.DefaultJsonProtocol._
-    Update[(DBContract[SurrogateTpId, JsValue, JsValue, JsValue], JsValue)](
+    Update[DBContract[SurrogateTpId, JsValue, JsValue, JsValue]](
       """
         INSERT /*+ ignore_row_on_dupkey_index(contract(contract_id)) */
-        INTO contract (contract_id, tpid, key, payload, signatories, observers, agreement_text, stakeholders)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INTO contract (contract_id, tpid, key, payload, signatories, observers, agreement_text)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       """,
       logHandler0 = log,
     ).updateMany(
-      dbcs.map { dbc =>
-        (
-          dbc.mapKeyPayloadParties(identity, identity, _.toJson),
-          (dbc.signatories ++ dbc.observers).toJson,
-        )
-      }
+      dbcs.map(_.mapKeyPayloadParties(identity, identity, _.toJson))
     )
   }
 
@@ -683,7 +677,8 @@ private object OracleQueries extends Queries {
       val q =
         sql"""SELECT c.contract_id contract_id, $tpid template_id, key, payload, signatories, observers, agreement_text
                 FROM contract c
-                WHERE JSON_EXISTS(stakeholders, $partiesQuery)
+                WHERE (JSON_EXISTS(signatories, $partiesQuery)
+                       OR JSON_EXISTS(observers, $partiesQuery))
                       AND $queriesCondition"""
       q.query[
         (String, Mark0, JsValue, JsValue, JsValue, JsValue, Option[String])
