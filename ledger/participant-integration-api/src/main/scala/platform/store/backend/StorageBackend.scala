@@ -19,6 +19,7 @@ import com.daml.platform
 import com.daml.platform.store.DbType
 import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
+import com.daml.platform.store.backend.h2.H2StorageBackend
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackend
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
@@ -390,7 +391,7 @@ object StorageBackend {
 
   def of(dbType: DbType): StorageBackend[_] =
     dbType match {
-      case DbType.H2Database => throw new UnsupportedOperationException("H2 not supported yet")
+      case DbType.H2Database => H2StorageBackend
       case DbType.Postgres => PostgresStorageBackend
       case DbType.Oracle => throw new UnsupportedOperationException("Oracle not supported yet")
     }
