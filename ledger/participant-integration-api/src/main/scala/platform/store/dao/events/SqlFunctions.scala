@@ -67,7 +67,7 @@ private[dao] object SqlFunctions {
       val NumExtraChars = 20
       val OracleMaxStringLiteralLength = 4000
 
-      val groupedParties = parties.toList.sorted.foldLeft((List.empty[List[String]], 0))({
+      val groupedParties = parties.foldLeft((List.empty[List[String]], 0))({
         case ((prev, currentLength), party) =>
           if (
             currentLength + party.length + NumCharsBetweenParties > OracleMaxStringLiteralLength
