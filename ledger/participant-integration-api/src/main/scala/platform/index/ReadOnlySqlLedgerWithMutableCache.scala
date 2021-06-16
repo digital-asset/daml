@@ -13,7 +13,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.ValueEnricher
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -43,6 +43,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
       enableInMemoryFanOutForLedgerApi: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedgerWithMutableCache] {
+    private val logger = ContextualizedLogger.get(getClass)
 
     override def acquire()(implicit
         context: ResourceContext
@@ -98,6 +99,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
           cacheUpdatesDispatcher,
           generalDispatcher,
           dispatcherLagMeter,
+          startExclusive,
         )
       else
         ledgerWithMutableCache(
@@ -151,6 +153,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         cacheUpdatesDispatcher: Dispatcher[(Offset, Long)],
         generalDispatcher: Dispatcher[Offset],
         dispatcherLagMeter: DispatcherLagMeter,
+        startExclusive: (Offset, Long),
     )(implicit resourceContext: ResourceContext) = {
       val transactionsBuffer = new EventsBuffer[Offset, TransactionLogUpdate](
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
@@ -169,15 +172,20 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         _ <- ResourceOwner
           .forCloseable(() =>
             BuffersUpdater(
-              // TODO in-memory fan-out: Resubscribe from ledger end on ledger (re)start
-              subscribeToTransactionLogUpdates = (offset, eventSequentialId) =>
+              subscribeToTransactionLogUpdates = maybeOffsetSeqId => {
+                val subscriptionStartExclusive @ (offsetStart, eventSeqIdStart) =
+                  maybeOffsetSeqId.getOrElse(startExclusive)
+                logger.info(
+                  s"Subscribing for transaction log updates after ${offsetStart.toHexString} -> $eventSeqIdStart"
+                )
                 cacheUpdatesDispatcher
                   .startingAt(
-                    offset -> eventSequentialId,
+                    subscriptionStartExclusive,
                     RangeSource(
                       ledgerDao.transactionsReader.getTransactionLogUpdates(_, _)
                     ),
-                  ),
+                  )
+              },
               updateTransactionsBuffer = transactionsBuffer.push,
               updateMutableCache = contractStore.push,
             )

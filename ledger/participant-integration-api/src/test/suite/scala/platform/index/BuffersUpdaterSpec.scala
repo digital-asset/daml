@@ -66,7 +66,7 @@ final class BuffersUpdaterSpec
       val contractStateMock = scala.collection.mutable.ArrayBuffer.empty[ContractStateEvent]
 
       val buffersUpdater = BuffersUpdater(
-        subscribeToTransactionLogUpdates = { (_, _) => source },
+        subscribeToTransactionLogUpdates = { _ => source },
         updateTransactionsBuffer = updateTransactionsBufferMock,
         toContractStateEvents = Map(updateMock -> contractStateEventMocks.iterator),
         updateMutableCache = contractStateMock += _,
@@ -79,7 +79,7 @@ final class BuffersUpdaterSpec
       eventually {
         transactionsBufferMock should contain theSameElementsAs Seq(someOffset -> updateMock)
         contractStateMock should contain theSameElementsInOrderAs contractStateEventMocks
-        buffersUpdater.updaterIndex.get shouldBe (someOffset -> someEventSeqId)
+        buffersUpdater.updaterIndex.get shouldBe Some((someOffset -> someEventSeqId))
       }
     }
   }
@@ -90,11 +90,13 @@ final class BuffersUpdaterSpec
       val Seq(offset1, offset2, offset3) =
         (1L to 3L).map(idx => Offset.fromByteArray(BigInt(1337L + idx).toByteArray) -> idx)
 
-      val sourceSubscriptionFixture: (
-          Offset,
-          EventSequentialId,
-      ) => Source[((Offset, Long), TransactionLogUpdate), NotUsed] = {
-        case (Offset.beforeBegin, 0L) => // TODO: append-only: FIXME consolidating parameters table
+      val sourceSubscriptionFixture: Option[
+        (
+            Offset,
+            EventSequentialId,
+        )
+      ] => Source[((Offset, Long), TransactionLogUpdate), NotUsed] = {
+        case None =>
           Source(
             immutable.Iterable(
               offset1 -> update1,
@@ -108,7 +110,7 @@ final class BuffersUpdaterSpec
                 throw new RuntimeException("some transient failure")
               } else x
             )
-        case (_, 2L) =>
+        case Some((_, 2L)) =>
           Source
             .single(offset3 -> update3)
             // Keep alive so we don't trigger unwanted restarts (for the purpose of this test)
@@ -139,7 +141,7 @@ final class BuffersUpdaterSpec
           offset3._1 -> update3,
         )
 
-        buffersUpdater.updaterIndex.get shouldBe offset3
+        buffersUpdater.updaterIndex.get shouldBe Some(offset3)
       }
     }
 
@@ -148,8 +150,6 @@ final class BuffersUpdaterSpec
       val Seq(offset1, offset2) =
         (1L to 2L).map(idx => Offset.fromByteArray(BigInt(1337L + idx).toByteArray) -> idx)
 
-      val sourceSubscriptionFixture = (_: Offset, _: EventSequentialId) =>
-        Source(immutable.Iterable(offset1 -> update1, offset2 -> update2))
       val updateTransactionsBufferMock = (offset: Offset, _: TransactionLogUpdate) =>
         if (offset == offset2._1) throw new RuntimeException("Unrecoverable exception")
         else ()
@@ -157,7 +157,8 @@ final class BuffersUpdaterSpec
       val shutdownCodeCapture = new AtomicInteger(Integer.MIN_VALUE)
 
       BuffersUpdater(
-        subscribeToTransactionLogUpdates = sourceSubscriptionFixture,
+        subscribeToTransactionLogUpdates =
+          _ => Source(scala.collection.immutable.Seq(offset1 -> update1, offset2 -> update2)),
         updateTransactionsBuffer = updateTransactionsBufferMock,
         toContractStateEvents = Map.empty,
         updateMutableCache = _ => (),
