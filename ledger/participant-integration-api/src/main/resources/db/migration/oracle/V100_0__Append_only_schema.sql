@@ -9,23 +9,6 @@
 -- now written into the append-only table participant_events, and the set of active contracts is
 -- reconstructed from the log of create and archive events.
 ---------------------------------------------------------------------------------------------------
-
--- Stores which events were touched by which migration.
--- This metadata is not used for normal indexing operations and exists only to simplify fixing data migration issues.
-CREATE TABLE participant_migration_history_v100 (
-    -- * last event inserted before the migration was run
-    ledger_end_sequential_id_before NUMBER,
-
-    -- * last event inserted after the migration was run
-    ledger_end_sequential_id_after NUMBER
-    -- NOTE: events between ledger_end_sequential_id_before and ledger_end_sequential_id_after
-    -- were created by the migration itself.
-);
-INSERT INTO participant_migration_history_v100 VALUES (
-    (SELECT max(event_sequential_id) FROM participant_events),
-    NULL -- updated at the end of this script
-);
-
 ---------------------------------------------------------------------------------------------------
 -- Events tables
 --
@@ -204,6 +187,14 @@ CREATE TABLE participant_events_non_consuming_exercise (
 );
 
 
+---------------------------------------------------------------------------------------------------
+-- Drop old tables, at this point all data has been copied to the new tables
+---------------------------------------------------------------------------------------------------
+
+DROP TABLE participant_contracts CASCADE CONSTRAINTS;
+DROP TABLE participant_contract_witnesses CASCADE CONSTRAINTS;
+DROP TABLE participant_events CASCADE CONSTRAINTS;
+
 CREATE VIEW participant_events AS
 SELECT (10)                         AS event_kind,
        participant_events_create.event_sequential_id,
@@ -332,6 +323,22 @@ SELECT (25)          AS event_kind,
        participant_events_non_consuming_exercise.exercise_argument_compression,
        participant_events_non_consuming_exercise.exercise_result_compression
 FROM participant_events_non_consuming_exercise;
+
+
+-- Stores which events were touched by which migration.
+-- This metadata is not used for normal indexing operations and exists only to simplify fixing data migration issues.
+CREATE TABLE participant_migration_history_v100 (
+    -- * last event inserted before the migration was run
+    ledger_end_sequential_id_before NUMBER,
+    -- * last event inserted after the migration was run
+    ledger_end_sequential_id_after NUMBER
+    -- NOTE: events between ledger_end_sequential_id_before and ledger_end_sequential_id_after
+    -- were created by the migration itself.
+);
+INSERT INTO participant_migration_history_v100 VALUES (
+    (SELECT max(event_sequential_id) FROM participant_events),
+        NULL -- updated at the end of this script
+);
 
 
 ---------------------------------------------------------------------------------------------------
