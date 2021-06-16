@@ -112,7 +112,7 @@ class Endpoints(
         extendWithRequestIdLogCtx(implicit lc => {
           val t0 = System.nanoTime
           logger.info(s"Incoming request on ${req.uri} from ${connection.remoteAddress}")
-          metrics.daml.HttpJsonApi.httpRequestRunning.mark()
+          metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
           Timed
             .future(metrics.daml.HttpJsonApi.httpRequest, lcFhr(lc))
             .map(res => {
@@ -152,7 +152,7 @@ class Endpoints(
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     for {
-      _ <- EitherT.pure(metrics.daml.HttpJsonApi.commandSubmission.mark())
+      _ <- EitherT.pure(metrics.daml.HttpJsonApi.commandSubmissionThroughput.mark())
       t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
       (jwt, jwtPayload, reqBody) = t3
       resp <- withJwtPayloadLoggingContext(jwtPayload)(fn(jwt, jwtPayload, reqBody))
@@ -309,7 +309,7 @@ class Endpoints(
       metrics: Metrics,
   ): ET[domain.SyncResponse[domain.PartyDetails]] =
     EitherT
-      .pure(metrics.daml.HttpJsonApi.partyAllocation.mark())
+      .pure(metrics.daml.HttpJsonApi.allocatePartyThroughput.mark())
       .flatMap(_ => proxyWithCommand(partiesService.allocate)(req).map(domain.OkResponse(_)))
 
   def listPackages(req: HttpRequest)(implicit
@@ -341,7 +341,7 @@ class Endpoints(
       metrics: Metrics,
   ): ET[domain.SyncResponse[Unit]] =
     for {
-      _ <- EitherT.pure(metrics.daml.HttpJsonApi.packageAllocation.mark())
+      _ <- EitherT.pure(metrics.daml.HttpJsonApi.uploadPackagesThroughput.mark())
       t2 <- either(inputSource(req)): ET[(Jwt, Source[ByteString, Any])]
 
       (jwt, source) = t2
