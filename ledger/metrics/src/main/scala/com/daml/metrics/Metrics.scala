@@ -707,7 +707,11 @@ final class Metrics(val registry: MetricRegistry) {
       private val Prefix: MetricName = daml.Prefix :+ "http_json_api"
 
       val httpRequest: Timer = registry.timer(Prefix :+ "http_request")
+      val httpRequestRunning: Meter = registry.meter(Prefix :+ "http_request_running")
       val websocketRequest: Counter = registry.counter(Prefix :+ "websocket_request")
+      val commandSubmission: Meter = registry.meter(Prefix :+ "command_submission")
+      val packageAllocation: Meter = registry.meter(Prefix :+ "package_allocation")
+      val partyAllocation: Meter = registry.meter(Prefix :+ "party_allocation")
     }
   }
 }
