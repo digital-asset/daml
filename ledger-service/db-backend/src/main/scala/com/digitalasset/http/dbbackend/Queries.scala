@@ -627,15 +627,25 @@ private object OracleQueries extends Queries {
         ,${jsonColumn(sql"observers")}
         """
 
-  private[this] val indexContractsPartySets =
-    CreateIndex(sql"""
-      CREATE SEARCH INDEX contract_stakeholders_idx
-      ON contract (stakeholders) FOR JSON
-      PARAMETERS('DATAGUIDE OFF')
-    """)
+  private[this] def stakeholdersPrep = DoMagicSetup(
+    sql"""CREATE MATERIALIZED VIEW LOG ON contract"""
+  )
+
+  private[this] def stakeholdersView = CreateMaterializedView(
+    "contract_stakeholders",
+    sql"""CREATE MATERIALIZED VIEW contract_stakeholders
+          BUILD IMMEDIATE REFRESH FAST ON COMMIT AS
+          SELECT contract_id, stakeholder FROM contract,
+                 json_table(json_array(signatories, observers), '$$[*][*]'
+                    columns (stakeholder $partyType path '$$'))""",
+  )
+
+  private[this] def stakeholdersIndex = CreateIndex(
+    sql"""CREATE INDEX stakeholder_idx ON contract_stakeholders (stakeholder)"""
+  )
 
   protected[this] override def initDatabaseDdls =
-    super.initDatabaseDdls :+ indexContractsPartySets
+    super.initDatabaseDdls ++ Seq(stakeholdersPrep, stakeholdersView, stakeholdersIndex)
 
   protected[this] type DBContractKey = JsValue
 
