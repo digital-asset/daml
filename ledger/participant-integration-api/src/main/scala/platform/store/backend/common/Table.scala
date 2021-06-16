@@ -16,24 +16,31 @@ abstract class BaseTable[FROM](fields: Seq[(String, Field[FROM, _, _])]) extends
 }
 
 object Table {
+  def ifNonEmpty(data: Array[Array[_]])(effect: => Any): Unit =
+    // data(0) accesses the array of data for the first column of the table. This is safe because tables without columns are not supported. Also because of the transposed data-structure here all columns will have data-arrays of the same length.
+    if (data(0).length > 0) {
+      effect
+      ()
+    }
+
   private def batchedInsertBase[FROM](
       insertStatement: String
   )(fields: Seq[(String, Field[FROM, _, _])]): Table[FROM] =
     new BaseTable[FROM](fields) {
-      override def executeUpdate: Array[Array[_]] => Connection => Unit = data =>
-        connection =>
-          if (data(0).length > 0) { // data(0) accesses the array of data for the first column of the table. This is safe because tables without columns are not supported. Also because of the transposed data-structure here all columns will have data-arrays of the same length.
-            val preparedStatement = connection.prepareStatement(insertStatement)
-            data(0).indices.foreach { dataIndex =>
-              fields.indices.foreach { fieldIndex =>
-                preparedStatement.setObject(fieldIndex + 1, data(fieldIndex)(dataIndex))
+      override def executeUpdate: Array[Array[_]] => Connection => Unit =
+        data =>
+          connection =>
+            ifNonEmpty(data) {
+              val preparedStatement = connection.prepareStatement(insertStatement)
+              data(0).indices.foreach { dataIndex =>
+                fields.indices.foreach { fieldIndex =>
+                  preparedStatement.setObject(fieldIndex + 1, data(fieldIndex)(dataIndex))
+                }
+                preparedStatement.addBatch()
               }
-              preparedStatement.addBatch()
+              preparedStatement.executeBatch()
+              preparedStatement.close()
             }
-            preparedStatement.executeBatch()
-            preparedStatement.close()
-            ()
-          }
     }
 
   private def batchedInsertStatement(
@@ -73,18 +80,18 @@ object Table {
          |""".stripMargin
     }
     new BaseTable[FROM](Seq(field)) {
-      override def executeUpdate: Array[Array[_]] => Connection => Unit = data =>
-        connection =>
-          if (data(0).length > 0) { // data(0) accesses the array of data for the first column of the table. This is safe because tables without columns are not supported.
-            val preparedStatement = connection.prepareStatement(deleteStatement)
-            data(0).indices.foreach { i =>
-              preparedStatement.setObject(1, data(0)(i))
-              preparedStatement.addBatch()
+      override def executeUpdate: Array[Array[_]] => Connection => Unit =
+        data =>
+          connection =>
+            ifNonEmpty(data) {
+              val preparedStatement = connection.prepareStatement(deleteStatement)
+              data(0).indices.foreach { i =>
+                preparedStatement.setObject(1, data(0)(i))
+                preparedStatement.addBatch()
+              }
+              preparedStatement.executeBatch()
+              preparedStatement.close()
             }
-            preparedStatement.executeBatch()
-            preparedStatement.close()
-            ()
-          }
     }
   }
 }

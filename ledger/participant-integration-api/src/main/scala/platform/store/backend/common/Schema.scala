@@ -71,7 +71,7 @@ object AppendOnlySchema {
 
     def insert[FROM](tableName: String)(fields: (String, Field[FROM, _, _])*): Table[FROM]
     def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM]
-    def packageInsert(tableName: String)(
+    def idempotentInsert(tableName: String, keyFieldIndex: Int)(
         fields: (String, Field[DbDto.Package, _, _])*
     ): Table[DbDto.Package]
   }
@@ -183,7 +183,10 @@ object AppendOnlySchema {
       )
 
     val packages: Table[DbDto.Package] =
-      fieldStrategy.packageInsert("packages")(
+      fieldStrategy.idempotentInsert(
+        tableName = "packages",
+        keyFieldIndex = 0,
+      )(
         "package_id" -> fieldStrategy.string(_.package_id),
         "upload_id" -> fieldStrategy.string(_.upload_id),
         "source_description" -> fieldStrategy.stringOptional(_.source_description),

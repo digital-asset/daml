@@ -53,3 +53,11 @@ private[postgresql] case class PGStringArrayOptional[FROM](
 ) extends PGStringArrayBase[FROM, Option[Iterable[String]]] {
   override def convert: Option[Iterable[String]] => String = _.map(convertBase).orNull
 }
+
+private[postgresql] case class PGSmallintOptional[FROM](extract: FROM => Option[Int])
+    extends Field[FROM, Option[Int], java.lang.Integer] {
+  override def selectFieldExpression(inputFieldName: String): String =
+    s"$inputFieldName::smallint"
+
+  override def convert: Option[Int] => Integer = _.map(Int.box).orNull
+}

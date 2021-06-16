@@ -13,17 +13,17 @@ object PGTable {
       insertStatement: String
   )(fields: Seq[(String, Field[FROM, _, _])]): Table[FROM] =
     new BaseTable[FROM](fields) {
-      override def executeUpdate: Array[Array[_]] => Connection => Unit = data =>
-        connection =>
-          if (data(0).length > 0) { // data(0) accesses the array of data for the first column of the table. This is safe because tables without columns are not supported. Also because of the transposed data-structure here all columns will have data-arrays of the same length.
-            val preparedStatement = connection.prepareStatement(insertStatement)
-            fields.indices.foreach { i =>
-              preparedStatement.setObject(i + 1, data(i))
+      override def executeUpdate: Array[Array[_]] => Connection => Unit =
+        data =>
+          connection =>
+            Table.ifNonEmpty(data) {
+              val preparedStatement = connection.prepareStatement(insertStatement)
+              fields.indices.foreach { i =>
+                preparedStatement.setObject(i + 1, data(i))
+              }
+              preparedStatement.execute()
+              preparedStatement.close()
             }
-            preparedStatement.execute()
-            preparedStatement.close()
-            ()
-          }
     }
 
   private def transposedInsertStatement(
@@ -59,10 +59,12 @@ object PGTable {
   ): Table[FROM] =
     transposedInsertBase(transposedInsertStatement(tableName, fields))(fields)
 
-  def transposedInsertWithSuffix[FROM](tableName: String, insertSuffix: String)(
+  def idempotentTransposedInsert[FROM](tableName: String, keyFieldIndex: Int)(
       fields: (String, Field[FROM, _, _])*
-  ): Table[FROM] =
+  ): Table[FROM] = {
+    val insertSuffix = s"on conflict (${fields(keyFieldIndex)._1}) do nothing"
     transposedInsertBase(transposedInsertStatement(tableName, fields, insertSuffix))(fields)
+  }
 
   def transposedDelete[FROM](
       tableName: String
@@ -81,15 +83,15 @@ object PGTable {
         |""".stripMargin
     }
     new BaseTable[FROM](Seq(field)) {
-      override def executeUpdate: Array[Array[_]] => Connection => Unit = data =>
-        connection =>
-          if (data(0).length > 0) { // data(0) accesses the array of data for the first column of the table. This is safe because tables without columns are not supported.
-            val preparedStatement = connection.prepareStatement(deleteStatement)
-            preparedStatement.setObject(1, data(0))
-            preparedStatement.execute()
-            preparedStatement.close()
-            ()
-          }
+      override def executeUpdate: Array[Array[_]] => Connection => Unit =
+        data =>
+          connection =>
+            Table.ifNonEmpty(data) {
+              val preparedStatement = connection.prepareStatement(deleteStatement)
+              preparedStatement.setObject(1, data(0))
+              preparedStatement.execute()
+              preparedStatement.close()
+            }
     }
   }
 }

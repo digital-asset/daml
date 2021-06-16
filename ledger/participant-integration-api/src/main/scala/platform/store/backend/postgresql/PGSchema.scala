@@ -29,6 +29,11 @@ private[postgresql] object PGSchema {
     ): Field[FROM, Option[Instant], _] =
       PGTimestampOptional(extractor)
 
+    override def smallintOptional[FROM, _](
+        extractor: FROM => Option[Int]
+    ): Field[FROM, Option[Int], _] =
+      PGSmallintOptional(extractor)
+
     override def insert[FROM](tableName: String)(
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =
@@ -37,12 +42,10 @@ private[postgresql] object PGSchema {
     override def delete[FROM](tableName: String)(field: (String, Field[FROM, _, _])): Table[FROM] =
       PGTable.transposedDelete(tableName)(field)
 
-    override def packageInsert(
-        tableName: String
-    )(fields: (String, Field[DbDto.Package, _, _])*): Table[DbDto.Package] =
-      PGTable.transposedInsertWithSuffix(tableName, "on conflict (package_id) do nothing")(
-        fields: _*
-      )
+    override def idempotentInsert(tableName: String, keyFieldIndex: Int)(
+        fields: (String, Field[DbDto.Package, _, _])*
+    ): Table[DbDto.Package] =
+      PGTable.idempotentTransposedInsert(tableName, keyFieldIndex)(fields: _*)
   }
 
   val schema: Schema[DbDto] = AppendOnlySchema(PGFieldStrategy)

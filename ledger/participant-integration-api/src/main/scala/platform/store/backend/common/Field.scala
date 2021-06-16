@@ -56,9 +56,6 @@ case class Bigint[FROM](extract: FROM => Long) extends TrivialField[FROM, Long]
 
 case class SmallintOptional[FROM](extract: FROM => Option[Int])
     extends Field[FROM, Option[Int], java.lang.Integer] {
-  override def selectFieldExpression(inputFieldName: String): String =
-    s"$inputFieldName::smallint"
-
   override def convert: Option[Int] => Integer = _.map(Int.box).orNull
 }
 
