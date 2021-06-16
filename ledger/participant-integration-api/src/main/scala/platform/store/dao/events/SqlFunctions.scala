@@ -66,9 +66,7 @@ private[dao] object SqlFunctions {
       val NUM_CHARS_BETWEEN_PARTIES = 3
       val NUM_EXTRA_CHARS = 20
       val ORACLE_MAX_STRING_LITERAL_LENGTH = 4000
-      parties.foreach { p => if(p.length > 3980) {
-        throw new Exception("Parties cannot be longer than 3980 characters.")
-      }}
+
       val groupedParties = parties.toList.sorted.foldLeft((List.empty[List[String]], 0))({case ((prev, currentLength), party) =>
         if(currentLength + party.length + NUM_CHARS_BETWEEN_PARTIES > ORACLE_MAX_STRING_LITERAL_LENGTH) {
           (List(party) :: prev, party.length + NUM_EXTRA_CHARS)
