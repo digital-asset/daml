@@ -41,7 +41,68 @@ import com.daml.scalautil.Statement.discard
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
-trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
+private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
+
+  // Ingestion
+
+  private val preparedDeleteIngestionOverspillEntries: String =
+    """
+      |DELETE
+      |FROM configuration_entries
+      |WHERE ledger_offset > ?;
+      |
+      |DELETE
+      |FROM package_entries
+      |WHERE ledger_offset > ?;
+      |
+      |DELETE
+      |FROM packages
+      |WHERE ledger_offset > ?;
+      |
+      |DELETE
+      |FROM participant_command_completions
+      |WHERE completion_offset > ?;
+      |
+      |DELETE
+      |FROM participant_events_divulgence
+      |WHERE event_offset > ?;
+      |
+      |DELETE
+      |FROM participant_events_create
+      |WHERE event_offset > ?;
+      |
+      |DELETE
+      |FROM participant_events_consuming_exercise
+      |WHERE event_offset > ?;
+      |
+      |DELETE
+      |FROM participant_events_non_consuming_exercise
+      |WHERE event_offset > ?;
+      |
+      |DELETE
+      |FROM parties
+      |WHERE ledger_offset > ?;
+      |
+      |DELETE
+      |FROM party_entries
+      |WHERE ledger_offset > ?;
+      |
+      |""".stripMargin
+
+  override def initialize(connection: Connection): StorageBackend.LedgerEnd = {
+    val result @ StorageBackend.LedgerEnd(offset, _) = ledgerEnd(connection)
+
+    offset.foreach { existingOffset =>
+      val preparedStatement = connection.prepareStatement(preparedDeleteIngestionOverspillEntries)
+      List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).foreach(
+        preparedStatement.setString(_, existingOffset.toHexString)
+      )
+      preparedStatement.execute()
+      preparedStatement.close()
+    }
+
+    result
+  }
 
   // Parameters
 
