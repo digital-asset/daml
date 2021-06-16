@@ -1372,7 +1372,9 @@ private[lf] object Speedy {
     */
   private[speedy] final case class SpeedyHungry(result: SResult)
       extends RuntimeException
-      with NoStackTrace
+      with NoStackTrace {
+    override def toString = s"SpeedyHungry($result)"
+  }
 
   private[speedy] def deriveTransactionSeed(
       submissionSeed: crypto.Hash,

@@ -96,7 +96,7 @@ class CollectAuthorityState {
               callback(value)
             case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
           }
-        case SResultNeedContract(_, _, _, _, _) =>
+        case SResultNeedContract(_, _, _, _) =>
           crash("Off-ledger need contract callback")
         case SResultFinalValue(v) => finalValue = v
         case r => crash(s"bench run: unexpected result from speedy: ${r}")
@@ -165,13 +165,15 @@ class CachedLedgerApi(initStep: Int, ledger: ScenarioLedger)
       coid: ContractId,
       actAs: Set[Party],
       readAs: Set[Party],
-      cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-  ): Either[SError.SError, ContractInst[Value.VersionedValue[ContractId]]] = {
+      callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+  ): Either[SError.SError, Unit] = {
     step += 1
-    super.lookupContract(coid, actAs, readAs, cbPresent).map { result =>
-      cachedContract += step -> result
-      result
-    }
+    super.lookupContract(
+      coid,
+      actAs,
+      readAs,
+      { coinst => cachedContract += step -> coinst; callback(coinst) },
+    )
   }
 }
 
@@ -184,18 +186,18 @@ class CannedLedgerApi(
       coid: ContractId,
       actAs: Set[Party],
       readAs: Set[Party],
-      cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-  ): Either[SError.SError, ContractInst[Value.VersionedValue[ContractId]]] = {
+      callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+  ): Either[SError.SError, Unit] = {
     step += 1
     val coinst = cachedContract(step)
-    cbPresent(coinst)
-    Right(coinst)
+    Right(callback(coinst))
   }
   override def lookupKey(
+      machine: Machine,
       gk: GlobalKey,
       actAs: Set[Party],
       readAs: Set[Party],
-      canContinue: Option[ContractId] => Boolean,
+      callback: Option[ContractId] => Boolean,
   ) =
     throw new RuntimeException("Keys are not supported in the benchmark")
   override def currentTime = throw new RuntimeException("getTime is not supported in the benchmark")

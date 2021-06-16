@@ -219,14 +219,15 @@ object ScenarioRunner {
 
   // The interface we need from a ledger during submission. We allow abstracting over this so we can play
   // tricks like caching all responses in some benchmarks.
-  trait LedgerApi[R] {
+  abstract class LedgerApi[R] {
     def lookupContract(
         coid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
         cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-    ): Either[SError, ContractInst[Value.VersionedValue[ContractId]]]
+    ): Either[SError, Unit]
     def lookupKey(
+        machine: Speedy.Machine,
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
@@ -243,20 +244,21 @@ object ScenarioRunner {
 
   case class ScenarioLedgerApi(ledger: ScenarioLedger)
       extends LedgerApi[ScenarioLedger.CommitResult] {
+
     override def lookupContract(
         acoid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-    ): Either[SError, ContractInst[Value.VersionedValue[ContractId]]] =
-      handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, cbPresent))
+        callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+    ): Either[SError, Unit] =
+      handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, callback))
 
     private def lookupContractUnsafe(
         acoid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-    ): ContractInst[Value.VersionedValue[ContractId]] = {
+        callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+    ) = {
 
       val effectiveAt = ledger.currentTime
 
@@ -268,8 +270,7 @@ object ScenarioRunner {
         acoid,
       ) match {
         case ScenarioLedger.LookupOk(_, coinst, _) =>
-          cbPresent(coinst)
-          coinst
+          callback(coinst)
 
         case ScenarioLedger.LookupContractNotFound(coid) =>
           // This should never happen, hence we don't have a specific
@@ -286,26 +287,33 @@ object ScenarioRunner {
           missingWith(ScenarioErrorContractNotVisible(coid, tid, actAs, readAs, observers))
       }
     }
+
     override def lookupKey(
+        machine: Speedy.Machine,
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
-        canContinue: Option[ContractId] => Boolean,
+        callback: Option[ContractId] => Boolean,
     ): Either[SError, Unit] =
-      handleUnsafe(lookupKeyUnsafe(gk, actAs, readAs, canContinue))
+      handleUnsafe(lookupKeyUnsafe(machine: Speedy.Machine, gk, actAs, readAs, callback))
 
     private def lookupKeyUnsafe(
+        machine: Speedy.Machine,
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
-        canContinue: Option[ContractId] => Boolean,
+        callback: Option[ContractId] => Boolean,
     ): Unit = {
+
       val effectiveAt = ledger.currentTime
       val readers = actAs union readAs
 
       def missingWith(err: SError) =
-        if (!canContinue(None))
+        if (!callback(None)) {
+          machine.returnValue = null
+          machine.ctrl = null
           throw SRunnerException(err)
+        }
 
       ledger.ledgerData.activeKeys.get(gk) match {
         case None =>
@@ -318,19 +326,21 @@ object ScenarioRunner {
           ) match {
             case ScenarioLedger.LookupOk(_, _, stakeholders) =>
               if (!readers.intersect(stakeholders).isEmpty)
-                // We should always be able to continue with a Some(_).
+                // We should always be able to continue with a SKeyLookupResult.Found.
                 // Run to get side effects and assert result.
-                assert(canContinue(Some(acoid)))
+                assert(callback(Some(acoid)))
               else
                 throw SRunnerException(
                   ScenarioErrorContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders)
                 )
             case ScenarioLedger.LookupContractNotFound(coid) =>
-              missingWith(SErrorCrash(s"contract $coid not found, but we found its key!"))
+              missingWith(SErrorCrash(s"contract ${coid.coid} not found, but we found its key!"))
             case ScenarioLedger.LookupContractNotEffective(_, _, _) =>
-              missingWith(SErrorCrash(s"contract $acoid not effective, but we found its key!"))
+              missingWith(
+                SErrorCrash(s"contract ${acoid.coid} not effective, but we found its key!")
+              )
             case ScenarioLedger.LookupContractNotActive(_, _, _) =>
-              missingWith(SErrorCrash(s"contract $acoid not active, but we found its key!"))
+              missingWith(SErrorCrash(s"contract ${acoid.coid} not active, but we found its key!"))
             case ScenarioLedger.LookupContractNotVisible(
                   coid,
                   tid @ _,
@@ -405,13 +415,19 @@ object ScenarioRunner {
           }
         case SResultError(err) =>
           SubmissionError(err, onLedger.ptxInternal)
-        case SResultNeedContract(coid, tid @ _, committers, _, cbPresent) =>
-          ledger.lookupContract(coid, committers, readAs, cbPresent) match {
+        case SResultNeedContract(coid, tid @ _, committers, callback) =>
+          ledger.lookupContract(coid, committers, readAs, callback) match {
             case Left(err) => SubmissionError(err, onLedger.ptxInternal)
             case Right(_) => go()
           }
-        case SResultNeedKey(keyWithMaintainers, committers, cb) =>
-          ledger.lookupKey(keyWithMaintainers.globalKey, committers, readAs, cb) match {
+        case SResultNeedKey(keyWithMaintainers, committers, callback) =>
+          ledger.lookupKey(
+            ledgerMachine,
+            keyWithMaintainers.globalKey,
+            committers,
+            readAs,
+            callback,
+          ) match {
             case Left(err) => SubmissionError(err, onLedger.ptxInternal)
             case Right(_) => go()
           }
