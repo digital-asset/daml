@@ -62,8 +62,29 @@ private[dao] object SqlFunctions {
   object OracleSqlFunctions extends SqlFunctions {
     // TODO https://github.com/digital-asset/daml/issues/9493
     // This is likely extremely inefficient due to the multiple full tablescans on unindexed varray column
-    override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String =
-      s"""JSON_EXISTS($arrayColumn, '$$[*]?(@ in ("${parties.mkString("""", """")}"))')"""
+    override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String = {
+      val NUM_CHARS_BETWEEN_PARTIES = 3
+      val NUM_EXTRA_CHARS = 20
+      val ORACLE_MAX_STRING_LITERAL_LENGTH = 4000
+      parties.foreach { p => if(p.length > 3980) {
+        throw new Exception("Parties cannot be longer than 3980 characters.")
+      }}
+      val groupedParties = parties.toList.sorted.foldLeft((List.empty[List[String]], 0))({case ((prev, currentLength), party) =>
+        if(currentLength + party.length + NUM_CHARS_BETWEEN_PARTIES > ORACLE_MAX_STRING_LITERAL_LENGTH) {
+          (List(party) :: prev, party.length + NUM_EXTRA_CHARS)
+        }
+        else {
+          prev match {
+            case h :: tail => ((party :: h) :: tail, currentLength + party.length + NUM_CHARS_BETWEEN_PARTIES)
+            case Nil => (List(party) :: Nil, party.length + NUM_EXTRA_CHARS)
+          }
+        }
+      })
+      "(" + groupedParties._1
+        .map {listOfParties =>
+        s"""JSON_EXISTS($arrayColumn, '$$[*]?(@ in ("${listOfParties.mkString("""","""")}"))')"""
+      }.mkString(" OR ") + ")"
+    }
 
     override def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
       s"""(select json_arrayagg(value) from (select value
