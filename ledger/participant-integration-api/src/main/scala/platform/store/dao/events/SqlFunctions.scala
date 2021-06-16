@@ -67,21 +67,25 @@ private[dao] object SqlFunctions {
       val NumExtraChars = 20
       val OracleMaxStringLiteralLength = 4000
 
-      val groupedParties = parties.toList.sorted.foldLeft((List.empty[List[String]], 0))({case ((prev, currentLength), party) =>
-        if(currentLength + party.length + NumCharsBetweenParties > OracleMaxStringLiteralLength) {
-          (List(party) :: prev, party.length + NumExtraChars)
-        }
-        else {
-          prev match {
-            case h :: tail => ((party :: h) :: tail, currentLength + party.length + NumCharsBetweenParties)
-            case Nil => (List(party) :: Nil, party.length + NumExtraChars)
+      val groupedParties = parties.toList.sorted.foldLeft((List.empty[List[String]], 0))({
+        case ((prev, currentLength), party) =>
+          if (
+            currentLength + party.length + NumCharsBetweenParties > OracleMaxStringLiteralLength
+          ) {
+            (List(party) :: prev, party.length + NumExtraChars)
+          } else {
+            prev match {
+              case h :: tail =>
+                ((party :: h) :: tail, currentLength + party.length + NumCharsBetweenParties)
+              case Nil => (List(party) :: Nil, party.length + NumExtraChars)
+            }
           }
-        }
       })
       "(" + groupedParties._1
-        .map {listOfParties =>
-        s"""JSON_EXISTS($arrayColumn, '$$[*]?(@ in ("${listOfParties.mkString("""","""")}"))')"""
-      }.mkString(" OR ") + ")"
+        .map { listOfParties =>
+          s"""JSON_EXISTS($arrayColumn, '$$[*]?(@ in ("${listOfParties.mkString("""","""")}"))')"""
+        }
+        .mkString(" OR ") + ")"
     }
 
     override def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
