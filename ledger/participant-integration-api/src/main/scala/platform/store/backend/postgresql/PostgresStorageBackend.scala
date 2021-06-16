@@ -31,67 +31,6 @@ private[backend] object PostgresStorageBackend
   ): Unit =
     PGSchema.schema.executeUpdate(postgresDbBatch, connection)
 
-  override def initialize(connection: Connection): StorageBackend.LedgerEnd = {
-    val result @ StorageBackend.LedgerEnd(offset, _) = ledgerEnd(connection)
-
-    offset.foreach { existingOffset =>
-      val preparedStatement = preparedDeleteIngestionOverspillEntries(connection)
-      List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).foreach(
-        preparedStatement.setString(_, existingOffset.toHexString)
-      )
-      preparedStatement.execute()
-      preparedStatement.close()
-    }
-
-    result
-  }
-
-  private val preparedDeleteIngestionOverspillEntries: Connection => PreparedStatement =
-    _.prepareStatement(
-      """
-      |DELETE
-      |FROM configuration_entries
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM package_entries
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM packages
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM participant_command_completions
-      |WHERE completion_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_divulgence
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_create
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_consuming_exercise
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_non_consuming_exercise
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM parties
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM party_entries
-      |WHERE ledger_offset > ?;
-      |
-      |""".stripMargin
-    )
-
   override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
     PGSchema.schema.prepareData(dbDtos)
 
