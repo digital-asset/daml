@@ -199,7 +199,7 @@ class CommandService(
           jwtPayload.ledgerId,
           jwtPayload.applicationId,
           commandId,
-          jwtPayload.actAs,
+          jwtPayload.submitter,
           jwtPayload.readAs,
           command,
         )
