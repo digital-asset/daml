@@ -663,6 +663,7 @@ class WebSocketService(
                     throw new IllegalStateException("Transaction in ACS")
                 }
               }, {
+                // This is the case where we made no ACS request because everything had an offset
                 // Get the earliest available offset from where to start from
                 val liveStartingOffset = Q.liveStartingOffset(offPrefix, request)
                 val StreamPredicate(_, _, fn, _) =
