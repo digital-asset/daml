@@ -32,7 +32,7 @@ sealed abstract class Queries {
 
   type SqlInterpol
 
-  protected[this] def dropTableIfExists(table: String): Fragment
+  protected[this] def dropIfExists(drop: Droppable): Fragment
 
   /** for use when generating predicates */
   protected[this] val contractColumnName: Fragment = sql"payload"
@@ -101,7 +101,7 @@ sealed abstract class Queries {
   private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] = {
     import cats.instances.vector._, cats.syntax.foldable.{toFoldableOps => ToFoldableOps}
     initDatabaseDdls.reverse
-      .collect { case CreateTable(name, _) => dropTableIfExists(name) }
+      .collect { case d: Droppable => dropIfExists(d) }
       .traverse_(_.update.run)
   }
 
@@ -329,8 +329,15 @@ object Queries {
   }
 
   private[dbbackend] object InitDdl {
-    final case class CreateTable(name: String, create: Fragment) extends InitDdl
+    // something that we must drop to re-create the DB
+    sealed abstract class Droppable(val what: String) extends InitDdl {
+      val name: String
+    }
+    final case class CreateTable(name: String, create: Fragment) extends Droppable("TABLE")
+    final case class CreateMaterializedView(name: String, create: Fragment)
+        extends Droppable("MATERIALIZED VIEW")
     final case class CreateIndex(create: Fragment) extends InitDdl
+    final case class DoMagicSetup(create: Fragment) extends InitDdl
   }
 
   /** Whether selectContractsMultiTemplate computes a matchedQueries marker,
@@ -449,13 +456,13 @@ object Queries {
 }
 
 private object PostgresQueries extends Queries {
-  import Queries._, Queries.InitDdl.CreateIndex
+  import Queries._, Queries.InitDdl.{Droppable, CreateIndex}
   import Implicits._
 
   type SqlInterpol = Queries.SqlInterpolation.StringArray
 
-  protected[this] override def dropTableIfExists(table: String) =
-    Fragment.const(s"DROP TABLE IF EXISTS ${table}")
+  protected[this] override def dropIfExists(d: Droppable) =
+    Fragment.const(s"DROP ${d.what} IF EXISTS ${d.name}")
 
   protected[this] override def bigIntType = sql"BIGINT"
   protected[this] override def bigSerialType = sql"BIGSERIAL"
@@ -581,19 +588,25 @@ private object PostgresQueries extends Queries {
 }
 
 private object OracleQueries extends Queries {
-  import Queries._, InitDdl.CreateIndex
+  import Queries._, InitDdl._
   import Implicits._
 
   type SqlInterpol = Queries.SqlInterpolation.Unused
 
-  protected[this] override def dropTableIfExists(table: String) = sql"""BEGIN
-      EXECUTE IMMEDIATE 'DROP TABLE ' || $table;
+  protected[this] override def dropIfExists(d: Droppable) = {
+    val sqlCode = d match {
+      case _: CreateTable => -942
+      case _: CreateMaterializedView => -12003
+    }
+    sql"""BEGIN
+      EXECUTE IMMEDIATE ${s"DROP ${d.what} ${d.name}"};
     EXCEPTION
       WHEN OTHERS THEN
-        IF SQLCODE != -942 THEN
+        IF SQLCODE != $sqlCode THEN
           RAISE;
         END IF;
     END;"""
+  }
 
   protected[this] override def bigIntType = sql"NUMBER(19,0)"
   protected[this] override def bigSerialType =
