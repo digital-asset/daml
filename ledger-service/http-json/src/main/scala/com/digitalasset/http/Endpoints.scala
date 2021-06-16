@@ -114,7 +114,7 @@ class Endpoints(
           logger.info(s"Incoming request on ${req.uri} from ${connection.remoteAddress}")
           metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
           Timed
-            .future(metrics.daml.HttpJsonApi.httpRequest, lcFhr(lc))
+            .future(metrics.daml.HttpJsonApi.httpRequestTimer, lcFhr(lc))
             .map(res => {
               logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
               logger.info(s"Responding to client with HTTP ${res.status}")

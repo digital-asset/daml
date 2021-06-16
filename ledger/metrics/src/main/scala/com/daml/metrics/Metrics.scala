@@ -707,11 +707,11 @@ final class Metrics(val registry: MetricRegistry) {
       private val Prefix: MetricName = daml.Prefix :+ "http_json_api"
 
       // Meters how long processing of a request takes
-      val httpRequest: Timer = registry.timer(Prefix :+ "http_request")
+      val httpRequestTimer: Timer = registry.timer(Prefix :+ "http_request_timing")
       // Meters http requests throughput
       val httpRequestThroughput: Meter = registry.meter(Prefix :+ "http_request_throughput")
       // Meters how many websocket connections are currently active
-      val websocketRequest: Counter = registry.counter(Prefix :+ "websocket_request_count")
+      val websocketRequestCounter: Counter = registry.counter(Prefix :+ "websocket_request_count")
       // Meters command submissions throughput
       val commandSubmissionThroughput: Meter =
         registry.meter(Prefix :+ "command_submission_throughput")
