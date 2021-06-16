@@ -325,7 +325,7 @@ da_scala_test_suite(
 ]
 
 conformance_test(
-    name = "conformance-test-append-only",
+    name = "conformance-test-append-only-postgres",
     ports = [6865],
     server = ":conformance-test-postgresql-bin",
     server_args = [
@@ -337,6 +337,25 @@ conformance_test(
     tags = [],
     test_tool_args = [
         "--verbose",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-h2",
+    ports = [6865],
+    server = ":conformance-test-h2-memory-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
+        "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
+    ],
+    tags = [],
+    test_tool_args = [
+        "--verbose",
+        "--concurrent-test-runs=2",
+        "--timeout-scale-factor=4",
     ],
 )
 
@@ -358,7 +377,7 @@ conformance_test(
 )
 
 conformance_test(
-    name = "conformance-test-append-only-pruning",
+    name = "conformance-test-append-only-pruning-postgres",
     ports = [6865],
     server = ":conformance-test-postgresql-bin",
     server_args = [
@@ -375,7 +394,27 @@ conformance_test(
 )
 
 conformance_test(
-    name = "conformance-test-append-only-multi-party-submission",
+    name = "conformance-test-append-only-pruning-h2",
+    ports = [6865],
+    server = ":conformance-test-h2-memory-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
+        "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
+    ],
+    tags = [],
+    test_tool_args = [
+        "--verbose",
+        "--concurrent-test-runs=2",
+        "--timeout-scale-factor=4",
+        "--include=ParticipantPruningIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-multi-party-submission-postgres",
     ports = [6865],
     server = ":conformance-test-postgresql-bin",
     server_args = [
@@ -388,5 +427,25 @@ conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=MultiPartySubmissionIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-multi-party-submission-h2",
+    ports = [6865],
+    server = ":conformance-test-h2-memory-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
+        "--jdbc-url=jdbc:h2:mem:daml-on-sql-conformance-test",
+    ],
+    tags = [],
+    test_tool_args = [
+        "--verbose",
+        "--concurrent-test-runs=2",
+        "--timeout-scale-factor=4",
+        "--include=ParticipantPruningIT",
     ],
 )
