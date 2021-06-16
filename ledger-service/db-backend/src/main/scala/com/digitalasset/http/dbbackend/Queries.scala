@@ -693,16 +693,19 @@ private object OracleQueries extends Queries {
             fr" OR ",
           )
       }
-      val quotedParties = parties.toVector.map(p => s""""$p"""").mkString(", ")
-      val partiesQuery = oracleShortPathEscape(
-        '$' -: ("[*]?(@ in (": Cord) :+ quotedParties :+ "))"
-      )
-      val q =
-        sql"""SELECT c.contract_id contract_id, $tpid template_id, key, payload, signatories, observers, agreement_text
+      import Queries.CompatImplicits.catsReducibleFromFoldable1
+      val outerSelectList =
+        sql"""contract_id, template_id, key, payload,
+              signatories, observers, agreement_text"""
+      val dupQ =
+        sql"""SELECT c.contract_id contract_id, $tpid template_id, key, payload,
+                     signatories, observers, agreement_text,
+                     row_number() over (PARTITION BY c.contract_id ORDER BY c.contract_id) AS rownumber
                 FROM contract c
-                WHERE (JSON_EXISTS(signatories, $partiesQuery)
-                       OR JSON_EXISTS(observers, $partiesQuery))
-                      AND $queriesCondition"""
+                     LEFT JOIN contract_stakeholders cst ON (c.contract_id = cst.contract_id)
+                WHERE (${Fragments.in(fr"cst.stakeholder", parties)})
+                      AND ($queriesCondition)"""
+      val q = sql"SELECT $outerSelectList FROM ($dupQ) WHERE rownumber = 1"
       q.query[
         (String, Mark0, JsValue, JsValue, JsValue, JsValue, Option[String])
       ].map { case (cid, tpid, key, payload, signatories, observers, agreement) =>
