@@ -690,10 +690,6 @@ template WithKey
     signatory p
     key p : Party
     maintainer key
-    controller p can
-      WithKey_Archive : ()
-        do
-          return ()
 
 template WithKeyCreator
   with
@@ -731,3 +727,19 @@ template WithKeyFetcher
         contractId : ContractId WithKey
       controller p2
       do fetch contractId
+
+
+template WithKeyDivulgenceHelper
+  with
+    divulgedTo : Party
+    withKeyOwner : Party
+  where
+    signatory divulgedTo
+
+    controller withKeyOwner can
+      nonconsuming WithKeyDivulgenceHelper_Fetch: ()
+        with
+          withKeyToFetch: ContractId WithKey
+        do
+          _ <- fetch withKeyToFetch
+          return ()
