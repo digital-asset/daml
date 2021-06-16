@@ -317,19 +317,6 @@ private[lf] object Anf {
       case SELet1General(rhs, body) =>
         Bounce(() => transformLet1(depth, env, rhs, body, k, transform))
 
-      case SECatchSubmitMustFail(body0) =>
-        Bounce(() =>
-          flattenExp(depth, env, body0) { body =>
-            Bounce(() =>
-              transform(
-                depth,
-                SECatchSubmitMustFail(body.wrapped),
-                k,
-              )
-            )
-          }
-        )
-
       case SELocation(loc, body) => {
         Bounce(() =>
           transformExp(depth, env, body, k) { (depth, body, txK) =>

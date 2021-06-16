@@ -54,6 +54,8 @@ daml_compile(
     visibility = ["//visibility:public"],
 )
 
+# TODO (MK) Figure out what to do about the benchmark.
+
 da_scala_benchmark_jmh(
     name = "scenario-perf",
     srcs = glob(["src/perf/benches/**/*.scala"]),
@@ -75,7 +77,7 @@ da_scala_benchmark_jmh(
         "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
-)
+) if False else None
 
 da_scala_test(
     name = "scenario-perf-test",
@@ -85,4 +87,4 @@ da_scala_test(
     ],
     main_class = "org.openjdk.jmh.Main",
     deps = [":scenario-perf"],
-)
+) if False else None

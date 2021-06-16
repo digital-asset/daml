@@ -358,19 +358,6 @@ object SExpr {
     }
   }
 
-  /** catch-submit-must-fail. This is used internally solely for the purpose of implementing
-    * mustFailAt. If the evaluation of 'body' causes an exception of type 'DamlException'
-    * (see SError), then 'True' is returned. If the evaluation is successful, then 'False'
-    * is returned.  This is on purpose very limited, with no mechanism to inspect the
-    * exception, nor a way to access the value returned from 'body'.
-    */
-  final case class SECatchSubmitMustFail(body: SExpr) extends SExpr {
-    def execute(machine: Machine): Unit = {
-      machine.pushKont(KCatchSubmitMustFail(machine))
-      machine.ctrl = body
-    }
-  }
-
   /** This is used only during profiling. When a package is compiled with
     * profiling enabled, the right hand sides of top-level and let bindings,
     * lambdas and some builtins are wrapped into [[SELabelClosure]]. During

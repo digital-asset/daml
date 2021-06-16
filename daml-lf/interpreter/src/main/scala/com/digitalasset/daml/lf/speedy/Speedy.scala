@@ -26,7 +26,6 @@ import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
-import scala.jdk.CollectionConverters._
 import scala.util.control.NoStackTrace
 
 private[lf] object Speedy {
@@ -381,92 +380,43 @@ private[lf] object Speedy {
 
     /** Run a machine until we get a result: either a final-value or a request for data, with a callback */
     def run(): SResult = {
-      // Note: We have an outer and inner while loop.
-      // An exception handler is wrapped around the inner-loop, but inside the outer-loop.
-      // Most iterations are performed by the inner-loop, thus avoiding the work of to
-      // wrap the exception handler on each of these steps. This is a performace gain.
-      // However, we still need the outer loop because of the case:
-      //    case _:SErrorDamlException if tryHandleSubmitMustFail =>
-      // where we must continue iteration.
-      var result: SResult = null
-      while (result == null) {
-        // note: exception handler is outside while loop
-        try {
-          // normal exit from this loop is when KFinished.execute throws SpeedyHungry
-          while (true) {
-            if (enableInstrumentation) {
-              Classify.classifyMachine(this, track.classifyCounts)
-            }
-            if (enableLightweightStepTracing) {
-              steps += 1
-              println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
-            }
-            if (returnValue != null) {
-              val value = returnValue
-              returnValue = null
-              popTempStackToBase()
-              popKont().execute(value)
-            } else {
-              val expr = ctrl
-              ctrl = null
-              expr.execute(this)
+      try {
+        // normal exit from this loop is when KFinished.execute throws SpeedyHungry
+        @tailrec
+        def loop(): SResult = {
+          if (enableInstrumentation) {
+            Classify.classifyMachine(this, track.classifyCounts)
+          }
+          if (enableLightweightStepTracing) {
+            steps += 1
+            println(s"$steps: ${PrettyLightweight.ppMachine(this)}")
+          }
+          if (returnValue != null) {
+            val value = returnValue
+            returnValue = null
+            popTempStackToBase()
+            popKont().execute(value)
+          } else {
+            val expr = ctrl
+            ctrl = null
+            expr.execute(this)
+          }
+          loop()
+        }
+        loop()
+      } catch {
+        case SpeedyHungry(res: SResult) =>
+          if (enableInstrumentation) {
+            res match {
+              case _: SResultFinalValue => track.print()
+              case _ => ()
             }
           }
-        } catch {
-          case SpeedyHungry(res: SResult) =>
-            if (enableInstrumentation) {
-              res match {
-                case _: SResultFinalValue => track.print()
-                case _ => ()
-              }
-            }
-            result = res //stop
-          case serr: SError =>
-            serr match {
-              case _: SErrorDamlException if tryHandleSubmitMustFail() =>
-                () // outer loop will run again
-              case _ => result = SResultError(serr) //stop
-            }
-          case ex: RuntimeException =>
-            result = SResultError(SErrorCrash(s"exception: $ex")) //stop
-        }
-      }
-      result
-    }
-
-    /** Try to handle a Daml exception by looking for
-      * the catch handler. Returns true if the exception
-      * was caught.
-      */
-    private[speedy] def tryHandleSubmitMustFail(): Boolean = {
-      if (kontStack.asScala.exists(k => k.isInstanceOf[KCatchSubmitMustFail])) {
-        @tailrec def unwind(): KCatchSubmitMustFail = {
-          popKont() match {
-            case handler: KCatchSubmitMustFail =>
-              handler
-            case _: KTryCatchHandler =>
-              withOnLedger("tryHandleSubmitMustFail/KCloseExercise") { onLedger =>
-                onLedger.ptx = onLedger.ptx.abortTry
-              }
-              unwind()
-            case _: KCloseExercise =>
-              withOnLedger("tryHandleSubmitMustFail/KCloseExercise") { onLedger =>
-                onLedger.ptx = onLedger.ptx.abortExercises
-              }
-              unwind()
-            case _ =>
-              unwind()
-          }
-        }
-        val mustFail = unwind()
-        restoreBase(mustFail.envSize)
-        returnValue = SValue.SValue.True
-        true
-      } else {
-        // In this case we don’t want to modify anything
-        // to preserve the partial transaction for stacktraces
-        // and error messages.
-        false
+          res
+        case serr: SError =>
+          SResultError(serr)
+        case ex: RuntimeException =>
+          SResultError(SErrorCrash(s"exception: $ex")) //stop
       }
     }
 
@@ -1366,18 +1316,15 @@ private[lf] object Speedy {
     * execution of the handler code (which might decide to re-throw). Otherwise we call
     * throwUnhandledException to apply the message function to the exception payload,
     * producing a text message.
-    * In addition to exception handlers, we also stop unwinding at submitMustFail.
     */
   private[speedy] def unwindToHandler(machine: Machine, excep: SValue.SAny): Unit = {
-    @tailrec def unwind(): Option[Either[KTryCatchHandler, KCatchSubmitMustFail]] = {
+    @tailrec def unwind(): Option[KTryCatchHandler] = {
       if (machine.kontDepth() == 0) {
         None
       } else {
         machine.popKont() match {
           case handler: KTryCatchHandler =>
-            Some(Left(handler))
-          case mustFail: KCatchSubmitMustFail =>
-            Some(Right(mustFail))
+            Some(handler)
           case _: KCloseExercise =>
             machine.withOnLedger("unwindToHandler/KCloseExercise") { onLedger =>
               onLedger.ptx = onLedger.ptx.abortExercises
@@ -1389,33 +1336,16 @@ private[lf] object Speedy {
       }
     }
     unwind() match {
-      case Some(Left(kh)) =>
+      case Some(kh) =>
         kh.restore()
         machine.popTempStackToBase()
         machine.ctrl = kh.handler
         machine.pushEnv(excep) // payload on stack where handler expects it
-      case Some(Right(mustFail @ _)) =>
-        machine.restoreBase(mustFail.envSize)
-        machine.returnValue = SValue.SValue.True
       case None =>
         machine.kontStack.clear()
         machine.env.clear()
         machine.envBase = 0
         throw DamlEUnhandledException(excep)
-    }
-  }
-
-  /** A catch frame marks the point to which an exception (of type 'SErrorDamlException')
-    * is unwound. The 'envSize' specifies the size to which the environment must be pruned.
-    * If an exception is raised and 'KCatchSubmitMustFail' is found from kont-stack, then 'True' is
-    * returned. If 'KCatchSubmitMustFail' is entered normally, then 'False' is returned.
-    */
-  private[speedy] final case class KCatchSubmitMustFail(machine: Machine) extends Kont {
-
-    private[Speedy] val envSize = machine.env.size // used by: tryHandleSubmitMustFail
-
-    def execute(v: SValue) = {
-      machine.returnValue = SValue.SValue.False
     }
   }
 

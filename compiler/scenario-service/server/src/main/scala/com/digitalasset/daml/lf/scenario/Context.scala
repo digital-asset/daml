@@ -174,7 +174,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     buildMachine(
       Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
     ).map { machine =>
-      ScenarioRunner(machine).run() match {
+      ScenarioRunner(machine, txSeeding).run() match {
         case Right((diff @ _, steps @ _, ledger, value)) =>
           (ledger, machine, Right(value))
         case Left((err, ledger)) =>

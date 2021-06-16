@@ -18,7 +18,7 @@ class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {
       val e = Ast.EScenario(Ast.ScenarioGetParty(Ast.EPrimLit(Ast.PLText("foo-bar"))))
       val txSeed = crypto.Hash.hashPrivateKey("ScenarioRunnerTest")
       val m = Speedy.Machine.fromScenarioExpr(PureCompiledPackages.Empty, txSeed, e)
-      val sr = ScenarioRunner(m, _ + "-XXX")
+      val sr = ScenarioRunner(m, txSeed, _ + "-XXX")
       sr.run() match {
         case Right((_, _, _, value)) =>
           value shouldBe SValue.SParty(Ref.Party.assertFromString("foo-bar-XXX"))

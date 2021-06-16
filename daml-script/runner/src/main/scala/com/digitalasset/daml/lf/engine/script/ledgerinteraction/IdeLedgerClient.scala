@@ -57,10 +57,12 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
 
   private[this] val preprocessor = new engine.preprocessing.CommandPreprocessor(compiledPackages)
 
-  private val txSeeding =
-    speedy.InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey(s"script-service"))
+  private val seed = crypto.Hash.hashPrivateKey(s"script-service")
 
-  // Machine for scenario expressions.
+  private val txSeeding =
+    speedy.InitialSeeding.TransactionSeed(seed)
+
+  // Machine for submissions.
   val machine = Machine(
     compiledPackages,
     submissionTime = Time.Timestamp.Epoch,
@@ -74,7 +76,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
     case OffLedger => throw SRequiresOnLedger("ScenarioRunner")
     case onLedger: OnLedger => onLedger
   }
-  val scenarioRunner = ScenarioRunner(machine)
+  val scenarioRunner = ScenarioRunner(machine, seed)
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
   override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
@@ -198,8 +200,8 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
           case SResultFinalValue(v) =>
             // The final result should always be unit.
             throw new RuntimeException(s"FATAL: Unexpected non-unit final result: $v")
-          case SResultScenarioCommit(_, _, _, _) =>
-            throw new RuntimeException("FATAL: Encountered scenario commit in Daml Script")
+          case _: SResultScenarioSubmit =>
+            throw new RuntimeException("FATAL: Encountered scenario submit in Daml Script")
           case SResultError(err) =>
             // Capture the error and exit.
             throw err
@@ -208,14 +210,6 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
           case SResultNeedPackage(pkg, callback @ _) =>
             throw new RuntimeException(
               s"FATAL: Missing package $pkg should have been reported at Script compilation"
-            )
-          case SResultScenarioInsertMustFail(committers @ _, optLocation @ _) =>
-            throw new RuntimeException(
-              "FATAL: Encountered scenario instruction for submitMustFail in Daml script"
-            )
-          case SResultScenarioMustFail(ptx @ _, committers @ _, callback @ _) =>
-            throw new RuntimeException(
-              "FATAL: Encountered scenario instruction for submitMustFail in Daml Script"
             )
           case SResultScenarioPassTime(relTime @ _, callback @ _) =>
             throw new RuntimeException(

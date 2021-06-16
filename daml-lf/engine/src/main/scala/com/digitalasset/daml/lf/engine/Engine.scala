@@ -355,13 +355,8 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
             },
           )
 
-        case _: SResultScenarioCommit =>
-          return ResultError(Error.Interpretation.Generic("unexpected ScenarioCommit"))
-
-        case _: SResultScenarioInsertMustFail =>
-          return ResultError(Error.Interpretation.Generic("unexpected ScenarioInsertMustFail"))
-        case _: SResultScenarioMustFail =>
-          return ResultError(Error.Interpretation.Generic("unexpected ScenarioMustFail"))
+        case _: SResultScenarioSubmit =>
+          return ResultError(Error.Interpretation.Generic("unexpected SResultScenarioSubmit"))
         case _: SResultScenarioPassTime =>
           return ResultError(Error.Interpretation.Generic("unexpected ScenarioPassTime"))
         case _: SResultScenarioGetParty =>
