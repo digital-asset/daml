@@ -112,8 +112,9 @@ class Endpoints(
         extendWithRequestIdLogCtx(implicit lc => {
           val t0 = System.nanoTime
           logger.info(s"Incoming request on ${req.uri} from ${connection.remoteAddress}")
+          metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
           Timed
-            .future(metrics.daml.HttpJsonApi.httpRequest, lcFhr(lc))
+            .future(metrics.daml.HttpJsonApi.httpRequestTimer, lcFhr(lc))
             .map(res => {
               logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
               logger.info(s"Responding to client with HTTP ${res.status}")
@@ -148,15 +149,19 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID],
       ev1: JsonWriter[T[JsValue]],
       ev2: Traverse[T],
-  ): ET[domain.SyncResponse[JsValue]] = for {
-    t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
-    (jwt, jwtPayload, reqBody) = t3
-    resp <- withJwtPayloadLoggingContext(jwtPayload)(fn(jwt, jwtPayload, reqBody))
-    jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
-  } yield domain.OkResponse(jsVal)
+      metrics: Metrics,
+  ): ET[domain.SyncResponse[JsValue]] =
+    for {
+      _ <- EitherT.pure(metrics.daml.HttpJsonApi.commandSubmissionThroughput.mark())
+      t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
+      (jwt, jwtPayload, reqBody) = t3
+      resp <- withJwtPayloadLoggingContext(jwtPayload)(fn(jwt, jwtPayload, reqBody))
+      jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
+    } yield domain.OkResponse(jsVal)
 
   def create(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     handleCommand(req) { (jwt, jwtPayload, reqBody) => implicit lc =>
       for {
@@ -171,7 +176,8 @@ class Endpoints(
     }
 
   def exercise(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     handleCommand(req) { (jwt, jwtPayload, reqBody) => implicit lc =>
       for {
@@ -197,7 +203,8 @@ class Endpoints(
     }
 
   def createAndExercise(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     handleCommand(req) { (jwt, jwtPayload, reqBody) => implicit lc =>
       for {
@@ -298,9 +305,12 @@ class Endpoints(
       .map(ps => partiesResponse(parties = ps._1.toList, unknownParties = ps._2.toList))
 
   def allocateParty(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
   ): ET[domain.SyncResponse[domain.PartyDetails]] =
-    proxyWithCommand(partiesService.allocate)(req).map(domain.OkResponse(_))
+    EitherT
+      .pure(metrics.daml.HttpJsonApi.allocatePartyThroughput.mark())
+      .flatMap(_ => proxyWithCommand(partiesService.allocate)(req).map(domain.OkResponse(_)))
 
   def listPackages(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -327,9 +337,11 @@ class Endpoints(
   }
 
   def uploadDarFile(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
   ): ET[domain.SyncResponse[Unit]] =
     for {
+      _ <- EitherT.pure(metrics.daml.HttpJsonApi.uploadPackagesThroughput.mark())
       t2 <- either(inputSource(req)): ET[(Jwt, Source[ByteString, Any])]
 
       (jwt, source) = t2
