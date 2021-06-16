@@ -222,7 +222,7 @@ class EngineTest
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       inside(res) { case Left(Error.Preprocessing(error)) =>
-        error shouldBe a[Error.Preprocessing.Type]
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
       }
     }
 
@@ -301,7 +301,7 @@ class EngineTest
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       inside(res) { case Left(Error.Preprocessing(error)) =>
-        error shouldBe a[Error.Preprocessing.Type]
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
         error.msg should startWith("Missing record label n for record")
       }
     }
@@ -336,7 +336,7 @@ class EngineTest
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       inside(res) { case Left(Error.Preprocessing(error)) =>
-        error shouldBe a[Error.Preprocessing.Type]
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
       }
     }
 
@@ -402,7 +402,7 @@ class EngineTest
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       inside(res) { case Left(Error.Preprocessing(error)) =>
-        error shouldBe a[Error.Preprocessing.Type]
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
       }
     }
 
@@ -423,7 +423,7 @@ class EngineTest
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       inside(res) { case Left(Error.Preprocessing(error)) =>
-        error shouldBe a[Error.Preprocessing.Type]
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
       }
     }
 
@@ -469,7 +469,7 @@ class EngineTest
         )
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       inside(res) { case Left(Error.Preprocessing(error)) =>
-        error shouldBe a[Error.Preprocessing.Type]
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
       }
     }
   }
@@ -1257,7 +1257,7 @@ class EngineTest
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
 
       inside(res) { case Left(Error.Preprocessing(error)) =>
-        error shouldBe a[Error.Preprocessing.Type]
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
       }
     }
 
@@ -1299,7 +1299,7 @@ class EngineTest
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
 
       inside(res) { case Left(Error.Preprocessing(error)) =>
-        error shouldBe a[Error.Preprocessing.Type]
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
       }
     }
 

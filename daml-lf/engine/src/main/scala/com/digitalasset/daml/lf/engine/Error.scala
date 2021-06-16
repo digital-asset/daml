@@ -99,7 +99,7 @@ object Error {
         }
     }
 
-    final case class Type(
+    final case class TypeMismatch(
         typ: Ast.Type,
         value: Value[Value.ContractId],
         override val msg: String,
@@ -112,6 +112,8 @@ object Error {
 
     final case class RootNode(nodeId: NodeId, override val msg: String) extends Error
 
+    // TODO https://github.com/digital-asset/daml/issues/9974
+    //  get ride of ContractIdFreshness
     final case class ContractIdFreshness(
         localContractIds: Set[Value.ContractId],
         globalContractIds: Set[Value.ContractId],

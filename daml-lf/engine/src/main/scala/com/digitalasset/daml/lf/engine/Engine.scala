@@ -238,15 +238,18 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
 
   @inline
   private[lf] def runSafely[X](
-      funcName: String,
-      handleMissingDependencies: => Result[Unit],
+      funcName: String
   )(run: => Result[X]): Result[X] = {
     def start: Result[X] =
       try {
         run
       } catch {
-        case speedy.Compiler.PackageNotFound(_) =>
-          handleMissingDependencies.flatMap(_ => start)
+        // The two following error should be prevented by the type checking does by translateCommand
+        // so it’s an internal error.
+        case error: speedy.Compiler.PackageNotFound =>
+          ResultError(
+            Error.Preprocessing.Internal(funcName, s"CompilationError: ${error.getMessage}")
+          )
         case speedy.Compiler.CompilationError(error) =>
           ResultError(Error.Preprocessing.Internal(funcName, s"CompilationError: $error"))
       }
@@ -270,10 +273,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       seeding: speedy.InitialSeeding,
       globalCids: Set[Value.ContractId],
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
-    runSafely(
-      NameOf.qualifiedNameOfCurrentFunc,
-      loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList),
-    ) {
+    runSafely(NameOf.qualifiedNameOfCurrentFunc) {
       val sexpr = compiledPackages.compiler.unsafeCompile(commands)
       val machine = Machine(
         compiledPackages = compiledPackages,

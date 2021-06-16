@@ -33,7 +33,7 @@ private[preprocessing] final class TransactionPreprocessor(
     )
   }
 
-  private[this] def invalideRootNode(nodeId: NodeId, message: String) =
+  private[this] def invalidRootNode(nodeId: NodeId, message: String) =
     throw Error.Preprocessing.RootNode(nodeId, message)
 
   /*
@@ -115,14 +115,14 @@ private[preprocessing] final class TransactionPreprocessor(
               val newLocalCids = GenTransaction(tx.nodes, ImmArray(id)).localContracts.keys
               acc.update(newCids, newLocalCids, cmd)
             case _: Node.NodeFetch[_] =>
-              invalideRootNode(id, s"Transaction contains a fetch root node $id")
+              invalidRootNode(id, s"Transaction contains a fetch root node $id")
             case _: Node.NodeLookupByKey[_] =>
-              invalideRootNode(id, s"Transaction contains a lookup by key root node $id")
+              invalidRootNode(id, s"Transaction contains a lookup by key root node $id")
           }
         case Some(_: Node.NodeRollback[NodeId]) =>
-          invalideRootNode(id, s"invalid transaction, root refers to a rollback node $id")
+          invalidRootNode(id, s"invalid transaction, root refers to a rollback node $id")
         case None =>
-          invalideRootNode(id, s"invalid transaction, root refers to non-existing node $id")
+          invalidRootNode(id, s"invalid transaction, root refers to non-existing node $id")
       }
     }
 
