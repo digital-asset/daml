@@ -136,8 +136,6 @@ class Endpoints(
       ),
     ).run(fn)
 
-  // I think this is not the best name.
-  // Naming things is hard :/
   def handleCommand[T[_]](req: HttpRequest)(
       fn: (
           Jwt,
