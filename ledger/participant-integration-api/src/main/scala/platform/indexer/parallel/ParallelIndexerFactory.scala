@@ -145,7 +145,7 @@ object ParallelIndexerFactory {
       LoggingContext.withEnrichedLoggingContext(
         IndexerLoggingContext.loggingContextFor(offset, update)
       ) { implicit loggingContext =>
-        logger.info("Storing transaction")
+        logger.info(s"Storing ${update.description}")
       }
     }
     val batch = input.iterator.flatMap { case ((offset, update), _) =>
