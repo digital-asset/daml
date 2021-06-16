@@ -21,6 +21,7 @@ import com.daml.lf
 import com.daml.http.ContractsService.SearchResult
 import com.daml.http.EndpointsCompanion._
 import com.daml.scalautil.Statement.discard
+import com.daml.scalautil.WidenEither._
 import com.daml.http.domain.{JwtPayload, JwtWritePayload, TemplateId}
 import com.daml.http.json._
 import com.daml.http.util.Collections.toNonEmptySet
@@ -327,7 +328,7 @@ class Endpoints(
   private def handleFutureFailure[E >: ServerError, A](fa: Future[A])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[E \/ A] =
-    fa.map(a => \/-(a)).recover { case NonFatal(e) =>
+    fa.map(a => \/.r[E](a)).recover { case NonFatal(e) =>
       logger.error("Future failed", e)
       -\/(ServerError(e.description))
     }
@@ -402,7 +403,7 @@ class Endpoints(
     findJwt(req) match {
       case e @ -\/(_) =>
         discard { req.entity.discardBytes(mat) }
-        Future.successful(e)
+        Future.successful(e.coerceRight)
       case \/-(j) =>
         data(req.entity).map(d => \/-((j, d)))
     }
@@ -412,7 +413,7 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[(Jwt, JsValue)] =
     for {
-      t2 <- eitherT(input(req)): ET[(Jwt, String)]
+      t2 <- eitherT(input(req).widenLeftF): ET[(Jwt, String)]
       jsVal <- either(SprayJson.parse(t2._2).liftErr(InvalidUserInput)): ET[JsValue]
     } yield (t2._1, jsVal)
 
@@ -427,13 +428,13 @@ class Endpoints(
       parse: ParsePayload[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
   ): Future[Error \/ (Jwt, P, String)] =
-    input(req).map(_.flatMap(withJwtPayload[String, P]))
+    input(req).map(_.flatMap(withJwtPayload[String, P])).widenLeftF
 
   private[http] def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
       parse: ParsePayload[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
   ): ET[(Jwt, P, JsValue)] =
-    inputJsVal(req).flatMap(x => either(withJwtPayload[JsValue, P](x)))
+    inputJsVal(req).flatMap(x => either(withJwtPayload[JsValue, P](x).widenLeft))
 
   private[http] def inputSource(
       req: HttpRequest
@@ -494,7 +495,7 @@ class Endpoints(
           o.toRightDisjunction(InvalidUserInput(ErrorMessages.cannotResolveTemplateId(reference)))
         a.flatMap {
           case -\/((tpId, key)) => lfValueToApiValue(key).map(k => -\/((tpId, k)))
-          case a @ \/-((_, _)) => \/-(a)
+          case a @ \/-((_, _)) => \/-(a.coerceLeft)
         }
       }
 
@@ -502,7 +503,7 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[A] =
     for {
-      t3 <- eitherT(input(req)): ET[(Jwt, _)]
+      t3 <- eitherT(input(req).biwidenF): ET[(Jwt, _)]
       a <- eitherT(handleFutureFailure(fn(t3._1))): ET[A]
     } yield a
 
@@ -523,7 +524,7 @@ object Endpoints {
   import json.JsonProtocol._
   import util.ErrorOps._
 
-  private type ET[A] = EitherT[Future, Error, A]
+  private type ET[A] = EitherT[Error, Future, A]
 
   private type ApiRecord = lav1.value.Record
   private type ApiValue = lav1.value.Value

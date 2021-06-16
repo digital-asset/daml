@@ -371,7 +371,7 @@ class ContractsService(
         (errL ++ errR, appendForgettingDeletes(stepL, stepR))
       }
       .mapConcat { case (err, inserts) =>
-        inserts.map(\/-(_)) ++ err.map(-\/(_))
+        inserts.map(\/.r[Error](_)) ++ err.map(\/.l[Ac](_))
       }
   }
 

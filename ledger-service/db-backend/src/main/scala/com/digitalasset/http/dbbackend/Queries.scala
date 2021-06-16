@@ -662,7 +662,7 @@ private object OracleQueries extends Queries {
       }
       val quotedParties = parties.toVector.map(p => s""""$p"""").mkString(", ")
       val partiesQuery = oracleShortPathEscape(
-        '$' -: ("[*]?(@ in (": Cord) :+ quotedParties :+ "))"
+        Cord("$[*]?(@ in (") :: Cord(quotedParties) :: Cord("))")
       )
       val q =
         sql"""SELECT c.contract_id contract_id, $tpid template_id, key, payload, signatories, observers, agreement_text
@@ -708,7 +708,9 @@ private object OracleQueries extends Queries {
   }
 
   private[this] def pathSteps(path: JsonPath): Cord =
-    path.elems.foldMap(_.fold(k => (".\"": Cord) ++ k :- '"', (_: _0.type) => "[0]"))
+    path.elems.foldMap(
+      _.fold(k => Cord(".\"") :: Cord(k) :: Cord("\""), (_: _0.type) => Cord("[0]"))
+    )
 
   // I cannot believe this function exists in 2021
   // None if literal is too long
@@ -732,7 +734,7 @@ private object OracleQueries extends Queries {
     )
 
   private[http] override def equalAtContractPath(path: JsonPath, literal: JsValue): Fragment = {
-    val opath: Cord = '$' -: pathSteps(path)
+    val opath: Cord = Cord("$") :: pathSteps(path)
     // you cannot put a positional parameter in a path, which _must_ be a literal
     // so pass it as the path-local variable X instead
     def existsForm[Lit: Put](literal: Lit) =
@@ -762,7 +764,7 @@ private object OracleQueries extends Queries {
   private[http] override def containsAtContractPath(path: JsonPath, literal: JsValue) = {
     def ensureNotNull = {
       // we are only trying to reject None for an Optional record/variant/list
-      val pred: Cord = ('$' -: pathSteps(path)) ++ "?(@ != null)"
+      val pred: Cord = Cord("$") :: pathSteps(path) :: Cord("?(@ != null)")
       sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++ oracleShortPathEscape(pred) ++ sql")"
     }
     literal match {
@@ -815,7 +817,7 @@ private object OracleQueries extends Queries {
       case GT => ">"
       case GTEQ => ">="
     }
-    val pathc = ('$' -: pathSteps(path)) ++ s"?(@ $opc ${"$X"})"
+    val pathc = Cord("$") :: pathSteps(path) :: Cord(s"?(@ $opc $$X)")
     sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++
       oracleShortPathEscape(pathc) ++ sql" PASSING " ++ literalRendered ++ sql" AS X)"
   }

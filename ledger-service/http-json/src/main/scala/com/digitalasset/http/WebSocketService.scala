@@ -36,6 +36,7 @@ import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
+import com.daml.scalautil.WidenEither._
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
 import scala.collection.compat._
@@ -445,7 +446,7 @@ class WebSocketService(
       .map { case (oeso, ejv) =>
         for {
           offPrefix <- oeso.sequence
-          jv <- ejv
+          jv <- ejv.widenLeft[Error]
           a <- Q.parse(resumingAtOffset = offPrefix.isDefined, decoder, jv)
         } yield (offPrefix, a: Q.Query[_])
       }
@@ -545,7 +546,7 @@ class WebSocketService(
         .map(jsv => \/-(wsMessage(jsv)))
     } else {
       reportUnresolvedTemplateIds(unresolved)
-        .map(jsv => \/-(wsMessage(jsv)))
+        .map(jsv => \/-[Error, Message](wsMessage(jsv)))
         .concat(Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId))))
     }
   }

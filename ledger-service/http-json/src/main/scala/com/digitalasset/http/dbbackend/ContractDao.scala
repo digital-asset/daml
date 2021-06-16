@@ -162,7 +162,7 @@ object ContractDao {
                     val dbc +: dups = dbcs.toSeq // always non-empty due to groupBy
                     (
                       toDomain(tidLookup(dbc.templateId))(dbc),
-                      NonEmptyList.nels(dbc, dups: _*).map(_.templateId),
+                      NonEmptyList.fromSeq(dbc, dups).map(_.templateId),
                     )
                   }
                   .toVector

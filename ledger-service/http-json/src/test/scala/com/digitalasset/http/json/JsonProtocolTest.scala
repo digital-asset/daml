@@ -17,6 +17,7 @@ import com.daml.http.Generators.{
   genWarningsWrapper,
 }
 import com.daml.scalautil.Statement.discard
+import com.daml.scalautil.WidenEither._
 import com.daml.http.domain
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen.{identifier, listOf}
@@ -83,8 +84,8 @@ class JsonProtocolTest
     "can be serialized and deserialized back to the same object" in forAll(contractGen) {
       contract0 =>
         val actual: SprayJson.Error \/ domain.Contract[JsValue] = for {
-          jsValue <- SprayJson.encode(contract0)
-          contract <- SprayJson.decode[domain.Contract[JsValue]](jsValue)
+          jsValue <- SprayJson.encode(contract0).widenLeft[SprayJson.Error]
+          contract <- SprayJson.decode[domain.Contract[JsValue]](jsValue).widenLeft[SprayJson.Error]
         } yield contract
 
         inside(actual) { case \/-(contract1) =>

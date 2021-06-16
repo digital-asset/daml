@@ -18,6 +18,7 @@ import com.daml.http.domain.JwtPayload
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
+import com.daml.scalautil.WidenEither._
 
 object WebsocketEndpoints {
   private[http] val tokenPrefix: String = "jwt.token."
@@ -42,7 +43,7 @@ object WebsocketEndpoints {
         s"Missing required $tokenPrefix.[token] or $wsProtocol subprotocol"
       ): Err)
       jwt0 <- findJwtFromSubProtocol[Err](req)
-      payload <- decodeAndParsePayload[JwtPayload](jwt0, decodeJwt)
+      payload <- decodeAndParsePayload[JwtPayload](jwt0, decodeJwt).widenLeft[Err]
     } yield payload
 }
 

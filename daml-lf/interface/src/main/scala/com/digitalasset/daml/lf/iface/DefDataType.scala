@@ -8,7 +8,9 @@ import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.syntax.applicative.^
 import scalaz.syntax.semigroup._
-import scalaz.syntax.traverse._
+import scalaz.syntax.foldable0._
+import scalaz.syntax.functor0._
+import scalaz.syntax.traverse0._
 import scalaz.{Applicative, Bifunctor, Bitraverse, Bifoldable, Foldable, Functor, Monoid, Traverse}
 import java.{util => j}
 

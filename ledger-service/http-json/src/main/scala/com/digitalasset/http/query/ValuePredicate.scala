@@ -20,7 +20,8 @@ import scalaz.Tags.Conjunction
 import scalaz.std.anyVal._
 import scalaz.std.tuple._
 import scalaz.std.vector._
-import scalaz.syntax.apply._
+import scalaz.syntax.functor0._
+import scalaz.syntax.apply0._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.order._
 import scalaz.syntax.tag._
@@ -346,7 +347,7 @@ object ValuePredicate {
       case JsNumber(q) if q.isValidLong =>
         q.toLongExact
       case JsString(q) =>
-        q.parseLong.fold(e => throw e, identity)
+        q.parseLong.fold(e => predicateParseError(e), identity)
     },
     { case V.ValueInt64(v) => v },
   )(V.ValueInt64)
