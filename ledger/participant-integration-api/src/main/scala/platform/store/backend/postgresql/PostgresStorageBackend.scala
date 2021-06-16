@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.backend.postgresql
 
-import java.sql.{Connection, PreparedStatement}
+import java.sql.Connection
 import java.time.Instant
 
 import anorm.SQL
@@ -134,6 +134,7 @@ private[backend] object PostgresStorageBackend
       startExclusive = startExclusive,
       endInclusive = endInclusive,
       party = party,
+      partyArrayContext = partyArrayContext,
       witnessesWhereClause = arrayIntersectionWhereClause("flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
@@ -151,6 +152,7 @@ private[backend] object PostgresStorageBackend
       startExclusive = startExclusive,
       endInclusive = endInclusive,
       party = party,
+      partyArrayContext = partyArrayContext,
       witnessesWhereClause = arrayIntersectionWhereClause("flat_event_witnesses", Set(party)),
       templateIds = templateIds,
       limitExpr = limitClause(limit),
@@ -248,6 +250,7 @@ private[backend] object PostgresStorageBackend
       endInclusiveSeq = endInclusiveSeq,
       endInclusiveOffset = endInclusiveOffset,
       party = party,
+      partyArrayContext = partyArrayContext,
       witnessesWhereClause =
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
@@ -268,6 +271,7 @@ private[backend] object PostgresStorageBackend
       endInclusiveSeq = endInclusiveSeq,
       endInclusiveOffset = endInclusiveOffset,
       party = party,
+      partyArrayContext = partyArrayContext,
       templateIds = templateIds,
       witnessesWhereClause =
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
@@ -375,6 +379,7 @@ private[backend] object PostgresStorageBackend
     TemplatedStorageBackend.flatTransactionSingleParty(
       transactionId = transactionId,
       requestingParty = requestingParty,
+      partyArrayContext = partyArrayContext,
       witnessesWhereClause =
         arrayIntersectionWhereClause("flat_event_witnesses", Set(requestingParty)),
     )(connection)
@@ -397,6 +402,7 @@ private[backend] object PostgresStorageBackend
     TemplatedStorageBackend.transactionTreeSingleParty(
       transactionId = transactionId,
       requestingParty = requestingParty,
+      partyArrayContext = partyArrayContext,
       witnessesWhereClause =
         arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
     )(connection)
@@ -424,6 +430,7 @@ private[backend] object PostgresStorageBackend
       startExclusive = startExclusive,
       endInclusive = endInclusive,
       requestingParty = requestingParty,
+      partyArrayContext = partyArrayContext,
       witnessesWhereClause =
         arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
       limitExpr = limitClause(limit),
@@ -476,4 +483,6 @@ private[backend] object PostgresStorageBackend
         s"(${arrayIntersectionWhereClause(witnessesAggregationColumn, Set(p))} and template_id = '$i')"
       }
       .mkString("(", " or ", ")")
+
+  private val partyArrayContext = ("array[", "]::text[]")
 }
