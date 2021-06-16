@@ -63,18 +63,18 @@ private[dao] object SqlFunctions {
     // TODO https://github.com/digital-asset/daml/issues/9493
     // This is likely extremely inefficient due to the multiple full tablescans on unindexed varray column
     override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String = {
-      val NUM_CHARS_BETWEEN_PARTIES = 3
-      val NUM_EXTRA_CHARS = 20
-      val ORACLE_MAX_STRING_LITERAL_LENGTH = 4000
+      val NumCharsBetweenParties = 3
+      val NumExtraChars = 20
+      val OracleMaxStringLiteralLength = 4000
 
       val groupedParties = parties.toList.sorted.foldLeft((List.empty[List[String]], 0))({case ((prev, currentLength), party) =>
-        if(currentLength + party.length + NUM_CHARS_BETWEEN_PARTIES > ORACLE_MAX_STRING_LITERAL_LENGTH) {
-          (List(party) :: prev, party.length + NUM_EXTRA_CHARS)
+        if(currentLength + party.length + NumCharsBetweenParties > OracleMaxStringLiteralLength) {
+          (List(party) :: prev, party.length + NumExtraChars)
         }
         else {
           prev match {
-            case h :: tail => ((party :: h) :: tail, currentLength + party.length + NUM_CHARS_BETWEEN_PARTIES)
-            case Nil => (List(party) :: Nil, party.length + NUM_EXTRA_CHARS)
+            case h :: tail => ((party :: h) :: tail, currentLength + party.length + NumCharsBetweenParties)
+            case Nil => (List(party) :: Nil, party.length + NumExtraChars)
           }
         }
       })
