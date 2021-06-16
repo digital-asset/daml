@@ -57,7 +57,7 @@ CREATE TABLE participant_events_divulgence (
     -- * shared event information
     contract_id VARCHAR2(4000) NOT NULL,
     template_id VARCHAR2(4000),
-    tree_event_witnesses CLOB DEFAULT '{}' NOT NULL CONSTRAINT ensure_json_tree_event_witnesses CHECK (tree_event_witnesses IS JSON),       -- informees for create, exercise, and divulgance events
+    tree_event_witnesses CLOB DEFAULT '[]' NOT NULL CONSTRAINT ensure_json_tree_event_witnesses CHECK (tree_event_witnesses IS JSON),       -- informees for create, exercise, and divulgance events
 
     -- * divulgence and create events
     create_argument BLOB,
@@ -76,26 +76,25 @@ CREATE TABLE participant_events_create (
     event_sequential_id NUMBER NOT NULL,
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
-
+    ledger_effective_time TIMESTAMP NOT NULL,
+    node_index INTEGER NOT NULL,
     event_offset VARCHAR2(4000) NOT NULL,
 
     -- * transaction metadata
     transaction_id VARCHAR2(4000) NOT NULL,
-    ledger_effective_time TIMESTAMP NOT NULL,
-    command_id VARCHAR2(4000),
     workflow_id VARCHAR2(4000),
+    command_id  VARCHAR2(4000),
     application_id VARCHAR2(4000),
     submitters CLOB CONSTRAINT ensure_json_pec_submitters CHECK (submitters IS JSON),
 
     -- * event metadata
-    node_index INTEGER NOT NULL,
     event_id VARCHAR2(4000) NOT NULL,        -- string representation of (transaction_id, node_index)
 
     -- * shared event information
     contract_id VARCHAR2(4000) NOT NULL,
     template_id VARCHAR2(4000) NOT NULL,
-    flat_event_witnesses CLOB DEFAULT '{}' NOT NULL CONSTRAINT ensure_json_pec_flat_event_witnesses CHECK (flat_event_witnesses IS JSON),       -- stakeholders of create events and consuming exercise events
-    tree_event_witnesses CLOB DEFAULT '{}' NOT NULL CONSTRAINT ensure_json_pec_tree_event_witnesses CHECK (tree_event_witnesses IS JSON),       -- informees for create, exercise, and divulgance events
+    flat_event_witnesses CLOB DEFAULT '[]' NOT NULL CONSTRAINT ensure_json_pec_flat_event_witnesses CHECK (flat_event_witnesses IS JSON),       -- stakeholders of create events and consuming exercise events
+    tree_event_witnesses CLOB DEFAULT '[]' NOT NULL CONSTRAINT ensure_json_pec_tree_event_witnesses CHECK (tree_event_witnesses IS JSON),       -- informees for create, exercise, and divulgance events
 
     -- * divulgence and create events
     create_argument BLOB NOT NULL,
@@ -138,8 +137,8 @@ CREATE TABLE participant_events_consuming_exercise (
     -- * shared event information
     contract_id VARCHAR2(4000) NOT NULL,
     template_id VARCHAR2(4000) NOT NULL,
-    flat_event_witnesses CLOB DEFAULT '{}' NOT NULL CONSTRAINT ensure_json_pece_flat_event_witnesses CHECK (flat_event_witnesses IS JSON),       -- stakeholders of create events and consuming exercise events
-    tree_event_witnesses CLOB DEFAULT '{}' NOT NULL CONSTRAINT ensure_json_pece_tree_event_witnesses CHECK (tree_event_witnesses IS JSON),       -- informees for create, exercise, and divulgance events
+    flat_event_witnesses CLOB DEFAULT '[]' NOT NULL CONSTRAINT ensure_json_pece_flat_event_witnesses CHECK (flat_event_witnesses IS JSON),       -- stakeholders of create events and consuming exercise events
+    tree_event_witnesses CLOB DEFAULT '[]' NOT NULL CONSTRAINT ensure_json_pece_tree_event_witnesses CHECK (tree_event_witnesses IS JSON),       -- informees for create, exercise, and divulgance events
 
     -- * information about the corresponding create event
     create_key_value BLOB,        -- used for the mutable state cache
@@ -168,19 +167,19 @@ CREATE TABLE participant_events_non_consuming_exercise (
     -- NOTE: this must be assigned sequentially by the indexer such that
     -- for all events ev1, ev2 it holds that '(ev1.offset < ev2.offset) <=> (ev1.event_sequential_id < ev2.event_sequential_id)
 
+    ledger_effective_time TIMESTAMP NOT NULL,
+    node_index INTEGER NOT NULL,
     event_offset VARCHAR2(4000) NOT NULL,
 
     -- * transaction metadata
     transaction_id VARCHAR2(4000) NOT NULL,
-    ledger_effective_time TIMESTAMP NOT NULL,
-    command_id VARCHAR2(4000),
     workflow_id VARCHAR2(4000),
+    command_id VARCHAR2(4000),
     application_id VARCHAR2(4000),
     submitters CLOB CONSTRAINT ensure_json_pence_submitters CHECK (submitters IS JSON),
 
     -- * event metadata
-    node_index INTEGER NOT NULL,
-    event_id VARCHAR2(4000) NOT NULL,        -- string representation of (transaction_id, node_index)
+    event_id VARCHAR2(4000) NOT NULL,                                   -- string representation of (transaction_id, node_index)
 
     -- * shared event information
     contract_id VARCHAR2(4000) NOT NULL,
@@ -204,6 +203,137 @@ CREATE TABLE participant_events_non_consuming_exercise (
     exercise_result_compression SMALLINT
 );
 
+
+CREATE VIEW participant_events AS
+SELECT (10)                         AS event_kind,
+       participant_events_create.event_sequential_id,
+       participant_events_create.event_offset,
+       participant_events_create.transaction_id,
+       participant_events_create.ledger_effective_time,
+       participant_events_create.command_id,
+       participant_events_create.workflow_id,
+       participant_events_create.application_id,
+       participant_events_create.submitters,
+       participant_events_create.node_index,
+       participant_events_create.event_id,
+       participant_events_create.contract_id,
+       participant_events_create.template_id,
+       participant_events_create.flat_event_witnesses,
+       participant_events_create.tree_event_witnesses,
+       participant_events_create.create_argument,
+       participant_events_create.create_signatories,
+       participant_events_create.create_observers,
+       participant_events_create.create_agreement_text,
+       participant_events_create.create_key_value,
+       participant_events_create.create_key_hash,
+       cast(NULL as VARCHAR2(4000)) AS exercise_choice,
+       EMPTY_BLOB()                 AS exercise_argument,
+       EMPTY_BLOB()                 AS exercise_result,
+       to_clob('[]')                AS exercise_actors,
+       to_clob('[]')                AS exercise_child_event_ids,
+       participant_events_create.create_argument_compression,
+       participant_events_create.create_key_value_compression,
+       cast(NULL as SMALLINT)       AS exercise_argument_compression,
+       cast(NULL as SMALLINT)       AS exercise_result_compression
+FROM participant_events_create
+UNION ALL
+SELECT (0)           AS event_kind,
+       participant_events_divulgence.event_sequential_id,
+       NULL          AS event_offset,
+       NULL          AS transaction_id,
+       NULL          AS ledger_effective_time,
+       participant_events_divulgence.command_id,
+       participant_events_divulgence.workflow_id,
+       participant_events_divulgence.application_id,
+       participant_events_divulgence.submitters,
+       NULL          as node_index,
+       NULL          as event_id,
+       participant_events_divulgence.contract_id,
+       participant_events_divulgence.template_id,
+       to_clob('[]') AS flat_event_witnesses,
+       participant_events_divulgence.tree_event_witnesses,
+       participant_events_divulgence.create_argument,
+       to_clob('[]') AS create_signatories,
+       to_clob('[]') AS create_observers,
+       NULL          AS create_agreement_text,
+       EMPTY_BLOB()  AS create_key_value,
+       NULL          AS create_key_hash,
+       NULL          AS exercise_choice,
+       EMPTY_BLOB()  AS exercise_argument,
+       EMPTY_BLOB()  AS exercise_result,
+       to_clob('[]') AS exercise_actors,
+       to_clob('[]') AS exercise_child_event_ids,
+       participant_events_divulgence.create_argument_compression,
+       NULL          AS create_key_value_compression,
+       NULL          AS exercise_argument_compression,
+       NULL          AS exercise_result_compression
+FROM participant_events_divulgence
+UNION ALL
+SELECT (20)          AS event_kind,
+       participant_events_consuming_exercise.event_sequential_id,
+       participant_events_consuming_exercise.event_offset,
+       participant_events_consuming_exercise.transaction_id,
+       participant_events_consuming_exercise.ledger_effective_time,
+       participant_events_consuming_exercise.command_id,
+       participant_events_consuming_exercise.workflow_id,
+       participant_events_consuming_exercise.application_id,
+       participant_events_consuming_exercise.submitters,
+       participant_events_consuming_exercise.node_index,
+       participant_events_consuming_exercise.event_id,
+       participant_events_consuming_exercise.contract_id,
+       participant_events_consuming_exercise.template_id,
+       participant_events_consuming_exercise.flat_event_witnesses,
+       participant_events_consuming_exercise.tree_event_witnesses,
+       EMPTY_BLOB()  AS create_argument,
+       to_clob('[]') AS create_signatories,
+       to_clob('[]') AS create_observers,
+       NULL          AS create_agreement_text,
+       participant_events_consuming_exercise.create_key_value,
+       NULL          AS create_key_hash,
+       participant_events_consuming_exercise.exercise_choice,
+       participant_events_consuming_exercise.exercise_argument,
+       participant_events_consuming_exercise.exercise_result,
+       participant_events_consuming_exercise.exercise_actors,
+       participant_events_consuming_exercise.exercise_child_event_ids,
+       NULL          AS create_argument_compression,
+       participant_events_consuming_exercise.create_key_value_compression,
+       participant_events_consuming_exercise.exercise_argument_compression,
+       participant_events_consuming_exercise.exercise_result_compression
+FROM participant_events_consuming_exercise
+UNION ALL
+SELECT (25)          AS event_kind,
+       participant_events_non_consuming_exercise.event_sequential_id,
+       participant_events_non_consuming_exercise.event_offset,
+       participant_events_non_consuming_exercise.transaction_id,
+       participant_events_non_consuming_exercise.ledger_effective_time,
+       participant_events_non_consuming_exercise.command_id,
+       participant_events_non_consuming_exercise.workflow_id,
+       participant_events_non_consuming_exercise.application_id,
+       participant_events_non_consuming_exercise.submitters,
+       participant_events_non_consuming_exercise.node_index,
+       participant_events_non_consuming_exercise.event_id,
+       participant_events_non_consuming_exercise.contract_id,
+       participant_events_non_consuming_exercise.template_id,
+       participant_events_non_consuming_exercise.flat_event_witnesses,
+       participant_events_non_consuming_exercise.tree_event_witnesses,
+       EMPTY_BLOB()  AS create_argument,
+       to_clob('[]') AS create_signatories,
+       to_clob('[]') AS create_observers,
+       NULL          AS create_agreement_text,
+       participant_events_non_consuming_exercise.create_key_value,
+       NULL          AS create_key_hash,
+       participant_events_non_consuming_exercise.exercise_choice,
+       participant_events_non_consuming_exercise.exercise_argument,
+       participant_events_non_consuming_exercise.exercise_result,
+       participant_events_non_consuming_exercise.exercise_actors,
+       participant_events_non_consuming_exercise.exercise_child_event_ids,
+       NULL          AS create_argument_compression,
+       participant_events_non_consuming_exercise.create_key_value_compression,
+       participant_events_non_consuming_exercise.exercise_argument_compression,
+       participant_events_non_consuming_exercise.exercise_result_compression
+FROM participant_events_non_consuming_exercise;
+
+
 ---------------------------------------------------------------------------------------------------
 -- Parameters table
 ---------------------------------------------------------------------------------------------------
@@ -220,8 +350,8 @@ UPDATE participant_migration_history_v100
 SET ledger_end_sequential_id_after = (
     SELECT max(ledger_end_sequential_id) FROM parameters
 );
--- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
--- SPDX-License-Identifier: Apache-2.0
+
+ALTER TABLE parameters DROP COLUMN configuration;
 
 
 ---------------------------------------------------------------------------------------------------
@@ -276,10 +406,12 @@ CREATE INDEX participant_events_create_template_id_idx ON participant_events_cre
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- Note that Potsgres has trouble using these indices effectively with our paged access.
 -- We might decide to drop them.
+-- TODO these indices are never hit
 CREATE INDEX participant_events_create_flat_event_witnesses_idx ON participant_events_create(JSON_ARRAY(flat_event_witnesses));
 CREATE INDEX participant_events_create_tree_event_witnesses_idx ON participant_events_create(JSON_ARRAY(tree_event_witnesses));
 
 -- lookup by contract id
+-- TODO double-check how the HASH should work and that it is actually hit
 CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create(ORA_HASH(contract_id));
 
 -- lookup by contract_key
@@ -309,11 +441,13 @@ CREATE INDEX participant_events_consuming_exercise_template_id_idx ON participan
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- Note that Potsgres has trouble using these indices effectively with our paged access.
 -- We might decide to drop them.
-CREATE INDEX participant_events_consuming_exercise_flat_event_witnesses_idx ON participant_events_consuming_exercise(JSON_ARRAY(flat_event_witnesses));
-CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON participant_events_consuming_exercise(JSON_ARRAY(tree_event_witnesses));
+-- TODO these indices are never hit
+CREATE INDEX participant_events_consuming_exercise_flat_event_witnesses_idx ON participant_events_consuming_exercise (JSON_ARRAY(flat_event_witnesses));
+CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON participant_events_consuming_exercise (JSON_ARRAY(tree_event_witnesses));
 
 -- lookup by contract id
-CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise(ORA_HASH(contract_id));
+-- TODO double-check how the HASH should work and that it is actually hit
+CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (ORA_HASH(contract_id));
 
 
 ---------------------------------------------------------------------------------------------------
@@ -339,5 +473,6 @@ CREATE INDEX participant_events_non_consuming_exercise_template_id_idx ON partic
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- There is no equivalent to GIN index for oracle, but we explicitly mark as a JSON column for indexing
 -- NOTE: index name truncated because the full name exceeds the 63 characters length limit
+-- TODO these indices are never hit
 CREATE INDEX participant_events_non_consuming_exercise_flat_event_witnes_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(flat_event_witnesses));
 CREATE INDEX participant_events_non_consuming_exercise_tree_event_witnes_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(tree_event_witnesses));
