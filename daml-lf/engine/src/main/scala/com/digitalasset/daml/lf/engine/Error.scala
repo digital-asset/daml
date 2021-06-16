@@ -110,15 +110,6 @@ object Error {
         s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}"
     }
 
-    final case class ContractIdInContractKey(
-        templateId: Ref.TypeConName,
-        key: Value[Value.ContractId],
-        contractId: Value.ContractId,
-    ) extends Error {
-      override def msg: String =
-        s"Contract IDs are not supported in contract key of $templateId: $contractId"
-    }
-
     final case class RootNode(nodeId: NodeId, override val msg: String) extends Error
 
     final case class ContractIdFreshness(

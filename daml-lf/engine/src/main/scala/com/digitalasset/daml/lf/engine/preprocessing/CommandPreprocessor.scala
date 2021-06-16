@@ -9,6 +9,7 @@ import com.daml.lf.data._
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
+import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
 
@@ -53,7 +54,12 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     val (arg, argCids) = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
     val (key, keyCids) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
     keyCids.foreach { coid =>
-      throw Error.Preprocessing.ContractIdInContractKey(templateId, contractKey, coid)
+      // The type checking of contractKey done by unsafeTranslateValue should ensure
+      // keyCids is empty
+      throw Error.Preprocessing.Internal(
+        NameOf.qualifiedNameOfCurrentFunc,
+        s"Unexpected contract IDs in contract key of $templateId: $coid",
+      )
     }
     speedy.Command.ExerciseByKey(templateId, key, choiceId, arg) -> argCids
   }
@@ -87,7 +93,12 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     val ckTtype = handleLookup(interface.lookupTemplateKey(templateId)).typ
     val (key, keyCids) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
     keyCids.foreach { coid =>
-      throw Error.Preprocessing.ContractIdInContractKey(templateId, contractKey, coid)
+      // The type checking of contractKey done by unsafeTranslateValue should ensure
+      // keyCids is empty
+      throw Error.Preprocessing.Internal(
+        NameOf.qualifiedNameOfCurrentFunc,
+        s"Unexpected contract IDs in contract key of $templateId: $coid",
+      )
     }
     speedy.Command.LookupByKey(templateId, key)
   }
