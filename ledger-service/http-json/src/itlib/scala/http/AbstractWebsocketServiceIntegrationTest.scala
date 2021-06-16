@@ -1017,8 +1017,6 @@ abstract class AbstractWebsocketServiceIntegrationTest
               .map(_._2.asJsObject.fields("currency").asInstanceOf[JsString].value)
               .groupBy(identity)
               .map { case (k, vs) => k -> vs.size }
-            // If this fails with a match error, there is something else lingering in the stream
-            ContractDelta(Vector(), _, _) <- readOne
             _ = killSwitch.shutdown()
           } yield withClue(clue) { result shouldEqual expected }
         )
