@@ -6,8 +6,12 @@ package com.daml.platform.store.appendonlydao.events
 import java.sql.Connection
 import java.time.Instant
 
+import com.daml.ledger.api.domain.PartyDetails
 import com.daml.ledger.participant.state.v1.{CommittedTransaction, RejectionReasonV0}
-import com.daml.platform.store.backend.{ContractStorageBackend, PartyStorageBackend}
+import com.daml.lf.data.Ref
+
+import scala.language.reflectiveCalls
+import scala.util.Try
 
 /** Performs post-commit validation on transactions for Sandbox Classic.
   * This is intended exclusively as a temporary replacement for
@@ -50,8 +54,55 @@ private[appendonlydao] object PostCommitValidation {
       None
   }
 
+  type Dao = {
+    def maximumLedgerTime(ids: Set[ContractId])(connection: Connection): Try[Option[Instant]]
+    def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails]
+    def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId]
+  }
+
+  /*
+  For comparison, previously the dependency surface looked like this:
+
+  trait PartyStorageBackend {
+    def partyEntries(
+        startExclusive: Offset,
+        endInclusive: Offset,
+        pageSize: Int,
+        queryOffset: Long,
+    )(connection: Connection): Vector[(Offset, PartyLedgerEntry)]
+    def parties(parties: Seq[Ref.Party])(connection: Connection): List[PartyDetails]
+    def knownParties(connection: Connection): List[PartyDetails]
+  }
+
+  ++
+
+  trait ContractStorageBackend {
+    def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId]
+    def maximumLedgerTime(ids: Set[ContractId])(connection: Connection): Try[Option[Instant]]
+    def keyState(key: Key, validAt: Long)(connection: Connection): KeyState
+    def contractState(contractId: ContractId, before: Long)(
+        connection: Connection
+    ): Option[StorageBackend.RawContractState]
+    def activeContractWithArgument(readers: Set[Ref.Party], contractId: ContractId)(
+        connection: Connection
+    ): Option[StorageBackend.RawContract]
+    def activeContractWithoutArgument(readers: Set[Ref.Party], contractId: ContractId)(
+        connection: Connection
+    ): Option[String]
+    def contractKey(readers: Set[Ref.Party], key: Key)(
+        connection: Connection
+    ): Option[ContractId]
+    def contractStateEvents(startExclusive: Long, endInclusive: Long)(
+        connection: Connection
+    ): Vector[StorageBackend.RawContractStateEvent]
+  }
+
+  Pls note: no changes on the caller side (no need for some adapter class, or anonymous trait implementation neither)
+
+   */
+
   final class BackedBy(
-      dao: PartyStorageBackend with ContractStorageBackend,
+      dao: Dao,
       validatePartyAllocation: Boolean,
   ) extends PostCommitValidation {
 
@@ -210,7 +261,7 @@ private[appendonlydao] object PostCommitValidation {
   private final case class State(
       private val currentState: ActiveState,
       private val rollbackStack: List[ActiveState],
-      private val dao: PartyStorageBackend with ContractStorageBackend,
+      private val dao: Dao,
   ) {
 
     def validateCreate(maybeKey: Option[Key], id: ContractId)(implicit
@@ -266,7 +317,7 @@ private[appendonlydao] object PostCommitValidation {
   }
 
   private object State {
-    def empty(dao: PartyStorageBackend with ContractStorageBackend): State =
+    def empty(dao: Dao): State =
       State(ActiveState(Map.empty, Set.empty), Nil, dao)
   }
 

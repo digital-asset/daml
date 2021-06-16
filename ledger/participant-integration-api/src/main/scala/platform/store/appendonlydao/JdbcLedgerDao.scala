@@ -77,7 +77,7 @@ private class JdbcLedgerDao(
     enricher: Option[ValueEnricher],
     sequentialIndexer: SequentialWriteDao,
     participantId: v1.ParticipantId,
-    storageBackend: StorageBackend[_],
+    storageBackend: StorageBackend[_], // caller uses this, this is a rich facade
 ) extends LedgerDao {
 
   import JdbcLedgerDao._
@@ -652,6 +652,7 @@ private class JdbcLedgerDao(
 
   private val postCommitValidation =
     if (performPostCommitValidation)
+      // Pls note caller is here, storageBackend
       new PostCommitValidation.BackedBy(storageBackend, validatePartyAllocation)
     else
       PostCommitValidation.Skip

@@ -33,6 +33,7 @@ import scala.util.Try
   *
   * @tparam DB_BATCH Since parallel ingestion comes also with batching, this implementation specific type allows separation of the CPU intensive batching operation from the pure IO intensive insertBatch operation.
   */
+// this is the facade
 trait StorageBackend[DB_BATCH]
     extends IngestionStorageBackend[DB_BATCH]
     with ParameterStorageBackend
