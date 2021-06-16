@@ -24,11 +24,8 @@ class JwtVerifier(verifier: com.auth0.jwt.interfaces.JWTVerifier) extends JwtVer
   def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String] = {
     // The auth0 library verification already fails if the token has expired,
     // but we still need to do manual expiration checks in ongoing streams
-    \/.fromTryCatchNonFatal(verifier.verify(jwt.value))
-      .bimap(
-        e => Error(Symbol("verify"), e.getMessage),
-        a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload),
-      )
+    \/.attempt(verifier.verify(jwt.value))(e => Error(Symbol("verify"), e.getMessage))
+      .map(a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload))
       .flatMap(base64Decode)
   }
 
@@ -49,7 +46,7 @@ object JwtVerifier {
 // HMAC256 validator factory
 object HMAC256Verifier extends StrictLogging {
   def apply(secret: String): Error \/ JwtVerifier =
-    \/.fromTryCatchNonFatal {
+    \/.attempt {
       logger.warn(
         "HMAC256 JWT Validator is NOT recommended for production environments, please use RSA256!!!"
       )
@@ -57,16 +54,16 @@ object HMAC256Verifier extends StrictLogging {
       val algorithm = Algorithm.HMAC256(secret)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
-    }.leftMap(e => Error(Symbol("HMAC256"), e.getMessage))
+    }(e => Error(Symbol("HMAC256"), e.getMessage))
 }
 
 // ECDSA validator factory
 object ECDSAVerifier extends StrictLogging {
   def apply(algorithm: Algorithm): Error \/ JwtVerifier =
-    \/.fromTryCatchNonFatal {
+    \/.attempt {
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
-    }.leftMap(e => Error(Symbol(algorithm.getName), e.getMessage))
+    }(e => Error(Symbol(algorithm.getName), e.getMessage))
 
   def fromCrtFile(
       path: String,
@@ -87,20 +84,20 @@ object ECDSAVerifier extends StrictLogging {
 // RSA256 validator factory
 object RSA256Verifier extends StrictLogging {
   def apply(publicKey: RSAPublicKey): Error \/ JwtVerifier =
-    \/.fromTryCatchNonFatal {
+    \/.attempt {
 
       val algorithm = Algorithm.RSA256(publicKey, null)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
-    }.leftMap(e => Error(Symbol("RSA256"), e.getMessage))
+    }(e => Error(Symbol("RSA256"), e.getMessage))
 
   def apply(keyProvider: RSAKeyProvider): Error \/ JwtVerifier =
-    \/.fromTryCatchNonFatal {
+    \/.attempt {
 
       val algorithm = Algorithm.RSA256(keyProvider)
       val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
-    }.leftMap(e => Error(Symbol("RSA256"), e.getMessage))
+    }(e => Error(Symbol("RSA256"), e.getMessage))
 
   /** Create a RSA256 validator with the key loaded from the given file.
     * The file is assumed to be a X509 encoded certificate.

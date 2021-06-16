@@ -89,7 +89,7 @@ private[apiserver] final class ApiPackageManagementService private (
       dar <- darReader.readArchive("package-upload", stream)
       packages <- Try(dar.all.iterator.map(Decode.decodeArchive).toMap)
       _ <- engine
-        .validatePackages(packages.keySet, packages)
+        .validatePackages(packages)
         .left
         .map(e => new IllegalArgumentException(e.msg))
         .toTry

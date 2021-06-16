@@ -34,7 +34,7 @@ import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.daml.platform.store.dao.LedgerReadDao
+import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import scalaz.syntax.tag.ToTagOps
 
@@ -44,6 +44,7 @@ import scala.util.Try
 private[platform] abstract class BaseLedger(
     val ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
+    transactionsReader: LedgerDaoTransactionsReader,
     contractStore: ContractStore,
     dispatcher: Dispatcher[Offset],
 ) extends ReadOnlyLedger {
@@ -65,7 +66,7 @@ private[platform] abstract class BaseLedger(
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
-      RangeSource(ledgerDao.transactionsReader.getFlatTransactions(_, _, filter, verbose)),
+      RangeSource(transactionsReader.getFlatTransactions(_, _, filter, verbose)),
       endInclusive,
     )
 
@@ -80,7 +81,7 @@ private[platform] abstract class BaseLedger(
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(
-        ledgerDao.transactionsReader.getTransactionTrees(_, _, requestingParties, verbose)
+        transactionsReader.getTransactionTrees(_, _, requestingParties, verbose)
       ),
       endInclusive,
     )

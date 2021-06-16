@@ -38,16 +38,16 @@ final class Metrics(val registry: MetricRegistry) {
       val validSubmissions: Meter =
         registry.meter(Prefix :+ "valid_submissions")
 
-      def inputBufferLength(party: String): Counter =
-        registry.counter(Prefix :+ party :+ "input_buffer_length")
-      def inputBufferCapacity(party: String): Counter =
-        registry.counter(Prefix :+ party :+ "input_buffer_capacity")
-      def inputBufferDelay(party: String): Timer =
-        registry.timer(Prefix :+ party :+ "input_buffer_delay")
-      def maxInFlightLength(party: String): Counter =
-        registry.counter(Prefix :+ party :+ "max_in_flight_length")
-      def maxInFlightCapacity(party: String): Counter =
-        registry.counter(Prefix :+ party :+ "max_in_flight_capacity")
+      def inputBufferLength(firstParty: String): Counter =
+        registry.counter(Prefix :+ firstParty :+ "input_buffer_length")
+      def inputBufferCapacity(firstParty: String): Counter =
+        registry.counter(Prefix :+ firstParty :+ "input_buffer_capacity")
+      def inputBufferDelay(firstParty: String): Timer =
+        registry.timer(Prefix :+ firstParty :+ "input_buffer_delay")
+      def maxInFlightLength(firstParty: String): Counter =
+        registry.counter(Prefix :+ firstParty :+ "max_in_flight_length")
+      def maxInFlightCapacity(firstParty: String): Counter =
+        registry.counter(Prefix :+ firstParty :+ "max_in_flight_capacity")
     }
 
     object execution {
@@ -660,7 +660,27 @@ final class Metrics(val registry: MetricRegistry) {
           def push(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "push")
           def slice(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "slice")
           def prune(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "prune")
+
+          val transactionTreesTotal: Counter =
+            registry.counter(Prefix :+ "transaction_trees_total")
+          val transactionTreesBuffered: Counter =
+            registry.counter(Prefix :+ "transaction_trees_buffered")
+
+          val flatTransactionsTotal: Counter =
+            registry.counter(Prefix :+ "flat_transactions_total")
+          val flatTransactionsBuffered: Counter =
+            registry.counter(Prefix :+ "flat_transactions_buffered")
+
+          val getTransactionTrees: Timer =
+            registry.timer(Prefix :+ "get_transaction_trees")
+          val getFlatTransactions: Timer =
+            registry.timer(Prefix :+ "get_flat_transactions")
         }
+
+        val transactionTreesBufferSize: Counter =
+          registry.counter(Prefix :+ "transaction_trees_buffer_size")
+        val flatTransactionsBufferSize: Counter =
+          registry.counter(Prefix :+ "flat_transactions_buffer_size")
       }
 
       object read {

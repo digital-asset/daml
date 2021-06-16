@@ -14,62 +14,22 @@ import com.daml.ledger.api.v1.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
 import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Party, Raw}
-import com.daml.platform.store.backend.common.{CommonStorageBackend, TemplatedStorageBackend}
+import com.daml.platform.store.backend.common.{
+  AppendOnlySchema,
+  CommonStorageBackend,
+  TemplatedStorageBackend,
+}
 import com.daml.platform.store.backend.{DbDto, StorageBackend}
 
 private[backend] object PostgresStorageBackend
-    extends StorageBackend[PostgresDbBatch]
-    with CommonStorageBackend[PostgresDbBatch] {
-
-  private val preparedDeleteCommandSubmissions =
-    """
-      |DELETE FROM participant_command_submissions
-      |WHERE deduplication_key IN (
-      |  SELECT deduplication_key_in
-      |  FROM unnest(?)
-      |  as t(deduplication_key_in)
-      |)
-      |""".stripMargin
+    extends StorageBackend[AppendOnlySchema.Batch]
+    with CommonStorageBackend[AppendOnlySchema.Batch] {
 
   override def insertBatch(
       connection: Connection,
-      postgresDbBatch: PostgresDbBatch,
-  ): Unit = {
-
-    def execute(statement: String, setupData: PreparedStatement => Unit): Unit = {
-      val preparedStatement = connection.prepareStatement(statement)
-      setupData(preparedStatement)
-      preparedStatement.execute()
-      preparedStatement.close()
-      ()
-    }
-
-    def executeTable(pgTable: PGTable[_], data: Array[Array[_]]): Unit =
-      if (
-        data(0).length > 0
-      ) // data(0) accesses the array of data for the first column of the table. This is safe because tables without columns are not supported. Also because of the transposed data-structure here all columns will have data-arrays of the same length.
-        execute(pgTable.insertStatement, pgTable.setupData(data, _))
-
-    executeTable(PGSchema.commandCompletions, postgresDbBatch.commandCompletionsBatch)
-    executeTable(PGSchema.configurationEntries, postgresDbBatch.configurationEntriesBatch)
-    executeTable(PGSchema.eventsDivulgence, postgresDbBatch.eventsBatchDivulgence)
-    executeTable(PGSchema.eventsCreate, postgresDbBatch.eventsBatchCreate)
-    executeTable(PGSchema.eventsConsumingExercise, postgresDbBatch.eventsBatchConsumingExercise)
-    executeTable(
-      PGSchema.eventsNonConsumingExercise,
-      postgresDbBatch.eventsBatchNonConsumingExercise,
-    )
-    executeTable(PGSchema.packageEntries, postgresDbBatch.packageEntriesBatch)
-    executeTable(PGSchema.packages, postgresDbBatch.packagesBatch)
-    executeTable(PGSchema.parties, postgresDbBatch.partiesBatch)
-    executeTable(PGSchema.partyEntries, postgresDbBatch.partyEntriesBatch)
-
-    if (postgresDbBatch.commandDeduplicationBatch.length > 0)
-      execute(
-        preparedDeleteCommandSubmissions,
-        _.setObject(1, postgresDbBatch.commandDeduplicationBatch),
-      )
-  }
+      postgresDbBatch: AppendOnlySchema.Batch,
+  ): Unit =
+    PGSchema.schema.executeUpdate(postgresDbBatch, connection)
 
   override def initialize(connection: Connection): StorageBackend.LedgerEnd = {
     val result @ StorageBackend.LedgerEnd(offset, _) = ledgerEnd(connection)
@@ -132,7 +92,8 @@ private[backend] object PostgresStorageBackend
       |""".stripMargin
     )
 
-  override def batch(dbDtos: Vector[DbDto]): PostgresDbBatch = PostgresDbBatch(dbDtos)
+  override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
+    PGSchema.schema.prepareData(dbDtos)
 
   val SQL_INSERT_COMMAND: String =
     """insert into participant_command_submissions as pcs (deduplication_key, deduplicate_until)

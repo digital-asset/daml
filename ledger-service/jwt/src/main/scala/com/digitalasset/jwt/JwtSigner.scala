@@ -20,11 +20,13 @@ object JwtSigner {
       for {
         base64Jwt <- base64Encode(jwt)
 
-        algorithm <- \/.fromTryCatchNonFatal(Algorithm.HMAC256(secret))
-          .leftMap(e => Error(Symbol("HMAC256.sign"), e.getMessage))
+        algorithm <- \/.attempt(Algorithm.HMAC256(secret))(e =>
+          Error(Symbol("HMAC256.sign"), e.getMessage)
+        )
 
-        signature <- \/.fromTryCatchNonFatal(algorithm.sign(base64Jwt.header, base64Jwt.payload))
-          .leftMap(e => Error(Symbol("HMAC256.sign"), e.getMessage))
+        signature <- \/.attempt(algorithm.sign(base64Jwt.header, base64Jwt.payload))(e =>
+          Error(Symbol("HMAC256.sign"), e.getMessage)
+        )
 
         base64Signature <- base64Encode(signature)
 
@@ -38,11 +40,13 @@ object JwtSigner {
       for {
         base64Jwt <- base64Encode(jwt)
 
-        algorithm <- \/.fromTryCatchNonFatal(Algorithm.RSA256(null, privateKey))
-          .leftMap(e => Error(Symbol("RSA256.sign"), e.getMessage))
+        algorithm <- \/.attempt(Algorithm.RSA256(null, privateKey))(e =>
+          Error(Symbol("RSA256.sign"), e.getMessage)
+        )
 
-        signature <- \/.fromTryCatchNonFatal(algorithm.sign(base64Jwt.header, base64Jwt.payload))
-          .leftMap(e => Error(Symbol("RSA256.sign"), e.getMessage))
+        signature <- \/.attempt(algorithm.sign(base64Jwt.header, base64Jwt.payload))(e =>
+          Error(Symbol("RSA256.sign"), e.getMessage)
+        )
 
         base64Signature <- base64Encode(signature)
 
@@ -60,11 +64,13 @@ object JwtSigner {
       for {
         base64Jwt <- base64Encode(jwt)
 
-        algorithm <- \/.fromTryCatchNonFatal(algorithm(privateKey))
-          .leftMap(e => Error(Symbol(algorithm.getClass.getTypeName), e.getMessage))
+        algorithm <- \/.attempt(algorithm(privateKey))(e =>
+          Error(Symbol(algorithm.getClass.getTypeName), e.getMessage)
+        )
 
-        signature <- \/.fromTryCatchNonFatal(algorithm.sign(base64Jwt.header, base64Jwt.payload))
-          .leftMap(e => Error(Symbol(algorithm.getClass.getTypeName), e.getMessage))
+        signature <- \/.attempt(algorithm.sign(base64Jwt.header, base64Jwt.payload))(e =>
+          Error(Symbol(algorithm.getClass.getTypeName), e.getMessage)
+        )
 
         base64Signature <- base64Encode(signature)
 

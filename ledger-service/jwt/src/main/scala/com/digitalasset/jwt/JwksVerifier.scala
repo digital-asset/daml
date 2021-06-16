@@ -66,15 +66,16 @@ class JwksVerifier(
     if (keyId == null)
       -\/(Error(Symbol("getCachedVerifier"), "No Key ID found"))
     else
-      \/.fromTryCatchNonFatal(
+      \/.attempt(
         cache.get(keyId, () => getVerifier(keyId).fold(e => sys.error(e.shows), x => x))
-      ).leftMap(e => Error(Symbol("getCachedVerifier"), e.getMessage))
+      )(e => Error(Symbol("getCachedVerifier"), e.getMessage))
   }
 
   def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String] = {
     for {
-      keyId <- \/.fromTryCatchNonFatal(com.auth0.jwt.JWT.decode(jwt.value).getKeyId)
-        .leftMap(e => Error(Symbol("verify"), e.getMessage))
+      keyId <- \/.attempt(com.auth0.jwt.JWT.decode(jwt.value).getKeyId)(e =>
+        Error(Symbol("verify"), e.getMessage)
+      )
       verifier <- getCachedVerifier(keyId)
       decoded <- verifier.verify(jwt)
     } yield decoded

@@ -53,15 +53,27 @@ object domain {
   private def oneAndSet[A](p: A, sp: Set[A]) =
     OneAnd(p, sp - p)
 
+  trait JwtPayloadTag
+
+  trait JwtPayloadG {
+    val ledgerId: LedgerId
+    val applicationId: ApplicationId
+    val readAs: List[Party]
+    val actAs: List[Party]
+    val parties: OneAnd[Set, Party]
+  }
+
   // Until we get multi-party submissions, write endpoints require a single party in actAs but we
   // can have multiple parties in readAs.
-  case class JwtWritePayload(
+  final case class JwtWritePayload(
       ledgerId: LedgerId,
       applicationId: ApplicationId,
-      actAs: NonEmptyList[Party],
+      submitter: NonEmptyList[Party],
       readAs: List[Party],
-  ) {
-    val parties: OneAnd[Set, Party] = oneAndSet(actAs.head, actAs.tail.toSet union readAs.toSet)
+  ) extends JwtPayloadG {
+    override val actAs: List[Party] = submitter.toList
+    override val parties: OneAnd[Set, Party] =
+      oneAndSet(actAs.head, actAs.tail.toSet union readAs.toSet)
   }
 
   // JWT payload that preserves readAs and actAs and supports multiple parties. This is currently only used for
@@ -72,7 +84,7 @@ object domain {
       readAs: List[Party],
       actAs: List[Party],
       parties: OneAnd[Set, Party],
-  ) {}
+  ) extends JwtPayloadG {}
 
   object JwtPayload {
     def apply(
@@ -91,12 +103,12 @@ object domain {
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
-  case class Contract[+LfV](value: ArchivedContract \/ ActiveContract[LfV])
+  case class Contract[LfV](value: ArchivedContract \/ ActiveContract[LfV])
 
-  type InputContractRef[+LfV] =
+  type InputContractRef[LfV] =
     (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId)
 
-  type ResolvedContractRef[+LfV] =
+  type ResolvedContractRef[LfV] =
     (TemplateId.RequiredPkg, LfV) \/ (TemplateId.RequiredPkg, ContractId)
 
   case class ActiveContract[+LfV](
@@ -172,7 +184,7 @@ object domain {
       meta: Option[CommandMeta],
   )
 
-  final case class ExerciseResponse[+LfV](
+  final case class ExerciseResponse[LfV](
       exerciseResult: LfV,
       events: List[Contract[LfV]],
   )
@@ -272,9 +284,9 @@ object domain {
     def fromEvent(event: lav1.event.Event): Error \/ Contract[lav1.value.Value] =
       event.event match {
         case lav1.event.Event.Event.Created(created) =>
-          ActiveContract.fromLedgerApi(created).map(a => Contract(\/-(a)))
+          ActiveContract.fromLedgerApi(created).map(a => Contract[lav1.value.Value](\/-(a)))
         case lav1.event.Event.Event.Archived(archived) =>
-          ArchivedContract.fromLedgerApi(archived).map(a => Contract(-\/(a)))
+          ArchivedContract.fromLedgerApi(archived).map(a => Contract[lav1.value.Value](-\/(a)))
         case lav1.event.Event.Event.Empty =>
           val errorMsg = s"Expected either Created or Archived event, got: Empty"
           -\/(Error(Symbol("Contract_fromLedgerApi"), errorMsg))
@@ -293,11 +305,14 @@ object domain {
         case head +: tail =>
           eventsById(head).kind match {
             case lav1.transaction.TreeEvent.Kind.Created(created) =>
-              val a = ActiveContract.fromLedgerApi(created).map(a => Contract(\/-(a)))
+              val a =
+                ActiveContract.fromLedgerApi(created).map(a => Contract[lav1.value.Value](\/-(a)))
               val newAcc = ^(acc, a)(_ :+ _)
               loop(tail, newAcc)
             case lav1.transaction.TreeEvent.Kind.Exercised(exercised) =>
-              val a = ArchivedContract.fromLedgerApi(exercised).map(_.map(a => Contract(-\/(a))))
+              val a = ArchivedContract
+                .fromLedgerApi(exercised)
+                .map(_.map(a => Contract[lav1.value.Value](-\/(a))))
               val newAcc = ^(acc, a)(_ ++ _.toVector)
               loop(exercised.childEventIds.toVector ++ tail, newAcc)
             case lav1.transaction.TreeEvent.Kind.Empty =>

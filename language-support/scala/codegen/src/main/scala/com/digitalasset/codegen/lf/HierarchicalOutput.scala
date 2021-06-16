@@ -22,7 +22,8 @@ import scalaz.syntax.traverse._
 /** Functions related to the folding of the tree of templates and types. */
 private[codegen] object HierarchicalOutput {
   // the argument is whether 'here' is contained within a companion
-  private[this] type Rec = Boolean => (Vector[String], SingleOr[(File, Set[Tree], Iterable[Tree])])
+  private[this] type Rec = Boolean => RecOut
+  private[this] type RecOut = (Vector[String], SingleOr[(File, Set[Tree], Iterable[Tree])])
 
   // Generally in this file, left means "single file, already incorporates
   // immediate parent name" and right means "have not incorporated immediate
@@ -98,7 +99,7 @@ private[codegen] object HierarchicalOutput {
               )
           }
 
-          val errorsImportsAndFile =
+          val errorsImportsAndFile: RecOut =
             try { (subErrs, -\/(generate())) }
             catch {
               case e: UnsupportedDamlTypeException =>

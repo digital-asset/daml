@@ -227,6 +227,7 @@ final class BuffersUpdaterSpec
         commandId = null,
         workflowId = null,
         treeEventWitnesses = null,
+        submitters = null,
         choice = null,
         actingParties = null,
         children = null,
@@ -247,6 +248,7 @@ final class BuffersUpdaterSpec
         contractKey = Some(createdContractKey),
         treeEventWitnesses = Set("bob"), // Unused in ContractStateEvent
         flatEventWitnesses = createdFlatEventWitnesses,
+        submitters = null,
         createArgument = createArgument,
         createSignatories = null,
         createObservers = null,
@@ -254,7 +256,6 @@ final class BuffersUpdaterSpec
       )
       val transaction = TransactionLogUpdate.Transaction(
         transactionId = "some-tx-id",
-        commandId = "some-cmd-id",
         workflowId = "some-workflow-id",
         effectiveAt = Instant.EPOCH,
         offset = Offset.beforeBegin,

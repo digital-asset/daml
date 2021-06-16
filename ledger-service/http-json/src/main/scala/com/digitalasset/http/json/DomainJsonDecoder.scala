@@ -86,7 +86,7 @@ class DomainJsonDecoder(
   ): JsonError \/ domain.ContractLocator[domain.LfValue] =
     a match {
       case k: domain.EnrichedContractKey[JsValue] =>
-        decodeUnderlyingValuesToLf[domain.EnrichedContractKey](k)
+        decodeUnderlyingValuesToLf[domain.EnrichedContractKey](k).widen
       case c: domain.EnrichedContractId =>
         \/-(c)
     }

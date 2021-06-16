@@ -76,13 +76,15 @@ class MultiTableDataFormat(
 
       val schemaOrErr: String \/ Option[String] = if (schemaPerPackage) {
         state.packageIdToNameSpace.get(id.packageId) match {
-          case s @ Some(_) => s.right
+          case s @ Some(_) => \/-(s)
           case None =>
             // This shouldn't happen as [[handlePackageId]] must have been already called
-            (s"Couldn't find schema name for package id `${id.packageId}` " +
-              s"in known schemas: ${state.packageIdToNameSpace}").left
+            -\/(
+              s"Couldn't find schema name for package id `${id.packageId}` " +
+                s"in known schemas: ${state.packageIdToNameSpace}"
+            )
         }
-      } else None.right
+      } else \/-(None)
 
       schemaOrErr.fold(
         e => (state, connection.raiseError[Unit](DataIntegrityError(e))),

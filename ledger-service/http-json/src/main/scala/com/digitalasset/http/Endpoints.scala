@@ -4,6 +4,7 @@
 package com.daml.http
 
 import akka.NotUsed
+import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{
@@ -20,7 +21,7 @@ import com.daml.lf
 import com.daml.http.ContractsService.SearchResult
 import com.daml.http.EndpointsCompanion._
 import com.daml.scalautil.Statement.discard
-import com.daml.http.domain.{JwtPayload, JwtWritePayload, TemplateId}
+import com.daml.http.domain.{JwtPayload, JwtPayloadG, JwtPayloadTag, JwtWritePayload, TemplateId}
 import com.daml.http.json._
 import com.daml.http.util.Collections.toNonEmptySet
 import com.daml.http.util.FutureUtil.{either, eitherT}
@@ -28,11 +29,13 @@ import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdL
 import com.daml.http.util.ProtobufByteStrings
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.{v1 => lav1}
+import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import com.daml.util.ExceptionOps._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
+import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, NonEmptyList, Show, \/, \/-}
+import scalaz.{-\/, EitherT, NonEmptyList, Show, Traverse, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
@@ -66,7 +69,7 @@ class Endpoints(
   def all(implicit
       lc: LoggingContextOf[InstanceUUID],
       metrics: Metrics,
-  ): PartialFunction[HttpRequest, Future[HttpResponse]] = {
+  ): PartialFunction[HttpRequest, Http.IncomingConnection => Future[HttpResponse]] = {
     val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
       InstanceUUID with RequestID
     ] => Future[HttpResponse]] = {
@@ -105,86 +108,110 @@ class Endpoints(
     }
     import scalaz.std.partialFunction._, scalaz.syntax.arrow._
     (dispatch &&& { case r => r }) andThen { case (lcFhr, req) =>
-      extendWithRequestIdLogCtx(implicit lc => {
-        val t0 = System.nanoTime
-        logger.trace(s"Incoming request on ${req.uri}")
-        Timed
-          .future(metrics.daml.HttpJsonApi.httpRequest, lcFhr(lc))
-          .map(res => {
-            logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
-            res
-          })
-      })
+      (connection: Http.IncomingConnection) =>
+        extendWithRequestIdLogCtx(implicit lc => {
+          val t0 = System.nanoTime
+          logger.info(s"Incoming request on ${req.uri} from ${connection.remoteAddress}")
+          Timed
+            .future(metrics.daml.HttpJsonApi.httpRequest, lcFhr(lc))
+            .map(res => {
+              logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+              logger.info(s"Responding to client with HTTP ${res.status}")
+              res
+            })
+        })
     }
   }
+
+  def withJwtPayloadLoggingContext[A](jwtPayload: JwtPayloadG)(
+      fn: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => A
+  )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): A =
+    withEnrichedLoggingContext(
+      LoggingContextOf.label[JwtPayloadTag],
+      Map(
+        "ledger_id" -> jwtPayload.ledgerId.toString,
+        "act_as" -> jwtPayload.actAs.toString,
+        "application_id" -> jwtPayload.applicationId.toString,
+        "read_as" -> jwtPayload.readAs.toString,
+      ),
+    ).run(fn)
+
+  def handleCommand[T[_]](req: HttpRequest)(
+      fn: (
+          Jwt,
+          JwtWritePayload,
+          JsValue,
+      ) => LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => ET[
+        T[ApiValue]
+      ]
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      ev1: JsonWriter[T[JsValue]],
+      ev2: Traverse[T],
+  ): ET[domain.SyncResponse[JsValue]] = for {
+    t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
+    (jwt, jwtPayload, reqBody) = t3
+    resp <- withJwtPayloadLoggingContext(jwtPayload)(fn(jwt, jwtPayload, reqBody))
+    jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
+  } yield domain.OkResponse(jsVal)
 
   def create(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[JsValue]] =
-    for {
-      t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
+    handleCommand(req) { (jwt, jwtPayload, reqBody) => implicit lc =>
+      for {
+        cmd <- either(
+          decoder.decodeCreateCommand(reqBody).liftErr(InvalidUserInput)
+        ): ET[domain.CreateCommand[ApiRecord, TemplateId.RequiredPkg]]
 
-      (jwt, jwtPayload, reqBody) = t3
-
-      cmd <- either(
-        decoder.decodeCreateCommand(reqBody).liftErr(InvalidUserInput)
-      ): ET[domain.CreateCommand[ApiRecord, TemplateId.RequiredPkg]]
-
-      ac <- eitherT(
-        handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd))
-      ): ET[domain.ActiveContract[ApiValue]]
-
-      jsVal <- either(SprayJson.encode1(ac).liftErr(ServerError)): ET[JsValue]
-
-    } yield domain.OkResponse(jsVal)
+        ac <- eitherT(
+          handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd))
+        ): ET[domain.ActiveContract[ApiValue]]
+      } yield ac
+    }
 
   def exercise(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[JsValue]] =
-    for {
-      t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
+    handleCommand(req) { (jwt, jwtPayload, reqBody) => implicit lc =>
+      for {
+        cmd <- either(
+          decoder.decodeExerciseCommand(reqBody).liftErr(InvalidUserInput)
+        ): ET[domain.ExerciseCommand[LfValue, domain.ContractLocator[LfValue]]]
 
-      (jwt, jwtPayload, reqBody) = t3
+        resolvedRef <- eitherT(
+          resolveReference(jwt, jwtPayload, cmd.reference)
+        ): ET[domain.ResolvedContractRef[ApiValue]]
 
-      cmd <- either(
-        decoder.decodeExerciseCommand(reqBody).liftErr(InvalidUserInput)
-      ): ET[domain.ExerciseCommand[LfValue, domain.ContractLocator[LfValue]]]
+        apiArg <- either(lfValueToApiValue(cmd.argument)): ET[ApiValue]
 
-      resolvedRef <- eitherT(
-        resolveReference(jwt, jwtPayload, cmd.reference)
-      ): ET[domain.ResolvedContractRef[ApiValue]]
+        resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef)
 
-      apiArg <- either(lfValueToApiValue(cmd.argument)): ET[ApiValue]
+        resp <- eitherT(
+          handleFutureEitherFailure(
+            commandService.exercise(jwt, jwtPayload, resolvedCmd)
+          )
+        ): ET[domain.ExerciseResponse[ApiValue]]
 
-      resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef)
-
-      resp <- eitherT(
-        handleFutureEitherFailure(commandService.exercise(jwt, jwtPayload, resolvedCmd))
-      ): ET[domain.ExerciseResponse[ApiValue]]
-
-      jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
-
-    } yield domain.OkResponse(jsVal)
+      } yield resp
+    }
 
   def createAndExercise(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): ET[domain.SyncResponse[JsValue]] =
-    for {
-      t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
+    handleCommand(req) { (jwt, jwtPayload, reqBody) => implicit lc =>
+      for {
+        cmd <- either(
+          decoder.decodeCreateAndExerciseCommand(reqBody).liftErr(InvalidUserInput)
+        ): ET[domain.CreateAndExerciseCommand[ApiRecord, ApiValue, TemplateId.RequiredPkg]]
 
-      (jwt, jwtPayload, reqBody) = t3
-
-      cmd <- either(
-        decoder.decodeCreateAndExerciseCommand(reqBody).liftErr(InvalidUserInput)
-      ): ET[domain.CreateAndExerciseCommand[ApiRecord, ApiValue, TemplateId.RequiredPkg]]
-
-      resp <- eitherT(
-        handleFutureEitherFailure(commandService.createAndExercise(jwt, jwtPayload, cmd))
-      ): ET[domain.ExerciseResponse[ApiValue]]
-
-      jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
-
-    } yield domain.OkResponse(jsVal)
+        resp <- eitherT(
+          handleFutureEitherFailure(
+            commandService.createAndExercise(jwt, jwtPayload, cmd)
+          )
+        ): ET[domain.ExerciseResponse[ApiValue]]
+      } yield resp
+    }
 
   def fetch(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -194,21 +221,25 @@ class Endpoints(
 
       (jwt, jwtPayload, reqBody) = input
 
-      _ = logger.debug(s"/v1/fetch reqBody: $reqBody")
+      jsVal <- withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
+        logger.debug(s"/v1/fetch reqBody: $reqBody")
+        for {
 
-      cl <- either(
-        decoder.decodeContractLocator(reqBody).liftErr(InvalidUserInput)
-      ): ET[domain.ContractLocator[LfValue]]
+          cl <- either(
+            decoder.decodeContractLocator(reqBody).liftErr(InvalidUserInput)
+          ): ET[domain.ContractLocator[LfValue]]
 
-      _ = logger.debug(s"/v1/fetch cl: $cl")
+          _ = logger.debug(s"/v1/fetch cl: $cl")
 
-      ac <- eitherT(
-        handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cl))
-      ): ET[Option[domain.ActiveContract[JsValue]]]
+          ac <- eitherT(
+            handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cl))
+          ): ET[Option[domain.ActiveContract[JsValue]]]
 
-      jsVal <- either(
-        ac.cata(x => toJsValue(x), \/-(JsNull))
-      ): ET[JsValue]
+          jsVal <- either(
+            ac.cata(x => toJsValue(x), \/-(JsNull))
+          ): ET[JsValue]
+        } yield jsVal
+      }
 
     } yield domain.OkResponse(jsVal)
 
@@ -217,13 +248,15 @@ class Endpoints(
   ): Future[Error \/ SearchResult[Error \/ JsValue]] =
     inputAndJwtPayload[JwtPayload](req).map {
       _.map { case (jwt, jwtPayload, _) =>
-        val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
-          contractsService.retrieveAll(jwt, jwtPayload)
+        withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
+          val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
+            contractsService.retrieveAll(jwt, jwtPayload)
 
-        domain.SyncResponse.covariant.map(result) { source =>
-          source
-            .via(handleSourceFailure)
-            .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
+          domain.SyncResponse.covariant.map(result) { source =>
+            source
+              .via(handleSourceFailure)
+              .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
+          }
         }
       }
     }
@@ -233,19 +266,21 @@ class Endpoints(
   ): Future[Error \/ SearchResult[Error \/ JsValue]] =
     inputAndJwtPayload[JwtPayload](req).map {
       _.flatMap { case (jwt, jwtPayload, reqBody) =>
-        SprayJson
-          .decode[domain.GetActiveContractsRequest](reqBody)
-          .liftErr(InvalidUserInput)
-          .map { cmd =>
-            val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[JsValue]] =
-              contractsService.search(jwt, jwtPayload, cmd)
+        withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
+          SprayJson
+            .decode[domain.GetActiveContractsRequest](reqBody)
+            .liftErr[Error](InvalidUserInput)
+            .map { cmd =>
+              val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[JsValue]] =
+                contractsService.search(jwt, jwtPayload, cmd)
 
-            domain.SyncResponse.covariant.map(result) { source =>
-              source
-                .via(handleSourceFailure)
-                .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
+              domain.SyncResponse.covariant.map(result) { source =>
+                source
+                  .via(handleSourceFailure)
+                  .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
+              }
             }
-          }
+        }
       }
     }
 
@@ -307,25 +342,18 @@ class Endpoints(
 
     } yield domain.OkResponse(())
 
-  private def handleFutureEitherFailure[B](fa: Future[Error \/ B])(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+  private def handleFutureEitherFailure[A, B](fa: Future[A \/ B])(implicit
+      A: IntoServerError[A],
+      lc: LoggingContextOf[InstanceUUID with RequestID],
   ): Future[Error \/ B] =
-    fa.recover { case NonFatal(e) =>
+    fa.map(_ leftMap A.run).recover { case NonFatal(e) =>
       logger.error("Future failed", e)
       -\/(ServerError(e.description))
     }
 
-  private def handleFutureEitherFailure[A: Show, B](fa: Future[A \/ B])(implicit
+  private def handleFutureFailure[E >: ServerError, A](fa: Future[A])(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[ServerError \/ B] =
-    fa.map(_.liftErr(ServerError)).recover { case NonFatal(e) =>
-      logger.error("Future failed", e)
-      -\/(ServerError(e.description))
-    }
-
-  private def handleFutureFailure[A](fa: Future[A])(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[ServerError \/ A] =
+  ): Future[E \/ A] =
     fa.map(a => \/-(a)).recover { case NonFatal(e) =>
       logger.error("Future failed", e)
       -\/(ServerError(e.description))
@@ -333,9 +361,9 @@ class Endpoints(
 
   private def handleSourceFailure[E: Show, A](implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Flow[E \/ A, ServerError \/ A, NotUsed] =
+  ): Flow[E \/ A, Error \/ A, NotUsed] =
     Flow
-      .fromFunction((_: E \/ A).liftErr(ServerError))
+      .fromFunction((_: E \/ A).liftErr[Error](ServerError))
       .recover { case NonFatal(e) =>
         logger.error("Source failed", e)
         -\/(ServerError(e.description))
@@ -425,7 +453,7 @@ class Endpoints(
   )(implicit
       parse: ParsePayload[P],
       lc: LoggingContextOf[InstanceUUID with RequestID],
-  ): Future[Unauthorized \/ (Jwt, P, String)] =
+  ): Future[Error \/ (Jwt, P, String)] =
     input(req).map(_.flatMap(withJwtPayload[String, P]))
 
   private[http] def inputJsValAndJwtPayload[P](req: HttpRequest)(implicit
@@ -439,13 +467,13 @@ class Endpoints(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Error \/ (Jwt, Source[ByteString, Any]) =
-    findJwt(req) match {
-      case e @ -\/(_) =>
+    findJwt(req).bimap(
+      { e =>
         discard { req.entity.discardBytes(mat) }
         e
-      case \/-(j) =>
-        \/-((j, req.entity.dataBytes))
-    }
+      },
+      j => (j, req.entity.dataBytes),
+    )
 
   private[this] def findJwt(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -484,7 +512,7 @@ class Endpoints(
       jwtPayload: JwtWritePayload,
       reference: domain.ContractLocator[LfValue],
   )(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID]
   ): Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
       .resolveContractReference(jwt, jwtPayload.parties, reference)
@@ -529,8 +557,16 @@ object Endpoints {
 
   private type LfValue = lf.value.Value[lf.value.Value.ContractId]
 
+  private final class IntoServerError[-A](val run: A => Error) extends AnyVal
+  private object IntoServerError extends IntoServerErrorLow {
+    implicit val id: IntoServerError[Error] = new IntoServerError(identity)
+  }
+  private sealed abstract class IntoServerErrorLow {
+    implicit def shown[A: Show]: IntoServerError[A] = new IntoServerError(a => ServerError(a.shows))
+  }
+
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
-    \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).liftErr(ServerError)
+    \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError)
 
   private def lfValueToApiValue(a: LfValue): Error \/ ApiValue =
     JsValueToApiValueConverter.lfValueToApiValue(a).liftErr(ServerError)

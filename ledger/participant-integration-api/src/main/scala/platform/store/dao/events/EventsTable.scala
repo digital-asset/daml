@@ -125,6 +125,9 @@ private[events] object EventsTable {
       events.headOption.flatMap { first =>
         val flatEvents =
           TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
+        // Allows emitting flat transactions with no events, a use-case needed
+        // for the functioning of DAML triggers.
+        // (more details in https://github.com/digital-asset/daml/issues/6975)
         if (flatEvents.nonEmpty || first.commandId.nonEmpty)
           Some(
             ApiTransaction(

@@ -23,26 +23,25 @@ object WebsocketEndpoints {
   private[http] val tokenPrefix: String = "jwt.token."
   private[http] val wsProtocol: String = "daml.ws.auth"
 
-  private def findJwtFromSubProtocol(
+  private def findJwtFromSubProtocol[Err >: Unauthorized](
       upgradeToWebSocket: WebSocketUpgrade
-  ): Unauthorized \/ Jwt = {
+  ): Err \/ Jwt =
     upgradeToWebSocket.requestedProtocols
       .collectFirst {
         case p if p startsWith tokenPrefix => Jwt(p drop tokenPrefix.length)
       }
       .toRightDisjunction(Unauthorized(s"Missing required $tokenPrefix.[token] in subprotocol"))
-  }
 
-  private def preconnect(
+  private def preconnect[Err >: Unauthorized](
       decodeJwt: ValidateJwt,
       req: WebSocketUpgrade,
       subprotocol: String,
-  ) =
+  ): Err \/ (Jwt, JwtPayload) =
     for {
-      _ <- req.requestedProtocols.contains(subprotocol) either (()) or Unauthorized(
+      _ <- req.requestedProtocols.contains(subprotocol) either (()) or (Unauthorized(
         s"Missing required $tokenPrefix.[token] or $wsProtocol subprotocol"
-      )
-      jwt0 <- findJwtFromSubProtocol(req)
+      ): Err)
+      jwt0 <- findJwtFromSubProtocol[Err](req)
       payload <- decodeAndParsePayload[JwtPayload](jwt0, decodeJwt)
     } yield payload
 }
@@ -68,12 +67,12 @@ class WebsocketEndpoints(
             implicit lc =>
               Future.successful(
                 (for {
-                  upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> InvalidUserInput(
-                    s"Cannot upgrade client's connection to websocket"
-                  )
+                  upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> (InvalidUserInput(
+                    "Cannot upgrade client's connection to websocket"
+                  ): Error)
                   _ = logger.info(s"GOT $wsProtocol")
 
-                  payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
+                  payload <- preconnect[Error](decodeJwt, upgradeReq, wsProtocol)
                   (jwt, jwtPayload) = payload
                 } yield handleWebsocketRequest[domain.SearchForeverRequest](
                   jwt,
@@ -90,10 +89,10 @@ class WebsocketEndpoints(
             implicit lc =>
               Future.successful(
                 (for {
-                  upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> InvalidUserInput(
+                  upgradeReq <- req.attribute(AttributeKeys.webSocketUpgrade) \/> (InvalidUserInput(
                     s"Cannot upgrade client's connection to websocket"
-                  )
-                  payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
+                  ): Error)
+                  payload <- preconnect[Error](decodeJwt, upgradeReq, wsProtocol)
                   (jwt, jwtPayload) = payload
                 } yield handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
                   jwt,

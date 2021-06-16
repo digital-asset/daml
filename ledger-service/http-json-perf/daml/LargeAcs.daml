@@ -4,6 +4,8 @@
 {-# LANGUAGE RecordWildCards #-}
 module LargeAcs where
 
+import DA.Functor (void)
+
 template Genesis with
     issuer : Party
     owner : Party
@@ -18,21 +20,26 @@ template Genesis with
           totalSteps : Int
           amountCycle : [Decimal]
           observersCycle : [[Party]]
+          whichTemplateCycle : [WhichTemplate]
         controller owner
         do
           assert (totalSteps >= 0)
           amounts <- infCycle amountCycle
           observerses <- infCycle observersCycle
-          makeIouRange totalSteps amounts observerses this
+          whichTemplates <- infCycle whichTemplateCycle
+          makeIouRange totalSteps amounts observerses whichTemplates this
 
-makeIouRange : Int -> InfCycle Decimal -> InfCycle [Party] -> Genesis -> Update ()
-makeIouRange count amountCycle observersCycle g =
+makeIouRange : Int -> InfCycle Decimal -> InfCycle [Party] -> InfCycle WhichTemplate -> Genesis -> Update ()
+makeIouRange count amountCycle observersCycle whichTemplateCycle g =
   if count <= 0 then pure () else do
     let Genesis {..} = g
         (amount, amounts) = popCycle amountCycle
         (observers, observerses) = popCycle observersCycle
-    create Iou with ..
-    makeIouRange (count - 1) amounts observerses g
+        (whichTemplate, whichTemplates) = popCycle whichTemplateCycle
+    case whichTemplate of
+      UseIou -> void $ create Iou with ..
+      UseNotIou -> void $ create NotIou with ..
+    makeIouRange (count - 1) amounts observerses whichTemplates g
 
 data InfCycle a = InfCycle { list : [a], orig : [a] }
   deriving (Eq, Ord, Show)
@@ -42,7 +49,7 @@ infCycle xs = do
   assert $ case xs of
       [] -> False
       _::_ -> True
-  pure (InfCycle xs xs)
+  pure (InfCycle [] xs)
 
 popCycle : InfCycle a -> (a, InfCycle a)
 popCycle (InfCycle (x :: xs) orig) = (x, InfCycle xs orig)
@@ -58,8 +65,21 @@ template Iou
     amount : Decimal
     observers : [Party]
   where
-    ensure amount > 0.0
-
     signatory issuer, owner
 
     observer observers
+
+template NotIou
+  with
+    issuer : Party
+    owner : Party
+    currency : Text
+    amount : Decimal
+    observers : [Party]
+  where
+    signatory issuer, owner
+
+    observer observers
+
+data WhichTemplate = UseIou | UseNotIou
+  deriving (Eq, Show)

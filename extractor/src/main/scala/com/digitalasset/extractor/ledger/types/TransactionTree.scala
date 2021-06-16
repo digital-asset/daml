@@ -95,10 +95,10 @@ object TransactionTree {
   }
 
   final implicit class TreeEventKindOps(val kind: api.transaction.TreeEvent.Kind) extends AnyVal {
-    def convert: String \/ Event = kind match {
+    def convert: String \/ Event = (kind match {
       case Kind.Created(event) => event.convert
       case Kind.Exercised(event) => event.convert
       case Kind.Empty => "Unexpected `Empty` event.".left
-    }
+    }).widen
   }
 }

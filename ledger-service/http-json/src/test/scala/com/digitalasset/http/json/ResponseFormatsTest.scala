@@ -82,7 +82,7 @@ class ResponseFormatsTest
     JsObject(map1 ++ map2)
   }
 
-  private lazy val errorOrJsNumber: Gen[DummyError \/ JsNumber] = Gen.frequency(
+  private lazy val errorOrJsNumber: Gen[DummyError \/ JsValue] = Gen.frequency(
     1 -> dummyErrorGen.map(\/.left),
     5 -> jsNumberGen.map(\/.right),
   )

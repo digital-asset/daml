@@ -379,7 +379,7 @@ object Queries {
   }
 
   private[this] def intersperse[A](oaa: OneAnd[Vector, A], a: A): OneAnd[Vector, A] =
-    oaa.copy(tail = oaa.tail.flatMap(Vector(a, _)))
+    OneAnd(oaa.head, oaa.tail.flatMap(Vector(a, _)))
 
   // Like groupBy but split into n maps where n is the longest list under groupBy.
   private[dbbackend] def uniqueSets[A, B](iter: Iterable[(A, B)]): Seq[NonEmpty[Map[A, B]]] =
@@ -729,9 +729,8 @@ private object OracleQueries extends Queries {
   // None if literal is too long
   // ORA-40454: path expression not a literal
   private[this] def oraclePathEscape(readyPath: Cord): Option[Fragment] = for {
-    readyPath <- Some(readyPath)
-    if readyPath.size <= literalStringSizeLimit
-    s = readyPath.toString
+    s <- Some(readyPath.toString)
+    if s.size <= literalStringSizeLimit
     _ = assert(
       !s.startsWith("'") && !s.endsWith("'"),
       "Oracle JSON query syntax doesn't allow ' at beginning or ending",
@@ -765,7 +764,7 @@ private object OracleQueries extends Queries {
     predExtension.cata(
       { case (pred, extension) =>
         sql"JSON_EXISTS(" ++ contractColumnName ++ sql", " ++
-          oracleShortPathEscape(opath ++ pred) ++ extension ++ sql")"
+          oracleShortPathEscape(opath ++ Cord(pred)) ++ extension ++ sql")"
       },
       sql"JSON_EQUAL(JSON_QUERY(" ++ contractColumnName ++ sql", " ++
         oracleShortPathEscape(opath) ++ sql" RETURNING CLOB), $literal)",

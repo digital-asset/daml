@@ -13,7 +13,7 @@ import scalaz.std.map._
 import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.syntax.bifoldable._
-import scalaz.syntax.traverse._
+import scalaz.syntax.foldable._
 import scalaz.syntax.monoid._
 
 import scala.annotation.tailrec

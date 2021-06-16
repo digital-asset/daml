@@ -11,7 +11,7 @@ import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.daml.lf.language.Ast.{Package, PackageSignature}
 import com.daml.lf.language.{Interface, Util => AstUtil}
 import com.daml.lf.speedy.Compiler
-import com.daml.lf.speedy.Compiler.CompilationError
+import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
 import scala.collection.concurrent.{Map => ConcurrentMap}
@@ -61,7 +61,13 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
         if (!signatures.contains(pkgId)) {
 
           val pkg = state.packages.get(pkgId) match {
-            case None => return ResultError(Error.Package.Generic(s"Could not find package $pkgId"))
+            case None =>
+              return ResultError(
+                Error.Package.Internal(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  s"broken invariant: Could not find package $pkgId",
+                )
+              )
             case Some(pkg_) => pkg_
           }
 
@@ -72,7 +78,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                 dependency,
                 {
                   case None =>
-                    ResultError(Error.Package.Generic(s"Could not find package $dependency"))
+                    ResultError(Error.Package.MissingPackage(dependency))
                   case Some(dependencyPkg) =>
                     addPackageInternal(
                       AddPackageState(
@@ -101,10 +107,26 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                 new speedy.Compiler(extendedSignatures, compilerConfig)
                   .unsafeCompilePackage(pkgId, pkg)
               } catch {
-                case CompilationError(msg) =>
-                  return ResultError(Error.Package.Generic(s"Compilation Error: $msg"))
                 case e: validation.ValidationError =>
                   return ResultError(Error.Package.Validation(e))
+                case Compiler.LanguageVersionError(
+                      packageId,
+                      languageVersion,
+                      allowedLanguageVersions,
+                    ) =>
+                  return ResultError(
+                    Error.Package
+                      .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions)
+                  )
+                case Compiler.CompilationError(msg) =>
+                  return ResultError(
+                    // compilation errors are internal since typechecking should
+                    // catch any errors arising during compilation
+                    Error.Package.Internal(
+                      NameOf.qualifiedNameOfCurrentFunc,
+                      s"Compilation Error: $msg",
+                    )
+                  )
               }
             defns.foreach { case (defnId, defn) =>
               definitions.put(defnId, defn)
@@ -142,5 +164,8 @@ object ConcurrentCompiledPackages {
       packages: Map[PackageId, Package], // the packages we're currently compiling
       seenDependencies: Set[PackageId], // the dependencies we've found so far
       toCompile: List[PackageId],
-  )
+  ) {
+    // Invariant
+    // assert(toCompile.forall(packages.contains))
+  }
 }

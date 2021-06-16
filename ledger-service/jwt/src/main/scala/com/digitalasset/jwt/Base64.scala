@@ -27,14 +27,12 @@ private object Base64 {
     encode(encoderWithoutPadding, bs)
 
   private def encode(encoder: java.util.Base64.Encoder, bs: Array[Byte]): Error \/ Array[Byte] =
-    \/.fromTryCatchNonFatal(encoder.encode(bs))
-      .leftMap(e =>
-        Error(Symbol("encode"), "Cannot base64 encode a string. Cause: " + e.getMessage)
-      )
+    \/.attempt(encoder.encode(bs))(e =>
+      Error(Symbol("encode"), "Cannot base64 encode a string. Cause: " + e.getMessage)
+    )
 
   def decode(base64str: String): Error \/ String =
-    \/.fromTryCatchNonFatal(new String(defaultDecoder.decode(base64str)))
-      .leftMap(e =>
-        Error(Symbol("decode"), "Cannot base64 decode a string. Cause: " + e.getMessage)
-      )
+    \/.attempt(new String(defaultDecoder.decode(base64str)))(e =>
+      Error(Symbol("decode"), "Cannot base64 decode a string. Cause: " + e.getMessage)
+    )
 }

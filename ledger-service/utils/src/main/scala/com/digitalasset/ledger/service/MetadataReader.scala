@@ -51,9 +51,9 @@ object MetadataReader {
   private def decodeInterfaceFromArchive(
       a: (Ref.PackageId, DamlLf.ArchivePayload)
   ): Error \/ iface.Interface =
-    \/.fromTryCatchNonFatal {
+    \/.attempt {
       iface.reader.InterfaceReader.readInterface(a)
-    }.leftMap(e => Error(Symbol("decodeInterfaceFromArchive"), e.description))
+    }(e => Error(Symbol("decodeInterfaceFromArchive"), e.description))
       .flatMap { case (errors, out) =>
         if (errors.empty) {
           \/.right(out)

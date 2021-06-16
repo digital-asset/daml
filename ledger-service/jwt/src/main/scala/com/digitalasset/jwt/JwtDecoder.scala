@@ -16,11 +16,8 @@ object JwtDecoder {
   }
 
   def decode(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String] = {
-    \/.fromTryCatchNonFatal(com.auth0.jwt.JWT.decode(jwt.value))
-      .bimap(
-        e => Error(Symbol("decode"), e.getMessage),
-        a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload),
-      )
+    \/.attempt(com.auth0.jwt.JWT.decode(jwt.value))(e => Error(Symbol("decode"), e.getMessage))
+      .map(a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload))
       .flatMap(base64Decode)
   }
 
