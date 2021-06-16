@@ -5,17 +5,18 @@ package com.daml.platform.store.backend.common
 
 import java.sql.Connection
 
-trait Table[FROM] {
+private[backend] trait Table[FROM] {
   def prepareData(in: Vector[FROM]): Array[Array[_]]
   def executeUpdate: Array[Array[_]] => Connection => Unit
 }
 
-abstract class BaseTable[FROM](fields: Seq[(String, Field[FROM, _, _])]) extends Table[FROM] {
+private[backend] abstract class BaseTable[FROM](fields: Seq[(String, Field[FROM, _, _])])
+    extends Table[FROM] {
   override def prepareData(in: Vector[FROM]): Array[Array[_]] =
     fields.view.map(_._2.toArray(in)).toArray
 }
 
-object Table {
+private[backend] object Table {
   def ifNonEmpty(data: Array[Array[_]])(effect: => Any): Unit =
     // data(0) accesses the array of data for the first column of the table. This is safe because tables without columns are not supported. Also because of the transposed data-structure here all columns will have data-arrays of the same length.
     if (data(0).length > 0) {

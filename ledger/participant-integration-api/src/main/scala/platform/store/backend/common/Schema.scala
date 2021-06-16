@@ -10,16 +10,16 @@ import com.daml.platform.store.backend.DbDto
 
 import scala.reflect.ClassTag
 
-trait Schema[FROM] {
+private[backend] trait Schema[FROM] {
   def prepareData(in: Vector[FROM]): Array[Array[Array[_]]]
   def executeUpdate(data: Array[Array[Array[_]]], connection: Connection): Unit
 }
 
-object AppendOnlySchema {
+private[backend] object AppendOnlySchema {
 
   type Batch = Array[Array[Array[_]]]
 
-  trait FieldStrategy {
+  private[backend] trait FieldStrategy {
     def string[FROM, _](extractor: FROM => String): Field[FROM, String, _] =
       StringField(extractor)
 

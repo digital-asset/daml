@@ -7,7 +7,7 @@ import java.sql.Connection
 
 import com.daml.platform.store.backend.common.{BaseTable, Field, Table}
 
-object PGTable {
+private[postgresql] object PGTable {
 
   private def transposedInsertBase[FROM](
       insertStatement: String
