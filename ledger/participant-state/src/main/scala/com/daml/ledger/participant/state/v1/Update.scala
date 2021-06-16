@@ -35,7 +35,7 @@ object Update {
       newConfiguration: Configuration,
   ) extends Update {
     override def description: String =
-      s"Configuration change '$submissionId' from participant '$participantId' accepted with configuration: $newConfiguration"
+      "configuration"
   }
 
   /** Signal that a configuration change submitted by this participant was rejected.
@@ -48,7 +48,7 @@ object Update {
       rejectionReason: String,
   ) extends Update {
     override def description: String = {
-      s"Configuration change '$submissionId' from participant '$participantId' was rejected: $rejectionReason"
+      "configuration rejection"
     }
   }
 
@@ -77,7 +77,7 @@ object Update {
       submissionId: Option[SubmissionId],
   ) extends Update {
     override def description: String =
-      s"Add party '$party' to participant"
+      "party allocation"
   }
 
   /** Signal that the party allocation request has been Rejected.
@@ -109,7 +109,7 @@ object Update {
       rejectionReason: String,
   ) extends Update {
     override val description: String =
-      s"Request to add party to participant with submissionId '$submissionId' failed"
+      "party allocation rejection"
   }
 
   /** Signal that a set of new packages has been uploaded.
@@ -130,7 +130,7 @@ object Update {
       submissionId: Option[SubmissionId],
   ) extends Update {
     override def description: String =
-      s"Public package upload: ${archives.map(_.getHash).mkString(", ")}"
+      "package upload"
   }
 
   /** Signal that a package upload has been rejected.
@@ -148,7 +148,7 @@ object Update {
       rejectionReason: String,
   ) extends Update {
     override def description: String =
-      s"Public package upload rejected, correlationId=$submissionId reason='$rejectionReason'"
+      "package upload rejection'"
   }
 
   /** Signal the acceptance of a transaction.
@@ -192,7 +192,7 @@ object Update {
       divulgedContracts: List[DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ) extends Update {
-    override def description: String = s"Accept transaction $transactionId"
+    override def description: String = "transaction"
   }
 
   /** Signal that a command submitted via [[WriteService]] was rejected.
@@ -206,7 +206,7 @@ object Update {
       reason: RejectionReason,
   ) extends Update {
     override def description: String = {
-      s"Reject command ${submitterInfo.commandId}: $reason"
+      "transaction rejection"
     }
   }
 
