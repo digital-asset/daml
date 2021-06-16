@@ -152,5 +152,8 @@
         "@types/vscode": "1.39",
         "typescript": "3.6.3",
         "vsce": "1.88.0"
+    },
+    "resolutions": {
+        "**/css-what": "^5.0.1"
     }
 }
