@@ -52,15 +52,6 @@ final case class ScenarioRunner(
       case Right(t) => Right(t)
     }
 
-  private[this] def nextSeed(submissionSeed: crypto.Hash): crypto.Hash =
-    crypto.Hash.deriveTransactionSeed(
-      submissionSeed,
-      Ref.ParticipantId.assertFromString("scenario-service"),
-      // MinValue makes no sense here but this is what we did before so
-      // to avoid breaking all tests we keep it for now at least.
-      Time.Timestamp.MinValue,
-    )
-
   private def runUnsafe(): (Double, Int, ScenarioLedger, SValue) = {
     // NOTE(JM): Written with an imperative loop and exceptions for speed
     // and so that we don't need to worry about stack usage.
@@ -92,7 +83,8 @@ final case class ScenarioRunner(
             machine.compiledPackages,
             ScenarioLedgerApi(ledger),
             committers,
-            commands,
+            Set.empty,
+            SExpr.SEValue(commands),
             location,
             seed,
           )
@@ -253,6 +245,7 @@ object ScenarioRunner {
     def currentTime: Time.Timestamp
     def commit(
         committers: Set[Party],
+        readAs: Set[Party],
         location: Option[Location],
         tx: SubmittedTransaction,
     ): Either[SError, R]
@@ -368,12 +361,13 @@ object ScenarioRunner {
     override def currentTime = ledger.currentTime
     override def commit(
         committers: Set[Party],
+        readAs: Set[Party],
         location: Option[Location],
         tx: SubmittedTransaction,
     ): Either[SError, ScenarioLedger.CommitResult] =
       ScenarioLedger.commitTransaction(
         actAs = committers,
-        readAs = Set.empty,
+        readAs = readAs,
         effectiveAt = ledger.currentTime,
         optLocation = location,
         tx = tx,
@@ -390,7 +384,8 @@ object ScenarioRunner {
       compiledPackages: CompiledPackages,
       ledger: LedgerApi[R],
       committers: Set[Party],
-      commands: SValue,
+      readAs: Set[Party],
+      commands: SExpr,
       location: Option[Location],
       seed: crypto.Hash,
   ): SubmissionResult[R] = {
@@ -398,7 +393,7 @@ object ScenarioRunner {
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
       initialSeeding = InitialSeeding.TransactionSeed(seed),
-      expr = SExpr.SEApp(SExpr.SEValue(commands), Array(SExpr.SEValue(SValue.SToken))),
+      expr = SExpr.SEApp(commands, Array(SExpr.SEValue(SValue.SToken))),
       globalCids = Set.empty,
       committers = committers,
     )
@@ -412,7 +407,7 @@ object ScenarioRunner {
         case SResultFinalValue(resultValue) =>
           onLedger.ptxInternal.finish match {
             case PartialTransaction.CompleteTransaction(tx) =>
-              ledger.commit(committers, location, tx) match {
+              ledger.commit(committers, readAs, location, tx) match {
                 case Left(err) => SubmissionError(err, onLedger.ptxInternal, ledgerMachine.traceLog)
                 case Right(r) =>
                   Commit(r, resultValue, onLedger.ptxInternal, ledgerMachine.traceLog)
@@ -423,17 +418,17 @@ object ScenarioRunner {
         case SResultError(err) =>
           SubmissionError(err, onLedger.ptxInternal, ledgerMachine.traceLog)
         case SResultNeedContract(coid, tid @ _, committers, _, cbPresent) =>
-          ledger.lookupContract(coid, committers, Set.empty, cbPresent) match {
+          ledger.lookupContract(coid, committers, readAs, cbPresent) match {
             case Left(err) => SubmissionError(err, onLedger.ptxInternal, ledgerMachine.traceLog)
             case Right(_) => go()
           }
         case SResultNeedKey(keyWithMaintainers, committers, cb) =>
-          ledger.lookupKey(keyWithMaintainers.globalKey, committers, Set.empty, cb) match {
+          ledger.lookupKey(keyWithMaintainers.globalKey, committers, readAs, cb) match {
             case Left(err) => SubmissionError(err, onLedger.ptxInternal, ledgerMachine.traceLog)
             case Right(_) => go()
           }
         case SResultNeedLocalKeyVisible(stakeholders, committers, cb) =>
-          val visible = SVisibleByKey.fromSubmitters(committers, Set.empty)(stakeholders)
+          val visible = SVisibleByKey.fromSubmitters(committers, readAs)(stakeholders)
           cb(visible)
           go()
         case SResultNeedTime(callback) =>
@@ -451,4 +446,13 @@ object ScenarioRunner {
     }
     go()
   }
+
+  private[lf] def nextSeed(submissionSeed: crypto.Hash): crypto.Hash =
+    crypto.Hash.deriveTransactionSeed(
+      submissionSeed,
+      Ref.ParticipantId.assertFromString("scenario-service"),
+      // MinValue makes no sense here but this is what we did before so
+      // to avoid breaking all tests we keep it for now at least.
+      Time.Timestamp.MinValue,
+    )
 }

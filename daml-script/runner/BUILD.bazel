@@ -56,7 +56,6 @@ da_scala_library(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
-        "//libs-scala/scala-utils",
     ],
 )
 

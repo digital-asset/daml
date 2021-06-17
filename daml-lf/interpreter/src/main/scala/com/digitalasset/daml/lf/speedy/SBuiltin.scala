@@ -1310,10 +1310,7 @@ private[lf] object SBuiltin {
           commands = args.get(1),
           location = optLocation,
           mustFail = mustFail,
-          callback = newValue => {
-            machine.clearCommit
-            machine.returnValue = newValue
-          },
+          callback = newValue => machine.returnValue = newValue,
         )
       )
     }

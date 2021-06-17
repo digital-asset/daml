@@ -9,13 +9,15 @@ import com.daml.ledger.api.domain.PartyDetails
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.scenario.ScenarioLedger.RichTransaction
 import com.daml.lf.speedy.SError._
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.Speedy.{Machine, OffLedger, OnLedger}
-import com.daml.lf.speedy.{PartialTransaction, SValue, ScenarioRunner, TraceLog}
+import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.{
+  InitialSeeding,
+  PartialTransaction,
+  RingBufferTraceLog,
+  ScenarioRunner,
+  TraceLog,
+}
 import com.daml.lf.transaction.Node.{
   NodeRollback,
   NodeCreate,
@@ -23,60 +25,63 @@ import com.daml.lf.transaction.Node.{
   NodeFetch,
   NodeLookupByKey,
 }
-import com.daml.lf.transaction.{GlobalKey, NodeId}
+import com.daml.lf.transaction.{ContractKeyUniquenessMode, GlobalKey, NodeId, TransactionVersion}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf._
-import com.daml.scalautil.Statement.discard
 import com.daml.script.converter.ConverterException
 import io.grpc.StatusRuntimeException
+import org.slf4j.LoggerFactory
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.set._
 import scalaz.syntax.foldable._
 
 import scala.collection.compat.immutable.LazyList
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 // Client for the script service.
 class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClient {
-  class ArrayBufferTraceLog extends TraceLog {
-    val buffer = ArrayBuffer[(String, Option[Location])]()
-    override def add(message: String, optLocation: Option[Location]): Unit = {
-      discard { buffer.append((message, optLocation)) }
-    }
-    override def iterator: Iterator[(String, Option[Location])] = {
-      buffer.iterator
-    }
-    def clear: Unit = buffer.clear()
-  }
+  private val pkg2TxVersion =
+    compiledPackages.interface.packageLanguageVersion.andThen(
+      TransactionVersion.assignNodeVersion
+    )
+  private val contractKeyUniqueness = ContractKeyUniquenessMode.On
+  private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
 
-  val traceLog = new ArrayBufferTraceLog()
+  import IdeLedgerClient.SubmissionCache
+
+  private var seed = crypto.Hash.hashPrivateKey(s"script-service")
+
+  private var _lastSubmission: Option[SubmissionCache] = None
+
+  private[this] def emptyPtx: PartialTransaction = PartialTransaction.initial(
+    pkg2TxVersion,
+    contractKeyUniqueness,
+    ledger.currentTime,
+    InitialSeeding.TransactionSeed(seed),
+  )
+
+  private[this] def clearPtx(): Unit =
+    _lastSubmission = _lastSubmission.map(cache =>
+      cache.copy(
+        ptx = emptyPtx
+      )
+    )
+
+  def lastSubmission: SubmissionCache = _lastSubmission.getOrElse(
+    SubmissionCache(
+      ptx = emptyPtx,
+      traceLog = RingBufferTraceLog(damlTraceLog, 100),
+      commitLocation = None,
+    )
+  )
 
   private[this] val preprocessor = new engine.preprocessing.CommandPreprocessor(compiledPackages)
 
-  private val seed = crypto.Hash.hashPrivateKey(s"script-service")
-
-  private val txSeeding =
-    speedy.InitialSeeding.TransactionSeed(seed)
-
-  // Machine for submissions.
-  val machine = Machine(
-    compiledPackages,
-    submissionTime = Time.Timestamp.Epoch,
-    initialSeeding = txSeeding,
-    expr = null,
-    globalCids = Set.empty,
-    committers = Set.empty,
-    traceLog = traceLog,
-  )
-  val onLedger = machine.ledgerMode match {
-    case OffLedger => throw SRequiresOnLedger("ScenarioRunner")
-    case onLedger: OnLedger => onLedger
-  }
-  val scenarioRunner = ScenarioRunner(machine, seed)
+  private var _ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
+  def ledger: ScenarioLedger = _ledger
 
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
@@ -84,9 +89,9 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
-    val acs = scenarioRunner.ledger.query(
+    val acs = ledger.query(
       view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
-      effectiveAt = scenarioRunner.ledger.currentTime,
+      effectiveAt = ledger.currentTime,
     )
     val filtered = acs.collect {
       case ScenarioLedger.LookupOk(cid, Value.ContractInst(tpl, arg, _), stakeholders)
@@ -106,9 +111,9 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Option[ScriptLedgerClient.ActiveContract]] = {
-    scenarioRunner.ledger.lookupGlobalContract(
+    ledger.lookupGlobalContract(
       view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
-      effectiveAt = scenarioRunner.ledger.currentTime,
+      effectiveAt = ledger.currentTime,
       cid,
     ) match {
       case ScenarioLedger.LookupOk(_, Value.ContractInst(_, arg, _), stakeholders)
@@ -137,7 +142,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       .build(templateId, key.toValue)
       .fold(err => Future.failed(new ConverterException(err)), Future.successful(_))
       .flatMap { gkey =>
-        scenarioRunner.ledger.ledgerData.activeKeys.get(gkey) match {
+        ledger.ledgerData.activeKeys.get(gkey) match {
           case None => Future.successful(None)
           case Some(cid) => queryContractId(parties, templateId, cid)
         }
@@ -151,85 +156,24 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       commands: List[command.ApiCommand],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext): Future[
-    Either[StatusRuntimeException, RichTransaction]
+    ScenarioRunner.SubmissionResult[ScenarioLedger.CommitResult]
   ] =
     Future {
-      // Clear state at the beginning like in SBSBeginCommit for scenarios.
-      machine.returnValue = null
-      onLedger.commitLocation = optLocation
-      onLedger.globalDiscriminators = Set.empty
-      onLedger.cachedContracts = Map.empty
       val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))._1
       val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
-      machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
-      onLedger.committers = actAs.toSet
-      var result: RichTransaction = null
-      while (result == null) {
-        machine.run() match {
-          case SResultNeedContract(coid, tid @ _, committers @ _, _, cbPresent) =>
-            discard {
-              ScenarioRunner
-                .ScenarioLedgerApi(scenarioRunner.ledger)
-                .lookupContract(coid, actAs.toSet, readAs, cbPresent)
-                .toTry
-                .get
-            }
-          case SResultNeedKey(keyWithMaintainers, committers @ _, cb) =>
-            ScenarioRunner
-              .ScenarioLedgerApi(scenarioRunner.ledger)
-              .lookupKey(keyWithMaintainers.globalKey, actAs.toSet, readAs, cb)
-              .toTry
-              .get
-          case SResultNeedLocalKeyVisible(stakeholders, committers @ _, cb) =>
-            val visible = SVisibleByKey.fromSubmitters(actAs.toSet, readAs)(stakeholders)
-            cb(visible)
-          case SResultFinalValue(SUnit) =>
-            onLedger.ptxInternal.finish match {
-              case PartialTransaction.CompleteTransaction(tx) =>
-                ScenarioLedger.commitTransaction(
-                  actAs = actAs.toSet,
-                  readAs = readAs,
-                  effectiveAt = scenarioRunner.ledger.currentTime,
-                  optLocation = onLedger.commitLocation,
-                  tx = tx,
-                  l = scenarioRunner.ledger,
-                ) match {
-                  case Left(fas) =>
-                    // Capture the error and exit.
-                    throw ScenarioErrorCommitError(fas)
-                  case Right(commitResult) =>
-                    scenarioRunner.ledger = commitResult.newLedger
-                    // Capture the result and exit.
-                    result = commitResult.richTransaction
-                }
-              case PartialTransaction.IncompleteTransaction(ptx) =>
-                throw new RuntimeException(s"Unexpected abort: $ptx")
-            }
-          case SResultFinalValue(v) =>
-            // The final result should always be unit.
-            throw new RuntimeException(s"FATAL: Unexpected non-unit final result: $v")
-          case _: SResultScenarioSubmit =>
-            throw new RuntimeException("FATAL: Encountered scenario submit in Daml Script")
-          case SResultError(err) =>
-            // Capture the error and exit.
-            throw err
-          case SResultNeedTime(callback) =>
-            callback(scenarioRunner.ledger.currentTime)
-          case SResultNeedPackage(pkg, callback @ _) =>
-            throw new RuntimeException(
-              s"FATAL: Missing package $pkg should have been reported at Script compilation"
-            )
-          case SResultScenarioPassTime(relTime @ _, callback @ _) =>
-            throw new RuntimeException(
-              "FATAL: Encountered scenario instruction setTime in Daml Script"
-            )
-          case SResultScenarioGetParty(partyText @ _, callback @ _) =>
-            throw new RuntimeException(
-              "FATAL: Encountered scenario instruction getParty in Daml Script"
-            )
-        }
-      }
-      Right(result)
+
+      val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
+      val result = ScenarioRunner.submit(
+        compiledPackages,
+        ledgerApi,
+        actAs.toSet,
+        readAs,
+        translated,
+        optLocation,
+        seed,
+      )
+      _lastSubmission = Some(SubmissionCache(result.traceLog, result.ptx, optLocation))
+      result
     }
 
   override def submit(
@@ -242,10 +186,13 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       mat: Materializer,
   ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] =
     unsafeSubmit(actAs, readAs, commands, optLocation).map {
-      case Right(richTransaction) =>
-        val transaction = richTransaction.transaction
-        // Expected successful commit so clear.
-        machine.clearCommit
+      case ScenarioRunner.Commit(result, _, _, _) =>
+        _ledger = result.newLedger
+        seed = ScenarioRunner.nextSeed(
+          crypto.Hash.deriveNodeSeed(seed, result.richTransaction.transaction.roots.length)
+        )
+        clearPtx()
+        val transaction = result.richTransaction.transaction
         def convRootEvent(id: NodeId): ScriptLedgerClient.CommandResult = {
           val node = transaction.nodes.getOrElse(
             id,
@@ -264,10 +211,10 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
           }
         }
         Right(transaction.roots.toSeq.map(convRootEvent(_)))
-      case Left(err) =>
+      case ScenarioRunner.SubmissionError(err, _, _) =>
         // Unexpected failure, do not clear so we can display the partial
         // transaction.
-        Left(err)
+        throw err
     }
 
   override def submitMustFail(
@@ -278,15 +225,14 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]] = {
     unsafeSubmit(actAs, readAs, commands, optLocation)
       .map({
-        case Right(_) => Left(())
-        // We don't expect to hit this case but list it for completeness.
-        case Left(_) => Right(())
-      })
-      .recoverWith({ case _: SError =>
-        // Expected failed commit so clear, we do not clear on
-        // unexpected successes to keep the partial transaction.
-        machine.clearCommit
-        Future.successful(Right(()))
+        case _: ScenarioRunner.Commit[_] => Left(())
+        case error: ScenarioRunner.SubmissionError =>
+          _ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)
+          seed = ScenarioRunner.nextSeed(
+            error.ptx.unwind.context.nextActionChildSeed
+          )
+          clearPtx()
+          Right(())
       })
   }
 
@@ -300,10 +246,13 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       mat: Materializer,
   ): Future[ScriptLedgerClient.TransactionTree] = {
     unsafeSubmit(actAs, readAs, commands, optLocation).map {
-      case Right(richTransaction) =>
-        // Expected successful commit so clear.
-        machine.clearCommit
-        val transaction = richTransaction.transaction
+      case ScenarioRunner.Commit(result, _, _, _) =>
+        _ledger = result.newLedger
+        seed = ScenarioRunner.nextSeed(
+          crypto.Hash.deriveNodeSeed(seed, result.richTransaction.transaction.roots.length)
+        )
+        clearPtx()
+        val transaction = result.richTransaction.transaction
         def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
           transaction.nodes(id) match {
             case create: NodeCreate[ContractId] =>
@@ -323,14 +272,14 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
         ScriptLedgerClient.TransactionTree(
           transaction.roots.collect(Function.unlift(convEvent(_))).toList
         )
-      case Left(err) => throw new IllegalStateException(err)
+      case ScenarioRunner.SubmissionError(err, _, _) => throw new IllegalStateException(err)
     }
   }
 
   // All parties known to the ledger. This may include parties that were not
   // allocated explicitly, e.g. parties created by `partyFromText`.
   private def getLedgerParties(): Iterable[Ref.Party] = {
-    scenarioRunner.ledger.ledgerData.nodeInfos.values.flatMap(_.disclosures.keys)
+    ledger.ledgerData.nodeInfos.values.flatMap(_.disclosures.keys)
   }
 
   override def allocateParty(partyIdHint: String, displayName: String)(implicit
@@ -374,7 +323,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Time.Timestamp] = {
-    Future.successful(scenarioRunner.ledger.currentTime)
+    Future.successful(ledger.currentTime)
   }
 
   override def setStaticTime(time: Time.Timestamp)(implicit
@@ -382,13 +331,22 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = {
-    val diff = time.micros - scenarioRunner.ledger.currentTime.micros
+    val diff = time.micros - ledger.currentTime.micros
     // ScenarioLedger only provides pass, so we have to calculate the diff.
     // Note that ScenarioLedger supports going backwards in time.
-    scenarioRunner.ledger = scenarioRunner.ledger.passTime(diff)
+    _ledger = ledger.passTime(diff)
     Future.unit
   }
 
-  override def tracelogIterator = traceLog.iterator
-  override def clearTracelog = traceLog.clear
+  override def tracelogIterator =
+    _lastSubmission.map(_.traceLog.iterator).getOrElse(Iterator.empty)
+}
+
+object IdeLedgerClient {
+  // Data cached from the last submission so we can pluck it out the client at the end.
+  case class SubmissionCache(
+      traceLog: TraceLog,
+      ptx: PartialTransaction,
+      commitLocation: Option[Location],
+  )
 }

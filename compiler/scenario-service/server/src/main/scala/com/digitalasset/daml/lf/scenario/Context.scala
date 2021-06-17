@@ -190,7 +190,9 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Option[(ScenarioLedger, (Speedy.Machine, Speedy.Machine), Either[SError, SValue])]] = {
+  ): Future[Option[
+    (ScenarioLedger, (Speedy.Machine, IdeLedgerClient.SubmissionCache), Either[SError, SValue])
+  ]] = {
     val defns = this.defns
     val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
     val expectedScriptId = DottedName.assertFromString("Daml.Script")
@@ -220,7 +222,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
         clientMachine.traceLog.add(msg, optLoc)
       }
       Success(
-        Some((ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Left(e)))
+        Some((ledgerClient.ledger, (clientMachine, ledgerClient.lastSubmission), Left(e)))
       )
     }
 
@@ -228,7 +230,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       case Success(v) =>
         Success(
           Some(
-            (ledgerClient.scenarioRunner.ledger, (clientMachine, ledgerClient.machine), Right(v))
+            (ledgerClient.ledger, (clientMachine, ledgerClient.lastSubmission), Right(v))
           )
         )
       case Failure(e: SError) => handleFailure(e)

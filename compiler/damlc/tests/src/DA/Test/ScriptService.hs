@@ -367,7 +367,7 @@ main =
                         "  pure ()"
                       ]
                   expectScriptSuccess rs (vr "testAssertFail") $ \r ->
-                    matchRegex r "Active contracts:  #0:0, #1:0\n\nReturn value: {}\n\n$"
+                    matchRegex r "Active contracts:  #0:0, #2:0\n\nReturn value: {}\n\n$"
                   pure (),
               testCase "contract keys" $ do
                 rs <-
@@ -667,7 +667,7 @@ main =
                     , "  submitMulti [p0] [p1] (createCmd (T p0 p1))"
                     ]
                 expectScriptSuccess rs (vr "testSucceed") $ \r ->
-                  matchRegex r "Active contracts:  #0:0, #1:0"
+                  matchRegex r "Active contracts:  #2:0, #3:0"
                 expectScriptFailure rs (vr "testFail") $ \r ->
                   matchRegex r "missing authorization from 'p1'",
               testCase "submitTree" $ do
@@ -816,7 +816,7 @@ main =
 matchRegex :: T.Text -> T.Text -> Bool
 matchRegex s regex = matchTest (makeRegex regex :: Regex) s
 
-expectScriptSuccess ::
+expectScriptSuccess :: HasCallStack =>
   -- | The list of script results.
   [(VirtualResource, Either T.Text T.Text)] ->
   -- | VR of the script

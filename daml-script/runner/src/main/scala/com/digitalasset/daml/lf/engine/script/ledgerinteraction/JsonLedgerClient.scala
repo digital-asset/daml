@@ -453,7 +453,6 @@ class JsonLedgerClient(
   }
 
   override def tracelogIterator = Iterator.empty
-  override def clearTracelog = ()
 }
 
 object JsonLedgerClient {
