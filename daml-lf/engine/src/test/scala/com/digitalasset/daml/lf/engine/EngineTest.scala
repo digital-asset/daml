@@ -221,7 +221,9 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
-      res shouldBe a[Left[_, _]]
+      inside(res) { case Left(Error.Preprocessing(error)) =>
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
+      }
     }
 
     "translate exercise commands argument including labels" in {
@@ -298,7 +300,10 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
-      res.left.value.msg should startWith("Missing record label n for record")
+      inside(res) { case Left(Error.Preprocessing(error)) =>
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
+        error.msg should startWith("Missing record label n for record")
+      }
     }
 
     "not translate exercise-by-key commands if the template specifies no key" in {
@@ -313,9 +318,9 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
-      res.left.value.msg should startWith(
-        s"template without contract key $templateId"
-      )
+      inside(res) { case Left(Error.Preprocessing(Error.Preprocessing.Lookup(error))) =>
+        error shouldBe a[language.LookupError.TemplateKey]
+      }
     }
 
     "not translate exercise-by-key commands if the given key does not match the type specified in the template" in {
@@ -330,7 +335,9 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
-      res.left.value.msg should startWith("mismatching type")
+      inside(res) { case Left(Error.Preprocessing(error)) =>
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
+      }
     }
 
     "translate create-and-exercise commands argument including labels" in {
@@ -394,7 +401,9 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
-      res shouldBe a[Left[_, _]]
+      inside(res) { case Left(Error.Preprocessing(error)) =>
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
+      }
     }
 
     "not translate create-and-exercise commands argument wrong label in choice arguments" in {
@@ -413,7 +422,9 @@ class EngineTest
       val res = preprocessor
         .preprocessCommands(ImmArray(command))
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
-      res shouldBe a[Left[_, _]]
+      inside(res) { case Left(Error.Preprocessing(error)) =>
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
+      }
     }
 
     "translate Optional values" in {
@@ -451,12 +462,15 @@ class EngineTest
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
       val wrongRecord =
         ValueRecord(Some(id), ImmArray(Some[Name]("wrongLbl") -> ValueText("foo")))
-      translator
+      val res = translator
         .translateValue(
           TTyConApp(id, ImmArray.empty),
           wrongRecord,
         )
-        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible) shouldBe a[Left[_, _]]
+        .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
+      inside(res) { case Left(Error.Preprocessing(error)) =>
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
+      }
     }
   }
 
@@ -1242,7 +1256,9 @@ class EngineTest
         )
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
 
-      res shouldBe a[Left[_, _]]
+      inside(res) { case Left(Error.Preprocessing(error)) =>
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
+      }
     }
 
     "work with fields without labels, in right order" in {
@@ -1282,7 +1298,9 @@ class EngineTest
         )
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
 
-      res shouldBe a[Left[_, _]]
+      inside(res) { case Left(Error.Preprocessing(error)) =>
+        error shouldBe a[Error.Preprocessing.TypeMismatch]
+      }
     }
 
   }
