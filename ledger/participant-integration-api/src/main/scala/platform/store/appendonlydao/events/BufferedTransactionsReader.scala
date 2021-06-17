@@ -4,7 +4,7 @@
 package com.daml.platform.store.appendonlydao.events
 
 import akka.NotUsed
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.transaction.{TransactionTree, Transaction => FlatTransaction}
@@ -15,7 +15,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
-import com.daml.logging.LoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, Metrics, Timed}
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.getTransactions
 import com.daml.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
@@ -36,7 +36,7 @@ private[events] class BufferedTransactionsReader(
 )(implicit executionContext: ExecutionContext)
     extends LedgerDaoTransactionsReader {
 
-  private val outputStreamBufferSize = 128
+  private val OutputStreamBufferSize = 128
 
   override def getFlatTransactions(
       startExclusive: Offset,
@@ -55,7 +55,7 @@ private[events] class BufferedTransactionsReader(
       bufferSizeCounter =
         // TODO in-memory fan-out: Specialize the metric per consumer
         metrics.daml.services.index.flatTransactionsBufferSize,
-      outputStreamBufferSize = outputStreamBufferSize,
+      outputStreamBufferSize = OutputStreamBufferSize,
     )
 
   override def getTransactionTrees(
@@ -77,7 +77,7 @@ private[events] class BufferedTransactionsReader(
       bufferSizeCounter =
         // TODO in-memory fan-out: Specialize the metric per consumer
         metrics.daml.services.index.transactionTreesBufferSize,
-      outputStreamBufferSize = outputStreamBufferSize,
+      outputStreamBufferSize = OutputStreamBufferSize,
     )
 
   override def lookupFlatTransactionById(
@@ -118,6 +118,7 @@ private[events] class BufferedTransactionsReader(
 private[platform] object BufferedTransactionsReader {
   type FetchTransactions[FILTER, API_RESPONSE] =
     (Offset, Offset, FILTER, Boolean) => Source[(Offset, API_RESPONSE), NotUsed]
+  private val logger = ContextualizedLogger.get(getClass)
 
   def apply(
       delegate: LedgerDaoTransactionsReader,
@@ -154,7 +155,11 @@ private[platform] object BufferedTransactionsReader {
       totalRetrievedCounter: Counter,
       outputStreamBufferSize: Int,
       bufferSizeCounter: Counter,
-  )(implicit executionContext: ExecutionContext): Source[(Offset, API_RESPONSE), NotUsed] = {
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContext,
+  ): Source[(Offset, API_RESPONSE), NotUsed] = {
+
     def filterBuffered(
         slice: Vector[(Offset, TransactionLogUpdate)]
     ): Future[Iterator[(Offset, API_RESPONSE)]] =
@@ -170,40 +175,69 @@ private[platform] object BufferedTransactionsReader {
           offset -> apiResponseCtor(Seq(tx))
         })
 
-    val transactionsSource = Timed.source(
-      sourceTimer, {
-        // TODO Scala 2.13.5: Remove the @unchecked once migrated to Scala 2.13.5 where this false positive exhaustivity check for Vectors is fixed
-        (transactionsBuffer.slice(startExclusive, endInclusive): @unchecked) match {
-          case BufferSlice.Empty =>
-            fetchTransactions(startExclusive, endInclusive, filter, verbose)
-
-          // TODO in-memory fan-out: Implement and use Offset.predecessor
-          case BufferSlice.Prefix(slice) if slice.size <= 1 =>
-            fetchTransactions(startExclusive, endInclusive, filter, verbose)
-
-          // TODO in-memory fan-out: Implement and use Offset.predecessor
-          case BufferSlice.Prefix((firstOffset: Offset, _) +: tl) =>
-            fetchTransactions(startExclusive, firstOffset, filter, verbose)
-              .concat(
-                Source.futureSource(filterBuffered(tl).map(it => Source.fromIterator(() => it)))
-              )
-              .mapMaterializedValue(_ => NotUsed)
-
-          case BufferSlice.Inclusive(slice) =>
-            Source
-              .futureSource(filterBuffered(slice).map(it => Source.fromIterator(() => it)))
-              .mapMaterializedValue(_ => NotUsed)
-        }
-      }.map(tx => {
-        totalRetrievedCounter.inc()
-        tx
-      }),
+    val timedTransactionsSource = Timed.source(
+      sourceTimer,
+      buildTransactionsSource(
+        transactionsBuffer,
+        startExclusive,
+        endInclusive,
+        filter,
+        verbose,
+        fetchTransactions,
+        filterBuffered,
+      ),
     )
 
     InstrumentedSource.bufferedSource(
-      original = transactionsSource,
+      original = timedTransactionsSource.alsoTo(Sink.foreach(_ => totalRetrievedCounter.inc())),
       counter = bufferSizeCounter,
       size = outputStreamBufferSize,
     )
   }
+
+  private def buildTransactionsSource[API_RESPONSE, API_TX, FILTER](
+      transactionsBuffer: EventsBuffer[Offset, TransactionLogUpdate],
+      startExclusive: Offset,
+      endInclusive: Offset,
+      filter: FILTER,
+      verbose: Boolean,
+      fetchTransactions: FetchTransactions[FILTER, API_RESPONSE],
+      filterBuffered: Vector[(Offset, TransactionLogUpdate)] => Future[
+        Iterator[(Offset, API_RESPONSE)]
+      ],
+  )(implicit
+      loggingContext: LoggingContext,
+      executionContext: ExecutionContext,
+  ): Source[(Offset, API_RESPONSE), NotUsed] =
+    // TODO Scala 2.13.5: Remove the @unchecked once migrated to Scala 2.13.5 where this false positive exhaustivity check for Vectors is fixed
+    (transactionsBuffer.slice(startExclusive, endInclusive): @unchecked) match {
+      case BufferSlice.Empty =>
+        fetchTransactions(startExclusive, endInclusive, filter, verbose)
+
+      case BufferSlice.Prefix(buffered @ (bufferedStartInclusive, _) +: _) =>
+        val fetchEndInclusive = bufferedStartInclusive.predecessor
+
+        val bufferedSource = Source.futureSource(
+          filterBuffered(buffered).map(it => Source.fromIterator(() => it))
+        )
+
+        val source =
+          if (fetchEndInclusive > startExclusive)
+            fetchTransactions(startExclusive, fetchEndInclusive, filter, verbose)
+              .concat(bufferedSource)
+          else bufferedSource
+
+        source.mapMaterializedValue(_ => NotUsed)
+
+      case BufferSlice.Inclusive(slice) =>
+        Source
+          .futureSource(filterBuffered(slice).map(it => Source.fromIterator(() => it)))
+          .mapMaterializedValue(_ => NotUsed)
+
+      case BufferSlice.Prefix(Vector()) =>
+        val className = classOf[BufferSlice.Prefix[_]].getSimpleName
+        logger.warn(s"Unexpected empty vector in $className")
+
+        fetchTransactions(startExclusive, endInclusive, filter, verbose)
+    }
 }

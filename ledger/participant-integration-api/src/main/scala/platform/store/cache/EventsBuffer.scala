@@ -107,7 +107,8 @@ private[platform] final class EventsBuffer[O: Ordering, E](
           val vectorSlice =
             bufferSnapshot.vector.slice(bufferStartInclusiveIdx, bufferEndExclusiveIdx)
 
-          if (bufferStartInclusiveIdx == 0) Prefix(vectorSlice)
+          if (vectorSlice.isEmpty) Empty
+          else if (bufferStartInclusiveIdx == 0) Prefix(vectorSlice)
           else Inclusive(vectorSlice)
         }
       },

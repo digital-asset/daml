@@ -10,6 +10,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.Offset
+import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReader.FetchTransactions
 import com.daml.platform.store.appendonlydao.events.BufferedTransactionsReaderSpec.{
@@ -31,6 +32,7 @@ class BufferedTransactionsReaderSpec
     with Matchers
     with BeforeAndAfterAll {
   private val actorSystem = ActorSystem()
+  private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
   private implicit val materializer: Materializer = Materializer(actorSystem)
 
   "getTransactions" when {
@@ -40,8 +42,9 @@ class BufferedTransactionsReaderSpec
       (offset2, update2),
       (offset3, update3),
       (offset4, update4),
+      (_, update5),
     ) =
-      (1 to 4).map { idx =>
+      (1 to 5).map { idx =>
         Offset.fromByteArray(BigInt(idx * 2 + 1234).toByteArray) -> transactionLogUpdate(s"tx-$idx")
       }
 
@@ -54,7 +57,8 @@ class BufferedTransactionsReaderSpec
       (apiTx2, apiResponse2),
       (apiTx3, apiResponse3),
       (apiTx4, apiResponse4),
-    ) = (1 to 4).map(idx => s"Some API TX $idx" -> s"Some API response $idx from buffer")
+      (apiTx5, _),
+    ) = (1 to 5).map(idx => s"Some API TX $idx" -> s"Some API response $idx from buffer")
 
     val toApiTx: (TransactionLogUpdate, Object, Boolean) => Future[Option[String]] = {
       case (`update1`, `otherFilter`, false) => Future.successful(None)
@@ -62,6 +66,7 @@ class BufferedTransactionsReaderSpec
       case (`update2`, `filter`, false) => Future.successful(Some(apiTx2))
       case (`update3`, `filter`, false) => Future.successful(Some(apiTx3))
       case (`update4`, `filter`, false) => Future.successful(Some(apiTx4))
+      case (`update5`, `filter`, false) => Future.successful(Some(apiTx5))
       case unexpected => fail(s"Unexpected $unexpected")
     }
 
@@ -85,7 +90,7 @@ class BufferedTransactionsReaderSpec
         startExclusive: Offset,
         endInclusive: Offset,
         fetchTransactions: FetchTransactions[Object, String],
-    ) =
+    )(implicit loggingContext: LoggingContext) =
       BufferedTransactionsReader
         .getTransactions(eventsBuffer)(
           startExclusive = startExclusive,
@@ -145,7 +150,8 @@ class BufferedTransactionsReaderSpec
           startExclusive = offset1,
           endInclusive = offset3,
           fetchTransactions = {
-            case (`offset1`, `offset2`, `filter`, false) =>
+            case (`offset1`, endInclusive, `filter`, false)
+                if endInclusive == offset3.predecessor =>
               Source.single(offset2 -> anotherResponseForOffset2)
             case unexpected =>
               fail(s"Unexpected fetch transactions subscription start: $unexpected")

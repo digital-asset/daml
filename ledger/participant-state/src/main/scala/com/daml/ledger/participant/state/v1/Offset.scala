@@ -29,6 +29,37 @@ final case class Offset(bytes: Bytes) extends Ordered[Offset] {
   def toInputStream: InputStream = bytes.toInputStream
 
   def toHexString: Ref.HexString = bytes.toHexString
+
+  /** Returns the next smaller offset (lexicographically).
+    *
+    * NOTE: The usage of this method is correct under the assumption that the string length of any offset
+    * in the given series is constant (i.e. we imply a finite number of offsets in any given range)
+    *
+    * @return A new offset with the same underlying byte array size which is one unit smaller
+    *          than the current offset.
+    */
+  def predecessor: Offset = {
+    def lexicographicalPredecessor(bytes: Bytes): Bytes = {
+      val unsigned = bytes.toByteArray.map(_ & 255)
+      val raw = unsigned
+        .foldRight((Array.newBuilder[Int], true)) { case (b, (p, carry)) =>
+          if (b == 0 && carry) (p.addOne(255), true)
+          else (p.addOne(b - { if (carry) 1 else 0 }), false)
+        }
+        ._1
+        .result()
+        .map(_.toByte)
+      Bytes.fromByteArray(raw.reverse)
+    }
+
+    if (bytes.isEmpty || BigInt(toByteArray) == BigInt(0)) {
+      val errMsg = this match {
+        case Offset.beforeBegin => "Predecessor of beforeBegin not supported"
+        case _ => s"Predecessor of $toHexString not supported"
+      }
+      throw new UnsupportedOperationException(errMsg)
+    } else Offset(lexicographicalPredecessor(bytes))
+  }
 }
 
 object Offset {
