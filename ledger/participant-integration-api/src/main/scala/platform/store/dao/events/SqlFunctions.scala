@@ -67,8 +67,8 @@ private[dao] object SqlFunctions {
       val NumExtraChars = 20
       val OracleMaxStringLiteralLength = 4000
 
-      val groupedParties = parties.foldLeft((List.empty[List[String]], 0))({
-        case ((prev, currentLength), party) =>
+      val groupedParties =
+        parties.foldLeft((List.empty[List[String]], 0))({ case ((prev, currentLength), party) =>
           if (
             currentLength + party.length + NumCharsBetweenParties > OracleMaxStringLiteralLength
           ) {
@@ -80,7 +80,7 @@ private[dao] object SqlFunctions {
               case Nil => (List(party) :: Nil, party.length + NumExtraChars)
             }
           }
-      })
+        })
       "(" + groupedParties._1
         .map { listOfParties =>
           s"""JSON_EXISTS($arrayColumn, '$$[*]?(@ in ("${listOfParties.mkString("""","""")}"))')"""
