@@ -48,7 +48,7 @@ private[platform] object DbType {
     case pg if pg.startsWith("jdbc:postgresql:") => Postgres
     case oracle if oracle.startsWith("jdbc:oracle:") => Oracle
     case _ =>
-      sys.error(s"JDBC URL doesn't match any supported databases (h2, pg, oracle)")
+      sys.error(s"JDBC URL '$jdbcUrl' does not match any supported database (h2, postgresql, oracle)")
   }
 
   sealed trait AsyncCommitMode {
