@@ -343,7 +343,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           return ResultNeedKey(
             gk,
             result =>
-              if (cb(SKeyLookupResult(result)))
+              if (cb(result))
                 interpretLoop(machine, time)
               else
                 ResultError(Error.Interpretation.ContractKeyNotFound(gk.globalKey)),

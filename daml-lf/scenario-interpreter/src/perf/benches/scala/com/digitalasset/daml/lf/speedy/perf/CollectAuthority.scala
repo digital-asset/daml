@@ -198,7 +198,7 @@ class CannedLedgerApi(
       gk: GlobalKey,
       actAs: Set[Party],
       readAs: Set[Party],
-      canContinue: SKeyLookupResult => Boolean,
+      canContinue: Option[ContractId] => Boolean,
   ) =
     throw new RuntimeException("Keys are not supported in the benchmark")
   override def currentTime = throw new RuntimeException("getTime is not supported in the benchmark")
