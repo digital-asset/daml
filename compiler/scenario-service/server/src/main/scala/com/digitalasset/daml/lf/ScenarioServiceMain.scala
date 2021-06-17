@@ -18,11 +18,12 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ModuleName
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.scenario.api.v1.{Map => _, _}
+import com.daml.lf.speedy.ScenarioRunner
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.netty.NettyServerBuilder
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Failure}
 import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters._
@@ -91,73 +92,24 @@ class ScenarioService(implicit
   override def runScenario(
       req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponse],
-  ): Unit = {
-    val scenarioId = req.getScenarioId
-    val contextId = req.getContextId
-    //log(s"runScenario[$contextId]: $scenarioId")
-    val response =
-      contexts
-        .get(contextId)
-        .flatMap { context =>
-          val packageId = scenarioId.getPackage.getSumCase match {
-            case PackageIdentifier.SumCase.SELF =>
-              context.homePackageId
-            case PackageIdentifier.SumCase.PACKAGE_ID =>
-              scenarioId.getPackage.getPackageId
-            case PackageIdentifier.SumCase.SUM_NOT_SET =>
-              throw new RuntimeException(
-                s"Package id not set when running scenario, context id $contextId"
-              )
-          }
-          context
-            .interpretScenario(packageId, scenarioId.getName)
-            .map { case (ledger, machine, errOrValue) =>
-              val builder = RunScenarioResponse.newBuilder
-              machine.withOnLedger("runScenario") { onLedger =>
-                errOrValue match {
-                  case Left(err) =>
-                    builder.setError(
-                      new Conversions(
-                        context.homePackageId,
-                        ledger,
-                        onLedger.incompleteTransaction(),
-                        machine.traceLog,
-                        onLedger.commitLocation,
-                        machine.stackTrace(),
-                      )
-                        .convertScenarioError(err)
-                    )
-                  case Right(value) =>
-                    builder.setResult(
-                      new Conversions(
-                        context.homePackageId,
-                        ledger,
-                        onLedger.incompleteTransaction(),
-                        machine.traceLog,
-                        onLedger.commitLocation,
-                        machine.stackTrace(),
-                      )
-                        .convertScenarioResult(value)
-                    )
-                }
-              }
-              builder.build
-            }
-        }
-
-    response match {
-      case None =>
-        log(s"runScenario[$contextId]: $scenarioId not found")
-        respObs.onError(notFoundContextError(req.getContextId))
-      case Some(resp) =>
-        respObs.onNext(resp)
-        respObs.onCompleted()
-    }
-  }
+  ): Unit =
+    run(
+      req,
+      respObs,
+      { case (ctx, pkgId, name) =>
+        Future.successful(ctx.interpretScenario(pkgId, name))
+      },
+    )
 
   override def runScript(
       req: RunScenarioRequest,
       respObs: StreamObserver[RunScenarioResponse],
+  ): Unit = run(req, respObs, { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) })
+
+  private def run(
+      req: RunScenarioRequest,
+      respObs: StreamObserver[RunScenarioResponse],
+      interpret: (Context, String, String) => Future[Option[ScenarioRunner.ScenarioResult]],
   ): Unit = {
     val scenarioId = req.getScenarioId
     val contextId = req.getContextId
@@ -175,37 +127,36 @@ class ScenarioService(implicit
                 s"Package id not set when running scenario, context id $contextId"
               )
           }
-          context
-            .interpretScript(packageId, scenarioId.getName)
-            .map(_.map { case (ledger, (clientMachine, submissionCache), errOrValue) =>
-              val builder = RunScenarioResponse.newBuilder
-              errOrValue match {
-                case Left(err) =>
-                  builder.setError(
+          interpret(context, packageId, scenarioId.getName)
+            .map(_.map {
+              case error: ScenarioRunner.ScenarioError =>
+                RunScenarioResponse.newBuilder
+                  .setError(
                     new Conversions(
                       context.homePackageId,
-                      ledger,
-                      submissionCache.ptx.finishIncomplete,
-                      clientMachine.traceLog,
-                      submissionCache.commitLocation,
-                      ImmArray.empty,
+                      error.ledger,
+                      error.currentSubmission.map(_.ptx),
+                      error.traceLog,
+                      error.currentSubmission.flatMap(_.commitLocation),
+                      error.stackTrace,
                     )
-                      .convertScenarioError(err)
+                      .convertScenarioError(error.error)
                   )
-                case Right(value) =>
-                  builder.setResult(
+                  .build
+              case success: ScenarioRunner.ScenarioSuccess =>
+                RunScenarioResponse.newBuilder
+                  .setResult(
                     new Conversions(
                       context.homePackageId,
-                      ledger,
-                      submissionCache.ptx.finishIncomplete,
-                      clientMachine.traceLog,
-                      submissionCache.commitLocation,
+                      success.ledger,
+                      None,
+                      success.traceLog,
+                      None,
                       ImmArray.empty,
                     )
-                      .convertScenarioResult(value)
+                      .convertScenarioResult(success.resultValue)
                   )
-              }
-              builder.build
+                  .build
             })
         }
         .map(_.flatMap(x => x))

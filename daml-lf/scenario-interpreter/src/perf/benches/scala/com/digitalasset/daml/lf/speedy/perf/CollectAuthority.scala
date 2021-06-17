@@ -52,14 +52,11 @@ class CollectAuthorityState {
         stacktracing = Compiler.NoStackTrace
       )
 
-    // NOTE(MH): We use a static seed to get reproducible runs.
-    val seeding = crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("scenario-perf"))
     val compiledPackages = PureCompiledPackages.assertBuild(packagesMap, compilerConfig)
     val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))
 
     machine = Machine.fromScenarioExpr(
       compiledPackages,
-      seeding(),
       expr,
     )
     the_sexpr = machine.ctrl
@@ -95,9 +92,9 @@ class CollectAuthorityState {
             location,
             crypto.Hash.hashPrivateKey(step.toString),
           ) match {
-            case ScenarioRunner.Commit(_, value, _, _) =>
+            case ScenarioRunner.Commit(_, value, _) =>
               callback(value)
-            case ScenarioRunner.SubmissionError(err, _, _) => crash(s"Submission failed $err")
+            case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
           }
         case SResultNeedContract(_, _, _, _, _) =>
           crash("Off-ledger need contract callback")
@@ -137,8 +134,8 @@ class CollectAuthorityState {
             location,
             crypto.Hash.hashPrivateKey(step.toString),
           ) match {
-            case ScenarioRunner.SubmissionError(err, _, _) => crash(s"Submission failed $err")
-            case ScenarioRunner.Commit(result, value, _, _) =>
+            case ScenarioRunner.SubmissionError(err, _) => crash(s"Submission failed $err")
+            case ScenarioRunner.Commit(result, value, _) =>
               ledger = result.newLedger
               cachedCommit = cachedCommit + (step -> value)
               callback(value)

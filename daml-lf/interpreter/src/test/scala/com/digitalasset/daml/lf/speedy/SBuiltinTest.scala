@@ -1601,10 +1601,11 @@ object SBuiltinTest {
   private def evalSExpr(e: SExpr, onLedger: Boolean): Either[SError, SValue] = {
     val machine = if (onLedger) {
       val seed = crypto.Hash.hashPrivateKey("SBuiltinTest")
-      Speedy.Machine.fromScenarioSExpr(
+      Speedy.Machine.fromUpdateSExpr(
         compiledPackages,
         transactionSeed = seed,
-        scenario = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
+        updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
+        committer = Ref.Party.assertFromString("Alice"),
       )
     } else {
       Speedy.Machine.fromPureSExpr(compiledPackages, e)

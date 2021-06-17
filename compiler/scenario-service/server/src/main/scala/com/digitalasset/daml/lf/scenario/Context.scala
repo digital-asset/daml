@@ -10,16 +10,13 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Decode.ParseError
-import com.daml.lf.data.assertRight
+import com.daml.lf.data.{assertRight, ImmArray}
 import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
-import com.daml.lf.speedy.Compiler
-import com.daml.lf.speedy.ScenarioRunner
+import com.daml.lf.speedy.{Compiler, ScenarioRunner, SDefinition, SExpr, Speedy}
 import com.daml.lf.speedy.SError._
-import com.daml.lf.speedy.Speedy
-import com.daml.lf.speedy.{SDefinition, SExpr, SValue}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
@@ -162,7 +159,6 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       defn <- defns.get(LfDefRef(identifier))
     } yield Speedy.Machine.fromScenarioSExpr(
       compiledPackages,
-      txSeeding,
       defn.body,
     )
   }
@@ -170,16 +166,11 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   def interpretScenario(
       pkgId: String,
       name: String,
-  ): Option[(ScenarioLedger, Speedy.Machine, Either[SError, SValue])] = {
+  ): Option[ScenarioRunner.ScenarioResult] = {
     buildMachine(
       Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
     ).map { machine =>
-      ScenarioRunner(machine, txSeeding).run() match {
-        case Right((diff @ _, steps @ _, ledger, value)) =>
-          (ledger, machine, Right(value))
-        case Left((err, ledger)) =>
-          (ledger, machine, Left(err))
-      }
+      ScenarioRunner(machine, txSeeding).run()
     }
   }
 
@@ -190,9 +181,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Option[
-    (ScenarioLedger, (Speedy.Machine, IdeLedgerClient.SubmissionCache), Either[SError, SValue])
-  ]] = {
+  ): Future[Option[ScenarioRunner.ScenarioResult]] = {
     val defns = this.defns
     val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
     val expectedScriptId = DottedName.assertFromString("Daml.Script")
@@ -207,30 +196,42 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
       ScriptTimeMode.Static,
     )
-    val ledgerClient = new IdeLedgerClient(compiledPackages)
+    val traceLog = Speedy.Machine.newTraceLog
+    val ledgerClient: IdeLedgerClient = new IdeLedgerClient(compiledPackages, traceLog)
     val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
-    val (clientMachine, resultF) = runner.runWithClients(participants)
+    val (clientMachine, resultF) = runner.runWithClients(participants, traceLog)
 
     def handleFailure(e: SError) = {
       // SError are the errors that should be handled and displayed as
       // failed partial transactions.
-
-      // We copy tracelogs after every submit but on failures we need
-      // to copy the tracelog from the partial transaction as well since we
-      // don’t reach the end of the submit.
-      for ((msg, optLoc) <- ledgerClient.tracelogIterator) {
-        clientMachine.traceLog.add(msg, optLoc)
-      }
       Success(
-        Some((ledgerClient.ledger, (clientMachine, ledgerClient.lastSubmission), Left(e)))
+        Some(
+          ScenarioRunner.ScenarioError(
+            ledgerClient.ledger,
+            clientMachine.traceLog,
+            ledgerClient.currentSubmission,
+            // TODO (MK) https://github.com/digital-asset/daml/issues/7276
+            ImmArray.empty,
+            e,
+          )
+        )
       )
     }
+
+    val dummyDuration: Double = 0
+    val dummySteps: Int = 0
 
     resultF.transform {
       case Success(v) =>
         Success(
           Some(
-            (ledgerClient.ledger, (clientMachine, ledgerClient.lastSubmission), Right(v))
+            ScenarioRunner.ScenarioSuccess(
+              ledgerClient.ledger,
+              clientMachine.traceLog,
+              dummyDuration,
+              dummySteps,
+              v,
+            )
           )
         )
       case Failure(e: SError) => handleFailure(e)

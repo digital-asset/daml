@@ -57,7 +57,7 @@ private[lf] object Pretty {
   def prettyParty(p: Party): Doc =
     char('\'') + text(p) + char('\'')
 
-  def prettyDamlException(ex: SErrorDamlException, ptx: PartialTransaction): Doc =
+  private def prettyDamlException(ex: SErrorDamlException, ptx: PartialTransaction): Doc =
     ex match {
       case DamlEFailedAuthorization(nid, fa) =>
         text(prettyFailedAuthorization(nid, fa))

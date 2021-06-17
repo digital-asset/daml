@@ -451,8 +451,6 @@ class JsonLedgerClient(
       case SuccessResponse(result, _) => Future.successful(Right(result))
     }
   }
-
-  override def tracelogIterator = Iterator.empty
 }
 
 object JsonLedgerClient {

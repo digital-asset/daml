@@ -11,13 +11,8 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SValue
-import com.daml.lf.speedy.{
-  InitialSeeding,
-  PartialTransaction,
-  RingBufferTraceLog,
-  ScenarioRunner,
-  TraceLog,
-}
+import com.daml.lf.speedy.{ScenarioRunner, TraceLog}
+import com.daml.lf.speedy.ScenarioRunner.CurrentSubmission
 import com.daml.lf.transaction.Node.{
   NodeRollback,
   NodeCreate,
@@ -25,13 +20,12 @@ import com.daml.lf.transaction.Node.{
   NodeFetch,
   NodeLookupByKey,
 }
-import com.daml.lf.transaction.{ContractKeyUniquenessMode, GlobalKey, NodeId, TransactionVersion}
+import com.daml.lf.transaction.{GlobalKey, NodeId}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf._
 import com.daml.script.converter.ConverterException
 import io.grpc.StatusRuntimeException
-import org.slf4j.LoggerFactory
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.set._
@@ -42,41 +36,13 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 // Client for the script service.
-class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClient {
-  private val pkg2TxVersion =
-    compiledPackages.interface.packageLanguageVersion.andThen(
-      TransactionVersion.assignNodeVersion
-    )
-  private val contractKeyUniqueness = ContractKeyUniquenessMode.On
-  private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
-
-  import IdeLedgerClient.SubmissionCache
-
+class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog)
+    extends ScriptLedgerClient {
   private var seed = crypto.Hash.hashPrivateKey(s"script-service")
 
-  private var _lastSubmission: Option[SubmissionCache] = None
+  private var _currentSubmission: Option[CurrentSubmission] = None
 
-  private[this] def emptyPtx: PartialTransaction = PartialTransaction.initial(
-    pkg2TxVersion,
-    contractKeyUniqueness,
-    ledger.currentTime,
-    InitialSeeding.TransactionSeed(seed),
-  )
-
-  private[this] def clearPtx(): Unit =
-    _lastSubmission = _lastSubmission.map(cache =>
-      cache.copy(
-        ptx = emptyPtx
-      )
-    )
-
-  def lastSubmission: SubmissionCache = _lastSubmission.getOrElse(
-    SubmissionCache(
-      ptx = emptyPtx,
-      traceLog = RingBufferTraceLog(damlTraceLog, 100),
-      commitLocation = None,
-    )
-  )
+  def currentSubmission: Option[CurrentSubmission] = _currentSubmission
 
   private[this] val preprocessor = new engine.preprocessing.CommandPreprocessor(compiledPackages)
 
@@ -171,8 +137,8 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
         translated,
         optLocation,
         seed,
+        traceLog,
       )
-      _lastSubmission = Some(SubmissionCache(result.traceLog, result.ptx, optLocation))
       result
     }
 
@@ -186,12 +152,12 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       mat: Materializer,
   ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] =
     unsafeSubmit(actAs, readAs, commands, optLocation).map {
-      case ScenarioRunner.Commit(result, _, _, _) =>
+      case ScenarioRunner.Commit(result, _, _) =>
+        _currentSubmission = None
         _ledger = result.newLedger
         seed = ScenarioRunner.nextSeed(
           crypto.Hash.deriveNodeSeed(seed, result.richTransaction.transaction.roots.length)
         )
-        clearPtx()
         val transaction = result.richTransaction.transaction
         def convRootEvent(id: NodeId): ScriptLedgerClient.CommandResult = {
           val node = transaction.nodes.getOrElse(
@@ -211,9 +177,8 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
           }
         }
         Right(transaction.roots.toSeq.map(convRootEvent(_)))
-      case ScenarioRunner.SubmissionError(err, _, _) =>
-        // Unexpected failure, do not clear so we can display the partial
-        // transaction.
+      case ScenarioRunner.SubmissionError(err, ptx) =>
+        _currentSubmission = Some(CurrentSubmission(optLocation, ptx.finishIncomplete))
         throw err
     }
 
@@ -225,13 +190,15 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]] = {
     unsafeSubmit(actAs, readAs, commands, optLocation)
       .map({
-        case _: ScenarioRunner.Commit[_] => Left(())
+        case commit: ScenarioRunner.Commit[_] =>
+          _currentSubmission = Some(CurrentSubmission(optLocation, commit.ptx.finishIncomplete))
+          Left(())
         case error: ScenarioRunner.SubmissionError =>
+          _currentSubmission = None
           _ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)
           seed = ScenarioRunner.nextSeed(
             error.ptx.unwind.context.nextActionChildSeed
           )
-          clearPtx()
           Right(())
       })
   }
@@ -246,12 +213,12 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       mat: Materializer,
   ): Future[ScriptLedgerClient.TransactionTree] = {
     unsafeSubmit(actAs, readAs, commands, optLocation).map {
-      case ScenarioRunner.Commit(result, _, _, _) =>
+      case ScenarioRunner.Commit(result, _, _) =>
+        _currentSubmission = None
         _ledger = result.newLedger
         seed = ScenarioRunner.nextSeed(
           crypto.Hash.deriveNodeSeed(seed, result.richTransaction.transaction.roots.length)
         )
-        clearPtx()
         val transaction = result.richTransaction.transaction
         def convEvent(id: NodeId): Option[ScriptLedgerClient.TreeEvent] =
           transaction.nodes(id) match {
@@ -272,7 +239,9 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
         ScriptLedgerClient.TransactionTree(
           transaction.roots.collect(Function.unlift(convEvent(_))).toList
         )
-      case ScenarioRunner.SubmissionError(err, _, _) => throw new IllegalStateException(err)
+      case ScenarioRunner.SubmissionError(err, ptx) =>
+        _currentSubmission = Some(CurrentSubmission(optLocation, ptx.finishIncomplete))
+        throw new IllegalStateException(err)
     }
   }
 
@@ -337,16 +306,4 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
     _ledger = ledger.passTime(diff)
     Future.unit
   }
-
-  override def tracelogIterator =
-    _lastSubmission.map(_.traceLog.iterator).getOrElse(Iterator.empty)
-}
-
-object IdeLedgerClient {
-  // Data cached from the last submission so we can pluck it out the client at the end.
-  case class SubmissionCache(
-      traceLog: TraceLog,
-      ptx: PartialTransaction,
-      commitLocation: Option[Location],
-  )
 }

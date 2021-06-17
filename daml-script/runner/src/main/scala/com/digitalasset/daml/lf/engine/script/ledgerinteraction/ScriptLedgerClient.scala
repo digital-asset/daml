@@ -126,6 +126,4 @@ trait ScriptLedgerClient {
   def setStaticTime(
       time: Time.Timestamp
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory, mat: Materializer): Future[Unit]
-
-  def tracelogIterator: Iterator[(String, Option[Location])]
 }
