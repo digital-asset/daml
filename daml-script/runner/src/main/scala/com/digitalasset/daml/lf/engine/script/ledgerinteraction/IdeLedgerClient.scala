@@ -77,6 +77,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
     case onLedger: OnLedger => onLedger
   }
   val scenarioRunner = ScenarioRunner(machine, seed)
+
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
   override def query(parties: OneAnd[Set, Ref.Party], templateId: Identifier)(implicit
@@ -166,9 +167,14 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       while (result == null) {
         machine.run() match {
           case SResultNeedContract(coid, tid @ _, committers @ _, cbMissing, cbPresent) =>
-            scenarioRunner.lookupContract(coid, actAs.toSet, readAs, cbMissing, cbPresent).toTry.get
+            ScenarioRunner
+              .ScenarioLedgerApi(scenarioRunner.ledger)
+              .lookupContract(coid, actAs.toSet, readAs, cbMissing, cbPresent)
+              .toTry
+              .get
           case SResultNeedKey(keyWithMaintainers, committers @ _, cb) =>
-            scenarioRunner
+            ScenarioRunner
+              .ScenarioLedgerApi(scenarioRunner.ledger)
               .lookupKey(keyWithMaintainers.globalKey, actAs.toSet, readAs, cb)
               .toTry
               .get
