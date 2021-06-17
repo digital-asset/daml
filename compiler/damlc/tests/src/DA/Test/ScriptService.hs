@@ -101,7 +101,7 @@ main =
                       "      do pure v",
                       "testCreate = do",
                       "  p <- allocateParty \"p\"",
-                      "  submit p $ createCmd (T p 42)" ,
+                      "  submit p $ createCmd (T p 42)",
                       "testExercise = do",
                       "  p <- allocateParty \"p\"",
                       "  cid <- submit p $ createCmd (T p 42)",
