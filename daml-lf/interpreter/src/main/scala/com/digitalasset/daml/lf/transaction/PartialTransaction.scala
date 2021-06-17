@@ -756,6 +756,17 @@ private[lf] case class PartialTransaction(
     )
   }
 
+  /** Unwind the transaction aborting all incomplete nodes */
+  def unwind: PartialTransaction = {
+    @tailrec
+    def go(ptx: PartialTransaction): PartialTransaction = ptx.context.info match {
+      case _: PartialTransaction.ExercisesContextInfo => go(ptx.abortExercises)
+      case _: PartialTransaction.TryContextInfo => go(ptx.abortTry)
+      case _: PartialTransaction.RootContextInfo => ptx
+    }
+    go(this)
+  }
+
 }
 
 private[lf] sealed abstract class InitialSeeding extends Product with Serializable

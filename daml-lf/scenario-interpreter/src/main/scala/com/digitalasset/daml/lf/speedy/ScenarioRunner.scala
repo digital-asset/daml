@@ -3,6 +3,7 @@
 
 package com.daml.lf.speedy
 
+import com.daml.lf.CompiledPackages
 import com.daml.lf.crypto
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.data.Ref._
@@ -15,6 +16,9 @@ import com.daml.lf.speedy.Speedy.{OffLedger, OnLedger}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.value.Value
+
+import scala.annotation.tailrec
+import scala.util.{Failure, Success, Try}
 
 private case class SRunnerException(err: SError) extends RuntimeException(err.toString)
 
@@ -29,15 +33,18 @@ private case class SRunnerException(err: SError) extends RuntimeException(err.to
   */
 final case class ScenarioRunner(
     machine: Speedy.Machine,
+    initialSeed: crypto.Hash,
     partyNameMangler: (String => String) = identity,
 ) {
+  import ScenarioRunner._
+
+  var seed = initialSeed
+
   var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
   val onLedger = machine.ledgerMode match {
     case OffLedger => throw SRequiresOnLedger("ScenarioRunner")
     case onLedger: OnLedger => onLedger
   }
-
-  import scala.util.{Try, Success, Failure}
 
   def run(): Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)] =
     handleUnsafe(runUnsafe()) match {
@@ -45,13 +52,14 @@ final case class ScenarioRunner(
       case Right(t) => Right(t)
     }
 
-  private def handleUnsafe[T](unsafe: => T): Either[SError, T] = {
-    Try(unsafe) match {
-      case Failure(SRunnerException(err)) => Left(err)
-      case Failure(other) => throw other
-      case Success(t) => Right(t)
-    }
-  }
+  private[this] def nextSeed(submissionSeed: crypto.Hash): crypto.Hash =
+    crypto.Hash.deriveTransactionSeed(
+      submissionSeed,
+      Ref.ParticipantId.assertFromString("scenario-service"),
+      // MinValue makes no sense here but this is what we did before so
+      // to avoid breaking all tests we keep it for now at least.
+      Time.Timestamp.MinValue,
+    )
 
   private def runUnsafe(): (Double, Int, ScenarioLedger, SValue) = {
     // NOTE(JM): Written with an imperative loop and exceptions for speed
@@ -66,47 +74,79 @@ final case class ScenarioRunner(
       res match {
         case SResultFinalValue(v) =>
           finalValue = v
+
         case SResultError(err) =>
           throw SRunnerException(err)
-
-        case SResultNeedPackage(pkgId, _) =>
-          crash(s"package $pkgId not found")
-
-        case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
-          // We never have readAs parties in scenarios.
-          lookupContractUnsafe(coid, committers, Set.empty, cbMissing, cbPresent)
 
         case SResultNeedTime(callback) =>
           callback(ledger.currentTime)
 
-        case SResultScenarioMustFail(tx, committers, callback) =>
-          // We never have readAs parties in scenarios.
-          mustFail(tx, committers, Set.empty)
-          callback(())
-
-        case SResultScenarioCommit(value, tx, committers, callback) =>
-          // We never have readAs parties in scenarios.
-          commit(value, tx, committers, Set.empty, callback)
-
         case SResultScenarioPassTime(delta, callback) =>
           passTime(delta, callback)
-
-        case SResultScenarioInsertMustFail(committers, optLocation) => {
-          // We never have readAs parties in scenarios.
-          ledger = ledger.insertAssertMustFail(committers, Set.empty, optLocation)
-        }
 
         case SResultScenarioGetParty(partyText, callback) =>
           getParty(partyText, callback)
 
-        case SResultNeedKey(keyWithMaintainers, committers, cb) =>
-          // We never have readAs parties in scenarios.
-          lookupKeyUnsafe(keyWithMaintainers.globalKey, committers, Set.empty, cb)
+        case SResultScenarioSubmit(committers, commands, location, mustFail, callback) =>
+          val submitResult = submit(
+            machine.compiledPackages,
+            ScenarioLedgerApi(ledger),
+            committers,
+            commands,
+            location,
+            seed,
+          )
+          // TODO (MK) We copy the ptx & commit location and the trace
+          // log to the off-ledger machine as a temporary hack until
+          // the callsites have changed sufficiently to allow us to
+          // avoid this gross mess.
+          machine.withOnLedger("runUnsafe") { onLedger =>
+            onLedger.ptx = submitResult.ptx
+            onLedger.commitLocation = location
+          }
+          submitResult.traceLog.iterator.foreach { case (msg, loc) =>
+            machine.traceLog.add(msg, loc)
+          }
+          if (mustFail) {
+            submitResult match {
+              case Commit(result, _, _, _) =>
+                throw new SRunnerException(
+                  ScenarioErrorMustFailSucceeded(result.richTransaction.transaction)
+                )
+              case err: SubmissionError =>
+                // TODO (MK) This is gross, we need to unwind the transaction to
+                // get the right root context to derived the seed for the next transaction.
+                val rootCtx = err.ptx.unwind.context
+                seed = nextSeed(
+                  rootCtx.nextActionChildSeed
+                )
+                ledger = ledger.insertAssertMustFail(committers, Set.empty, location)
+                callback(SValue.SUnit)
+            }
+          } else {
+            submitResult match {
+              case Commit(result, value, _, _) =>
+                seed = nextSeed(
+                  crypto.Hash.deriveNodeSeed(seed, result.richTransaction.transaction.roots.length)
+                )
+                ledger = result.newLedger
+                callback(value)
+              case SubmissionError(err, _, _) =>
+                throw new SRunnerException(err)
+            }
+          }
 
-        case SResultNeedLocalKeyVisible(stakeholders, committers, cb) =>
-          // We never have readAs parties in scenarios.
-          val visible = SVisibleByKey.fromSubmitters(committers, Set.empty)(stakeholders)
-          cb(visible)
+        case SResultNeedPackage(pkgId, _) =>
+          crash(s"package $pkgId not found")
+
+        case _: SResultNeedContract =>
+          crash("SResultNeedContract outside of submission")
+
+        case _: SResultNeedKey =>
+          crash("SResultNeedKey outside of submission")
+
+        case _: SResultNeedLocalKeyVisible =>
+          crash("SResultNeedLocalKeyVisible outside of submission")
       }
     }
     val endTime = System.nanoTime()
@@ -125,161 +165,9 @@ final case class ScenarioRunner(
     }
   }
 
-  private def mustFail(tx: SubmittedTransaction, actAs: Set[Party], readAs: Set[Party]) = {
-    // Update expression evaluated successfully,
-    // however we might still have an authorization failure.
-    if (
-      ScenarioLedger
-        .commitTransaction(
-          actAs = actAs,
-          readAs = readAs,
-          effectiveAt = ledger.currentTime,
-          optLocation = onLedger.commitLocation,
-          tx = tx,
-          l = ledger,
-        )
-        .isRight
-    ) {
-      throw SRunnerException(ScenarioErrorMustFailSucceeded(tx))
-    }
-    ledger = ledger.insertAssertMustFail(actAs, readAs, onLedger.commitLocation)
-  }
-
-  private def commit(
-      value: SValue,
-      tx: SubmittedTransaction,
-      actAs: Set[Party],
-      readAs: Set[Party],
-      callback: SValue => Unit,
-  ) = {
-    ScenarioLedger.commitTransaction(
-      actAs = actAs,
-      readAs = readAs,
-      effectiveAt = ledger.currentTime,
-      optLocation = onLedger.commitLocation,
-      tx = tx,
-      l = ledger,
-    ) match {
-      case Left(fas) =>
-        throw SRunnerException(ScenarioErrorCommitError(fas))
-      case Right(result) =>
-        ledger = result.newLedger
-        callback(value)
-    }
-  }
-
   private def passTime(delta: Long, callback: Time.Timestamp => Unit) = {
     ledger = ledger.passTime(delta)
     callback(ledger.currentTime)
-  }
-
-  private[lf] def lookupContract(
-      acoid: ContractId,
-      actAs: Set[Party],
-      readAs: Set[Party],
-      cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-  ): Either[SError, Unit] =
-    handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, cbMissing, cbPresent))
-
-  private def lookupContractUnsafe(
-      acoid: ContractId,
-      actAs: Set[Party],
-      readAs: Set[Party],
-      cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-  ) = {
-
-    val effectiveAt = ledger.currentTime
-
-    def missingWith(err: SError) =
-      if (!cbMissing(()))
-        throw SRunnerException(err)
-
-    ledger.lookupGlobalContract(
-      view = ScenarioLedger.ParticipantView(actAs, readAs),
-      effectiveAt = effectiveAt,
-      acoid,
-    ) match {
-      case ScenarioLedger.LookupOk(_, coinst, _) =>
-        cbPresent(coinst)
-
-      case ScenarioLedger.LookupContractNotFound(coid) =>
-        // This should never happen, hence we don't have a specific
-        // error for this.
-        missingWith(SErrorCrash(s"contract $coid not found"))
-
-      case ScenarioLedger.LookupContractNotEffective(coid, tid, effectiveAt) =>
-        missingWith(ScenarioErrorContractNotEffective(coid, tid, effectiveAt))
-
-      case ScenarioLedger.LookupContractNotActive(coid, tid, consumedBy) =>
-        missingWith(ScenarioErrorContractNotActive(coid, tid, consumedBy))
-
-      case ScenarioLedger.LookupContractNotVisible(coid, tid, observers, stakeholders @ _) =>
-        missingWith(ScenarioErrorContractNotVisible(coid, tid, actAs, readAs, observers))
-    }
-  }
-
-  private[lf] def lookupKey(
-      gk: GlobalKey,
-      actAs: Set[Party],
-      readAs: Set[Party],
-      canContinue: SKeyLookupResult => Boolean,
-  ): Either[SError, Unit] =
-    handleUnsafe(lookupKeyUnsafe(gk, actAs, readAs, canContinue))
-
-  private def lookupKeyUnsafe(
-      gk: GlobalKey,
-      actAs: Set[Party],
-      readAs: Set[Party],
-      canContinue: SKeyLookupResult => Boolean,
-  ): Unit = {
-    val effectiveAt = ledger.currentTime
-    val readers = actAs union readAs
-
-    def missingWith(err: SError) =
-      if (!canContinue(SKeyLookupResult.NotFound))
-        throw SRunnerException(err)
-
-    def notVisibleWith(err: SError) =
-      if (!canContinue(SKeyLookupResult.NotVisible))
-        throw SRunnerException(err)
-
-    ledger.ledgerData.activeKeys.get(gk) match {
-      case None =>
-        missingWith(DamlEContractKeyNotFound(gk))
-      case Some(acoid) =>
-        ledger.lookupGlobalContract(
-          view = ScenarioLedger.ParticipantView(actAs, readAs),
-          effectiveAt = effectiveAt,
-          acoid,
-        ) match {
-          case ScenarioLedger.LookupOk(_, _, stakeholders) =>
-            if (!readers.intersect(stakeholders).isEmpty)
-              // We should always be able to continue with a SKeyLookupResult.Found.
-              // Run to get side effects and assert result.
-              assert(canContinue(SKeyLookupResult.Found(acoid)))
-            else
-              notVisibleWith(
-                ScenarioErrorContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders)
-              )
-          case ScenarioLedger.LookupContractNotFound(coid) =>
-            missingWith(SErrorCrash(s"contract $coid not found, but we found its key!"))
-          case ScenarioLedger.LookupContractNotEffective(_, _, _) =>
-            missingWith(SErrorCrash(s"contract $acoid not effective, but we found its key!"))
-          case ScenarioLedger.LookupContractNotActive(_, _, _) =>
-            missingWith(SErrorCrash(s"contract $acoid not active, but we found its key!"))
-          case ScenarioLedger.LookupContractNotVisible(
-                coid,
-                tid @ _,
-                observers @ _,
-                stakeholders,
-              ) =>
-            notVisibleWith(
-              ScenarioErrorContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders)
-            )
-        }
-    }
   }
 }
 
@@ -298,7 +186,7 @@ object ScenarioRunner {
       transactionSeed,
       scenarioExpr,
     )
-    ScenarioRunner(speedyMachine).run() match {
+    ScenarioRunner(speedyMachine, transactionSeed).run() match {
       case Left(e) =>
         throw new RuntimeException(s"error running scenario $scenarioRef in scenario $e")
       case Right((_, _, l, _)) => l
@@ -320,5 +208,247 @@ object ScenarioRunner {
           s"Requested scenario $scenarioRef is a data type, not a definition"
         )
     }
+  }
+
+  private def handleUnsafe[T](unsafe: => T): Either[SError, T] = {
+    Try(unsafe) match {
+      case Failure(SRunnerException(err)) => Left(err)
+      case Failure(other) => throw other
+      case Success(t) => Right(t)
+    }
+  }
+
+  sealed trait SubmissionResult[+R] {
+    // TODO (MK) Temporary to leak the ptx from the submission machine
+    // to the parent machine.
+    def ptx: PartialTransaction
+    def traceLog: TraceLog
+  }
+
+  final case class Commit[R](
+      result: R,
+      value: SValue,
+      ptx: PartialTransaction,
+      traceLog: TraceLog,
+  ) extends SubmissionResult[R]
+
+  final case class SubmissionError(error: SError, ptx: PartialTransaction, traceLog: TraceLog)
+      extends SubmissionResult[Nothing]
+
+  // The interface we need from a ledger during submission. We allow abstracting over this so we can play
+  // tricks like caching all responses in some benchmarks.
+  trait LedgerApi[R] {
+    def lookupContract(
+        coid: ContractId,
+        actAs: Set[Party],
+        readAs: Set[Party],
+        cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+    ): Either[SError, ContractInst[Value.VersionedValue[ContractId]]]
+    def lookupKey(
+        gk: GlobalKey,
+        actAs: Set[Party],
+        readAs: Set[Party],
+        canContinue: SKeyLookupResult => Boolean,
+    ): Either[SError, Unit]
+    def currentTime: Time.Timestamp
+    def commit(
+        committers: Set[Party],
+        location: Option[Location],
+        tx: SubmittedTransaction,
+    ): Either[SError, R]
+  }
+
+  case class ScenarioLedgerApi(ledger: ScenarioLedger)
+      extends LedgerApi[ScenarioLedger.CommitResult] {
+    override def lookupContract(
+        acoid: ContractId,
+        actAs: Set[Party],
+        readAs: Set[Party],
+        cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+    ): Either[SError, ContractInst[Value.VersionedValue[ContractId]]] =
+      handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, cbPresent))
+
+    private def lookupContractUnsafe(
+        acoid: ContractId,
+        actAs: Set[Party],
+        readAs: Set[Party],
+        cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+    ): ContractInst[Value.VersionedValue[ContractId]] = {
+
+      val effectiveAt = ledger.currentTime
+
+      def missingWith(err: SError) = throw SRunnerException(err)
+
+      ledger.lookupGlobalContract(
+        view = ScenarioLedger.ParticipantView(actAs, readAs),
+        effectiveAt = effectiveAt,
+        acoid,
+      ) match {
+        case ScenarioLedger.LookupOk(_, coinst, _) =>
+          cbPresent(coinst)
+          coinst
+
+        case ScenarioLedger.LookupContractNotFound(coid) =>
+          // This should never happen, hence we don't have a specific
+          // error for this.
+          missingWith(SErrorCrash(s"contract $coid not found"))
+
+        case ScenarioLedger.LookupContractNotEffective(coid, tid, effectiveAt) =>
+          missingWith(ScenarioErrorContractNotEffective(coid, tid, effectiveAt))
+
+        case ScenarioLedger.LookupContractNotActive(coid, tid, consumedBy) =>
+          missingWith(ScenarioErrorContractNotActive(coid, tid, consumedBy))
+
+        case ScenarioLedger.LookupContractNotVisible(coid, tid, observers, stakeholders @ _) =>
+          missingWith(ScenarioErrorContractNotVisible(coid, tid, actAs, readAs, observers))
+      }
+    }
+    override def lookupKey(
+        gk: GlobalKey,
+        actAs: Set[Party],
+        readAs: Set[Party],
+        canContinue: SKeyLookupResult => Boolean,
+    ): Either[SError, Unit] =
+      handleUnsafe(lookupKeyUnsafe(gk, actAs, readAs, canContinue))
+
+    private def lookupKeyUnsafe(
+        gk: GlobalKey,
+        actAs: Set[Party],
+        readAs: Set[Party],
+        canContinue: SKeyLookupResult => Boolean,
+    ): Unit = {
+      val effectiveAt = ledger.currentTime
+      val readers = actAs union readAs
+
+      def missingWith(err: SError) =
+        if (!canContinue(SKeyLookupResult.NotFound))
+          throw SRunnerException(err)
+
+      def notVisibleWith(err: SError) =
+        if (!canContinue(SKeyLookupResult.NotVisible))
+          throw SRunnerException(err)
+
+      ledger.ledgerData.activeKeys.get(gk) match {
+        case None =>
+          missingWith(DamlEContractKeyNotFound(gk))
+        case Some(acoid) =>
+          ledger.lookupGlobalContract(
+            view = ScenarioLedger.ParticipantView(actAs, readAs),
+            effectiveAt = effectiveAt,
+            acoid,
+          ) match {
+            case ScenarioLedger.LookupOk(_, _, stakeholders) =>
+              if (!readers.intersect(stakeholders).isEmpty)
+                // We should always be able to continue with a SKeyLookupResult.Found.
+                // Run to get side effects and assert result.
+                assert(canContinue(SKeyLookupResult.Found(acoid)))
+              else
+                notVisibleWith(
+                  ScenarioErrorContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders)
+                )
+            case ScenarioLedger.LookupContractNotFound(coid) =>
+              missingWith(SErrorCrash(s"contract $coid not found, but we found its key!"))
+            case ScenarioLedger.LookupContractNotEffective(_, _, _) =>
+              missingWith(SErrorCrash(s"contract $acoid not effective, but we found its key!"))
+            case ScenarioLedger.LookupContractNotActive(_, _, _) =>
+              missingWith(SErrorCrash(s"contract $acoid not active, but we found its key!"))
+            case ScenarioLedger.LookupContractNotVisible(
+                  coid,
+                  tid @ _,
+                  observers @ _,
+                  stakeholders,
+                ) =>
+              notVisibleWith(
+                ScenarioErrorContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders)
+              )
+          }
+      }
+    }
+
+    override def currentTime = ledger.currentTime
+    override def commit(
+        committers: Set[Party],
+        location: Option[Location],
+        tx: SubmittedTransaction,
+    ): Either[SError, ScenarioLedger.CommitResult] =
+      ScenarioLedger.commitTransaction(
+        actAs = committers,
+        readAs = Set.empty,
+        effectiveAt = ledger.currentTime,
+        optLocation = location,
+        tx = tx,
+        l = ledger,
+      ) match {
+        case Left(fas) =>
+          Left(ScenarioErrorCommitError(fas))
+        case Right(result) =>
+          Right(result)
+      }
+  }
+
+  def submit[R](
+      compiledPackages: CompiledPackages,
+      ledger: LedgerApi[R],
+      committers: Set[Party],
+      commands: SValue,
+      location: Option[Location],
+      seed: crypto.Hash,
+  ): SubmissionResult[R] = {
+    val ledgerMachine = Speedy.Machine(
+      compiledPackages = compiledPackages,
+      submissionTime = Time.Timestamp.MinValue,
+      initialSeeding = InitialSeeding.TransactionSeed(seed),
+      expr = SExpr.SEApp(SExpr.SEValue(commands), Array(SExpr.SEValue(SValue.SToken))),
+      globalCids = Set.empty,
+      committers = committers,
+    )
+    val onLedger = ledgerMachine.ledgerMode match {
+      case OffLedger => throw SRequiresOnLedger("ScenarioRunner")
+      case onLedger: OnLedger => onLedger
+    }
+    @tailrec
+    def go(): SubmissionResult[R] = {
+      ledgerMachine.run() match {
+        case SResultFinalValue(resultValue) =>
+          onLedger.ptxInternal.finish match {
+            case PartialTransaction.CompleteTransaction(tx) =>
+              ledger.commit(committers, location, tx) match {
+                case Left(err) => SubmissionError(err, onLedger.ptxInternal, ledgerMachine.traceLog)
+                case Right(r) =>
+                  Commit(r, resultValue, onLedger.ptxInternal, ledgerMachine.traceLog)
+              }
+            case PartialTransaction.IncompleteTransaction(ptx) =>
+              throw new RuntimeException(s"Unexpected abort: $ptx")
+          }
+        case SResultError(err) =>
+          SubmissionError(err, onLedger.ptxInternal, ledgerMachine.traceLog)
+        case SResultNeedContract(coid, tid @ _, committers, _, cbPresent) =>
+          ledger.lookupContract(coid, committers, Set.empty, cbPresent) match {
+            case Left(err) => SubmissionError(err, onLedger.ptxInternal, ledgerMachine.traceLog)
+            case Right(_) => go()
+          }
+        case SResultNeedKey(keyWithMaintainers, committers, cb) =>
+          ledger.lookupKey(keyWithMaintainers.globalKey, committers, Set.empty, cb) match {
+            case Left(err) => SubmissionError(err, onLedger.ptxInternal, ledgerMachine.traceLog)
+            case Right(_) => go()
+          }
+        case SResultNeedLocalKeyVisible(stakeholders, committers, cb) =>
+          val visible = SVisibleByKey.fromSubmitters(committers, Set.empty)(stakeholders)
+          cb(visible)
+          go()
+        case SResultNeedTime(callback) =>
+          callback(ledger.currentTime)
+          go()
+        case SResultNeedPackage(pkgId, _) =>
+          crash(s"package $pkgId not found")
+        case _: SResultScenarioGetParty =>
+          crash("SResultScenarioGetParty in submission")
+        case _: SResultScenarioPassTime =>
+          crash("SResultScenarioPassTime in submission")
+        case _: SResultScenarioSubmit =>
+          crash("SResultScenarioSubmit in submission")
+      }
+    }
+    go()
   }
 }

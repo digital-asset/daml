@@ -806,9 +806,9 @@ private[lf] final class Compiler(
       case ScenarioBlock(bindings, body) =>
         compileBlock(bindings, body)
       case ScenarioCommit(partyE, updateE, _retType @ _) =>
-        compileCommit(partyE, updateE, optLoc)
+        compileCommit(partyE, updateE, optLoc, mustFail = false)
       case ScenarioMustFailAt(partyE, updateE, _retType @ _) =>
-        compileMustFail(partyE, updateE, optLoc)
+        compileCommit(partyE, updateE, optLoc, mustFail = true)
       case ScenarioGetTime =>
         SEGetTime
       case ScenarioGetParty(e) =>
@@ -820,41 +820,19 @@ private[lf] final class Compiler(
     }
 
   @inline
-  private[this] def compileCommit(partyE: Expr, updateE: Expr, optLoc: Option[Location]): SExpr =
+  private[this] def compileCommit(
+      partyE: Expr,
+      updateE: Expr,
+      optLoc: Option[Location],
+      mustFail: Boolean,
+  ): SExpr =
     // let party = <partyE>
     //     update = <updateE>
-    // in \token ->
-    //   let _ = $beginCommit party token
-    //       r = update token
-    //   in $endCommit(mustFail = false) r token
+    // in $submit(mustFail)(party, update)
     withEnv { _ =>
-      let(compile(partyE)) { partyPos =>
-        let(compile(updateE)) { updatePos =>
-          labeledUnaryFunction(Profile.SubmitLabel) { tokenPos =>
-            let(SBSBeginCommit(optLoc)(svar(partyPos), svar(tokenPos))) { _ =>
-              let(app(svar(updatePos), svar(tokenPos))) { resultPos =>
-                SBSEndCommit(mustFail = false)(svar(resultPos), svar(tokenPos))
-              }
-            }
-          }
-        }
-      }
-    }
-
-  @inline
-  private[this] def compileMustFail(party: Expr, update: Expr, optLoc: Option[Location]): SExpr =
-    // \token ->
-    //   let _ = $beginCommit [party] <token>
-    //       <r> = $catch ([update] <token>) true false
-    //   in $endCommit(mustFail = true) <r> <token>
-    withEnv { _ =>
-      labeledUnaryFunction(Profile.SubmitMustFailLabel) { tokenPos =>
-        let(SBSBeginCommit(optLoc)(compile(party), svar(tokenPos))) { _ =>
-          let(
-            SECatchSubmitMustFail(app(compile(update), svar(tokenPos)))
-          ) { resultPos =>
-            SBSEndCommit(mustFail = true)(svar(resultPos), svar(tokenPos))
-          }
+      let(compile(partyE)) { partyLoc =>
+        let(compile(updateE)) { updateLoc =>
+          SBSSubmit(optLoc, mustFail)(svar(partyLoc), svar(updateLoc))
         }
       }
     }
@@ -1134,11 +1112,6 @@ private[lf] final class Compiler(
           closureConvert(shift(remaps, bounds.length), body),
         )
 
-      case SECatchSubmitMustFail(body) =>
-        SECatchSubmitMustFail(
-          closureConvert(remaps, body)
-        )
-
       case SETryCatch(body, handler) =>
         SETryCatch(
           closureConvert(remaps, body),
@@ -1213,8 +1186,6 @@ private[lf] final class Compiler(
           bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
             case (acc, (expr, idx)) => go(expr, bound + idx, acc)
           }
-        case SECatchSubmitMustFail(body) =>
-          go(body, bound, free)
         case SELabelClosure(_, expr) =>
           go(expr, bound, free)
         case SETryCatch(body, handler) =>
@@ -1303,8 +1274,6 @@ private[lf] final class Compiler(
         case _: SELet1General => goLets(maxS)(expr)
         case _: SELet1Builtin => goLets(maxS)(expr)
         case _: SELet1BuiltinArithmetic => goLets(maxS)(expr)
-        case SECatchSubmitMustFail(body) =>
-          go(body)
         case SELocation(_, body) =>
           go(body)
         case SELabelClosure(_, expr) =>

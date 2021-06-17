@@ -7,7 +7,7 @@ import com.daml.lf.CompiledPackages
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, SubmittedTransaction}
+import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.speedy.SError._
 import com.daml.lf.value.Value
 
@@ -35,6 +35,7 @@ object SResult {
       committers: Set[Party],
       // Callback to signal that the contract was not present
       // or visible. Returns true if this was recoverable.
+      // TODO (MK) Drop now that tryHandleSubmitMustFail is dead.
       cbMissing: Unit => Boolean,
       cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
   ) extends SResult
@@ -48,30 +49,12 @@ object SResult {
       callback: CompiledPackages => Unit,
   ) extends SResult
 
-  /** Commit the partial transaction to the (scenario) ledger.
-    * Machine expects the value back with the contract ids rewritten
-    * to be absolute.
-    */
-  final case class SResultScenarioCommit(
-      value: SValue,
-      tx: SubmittedTransaction,
+  final case class SResultScenarioSubmit(
       committers: Set[Party],
+      commands: SValue,
+      location: Option[Location],
+      mustFail: Boolean,
       callback: SValue => Unit,
-  ) extends SResult
-
-  final case class SResultScenarioInsertMustFail(
-      committers: Set[Party],
-      optLocation: Option[Location],
-  ) extends SResult
-
-  /** A "must fail" update resulted in a partial transaction, try and
-    * commit this transaction with the expectation that it fails.
-    * The callback signals success and clears the partial transaction.
-    */
-  final case class SResultScenarioMustFail(
-      ptx: SubmittedTransaction,
-      committers: Set[Party],
-      callback: Unit => Unit,
   ) extends SResult
 
   /** Pass the ledger time and return back the new ledger time. */

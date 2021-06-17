@@ -1023,7 +1023,7 @@ private[lf] object SBuiltin {
               coid,
               templateId,
               onLedger.committers,
-              cbMissing = _ => machine.tryHandleSubmitMustFail(),
+              cbMissing = _ => false,
               cbPresent = { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
                 // Note that we cannot throw in this continuation -- instead
                 // set the control appropriately which will crash the machine
@@ -1162,8 +1162,7 @@ private[lf] object SBuiltin {
 
   private[this] object KeyOperation {
     final class Fetch(override val templateId: TypeConName) extends KeyOperation {
-      override def handleInputKeyNotFound(machine: Machine): Boolean =
-        machine.tryHandleSubmitMustFail()
+      override def handleInputKeyNotFound(machine: Machine): Boolean = false
       override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
         machine.ctrl = importCid(cid)
       override def handleInactiveKey(machine: Machine, gkey: GlobalKey): Unit =
@@ -1269,8 +1268,7 @@ private[lf] object SBuiltin {
                           keys = onLedger.ptx.keys.updated(gkey, KeyInactive)
                         )
                         operation.handleInputKeyNotFound(machine)
-                      case SKeyLookupResult.NotVisible =>
-                        machine.tryHandleSubmitMustFail()
+                      case SKeyLookupResult.NotVisible => false
                     }
                   },
                 )
@@ -1303,92 +1301,22 @@ private[lf] object SBuiltin {
     }
   }
 
-  /** $beginCommit :: Party -> Token -> () */
-  final case class SBSBeginCommit(optLocation: Option[Location]) extends OnLedgerBuiltin(2) {
-    override protected def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-        onLedger: OnLedger,
-    ): Unit = {
-      checkToken(args, 1)
-      onLedger.cachedContracts = Map.empty
-      onLedger.globalDiscriminators = Set.empty
-      onLedger.committers = extractParties(args.get(0))
-      onLedger.commitLocation = optLocation
-      machine.returnValue = SV.Unit
-    }
-  }
-
-  /** $endCommit[mustFail?] :: result -> Token -> () */
-  final case class SBSEndCommit(mustFail: Boolean) extends OnLedgerBuiltin(2) {
-    override protected def execute(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-        onLedger: OnLedger,
-    ): Unit = {
-      checkToken(args, 1)
-      if (mustFail) executeMustFail(args, machine, onLedger)
-      else executeCommit(args, machine, onLedger)
-    }
-
-    private[this] def executeMustFail(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-        onLedger: OnLedger,
-    ): Unit = {
-      // A mustFail commit evaluated the update with
-      // a catch. The second argument is a boolean
-      // that marks whether an exception was thrown
-      // or not.
-      val committerOld = onLedger.committers
-      val ptxOld = onLedger.ptx
-      val commitLocationOld = onLedger.commitLocation
-
-      if (getSBool(args, 0)) {
-        // update expression threw an exception. we're
-        // now done.
-        machine.clearCommit
-        machine.returnValue = SV.Unit
-        throw SpeedyHungry(SResultScenarioInsertMustFail(committerOld, commitLocationOld))
-      } else {
-        ptxOld.finish match {
-          case PartialTransaction.CompleteTransaction(tx) =>
-            // Transaction finished successfully. It might still
-            // fail when committed, so tell the scenario runner to
-            // do that.
-            machine.returnValue = SV.Unit
-            throw SpeedyHungry(
-              SResultScenarioMustFail(tx, committerOld, _ => machine.clearCommit)
-            )
-          case PartialTransaction.IncompleteTransaction(_) =>
+  final case class SBSSubmit(optLocation: Option[Location], mustFail: Boolean) extends SBuiltin(3) {
+    override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      checkToken(args, 2)
+      throw SpeedyHungry(
+        SResultScenarioSubmit(
+          committers = extractParties(args.get(0)),
+          commands = args.get(1),
+          location = optLocation,
+          mustFail = mustFail,
+          callback = newValue => {
             machine.clearCommit
-            machine.returnValue = SV.Unit
-        }
-      }
+            machine.returnValue = newValue
+          },
+        )
+      )
     }
-
-    private[this] def executeCommit(
-        args: util.ArrayList[SValue],
-        machine: Machine,
-        onLedger: OnLedger,
-    ): Unit =
-      onLedger.ptx.finish match {
-        case PartialTransaction.CompleteTransaction(tx) =>
-          throw SpeedyHungry(
-            SResultScenarioCommit(
-              value = args.get(0),
-              tx = tx,
-              committers = onLedger.committers,
-              callback = newValue => {
-                machine.clearCommit
-                machine.returnValue = newValue
-              },
-            )
-          )
-        case PartialTransaction.IncompleteTransaction(ptx) =>
-          checkAborted(ptx)
-          crash("PartialTransaction.finish failed, but transaction was not aborted")
-      }
   }
 
   /** $pure :: a -> Token -> a */

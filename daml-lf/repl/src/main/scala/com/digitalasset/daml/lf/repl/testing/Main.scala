@@ -208,7 +208,7 @@ object Repl {
           seed,
           expr,
         )
-      (machine, ScenarioRunner(machine).run())
+      (machine, ScenarioRunner(machine, seed).run())
     }
   }
 
