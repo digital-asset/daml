@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.backend.oracle
 
-import java.sql.{Connection}
+import java.sql.Connection
 import com.daml.platform.store.backend.common.{BaseTable, Field, Table}
 
 private[oracle] object OracleTable {
@@ -28,6 +28,10 @@ private[oracle] object OracleTable {
                 }
                 preparedStatement.addBatch()
               }
+              println(s"param metadata ${preparedStatement.getParameterMetaData.getParameterTypeName()} " +
+                s"metadata ${preparedStatement.getMetaData}" +
+                s"statement string ${preparedStatement.toString}" +
+              )
               preparedStatement.executeBatch()
               preparedStatement.close()
             }
