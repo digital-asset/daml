@@ -1,9 +1,8 @@
 package com.daml.platform.store.backend.oracle
 
 import java.lang
-import java.sql.PreparedStatement
+import java.sql.{PreparedStatement, Timestamp}
 import java.time.Instant
-
 import com.daml.platform.store.backend.common.{Field, TrivialField, TrivialOptionalField}
 
 private[oracle] case class OracleStringField[FROM](extract: FROM => String)
@@ -81,20 +80,23 @@ private[oracle] case class OracleBooleanOptional[FROM](extract: FROM => Option[B
 }
 
 private[oracle] case class OracleTimestamp[FROM](extract: FROM => Instant)
-  extends TrivialField[FROM, Instant] {
-  override def prepareDataTemplate(preparedStatement: PreparedStatement, index: Int, value: Instant): Unit = {
+  extends Field[FROM, Instant, Timestamp] {
+  override def prepareDataTemplate(preparedStatement: PreparedStatement, index: Int, value: Timestamp): Unit = {
     // TODO FIXME either cleanup and use Field from common, or change the line below
-    preparedStatement.setObject(index, value)
+    preparedStatement.setTimestamp(index, value)
   }
+
+  override def convert: Instant => java.sql.Timestamp = Timestamp.from
 }
 
 private[oracle] case class OracleTimestampOptional[FROM](extract: FROM => Option[Instant])
-  extends TrivialOptionalField[FROM, Instant] {
-  override def prepareDataTemplate(preparedStatement: PreparedStatement, index: Int, value: Instant): Unit = {
-    // TODO FIXME either cleanup and use Field from common, or change the line below
-    preparedStatement.setObject(index, value)
+  extends Field[FROM, Option[Instant], java.sql.Timestamp] {
+  override def convert: Option[Instant] => java.sql.Timestamp = _.map(java.sql.Timestamp.from).orNull
+  override def prepareDataTemplate(preparedStatement: PreparedStatement, index: Int, value: Timestamp): Unit = {
+    preparedStatement.setTimestamp(index, value)
   }
 }
+
 
 private[oracle] case class OracleStringArray[FROM](extract: FROM => Iterable[String])
   extends Field[FROM, Iterable[String], Array[String]] {
