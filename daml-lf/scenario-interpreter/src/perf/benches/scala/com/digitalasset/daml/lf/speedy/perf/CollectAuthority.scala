@@ -90,7 +90,8 @@ class CollectAuthorityState {
             machine.compiledPackages,
             api,
             committers,
-            commands,
+            Set.empty,
+            SExpr.SEValue(commands),
             location,
             crypto.Hash.hashPrivateKey(step.toString),
           ) match {
@@ -131,7 +132,8 @@ class CollectAuthorityState {
             machine.compiledPackages,
             api,
             committers,
-            commands,
+            Set.empty,
+            SExpr.SEValue(commands),
             location,
             crypto.Hash.hashPrivateKey(step.toString),
           ) match {
@@ -203,6 +205,7 @@ class CannedLedgerApi(
 
   override def commit(
       committers: Set[Party],
+      readAs: Set[Party],
       location: Option[Location],
       tx: SubmittedTransaction,
   ) = Right(())

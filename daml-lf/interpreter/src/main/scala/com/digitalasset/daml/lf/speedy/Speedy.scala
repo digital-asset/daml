@@ -30,10 +30,6 @@ import scala.util.control.NoStackTrace
 
 private[lf] object Speedy {
 
-  // fake participant to generate a new transactionSeed when running scenarios
-  private[this] val scenarioServiceParticipant =
-    Ref.ParticipantId.assertFromString("scenario-service")
-
   // Would like these to have zero cost when not enabled. Better still, to be switchable at runtime.
   private[this] val enableInstrumentation: Boolean = false
   private[this] val enableLightweightStepTracing: Boolean = false
@@ -601,25 +597,6 @@ private[lf] object Speedy {
         println(s"  " + k.toString)
       }
       println("============================================================")
-    }
-
-    // reinitialize the state of the machine with a new fresh submission seed.
-    // Should be used only when running scenario
-    private[lf] def clearCommit: Unit = withOnLedger("clearCommit") { onLedger =>
-      val freshSeed =
-        crypto.Hash.deriveTransactionSeed(
-          onLedger.ptx.context.nextActionChildSeed,
-          scenarioServiceParticipant,
-          onLedger.ptx.submissionTime,
-        )
-      onLedger.committers = Set.empty
-      onLedger.commitLocation = None
-      onLedger.ptx = PartialTransaction.initial(
-        onLedger.ptx.packageToTransactionVersion,
-        onLedger.ptx.contractKeyUniqueness,
-        onLedger.ptx.submissionTime,
-        InitialSeeding.TransactionSeed(freshSeed),
-      )
     }
 
     // This translates a well-typed LF value (typically coming from the ledger)

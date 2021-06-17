@@ -71,7 +71,6 @@ object ScriptF {
       for ((msg, optLoc) <- client.tracelogIterator) {
         machine.traceLog.add(msg, optLoc)
       }
-      client.clearTracelog
     }
     def addPartyParticipantMapping(party: Party, participant: Participant) = {
       _clients =

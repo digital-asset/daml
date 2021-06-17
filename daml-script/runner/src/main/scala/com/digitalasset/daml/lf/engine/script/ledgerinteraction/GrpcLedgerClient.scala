@@ -324,5 +324,4 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
     }
 
   override def tracelogIterator = Iterator.empty
-  override def clearTracelog = ()
 }

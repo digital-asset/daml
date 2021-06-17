@@ -13,6 +13,7 @@ import scalaz.std.scalaFuture._
 import scalaz.syntax.traverse._
 
 import com.daml.lf.archive.Decode.ParseError
+import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ModuleName
 import com.daml.lf.language.LanguageVersion
@@ -176,35 +177,33 @@ class ScenarioService(implicit
           }
           context
             .interpretScript(packageId, scenarioId.getName)
-            .map(_.map { case (ledger, (clientMachine, ledgerMachine), errOrValue) =>
+            .map(_.map { case (ledger, (clientMachine, submissionCache), errOrValue) =>
               val builder = RunScenarioResponse.newBuilder
-              ledgerMachine.withOnLedger("runScript") { onLedger =>
-                errOrValue match {
-                  case Left(err) =>
-                    builder.setError(
-                      new Conversions(
-                        context.homePackageId,
-                        ledger,
-                        onLedger.incompleteTransaction(),
-                        clientMachine.traceLog,
-                        onLedger.commitLocation,
-                        ledgerMachine.stackTrace(),
-                      )
-                        .convertScenarioError(err)
+              errOrValue match {
+                case Left(err) =>
+                  builder.setError(
+                    new Conversions(
+                      context.homePackageId,
+                      ledger,
+                      submissionCache.ptx.finishIncomplete,
+                      clientMachine.traceLog,
+                      submissionCache.commitLocation,
+                      ImmArray.empty,
                     )
-                  case Right(value) =>
-                    builder.setResult(
-                      new Conversions(
-                        context.homePackageId,
-                        ledger,
-                        onLedger.incompleteTransaction(),
-                        clientMachine.traceLog,
-                        onLedger.commitLocation,
-                        ledgerMachine.stackTrace(),
-                      )
-                        .convertScenarioResult(value)
+                      .convertScenarioError(err)
+                  )
+                case Right(value) =>
+                  builder.setResult(
+                    new Conversions(
+                      context.homePackageId,
+                      ledger,
+                      submissionCache.ptx.finishIncomplete,
+                      clientMachine.traceLog,
+                      submissionCache.commitLocation,
+                      ImmArray.empty,
                     )
-                }
+                      .convertScenarioResult(value)
+                  )
               }
               builder.build
             })
@@ -219,6 +218,7 @@ class ScenarioService(implicit
         respObs.onNext(resp)
         respObs.onCompleted()
       case Failure(err) =>
+        System.err.println(err)
         respObs.onError(err)
     }
   }

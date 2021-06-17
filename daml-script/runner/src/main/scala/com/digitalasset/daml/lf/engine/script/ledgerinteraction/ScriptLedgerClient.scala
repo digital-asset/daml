@@ -128,6 +128,4 @@ trait ScriptLedgerClient {
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory, mat: Materializer): Future[Unit]
 
   def tracelogIterator: Iterator[(String, Option[Location])]
-
-  def clearTracelog: Unit
 }
