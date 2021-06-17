@@ -228,7 +228,7 @@ CREATE TABLE packages (
   -- A human readable description of the package source
   source_description varchar,
   -- The size of the archive payload (i.e., the serialized DAML-LF package), in bytes
-  size               bigint                   not null,
+  siz               bigint                   not null,
   -- The time when the package was added
   known_since        timestamp                not null, -- with time zone
   -- The ledger end at the time when the package was added

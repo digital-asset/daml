@@ -20,18 +20,10 @@ private[oracle] object OracleTable {
               data(0).indices.foreach { dataIndex =>
                 fields(keyFieldIndex)._2.prepareData(preparedStatement, 1, data(keyFieldIndex)(dataIndex))
                 fields.indices.foreach { fieldIndex =>
-                println(s"value is ${data(fieldIndex)(dataIndex)} and type is ${data(fieldIndex)(dataIndex).getClass}")
-                  //Note: Not all databases allow for a non-typed Null to be sent to the backend.
-                  // For maximum portability, the setNull or the setObject(int parameterIndex, Object x, int sqlType)
-
                   preparedStatement.setObject(fieldIndex + 2, data(fieldIndex)(dataIndex))
                 }
                 preparedStatement.addBatch()
               }
-              println(s"param metadata ${preparedStatement.getParameterMetaData.getParameterTypeName()} " +
-                s"metadata ${preparedStatement.getMetaData}" +
-                s"statement string ${preparedStatement.toString}" +
-              )
               preparedStatement.executeBatch()
               preparedStatement.close()
             }

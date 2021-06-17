@@ -1,6 +1,8 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+-- size is a reserved word in oracle, rename column to siz for cross-db compatibility so
+ALTER TABLE packages RENAME COLUMN "size" TO siz;
 
 ---------------------------------------------------------------------------------------------------
 -- V100: Append-only schema
