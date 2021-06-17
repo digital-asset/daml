@@ -6,7 +6,7 @@ package com.daml.platform.store.dao
 import com.daml.platform.store.DbType
 import org.scalatest.AsyncTestSuite
 
-private[dao] trait JdbcLedgerDaoBackendH2DatabaseAppendOnly extends JdbcLedgerDaoBackend {
+private[dao] trait JdbcLedgerDaoBackendH2AppendOnly extends JdbcLedgerDaoBackend {
   this: AsyncTestSuite =>
 
   override protected val dbType: DbType = DbType.H2Database

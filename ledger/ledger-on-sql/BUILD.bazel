@@ -446,6 +446,6 @@ conformance_test(
         "--verbose",
         "--concurrent-test-runs=2",
         "--timeout-scale-factor=4",
-        "--include=ParticipantPruningIT",
+        "--include=MultiPartySubmissionIT",
     ],
 )

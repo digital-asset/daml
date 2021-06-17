@@ -7,11 +7,11 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 // Aggregate all specs in a single run to not start a new database fixture for each one
-final class JdbcLedgerDaoH2DatabaseAppendOnlySpec
+final class JdbcLedgerDaoH2AppendOnlySpec
     extends AsyncFlatSpec
     with Matchers
     with JdbcLedgerDaoSuite
-    with JdbcLedgerDaoBackendH2DatabaseAppendOnly
+    with JdbcLedgerDaoBackendH2AppendOnly
     with JdbcLedgerDaoPackagesSpec
     with JdbcLedgerDaoActiveContractsSpec
     with JdbcLedgerDaoCompletionsSpec
