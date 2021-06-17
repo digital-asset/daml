@@ -18,7 +18,7 @@ private[oracle] object OracleTable {
             Table.ifNonEmpty(data) {
               val preparedStatement = connection.prepareStatement(insertStatement)
               data(0).indices.foreach { dataIndex =>
-                preparedStatement.setObject(1, data(keyFieldIndex)(dataIndex))
+                fields(keyFieldIndex)._2.prepareData(preparedStatement, 1, data(keyFieldIndex)(dataIndex))
                 fields.indices.foreach { fieldIndex =>
                 println(s"value is ${data(fieldIndex)(dataIndex)} and type is ${data(fieldIndex)(dataIndex).getClass}")
                   //Note: Not all databases allow for a non-typed Null to be sent to the backend.
