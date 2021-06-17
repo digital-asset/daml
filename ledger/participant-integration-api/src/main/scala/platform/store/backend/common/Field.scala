@@ -30,9 +30,17 @@ private[backend] abstract class Field[FROM, TO, CONVERTED](implicit
       .toArray(classTag)
 
   final def prepareData(preparedStatement: PreparedStatement, index: Int, value: Any): Unit =
-    prepareDataTemplate(preparedStatement, index, value.asInstanceOf[CONVERTED]) // this cast is safe by design
+    prepareDataTemplate(
+      preparedStatement,
+      index,
+      value.asInstanceOf[CONVERTED],
+    ) // this cast is safe by design
 
-  def prepareDataTemplate(preparedStatement: PreparedStatement, index: Int, value: CONVERTED): Unit =
+  def prepareDataTemplate(
+      preparedStatement: PreparedStatement,
+      index: Int,
+      value: CONVERTED,
+  ): Unit =
     preparedStatement.setObject(index, value)
 }
 

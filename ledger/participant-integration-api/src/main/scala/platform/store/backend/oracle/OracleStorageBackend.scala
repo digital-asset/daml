@@ -11,7 +11,11 @@ import com.daml.ledger.{ApplicationId, TransactionId}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
-import com.daml.platform.store.backend.common.{AppendOnlySchema, CommonStorageBackend, TemplatedStorageBackend}
+import com.daml.platform.store.backend.common.{
+  AppendOnlySchema,
+  CommonStorageBackend,
+  TemplatedStorageBackend,
+}
 import com.daml.platform.store.backend.{DbDto, StorageBackend}
 
 import java.sql.Connection
@@ -451,7 +455,8 @@ private[backend] object OracleStorageBackend
       .as(get[Long](1).singleOpt)(connection)
   }
 
-  private def limitClause(to: Option[Int]): String = to.map(to => s"fetch next $to rows only").getOrElse("")
+  private def limitClause(to: Option[Int]): String =
+    to.map(to => s"fetch next $to rows only").getOrElse("")
 
   private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
     if (parties.isEmpty)

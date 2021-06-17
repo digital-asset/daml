@@ -18,7 +18,11 @@ private[oracle] object OracleTable {
             Table.ifNonEmpty(data) {
               val preparedStatement = connection.prepareStatement(insertStatement)
               data(0).indices.foreach { dataIndex =>
-                fields(keyFieldIndex)._2.prepareData(preparedStatement, 1, data(keyFieldIndex)(dataIndex))
+                fields(keyFieldIndex)._2.prepareData(
+                  preparedStatement,
+                  1,
+                  data(keyFieldIndex)(dataIndex),
+                )
                 fields.indices.foreach { fieldIndex =>
                   preparedStatement.setObject(fieldIndex + 2, data(fieldIndex)(dataIndex))
                 }

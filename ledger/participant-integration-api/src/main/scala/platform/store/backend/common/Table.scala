@@ -35,7 +35,11 @@ private[backend] object Table {
               val preparedStatement = connection.prepareStatement(insertStatement)
               data(0).indices.foreach { dataIndex =>
                 fields.indices.foreach { fieldIndex =>
-                  fields(fieldIndex)._2.prepareData(preparedStatement, fieldIndex + 1, data(fieldIndex)(dataIndex))
+                  fields(fieldIndex)._2.prepareData(
+                    preparedStatement,
+                    fieldIndex + 1,
+                    data(fieldIndex)(dataIndex),
+                  )
                 }
                 preparedStatement.addBatch()
               }

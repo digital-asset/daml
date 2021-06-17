@@ -7,7 +7,9 @@ import com.daml.platform.store.DbType
 import com.daml.testing.oracle.OracleAroundAll
 import org.scalatest.AsyncTestSuite
 
-private[dao] trait JdbcLedgerDaoBackendOracleAppendOnly extends JdbcLedgerDaoBackend with OracleAroundAll {
+private[dao] trait JdbcLedgerDaoBackendOracleAppendOnly
+    extends JdbcLedgerDaoBackend
+    with OracleAroundAll {
   this: AsyncTestSuite =>
 
   override protected val dbType: DbType = DbType.Oracle

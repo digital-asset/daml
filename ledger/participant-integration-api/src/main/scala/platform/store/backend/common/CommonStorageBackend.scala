@@ -368,15 +368,15 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .map(flatten)
       .map {
         case (
-          offset,
-          recordTime,
-          submissionIdOpt,
-          Some(party),
-          displayNameOpt,
-          `acceptType`,
-          None,
-          Some(isLocal),
-          ) =>
+              offset,
+              recordTime,
+              submissionIdOpt,
+              Some(party),
+              displayNameOpt,
+              `acceptType`,
+              None,
+              Some(isLocal),
+            ) =>
           offset ->
             PartyLedgerEntry.AllocationAccepted(
               submissionIdOpt,
@@ -384,15 +384,15 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
               PartyDetails(party, displayNameOpt, isLocal),
             )
         case (
-          offset,
-          recordTime,
-          Some(submissionId),
-          None,
-          None,
-          `rejectType`,
-          Some(reason),
-          None,
-          ) =>
+              offset,
+              recordTime,
+              Some(submissionId),
+              None,
+              None,
+              `rejectType`,
+              Some(reason),
+              None,
+            ) =>
           offset -> PartyLedgerEntry.AllocationRejected(
             submissionId,
             recordTime.toInstant,
