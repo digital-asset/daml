@@ -708,6 +708,12 @@ final class Metrics(val registry: MetricRegistry) {
 
       // Meters how long processing of a request takes
       val httpRequestTimer: Timer = registry.timer(Prefix :+ "http_request_timing")
+      val commandSubmissionTimer: Timer = registry.timer(Prefix :+ "command_submission_timing")
+      val queryTimer: Timer = registry.timer(Prefix :+ "query_timing")
+      val partyManagementTimer: Timer = registry.timer(Prefix :+ "party_management_timing")
+      val packageManagementTimer: Timer = registry.timer(Prefix :+ "package_management_timing")
+      val incomingJsonParsingAndValidationTimer: Timer =
+        registry.timer(Prefix :+ "incoming_json_parsing_and_validation_timing")
       // Meters http requests throughput
       val httpRequestThroughput: Meter = registry.meter(Prefix :+ "http_request_throughput")
       // Meters how many websocket connections are currently active

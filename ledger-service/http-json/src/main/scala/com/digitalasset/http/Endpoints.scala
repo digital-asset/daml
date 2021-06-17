@@ -17,6 +17,7 @@ import akka.http.scaladsl.model.headers.{
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
+import com.codahale.metrics.Timer
 import com.daml.lf
 import com.daml.http.ContractsService.SearchResult
 import com.daml.http.EndpointsCompanion._
@@ -70,44 +71,62 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID],
       metrics: Metrics,
   ): PartialFunction[HttpRequest, Http.IncomingConnection => Future[HttpResponse]] = {
-    val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
-      InstanceUUID with RequestID
-    ] => Future[HttpResponse]] = {
-      // Parenthesis are required because otherwise scalafmt breaks.
+    type DispatchFun =
+      PartialFunction[HttpRequest, LoggingContextOf[InstanceUUID with RequestID] => Future[HttpResponse]]
+    // Parenthesis are required because otherwise scalafmt breaks.
+    val commandDispatch: DispatchFun = ({
       case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) =>
         (implicit lc => httpResponse(create(req)))
       case req @ HttpRequest(POST, Uri.Path("/v1/exercise"), _, _, _) =>
         (implicit lc => httpResponse(exercise(req)))
       case req @ HttpRequest(POST, Uri.Path("/v1/create-and-exercise"), _, _, _) =>
         (implicit lc => httpResponse(createAndExercise(req)))
+    }: DispatchFun) andThen (f =>
+      lc => Timed.future(metrics.daml.HttpJsonApi.commandSubmissionTimer, f(lc))
+    )
+    val queryDispatch: DispatchFun = ({
       case req @ HttpRequest(POST, Uri.Path("/v1/fetch"), _, _, _) =>
         (implicit lc => httpResponse(fetch(req)))
       case req @ HttpRequest(GET, Uri.Path("/v1/query"), _, _, _) =>
         (implicit lc => httpResponse(retrieveAll(req)))
       case req @ HttpRequest(POST, Uri.Path("/v1/query"), _, _, _) =>
         (implicit lc => httpResponse(query(req)))
+    }: DispatchFun) andThen (f => lc => Timed.future(metrics.daml.HttpJsonApi.queryTimer, f(lc)))
+    val partyManagementDispatch: DispatchFun = ({
       case req @ HttpRequest(GET, Uri.Path("/v1/parties"), _, _, _) =>
         (implicit lc => httpResponse(allParties(req)))
       case req @ HttpRequest(POST, Uri.Path("/v1/parties"), _, _, _) =>
         (implicit lc => httpResponse(parties(req)))
       case req @ HttpRequest(POST, Uri.Path("/v1/parties/allocate"), _, _, _) =>
         (implicit lc => httpResponse(allocateParty(req)))
+    }: DispatchFun) andThen (f =>
+      lc => Timed.future(metrics.daml.HttpJsonApi.partyManagementTimer, f(lc))
+    )
+    val packageManagementDispatch: DispatchFun = ({
       case req @ HttpRequest(GET, Uri.Path("/v1/packages"), _, _, _) =>
         (implicit lc => httpResponse(listPackages(req)))
       // format: off
       case req @ HttpRequest(GET,
-          Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
-          _, _, _) => (implicit lc => downloadPackage(req, packageId))
+        Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
+        _, _, _) => (implicit lc => downloadPackage(req, packageId))
       // format: on
       case req @ HttpRequest(POST, Uri.Path("/v1/packages"), _, _, _) =>
         (implicit lc => httpResponse(uploadDarFile(req)))
+    }: DispatchFun) andThen (f =>
+      lc => Timed.future(metrics.daml.HttpJsonApi.packageManagementTimer, f(lc))
+    )
+    val liveOrHealthDispatch: DispatchFun = {
       case HttpRequest(GET, Uri.Path("/livez"), _, _, _) =>
         _ => Future.successful(HttpResponse(status = StatusCodes.OK))
       case HttpRequest(GET, Uri.Path("/readyz"), _, _, _) =>
         _ => healthService.ready().map(_.toHttpResponse)
     }
     import scalaz.std.partialFunction._, scalaz.syntax.arrow._
-    (dispatch &&& { case r => r }) andThen { case (lcFhr, req) =>
+    ((commandDispatch orElse
+      queryDispatch orElse
+      partyManagementDispatch orElse
+      packageManagementDispatch orElse
+      liveOrHealthDispatch) &&& { case r => r }) andThen { case (lcFhr, req) =>
       (connection: Http.IncomingConnection) =>
         extendWithRequestIdLogCtx(implicit lc => {
           val t0 = System.nanoTime
@@ -123,6 +142,11 @@ class Endpoints(
         })
     }
   }
+
+  def getParseAndDecodeTimerCtx()(implicit
+      metrics: Metrics
+  ): ET[Timer.Context] =
+    EitherT.pure(metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.time())
 
   def withJwtPayloadLoggingContext[A](jwtPayload: JwtPayloadG)(
       fn: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => A
@@ -142,6 +166,7 @@ class Endpoints(
           Jwt,
           JwtWritePayload,
           JsValue,
+          Timer.Context,
       ) => LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => ET[
         T[ApiValue]
       ]
@@ -152,10 +177,13 @@ class Endpoints(
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     for {
+      parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
       _ <- EitherT.pure(metrics.daml.HttpJsonApi.commandSubmissionThroughput.mark())
       t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtWritePayload, JsValue)]
       (jwt, jwtPayload, reqBody) = t3
-      resp <- withJwtPayloadLoggingContext(jwtPayload)(fn(jwt, jwtPayload, reqBody))
+      resp <- withJwtPayloadLoggingContext(jwtPayload)(
+        fn(jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx)
+      )
       jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
     } yield domain.OkResponse(jsVal)
 
@@ -163,11 +191,12 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
-    handleCommand(req) { (jwt, jwtPayload, reqBody) => implicit lc =>
+    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
       for {
         cmd <- either(
           decoder.decodeCreateCommand(reqBody).liftErr(InvalidUserInput)
         ): ET[domain.CreateCommand[ApiRecord, TemplateId.RequiredPkg]]
+        _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 
         ac <- eitherT(
           handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd))
@@ -179,12 +208,12 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
-    handleCommand(req) { (jwt, jwtPayload, reqBody) => implicit lc =>
+    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
       for {
         cmd <- either(
           decoder.decodeExerciseCommand(reqBody).liftErr(InvalidUserInput)
         ): ET[domain.ExerciseCommand[LfValue, domain.ContractLocator[LfValue]]]
-
+        _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
         resolvedRef <- eitherT(
           resolveReference(jwt, jwtPayload, cmd.reference)
         ): ET[domain.ResolvedContractRef[ApiValue]]
@@ -206,11 +235,12 @@ class Endpoints(
       lc: LoggingContextOf[InstanceUUID with RequestID],
       metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
-    handleCommand(req) { (jwt, jwtPayload, reqBody) => implicit lc =>
+    handleCommand(req) { (jwt, jwtPayload, reqBody, parseAndDecodeTimerCtx) => implicit lc =>
       for {
         cmd <- either(
           decoder.decodeCreateAndExerciseCommand(reqBody).liftErr(InvalidUserInput)
         ): ET[domain.CreateAndExerciseCommand[ApiRecord, ApiValue, TemplateId.RequiredPkg]]
+        _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 
         resp <- eitherT(
           handleFutureEitherFailure(
@@ -221,9 +251,11 @@ class Endpoints(
     }
 
   def fetch(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
   ): ET[domain.SyncResponse[JsValue]] =
     for {
+      parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
       input <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = input
@@ -235,7 +267,7 @@ class Endpoints(
           cl <- either(
             decoder.decodeContractLocator(reqBody).liftErr(InvalidUserInput)
           ): ET[domain.ContractLocator[LfValue]]
-
+          _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
           _ = logger.debug(s"/v1/fetch cl: $cl")
 
           ac <- eitherT(
@@ -251,10 +283,15 @@ class Endpoints(
     } yield domain.OkResponse(jsVal)
 
   def retrieveAll(req: HttpRequest)(implicit
-      lc: LoggingContextOf[InstanceUUID with RequestID]
-  ): Future[Error \/ SearchResult[Error \/ JsValue]] =
-    inputAndJwtPayload[JwtPayload](req).map {
+      lc: LoggingContextOf[InstanceUUID with RequestID],
+      metrics: Metrics,
+  ): Future[Error \/ SearchResult[Error \/ JsValue]] = for {
+    parseAndDecodeTimerCtx <- Future(
+      metrics.daml.HttpJsonApi.incomingJsonParsingAndValidationTimer.time()
+    )
+    res <- inputAndJwtPayload[JwtPayload](req).map {
       _.map { case (jwt, jwtPayload, _) =>
+        parseAndDecodeTimerCtx.close()
         withJwtPayloadLoggingContext(jwtPayload) { implicit lc =>
           val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
             contractsService.retrieveAll(jwt, jwtPayload)
@@ -267,6 +304,7 @@ class Endpoints(
         }
       }
     }
+  } yield res
 
   def query(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
@@ -341,9 +379,10 @@ class Endpoints(
       metrics: Metrics,
   ): ET[domain.SyncResponse[Unit]] =
     for {
+      parseAndDecodeTimerCtx <- getParseAndDecodeTimerCtx()
       _ <- EitherT.pure(metrics.daml.HttpJsonApi.uploadPackagesThroughput.mark())
       t2 <- either(inputSource(req)): ET[(Jwt, Source[ByteString, Any])]
-
+      _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
       (jwt, source) = t2
 
       _ <- eitherT(
