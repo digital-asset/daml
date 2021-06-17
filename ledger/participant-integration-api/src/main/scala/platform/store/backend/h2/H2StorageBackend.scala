@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.backend.postgresql
+package com.daml.platform.store.backend.h2
 
 import java.sql.Connection
 import java.time.Instant
@@ -13,7 +13,8 @@ import com.daml.ledger.{ApplicationId, TransactionId}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.data.Ref
-import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Party, Raw}
+import com.daml.lf.data.Ref.Party
+import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
 import com.daml.platform.store.backend.common.{
   AppendOnlySchema,
   CommonStorageBackend,
@@ -21,26 +22,40 @@ import com.daml.platform.store.backend.common.{
 }
 import com.daml.platform.store.backend.{DbDto, StorageBackend}
 
-private[backend] object PostgresStorageBackend
+private[backend] object H2StorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
     with CommonStorageBackend[AppendOnlySchema.Batch] {
 
-  override def insertBatch(
-      connection: Connection,
-      postgresDbBatch: AppendOnlySchema.Batch,
-  ): Unit =
-    PGSchema.schema.executeUpdate(postgresDbBatch, connection)
+  override def reset(connection: Connection): Unit = {
+    SQL("""set referential_integrity false;
+        |truncate table configuration_entries;
+        |truncate table package_entries;
+        |truncate table parameters;
+        |truncate table participant_command_completions;
+        |truncate table participant_command_submissions;
+        |truncate table participant_events_divulgence;
+        |truncate table participant_events_create;
+        |truncate table participant_events_consuming_exercise;
+        |truncate table participant_events_non_consuming_exercise;
+        |truncate table parties;
+        |truncate table party_entries;
+        |set referential_integrity true;""".stripMargin)
+      .execute()(connection)
+    ()
+  }
 
-  override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
-    PGSchema.schema.prepareData(dbDtos)
+  override def enforceSynchronousCommit(connection: Connection): Unit = () // Not supported
+
+  override def duplicateKeyError: String = "Unique index or primary key violation"
 
   val SQL_INSERT_COMMAND: String =
-    """insert into participant_command_submissions as pcs (deduplication_key, deduplicate_until)
-      |values ({deduplicationKey}, {deduplicateUntil})
-      |on conflict (deduplication_key)
-      |  do update
-      |  set deduplicate_until={deduplicateUntil}
-      |  where pcs.deduplicate_until < {submittedAt}""".stripMargin
+    """merge into participant_command_submissions pcs
+      |using dual on deduplication_key = {deduplicationKey}
+      |when not matched then
+      |  insert (deduplication_key, deduplicate_until)
+      |  values ({deduplicationKey}, {deduplicateUntil})
+      |when matched and pcs.deduplicate_until < {submittedAt} then
+      |  update set deduplicate_until={deduplicateUntil}""".stripMargin
 
   def upsertDeduplicationEntry(
       key: String,
@@ -55,35 +70,11 @@ private[backend] object PostgresStorageBackend
       )
       .executeUpdate()(connection)
 
-  def reset(connection: Connection): Unit = {
-    SQL("""truncate table configuration_entries cascade;
-      |truncate table package_entries cascade;
-      |truncate table parameters cascade;
-      |truncate table participant_command_completions cascade;
-      |truncate table participant_command_submissions cascade;
-      |truncate table participant_events_divulgence cascade;
-      |truncate table participant_events_create cascade;
-      |truncate table participant_events_consuming_exercise cascade;
-      |truncate table participant_events_non_consuming_exercise cascade;
-      |truncate table parties cascade;
-      |truncate table party_entries cascade;
-      |""".stripMargin)
-      .execute()(connection)
-    ()
-  }
+  override def batch(dbDtos: Vector[DbDto]): AppendOnlySchema.Batch =
+    H2Schema.schema.prepareData(dbDtos)
 
-  def enforceSynchronousCommit(connnection: Connection): Unit = {
-    val statement =
-      connnection.prepareStatement("SET LOCAL synchronous_commit = 'on'")
-    try {
-      statement.execute()
-      ()
-    } finally {
-      statement.close()
-    }
-  }
-
-  val duplicateKeyError: String = "duplicate key"
+  override def insertBatch(connection: Connection, batch: AppendOnlySchema.Batch): Unit =
+    H2Schema.schema.executeUpdate(batch, connection)
 
   def commandCompletions(
       startExclusive: Offset,
@@ -455,6 +446,7 @@ private[backend] object PostgresStorageBackend
       fetchSizeHint = fetchSizeHint,
     )(connection)
 
+  // TODO FIXME: this is for postgres not for H2
   def maxEventSeqIdForOffset(offset: Offset)(connection: Connection): Option[Long] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
@@ -469,10 +461,13 @@ private[backend] object PostgresStorageBackend
   private def limitClause(to: Option[Int]): String = to.map(to => s"limit $to").getOrElse("")
 
   private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
-    s"$arrayColumn::text[] && array[${format(parties)}]::text[]"
+    if (parties.isEmpty)
+      "false"
+    else
+      parties.view.map(p => s"array_contains($arrayColumn, '$p')").mkString("(", " or ", ")")
 
   private def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
-    s"array(select unnest($arrayColumn) intersect select unnest(array[${format(parties)}]))"
+    s"array_intersection($arrayColumn, array[${format(parties)}])"
 
   private def formatPartiesAndTemplatesWhereClause(
       witnessesAggregationColumn: String,
@@ -484,5 +479,5 @@ private[backend] object PostgresStorageBackend
       }
       .mkString("(", " or ", ")")
 
-  private val partyArrayContext = ("array[", "]::text[]")
+  private val partyArrayContext = ("array[", "]")
 }
