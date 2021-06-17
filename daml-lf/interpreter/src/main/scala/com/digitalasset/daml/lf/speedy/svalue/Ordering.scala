@@ -5,6 +5,7 @@ package com.daml.lf
 package speedy
 package svalue
 
+import com.daml.nameof.NameOf
 import data.{Bytes, Utf8}
 import language.TypeOrdering
 import value.Value.ContractId
@@ -84,10 +85,16 @@ object Ordering extends scala.math.Ordering[SValue] {
         case (STypeRep(xType), STypeRep(yType)) =>
           diff = TypeOrdering.compare(xType, yType)
         case (_: SPAP, _: SPAP) =>
-          throw SError.SErrorCrash("functions are not comparable")
+          throw SError.SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            "functions are not comparable",
+          )
         // We should never hit this case at runtime.
         case _ =>
-          throw SError.SErrorCrash("BUG: comparison of incomparable values")
+          throw SError.SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            "BUG: comparison of incomparable values",
+          )
       }
 
     while (diff == 0 && stackX.nonEmpty) {
@@ -118,7 +125,8 @@ object Ordering extends scala.math.Ordering[SValue] {
           Bytes.ordering.compare(suffix1, suffix2)
         else
           throw SError.SErrorCrash(
-            "Conflicting discriminators between a local and global contract id"
+            NameOf.qualifiedNameOfCurrentFunc,
+            "Conflicting discriminators between a local and global contract id",
           )
     }
 

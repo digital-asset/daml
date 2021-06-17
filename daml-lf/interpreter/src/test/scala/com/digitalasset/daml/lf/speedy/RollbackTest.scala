@@ -19,14 +19,14 @@ import com.daml.lf.transaction.NodeId
 import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value.{ValueRecord, ValueInt64}
-
+import com.daml.nameof.NameOf
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
+class RollbackTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-  import ExceptionTest._
+  import RollbackTest._
 
   implicit val defaultParserParameters: ParserParameters[this.type] = {
     ParserParameters(
@@ -51,7 +51,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     val res = machine.run()
     res match {
       case _: SResultFinalValue =>
-        machine.withOnLedger("RollbackTest") { onLedger =>
+        machine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc) { onLedger =>
           onLedger.ptx.finish match {
             case IncompleteTransaction(_) =>
               sys.error("unexpected IncompleteTransaction")
@@ -252,7 +252,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
 
 }
 
-object ExceptionTest {
+object RollbackTest {
 
   sealed trait Tree //minimal transaction tree, for purposes of writing test expectation
   final case class C(x: Long) extends Tree //Create Node

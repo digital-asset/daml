@@ -20,6 +20,7 @@ import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node}
+import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
@@ -34,6 +35,9 @@ import scala.collection.immutable.TreeSet
   *  Most builtins are pure, and so they extend `SBuiltinPure`
   */
 private[speedy] sealed abstract class SBuiltin(val arity: Int) {
+  protected def crash(msg: String) =
+    throw SErrorCrash(this.getClass.getCanonicalName + ".execute", msg)
+
   // Helper for constructing expressions applying this builtin.
   // E.g. SBCons(SEVar(1), SEVar(2))
   private[speedy] def apply(args: SExpr*): SExpr =
@@ -46,7 +50,7 @@ private[speedy] sealed abstract class SBuiltin(val arity: Int) {
 
   private def unexpectedType(i: Int, expected: String, found: SValue) =
     crash(
-      s"${getClass.getSimpleName}: type mismatch of argument $i: expect $expected but got $found"
+      s"type mismatch of argument $i: expect $expected but got $found"
     )
 
   final protected def getSBool(args: util.ArrayList[SValue], i: Int): Boolean =
@@ -191,7 +195,7 @@ private[speedy] sealed abstract class OnLedgerBuiltin(arity: Int)
   ): Unit
 
   final override def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
-    machine.withOnLedger(productPrefix)(execute(args, machine, _))
+    machine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(execute(args, machine, _))
 }
 
 private[lf] object SBuiltin {
@@ -400,7 +404,7 @@ private[lf] object SBuiltin {
       case STNat(n) => s"@$n"
       case _: SContractId | SToken | _: SAny | _: SEnum | _: SList | _: SMap | _: SOptional |
           _: SPAP | _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
-        crash(s"litToText: unexpected $x")
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"litToText: unexpected $x")
     }
 
   final case object SBToText extends SBuiltinPure(1) {
@@ -1387,7 +1391,7 @@ private[lf] object SBuiltin {
       val opt = getSOptional(args, 0)
       val excep = getSAny(args, 1)
       checkToken(args, 2)
-      machine.withOnLedger("SBTryHandler") { onLedger =>
+      machine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc) { onLedger =>
         opt match {
           case None =>
             onLedger.ptx = onLedger.ptx.abortTry
@@ -1606,12 +1610,16 @@ private[lf] object SBuiltin {
       case SList(vs) =>
         TreeSet.empty(Party.ordering) ++ vs.iterator.map {
           case SParty(p) => p
-          case x => crash(s"non-party value in list: $x")
+          case x =>
+            throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"non-party value in list: $x")
         }
       case SParty(p) =>
         TreeSet(p)(Party.ordering)
       case _ =>
-        crash(s"value not a list of parties or party: $v")
+        throw SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"value not a list of parties or party: $v",
+        )
     }
 
   private[this] val keyWithMaintainersStructFields: Struct[Unit] =
@@ -1632,9 +1640,13 @@ private[lf] object SBuiltin {
               maintainers = extractParties(vals.get(maintainerIdx)),
             )
           case Left(coid) =>
-            crash(s"Contract IDs are not supported in contract keys: $coid")
+            throw SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"Contract IDs are not supported in contract keys: $coid",
+            )
         }
-      case _ => crash(s"Invalid key with maintainers: $v")
+      case _ =>
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Invalid key with maintainers: $v")
     }
 
   private[this] def extractOptionalKeyWithMaintainers(
@@ -1642,7 +1654,11 @@ private[lf] object SBuiltin {
   ): Option[Node.KeyWithMaintainers[V[Nothing]]] =
     optKey match {
       case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers)
-      case v => crash(s"Expected optional key with maintainers, got: $v")
+      case v =>
+        throw SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"Expected optional key with maintainers, got: $v",
+        )
     }
 
   private[this] val cachedContractStructFields = Struct.assertFromSeq(
@@ -1676,6 +1692,6 @@ private[lf] object SBuiltin {
           observers = extractParties(vals.get(cachedContractObserversIdx)),
           key = extractOptionalKeyWithMaintainers(vals.get(cachedContractKeyIdx)),
         )
-      case _ => crash(s"Invalid cached contract: $v")
+      case _ => throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Invalid cached contract: $v")
     }
 }

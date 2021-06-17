@@ -14,6 +14,8 @@ package object engine {
   private[engine] def assertTranslate(translator: ValueTranslator)(
       value: TypedValue[Value[ContractId]]
   ): SValue =
-    translator.translateValue(value.valueType, value.value).fold(e => sys.error(e.msg), identity)
+    translator
+      .translateValue(value.valueType, value.value)
+      .fold(e => sys.error(e.message), identity)
 
 }

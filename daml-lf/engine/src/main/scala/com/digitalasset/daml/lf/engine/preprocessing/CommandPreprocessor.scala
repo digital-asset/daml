@@ -7,6 +7,7 @@ package preprocessing
 
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
+import com.daml.lf.speedy.SError.SErrorCrash
 import com.daml.lf.speedy.SValue
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
@@ -56,7 +57,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     keyCids.foreach { coid =>
       // The type checking of contractKey done by unsafeTranslateValue should ensure
       // keyCids is empty
-      throw Error.Preprocessing.Internal(
+      throw SErrorCrash(
         NameOf.qualifiedNameOfCurrentFunc,
         s"Unexpected contract IDs in contract key of $templateId: $coid",
       )
@@ -95,7 +96,7 @@ private[lf] final class CommandPreprocessor(compiledPackages: CompiledPackages) 
     keyCids.foreach { coid =>
       // The type checking of contractKey done by unsafeTranslateValue should ensure
       // keyCids is empty
-      throw Error.Preprocessing.Internal(
+      throw SErrorCrash(
         NameOf.qualifiedNameOfCurrentFunc,
         s"Unexpected contract IDs in contract key of $templateId: $coid",
       )

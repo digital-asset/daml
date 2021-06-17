@@ -302,7 +302,7 @@ class EngineTest
         .consume(lookupContract, lookupPackage, lookupKey, allKeysVisible)
       inside(res) { case Left(Error.Preprocessing(error)) =>
         error shouldBe a[Error.Preprocessing.TypeMismatch]
-        error.msg should startWith("Missing record label n for record")
+        error.message should startWith("Missing record label n for record")
       }
     }
 
@@ -518,7 +518,7 @@ class EngineTest
         .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
       validated match {
         case Left(e) =>
-          fail(e.msg)
+          fail(e.message)
         case Right(()) => ()
       }
     }
@@ -608,7 +608,7 @@ class EngineTest
           )
         validated match {
           case Left(e) =>
-            fail(e.msg)
+            fail(e.message)
           case Right(()) => succeed
         }
       }
@@ -727,7 +727,7 @@ class EngineTest
         )
       validated match {
         case Left(e) =>
-          fail(e.msg)
+          fail(e.message)
         case Right(()) => ()
       }
     }
@@ -849,7 +849,7 @@ class EngineTest
         )
       validated match {
         case Left(e) =>
-          fail(e.msg)
+          fail(e.message)
         case Right(()) => ()
       }
     }
@@ -896,7 +896,7 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       inside(result) { case Left(err) =>
-        err.msg should include(
+        err.message should include(
           "Update failed due to a contract key with an empty sey of maintainers"
         )
       }
@@ -934,7 +934,7 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       inside(result) { case Left(err) =>
-        err.msg should include(
+        err.message should include(
           "Update failed due to a contract key with an empty sey of maintainers"
         )
       }
@@ -1105,7 +1105,7 @@ class EngineTest
         )
       validated match {
         case Left(e) =>
-          fail(e.msg)
+          fail(e.message)
         case Right(()) => ()
       }
     }
@@ -1160,7 +1160,7 @@ class EngineTest
         .swap
         .toOption
         .get
-        .msg should include("Provided value exceeds maximum nesting level")
+        .message should include("Provided value exceeds maximum nesting level")
     }
   }
 
@@ -1790,7 +1790,7 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       inside(result) { case Left(err) =>
-        err.msg should include(
+        err.message should include(
           "Update failed due to a contract key with an empty sey of maintainers"
         )
       }
@@ -1987,19 +1987,19 @@ class EngineTest
     "error on fetch" in {
       val result = run(ImmArray(incorrectFetch))
       inside(result) { case Left(e) =>
-        e.msg should include("wrongly typed contract id")
+        e.message should include("wrongly typed contract id")
       }
     }
     "error on exercise" in {
       val result = run(ImmArray(incorrectCommand))
       inside(result) { case Left(e) =>
-        e.msg should include("wrongly typed contract id")
+        e.message should include("wrongly typed contract id")
       }
     }
     "error on exercise even if used correctly before" in {
       val result = run(ImmArray(correctCommand, incorrectCommand))
       inside(result) { case Left(e) =>
-        e.msg should include("wrongly typed contract id")
+        e.message should include("wrongly typed contract id")
       }
     }
   }
@@ -2040,10 +2040,9 @@ class EngineTest
     }
 
     "be validable in whole" in {
-      def validate(tx: SubmittedTransaction, metaData: Tx.Metadata) =
+      def validate(tx: SubmittedTransaction, metaData: Tx.Metadata) = {
+        val Right(submitter) = tx.guessSubmitter
         for {
-          submitter <-
-            tx.guessSubmitter.left.map(msg => Error.Validation(Error.Validation.Generic(msg)))
           res <- engine
             .validate(Set(submitter), tx, let, participant, metaData.submissionTime, submissionSeed)
             .consume(
@@ -2053,6 +2052,7 @@ class EngineTest
               VisibleByKey.fromSubmitters(Set(submitter)),
             )
         } yield res
+      }
 
       run(0).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())
       run(3).flatMap { case (tx, metaData) => validate(tx, metaData) } shouldBe Right(())
@@ -2149,8 +2149,8 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
       result shouldBe a[Left[_, _]]
       val Left(err) = result
-      err.msg should not include ("Boom")
-      err.msg should include("precondition violation")
+      err.message should not include ("Boom")
+      err.message should include("precondition violation")
     }
 
     "not be create if has an empty set of maintainer" in {
@@ -2180,7 +2180,7 @@ class EngineTest
         .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
       inside(result) { case Left(err) =>
-        err.msg should include(
+        err.message should include(
           "Update failed due to a contract key with an empty sey of maintainers"
         )
       }

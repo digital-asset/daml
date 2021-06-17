@@ -11,6 +11,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.SErrorCrash
 import com.daml.lf.value.{Value => V}
+import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
 import scala.collection.compat._
@@ -25,7 +26,7 @@ sealed trait SValue {
 
   import SValue._
 
-  def toValue: V[V.ContractId] =
+  def toValue: V[V.ContractId] = {
     this match {
       case SInt64(x) => V.ValueInt64(x)
       case SNumeric(x) => V.ValueNumeric(x)
@@ -56,27 +57,35 @@ sealed trait SValue {
       case SMap(true, entries) =>
         V.ValueTextMap(SortedLookupList(entries.map {
           case (SText(t), v) => t -> v.toValue
-          case (_, _) => throw SErrorCrash("SValue.toValue: TextMap with non text key")
+          case (_, _) =>
+            throw SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              "SValue.toValue: TextMap with non text key",
+            )
         }))
       case SMap(false, entries) =>
         V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
       case SContractId(coid) =>
         V.ValueContractId(coid)
       case SStruct(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SStruct")
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "SValue.toValue: unexpected SStruct")
       case SAny(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SAny")
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "SValue.toValue: unexpected SAny")
       case SBigNumeric(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected SBigNumeric")
+        throw SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "SValue.toValue: unexpected SBigNumeric",
+        )
       case STypeRep(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected STypeRep")
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "SValue.toValue: unexpected STypeRep")
       case STNat(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected STNat")
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "SValue.toValue: unexpected STNat")
       case _: SPAP =>
-        throw SErrorCrash("SValue.toValue: unexpected SPAP")
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "SValue.toValue: unexpected SPAP")
       case SToken =>
-        throw SErrorCrash("SValue.toValue: unexpected SToken")
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "SValue.toValue: unexpected SToken")
     }
+  }
 
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
     this match {
@@ -135,7 +144,7 @@ object SValue {
     */
   final case class SPAP(prim: Prim, actuals: util.ArrayList[SValue], arity: Int) extends SValue {
     if (actuals.size >= arity) {
-      throw SErrorCrash(s"SPAP: unexpected actuals.size >= arity")
+      throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "SPAP: unexpected actuals.size >= arity")
     }
     override def toString: String =
       s"SPAP($prim, ${actuals.asScala.mkString("[", ",", "]")}, $arity)"

@@ -91,8 +91,10 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
             case Ast.TSynApp(_, _) | Ast.TForall(_, _) | Ast.TStruct(_) =>
               // We assume that getDependencies is always given serializable types
               ResultError(
-                Error.Preprocessing
-                  .Internal(NameOf.qualifiedNameOfCurrentFunc, s"unserializable type ${typ.pretty}")
+                Error.Internal(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  s"unserializable type ${typ.pretty}",
+                )
               )
           }
         case Nil =>
