@@ -776,7 +776,7 @@ convType env reexported =
             ty1' <- convTypeLiftingConstraintTuples ty1
             ty2' <- convType env reexported ty2
             pure $ if isConstraint ty1
-                then HsQualTy noExt (noLoc [noLoc ty1']) (noLoc ty2')
+                then HsParTy noExt (noLoc $ HsQualTy noExt (noLoc [noLoc ty1']) (noLoc ty2'))
                 else HsParTy noExt (noLoc $ HsFunTy noExt (noLoc ty1') (noLoc ty2'))
 
         LF.TSynApp (rewriteClassReexport env reexported -> LF.Qualified{..}) lfArgs -> do
