@@ -348,10 +348,14 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   // Parties
 
   private val SQL_GET_PARTY_ENTRIES = SQL(
-    "select * from party_entries where ledger_offset>{startExclusive} and ledger_offset<={endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}"
+    """select * from party_entries
+      |where ledger_offset>{startExclusive} and ledger_offset<={endInclusive}
+      |order by ledger_offset asc
+      |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
   )
 
-  private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] =
+  private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
+    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
     (offset("ledger_offset") ~
       date("recorded_at") ~
       ledgerString("submission_id").? ~
@@ -363,15 +367,15 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .map(flatten)
       .map {
         case (
-              offset,
-              recordTime,
-              submissionIdOpt,
-              Some(party),
-              displayNameOpt,
-              `acceptType`,
-              None,
-              Some(isLocal),
-            ) =>
+          offset,
+          recordTime,
+          submissionIdOpt,
+          Some(party),
+          displayNameOpt,
+          `acceptType`,
+          None,
+          Some(isLocal),
+          ) =>
           offset ->
             PartyLedgerEntry.AllocationAccepted(
               submissionIdOpt,
@@ -379,15 +383,15 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
               PartyDetails(party, displayNameOpt, isLocal),
             )
         case (
-              offset,
-              recordTime,
-              Some(submissionId),
-              None,
-              None,
-              `rejectType`,
-              Some(reason),
-              None,
-            ) =>
+          offset,
+          recordTime,
+          Some(submissionId),
+          None,
+          None,
+          `rejectType`,
+          Some(reason),
+          None,
+          ) =>
           offset -> PartyLedgerEntry.AllocationRejected(
             submissionId,
             recordTime.toInstant,
@@ -396,6 +400,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
         case invalidRow =>
           sys.error(s"getPartyEntries: invalid party entry row: $invalidRow")
       }
+  }
 
   def partyEntries(
       startExclusive: Offset,
@@ -429,6 +434,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   private val PartyDataParser: RowParser[ParsedPartyData] = {
     import com.daml.platform.store.Conversions.columnToOffset
+    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
     Macro.parser[ParsedPartyData](
       "party",
       "display_name",

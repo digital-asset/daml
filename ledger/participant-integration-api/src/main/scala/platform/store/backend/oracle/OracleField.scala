@@ -46,12 +46,14 @@ private[oracle] case class OracleSmallintOptional[FROM](extract: FROM => Option[
 }
 
 private[oracle] case class OracleBooleanField[FROM](extract: FROM => Boolean)
-  extends TrivialField[FROM, Boolean] {
-  override def prepareDataTemplate(preparedStatement: PreparedStatement, index: Int, value: Boolean): Unit = {
-    // TODO FIXME either cleanup and use Field from common, or change the line below
-    preparedStatement.setObject(index, value)
-  }
-}
+  extends TrivialField[FROM, Boolean]
+//  {
+//  override def convert: Boolean => Int = if (_) 0 else 1
+//  override def prepareDataTemplate(preparedStatement: PreparedStatement, index: Int, value: Int): Unit = {
+//    // TODO FIXME either cleanup and use Field from common, or change the line below
+//    preparedStatement.setInt(index, value)
+//  }
+//}
 
 private[oracle] case class OracleBooleanOptional[FROM](extract: FROM => Option[Boolean])
   extends Field[FROM, Option[Boolean], java.lang.Boolean] {
