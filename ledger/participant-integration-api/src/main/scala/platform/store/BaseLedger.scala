@@ -32,6 +32,7 @@ import com.daml.lf.transaction.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.logging.LoggingContext
+import com.daml.platform.PruneBuffers
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
@@ -46,6 +47,7 @@ private[platform] abstract class BaseLedger(
     ledgerDao: LedgerReadDao,
     transactionsReader: LedgerDaoTransactionsReader,
     contractStore: ContractStore,
+    pruneBuffers: PruneBuffers,
     dispatcher: Dispatcher[Offset],
 ) extends ReadOnlyLedger {
 
@@ -204,8 +206,10 @@ private[platform] abstract class BaseLedger(
 
   override def prune(pruneUpToInclusive: Offset)(implicit
       loggingContext: LoggingContext
-  ): Future[Unit] =
+  ): Future[Unit] = {
+    pruneBuffers(pruneUpToInclusive)
     ledgerDao.prune(pruneUpToInclusive)
+  }
 
   override def close(): Unit = ()
 }

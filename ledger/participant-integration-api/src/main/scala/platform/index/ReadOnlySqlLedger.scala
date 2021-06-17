@@ -19,6 +19,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.PruneBuffers
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
@@ -161,6 +162,7 @@ private[index] abstract class ReadOnlySqlLedger(
     ledgerDao: LedgerReadDao,
     ledgerDaoTransactionsReader: LedgerDaoTransactionsReader,
     contractStore: ContractStore,
+    pruneBuffers: PruneBuffers,
     dispatcher: Dispatcher[Offset],
 )(implicit mat: Materializer, loggingContext: LoggingContext)
     extends BaseLedger(
@@ -168,6 +170,7 @@ private[index] abstract class ReadOnlySqlLedger(
       ledgerDao,
       ledgerDaoTransactionsReader,
       contractStore,
+      pruneBuffers,
       dispatcher,
     ) {
 

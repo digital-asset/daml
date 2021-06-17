@@ -26,6 +26,7 @@ import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
+import com.daml.platform.PruneBuffersNoOp
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdMode, MismatchException}
 import com.daml.platform.configuration.ServerRole
@@ -362,7 +363,14 @@ private final class SqlLedger(
     timeProvider: TimeProvider,
     persistenceQueue: PersistenceQueue,
     transactionCommitter: TransactionCommitter,
-) extends BaseLedger(ledgerId, ledgerDao, ledgerDao.transactionsReader, contractStore, dispatcher)
+) extends BaseLedger(
+      ledgerId,
+      ledgerDao,
+      ledgerDao.transactionsReader,
+      contractStore,
+      PruneBuffersNoOp,
+      dispatcher,
+    )
     with Ledger {
 
   private val logger = ContextualizedLogger.get(this.getClass)

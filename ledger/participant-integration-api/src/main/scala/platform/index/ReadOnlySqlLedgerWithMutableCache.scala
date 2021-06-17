@@ -15,6 +15,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
+import com.daml.platform.{PruneBuffers, PruneBuffersNoOp}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.index.ReadOnlySqlLedgerWithMutableCache.DispatcherLagMeter
@@ -137,6 +138,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
               ledgerDao,
               ledgerDao.transactionsReader,
               contractStore,
+              PruneBuffersNoOp,
               cacheUpdatesDispatcher,
               generalDispatcher,
               dispatcherLagMeter,
@@ -150,7 +152,6 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         generalDispatcher: Dispatcher[Offset],
         dispatcherLagMeter: DispatcherLagMeter,
     )(implicit resourceContext: ResourceContext) = {
-      // TODO: in-memory fan-out - wire-up prunning to transactionsBuffer
       val transactionsBuffer = new EventsBuffer[Offset, TransactionLogUpdate](
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,
@@ -185,9 +186,9 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         ledger <- ResourceOwner
           .forCloseable(() =>
             new ReadOnlySqlLedgerWithMutableCache(
-              ledgerId,
-              ledgerDao,
-              BufferedTransactionsReader(
+              ledgerId = ledgerId,
+              ledgerDao = ledgerDao,
+              ledgerDaoTransactionsReader = BufferedTransactionsReader(
                 delegate = ledgerDao.transactionsReader,
                 transactionsBuffer = transactionsBuffer,
                 lfValueTranslation = new LfValueTranslation(
@@ -199,10 +200,11 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
                 ),
                 metrics = metrics,
               ),
-              contractStore,
-              cacheUpdatesDispatcher,
-              generalDispatcher,
-              dispatcherLagMeter,
+              pruneBuffers = transactionsBuffer.prune,
+              contractStore = contractStore,
+              contractStateEventsDispatcher = cacheUpdatesDispatcher,
+              dispatcher = generalDispatcher,
+              dispatcherLagger = dispatcherLagMeter,
             )
           )
           .acquire()
@@ -251,6 +253,7 @@ private final class ReadOnlySqlLedgerWithMutableCache(
     ledgerDao: LedgerReadDao,
     ledgerDaoTransactionsReader: LedgerDaoTransactionsReader,
     contractStore: MutableCacheBackedContractStore,
+    pruneBuffers: PruneBuffers,
     contractStateEventsDispatcher: Dispatcher[(Offset, Long)],
     dispatcher: Dispatcher[Offset],
     dispatcherLagger: DispatcherLagMeter,
@@ -260,6 +263,7 @@ private final class ReadOnlySqlLedgerWithMutableCache(
       ledgerDao,
       ledgerDaoTransactionsReader,
       contractStore,
+      pruneBuffers,
       dispatcher,
     ) {
 
