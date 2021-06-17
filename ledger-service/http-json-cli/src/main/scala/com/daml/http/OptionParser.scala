@@ -12,8 +12,9 @@ import scopt.{Read, RenderingMode}
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Try
 
-class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames: Set[String])
-    extends scopt.OptionParser[Config]("http-json-binary")
+class OptionParser(getEnvVar: String => Option[String])(implicit
+    supportedJdbcDriverNames: Config.SupportedJdbcDriverNames
+) extends scopt.OptionParser[Config]("http-json-binary")
     with StrictLogging {
 
   private def setJdbcConfig(
@@ -33,7 +34,7 @@ class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames
       m <- Try(implicitly[Read[Map[String, String]]].reads(s)).toEither.left.map(_ =>
         s"Failed to parse $s into a comma-separated key-value map"
       )
-      conf <- JdbcConfig.create(m, supportedJdbcDriverNames)
+      conf <- JdbcConfig.create(m)
     } yield conf
 
   private def parseJdbcConfigEnvVar(
@@ -107,15 +108,14 @@ class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames
       s"Optional max inbound message size in bytes. Defaults to ${Config.Empty.maxInboundMessageSize: Int}."
     )
 
-  opt[Map[String, String]]("query-store-jdbc-config")
-    .action((x, c) => setJdbcConfig(c, JdbcConfig.createUnsafe(x, supportedJdbcDriverNames)))
-    .validate(JdbcConfig.validate(_, supportedJdbcDriverNames))
+  opt[JdbcConfig]("query-store-jdbc-config")
+    .action((x, c) => setJdbcConfig(c, x))
     .optional()
     .valueName(JdbcConfig.usage)
     .text(
       s"Optional query store JDBC configuration string." +
         " Query store is a search index, use it if you need to query large active contract sets. " +
-        JdbcConfig.help(supportedJdbcDriverNames)
+        JdbcConfig.help
     )
 
   opt[String]("query-store-jdbc-config-env")
@@ -130,13 +130,8 @@ class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames
         " --query-store-jdbc-config-env and --query-store-jdbc-config are mutually exclusive."
     )
 
-  opt[Map[String, String]]("static-content")
-    .action((x, c) =>
-      c.copy(staticContentConfig =
-        Some(StaticContentConfig.createUnsafe(x, supportedJdbcDriverNames))
-      )
-    )
-    .validate(StaticContentConfig.validate(_, supportedJdbcDriverNames))
+  opt[StaticContentConfig]("static-content")
+    .action((x, c) => c.copy(staticContentConfig = Some(x)))
     .optional()
     .valueName(StaticContentConfig.usage)
     .text(
@@ -157,11 +152,8 @@ class OptionParser(getEnvVar: String => Option[String], supportedJdbcDriverNames
     .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
     .optional()
 
-  opt[Map[String, String]]("websocket-config")
-    .action((x, c) =>
-      c.copy(wsConfig = Some(WebsocketConfig.createUnsafe(x, supportedJdbcDriverNames)))
-    )
-    .validate(WebsocketConfig.validate(_, supportedJdbcDriverNames))
+  opt[WebsocketConfig]("websocket-config")
+    .action((x, c) => c.copy(wsConfig = Some(x)))
     .optional()
     .valueName(WebsocketConfig.usage)
     .text(s"Optional websocket configuration string. ${WebsocketConfig.help}")

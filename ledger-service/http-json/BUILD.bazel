@@ -27,6 +27,7 @@ hj_scalacopts = lf_scalacopts + [
         ],
         scala_deps = [
             "@maven//:com_chuusai_shapeless",
+            "@maven//:com_github_scopt_scopt",
             "@maven//:com_lihaoyi_sourcecode",
             "@maven//:com_typesafe_akka_akka_http",
             "@maven//:com_typesafe_akka_akka_http_core",
