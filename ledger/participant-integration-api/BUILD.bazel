@@ -79,7 +79,7 @@ runtime_deps = [
     "@maven//:ch_qos_logback_logback_classic",
     "@maven//:com_h2database_h2",
     "@maven//:org_postgresql_postgresql",
-    "@maven//:com_oracle_database_jdbc_debug_ojdbc8_g",
+    "@maven//:com_oracle_database_jdbc_ojdbc8",
 ]
 
 da_scala_library(
@@ -295,8 +295,6 @@ da_scala_test_suite(
     ],
     jvm_flags = [
         "-Djava.security.debug=\"certpath ocsp\"",  # This facilitates debugging of the OCSP checks mechanism
-        "-Doracle.jdbc.Trace=true",
-        "-Djava.util.logging.config.file=/Users/brianhealey/g/daml/ledger/participant-integration-api/src/test/resources/OracleLog.properties",
     ],
     resources = glob(["src/test/resources/**/*"]),
     scala_deps = [
