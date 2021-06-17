@@ -34,7 +34,7 @@ private[events] abstract class ContractsTable extends PostCommitValidationData {
   private val nullifyPastKeysQuery =
     s"update participant_contracts set create_key_hash = null where create_key_hash = {create_key_hash}"
 
-  private def nullifyPastKeys(contractKeyHash: Array[Byte]): Vector[NamedParameter] =
+  private def nullifyPastKeys(contractKeyHash: String): Vector[NamedParameter] =
     Vector[NamedParameter]("create_key_hash" -> contractKeyHash)
 
   def toExecutables(
@@ -53,7 +53,7 @@ private[events] abstract class ContractsTable extends PostCommitValidationData {
       .flatMap(create =>
         create.key
           .map(convertLfValueKey(create.templateId, _))
-          .map(_.hash.bytes.toByteArray)
+          .map(_.hash.bytes.toHexString)
           .toList
       )
       .iterator
