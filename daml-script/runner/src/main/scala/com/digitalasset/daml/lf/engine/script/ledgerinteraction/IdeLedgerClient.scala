@@ -166,12 +166,14 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       var result: RichTransaction = null
       while (result == null) {
         machine.run() match {
-          case SResultNeedContract(coid, tid @ _, committers @ _, cbMissing, cbPresent) =>
-            ScenarioRunner
-              .ScenarioLedgerApi(scenarioRunner.ledger)
-              .lookupContract(coid, actAs.toSet, readAs, cbMissing, cbPresent)
-              .toTry
-              .get
+          case SResultNeedContract(coid, tid @ _, committers @ _, _, cbPresent) =>
+            discard {
+              ScenarioRunner
+                .ScenarioLedgerApi(scenarioRunner.ledger)
+                .lookupContract(coid, actAs.toSet, readAs, cbPresent)
+                .toTry
+                .get
+            }
           case SResultNeedKey(keyWithMaintainers, committers @ _, cb) =>
             ScenarioRunner
               .ScenarioLedgerApi(scenarioRunner.ledger)
