@@ -68,25 +68,19 @@ private[events] object EventsRange {
       ) => Connection => Vector[A], // takes range, limit, fetchSize hint
       range: EventsRange[Long],
       pageSize: Int,
-  ): SqlSequence[Vector[A]] = {
+  ): Connection => Vector[A] = connection => {
     val minPageSize = 10 min pageSize max (pageSize / 10)
     val guessedPageEnd = range.endInclusive min (range.startExclusive + pageSize)
-    SqlSequence
-      .plainQuery(read(range copy (endInclusive = guessedPageEnd), None, Some(pageSize)))
-      .flatMap { arithPage =>
-        val found = arithPage.size
-        if (guessedPageEnd == range.endInclusive || found >= minPageSize)
-          SqlSequence point arithPage
-        else
-          SqlSequence
-            .plainQuery(
-              read(
-                range copy (startExclusive = guessedPageEnd),
-                Some(minPageSize - found),
-                Some(minPageSize - found),
-              )
-            )
-            .map(arithPage ++ _)
-      }
+    val arithPage =
+      read(range copy (endInclusive = guessedPageEnd), None, Some(pageSize))(connection)
+    val found = arithPage.size
+    if (guessedPageEnd == range.endInclusive || found >= minPageSize)
+      arithPage
+    else
+      arithPage ++ read(
+        range copy (startExclusive = guessedPageEnd),
+        Some(minPageSize - found),
+        Some(minPageSize - found),
+      )(connection)
   }
 }

@@ -107,7 +107,7 @@ private[appendonlydao] final class TransactionsReader(
             EventsRange(range.startExclusive._2, range.endInclusive._2),
             filter,
             pageSize,
-          ).executeSql,
+          )(connection),
           range.startExclusive._1,
           pruned =>
             s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
@@ -210,7 +210,7 @@ private[appendonlydao] final class TransactionsReader(
                 range = EventsRange(range.startExclusive._2, range.endInclusive._2),
                 pageSize = pageSize,
               ),
-          ).executeSql,
+          )(connection),
           range.startExclusive._1,
           pruned =>
             s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
@@ -359,7 +359,7 @@ private[appendonlydao] final class TransactionsReader(
             range,
             filter,
             pageSize,
-          ).executeSql,
+          )(connection),
           activeAt,
           pruned =>
             s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",

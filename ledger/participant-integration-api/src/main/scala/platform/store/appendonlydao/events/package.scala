@@ -11,8 +11,6 @@ import com.daml.lf.transaction.Node.KeyWithMaintainers
   */
 package object events {
 
-  type SqlSequence[A] = SqlSequence.T[A]
-
   import com.daml.lf.value.{Value => lfval}
   type ContractId = lfval.ContractId
   val ContractId = com.daml.lf.value.Value.ContractId
