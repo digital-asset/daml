@@ -67,54 +67,69 @@ class Endpoints(
   import util.ErrorOps._
   import Uri.Path._
 
+  // Parenthesis in the case matches below are required because otherwise scalafmt breaks.
+  //noinspection ScalaUnnecessaryParentheses
   def all(implicit
       lc: LoggingContextOf[InstanceUUID],
       metrics: Metrics,
   ): PartialFunction[HttpRequest, Http.IncomingConnection => Future[HttpResponse]] = {
+    val apiMetrics = metrics.daml.HttpJsonApi
     type DispatchFun =
-      PartialFunction[HttpRequest, LoggingContextOf[InstanceUUID with RequestID] => Future[HttpResponse]]
-    // Parenthesis are required because otherwise scalafmt breaks.
-    val commandDispatch: DispatchFun = ({
-      case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) =>
-        (implicit lc => httpResponse(create(req)))
-      case req @ HttpRequest(POST, Uri.Path("/v1/exercise"), _, _, _) =>
-        (implicit lc => httpResponse(exercise(req)))
-      case req @ HttpRequest(POST, Uri.Path("/v1/create-and-exercise"), _, _, _) =>
-        (implicit lc => httpResponse(createAndExercise(req)))
-    }: DispatchFun) andThen (f =>
-      lc => Timed.future(metrics.daml.HttpJsonApi.commandSubmissionTimer, f(lc))
-    )
-    val queryDispatch: DispatchFun = ({
-      case req @ HttpRequest(POST, Uri.Path("/v1/fetch"), _, _, _) =>
-        (implicit lc => httpResponse(fetch(req)))
+      PartialFunction[HttpRequest, LoggingContextOf[InstanceUUID with RequestID] => Future[
+        HttpResponse
+      ]]
+    def mkDispatchFunWithTimer(timer: Timer)(fun: DispatchFun): DispatchFun =
+      fun andThen (f => lc => Timed.future(timer, f(lc)))
+    val commandDispatch =
+      mkDispatchFunWithTimer(apiMetrics.commandSubmissionTimer) {
+        case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) =>
+          (implicit lc => httpResponse(create(req)))
+        case req @ HttpRequest(POST, Uri.Path("/v1/exercise"), _, _, _) =>
+          (implicit lc => httpResponse(exercise(req)))
+        case req @ HttpRequest(POST, Uri.Path("/v1/create-and-exercise"), _, _, _) =>
+          (implicit lc => httpResponse(createAndExercise(req)))
+      }
+    val queryDispatch = mkDispatchFunWithTimer(apiMetrics.queryTimer) {
       case req @ HttpRequest(GET, Uri.Path("/v1/query"), _, _, _) =>
         (implicit lc => httpResponse(retrieveAll(req)))
       case req @ HttpRequest(POST, Uri.Path("/v1/query"), _, _, _) =>
         (implicit lc => httpResponse(query(req)))
-    }: DispatchFun) andThen (f => lc => Timed.future(metrics.daml.HttpJsonApi.queryTimer, f(lc)))
-    val partyManagementDispatch: DispatchFun = ({
+    }
+    val fetchDispatch: DispatchFun = {
+      case req @ HttpRequest(POST, Uri.Path("/v1/fetch"), _, _, _) =>
+        (implicit lc => Timed.future(apiMetrics.fetchTimer, httpResponse(fetch(req))))
+    }
+    val getPartyDispatch = mkDispatchFunWithTimer(apiMetrics.getPartyTimer) {
       case req @ HttpRequest(GET, Uri.Path("/v1/parties"), _, _, _) =>
         (implicit lc => httpResponse(allParties(req)))
       case req @ HttpRequest(POST, Uri.Path("/v1/parties"), _, _, _) =>
         (implicit lc => httpResponse(parties(req)))
+    }
+    val allocatePartyDispatch: DispatchFun = {
       case req @ HttpRequest(POST, Uri.Path("/v1/parties/allocate"), _, _, _) =>
-        (implicit lc => httpResponse(allocateParty(req)))
-    }: DispatchFun) andThen (f =>
-      lc => Timed.future(metrics.daml.HttpJsonApi.partyManagementTimer, f(lc))
-    )
-    val packageManagementDispatch: DispatchFun = ({
+        (
+            implicit lc =>
+              Timed.future(apiMetrics.allocatePartyTimer, httpResponse(allocateParty(req)))
+        )
+    }
+    val packageManagementDispatch: DispatchFun = {
       case req @ HttpRequest(GET, Uri.Path("/v1/packages"), _, _, _) =>
         (implicit lc => httpResponse(listPackages(req)))
-      // format: off
-      case req @ HttpRequest(GET,
-        Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
-        _, _, _) => (implicit lc => downloadPackage(req, packageId))
-      // format: on
       case req @ HttpRequest(POST, Uri.Path("/v1/packages"), _, _, _) =>
-        (implicit lc => httpResponse(uploadDarFile(req)))
-    }: DispatchFun) andThen (f =>
-      lc => Timed.future(metrics.daml.HttpJsonApi.packageManagementTimer, f(lc))
-    )
+        (
+            implicit lc =>
+              Timed.future(
+                apiMetrics.uploadPackageTimer,
+                httpResponse(uploadDarFile(req)),
+              )
+        )
+      // format: off
+        case req @ HttpRequest(GET,
+          Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
+          _, _, _) =>
+            (implicit lc => Timed.future(apiMetrics.downloadPackageTimer, downloadPackage(req, packageId)))
+        // format: on
+    }
     val liveOrHealthDispatch: DispatchFun = {
       case HttpRequest(GET, Uri.Path("/livez"), _, _, _) =>
         _ => Future.successful(HttpResponse(status = StatusCodes.OK))
@@ -124,7 +139,9 @@ class Endpoints(
     import scalaz.std.partialFunction._, scalaz.syntax.arrow._
     ((commandDispatch orElse
       queryDispatch orElse
-      partyManagementDispatch orElse
+      fetchDispatch orElse
+      getPartyDispatch orElse
+      allocatePartyDispatch orElse
       packageManagementDispatch orElse
       liveOrHealthDispatch) &&& { case r => r }) andThen { case (lcFhr, req) =>
       (connection: Http.IncomingConnection) =>
@@ -132,13 +149,11 @@ class Endpoints(
           val t0 = System.nanoTime
           logger.info(s"Incoming request on ${req.uri} from ${connection.remoteAddress}")
           metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
-          Timed
-            .future(metrics.daml.HttpJsonApi.httpRequestTimer, lcFhr(lc))
-            .map(res => {
-              logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
-              logger.info(s"Responding to client with HTTP ${res.status}")
-              res
-            })
+          for {
+            res <- lcFhr(lc)
+            _ = logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+            _ = logger.info(s"Responding to client with HTTP ${res.status}")
+          } yield res
         })
     }
   }

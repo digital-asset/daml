@@ -706,17 +706,21 @@ final class Metrics(val registry: MetricRegistry) {
     object HttpJsonApi {
       private val Prefix: MetricName = daml.Prefix :+ "http_json_api"
 
-      // Meters how long processing of a request takes
-      val httpRequestTimer: Timer = registry.timer(Prefix :+ "http_request_timing")
       // Meters how long processing of a command submission request takes
       val commandSubmissionTimer: Timer = registry.timer(Prefix :+ "command_submission_timing")
       // Meters how long processing of a query request takes
       val queryTimer: Timer = registry.timer(Prefix :+ "query_timing")
+      // Meters how long processing of a fetch request takes
+      val fetchTimer: Timer = registry.timer(Prefix :+ "fetch_timing")
+      // Meters how long processing of a get party/parties request takes
+      val getPartyTimer: Timer = registry.timer(Prefix :+ "get_party_timing")
       // Meters how long processing of a party management request takes
-      val partyManagementTimer: Timer = registry.timer(Prefix :+ "party_management_timing")
+      val allocatePartyTimer: Timer = registry.timer(Prefix :+ "allocate_party_timing")
       // Meters how long processing of a package management request takes
-      val packageManagementTimer: Timer = registry.timer(Prefix :+ "package_management_timing")
-      // Meters how long parsing and decoding of incoming json payload takes
+      val downloadPackageTimer: Timer = registry.timer(Prefix :+ "download_package_timing")
+      // Meters how long processing of a package upload request takes
+      val uploadPackageTimer: Timer = registry.timer(Prefix :+ "upload_package_timing")
+      // Meters how long parsing and decoding of an incoming json payload takes
       val incomingJsonParsingAndValidationTimer: Timer =
         registry.timer(Prefix :+ "incoming_json_parsing_and_validation_timing")
       // Meters http requests throughput
