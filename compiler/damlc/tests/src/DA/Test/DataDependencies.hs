@@ -327,6 +327,28 @@ tests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependenci
               , "x = lensIdentity"
               ]
 
+    -- regression for https://github.com/digital-asset/daml/issues/8411
+    , simpleImportTest "constraints in general position"
+        [ "module Lib where"
+        , "grantShowInt1 : (forall t. Show t => t -> Text) -> Text"
+        , "grantShowInt1 f = f 10"
+        , "grantShowInt2 : (Show Int => Int -> Text) -> Text"
+        , "grantShowInt2 f = f 10"
+        , "class Action1 m where"
+        , "    action1 : forall e t. Action e => (Action (m e) => m e t) -> m e t"
+        ]
+        [ "module Main where"
+        , "import Lib"
+        , "use1 = grantShowInt1 show"
+        , "use2 = grantShowInt2 show"
+        , "newtype M a b = M { unM : a b }"
+        , "    deriving (Functor, Applicative, Action)"
+        , "instance Action1 M where"
+        , "    action1 m = m"
+        , "pure1 : (Action1 m, Action e) => t -> m e t"
+        , "pure1 x = action1 (pure x)"
+        ]
+
     , testCaseSteps "Colliding package names" $ \step -> withTempDir $ \tmpDir -> do
           forM_ ["1", "2"] $ \version -> do
               step ("Building 'lib" <> version <> "'")
