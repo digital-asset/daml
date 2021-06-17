@@ -51,7 +51,7 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
       offset: Offset,
       filter: FilterRelation,
       pageSize: Int,
-  ): SqlSequence[Vector[EventsTable.Entry[Raw.FlatEvent]]] = {
+  ): Connection => Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     require(filter.nonEmpty, "The request must be issued by at least one party")
 
     // Route the request to the correct underlying query
@@ -111,7 +111,7 @@ private[events] sealed abstract class EventsTableFlatEventsRangeQueries[Offset] 
           pageSize,
         )
       case QueryParts.ByLimit(sql) =>
-        SqlSequence.plainQuery(sql(pageSize))
+        sql(pageSize)
     }
   }
 }
