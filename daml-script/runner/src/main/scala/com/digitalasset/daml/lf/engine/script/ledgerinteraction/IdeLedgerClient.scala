@@ -80,7 +80,8 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
 
   private[this] val preprocessor = new engine.preprocessing.CommandPreprocessor(compiledPackages)
 
-  var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
+  private var _ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
+  def ledger: ScenarioLedger = _ledger
 
   private var allocatedParties: Map[String, PartyDetails] = Map()
 
@@ -186,7 +187,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
   ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] =
     unsafeSubmit(actAs, readAs, commands, optLocation).map {
       case ScenarioRunner.Commit(result, _, _, _) =>
-        ledger = result.newLedger
+        _ledger = result.newLedger
         seed = ScenarioRunner.nextSeed(
           crypto.Hash.deriveNodeSeed(seed, result.richTransaction.transaction.roots.length)
         )
@@ -226,7 +227,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
       .map({
         case _: ScenarioRunner.Commit[_] => Left(())
         case error: ScenarioRunner.SubmissionError =>
-          ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)
+          _ledger = ledger.insertAssertMustFail(actAs.toSet, readAs, optLocation)
           seed = ScenarioRunner.nextSeed(
             error.ptx.unwind.context.nextActionChildSeed
           )
@@ -246,7 +247,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
   ): Future[ScriptLedgerClient.TransactionTree] = {
     unsafeSubmit(actAs, readAs, commands, optLocation).map {
       case ScenarioRunner.Commit(result, _, _, _) =>
-        ledger = result.newLedger
+        _ledger = result.newLedger
         seed = ScenarioRunner.nextSeed(
           crypto.Hash.deriveNodeSeed(seed, result.richTransaction.transaction.roots.length)
         )
@@ -333,7 +334,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
     val diff = time.micros - ledger.currentTime.micros
     // ScenarioLedger only provides pass, so we have to calculate the diff.
     // Note that ScenarioLedger supports going backwards in time.
-    ledger = ledger.passTime(diff)
+    _ledger = ledger.passTime(diff)
     Future.unit
   }
 
