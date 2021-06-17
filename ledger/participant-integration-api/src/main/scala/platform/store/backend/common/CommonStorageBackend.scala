@@ -268,8 +268,9 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       |    ledger_offset <= {endInclusive} and
       |    parameters.ledger_end >= ledger_offset
       |  order by ledger_offset asc
-      |  limit {pageSize}
-      |  offset {queryOffset}""".stripMargin
+      |  offset {queryOffset} rows
+      |  fetch next {pageSize} rows only
+      |  """.stripMargin
   )
 
   private val SQL_GET_LATEST_CONFIGURATION_ENTRY = SQL(
@@ -287,7 +288,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
        |    configuration_entries.typ = '$acceptType' and
        |    parameters.ledger_end >= ledger_offset
        |  order by ledger_offset desc
-       |  limit 1""".stripMargin
+       |  fetch next 1 row only""".stripMargin
   )
 
   private val configurationEntryParser: RowParser[(Offset, ConfigurationEntry)] =
