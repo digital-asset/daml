@@ -242,9 +242,8 @@ object ScenarioRunner {
         coid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        cbMissing: Unit => Boolean,
         cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-    ): Either[SError, Unit]
+    ): Either[SError, ContractInst[Value.VersionedValue[ContractId]]]
     def lookupKey(
         gk: GlobalKey,
         actAs: Set[Party],
@@ -265,24 +264,20 @@ object ScenarioRunner {
         acoid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        cbMissing: Unit => Boolean,
         cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-    ): Either[SError, Unit] =
-      handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, cbMissing, cbPresent))
+    ): Either[SError, ContractInst[Value.VersionedValue[ContractId]]] =
+      handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, cbPresent))
 
     private def lookupContractUnsafe(
         acoid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
-        cbMissing: Unit => Boolean,
         cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-    ) = {
+    ): ContractInst[Value.VersionedValue[ContractId]] = {
 
       val effectiveAt = ledger.currentTime
 
-      def missingWith(err: SError) =
-        if (!cbMissing(()))
-          throw SRunnerException(err)
+      def missingWith(err: SError) = throw SRunnerException(err)
 
       ledger.lookupGlobalContract(
         view = ScenarioLedger.ParticipantView(actAs, readAs),
@@ -291,6 +286,7 @@ object ScenarioRunner {
       ) match {
         case ScenarioLedger.LookupOk(_, coinst, _) =>
           cbPresent(coinst)
+          coinst
 
         case ScenarioLedger.LookupContractNotFound(coid) =>
           // This should never happen, hence we don't have a specific
@@ -401,7 +397,6 @@ object ScenarioRunner {
     val ledgerMachine = Speedy.Machine(
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
-      // TODO figure out what to do about the seed
       initialSeeding = InitialSeeding.TransactionSeed(seed),
       expr = SExpr.SEApp(SExpr.SEValue(commands), Array(SExpr.SEValue(SValue.SToken))),
       globalCids = Set.empty,
@@ -427,8 +422,8 @@ object ScenarioRunner {
           }
         case SResultError(err) =>
           SubmissionError(err, onLedger.ptxInternal, ledgerMachine.traceLog)
-        case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
-          ledger.lookupContract(coid, committers, Set.empty, cbMissing, cbPresent) match {
+        case SResultNeedContract(coid, tid @ _, committers, _, cbPresent) =>
+          ledger.lookupContract(coid, committers, Set.empty, cbPresent) match {
             case Left(err) => SubmissionError(err, onLedger.ptxInternal, ledgerMachine.traceLog)
             case Right(_) => go()
           }

@@ -74,10 +74,11 @@ da_scala_benchmark_jmh(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
+        "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
-) if False else None
+)
 
 da_scala_test(
     name = "scenario-perf-test",
@@ -87,4 +88,4 @@ da_scala_test(
     ],
     main_class = "org.openjdk.jmh.Main",
     deps = [":scenario-perf"],
-) if False else None
+)
