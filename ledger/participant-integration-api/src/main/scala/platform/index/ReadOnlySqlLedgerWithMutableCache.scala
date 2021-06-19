@@ -152,11 +152,12 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         generalDispatcher: Dispatcher[Offset],
         dispatcherLagMeter: DispatcherLagMeter,
     )(implicit resourceContext: ResourceContext) = {
-      val transactionsBuffer = new EventsBuffer[Offset, TransactionLogUpdate](
+      val transactionsBuffer = EventsBuffer[Offset, TransactionLogUpdate](
         maxBufferSize = maxTransactionsInMemoryFanOutBufferSize,
         metrics = metrics,
         bufferQualifier = "transactions",
         isRangeEndMarker = _.isInstanceOf[TransactionLogUpdate.LedgerEndMarker],
+        enableReferenceTracking = true,
       )
       for {
         contractStore <- MutableCacheBackedContractStore.owner(

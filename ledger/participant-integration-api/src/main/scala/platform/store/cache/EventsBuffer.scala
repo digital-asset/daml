@@ -3,14 +3,16 @@
 
 package com.daml.platform.store.cache
 
+import com.codahale.metrics.Counter
 import com.daml.metrics.{Metrics, Timed}
+import com.daml.platform.store.cache.BufferSlice.{BufferSlice, Empty, Inclusive, Prefix}
 import com.daml.platform.store.cache.EventsBuffer.{
   BufferStateRef,
+  ObjectReferenceTracking,
   RequestOffBufferBounds,
   SearchableByVector,
   UnorderedException,
 }
-import com.daml.platform.store.cache.BufferSlice.{Inclusive, Prefix, BufferSlice, Empty}
 
 import scala.annotation.tailrec
 import scala.collection.Searching.{Found, InsertionPoint, SearchResult}
@@ -30,17 +32,22 @@ import scala.math.Ordering.Implicits.infixOrderingOps
   * @tparam O The offset type.
   * @tparam E The entry buffer type.
   */
-private[platform] final class EventsBuffer[O: Ordering, E](
+private[platform] final class EventsBuffer[O: Ordering, E <: AnyRef](
     maxBufferSize: Long,
     metrics: Metrics,
     bufferQualifier: String,
     isRangeEndMarker: E => Boolean,
+    referenceTracking: ObjectReferenceTracking[E],
 ) {
   @volatile private var _bufferStateRef = BufferStateRef[O, E]()
 
-  private val pushTimer = metrics.daml.services.index.streamsBuffer.push(bufferQualifier)
-  private val sliceTimer = metrics.daml.services.index.streamsBuffer.slice(bufferQualifier)
-  private val pruneTimer = metrics.daml.services.index.streamsBuffer.prune(bufferQualifier)
+  private val bufferMetrics = metrics.daml.services.index.streamsBuffer
+
+  private val pushTimer = bufferMetrics.push(bufferQualifier)
+  private val sliceTimer = bufferMetrics.slice(bufferQualifier)
+  private val pruneTimer = bufferMetrics.prune(bufferQualifier)
+  // TODO In-memory fan-out - generify
+  private val trackReference = referenceTracking(bufferMetrics.transactionLogUpdatesRefs)
 
   /** Appends a new event to the buffer.
     *
@@ -55,6 +62,7 @@ private[platform] final class EventsBuffer[O: Ordering, E](
     Timed.value(
       pushTimer,
       synchronized {
+        trackReference(entry)
         _bufferStateRef.rangeEnd.foreach { lastOffset =>
           // Ensure vector grows with strictly monotonic offsets.
           // Only specially-designated range end markers are allowed
@@ -153,6 +161,27 @@ private[platform] object BufferSlice {
 }
 
 private[platform] object EventsBuffer {
+  type ObjectReferenceTracking[E] = Counter => E => Unit
+  private def NoOpReferenceTracking[E <: AnyRef]: ObjectReferenceTracking[E] = _ => _ => ()
+
+  def apply[O: Ordering, E <: AnyRef](
+      maxBufferSize: Long,
+      metrics: Metrics,
+      bufferQualifier: String,
+      isRangeEndMarker: E => Boolean,
+      enableReferenceTracking: Boolean = false,
+  ): EventsBuffer[O, E] =
+    new EventsBuffer[O, E](
+      maxBufferSize,
+      metrics,
+      bufferQualifier,
+      isRangeEndMarker,
+      if (enableReferenceTracking) { counter =>
+        val tracker = ObjectsLivenessTracker[E](() => counter.inc(), () => counter.dec())
+        tracker.track
+      } else NoOpReferenceTracking,
+    )
+
   private final case class BufferStateRef[O, E](
       vector: Vector[(O, E)] = Vector.empty,
       rangeEnd: Option[O] = Option.empty,

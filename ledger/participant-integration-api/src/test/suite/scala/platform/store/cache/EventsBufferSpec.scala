@@ -192,6 +192,7 @@ class EventsBufferSpec extends AnyWordSpec with Matchers with ScalaCheckDrivenPr
       new Metrics(new MetricRegistry),
       "integers",
       _ == Int.MaxValue, // Signifies ledger end
+      _ => _ => (),
     )
     elems.foreach { case (offset, event) => buffer.push(offset, event) }
     test(buffer)
