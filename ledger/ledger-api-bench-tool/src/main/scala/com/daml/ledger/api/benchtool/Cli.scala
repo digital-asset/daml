@@ -7,6 +7,7 @@ import com.daml.ledger.api.benchtool.Config.StreamConfig
 import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.metrics.MetricsReporter
 import scopt.{OptionDef, OptionParser, Read}
 
 import scala.concurrent.duration.FiniteDuration
@@ -60,6 +61,11 @@ object Cli {
       .action { case (size, config) =>
         config.copy(concurrency = config.concurrency.copy(maxPoolSize = size))
       }
+
+    opt[MetricsReporter]("metrics-reporter")
+      .optional()
+      .text(s"Start a metrics reporter. ${MetricsReporter.cliHint}")
+      .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
 
     TlsConfigurationCli.parse(parser = this, colSpacer = "        ")((f, c) =>
       c.copy(tls = f(c.tls))

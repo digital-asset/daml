@@ -4,6 +4,7 @@
 package com.daml.ledger.api.benchtool.metrics
 
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
+import com.daml.metrics.Metrics
 import org.slf4j.Logger
 
 import scala.concurrent.duration.FiniteDuration
@@ -16,11 +17,12 @@ object StreamMetrics {
       logInterval: FiniteDuration,
       metrics: List[Metric[StreamElem]],
       logger: Logger,
+      damlMetrics: Metrics,
   )(implicit
       system: ActorSystem[SpawnProtocol.Command],
       ec: ExecutionContext,
   ): Future[MeteredStreamObserver[StreamElem]] =
-    MetricsManager(streamName, logInterval, metrics).map { manager =>
+    MetricsManager(streamName, logInterval, metrics, damlMetrics).map { manager =>
       new MeteredStreamObserver[StreamElem](streamName, logger, manager)
     }
 

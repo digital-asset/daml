@@ -7,6 +7,7 @@ import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.{ActorRef, ActorSystem, Props, SpawnProtocol}
 import akka.util.Timeout
 import com.daml.ledger.api.benchtool.util.MetricReporter
+import com.daml.metrics.Metrics
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,6 +29,7 @@ object MetricsManager {
       streamName: String,
       logInterval: FiniteDuration,
       metrics: List[Metric[StreamElem]],
+      damlMetrics: Metrics,
   )(implicit
       system: ActorSystem[SpawnProtocol.Command],
       ec: ExecutionContext,
@@ -41,6 +43,7 @@ object MetricsManager {
           metrics = metrics,
           logInterval = logInterval,
           reporter = MetricReporter.Default,
+          damlMetrics = damlMetrics,
         ),
         name = s"${streamName}-collector",
         props = Props.empty,
