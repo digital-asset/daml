@@ -13,8 +13,10 @@ import com.daml.ledger.api.testtool.suites.TransactionServiceIT.{
   comparableTransactionTrees,
   comparableTransactions,
 }
+import com.daml.ledger.api.v1.event.Event.Event
 import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
+import com.daml.ledger.client.binding
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.client.binding.Value.encode
 import com.daml.ledger.test.model.Iou.Iou
@@ -396,18 +398,61 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
+    "TXTreeHideCommandIdToNonSubmittingStakeholders",
+    "A transaction tree should be visible to a non-submitting stakeholder but its command identifier should be empty",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => { case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
+    for {
+      (id, _) <- alpha.createAndGetTransactionId(submitter, AgreementFactory(listener, submitter))
+      _ <- synchronize(alpha, beta)
+      tree <- beta.transactionTreeById(id, listener)
+      treesFromStream <- beta.transactionTrees(listener)
+    } yield {
+      assert(
+        tree.commandId.isEmpty,
+        s"The command identifier for the transaction tree was supposed to be empty but it's `${tree.commandId}` instead.",
+      )
+
+      assert(
+        treesFromStream.size == 1,
+        s"One transaction tree expected but got ${treesFromStream.size} instead.",
+      )
+
+      val treeFromStreamCommandId = treesFromStream.head.commandId
+      assert(
+        treeFromStreamCommandId.isEmpty,
+        s"The command identifier for the transaction tree was supposed to be empty but it's `$treeFromStreamCommandId` instead.",
+      )
+    }
+  })
+
+  test(
     "TXHideCommandIdToNonSubmittingStakeholders",
-    "A transaction should be visible to a non-submitting stakeholder but its command identifier should be empty",
+    "A flat transaction should be visible to a non-submitting stakeholder but its command identifier should be empty",
     allocate(SingleParty, SingleParty),
   )(implicit ec => {
     case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
       for {
         (id, _) <- alpha.createAndGetTransactionId(submitter, AgreementFactory(listener, submitter))
-        tree <- eventually { beta.transactionTreeById(id, listener) }
+        _ <- synchronize(alpha, beta)
+        flatTx <- beta.flatTransactionById(id, listener)
+        flatsFromStream <- beta.flatTransactions(listener)
       } yield {
+
         assert(
-          tree.commandId.isEmpty,
-          s"The command identifier was supposed to be empty but it's `${tree.commandId}` instead.",
+          flatTx.commandId.isEmpty,
+          s"The command identifier for the flat transaction was supposed to be empty but it's `${flatTx.commandId}` instead.",
+        )
+
+        assert(
+          flatsFromStream.size == 1,
+          s"One flat transaction expected but got ${flatsFromStream.size} instead.",
+        )
+
+        val flatTxFromStreamCommandId = flatsFromStream.head.commandId
+        assert(
+          flatTxFromStreamCommandId.isEmpty,
+          s"The command identifier for the flat transaction was supposed to be empty but it's `$flatTxFromStreamCommandId` instead.",
         )
       }
   })
@@ -1699,6 +1744,103 @@ class TransactionServiceIT extends LedgerTestSuite {
       )
     }
   })
+
+  test(
+    "TXRequestingPartiesWitnessVisibility",
+    "Transactions in the flat transactions stream should not leak witnesses",
+    allocate(Parties(3)),
+  )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
+    for {
+      iouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
+      transfer <- ledger.exerciseAndGetContract(bank, iouIssue.exerciseIou_Transfer(_, alice))
+
+      aliceIou <- eventually {
+        ledger.exerciseAndGetContract[Iou](alice, transfer.exerciseIouTransfer_Accept(_))
+      }
+      _ <- eventually {
+        ledger.exerciseAndGetContract[Iou](alice, aliceIou.exerciseIou_AddObserver(_, bob))
+      }
+
+      aliceFlatTransactions <- ledger.flatTransactions(alice)
+      bobFlatTransactions <- ledger.flatTransactions(bob)
+      aliceBankFlatTransactions <- ledger.flatTransactions(alice, bank)
+    } yield {
+      onlyRequestingPartiesAsWitnesses(allTxWitnesses(aliceFlatTransactions), alice)(
+        "Alice's flat transactions contain other parties as witnesses"
+      )
+
+      onlyRequestingPartiesAsWitnesses(allTxWitnesses(bobFlatTransactions), bob)(
+        "Bob's flat transactions contain other parties as witnesses"
+      )
+
+      onlyRequestingPartiesAsWitnesses(allTxWitnesses(aliceBankFlatTransactions), alice, bank)(
+        "Alice's and Bank's flat transactions contain other parties as witnesses"
+      )
+    }
+  })
+
+  test(
+    "TXTreesRequestingPartiesWitnessVisibility",
+    "Transactions in the transaction trees stream should not leak witnesses",
+    allocate(Parties(3)),
+  )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
+    for {
+      iouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
+      transfer <- ledger.exerciseAndGetContract(bank, iouIssue.exerciseIou_Transfer(_, alice))
+
+      aliceIou <- eventually {
+        ledger.exerciseAndGetContract[Iou](alice, transfer.exerciseIouTransfer_Accept(_))
+      }
+      _ <- eventually {
+        ledger.exerciseAndGetContract[Iou](alice, aliceIou.exerciseIou_AddObserver(_, bob))
+      }
+
+      aliceTransactionTrees <- ledger.transactionTrees(alice)
+      bobTransactionTrees <- ledger.transactionTrees(bob)
+      aliceBankTransactionTrees <- ledger.transactionTrees(alice, bank)
+    } yield {
+      onlyRequestingPartiesAsWitnesses(allTxTreesWitnesses(aliceTransactionTrees), alice)(
+        "Alice's transaction trees contain other parties as witnesses"
+      )
+
+      onlyRequestingPartiesAsWitnesses(allTxTreesWitnesses(bobTransactionTrees), bob)(
+        "Bob's transaction trees contain other parties as witnesses"
+      )
+
+      onlyRequestingPartiesAsWitnesses(allTxTreesWitnesses(aliceBankTransactionTrees), alice, bank)(
+        "Alice's and Bank's transaction trees contain other parties as witnesses"
+      )
+    }
+  })
+
+  private def onlyRequestingPartiesAsWitnesses(
+      allWitnesses: Set[String],
+      requestingParties: binding.Primitive.Party*
+  )(msg: String): Unit = {
+    val nonRequestingWitnesses = allWitnesses.diff(requestingParties.map(_.toString).toSet)
+    assert(
+      nonRequestingWitnesses.isEmpty,
+      s"$msg: ${nonRequestingWitnesses.mkString("[", ",", "]")}",
+    )
+  }
+
+  private def allTxWitnesses(transactions: Vector[Transaction]): Set[String] =
+    transactions
+      .flatMap(_.events.map(_.event).flatMap {
+        case Event.Empty => Seq.empty
+        case Event.Created(createdEvent) => createdEvent.witnessParties
+        case Event.Archived(archivedEvent) => archivedEvent.witnessParties
+      })
+      .toSet
+
+  private def allTxTreesWitnesses(transactionTrees: Vector[TransactionTree]): Set[String] =
+    transactionTrees
+      .flatMap(_.eventsById.valuesIterator.flatMap {
+        case event if event.kind.isCreated => event.getCreated.witnessParties
+        case event if event.kind.isExercised => event.getExercised.witnessParties
+        case _ => Seq.empty
+      })
+      .toSet
 }
 
 object TransactionServiceIT {
