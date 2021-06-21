@@ -1555,10 +1555,7 @@ private[lf] final class Compiler(
             let(app(svar(firstPos), svar(tokenPos))) { _ =>
               // we cannot process `rest` recursively without exposing ourselves to stack overflow.
               val exprs = rest.iterator.map { cmd =>
-                val expr = app(
-                  compileCommand(cmd),
-                  svar(tokenPos),
-                )
+                val expr = app(compileCommand(cmd), svar(tokenPos))
                 nextPosition()
                 expr
               }.toList
