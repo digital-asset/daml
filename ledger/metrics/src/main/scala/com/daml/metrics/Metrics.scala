@@ -725,6 +725,12 @@ final class Metrics(val registry: MetricRegistry) {
       // Meters how long parsing and decoding of an incoming json payload takes
       val incomingJsonParsingAndValidationTimer: Timer =
         registry.timer(Prefix :+ "incoming_json_parsing_and_validation_timing")
+      // Meters how long the construction of the response json payload takes
+      val responseCreationTimer: Timer = registry.timer(Prefix :+ "response_creation_timing")
+      // Meters how long a find by contract key database operation takes
+      val dbFindByContractKey: Timer = registry.timer(Prefix :+ "db_find_by_contract_key_timing")
+      // Meters how long a find by contract id database operation takes
+      val dbFindByContractId: Timer = registry.timer(Prefix :+ "db_find_by_contract_id_timing")
       // Meters http requests throughput
       val httpRequestThroughput: Meter = registry.meter(Prefix :+ "http_request_throughput")
       // Meters how many websocket connections are currently active

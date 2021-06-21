@@ -471,22 +471,27 @@ class Endpoints(
 
   private def httpResponse[A: JsonWriter](
       result: ET[domain.SyncResponse[A]]
-  ): Future[HttpResponse] = {
-    val fa: Future[Error \/ (JsValue, StatusCode)] =
-      result.flatMap { x =>
-        either(SprayJson.encode1(x).map(y => (y, x.status)).liftErr(ServerError))
-      }.run
-    fa.map {
-      case -\/(e) =>
-        httpResponseError(e)
-      case \/-((jsVal, status)) =>
-        HttpResponse(
-          entity = HttpEntity.Strict(ContentTypes.`application/json`, format(jsVal)),
-          status = status,
-        )
-    }.recover { case NonFatal(e) =>
-      httpResponseError(ServerError(e.description))
-    }
+  )(implicit metrics: Metrics): Future[HttpResponse] = {
+    Timed.future(
+      metrics.daml.HttpJsonApi.responseCreationTimer,
+      result
+        .flatMap { x =>
+          either(SprayJson.encode1(x).map(y => (y, x.status)).liftErr(ServerError))
+        }
+        .run
+        .map {
+          case -\/(e) =>
+            httpResponseError(e)
+          case \/-((jsVal, status)) =>
+            HttpResponse(
+              entity = HttpEntity.Strict(ContentTypes.`application/json`, format(jsVal)),
+              status = status,
+            )
+        }
+        .recover { case NonFatal(e) =>
+          httpResponseError(ServerError(e.description))
+        },
+    )
   }
 
   private[http] def data(entity: RequestEntity): Future[String] =
@@ -581,7 +586,8 @@ class Endpoints(
       jwtPayload: JwtWritePayload,
       reference: domain.ContractLocator[LfValue],
   )(implicit
-      lc: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID]
+      lc: LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID],
+      metrics: Metrics,
   ): Future[Error \/ domain.ResolvedContractRef[ApiValue]] =
     contractsService
       .resolveContractReference(jwt, jwtPayload.parties, reference)

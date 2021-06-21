@@ -25,6 +25,7 @@ import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.{v1 => api}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.metrics.{Metrics, Timed}
 import com.daml.util.ExceptionOps._
 import scalaz.Id.Id
 import scalaz.std.option._
@@ -70,7 +71,8 @@ class ContractsService(
       parties: OneAnd[Set, domain.Party],
       contractLocator: domain.ContractLocator[LfValue],
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ): Future[Option[domain.ResolvedContractRef[LfValue]]] =
     contractLocator match {
       case domain.EnrichedContractKey(templateId, key) =>
@@ -87,7 +89,8 @@ class ContractsService(
       jwtPayload: JwtPayload,
       contractLocator: domain.ContractLocator[LfValue],
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
+      lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
   ): Future[Option[domain.ActiveContract[JsValue]]] =
     contractLocator match {
       case domain.EnrichedContractKey(templateId, contractKey) =>
@@ -102,10 +105,15 @@ class ContractsService(
       templateId: TemplateId.OptionalPkg,
       contractKey: LfValue,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
-  ): Future[Option[domain.ActiveContract[JsValue]]] =
-    search.toFinal
-      .findByContractKey(SearchContext[Id, Option](jwt, parties, templateId), contractKey)
+      lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
+  ): Future[Option[domain.ActiveContract[JsValue]]] = {
+    Timed.future(
+      metrics.daml.HttpJsonApi.dbFindByContractKey,
+      search.toFinal
+        .findByContractKey(SearchContext[Id, Option](jwt, parties, templateId), contractKey),
+    )
+  }
 
   private[this] def findByContractId(
       jwt: Jwt,
@@ -113,9 +121,14 @@ class ContractsService(
       templateId: Option[domain.TemplateId.OptionalPkg],
       contractId: domain.ContractId,
   )(implicit
-      lc: LoggingContextOf[InstanceUUID]
-  ): Future[Option[domain.ActiveContract[JsValue]]] =
-    search.toFinal.findByContractId(SearchContext(jwt, parties, templateId), contractId)
+      lc: LoggingContextOf[InstanceUUID],
+      metrics: Metrics,
+  ): Future[Option[domain.ActiveContract[JsValue]]] = {
+    Timed.future(
+      metrics.daml.HttpJsonApi.dbFindByContractId,
+      search.toFinal.findByContractId(SearchContext(jwt, parties, templateId), contractId),
+    )
+  }
 
   private[this] def search: Search = SearchDb getOrElse SearchInMemory
 
