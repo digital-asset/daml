@@ -291,6 +291,12 @@ patches we backport to the 1.0 release branch).
 
     1. Close all files.
 
+    > Note: when running `daml studio --replace=always`, you force the
+    > installation of the VSCode extension bundled with the Daml SDK, and
+    > _disable the autoupgrade mechanism in VSCode_. To instruct VSCode to go
+    > back to the published version of the extension, including auto-upgrades,
+    > you can run `daml studio --replace=published`.
+
 1. On your PR, add the comment:
 
    > Manual tests passed on [Linux/macOS].
