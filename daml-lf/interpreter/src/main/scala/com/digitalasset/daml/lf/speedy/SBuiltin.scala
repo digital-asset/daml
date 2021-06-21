@@ -1094,6 +1094,14 @@ private[lf] object SBuiltin {
         byKey,
       )
       checkAborted(onLedger.ptx)
+
+      /* TODO: Maybe just store SVisibleByKey.fromSubmitters(onLedger.comitters, onLedger.readAs)
+       *  in onLedger, instead of storing readAs parties directly? */
+      SVisibleByKey.fromSubmitters(onLedger.comitters, onLedger.readAs)(stakeholders) match {
+        case Visible => (),
+        case NotVisible(_,_) => () /* emit warning ?? somehow?? */
+      }
+
       machine.returnValue = SUnit
     }
   }

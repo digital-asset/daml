@@ -396,6 +396,7 @@ object ScenarioRunner {
       expr = SExpr.SEApp(commands, Array(SExpr.SEValue(SValue.SToken))),
       globalCids = Set.empty,
       committers = committers,
+      readAs = readAs,
     )
     val onLedger = ledgerMachine.ledgerMode match {
       case OffLedger => throw SRequiresOnLedger("ScenarioRunner")

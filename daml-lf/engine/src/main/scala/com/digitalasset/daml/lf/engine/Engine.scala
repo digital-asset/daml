@@ -267,6 +267,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       validating: Boolean,
       /* See documentation for `Speedy.Machine` for the meaning of this field */
       submitters: Set[Party],
+      readAs: Set[Party],
       commands: ImmArray[speedy.Command],
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
@@ -282,6 +283,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
+        readAs = readAs,
         validating = validating,
         contractKeyUniqueness = config.contractKeyUniqueness,
       )

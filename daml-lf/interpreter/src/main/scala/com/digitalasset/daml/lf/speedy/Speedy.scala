@@ -112,6 +112,7 @@ private[lf] object Speedy {
       private[speedy] var ptx: PartialTransaction,
       /* Committers of the action. */
       var committers: Set[Party],
+      var readAs: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
       var commitLocation: Option[Location],
       /* Flag to trace usage of get_time builtins */
@@ -733,6 +734,7 @@ private[lf] object Speedy {
         expr: SExpr,
         globalCids: Set[V.ContractId],
         committers: Set[Party],
+        readAs: Set[Party],
         validating: Boolean = false,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
@@ -755,6 +757,7 @@ private[lf] object Speedy {
           ptx = PartialTransaction
             .initial(pkg2TxVersion, contractKeyUniqueness, submissionTime, initialSeeding),
           committers = committers,
+          readAs = readAs,
           commitLocation = None,
           dependsOnTime = false,
           globalDiscriminators = globalCids.collect { case V.ContractId.V1(discriminator, _) =>
