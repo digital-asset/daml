@@ -30,13 +30,6 @@ import scala.util.control.NoStackTrace
 
 private[lf] object Speedy {
 
-  // is an on-ledger machine running in Validating mode?; are we compiling in Validating mode?
-  private[lf] sealed trait Validating
-  private[lf] object Validating {
-    final case object On extends Validating
-    final case object Off extends Validating
-  }
-
   // Would like these to have zero cost when not enabled. Better still, to be switchable at runtime.
   private[this] val enableInstrumentation: Boolean = false
   private[this] val enableLightweightStepTracing: Boolean = false
@@ -113,7 +106,7 @@ private[lf] object Speedy {
   )
 
   private[lf] final case class OnLedger(
-      val validating: Validating, // TODO: this was not used; should we remove it?
+      val validating: Boolean,
       val contractKeyUniqueness: ContractKeyUniquenessMode,
       /* The current partial transaction */
       private[speedy] var ptx: PartialTransaction,
@@ -740,7 +733,7 @@ private[lf] object Speedy {
         expr: SExpr,
         globalCids: Set[V.ContractId],
         committers: Set[Party],
-        validating: Validating = Validating.Off,
+        validating: Boolean = false,
         traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
     ): Machine = {
