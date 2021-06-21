@@ -706,8 +706,25 @@ final class Metrics(val registry: MetricRegistry) {
     object HttpJsonApi {
       private val Prefix: MetricName = daml.Prefix :+ "http_json_api"
 
-      // Meters how long processing of a request takes
-      val httpRequestTimer: Timer = registry.timer(Prefix :+ "http_request_timing")
+      // Meters how long processing of a command submission request takes
+      val commandSubmissionTimer: Timer = registry.timer(Prefix :+ "command_submission_timing")
+      // Meters how long processing of a query GET request takes
+      val queryAllTimer: Timer = registry.timer(Prefix :+ "query_all_timing")
+      // Meters how long processing of a query POST request takes
+      val queryMatchingTimer: Timer = registry.timer(Prefix :+ "query_matching_timing")
+      // Meters how long processing of a fetch request takes
+      val fetchTimer: Timer = registry.timer(Prefix :+ "fetch_timing")
+      // Meters how long processing of a get party/parties request takes
+      val getPartyTimer: Timer = registry.timer(Prefix :+ "get_party_timing")
+      // Meters how long processing of a party management request takes
+      val allocatePartyTimer: Timer = registry.timer(Prefix :+ "allocate_party_timing")
+      // Meters how long processing of a package management request takes
+      val downloadPackageTimer: Timer = registry.timer(Prefix :+ "download_package_timing")
+      // Meters how long processing of a package upload request takes
+      val uploadPackageTimer: Timer = registry.timer(Prefix :+ "upload_package_timing")
+      // Meters how long parsing and decoding of an incoming json payload takes
+      val incomingJsonParsingAndValidationTimer: Timer =
+        registry.timer(Prefix :+ "incoming_json_parsing_and_validation_timing")
       // Meters http requests throughput
       val httpRequestThroughput: Meter = registry.meter(Prefix :+ "http_request_throughput")
       // Meters how many websocket connections are currently active
