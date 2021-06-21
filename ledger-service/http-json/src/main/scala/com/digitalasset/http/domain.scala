@@ -140,13 +140,19 @@ object domain {
       ekey: EnrichedContractKey[LfV],
   )
 
-  case class GetActiveContractsRequest(
+  final case class GetActiveContractsRequest(
       templateIds: OneAnd[Set, TemplateId.OptionalPkg],
       query: Map[String, JsValue],
   )
 
+  final case class SearchForeverQuery(
+      templateIds: OneAnd[Set, TemplateId.OptionalPkg],
+      query: Map[String, JsValue],
+      offset: Option[domain.Offset],
+  )
+
   final case class SearchForeverRequest(
-      queries: NonEmptyList[GetActiveContractsRequest]
+      queries: NonEmptyList[SearchForeverQuery]
   )
 
   final case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
@@ -155,7 +161,6 @@ object domain {
 
   final case class CommandMeta(
       commandId: Option[CommandId]
-      // TODO(Leo): add Option[WorkflowId] back
   )
 
   final case class CreateCommand[+LfV, TmplId](
@@ -222,6 +227,7 @@ object domain {
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
     implicit val ordering: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))
+
   }
 
   final case class StartingOffset(offset: Offset)

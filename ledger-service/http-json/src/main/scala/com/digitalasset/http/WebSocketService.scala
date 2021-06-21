@@ -14,7 +14,7 @@ import JsonProtocol.LfValueDatabaseCodec
 import com.daml.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import util.{BeginBookmark, ContractStreamStep, InsertDeleteStep}
-import ContractStreamStep.LiveBegin
+import ContractStreamStep.{Acs, LiveBegin, Txn}
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.daml.jwt.domain.Jwt
@@ -52,7 +52,7 @@ object WebSocketService {
   private final case class StreamPredicate[+Positive](
       resolved: Set[domain.TemplateId.RequiredPkg],
       unresolved: Set[domain.TemplateId.OptionalPkg],
-      fn: domain.ActiveContract[LfV] => Option[Positive],
+      fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive],
       dbQuery: (OneAnd[Set, domain.Party], dbbackend.ContractDao) => ConnectionIO[
         _ <: Vector[(domain.ActiveContract[JsValue], Positive)]
       ],
@@ -176,6 +176,26 @@ object WebSocketService {
     ): StreamPredicate[Positive]
 
     def renderCreatedMetadata(p: Positive): Map[String, JsValue]
+
+    def acsRequest(
+        maybePrefix: Option[domain.StartingOffset],
+        request: A,
+    ): Option[A]
+
+    /** Perform any necessary adjustment to the request based on the prefix
+      */
+    def adjustRequest(
+        prefix: Option[domain.StartingOffset],
+        request: A,
+    ): A
+
+    /** Specify the offset from which the live part of the query should start
+      */
+    def liveStartingOffset(
+        prefix: Option[domain.StartingOffset],
+        request: A,
+    ): Option[domain.StartingOffset]
+
   }
 
   implicit val SearchForeverRequestWithStreamQuery: StreamQueryReader[domain.SearchForeverRequest] =
@@ -203,6 +223,9 @@ object WebSocketService {
         import scalaz.syntax.foldable._
         import util.Collections._
 
+        val indexedOffsets: Vector[Option[domain.Offset]] =
+          request.queries.map(_.offset).toVector
+
         val (resolved, unresolved, q) = request.queries.zipWithIndex
           .foldMap { case (gacr, ix) =>
             val (resolved, unresolved) =
@@ -210,10 +233,25 @@ object WebSocketService {
             val q: CompiledQueries = prepareFilters(resolved, gacr.query, lookupType)
             (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
           }
-        def fn(a: domain.ActiveContract[LfV]): Option[Positive] =
+        def matchesOffset(queryIndex: Int, maybeEventOffset: Option[domain.Offset]): Boolean = {
+          import domain.Offset.ordering
+          import scalaz.syntax.order._
+          val matches =
+            for {
+              queryOffset <- indexedOffsets(queryIndex)
+              eventOffset <- maybeEventOffset
+            } yield eventOffset > queryOffset
+          matches.getOrElse(true)
+        }
+        def fn(a: domain.ActiveContract[LfV], o: Option[domain.Offset]): Option[Positive] = {
           q.get(a.templateId).flatMap { preds =>
-            preds.collect(Function unlift { case ((_, p), ix) => p(a.payload) option ix })
+            preds.collect(Function unlift { case ((_, p), ix) =>
+              val matchesPredicate = p(a.payload)
+              (matchesPredicate && matchesOffset(ix, o)).option(ix)
+            })
           }
+        }
+
         def dbQueriesPlan(implicit
             sjd: dbbackend.SupportedJdbcDriver
         ): (Seq[(domain.TemplateId.RequiredPkg, doobie.Fragment)], Map[Int, Int]) = {
@@ -255,6 +293,42 @@ object WebSocketService {
           import spray.json._, JsonProtocol._
           "matchedQueries" -> p.toJson
         }
+
+      override def acsRequest(
+          maybePrefix: Option[domain.StartingOffset],
+          request: SearchForeverRequest,
+      ): Option[SearchForeverRequest] = {
+        import scalaz.std.list
+        val withoutOffset = request.queries.toList.filter(_.offset.isEmpty)
+        list.toNel(withoutOffset).map(SearchForeverRequest(_))
+      }
+
+      override def adjustRequest(
+          prefix: Option[domain.StartingOffset],
+          request: SearchForeverRequest,
+      ): SearchForeverRequest =
+        prefix.fold(request)(prefix =>
+          request.copy(
+            queries = request.queries.map(query =>
+              query.copy(offset = query.offset.orElse(Some(prefix.offset)))
+            )
+          )
+        )
+
+      import scalaz.syntax.foldable1._
+      import domain.Offset.ordering
+      import scalaz.std.option.optionOrder
+
+      // This is called after `adjustRequest` already filled in the blank offsets
+      override def liveStartingOffset(
+          prefix: Option[domain.StartingOffset],
+          request: SearchForeverRequest,
+      ): Option[domain.StartingOffset] =
+        request.queries
+          .map(_.offset)
+          .minimumBy1(identity)
+          .map(domain.StartingOffset(_))
+
     }
 
   implicit val EnrichedContractKeyWithStreamQuery
@@ -317,7 +391,7 @@ object WebSocketService {
               case None => acc.updated(el._1, HashSet(el._2))
             }
         )
-      val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
+      val fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Positive] = { (a, _) =>
         a.key match {
           case None => None
           case Some(k) => if (q.getOrElse(a.templateId, HashSet()).contains(k)) Some(()) else None
@@ -344,6 +418,23 @@ object WebSocketService {
     }
 
     override def renderCreatedMetadata(p: Unit) = Map.empty
+
+    override def adjustRequest(
+        prefix: Option[domain.StartingOffset],
+        request: NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]],
+    ): NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]] = request
+
+    override def acsRequest(
+        maybePrefix: Option[domain.StartingOffset],
+        request: NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]],
+    ): Option[NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]]] =
+      maybePrefix.cata(_ => None, Some(request))
+
+    override def liveStartingOffset(
+        prefix: Option[domain.StartingOffset],
+        request: NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]],
+    ): Option[domain.StartingOffset] = prefix
+
   }
 
   private[this] def keyEquality(k: LfV)(implicit
@@ -480,62 +571,124 @@ class WebSocketService(
       )
   }
 
+  private[this] def fetchAndPreFilterAcs[Positive](
+      predicate: StreamPredicate[Positive],
+      jwt: Jwt,
+      parties: OneAnd[Set, domain.Party],
+  )(implicit
+      lc: LoggingContextOf[InstanceUUID with RequestID]
+  ): Future[Source[StepAndErrors[Positive, JsValue], NotUsed]] =
+    contractsService.daoAndFetch.cata(
+      { case (dao, fetch) =>
+        val tx = for {
+          bookmark <- fetch.fetchAndPersist(jwt, parties, predicate.resolved.toList)
+          mdContracts <- predicate.dbQuery(parties, dao)
+        } yield {
+          val acs =
+            if (mdContracts.nonEmpty) {
+              Source.single(StepAndErrors(Seq.empty, ContractStreamStep.Acs(mdContracts)))
+            } else {
+              Source.empty
+            }
+          val liveMarker = liveBegin(bookmark.map(_.toDomain))
+          acs ++ liveMarker
+        }
+        dao.transact(tx).unsafeToFuture()
+      },
+      Future.successful {
+        contractsService
+          .liveAcsAsInsertDeleteStepSource(jwt, parties, predicate.resolved.toList)
+          .via(convertFilterContracts(predicate.fn))
+      },
+    )
+
+  private[this] def liveBegin(
+      bookmark: BeginBookmark[domain.Offset]
+  ): Source[StepAndErrors[Nothing, Nothing], NotUsed] =
+    Source.single(StepAndErrors(Seq.empty, ContractStreamStep.LiveBegin(bookmark)))
+
   private def getTransactionSourceForParty[A: StreamQuery](
       jwt: Jwt,
       parties: OneAnd[Set, domain.Party],
       offPrefix: Option[domain.StartingOffset],
-      request: A,
+      rawRequest: A,
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Source[Error \/ Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
 
-    val StreamPredicate(resolved, unresolved, fn, dbQuery) =
+    // If there is a prefix, replace the empty offsets in the request with it
+    val request = Q.adjustRequest(offPrefix, rawRequest)
+
+    // Take all remaining queries without offset, these will be the ones for which an ACS request is needed
+    val acsRequest = Q.acsRequest(offPrefix, request)
+
+    // Stream predicates specific fo the ACS part
+    val acsPred = acsRequest.map(Q.predicate(_, resolveTemplateId, lookupType))
+
+    // Stream predicates for the overall query -- useful only for resolved/unresolved
+    val StreamPredicate(resolved, unresolved, _, _) =
       Q.predicate(request, resolveTemplateId, lookupType)
 
     if (resolved.nonEmpty) {
-      def prefilter: Future[
-        (
-            Source[
-              ContractStreamStep[Nothing, (domain.ActiveContract[JsValue], Q.Positive)],
-              NotUsed,
-            ],
-            Option[domain.StartingOffset],
-        )
-      ] =
-        contractsService.daoAndFetch
-          .filter(_ => offPrefix.isEmpty)
-          .cata(
-            { case (dao, fetch) =>
-              val tx = for {
-                bookmark <- fetch.fetchAndPersist(jwt, parties, resolved.toList)
-                mdContracts <- dbQuery(parties, dao)
-              } yield (
-                Source.single(mdContracts).map(ContractStreamStep.Acs(_)) ++ Source
-                  .single(ContractStreamStep.LiveBegin(bookmark.map(_.toDomain))),
-                bookmark.toOption map (term => domain.StartingOffset(term.toDomain)),
-              )
-              dao.transact(tx).unsafeToFuture()
-            },
-            Future.successful((Source.empty, offPrefix)),
-          )
-
       Source
-        .lazyFutureSource(() =>
-          prefilter.map { case (prefiltered, shiftedPrefix) =>
-            val liveFiltered = contractsService
-              .insertDeleteStepSource(
-                jwt,
-                parties,
-                resolved.toList,
-                shiftedPrefix,
-                Terminates.Never,
-              )
-              .via(convertFilterContracts(fn))
-            (prefiltered.map(StepAndErrors(Seq.empty, _)) ++ liveFiltered)
-              .via(emitOffsetTicksAndFilterOutEmptySteps(shiftedPrefix))
-          }
-        )
+        .lazyFutureSource(() => {
+          acsPred
+            .map(fetchAndPreFilterAcs(_, jwt, parties))
+            .cata(
+              _.map { acsAndLiveMarker =>
+                acsAndLiveMarker.flatMapConcat {
+                  case acs @ StepAndErrors(_, Acs(_)) if acs.nonEmpty =>
+                    Source.single(acs)
+                  case StepAndErrors(_, Acs(_)) =>
+                    Source.empty
+                  case liveBegin @ StepAndErrors(_, LiveBegin(offset)) =>
+                    // Produce the predicate that is going to be applied to the incoming transaction stream
+                    // We need to apply this to the request with all the offsets shifted so that each stream
+                    // can filter out anything from liveStartingOffset to the query-specific offset
+                    val acsEnd = offset.toOption.map(domain.StartingOffset(_))
+                    val shiftedRequest = Q.adjustRequest(acsEnd, request)
+
+                    // Get the earliest available offset from where to start from
+                    val liveStartingOffset = Q.liveStartingOffset(acsEnd, shiftedRequest)
+                    val StreamPredicate(_, _, fn, _) =
+                      Q.predicate(shiftedRequest, resolveTemplateId, lookupType)
+
+                    Source.single(liveBegin) ++ contractsService
+                      .insertDeleteStepSource(
+                        jwt,
+                        parties,
+                        resolved.toList,
+                        liveStartingOffset,
+                        Terminates.Never,
+                      )
+                      .via(convertFilterContracts(fn))
+                      .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
+                  case StepAndErrors(_, Txn(_, _)) =>
+                    throw new IllegalStateException("Transaction in ACS")
+                }
+              }, {
+                // This is the case where we made no ACS request because everything had an offset
+                // Get the earliest available offset from where to start from
+                val liveStartingOffset = Q.liveStartingOffset(offPrefix, request)
+                val StreamPredicate(_, _, fn, _) =
+                  Q.predicate(request, resolveTemplateId, lookupType)
+
+                Future.successful {
+                  contractsService
+                    .insertDeleteStepSource(
+                      jwt,
+                      parties,
+                      resolved.toList,
+                      liveStartingOffset,
+                      Terminates.Never,
+                    )
+                    .via(convertFilterContracts(fn))
+                    .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
+                }
+              },
+            )
+        })
         .mapMaterializedValue { _: Future[NotUsed] =>
           NotUsed
         }
@@ -617,7 +770,7 @@ class WebSocketService(
     TextMessage(jsVal.compactPrint)
 
   private def convertFilterContracts[Pos](
-      fn: domain.ActiveContract[LfV] => Option[Pos]
+      fn: (domain.ActiveContract[LfV], Option[domain.Offset]) => Option[Pos]
   ): Flow[ContractStreamStep.LAV1, StepAndErrors[Pos, JsValue], NotUsed] =
     Flow
       .fromFunction { step: ContractStreamStep.LAV1 =>
@@ -636,7 +789,7 @@ class WebSocketService(
           errors ++ aerrors,
           dstep mapInserts { inserts: Vector[domain.ActiveContract[LfV]] =>
             inserts.flatMap { ac =>
-              fn(ac).map((ac, _)).toList
+              fn(ac, dstep.bookmark.flatMap(_.toOption)).map((ac, _)).toList
             }
           },
         )

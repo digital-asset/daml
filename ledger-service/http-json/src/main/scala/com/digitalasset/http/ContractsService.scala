@@ -16,12 +16,13 @@ import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => toDbCompatibleJson
 }
 import com.daml.http.query.ValuePredicate
-import com.daml.http.util.ApiValueToLfValueConverter
+import util.{AbsoluteBookmark, ApiValueToLfValueConverter, ContractStreamStep, InsertDeleteStep}
+import com.daml.http.util.ContractStreamStep.{Acs, LiveBegin}
 import com.daml.http.util.FutureUtil.toFuture
-import com.daml.http.util.Logging.{InstanceUUID}
-import util.{ContractStreamStep, InsertDeleteStep}
+import com.daml.http.util.Logging.InstanceUUID
 import com.daml.jwt.domain.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.{v1 => api}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.util.ExceptionOps._
@@ -400,6 +401,19 @@ class ContractsService(
     type P = domain.ActiveContract[LfValue] => Boolean
     sealed case class Params(params: Map[String, JsValue]) extends InMemoryQuery
     sealed case class Filter(p: P) extends InMemoryQuery
+  }
+
+  private[http] def liveAcsAsInsertDeleteStepSource(
+      jwt: Jwt,
+      parties: OneAnd[Set, lar.Party],
+      templateIds: List[domain.TemplateId.RequiredPkg],
+  ): Source[ContractStreamStep.LAV1, NotUsed] = {
+    val txnFilter = util.Transactions.transactionFilterFor(parties, templateIds)
+    getActiveContracts(jwt, txnFilter, true)
+      .map { case GetActiveContractsResponse(offset, _, activeContracts, _) =>
+        if (activeContracts.nonEmpty) Acs(activeContracts.toVector)
+        else LiveBegin(AbsoluteBookmark(domain.Offset(offset)))
+      }
   }
 
   /** An ACS ++ transaction stream of `templateIds`, starting at `startOffset`

@@ -1284,12 +1284,25 @@ different sets of template IDs::
         {"templateIds": ["Iou:Iou"]}
     ]
 
+Queries have two ways to specify an offset.
+
 An optional ``offset`` returned by a prior query (see output examples
 below) may be specified *before* the above, as a separate body.  It must
 be a string, and if specified, the stream will begin immediately *after*
 the response body that included that offset::
 
     {"offset": "5609"}
+
+Moreover, an ``offset`` may be specified alongside the query itself::
+
+    [
+        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
+        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 50}}},
+        {"templateIds": ["Iou:Iou"], "offset": "5609"}
+    ]
+
+Per-query ``offset`` s take precedence over the ``offset`` message. The
+``offset`` message is still applied to queries that don't specify one.
 
 The output is a series of JSON documents, each ``payload`` formatted
 according to :doc:`lf-value-specification`::
@@ -1331,6 +1344,25 @@ off an initial "loading" indicator::
         "events": [],
         "offset": "2"
     }
+
+.. note::
+
+    Events in the following "live" data may include ``events`` that precede
+    this ``offset`` if an earlier per-query ``offset`` was specified.
+
+    This has been done with the intent of allowing to use per-query ``offset`` s to
+    efficiently use a single connection to multiplex various requests. To give an
+    example of how this would work, let's say that there are two contract templates,
+    ``A`` and ``B`` . Your application first queries for ``A`` s without specifying
+    an offset. Then some client-side interaction requires the application to do the
+    same for ``B`` s. The application can save the latest observed offset for the
+    previous query, which let's say is ``42``, and issue a new request that queries
+    for all ``B`` s without specifying an offset and all ``A`` s from ``42``. While
+    this happens on the client, a few more ``A`` s and ``B`` s are created and the
+    new request is issued once the latest offset is ``47``. The response to this
+    will contain a message with all active ``B`` s, followed by the message reporting
+    the offset ``47``, followed by a stream of live updates that contains new ``A`` s
+    starting from ``42`` and new ``B`` s starting from ``47`` .
 
 To keep the stream alive, you'll occasionally see messages like this,
 which can be safely ignored if you do not need to capture the last seen ledger offset::
