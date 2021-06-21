@@ -179,7 +179,7 @@ private[http] object JdbcConfig
     s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema\""""
 }
 
-// It is public for DABL
+// It is public for Daml Hub
 final case class WebsocketConfig(
     maxDuration: FiniteDuration,
     throttleElem: Int,

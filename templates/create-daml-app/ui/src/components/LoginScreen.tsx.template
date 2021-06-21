@@ -39,7 +39,7 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
     await login(credentials);
   }
 
-  const handleDablLogin = () => {
+  const handleDamlHubLogin = () => {
     window.location.assign(`https://login.projectdabl.com/auth/login?ledgerId=${ledgerId}`);
   }
 
@@ -80,7 +80,7 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
         </Header>
         <Form size='large' className='test-select-login-screen'>
           <Segment>
-            {deploymentMode !== DeploymentMode.PROD_DABL
+            {deploymentMode !== DeploymentMode.PROD_DAML_HUB
             ? <>
                 {/* FORM_BEGIN */}
                 <Form.Input
@@ -101,8 +101,8 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
                 </Button>
                 {/* FORM_END */}
               </>
-            : <Button primary fluid onClick={handleDablLogin}>
-                Log in with DABL
+            : <Button primary fluid onClick={handleDamlHubLogin}>
+                Log in with Daml Hub
               </Button>
             }
           </Segment>

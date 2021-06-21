@@ -634,7 +634,7 @@ def sdk_platform_test(sdk_version, platform_version):
         tags = ["cpu:2"] + extra_tags(sdk_version, platform_version),
     )
 
-    # For now, we only cover the DABL usecase where
+    # For now, we only cover the Daml Hub usecase where
     # sandbox and the JSON API come from the same SDK.
     # However, the test setup is flexible enough, that we
     # can control them individually.
