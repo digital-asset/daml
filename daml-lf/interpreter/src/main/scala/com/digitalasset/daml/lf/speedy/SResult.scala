@@ -74,7 +74,7 @@ object SResult {
       committers: Set[Party],
       // Callback.
       // returns true if machine can continue with the given result.
-      cb: SKeyLookupResult => Boolean,
+      cb: Option[ContractId] => Boolean,
   ) extends SResult
 
   final case class SResultNeedLocalKeyVisible(
@@ -105,15 +105,4 @@ object SResult {
         }
     }
   }
-
-  sealed abstract class SKeyLookupResult
-  object SKeyLookupResult {
-    final case class Found(coid: ContractId) extends SKeyLookupResult
-    final case object NotFound extends SKeyLookupResult
-    final case object NotVisible extends SKeyLookupResult
-
-    def apply(coid: Option[ContractId]): SKeyLookupResult =
-      coid.fold[SKeyLookupResult](NotFound)(Found)
-  }
-
 }

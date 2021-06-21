@@ -1188,12 +1188,13 @@ private[lf] object SBuiltin {
   private[speedy] sealed abstract class SBUKeyBuiltin(operation: KeyOperation)
       extends OnLedgerBuiltin(1) {
 
-    private def cacheGlobalLookup(onLedger: OnLedger, gkey: GlobalKey, result: SKeyLookupResult) = {
-      import PartialTransaction.{KeyActive, KeyInactive}
-      val keyMapping = result match {
-        case SKeyLookupResult.Found(cid) => KeyActive(cid)
-        case SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible => KeyInactive
-      }
+    private def cacheGlobalLookup(
+        onLedger: OnLedger,
+        gkey: GlobalKey,
+        result: Option[V.ContractId],
+    ) = {
+      import PartialTransaction.{KeyActive, KeyInactive, KeyMapping}
+      val keyMapping: KeyMapping = result.fold[KeyMapping](KeyInactive)(KeyActive(_))
       onLedger.ptx = onLedger.ptx.copy(
         globalKeyInputs = onLedger.ptx.globalKeyInputs.updated(gkey, keyMapping)
       )
@@ -1247,14 +1248,13 @@ private[lf] object SBuiltin {
                     // modify keys if the archive was for a key
                     // already brought into scope.
                     val activeResult = result match {
-                      case SKeyLookupResult.Found(cid) if onLedger.ptx.consumedBy.contains(cid) =>
-                        SKeyLookupResult.NotFound
-                      case SKeyLookupResult.Found(_) | SKeyLookupResult.NotFound |
-                          SKeyLookupResult.NotVisible =>
+                      case Some(cid) if onLedger.ptx.consumedBy.contains(cid) =>
+                        None
+                      case _ =>
                         result
                     }
                     activeResult match {
-                      case SKeyLookupResult.Found(cid) =>
+                      case Some(cid) =>
                         onLedger.ptx = onLedger.ptx.copy(
                           keys = onLedger.ptx.keys.updated(gkey, KeyActive(cid))
                         )
@@ -1263,12 +1263,11 @@ private[lf] object SBuiltin {
                         // We delegate to CtrlImportValue the task to check cid.
                         operation.handleInputKeyFound(machine, cid)
                         true
-                      case SKeyLookupResult.NotFound =>
+                      case None =>
                         onLedger.ptx = onLedger.ptx.copy(
                           keys = onLedger.ptx.keys.updated(gkey, KeyInactive)
                         )
                         operation.handleInputKeyNotFound(machine)
-                      case SKeyLookupResult.NotVisible => false
                     }
                   },
                 )

@@ -240,7 +240,7 @@ object ScenarioRunner {
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
-        canContinue: SKeyLookupResult => Boolean,
+        canContinue: Option[ContractId] => Boolean,
     ): Either[SError, Unit]
     def currentTime: Time.Timestamp
     def commit(
@@ -300,7 +300,7 @@ object ScenarioRunner {
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
-        canContinue: SKeyLookupResult => Boolean,
+        canContinue: Option[ContractId] => Boolean,
     ): Either[SError, Unit] =
       handleUnsafe(lookupKeyUnsafe(gk, actAs, readAs, canContinue))
 
@@ -308,17 +308,13 @@ object ScenarioRunner {
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
-        canContinue: SKeyLookupResult => Boolean,
+        canContinue: Option[ContractId] => Boolean,
     ): Unit = {
       val effectiveAt = ledger.currentTime
       val readers = actAs union readAs
 
       def missingWith(err: SError) =
-        if (!canContinue(SKeyLookupResult.NotFound))
-          throw SRunnerException(err)
-
-      def notVisibleWith(err: SError) =
-        if (!canContinue(SKeyLookupResult.NotVisible))
+        if (!canContinue(None))
           throw SRunnerException(err)
 
       ledger.ledgerData.activeKeys.get(gk) match {
@@ -332,11 +328,11 @@ object ScenarioRunner {
           ) match {
             case ScenarioLedger.LookupOk(_, _, stakeholders) =>
               if (!readers.intersect(stakeholders).isEmpty)
-                // We should always be able to continue with a SKeyLookupResult.Found.
+                // We should always be able to continue with a Some(_).
                 // Run to get side effects and assert result.
-                assert(canContinue(SKeyLookupResult.Found(acoid)))
+                assert(canContinue(Some(acoid)))
               else
-                notVisibleWith(
+                throw SRunnerException(
                   ScenarioErrorContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders)
                 )
             case ScenarioLedger.LookupContractNotFound(coid) =>
@@ -351,7 +347,7 @@ object ScenarioRunner {
                   observers @ _,
                   stakeholders,
                 ) =>
-              notVisibleWith(
+              throw SRunnerException(
                 ScenarioErrorContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders)
               )
           }
