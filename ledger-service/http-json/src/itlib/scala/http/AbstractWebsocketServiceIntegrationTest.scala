@@ -765,9 +765,9 @@ abstract class AbstractWebsocketServiceIntegrationTest
         point(acs)
       } else {
         for {
-          ContractDelta(creates, deletes, _) <- readOne
-          newAcs = acs ++ creates -- deletes.map(_.contractId.unwrap)
-          events = creates.size - deletes.size
+          ContractDelta(creates, archives, _) <- readOne
+          newAcs = acs ++ creates -- archives.map(_.contractId.unwrap)
+          events = creates.size + archives.size
           next <- go(newAcs, missingEvents - events)
         } yield next
       }
