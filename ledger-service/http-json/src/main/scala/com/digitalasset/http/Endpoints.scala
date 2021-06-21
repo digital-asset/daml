@@ -89,9 +89,11 @@ class Endpoints(
         case req @ HttpRequest(POST, Uri.Path("/v1/create-and-exercise"), _, _, _) =>
           (implicit lc => httpResponse(createAndExercise(req)))
       }
-    val queryDispatch = mkDispatchFunWithTimer(apiMetrics.queryTimer) {
+    val queryAllDispatch = mkDispatchFunWithTimer(apiMetrics.queryAllTimer) {
       case req @ HttpRequest(GET, Uri.Path("/v1/query"), _, _, _) =>
         (implicit lc => httpResponse(retrieveAll(req)))
+    }
+    val queryMatchingDispatch = mkDispatchFunWithTimer(apiMetrics.queryMatchingTimer) {
       case req @ HttpRequest(POST, Uri.Path("/v1/query"), _, _, _) =>
         (implicit lc => httpResponse(query(req)))
     }
@@ -138,7 +140,8 @@ class Endpoints(
     }
     import scalaz.std.partialFunction._, scalaz.syntax.arrow._
     ((commandDispatch orElse
-      queryDispatch orElse
+      queryAllDispatch orElse
+      queryMatchingDispatch orElse
       fetchDispatch orElse
       getPartyDispatch orElse
       allocatePartyDispatch orElse

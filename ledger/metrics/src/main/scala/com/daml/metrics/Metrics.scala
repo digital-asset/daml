@@ -708,8 +708,10 @@ final class Metrics(val registry: MetricRegistry) {
 
       // Meters how long processing of a command submission request takes
       val commandSubmissionTimer: Timer = registry.timer(Prefix :+ "command_submission_timing")
-      // Meters how long processing of a query request takes
-      val queryTimer: Timer = registry.timer(Prefix :+ "query_timing")
+      // Meters how long processing of a query GET request takes
+      val queryAllTimer: Timer = registry.timer(Prefix :+ "query_all_timing")
+      // Meters how long processing of a query POST request takes
+      val queryMatchingTimer: Timer = registry.timer(Prefix :+ "query_matching_timing")
       // Meters how long processing of a fetch request takes
       val fetchTimer: Timer = registry.timer(Prefix :+ "fetch_timing")
       // Meters how long processing of a get party/parties request takes
