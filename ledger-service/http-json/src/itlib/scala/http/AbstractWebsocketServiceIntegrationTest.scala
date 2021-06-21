@@ -977,7 +977,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
         Consume.interpret(
           for {
             _ <- readAcsN(expectedContracts)
-            ContractDelta(Vector(), _, Some(offset)) <- readOne
+            ContractDelta(Vector(), Vector(), Some(offset)) <- readOne
             _ = killSwitch.shutdown()
             _ <- drain
           } yield offset

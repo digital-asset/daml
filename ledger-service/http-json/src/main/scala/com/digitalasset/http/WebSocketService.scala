@@ -315,7 +315,7 @@ object WebSocketService {
       import domain.Offset.ordering
       import scalaz.std.option.optionOrder
 
-      // This is called `adjustRequest` already filled in the blank offsets
+      // This is called after `adjustRequest` already filled in the blank offsets
       override def liveStartingOffset(
           prefix: Option[domain.StartingOffset],
           request: SearchForeverRequest,
