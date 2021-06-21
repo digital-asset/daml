@@ -420,7 +420,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     )(mismatch: transaction.ReplayMismatch[NodeId, Value.ContractId]) = {
       val replayMismatch = LfError.Validation(LfError.Validation.ReplayMismatch(mismatch))
       transactionCommitter.rejectionReasonForValidationError(replayMismatch) shouldBe mkReason(
-        replayMismatch.msg
+        replayMismatch.message
       )
     }
 

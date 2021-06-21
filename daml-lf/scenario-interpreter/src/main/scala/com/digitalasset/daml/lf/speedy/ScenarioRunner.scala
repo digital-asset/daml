@@ -12,10 +12,10 @@ import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
-import com.daml.lf.speedy.Speedy.{OffLedger, OnLedger}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.value.Value
+import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -41,10 +41,7 @@ final case class ScenarioRunner(
   var seed = initialSeed
 
   var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
-  val onLedger = machine.ledgerMode match {
-    case OffLedger => throw SRequiresOnLedger("ScenarioRunner")
-    case onLedger: OnLedger => onLedger
-  }
+  val onLedger = machine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
 
   def run(): Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)] =
     handleUnsafe(runUnsafe()) match {
@@ -92,7 +89,7 @@ final case class ScenarioRunner(
           // log to the off-ledger machine as a temporary hack until
           // the callsites have changed sufficiently to allow us to
           // avoid this gross mess.
-          machine.withOnLedger("runUnsafe") { onLedger =>
+          machine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc) { onLedger =>
             onLedger.ptx = submitResult.ptx
             onLedger.commitLocation = location
           }
@@ -129,16 +126,19 @@ final case class ScenarioRunner(
           }
 
         case SResultNeedPackage(pkgId, _) =>
-          crash(s"package $pkgId not found")
+          crash(NameOf.qualifiedNameOfCurrentFunc, s"package $pkgId not found")
 
         case _: SResultNeedContract =>
-          crash("SResultNeedContract outside of submission")
+          crash(NameOf.qualifiedNameOfCurrentFunc, "SResultNeedContract outside of submission")
 
         case _: SResultNeedKey =>
-          crash("SResultNeedKey outside of submission")
+          crash(NameOf.qualifiedNameOfCurrentFunc, "SResultNeedKey outside of submission")
 
         case _: SResultNeedLocalKeyVisible =>
-          crash("SResultNeedLocalKeyVisible outside of submission")
+          crash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            "SResultNeedLocalKeyVisible outside of submission",
+          )
       }
     }
     val endTime = System.nanoTime()
@@ -146,8 +146,8 @@ final case class ScenarioRunner(
     (diff, steps, ledger, finalValue)
   }
 
-  private def crash(reason: String) =
-    throw SRunnerException(SErrorCrash(reason))
+  private[this] def crash(location: String, reason: String) =
+    throw SRunnerException(SErrorCrash(location, reason))
 
   private def getParty(partyText: String, callback: Party => Unit) = {
     val mangledPartyText = partyNameMangler(partyText)
@@ -284,7 +284,7 @@ object ScenarioRunner {
         case ScenarioLedger.LookupContractNotFound(coid) =>
           // This should never happen, hence we don't have a specific
           // error for this.
-          missingWith(SErrorCrash(s"contract $coid not found"))
+          missingWith(SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"contract $coid not found"))
 
         case ScenarioLedger.LookupContractNotEffective(coid, tid, effectiveAt) =>
           missingWith(ScenarioErrorContractNotEffective(coid, tid, effectiveAt))
@@ -340,11 +340,26 @@ object ScenarioRunner {
                   ScenarioErrorContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders)
                 )
             case ScenarioLedger.LookupContractNotFound(coid) =>
-              missingWith(SErrorCrash(s"contract $coid not found, but we found its key!"))
+              missingWith(
+                SErrorCrash(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  s"contract $coid not found, but we found its key!",
+                )
+              )
             case ScenarioLedger.LookupContractNotEffective(_, _, _) =>
-              missingWith(SErrorCrash(s"contract $acoid not effective, but we found its key!"))
+              missingWith(
+                SErrorCrash(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  s"contract $acoid not effective, but we found its key!",
+                )
+              )
             case ScenarioLedger.LookupContractNotActive(_, _, _) =>
-              missingWith(SErrorCrash(s"contract $acoid not active, but we found its key!"))
+              missingWith(
+                SErrorCrash(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  s"contract $acoid not active, but we found its key!",
+                )
+              )
             case ScenarioLedger.LookupContractNotVisible(
                   coid,
                   tid @ _,
@@ -389,6 +404,9 @@ object ScenarioRunner {
       location: Option[Location],
       seed: crypto.Hash,
   ): SubmissionResult[R] = {
+    val qualifiedNameOfCurrentFunc = NameOf.qualifiedNameOfCurrentFunc
+    def crash(msg: String) =
+      throw SErrorCrash(qualifiedNameOfCurrentFunc, msg)
     val ledgerMachine = Speedy.Machine(
       compiledPackages = compiledPackages,
       submissionTime = Time.Timestamp.MinValue,
@@ -397,10 +415,7 @@ object ScenarioRunner {
       globalCids = Set.empty,
       committers = committers,
     )
-    val onLedger = ledgerMachine.ledgerMode match {
-      case OffLedger => throw SRequiresOnLedger("ScenarioRunner")
-      case onLedger: OnLedger => onLedger
-    }
+    val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     @tailrec
     def go(): SubmissionResult[R] = {
       ledgerMachine.run() match {

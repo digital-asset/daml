@@ -22,6 +22,7 @@ import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
 
+import com.daml.nameof.NameOf
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
 import org.jline.reader.impl.completer.{AggregateCompleter, ArgumentCompleter, StringsCompleter}
@@ -527,7 +528,7 @@ object Repl {
       .map { expr =>
         val (machine, errOrLedger) =
           state.scenarioRunner.run(expr)
-        machine.withOnLedger("invokeTest") { onLedger =>
+        machine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc) { onLedger =>
           errOrLedger match {
             case Left((err, ledger @ _)) =>
               println(prettyError(err, onLedger.ptx).render(128))
@@ -561,7 +562,7 @@ object Repl {
     allTests.foreach { case (name, body) =>
       print(name + ": ")
       val (machine, errOrLedger) = state.scenarioRunner.run(body)
-      machine.withOnLedger("cmdTestAll") { onLedger =>
+      machine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc) { onLedger =>
         errOrLedger match {
           case Left((err, ledger @ _)) =>
             println(
@@ -595,7 +596,7 @@ object Repl {
         println("Collecting profile...")
         val (machine, errOrLedger) =
           state.scenarioRunner.run(expr)
-        machine.withOnLedger("cmdProfile") { onLedger =>
+        machine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc) { onLedger =>
           errOrLedger match {
             case Left((err, ledger @ _)) =>
               println(prettyError(err, onLedger.ptx).render(128))

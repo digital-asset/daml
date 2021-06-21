@@ -153,7 +153,7 @@ object Result {
     ResultNeedPackage(
       packageId,
       {
-        case None => ResultError(Error.Interpretation.Generic(s"Couldn't find package $packageId"))
+        case None => ResultError(Error.Package.MissingPackage(packageId))
         case Some(pkg) => resume(pkg)
       },
     )

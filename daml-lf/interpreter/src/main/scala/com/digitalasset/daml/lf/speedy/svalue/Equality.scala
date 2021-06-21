@@ -6,6 +6,7 @@ package speedy
 package svalue
 
 import com.daml.lf.speedy.SError.SErrorCrash
+import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
 
@@ -63,7 +64,10 @@ private[lf] object Equality {
         case (STypeRep(xType), STypeRep(yType)) =>
           success = xType == yType
         case (x, y) =>
-          throw SErrorCrash(s"trying to compare incomparable types:\n- $x\n- $y")
+          throw SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"trying to compare incomparable types:\n- $x\n- $y",
+          )
       }
 
     while (success && stackX.nonEmpty) {

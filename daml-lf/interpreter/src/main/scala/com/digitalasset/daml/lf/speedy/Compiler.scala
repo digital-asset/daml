@@ -13,9 +13,11 @@ import com.daml.lf.language.{LanguageVersion, LookupError, Interface}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SError.SErrorCrash
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.validation.{EUnknownDefinition, Validation, ValidationError}
+import com.daml.nameof.NameOf
 import org.slf4j.LoggerFactory
 
 import scala.annotation.{nowarn, tailrec}
@@ -140,8 +142,7 @@ private[lf] final class Compiler(
     x match {
       case Right(value) => value
       case Left(err) =>
-        // TODO: should throw a more precise error
-        SError.crash(err.pretty)
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, err.pretty)
     }
 
   // Stack-trace support is disabled by avoiding the construction of SELocation nodes.

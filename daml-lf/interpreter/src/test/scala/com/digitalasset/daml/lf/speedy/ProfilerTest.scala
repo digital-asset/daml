@@ -10,10 +10,11 @@ import com.daml.lf.speedy.PartialTransaction._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.testing.parser.Implicits._
-
+import com.daml.nameof.NameOf
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import org.scalatestplus.scalacheck.{ScalaCheckDrivenPropertyChecks}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+
 import scala.jdk.CollectionConverters._
 
 class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
@@ -75,7 +76,7 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
     val res = machine.run()
     res match {
       case _: SResultFinalValue =>
-        machine.withOnLedger("RollbackTest") { onLedger =>
+        machine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc) { onLedger =>
           onLedger.ptx.finish match {
             case IncompleteTransaction(_) =>
               sys.error("unexpected IncompleteTransaction")

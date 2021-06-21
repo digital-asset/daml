@@ -18,6 +18,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ModuleName
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.scenario.api.v1.{Map => _, _}
+import com.daml.nameof.NameOf
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.netty.NettyServerBuilder
@@ -113,7 +114,7 @@ class ScenarioService(implicit
             .interpretScenario(packageId, scenarioId.getName)
             .map { case (ledger, machine, errOrValue) =>
               val builder = RunScenarioResponse.newBuilder
-              machine.withOnLedger("runScenario") { onLedger =>
+              machine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc) { onLedger =>
                 errOrValue match {
                   case Left(err) =>
                     builder.setError(

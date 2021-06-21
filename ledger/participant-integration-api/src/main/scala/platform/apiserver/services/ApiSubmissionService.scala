@@ -286,8 +286,6 @@ private[apiserver] final class ApiSubmissionService private[services] (
     errorCause match {
       case cause @ ErrorCause.DamlLf(error) =>
         error match {
-          // TODO https://github.com/digital-asset/daml/issues/9974
-          //  Review once LF errors are properly structured
           case LfError.Interpretation(
                 LfError.Interpretation.ContractNotFound(_) |
                 LfError.Interpretation.DuplicateContractKey(_)

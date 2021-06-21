@@ -13,19 +13,13 @@ private[platform] object ErrorCause {
 
   final case class DamlLf(error: LfError) extends ErrorCause {
 
-    // TODO https://github.com/digital-asset/daml/issues/9974
-    //  Review once LF errors are properly structured
-    override def explain: String = {
-      val details = {
-        error match {
-          case LfError.Interpretation(LfError.Interpretation.Generic(_, detailMsg)) =>
-            detailMsg
-          case _ =>
-            "N/A"
-        }
+    override def explain: String =
+      error match {
+        case LfError.Internal(where, message, detailMsg) =>
+          s"Internal error in Daml Engine: $message. Location: $where. Details : $detailMsg"
+        case _ =>
+          s"Command interpretation error in Daml Engine: ${error.message}."
       }
-      s"Command interpretation error in LF-DAMLe: ${error.msg}. Details: $details."
-    }
   }
 
   final case class LedgerTime(retries: Int) extends ErrorCause {

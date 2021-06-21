@@ -312,7 +312,7 @@ private[kvutils] class TransactionCommitter(
       validationError: LfError
   ): RejectionReasonV0 = {
     def disputed: RejectionReasonV0 =
-      RejectionReasonV0.Disputed(validationError.msg)
+      RejectionReasonV0.Disputed(validationError.message)
 
     def resultIsCreatedInTx(
         tx: VersionedTransaction[NodeId, ContractId],
@@ -355,7 +355,7 @@ private[kvutils] class TransactionCommitter(
                 recordedTemplateId == replayedTemplateId && recordedKey == replayedKey
                 && !resultIsCreatedInTx(recordedTx, recordedResult)
                 && !resultIsCreatedInTx(replayedTx, replayedResult) =>
-            RejectionReasonV0.Inconsistent(validationError.msg)
+            RejectionReasonV0.Inconsistent(validationError.message)
           case _ => disputed
         }
       case _ => disputed

@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 /** The simplified AST for the speedy interpreter.
   *
@@ -18,6 +19,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SBuiltin._
+import com.daml.nameof.NameOf
 
 /** The speedy expression:
   * - de Bruijn indexed.
@@ -26,6 +28,9 @@ import com.daml.lf.speedy.SBuiltin._
   * - all update and scenario operations converted to builtin functions.
   */
 sealed abstract class SExpr extends Product with Serializable {
+  protected def crash(msg: String) =
+    throw SErrorCrash(this.getClass.getCanonicalName + "execute", msg)
+
   def execute(machine: Machine): Unit
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   override def toString: String =
@@ -394,7 +399,7 @@ object SExpr {
     def execute(machine: Machine): Unit = {
       machine.pushKont(KTryCatchHandler(machine, handler))
       machine.ctrl = body
-      machine.withOnLedger("SETryCatch") { onLedger =>
+      machine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc) { onLedger =>
         onLedger.ptx = onLedger.ptx.beginTry
       }
     }

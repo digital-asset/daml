@@ -63,7 +63,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
           val pkg = state.packages.get(pkgId) match {
             case None =>
               return ResultError(
-                Error.Package.Internal(
+                Error.Internal(
                   NameOf.qualifiedNameOfCurrentFunc,
                   s"broken invariant: Could not find package $pkgId",
                 )
@@ -122,7 +122,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                   return ResultError(
                     // compilation errors are internal since typechecking should
                     // catch any errors arising during compilation
-                    Error.Package.Internal(
+                    Error.Internal(
                       NameOf.qualifiedNameOfCurrentFunc,
                       s"Compilation Error: $msg",
                     )

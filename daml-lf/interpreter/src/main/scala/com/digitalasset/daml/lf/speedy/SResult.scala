@@ -49,25 +49,27 @@ object SResult {
       callback: CompiledPackages => Unit,
   ) extends SResult
 
+  sealed abstract class SResultScenario extends SResult
+
   final case class SResultScenarioSubmit(
       committers: Set[Party],
       commands: SValue,
       location: Option[Location],
       mustFail: Boolean,
       callback: SValue => Unit,
-  ) extends SResult
+  ) extends SResultScenario
 
   /** Pass the ledger time and return back the new ledger time. */
   final case class SResultScenarioPassTime(
       relTime: Long,
       callback: Time.Timestamp => Unit,
-  ) extends SResult
+  ) extends SResultScenario
 
   /** A conversion of a string into a party is requested. */
   final case class SResultScenarioGetParty(
       partyText: String,
       callback: Party => Unit,
-  ) extends SResult
+  ) extends SResultScenario
 
   final case class SResultNeedKey(
       key: GlobalKeyWithMaintainers,

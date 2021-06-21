@@ -91,7 +91,7 @@ private[apiserver] final class ApiPackageManagementService private (
       _ <- engine
         .validatePackages(packages)
         .left
-        .map(e => new IllegalArgumentException(e.msg))
+        .map(e => new IllegalArgumentException(e.message))
         .toTry
     } yield dar
 

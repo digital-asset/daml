@@ -35,10 +35,8 @@ private[lf] object Pretty {
     text("Error:") & (err match {
       case ex: SErrorDamlException =>
         prettyDamlException(ex, ptx)
-      case SErrorCrash(reason) =>
-        text(s"CRASH: $reason")
-      case SRequiresOnLedger(operation) =>
-        text(s"Operation is not supported off-ledger: $operation")
+      case SErrorCrash(name, reason) =>
+        text(s"CRASH in $name: $reason")
 
       case serr: SErrorScenario =>
         prettyScenarioError(serr)

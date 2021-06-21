@@ -17,6 +17,7 @@ import com.daml.lf.value.Value
 import java.nio.file.Files
 
 import com.daml.lf.language.{Interface, LanguageVersion}
+import com.daml.lf.speedy.SError.SErrorCrash
 import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value.ContractId
 import com.daml.nameof.NameOf
@@ -244,14 +245,16 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       try {
         run
       } catch {
-        // The two following error should be prevented by the type checking does by translateCommand
+        // The following error should be prevented by the type checking does by translateCommand
         // so it’s an internal error.
+        case error: SErrorCrash =>
+          ResultError(Error.Internal(error.location, error.message))
         case error: speedy.Compiler.PackageNotFound =>
           ResultError(
-            Error.Preprocessing.Internal(funcName, s"CompilationError: ${error.getMessage}")
+            Error.Internal(funcName, s"CompilationError: ${error.getMessage}")
           )
         case speedy.Compiler.CompilationError(error) =>
-          ResultError(Error.Preprocessing.Internal(funcName, s"CompilationError: $error"))
+          ResultError(Error.Internal(funcName, s"CompilationError: $error"))
       }
     start
   }
@@ -293,102 +296,110 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
   private[engine] def interpretLoop(
       machine: Machine,
       time: Time.Timestamp,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
-    var finished: Boolean = false
-    while (!finished) {
-      machine.run() match {
-        case SResultFinalValue(_) => finished = true
+  ): Result[(SubmittedTransaction, Tx.Metadata)] =
+    machine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc) { onLedger =>
+      var finished: Boolean = false
+      while (!finished) {
+        machine.run() match {
+          case SResultFinalValue(_) => finished = true
 
-        case SResultError(SError.DamlEDuplicateContractKey(key)) =>
-          // Special-cased because duplicate key errors
-          // produce a different gRPC error code.
-          return ResultError(Error.Interpretation(Error.Interpretation.DuplicateContractKey(key)))
+          case SResultError(err) =>
+            def details =
+              s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptxInternal.nodesToString}"
+            val engineError: Error =
+              err match {
+                case SError.DamlEDuplicateContractKey(key) =>
+                  // Special-cased because duplicate key errors
+                  // produce a different gRPC error code.
+                  Error.Interpretation(Error.Interpretation.DuplicateContractKey(key))
+                case SError.DamlEContractKeyNotFound(key) =>
+                  Error.Interpretation(Error.Interpretation.ContractKeyNotFound(key))
+                case crash: SErrorCrash =>
+                  Error.Internal(crash.location, crash.message, details)
+                case err =>
+                  Error.Internal(
+                    NameOf.qualifiedNameOfCurrentFunc,
+                    s"Interpretation error: ${Pretty.prettyError(err, onLedger.ptxInternal).render(80)}",
+                    details,
+                  )
+              }
+            return ResultError(engineError)
 
-        case SResultError(SError.DamlEContractKeyNotFound(key)) =>
-          return ResultError(Error.Interpretation.ContractKeyNotFound(key))
+          case SResultNeedPackage(pkgId, callback) =>
+            return Result.needPackage(
+              pkgId,
+              pkg => {
+                compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
+                  callback(compiledPackages)
+                  interpretLoop(machine, time)
+                }
+              },
+            )
 
-        case SResultError(err) =>
-          return ResultError(
-            Error.Interpretation.Generic(
-              s"Interpretation error: ${Pretty.prettyError(err, onLedger.ptxInternal).render(80)}",
-              s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptxInternal.nodesToString}",
+          case SResultNeedContract(contractId, _, _, _, cbPresent) =>
+            return Result.needContract(
+              contractId,
+              { coinst =>
+                cbPresent(coinst)
+                interpretLoop(machine, time)
+              },
+            )
+
+          case SResultNeedTime(callback) =>
+            onLedger.dependsOnTime = true
+            callback(time)
+
+          case SResultNeedKey(gk, _, cb) =>
+            return ResultNeedKey(
+              gk,
+              result =>
+                if (cb(SKeyLookupResult(result)))
+                  interpretLoop(machine, time)
+                else
+                  ResultError(Error.Interpretation.ContractKeyNotFound(gk.globalKey)),
+            )
+
+          case SResultNeedLocalKeyVisible(stakeholders, _, cb) =>
+            return ResultNeedLocalKeyVisible(
+              stakeholders,
+              result => {
+                cb(result.toSVisibleByKey)
+                interpretLoop(machine, time)
+              },
+            )
+
+          case e: SResultScenario =>
+            return ResultError(
+              Error.Internal(NameOf.qualifiedNameOfCurrentFunc, s"unexpected SResultScenario $e")
+            )
+        }
+      }
+
+      onLedger.ptxInternal.finish match {
+        case PartialTransaction.CompleteTransaction(tx) =>
+          val meta = Tx.Metadata(
+            submissionSeed = None,
+            submissionTime = onLedger.ptxInternal.submissionTime,
+            usedPackages = Set.empty,
+            dependsOnTime = onLedger.dependsOnTime,
+            nodeSeeds = onLedger.ptxInternal.actionNodeSeeds.toImmArray,
+          )
+          config.profileDir.foreach { dir =>
+            val desc = Engine.profileDesc(tx)
+            machine.profile.name = s"${meta.submissionTime}-$desc"
+            val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
+            machine.profile.writeSpeedscopeJson(profileFile)
+          }
+          ResultDone((tx, meta))
+        case PartialTransaction.IncompleteTransaction(ptx) =>
+          ResultError(
+            Error.Internal(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"Interpretation error: ended with partial result: $ptx",
             )
           )
-
-        case SResultNeedPackage(pkgId, callback) =>
-          return Result.needPackage(
-            pkgId,
-            pkg => {
-              compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
-                callback(compiledPackages)
-                interpretLoop(machine, time)
-              }
-            },
-          )
-
-        case SResultNeedContract(contractId, _, _, _, cbPresent) =>
-          return Result.needContract(
-            contractId,
-            { coinst =>
-              cbPresent(coinst)
-              interpretLoop(machine, time)
-            },
-          )
-
-        case SResultNeedTime(callback) =>
-          onLedger.dependsOnTime = true
-          callback(time)
-
-        case SResultNeedKey(gk, _, cb) =>
-          return ResultNeedKey(
-            gk,
-            result =>
-              if (cb(SKeyLookupResult(result)))
-                interpretLoop(machine, time)
-              else
-                ResultError(Error.Interpretation.ContractKeyNotFound(gk.globalKey)),
-          )
-
-        case SResultNeedLocalKeyVisible(stakeholders, _, cb) =>
-          return ResultNeedLocalKeyVisible(
-            stakeholders,
-            result => {
-              cb(result.toSVisibleByKey)
-              interpretLoop(machine, time)
-            },
-          )
-
-        case _: SResultScenarioSubmit =>
-          return ResultError(Error.Interpretation.Generic("unexpected SResultScenarioSubmit"))
-        case _: SResultScenarioPassTime =>
-          return ResultError(Error.Interpretation.Generic("unexpected ScenarioPassTime"))
-        case _: SResultScenarioGetParty =>
-          return ResultError(Error.Interpretation.Generic("unexpected ScenarioGetParty"))
       }
     }
-
-    onLedger.ptxInternal.finish match {
-      case PartialTransaction.CompleteTransaction(tx) =>
-        val meta = Tx.Metadata(
-          submissionSeed = None,
-          submissionTime = onLedger.ptxInternal.submissionTime,
-          usedPackages = Set.empty,
-          dependsOnTime = onLedger.dependsOnTime,
-          nodeSeeds = onLedger.ptxInternal.actionNodeSeeds.toImmArray,
-        )
-        config.profileDir.foreach { dir =>
-          val desc = Engine.profileDesc(tx)
-          machine.profile.name = s"${meta.submissionTime}-$desc"
-          val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
-          machine.profile.writeSpeedscopeJson(profileFile)
-        }
-        ResultDone((tx, meta))
-      case PartialTransaction.IncompleteTransaction(ptx) =>
-        ResultError(
-          Error.Interpretation.Generic(s"Interpretation error: ended with partial result: $ptx")
-        )
-    }
-  }
 
   def clearPackages(): Unit = compiledPackages.clear()
 

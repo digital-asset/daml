@@ -80,9 +80,7 @@ final class Conversions(
     )
 
     err match {
-      case SError.SErrorCrash(reason) => setCrash(reason)
-
-      case SError.SRequiresOnLedger(operation) => setCrash(operation)
+      case SError.SErrorCrash(_, reason) => setCrash(reason)
 
       case SError.DamlEMatchError(reason) => setCrash(reason)
 

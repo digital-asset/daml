@@ -283,10 +283,9 @@ class ReplService(
               try {
                 LfValueCodec.apiValueToJsValue(v.toValue).compactPrint
               } catch {
-                case e @ SError.SErrorCrash(_) => {
+                case e @ SError.SErrorCrash(_, _) =>
                   logger.error(s"Cannot convert non-serializable value to JSON")
                   throw e
-                }
               }
             case RunScriptRequest.Format.UNRECOGNIZED =>
               throw new RuntimeException("Unrecognized response format")
