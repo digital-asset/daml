@@ -112,4 +112,54 @@ private[dao] trait JdbcLedgerDaoExceptionSpec extends LoneElement with Inside wi
     }
   }
 
+  it should "divulge contracts fetched under rollback nodes within a single transaction" in {
+    val stakeholders = Set(alice)
+    val divulgees = Set(bob)
+
+    val builder = TransactionBuilder(TransactionVersion.VDev)
+    val createCid = builder.newCid
+    val fetcherCid = builder.newCid
+    val create1 = createNode(createCid, stakeholders, stakeholders)
+    val create2 = createNode(fetcherCid, divulgees, stakeholders.union(divulgees))
+    val exercise1 = exerciseNode(fetcherCid).copy(
+      consuming = false,
+      actingParties = stakeholders,
+      signatories = divulgees,
+      stakeholders = stakeholders.union(divulgees),
+    )
+    val rollback = builder.rollback()
+    val exercise2 = fetchNode(createCid).copy(
+      actingParties = stakeholders,
+      signatories = stakeholders,
+      stakeholders = stakeholders,
+    )
+
+    builder.add(create1)
+    builder.add(create2)
+    val exercise1Nid = builder.add(exercise1)
+    val rollbackNid = builder.add(rollback, exercise1Nid)
+    builder.add(exercise2, rollbackNid)
+    val offsetAndEntry = fromTransaction(builder.buildCommitted()).copy()
+
+    for {
+      _ <- store(
+        divulgedContracts = Map.empty,
+        blindingInfo = None,
+        offsetAndTx = offsetAndEntry,
+      )
+      resultAlice <- contractsReader.lookupActiveContractAndLoadArgument(Set(alice), createCid)
+      resultBob <- contractsReader.lookupActiveContractAndLoadArgument(Set(bob), createCid)
+      resultCharlie <- contractsReader.lookupActiveContractAndLoadArgument(Set(charlie), createCid)
+    } yield {
+      withClue("Alice is stakeholder") {
+        resultAlice.value shouldBe a[ContractInst[_]]
+      }
+      withClue("Contract was divulged to Bob under a rollback node") {
+        resultBob.value shouldBe a[ContractInst[_]]
+      }
+      withClue("Charlie is unrelated and must not see the contract") {
+        resultCharlie shouldBe None
+      }
+    }
+  }
 }
