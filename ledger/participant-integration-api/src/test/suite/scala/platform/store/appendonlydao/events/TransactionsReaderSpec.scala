@@ -9,7 +9,7 @@ import org.scalatest.wordspec.AnyWordSpec
 private[appendonlydao] class TransactionsReaderSpec extends AnyWordSpec with Matchers {
   "splitRange" should {
     "correctly split in equal ranges" in {
-      TransactionsReader.splitRange(100L, 200L, 4, 10) shouldBe Vector(
+      TransactionsReader.splitRange(100L, 200L, 4, 10, 100) shouldBe Vector(
         EventsRange(100L, 125L),
         EventsRange(125L, 150L),
         EventsRange(150L, 175L),
@@ -18,7 +18,7 @@ private[appendonlydao] class TransactionsReaderSpec extends AnyWordSpec with Mat
     }
 
     "correctly split in non-equal ranges" in {
-      TransactionsReader.splitRange(100L, 200L, 3, 10) shouldBe Vector(
+      TransactionsReader.splitRange(100L, 200L, 3, 10, 100) shouldBe Vector(
         EventsRange(100L, 134L),
         EventsRange(134L, 168L),
         EventsRange(168L, 200L),
@@ -26,27 +26,40 @@ private[appendonlydao] class TransactionsReaderSpec extends AnyWordSpec with Mat
     }
 
     "output ranges of sizes at least minChunkSize" in {
-      TransactionsReader.splitRange(100L, 200L, 3, 50) shouldBe Vector(
+      TransactionsReader.splitRange(100L, 200L, 3, 50, 100) shouldBe Vector(
         EventsRange(100L, 150L),
         EventsRange(150L, 200L),
       )
     }
 
+    "output one range if minChunkSize higher than range size" in {
+      TransactionsReader.splitRange(100L, 200L, 3, 200, 100) shouldBe Vector(
+        EventsRange(100L, 200L)
+      )
+    }
+
     "output only one range if minChunkSize greater than half the range" in {
-      TransactionsReader.splitRange(100L, 200L, 3, 51) shouldBe Vector(
+      TransactionsReader.splitRange(100L, 200L, 3, 51, 100) shouldBe Vector(
         EventsRange(100L, 200L)
       )
     }
 
     "output only one range if minChunkSize is gteq to range size" in {
-      TransactionsReader.splitRange(100L, 200L, 3, 100) shouldBe Vector(
+      TransactionsReader.splitRange(100L, 200L, 3, 100, 100) shouldBe Vector(
         EventsRange(100L, 200L)
+      )
+    }
+
+    "output ranges of at most max chunk size" in {
+      TransactionsReader.splitRange(100L, 200L, 1, 20, 50) shouldBe Vector(
+        EventsRange(100L, 150L),
+        EventsRange(150L, 200L),
       )
     }
 
     "throw if numberOfChunks below 1" in {
       intercept[IllegalArgumentException] {
-        TransactionsReader.splitRange(100L, 200L, 0, 100)
+        TransactionsReader.splitRange(100L, 200L, 0, 100, 100)
       }.getMessage shouldBe "You can only split a range in a strictly positive number of chunks (0)"
     }
   }
