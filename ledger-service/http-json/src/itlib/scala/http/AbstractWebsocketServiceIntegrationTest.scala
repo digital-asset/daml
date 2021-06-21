@@ -752,7 +752,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     * The caller is in charge of reading the live marker if that is expected
     */
   private[this] def updateAcs(
-      acs: Vector[(String, JsValue)],
+      acs: Map[String, JsValue],
       events: Int,
   ): Consume.FCC[JsValue, Map[String, JsValue]] = {
     val dslSyntax = Consume.syntax[JsValue]
@@ -771,7 +771,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           next <- go(newAcs, missingEvents - events)
         } yield next
       }
-    go(Map.from(acs), events)
+    go(acs, events)
   }
 
   "fetch should should return an error if empty list of (templateId, key) pairs is passed" in withHttpService {
@@ -1003,7 +1003,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
           for {
             acs <- readAcsN(expectedAcsSize)
             _ <- if (acs.nonEmpty) readOne else point(fakeLiveMarker)
-            contracts <- updateAcs(acs, expectedEvents)
+            contracts <- updateAcs(Map.from(acs), expectedEvents)
             result = contracts
               .map(_._2.asJsObject.fields("currency").asInstanceOf[JsString].value)
               .groupBy(identity)
