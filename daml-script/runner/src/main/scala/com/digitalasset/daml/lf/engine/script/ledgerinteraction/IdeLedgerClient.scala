@@ -18,7 +18,6 @@ import com.daml.lf.speedy.{
   ScenarioRunner,
   TraceLog,
 }
-import com.daml.lf.speedy.Speedy.Validating
 import com.daml.lf.transaction.Node.{
   NodeRollback,
   NodeCreate,
@@ -161,7 +160,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages) extends ScriptLedg
   ] =
     Future {
       val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))._1
-      val translated = compiledPackages.compiler.unsafeCompile(Validating.Off, speedyCommands)
+      val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
 
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
       val result = ScenarioRunner.submit(
