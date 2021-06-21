@@ -46,9 +46,8 @@ private[index] class BuffersUpdater(
 
   private val logger = ContextualizedLogger.get(getClass)
 
-  private[index] val updaterIndex = new AtomicReference(
-    Offset.beforeBegin -> 0L // TODO: append-only: FIXME consolidating parameters table
-  )
+  private[index] val updaterIndex: AtomicReference[Option[(Offset, Long)]] =
+    new AtomicReference(None)
 
   private val (transactionLogUpdatesKillSwitch, transactionLogUpdatesDone) =
     RestartSource
@@ -58,10 +57,10 @@ private[index] class BuffersUpdater(
           maxBackoff = 10.seconds,
           randomFactor = 0.0,
         )
-      )(() => subscribeToTransactionLogUpdates.tupled(updaterIndex.get))
+      )(() => subscribeToTransactionLogUpdates(updaterIndex.get))
       .map { case ((offset, eventSequentialId), update) =>
         updateCaches(offset, update)
-        updaterIndex.set(offset -> eventSequentialId)
+        updaterIndex.set(Some(offset -> eventSequentialId))
       }
       .mapError { case NonFatal(e) =>
         logger.error("Error encountered when updating caches", e)
@@ -92,7 +91,7 @@ private[index] class BuffersUpdater(
 
 private[index] object BuffersUpdater {
   type SubscribeToTransactionLogUpdates =
-    (Offset, Long) => Source[((Offset, Long), TransactionLogUpdate), NotUsed]
+    Option[(Offset, Long)] => Source[((Offset, Long), TransactionLogUpdate), NotUsed]
 
   /** [[BuffersUpdater]] convenience builder.
     *
