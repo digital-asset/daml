@@ -70,17 +70,17 @@ As `Bob`, we can see that we are not following anyone and that `Alice` is follwi
 us. We can follow `Alice` by clicking the plus symbol to the right of here name.
 
 
-## Deploying to DABL
+## Deploying to Daml Hub
 
 Deploying `__PROJECT_NAME__` to the hosted Daml platform
-[project:DABL](https://projectdabl.com/) is quite simple. Log into your DABL
+[Daml Hub](https://hub.daml.com/) is quite simple. Log into your Daml Hub
 account, create a new ledger and upload your Daml models and your UI.
 
 To upload the Daml models, compile them into a DAR by executing
 ```
 daml build -o __PROJECT_NAME__.dar
 ```
-at the root of your repository. Afterwards, open to the DABL website, select
+at the root of your repository. Afterwards, open to the Daml Hub website, select
 the ledger you want to deploy to, go to the "Daml" selection and upload the
 DAR `__PROJECT_NAME__.dar` you have just created.
 
@@ -91,7 +91,7 @@ daml codegen js .daml/dist/__PROJECT_NAME__-0.1.0.dar -o ui/daml.js
 (cd ui && npm install && npm run-script build && zip -r ../__PROJECT_NAME__-ui.zip build)
 ```
 at the root of the repository. Afterwards, select the "UI Assets" tab of your
-chosen ledger on the DABL website, upload the ZIP file
+chosen ledger on the Daml Hub website, upload the ZIP file
 (`__PROJECT_NAME__-ui.zip`) you have just created and publish it.
 
 To see your deployed instance of `__PROJECT_NAME__` in action, follow the

@@ -124,7 +124,7 @@ Here is what each field means:
   as well as when invoked via ``daml start``. Changing the platform version is useful if you deploy
   to a ledger that is running on a different SDK version than you use locally and you want to make
   sure that you catch any issues during testing. E.g., you might compile your Daml code using
-  SDK 1.3.0 so you get improvements in Daml Studio but deploy to DABL which could still be running
+  SDK 1.3.0 so you get improvements in Daml Studio but deploy to Daml Hub which could still be running
   a ledger and the JSON API from SDK 1.2.0. In that case, you can set ``sdk-version: 1.3.0``
   and ``platform-version: 1.2.0``.
   It is possible to override the platform version by setting the ``DAML_PLATFORM_VERSION``

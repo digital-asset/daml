@@ -99,7 +99,7 @@ When you deploy your application to a production ledger, you need to authenticat
 your users.
 
 Daml ledgers support a unified interface for authorization of commands. Some Daml ledgers, like for
-example https://projectdabl.com, offer integrated authentication and authorization, but you can also
+example https://hub.daml.com, offer integrated authentication and authorization, but you can also
 use an external service provider like https://auth0.com. The Daml react libraries support interfacing
 with a Daml ledger that validates authorization of incoming requests. Simply initialize your
 ``DamlLedger`` object with the token obtained by the respective token issuer. How authorization works and the
