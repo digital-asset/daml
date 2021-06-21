@@ -969,7 +969,7 @@ abstract class AbstractWebsocketServiceIntegrationTest
     def contractsQuery(currency: String): String =
       s"""{"templateIds":["Iou:Iou"], "query":{"currency":"$currency"}}"""
     def contractsQueryWithOffset(offset: domain.Offset, currency: String): String =
-      s"""{"templateIds":["Iou:Iou"], "query":{"currency":"$currency"}, "queryOffset":"${offset.unwrap}"}"""
+      s"""{"templateIds":["Iou:Iou"], "query":{"currency":"$currency"}, "offset":"${offset.unwrap}"}"""
     def contracts(currency: String, offset: Option[domain.Offset]): String =
       offset.fold(contractsQuery(currency))(contractsQueryWithOffset(_, currency))
     def acsEnd(expectedContracts: Int): Future[domain.Offset] = {

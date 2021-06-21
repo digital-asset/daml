@@ -280,7 +280,7 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
     )
 
   implicit val SearchForeverQueryFormat: RootJsonReader[domain.SearchForeverQuery] = {
-    val OffsetKey = "queryOffset"
+    val OffsetKey = "offset"
     requestJsonReader(validExtraFields = Set(OffsetKey))((tids, query, extra) =>
       domain.SearchForeverQuery(tids, query, extra.get(OffsetKey).map(_.convertTo[domain.Offset]))
     )

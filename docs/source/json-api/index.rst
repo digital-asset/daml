@@ -1293,16 +1293,16 @@ the response body that included that offset::
 
     {"offset": "5609"}
 
-Moreover, a ``queryOffset`` may be specified alongside the query itself::
+Moreover, an ``offset`` may be specified alongside the query itself::
 
     [
         {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
         {"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 50}}},
-        {"templateIds": ["Iou:Iou"], "queryOffset": "5609"}
+        {"templateIds": ["Iou:Iou"], "offset": "5609"}
     ]
 
-If both an ``offset`` and a ``queryOffset`` are specified, ``queryOffset``
-takes precedence.
+Per-query ``offset``s take precedence over the ``offset`` message. The
+``offset`` message is still applied to queries that don't specify one.
 
 The output is a series of JSON documents, each ``payload`` formatted
 according to :doc:`lf-value-specification`::
@@ -1346,7 +1346,7 @@ off an initial "loading" indicator::
     }
 
 Events in the following "live" data may include ``events`` that precede
-this ``offset`` if an earlier ``queryOffset`` was specified.
+this ``offset`` if an earlier per-query ``offset`` was specified.
 
 To keep the stream alive, you'll occasionally see messages like this,
 which can be safely ignored if you do not need to capture the last seen ledger offset::
