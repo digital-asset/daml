@@ -113,7 +113,7 @@ private[lf] object Speedy {
   )
 
   private[lf] final case class OnLedger(
-      val validating: Validating, //not used
+      val validating: Validating, // TODO: this was not used; should we remove it?
       val contractKeyUniqueness: ContractKeyUniquenessMode,
       /* The current partial transaction */
       private[speedy] var ptx: PartialTransaction,

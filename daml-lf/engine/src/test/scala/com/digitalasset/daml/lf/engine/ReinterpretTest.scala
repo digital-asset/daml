@@ -11,20 +11,15 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, NodeId, GenTransaction}
-import com.daml.lf.value.Value
-import Value._
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, NodeId, GenTransaction}
+import com.daml.lf.transaction.Node.{NodeRollback, NodeExercises}
+import com.daml.lf.value.Value._
 import com.daml.lf.command._
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedValue
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
-
-import com.daml.lf.value.{Value => V}
-
-import com.daml.lf.transaction.Node.{GenNode, NodeRollback, NodeCreate, NodeExercises}
-import com.daml.lf.transaction.Transaction.LeafNode
 
 import scala.language.implicitConversions
 
@@ -41,8 +36,6 @@ class ReinterpretTest
 
   private val party = Party.assertFromString("Party")
 
-  //NICK, move more of this stuff into the companion object?...
-
   private def loadPackage(resource: String): (PackageId, Map[PackageId, Package]) = {
     val packages =
       UniversalArchiveReader().readFile(new File(rlocation(resource))).get
@@ -57,7 +50,7 @@ class ReinterpretTest
     "daml-lf/tests/ReinterpretTests.dar"
   )
 
-  private val defaultContracts: Map[ContractId, ContractInst[Value.VersionedValue[ContractId]]] =
+  private val defaultContracts: Map[ContractId, ContractInst[VersionedValue[ContractId]]] =
     Map(
       toContractId("#ReinterpretTests:MySimple:1") ->
         ContractInst(
@@ -79,12 +72,12 @@ class ReinterpretTest
   private val engine = Engine.DevEngine()
 
   private def Top(xs: Shape*) = Shape.Top(xs.toList)
-  private def E(xs: Shape*) = Shape.Exercise(xs.toList)
-  private def R(xs: Shape*) = Shape.Rollback(xs.toList)
+  private def Exercise(xs: Shape*) = Shape.Exercise(xs.toList)
+  private def Rollback(xs: Shape*) = Shape.Rollback(xs.toList)
 
   val submitters = Set(party)
   val time = Time.Timestamp.now()
-  val seed = hash("exercise command") //NICK: matters?
+  val seed = hash("ReinterpretTests")
 
   "exercise command" should {
 
@@ -114,7 +107,7 @@ class ReinterpretTest
           VisibleByKey.fromSubmitters(submitters),
         )
 
-      Shape.ofTransaction(tx.transaction) shouldBe Top(E())
+      Shape.ofTransaction(tx.transaction) shouldBe Top(Exercise())
     }
   }
 
@@ -147,7 +140,7 @@ class ReinterpretTest
         )
 
       val Right((tx, _)) = res
-      Shape.ofTransaction(tx.transaction) shouldBe Top(R(E()))
+      Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise()))
     }
   }
 
@@ -164,35 +157,19 @@ object ReinterpretTest {
   private def toContractId(s: String): ContractId =
     ContractId.assertFromString(s)
 
-  //----------------------------------------------------------------------
-  // NICK: copied...
-
-  // Shape: description of a transaction, with conversions to and from a real tx
   sealed trait Shape
   object Shape {
 
-    type Nid = NodeId
-    type Cid = V.ContractId
-    type TX = GenTransaction[Nid, Cid]
-    type Node = GenNode[Nid, Cid]
-    type RB = Node.NodeRollback[Nid]
-
     final case class Top(xs: List[Shape])
-    final case class Create(x: Long) extends Shape
     final case class Exercise(x: List[Shape]) extends Shape
     final case class Rollback(x: List[Shape]) extends Shape
 
-    def ofTransaction(tx: TX): Top = {
+    def ofTransaction(tx: GenTransaction[NodeId, ContractId]): Top = {
       def ofNid(nid: NodeId): Shape = {
         tx.nodes(nid) match {
-          case create: NodeCreate[_] =>
-            create.arg match {
-              case V.ValueInt64(n) => Create(n)
-              case _ => sys.error(s"unexpected create.arg: ${create.arg}")
-            }
-          case leaf: LeafNode => sys.error(s"Shape.ofTransaction, unexpected leaf: $leaf")
           case node: NodeExercises[_, _] => Exercise(node.children.toList.map(ofNid))
           case node: NodeRollback[_] => Rollback(node.children.toList.map(ofNid))
+          case _ => sys.error(s"Shape.ofTransaction, unexpected tx node")
         }
       }
       Top(tx.roots.toList.map(nid => ofNid(nid)))

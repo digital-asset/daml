@@ -1520,7 +1520,7 @@ private[lf] final class Compiler(
       )
       validating match {
         case Validating.Off => ex
-        case Validating.On => catchEverything(ex) //NICK: should this wrapped on a list of commands?
+        case Validating.On => catchEverything(ex)
       }
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
       compileExerciseByKey(templateId, SEValue(contractKey), choiceId, SEValue(argument))
