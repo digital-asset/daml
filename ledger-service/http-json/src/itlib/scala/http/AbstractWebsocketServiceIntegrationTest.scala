@@ -997,12 +997,11 @@ abstract class AbstractWebsocketServiceIntegrationTest
         usdFrom: Option[domain.Offset],
         expected: Map[String, Int],
     ): Future[Assertion] = {
-      val fakeLiveMarker: JsValue = JsObject("events" -> JsArray.empty, "offset" -> JsNumber(0))
       def go(killSwitch: UniqueKillSwitch): Sink[JsValue, Future[Assertion]] = {
         Consume.interpret(
           for {
             acs <- readAcsN(expectedAcsSize)
-            _ <- if (acs.nonEmpty) readOne else point(fakeLiveMarker)
+            _ <- if (acs.nonEmpty) readOne else point(())
             contracts <- updateAcs(Map.from(acs), expectedEvents)
             result = contracts
               .map(_._2.asJsObject.fields("currency").asInstanceOf[JsString].value)
