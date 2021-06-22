@@ -326,11 +326,11 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
             },
           )
 
-        case SResultNeedContract(contractId, _, _, _, cbPresent) =>
+        case SResultNeedContract(contractId, _, _, callback) =>
           return Result.needContract(
             contractId,
             { coinst =>
-              cbPresent(coinst)
+              callback(coinst)
               interpretLoop(machine, time)
             },
           )
@@ -342,17 +342,16 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         case SResultNeedKey(gk, _, cb) =>
           return ResultNeedKey(
             gk,
-            result =>
-              if (cb(result))
-                interpretLoop(machine, time)
-              else
-                ResultError(Error.Interpretation.ContractKeyNotFound(gk.globalKey)),
+            { result =>
+              cb(result)
+              interpretLoop(machine, time)
+            },
           )
 
         case SResultNeedLocalKeyVisible(stakeholders, _, cb) =>
           return ResultNeedLocalKeyVisible(
             stakeholders,
-            result => {
+            { result =>
               cb(result.toSVisibleByKey)
               interpretLoop(machine, time)
             },

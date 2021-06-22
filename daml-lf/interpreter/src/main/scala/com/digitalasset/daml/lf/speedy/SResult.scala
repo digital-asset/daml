@@ -33,11 +33,10 @@ object SResult {
       contractId: ContractId,
       templateId: TypeConName,
       committers: Set[Party],
-      // Callback to signal that the contract was not present
-      // or visible. Returns true if this was recoverable.
-      // TODO (MK) Drop now that tryHandleSubmitMustFail is dead.
-      cbMissing: Unit => Boolean,
-      cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
+      // Callback
+      // returns the next expression to evaluate.
+      // In case of failure the call back does not throw but returns a SErrorDamlException
+      callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
   ) extends SResult
 
   /** Machine needs a definition that was not present when the machine was
@@ -73,14 +72,17 @@ object SResult {
       key: GlobalKeyWithMaintainers,
       committers: Set[Party],
       // Callback.
-      // returns true if machine can continue with the given result.
-      cb: Option[ContractId] => Boolean,
+      // In case of failure, the callback sets machine.ctrl to an SErrorDamlException and return false
+      callback: Option[ContractId] => Boolean,
   ) extends SResult
 
   final case class SResultNeedLocalKeyVisible(
       stakeholders: Set[Party],
       committers: Set[Party],
-      cb: SVisibleByKey => Unit,
+      // Callback.
+      // returns the next expression to evaluate.
+      // In case of failure the call back does not throw but set machine.ctrl to an SErrorDamlException
+      callback: SVisibleByKey => Unit,
   ) extends SResult
 
   sealed abstract class SVisibleByKey

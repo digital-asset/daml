@@ -20,6 +20,7 @@ import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node}
+import com.daml.scalautil.Statement.discard
 
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeSet
@@ -1023,11 +1024,7 @@ private[lf] object SBuiltin {
               coid,
               templateId,
               onLedger.committers,
-              cbMissing = _ => false,
-              cbPresent = { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
-                // Note that we cannot throw in this continuation -- instead
-                // set the control appropriately which will crash the machine
-                // correctly later.
+              { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
                 if (actualTmplId != templateId) {
                   machine.ctrl =
                     SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
@@ -1139,13 +1136,14 @@ private[lf] object SBuiltin {
     private[this] val typ = AstUtil.TContractId(Ast.TTyCon(templateId))
 
     final protected def importCid(cid: V.ContractId): SEImportValue =
+      // We have to check that the discriminator of cid does not conflict with a local ones
+      // however we cannot raise an exception in case of failure here.
+      // We delegate to CtrlImportValue the task to check cid.
       SEImportValue(typ, V.ValueContractId(cid))
     // Callback from the engine returned NotFound
-    def handleInputKeyNotFound(machine: Machine): Boolean
-    // CallBack from the engine returned a new Cid
     def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit
     // We already saw this key, but it was undefined or was archived
-    def handleInactiveKey(machine: Machine, gkey: GlobalKey): Unit
+    def handleKeyNotFound(machine: Machine, gkey: GlobalKey): Boolean
     // We already saw this key and it is still active
     def handleActiveKey(machine: Machine, cid: V.ContractId): Unit
 
@@ -1156,30 +1154,30 @@ private[lf] object SBuiltin {
     ): Unit =
       keyMapping match {
         case PartialTransaction.KeyActive(cid) => handleActiveKey(machine, cid)
-        case PartialTransaction.KeyInactive => handleInactiveKey(machine, gkey)
+        case PartialTransaction.KeyInactive => discard(handleKeyNotFound(machine, gkey))
       }
   }
 
   private[this] object KeyOperation {
     final class Fetch(override val templateId: TypeConName) extends KeyOperation {
-      override def handleInputKeyNotFound(machine: Machine): Boolean = false
       override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
         machine.ctrl = importCid(cid)
-      override def handleInactiveKey(machine: Machine, gkey: GlobalKey): Unit =
+      override def handleKeyNotFound(machine: Machine, gkey: GlobalKey): Boolean = {
         machine.ctrl = SEDamlException(DamlEContractKeyNotFound(gkey))
+        false
+      }
+
       override def handleActiveKey(machine: Machine, cid: V.ContractId): Unit =
         machine.returnValue = SContractId(cid)
     }
 
     final class Lookup(override val templateId: TypeConName) extends KeyOperation {
-      override def handleInputKeyNotFound(machine: Machine): Boolean = {
+      override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
+        machine.ctrl = SBSome(importCid(cid))
+      override def handleKeyNotFound(machine: Machine, key: GlobalKey): Boolean = {
         machine.returnValue = SValue.SValue.None
         true
       }
-      override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
-        machine.ctrl = SBSome(importCid(cid))
-      override def handleInactiveKey(machine: Machine, key: GlobalKey): Unit =
-        machine.returnValue = SValue.SValue.None
       override def handleActiveKey(machine: Machine, cid: V.ContractId): Unit =
         machine.returnValue = SOptional(Some(SContractId(cid)))
     }
@@ -1200,7 +1198,11 @@ private[lf] object SBuiltin {
       )
     }
 
-    final def execute(args: util.ArrayList[SValue], machine: Machine, onLedger: OnLedger): Unit = {
+    final override def execute(
+        args: util.ArrayList[SValue],
+        machine: Machine,
+        onLedger: OnLedger,
+    ): Unit = {
       import PartialTransaction.{KeyActive, KeyInactive}
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       if (keyWithMaintainers.maintainers.isEmpty)
@@ -1244,30 +1246,18 @@ private[lf] object SBuiltin {
                   onLedger.committers,
                   { result =>
                     cacheGlobalLookup(onLedger, gkey, result)
-                    // We need to check if the contract was consumed since we only
-                    // modify keys if the archive was for a key
-                    // already brought into scope.
-                    val activeResult = result match {
-                      case Some(cid) if onLedger.ptx.consumedBy.contains(cid) =>
-                        None
-                      case _ =>
-                        result
-                    }
-                    activeResult match {
-                      case Some(cid) =>
+                    result match {
+                      case Some(cid) if !onLedger.ptx.consumedBy.contains(cid) =>
                         onLedger.ptx = onLedger.ptx.copy(
                           keys = onLedger.ptx.keys.updated(gkey, KeyActive(cid))
                         )
-                        // We have to check that the discriminator of cid does not conflict with a local ones
-                        // however we cannot raise an exception in case of failure here.
-                        // We delegate to CtrlImportValue the task to check cid.
                         operation.handleInputKeyFound(machine, cid)
                         true
-                      case None =>
+                      case _ =>
                         onLedger.ptx = onLedger.ptx.copy(
                           keys = onLedger.ptx.keys.updated(gkey, KeyInactive)
                         )
-                        operation.handleInputKeyNotFound(machine)
+                        operation.handleKeyNotFound(machine, gkey)
                     }
                   },
                 )
