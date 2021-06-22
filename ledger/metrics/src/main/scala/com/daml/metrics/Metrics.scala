@@ -731,6 +731,9 @@ final class Metrics(val registry: MetricRegistry) {
       val dbFindByContractKey: Timer = registry.timer(Prefix :+ "db_find_by_contract_key_timing")
       // Meters how long a find by contract id database operation takes
       val dbFindByContractId: Timer = registry.timer(Prefix :+ "db_find_by_contract_id_timing")
+      // Meters how long processing of the command submission request takes on the ledger
+      val commandSubmissionLedgerTimer: Timer =
+        registry.timer(Prefix :+ "command_submission_ledger_timing")
       // Meters http requests throughput
       val httpRequestThroughput: Meter = registry.meter(Prefix :+ "http_request_throughput")
       // Meters how many websocket connections are currently active
