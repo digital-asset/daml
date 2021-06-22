@@ -542,7 +542,7 @@ private[backend] object TemplatedStorageBackend {
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.OffsetToStatement
-        SQL"""select #$selectColumnsForACS, #${partyArrayContext._1}$party#${partyArrayContext._2} as event_witnesses,
+    SQL"""select #$selectColumnsForACS, #${partyArrayContext._1}$party#${partyArrayContext._2} as event_witnesses,
                    case when #${submittersInPartyClause} then active_cs.command_id else '' end as command_id
             from participant_events active_cs
             where active_cs.event_kind = 10 -- create
@@ -572,7 +572,7 @@ private[backend] object TemplatedStorageBackend {
       witnessesWhereClause: String,
       limitExpr: String,
       fetchSizeHint: Option[Int],
-      submittersInPartyClause: String
+      submittersInPartyClause: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.OffsetToStatement
