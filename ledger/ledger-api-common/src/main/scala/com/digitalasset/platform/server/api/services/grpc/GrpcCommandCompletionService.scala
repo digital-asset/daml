@@ -14,7 +14,9 @@ import com.daml.ledger.api.messages.command.completion.{
 import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.validation.{CompletionServiceRequestValidator, PartyNameChecker}
+import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.domain.CommandCompletionService
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -44,6 +46,7 @@ class GrpcCommandCompletionService(
 ) extends CommandCompletionServiceAkkaGrpc {
 
   private val validator = new CompletionServiceRequestValidator(ledgerId, partyNameChecker)
+  protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
 
   override def completionStreamSource(
       request: CompletionStreamRequest
@@ -52,7 +55,7 @@ class GrpcCommandCompletionService(
       validator
         .validateCompletionStreamRequest(request, ledgerEnd, service.offsetOrdering)
         .fold(
-          Source.failed[CompletionStreamResponse],
+          t => Source.failed[CompletionStreamResponse](ValidationLogger.logFailure(request, t)),
           GrpcCommandCompletionService.fillInWithDefaults _ andThen service.completionStreamSource,
         )
     }
@@ -62,7 +65,7 @@ class GrpcCommandCompletionService(
     validator
       .validateCompletionEndRequest(request)
       .fold(
-        Future.failed[CompletionEndResponse],
+        t => Future.failed[CompletionEndResponse](ValidationLogger.logFailure(request, t)),
         req =>
           service
             .getLedgerEnd(req.ledgerId)

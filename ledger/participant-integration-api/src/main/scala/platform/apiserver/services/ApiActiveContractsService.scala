@@ -16,6 +16,7 @@ import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.ActiveContractsServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
 
@@ -42,7 +43,10 @@ private[apiserver] final class ApiActiveContractsService private (
         logger.info(s"Received request for active contracts: $request")
         TransactionFilterValidator
           .validate(request.getFilter)
-          .fold(Source.failed, backend.getActiveContracts(_, request.verbose))
+          .fold(
+            t => Source.failed(ValidationLogger.logFailure(request, t)(logger.withoutContext)),
+            backend.getActiveContracts(_, request.verbose),
+          )
           .via(logger.logErrorsOnStream)
           .via(StreamMetrics.countElements(metrics.daml.lapi.streams.acs))
     }
