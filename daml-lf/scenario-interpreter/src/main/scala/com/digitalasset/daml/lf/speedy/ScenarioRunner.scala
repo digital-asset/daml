@@ -444,7 +444,7 @@ object ScenarioRunner {
       Time.Timestamp.MinValue,
     )
 
-  sealed abstract class ScenarioResult {
+  sealed abstract class ScenarioResult extends Product with Serializable {
     def ledger: ScenarioLedger
     def traceLog: TraceLog
   }
