@@ -336,7 +336,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         case SResultError(err) =>
           return ResultError(
             Error.Interpretation.Generic(
-              s"Interpretation error: ${Pretty.prettyError(err, onLedger.ptxInternal).render(80)}"
+              s"Interpretation error: ${Pretty.prettyError(err, Some(onLedger.ptxInternal)).render(80)}"
             ),
             detailMsg,
           )
