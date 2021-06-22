@@ -291,9 +291,7 @@ class TransactionSpec
 
   "contractKeys" - {
     "return all the contract keys" in {
-      // TODO: https://github.com/digital-asset/daml/issues/9914
-      // change to TransactionVersion.StableVersions.max LF 1.14 is released
-      val builder = TransactionBuilder(TransactionVersion.EarlyAccessVersions.max)
+      val builder = TransactionBuilder(TransactionVersion.StableVersions.max)
       val parties = List("Alice")
 
       def create(s: String) = builder
@@ -393,9 +391,7 @@ class TransactionSpec
 
   "contractKeyInputs" - {
     import Transaction._
-    // TODO: https://github.com/digital-asset/daml/issues/9914
-    // change to TransactionVersion.StableVersions.max LF 1.14 is released
-    val dummyBuilder = TransactionBuilder(TransactionVersion.EarlyAccessVersions.max)
+    val dummyBuilder = TransactionBuilder(TransactionVersion.StableVersions.max)
     val parties = List("Alice")
     val tmplId = Ref.Identifier.assertFromString("-pkg-:Mod:T")
     def keyValue(s: String) = V.ValueText(s)
