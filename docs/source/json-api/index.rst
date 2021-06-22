@@ -1286,14 +1286,8 @@ different sets of template IDs::
 
 Queries have two ways to specify an offset.
 
-An optional ``offset`` returned by a prior query (see output examples
-below) may be specified *before* the above, as a separate body.  It must
-be a string, and if specified, the stream will begin immediately *after*
-the response body that included that offset::
-
-    {"offset": "5609"}
-
-Moreover, an ``offset`` may be specified alongside the query itself::
+An ``offset``, a string supplied by an earlier query output message, may
+optionally be specified alongside each query itself::
 
     [
         {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
@@ -1301,8 +1295,20 @@ Moreover, an ``offset`` may be specified alongside the query itself::
         {"templateIds": ["Iou:Iou"], "offset": "5609"}
     ]
 
-Per-query ``offset`` s take precedence over the ``offset`` message. The
-``offset`` message is still applied to queries that don't specify one.
+If specified, the stream will include only contract creations and
+archivals *after* the response body that included that offset.  Queries
+with no offset will begin with all active contracts for that query, as
+usual.
+
+If an offset is specified *before* the queries, as a separate body, it
+will be used as a default offset for all queries that do not include an
+offset themselves::
+
+    {"offset": "4307"}
+
+For example, if this message preceded the above 3-query example, it
+would be as if ``"4307"`` had been specified for the first two queries,
+while ``"5609"`` would be used for the third query.
 
 The output is a series of JSON documents, each ``payload`` formatted
 according to :doc:`lf-value-specification`::
@@ -1498,7 +1504,7 @@ appearing on the stream there has been a matching ``created`` event
 earlier in the stream, except in the case of missing
 ``contractIdAtOffset`` fields in the case described below.
 
-You may supply an optional ``offset`` for the stream, exactly as with
+You may supply optional ``offset`` s for the stream, exactly as with
 query streams.  However, you should supply with each ``{templateId,
 key}`` pair a ``contractIdAtOffset``, which is the contract ID currently
 associated with that pair at the point of the given offset, or ``null``
