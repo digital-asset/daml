@@ -5,6 +5,8 @@ module ReinterpretTests where
 
 import DA.Exception (throw)
 
+import DA.List.BuiltinOrder(dedup)
+
 exception MyError
   where
     message "MyError"
@@ -22,3 +24,17 @@ template MySimple
     controller p can
       MyThrow : Text
         do throw MyError
+
+    controller p can
+      ProvokeBadOrd : Text
+        do
+          let x = Thing (\x -> x+1)
+          let zs = dedup [x,x]
+          pure "dont expect to readch here"
+
+
+data Thing = Thing (Int -> Int)
+instance Eq Thing where
+  (==) = error "foobar"
+instance Ord Thing where
+  compare = error "foobar"

@@ -79,13 +79,12 @@ class ReinterpretTest
   private def Top(xs: Shape*) = Shape.Top(xs.toList)
   private def Exercise(xs: Shape*) = Shape.Exercise(xs.toList)
   private def Rollback(xs: Shape*) = Shape.Rollback(xs.toList)
-  //private def Create() = Shape.Create()
 
   val submitters = Set(party)
   val time = Time.Timestamp.now()
   val seed = hash("ReinterpretTests")
 
-  private def reinterpretCommand(theCommand: Command): SubmittedTransaction = {
+  private def reinterpretCommand(theCommand: Command): Option[SubmittedTransaction] = {
     val res = engine
       .reinterpret(
         submitters,
@@ -100,8 +99,10 @@ class ReinterpretTest
         lookupKey,
         VisibleByKey.fromSubmitters(submitters),
       )
-    val Right((tx, _)) = res
-    tx
+    res match {
+      case Right((tx, _)) => Some(tx)
+      case Left(_) => None
+    }
   }
 
   "Reinterpretation" should {
@@ -114,7 +115,7 @@ class ReinterpretTest
         val cid = toContractId("#ReinterpretTests:MySimple:1")
         ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
       }
-      val tx = reinterpretCommand(theCommand)
+      val Some(tx) = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Exercise())
     }
 
@@ -126,8 +127,19 @@ class ReinterpretTest
         val cid = toContractId("#ReinterpretTests:MySimple:1")
         ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
       }
-      val tx = reinterpretCommand(theCommand)
+      val Some(tx) = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise()))
+    }
+
+    "still fail for an uncatchable exception" in {
+      val choiceName = "ProvokeBadOrd"
+      val theCommand = {
+        val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
+        val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
+        val cid = toContractId("#ReinterpretTests:MySimple:1")
+        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
+      }
+      reinterpretCommand(theCommand) shouldBe None
     }
   }
 }
