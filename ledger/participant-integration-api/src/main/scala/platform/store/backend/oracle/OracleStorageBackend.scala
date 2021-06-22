@@ -482,5 +482,5 @@ private[backend] object OracleStorageBackend
       }
       .mkString("(", " or ", ")")
 
-  private val partyArrayContext = ("'[\"", "\"]'")
+  private val partyArrayContext = ("json_array(", ")")
 }
