@@ -11,16 +11,6 @@ steps:
   - bash: ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
 
-  - bash: |
-      source dev-env/lib/ensure-nix
-      ci/dev-env-push.py
-    displayName: 'Push Developer Environment build results'
-    condition: eq(variables['System.PullRequest.IsFork'], 'False')
-    env:
-      # to upload to the Nix cache
-      GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
-
   - bash: ci/configure-bazel.sh
     displayName: 'Configure Bazel'
     env:
