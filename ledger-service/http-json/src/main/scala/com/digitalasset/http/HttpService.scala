@@ -39,6 +39,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
 import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
+import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
 import scalaz._
 
@@ -159,8 +160,10 @@ object HttpService {
         ),
       )
 
+      ledgerHealthService = HealthGrpc.stub(client.channel)
+
       healthService = new HealthService(
-        getLedgerEnd(pkgManagementClient, tokenHolder),
+        () => ledgerHealthService.check(HealthCheckRequest()),
         contractDao,
         healthTimeoutSeconds,
       )
