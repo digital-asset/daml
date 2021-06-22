@@ -79,7 +79,7 @@ class ReinterpretTest
   private def Top(xs: Shape*) = Shape.Top(xs.toList)
   private def Exercise(xs: Shape*) = Shape.Exercise(xs.toList)
   private def Rollback(xs: Shape*) = Shape.Rollback(xs.toList)
-  private def Create() = Shape.Create()
+  //private def Create() = Shape.Create()
 
   val submitters = Set(party)
   val time = Time.Timestamp.now()
@@ -128,42 +128,6 @@ class ReinterpretTest
       }
       val tx = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise()))
-    }
-
-    "be correct for a successful create comamnd" in {
-      val theCommand = {
-        val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MyEnsuring")
-        CreateCommand(
-          templateId,
-          ValueRecord(
-            Some(templateId),
-            ImmArray(
-              (Some[Ref.Name]("p"), ValueParty(party)),
-              (Some[Ref.Name]("v"), ValueInt64(42)), // ok (< 50)
-            ),
-          ),
-        )
-      }
-      val tx = reinterpretCommand(theCommand)
-      Shape.ofTransaction(tx.transaction) shouldBe Top(Create())
-    }
-
-    "not be a rollback for a create which fails an ensure" in {
-      val theCommand = {
-        val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MyEnsuring")
-        CreateCommand(
-          templateId,
-          ValueRecord(
-            Some(templateId),
-            ImmArray(
-              (Some[Ref.Name]("p"), ValueParty(party)),
-              (Some[Ref.Name]("v"), ValueInt64(52)), // too big (>= 50)
-            ),
-          ),
-        )
-      }
-      val tx = reinterpretCommand(theCommand)
-      Shape.ofTransaction(tx.transaction) shouldBe Top() // no rollback node
     }
   }
 }

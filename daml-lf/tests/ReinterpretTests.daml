@@ -22,12 +22,3 @@ template MySimple
     controller p can
       MyThrow : Text
         do throw MyError
-
-template MyEnsuring
-  with
-    p : Party
-    v : Int
-  where
-    agreement show p
-    signatory p
-    ensure (v < 50)
