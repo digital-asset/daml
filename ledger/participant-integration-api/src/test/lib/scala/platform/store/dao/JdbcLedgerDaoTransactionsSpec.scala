@@ -514,8 +514,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  //TODO BH: this is unreasonably slow on oracle - ignoring for now to not introduce 10min+ execution time
-  it should "fall back to limit-based query with consistent results" ignore {
+  it should "fall back to limit-based query with consistent results" in {
     val txSeqLength = 1000
     txSeqTrial(
       trials = 10,
