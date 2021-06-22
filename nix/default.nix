@@ -226,6 +226,7 @@ in rec {
   # Set of packages that we want Hydra to build for us
   cached = bazel_dependencies // {
     # Packages used in command-line tools
+    inherit (toolAttrs) bazel;
     cli-tools = {
       inherit (pkgs) coreutils nix-info getopt;
     };
