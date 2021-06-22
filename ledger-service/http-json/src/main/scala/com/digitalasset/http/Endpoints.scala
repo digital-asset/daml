@@ -217,7 +217,10 @@ class Endpoints(
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 
         ac <- eitherT(
-          handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd))
+          Timed.future(
+            metrics.daml.HttpJsonApi.commandSubmissionLedgerTimer,
+            handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd)),
+          )
         ): ET[domain.ActiveContract[ApiValue]]
       } yield ac
     }
@@ -241,8 +244,11 @@ class Endpoints(
         resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef)
 
         resp <- eitherT(
-          handleFutureEitherFailure(
-            commandService.exercise(jwt, jwtPayload, resolvedCmd)
+          Timed.future(
+            metrics.daml.HttpJsonApi.commandSubmissionLedgerTimer,
+            handleFutureEitherFailure(
+              commandService.exercise(jwt, jwtPayload, resolvedCmd)
+            ),
           )
         ): ET[domain.ExerciseResponse[ApiValue]]
 
@@ -261,8 +267,11 @@ class Endpoints(
         _ <- EitherT.pure(parseAndDecodeTimerCtx.close())
 
         resp <- eitherT(
-          handleFutureEitherFailure(
-            commandService.createAndExercise(jwt, jwtPayload, cmd)
+          Timed.future(
+            metrics.daml.HttpJsonApi.commandSubmissionLedgerTimer,
+            handleFutureEitherFailure(
+              commandService.createAndExercise(jwt, jwtPayload, cmd)
+            ),
           )
         ): ET[domain.ExerciseResponse[ApiValue]]
       } yield resp
