@@ -127,7 +127,7 @@ private[backend] object TemplatedStorageBackend {
                 COALESCE(divulgence_events.template_id, create_event_unrestricted.template_id),
                 COALESCE(divulgence_events.create_argument, create_event_unrestricted.create_argument),
                 COALESCE(divulgence_events.create_argument_compression, create_event_unrestricted.create_argument_compression)
-           FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted USING (contract_id),
+           FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted on (divulgence_events.contract_id = create_event_unrestricted.contract_id),
                 parameters
           WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
             AND divulgence_events.event_kind = 0 -- divulgence
@@ -194,7 +194,7 @@ private[backend] object TemplatedStorageBackend {
                 -- therefore only communicates the change in visibility to the IndexDB, but
                 -- does not include a full divulgence event.
                 COALESCE(divulgence_events.template_id, create_event_unrestricted.template_id)
-           FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted USING (contract_id),
+           FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id),
                 parameters
           WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
             AND divulgence_events.event_kind = 0 -- divulgence
@@ -402,11 +402,12 @@ private[backend] object TemplatedStorageBackend {
       witnessesWhereClause: String,
       limitExpr: String,
       fetchSizeHint: Option[Int],
+      submittersInPartiesClause: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     SQL"""
             select #$selectColumnsForTransactions, #${partyArrayContext._1}$party#${partyArrayContext._2} as event_witnesses,
-                   case when submitters = #${partyArrayContext._1}$party#${partyArrayContext._2} then command_id else '' end as command_id
+                   case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > $startExclusive
                   and event_sequential_id <= $endInclusive
@@ -425,12 +426,13 @@ private[backend] object TemplatedStorageBackend {
       templateIds: Set[Ref.Identifier],
       limitExpr: String,
       fetchSizeHint: Option[Int],
+      submittersInPartiesClause: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.IdentifierToStatement
     SQL"""
             select #$selectColumnsForTransactions, #${partyArrayContext._1}$party#${partyArrayContext._2} as event_witnesses,
-                   case when submitters = #${partyArrayContext._1}$party#${partyArrayContext._2} then command_id else '' end as command_id
+                   case when #$submittersInPartiesClause then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > $startExclusive
                   and event_sequential_id <= $endInclusive
@@ -538,12 +540,12 @@ private[backend] object TemplatedStorageBackend {
       witnessesWhereClause: String,
       limitExpr: String,
       fetchSizeHint: Option[Int],
-      submittersInPartyClause: String,
+      submittersInPartiesClause: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.OffsetToStatement
     SQL"""select #$selectColumnsForACS, #${partyArrayContext._1}$party#${partyArrayContext._2} as event_witnesses,
-                   case when #${submittersInPartyClause} then active_cs.command_id else '' end as command_id
+                   case when #${submittersInPartiesClause} then command_id else '' end as command_id
             from participant_events active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > $startExclusive
@@ -572,14 +574,14 @@ private[backend] object TemplatedStorageBackend {
       witnessesWhereClause: String,
       limitExpr: String,
       fetchSizeHint: Option[Int],
-      submittersInPartyClause: String,
+      submittersInPartiesClause: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.OffsetToStatement
     import com.daml.platform.store.Conversions.IdentifierToStatement
     // TODO BH: figure out why interpolation is required for oracle but bombs h2 and postgres
     SQL"""select #$selectColumnsForACS, #${partyArrayContext._1}$party#${partyArrayContext._2} as event_witnesses,
-                   case when #${submittersInPartyClause} then active_cs.command_id else '' end as command_id
+                   case when #${submittersInPartiesClause} then active_cs.command_id else '' end as command_id
             from participant_events active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > $startExclusive
@@ -736,11 +738,12 @@ private[backend] object TemplatedStorageBackend {
       requestingParty: Ref.Party,
       partyArrayContext: (String, String),
       witnessesWhereClause: String,
+      submittersInPartiesClause: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.ledgerStringToStatement
     SQL"""select #$selectColumnsForTransactions, #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} as event_witnesses,
-                 case when submitters = #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} then command_id else '' end as command_id
+          case when #${submittersInPartiesClause} then command_id else '' end as command_id
           from participant_events
           join parameters on
               (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
@@ -860,12 +863,13 @@ private[backend] object TemplatedStorageBackend {
       requestingParty: Ref.Party,
       partyArrayContext: (String, String),
       witnessesWhereClause: String,
+      submittersInPartiesClause: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.ledgerStringToStatement
     SQL"""select #$selectColumnsForTransactionTree, #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} as event_witnesses,
                  event_kind = 20 as exercise_consuming,
-                 case when submitters = #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} then command_id else '' end as command_id
+                 case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events
           join parameters on
               (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
@@ -902,12 +906,13 @@ private[backend] object TemplatedStorageBackend {
       witnessesWhereClause: String,
       limitExpr: String,
       fetchSizeHint: Option[Int],
+      submittersInPartiesClause: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     SQL"""
         select #$selectColumnsForTransactionTree, #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} as event_witnesses,
                event_kind = 20 as exercise_consuming,
-               case when submitters = #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} then command_id else '' end as command_id
+               case when #$submittersInPartiesClause then command_id else '' end as command_id
         from participant_events
         where event_sequential_id > $startExclusive
               and event_sequential_id <= $endInclusive

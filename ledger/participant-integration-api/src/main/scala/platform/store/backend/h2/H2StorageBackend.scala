@@ -129,6 +129,7 @@ private[backend] object H2StorageBackend
       witnessesWhereClause = arrayIntersectionWhereClause("flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(party)),
     )(connection)
 
   def transactionsEventsSinglePartyWithTemplates(
@@ -148,6 +149,7 @@ private[backend] object H2StorageBackend
       templateIds = templateIds,
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(party)),
     )(connection)
 
   def transactionsEventsOnlyWildcardParties(
@@ -247,7 +249,7 @@ private[backend] object H2StorageBackend
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
       //TODO BH: try to avoid injecting this for every single usage
-      submittersInPartyClause = arrayIntersectionWhereClause("active_cs.submitters", Set(party)),
+      submittersInPartiesClause = arrayIntersectionWhereClause("active_cs.submitters", Set(party)),
     )(connection)
 
   def activeContractsEventsSinglePartyWithTemplates(
@@ -270,7 +272,7 @@ private[backend] object H2StorageBackend
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
-      submittersInPartyClause = arrayIntersectionWhereClause("active_cs.submitters", Set(party)),
+      submittersInPartiesClause = arrayIntersectionWhereClause("active_cs.submitters", Set(party)),
     )(connection)
 
   def activeContractsEventsOnlyWildcardParties(
@@ -376,6 +378,7 @@ private[backend] object H2StorageBackend
       partyArrayContext = partyArrayContext,
       witnessesWhereClause =
         arrayIntersectionWhereClause("flat_event_witnesses", Set(requestingParty)),
+      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
     )(connection)
 
   def flatTransactionMultiParty(
@@ -399,6 +402,7 @@ private[backend] object H2StorageBackend
       partyArrayContext = partyArrayContext,
       witnessesWhereClause =
         arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
+      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
     )(connection)
 
   def transactionTreeMultiParty(
@@ -429,6 +433,7 @@ private[backend] object H2StorageBackend
         arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
     )(connection)
 
   def transactionTreeEventsMultiParty(

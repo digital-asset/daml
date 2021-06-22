@@ -138,6 +138,7 @@ private[backend] object PostgresStorageBackend
       witnessesWhereClause = arrayIntersectionWhereClause("flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(party)),
     )(connection)
 
   def transactionsEventsSinglePartyWithTemplates(
@@ -157,6 +158,7 @@ private[backend] object PostgresStorageBackend
       templateIds = templateIds,
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(party)),
     )(connection)
 
   def transactionsEventsOnlyWildcardParties(
@@ -255,7 +257,7 @@ private[backend] object PostgresStorageBackend
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
-      submittersInPartyClause = arrayIntersectionWhereClause("active_cs.submitters", Set(party)),
+      submittersInPartiesClause = arrayIntersectionWhereClause("active_cs.submitters", Set(party)),
     )(connection)
 
   def activeContractsEventsSinglePartyWithTemplates(
@@ -278,7 +280,7 @@ private[backend] object PostgresStorageBackend
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
-      submittersInPartyClause = arrayIntersectionWhereClause("submitters", Set(party)),
+      submittersInPartiesClause = arrayIntersectionWhereClause("active_cs.submitters", Set(party)),
     )(connection)
 
   def activeContractsEventsOnlyWildcardParties(
@@ -384,6 +386,7 @@ private[backend] object PostgresStorageBackend
       partyArrayContext = partyArrayContext,
       witnessesWhereClause =
         arrayIntersectionWhereClause("flat_event_witnesses", Set(requestingParty)),
+      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
     )(connection)
 
   def flatTransactionMultiParty(
@@ -407,6 +410,7 @@ private[backend] object PostgresStorageBackend
       partyArrayContext = partyArrayContext,
       witnessesWhereClause =
         arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
+      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
     )(connection)
 
   def transactionTreeMultiParty(
@@ -437,6 +441,7 @@ private[backend] object PostgresStorageBackend
         arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
     )(connection)
 
   def transactionTreeEventsMultiParty(
