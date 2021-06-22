@@ -29,8 +29,7 @@ final class Conversions(
 
   // The ledger data will not contain information from the partial transaction at this point.
   // We need the mapping for converting error message so we manually add it here.
-  private val ptxCoidToNodeId = incomplete
-    .fold[Map[NodeId, N.GenNode[NodeId, V.ContractId]]](Map.empty)(_.transaction.nodes)
+  private val ptxCoidToNodeId = incomplete.map(_.transaction.nodes).getOrElse(Map.empty)
     .collect { case (nodeId, node: N.NodeCreate[V.ContractId]) =>
       node.coid -> ledger.ptxEventId(nodeId)
     }
