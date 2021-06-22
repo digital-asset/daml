@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.Config.StreamConfig.Objectives
 import com.daml.ledger.api.benchtool.metrics.objectives.{MaxDelay, MinConsumptionSpeed}
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -11,13 +12,20 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.metrics.MetricName
 import com.google.protobuf.timestamp.Timestamp
 
 import java.time.Clock
 
 object MetricsSet {
-  def transactionMetrics(objectives: Objectives): List[Metric[GetTransactionsResponse]] =
+  def transactionMetrics(
+      streamName: String,
+      registry: MetricRegistry,
+      objectives: Objectives,
+  ): List[Metric[GetTransactionsResponse]] =
     all[GetTransactionsResponse](
+      streamName: String,
+      registry = registry,
       countingFunction = _.transactions.length,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
@@ -27,9 +35,13 @@ object MetricsSet {
     )
 
   def transactionTreesMetrics(
-      objectives: Objectives
+      streamName: String,
+      registry: MetricRegistry,
+      objectives: Objectives,
   ): List[Metric[GetTransactionTreesResponse]] =
     all[GetTransactionTreesResponse](
+      streamName = streamName,
+      registry = registry,
       countingFunction = _.transactions.length,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
@@ -65,18 +77,26 @@ object MetricsSet {
     )
 
   private def all[T](
+      streamName: String,
+      registry: MetricRegistry,
       countingFunction: T => Int,
       sizingFunction: T => Long,
       recordTimeFunction: T => Seq[Timestamp],
       objectives: Objectives,
   ): List[Metric[T]] = {
+    val totalCountMetric = TotalCountMetric.empty[T](
+      countingFunction = countingFunction
+    )
+    TotalCountMetric.register(
+      metric = totalCountMetric,
+      name = MetricName.DAML :+ "bench_tool" :+ "count" :+ streamName,
+      registry = registry,
+    )
     List[Metric[T]](
       CountRateMetric.empty[T](
         countingFunction = countingFunction
       ),
-      TotalCountMetric.empty[T](
-        countingFunction = countingFunction
-      ),
+      totalCountMetric,
       ConsumptionSpeedMetric.empty[T](
         recordTimeFunction = recordTimeFunction,
         objective = objectives.minConsumptionSpeed.map(MinConsumptionSpeed),

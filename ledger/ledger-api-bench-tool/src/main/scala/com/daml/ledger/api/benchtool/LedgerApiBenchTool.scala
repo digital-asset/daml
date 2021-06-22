@@ -75,7 +75,11 @@ object LedgerApiBenchTool {
               .observer(
                 streamName = streamConfig.name,
                 logInterval = config.reportingPeriod,
-                metrics = MetricsSet.transactionMetrics(streamConfig.objectives),
+                metrics = MetricsSet.transactionMetrics(
+                  streamConfig.name,
+                  damlMetrics.registry,
+                  streamConfig.objectives,
+                ),
                 logger = logger,
                 damlMetrics = damlMetrics,
               )(system, ec)
@@ -87,7 +91,11 @@ object LedgerApiBenchTool {
               .observer(
                 streamName = streamConfig.name,
                 logInterval = config.reportingPeriod,
-                metrics = MetricsSet.transactionTreesMetrics(streamConfig.objectives),
+                metrics = MetricsSet.transactionTreesMetrics(
+                  streamConfig.name,
+                  damlMetrics.registry,
+                  streamConfig.objectives,
+                ),
                 logger = logger,
                 damlMetrics = damlMetrics,
               )(system, ec)
