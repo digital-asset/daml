@@ -162,6 +162,37 @@ Here is what each field means:
   say ``daml start --start-navigator=true``, the CLI argument takes precedence over
   the value in ``daml.yaml``.
 
+Recommended ``build-options``
+=============================
+
+The default set of warnings enabled by the Daml compiler is fairly conservative.
+When you are just starting out, seeing a huge set of warnings can easily be
+overwhelming and distract from what you are actually working on.  However, as
+you get more experienced and more people work on a Daml project, enabling
+additional warnings (and enforcing their absence in CI) can be useful.
+
+Here are ``build-options`` you might declare in a project's ``daml.yaml`` for a
+stricter set of warnings.
+
+.. code-block:: yaml
+
+    build-options:
+      - --ghc-option=-Wunused-top-binds
+      - --ghc-option=-Wunused-matches
+      - --ghc-option=-Wunused-do-bind
+      - --ghc-option=-Wincomplete-uni-patterns
+      - --ghc-option=-Wredundant-constraints
+      - --ghc-option=-Wmissing-signatures
+      - --ghc-option=-Werror
+
+Each option enables a particular warning, except for the last one, ``-Werror``,
+which turns every warning into an error; this is especially useful for CI build
+arrangements.  Simply remove or comment out any line to disable that category of
+warning.  See
+`the Daml forum <https://discuss.daml.com/t/making-the-most-out-of-daml-compiler-warnings/739>`__
+for a discussion of the meaning of these warnings and pointers to other
+available warnings.
+
 .. _assistant-manual-building-dars:
 
 Building Daml projects
