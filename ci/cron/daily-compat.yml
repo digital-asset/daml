@@ -90,25 +90,17 @@ jobs:
           eval "$(dev-env/bin/dade assist)"
           source $(bash_lib)
 
-          BASELINE="cebc26af88efef4a7c81c62b0c14353f829b755e"
-          TEST_SHA=$(cat ci/cron/perf/test_sha)
           OUT="$(Build.StagingDirectory)/perf-results.json"
 
           START=$(date -u +%Y%m%d_%H%M%SZ)
 
-          if git diff --exit-code $TEST_SHA -- daml-lf/scenario-interpreter/src/perf >&2; then
-              # no changes, all good
-              ci/cron/perf/compare.sh $BASELINE > "$OUT"
-              cat "$OUT"
-          else
-              # the tests have changed, we need to figure out what to do with
-              # the baseline.
-              echo "Baseline no longer valid, needs manual correction." > "$OUT"
-          fi
+          ci/cron/perf/bench.sh > "$OUT"
+
+          cat $OUT
 
           gcs "$GCRED" cp "$OUT" gs://daml-data/perf/speedy/$START.json
 
-          setvar speedup "$(jq -r '.speedup' "$OUT")"
+          setvar speedy_perf "$(jq -r '.current-perf' "$OUT")"
 
         displayName: measure perf
         name: out
@@ -329,7 +321,7 @@ jobs:
       compatibility: $[ dependencies.compatibility.result ]
       compatibility_windows: $[ dependencies.compatibility_windows.result ]
       perf_speedy: $[ dependencies.perf_speedy.result ]
-      speedup: $[ dependencies.perf_speedy.outputs['out.speedup'] ]
+      speedy_perf: $[ dependencies.perf_speedy.outputs['out.speedy_perf'] ]
       perf_http_json: $[ dependencies.perf_http_json.result ]
       check_releases: $[ dependencies.check_releases.result ]
       blackduck_scan: $[ dependencies.blackduck_scan.result ]
@@ -355,7 +347,7 @@ jobs:
            && "$(check_releases)" == "Succeeded"
            && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
            && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped") ]]; then
-            tell_slack "Daily tests passed: $COMMIT_LINK (speedup: $(speedup))." "$(Slack.ci-failures-daml)"
+            tell_slack "Daily tests passed: $COMMIT_LINK (speedy_perf: $(speedy_perf))." "$(Slack.ci-failures-daml)"
         else
             tell_slack "Daily tests failed: $COMMIT_LINK." "$(Slack.ci-failures-daml)"
         fi
