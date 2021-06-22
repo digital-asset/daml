@@ -11,7 +11,12 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, NodeId, GenTransaction}
+import com.daml.lf.transaction.{
+  GlobalKeyWithMaintainers,
+  NodeId,
+  GenTransaction,
+  SubmittedTransaction,
+}
 import com.daml.lf.transaction.Node.{NodeRollback, NodeExercises, NodeCreate}
 import com.daml.lf.value.Value._
 import com.daml.lf.command._
@@ -80,75 +85,52 @@ class ReinterpretTest
   val time = Time.Timestamp.now()
   val seed = hash("ReinterpretTests")
 
-  "exercise command" should {
+  private def reinterpretCommand(theCommand: Command): SubmittedTransaction = {
+    val res = engine
+      .reinterpret(
+        submitters,
+        theCommand,
+        Some(seed),
+        time,
+        time,
+      )
+      .consume(
+        lookupContract,
+        lookupPackage,
+        lookupKey,
+        VisibleByKey.fromSubmitters(submitters),
+      )
+    val Right((tx, _)) = res
+    tx
+  }
 
-    "reinterpret has correct shape" in {
+  "Reinterpretation" should {
 
+    "be correct for a successful exercise command" in {
       val choiceName = "MyHello"
-
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("#ReinterpretTests:MySimple:1")
         ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
       }
-
-      val Right((tx, _)) = engine
-        .reinterpret(
-          submitters,
-          theCommand,
-          Some(seed),
-          time,
-          time,
-        )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-          VisibleByKey.fromSubmitters(submitters),
-        )
-
+      val tx = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Exercise())
     }
-  }
 
-  "exercise command which throws" should {
-
-    "reinterpret has correct shape" in {
-
+    "be a rollback for an exercise command which throws" in {
       val choiceName = "MyThrow"
-
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
         val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("#ReinterpretTests:MySimple:1")
         ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
       }
-
-      val res = engine
-        .reinterpret(
-          submitters,
-          theCommand,
-          Some(seed),
-          time,
-          time,
-        )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-          VisibleByKey.fromSubmitters(submitters),
-        )
-
-      val Right((tx, _)) = res
+      val tx = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise()))
     }
-  }
 
-  "successful create command" should {
-
-    "reinterpret has correct shape" in {
-
+    "be correct for a successful create comamnd" in {
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MyEnsuring")
         CreateCommand(
@@ -162,31 +144,11 @@ class ReinterpretTest
           ),
         )
       }
-
-      val res = engine
-        .reinterpret(
-          submitters,
-          theCommand,
-          Some(seed),
-          time,
-          time,
-        )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-          VisibleByKey.fromSubmitters(submitters),
-        )
-
-      val Right((tx, _)) = res
+      val tx = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Create())
     }
-  }
 
-  "create command fails ensure" should {
-
-    "reinterpret has correct shape" in {
-
+    "not be a rollback for a create which fails an ensure" in {
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MyEnsuring")
         CreateCommand(
@@ -200,27 +162,10 @@ class ReinterpretTest
           ),
         )
       }
-
-      val res = engine
-        .reinterpret(
-          submitters,
-          theCommand,
-          Some(seed),
-          time,
-          time,
-        )
-        .consume(
-          lookupContract,
-          lookupPackage,
-          lookupKey,
-          VisibleByKey.fromSubmitters(submitters),
-        )
-
-      val Right((tx, _)) = res
+      val tx = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top() // no rollback node
     }
   }
-
 }
 
 object ReinterpretTest {
