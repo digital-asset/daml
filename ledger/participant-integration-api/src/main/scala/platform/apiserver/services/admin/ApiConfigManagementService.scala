@@ -27,7 +27,7 @@ import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiConfigManagementService._
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.configuration.LedgerConfiguration
-import com.daml.platform.server.api.validation
+import com.daml.platform.server.api.{ValidationLogger, validation}
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
@@ -49,7 +49,7 @@ private[apiserver] final class ApiConfigManagementService private (
 ) extends ConfigManagementService
     with GrpcApiService {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   private val defaultConfigResponse = configToResponse(
     ledgerConfiguration.initialConfiguration.copy(generation = LedgerConfiguration.NoGeneration)
@@ -92,7 +92,10 @@ private[apiserver] final class ApiConfigManagementService private (
 
         val response = for {
           // Validate and convert the request parameters
-          params <- validateParameters(request).fold(Future.failed(_), Future.successful)
+          params <- validateParameters(request).fold(
+            t => Future.failed(ValidationLogger.logFailureWithContext(request, t)),
+            Future.successful,
+          )
 
           // Lookup latest configuration to check generation and to extend it with the new time model.
           optConfigAndOffset <- index.lookupConfiguration()

@@ -33,7 +33,7 @@ private[apiserver] final class ApiActiveContractsService private (
 ) extends ActiveContractsServiceAkkaGrpc
     with GrpcApiService {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override protected def getActiveContractsSource(
       request: GetActiveContractsRequest
@@ -44,7 +44,7 @@ private[apiserver] final class ApiActiveContractsService private (
         TransactionFilterValidator
           .validate(request.getFilter)
           .fold(
-            t => Source.failed(ValidationLogger.logFailure(request, t)(logger.withoutContext)),
+            t => Source.failed(ValidationLogger.logFailureWithContext(request, t)),
             backend.getActiveContracts(_, request.verbose),
           )
           .via(logger.logErrorsOnStream)

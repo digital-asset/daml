@@ -24,6 +24,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPartyManagementService._
 import com.daml.platform.apiserver.services.logging
+import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
@@ -44,7 +45,7 @@ private[apiserver] final class ApiPartyManagementService private (
 ) extends PartyManagementService
     with GrpcApiService {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(transactionService, writeService, partyManagementService),
@@ -102,7 +103,11 @@ private[apiserver] final class ApiPartyManagementService private (
           Ref.Party
             .fromString(request.partyIdHint)
             .fold(
-              error => Future.failed(ErrorFactories.invalidArgument(error)),
+              error =>
+                Future.failed(
+                  ValidationLogger
+                    .logFailureWithContext(request, ErrorFactories.invalidArgument(error))
+                ),
               party => Future.successful(Some(party)),
             )
         }

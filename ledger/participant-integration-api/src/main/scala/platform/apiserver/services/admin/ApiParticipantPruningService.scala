@@ -22,6 +22,7 @@ import com.daml.platform.apiserver.services.logging
 import com.daml.platform.ApiOffset
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
@@ -35,7 +36,7 @@ final class ApiParticipantPruningService private (
     extends ParticipantPruningServiceGrpc.ParticipantPruningService
     with GrpcApiService {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   override def bindService(): ServerServiceDefinition =
     ParticipantPruningServiceGrpc.bindService(this, executionContext)
@@ -49,7 +50,7 @@ final class ApiParticipantPruningService private (
       .map(err => ErrorFactories.invalidArgument(s"submission_id $err"))
 
     submissionIdOrErr.fold(
-      Future.failed,
+      t => Future.failed(ValidationLogger.logFailure(request, t)(logger.withoutContext)),
       submissionId =>
         LoggingContext.withEnrichedLoggingContext(logging.submissionId(submissionId)) {
           implicit logCtx =>
@@ -76,7 +77,10 @@ final class ApiParticipantPruningService private (
       pruneUpToString <- checkOffsetIsSpecified(request.pruneUpTo)
       pruneUpTo <- checkOffsetIsHexadecimal(pruneUpToString)
     } yield (pruneUpTo, pruneUpToString))
-      .fold(Future.failed, o => checkOffsetIsBeforeLedgerEnd(o._1, o._2))
+      .fold(
+        t => Future.failed(ValidationLogger.logFailureWithContext(request, t)),
+        o => checkOffsetIsBeforeLedgerEnd(o._1, o._2),
+      )
   }
 
   private def pruneWriteService(pruneUpTo: Offset, submissionId: SubmissionId)(implicit
