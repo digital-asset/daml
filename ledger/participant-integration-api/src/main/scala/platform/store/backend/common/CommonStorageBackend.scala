@@ -629,7 +629,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
            WHERE event_kind = 20 -- consuming exercise
              AND event_sequential_id <= parameters.ledger_end_sequential_id
              AND contract_id = last_contract_key_create.contract_id
-         );
+         )
        """
       .as(contractId("contract_id").singleOpt)(connection)
   }
@@ -690,7 +690,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   SELECT ledger_effective_time
     FROM create_and_divulged_contracts
    WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   FETCH NEXT 1 ROW ONLY;
+   FETCH NEXT 1 ROW ONLY
                """.as(instant("ledger_effective_time").?.singleOpt)(connection)
       }
 
@@ -729,7 +729,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
                    WHERE event_kind = 20 -- consuming exercise
                      AND event_sequential_id <= $validAt
                      AND contract_id = last_contract_key_create.contract_id
-         );
+         )
          """
       .as(
         (contractId("contract_id") ~ flatEventWitnessesColumn("flat_event_witnesses")).map {

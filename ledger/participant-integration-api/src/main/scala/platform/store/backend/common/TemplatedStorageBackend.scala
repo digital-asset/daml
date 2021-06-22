@@ -146,7 +146,7 @@ private[backend] object TemplatedStorageBackend {
   SELECT contract_id, template_id, create_argument, create_argument_compression
     FROM create_and_divulged_contracts
    WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   FETCH NEXT 1 ROW ONLY;"""
+   FETCH NEXT 1 ROW ONLY"""
       .as(contractRowParser.singleOpt)(connection)
   }
 
@@ -213,7 +213,7 @@ private[backend] object TemplatedStorageBackend {
   SELECT contract_id, template_id
     FROM create_and_divulged_contracts
    WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   FETCH NEXT 1 ROW ONLY;
+   FETCH NEXT 1 ROW ONLY
            """.as(contractWithoutValueRowParser.singleOpt)(connection)
   }
 
@@ -242,7 +242,7 @@ private[backend] object TemplatedStorageBackend {
              AND event_sequential_id <= parameters.ledger_end_sequential_id
              AND #${flatEventWitnesses("participant_events")}
              AND contract_id = last_contract_key_create.contract_id
-         );
+         )
        """.as(contractId("contract_id").singleOpt)(connection)
   }
 
