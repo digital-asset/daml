@@ -323,7 +323,8 @@ private[backend] object TemplatedStorageBackend {
     SharedRow ~ Boolean ~ String ~ InputStream ~ Option[Int] ~ Option[InputStream] ~ Option[Int] ~
       Array[String] ~ Array[String]
 
-  private val exercisedEventRow: RowParser[ExercisedEventRow] =
+  private val exercisedEventRow: RowParser[ExercisedEventRow] = {
+    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
     sharedRow ~
       bool("exercise_consuming") ~
       str("exercise_choice") ~
@@ -333,6 +334,7 @@ private[backend] object TemplatedStorageBackend {
       int("exercise_result_compression").? ~
       array[String]("exercise_actors") ~
       array[String]("exercise_child_event_ids")
+  }
 
   private type ArchiveEventRow = SharedRow
 
@@ -864,11 +866,12 @@ private[backend] object TemplatedStorageBackend {
       partyArrayContext: (String, String),
       witnessesWhereClause: String,
       submittersInPartiesClause: String,
+      columnEqualityBoolean: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.ledgerStringToStatement
     SQL"""select #$selectColumnsForTransactionTree, #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} as event_witnesses,
-                 event_kind = 20 as exercise_consuming,
+                 #$columnEqualityBoolean as exercise_consuming,
                  case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events
           join parameters on
@@ -884,10 +887,11 @@ private[backend] object TemplatedStorageBackend {
       witnessesWhereClause: String,
       submittersInPartiesClause: String,
       filteredWitnessesClause: String,
+      columnEqualityBoolean: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     import com.daml.platform.store.Conversions.ledgerStringToStatement
     SQL"""select #$selectColumnsForTransactionTree, #$filteredWitnessesClause as event_witnesses,
-                 event_kind = 20 as exercise_consuming,
+                 #$columnEqualityBoolean as exercise_consuming,
                  case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events
           join parameters on
@@ -907,11 +911,12 @@ private[backend] object TemplatedStorageBackend {
       limitExpr: String,
       fetchSizeHint: Option[Int],
       submittersInPartiesClause: String,
+      columnEqualityBoolean: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     SQL"""
         select #$selectColumnsForTransactionTree, #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} as event_witnesses,
-               event_kind = 20 as exercise_consuming,
+               #$columnEqualityBoolean as exercise_consuming,
                case when #$submittersInPartiesClause then command_id else '' end as command_id
         from participant_events
         where event_sequential_id > $startExclusive
@@ -931,10 +936,11 @@ private[backend] object TemplatedStorageBackend {
       submittersInPartiesClause: String,
       limitExpr: String,
       fetchSizeHint: Option[Int],
+      columnEqualityBoolean: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     SQL"""
         select #$selectColumnsForTransactionTree, #$filteredWitnessesClause as event_witnesses,
-               event_kind = 20 as exercise_consuming,
+               #$columnEqualityBoolean as exercise_consuming,
                case when #$submittersInPartiesClause then command_id else '' end as command_id
         from participant_events
         where event_sequential_id > $startExclusive
