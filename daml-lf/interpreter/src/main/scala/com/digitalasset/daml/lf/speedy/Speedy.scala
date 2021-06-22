@@ -726,6 +726,8 @@ private[lf] object Speedy {
 
     private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
 
+    def newTraceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100)
+
     def apply(
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
@@ -734,7 +736,7 @@ private[lf] object Speedy {
         globalCids: Set[V.ContractId],
         committers: Set[Party],
         validating: Boolean = false,
-        traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
+        traceLog: TraceLog = newTraceLog,
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
     ): Machine = {
       val pkg2TxVersion =
@@ -781,6 +783,18 @@ private[lf] object Speedy {
         committer: Party,
     ): Machine = {
       val updateSE: SExpr = compiledPackages.compiler.unsafeCompile(updateE)
+      fromUpdateSExpr(compiledPackages, transactionSeed, updateSE, committer)
+    }
+
+    @throws[PackageNotFound]
+    @throws[CompilationError]
+    // Construct a machine for running an update expression (testing -- avoiding scenarios)
+    def fromUpdateSExpr(
+        compiledPackages: CompiledPackages,
+        transactionSeed: crypto.Hash,
+        updateSE: SExpr,
+        committer: Party,
+    ): Machine = {
       Machine(
         compiledPackages = compiledPackages,
         submissionTime = Time.Timestamp.MinValue,
@@ -796,15 +810,10 @@ private[lf] object Speedy {
     // Construct a machine for running scenario.
     def fromScenarioSExpr(
         compiledPackages: CompiledPackages,
-        transactionSeed: crypto.Hash,
         scenario: SExpr,
-    ): Machine = Machine(
+    ): Machine = Machine.fromPureSExpr(
       compiledPackages = compiledPackages,
-      submissionTime = Time.Timestamp.MinValue,
-      initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
       expr = SEApp(scenario, Array(SEValue.Token)),
-      globalCids = Set.empty,
-      committers = Set.empty,
     )
 
     @throws[PackageNotFound]
@@ -812,12 +821,10 @@ private[lf] object Speedy {
     // Construct a machine for running scenario.
     def fromScenarioExpr(
         compiledPackages: CompiledPackages,
-        transactionSeed: crypto.Hash,
         scenario: Expr,
     ): Machine =
       fromScenarioSExpr(
         compiledPackages = compiledPackages,
-        transactionSeed = transactionSeed,
         scenario = compiledPackages.compiler.unsafeCompile(scenario),
       )
 

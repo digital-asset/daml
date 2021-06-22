@@ -7,7 +7,7 @@ import com.daml.lf.CompiledPackages
 import com.daml.lf.crypto
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
@@ -15,6 +15,7 @@ import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.speedy.Speedy.{OffLedger, OnLedger}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
+import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
 
 import scala.annotation.tailrec
@@ -41,18 +42,16 @@ final case class ScenarioRunner(
   var seed = initialSeed
 
   var ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
-  val onLedger = machine.ledgerMode match {
-    case OffLedger => throw SRequiresOnLedger("ScenarioRunner")
-    case onLedger: OnLedger => onLedger
-  }
+  var currentSubmission: Option[CurrentSubmission] = None
 
-  def run(): Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)] =
+  def run(): ScenarioResult =
     handleUnsafe(runUnsafe()) match {
-      case Left(err) => Left((err, ledger))
-      case Right(t) => Right(t)
+      case Left(err) =>
+        ScenarioError(ledger, machine.traceLog, currentSubmission, machine.stackTrace(), err)
+      case Right(t) => t
     }
 
-  private def runUnsafe(): (Double, Int, ScenarioLedger, SValue) = {
+  private def runUnsafe(): ScenarioSuccess = {
     // NOTE(JM): Written with an imperative loop and exceptions for speed
     // and so that we don't need to worry about stack usage.
     val startTime = System.nanoTime()
@@ -87,25 +86,17 @@ final case class ScenarioRunner(
             SExpr.SEValue(commands),
             location,
             seed,
+            machine.traceLog,
           )
-          // TODO (MK) We copy the ptx & commit location and the trace
-          // log to the off-ledger machine as a temporary hack until
-          // the callsites have changed sufficiently to allow us to
-          // avoid this gross mess.
-          machine.withOnLedger("runUnsafe") { onLedger =>
-            onLedger.ptx = submitResult.ptx
-            onLedger.commitLocation = location
-          }
-          submitResult.traceLog.iterator.foreach { case (msg, loc) =>
-            machine.traceLog.add(msg, loc)
-          }
           if (mustFail) {
             submitResult match {
-              case Commit(result, _, _, _) =>
+              case Commit(result, _, ptx) =>
+                currentSubmission = Some(CurrentSubmission(location, ptx.finishIncomplete))
                 throw new SRunnerException(
                   ScenarioErrorMustFailSucceeded(result.richTransaction.transaction)
                 )
               case err: SubmissionError =>
+                currentSubmission = None
                 // TODO (MK) This is gross, we need to unwind the transaction to
                 // get the right root context to derived the seed for the next transaction.
                 val rootCtx = err.ptx.unwind.context
@@ -117,13 +108,15 @@ final case class ScenarioRunner(
             }
           } else {
             submitResult match {
-              case Commit(result, value, _, _) =>
+              case Commit(result, value, _) =>
+                currentSubmission = None
                 seed = nextSeed(
                   crypto.Hash.deriveNodeSeed(seed, result.richTransaction.transaction.roots.length)
                 )
                 ledger = result.newLedger
                 callback(value)
-              case SubmissionError(err, _, _) =>
+              case SubmissionError(err, ptx) =>
+                currentSubmission = Some(CurrentSubmission(location, ptx.finishIncomplete))
                 throw new SRunnerException(err)
             }
           }
@@ -143,7 +136,7 @@ final case class ScenarioRunner(
     }
     val endTime = System.nanoTime()
     val diff = (endTime - startTime) / 1000.0 / 1000.0
-    (diff, steps, ledger, finalValue)
+    ScenarioSuccess(ledger, machine.traceLog, diff, steps, finalValue)
   }
 
   private def crash(reason: String) =
@@ -175,13 +168,12 @@ object ScenarioRunner {
     val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
     val speedyMachine = Speedy.Machine.fromScenarioExpr(
       engine.compiledPackages(),
-      transactionSeed,
       scenarioExpr,
     )
     ScenarioRunner(speedyMachine, transactionSeed).run() match {
-      case Left(e) =>
-        throw new RuntimeException(s"error running scenario $scenarioRef in scenario $e")
-      case Right((_, _, l, _)) => l
+      case err: ScenarioError =>
+        throw new RuntimeException(s"error running scenario $scenarioRef in scenario ${err.error}")
+      case success: ScenarioSuccess => success.ledger
     }
   }
 
@@ -214,17 +206,15 @@ object ScenarioRunner {
     // TODO (MK) Temporary to leak the ptx from the submission machine
     // to the parent machine.
     def ptx: PartialTransaction
-    def traceLog: TraceLog
   }
 
   final case class Commit[R](
       result: R,
       value: SValue,
       ptx: PartialTransaction,
-      traceLog: TraceLog,
   ) extends SubmissionResult[R]
 
-  final case class SubmissionError(error: SError, ptx: PartialTransaction, traceLog: TraceLog)
+  final case class SubmissionError(error: SError, ptx: PartialTransaction)
       extends SubmissionResult[Nothing]
 
   // The interface we need from a ledger during submission. We allow abstracting over this so we can play
@@ -384,6 +374,7 @@ object ScenarioRunner {
       commands: SExpr,
       location: Option[Location],
       seed: crypto.Hash,
+      traceLog: TraceLog = Speedy.Machine.newTraceLog,
   ): SubmissionResult[R] = {
     val ledgerMachine = Speedy.Machine(
       compiledPackages = compiledPackages,
@@ -392,6 +383,7 @@ object ScenarioRunner {
       expr = SExpr.SEApp(commands, Array(SExpr.SEValue(SValue.SToken))),
       globalCids = Set.empty,
       committers = committers,
+      traceLog = traceLog,
     )
     val onLedger = ledgerMachine.ledgerMode match {
       case OffLedger => throw SRequiresOnLedger("ScenarioRunner")
@@ -404,23 +396,23 @@ object ScenarioRunner {
           onLedger.ptxInternal.finish match {
             case PartialTransaction.CompleteTransaction(tx) =>
               ledger.commit(committers, readAs, location, tx) match {
-                case Left(err) => SubmissionError(err, onLedger.ptxInternal, ledgerMachine.traceLog)
+                case Left(err) => SubmissionError(err, onLedger.ptxInternal)
                 case Right(r) =>
-                  Commit(r, resultValue, onLedger.ptxInternal, ledgerMachine.traceLog)
+                  Commit(r, resultValue, onLedger.ptxInternal)
               }
             case PartialTransaction.IncompleteTransaction(ptx) =>
               throw new RuntimeException(s"Unexpected abort: $ptx")
           }
         case SResultError(err) =>
-          SubmissionError(err, onLedger.ptxInternal, ledgerMachine.traceLog)
+          SubmissionError(err, onLedger.ptxInternal)
         case SResultNeedContract(coid, tid @ _, committers, _, cbPresent) =>
           ledger.lookupContract(coid, committers, readAs, cbPresent) match {
-            case Left(err) => SubmissionError(err, onLedger.ptxInternal, ledgerMachine.traceLog)
+            case Left(err) => SubmissionError(err, onLedger.ptxInternal)
             case Right(_) => go()
           }
         case SResultNeedKey(keyWithMaintainers, committers, cb) =>
           ledger.lookupKey(keyWithMaintainers.globalKey, committers, readAs, cb) match {
-            case Left(err) => SubmissionError(err, onLedger.ptxInternal, ledgerMachine.traceLog)
+            case Left(err) => SubmissionError(err, onLedger.ptxInternal)
             case Right(_) => go()
           }
         case SResultNeedLocalKeyVisible(stakeholders, committers, cb) =>
@@ -451,4 +443,29 @@ object ScenarioRunner {
       // to avoid breaking all tests we keep it for now at least.
       Time.Timestamp.MinValue,
     )
+
+  sealed abstract class ScenarioResult extends Product with Serializable {
+    def ledger: ScenarioLedger
+    def traceLog: TraceLog
+  }
+
+  final case class CurrentSubmission(
+      commitLocation: Option[Location],
+      ptx: IncompleteTransaction,
+  )
+
+  final case class ScenarioSuccess(
+      ledger: ScenarioLedger,
+      traceLog: TraceLog,
+      duration: Double,
+      steps: Int,
+      resultValue: SValue,
+  ) extends ScenarioResult
+  final case class ScenarioError(
+      ledger: ScenarioLedger,
+      traceLog: TraceLog,
+      currentSubmission: Option[CurrentSubmission],
+      stackTrace: ImmArray[Location],
+      error: SError,
+  ) extends ScenarioResult
 }

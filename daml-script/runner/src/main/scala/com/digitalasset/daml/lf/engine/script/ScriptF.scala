@@ -66,12 +66,6 @@ object ScriptF {
     def compiledPackages = machine.compiledPackages
     val valueTranslator = new ValueTranslator(compiledPackages.interface)
     val utcClock = Clock.systemUTC()
-    // Copy the tracelog from the client to the off-ledger machine.
-    def copyTracelog(client: ScriptLedgerClient) = {
-      for ((msg, optLoc) <- client.tracelogIterator) {
-        machine.traceLog.add(msg, optLoc)
-      }
-    }
     def addPartyParticipantMapping(party: Party, participant: Participant) = {
       _clients =
         _clients.copy(party_participants = _clients.party_participants + (party -> participant))
@@ -108,7 +102,6 @@ object ScriptF {
           data.cmds,
           data.stackTrace.topFrame,
         )
-        _ = env.copyTracelog(client)
         v <- submitRes match {
           case Right(results) =>
             Converter.toFuture(
@@ -163,7 +156,6 @@ object ScriptF {
           data.cmds,
           data.stackTrace.topFrame,
         )
-        _ = env.copyTracelog(client)
         v <- submitRes match {
           case Right(()) =>
             Future.successful(SEApp(SEValue(data.continue), Array(SEValue(SUnit))))
@@ -200,7 +192,6 @@ object ScriptF {
             submitRes,
           )
         )
-        _ = env.copyTracelog(client)
       } yield SEApp(SEValue(data.continue), Array(SEValue(res)))
   }
   final case class Query(

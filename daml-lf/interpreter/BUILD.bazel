@@ -84,7 +84,6 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
-        "//daml-lf/transaction",
     ],
 )
 

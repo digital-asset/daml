@@ -11,9 +11,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.Pretty._
-import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
@@ -201,11 +199,10 @@ object Repl {
 
     def run(
         expr: Expr
-    ): (Speedy.Machine, Either[(SError, ScenarioLedger), (Double, Int, ScenarioLedger, SValue)]) = {
+    ): (Speedy.Machine, ScenarioRunner.ScenarioResult) = {
       val machine =
         Speedy.Machine.fromScenarioExpr(
           compiledPackages,
-          seed,
           expr,
         )
       (machine, ScenarioRunner(machine, seed).run())
@@ -525,19 +522,20 @@ object Repl {
   def invokeTest(state: State, idAndArgs: Seq[String]): (Boolean, State) = {
     buildExprFromTest(state, idAndArgs)
       .map { expr =>
-        val (machine, errOrLedger) =
+        val (_, errOrLedger) =
           state.scenarioRunner.run(expr)
-        machine.withOnLedger("invokeTest") { onLedger =>
-          errOrLedger match {
-            case Left((err, ledger @ _)) =>
-              println(prettyError(err, onLedger.ptx).render(128))
-              (false, state)
-            case Right((diff @ _, steps @ _, ledger, value @ _)) =>
-              // NOTE(JM): cannot print this, output used in tests.
-              //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
-              println(prettyLedger(ledger).render(128))
-              (true, state)
-          }
+        errOrLedger match {
+          case error: ScenarioRunner.ScenarioError =>
+            println(
+              prettyError(error.error)
+                .render(128)
+            )
+            (false, state)
+          case success: ScenarioRunner.ScenarioSuccess =>
+            // NOTE(JM): cannot print this, output used in tests.
+            //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
+            println(prettyLedger(success.ledger).render(128))
+            (true, state)
         }
       }
       .getOrElse((false, state))
@@ -561,21 +559,20 @@ object Repl {
     allTests.foreach { case (name, body) =>
       print(name + ": ")
       val (machine, errOrLedger) = state.scenarioRunner.run(body)
-      machine.withOnLedger("cmdTestAll") { onLedger =>
-        errOrLedger match {
-          case Left((err, ledger @ _)) =>
-            println(
-              "failed at " +
-                prettyLoc(machine.lastLocation).render(128) +
-                ": " + prettyError(err, onLedger.ptx).render(128)
-            )
-            failures += 1
-          case Right((diff, steps, ledger @ _, value @ _)) =>
-            successes += 1
-            totalTime += diff
-            totalSteps += steps
-            println(s"ok in ${diff.formatted("%.2f")}ms, $steps steps")
-        }
+      errOrLedger match {
+        case error: ScenarioRunner.ScenarioError =>
+          println(
+            "failed at " +
+              prettyLoc(machine.lastLocation).render(128) +
+              ": " + prettyError(error.error)
+                .render(128)
+          )
+          failures += 1
+        case success: ScenarioRunner.ScenarioSuccess =>
+          successes += 1
+          totalTime += success.duration
+          totalSteps += success.steps
+          println(s"ok in ${success.duration.formatted("%.2f")}ms, ${success.steps} steps")
       }
     }
     println(
@@ -597,10 +594,10 @@ object Repl {
           state.scenarioRunner.run(expr)
         machine.withOnLedger("cmdProfile") { onLedger =>
           errOrLedger match {
-            case Left((err, ledger @ _)) =>
-              println(prettyError(err, onLedger.ptx).render(128))
+            case error: ScenarioRunner.ScenarioError =>
+              println(prettyError(error.error, onLedger.ptx).render(128))
               (false, state)
-            case Right((diff @ _, steps @ _, ledger @ _, value @ _)) =>
+            case _: ScenarioRunner.ScenarioSuccess =>
               println("Writing profile...")
               machine.profile.name = testId
               machine.profile.writeSpeedscopeJson(outputFile)

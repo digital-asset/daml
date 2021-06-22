@@ -34,7 +34,7 @@ import com.daml.lf.language.{Interface, LanguageVersion}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{Compiler, Pretty, SDefinition, SError, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Compiler, Pretty, SDefinition, SError, SExpr, SValue, Speedy, TraceLog}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.script.converter.Converter.{JavaList, unrollFree}
@@ -318,8 +318,11 @@ object Runner {
   }
 }
 
-class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode: ScriptTimeMode)
-    extends StrictLogging {
+private[lf] class Runner(
+    compiledPackages: CompiledPackages,
+    script: Script.Action,
+    timeMode: ScriptTimeMode,
+) extends StrictLogging {
 
   // We overwrite the definition of fromLedgerValue with an identity function.
   // This is a type error but Speedy doesn’t care about the types and the only thing we do
@@ -348,13 +351,16 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
   } yield (s"${md.name}-${md.version}" -> pkgId)).toMap
 
   // Returns the machine that will be used for execution as well as a Future for the result.
-  def runWithClients(initialClients: Participants[ScriptLedgerClient])(implicit
+  def runWithClients(
+      initialClients: Participants[ScriptLedgerClient],
+      traceLog: TraceLog = Speedy.Machine.newTraceLog,
+  )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Speedy.Machine, Future[SValue]) = {
     val machine =
-      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr)
+      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, traceLog)
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {
