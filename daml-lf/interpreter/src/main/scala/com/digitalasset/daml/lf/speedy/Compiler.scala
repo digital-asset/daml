@@ -1525,7 +1525,7 @@ private[lf] final class Compiler(
 
   private val SEUpdatePureUnit = unaryFunction(_ => SEValue.Unit)
 
-  private val handleEverything: SExpr = SBSome(SEUpdatePureUnit)
+  private[this] val handleEverything: SExpr = SBSome(SEUpdatePureUnit)
 
   private[this] def catchEverything(e: SExpr): SExpr = {
     unaryFunction { tokenPos =>
