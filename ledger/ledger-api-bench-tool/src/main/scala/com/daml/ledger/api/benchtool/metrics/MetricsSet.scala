@@ -56,7 +56,7 @@ object MetricsSet {
         countingFunction = _.activeContracts.length
       ),
       TotalCountMetric.empty[GetActiveContractsResponse](
-        countingFunction = _.activeContracts.length
+        countingFunction = _.activeContracts.length.toLong
       ),
       SizeMetric.empty[GetActiveContractsResponse](
         sizingFunction = _.serializedSize.toLong
@@ -69,7 +69,7 @@ object MetricsSet {
         countingFunction = _.completions.length
       ),
       TotalCountMetric.empty(
-        countingFunction = _.completions.length
+        countingFunction = _.completions.length.toLong
       ),
       SizeMetric.empty(
         sizingFunction = _.serializedSize.toLong
@@ -85,7 +85,7 @@ object MetricsSet {
       objectives: Objectives,
   ): List[Metric[T]] = {
     val totalCountMetric = TotalCountMetric.empty[T](
-      countingFunction = countingFunction
+      countingFunction = countingFunction.andThen(_.toLong)
     )
     TotalCountMetric.register(
       metric = totalCountMetric,

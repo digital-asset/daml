@@ -30,8 +30,8 @@ object TotalCountMetric {
   final case class Value(totalCount: Long) extends MetricValue
 
   def empty[T](
-      countingFunction: T => Int
-  ): TotalCountMetric[T] = TotalCountMetric[T](countingFunction.andThen(_.toLong), new Counter)
+      countingFunction: T => Long
+  ): TotalCountMetric[T] = TotalCountMetric[T](countingFunction, new Counter)
 
   def register[T](metric: TotalCountMetric[T], name: String, registry: MetricRegistry): Counter = {
     registry.register(name, metric.counter)
