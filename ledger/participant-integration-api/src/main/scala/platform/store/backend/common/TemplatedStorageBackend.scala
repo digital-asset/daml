@@ -88,6 +88,7 @@ private[backend] object TemplatedStorageBackend {
       contractId: ContractId,
   )(connection: Connection): Option[StorageBackend.RawContract] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
+
     SQL"""
   WITH archival_event AS (
          SELECT participant_events.*
@@ -126,7 +127,7 @@ private[backend] object TemplatedStorageBackend {
                 COALESCE(divulgence_events.template_id, create_event_unrestricted.template_id),
                 COALESCE(divulgence_events.create_argument, create_event_unrestricted.create_argument),
                 COALESCE(divulgence_events.create_argument_compression, create_event_unrestricted.create_argument_compression)
-           FROM participant_events AS divulgence_events LEFT OUTER JOIN create_event_unrestricted USING (contract_id),
+           FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted USING (contract_id),
                 parameters
           WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
             AND divulgence_events.event_kind = 0 -- divulgence
@@ -193,7 +194,7 @@ private[backend] object TemplatedStorageBackend {
                 -- therefore only communicates the change in visibility to the IndexDB, but
                 -- does not include a full divulgence event.
                 COALESCE(divulgence_events.template_id, create_event_unrestricted.template_id)
-           FROM participant_events AS divulgence_events LEFT OUTER JOIN create_event_unrestricted USING (contract_id),
+           FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted USING (contract_id),
                 parameters
           WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
             AND divulgence_events.event_kind = 0 -- divulgence
@@ -288,6 +289,8 @@ private[backend] object TemplatedStorageBackend {
   private type SharedRow =
     Offset ~ String ~ Int ~ Long ~ String ~ String ~ Instant ~ Identifier ~ Option[String] ~
       Option[String] ~ Array[String]
+
+  import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
 
   private val sharedRow: RowParser[SharedRow] =
     offset("event_offset") ~
@@ -402,7 +405,7 @@ private[backend] object TemplatedStorageBackend {
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     SQL"""
-            select #$selectColumnsForTransactions, array[$party] as event_witnesses,
+            select #$selectColumnsForTransactions, #${partyArrayContext._1}$party#${partyArrayContext._2} as event_witnesses,
                    case when submitters = #${partyArrayContext._1}$party#${partyArrayContext._2} then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > $startExclusive
@@ -426,7 +429,7 @@ private[backend] object TemplatedStorageBackend {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.IdentifierToStatement
     SQL"""
-            select #$selectColumnsForTransactions, array[$party] as event_witnesses,
+            select #$selectColumnsForTransactions, #${partyArrayContext._1}$party#${partyArrayContext._2} as event_witnesses,
                    case when submitters = #${partyArrayContext._1}$party#${partyArrayContext._2} then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > $startExclusive
@@ -535,18 +538,19 @@ private[backend] object TemplatedStorageBackend {
       witnessesWhereClause: String,
       limitExpr: String,
       fetchSizeHint: Option[Int],
+      submittersInPartyClause: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL"""select #$selectColumnsForACS, array[$party] as event_witnesses,
-                   case when active_cs.submitters = #${partyArrayContext._1}$party#${partyArrayContext._2} then active_cs.command_id else '' end as command_id
-            from participant_events as active_cs
+        SQL"""select #$selectColumnsForACS, #${partyArrayContext._1}$party#${partyArrayContext._2} as event_witnesses,
+                   case when #${submittersInPartyClause} then active_cs.command_id else '' end as command_id
+            from participant_events active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > $startExclusive
                   and active_cs.event_sequential_id <= $endInclusiveSeq
                   and not exists (
                     select 1
-                    from participant_events as archived_cs
+                    from participant_events archived_cs
                     where
                       archived_cs.contract_id = active_cs.contract_id and
                       archived_cs.event_kind = 20 and -- consuming
@@ -568,19 +572,21 @@ private[backend] object TemplatedStorageBackend {
       witnessesWhereClause: String,
       limitExpr: String,
       fetchSizeHint: Option[Int],
+      submittersInPartyClause: String
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.OffsetToStatement
     import com.daml.platform.store.Conversions.IdentifierToStatement
-    SQL"""select #$selectColumnsForACS, array[$party] as event_witnesses,
-                   case when active_cs.submitters = #${partyArrayContext._1}$party#${partyArrayContext._2} then active_cs.command_id else '' end as command_id
-            from participant_events as active_cs
+    // TODO BH: figure out why interpolation is required for oracle but bombs h2 and postgres
+    SQL"""select #$selectColumnsForACS, #${partyArrayContext._1}$party#${partyArrayContext._2} as event_witnesses,
+                   case when #${submittersInPartyClause} then active_cs.command_id else '' end as command_id
+            from participant_events active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > $startExclusive
                   and active_cs.event_sequential_id <= $endInclusiveSeq
                   and not exists (
                     select 1
-                    from participant_events as archived_cs
+                    from participant_events archived_cs
                     where
                       archived_cs.contract_id = active_cs.contract_id and
                       archived_cs.event_kind = 20 and -- consuming
@@ -604,15 +610,16 @@ private[backend] object TemplatedStorageBackend {
       fetchSizeHint: Option[Int],
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
+    //TODO BH: confirm as is not needed for any
     SQL"""select #$selectColumnsForACS, #$filteredWitnessesClause as event_witnesses,
                    case when #$submittersInPartiesClause then active_cs.command_id else '' end as command_id
-            from participant_events as active_cs
+            from participant_events active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > $startExclusive
                   and active_cs.event_sequential_id <= $endInclusiveSeq
                   and not exists (
                     select 1
-                    from participant_events as archived_cs
+                    from participant_events archived_cs
                     where
                       archived_cs.contract_id = active_cs.contract_id and
                       archived_cs.event_kind = 20 and -- consuming
@@ -637,15 +644,16 @@ private[backend] object TemplatedStorageBackend {
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
     import com.daml.platform.store.Conversions.IdentifierToStatement
+    //TODO BH: confirm as is not needed for any
     SQL"""select #$selectColumnsForACS, #$filteredWitnessesClause as event_witnesses,
                    case when #$submittersInPartiesClause then active_cs.command_id else '' end as command_id
-            from participant_events as active_cs
+            from participant_events active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > $startExclusive
                   and active_cs.event_sequential_id <= $endInclusiveSeq
                   and not exists (
                     select 1
-                    from participant_events as archived_cs
+                    from participant_events archived_cs
                     where
                       archived_cs.contract_id = active_cs.contract_id and
                       archived_cs.event_kind = 20 and -- consuming
@@ -669,15 +677,16 @@ private[backend] object TemplatedStorageBackend {
       fetchSizeHint: Option[Int],
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
+    //TODO BH: confirm as is not needed for any
     SQL"""select #$selectColumnsForACS, #$filteredWitnessesClause as event_witnesses,
                    case when #$submittersInPartiesClause then active_cs.command_id else '' end as command_id
-            from participant_events as active_cs
+            from participant_events active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > $startExclusive
                   and active_cs.event_sequential_id <= $endInclusiveSeq
                   and not exists (
                     select 1
-                    from participant_events as archived_cs
+                    from participant_events archived_cs
                     where
                       archived_cs.contract_id = active_cs.contract_id and
                       archived_cs.event_kind = 20 and -- consuming
@@ -701,15 +710,16 @@ private[backend] object TemplatedStorageBackend {
       fetchSizeHint: Option[Int],
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
+    //TODO BH: confirm as is not needed for any
     SQL"""select #$selectColumnsForACS, #$filteredWitnessesClause as event_witnesses,
                    case when #$submittersInPartiesClause then active_cs.command_id else '' end as command_id
-            from participant_events as active_cs
+            from participant_events active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > $startExclusive
                   and active_cs.event_sequential_id <= $endInclusiveSeq
                   and not exists (
                     select 1
-                    from participant_events as archived_cs
+                    from participant_events archived_cs
                     where
                       archived_cs.contract_id = active_cs.contract_id and
                       archived_cs.event_kind = 20 and -- consuming
@@ -729,7 +739,7 @@ private[backend] object TemplatedStorageBackend {
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.ledgerStringToStatement
-    SQL"""select #$selectColumnsForTransactions, array[$requestingParty] as event_witnesses,
+    SQL"""select #$selectColumnsForTransactions, #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} as event_witnesses,
                  case when submitters = #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} then command_id else '' end as command_id
           from participant_events
           join parameters on
@@ -853,7 +863,7 @@ private[backend] object TemplatedStorageBackend {
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.ledgerStringToStatement
-    SQL"""select #$selectColumnsForTransactionTree, array[$requestingParty] as event_witnesses,
+    SQL"""select #$selectColumnsForTransactionTree, #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} as event_witnesses,
                  event_kind = 20 as exercise_consuming,
                  case when submitters = #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} then command_id else '' end as command_id
           from participant_events
@@ -895,7 +905,7 @@ private[backend] object TemplatedStorageBackend {
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     SQL"""
-        select #$selectColumnsForTransactionTree, array[$requestingParty] as event_witnesses,
+        select #$selectColumnsForTransactionTree, #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} as event_witnesses,
                event_kind = 20 as exercise_consuming,
                case when submitters = #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} then command_id else '' end as command_id
         from participant_events

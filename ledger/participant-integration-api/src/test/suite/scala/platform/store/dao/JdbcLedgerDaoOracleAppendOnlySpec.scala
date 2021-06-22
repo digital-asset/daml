@@ -14,11 +14,11 @@ class JdbcLedgerDaoOracleAppendOnlySpec
     with JdbcLedgerDaoPackagesSpec
     with JdbcLedgerDaoPartiesSpec
     with JdbcLedgerDaoConfigurationSpec
-//    with JdbcLedgerDaoActiveContractsSpec
+    with JdbcLedgerDaoActiveContractsSpec
 //    with JdbcLedgerDaoCompletionsSpec
 //    with JdbcLedgerDaoContractsSpec
 //    with JdbcLedgerDaoDivulgenceSpec
 //    with JdbcLedgerDaoTransactionsSpec
 //    with JdbcLedgerDaoTransactionTreesSpec
 //    with JdbcLedgerDaoTransactionsWriterSpec
-    with JdbcAtomicTransactionInsertion
+    with JdbcAppendOnlyTransactionInsertion

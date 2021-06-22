@@ -246,6 +246,8 @@ private[backend] object H2StorageBackend
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      //TODO BH: try to avoid injecting this for every single usage
+      submittersInPartyClause = arrayIntersectionWhereClause("active_cs.submitters", Set(party)),
     )(connection)
 
   def activeContractsEventsSinglePartyWithTemplates(
@@ -268,6 +270,7 @@ private[backend] object H2StorageBackend
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submittersInPartyClause = arrayIntersectionWhereClause("active_cs.submitters", Set(party)),
     )(connection)
 
   def activeContractsEventsOnlyWildcardParties(

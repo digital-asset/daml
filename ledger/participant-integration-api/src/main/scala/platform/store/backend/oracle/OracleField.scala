@@ -7,6 +7,8 @@ import java.lang
 import java.sql.{PreparedStatement, Timestamp}
 import java.time.Instant
 import com.daml.platform.store.backend.common.{Field, TrivialField, TrivialOptionalField}
+import spray.json._
+import spray.json.DefaultJsonProtocol._
 
 private[oracle] case class OracleStringField[FROM](extract: FROM => String)
     extends TrivialField[FROM, String]
@@ -60,13 +62,6 @@ private[oracle] case class OracleSmallintOptional[FROM](extract: FROM => Option[
 
 private[oracle] case class OracleBooleanField[FROM](extract: FROM => Boolean)
     extends TrivialField[FROM, Boolean]
-//  {
-//  override def convert: Boolean => Int = if (_) 0 else 1
-//  override def prepareDataTemplate(preparedStatement: PreparedStatement, index: Int, value: Int): Unit = {
-//    // TODO FIXME either cleanup and use Field from common, or change the line below
-//    preparedStatement.setInt(index, value)
-//  }
-//}
 
 private[oracle] case class OracleBooleanOptional[FROM](extract: FROM => Option[Boolean])
     extends Field[FROM, Option[Boolean], java.lang.Boolean] {
@@ -107,28 +102,27 @@ private[oracle] case class OracleTimestampOptional[FROM](extract: FROM => Option
 }
 
 private[oracle] case class OracleStringArray[FROM](extract: FROM => Iterable[String])
-    extends Field[FROM, Iterable[String], Array[String]] {
-  override def convert: Iterable[String] => Array[String] = _.toArray
+    extends Field[FROM, Iterable[String], String] {
+  override def convert: Iterable[String] => String = _.toList.toJson.compactPrint
   override def prepareDataTemplate(
       preparedStatement: PreparedStatement,
       index: Int,
-      value: Array[String],
+      value: String,
   ): Unit = {
-    // TODO FIXME either cleanup and use Field from common, or change the line below
     preparedStatement.setObject(index, value)
   }
 }
 
 private[oracle] case class OracleStringArrayOptional[FROM](
     extract: FROM => Option[Iterable[String]]
-) extends Field[FROM, Option[Iterable[String]], Array[String]] {
-  override def convert: Option[Iterable[String]] => Array[String] = _.map(_.toArray).orNull
+) extends Field[FROM, Option[Iterable[String]], String] {
+  override def convert: Option[Iterable[String]] => String =
+    _.map(_.toList.toJson.compactPrint).getOrElse("[]")
   override def prepareDataTemplate(
       preparedStatement: PreparedStatement,
       index: Int,
-      value: Array[String],
+      value: String,
   ): Unit = {
-    // TODO FIXME either cleanup and use Field from common, or change the line below
     preparedStatement.setObject(index, value)
   }
 }

@@ -255,6 +255,7 @@ private[backend] object PostgresStorageBackend
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submittersInPartyClause = arrayIntersectionWhereClause("active_cs.submitters", Set(party)),
     )(connection)
 
   def activeContractsEventsSinglePartyWithTemplates(
@@ -277,6 +278,7 @@ private[backend] object PostgresStorageBackend
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submittersInPartyClause = arrayIntersectionWhereClause("submitters", Set(party)),
     )(connection)
 
   def activeContractsEventsOnlyWildcardParties(
@@ -484,5 +486,5 @@ private[backend] object PostgresStorageBackend
       }
       .mkString("(", " or ", ")")
 
-  private val partyArrayContext = ("array[", "]::text[]")
+  private val partyArrayContext: (String, String) = ("array[", "]::text[]")
 }

@@ -245,6 +245,7 @@ private[backend] object OracleStorageBackend
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submittersInPartyClause = arrayIntersectionWhereClause("active_cs.submitters", Set(party)),
     )(connection)
 
   def activeContractsEventsSinglePartyWithTemplates(
@@ -267,6 +268,7 @@ private[backend] object OracleStorageBackend
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submittersInPartyClause = arrayIntersectionWhereClause("submitters", Set(party)),
     )(connection)
 
   def activeContractsEventsOnlyWildcardParties(
@@ -451,7 +453,7 @@ private[backend] object OracleStorageBackend
     // This query could be: "select max(event_sequential_id) from participant_events where event_offset <= ${range.endInclusive}"
     // however tests using PostgreSQL 12 with tens of millions of events have shown that the index
     // on `event_offset` is not used unless we _hint_ at it by specifying `order by event_offset`
-    SQL"select max(event_sequential_id) from participant_events where event_offset <= $offset group by event_offset order by event_offset desc rows ${limitClause(Some(1))}"
+    SQL"select max(event_sequential_id) from participant_events where event_offset <= $offset group by event_offset order by event_offset desc #${limitClause(Some(1))}"
       .as(get[Long](1).singleOpt)(connection)
   }
 
@@ -480,5 +482,5 @@ private[backend] object OracleStorageBackend
       }
       .mkString("(", " or ", ")")
 
-  private val partyArrayContext = ("[", "]")
+  private val partyArrayContext = ("'[\"", "\"]'")
 }
