@@ -62,6 +62,9 @@ jobs:
     final_job_name: da_ghc_lib
 
 - job: build_dev_env
+  pool:
+    name: ubuntu_20_04
+    demands: assignment -equals default
   steps:
     - checkout: self
     - bash: ci/dev-env-install.sh
