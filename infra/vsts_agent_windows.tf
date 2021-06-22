@@ -34,6 +34,9 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
     instance_template = google_compute_instance_template.vsts-agent-windows[count.index].self_link
   }
 
+  # uncomment when we get a provider >3.55
+  #distribution_policy_target_shape = "ANY"
+
   update_policy {
     type           = "PROACTIVE"
     minimal_action = "REPLACE"
@@ -44,6 +47,8 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows" {
     # calculated with: serial console last timestamp after boot - VM start
     # 09:54:28 - 09:45:55 = 513 seconds
     min_ready_sec = 520
+
+    instance_redistribution_type = "NONE"
   }
 }
 
