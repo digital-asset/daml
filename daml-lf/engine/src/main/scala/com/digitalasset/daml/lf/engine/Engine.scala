@@ -121,8 +121,12 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       }
   }
 
-  /** Behaves like `submit`, but it takes a GenNode argument instead of a Commands argument.
-    * That is, it can be used to reinterpret partially an already interpreted transaction (since it consists of GenNodes).
+  /** Behaves like `submit`, but it takes a single command argument.
+    * It can be used to reinterpret partially an already interpreted transaction.
+    *
+    * If the command would fail with an unhandled exception, we return a transaction containing a
+    * single rollback node. (This is achieving by compiling with `unsafeCompileForReinterpretation`
+    * which wraps the command with a catch-everything exception handler.)
     *
     * [[nodeSeed]] is the seed of the Create and Exercise node as generated during submission.
     * If undefined the contract IDs are derive using V0 scheme.
