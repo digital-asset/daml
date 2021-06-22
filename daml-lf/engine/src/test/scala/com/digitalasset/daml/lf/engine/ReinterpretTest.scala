@@ -12,7 +12,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.Ast._
 import com.daml.lf.transaction.{GlobalKeyWithMaintainers, NodeId, GenTransaction}
-import com.daml.lf.transaction.Node.{NodeRollback, NodeExercises}
+import com.daml.lf.transaction.Node.{NodeRollback, NodeExercises, NodeCreate}
 import com.daml.lf.value.Value._
 import com.daml.lf.command._
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedValue
@@ -74,6 +74,7 @@ class ReinterpretTest
   private def Top(xs: Shape*) = Shape.Top(xs.toList)
   private def Exercise(xs: Shape*) = Shape.Exercise(xs.toList)
   private def Rollback(xs: Shape*) = Shape.Rollback(xs.toList)
+  private def Create() = Shape.Create()
 
   val submitters = Set(party)
   val time = Time.Timestamp.now()
@@ -144,6 +145,82 @@ class ReinterpretTest
     }
   }
 
+  "successful create command" should {
+
+    "reinterpret has correct shape" in {
+
+      val theCommand = {
+        val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MyEnsuring")
+        CreateCommand(
+          templateId,
+          ValueRecord(
+            Some(templateId),
+            ImmArray(
+              (Some[Ref.Name]("p"), ValueParty(party)),
+              (Some[Ref.Name]("v"), ValueInt64(42)), // ok (< 50)
+            ),
+          ),
+        )
+      }
+
+      val res = engine
+        .reinterpret(
+          submitters,
+          theCommand,
+          Some(seed),
+          time,
+          time,
+        )
+        .consume(
+          lookupContract,
+          lookupPackage,
+          lookupKey,
+          VisibleByKey.fromSubmitters(submitters),
+        )
+
+      val Right((tx, _)) = res
+      Shape.ofTransaction(tx.transaction) shouldBe Top(Create())
+    }
+  }
+
+  "create command fails ensure" should {
+
+    "reinterpret has correct shape" in {
+
+      val theCommand = {
+        val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MyEnsuring")
+        CreateCommand(
+          templateId,
+          ValueRecord(
+            Some(templateId),
+            ImmArray(
+              (Some[Ref.Name]("p"), ValueParty(party)),
+              (Some[Ref.Name]("v"), ValueInt64(52)), // too big (>= 50)
+            ),
+          ),
+        )
+      }
+
+      val res = engine
+        .reinterpret(
+          submitters,
+          theCommand,
+          Some(seed),
+          time,
+          time,
+        )
+        .consume(
+          lookupContract,
+          lookupPackage,
+          lookupKey,
+          VisibleByKey.fromSubmitters(submitters),
+        )
+
+      val Right((tx, _)) = res
+      Shape.ofTransaction(tx.transaction) shouldBe Top() // no rollback node
+    }
+  }
+
 }
 
 object ReinterpretTest {
@@ -163,12 +240,14 @@ object ReinterpretTest {
     final case class Top(xs: List[Shape])
     final case class Exercise(x: List[Shape]) extends Shape
     final case class Rollback(x: List[Shape]) extends Shape
+    final case class Create() extends Shape
 
     def ofTransaction(tx: GenTransaction[NodeId, ContractId]): Top = {
       def ofNid(nid: NodeId): Shape = {
         tx.nodes(nid) match {
           case node: NodeExercises[_, _] => Exercise(node.children.toList.map(ofNid))
           case node: NodeRollback[_] => Rollback(node.children.toList.map(ofNid))
+          case _: NodeCreate[_] => Create()
           case _ => sys.error(s"Shape.ofTransaction, unexpected tx node")
         }
       }
