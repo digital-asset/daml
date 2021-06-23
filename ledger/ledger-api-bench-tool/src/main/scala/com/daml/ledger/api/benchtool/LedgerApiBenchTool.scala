@@ -82,7 +82,7 @@ object LedgerApiBenchTool {
                 logger = logger,
                 damlMetrics = Some(
                   MetricsSet
-                    .transactionDamlMetrics(streamConfig.name, registry, config.reportingPeriod)
+                    .transactionExposedMetrics(streamConfig.name, registry, config.reportingPeriod)
                 ),
               )(system, ec)
               .flatMap { observer =>
@@ -96,7 +96,7 @@ object LedgerApiBenchTool {
                 metrics = MetricsSet.transactionTreesMetrics(streamConfig.objectives),
                 logger = logger,
                 damlMetrics = Some(
-                  MetricsSet.transactionTreesDamlMetrics(
+                  MetricsSet.transactionTreesExposedMetrics(
                     streamConfig.name,
                     registry,
                     config.reportingPeriod,
@@ -113,6 +113,13 @@ object LedgerApiBenchTool {
                 logInterval = config.reportingPeriod,
                 metrics = MetricsSet.activeContractsMetrics,
                 logger = logger,
+                damlMetrics = Some(
+                  MetricsSet.activeContractsExposedMetrics(
+                    streamConfig.name,
+                    registry,
+                    config.reportingPeriod,
+                  )
+                ),
               )(system, ec)
               .flatMap { observer =>
                 activeContractsService.getActiveContracts(streamConfig, observer)
@@ -124,6 +131,10 @@ object LedgerApiBenchTool {
                 logInterval = config.reportingPeriod,
                 metrics = MetricsSet.completionsMetrics,
                 logger = logger,
+                damlMetrics = Some(
+                  MetricsSet
+                    .completionsExposedMetrics(streamConfig.name, registry, config.reportingPeriod)
+                ),
               )(system, ec)
               .flatMap { observer =>
                 commandCompletionService.completions(streamConfig, observer)

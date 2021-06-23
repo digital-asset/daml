@@ -28,21 +28,20 @@ object MetricsSet {
       objectives = objectives,
     )
 
-  def transactionDamlMetrics(
+  def transactionExposedMetrics(
       streamName: String,
       registry: MetricRegistry,
       slidingTimeWindow: FiniteDuration,
-  ): DamlMetrics[GetTransactionsResponse] =
-    DamlMetrics[GetTransactionsResponse](
+  ): ExposedMetrics[GetTransactionsResponse] =
+    ExposedMetrics[GetTransactionsResponse](
       streamName = streamName,
       registry = registry,
       slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
       countingFunction = _.transactions.length.toLong,
       sizingFunction = _.serializedSize.toLong,
-      recordTimeFunction = _.transactions.collect {
+      recordTimeFunction = Some(_.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
-      },
-      clock = Clock.systemUTC(),
+      }),
     )
 
   def transactionTreesMetrics(
@@ -57,21 +56,20 @@ object MetricsSet {
       objectives = objectives,
     )
 
-  def transactionTreesDamlMetrics(
+  def transactionTreesExposedMetrics(
       streamName: String,
       registry: MetricRegistry,
       slidingTimeWindow: FiniteDuration,
-  ): DamlMetrics[GetTransactionTreesResponse] =
-    DamlMetrics[GetTransactionTreesResponse](
+  ): ExposedMetrics[GetTransactionTreesResponse] =
+    ExposedMetrics[GetTransactionTreesResponse](
       streamName = streamName,
       registry = registry,
       slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
       countingFunction = _.transactions.length.toLong,
       sizingFunction = _.serializedSize.toLong,
-      recordTimeFunction = _.transactions.collect {
+      recordTimeFunction = Some(_.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
-      },
-      clock = Clock.systemUTC(),
+      }),
     )
 
   def activeContractsMetrics: List[Metric[GetActiveContractsResponse]] =
@@ -87,6 +85,20 @@ object MetricsSet {
       ),
     )
 
+  def activeContractsExposedMetrics(
+      streamName: String,
+      registry: MetricRegistry,
+      slidingTimeWindow: FiniteDuration,
+  ): ExposedMetrics[GetActiveContractsResponse] =
+    ExposedMetrics[GetActiveContractsResponse](
+      streamName = streamName,
+      registry = registry,
+      slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
+      countingFunction = _.activeContracts.length.toLong,
+      sizingFunction = _.serializedSize.toLong,
+      recordTimeFunction = None,
+    )
+
   def completionsMetrics: List[Metric[CompletionStreamResponse]] =
     List[Metric[CompletionStreamResponse]](
       CountRateMetric.empty(
@@ -98,6 +110,20 @@ object MetricsSet {
       SizeMetric.empty(
         sizingFunction = _.serializedSize.toLong
       ),
+    )
+
+  def completionsExposedMetrics(
+      streamName: String,
+      registry: MetricRegistry,
+      slidingTimeWindow: FiniteDuration,
+  ): ExposedMetrics[CompletionStreamResponse] =
+    ExposedMetrics[CompletionStreamResponse](
+      streamName = streamName,
+      registry = registry,
+      slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
+      countingFunction = _.completions.length.toLong,
+      sizingFunction = _.serializedSize.toLong,
+      recordTimeFunction = None,
     )
 
   private def all[T](

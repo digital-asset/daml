@@ -29,7 +29,7 @@ object MetricsCollector {
       metrics: List[Metric[T]],
       logInterval: FiniteDuration,
       reporter: MetricReporter,
-      damlMetrics: Option[DamlMetrics[T]] = None,
+      damlMetrics: Option[ExposedMetrics[T]] = None,
   ): Behavior[Message] =
     Behaviors.withTimers { timers =>
       val startTime: Instant = Instant.now()
@@ -45,7 +45,7 @@ class MetricsCollector[T](
     logInterval: FiniteDuration,
     reporter: MetricReporter,
     startTime: Instant,
-    damlMetrics: Option[DamlMetrics[T]],
+    damlMetrics: Option[ExposedMetrics[T]],
 ) {
   import MetricsCollector._
   import MetricsCollector.Message._

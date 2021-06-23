@@ -16,7 +16,7 @@ object StreamMetrics {
       logInterval: FiniteDuration,
       metrics: List[Metric[StreamElem]],
       logger: Logger,
-      damlMetrics: Option[DamlMetrics[StreamElem]] = None,
+      damlMetrics: Option[ExposedMetrics[StreamElem]] = None,
   )(implicit
       system: ActorSystem[SpawnProtocol.Command],
       ec: ExecutionContext,

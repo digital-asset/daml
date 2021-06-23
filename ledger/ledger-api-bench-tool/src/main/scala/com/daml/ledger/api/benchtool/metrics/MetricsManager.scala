@@ -28,7 +28,7 @@ object MetricsManager {
       streamName: String,
       logInterval: FiniteDuration,
       metrics: List[Metric[StreamElem]],
-      damlMetrics: Option[DamlMetrics[StreamElem]],
+      damlMetrics: Option[ExposedMetrics[StreamElem]],
   )(implicit
       system: ActorSystem[SpawnProtocol.Command],
       ec: ExecutionContext,
