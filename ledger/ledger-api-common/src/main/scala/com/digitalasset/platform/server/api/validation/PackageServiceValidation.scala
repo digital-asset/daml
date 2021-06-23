@@ -7,7 +7,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v1.package_service._
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.ProxyCloseable
+import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -23,13 +23,13 @@ class PackageServiceValidation(
     with GrpcApiService
     with FieldValidations {
 
-  protected val logger: Logger = LoggerFactory.getLogger(PackageService.getClass)
+  protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .map(const(request))
       .fold(
-        Future.failed,
+        t => Future.failed(ValidationLogger.logFailure(request, t)),
         service.listPackages,
       )
 
@@ -37,7 +37,7 @@ class PackageServiceValidation(
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .map(const(request))
       .fold(
-        Future.failed,
+        t => Future.failed(ValidationLogger.logFailure(request, t)),
         service.getPackage,
       )
 
@@ -47,7 +47,7 @@ class PackageServiceValidation(
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
       .map(const(request))
       .fold(
-        Future.failed,
+        t => Future.failed(ValidationLogger.logFailure(request, t)),
         service.getPackageStatus,
       )
   override def bindService(): ServerServiceDefinition =

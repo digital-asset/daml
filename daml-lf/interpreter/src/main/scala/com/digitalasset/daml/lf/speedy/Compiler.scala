@@ -267,6 +267,11 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
+  def unsafeCompileForReinterpretation(cmd: Command): SExpr =
+    validate(compilationPipeline(compileCommandForReinterpretation(cmd)))
+
+  @throws[PackageNotFound]
+  @throws[CompilationError]
   def unsafeCompile(expr: Expr): SExpr =
     validate(compilationPipeline(compile(expr)))
 
@@ -1519,6 +1524,24 @@ private[lf] final class Compiler(
   }
 
   private val SEUpdatePureUnit = unaryFunction(_ => SEValue.Unit)
+
+  private[this] val handleEverything: SExpr = SBSome(SEUpdatePureUnit)
+
+  private[this] def catchEverything(e: SExpr): SExpr = {
+    unaryFunction { tokenPos =>
+      SETryCatch(
+        app(e, svar(tokenPos)),
+        withEnv { _ =>
+          val binderPos = nextPosition()
+          SBTryHandler(handleEverything, svar(binderPos), svar(tokenPos))
+        },
+      )
+    }
+  }
+
+  private[this] def compileCommandForReinterpretation(cmd: Command): SExpr = {
+    catchEverything(compileCommand(cmd))
+  }
 
   private[this] def compileCommands(bindings: ImmArray[Command]): SExpr =
     // commands are compile similarly as update block

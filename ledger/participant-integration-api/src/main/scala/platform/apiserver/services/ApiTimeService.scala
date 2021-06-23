@@ -17,6 +17,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.akkastreams.dispatcher.SignalDispatcher
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.TimeServiceBackend
+import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.FieldValidations
 import com.google.protobuf.empty.Empty
 import io.grpc.{ServerServiceDefinition, Status, StatusRuntimeException}
@@ -37,7 +38,7 @@ private[apiserver] final class ApiTimeService private (
     with FieldValidations
     with GrpcApiService {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   logger.debug(
     s"${getClass.getSimpleName} initialized with ledger ID ${ledgerId.unwrap}, start time ${backend.getCurrentTime}"
@@ -47,7 +48,7 @@ private[apiserver] final class ApiTimeService private (
 
   override protected def getTimeSource(request: GetTimeRequest): Source[GetTimeResponse, NotUsed] =
     matchLedgerId(ledgerId)(LedgerId(request.ledgerId)).fold(
-      Source.failed,
+      t => Source.failed(ValidationLogger.logFailureWithContext(request, t)),
       { ledgerId =>
         logger.info(s"Received request for time with ledger ID $ledgerId")
         dispatcher

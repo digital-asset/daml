@@ -39,7 +39,7 @@ import qualified System.IO as IO
 import System.IO.Extra (withTempFile)
 import System.Process
 
-newtype MaxInboundMessageSize = MaxInboundMessageSize Int
+newtype MaxInboundMessageSize = MaxInboundMessageSize { getMaxInboundMessageSize :: Int }
   deriving newtype Read
 
 data ReplTimeMode = ReplWallClock | ReplStatic
@@ -109,6 +109,7 @@ withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
                 ReplStatic -> "--static-time"
                 ReplWallClock -> "--wall-clock-time"
           ]
+        , concat [ ["--max-inbound-message-size", show (getMaxInboundMessageSize size)] | Just size <- [optMaxInboundMessageSize] ]
         ]
     withCreateProcess replServer { std_out = optStdout } $ \_ stdout _ ph -> do
       port <- readPortFile maxRetries portFile
@@ -154,7 +155,11 @@ performRequest
   -> payload
   -> IO (Either BackendError response)
 performRequest method payload = do
-  method (ClientNormalRequest payload 30 mempty) >>= \case
+  method (ClientNormalRequest payload timeoutSeconds mempty) >>= \case
     ClientNormalResponse resp _ _ StatusOk _ -> return (Right resp)
     ClientNormalResponse _ _ _ status _ -> return (Left $ BErrorFail status)
     ClientErrorResponse err -> return (Left $ BErrorClient err)
+
+
+timeoutSeconds :: Int
+timeoutSeconds = 60

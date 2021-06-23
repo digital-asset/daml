@@ -121,8 +121,12 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       }
   }
 
-  /** Behaves like `submit`, but it takes a GenNode argument instead of a Commands argument.
-    * That is, it can be used to reinterpret partially an already interpreted transaction (since it consists of GenNodes).
+  /** Behaves like `submit`, but it takes a single command argument.
+    * It can be used to reinterpret partially an already interpreted transaction.
+    *
+    * If the command would fail with an unhandled exception, we return a transaction containing a
+    * single rollback node. (This is achieving by compiling with `unsafeCompileForReinterpretation`
+    * which wraps the command with a catch-everything exception handler.)
     *
     * [[nodeSeed]] is the seed of the Create and Exercise node as generated during submission.
     * If undefined the contract IDs are derive using V0 scheme.
@@ -141,11 +145,12 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     for {
       commandWithCids <- preprocessor.preprocessCommand(command)
       (speedyCommand, globalCids) = commandWithCids
+      sexpr = compiledPackages.compiler.unsafeCompileForReinterpretation(speedyCommand)
       // reinterpret is never used for submission, only for validation.
-      result <- interpretCommands(
+      result <- interpretExpression(
         validating = true,
         submitters = submitters,
-        commands = ImmArray(speedyCommand),
+        sexpr = sexpr,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
@@ -256,6 +261,28 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     start
   }
 
+  // command-list compilation, followed by interpretation
+  private[engine] def interpretCommands(
+      validating: Boolean,
+      submitters: Set[Party],
+      commands: ImmArray[speedy.Command],
+      ledgerTime: Time.Timestamp,
+      submissionTime: Time.Timestamp,
+      seeding: speedy.InitialSeeding,
+      globalCids: Set[Value.ContractId],
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
+    val sexpr = compiledPackages.compiler.unsafeCompile(commands)
+    interpretExpression(
+      validating,
+      submitters,
+      sexpr,
+      ledgerTime,
+      submissionTime,
+      seeding,
+      globalCids,
+    )
+  }
+
   /** Interprets the given commands under the authority of @submitters
     *
     * Submitters are a set, in order to support interpreting subtransactions
@@ -263,18 +290,17 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     *
     * [[seeding]] is seeding used to derive node seed and contractId discriminator.
     */
-  private[engine] def interpretCommands(
+  private[engine] def interpretExpression(
       validating: Boolean,
       /* See documentation for `Speedy.Machine` for the meaning of this field */
       submitters: Set[Party],
-      commands: ImmArray[speedy.Command],
+      sexpr: SExpr,
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
       globalCids: Set[Value.ContractId],
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     runSafely(NameOf.qualifiedNameOfCurrentFunc) {
-      val sexpr = compiledPackages.compiler.unsafeCompile(commands)
       val machine = Machine(
         compiledPackages = compiledPackages,
         submissionTime = submissionTime,
