@@ -28,8 +28,10 @@ import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.{Error => LfError}
+import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import com.daml.lf.language.LookupError
-import com.daml.lf.transaction.ReplayNodeMismatch
+import com.daml.lf
+import com.daml.lf.transaction.{GlobalKey, NodeId, ReplayNodeMismatch}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
@@ -192,12 +194,26 @@ class ApiSubmissionServiceSpec
   behavior of "submit"
 
   it should "return proper gRPC status codes for DamlLf errors" in {
+    val tmplId = Ref.Identifier.assertFromString("pkgId:M:T")
+
     val errorsToStatuses = List(
       ErrorCause.DamlLf(
-        LfError.Interpretation(LfError.Interpretation.ContractNotFound(null))
+        LfError.Interpretation(
+          LfError.Interpretation.DamlException(
+            LfInterpretationError.ContractNotFound(Value.ContractId.assertFromString("#cid"))
+          ),
+          None,
+        )
       ) -> Status.ABORTED,
       ErrorCause.DamlLf(
-        LfError.Interpretation(LfError.Interpretation.DuplicateContractKey(null))
+        LfError.Interpretation(
+          LfError.Interpretation.DamlException(
+            LfInterpretationError.DuplicateContractKey(
+              GlobalKey.assertBuild(tmplId, Value.ValueUnit)
+            )
+          ),
+          None,
+        )
       ) -> Status.ABORTED,
       ErrorCause.DamlLf(
         LfError.Validation(
@@ -212,7 +228,15 @@ class ApiSubmissionServiceSpec
         )
       ) -> Status.INVALID_ARGUMENT,
       ErrorCause.DamlLf(
-        LfError.Interpretation(LfError.Interpretation.Authorization(""))
+        LfError.Interpretation(
+          LfError.Interpretation.DamlException(
+            LfInterpretationError.FailedAuthorization(
+              NodeId(1),
+              lf.ledger.FailedAuthorization.NoSignatories(tmplId, None),
+            )
+          ),
+          None,
+        )
       ) -> Status.INVALID_ARGUMENT,
       ErrorCause.LedgerTime(0) -> Status.ABORTED,
     )

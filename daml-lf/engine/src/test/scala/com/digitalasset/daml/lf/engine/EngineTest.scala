@@ -31,6 +31,7 @@ import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
+import com.daml.lf.engine.Error.Interpretation
 import com.daml.lf.transaction.Node.{GenActionNode, GenNode}
 import com.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedValue
 import org.scalactic.Equality
@@ -755,9 +756,9 @@ class EngineTest
       val submitResult = engine
         .submit(submitters, Commands(ImmArray(command), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
-      inside(submitResult) { case Left(err) =>
-        err shouldBe Error.Interpretation(
-          Error.Interpretation.ContractKeyNotFound(
+      inside(submitResult) { case Left(Error.Interpretation(err, _)) =>
+        err shouldBe Interpretation.DamlException(
+          interpretation.Error.ContractKeyNotFound(
             GlobalKey.assertBuild(
               BasicTests_WithKey,
               ValueRecord(
@@ -969,21 +970,22 @@ class EngineTest
         )
         .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
-      inside(result) { case Left(err) =>
-        err shouldBe Error.Interpretation(
-          Error.Interpretation.ContractKeyNotFound(
-            GlobalKey.assertBuild(
-              BasicTests_WithKey,
-              ValueRecord(
-                Some(BasicTests_WithKey),
-                ImmArray(
-                  (Some[Ref.Name]("p"), ValueParty(alice)),
-                  (Some[Ref.Name]("k"), ValueInt64(43)),
+      inside(result) { case Left(Error.Interpretation(err, _)) =>
+        err shouldBe
+          Interpretation.DamlException(
+            interpretation.Error.ContractKeyNotFound(
+              GlobalKey.assertBuild(
+                BasicTests_WithKey,
+                ValueRecord(
+                  Some(BasicTests_WithKey),
+                  ImmArray(
+                    (Some[Ref.Name]("p"), ValueParty(alice)),
+                    (Some[Ref.Name]("k"), ValueInt64(43)),
+                  ),
                 ),
-              ),
+              )
             )
           )
-        )
       }
     }
     "error if Speedy fails to find the key" in {
@@ -1014,21 +1016,22 @@ class EngineTest
         )
         .consume(_ => None, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
-      inside(result) { case Left(err) =>
-        err shouldBe Error.Interpretation(
-          Error.Interpretation.ContractKeyNotFound(
-            GlobalKey.assertBuild(
-              BasicTests_WithKey,
-              ValueRecord(
-                Some(BasicTests_WithKey),
-                ImmArray(
-                  (Some[Ref.Name]("p"), ValueParty(alice)),
-                  (Some[Ref.Name]("k"), ValueInt64(43)),
+      inside(result) { case Left(Error.Interpretation(err, _)) =>
+        err shouldBe
+          Interpretation.DamlException(
+            interpretation.Error.ContractKeyNotFound(
+              GlobalKey.assertBuild(
+                BasicTests_WithKey,
+                ValueRecord(
+                  Some(BasicTests_WithKey),
+                  ImmArray(
+                    (Some[Ref.Name]("p"), ValueParty(alice)),
+                    (Some[Ref.Name]("k"), ValueInt64(43)),
+                  ),
                 ),
-              ),
+              )
             )
           )
-        )
       }
     }
   }

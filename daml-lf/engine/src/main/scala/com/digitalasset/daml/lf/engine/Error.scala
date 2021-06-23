@@ -6,7 +6,7 @@ package engine
 
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{GlobalKey, NodeId}
+import com.daml.lf.transaction.NodeId
 import com.daml.lf.value.Value
 
 sealed abstract class Error {
@@ -125,7 +125,11 @@ object Error {
   }
 
   // Error happening during interpretation
-  final case class Interpretation(interpretationError: Interpretation.Error) extends Error {
+  final case class Interpretation(
+      interpretationError: Interpretation.Error,
+      // detailMsg describes the state of the machine when the error occurs
+      detailMsg: Option[String],
+  ) extends Error {
     def msg: String = interpretationError.msg
   }
 
@@ -137,27 +141,23 @@ object Error {
 
     // TODO https://github.com/digital-asset/daml/issues/9974
     //  get rid of Generic
-    final case class Generic(override val msg: String, detailMsg: String) extends Error
-    object Generic {
-      def apply(msg: String): Generic = Generic(msg, msg)
-    }
+    final case class Generic(override val msg: String) extends Error
 
-    final case class ContractNotFound(ci: Value.ContractId) extends Error {
-      override def msg = s"Contract could not be found with id $ci"
+    final case class DamlException(error: interpretation.Error) extends Error {
+      // TODO https://github.com/digital-asset/daml/issues/9974
+      //  For now we try to preserve the exact same message (for the ledger API)
+      //  Review once all the errors are properly structured
+      override def msg: String = error match {
+        case interpretation.Error.ContractNotFound(cid) =>
+          // TODO https://github.com/digital-asset/daml/issues/9974
+          //   we should probably use ${cid.coid} instead of $cid
+          s"Contract could not be found with id $cid"
+        case interpretation.Error.ContractKeyNotFound(key) =>
+          s"dependency error: couldn't find key: $key"
+        case _ =>
+          s"Interpretation error: Error: ${speedy.Pretty.prettyDamlException(error).render(80)}"
+      }
     }
-
-    final case class ContractKeyNotFound(key: GlobalKey) extends Error {
-      override def msg = s"dependency error: couldn't find key: $key"
-    }
-
-    /** See com.daml.lf.transaction.Transaction.DuplicateContractKey
-      * for more information.
-      */
-    final case class DuplicateContractKey(key: GlobalKey) extends Error {
-      override def msg = s"Duplicate contract key $key"
-    }
-
-    final case class Authorization(override val msg: String) extends Error
 
   }
 

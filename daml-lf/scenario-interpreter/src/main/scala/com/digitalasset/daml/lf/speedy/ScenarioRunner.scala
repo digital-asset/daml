@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 import com.daml.lf.CompiledPackages
 import com.daml.lf.crypto
@@ -317,7 +318,7 @@ object ScenarioRunner {
 
       ledger.ledgerData.activeKeys.get(gk) match {
         case None =>
-          missingWith(DamlEContractKeyNotFound(gk))
+          missingWith(SErrorDamlException(interpretation.Error.ContractKeyNotFound(gk)))
         case Some(acoid) =>
           ledger.lookupGlobalContract(
             view = ScenarioLedger.ParticipantView(actAs, readAs),

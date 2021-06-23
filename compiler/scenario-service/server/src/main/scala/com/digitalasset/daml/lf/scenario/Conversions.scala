@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.scenario
+package com.daml.lf
+package scenario
 
 import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.ledger.EventId
@@ -88,58 +89,87 @@ final class Conversions(
 
       case SError.SRequiresOnLedger(operation) => setCrash(operation)
 
-      case SError.DamlEMatchError(reason) => setCrash(reason)
+      case SError.SErrorDamlException(interpretationError) =>
+        import interpretation.Error._
+        interpretationError match {
+          case UnhandledException(_, value) =>
+            builder.setUnhandledException(convertValue(value))
+          case UserError(msg) =>
+            builder.setUserError(msg)
+          case ContractNotFound(cid) =>
+            // TODO https://github.com/digital-asset/daml/issues/9974
+            // We crash here because:
+            //  1. You cannot construct a cid yourself in scenarios or
+            //     daml script
+            //  2. Contract id fetch failures because a contract was
+            //     archived or what not are turned into more specific
+            //     errors so we never produce ContractNotFound
+            builder.setCrash(s"contract ${cid.coid} not found")
+          case TemplatePreconditionViolated(tid, optLoc, arg) =>
+            val uepvBuilder = proto.ScenarioError.TemplatePreconditionViolated.newBuilder
+            optLoc.map(convertLocation).foreach(uepvBuilder.setLocation)
+            builder.setTemplatePrecondViolated(
+              uepvBuilder
+                .setTemplateId(convertIdentifier(tid))
+                .setArg(convertValue(arg))
+                .build
+            )
+          case ContractNotActive(coid, tid, consumedBy) =>
+            builder.setUpdateLocalContractNotActive(
+              proto.ScenarioError.ContractNotActive.newBuilder
+                .setContractRef(mkContractRef(coid, tid))
+                .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
+                .build
+            )
+          case LocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+            builder.setScenarioContractKeyNotVisible(
+              proto.ScenarioError.ContractKeyNotVisible.newBuilder
+                .setContractRef(mkContractRef(coid, gk.templateId))
+                .addAllActAs(actAs.map(convertParty(_)).asJava)
+                .addAllReadAs(readAs.map(convertParty(_)).asJava)
+                .addAllStakeholders(stakeholders.map(convertParty).asJava)
+                .build
+            )
+          case ContractKeyNotFound(gk) =>
+            builder.setScenarioContractKeyNotFound(
+              proto.ScenarioError.ContractKeyNotFound.newBuilder
+                .setTemplateId(convertIdentifier(gk.templateId))
+                .setKey(convertValue(gk.key))
+                .build
+            )
+          case DuplicateContractKey(key) =>
+            builder.setScenarioCommitError(
+              proto.CommitError.newBuilder.setUniqueKeyViolation(convertGlobalKey(key)).build
+            )
+          case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
+            builder.setCreateEmptyContractKeyMaintainers(
+              proto.ScenarioError.CreateEmptyContractKeyMaintainers.newBuilder
+                .setArg(convertValue(arg))
+                .setTemplateId(convertIdentifier(tid))
+                .setKey(convertValue(key))
+            )
+          case FetchEmptyContractKeyMaintainers(tid, key) =>
+            builder.setFetchEmptyContractKeyMaintainers(
+              proto.ScenarioError.FetchEmptyContractKeyMaintainers.newBuilder
+                .setTemplateId(convertIdentifier(tid))
+                .setKey(convertValue(key))
+            )
+          case wtc: WronglyTypedContract =>
+            // TODO https://github.com/digital-asset/daml/issues/9974
+            //   (MK) This isn’t actually true. You can easily
+            //   coerceContractId your way into this error. Not for
+            //   this PR though.
+            sys.error(
+              s"Got unexpected DamlEWronglyTypedContract error in scenario service: $wtc. Note that in the scenario service this error should never surface since contract fetches are all type checked."
+            )
+          case FailedAuthorization(nid, fa) =>
+            builder.setScenarioCommitError(
+              proto.CommitError.newBuilder
+                .setFailedAuthorizations(convertFailedAuthorization(nid, fa))
+                .build
+            )
 
-      case SError.DamlEUnhandledException(excep) =>
-        builder.setUnhandledException(convertValue(excep.value.toValue))
-
-      case SError.DamlEUserError(msg) => builder.setUserError(msg)
-
-      case SError.DamlETransactionError(reason) =>
-        setCrash(reason)
-
-      case SError.DamlETemplatePreconditionViolated(tid, optLoc, arg) =>
-        val uepvBuilder = proto.ScenarioError.TemplatePreconditionViolated.newBuilder
-        optLoc.map(convertLocation).foreach(uepvBuilder.setLocation)
-        builder.setTemplatePrecondViolated(
-          uepvBuilder
-            .setTemplateId(convertIdentifier(tid))
-            .setArg(convertValue(arg))
-            .build
-        )
-      case SError.DamlELocalContractNotActive(coid, tid, consumedBy) =>
-        builder.setUpdateLocalContractNotActive(
-          proto.ScenarioError.ContractNotActive.newBuilder
-            .setContractRef(mkContractRef(coid, tid))
-            .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
-            .build
-        )
-      case SError.DamlEDuplicateContractKey(key) =>
-        builder.setScenarioCommitError(
-          proto.CommitError.newBuilder.setUniqueKeyViolation(convertGlobalKey(key)).build
-        )
-      case SError.DamlEFailedAuthorization(nid, fa) =>
-        builder.setScenarioCommitError(
-          proto.CommitError.newBuilder
-            .setFailedAuthorizations(convertFailedAuthorization(nid, fa))
-            .build
-        )
-
-      case SError.DamlECreateEmptyContractKeyMaintainers(tid, arg, key) =>
-        builder.setCreateEmptyContractKeyMaintainers(
-          proto.ScenarioError.CreateEmptyContractKeyMaintainers.newBuilder
-            .setArg(convertValue(arg))
-            .setTemplateId(convertIdentifier(tid))
-            .setKey(convertValue(key))
-        )
-
-      case SError.DamlEFetchEmptyContractKeyMaintainers(tid, key) =>
-        builder.setFetchEmptyContractKeyMaintainers(
-          proto.ScenarioError.FetchEmptyContractKeyMaintainers.newBuilder
-            .setTemplateId(convertIdentifier(tid))
-            .setKey(convertValue(key))
-        )
-
+        }
       case SError.ScenarioErrorContractNotEffective(coid, tid, effectiveAt) =>
         builder.setScenarioContractNotEffective(
           proto.ScenarioError.ContractNotEffective.newBuilder
@@ -166,16 +196,6 @@ final class Conversions(
             .build
         )
 
-      case SError.DamlELocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
-        builder.setScenarioContractKeyNotVisible(
-          proto.ScenarioError.ContractKeyNotVisible.newBuilder
-            .setContractRef(mkContractRef(coid, gk.templateId))
-            .addAllActAs(actAs.map(convertParty(_)).asJava)
-            .addAllReadAs(readAs.map(convertParty(_)).asJava)
-            .addAllStakeholders(stakeholders.map(convertParty).asJava)
-            .build
-        )
-
       case SError.ScenarioErrorContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
         builder.setScenarioContractKeyNotVisible(
           proto.ScenarioError.ContractKeyNotVisible.newBuilder
@@ -184,14 +204,6 @@ final class Conversions(
             .addAllActAs(actAs.map(convertParty(_)).asJava)
             .addAllReadAs(readAs.map(convertParty(_)).asJava)
             .addAllStakeholders(stakeholders.map(convertParty).asJava)
-            .build
-        )
-
-      case SError.DamlEContractKeyNotFound(gk) =>
-        builder.setScenarioContractKeyNotFound(
-          proto.ScenarioError.ContractKeyNotFound.newBuilder
-            .setTemplateId(convertIdentifier(gk.templateId))
-            .setKey(convertValue(gk.key))
             .build
         )
 
@@ -207,11 +219,6 @@ final class Conversions(
 
       case SError.ScenarioErrorPartyAlreadyExists(party) =>
         builder.setScenarioPartyAlreadyExists(party)
-
-      case wtc: SError.DamlEWronglyTypedContract =>
-        sys.error(
-          s"Got unexpected DamlEWronglyTypedContract error in scenario service: $wtc. Note that in the scenario service this error should never surface since contract fetches are all type checked."
-        )
     }
     builder.build
   }
