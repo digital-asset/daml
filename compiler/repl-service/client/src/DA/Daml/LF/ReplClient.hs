@@ -155,7 +155,11 @@ performRequest
   -> payload
   -> IO (Either BackendError response)
 performRequest method payload = do
-  method (ClientNormalRequest payload 30 mempty) >>= \case
+  method (ClientNormalRequest payload timeoutSeconds mempty) >>= \case
     ClientNormalResponse resp _ _ StatusOk _ -> return (Right resp)
     ClientNormalResponse _ _ _ status _ -> return (Left $ BErrorFail status)
     ClientErrorResponse err -> return (Left $ BErrorClient err)
+
+
+timeoutSeconds :: Int
+timeoutSeconds = 60
