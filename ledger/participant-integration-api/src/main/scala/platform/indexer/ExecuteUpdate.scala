@@ -26,8 +26,8 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
+import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
 import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
-import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.ExecuteUpdate.ExecuteUpdateFlow
 import com.daml.platform.indexer.OffsetUpdate.PreparedTransactionInsert
@@ -385,7 +385,7 @@ class PipelinedExecuteUpdate(
       timedPipelinedUpdate: PipelinedUpdateWithTimer
   ): Future[PersistenceResponse] = {
     val pipelinedUpdate = timedPipelinedUpdate.preparedUpdate
-    withEnrichedLoggingContext(
+    withEnrichedLoggingContextFrom(
       loggingEntriesFor(pipelinedUpdate.offsetStep.offset, pipelinedUpdate.update)
     ) { implicit loggingContext =>
       Timed.future(
@@ -476,7 +476,7 @@ class AtomicExecuteUpdate(
     Flow[OffsetUpdate]
       .mapAsync(updatePreparationParallelism)(prepareUpdate)
       .mapAsync(1) { case offsetUpdate @ OffsetUpdate(offsetStep, update) =>
-        withEnrichedLoggingContext(loggingEntriesFor(offsetStep.offset, update)) {
+        withEnrichedLoggingContextFrom(loggingEntriesFor(offsetStep.offset, update)) {
           implicit loggingContext =>
             Timed.future(
               metrics.daml.indexer.stateUpdateProcessing,

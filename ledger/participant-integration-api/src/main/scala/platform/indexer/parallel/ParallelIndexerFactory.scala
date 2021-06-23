@@ -11,15 +11,16 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{KillSwitch, KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, Metrics}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.indexer.{IndexFeedHandle, Indexer}
-import com.daml.platform.store.{DbType, backend}
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
 import com.daml.platform.store.backend.{DbDto, StorageBackend}
+import com.daml.platform.store.{DbType, backend}
 import com.daml.resources
 
 import scala.concurrent.Future
@@ -142,10 +143,9 @@ object ParallelIndexerFactory {
   ): Iterable[((Offset, Update), Long)] => Batch[Vector[DbDto]] = { input =>
     metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
     input.foreach { case ((offset, update), _) =>
-      LoggingContext.withEnrichedLoggingContext(
-        IndexerLoggingContext.loggingEntriesFor(offset, update)
-      ) { implicit loggingContext =>
-        logger.info(s"Storing ${update.description}")
+      withEnrichedLoggingContextFrom(IndexerLoggingContext.loggingEntriesFor(offset, update)) {
+        implicit loggingContext =>
+          logger.info(s"Storing ${update.description}")
       }
     }
     val batch = input.iterator.flatMap { case ((offset, update), _) =>

@@ -57,7 +57,7 @@ object LoggingContextOf {
       loggingContext: LoggingContextOf[P with A],
   ) {
     def run[Z](f: LoggingContextOf[P with A] => Z): Z =
-      LoggingContext.withEnrichedLoggingContext(entries)(lc =>
+      LoggingContext.withEnrichedLoggingContextFrom(entries)(lc =>
         f((lc: LoggingContextOf[Any]).extend[P with A])
       )(loggingContext)
   }

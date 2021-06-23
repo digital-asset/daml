@@ -28,7 +28,7 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.transaction.SubmittedTransaction
-import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.LoggingContext.{withEnrichedLoggingContext, withEnrichedLoggingContextFrom}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
@@ -115,7 +115,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
   override def submit(
       request: SubmitRequest
   )(implicit telemetryContext: TelemetryContext): Future[Unit] =
-    withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
+    withEnrichedLoggingContextFrom(logging.commands(request.commands)) { implicit loggingContext =>
       logger.info("Submitting transaction")
       logger.trace(s"Commands: ${request.commands.commands.commands}")
       ledgerConfigProvider.latestConfiguration

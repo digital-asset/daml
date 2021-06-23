@@ -18,7 +18,7 @@ import com.daml.ledger.participant.state.kvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
-import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
 import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
 import com.daml.metrics.Metrics
 
@@ -157,7 +157,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
       case (state, (info, step)) =>
         state match {
           case StepContinue(state) =>
-            withEnrichedLoggingContext(extraLoggingContext(state)) { implicit loggingContext =>
+            withEnrichedLoggingContextFrom(extraLoggingContext(state)) { implicit loggingContext =>
               stepTimers(info).time(() => step(commitContext, state))
             }
           case result @ StepStop(_) => result

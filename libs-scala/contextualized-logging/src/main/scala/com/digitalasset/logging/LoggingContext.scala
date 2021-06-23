@@ -40,10 +40,10 @@ object LoggingContext {
     * to manage and parse, so stick to simple values (strings, numbers,
     * dates, etc.).
     */
-  def withEnrichedLoggingContext[A](entries: LoggingEntries)(
+  def withEnrichedLoggingContext[A](entry: LoggingEntry, entries: LoggingEntry*)(
       f: LoggingContext => A
   )(implicit loggingContext: LoggingContext): A =
-    f(loggingContext ++ entries)
+    f(loggingContext ++ LoggingEntries(entry +: entries: _*))
 
   /** ## Principles to follow when enriching the logging context
     *
@@ -66,10 +66,10 @@ object LoggingContext {
     * to manage and parse, so stick to simple values (strings, numbers,
     * dates, etc.).
     */
-  def withEnrichedLoggingContext[A](entry: LoggingEntry, entries: LoggingEntry*)(
+  def withEnrichedLoggingContextFrom[A](entries: LoggingEntries)(
       f: LoggingContext => A
   )(implicit loggingContext: LoggingContext): A =
-    f(loggingContext ++ LoggingEntries(entry +: entries: _*))
+    f(loggingContext ++ entries)
 
   val ForTesting: LoggingContext = new LoggingContext(LoggingEntries.empty)
 
