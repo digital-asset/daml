@@ -68,7 +68,7 @@ private[appendonlydao] final class TransactionsReader(
   // This significantly improves the performance of the transaction service.
   private val outputStreamBufferSize = 128
 
-  private val MinParallelFetchChunkSize = 10
+  private val MinParallelFetchChunkSize = 100
 
   private def offsetFor(response: GetTransactionsResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
@@ -301,11 +301,12 @@ private[appendonlydao] final class TransactionsReader(
             )(conn),
             minOffsetExclusive = startExclusive._1,
             error = pruned =>
-              s"Active contracts request after ${startExclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+              s"Transaction log updates request after ${startExclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
           )
         }
       }
-      .flatMapConcat(v => Source.fromIterator(() => v.iterator))
+      .mapConcat(identity)
+      .async
       // Decode transaction log updates in parallel
       .mapAsync(eventProcessingParallelism) { raw =>
         Timed.future(
@@ -395,18 +396,6 @@ private[appendonlydao] final class TransactionsReader(
       implicit loggingContext: LoggingContext
   ): Source[((Offset, Long), ContractStateEvent), NotUsed] = {
 
-    val query = (range: EventsRange[(Offset, Long)]) => {
-      implicit connection: Connection =>
-        queryNonPruned.executeSqlOrThrow(
-          storageBackend.contractStateEvents(range.startExclusive._2, range.endInclusive._2)(
-            connection
-          ),
-          range.startExclusive._1,
-          pruned =>
-            s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
-        )
-    }
-
     val endMarker = Source.single(
       endInclusive -> ContractStateEvent.LedgerEndMarker(
         eventOffset = endInclusive._1,
@@ -414,11 +403,32 @@ private[appendonlydao] final class TransactionsReader(
       )
     )
 
-    streamContractStateEvents(
-      dbMetrics.getContractStateEvents,
-      query,
-      nextPageRangeContracts(endInclusive),
-    )(EventsRange(startExclusive, endInclusive)).async
+    Source
+      .fromIterator(() =>
+        TransactionsReader
+          .splitRange(
+            startExclusive._2,
+            endInclusive._2,
+            eventProcessingParallelism,
+            MinParallelFetchChunkSize,
+            pageSize,
+          )
+          .iterator
+      )
+      // Dispatch database fetches in parallel
+      .mapAsync(eventProcessingParallelism) { range =>
+        dispatcher.executeSql(dbMetrics.getContractStateEvents) { implicit conn =>
+          queryNonPruned.executeSqlOrThrow(
+            storageBackend
+              .contractStateEvents(range.startExclusive, range.endInclusive)(conn),
+            startExclusive._1,
+            pruned =>
+              s"Contract state events request from ${range.startExclusive.toHexString} to ${range.endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
+          )
+        }
+      }
+      .mapConcat(identity)
+      .async
       .mapAsync(eventProcessingParallelism) { raw =>
         Timed.future(
           metrics.daml.index.decodeStateEvent,
@@ -435,14 +445,6 @@ private[appendonlydao] final class TransactionsReader(
       a: EventsTable.Entry[E]
   ): EventsRange[(Offset, Long)] =
     EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
-
-  private def nextPageRangeContracts(endEventSeqId: (Offset, Long))(
-      raw: StorageBackend.RawContractStateEvent
-  ): EventsRange[(Offset, Long)] =
-    EventsRange(
-      startExclusive = (raw.offset, raw.eventSequentialId),
-      endInclusive = endEventSeqId,
-    )
 
   private def getAcsEventSeqIdRange(activeAt: Offset)(implicit
       loggingContext: LoggingContext
@@ -515,23 +517,6 @@ private[appendonlydao] final class TransactionsReader(
       }
     }
 
-  private def streamContractStateEvents(
-      queryMetric: DatabaseMetrics,
-      query: EventsRange[(Offset, Long)] => Connection => Vector[
-        StorageBackend.RawContractStateEvent
-      ],
-      getNextPageRange: StorageBackend.RawContractStateEvent => EventsRange[
-        (Offset, Long)
-      ],
-  )(range: EventsRange[(Offset, Long)])(implicit
-      loggingContext: LoggingContext
-  ): Source[StorageBackend.RawContractStateEvent, NotUsed] =
-    PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
-      if (EventsRange.isEmpty(range1))
-        Future.successful(Vector.empty)
-      else dispatcher.executeSql(queryMetric)(query(range1))
-    }
-
   private def endSpanOnTermination[Mat, Out](span: Span)(mat: Mat, done: Future[Done]): Mat = {
     done.onComplete {
       case Failure(exception) =>
@@ -552,7 +537,8 @@ private[appendonlydao] object TransactionsReader {
     * @param endInclusive The end inclusive of the range to be split
     * @param numberOfChunks The number of desired target sub-ranges
     * @param minChunkSize Minimum sub-range size.
-    * @param maxChunkSize Maximum sub-range size.
+    * @param maxChunkSize Desired maximum sub-range size. The effective max chunk size will be the max between
+    *                      this parameter and the double of the `minChunkSize`.
     * @return The ordered sequence of sub-ranges with non-overlapping bounds.
     */
   private[appendonlydao] def splitRange(
@@ -562,7 +548,13 @@ private[appendonlydao] object TransactionsReader {
       minChunkSize: Int,
       maxChunkSize: Int,
   ): Vector[EventsRange[Long]] = {
+    require(minChunkSize > 0, "Minimum chunk size must pe strictly positive")
+    require(maxChunkSize > 0, "Maximum chunk size must be strictly positive")
+
     val rangeSize = endInclusive - startExclusive
+    val effectiveMinChunkSize =
+      math.min(math.ceil(maxChunkSize.toDouble / 2.0), minChunkSize.toDouble)
+    val effectiveMaxChunkSize = math.max(maxChunkSize, minChunkSize * 2)
 
     numberOfChunks match {
       case _ if numberOfChunks < 1 =>
@@ -570,14 +562,17 @@ private[appendonlydao] object TransactionsReader {
           s"You can only split a range in a strictly positive number of chunks ($numberOfChunks)"
         )
 
-      case _ if (rangeSize / numberOfChunks.toLong) < minChunkSize.toLong =>
-        val effectiveNumberOfChunks = rangeSize / minChunkSize.toLong
+      case _ if (rangeSize / numberOfChunks.toLong) < effectiveMinChunkSize.toLong =>
+        val effectiveNumberOfChunks = rangeSize / effectiveMinChunkSize.toLong
         if (effectiveNumberOfChunks <= 1) Vector(EventsRange(startExclusive, endInclusive))
         else splitRangeUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks.toInt)
 
       case _ =>
         val effectiveNumberOfChunks =
-          Math.max(numberOfChunks, Math.ceil(rangeSize.toDouble / maxChunkSize.toDouble).toInt)
+          Math.max(
+            numberOfChunks,
+            Math.ceil(rangeSize.toDouble / effectiveMaxChunkSize.toDouble).toInt,
+          )
         splitRangeUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks)
     }
   }
