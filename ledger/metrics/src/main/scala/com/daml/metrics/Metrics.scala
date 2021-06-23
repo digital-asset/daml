@@ -285,15 +285,7 @@ final class Metrics(val registry: MetricRegistry) {
         val transactions: Counter = registry.counter(Prefix :+ "transactions_sent")
         val completions: Counter = registry.counter(Prefix :+ "completions_sent")
         val acs: Counter = registry.counter(Prefix :+ "acs_sent")
-
-        val transactionsRead = registry.counter(Prefix :+ "transactions_read")
       }
-
-//      object client {
-//        private val Prefix: MetricName = lapi.Prefix :+ "client"
-//
-//        val transactions: Meter = registry.meter(Prefix :+ "transactions_read")
-//      }
     }
 
     object ledger {
@@ -451,7 +443,7 @@ final class Metrics(val registry: MetricRegistry) {
         )
 
         object storeTransactionDbMetrics
-            extends DatabaseMetrics(registry, Prefix, "store_ledger_entry") {
+          extends DatabaseMetrics(registry, Prefix, "store_ledger_entry") {
           // outside of SQL transaction
           val prepareBatches: Timer = registry.timer(dbPrefix :+ "prepare_batches")
 
