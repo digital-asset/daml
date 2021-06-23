@@ -29,14 +29,14 @@ object Logging {
   sealed abstract class RequestID
 
   def instanceUUIDLogCtx[Z](fn: LoggingContextOf[InstanceUUID] => Z): Z =
-    newLoggingContext(label[InstanceUUID], Map("instance_uuid" -> UUID.randomUUID().toString))(fn)
+    newLoggingContext(label[InstanceUUID], "instance_uuid" -> UUID.randomUUID().toString)(fn)
 
-  def instanceUUIDLogCtx(): LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(identity(_))
+  def instanceUUIDLogCtx(): LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx(identity)
 
   def extendWithRequestIdLogCtx[Z](
       fn: LoggingContextOf[InstanceUUID with RequestID] => Z
   )(implicit lc: LoggingContextOf[InstanceUUID]): Z =
-    withEnrichedLoggingContext(label[RequestID], Map("request_id" -> UUID.randomUUID().toString))
+    withEnrichedLoggingContext(label[RequestID], "request_id" -> UUID.randomUUID().toString)
       .run(fn)
 
 }

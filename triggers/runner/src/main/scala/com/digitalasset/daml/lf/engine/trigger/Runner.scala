@@ -50,10 +50,9 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.script.converter.Converter.{DamlTuple2, DamlAnyModuleRecord, unrollFree}
+import com.daml.script.converter.Converter.{DamlAnyModuleRecord, DamlTuple2, unrollFree}
 import com.daml.script.converter.Converter.Implicits._
 import com.daml.script.converter.ConverterException
-
 import com.google.protobuf.empty.Empty
 
 sealed trait TriggerMsg
@@ -72,8 +71,20 @@ final case class Trigger(
     // party-specific.
     heartbeat: Option[FiniteDuration],
 ) {
-  private[trigger] def loggingExtension: Map[String, String] =
-    Map("triggerDefinition" -> triggerDefinition.toString)
+  private[trigger] final class withLoggingContext[P] private (
+      label: label[Trigger with P],
+      kvs: Seq[(String, String)],
+  ) {
+    def apply[T](f: LoggingContextOf[Trigger with P] => T): T =
+      newLoggingContext(label, kvs :+ "triggerDefinition" -> triggerDefinition.toString: _*)(f)
+  }
+
+  private[trigger] object withLoggingContext {
+    def apply[T](f: LoggingContextOf[Trigger] => T): T =
+      newLoggingContext(label, "triggerDefinition" -> triggerDefinition.toString)(f)
+
+    def apply[P](kvs: (String, String)*) = new withLoggingContext(label[Trigger with P], kvs)
+  }
 }
 
 // Utilities for interacting with the speedy machine.
@@ -712,7 +723,7 @@ object Runner extends StrictLogging {
       case Right(trigger) => trigger
     }
     val runner =
-      newLoggingContext(label[Trigger], trigger.loggingExtension) { implicit lc =>
+      trigger.withLoggingContext { implicit lc =>
         new Runner(compiledPackages, trigger, client, timeProviderType, applicationId, party)
       }
     for {

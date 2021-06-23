@@ -171,12 +171,10 @@ class Endpoints(
   )(implicit lc: LoggingContextOf[InstanceUUID with RequestID]): A =
     withEnrichedLoggingContext(
       LoggingContextOf.label[JwtPayloadTag],
-      Map(
-        "ledger_id" -> jwtPayload.ledgerId.toString,
-        "act_as" -> jwtPayload.actAs.toString,
-        "application_id" -> jwtPayload.applicationId.toString,
-        "read_as" -> jwtPayload.readAs.toString,
-      ),
+      "ledger_id" -> jwtPayload.ledgerId.toString,
+      "act_as" -> jwtPayload.actAs.toString,
+      "application_id" -> jwtPayload.applicationId.toString,
+      "read_as" -> jwtPayload.readAs.toString,
     ).run(fn)
 
   def handleCommand[T[_]](req: HttpRequest)(

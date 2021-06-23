@@ -38,20 +38,16 @@ object LoggingContextOf {
   final class label[P] private[LoggingContextOf] (private val ignored: Unit) extends AnyVal
 
   @nowarn("msg=parameter value label .* is never used") // Proxy only
-  def newLoggingContext[P, Z](label: label[P], kvs: Map[String, String])(
+  def newLoggingContext[P, Z](label: label[P], kvs: (String, String)*)(
       f: LoggingContextOf[P] => Z
   ): Z =
-    LoggingContext.newLoggingContext(kvs)(lc => f((lc: LoggingContextOf[Any]).extend[P]))
+    LoggingContext.newLoggingContext(kvs.toMap)(lc => f((lc: LoggingContextOf[Any]).extend[P]))
 
   @nowarn("msg=parameter value label .* is never used") // Proxy only
-  def withEnrichedLoggingContext[P, A](label: label[P], kvs: Map[String, String])(implicit
-      loggingContext: LoggingContextOf[A]
-  ): withEnrichedLoggingContext[P, A] =
-    new withEnrichedLoggingContext(kvs, loggingContext.extend[P])
-
   def withEnrichedLoggingContext[P, A](label: label[P], kvs: (String, String)*)(implicit
       loggingContext: LoggingContextOf[A]
-  ): withEnrichedLoggingContext[P, A] = withEnrichedLoggingContext(label, Map.from(kvs))
+  ): withEnrichedLoggingContext[P, A] =
+    new withEnrichedLoggingContext(Map.from(kvs), loggingContext.extend[P])
 
   final class withEnrichedLoggingContext[P, A] private[LoggingContextOf] (
       kvs: Map[String, String],
