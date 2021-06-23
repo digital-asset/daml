@@ -84,14 +84,26 @@ object MetricsSet {
       recordTimeFunction: T => Seq[Timestamp],
       objectives: Objectives,
   ): List[Metric[T]] = {
+    val Prefix = MetricName.DAML :+ "bench_tool"
+
     val totalCountMetric = TotalCountMetric.empty[T](
       countingFunction = countingFunction.andThen(_.toLong)
     )
     TotalCountMetric.register(
       metric = totalCountMetric,
-      name = MetricName.DAML :+ "bench_tool" :+ "count" :+ streamName,
+      name = Prefix :+ "count" :+ streamName,
       registry = registry,
     )
+
+    val sizeMetric = SizeMetric.empty[T](
+      sizingFunction = sizingFunction
+    )
+    SizeMetric.register(
+      metric = sizeMetric,
+      name = Prefix :+ "size" :+ streamName,
+      registry = registry,
+    )
+
     List[Metric[T]](
       CountRateMetric.empty[T](
         countingFunction = countingFunction
@@ -106,9 +118,7 @@ object MetricsSet {
         clock = Clock.systemUTC(),
         objective = objectives.maxDelaySeconds.map(MaxDelay),
       ),
-      SizeMetric.empty[T](
-        sizingFunction = sizingFunction
-      ),
+      sizeMetric,
     )
   }
 }
