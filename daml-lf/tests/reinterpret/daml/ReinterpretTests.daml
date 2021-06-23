@@ -7,6 +7,9 @@ import DA.Exception (throw)
 
 import DA.List.BuiltinOrder(dedup)
 
+import AtVersion13 (Contract13(..))
+import AtVersion14 (Contract14(..))
+
 exception MyError
   where
     message "MyError"
@@ -30,7 +33,22 @@ template MySimple
         do
           let x = Thing (\x -> x+1)
           let zs = dedup [x,x]
-          pure "dont expect to readch here"
+          pure "wont reach here"
+
+    controller p can
+      Contract14ThenThrow : Text
+        do
+          x <- create (Contract14 with p) -- will be rolled back
+          throw MyError
+          pure "wont reach here"
+
+    controller p can
+      Contract13ThenThrow : Text
+        do
+          x <- create (Contract13 with p) -- will *not* be rolled back; version check will prevent it
+          throw MyError
+          pure "wont reach here"
+
 
 
 data Thing = Thing (Int -> Int)

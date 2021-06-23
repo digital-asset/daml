@@ -76,15 +76,16 @@ class ReinterpretTest
 
   private val engine = Engine.DevEngine()
 
-  private def Top(xs: Shape*) = Shape.Top(xs.toList)
-  private def Exercise(xs: Shape*) = Shape.Exercise(xs.toList)
-  private def Rollback(xs: Shape*) = Shape.Rollback(xs.toList)
+  def Top(xs: Shape*) = Shape.Top(xs.toList)
+  def Exercise(xs: Shape*) = Shape.Exercise(xs.toList)
+  def Rollback(xs: Shape*) = Shape.Rollback(xs.toList)
+  def Create() = Shape.Create()
 
   val submitters = Set(party)
   val time = Time.Timestamp.now()
   val seed = hash("ReinterpretTests")
 
-  private def reinterpretCommand(theCommand: Command): Option[SubmittedTransaction] = {
+  private def reinterpretCommand(theCommand: Command): Either[Error, SubmittedTransaction] = {
     val res = engine
       .reinterpret(
         submitters,
@@ -100,8 +101,8 @@ class ReinterpretTest
         VisibleByKey.fromSubmitters(submitters),
       )
     res match {
-      case Right((tx, _)) => Some(tx)
-      case Left(_) => None
+      case Right((tx, _)) => Right(tx)
+      case Left(e) => Left(e)
     }
   }
 
@@ -115,7 +116,7 @@ class ReinterpretTest
         val cid = toContractId("#ReinterpretTests:MySimple:1")
         ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
       }
-      val Some(tx) = reinterpretCommand(theCommand)
+      val Right(tx) = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Exercise())
     }
 
@@ -127,7 +128,7 @@ class ReinterpretTest
         val cid = toContractId("#ReinterpretTests:MySimple:1")
         ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
       }
-      val Some(tx) = reinterpretCommand(theCommand)
+      val Right(tx) = reinterpretCommand(theCommand)
       Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise()))
     }
 
@@ -139,8 +140,35 @@ class ReinterpretTest
         val cid = toContractId("#ReinterpretTests:MySimple:1")
         ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
       }
-      reinterpretCommand(theCommand) shouldBe None
+      val Left(err) = reinterpretCommand(theCommand)
+      assert(err.toString().contains("Error: CRASH: functions are not comparable"))
     }
+
+    "rollback version 14 contract creation" in {
+      val choiceName = "Contract14ThenThrow"
+      val theCommand = {
+        val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
+        val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
+        val cid = toContractId("#ReinterpretTests:MySimple:1")
+        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
+      }
+      val Right(tx) = reinterpretCommand(theCommand)
+      Shape.ofTransaction(tx.transaction) shouldBe Top(Rollback(Exercise(Create())))
+    }
+
+    "not rollback version 13 contract creation" in {
+      val choiceName = "Contract13ThenThrow"
+      val theCommand = {
+        val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
+        val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
+        val cid = toContractId("#ReinterpretTests:MySimple:1")
+        ExerciseCommand(templateId, cid, choiceName, ValueRecord(Some(r), ImmArray.empty))
+      }
+
+      val Left(err) = reinterpretCommand(theCommand)
+      assert(err.toString().contains("ReinterpretTests:MyError"))
+    }
+
   }
 }
 
