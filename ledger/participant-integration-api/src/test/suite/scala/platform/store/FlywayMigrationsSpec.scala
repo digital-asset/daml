@@ -35,6 +35,18 @@ class FlywayMigrationsSpec extends AnyWordSpec {
     "always have a valid SHA-256 digest file accompanied" in {
       assertFlywayMigrationFileHashes(DbType.H2Database, 10)
     }
+    // Technically we don't need to check this because with the append-only schema we have started
+    // modifying the existing migration instead of treating it as immutable, because we don't provide
+    // data continuity with H2.
+    "always have a valid SHA-256 digest file accompanied (append-only)" in {
+      assertFlywayMigrationFileHashes(DbType.H2Database, 1, true)
+    }
+  }
+
+  "Oracle database flyway migration files" should {
+    "always have a valid SHA-256 digest file accompanied" in {
+      assertFlywayMigrationFileHashes(DbType.Oracle, 1)
+    }
   }
 
 }
