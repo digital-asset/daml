@@ -128,15 +128,22 @@ object MetricsSet {
       registry = registry,
     )
 
+    val consumptionSpeedMetric = ConsumptionSpeedMetric.empty[T](
+      recordTimeFunction = recordTimeFunction,
+      objective = objectives.minConsumptionSpeed.map(MinConsumptionSpeed),
+    )
+    ConsumptionSpeedMetric.register(
+      metric = consumptionSpeedMetric,
+      name = metricName("consumption_speed"),
+      registry = registry,
+    )
+
     List[Metric[T]](
       CountRateMetric.empty[T](
         countingFunction = countingFunction
       ),
       totalCountMetric,
-      ConsumptionSpeedMetric.empty[T](
-        recordTimeFunction = recordTimeFunction,
-        objective = objectives.minConsumptionSpeed.map(MinConsumptionSpeed),
-      ),
+      consumptionSpeedMetric,
       delayMetric,
       sizeMetric,
     )
