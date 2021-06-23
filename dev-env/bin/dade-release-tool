@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source "$BIN_DIR/../lib/dade-common"
-cd $BIN_DIR/../../
-execTool da-hs-release-tool out da-hs-release-tool "$@"

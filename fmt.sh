@@ -1,15 +1,15 @@
-#!/usr/bin/env bash
+#!/usr/bin/env nix-shell
+#!nix-shell --pure -i bash ./shell.nix
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-#
+
 # Run formatters and linter, anything platform-independent and quick
 #
 # Usage: ./fmt.sh [--test]
+
 set -euo pipefail
 
-cd "$(dirname "$0")"
-# load the dev-env
-eval "$(dev-env/bin/dade-assist)"
+cd "$(dirname "${BASH_SOURCE[0]}")"
 
 ## Config ##
 is_test=
@@ -29,7 +29,7 @@ run() {
   echo "$ ${*%Q}"
   "$@"
   ret=$?
-  if [[ $is_test = 1 && $ret -gt 0 ]]; then
+  if [[ $is_test == 1 && $ret -gt 0 ]]; then
     log "command failed with return $ret"
     log
     log "run ./fmt.sh to fix the issue"
@@ -121,7 +121,7 @@ echo "\
 "
 
 # Check for correct copyrights
-run dade-copyright-headers "$dade_copyright_arg" .
+run ./dev-env/bin/dade-copyright-headers "$dade_copyright_arg" .
 
 # We do test hlint via Bazel rules but we run it separately
 # to get linting failures early.

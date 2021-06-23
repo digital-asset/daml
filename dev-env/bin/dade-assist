@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-DADE_CURRENT_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source "$DADE_CURRENT_SCRIPT_DIR/../lib/dade-common"
-
-linkTool java out "${DADE_DEVENV_DIR}/jdk"
-
-exec "${DADE_DEVENV_DIR}/lib/dade-dump-profile"

@@ -11,7 +11,7 @@ set -eou pipefail
 
 cd "$(dirname "$0")"
 
-eval "$(../dev-env/bin/dade-assist)"
+source ../dev-env/load.sh
 
 # Git, symlinks and windows do not play well together
 # so we have to copy over the Bazel config. We just do

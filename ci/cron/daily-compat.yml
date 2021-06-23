@@ -87,7 +87,7 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
-          eval "$(dev-env/bin/dade assist)"
+          source dev-env/load.sh
           source $(bash_lib)
 
           OUT="$(Build.StagingDirectory)/perf-results.json"
@@ -131,7 +131,7 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
-          eval "$(dev-env/bin/dade assist)"
+          source dev-env/load.sh
           source $(bash_lib)
 
           SCENARIOS="\
@@ -183,7 +183,7 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
-          eval "$(dev-env/bin/dade assist)"
+          source dev-env/load.sh
 
           bazel build //ci/cron:cron
           bazel-bin/ci/cron/cron check --bash-lib $(bash_lib) --gcp-creds "$GCRED"
@@ -204,7 +204,7 @@ jobs:
         displayName: 'Build/Install the Developer Environment'
       - bash: |
           set -euo pipefail
-          eval "$(dev-env/bin/dade assist)"
+          source dev-env/load.sh
           export LC_ALL=en_US.UTF-8
 
           bazel build //...
@@ -213,7 +213,7 @@ jobs:
         displayName: 'Build'
       - bash: |
           set -euo pipefail
-          eval "$(dev-env/bin/dade-assist)"
+          source dev-env/load.sh
 
           #needs to be specified since blackduck can not scan all bazel
           #dependency types in one go, haskell has to be scanned separatey and
@@ -235,7 +235,7 @@ jobs:
           BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
       - bash: |
           set -euo pipefail
-          eval "$(dev-env/bin/dade-assist)"
+          source dev-env/load.sh
 
           #avoid stomping any previous bazel haskell scans for this repository
           #by qualifying as a maven_install (aka jvm) bazel blackduck scan
@@ -266,7 +266,7 @@ jobs:
           var_name: bash_lib
       - bash: |
           set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
+          source dev-env/load.sh
           source $(bash_lib)
 
           branch="notices-update-$(Build.BuildId)"
@@ -333,7 +333,7 @@ jobs:
     - bash: |
         set -euo pipefail
 
-        eval "$(./dev-env/bin/dade-assist)"
+        source dev-env/load.sh
         source $(bash_lib)
 
         COMMIT_TITLE="$(escape_slack "$(git log --pretty=format:%s -n1)")"

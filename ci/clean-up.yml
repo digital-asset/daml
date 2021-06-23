@@ -5,7 +5,7 @@ steps:
 - bash: |
     set -euo pipefail
 
-    eval "$(dev-env/bin/dade-assist)"
+    source dev-env/load.sh
 
     exec 1> >(while IFS= read -r line; do echo "$(date -uIs) [out]: $line"; done)
     exec 2> >(while IFS= read -r line; do echo "$(date -uIs) [err]: $line"; done >&2)

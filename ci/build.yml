@@ -18,7 +18,7 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
-        eval "$(dev-env/bin/dade assist)"
+        source dev-env/load.sh
 
         bazel build //ci/cron:cron
 
@@ -61,11 +61,30 @@ jobs:
   parameters:
     final_job_name: da_ghc_lib
 
+- job: build_dev_env
+  pool:
+    name: ubuntu_20_04
+    demands: assignment -equals default
+  steps:
+    - checkout: self
+    - bash: ci/dev-env-install.sh
+      displayName: 'Build/Install the Developer Environment'
+    - bash: |
+        source dev-env/lib/ensure-nix
+        ci/dev-env-push.py
+      displayName: 'Push Developer Environment build results'
+      condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'False'))
+      env:
+        # to upload to the Nix cache
+        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+        NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
+
 - job: Linux
   dependsOn:
     - da_ghc_lib
     - check_for_release
     - git_sha
+    - build_dev_env
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -97,7 +116,7 @@ jobs:
     - template: upload-bazel-metrics.yml
     - bash: |
         set -euo pipefail
-        eval "$(./dev-env/bin/dade-assist)"
+        source dev-env/load.sh
         bazel build //release:release
         ./bazel-bin/release/release --release-dir "$(mktemp -d)"
       condition: and(succeeded(), ne(variables['is_release'], 'true'))
@@ -122,6 +141,7 @@ jobs:
     - da_ghc_lib
     - check_for_release
     - git_sha
+    - build_dev_env
   variables:
     - name: release_sha
       value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -162,6 +182,7 @@ jobs:
     - da_ghc_lib
     - check_for_release
     - git_sha
+    - build_dev_env
   timeoutInMinutes: 360
   pool:
     name: macOS-pool
@@ -257,6 +278,7 @@ jobs:
 - job: Linux_oracle
   dependsOn:
     - da_ghc_lib
+    - build_dev_env
   timeoutInMinutes: 360
   pool:
     name: 'ubuntu_20_04'
@@ -267,15 +289,6 @@ jobs:
     - bash: ci/dev-env-install.sh
       displayName: 'Build/Install the Developer Environment'
     - template: clean-up.yml
-    - bash: |
-        source dev-env/lib/ensure-nix
-        ci/dev-env-push.py
-      displayName: 'Push Developer Environment build results'
-      condition: and(succeeded(), eq(variables['System.PullRequest.IsFork'], 'False'))
-      env:
-        # to upload to the Nix cache
-        GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-        NIX_SECRET_KEY_CONTENT: $(NIX_SECRET_KEY_CONTENT)
     - bash: ci/configure-bazel.sh
       displayName: 'Configure Bazel'
       env:
@@ -284,7 +297,7 @@ jobs:
         GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     - bash: |
         set -euo pipefail
-        eval "$(./dev-env/bin/dade-assist)"
+        source dev-env/load.sh
         docker login --username "$DOCKER_LOGIN" --password "$DOCKER_PASSWORD"
         IMAGE=digitalasset/oracle:enterprise-19.3.0-preloaded-20210325-22-be14fb7
         docker pull $IMAGE
@@ -376,7 +389,7 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
-        eval "$(./dev-env/bin/dade-assist)"
+        source dev-env/load.sh
         source $(bash-lib)
 
         ./release.sh check
@@ -487,7 +500,7 @@ jobs:
     - bash: |
         set -euo pipefail
 
-        eval "$(./dev-env/bin/dade-assist)"
+        source dev-env/load.sh
         source $(bash_lib)
 
         REPORT=$(mktemp)
