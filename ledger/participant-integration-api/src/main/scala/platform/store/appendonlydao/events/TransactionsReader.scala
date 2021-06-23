@@ -287,6 +287,7 @@ private[appendonlydao] final class TransactionsReader(
             endInclusive._2,
             eventProcessingParallelism,
             MinParallelFetchChunkSize,
+            pageSize,
           )
           .iterator
       )
@@ -551,6 +552,7 @@ private[appendonlydao] object TransactionsReader {
     * @param endInclusive The end inclusive of the range to be split
     * @param numberOfChunks The number of desired target sub-ranges
     * @param minChunkSize Minimum sub-range size.
+    * @param maxChunkSize Maximum sub-range size.
     * @return The ordered sequence of sub-ranges with non-overlapping bounds.
     */
   private[appendonlydao] def splitRange(
@@ -558,6 +560,7 @@ private[appendonlydao] object TransactionsReader {
       endInclusive: Long,
       numberOfChunks: Int,
       minChunkSize: Int,
+      maxChunkSize: Int,
   ): Vector[EventsRange[Long]] = {
     val rangeSize = endInclusive - startExclusive
 
@@ -567,15 +570,15 @@ private[appendonlydao] object TransactionsReader {
           s"You can only split a range in a strictly positive number of chunks ($numberOfChunks)"
         )
 
-      case _ if numberOfChunks == 1 || minChunkSize > (rangeSize / 2L) =>
-        Vector(EventsRange(startExclusive, endInclusive))
-
       case _ if (rangeSize / numberOfChunks.toLong) < minChunkSize.toLong =>
         val effectiveNumberOfChunks = rangeSize / minChunkSize.toLong
-        splitRangeUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks.toInt)
+        if (effectiveNumberOfChunks <= 1) Vector(EventsRange(startExclusive, endInclusive))
+        else splitRangeUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks.toInt)
 
       case _ =>
-        splitRangeUnsafe(startExclusive, endInclusive, numberOfChunks)
+        val effectiveNumberOfChunks =
+          Math.max(numberOfChunks, Math.ceil(rangeSize.toDouble / maxChunkSize.toDouble).toInt)
+        splitRangeUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks)
     }
   }
 
