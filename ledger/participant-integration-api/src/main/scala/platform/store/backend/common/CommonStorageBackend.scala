@@ -45,60 +45,31 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   // Ingestion
 
-  private val preparedDeleteIngestionOverspillEntries: String =
-    """
-      |DELETE
-      |FROM configuration_entries
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM package_entries
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM packages
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM participant_command_completions
-      |WHERE completion_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_divulgence
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_create
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_consuming_exercise
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM participant_events_non_consuming_exercise
-      |WHERE event_offset > ?;
-      |
-      |DELETE
-      |FROM parties
-      |WHERE ledger_offset > ?;
-      |
-      |DELETE
-      |FROM party_entries
-      |WHERE ledger_offset > ?;
-      |
-      |""".stripMargin
+  private val preparedDeleteIngestionOverspillEntries: List[String] =
+    List(
+      "DELETE FROM configuration_entries WHERE ledger_offset > ?",
+      "DELETE FROM package_entries WHERE ledger_offset > ?",
+      "DELETE FROM packages WHERE ledger_offset > ?",
+      "DELETE FROM participant_command_completions WHERE completion_offset > ?",
+      "DELETE FROM participant_events_divulgence WHERE event_offset > ?",
+      "DELETE FROM participant_events_create WHERE event_offset > ?",
+      "DELETE FROM participant_events_consuming_exercise WHERE event_offset > ?",
+      "DELETE FROM participant_events_non_consuming_exercise WHERE event_offset > ?",
+      "DELETE FROM parties WHERE ledger_offset > ?",
+      "DELETE FROM party_entries WHERE ledger_offset > ?",
+    )
 
   override def initialize(connection: Connection): StorageBackend.LedgerEnd = {
     val result @ StorageBackend.LedgerEnd(offset, _) = ledgerEnd(connection)
 
     offset.foreach { existingOffset =>
-      val preparedStatement = connection.prepareStatement(preparedDeleteIngestionOverspillEntries)
-      List(1, 2, 3, 4, 5, 6, 7, 8, 9, 10).foreach(
-        preparedStatement.setString(_, existingOffset.toHexString)
-      )
-      preparedStatement.execute()
-      preparedStatement.close()
+      preparedDeleteIngestionOverspillEntries.foreach { preparedStatementString =>
+        val preparedStatement = connection.prepareStatement(preparedStatementString)
+        preparedStatement.setString(1, existingOffset.toHexString)
+        preparedStatement.execute()
+        preparedStatement.close()
+        ()
+      }
     }
 
     result
@@ -778,7 +749,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
              AND event_sequential_id <= $before
              AND (event_kind = 10 OR event_kind = 20)
            ORDER BY event_sequential_id DESC
-           FETCH NEXT 1 ROW ONLY;
+           FETCH NEXT 1 ROW ONLY
            """
       .as(fullDetailsContractRowParser.singleOpt)(connection)
   }
@@ -841,38 +812,40 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   def pruneEvents(pruneUpToInclusive: Offset)(connection: Connection): Unit = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL"""
+    List(
+      SQL"""
           -- Divulgence events (only for contracts archived before the specified offset)
-          delete from participant_events_divulgence as delete_events
+          delete from participant_events_divulgence delete_events
           where
             delete_events.event_offset <= $pruneUpToInclusive and
             exists (
-              SELECT 1 FROM participant_events_consuming_exercise as archive_events
+              SELECT 1 FROM participant_events_consuming_exercise archive_events
               WHERE
                 archive_events.event_offset <= $pruneUpToInclusive AND
                 archive_events.contract_id = delete_events.contract_id
-            );
+            )""",
+      SQL"""
           -- Create events (only for contracts archived before the specified offset)
-          delete from participant_events_create as delete_events
+          delete from participant_events_create delete_events
           where
             delete_events.event_offset <= $pruneUpToInclusive and
             exists (
-              SELECT 1 FROM participant_events_consuming_exercise as archive_events
+              SELECT 1 FROM participant_events_consuming_exercise archive_events
               WHERE
                 archive_events.event_offset <= $pruneUpToInclusive AND
                 archive_events.contract_id = delete_events.contract_id
-            );
+            )""",
+      SQL"""
           -- Exercise events (consuming)
-          delete from participant_events_consuming_exercise as delete_events
+          delete from participant_events_consuming_exercise delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive;
+            delete_events.event_offset <= $pruneUpToInclusive""",
+      SQL"""
           -- Exercise events (non-consuming)
-          delete from participant_events_non_consuming_exercise as delete_events
+          delete from participant_events_non_consuming_exercise delete_events
           where
-            delete_events.event_offset <= $pruneUpToInclusive;
-       """
-      .execute()(connection)
-    ()
+            delete_events.event_offset <= $pruneUpToInclusive""",
+    ).foreach(_.execute()(connection))
   }
 
   private val rawTransactionEventParser: RowParser[RawTransactionEvent] =
