@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.kvutils.{DamlKvutils, Err}
 import com.daml.ledger.participant.state.protobuf.LedgerConfiguration
 import com.daml.ledger.participant.state.v1.{Configuration, TimeModel}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.logging.LoggingContext
+import com.daml.logging.{LoggingContext, LoggingEntries}
 import com.daml.metrics.Metrics
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
@@ -158,7 +158,8 @@ class CommitterSpec
       val instance = new Committer[Int] {
         override protected val committerName: String = "test"
 
-        override protected def extraLoggingContext(result: Int): Map[String, String] = Map.empty
+        override protected def extraLoggingContext(result: Int): LoggingEntries =
+          LoggingEntries.empty
 
         override protected def init(
             ctx: CommitContext,
@@ -182,7 +183,8 @@ class CommitterSpec
       val instance = new Committer[Int] {
         override protected val committerName: String = "test"
 
-        override protected def extraLoggingContext(result: Int): Map[String, String] = Map.empty
+        override protected def extraLoggingContext(result: Int): LoggingEntries =
+          LoggingEntries.empty
 
         override protected def init(
             ctx: CommitContext,
@@ -283,7 +285,8 @@ object CommitterSpec {
   private def createCommitter(): Committer[Int] = new Committer[Int] {
     override protected val committerName: String = "test"
 
-    override protected def extraLoggingContext(result: Int): Map[String, String] = Map.empty
+    override protected def extraLoggingContext(result: Int): LoggingEntries =
+      LoggingEntries.empty
 
     override protected def init(
         ctx: CommitContext,

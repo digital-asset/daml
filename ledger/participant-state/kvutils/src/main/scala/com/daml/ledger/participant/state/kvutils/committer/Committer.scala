@@ -19,7 +19,7 @@ import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
 import com.daml.metrics.Metrics
 
 /** A committer either processes or pre-executes a submission, with its inputs into an ordered set of output state and
@@ -66,7 +66,7 @@ private[committer] trait Committer[PartialResult] extends SubmissionExecutor {
   protected val committerName: String
 
   /** Extra logging context, extracted from the state at each step. */
-  protected def extraLoggingContext(result: PartialResult): Map[String, String]
+  protected def extraLoggingContext(result: PartialResult): LoggingEntries
 
   /** The initial internal state passed to first step. */
   protected def init(

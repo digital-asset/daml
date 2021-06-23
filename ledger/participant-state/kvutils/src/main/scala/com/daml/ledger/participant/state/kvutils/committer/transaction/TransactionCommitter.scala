@@ -17,7 +17,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{Blinding, Engine, Error => LfError, VisibleByKey}
+import com.daml.lf.engine.{Blinding, Engine, VisibleByKey, Error => LfError}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{
   BlindingInfo,
@@ -32,7 +32,7 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 
@@ -65,9 +65,10 @@ private[kvutils] class TransactionCommitter(
 
   override protected def extraLoggingContext(
       transactionEntry: DamlTransactionEntrySummary
-  ): Map[String, String] = Map(
-    "submitters" -> transactionEntry.submitters.mkString("[", ", ", "]")
-  )
+  ): LoggingEntries =
+    LoggingEntries(
+      "submitters" -> transactionEntry.submitters.mkString("[", ", ", "]")
+    )
 
   override protected def init(
       commitContext: CommitContext,

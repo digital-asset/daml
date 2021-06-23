@@ -143,7 +143,7 @@ object ParallelIndexerFactory {
     metrics.daml.parallelIndexer.inputMapping.batchSize.update(input.size)
     input.foreach { case ((offset, update), _) =>
       LoggingContext.withEnrichedLoggingContext(
-        IndexerLoggingContext.loggingContextFor(offset, update)
+        IndexerLoggingContext.loggingEntriesFor(offset, update)
       ) { implicit loggingContext =>
         logger.info(s"Storing ${update.description}")
       }

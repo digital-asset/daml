@@ -26,7 +26,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.ExecuteUpdate.ExecuteUpdateFlow
@@ -230,18 +230,18 @@ trait ExecuteUpdate {
     }
   }
 
-  private[indexer] def loggingContextFor(
+  private[indexer] def loggingEntriesFor(
       offset: Offset,
       update: Update,
-  ): Map[String, String] =
-    loggingContextFor(update)
-      .updated("updateRecordTime", update.recordTime.toInstant.toString)
-      .updated("updateOffset", offset.toHexString)
+  ): LoggingEntries =
+    loggingEntriesFor(update) :+
+      "updateRecordTime" -> update.recordTime.toInstant.toString :+
+      "updateOffset" -> offset.toHexString
 
-  private def loggingContextFor(update: Update): Map[String, String] =
+  private def loggingEntriesFor(update: Update): LoggingEntries =
     update match {
       case ConfigurationChanged(_, submissionId, participantId, newConfiguration) =>
-        Map(
+        LoggingEntries(
           Logging.submissionId(submissionId),
           Logging.participantId(participantId),
           Logging.configGeneration(newConfiguration.generation),
@@ -254,7 +254,7 @@ trait ExecuteUpdate {
             proposedConfiguration,
             rejectionReason,
           ) =>
-        Map(
+        LoggingEntries(
           Logging.submissionId(submissionId),
           Logging.participantId(participantId),
           Logging.configGeneration(proposedConfiguration.generation),
@@ -262,46 +262,46 @@ trait ExecuteUpdate {
           Logging.rejectionReason(rejectionReason),
         )
       case PartyAddedToParticipant(party, displayName, participantId, _, submissionId) =>
-        Map(
+        LoggingEntries(
           Logging.submissionIdOpt(submissionId),
           Logging.participantId(participantId),
           Logging.party(party),
           Logging.displayName(displayName),
         )
       case PartyAllocationRejected(submissionId, participantId, _, rejectionReason) =>
-        Map(
+        LoggingEntries(
           Logging.submissionId(submissionId),
           Logging.participantId(participantId),
           Logging.rejectionReason(rejectionReason),
         )
       case PublicPackageUpload(_, sourceDescription, _, submissionId) =>
-        Map(
+        LoggingEntries(
           Logging.submissionIdOpt(submissionId),
           Logging.sourceDescriptionOpt(sourceDescription),
         )
       case PublicPackageUploadRejected(submissionId, _, rejectionReason) =>
-        Map(
+        LoggingEntries(
           Logging.submissionId(submissionId),
           Logging.rejectionReason(rejectionReason),
         )
       case TransactionAccepted(optSubmitterInfo, transactionMeta, _, transactionId, _, _, _) =>
-        Map(
+        LoggingEntries(
           Logging.transactionId(transactionId),
           Logging.ledgerTime(transactionMeta.ledgerEffectiveTime),
           Logging.workflowIdOpt(transactionMeta.workflowId),
           Logging.submissionTime(transactionMeta.submissionTime),
         ) ++ optSubmitterInfo
           .map(info =>
-            Map(
+            LoggingEntries(
               Logging.submitter(info.actAs),
               Logging.applicationId(info.applicationId),
               Logging.commandId(info.commandId),
               Logging.deduplicateUntil(info.deduplicateUntil),
             )
           )
-          .getOrElse(Map.empty)
+          .getOrElse(LoggingEntries.empty)
       case CommandRejected(_, submitterInfo, reason) =>
-        Map(
+        LoggingEntries(
           Logging.submitter(submitterInfo.actAs),
           Logging.applicationId(submitterInfo.applicationId),
           Logging.commandId(submitterInfo.commandId),
@@ -386,7 +386,7 @@ class PipelinedExecuteUpdate(
   ): Future[PersistenceResponse] = {
     val pipelinedUpdate = timedPipelinedUpdate.preparedUpdate
     withEnrichedLoggingContext(
-      loggingContextFor(pipelinedUpdate.offsetStep.offset, pipelinedUpdate.update)
+      loggingEntriesFor(pipelinedUpdate.offsetStep.offset, pipelinedUpdate.update)
     ) { implicit loggingContext =>
       Timed.future(
         metrics.daml.indexer.stateUpdateProcessing, {
@@ -476,7 +476,7 @@ class AtomicExecuteUpdate(
     Flow[OffsetUpdate]
       .mapAsync(updatePreparationParallelism)(prepareUpdate)
       .mapAsync(1) { case offsetUpdate @ OffsetUpdate(offsetStep, update) =>
-        withEnrichedLoggingContext(loggingContextFor(offsetStep.offset, update)) {
+        withEnrichedLoggingContext(loggingEntriesFor(offsetStep.offset, update)) {
           implicit loggingContext =>
             Timed.future(
               metrics.daml.indexer.stateUpdateProcessing,
