@@ -8,7 +8,7 @@ import org.slf4j.Logger
 
 object ValidationLogger {
   def logFailure[Request](request: Request, t: Throwable)(implicit logger: Logger): Throwable = {
-    logger.debug("Request validation failed for {}", request)
+    logger.debug(s"Request validation failed for $request. Message: ${t.getMessage}")
     logger.info(t.getMessage)
     t
   }
@@ -17,7 +17,7 @@ object ValidationLogger {
       logger: ContextualizedLogger,
       loggingContext: LoggingContext,
   ): Throwable = {
-    logger.debug(s"Request validation failed for $request")
+    logger.debug(s"Request validation failed for $request. Message: ${t.getMessage}")
     logger.info(t.getMessage)
     t
   }
