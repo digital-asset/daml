@@ -18,6 +18,8 @@
 --   4. Create a view that contains the union of all events
 ---------------------------------------------------------------------------------------------------
 
+-- size is a reserved word in oracle, rename column to siz for cross-db compatibility so
+ALTER TABLE packages RENAME COLUMN "size" TO siz;
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: divulgence

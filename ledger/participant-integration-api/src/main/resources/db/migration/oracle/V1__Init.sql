@@ -61,7 +61,7 @@ CREATE TABLE packages
     -- A human readable description of the package source
     source_description NVARCHAR2(1000),
     -- The size of the archive payload (i.e., the serialized DAML-LF package), in bytes
-    siz             NUMBER                     not null,
+    "size"             NUMBER                     not null,
     -- The time when the package was added
     known_since        TIMESTAMP                  not null,
     -- The ledger end at the time when the package was added

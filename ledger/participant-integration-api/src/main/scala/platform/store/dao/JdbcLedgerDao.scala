@@ -643,7 +643,9 @@ private class JdbcLedgerDao(
         |values ({party}, {display_name}, {ledger_offset}, {explicit}, {is_local})""".stripMargin)
 
   private val SQL_SELECT_PACKAGES = {
-    SQL(s"""select package_id, source_description, known_since, siz from packages""")
+    SQL(s"""select package_id, source_description, known_since, ${queries.escapeReservedWord(
+      "size"
+    )} from packages""")
   }
 
   private val SQL_SELECT_PACKAGE =
@@ -656,7 +658,7 @@ private class JdbcLedgerDao(
     Macro.parser[ParsedPackageData](
       "package_id",
       "source_description",
-      "siz",
+      "size",
       "known_since",
     )
 
@@ -755,7 +757,7 @@ private class JdbcLedgerDao(
           "package_id" -> p._1.getHash,
           "upload_id" -> uploadId,
           "source_description" -> p._2.sourceDescription,
-          "siz" -> p._2.size,
+          "size" -> p._2.size,
           "known_since" -> p._2.knownSince,
           "package" -> p._1.toByteArray,
         )
@@ -1212,8 +1214,8 @@ private[platform] object JdbcLedgerDao {
   object PostgresQueries extends Queries {
 
     override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE: String =
-      """insert into packages(package_id, upload_id, source_description, siz, known_since, ledger_offset, package)
-        |select {package_id}, {upload_id}, {source_description}, {siz}, {known_since}, ledger_end, {package}
+      """insert into packages(package_id, upload_id, source_description, size, known_since, ledger_offset, package)
+        |select {package_id}, {upload_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
         |from parameters
         |on conflict (package_id) do nothing""".stripMargin
 
@@ -1264,8 +1266,8 @@ private[platform] object JdbcLedgerDao {
   object H2DatabaseQueries extends Queries {
     override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE: String =
       """merge into packages using dual on package_id = {package_id}
-        |when not matched then insert (package_id, upload_id, source_description, siz, known_since, ledger_offset, package)
-        |select {package_id}, {upload_id}, {source_description}, {siz}, {known_since}, ledger_end, {package}
+        |when not matched then insert (package_id, upload_id, source_description, size, known_since, ledger_offset, package)
+        |select {package_id}, {upload_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
         |from parameters""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_INSERT_COMMAND: String =
@@ -1314,8 +1316,8 @@ private[platform] object JdbcLedgerDao {
       """merge into packages p using (select ledger_end from parameters) par
               |on (p.package_id = {package_id})
               |when not matched then
-              |insert (package_id, upload_id, source_description, siz, known_since, ledger_offset, package)
-              |values ({package_id}, {upload_id}, {source_description}, {siz}, {known_since}, par.ledger_end, {package})
+              |insert (package_id, upload_id, source_description, "size", known_since, ledger_offset, package)
+              |values ({package_id}, {upload_id}, {source_description}, {size}, {known_since}, par.ledger_end, {package})
               |""".stripMargin
     }
 
