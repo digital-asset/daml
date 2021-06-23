@@ -37,7 +37,7 @@ class TotalCountMetricSpec extends AnyWordSpec with Matchers {
         .periodicValue(periodDuration)
       val finalValue = newMetric.finalValue(totalDuration)
 
-      val totalCount: Long = stringLength(elem1) + stringLength(elem2)
+      val totalCount: Int = stringLength(elem1) + stringLength(elem2)
       periodicValue shouldBe Value(totalCount)
       finalValue shouldBe Value(totalCount)
     }
@@ -57,7 +57,7 @@ class TotalCountMetricSpec extends AnyWordSpec with Matchers {
         .periodicValue(periodDuration)
       val finalValue = newMetric.finalValue(totalDuration)
 
-      val totalCount: Long = stringLength(elem1) + stringLength(elem2)
+      val totalCount: Int = stringLength(elem1) + stringLength(elem2)
       periodicValue shouldBe Value(totalCount)
       finalValue shouldBe Value(totalCount)
     }
@@ -79,13 +79,13 @@ class TotalCountMetricSpec extends AnyWordSpec with Matchers {
         .periodicValue(periodDuration)
       val finalValue = newMetric.finalValue(totalDuration)
 
-      val totalCount: Long = stringLength(elem1) + stringLength(elem2) + stringLength(elem3)
+      val totalCount: Int = stringLength(elem1) + stringLength(elem2) + stringLength(elem3)
       periodicValue shouldBe Value(totalCount)
       finalValue shouldBe Value(totalCount)
     }
   }
 
-  private def stringLength(value: String): Long = value.length.toLong
+  private def stringLength(value: String): Int = value.length
   private def anEmptyStringMetric(): TotalCountMetric[String] =
     TotalCountMetric.empty[String](stringLength)
 }

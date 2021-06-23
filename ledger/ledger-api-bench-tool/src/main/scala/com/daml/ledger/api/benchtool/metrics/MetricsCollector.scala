@@ -6,7 +6,6 @@ package com.daml.ledger.api.benchtool.metrics
 import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
 import com.daml.ledger.api.benchtool.util.{MetricReporter, TimeUtil}
-import com.daml.metrics.Metrics
 
 import java.time.Instant
 import scala.concurrent.duration._
@@ -30,7 +29,7 @@ object MetricsCollector {
       metrics: List[Metric[T]],
       logInterval: FiniteDuration,
       reporter: MetricReporter,
-      damlMetrics: Metrics,
+      damlMetrics: Option[DamlMetrics[T]] = None,
   ): Behavior[Message] =
     Behaviors.withTimers { timers =>
       val startTime: Instant = Instant.now()
@@ -46,7 +45,7 @@ class MetricsCollector[T](
     logInterval: FiniteDuration,
     reporter: MetricReporter,
     startTime: Instant,
-    damlMetrics: Metrics,
+    damlMetrics: Option[DamlMetrics[T]],
 ) {
   import MetricsCollector._
   import MetricsCollector.Message._
@@ -57,9 +56,7 @@ class MetricsCollector[T](
     Behaviors.receive { case (context, message) =>
       message match {
         case newValue: NewValue[T] =>
-          // KTODO: move this to specific metrics
-//          println(s"GOT NEW VALUE!")
-          damlMetrics.daml.lapi.streams.transactionsRead.inc()
+          damlMetrics.foreach(_.onNext(newValue.value))
           handlingMessages(metrics.map(_.onNext(newValue.value)), lastPeriodicCheck)
 
         case _: PeriodicUpdateCommand =>

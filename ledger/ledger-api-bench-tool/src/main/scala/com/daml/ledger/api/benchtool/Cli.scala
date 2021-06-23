@@ -65,7 +65,7 @@ object Cli {
     opt[MetricsReporter]("metrics-reporter")
       .optional()
       .text(s"Start a metrics reporter. ${MetricsReporter.cliHint}")
-      .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
+      .action((reporter, config) => config.copy(metricsReporter = reporter))
 
     TlsConfigurationCli.parse(parser = this, colSpacer = "        ")((f, c) =>
       c.copy(tls = f(c.tls))

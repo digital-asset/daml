@@ -3,10 +3,8 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 import com.daml.ledger.api.benchtool.util.TimeUtil
-import com.daml.metrics.VarGauge
 import com.google.protobuf.timestamp.Timestamp
 
 import java.time.{Duration, Instant}
@@ -18,7 +16,6 @@ final case class ConsumptionSpeedMetric[T](
     ],
     previousLatest: Option[Instant] = None,
     currentPeriodLatest: Option[Instant] = None,
-    latestRecordTimeSeconds: VarGauge[Long],
 ) extends Metric[T] {
   import ConsumptionSpeedMetric._
 
@@ -33,10 +30,6 @@ final case class ConsumptionSpeedMetric[T](
         case v => v
       }
     val newCurrentPeriodLatest = recordTimes.lastOption.map(TimeUtil.timestampToInstant)
-
-    newCurrentPeriodLatest.foreach { recordTime =>
-      latestRecordTimeSeconds.updateValue(recordTime.getEpochSecond)
-    }
 
     this.copy(
       previousLatest = newPreviousLatest,
@@ -96,15 +89,7 @@ object ConsumptionSpeedMetric {
     ConsumptionSpeedMetric(
       recordTimeFunction,
       objective.map(objective => objective -> None),
-      latestRecordTimeSeconds = new VarGauge[Long](0L),
     )
-
-  def register[T](
-      metric: ConsumptionSpeedMetric[T],
-      name: String,
-      registry: MetricRegistry,
-  ): VarGauge[Long] =
-    registry.register(name, metric.latestRecordTimeSeconds)
 
   // TODO: remove option
   final case class Value(relativeSpeed: Option[Double]) extends MetricValue

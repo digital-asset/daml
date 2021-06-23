@@ -2,14 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.benchtool.metrics
-import com.codahale.metrics.{Counter, MetricRegistry}
 import java.time.Duration
 
 final case class SizeMetric[T](
     sizingBytesFunction: T => Long,
     currentSizeBytesBucket: Long = 0,
     sizeRateList: List[Double] = List.empty,
-    bytesProcessed: Counter = new Counter,
 ) extends Metric[T] {
   import SizeMetric._
 
@@ -17,7 +15,6 @@ final case class SizeMetric[T](
 
   override def onNext(value: T): SizeMetric[T] = {
     val addedBytesSize = sizingBytesFunction(value)
-    bytesProcessed.inc(addedBytesSize)
     this.copy(currentSizeBytesBucket = currentSizeBytesBucket + addedBytesSize)
   }
 
@@ -47,7 +44,4 @@ object SizeMetric {
 
   def empty[T](sizingFunction: T => Long): SizeMetric[T] =
     SizeMetric[T](sizingFunction)
-
-  def register[T](metric: SizeMetric[T], name: String, registry: MetricRegistry): Counter =
-    registry.register(name, metric.bytesProcessed)
 }

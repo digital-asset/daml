@@ -3,20 +3,17 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
-import com.codahale.metrics.{Histogram, MetricRegistry, SlidingTimeWindowArrayReservoir}
 import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 import com.daml.ledger.api.benchtool.util.TimeUtil
 import com.google.protobuf.timestamp.Timestamp
 
 import java.time.{Clock, Duration}
-import java.util.concurrent.TimeUnit
 
 final case class DelayMetric[T](
     recordTimeFunction: T => Seq[Timestamp],
     clock: Clock,
     objective: Option[(ServiceLevelObjective[DelayMetric.Value], Option[DelayMetric.Value])],
     delaysInCurrentInterval: List[Duration] = List.empty,
-    delaysSeconds: Histogram,
 ) extends Metric[T] {
   import DelayMetric._
 
@@ -27,9 +24,6 @@ final case class DelayMetric[T](
     val now = clock.instant()
     val newDelays: List[Duration] = recordTimeFunction(value).toList
       .map(TimeUtil.durationBetween(_, now))
-    newDelays.foreach { delay =>
-      delaysSeconds.update(delay.toMillis / 1000)
-    }
     this.copy(delaysInCurrentInterval = delaysInCurrentInterval ::: newDelays)
   }
 
@@ -87,23 +81,12 @@ object DelayMetric {
       recordTimeFunction: T => Seq[Timestamp],
       clock: Clock,
       objective: Option[ServiceLevelObjective[Value]] = None,
-      slidingTimeWindow: Duration,
   ): DelayMetric[T] =
     DelayMetric(
       recordTimeFunction = recordTimeFunction,
       clock = clock,
       objective = objective.map(objective => objective -> None),
-      delaysSeconds = new Histogram(
-        new SlidingTimeWindowArrayReservoir(slidingTimeWindow.toNanos, TimeUnit.NANOSECONDS)
-      ),
     )
-
-  def register[T](
-      metric: DelayMetric[T],
-      name: String,
-      registry: MetricRegistry,
-  ): Histogram =
-    registry.register(name, metric.delaysSeconds)
 
   final case class Value(meanDelaySeconds: Option[Long]) extends MetricValue
 

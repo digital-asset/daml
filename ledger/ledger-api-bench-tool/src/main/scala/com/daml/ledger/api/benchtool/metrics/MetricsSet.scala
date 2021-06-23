@@ -12,50 +12,66 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
-import com.daml.metrics.MetricName
 import com.google.protobuf.timestamp.Timestamp
 
 import java.time.{Clock, Duration}
 import scala.concurrent.duration.FiniteDuration
 
 object MetricsSet {
-  def toJavaDuration(duration: FiniteDuration) =
-    Duration.ofNanos(duration.toNanos)
-
-  def transactionMetrics(
-      streamName: String,
-      registry: MetricRegistry,
-      objectives: Objectives,
-      reportingPeriod: FiniteDuration,
-  ): List[Metric[GetTransactionsResponse]] =
+  def transactionMetrics(objectives: Objectives): List[Metric[GetTransactionsResponse]] =
     all[GetTransactionsResponse](
-      streamName: String,
-      registry = registry,
       countingFunction = _.transactions.length,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
       },
       objectives = objectives,
-      reportingPeriod = toJavaDuration(reportingPeriod),
+    )
+
+  def transactionDamlMetrics(
+      streamName: String,
+      registry: MetricRegistry,
+      slidingTimeWindow: FiniteDuration,
+  ): DamlMetrics[GetTransactionsResponse] =
+    DamlMetrics[GetTransactionsResponse](
+      streamName = streamName,
+      registry = registry,
+      slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
+      countingFunction = _.transactions.length.toLong,
+      sizingFunction = _.serializedSize.toLong,
+      recordTimeFunction = _.transactions.collect {
+        case t if t.effectiveAt.isDefined => t.getEffectiveAt
+      },
+      clock = Clock.systemUTC(),
     )
 
   def transactionTreesMetrics(
-      streamName: String,
-      registry: MetricRegistry,
-      objectives: Objectives,
-      reportingPeriod: FiniteDuration,
+      objectives: Objectives
   ): List[Metric[GetTransactionTreesResponse]] =
     all[GetTransactionTreesResponse](
-      streamName = streamName,
-      registry = registry,
       countingFunction = _.transactions.length,
       sizingFunction = _.serializedSize.toLong,
       recordTimeFunction = _.transactions.collect {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
       },
       objectives = objectives,
-      reportingPeriod = toJavaDuration(reportingPeriod),
+    )
+
+  def transactionTreesDamlMetrics(
+      streamName: String,
+      registry: MetricRegistry,
+      slidingTimeWindow: FiniteDuration,
+  ): DamlMetrics[GetTransactionTreesResponse] =
+    DamlMetrics[GetTransactionTreesResponse](
+      streamName = streamName,
+      registry = registry,
+      slidingTimeWindow = Duration.ofNanos(slidingTimeWindow.toNanos),
+      countingFunction = _.transactions.length.toLong,
+      sizingFunction = _.serializedSize.toLong,
+      recordTimeFunction = _.transactions.collect {
+        case t if t.effectiveAt.isDefined => t.getEffectiveAt
+      },
+      clock = Clock.systemUTC(),
     )
 
   def activeContractsMetrics: List[Metric[GetActiveContractsResponse]] =
@@ -64,7 +80,7 @@ object MetricsSet {
         countingFunction = _.activeContracts.length
       ),
       TotalCountMetric.empty[GetActiveContractsResponse](
-        countingFunction = _.activeContracts.length.toLong
+        countingFunction = _.activeContracts.length
       ),
       SizeMetric.empty[GetActiveContractsResponse](
         sizingFunction = _.serializedSize.toLong
@@ -77,7 +93,7 @@ object MetricsSet {
         countingFunction = _.completions.length
       ),
       TotalCountMetric.empty(
-        countingFunction = _.completions.length.toLong
+        countingFunction = _.completions.length
       ),
       SizeMetric.empty(
         sizingFunction = _.serializedSize.toLong
@@ -85,67 +101,30 @@ object MetricsSet {
     )
 
   private def all[T](
-      streamName: String,
-      registry: MetricRegistry,
-      reportingPeriod: Duration,
       countingFunction: T => Int,
       sizingFunction: T => Long,
       recordTimeFunction: T => Seq[Timestamp],
       objectives: Objectives,
   ): List[Metric[T]] = {
-    val Prefix = MetricName.DAML :+ "bench_tool"
-
-    def metricName(metricType: String): MetricName =
-      Prefix :+ metricType :+ streamName
-
-    val totalCountMetric = TotalCountMetric.empty[T](
-      countingFunction = countingFunction.andThen(_.toLong)
-    )
-    TotalCountMetric.register(
-      metric = totalCountMetric,
-      name = metricName("count"),
-      registry = registry,
-    )
-
-    val sizeMetric = SizeMetric.empty[T](
-      sizingFunction = sizingFunction
-    )
-    SizeMetric.register(
-      metric = sizeMetric,
-      name = metricName("size"),
-      registry = registry,
-    )
-
-    val delayMetric = DelayMetric.empty[T](
-      recordTimeFunction = recordTimeFunction,
-      clock = Clock.systemUTC(),
-      objective = objectives.maxDelaySeconds.map(MaxDelay),
-      slidingTimeWindow = reportingPeriod, //TODO: consider just fixed value
-    )
-    DelayMetric.register(
-      metric = delayMetric,
-      name = metricName("delay"),
-      registry = registry,
-    )
-
-    val consumptionSpeedMetric = ConsumptionSpeedMetric.empty[T](
-      recordTimeFunction = recordTimeFunction,
-      objective = objectives.minConsumptionSpeed.map(MinConsumptionSpeed),
-    )
-    ConsumptionSpeedMetric.register(
-      metric = consumptionSpeedMetric,
-      name = metricName("consumption_speed"),
-      registry = registry,
-    )
-
     List[Metric[T]](
       CountRateMetric.empty[T](
         countingFunction = countingFunction
       ),
-      totalCountMetric,
-      consumptionSpeedMetric,
-      delayMetric,
-      sizeMetric,
+      TotalCountMetric.empty[T](
+        countingFunction = countingFunction
+      ),
+      ConsumptionSpeedMetric.empty[T](
+        recordTimeFunction = recordTimeFunction,
+        objective = objectives.minConsumptionSpeed.map(MinConsumptionSpeed),
+      ),
+      DelayMetric.empty[T](
+        recordTimeFunction = recordTimeFunction,
+        clock = Clock.systemUTC(),
+        objective = objectives.maxDelaySeconds.map(MaxDelay),
+      ),
+      SizeMetric.empty[T](
+        sizingFunction = sizingFunction
+      ),
     )
   }
 }

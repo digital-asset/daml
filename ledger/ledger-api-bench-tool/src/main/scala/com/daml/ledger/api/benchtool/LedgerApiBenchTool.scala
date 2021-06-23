@@ -3,7 +3,12 @@
 
 package com.daml.ledger.api.benchtool
 
-import com.daml.ledger.api.benchtool.metrics.{MetricsCollector, MetricsSet, StreamMetrics}
+import com.daml.ledger.api.benchtool.metrics.{
+  MetricRegistryOwner,
+  MetricsCollector,
+  MetricsSet,
+  StreamMetrics,
+}
 import com.daml.ledger.api.benchtool.services.{
   ActiveContractsService,
   CommandCompletionService,
@@ -13,7 +18,6 @@ import com.daml.ledger.api.benchtool.services.{
 import com.daml.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
-import com.daml.metrics.MetricsReporting
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.LoggerFactory
@@ -55,14 +59,13 @@ object LedgerApiBenchTool {
       executorService <- threadPoolExecutorOwner(config.concurrency)
       channel <- channelOwner(config.ledger, config.tls, executorService)
       system <- TypedActorSystemResourceOwner.owner()
-      metrics <- new MetricsReporting(
-        jmxDomain = getClass.getName,
-        extraMetricsReporter = config.metricsReporter,
-        extraMetricsReportingInterval = config.reportingPeriod,
+      registry <- new MetricRegistryOwner(
+        reporter = config.metricsReporter,
+        reportingInterval = config.reportingPeriod,
       )
-    } yield (channel, system, metrics)
+    } yield (channel, system, registry)
 
-    resources.use { case (channel, system, damlMetrics) =>
+    resources.use { case (channel, system, registry) =>
       val ledgerIdentityService: LedgerIdentityService = new LedgerIdentityService(channel)
       val ledgerId: String = ledgerIdentityService.fetchLedgerId()
       val transactionService = new TransactionService(channel, ledgerId)
@@ -75,14 +78,12 @@ object LedgerApiBenchTool {
               .observer(
                 streamName = streamConfig.name,
                 logInterval = config.reportingPeriod,
-                metrics = MetricsSet.transactionMetrics(
-                  streamConfig.name,
-                  damlMetrics.registry,
-                  streamConfig.objectives,
-                  config.reportingPeriod,
-                ),
+                metrics = MetricsSet.transactionMetrics(streamConfig.objectives),
                 logger = logger,
-                damlMetrics = damlMetrics,
+                damlMetrics = Some(
+                  MetricsSet
+                    .transactionDamlMetrics(streamConfig.name, registry, config.reportingPeriod)
+                ),
               )(system, ec)
               .flatMap { observer =>
                 transactionService.transactions(streamConfig, observer)
@@ -92,14 +93,15 @@ object LedgerApiBenchTool {
               .observer(
                 streamName = streamConfig.name,
                 logInterval = config.reportingPeriod,
-                metrics = MetricsSet.transactionTreesMetrics(
-                  streamConfig.name,
-                  damlMetrics.registry,
-                  streamConfig.objectives,
-                  config.reportingPeriod,
-                ),
+                metrics = MetricsSet.transactionTreesMetrics(streamConfig.objectives),
                 logger = logger,
-                damlMetrics = damlMetrics,
+                damlMetrics = Some(
+                  MetricsSet.transactionTreesDamlMetrics(
+                    streamConfig.name,
+                    registry,
+                    config.reportingPeriod,
+                  )
+                ),
               )(system, ec)
               .flatMap { observer =>
                 transactionService.transactionTrees(streamConfig, observer)
@@ -111,7 +113,6 @@ object LedgerApiBenchTool {
                 logInterval = config.reportingPeriod,
                 metrics = MetricsSet.activeContractsMetrics,
                 logger = logger,
-                damlMetrics = damlMetrics,
               )(system, ec)
               .flatMap { observer =>
                 activeContractsService.getActiveContracts(streamConfig, observer)
@@ -123,7 +124,6 @@ object LedgerApiBenchTool {
                 logInterval = config.reportingPeriod,
                 metrics = MetricsSet.completionsMetrics,
                 logger = logger,
-                damlMetrics = damlMetrics,
               )(system, ec)
               .flatMap { observer =>
                 commandCompletionService.completions(streamConfig, observer)

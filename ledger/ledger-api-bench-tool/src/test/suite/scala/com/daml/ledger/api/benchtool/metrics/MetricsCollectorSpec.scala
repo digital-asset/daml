@@ -11,12 +11,10 @@ import akka.actor.testkit.typed.scaladsl.{
   TestProbe,
 }
 import akka.actor.typed.{ActorRef, Behavior}
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.benchtool.metrics.MetricsCollector.Message
 import com.daml.ledger.api.benchtool.metrics.objectives.ServiceLevelObjective
 import com.daml.ledger.api.benchtool.metrics.{Metric, MetricValue, MetricsCollector}
 import com.daml.ledger.api.benchtool.util.MetricReporter
-import com.daml.metrics.Metrics
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import java.time.Duration
@@ -101,7 +99,6 @@ class MetricsCollectorSpec
       metrics = List(TestMetric()),
       logInterval = logInterval,
       reporter = TestReporter,
-      damlMetrics = new Metrics(new MetricRegistry),
     )
 
   private case class TestMetricValue(value: String) extends MetricValue

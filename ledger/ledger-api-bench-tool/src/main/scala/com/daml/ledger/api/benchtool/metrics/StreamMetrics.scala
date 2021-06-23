@@ -4,7 +4,6 @@
 package com.daml.ledger.api.benchtool.metrics
 
 import akka.actor.typed.{ActorSystem, SpawnProtocol}
-import com.daml.metrics.Metrics
 import org.slf4j.Logger
 
 import scala.concurrent.duration.FiniteDuration
@@ -17,7 +16,7 @@ object StreamMetrics {
       logInterval: FiniteDuration,
       metrics: List[Metric[StreamElem]],
       logger: Logger,
-      damlMetrics: Metrics,
+      damlMetrics: Option[DamlMetrics[StreamElem]] = None,
   )(implicit
       system: ActorSystem[SpawnProtocol.Command],
       ec: ExecutionContext,

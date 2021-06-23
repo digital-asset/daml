@@ -16,7 +16,7 @@ case class Config(
     tls: TlsConfiguration,
     streams: List[Config.StreamConfig],
     reportingPeriod: FiniteDuration,
-    metricsReporter: Option[MetricsReporter],
+    metricsReporter: MetricsReporter,
 )
 
 object Config {
@@ -90,6 +90,6 @@ object Config {
       tls = TlsConfiguration.Empty.copy(enabled = false),
       streams = List.empty[Config.StreamConfig],
       reportingPeriod = 5.seconds,
-      metricsReporter = None,
+      metricsReporter = MetricsReporter.Console,
     )
 }
