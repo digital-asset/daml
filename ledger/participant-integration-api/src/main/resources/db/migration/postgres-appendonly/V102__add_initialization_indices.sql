@@ -10,8 +10,5 @@
 -- This migration adds missing indices to speed up the deletion of such entries.
 ---------------------------------------------------------------------------------------------------
 
-CREATE INDEX configuration_entries_ledger_offset_idx ON configuration_entries USING btree (ledger_offset);
-CREATE INDEX package_entries_ledger_offset_idx ON package_entries USING btree (ledger_offset);
 CREATE INDEX packages_ledger_offset_idx ON packages USING btree (ledger_offset);
 CREATE INDEX parties_ledger_offset_idx ON parties USING btree (ledger_offset);
-CREATE INDEX party_entries_ledger_offset_idx ON party_entries USING btree (ledger_offset);
