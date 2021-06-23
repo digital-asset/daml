@@ -57,7 +57,7 @@ private[dao] trait JdbcLedgerDaoExceptionSpec extends LoneElement with Inside wi
         stakeholders = stakeholders.union(divulgees),
       )
       val rollback = builder.rollback()
-      val exercise2 = fetchNode(createCid).copy(
+      val fetch1 = fetchNode(createCid).copy(
         actingParties = stakeholders,
         signatories = stakeholders,
         stakeholders = stakeholders,
@@ -65,7 +65,7 @@ private[dao] trait JdbcLedgerDaoExceptionSpec extends LoneElement with Inside wi
 
       val exercise1Nid = builder.add(exercise1)
       val rollbackNid = builder.add(rollback, exercise1Nid)
-      builder.add(exercise2, rollbackNid)
+      builder.add(fetch1, rollbackNid)
       fromTransaction(builder.buildCommitted()).copy()
     }
 
@@ -87,7 +87,7 @@ private[dao] trait JdbcLedgerDaoExceptionSpec extends LoneElement with Inside wi
         stakeholders = stakeholders.union(divulgees),
         key = None,
       )
-      fetcher = nonTransient(tx1).loneElement
+      fetcher = nonTransient(tx2).loneElement
       fetcherCid = ContractId.assertFromString(fetcher.coid)
 
       // Exercise a choice on the "Fetcher" contract that divulges the first contract
@@ -128,7 +128,7 @@ private[dao] trait JdbcLedgerDaoExceptionSpec extends LoneElement with Inside wi
       stakeholders = stakeholders.union(divulgees),
     )
     val rollback = builder.rollback()
-    val exercise2 = fetchNode(createCid).copy(
+    val fetch1 = fetchNode(createCid).copy(
       actingParties = stakeholders,
       signatories = stakeholders,
       stakeholders = stakeholders,
@@ -138,7 +138,7 @@ private[dao] trait JdbcLedgerDaoExceptionSpec extends LoneElement with Inside wi
     builder.add(create2)
     val exercise1Nid = builder.add(exercise1)
     val rollbackNid = builder.add(rollback, exercise1Nid)
-    builder.add(exercise2, rollbackNid)
+    builder.add(fetch1, rollbackNid)
     val offsetAndEntry = fromTransaction(builder.buildCommitted()).copy()
 
     for {
