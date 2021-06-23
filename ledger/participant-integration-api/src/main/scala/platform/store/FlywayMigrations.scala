@@ -85,7 +85,7 @@ private[platform] object FlywayMigrations {
   private val appendOnlyFromScratch = Map(
     DbType.Postgres -> false,
     DbType.H2Database -> true,
-    DbType.Oracle -> false,
+    DbType.Oracle -> true,
   )
 
   private val sqlMigrationClasspathBase = "classpath:db/migration/"

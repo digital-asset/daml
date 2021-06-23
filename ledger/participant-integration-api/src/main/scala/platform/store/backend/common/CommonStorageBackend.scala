@@ -352,7 +352,8 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
     """select * from party_entries
       |where ledger_offset>{startExclusive} and ledger_offset<={endInclusive}
       |order by ledger_offset asc
-      |offset {queryOffset} rows fetch next {pageSize} rows only""".stripMargin
+      |offset {queryOffset} rows
+      |fetch next {pageSize} rows only""".stripMargin
   )
 
   private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
@@ -520,6 +521,15 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .as[Option[Array[Byte]]](SqlParser.byteArray("package").singleOpt)(connection)
   }
 
+  private val SQL_GET_PACKAGE_ENTRIES = SQL(
+    """select * from package_entries
+      |where ledger_offset>{startExclusive}
+      |and ledger_offset<={endInclusive}
+      |order by ledger_offset asc
+      |offset {queryOffset} rows
+      |fetch next {pageSize} rows only""".stripMargin
+  )
+
   private val packageEntryParser: RowParser[(Offset, PackageLedgerEntry)] =
     (offset("ledger_offset") ~
       date("recorded_at") ~
@@ -545,11 +555,13 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, PackageLedgerEntry)] = {
     import com.daml.platform.store.Conversions.OffsetToStatement
-
-    SQL"""select * from package_entries
-     where ledger_offset>${startExclusive} and ledger_offset<=${endInclusive}
-     order by ledger_offset asc
-     offset #$queryOffset rows fetch next #$pageSize rows only"""
+    SQL_GET_PACKAGE_ENTRIES
+      .on(
+        "startExclusive" -> startExclusive,
+        "endInclusive" -> endInclusive,
+        "pageSize" -> pageSize,
+        "queryOffset" -> queryOffset,
+      )
       .asVectorOf(packageEntryParser)(connection)
   }
 

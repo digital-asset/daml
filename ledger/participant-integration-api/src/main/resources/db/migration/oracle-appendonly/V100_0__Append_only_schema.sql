@@ -19,7 +19,142 @@
 ---------------------------------------------------------------------------------------------------
 
 -- size is a reserved word in oracle, rename column to siz for cross-db compatibility so
-ALTER TABLE packages RENAME COLUMN "size" TO siz;
+CREATE TABLE parties
+(
+    -- The unique identifier of the party
+    party         NVARCHAR2(1000) primary key not null,
+    -- A human readable name of the party, might not be unique
+    display_name  NVARCHAR2(1000),
+    -- True iff the party was added explicitly through an API call
+    explicit      NUMBER(1, 0)                not null,
+    -- For implicitly added parties: the offset of the transaction that introduced the party
+    -- For explicitly added parties: the ledger end at the time when the party was added
+    ledger_offset VARCHAR2(4000),
+    is_local      NUMBER(1, 0)                not null
+);
+CREATE INDEX parties_ledger_offset_idx ON parties(ledger_offset);
+
+CREATE TABLE packages
+(
+    -- The unique identifier of the package (the hash of its content)
+    package_id         VARCHAR2(4000) primary key not null,
+    -- Packages are uploaded as DAR files (i.e., in groups)
+    -- This field can be used to find out which packages were uploaded together
+    upload_id          NVARCHAR2(1000)            not null,
+    -- A human readable description of the package source
+    source_description NVARCHAR2(1000),
+    -- The size of the archive payload (i.e., the serialized DAML-LF package), in bytes
+    siz             NUMBER                     not null,
+    -- The time when the package was added
+    known_since        TIMESTAMP                  not null,
+    -- The ledger end at the time when the package was added
+    ledger_offset      VARCHAR2(4000)             not null,
+    -- The DAML-LF archive, serialized using the protobuf message `daml_lf.Archive`.
+    --  See also `daml-lf/archive/da/daml_lf.proto`.
+    package            BLOB                       not null
+);
+CREATE INDEX packages_ledger_offset_idx ON packages(ledger_offset);
+
+
+
+CREATE TABLE configuration_entries
+(
+    ledger_offset    VARCHAR2(4000)  not null primary key,
+    recorded_at      timestamp       not null, -- TODO BH: in postgres this is with timezone
+    submission_id    NVARCHAR2(1000) not null,
+    -- The type of entry, one of 'accept' or 'reject'.
+    typ              NVARCHAR2(1000) not null,
+    -- The configuration that was proposed and either accepted or rejected depending on the type.
+    -- Encoded according to participant-state/protobuf/ledger_configuration.proto.
+    -- Add the current configuration column to parameters.
+    configuration    BLOB            not null,
+
+    -- If the type is 'rejection', then the rejection reason is set.
+    -- Rejection reason is a human-readable description why the change was rejected.
+    rejection_reason NVARCHAR2(1000),
+
+    -- Check that fields are correctly set based on the type.
+    constraint configuration_entries_check_entry
+        check (
+                (typ = 'accept' and rejection_reason is null) or
+                (typ = 'reject' and rejection_reason is not null))
+);
+
+CREATE UNIQUE INDEX idx_configuration_submission ON configuration_entries (submission_id);
+
+CREATE TABLE package_entries
+(
+    ledger_offset    VARCHAR2(4000)  not null primary key,
+    recorded_at      timestamp       not null, --TODO BH in postgres this is with timezone
+    -- SubmissionId for package to be uploaded
+    submission_id    NVARCHAR2(1000),
+    -- The type of entry, one of 'accept' or 'reject'
+    typ              NVARCHAR2(1000) not null,
+    -- If the type is 'reject', then the rejection reason is set.
+    -- Rejection reason is a human-readable description why the change was rejected.
+    rejection_reason NVARCHAR2(1000),
+
+    constraint check_package_entry_type
+        check (
+                (typ = 'accept' and rejection_reason is null) or
+                (typ = 'reject' and rejection_reason is not null)
+            )
+);
+
+-- Index for retrieving the package entry by submission id
+CREATE UNIQUE INDEX idx_package_entries ON package_entries (submission_id);
+
+CREATE TABLE party_entries
+(
+    -- The ledger end at the time when the party allocation was added
+    -- cannot BLOB add as primary key with oracle
+    ledger_offset    VARCHAR2(4000)  primary key not null,
+    recorded_at      timestamp       not null, --with timezone
+    -- SubmissionId for the party allocation
+    submission_id    NVARCHAR2(1000),
+    -- party
+    party            NVARCHAR2(1000),
+    -- displayName
+    display_name     NVARCHAR2(1000),
+    -- The type of entry, 'accept' or 'reject'
+    typ              NVARCHAR2(1000) not null,
+    -- If the type is 'reject', then the rejection reason is set.
+    -- Rejection reason is a human-readable description why the change was rejected.
+    rejection_reason NVARCHAR2(1000),
+    -- true if the party was added on participantId node that owns the party
+    is_local         NUMBER(1, 0),
+
+    constraint check_party_entry_type
+        check (
+                (typ = 'accept' and rejection_reason is null and party is not null) or
+                (typ = 'reject' and rejection_reason is not null)
+            )
+);
+CREATE UNIQUE INDEX idx_party_entries ON party_entries(submission_id);
+
+CREATE TABLE participant_command_completions
+(
+    completion_offset VARCHAR2(4000)  not null,
+    record_time       TIMESTAMP       not null,
+
+    application_id    NVARCHAR2(1000) not null,
+    submitters        CLOB NOT NULL CONSTRAINT ensure_json_submitters CHECK (submitters IS JSON),
+    command_id        NVARCHAR2(1000) not null,
+
+    transaction_id    NVARCHAR2(1000), -- null if the command was rejected and checkpoints
+    status_code       INTEGER,         -- null for successful command and checkpoints
+    status_message    NVARCHAR2(1000)  -- null for successful command and checkpoints
+);
+
+create index participant_command_completions_idx on participant_command_completions(completion_offset, application_id);
+
+CREATE TABLE participant_command_submissions
+(
+    -- The deduplication key
+    deduplication_key NVARCHAR2(1000) primary key not null,
+    -- The time the command will stop being deduplicated
+    deduplicate_until timestamp                   not null
+);
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: divulgence
@@ -49,6 +184,28 @@ CREATE TABLE participant_events_divulgence (
     -- * compression flags
     create_argument_compression SMALLINT
 );
+
+---------------------------------------------------------------------------------------------------
+-- Events table: divulgence
+---------------------------------------------------------------------------------------------------
+
+-- offset index: used to translate to sequential_id
+CREATE INDEX participant_events_divulgence_event_offset ON participant_events_divulgence(event_offset);
+
+-- sequential_id index for paging
+CREATE INDEX participant_events_divulgence_event_sequential_id ON participant_events_divulgence(event_sequential_id);
+
+-- filtering by template
+CREATE INDEX participant_events_divulgence_template_id_idx ON participant_events_divulgence(template_id);
+
+-- filtering by witnesses (visibility) for some queries used in the implementation of
+-- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
+-- Note that Potsgres has trouble using these indices effectively with our paged access.
+-- We might decide to drop them.
+CREATE INDEX participant_events_divulgence_tree_event_witnesses_idx ON participant_events_divulgence(JSON_ARRAY(tree_event_witnesses));
+
+-- lookup divulgance events, in order of ingestion
+CREATE INDEX participant_events_divulgence_contract_id_idx ON participant_events_divulgence(contract_id, event_sequential_id);
 
 
 ---------------------------------------------------------------------------------------------------
@@ -95,6 +252,36 @@ CREATE TABLE participant_events_create (
     create_key_value_compression SMALLINT
 );
 
+-- offset index: used to translate to sequential_id
+CREATE INDEX participant_events_create_event_offset ON participant_events_create(event_offset);
+
+-- sequential_id index for paging
+CREATE INDEX participant_events_create_event_sequential_id ON participant_events_create(event_sequential_id);
+
+-- lookup by event-id
+CREATE INDEX participant_events_create_event_id_idx ON participant_events_create(event_id);
+
+-- lookup by transaction id
+CREATE INDEX participant_events_create_transaction_id_idx ON participant_events_create(transaction_id);
+
+-- filtering by template
+CREATE INDEX participant_events_create_template_id_idx ON participant_events_create(template_id);
+
+-- filtering by witnesses (visibility) for some queries used in the implementation of
+-- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
+-- Note that Potsgres has trouble using these indices effectively with our paged access.
+-- We might decide to drop them.
+-- TODO these indices are never hit
+CREATE INDEX participant_events_create_flat_event_witnesses_idx ON participant_events_create(JSON_ARRAY(flat_event_witnesses));
+CREATE INDEX participant_events_create_tree_event_witnesses_idx ON participant_events_create(JSON_ARRAY(tree_event_witnesses));
+
+-- lookup by contract id
+-- TODO double-check how the HASH should work and that it is actually hit
+CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create(ORA_HASH(contract_id));
+
+-- lookup by contract_key
+CREATE INDEX participant_events_create_create_key_hash_idx ON participant_events_create(create_key_hash, event_sequential_id);
+
 ---------------------------------------------------------------------------------------------------
 -- Events table: consuming exercise
 ---------------------------------------------------------------------------------------------------
@@ -140,6 +327,32 @@ CREATE TABLE participant_events_consuming_exercise (
     exercise_result_compression SMALLINT
 );
 
+-- offset index: used to translate to sequential_id
+CREATE INDEX participant_events_consuming_exercise_event_offset ON participant_events_consuming_exercise(event_offset);
+
+-- sequential_id index for paging
+CREATE INDEX participant_events_consuming_exercise_event_sequential_id ON participant_events_consuming_exercise(event_sequential_id);
+
+-- lookup by event-id
+CREATE INDEX participant_events_consuming_exercise_event_id_idx ON participant_events_consuming_exercise(event_id);
+
+-- lookup by transaction id
+CREATE INDEX participant_events_consuming_exercise_transaction_id_idx ON participant_events_consuming_exercise(transaction_id);
+
+-- filtering by template
+CREATE INDEX participant_events_consuming_exercise_template_id_idx ON participant_events_consuming_exercise(template_id);
+
+-- filtering by witnesses (visibility) for some queries used in the implementation of
+-- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
+-- Note that Potsgres has trouble using these indices effectively with our paged access.
+-- We might decide to drop them.
+-- TODO these indices are never hit
+CREATE INDEX participant_events_consuming_exercise_flat_event_witnesses_idx ON participant_events_consuming_exercise (JSON_ARRAY(flat_event_witnesses));
+CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON participant_events_consuming_exercise (JSON_ARRAY(tree_event_witnesses));
+
+-- lookup by contract id
+-- TODO double-check how the HASH should work and that it is actually hit
+CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (ORA_HASH(contract_id));
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: non-consuming exercise
@@ -187,14 +400,29 @@ CREATE TABLE participant_events_non_consuming_exercise (
     exercise_result_compression SMALLINT
 );
 
+-- offset index: used to translate to sequential_id
+CREATE INDEX participant_events_non_consuming_exercise_event_offset ON participant_events_non_consuming_exercise(event_offset);
 
----------------------------------------------------------------------------------------------------
--- Drop old tables, at this point all data has been copied to the new tables
----------------------------------------------------------------------------------------------------
+-- sequential_id index for paging
+CREATE INDEX participant_events_non_consuming_exercise_event_sequential_id ON participant_events_non_consuming_exercise(event_sequential_id);
 
-DROP TABLE participant_contracts CASCADE CONSTRAINTS;
-DROP TABLE participant_contract_witnesses CASCADE CONSTRAINTS;
-DROP TABLE participant_events CASCADE CONSTRAINTS;
+-- lookup by event-id
+CREATE INDEX participant_events_non_consuming_exercise_event_id_idx ON participant_events_non_consuming_exercise(event_id);
+
+-- lookup by transaction id
+CREATE INDEX participant_events_non_consuming_exercise_transaction_id_idx ON participant_events_non_consuming_exercise(transaction_id);
+
+-- filtering by template
+CREATE INDEX participant_events_non_consuming_exercise_template_id_idx ON participant_events_non_consuming_exercise(template_id);
+
+-- filtering by witnesses (visibility) for some queries used in the implementation of
+-- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
+-- There is no equivalent to GIN index for oracle, but we explicitly mark as a JSON column for indexing
+-- NOTE: index name truncated because the full name exceeds the 63 characters length limit
+-- TODO these indices are never hit
+CREATE INDEX participant_events_non_consuming_exercise_flat_event_witnes_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(flat_event_witnesses));
+CREATE INDEX participant_events_non_consuming_exercise_tree_event_witnes_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(tree_event_witnesses));
+
 
 CREATE VIEW participant_events AS
 SELECT cast(0 as SMALLINT)          AS event_kind,
@@ -347,7 +575,19 @@ INSERT INTO participant_migration_history_v100 VALUES (
 ---------------------------------------------------------------------------------------------------
 
 -- new field: the sequential_event_id up to which all events have been ingested
-ALTER TABLE parameters ADD ledger_end_sequential_id NUMBER;
+CREATE TABLE parameters
+-- this table is meant to have a single row storing all the parameters we have
+(
+    -- the generated or configured id identifying the ledger
+    ledger_id                          NVARCHAR2(1000) not null,
+    -- stores the head offset, meant to change with every new ledger entry
+    ledger_end                         VARCHAR2(4000),
+    external_ledger_end                NVARCHAR2(1000),
+    participant_id                     NVARCHAR2(1000),
+    participant_pruned_up_to_inclusive VARCHAR2(4000),
+    ledger_end_sequential_id NUMBER
+);
+
 UPDATE parameters SET ledger_end_sequential_id = (
     SELECT max(event_sequential_id) FROM participant_events
 );
@@ -358,129 +598,3 @@ UPDATE participant_migration_history_v100
 SET ledger_end_sequential_id_after = (
     SELECT max(ledger_end_sequential_id) FROM parameters
 );
-
-ALTER TABLE parameters DROP COLUMN configuration;
-
-
----------------------------------------------------------------------------------------------------
--- V100.2: Append-only schema
---
--- This step creates indices for the new tables of the append-only schema
----------------------------------------------------------------------------------------------------
-
----------------------------------------------------------------------------------------------------
--- Events table: divulgence
----------------------------------------------------------------------------------------------------
-
--- offset index: used to translate to sequential_id
-CREATE INDEX participant_events_divulgence_event_offset ON participant_events_divulgence(event_offset);
-
--- sequential_id index for paging
-CREATE INDEX participant_events_divulgence_event_sequential_id ON participant_events_divulgence(event_sequential_id);
-
--- filtering by template
-CREATE INDEX participant_events_divulgence_template_id_idx ON participant_events_divulgence(template_id);
-
--- filtering by witnesses (visibility) for some queries used in the implementation of
--- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
--- Note that Potsgres has trouble using these indices effectively with our paged access.
--- We might decide to drop them.
-CREATE INDEX participant_events_divulgence_tree_event_witnesses_idx ON participant_events_divulgence(JSON_ARRAY(tree_event_witnesses));
-
--- lookup divulgance events, in order of ingestion
-CREATE INDEX participant_events_divulgence_contract_id_idx ON participant_events_divulgence(contract_id, event_sequential_id);
-
-
----------------------------------------------------------------------------------------------------
--- Events table: create
----------------------------------------------------------------------------------------------------
-
--- offset index: used to translate to sequential_id
-CREATE INDEX participant_events_create_event_offset ON participant_events_create(event_offset);
-
--- sequential_id index for paging
-CREATE INDEX participant_events_create_event_sequential_id ON participant_events_create(event_sequential_id);
-
--- lookup by event-id
-CREATE INDEX participant_events_create_event_id_idx ON participant_events_create(event_id);
-
--- lookup by transaction id
-CREATE INDEX participant_events_create_transaction_id_idx ON participant_events_create(transaction_id);
-
--- filtering by template
-CREATE INDEX participant_events_create_template_id_idx ON participant_events_create(template_id);
-
--- filtering by witnesses (visibility) for some queries used in the implementation of
--- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
--- Note that Potsgres has trouble using these indices effectively with our paged access.
--- We might decide to drop them.
--- TODO these indices are never hit
-CREATE INDEX participant_events_create_flat_event_witnesses_idx ON participant_events_create(JSON_ARRAY(flat_event_witnesses));
-CREATE INDEX participant_events_create_tree_event_witnesses_idx ON participant_events_create(JSON_ARRAY(tree_event_witnesses));
-
--- lookup by contract id
--- TODO double-check how the HASH should work and that it is actually hit
-CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create(ORA_HASH(contract_id));
-
--- lookup by contract_key
-CREATE INDEX participant_events_create_create_key_hash_idx ON participant_events_create(create_key_hash, event_sequential_id);
-
-
----------------------------------------------------------------------------------------------------
--- Events table: consuming exercise
----------------------------------------------------------------------------------------------------
-
--- offset index: used to translate to sequential_id
-CREATE INDEX participant_events_consuming_exercise_event_offset ON participant_events_consuming_exercise(event_offset);
-
--- sequential_id index for paging
-CREATE INDEX participant_events_consuming_exercise_event_sequential_id ON participant_events_consuming_exercise(event_sequential_id);
-
--- lookup by event-id
-CREATE INDEX participant_events_consuming_exercise_event_id_idx ON participant_events_consuming_exercise(event_id);
-
--- lookup by transaction id
-CREATE INDEX participant_events_consuming_exercise_transaction_id_idx ON participant_events_consuming_exercise(transaction_id);
-
--- filtering by template
-CREATE INDEX participant_events_consuming_exercise_template_id_idx ON participant_events_consuming_exercise(template_id);
-
--- filtering by witnesses (visibility) for some queries used in the implementation of
--- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
--- Note that Potsgres has trouble using these indices effectively with our paged access.
--- We might decide to drop them.
--- TODO these indices are never hit
-CREATE INDEX participant_events_consuming_exercise_flat_event_witnesses_idx ON participant_events_consuming_exercise (JSON_ARRAY(flat_event_witnesses));
-CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON participant_events_consuming_exercise (JSON_ARRAY(tree_event_witnesses));
-
--- lookup by contract id
--- TODO double-check how the HASH should work and that it is actually hit
-CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (ORA_HASH(contract_id));
-
-
----------------------------------------------------------------------------------------------------
--- Events table: non-consuming exercise
----------------------------------------------------------------------------------------------------
-
--- offset index: used to translate to sequential_id
-CREATE INDEX participant_events_non_consuming_exercise_event_offset ON participant_events_non_consuming_exercise(event_offset);
-
--- sequential_id index for paging
-CREATE INDEX participant_events_non_consuming_exercise_event_sequential_id ON participant_events_non_consuming_exercise(event_sequential_id);
-
--- lookup by event-id
-CREATE INDEX participant_events_non_consuming_exercise_event_id_idx ON participant_events_non_consuming_exercise(event_id);
-
--- lookup by transaction id
-CREATE INDEX participant_events_non_consuming_exercise_transaction_id_idx ON participant_events_non_consuming_exercise(transaction_id);
-
--- filtering by template
-CREATE INDEX participant_events_non_consuming_exercise_template_id_idx ON participant_events_non_consuming_exercise(template_id);
-
--- filtering by witnesses (visibility) for some queries used in the implementation of
--- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
--- There is no equivalent to GIN index for oracle, but we explicitly mark as a JSON column for indexing
--- NOTE: index name truncated because the full name exceeds the 63 characters length limit
--- TODO these indices are never hit
-CREATE INDEX participant_events_non_consuming_exercise_flat_event_witnes_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(flat_event_witnesses));
-CREATE INDEX participant_events_non_consuming_exercise_tree_event_witnes_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(tree_event_witnesses));
