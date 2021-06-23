@@ -15,13 +15,18 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.metrics.MetricName
 import com.google.protobuf.timestamp.Timestamp
 
-import java.time.Clock
+import java.time.{Clock, Duration}
+import scala.concurrent.duration.FiniteDuration
 
 object MetricsSet {
+  def toJavaDuration(duration: FiniteDuration) =
+    Duration.ofNanos(duration.toNanos)
+
   def transactionMetrics(
       streamName: String,
       registry: MetricRegistry,
       objectives: Objectives,
+      reportingPeriod: FiniteDuration,
   ): List[Metric[GetTransactionsResponse]] =
     all[GetTransactionsResponse](
       streamName: String,
@@ -32,12 +37,14 @@ object MetricsSet {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
       },
       objectives = objectives,
+      reportingPeriod = toJavaDuration(reportingPeriod),
     )
 
   def transactionTreesMetrics(
       streamName: String,
       registry: MetricRegistry,
       objectives: Objectives,
+      reportingPeriod: FiniteDuration,
   ): List[Metric[GetTransactionTreesResponse]] =
     all[GetTransactionTreesResponse](
       streamName = streamName,
@@ -48,6 +55,7 @@ object MetricsSet {
         case t if t.effectiveAt.isDefined => t.getEffectiveAt
       },
       objectives = objectives,
+      reportingPeriod = toJavaDuration(reportingPeriod),
     )
 
   def activeContractsMetrics: List[Metric[GetActiveContractsResponse]] =
@@ -79,6 +87,7 @@ object MetricsSet {
   private def all[T](
       streamName: String,
       registry: MetricRegistry,
+      reportingPeriod: Duration,
       countingFunction: T => Int,
       sizingFunction: T => Long,
       recordTimeFunction: T => Seq[Timestamp],
@@ -86,12 +95,15 @@ object MetricsSet {
   ): List[Metric[T]] = {
     val Prefix = MetricName.DAML :+ "bench_tool"
 
+    def metricName(metricType: String): MetricName =
+      Prefix :+ metricType :+ streamName
+
     val totalCountMetric = TotalCountMetric.empty[T](
       countingFunction = countingFunction.andThen(_.toLong)
     )
     TotalCountMetric.register(
       metric = totalCountMetric,
-      name = Prefix :+ "count" :+ streamName,
+      name = metricName("count"),
       registry = registry,
     )
 
@@ -100,7 +112,19 @@ object MetricsSet {
     )
     SizeMetric.register(
       metric = sizeMetric,
-      name = Prefix :+ "size" :+ streamName,
+      name = metricName("size"),
+      registry = registry,
+    )
+
+    val delayMetric = DelayMetric.empty[T](
+      recordTimeFunction = recordTimeFunction,
+      clock = Clock.systemUTC(),
+      objective = objectives.maxDelaySeconds.map(MaxDelay),
+      slidingTimeWindow = reportingPeriod, //TODO: consider just fixed value
+    )
+    DelayMetric.register(
+      metric = delayMetric,
+      name = metricName("delay"),
       registry = registry,
     )
 
@@ -113,11 +137,7 @@ object MetricsSet {
         recordTimeFunction = recordTimeFunction,
         objective = objectives.minConsumptionSpeed.map(MinConsumptionSpeed),
       ),
-      DelayMetric.empty[T](
-        recordTimeFunction = recordTimeFunction,
-        clock = Clock.systemUTC(),
-        objective = objectives.maxDelaySeconds.map(MaxDelay),
-      ),
+      delayMetric,
       sizeMetric,
     )
   }

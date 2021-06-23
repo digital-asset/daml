@@ -16,7 +16,7 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
   DelayMetric.getClass.getSimpleName should {
     "correctly handle initial state" in {
       val periodDuration: Duration = Duration.ofMillis(100)
-      val metric: DelayMetric[String] = anEmptyDelayMetric(Clock.systemUTC())
+      val metric: DelayMetric[String] = anEmptyDelayMetric(Clock.systemUTC(), periodDuration)
 
       val (_, periodicValue) = metric.periodicValue(periodDuration)
       val totalDuration: Duration = Duration.ofSeconds(1)
@@ -49,6 +49,7 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
         DelayMetric.empty[String](
           recordTimeFunction = testRecordTimeFunction,
           clock = clock,
+          slidingTimeWindow = periodDuration,
         )
 
       val (newMetric, periodicValue) = metric
@@ -82,6 +83,7 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
         DelayMetric.empty[String](
           recordTimeFunction = testRecordTimeFunction,
           clock = clock,
+          slidingTimeWindow = periodDuration,
         )
 
       val (newMetric, periodicValue) = metric
@@ -122,6 +124,7 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
         DelayMetric.empty[String](
           recordTimeFunction = testRecordTimeFunction,
           clock = clock,
+          slidingTimeWindow = periodDuration,
         )
 
       val (newMetric, periodicValue) = metric
@@ -197,6 +200,7 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
           recordTimeFunction = testRecordTimeFunction,
           clock = clock,
           objective = Some(expectedViolatedObjective),
+          slidingTimeWindow = periodDuration,
         )
 
       val violatedObjectives =
@@ -240,6 +244,10 @@ class DelayMetricSpec extends AnyWordSpec with Matchers {
   private def dummyRecordTimesFunction(str: String): List[Timestamp] =
     str.map(_ => Timestamp.of(100, 0)).toList
 
-  private def anEmptyDelayMetric(clock: Clock): DelayMetric[String] =
-    DelayMetric.empty[String](dummyRecordTimesFunction, clock)
+  private def anEmptyDelayMetric(clock: Clock, slidingTimeWindow: Duration): DelayMetric[String] =
+    DelayMetric.empty[String](
+      recordTimeFunction = dummyRecordTimesFunction,
+      clock = clock,
+      slidingTimeWindow = slidingTimeWindow,
+    )
 }
