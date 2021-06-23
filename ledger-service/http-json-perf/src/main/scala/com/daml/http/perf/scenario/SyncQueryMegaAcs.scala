@@ -69,7 +69,7 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
   "key": "Alice",
   "choice": "Genesis_MakeIouRange",
   "argument": {
-    "totalSteps": 1000,
+    "totalSteps": 10000,
     "amountCycle": [${amount}],
     "observersCycle": ${observersCycle},
     "whichTemplateCycle": ${whichTemplateCycle}
@@ -94,7 +94,7 @@ class SyncQueryMegaAcs extends Simulation with SimulationConfig with HasRandomAm
       scenario(s"SyncQueryMegaScenario $scnName")
         .exec(createRequest.silent)
         // populate the ACS
-        .repeat(100, "amount") {
+        .repeat(10, "amount") {
           feed(Iterator continually env)
             .exec(createManyRequest.silent)
         }
