@@ -496,7 +496,7 @@ class EngineTest
     "reinterpret to the same result" in {
       val Right((tx, txMeta)) = interpretResult
 
-      val Right((rtx, _)) =
+      val Right((rtx, newMeta)) =
         reinterpret(
           engine,
           Set(party),
@@ -507,6 +507,7 @@ class EngineTest
           lookupPackage,
         )
       isReplayedBy(tx, rtx) shouldBe Right(())
+      txMeta.nodeSeeds shouldBe newMeta.nodeSeeds
     }
 
     "be validated" in {
