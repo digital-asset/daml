@@ -471,8 +471,31 @@ private[backend] object OracleStorageBackend
   private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
     if (parties.isEmpty)
       "false"
-    else
-      s"""JSON_EXISTS($arrayColumn, '$$[*]?(@ in ("${parties.mkString("""", """")}"))')"""
+    else {
+      val NumCharsBetweenParties = 3
+      val NumExtraChars = 20
+      val OracleMaxStringLiteralLength = 4000
+
+      val groupedParties =
+        parties.foldLeft((List.empty[List[String]], 0))({ case ((prev, currentLength), party) =>
+          if (
+            currentLength + party.length + NumCharsBetweenParties > OracleMaxStringLiteralLength
+          ) {
+            (List(party) :: prev, party.length + NumExtraChars)
+          } else {
+            prev match {
+              case h :: tail =>
+                ((party :: h) :: tail, currentLength + party.length + NumCharsBetweenParties)
+              case Nil => (List(party) :: Nil, party.length + NumExtraChars)
+            }
+          }
+        })
+      "(" + groupedParties._1
+        .map { listOfParties =>
+          s"""JSON_EXISTS($arrayColumn, '$$[*]?(@ in ("${listOfParties.mkString("""","""")}"))')"""
+        }
+        .mkString(" OR ") + ")"
+    }
 
   private def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
     s"""(select json_arrayagg(value) from (select value
