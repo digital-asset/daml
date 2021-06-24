@@ -470,7 +470,7 @@ private[backend] object H2StorageBackend
 
   private def format(parties: Set[Party]): String = parties.view.map(p => s"'$p'").mkString(",")
 
-  private def limitClause(to: Option[Int]): String = to.map(to => s"limit $to").getOrElse("")
+  private def limitClause(to: Option[Int]): String = to.map(to => s"fetch next $to rows only").getOrElse("")
 
   private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
     if (parties.isEmpty)
