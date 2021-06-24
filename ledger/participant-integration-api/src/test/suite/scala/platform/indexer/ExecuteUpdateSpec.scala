@@ -100,9 +100,9 @@ final class ExecuteUpdateSpec
       )
     ).thenReturn(mockedPreparedInsert)
 
-    when(dao.storeTransactionState(mockedPreparedInsert)(loggingContext))
+    when(dao.storeTransactionState(eqTo(mockedPreparedInsert))(any[LoggingContext]))
       .thenReturn(Future.successful(PersistenceResponse.Ok))
-    when(dao.storeTransactionEvents(mockedPreparedInsert)(loggingContext))
+    when(dao.storeTransactionEvents(eqTo(mockedPreparedInsert))(any[LoggingContext]))
       .thenReturn(Future.successful(PersistenceResponse.Ok))
     when(
       dao.completeTransaction(
