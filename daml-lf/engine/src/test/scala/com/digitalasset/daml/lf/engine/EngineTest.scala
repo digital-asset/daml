@@ -2440,6 +2440,85 @@ class EngineTest
       }
     }
 
+    "action node seeds" should {
+      val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
+      val lookupPackage = allExceptionsPkgs.get(_)
+      val kId = Identifier(exceptionsPkgId, "Exceptions:K")
+      val seedId = Identifier(exceptionsPkgId, "Exceptions:NodeSeeds")
+      val let = Time.Timestamp.now()
+      val submissionSeed = hash("rollback")
+      val seeding = Engine.initialSeeding(submissionSeed, participant, let)
+      val cid = toContractId("#1")
+      val contracts = Map(
+        cid -> ContractInst(
+          TypeConName(exceptionsPkgId, "Exceptions:K"),
+          assertAsVersionedValue(
+            ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0))))
+          ),
+          "",
+        )
+      )
+      val lookupContract = contracts.get(_)
+      def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
+        (key.globalKey.templateId, key.globalKey.key) match {
+          case (
+                `kId`,
+                ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
+              ) =>
+            Some(cid)
+          case _ =>
+            None
+        }
+      def run(cmd: ApiCommand) = {
+        val submitters = Set(party)
+        val Right((cmds, globalCids)) = preprocessor
+          .preprocessCommands(ImmArray(cmd))
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+            VisibleByKey.fromSubmitters(submitters),
+          )
+        engine
+          .interpretCommands(
+            validating = false,
+            submitters = submitters,
+            commands = cmds,
+            ledgerTime = let,
+            submissionTime = let,
+            seeding = seeding,
+            globalCids = globalCids,
+          )
+          .consume(
+            lookupContract,
+            lookupPackage,
+            lookupKey,
+            VisibleByKey.fromSubmitters(submitters),
+          )
+      }
+      "Only create and exercise nodes end up in actionNodeSeeds" in {
+        val command = CreateAndExerciseCommand(
+          seedId,
+          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          "CreateAllTypes",
+          ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
+        )
+        inside(run(command)) { case Right((tx, meta)) =>
+          tx.nodes.size shouldBe 9
+          tx.nodes(NodeId(0)) shouldBe a[Node.NodeCreate[_]]
+          tx.nodes(NodeId(1)) shouldBe a[Node.NodeExercises[_, _]]
+          tx.nodes(NodeId(2)) shouldBe a[Node.NodeFetch[_]]
+          tx.nodes(NodeId(3)) shouldBe a[Node.NodeLookupByKey[_]]
+          tx.nodes(NodeId(4)) shouldBe a[Node.NodeCreate[_]]
+          tx.nodes(NodeId(5)) shouldBe a[Node.NodeRollback[_]]
+          tx.nodes(NodeId(6)) shouldBe a[Node.NodeFetch[_]]
+          tx.nodes(NodeId(7)) shouldBe a[Node.NodeLookupByKey[_]]
+          tx.nodes(NodeId(8)) shouldBe a[Node.NodeCreate[_]]
+          meta.nodeSeeds.map(_._1.index) shouldBe ImmArray(0, 1, 4, 8)
+        }
+      }
+    }
+
     "global key lookups" should {
       val (exceptionsPkgId, _, allExceptionsPkgs) = loadPackage("daml-lf/tests/Exceptions.dar")
       val lookupPackage = allExceptionsPkgs.get(_)

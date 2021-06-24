@@ -185,3 +185,26 @@ template GlobalLookups
          -- this one needs to check activeness for an entry in globalKeyInputs
          None <- lookupByKey @K k
          pure ()
+
+template NodeSeeds
+  with
+    p : Party
+  where
+    signatory p
+    -- Produces a transaction with all node types so we can
+    -- check which produce node seed and which do not.
+    choice CreateAllTypes : ()
+      with
+        cid : ContractId K
+      controller p
+      do _ <- fetch cid
+         Some _ <- lookupByKey @K (p, 0)
+         create (K p 1 "")
+         try do
+           _ <- fetch cid
+           Some _ <- lookupByKey @K (p, 0)
+           create (K p 2 "")
+           throw E
+         catch
+           E -> pure ()
+         pure ()

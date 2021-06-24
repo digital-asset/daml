@@ -212,7 +212,8 @@ private[lf] object PartialTransaction {
 /** A transaction under construction
   *
   *  @param nodes The nodes of the transaction graph being built up.
-  *  @param actionNodeSeeds The seeds of Action nodes in pre-order. NodeIds are determined by finish.
+  *  @param actionNodeSeeds The seeds of create and exercise nodes in pre-order. NodeIds are determined by finish.
+  *   Note that only other node types do not have seeds and are not included.
   *  @param consumedBy 'ContractId's of all contracts that have
   *                    been consumed by nodes up to now.
   *  @param context The context of what sub-transaction is being
@@ -322,10 +323,6 @@ private[lf] case class PartialTransaction(
       sb.toString
     }
 
-  private def normalizedNodeSeeds(): NodeSeeds = {
-    ImmArray(actionNodeSeeds.toImmArray.toList.zipWithIndex.map { case (v, i) => (NodeId(i), v) })
-  }
-
   /** Finish building a transaction; i.e., try to extract a complete
     *  transaction from the given 'PartialTransaction'. This returns:
     * - a SubmittedTransaction in case of success ;
@@ -339,12 +336,12 @@ private[lf] case class PartialTransaction(
       case _: RootContextInfo if aborted.isEmpty =>
         val roots = context.children.toImmArray
         val tx0 = GenTransaction(nodes, roots)
-        val tx = NormalizeRollbacks.normalizeTx(tx0)
+        val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
         CompleteTransaction(
           SubmittedTransaction(
             TxVersion.asVersionedTransaction(tx)
           ),
-          normalizedNodeSeeds(),
+          seeds.zip(actionNodeSeeds.toImmArray),
         )
       case _ =>
         IncompleteTransaction(this)
