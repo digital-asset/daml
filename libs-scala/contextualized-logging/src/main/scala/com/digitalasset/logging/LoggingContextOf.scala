@@ -5,7 +5,6 @@ package com.daml.logging
 
 import scala.annotation.nowarn
 import scala.language.implicitConversions
-import scala.collection.compat._
 
 /** [[LoggingContext]] with a phantom type parameter representing what kind of
   * details are in it.  If a function that accepts a LoggingContext is supposed
