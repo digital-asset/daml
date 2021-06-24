@@ -68,7 +68,7 @@ package object logging {
     "eventId" -> id.unwrap
 
   private[services] def filters(filtersByParty: Map[String, Filters]): LoggingEntries =
-    LoggingEntries(filtersByParty.iterator.flatMap { case (party, filters) =>
+    LoggingEntries.fromIterator(filtersByParty.iterator.flatMap { case (party, filters) =>
       Iterator
         .continually(s"party-$party")
         .zip(
