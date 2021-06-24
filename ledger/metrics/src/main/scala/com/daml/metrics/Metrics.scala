@@ -443,7 +443,7 @@ final class Metrics(val registry: MetricRegistry) {
         )
 
         object storeTransactionDbMetrics
-          extends DatabaseMetrics(registry, Prefix, "store_ledger_entry") {
+            extends DatabaseMetrics(registry, Prefix, "store_ledger_entry") {
           // outside of SQL transaction
           val prepareBatches: Timer = registry.timer(dbPrefix :+ "prepare_batches")
 
