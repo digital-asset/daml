@@ -42,7 +42,7 @@ CREATE TABLE packages (
     package_id VARCHAR PRIMARY KEY NOT NULL,
     upload_id VARCHAR NOT NULL,
     source_description VARCHAR,
-    siz BIGINT NOT NULL,
+    package_size BIGINT NOT NULL,
     known_since TIMESTAMP NOT NULL,
     ledger_offset VARCHAR NOT NULL,
     package BYTEA NOT NULL

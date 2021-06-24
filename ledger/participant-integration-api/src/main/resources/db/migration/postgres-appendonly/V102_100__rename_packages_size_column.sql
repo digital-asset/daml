@@ -2,4 +2,4 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 ALTER TABLE packages
-    RENAME COLUMN size TO siz;
+    RENAME COLUMN size TO package_size;

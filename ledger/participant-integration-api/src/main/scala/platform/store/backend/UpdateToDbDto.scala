@@ -107,7 +107,7 @@ object UpdateToDbDto {
             package_id = archive.getHash,
             upload_id = uploadId,
             source_description = u.sourceDescription,
-            siz = archive.getPayload.size.toLong,
+            package_size = archive.getPayload.size.toLong,
             known_since = u.recordTime.toInstant,
             ledger_offset = offset.toHexString,
             _package = archive.toByteArray,

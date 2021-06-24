@@ -18,7 +18,6 @@
 --   4. Create a view that contains the union of all events
 ---------------------------------------------------------------------------------------------------
 
--- size is a reserved word in oracle, rename column to siz for cross-db compatibility so
 CREATE TABLE parties
 (
     -- The unique identifier of the party
@@ -44,7 +43,7 @@ CREATE TABLE packages
     -- A human readable description of the package source
     source_description NVARCHAR2(1000),
     -- The size of the archive payload (i.e., the serialized DAML-LF package), in bytes
-    siz             NUMBER                     not null,
+    package_size       NUMBER                     not null,
     -- The time when the package was added
     known_since        TIMESTAMP                  not null,
     -- The ledger end at the time when the package was added

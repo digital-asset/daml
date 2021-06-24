@@ -460,7 +460,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       "package_id",
       "source_description",
       //confirm if change needed
-      "siz",
+      "package_size",
       "known_since",
     )
 
