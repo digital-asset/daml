@@ -9,6 +9,7 @@ import Ledger, { Event, Stream, PartyInfo } from  '@daml/ledger';
 import { Int, emptyMap, Map } from '@daml/types';
 import pEvent from 'p-event';
 import _ from 'lodash';
+import WebSocket from 'ws';
 
 import * as buildAndLint from '@daml.js/build-and-lint-1.0.0'
 
