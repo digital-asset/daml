@@ -111,6 +111,8 @@ private[lf] object Pretty {
           text("The provided key is") & prettyValue(true)(key)
       case ContractNotFound(cid) =>
         text("Update failed due to a unknown contract") & prettyContractId(cid)
+      case ContractBadDisclosure(cid, _) =>
+        text("Update failed due to a bad disclosure for ") & prettyContractId(cid)
 
     }
   }

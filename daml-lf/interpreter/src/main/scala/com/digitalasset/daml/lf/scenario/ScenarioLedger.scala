@@ -222,6 +222,12 @@ object ScenarioLedger {
       observers: Set[Party],
       stakeholders: Set[Party],
   ) extends LookupResult
+  final case class LookupBadDisclosure(
+      coid: ContractId,
+      templateId: Identifier,
+      disclosedContract: ContractInst[Value[ContractId]],
+      actualContract: ContractInst[Value[ContractId]]
+  ) extends LookupResult
 
   sealed trait CommitError
   object CommitError {
@@ -630,7 +636,7 @@ case class ScenarioLedger(
       effectiveAt: Time.Timestamp,
   ): Seq[LookupOk] = {
     ledgerData.activeContracts.toList
-      .map(cid => lookupGlobalContract(view, effectiveAt, cid))
+      .map(cid => lookupGlobalContract(view, effectiveAt, cid, Map.empty))
       .collect { case l @ LookupOk(_, _, _) =>
         l
       }
@@ -643,6 +649,7 @@ case class ScenarioLedger(
       view: View,
       effectiveAt: Time.Timestamp,
       coid: ContractId,
+      disclosures: Map[ContractId, ContractInst[Value[ContractId]]],
   ): LookupResult = {
     ledgerData.coidToNodeId.get(coid).flatMap(ledgerData.nodeInfos.get) match {
       case None => LookupContractNotFound(coid)
@@ -658,12 +665,17 @@ case class ScenarioLedger(
                 info.consumedBy.getOrElse(crash("IMPOSSIBLE")),
               )
             else if (!info.visibleIn(view))
-              LookupContractNotVisible(
-                coid,
-                create.coinst.template,
-                info.disclosures.keys.toSet,
-                create.stakeholders,
-              )
+              disclosures.get(coid) match {
+                case None =>
+                  LookupContractNotVisible(
+                    coid,
+                    create.coinst.template,
+                    info.disclosures.keys.toSet,
+                    create.stakeholders,
+                  )
+                case Some(coinst) if create.coinst == coinst => LookupOk(coid, create.versionedCoinst, create.stakeholders)
+                case Some(otherCoinst) => LookupBadDisclosure(coid, create.coinst.template, otherCoinst, create.coinst)
+              }
             else
               LookupOk(coid, create.versionedCoinst, create.stakeholders)
 

@@ -87,6 +87,7 @@ trait ScriptLedgerClient {
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosures: List[command.Disclosure],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
@@ -97,6 +98,7 @@ trait ScriptLedgerClient {
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosure: List[command.Disclosure],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]]
 
@@ -104,6 +106,7 @@ trait ScriptLedgerClient {
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosures: List[command.Disclosure],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[ScriptLedgerClient.TransactionTree]
 

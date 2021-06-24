@@ -25,6 +25,7 @@ module Daml.Script
   , listKnownParties
   , listKnownPartiesOn
   , Commands
+  , Disclosure(..)
   , createCmd
   , exerciseCmd
   , exerciseByKeyCmd
@@ -47,6 +48,7 @@ module Daml.Script
   , exercisedN
   , AnyContractId
   , fromAnyContractId
+  , toAnyContractId
   ) where
 
 #ifdef DAML_EXCEPTIONS
@@ -366,6 +368,7 @@ data SubmitCmd a = SubmitCmd
     actAs : NonEmpty Party
     readAs : [Party]
     commands : Commands a
+    disclosures: [Disclosure]
     handleFailure : ()
     locations : [(Text, SrcLoc)]
   deriving Functor
@@ -376,6 +379,7 @@ data SubmitMustFailCmd a = SubmitMustFailCmd
     actAs : NonEmpty Party
     readAs : [Party]
     commands : Commands a
+    disclosures: [Disclosure]
     continue : () -> a
     locations : [(Text, SrcLoc)]
   deriving Functor
@@ -384,12 +388,22 @@ data SubmitMustFailCmd a = SubmitMustFailCmd
 
 -- This will error if the submission fails.
 
-instance HasSubmit Script Commands where
+instance HasSubmit Script Commands [Disclosure] where
   submit p cmds =
     lift $ Free $ fmap pure $ Submit $ SubmitCmd with
       actAs = NonEmpty p []
       readAs = []
       commands = cmds
+      disclosures = []
+      handleFailure = ()
+      locations = getCallStack callStack
+
+  submitDisclosing discs p cmds =
+    lift $ Free $ fmap pure $ Submit $ SubmitCmd with
+      actAs = NonEmpty p []
+      readAs = []
+      commands = cmds
+      disclosures = discs
       handleFailure = ()
       locations = getCallStack callStack
 
@@ -398,6 +412,7 @@ instance HasSubmit Script Commands where
       actAs = NonEmpty p []
       readAs = []
       commands = void cmds
+      disclosures = []
       continue = const ()
       locations = getCallStack callStack
 
@@ -433,6 +448,7 @@ submitMulti actAs readAs cmds =
       actAs = actAsNonEmpty actAs
       readAs = toParties readAs
       commands = cmds
+      disclosures = []
       handleFailure = ()
       locations = getCallStack callStack
 
@@ -444,6 +460,7 @@ submitMultiMustFail actAs readAs cmds =
       actAs = actAsNonEmpty actAs
       readAs = toParties readAs
       commands = void cmds
+      disclosures = []
       continue = const ()
       locations = getCallStack callStack
 
@@ -546,6 +563,13 @@ data TreeEvent
 
 -- | HIDE This is an early access feature.
 data Created = Created
+  with
+    contractId : AnyContractId
+    argument : AnyTemplate
+
+-- | TODO (drsk) move to stable package
+-- | HIDE This is an early access feature.
+data Disclosure = Disclosure
   with
     contractId : AnyContractId
     argument : AnyTemplate
@@ -673,33 +697,43 @@ fromAnyContractId cid
   | cid.templateId == templateTypeRep @t = Some (coerceContractId cid.contractId)
   | otherwise = None
 
+toAnyContractId : forall t. Template t => ContractId t -> AnyContractId
+toAnyContractId cid = AnyContractId
+  { templateId = templateTypeRep @t
+  , contractId = coerceContractId cid
+  }
+
 data SubmitTreePayload a = SubmitTreePayload
   with
     actAs : NonEmpty Party
     readAs : [Party]
     commands : Commands ()
+    disclosures : [Disclosure]
     continue : TransactionTree -> a
     locations : [(Text, SrcLoc)]
   deriving Functor
 
 -- | HIDE Equivalent to `submit` but returns the full transaction tree.
 -- This is an early access feature.
-submitTree : HasCallStack => Party -> Commands a -> Script TransactionTree
-submitTree p cmds =
+submitTree : HasCallStack => Party -> Commands a -> [Disclosure] -> Script TransactionTree
+submitTree p cmds discs =
   lift $ Free $ fmap pure $ SubmitTree $ SubmitTreePayload with
     actAs = NonEmpty p []
     readAs = []
     commands = void cmds
+    disclosures = discs
     locations = getCallStack callStack
     continue = identity
 
 -- | HIDE Equivalent to `submitMulti` but returns the full transaction tree.
 -- This is an early access feature.
-submitTreeMulti : HasCallStack => [Party] -> [Party] -> Commands a -> Script TransactionTree
-submitTreeMulti actAs readAs cmds =
+submitTreeMulti : HasCallStack => [Party] -> [Party] -> Commands a -> [Disclosure] -> Script TransactionTree
+submitTreeMulti actAs readAs cmds discs =
   lift $ Free $ fmap pure $ SubmitTree $ SubmitTreePayload with
     actAs = actAsNonEmpty actAs
     readAs = readAs
     commands = void cmds
+    disclosures = discs
     locations = getCallStack callStack
     continue = identity
+

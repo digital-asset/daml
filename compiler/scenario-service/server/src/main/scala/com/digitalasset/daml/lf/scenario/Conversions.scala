@@ -132,6 +132,8 @@ final class Conversions(
                     .addAllStakeholders(stakeholders.map(convertParty).asJava)
                     .build
                 )
+              case ContractBadDisclosure(coid, tid) =>
+                builder.setScenarioContractBadDisclosure(proto.ScenarioError.ContractBadDisclosure.newBuilder.setContractRef(mkContractRef(coid, tid)))
               case ContractKeyNotFound(gk) =>
                 builder.setScenarioContractKeyNotFound(
                   proto.ScenarioError.ContractKeyNotFound.newBuilder
@@ -209,6 +211,10 @@ final class Conversions(
             .addAllStakeholders(stakeholders.map(convertParty).asJava)
             .build
         )
+      case Error.BadDisclosure(coid, tid, _, _) =>
+        builder.setScenarioContractBadDisclosure(
+          proto.ScenarioError.ContractBadDisclosure.newBuilder.setContractRef(mkContractRef(coid, tid))
+          )
 
       case Error.CommitError(commitError) =>
         builder.setScenarioCommitError(

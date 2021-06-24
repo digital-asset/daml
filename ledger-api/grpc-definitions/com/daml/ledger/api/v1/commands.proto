@@ -95,6 +95,8 @@ message Commands {
   // to read contract data on behalf of each of the given parties.
   // Optional
   repeated string read_as = 13;
+
+  repeated Disclosure disclosures = 14;
 }
 
 // A command can either create a new contract or exercise a choice on an existing contract.
@@ -105,6 +107,21 @@ message Command {
     ExerciseByKeyCommand exerciseByKey = 4;
     CreateAndExerciseCommand createAndExercise = 3;
   }
+}
+
+message Disclosure {
+  // The ID of the created contract.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string contract_id = 1;
+
+  // The template of the created contract.
+  // Required
+  Identifier template_id = 2;
+
+  // The arguments that have been used to create the contract.
+  // Required
+  Record create_arguments = 3;
 }
 
 // Create a new contract instance based on a template.

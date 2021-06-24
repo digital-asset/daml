@@ -79,6 +79,7 @@ final case class ScenarioRunner(
             committers,
             Set.empty,
             SExpr.SEValue(commands),
+            Map.empty,
             location,
             seed,
             machine.traceLog,
@@ -214,6 +215,7 @@ object ScenarioRunner {
         coid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
+        disclosures: Map[ContractId, ContractInst[Value[ContractId]]],
         cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
     ): Either[Error, Unit]
     def lookupKey(
@@ -239,14 +241,16 @@ object ScenarioRunner {
         acoid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
+        disclosures: Map[ContractId, ContractInst[Value[ContractId]]],
         callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
     ): Either[Error, Unit] =
-      handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, callback))
+      handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, disclosures, callback))
 
     private def lookupContractUnsafe(
         acoid: ContractId,
         actAs: Set[Party],
         readAs: Set[Party],
+        disclosures: Map[ContractId, ContractInst[Value[ContractId]]],
         callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
     ) = {
 
@@ -256,6 +260,7 @@ object ScenarioRunner {
         view = ScenarioLedger.ParticipantView(actAs, readAs),
         effectiveAt = effectiveAt,
         acoid,
+        disclosures
       ) match {
         case ScenarioLedger.LookupOk(_, coinst, _) =>
           callback(coinst)
@@ -273,6 +278,8 @@ object ScenarioRunner {
 
         case ScenarioLedger.LookupContractNotVisible(coid, tid, observers, stakeholders @ _) =>
           throw Error.ContractNotVisible(coid, tid, actAs, readAs, observers)
+        case ScenarioLedger.LookupBadDisclosure(coid, tid, disclosedCoinst, actualCoinst) =>
+          throw Error.BadDisclosure(coid, tid, disclosedCoinst, actualCoinst)
       }
     }
 
@@ -315,6 +322,7 @@ object ScenarioRunner {
             view = ScenarioLedger.ParticipantView(actAs, readAs),
             effectiveAt = effectiveAt,
             acoid,
+            Map.empty
           ) match {
             case ScenarioLedger.LookupOk(_, _, stakeholders) =>
               if (!readers.intersect(stakeholders).isEmpty)
@@ -344,6 +352,8 @@ object ScenarioRunner {
                   stakeholders,
                 ) =>
               throw Error.ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders)
+            case ScenarioLedger.LookupBadDisclosure(coid, tid, disclosed, actual) =>
+              throw Error.BadDisclosure(coid, tid, disclosed, actual)
           }
       }
     }
@@ -377,6 +387,7 @@ object ScenarioRunner {
       committers: Set[Party],
       readAs: Set[Party],
       commands: SExpr,
+      disclosures: Map[ContractId, ContractInst[Value[ContractId]]],
       location: Option[Location],
       seed: crypto.Hash,
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
@@ -414,7 +425,7 @@ object ScenarioRunner {
         case SResultError(err) =>
           SubmissionError(Error.RunnerException(err), onLedger.ptxInternal)
         case SResultNeedContract(coid, tid @ _, committers, callback) =>
-          ledger.lookupContract(coid, committers, readAs, callback) match {
+          ledger.lookupContract(coid, committers, readAs, disclosures, callback) match {
             case Left(err) => SubmissionError(err, onLedger.ptxInternal)
             case Right(_) => go()
           }

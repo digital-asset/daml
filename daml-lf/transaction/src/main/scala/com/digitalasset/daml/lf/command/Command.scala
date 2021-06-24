@@ -86,6 +86,14 @@ final case class LookupByKeyCommand(
     contractKey: Value[Value.ContractId],
 ) extends Command
 
+/** Disclosure added to submission
+ */
+case class Disclosure (
+    templateId: Identifier,
+    coid: Value.ContractId,
+    createArgument: Value[Value.ContractId]
+)
+
 /** Commands input adapted from ledger-api
   *
   *  @param commands a batch of commands to be interpreted/executed
@@ -95,6 +103,7 @@ final case class LookupByKeyCommand(
   */
 case class Commands(
     commands: ImmArray[ApiCommand],
+    disclosures: ImmArray[Disclosure],
     ledgerEffectiveTime: Time.Timestamp,
     commandsReference: String,
 )

@@ -9,7 +9,8 @@ import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.transaction.{GlobalKey, Transaction}
-import com.daml.lf.value.Value.ContractId
+import com.daml.lf.value.Value.{ContractId, ContractInst}
+import com.daml.lf.value.{Value}
 
 import scala.util.control.NoStackTrace
 
@@ -74,5 +75,11 @@ object Error {
 
   /** Tried to allocate a party that already exists. */
   final case class PartyAlreadyExists(name: String) extends Error
+
+  final case class BadDisclosure(
+      coid: ContractId,
+      templateId: Identifier,
+      disclosedCoinst: ContractInst[Value[ContractId]],
+      actualCoinst: ContractInst[Value[ContractId]]) extends Error
 
 }

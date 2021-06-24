@@ -54,6 +54,11 @@ object Error {
       stakeholders: Set[Party],
   ) extends Error
 
+  final case class ContractBadDisclosure(
+      coid: ContractId,
+      templateId: TypeConName,
+    ) extends Error
+
   /** Fetch-by-key failed
     */
   final case class ContractKeyNotFound(

@@ -68,6 +68,8 @@ private[lf] object Pretty {
 
       case Error.PartyAlreadyExists(party) =>
         text(s"Error: Tried to allocate a party that already exists: $party")
+      case Error.BadDisclosure(coid, _, _, _) =>
+        text(s"Error: The disclosed contract for ${prettyContractId(coid)} does not match the contract on the ledger.")
     }
 
 }

@@ -188,6 +188,10 @@ message ScenarioError {
     repeated Party observers = 4;
   }
 
+  message ContractBadDisclosure {
+    ContractRef contract_ref = 1;
+  }
+
   message ContractKeyNotVisible {
     ContractRef contract_ref = 1;
     Value key = 2;
@@ -262,6 +266,7 @@ message ScenarioError {
     Empty scenario_mustfail_succeeded = 22;
     string scenario_invalid_party_name = 23;
     ContractKeyNotVisible scenario_contract_key_not_visible = 24;
+    ContractBadDisclosure scenario_contract_bad_disclosure = 28;
     ContractKeyNotFound scenario_contract_key_not_found = 27;
     string scenario_party_already_exists = 25;
   }

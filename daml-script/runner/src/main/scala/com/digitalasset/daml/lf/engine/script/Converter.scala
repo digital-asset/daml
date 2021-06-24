@@ -64,6 +64,7 @@ object ScriptIds {
 final case class AnyTemplate(ty: Identifier, arg: SValue)
 final case class AnyChoice(name: ChoiceName, arg: SValue)
 final case class AnyContractKey(key: SValue)
+final case class AnyContractId(ty: Identifier, coid: ContractId)
 // frames ordered from most-recent to least-recent
 final case class StackTrace(frames: Vector[Location]) {
   // Return the most recent frame
@@ -312,6 +313,36 @@ object Converter {
       case SResultError(err) => Left(Pretty.prettyError(err).render(80))
       case res => Left(res.toString)
     }
+  }
+
+  def toDisclosure(
+      v: SValue
+  ): Either[String, command.Disclosure] =
+    v match {
+          case SRecord(_, _, vals) if vals.size == 2 => {
+            for {
+              cid <- toAnyContractId(vals.get(0))
+              anyTemplate <- toAnyTemplate(vals.get(1))
+            } yield command.Disclosure(
+              coid = cid.coid,
+              // TODO(drsk) check that contract id template type and argument type agrees.
+              templateId = anyTemplate.ty,
+              createArgument = anyTemplate.arg.toValue,
+            )
+          }
+          case _ => Left(s"Expected SRecord but got $v")
+    }
+
+  def toAnyContractId(
+      v: SValue
+  ): Either[String, AnyContractId] = v match {
+    case SRecord(_, _, vals) if vals.size == 2 => {
+      for {
+        tplId <- typeRepToIdentifier(vals.get(0))
+        cid <- toContractId(vals.get(1))
+      } yield AnyContractId(tplId, cid)
+    }
+    case _ => Left(s"Expected AnyContractId but got $v")
   }
 
   // Walk over the free applicative and extract the list of commands

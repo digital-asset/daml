@@ -198,6 +198,7 @@ class JsonLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosures: List[command.Disclosure],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
@@ -232,9 +233,10 @@ class JsonLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosures: List[command.Disclosure],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
-    submit(actAs, readAs, commands, optLocation).map({
+    submit(actAs, readAs, commands, disclosures, optLocation).map({
       case Right(_) => Left(())
       case Left(_) => Right(())
     })
@@ -244,6 +246,7 @@ class JsonLedgerClient(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosures: List[command.Disclosure],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,

@@ -85,12 +85,12 @@ type Num = Number
 {-# DEPRECATED commits "Daml compatibility helper, use 'submit' instead of 'commits'" #-}
 infixr 0 `commits`
 commits : Party -> Update a -> Scenario a
-commits = submit
+commits p u = submit p u
 
 {-# DEPRECATED fails "Daml compatibility helper, use 'submitMustFail' instead of 'fails'" #-}
 infixr 0 `fails`
 fails : Party -> Update a -> Scenario ()
-fails = submitMustFail
+fails p u = submitMustFail p u
 
 {-# DEPRECATED test "Daml compatibility helper, use 'scenario' instead" #-}
 test : Scenario a -> Scenario a

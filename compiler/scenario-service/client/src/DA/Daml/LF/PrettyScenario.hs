@@ -340,6 +340,14 @@ prettyScenarioErrorError (Just err) =  do
               (prettyValue' False 0 world)
               scenarioError_ContractKeyNotFoundKey
         ]
+    ScenarioErrorErrorScenarioContractBadDisclosure ScenarioError_ContractBadDisclosure{..} ->
+      pure $ vcat
+        [ "Bad disclosure for"
+        , label_ "Contract: "
+            $ prettyMay "<missing contract>"
+                (prettyContractRef world)
+                scenarioError_ContractBadDisclosureContractRef
+        ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =

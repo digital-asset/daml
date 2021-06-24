@@ -145,6 +145,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosures: List[command.Disclosure],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
     import scalaz.syntax.traverse._
@@ -152,11 +153,16 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       case Left(err) => throw new ConverterException(err)
       case Right(cmds) => cmds
     }
+    val ledgerDisclosures = disclosures.traverse(toDisclosure(_)) match {
+      case Left(err) => throw new ConverterException(err)
+      case Right(discs) => discs
+    }
     val apiCommands = Commands(
       party = actAs.head,
       actAs = actAs.toList,
       readAs = readAs.toList,
       commands = ledgerCommands,
+      disclosures = ledgerDisclosures,
       ledgerId = grpcClient.ledgerId.unwrap,
       applicationId = applicationId.unwrap,
       commandId = UUID.randomUUID.toString,
@@ -190,9 +196,10 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosures: List[command.Disclosure],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer) = {
-    submit(actAs, readAs, commands, optLocation).map({
+    submit(actAs, readAs, commands, disclosures, optLocation).map({
       case Right(_) => Left(())
       case Left(_) => Right(())
     })
@@ -202,6 +209,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosures: List[command.Disclosure],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
@@ -273,6 +281,14 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       )
     } yield ()
   }
+
+  private def toDisclosure(disc: command.Disclosure): Either[String, Disclosure] =
+    disc match {
+      case command.Disclosure(templateId, contractId, argument) =>
+        for {
+          arg <- lfValueToApiRecord(true, argument)
+        } yield (Disclosure(contractId.coid, Some(toApiIdentifier(templateId)), Some(arg)))
+    }
 
   private def toCommand(cmd: command.ApiCommand): Either[String, Command] =
     cmd match {

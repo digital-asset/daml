@@ -14,25 +14,25 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.{SValue, TraceLog}
 import com.daml.lf.transaction.Node.{
-  NodeRollback,
   NodeCreate,
   NodeExercises,
   NodeFetch,
   NodeLookupByKey,
+  NodeRollback,
 }
 import com.daml.lf.transaction.{GlobalKey, NodeId}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ContractId
+import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.script.converter.ConverterException
 import io.grpc.StatusRuntimeException
-import scalaz.OneAnd
-import scalaz.OneAnd._
-import scalaz.std.set._
-import scalaz.syntax.foldable._
 
 import scala.collection.compat.immutable.LazyList
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
+import scalaz.OneAnd
+import scalaz.OneAnd._
+import scalaz.std.set._
+import scalaz.syntax.foldable._
 
 // Client for the script service.
 class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog)
@@ -80,6 +80,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
       view = ScenarioLedger.ParticipantView(Set(), Set(parties.toList: _*)),
       effectiveAt = ledger.currentTime,
       cid,
+      Map.empty
     ) match {
       case ScenarioLedger.LookupOk(_, Value.ContractInst(_, arg, _), stakeholders)
           if parties.any(stakeholders.contains(_)) =>
@@ -119,6 +120,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosures: List[command.Disclosure],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext): Future[
     ScenarioRunner.SubmissionResult[ScenarioLedger.CommitResult]
@@ -126,6 +128,15 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
     Future {
       val speedyCommands = preprocessor.unsafePreprocessCommands(commands.to(ImmArray))._1
       val translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
+      val discs = disclosures
+        .map(d =>
+          d.coid -> ContractInst(
+            d.templateId,
+            d.createArgument,
+            "",
+          )
+        )
+        .toMap
 
       val ledgerApi = ScenarioRunner.ScenarioLedgerApi(ledger)
       val result = ScenarioRunner.submit(
@@ -134,6 +145,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
         actAs.toSet,
         readAs,
         translated,
+        discs,
         optLocation,
         seed,
         traceLog,
@@ -145,12 +157,13 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosures: List[command.Disclosure],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] =
-    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+    unsafeSubmit(actAs, readAs, commands, disclosures, optLocation).map {
       case ScenarioRunner.Commit(result, _, _) =>
         _currentSubmission = None
         _ledger = result.newLedger
@@ -186,9 +199,10 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosures: List[command.Disclosure],
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[Either[Unit, Unit]] = {
-    unsafeSubmit(actAs, readAs, commands, optLocation)
+    unsafeSubmit(actAs, readAs, commands, disclosures, optLocation)
       .map({
         case commit: ScenarioRunner.Commit[_] =>
           _currentSubmission =
@@ -208,12 +222,13 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       commands: List[command.ApiCommand],
+      disclosures: List[command.Disclosure],
       optLocation: Option[Location],
   )(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[ScriptLedgerClient.TransactionTree] = {
-    unsafeSubmit(actAs, readAs, commands, optLocation).map {
+    unsafeSubmit(actAs, readAs, commands, disclosures, optLocation).map {
       case ScenarioRunner.Commit(result, _, _) =>
         _currentSubmission = None
         _ledger = result.newLedger

@@ -25,7 +25,7 @@ import Control.Exception (evaluate,try,SomeException)
 import Data.Map(Map)
 import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
-import Data.Vector as Vector (Vector,fromList,toList)
+import Data.Vector as Vector (Vector,fromList,toList, empty)
 import qualified Data.Text.Lazy as Text (pack,unpack)
 
 import qualified Google.Protobuf.Empty as LL
@@ -75,6 +75,8 @@ lowerCommands = \case
         commandsReadAs = Vector.fromList $ map unParty readAs,
         commandsDeduplicationTime = dedupTime,
         commandsCommands = Vector.fromList $ map lowerCommand coms,
+        -- TODO (drsk) implement disclosures.
+        commandsDisclosures = Vector.empty,
         commandsMinLedgerTimeAbs = fmap lowerTimestamp minLeTimeAbs,
         commandsMinLedgerTimeRel = minLeTimeRel }
 
