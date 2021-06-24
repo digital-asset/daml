@@ -15,7 +15,6 @@ import akka.actor.typed.{
 }
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.logging.LoggingContextOf.{label, newLoggingContext}
 import com.daml.logging.ContextualizedLogger
 import spray.json._
 
@@ -107,51 +106,50 @@ object TriggerRunner {
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Behavior[TriggerRunner.Message] =
-    newLoggingContext(label[Config with Trigger], config.loggingExtension) {
-      implicit loggingContext =>
-        Behaviors.setup { ctx =>
-          // Spawn a trigger runner impl. Supervise it. Stop immediately on
-          // initialization halted exceptions, retry any initialization or
-          // execution failure exceptions.
-          val runner =
-            ctx.spawn(
-              Behaviors
-                .supervise(
-                  Behaviors
-                    .intercept(() => new Interceptor(ctx.self))(TriggerRunnerImpl(config))
+    config.withLoggingContext { implicit loggingContext =>
+      Behaviors.setup { ctx =>
+        // Spawn a trigger runner impl. Supervise it. Stop immediately on
+        // initialization halted exceptions, retry any initialization or
+        // execution failure exceptions.
+        val runner =
+          ctx.spawn(
+            Behaviors
+              .supervise(
+                Behaviors
+                  .intercept(() => new Interceptor(ctx.self))(TriggerRunnerImpl(config))
+              )
+              .onFailure(
+                restartWithBackoff(
+                  config.restartConfig.minRestartInterval,
+                  config.restartConfig.maxRestartInterval,
+                  config.restartConfig.restartIntervalRandomFactor,
                 )
-                .onFailure(
-                  restartWithBackoff(
-                    config.restartConfig.minRestartInterval,
-                    config.restartConfig.maxRestartInterval,
-                    config.restartConfig.restartIntervalRandomFactor,
-                  )
-                ),
-              name,
-            )
-          Behaviors
-            .receiveMessagePartial[Message] {
-              case Status(replyTo) =>
-                // pass through
-                runner ! TriggerRunnerImpl.Status(replyTo)
-                Behaviors.same
-              case Stop =>
-                Behaviors.stopped // Automatically stops the child actor if running.
-              case Unauthenticated(cause) =>
-                logger.warn(
-                  s"Trigger was unauthenticated - requesting token refresh: ${cause.getMessage}"
-                )
-                config.server ! Server.TriggerTokenExpired(
-                  config.triggerInstance,
-                  config.trigger,
-                  config.compiledPackages,
-                )
-                Behaviors.stopped
-            }
-            .receiveSignal { case (_, PostStop) =>
-              logger.info(s"Trigger $name stopped")
+              ),
+            name,
+          )
+        Behaviors
+          .receiveMessagePartial[Message] {
+            case Status(replyTo) =>
+              // pass through
+              runner ! TriggerRunnerImpl.Status(replyTo)
               Behaviors.same
-            }
-        }
+            case Stop =>
+              Behaviors.stopped // Automatically stops the child actor if running.
+            case Unauthenticated(cause) =>
+              logger.warn(
+                s"Trigger was unauthenticated - requesting token refresh: ${cause.getMessage}"
+              )
+              config.server ! Server.TriggerTokenExpired(
+                config.triggerInstance,
+                config.trigger,
+                config.compiledPackages,
+              )
+              Behaviors.stopped
+          }
+          .receiveSignal { case (_, PostStop) =>
+            logger.info(s"Trigger $name stopped")
+            Behaviors.same
+          }
+      }
     }
 }

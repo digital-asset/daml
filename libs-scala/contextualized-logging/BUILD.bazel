@@ -5,22 +5,20 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
-    "silencer_plugin",
 )
 
 da_scala_library(
     name = "contextualized-logging",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    plugins = [
-        silencer_plugin,
-    ],
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
         "@maven//:com_typesafe_akka_akka_stream",
-        "@maven//:org_scala_lang_modules_scala_collection_compat",
     ],
     scalacopts = ["-Xsource:2.13"],
     tags = ["maven_coordinates=com.daml:contextualized-logging:__VERSION__"],
+    versioned_scala_deps = {
+        "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
+    },
     visibility = [
         "//visibility:public",
     ],

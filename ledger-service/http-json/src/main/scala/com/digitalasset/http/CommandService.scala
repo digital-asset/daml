@@ -189,7 +189,7 @@ class CommandService(
     val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
     withEnrichedLoggingContext(
       label[lar.CommandId],
-      Map("command_id" -> commandId.toString),
+      "command_id" -> commandId.toString,
     )
       .run { implicit lc =>
         logger.info(

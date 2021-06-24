@@ -16,7 +16,7 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, VisibleByKey}
 import com.daml.lf.language.Ast
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
@@ -45,9 +45,12 @@ final private[kvutils] class PackageCommitter(
 
   override protected val committerName: String = "package_upload"
 
-  override protected def extraLoggingContext(result: Result): Map[String, String] = Map(
-    "packages" -> result.uploadEntry.getArchivesList.asScala.map(_.getHash).mkString("[", ", ", "]")
-  )
+  override protected def extraLoggingContext(result: Result): LoggingEntries =
+    LoggingEntries(
+      "packages" -> result.uploadEntry.getArchivesList.asScala
+        .map(_.getHash)
+        .mkString("[", ", ", "]")
+    )
 
   /** The initial internal state passed to first step. */
   override protected def init(
