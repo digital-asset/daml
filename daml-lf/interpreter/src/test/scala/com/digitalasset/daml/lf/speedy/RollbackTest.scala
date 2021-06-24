@@ -55,7 +55,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
           onLedger.ptx.finish match {
             case IncompleteTransaction(_) =>
               sys.error("unexpected IncompleteTransaction")
-            case CompleteTransaction(tx) =>
+            case CompleteTransaction(tx, _) =>
               tx
           }
         }

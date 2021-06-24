@@ -392,14 +392,14 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       }
     }
 
-    onLedger.ptxInternal.finish match {
-      case PartialTransaction.CompleteTransaction(tx) =>
+    onLedger.finish match {
+      case PartialTransaction.CompleteTransaction(tx, nodeSeeds) =>
         val meta = Tx.Metadata(
           submissionSeed = None,
           submissionTime = onLedger.ptxInternal.submissionTime,
           usedPackages = Set.empty,
           dependsOnTime = onLedger.dependsOnTime,
-          nodeSeeds = onLedger.ptxInternal.actionNodeSeeds.toImmArray,
+          nodeSeeds = nodeSeeds,
         )
         config.profileDir.foreach { dir =>
           val desc = Engine.profileDesc(tx)
