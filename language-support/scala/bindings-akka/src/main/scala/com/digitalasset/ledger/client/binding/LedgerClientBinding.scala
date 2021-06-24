@@ -100,6 +100,7 @@ class LedgerClientBinding(
         ledgerClient.commandClient,
         timeProvider,
         retryTimeout,
+        ledgerClient.config.commandClient.maxCommandsInFlight,
         createRetry,
       )
     } yield Flow[Ctx[C, CompositeCommand]]

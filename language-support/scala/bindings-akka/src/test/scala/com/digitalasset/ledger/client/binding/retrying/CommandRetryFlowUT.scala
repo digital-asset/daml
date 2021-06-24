@@ -5,7 +5,9 @@ package com.daml.ledger.client.binding.retrying
 
 import java.time.{Duration, Instant}
 
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.stream.scaladsl.{Flow, Keep}
+import akka.stream.testkit.scaladsl.{TestSink, TestSource}
+import com.codahale.metrics.Counter
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.Commands
@@ -13,6 +15,7 @@ import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.binding.retrying.CommandRetryFlow.{In, Out, SubmissionFlowType}
 import com.daml.ledger.client.testing.AkkaTest
 import com.daml.util.Ctx
+import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.duration.{Duration => protoDuration}
 import com.google.rpc.Code
 import com.google.rpc.status.Status
@@ -59,7 +62,13 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
   }
 
   val retryFlow: SubmissionFlowType[RetryInfo[Status]] =
-    CommandRetryFlow.createGraph(mockCommandSubmission, timeProvider, maxRetryTime, createRetry)
+    CommandRetryFlow.createGraph(
+      mockCommandSubmission,
+      timeProvider,
+      maxRetryTime,
+      retryBufferSize = 1,
+      createRetry,
+    )
 
   private def submitRequest(statusCode: Int, time: Instant): Future[Seq[Out[RetryInfo[Status]]]] = {
 
@@ -81,10 +90,16 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
     val input =
       Ctx(RetryInfo(request, 0, time, Status(statusCode, "message", Seq.empty)), request)
 
-    Source
-      .single(input)
-      .via(retryFlow)
-      .runWith(Sink.seq)
+    val (source, sink) = TestSource
+      .probe[Ctx[RetryInfo[Status], SubmitRequest]]
+      .viaMat(retryFlow)(Keep.left)
+      .toMat(TestSink.probe)(Keep.both)
+      .run()
+    sink.request(1)
+    source.sendNext(input)
+    val result = Future.successful(Seq(sink.expectNext()))
+    source.sendComplete()
+    result
   }
 
   CommandRetryFlow.getClass.getSimpleName should {
@@ -139,6 +154,79 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
       }
     }
 
+    "not get locked up on submission failures with concurrent ongoing submissions" in {
+      val numSubmissions = 100L
+
+      val submissionSucceedsAfterTwoAttempts = Flow[In[RetryInfo[Status]]]
+        .map {
+          case Ctx(
+                context @ RetryInfo(_, retries, _, status),
+                SubmitRequest(Some(commands), tc),
+                _,
+              ) =>
+            println(s"submitting ${commands.commandId}")
+            Ctx(
+              context,
+              Completion(
+                commands.commandId,
+                Some(
+                  status.copy(code =
+                    if (retries >= 2) Code.OK_VALUE else Code.RESOURCE_EXHAUSTED_VALUE
+                  )
+                ),
+                traceContext = tc,
+              ),
+            )
+          case x =>
+            throw new RuntimeException(s"Unexpected input: '$x'")
+        }
+
+      val maxInFlight = MaxInFlight[CommandRetryFlow.In[RetryInfo[Status]], CommandRetryFlow.Out[
+        RetryInfo[Status]
+      ]](1, new Counter, new Counter)
+      val flow = maxInFlight.join(submissionSucceedsAfterTwoAttempts)
+      val retry = CommandRetryFlow.createGraph(
+        flow.async,
+        timeProvider,
+        maxRetryTime,
+        numSubmissions.toInt,
+        createRetry,
+      )
+
+      val requests = List.range(0L, numSubmissions).map { i =>
+        val request = SubmitRequest(
+          Some(
+            Commands(
+              "ledgerId",
+              "workflowId",
+              "applicationId",
+              s"commandId-$i",
+              "party",
+              Seq.empty,
+              Some(protoDuration.of(120, 0)),
+            )
+          ),
+          None,
+        )
+        Ctx(
+          RetryInfo(request, 0, Instant.ofEpochSecond(45), Status(0, "message", Seq.empty)),
+          request,
+        )
+      }
+
+      val (source, sink) = TestSource
+        .probe[Ctx[RetryInfo[Status], SubmitRequest]]
+        .async
+        .via(retry)
+        .toMat(TestSink.probe)(Keep.both)
+        .run()
+      sink.request(numSubmissions * 3)
+      requests.foreach(source.sendNext)
+
+      val results = sink.expectNextN(numSubmissions)
+      val failedSubmissions = results.filter(_.context.ctx.code != Code.OK_VALUE)
+      failedSubmissions should have size (0)
+    }
   }
 
 }

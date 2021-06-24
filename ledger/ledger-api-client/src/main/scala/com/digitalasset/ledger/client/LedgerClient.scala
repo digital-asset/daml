@@ -35,7 +35,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class LedgerClient private (
     val channel: Channel,
-    config: LedgerClientConfiguration,
+    val config: LedgerClientConfiguration,
     val ledgerId: LedgerId,
 )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory)
     extends Closeable {
