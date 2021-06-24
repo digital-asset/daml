@@ -250,12 +250,12 @@ Version: 1.13
     - add `BigNumeric` builtins
 
 
-Version: 1.14 (preview)
-.......................
+Version: 1.14
+.............
 
 * Introduction date:
 
-     2021-06-03
+     2021-06-22
 
 * Description:
 
