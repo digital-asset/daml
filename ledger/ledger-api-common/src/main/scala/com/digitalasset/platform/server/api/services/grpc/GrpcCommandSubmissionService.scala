@@ -16,7 +16,7 @@ import com.daml.ledger.api.v1.command_submission_service.{
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.ProxyCloseable
+import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.telemetry.{DefaultTelemetry, SpanAttribute, TelemetryContext}
 import com.google.protobuf.empty.Empty
@@ -37,7 +37,7 @@ class GrpcCommandSubmissionService(
     with ProxyCloseable
     with GrpcApiService {
 
-  protected val logger: Logger = LoggerFactory.getLogger(ApiCommandSubmissionService.getClass)
+  protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
 
   private val validator = new SubmitRequestValidator(new CommandsValidator(ledgerId))
 
@@ -59,7 +59,10 @@ class GrpcCommandSubmissionService(
           validator
             .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime()),
         )
-        .fold(Future.failed, service.submit(_).map(_ => Empty.defaultInstance)),
+        .fold(
+          t => Future.failed(ValidationLogger.logFailure(request, t)),
+          service.submit(_).map(_ => Empty.defaultInstance),
+        ),
     )
   }
 
