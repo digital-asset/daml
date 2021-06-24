@@ -49,7 +49,7 @@ scale = primitive @"BEScaleBigNumeric"
 -- The precision ranges between 0 and 2^16 - 1.
 --
 -- ```
--- >>> precision 1.1.0
+-- >>> precision 1.10
 -- 2
 -- ```
 precision : BigNumeric -> Int
