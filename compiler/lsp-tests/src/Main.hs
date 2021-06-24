@@ -353,8 +353,8 @@ requestTests run _runScenarios = testGroup "requests"
               { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
                     [ "```daml"
                     , "1.0"
-                    , ": NumericScale n"
-                    , "=> Numeric n"
+                    , ": (Additive a, IsNumeric a)"
+                    , "=> a"
                     , "```"
                     , "* * *"
                     ]
@@ -619,7 +619,7 @@ stressTests run _runScenarios = testGroup "Stress tests"
             -- Even values should produce empty diagnostics
             -- while odd values will produce a type error.
             fooValue i = T.pack (show (i `div` 2))
-                      <> if even i then "" else ".5"
+                      <> if even i then "" else ".5: Decimal"
             fooContent i = T.unlines
                 [ "module Foo where"
                 , "foo : Int"
@@ -644,7 +644,7 @@ stressTests run _runScenarios = testGroup "Stress tests"
                     assertFailure $ "Incorrect number of diagnostics, expected 1 but got " <> show diags
                 let msg = head diags ^. message
                 liftIO $ assertBool ("Expected type error but got " <> T.unpack msg) $
-                    "Couldn't match expected type" `T.isInfixOf` msg
+                    "Couldn't match type" `T.isInfixOf` msg
 
         foo <- openDoc' "Foo.daml" damlId $ fooContent 0
         forM_ [1 .. 2000] $ \i -> do

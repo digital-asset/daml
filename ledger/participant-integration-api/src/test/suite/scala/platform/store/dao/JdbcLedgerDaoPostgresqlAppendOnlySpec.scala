@@ -19,6 +19,7 @@ final class JdbcLedgerDaoPostgresqlAppendOnlySpec
     with JdbcLedgerDaoContractsSpec
     with JdbcLedgerDaoContractsAppendOnlySpec
     with JdbcLedgerDaoDivulgenceSpec
+    with JdbcLedgerDaoExceptionSpec
     with JdbcLedgerDaoPartiesSpec
     with JdbcLedgerDaoTransactionsSpec
     with JdbcLedgerDaoTransactionTreesSpec

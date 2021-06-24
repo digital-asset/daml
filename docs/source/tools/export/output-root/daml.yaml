@@ -40,5 +40,5 @@ data-dependencies:
 - EXPORT_OUT/deps/daml-stdlib-DA-Set-Types-1.0.0-97b883cd8a2b7f49f90d5d39c981cf6e110cf1f1c64427a28a6d58ec88c43657.dalf
 - EXPORT_OUT/deps/script-test-0.0.1-87967f7d2b53db9652bd343a24db7cbe371c4b105005d57eed853bd309bac477.dalf
 build-options:
-- --target=1.12
+- --target=1.13
 - --package=script-test-0.0.1
