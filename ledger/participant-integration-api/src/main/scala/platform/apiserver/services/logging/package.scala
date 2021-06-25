@@ -15,7 +15,7 @@ import com.daml.ledger.api.domain.{
   WorkflowId,
 }
 import com.daml.ledger.api.v1.transaction_filter.Filters
-import com.daml.logging.{LoggingEntries, LoggingEntry}
+import com.daml.logging.{LoggingEntries, LoggingEntry, LoggingValue}
 import net.logstash.logback.argument.StructuredArguments
 import scalaz.syntax.tag.ToTagOps
 
@@ -72,9 +72,9 @@ package object logging {
       Iterator
         .continually(s"party-$party")
         .zip(
-          filters.inclusive.fold(Iterator.single("all-templates"))(
-            _.templateIds.iterator.map(_.toString)
-          )
+          filters.inclusive
+            .fold(Iterator.single("all-templates"))(_.templateIds.iterator.map(_.toString))
+            .map(LoggingValue.from(_))
         )
     })
 

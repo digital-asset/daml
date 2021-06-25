@@ -30,7 +30,7 @@ import com.daml.lf.transaction.{
   StandardTransactionCommitter,
   TransactionCommitter,
 }
-import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
 import com.daml.platform.apiserver._
@@ -50,9 +50,9 @@ import com.daml.platform.store.{FlywayMigrations, LfValueTranslationCache}
 import com.daml.ports.Port
 import scalaz.syntax.tag._
 
-import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 object SandboxServer {
@@ -106,7 +106,7 @@ object SandboxServer {
       config: SandboxConfig
   )(implicit resourceContext: ResourceContext): Future[Unit] = {
 
-    newLoggingContext(logging.participantId(config.participantId)) { implicit loggingContext =>
+    newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
       logger.info("Running only schema migration scripts")
       new FlywayMigrations(config.jdbcUrl.get)
         .migrate(enableAppendOnlySchema = config.enableAppendOnlySchema)
@@ -449,7 +449,7 @@ final class SandboxServer(
   }
 
   private def start(): Future[SandboxState] = {
-    newLoggingContext(logging.participantId(config.participantId)) { implicit loggingContext =>
+    newLoggingContextWith(logging.participantId(config.participantId)) { implicit loggingContext =>
       val packageStore = loadDamlPackages()
       val apiServerResource = buildAndStartApiServer(
         materializer,

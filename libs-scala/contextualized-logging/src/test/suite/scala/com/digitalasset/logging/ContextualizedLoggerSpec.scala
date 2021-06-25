@@ -34,14 +34,14 @@ final class ContextualizedLoggerSpec
     withContext("id" -> "foobar")() { logger => implicit loggingContext =>
       logger.info("a")
       val m = logger.withoutContext
-      verify(m).info(toStringEqTo[Marker]("{id=foobar}"), eqTo("a"))
+      verify(m).info(toStringEqTo[Marker]("""{id: "foobar"}"""), eqTo("a"))
     }
 
   it should "pass the context via the markers if a throwable is provided" in
     withContext("id" -> "foo")() { logger => implicit loggingContext =>
       logger.error("a", new IllegalArgumentException("quux"))
       verify(logger.withoutContext).error(
-        toStringEqTo[Marker]("{id=foo}"),
+        toStringEqTo[Marker]("""{id: "foo"}"""),
         eqTo("a"),
         withMessage[IllegalArgumentException]("quux"),
       )
@@ -63,9 +63,9 @@ final class ContextualizedLoggerSpec
       }
       logger.info("c")
       val m = logger.withoutContext
-      verify(m).info(toStringEqTo[Marker]("{i1=x}"), eqTo("a"))
-      verify(m).info(toStringEqTo[Marker]("{i1=x, i2=y}"), eqTo("b"))
-      verify(m).info(toStringEqTo[Marker]("{i1=x}"), eqTo("c"))
+      verify(m).info(toStringEqTo[Marker]("""{i1: "x"}"""), eqTo("a"))
+      verify(m).info(toStringEqTo[Marker]("""{i1: "x", i2: "y"}"""), eqTo("b"))
+      verify(m).info(toStringEqTo[Marker]("""{i1: "x"}"""), eqTo("c"))
     }
 
   it should "override with values provided in a more specific scope" in
@@ -76,9 +76,9 @@ final class ContextualizedLoggerSpec
       }
       logger.info("c")
       val m = logger.withoutContext
-      verify(m).info(toStringEqTo[Marker]("{id=foobar}"), eqTo("a"))
-      verify(m).info(toStringEqTo[Marker]("{id=quux}"), eqTo("b"))
-      verify(m).info(toStringEqTo[Marker]("{id=foobar}"), eqTo("c"))
+      verify(m).info(toStringEqTo[Marker]("""{id: "foobar"}"""), eqTo("a"))
+      verify(m).info(toStringEqTo[Marker]("""{id: "quux"}"""), eqTo("b"))
+      verify(m).info(toStringEqTo[Marker]("""{id: "foobar"}"""), eqTo("c"))
     }
 
   it should "pick the expected context also when executing in a future" in
@@ -87,14 +87,18 @@ final class ContextualizedLoggerSpec
       import scala.concurrent.duration.DurationInt
       import scala.concurrent.{Await, Future}
 
-      val f1 = Future { logger.info("a") }
+      val f1 = Future {
+        logger.info("a")
+      }
       LoggingContext.withEnrichedLoggingContext("id" -> "next") { implicit loggingContext =>
-        val f2 = Future { logger.info("b") }
+        val f2 = Future {
+          logger.info("b")
+        }
         Await.result(Future.sequence(Seq(f1, f2)), 10.seconds)
       }
       val m = logger.withoutContext
-      verify(m).info(toStringEqTo[Marker]("{id=future}"), eqTo("a"))
-      verify(m).info(toStringEqTo[Marker]("{id=next}"), eqTo("b"))
+      verify(m).info(toStringEqTo[Marker]("""{id: "future"}"""), eqTo("a"))
+      verify(m).info(toStringEqTo[Marker]("""{id: "next"}"""), eqTo("b"))
     }
 
   it should "drop the context if new context is provided at a more specific scope" in
@@ -105,9 +109,9 @@ final class ContextualizedLoggerSpec
       }
       logger.info("d")
       val m = logger.withoutContext
-      verify(m).info(toStringEqTo[Marker]("{id=foobar}"), eqTo("a"))
+      verify(m).info(toStringEqTo[Marker]("""{id: "foobar"}"""), eqTo("a"))
       verify(m).info("b")
-      verify(m).info(toStringEqTo[Marker]("{id=foobar}"), eqTo("d"))
+      verify(m).info(toStringEqTo[Marker]("""{id: "foobar"}"""), eqTo("d"))
     }
 
   it should "allow the user to use the underlying logger, foregoing context" in
@@ -122,7 +126,7 @@ final class ContextualizedLoggerSpec
       logger.info("b")
       val m = logger.withoutContext
       verify(m).info("a")
-      verify(m).info(toStringEqTo[Marker]("{id=foobar}"), eqTo("b"))
+      verify(m).info(toStringEqTo[Marker]("""{id: "foobar"}"""), eqTo("b"))
     }
 
   it should "debug foreach stream item" in
@@ -139,19 +143,21 @@ final class ContextualizedLoggerSpec
 
       items.foreach { item =>
         verify(logger.withoutContext)
-          .debug(toStringEqTo[Marker]("{id=foobar}"), eqTo(s"$item"))
+          .debug(toStringEqTo[Marker]("""{id: "foobar"}"""), eqTo(item.toString))
       }
     }
 
-  def withEmptyContext(f: ContextualizedLogger => LoggingContext => Unit): Unit =
+  private def withEmptyContext(f: ContextualizedLogger => LoggingContext => Unit): Unit =
     LoggingContext.newLoggingContext(f(ContextualizedLogger.createFor(mockLogger(Level.INFO))))
 
-  def withContext(kv: (String, String))(level: Level = Level.INFO)(
+  private def withContext(entry: LoggingEntry)(level: Level = Level.INFO)(
       f: ContextualizedLogger => LoggingContext => Unit
   ): Unit =
-    LoggingContext.newLoggingContext(kv)(f(ContextualizedLogger.createFor(mockLogger(level))))
+    LoggingContext.newLoggingContextWith(entry)(
+      f(ContextualizedLogger.createFor(mockLogger(level)))
+    )
 
-  def mockLogger(level: Level): Logger = {
+  private def mockLogger(level: Level): Logger = {
     val mocked = mock[Logger]
     when(mocked.isTraceEnabled()).thenReturn(level.toInt <= EventConstants.TRACE_INT)
     when(mocked.isDebugEnabled()).thenReturn(level.toInt <= EventConstants.DEBUG_INT)
@@ -161,10 +167,9 @@ final class ContextualizedLoggerSpec
     mocked
   }
 
-  def toStringEqTo[T](s: String): T =
-    argThat[T]((_: T).toString == s)
+  private def toStringEqTo[T](expected: String): T =
+    argThat[T]((_: T).toString == expected, s"toString value of: $expected")
 
-  def withMessage[T <: Throwable](s: String): Throwable =
-    argThat[T]((_: T).getMessage == s)
-
+  private def withMessage[T <: Throwable](expected: String): Throwable =
+    argThat[T]((_: T).getMessage == expected, s"throwable with message: $expected")
 }

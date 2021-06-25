@@ -42,13 +42,13 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       estimatedInterpretationCost: Long,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
-      "actAs" -> submitterInfo.actAs.mkString(","),
+      "actAs" -> submitterInfo.actAs,
       "applicationId" -> submitterInfo.applicationId,
       "commandId" -> submitterInfo.commandId,
-      "deduplicateUntil" -> submitterInfo.deduplicateUntil.toString,
-      "submissionTime" -> transactionMeta.submissionTime.toInstant.toString,
-      "workflowId" -> transactionMeta.workflowId.getOrElse(""),
-      "ledgerTime" -> transactionMeta.ledgerEffectiveTime.toInstant.toString,
+      "deduplicateUntil" -> submitterInfo.deduplicateUntil,
+      "submissionTime" -> transactionMeta.submissionTime.toInstant,
+      "workflowId" -> transactionMeta.workflowId,
+      "ledgerTime" -> transactionMeta.ledgerEffectiveTime.toInstant,
     ) { implicit loggingContext =>
       FutureConverters.toJava(
         ledger.publishTransaction(submitterInfo, transactionMeta, transaction)
@@ -77,8 +77,8 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
       "submissionId" -> submissionId,
-      "description" -> sourceDescription.getOrElse(""),
-      "packageHashes" -> payload.iterator.map(_.getHash).mkString(","),
+      "description" -> sourceDescription,
+      "packageHashes" -> payload.view.map(_.getHash),
     ) { implicit loggingContext =>
       FutureConverters.toJava(
         ledger
@@ -93,10 +93,10 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       config: Configuration,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
-      "maxRecordTime" -> maxRecordTime.toInstant.toString,
+      "maxRecordTime" -> maxRecordTime.toInstant,
       "submissionId" -> submissionId,
-      "configGeneration" -> config.generation.toString,
-      "configMaxDeduplicationTime" -> config.maxDeduplicationTime.toString,
+      "configGeneration" -> config.generation,
+      "configMaxDeduplicationTime" -> config.maxDeduplicationTime,
     ) { implicit loggingContext =>
       FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
     }

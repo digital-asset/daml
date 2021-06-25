@@ -20,7 +20,7 @@ import scalaz.syntax.tag._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
@@ -46,7 +46,7 @@ import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
-import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
+import com.daml.logging.{ContextualizedLogger, LoggingContextOf, LoggingEntry, LoggingValue}
 import LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
@@ -71,19 +71,23 @@ final case class Trigger(
     // party-specific.
     heartbeat: Option[FiniteDuration],
 ) {
+  @nowarn("msg=parameter value label .* is never used") // Proxy only
   private[trigger] final class withLoggingContext[P] private (
       label: label[Trigger with P],
-      kvs: Seq[(String, String)],
+      kvs: Seq[LoggingEntry],
   ) {
     def apply[T](f: LoggingContextOf[Trigger with P] => T): T =
-      newLoggingContext(label, kvs :+ "triggerDefinition" -> triggerDefinition.toString: _*)(f)
+      newLoggingContext(
+        label,
+        kvs :+ "triggerDefinition" -> LoggingValue.from(triggerDefinition.toString): _*
+      )(f)
   }
 
   private[trigger] object withLoggingContext {
     def apply[T](f: LoggingContextOf[Trigger] => T): T =
       newLoggingContext(label, "triggerDefinition" -> triggerDefinition.toString)(f)
 
-    def apply[P](kvs: (String, String)*) = new withLoggingContext(label[Trigger with P], kvs)
+    def labelled[P](kvs: LoggingEntry*) = new withLoggingContext(label[Trigger with P], kvs)
   }
 }
 

@@ -42,7 +42,7 @@ object TriggerRunnerImpl {
       restartConfig: TriggerRestartConfig,
   ) {
     private[trigger] def withLoggingContext[T](f: LoggingContextOf[Config with Trigger] => T): T =
-      trigger.withLoggingContext[Config]("triggerId" -> triggerInstance.toString)(f)
+      trigger.withLoggingContext.labelled[Config]("triggerId" -> triggerInstance.toString)(f)
   }
 
   sealed trait Message

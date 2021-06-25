@@ -23,7 +23,7 @@ import com.daml.ledger.validator._
 import com.daml.ledger.validator.reading.DamlLedgerStateReader
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
-import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 
@@ -63,7 +63,7 @@ object BatchedSubmissionValidator {
   private def withCorrelationIdLogged[T](
       correlationId: CorrelationId
   )(f: LoggingContext => T): T = {
-    newLoggingContext("correlationId" -> correlationId) { loggingContext =>
+    newLoggingContextWith("correlationId" -> correlationId) { loggingContext =>
       f(loggingContext)
     }
   }
