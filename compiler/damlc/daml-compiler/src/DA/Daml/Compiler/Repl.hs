@@ -72,7 +72,9 @@ data Error
     | ExpectedExpression String
     | NotImportedModules [ModuleName]
     | TypeError -- ^ The actual error will be in the diagnostics
-    | ScriptError ReplClient.BackendError
+    | ScriptBackendError ReplClient.BackendError
+    | ScriptError T.Text
+    | InternalError T.Text
 
 renderError :: DynFlags -> Error -> IO ()
 renderError dflags err = case err of
@@ -87,9 +89,9 @@ renderError dflags err = case err of
     TypeError ->
         -- The error will be displayed via diagnostics.
         pure ()
-    (ScriptError _err) ->
-        -- The error will be displayed by the script runner.
-        pure ()
+    (ScriptError err) -> T.putStrLn err
+    (ScriptBackendError err) -> print err
+    (InternalError err) -> T.putStrLn err
 
 -- | Take a set of variables and a pattern and shadow all the variables
 -- in the pattern by turning them into wildcard patterns.
@@ -431,9 +433,14 @@ runRepl importPkgs opts replClient logger ideState = do
         stmtTy <- maybe (throwError TypeError) pure (exprTy $ tm_typechecked_source tcMod)
         -- If we get an error we don’t increment lineNumber and we
         -- do not get a new binding
-        mbResult <- withExceptT ScriptError $ ExceptT $ liftIO $
+        result <- withExceptT ScriptBackendError $ ExceptT $ liftIO $
             ReplClient.runScript replClient (optDamlLfVersion opts) lfMod rspType
-        liftIO $ whenJust mbResult T.putStrLn
+
+        case result of
+            ReplClient.ScriptSuccess mbResult -> liftIO $ whenJust mbResult T.putStrLn
+            ReplClient.ScriptError err -> throwError (ScriptError err)
+            ReplClient.InternalError err -> throwError (InternalError err)
+
         let boundVars = stmtBoundVars supportedStmt
             boundVars' = mkOccSet $ map occName boundVars
         State.modify' $ \s -> s

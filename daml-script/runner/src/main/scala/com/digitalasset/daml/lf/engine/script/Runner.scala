@@ -193,6 +193,10 @@ object Script {
 
 object Runner {
 
+  final case class InterpretationError(error: SError.SError) extends RuntimeException {
+    override def toString: String = Pretty.prettyError(error).render(80)
+  }
+
   private val compilerConfig = {
     import Compiler._
     Config(
@@ -367,10 +371,9 @@ private[lf] class Runner(
         case SResultFinalValue(v) =>
           Right(v)
         case SResultError(err) =>
-          logger.error(Pretty.prettyError(err).render(80))
-          Left(err)
+          Left(Runner.InterpretationError(err))
         case res =>
-          Left(new RuntimeException(s"Unexpected speedy result $res"))
+          Left(new IllegalStateException(s"Internal error: Unexpected speedy result $res"))
       }
 
     val env = new ScriptF.Env(
@@ -394,13 +397,17 @@ private[lf] class Runner(
                   case ScriptF.Catch(act, handle) =>
                     run(SEApp(SEValue(act), Array(SEValue(SUnit)))).transformWith {
                       case Success(v) => Future.successful(SEValue(v))
-                      case Failure(SError.DamlEUnhandledException(exc)) =>
+                      case Failure(
+                            Runner.InterpretationError(SError.DamlEUnhandledException(exc))
+                          ) =>
                         machine.setExpressionToEvaluate(SEApp(SEValue(handle), Array(SEValue(exc))))
                         stepToValue()
                           .fold(Future.failed, Future.successful)
                           .flatMap {
                             case SOptional(None) =>
-                              Future.failed(SError.DamlEUnhandledException(exc))
+                              Future.failed(
+                                Runner.InterpretationError(SError.DamlEUnhandledException(exc))
+                              )
                             case SOptional(Some(free)) => Future.successful(SEValue(free))
                             case e =>
                               Future.failed(
@@ -410,7 +417,7 @@ private[lf] class Runner(
                       case Failure(e) => Future.failed(e)
                     }
                   case ScriptF.Throw(exc) =>
-                    Future.failed(SError.DamlEUnhandledException(exc))
+                    Future.failed(Runner.InterpretationError(SError.DamlEUnhandledException(exc)))
                   case cmd: ScriptF.Cmd =>
                     cmd.execute(env).transform {
                       case Failure(exception) =>

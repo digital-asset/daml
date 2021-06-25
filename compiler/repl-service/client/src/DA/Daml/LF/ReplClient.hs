@@ -17,6 +17,7 @@ module DA.Daml.LF.ReplClient
   , BackendError
   , ClientSSLConfig(..)
   , ClientSSLKeyCertPair(..)
+  , ScriptResult(..)
   ) where
 
 import Control.Concurrent
@@ -129,7 +130,12 @@ loadPackage Handle{..} package = do
         (Grpc.LoadPackageRequest package)
     pure (() <$ r)
 
-runScript :: Handle -> LF.Version -> LF.Module -> ReplResponseType -> IO (Either BackendError (Maybe T.Text))
+data ScriptResult
+    = ScriptSuccess (Maybe T.Text) -- ^ Script succeeded, if it was of type Script Text include the result.
+    | ScriptError T.Text -- ^ Script failed
+    | InternalError T.Text -- ^ The impossible happened
+
+runScript :: Handle -> LF.Version -> LF.Module -> ReplResponseType -> IO (Either BackendError ScriptResult)
 runScript Handle{..} version m rspType = do
     r <- performRequest
         (Grpc.replServiceRunScript hClient)
@@ -137,9 +143,12 @@ runScript Handle{..} version m rspType = do
     pure $ fmap handleResult r
   where
     bytes = BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
-    handleResult r =
-        let t = TL.toStrict (Grpc.runScriptResponseResult r)
-        in if T.null t then Nothing else Just t
+    handleResult r = case Grpc.runScriptResponseResult r of
+        Nothing -> InternalError "Script produced neither a result nor an error"
+        Just (Grpc.RunScriptResponseResultSuccess (Grpc.ScriptSuccess result)) ->
+            ScriptSuccess (if TL.null result then Nothing else Just (TL.toStrict result))
+        Just (Grpc.RunScriptResponseResultError (Grpc.ScriptError err)) ->
+            ScriptError (TL.toStrict err)
     grpcRspType = case rspType of
         ReplText -> Proto.Enumerated (Right Grpc.RunScriptRequest_FormatTEXT_ONLY)
         ReplJson -> Proto.Enumerated (Right Grpc.RunScriptRequest_FormatJSON)

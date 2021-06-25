@@ -32,9 +32,21 @@ message RunScriptRequest {
   Format format = 3;
 }
 
-message RunScriptResponse {
-  // Optional result, we render this on the client side.
+message ScriptSuccess {
+  // Optional result
   string result = 1;
+}
+
+message ScriptError {
+  // Required
+  string error = 1;
+}
+
+message RunScriptResponse {
+  oneof result {
+    ScriptSuccess success = 1;
+    ScriptError error = 2;
+  }
 }
 
 message ClearResultsRequest {
