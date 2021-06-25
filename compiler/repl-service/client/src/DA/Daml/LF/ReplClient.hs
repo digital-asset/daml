@@ -171,4 +171,4 @@ performRequest method payload = do
 
 
 timeoutSeconds :: Int
-timeoutSeconds = 60
+timeoutSeconds = 120
