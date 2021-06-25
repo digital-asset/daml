@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 /** The simplified AST for the speedy interpreter.
   *
@@ -377,9 +378,9 @@ object SExpr {
   /** We cannot crash in the engine call back.
     * Rather, we set the control to this expression and then crash when executing.
     */
-  final case class SEDamlException(error: SErrorDamlException) extends SExpr {
+  final case class SEDamlException(error: interpretation.Error) extends SExpr {
     def execute(machine: Machine): Unit = {
-      throw error
+      throw SErrorDamlException(error)
     }
   }
 

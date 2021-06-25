@@ -31,10 +31,23 @@ import com.daml.lf.speedy.SBuiltin._
 
 private[lf] object Pretty {
 
-  def prettyError(err: SError, ptx: PartialTransaction): Doc =
+  private[this] val dummyTx = PartialTransaction.initial(
+    (_ => TransactionVersion.minVersion),
+    ContractKeyUniquenessMode.On,
+    submissionTime = Time.Timestamp.MinValue,
+    initialSeeds = InitialSeeding.NoSeed,
+  )
+
+  def prettyError(err: SError, ptx: PartialTransaction = dummyTx): Doc =
+    // TODO https://github.com/digital-asset/daml/issues/9974
+    //  (MK) I’m not convinced the partial transaction here provides any real value.
+    //  Afaict the only thing we use it for is to produce slightly different error
+    //  if a contract is inactive due to a recursive exercise. We don’t do that in
+    //  the scenario service however and I’ve never heard a request for it so I
+    //  have a hard time believing that it is really useful here.
     text("Error:") & (err match {
       case ex: SErrorDamlException =>
-        prettyDamlException(ex, ptx)
+        prettyDamlException(ex.error, ptx)
       case SErrorCrash(reason) =>
         text(s"CRASH: $reason")
       case SRequiresOnLedger(operation) =>
@@ -44,37 +57,23 @@ private[lf] object Pretty {
         prettyScenarioError(serr)
     })
 
-  def prettyError(err: SError): Doc = {
-    val ptx = PartialTransaction.initial(
-      (_ => TransactionVersion.minVersion),
-      ContractKeyUniquenessMode.On,
-      submissionTime = Time.Timestamp.MinValue,
-      initialSeeds = InitialSeeding.NoSeed,
-    )
-    prettyError(err, ptx)
-  }
-
   def prettyParty(p: Party): Doc =
     char('\'') + text(p) + char('\'')
 
-  private def prettyDamlException(ex: SErrorDamlException, ptx: PartialTransaction): Doc =
-    ex match {
-      case DamlEFailedAuthorization(nid, fa) =>
+  def prettyDamlException(error: interpretation.Error, ptx: PartialTransaction = dummyTx): Doc = {
+    import interpretation.Error._
+    error match {
+      case FailedAuthorization(nid, fa) =>
         text(prettyFailedAuthorization(nid, fa))
-      case DamlEUnhandledException(SAny(_, value)) =>
-        text(s"Unhandled exception:") & prettyValue(true)(value.toValue)
-      case DamlEUserError(message) =>
+      case UnhandledException(_, value) =>
+        text(s"Unhandled exception:") & prettyValue(true)(value)
+      case UserError(message) =>
         text(s"User abort: $message")
-      case DamlETransactionError(reason) =>
-        text(s"Transaction error: $reason")
-      case DamlEMatchError(reason) =>
-        text(reason)
-      case DamlETemplatePreconditionViolated(tid, optLoc @ _, arg) =>
+      case TemplatePreconditionViolated(templateId, loc @ _, arg) =>
         text("Update failed due to precondition violation when creating") &
-          prettyTypeConName(tid) &
+          prettyTypeConName(templateId) &
           text("with") & prettyValue(true)(arg)
-
-      case DamlELocalContractNotActive(coid, tid, consumedBy) =>
+      case ContractNotActive(coid, tid, consumedBy) =>
         text("Update failed due to fetch of an inactive contract") & prettyContractId(coid) &
           char('(') + (prettyTypeConName(tid)) + text(").") /
           text(s"The contract had been consumed in sub-transaction #$consumedBy:") +
@@ -87,14 +86,12 @@ private[lf] object Pretty {
             case Some(node) =>
               (line + prettyPartialTransactionNode(node)).nested(4)
           })
-
-      case DamlEContractKeyNotFound(gk) =>
+      case ContractKeyNotFound(gk) =>
         text(
           "Update failed due to fetch-by-key or exercise-by-key which did not find a contract with key"
         ) &
           prettyValue(false)(gk.key) & char('(') + prettyIdentifier(gk.templateId) + char(')')
-
-      case DamlELocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+      case LocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
         text(
           "Update failed due to a fetch, lookup or exercise by key of contract not visible to the reading parties"
         ) & prettyContractId(coid) &
@@ -109,31 +106,30 @@ private[lf] object Pretty {
             comma + space,
             stakeholders.map(prettyParty),
           ) + char('.')
-
-      case DamlEDuplicateContractKey(key) =>
+      case DuplicateContractKey(key) =>
         text("Update failed due to a duplicate contract key") & prettyValue(false)(key.key)
-
-      case DamlEWronglyTypedContract(coid, expected, actual) =>
+      case WronglyTypedContract(coid, expected, actual) =>
         text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
           text("Expected contract of type") & prettyTypeConName(expected) & text(
             "but got"
           ) & prettyTypeConName(
             actual
           )
-
-      case DamlECreateEmptyContractKeyMaintainers(tid, arg, key) =>
+      case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
         text("Update failed due to a contract key with an empty sey of maintainers when creating") &
           prettyTypeConName(tid) & text("with") & prettyValue(true)(arg) /
           text("The computed key is") & prettyValue(true)(key)
-
-      case DamlEFetchEmptyContractKeyMaintainers(tid, key) =>
+      case FetchEmptyContractKeyMaintainers(tid, key) =>
         text(
           "Update failed due to a contract key with an empty sey of maintainers when fetching or looking up by key"
         ) &
           prettyTypeConName(tid) /
           text("The provided key is") & prettyValue(true)(key)
+      case ContractNotFound(cid) =>
+        text("Update failed due to a unknown contract") & prettyContractId(cid)
 
     }
+  }
 
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..
   def prettyPartialTransactionNode(node: PartialTransaction.Node): Doc =

@@ -321,24 +321,24 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       time: Time.Timestamp,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
     var finished: Boolean = false
+    def detailMsg = Some(
+      s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptxInternal.nodesToString}"
+    )
     while (!finished) {
       machine.run() match {
         case SResultFinalValue(_) => finished = true
 
-        case SResultError(SError.DamlEDuplicateContractKey(key)) =>
+        case SResultError(SError.SErrorDamlException(error)) =>
           // Special-cased because duplicate key errors
           // produce a different gRPC error code.
-          return ResultError(Error.Interpretation(Error.Interpretation.DuplicateContractKey(key)))
-
-        case SResultError(SError.DamlEContractKeyNotFound(key)) =>
-          return ResultError(Error.Interpretation.ContractKeyNotFound(key))
+          return ResultError(Error.Interpretation.DamlException(error), detailMsg)
 
         case SResultError(err) =>
           return ResultError(
             Error.Interpretation.Generic(
-              s"Interpretation error: ${Pretty.prettyError(err, onLedger.ptxInternal).render(80)}",
-              s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptxInternal.nodesToString}",
-            )
+              s"Interpretation error: ${Pretty.prettyError(err, onLedger.ptxInternal).render(80)}"
+            ),
+            detailMsg,
           )
 
         case SResultNeedPackage(pkgId, callback) =>

@@ -10,6 +10,7 @@ import java.util.regex.Pattern
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
+import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.{Ast, Util => AstUtil}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
@@ -20,6 +21,7 @@ import com.daml.lf.speedy.SValue.{SValue => SV}
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node}
+import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.scalautil.Statement.discard
 
 import scala.jdk.CollectionConverters._
@@ -37,7 +39,7 @@ import scala.collection.immutable.TreeSet
 private[speedy] sealed abstract class SBuiltin(val arity: Int) {
   // Helper for constructing expressions applying this builtin.
   // E.g. SBCons(SEVar(1), SEVar(2))
-  private[speedy] def apply(args: SExpr*): SExpr =
+  private[lf] def apply(args: SExpr*): SExpr =
     SEApp(SEBuiltin(this), args.toArray)
 
   /** Execute the builtin with 'arity' number of arguments in 'args'.
@@ -878,10 +880,12 @@ private[lf] object SBuiltin {
   final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltinPure(2) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SUnit.type = {
       if (!getSBool(args, 1))
-        throw DamlETemplatePreconditionViolated(
-          templateId = templateId,
-          optLocation = None,
-          arg = args.get(0).toValue,
+        throw SErrorDamlException(
+          IE.TemplatePreconditionViolated(
+            templateId = templateId,
+            optLocation = None,
+            arg = args.get(0).toValue,
+          )
         )
       SUnit
     }
@@ -909,7 +913,9 @@ private[lf] object SBuiltin {
       val mbKey = extractOptionalKeyWithMaintainers(args.get(4))
       mbKey.foreach { case Node.KeyWithMaintainers(key, maintainers) =>
         if (maintainers.isEmpty)
-          throw DamlECreateEmptyContractKeyMaintainers(templateId, createArg.toValue, key)
+          throw SErrorDamlException(
+            IE.CreateEmptyContractKeyMaintainers(templateId, createArg.toValue, key)
+          )
       }
       val auth = machine.auth
       val (coid, newPtx) = onLedger.ptx
@@ -923,7 +929,7 @@ private[lf] object SBuiltin {
           stakeholders = sigs union obs,
           key = mbKey,
         )
-        .fold(err => throw DamlETransactionError(err), identity)
+        .fold(err => crash(err), identity)
 
       machine.addLocalContract(coid, templateId, createArg, sigs, obs, mbKey)
       onLedger.ptx = newPtx
@@ -983,7 +989,7 @@ private[lf] object SBuiltin {
           byKey = byKey,
           chosenValue = arg,
         )
-        .fold(err => throw DamlETransactionError(err), identity)
+        .fold(err => crash(err), identity)
       checkAborted(onLedger.ptx)
       machine.returnValue = SUnit
     }
@@ -1012,7 +1018,7 @@ private[lf] object SBuiltin {
             } else {
               // This is a user-error.
               machine.ctrl = SEDamlException(
-                DamlEWronglyTypedContract(coid, templateId, cached.templateId)
+                IE.WronglyTypedContract(coid, templateId, cached.templateId)
               )
             }
           } else {
@@ -1027,7 +1033,7 @@ private[lf] object SBuiltin {
               { case V.ContractInst(actualTmplId, V.VersionedValue(_, arg), _) =>
                 if (actualTmplId != templateId) {
                   machine.ctrl =
-                    SEDamlException(DamlEWronglyTypedContract(coid, templateId, actualTmplId))
+                    SEDamlException(IE.WronglyTypedContract(coid, templateId, actualTmplId))
                 } else {
                   val keyExpr = args.get(1) match {
                     // No by-key operation, we have to recompute.
@@ -1163,7 +1169,7 @@ private[lf] object SBuiltin {
       override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
         machine.ctrl = importCid(cid)
       override def handleKeyNotFound(machine: Machine, gkey: GlobalKey): Boolean = {
-        machine.ctrl = SEDamlException(DamlEContractKeyNotFound(gkey))
+        machine.ctrl = SEDamlException(IE.ContractKeyNotFound(gkey))
         false
       }
 
@@ -1206,7 +1212,9 @@ private[lf] object SBuiltin {
       import PartialTransaction.{KeyActive, KeyInactive}
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
       if (keyWithMaintainers.maintainers.isEmpty)
-        throw DamlEFetchEmptyContractKeyMaintainers(operation.templateId, keyWithMaintainers.key)
+        throw SErrorDamlException(
+          IE.FetchEmptyContractKeyMaintainers(operation.templateId, keyWithMaintainers.key)
+        )
       val gkey = GlobalKey(operation.templateId, keyWithMaintainers.key)
       // check if we find it locally
       onLedger.ptx.keys.get(gkey) match {
@@ -1224,7 +1232,7 @@ private[lf] object SBuiltin {
                   operation.handleActiveKey(machine, coid)
                 case SVisibleByKey.NotVisible(actAs, readAs) =>
                   machine.ctrl = SEDamlException(
-                    DamlELocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+                    IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
                   )
               },
             )
@@ -1359,7 +1367,7 @@ private[lf] object SBuiltin {
   /** $error :: Text -> a */
   final case object SBError extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): Nothing =
-      throw DamlEUserError(getSText(args, 0))
+      throw SErrorDamlException(IE.UserError(getSText(args, 0)))
   }
 
   /** $throw :: AnyException -> a */
@@ -1397,7 +1405,7 @@ private[lf] object SBuiltin {
     override private[speedy] def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val exception = getSAnyException(args, 0)
       val tyCon = exception.id
-      if (tyCon == SArithmeticError.tyCon)
+      if (tyCon == ValueArithmeticError.tyCon)
         machine.returnValue = exception.values.get(0)
       else if (!machine.compiledPackages.packageIds.contains(exception.id.packageId))
         throw SpeedyHungry(
@@ -1581,11 +1589,11 @@ private[lf] object SBuiltin {
   private[speedy] def checkAborted(ptx: PartialTransaction): Unit =
     ptx.aborted match {
       case Some(Tx.AuthFailureDuringExecution(nid, fa)) =>
-        throw DamlEFailedAuthorization(nid, fa)
+        throw SErrorDamlException(IE.FailedAuthorization(nid, fa))
       case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
-        throw DamlELocalContractNotActive(coid, tid, consumedBy)
+        throw SErrorDamlException(IE.ContractNotActive(coid, tid, consumedBy))
       case Some(Tx.DuplicateContractKey(key)) =>
-        throw DamlEDuplicateContractKey(key)
+        throw SErrorDamlException(IE.DuplicateContractKey(key))
       case None =>
         ()
     }

@@ -31,6 +31,8 @@ import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Interface, LanguageVersion}
+import com.daml.lf.interpretation.{Error => IE}
+import com.daml.lf.speedy.SBuiltin.SBToAny
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -398,16 +400,18 @@ private[lf] class Runner(
                     run(SEApp(SEValue(act), Array(SEValue(SUnit)))).transformWith {
                       case Success(v) => Future.successful(SEValue(v))
                       case Failure(
-                            Runner.InterpretationError(SError.DamlEUnhandledException(exc))
+                            exce @ Runner.InterpretationError(
+                              SError.SErrorDamlException(IE.UnhandledException(typ, value))
+                            )
                           ) =>
-                        machine.setExpressionToEvaluate(SEApp(SEValue(handle), Array(SEValue(exc))))
+                        machine.setExpressionToEvaluate(
+                          SEApp(SEValue(handle), Array(SBToAny(typ)(SEImportValue(typ, value))))
+                        )
                         stepToValue()
                           .fold(Future.failed, Future.successful)
                           .flatMap {
                             case SOptional(None) =>
-                              Future.failed(
-                                Runner.InterpretationError(SError.DamlEUnhandledException(exc))
-                              )
+                              Future.failed(exce)
                             case SOptional(Some(free)) => Future.successful(SEValue(free))
                             case e =>
                               Future.failed(
@@ -416,8 +420,12 @@ private[lf] class Runner(
                           }
                       case Failure(e) => Future.failed(e)
                     }
-                  case ScriptF.Throw(exc) =>
-                    Future.failed(Runner.InterpretationError(SError.DamlEUnhandledException(exc)))
+                  case ScriptF.Throw(SAny(ty, value)) =>
+                    Future.failed(
+                      Runner.InterpretationError(
+                        SError.SErrorDamlException(IE.UnhandledException(ty, value.toValue))
+                      )
+                    )
                   case cmd: ScriptF.Cmd =>
                     cmd.execute(env).transform {
                       case Failure(exception) =>

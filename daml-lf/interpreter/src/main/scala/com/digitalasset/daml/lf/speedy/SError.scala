@@ -1,14 +1,13 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
-import com.daml.lf.ledger.FailedAuthorization
-import com.daml.lf.transaction.{GlobalKey, NodeId, Transaction => Tx}
-import com.daml.lf.value.Value
+import com.daml.lf.transaction.{GlobalKey, Transaction => Tx}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.scenario.ScenarioLedger
 
@@ -35,80 +34,8 @@ object SError {
   def crash[A](reason: String): A =
     throw SErrorCrash(reason)
 
-  /** Daml exceptions that can be caught. These include
-    * arithmetic errors, call to error builtin or update
-    * errors.
-    */
-  sealed abstract class SErrorDamlException extends SError
-
-  /** Unhandled exceptions */
-  final case class DamlEUnhandledException(exception: SValue.SAny) extends SErrorDamlException {
-    override def toString: String = s"Unhandled exception: $exception"
-  }
-
-  /** User initiated error, via e.g. 'abort' or 'assert' */
-  final case class DamlEUserError(message: String) extends SErrorDamlException
-
-  /** An inexhaustive pattern match */
-  final case class DamlEMatchError(reason: String) extends SErrorDamlException
-
-  /** Template pre-condition (ensure) evaluated to false and the transaction
-    * was aborted.
-    */
-  final case class DamlETemplatePreconditionViolated(
-      templateId: TypeConName,
-      optLocation: Option[Location],
-      arg: Value[ContractId],
-  ) extends SErrorDamlException
-
-  /** A fetch or an exercise on a transaction-local contract that has already
-    * been consumed.
-    */
-  final case class DamlELocalContractNotActive(
-      coid: ContractId,
-      templateId: TypeConName,
-      consumedBy: NodeId,
-  ) extends SErrorDamlException
-
-  final case class DamlELocalContractKeyNotVisible(
-      coid: ContractId,
-      key: GlobalKey,
-      actAs: Set[Party],
-      readAs: Set[Party],
-      stakeholders: Set[Party],
-  ) extends SErrorDamlException
-
-  /** Fetch-by-key failed
-    */
-  final case class DamlEContractKeyNotFound(
-      key: GlobalKey
-  ) extends SErrorDamlException
-
-  /** Two contracts with the same key were active at the same time.
-    * See com.daml.lf.transaction.Transaction.DuplicateContractKey
-    * for more details.
-    */
-  final case class DamlEDuplicateContractKey(
-      key: GlobalKey
-  ) extends SErrorDamlException
-
-  /** Error during an operation on the update transaction. */
-  final case class DamlETransactionError(
-      reason: String
-  ) extends SErrorDamlException
-
-  /** A create a contract key without maintainers */
-  final case class DamlECreateEmptyContractKeyMaintainers(
-      templateId: TypeConName,
-      arg: Value[ContractId],
-      key: Value[Nothing],
-  ) extends SErrorDamlException
-
-  /** A fetch or lookup a contract key without maintainers */
-  final case class DamlEFetchEmptyContractKeyMaintainers(
-      templateId: TypeConName,
-      key: Value[Nothing],
-  ) extends SErrorDamlException
+  /** Daml exceptions that should be reported to the user. */
+  final case class SErrorDamlException(error: interpretation.Error) extends SError
 
   /** Errors from scenario interpretation. */
   sealed trait SErrorScenario extends SError
@@ -124,21 +51,6 @@ object SError {
       templateId: Identifier,
       consumedBy: EventId,
   ) extends SErrorScenario
-
-  /** We tried to fetch / exercise a contract of the wrong type --
-    * see <https://github.com/digital-asset/daml/issues/1005>.
-    */
-  final case class DamlEWronglyTypedContract(
-      coid: ContractId,
-      expected: TypeConName,
-      actual: TypeConName,
-  ) extends SErrorDamlException
-
-  /** There was an authorization failure during execution. */
-  final case class DamlEFailedAuthorization(
-      nid: NodeId,
-      fa: FailedAuthorization,
-  ) extends SErrorDamlException
 
   /** A fetch or exercise was being made against a contract that has not
     * been disclosed to 'committer'.

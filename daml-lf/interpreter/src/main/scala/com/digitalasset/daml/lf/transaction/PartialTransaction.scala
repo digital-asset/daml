@@ -7,7 +7,6 @@ package speedy
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.daml.lf.ledger.{Authorize, FailedAuthorization}
-import com.daml.lf.speedy.SError.DamlEUnhandledException
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
   GenTransaction,
@@ -700,7 +699,9 @@ private[lf] case class PartialTransaction(
   def rollbackTry(ex: SValue.SAny): PartialTransaction = {
     // we must never create a rollback containing a node with a version pre-dating exceptions
     if (context.minChildVersion < TxVersion.minExceptions) {
-      throw DamlEUnhandledException(ex)
+      throw SError.SErrorDamlException(
+        interpretation.Error.UnhandledException(ex.ty, ex.value.toValue)
+      )
     }
     context.info match {
       case info: TryContextInfo =>
