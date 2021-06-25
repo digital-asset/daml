@@ -24,7 +24,9 @@ packages:
   - hie-bios-0.4.0
   - lsp-test-0.11.0.7
   - parser-combinators-1.2.1
-  - proto3-suite-0.4.2
+  - github: cocreature/proto3-suite
+    commit: "b142c89803627edec735bc6236d2af81d483f7a4"
+    sha256: "2a8bd6d026e4613b3abab6cdfc47ad4004e2f275cf8e9226bd48e4dbb970db92"
   - proto3-wire-1.2.2
   - simple-smt-0.9.4
   - stm-conduit-4.0.1

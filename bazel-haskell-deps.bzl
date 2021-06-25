@@ -23,7 +23,7 @@ GHCIDE_VERSION = "0.1.0"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
-SHAKE_VERSION = "0.18.5"
+SHAKE_VERSION = "0.19.4"
 ZIP_VERSION = "1.5.0"
 GRPC_HASKELL_REV = "641f0bab046f2f03e5350a7c5f2044af1e19a5b1"
 GRPC_HASKELL_SHA256 = "d850d804d7af779bb8717ebe4ea2ac74903a30adeb5262477a2e7a1536f4ca81"
@@ -317,7 +317,7 @@ haskell_cabal_library(
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-shake.patch",
         ],
-        sha256 = "576ab57f53b8051f67ceeb97bd9abf2e0926f592334a7a1c27c07b36afca240f",
+        sha256 = "5bae8873f628113604159f650802edb249dfbe5802c4612751f680ac987d73ee",
         strip_prefix = "shake-{}".format(SHAKE_VERSION),
         urls = ["http://hackage.haskell.org/package/shake-{version}/shake-{version}.tar.gz".format(version = SHAKE_VERSION)],
     )
