@@ -8,15 +8,6 @@
 -- now written into the append-only table participant_events, and the set of active contracts is
 -- reconstructed from the log of create and archive events.
 ---------------------------------------------------------------------------------------------------
----------------------------------------------------------------------------------------------------
--- Events tables
---
--- The events tables are modified in the following order:
---   1. Create new append-only tables for events
---   2. Copy data from the old mutable tables into the new tables
---   3. Drop the old mutable tables
---   4. Create a view that contains the union of all events
----------------------------------------------------------------------------------------------------
 
 CREATE TABLE parties
 (
@@ -158,7 +149,6 @@ CREATE TABLE participant_command_submissions
 ---------------------------------------------------------------------------------------------------
 -- Events table: divulgence
 ---------------------------------------------------------------------------------------------------
--- TODO append-only: reorder small fields to the end to avoid unnecessary padding.
 CREATE TABLE participant_events_divulgence (
     -- * event identification
     event_sequential_id NUMBER NOT NULL,
@@ -184,10 +174,6 @@ CREATE TABLE participant_events_divulgence (
     create_argument_compression SMALLINT
 );
 
----------------------------------------------------------------------------------------------------
--- Events table: divulgence
----------------------------------------------------------------------------------------------------
-
 -- offset index: used to translate to sequential_id
 CREATE INDEX participant_events_divulgence_event_offset ON participant_events_divulgence(event_offset);
 
@@ -210,7 +196,6 @@ CREATE INDEX participant_events_divulgence_contract_id_idx ON participant_events
 ---------------------------------------------------------------------------------------------------
 -- Events table: create
 ---------------------------------------------------------------------------------------------------
--- TODO append-only: reorder small fields to the end to avoid unnecessary padding.
 CREATE TABLE participant_events_create (
     -- * event identification
     event_sequential_id NUMBER NOT NULL,
@@ -270,12 +255,12 @@ CREATE INDEX participant_events_create_template_id_idx ON participant_events_cre
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- Note that Potsgres has trouble using these indices effectively with our paged access.
 -- We might decide to drop them.
--- TODO these indices are never hit
+-- TODO https://github.com/digital-asset/daml/issues/9975 these indices are never hit
 CREATE INDEX participant_events_create_flat_event_witnesses_idx ON participant_events_create(JSON_ARRAY(flat_event_witnesses));
 CREATE INDEX participant_events_create_tree_event_witnesses_idx ON participant_events_create(JSON_ARRAY(tree_event_witnesses));
 
 -- lookup by contract id
--- TODO double-check how the HASH should work and that it is actually hit
+-- TODO https://github.com/digital-asset/daml/issues/10125 double-check how the HASH should work and that it is actually hit
 CREATE INDEX participant_events_create_contract_id_idx ON participant_events_create(ORA_HASH(contract_id));
 
 -- lookup by contract_key
@@ -345,18 +330,17 @@ CREATE INDEX participant_events_consuming_exercise_template_id_idx ON participan
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- Note that Potsgres has trouble using these indices effectively with our paged access.
 -- We might decide to drop them.
--- TODO these indices are never hit
+-- TODO https://github.com/digital-asset/daml/issues/9975 these indices are never hit
 CREATE INDEX participant_events_consuming_exercise_flat_event_witnesses_idx ON participant_events_consuming_exercise (JSON_ARRAY(flat_event_witnesses));
 CREATE INDEX participant_events_consuming_exercise_tree_event_witnesses_idx ON participant_events_consuming_exercise (JSON_ARRAY(tree_event_witnesses));
 
 -- lookup by contract id
--- TODO double-check how the HASH should work and that it is actually hit
+-- TODO https://github.com/digital-asset/daml/issues/10125 double-check how the HASH should work and that it is actually hit
 CREATE INDEX participant_events_consuming_exercise_contract_id_idx ON participant_events_consuming_exercise (ORA_HASH(contract_id));
 
 ---------------------------------------------------------------------------------------------------
 -- Events table: non-consuming exercise
 ---------------------------------------------------------------------------------------------------
--- TODO append-only: reorder small fields to the end to avoid unnecessary padding.
 CREATE TABLE participant_events_non_consuming_exercise (
     -- * event identification
     event_sequential_id NUMBER NOT NULL,
@@ -418,7 +402,7 @@ CREATE INDEX participant_events_non_consuming_exercise_template_id_idx ON partic
 -- GetActiveContracts (flat), GetTransactions (flat) and GetTransactionTrees.
 -- There is no equivalent to GIN index for oracle, but we explicitly mark as a JSON column for indexing
 -- NOTE: index name truncated because the full name exceeds the 63 characters length limit
--- TODO these indices are never hit
+-- TODO https://github.com/digital-asset/daml/issues/9975 these indices are never hit
 CREATE INDEX participant_events_non_consuming_exercise_flat_event_witness_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(flat_event_witnesses));
 CREATE INDEX participant_events_non_consuming_exercise_tree_event_witness_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(tree_event_witnesses));
 
