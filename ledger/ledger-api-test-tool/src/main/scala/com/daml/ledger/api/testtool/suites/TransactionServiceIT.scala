@@ -1084,6 +1084,31 @@ class TransactionServiceIT extends LedgerTestSuite {
   })
 
   test(
+    "TXnoSignatoryObservers",
+    "transactions' created events should not return overlapping signatories and observers",
+    allocate(TwoParties),
+  )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
+    for {
+      _ <- ledger.create(alice, WithObservers(alice, Seq(alice, bob)))
+      flat <- ledger.flatTransactions(alice)
+      Seq(flatTx) = flat
+      Seq(flatWo) = createdEvents(flatTx)
+      tree <- ledger.transactionTrees(alice)
+      Seq(treeTx) = tree
+      Seq(treeWo) = createdEvents(treeTx)
+    } yield {
+      assert(
+        flatWo.observers == Seq(bob),
+        s"Expected observers to only contain $bob, but received ${flatWo.observers}",
+      )
+      assert(
+        treeWo.observers == Seq(bob),
+        s"Expected observers to only contain $bob, but received ${treeWo.observers}",
+      )
+    }
+  })
+
+  test(
     "TXFlatTransactionsWrongLedgerId",
     "The getTransactions endpoint should reject calls with the wrong ledger identifier",
     allocate(SingleParty),
