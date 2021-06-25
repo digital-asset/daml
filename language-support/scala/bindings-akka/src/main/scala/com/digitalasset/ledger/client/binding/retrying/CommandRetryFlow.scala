@@ -8,12 +8,14 @@ import java.time.temporal.TemporalAmount
 import akka.NotUsed
 import akka.stream.{FlowShape, OverflowStrategy}
 import akka.stream.scaladsl.{Flow, GraphDSL, MergePreferred, Partition}
+import com.codahale.metrics.Counter
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.refinements.ApiTypes.Party
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.completion.Completion
 import com.daml.ledger.client.services.commands.CommandClient
 import com.daml.util.Ctx
+import com.daml.util.akkastreams.MaxInFlight
 import com.google.rpc.Code
 import com.google.rpc.status.Status
 import scalaz.syntax.tag._
@@ -35,20 +37,24 @@ object CommandRetryFlow {
       commandClient: CommandClient,
       timeProvider: TimeProvider,
       maxRetryTime: TemporalAmount,
-      retryBufferSize: Int,
       createRetry: CreateRetryFn[C],
   )(implicit ec: ExecutionContext): Future[SubmissionFlowType[C]] =
     for {
-      submissionFlow <- commandClient.trackCommands[RetryInfo[C]](List(party.unwrap))
+      submissionFlow <- commandClient.trackCommandsUnbounded[RetryInfo[C]](List(party.unwrap))
       submissionFlowWithoutMat = submissionFlow.mapMaterializedValue(_ => NotUsed)
+      maxInFlight = MaxInFlight[In[C], Out[C]](
+        commandClient.config.maxCommandsInFlight,
+        new Counter,
+        new Counter,
+      )
       graph = createGraph(
         submissionFlowWithoutMat,
         timeProvider,
         maxRetryTime,
-        retryBufferSize,
+        commandClient.config.maxCommandsInFlight,
         createRetry,
       )
-    } yield wrapGraph(graph, timeProvider)
+    } yield maxInFlight.join(wrapGraph(graph, timeProvider))
 
   def wrapGraph[C](
       graph: SubmissionFlowType[RetryInfo[C]],

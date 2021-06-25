@@ -66,6 +66,7 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_typesafe_config",
+        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_tcnative_boringssl_static",
