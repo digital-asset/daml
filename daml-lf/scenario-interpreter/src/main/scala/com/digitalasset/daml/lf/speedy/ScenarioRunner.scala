@@ -404,7 +404,7 @@ object ScenarioRunner {
       ledgerMachine.run() match {
         case SResultFinalValue(resultValue) =>
           onLedger.ptxInternal.finish match {
-            case PartialTransaction.CompleteTransaction(tx) =>
+            case PartialTransaction.CompleteTransaction(tx, _) =>
               ledger.commit(committers, readAs, location, tx) match {
                 case Left(err) => SubmissionError(err, onLedger.ptxInternal)
                 case Right(r) =>

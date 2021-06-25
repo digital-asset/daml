@@ -30,7 +30,7 @@ class NormalizeRollbacksSpec extends AnyWordSpec with Matchers with Inside {
   def test(name: String)(orig: Shape.Top, expected: Shape.Top): Unit = {
     s"normalize: ($orig) -- $name" should {
       val tx = Shape.toTransaction(orig)
-      val txN = NormalizeRollbacks.normalizeTx(tx) // code under test
+      val (txN, _) = NormalizeRollbacks.normalizeTx(tx) // code under test
       val shapeN = Shape.ofTransaction(txN)
       "be as expected" in {
         assert(shapeN == expected)

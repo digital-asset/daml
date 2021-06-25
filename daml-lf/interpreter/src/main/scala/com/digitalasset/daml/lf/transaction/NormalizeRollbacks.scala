@@ -5,9 +5,17 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.transaction.{NodeId, GenTransaction}
-import com.daml.lf.transaction.Node.{GenNode, NodeRollback, NodeExercises, LeafOnlyActionNode}
+import com.daml.lf.transaction.Node.{
+  GenNode,
+  NodeCreate,
+  NodeFetch,
+  NodeRollback,
+  NodeExercises,
+  NodeLookupByKey,
+  LeafOnlyActionNode,
+}
 import com.daml.lf.value.Value
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
 
 private[lf] object NormalizeRollbacks {
@@ -27,7 +35,7 @@ private[lf] object NormalizeRollbacks {
   // `Canonical` in the sense that only properly normalized nodes can be represented.
   // Although this doesn't ensure correctness, one class of bugs is avoided.
 
-  def normalizeTx(txOriginal: TX): TX = {
+  def normalizeTx(txOriginal: TX): (TX, ImmArray[Nid]) = {
 
     // Here we traverse the original transaction structure.
     // During the transformation, an original `Node` is mapped into a List[Norm]
@@ -76,7 +84,9 @@ private[lf] object NormalizeRollbacks {
         traverseNids(rootsOriginal.toList) { norms =>
           //pass 2
           pushNorms(initialState, norms.toList) { (finalState, roots) =>
-            Land(GenTransaction(finalState.nodeMap, ImmArray(roots)))
+            Land(
+              (GenTransaction(finalState.nodeMap, ImmArray(roots)), finalState.seedIds.toImmArray)
+            )
           }
         }.bounce
     }
@@ -133,16 +143,17 @@ private[lf] object NormalizeRollbacks {
 
   // There is no connection between the ids in the original and normalized transaction.
 
-  private[this] case class State(index: Int, nodeMap: Map[Nid, Node]) {
+  private[this] case class State(index: Int, nodeMap: Map[Nid, Node], seedIds: BackStack[Nid]) {
 
     def next[R](k: (State, Nid) => Trampoline[R]): Trampoline[R] = {
-      k(State(index + 1, nodeMap), NodeId(index))
+      k(copy(index = index + 1), NodeId(index))
     }
 
     def push[R](nid: Nid, node: Node)(k: (State, Nid) => Trampoline[R]): Trampoline[R] = {
-      k(State(index, nodeMap = nodeMap + (nid -> node)), nid)
+      k(copy(nodeMap = nodeMap + (nid -> node)), nid)
     }
-
+    def pushSeedId[R](nid: Nid)(k: State => Trampoline[R]): Trampoline[R] =
+      k(copy(seedIds = seedIds :+ nid))
   }
 
   // The `push*` functions convert the Canonical types to the tx being collected in State.
@@ -150,18 +161,27 @@ private[lf] object NormalizeRollbacks {
   // - The final tx has increasing node-ids when nodes are listed in pre-order.
   // - The root node-id is 0 (we have tests that rely on this)
 
-  private val initialState = State(0, Map.empty)
+  private val initialState = State(0, Map.empty, BackStack.empty)
 
   private def pushAct[R](s: State, x: Norm.Act)(k: (State, Nid) => Trampoline[R]): Trampoline[R] = {
     Bounce { () =>
       s.next { (s, me) =>
         x match {
           case Norm.Leaf(node) =>
-            s.push(me, node)(k)
+            node match {
+              case _: NodeCreate[_] =>
+                s.pushSeedId(me) { s =>
+                  s.push(me, node)(k)
+                }
+              case _: NodeFetch[_] | _: NodeLookupByKey[_] =>
+                s.push(me, node)(k)
+            }
           case Norm.Exe(exe, subs) =>
-            pushNorms(s, subs) { (s, children) =>
-              val node = exe.copy(children = ImmArray(children))
-              s.push(me, node)(k)
+            s.pushSeedId(me) { s =>
+              pushNorms(s, subs) { (s, children) =>
+                val node = exe.copy(children = ImmArray(children))
+                s.push(me, node)(k)
+              }
             }
         }
       }

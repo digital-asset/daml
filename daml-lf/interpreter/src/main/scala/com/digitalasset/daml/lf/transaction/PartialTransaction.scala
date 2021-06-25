@@ -196,8 +196,10 @@ private[lf] object PartialTransaction {
     localContracts = Set.empty,
   )
 
+  type NodeSeeds = ImmArray[(NodeId, crypto.Hash)]
+
   sealed abstract class Result extends Product with Serializable
-  final case class CompleteTransaction(tx: SubmittedTransaction) extends Result
+  final case class CompleteTransaction(tx: SubmittedTransaction, seeds: NodeSeeds) extends Result
   final case class IncompleteTransaction(ptx: PartialTransaction) extends Result
 
   sealed abstract class KeyMapping extends Product with Serializable
@@ -210,7 +212,8 @@ private[lf] object PartialTransaction {
 /** A transaction under construction
   *
   *  @param nodes The nodes of the transaction graph being built up.
-  *  @param actionNodeSeeds The seeds of Create and Exercise nodes
+  *  @param actionNodeSeeds The seeds of create and exercise nodes in pre-order. NodeIds are determined by finish.
+  *   Note that only other node types do not have seeds and are not included.
   *  @param consumedBy 'ContractId's of all contracts that have
   *                    been consumed by nodes up to now.
   *  @param context The context of what sub-transaction is being
@@ -258,7 +261,7 @@ private[lf] case class PartialTransaction(
     submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
     nodes: HashMap[NodeId, PartialTransaction.Node],
-    actionNodeSeeds: BackStack[(NodeId, crypto.Hash)],
+    actionNodeSeeds: BackStack[crypto.Hash],
     consumedBy: Map[Value.ContractId, NodeId],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
@@ -333,11 +336,12 @@ private[lf] case class PartialTransaction(
       case _: RootContextInfo if aborted.isEmpty =>
         val roots = context.children.toImmArray
         val tx0 = GenTransaction(nodes, roots)
-        val tx = NormalizeRollbacks.normalizeTx(tx0)
+        val (tx, seeds) = NormalizeRollbacks.normalizeTx(tx0)
         CompleteTransaction(
           SubmittedTransaction(
             TxVersion.asVersionedTransaction(tx)
-          )
+          ),
+          seeds.zip(actionNodeSeeds.toImmArray),
         )
       case _ =>
         IncompleteTransaction(this)
@@ -406,7 +410,7 @@ private[lf] case class PartialTransaction(
         nextNodeIdx = nextNodeIdx + 1,
         context = context.addActionChild(nid, version),
         nodes = nodes.updated(nid, createNode),
-        actionNodeSeeds = actionNodeSeeds :+ (nid -> actionNodeSeed),
+        actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
         localContracts = localContracts + cid,
       ).noteAuthFails(nid, CheckAuthorization.authorizeCreate(createNode), auth)
 
@@ -575,6 +579,7 @@ private[lf] case class PartialTransaction(
           copy(
             nextNodeIdx = nextNodeIdx + 1,
             context = Context(ec),
+            actionNodeSeeds = actionNodeSeeds :+ ec.actionNodeSeed, // must push before children
             // important: the semantics of Daml dictate that contracts are immediately
             // inactive as soon as you exercise it. therefore, mark it as consumed now.
             consumedBy = if (consuming) consumedBy.updated(targetId, nid) else consumedBy,
@@ -611,7 +616,6 @@ private[lf] case class PartialTransaction(
           context =
             ec.parent.addActionChild(nodeId, exerciseNode.version min context.minChildVersion),
           nodes = nodes.updated(nodeId, exerciseNode),
-          actionNodeSeeds = actionNodeSeeds :+ (nodeId -> ec.actionNodeSeed),
         )
       case _ => throw new RuntimeException("endExercises called in non-exercise context")
     }
@@ -629,7 +633,7 @@ private[lf] case class PartialTransaction(
           context =
             ec.parent.addActionChild(nodeId, exerciseNode.version min context.minChildVersion),
           nodes = nodes.updated(nodeId, exerciseNode),
-          actionNodeSeeds = actionNodeSeeds :+ (nodeId -> actionNodeSeed),
+          actionNodeSeeds = actionNodeSeeds :+ actionNodeSeed,
         )
       case _ => throw new RuntimeException("abortExercises called in non-exercise context")
     }
