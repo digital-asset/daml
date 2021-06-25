@@ -391,7 +391,8 @@ object Config {
             s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexConfiguration.DefaultEventsPageSize}."
           )
           .validate(pageSize =>
-            Either.cond(pageSize > 0, pageSize, "events-page-size should be strictly positive")
+            if (pageSize > 0) Right(pageSize)
+            else Left("events-page-size should be strictly positive")
           )
           .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
@@ -401,11 +402,8 @@ object Config {
             s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${IndexConfiguration.DefaultEventsProcessingParallelism}."
           )
           .validate(buffersPrefetchingParallelism =>
-            Either.cond(
-              buffersPrefetchingParallelism > 0,
-              buffersPrefetchingParallelism,
-              "buffers-prefetching-parallelism should be strictly positive",
-            )
+            if (buffersPrefetchingParallelism > 0) Right(buffersPrefetchingParallelism)
+            else Left("buffers-prefetching-parallelism should be strictly positive")
           )
           .action((eventsProcessingParallelism, config) =>
             config.copy(eventsProcessingParallelism = eventsProcessingParallelism)

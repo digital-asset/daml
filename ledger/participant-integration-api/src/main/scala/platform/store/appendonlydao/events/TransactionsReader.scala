@@ -68,8 +68,6 @@ private[appendonlydao] final class TransactionsReader(
   // This significantly improves the performance of the transaction service.
   private val outputStreamBufferSize = 128
 
-  private val MinParallelFetchChunkSize = 100
-
   private def offsetFor(response: GetTransactionsResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
 
@@ -286,7 +284,6 @@ private[appendonlydao] final class TransactionsReader(
             startExclusive._2,
             endInclusive._2,
             eventProcessingParallelism,
-            MinParallelFetchChunkSize,
             pageSize,
           )
           .iterator
@@ -410,7 +407,6 @@ private[appendonlydao] final class TransactionsReader(
             startExclusive._2,
             endInclusive._2,
             eventProcessingParallelism,
-            MinParallelFetchChunkSize,
             pageSize,
           )
           .iterator
@@ -536,61 +532,73 @@ private[appendonlydao] object TransactionsReader {
     * @param startExclusive The start exclusive of the range to be split
     * @param endInclusive The end inclusive of the range to be split
     * @param numberOfChunks The number of desired target sub-ranges
-    * @param minChunkSize Minimum sub-range size.
-    * @param maxChunkSize Desired maximum sub-range size. The effective max chunk size will be the max between
-    *                      this parameter and the double of the `minChunkSize`.
+    * @param maxChunkSize Maximum sub-range size.
     * @return The ordered sequence of sub-ranges with non-overlapping bounds.
     */
   private[appendonlydao] def splitRange(
       startExclusive: Long,
       endInclusive: Long,
       numberOfChunks: Int,
-      minChunkSize: Int,
       maxChunkSize: Int,
   ): Vector[EventsRange[Long]] = {
-    require(minChunkSize > 0, "Minimum chunk size must pe strictly positive")
-    require(maxChunkSize > 0, "Maximum chunk size must be strictly positive")
+    require(
+      maxChunkSize > 0,
+      s"Maximum chunk size must be strictly positive, but was $maxChunkSize",
+    )
+    require(
+      numberOfChunks > 0,
+      s"You can only split a range in a strictly positive number of chunks ($numberOfChunks)",
+    )
+
+    val minChunkSize = math.max(1, maxChunkSize / 10)
 
     val rangeSize = endInclusive - startExclusive
-    val effectiveMinChunkSize =
-      math.min(math.ceil(maxChunkSize.toDouble / 2.0), minChunkSize.toDouble)
-    val effectiveMaxChunkSize = math.max(maxChunkSize, minChunkSize * 2)
 
-    numberOfChunks match {
-      case _ if numberOfChunks < 1 =>
-        throw new IllegalArgumentException(
-          s"You can only split a range in a strictly positive number of chunks ($numberOfChunks)"
-        )
+    if (rangeSize == 0L) Vector.empty
+    else {
+      val targetChunkSize = rangeSize / numberOfChunks.toLong
 
-      case _ if (rangeSize / numberOfChunks.toLong) < effectiveMinChunkSize.toLong =>
-        val effectiveNumberOfChunks = rangeSize / effectiveMinChunkSize.toLong
-        if (effectiveNumberOfChunks <= 1) Vector(EventsRange(startExclusive, endInclusive))
-        else splitRangeUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks.toInt)
+      if (targetChunkSize < minChunkSize.toLong) {
+        val effectiveNumberOfChunks = rangeSize / minChunkSize.toLong
 
-      case _ =>
+        if (effectiveNumberOfChunks <= 1) {
+          Vector(EventsRange(startExclusive, endInclusive))
+        } else {
+          splitRangeUnsafe(startExclusive, rangeSize, effectiveNumberOfChunks.toInt)
+        }
+      } else {
         val effectiveNumberOfChunks =
           Math.max(
             numberOfChunks,
-            Math.ceil(rangeSize.toDouble / effectiveMaxChunkSize.toDouble).toInt,
+            Math.ceil(rangeSize.toDouble / maxChunkSize.toDouble).toInt,
           )
-        splitRangeUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks)
+        splitRangeUnsafe(startExclusive, rangeSize, effectiveNumberOfChunks)
+      }
     }
   }
 
   private def splitRangeUnsafe(
       startExclusive: Long,
-      endInclusive: Long,
+      rangeSize: Long,
       numberOfChunks: Int,
-  ) = {
-    val rangeSize = endInclusive - startExclusive
-    val step = math.ceil(rangeSize / numberOfChunks.toDouble).toLong
+  ): Vector[EventsRange[Long]] = {
+    val minStep = rangeSize / numberOfChunks.toLong
 
-    val aux = (0 until numberOfChunks - 1).map { idx =>
-      val startExclusiveChunk = startExclusive + step * idx
-      val endInclusiveChunk = startExclusiveChunk + step
-      EventsRange(startExclusiveChunk, endInclusiveChunk)
-    }.toVector
+    val remainder = rangeSize - minStep * numberOfChunks.toLong
 
-    aux :+ EventsRange(aux.last.endInclusive, endInclusive)
+    (0 until numberOfChunks)
+      .foldLeft(
+        (startExclusive, remainder, Vector.empty[EventsRange[Long]])
+      ) {
+        case ((lastStartExclusive, 0L, ranges), _) =>
+          val endInclusiveChunk = lastStartExclusive + minStep
+          (endInclusiveChunk, 0L, ranges :+ EventsRange(lastStartExclusive, endInclusiveChunk))
+
+        case ((lastStartExclusive, remainder, ranges), _) =>
+          val endInclusiveChunk = lastStartExclusive + minStep + 1L
+          val rangesResult = ranges :+ EventsRange(lastStartExclusive, endInclusiveChunk)
+          (endInclusiveChunk, remainder - 1L, rangesResult)
+      }
+      ._3
   }
 }
