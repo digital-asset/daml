@@ -25,6 +25,7 @@ import com.daml.ledger.test.model.Test.{
 import io.grpc.Status
 import scalaz.syntax.tag._
 
+import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext
 
 class ActiveContractsServiceIT extends LedgerTestSuite {

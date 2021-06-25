@@ -38,6 +38,7 @@ import io.grpc.Status
 import scalaz.Tag
 
 import scala.collection.compat._
+import scala.collection.immutable.Seq
 import scala.collection.mutable
 import scala.concurrent.Future
 
