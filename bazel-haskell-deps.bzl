@@ -211,9 +211,9 @@ haskell_cabal_library(
     visibility = ["//visibility:public"],
 )
 """,
-        sha256 = "b294ff0fe24c6c256dc8eca1d44c2a9a928b9a1bc70ddce6a1d059499edea119",
-        strip_prefix = "proto3-suite-0af901f9ef3b9719e08eae4fab8fd700d6c8047a",
-        urls = ["https://github.com/awakesecurity/proto3-suite/archive/0af901f9ef3b9719e08eae4fab8fd700d6c8047a.tar.gz"],
+        sha256 = "2a8bd6d026e4613b3abab6cdfc47ad4004e2f275cf8e9226bd48e4dbb970db92",
+        strip_prefix = "proto3-suite-b142c89803627edec735bc6236d2af81d483f7a4",
+        urls = ["https://github.com/cocreature/proto3-suite/archive/b142c89803627edec735bc6236d2af81d483f7a4.tar.gz"],
         patches = ["@com_github_digital_asset_daml//bazel_tools:haskell_proto3_suite_deriving_defaults.patch"],
         patch_args = ["-p1"],
     )
