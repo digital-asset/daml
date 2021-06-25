@@ -22,7 +22,6 @@ packages:
   - haskell-lsp-types-0.23.0.0
   - haskell-src-1.0.3.1
   - hie-bios-0.4.0
-  - hpp-0.6.3
   - lsp-test-0.11.0.7
   - parser-combinators-1.2.1
   - proto3-suite-0.4.2
@@ -30,5 +29,7 @@ packages:
   - simple-smt-0.9.4
   - stm-conduit-4.0.1
   - retry-0.8.1.2
-  - swagger2-2.6
+  - github: cocreature/swagger2
+    commit: "bd85dc0871cf198d07de3ff07087f73992efcd99"
+    sha256: "27046c3e1357ab89be134ad06ad59539f3050783b6746b86ecfb6e80b03decd3"
   - exceptions-0.10.4
