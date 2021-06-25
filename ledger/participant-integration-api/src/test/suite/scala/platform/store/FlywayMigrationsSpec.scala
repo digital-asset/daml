@@ -47,8 +47,10 @@ class FlywayMigrationsSpec extends AnyWordSpec {
     "always have a valid SHA-256 digest file accompanied" in {
       assertFlywayMigrationFileHashes(DbType.Oracle, 1)
     }
+    "always have a valid SHA-256 digest file accompanied (append-only)" in {
+      assertFlywayMigrationFileHashes(DbType.Oracle, 1, true)
+    }
   }
-
 }
 
 object FlywayMigrationsSpec {
