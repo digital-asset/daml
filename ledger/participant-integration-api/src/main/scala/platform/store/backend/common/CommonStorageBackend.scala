@@ -442,7 +442,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   private val SQL_SELECT_PACKAGES =
     SQL(
-      """select packages.package_id, packages.source_description, packages.known_since, packages.siz
+      """select packages.package_id, packages.source_description, packages.known_since, packages.package_size
         |from packages, parameters
         |where packages.ledger_offset <= parameters.ledger_end
         |""".stripMargin
