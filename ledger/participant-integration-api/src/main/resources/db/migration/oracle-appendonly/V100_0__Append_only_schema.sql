@@ -59,7 +59,7 @@ CREATE INDEX packages_ledger_offset_idx ON packages(ledger_offset);
 CREATE TABLE configuration_entries
 (
     ledger_offset    VARCHAR2(4000)  not null primary key,
-    recorded_at      timestamp       not null, -- TODO BH: in postgres this is with timezone
+    recorded_at      TIMESTAMP       not null,
     submission_id    NVARCHAR2(1000) not null,
     -- The type of entry, one of 'accept' or 'reject'.
     typ              NVARCHAR2(1000) not null,
@@ -84,7 +84,7 @@ CREATE UNIQUE INDEX idx_configuration_submission ON configuration_entries (submi
 CREATE TABLE package_entries
 (
     ledger_offset    VARCHAR2(4000)  not null primary key,
-    recorded_at      timestamp       not null, --TODO BH in postgres this is with timezone
+    recorded_at      TIMESTAMP       not null,
     -- SubmissionId for package to be uploaded
     submission_id    NVARCHAR2(1000),
     -- The type of entry, one of 'accept' or 'reject'
@@ -108,7 +108,7 @@ CREATE TABLE party_entries
     -- The ledger end at the time when the party allocation was added
     -- cannot BLOB add as primary key with oracle
     ledger_offset    VARCHAR2(4000)  primary key not null,
-    recorded_at      timestamp       not null, --with timezone
+    recorded_at      TIMESTAMP       not null,
     -- SubmissionId for the party allocation
     submission_id    NVARCHAR2(1000),
     -- party
@@ -152,7 +152,7 @@ CREATE TABLE participant_command_submissions
     -- The deduplication key
     deduplication_key NVARCHAR2(1000) primary key not null,
     -- The time the command will stop being deduplicated
-    deduplicate_until timestamp                   not null
+    deduplicate_until TIMESTAMP                   not null
 );
 
 ---------------------------------------------------------------------------------------------------
