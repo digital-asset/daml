@@ -48,6 +48,8 @@ CREATE TABLE packages (
     package BYTEA NOT NULL
 );
 
+CREATE INDEX idx_packages_ledger_offset ON packages (ledger_offset);
+
 ---------------------------------------------------------------------------------------------------
 -- Package entries table
 ---------------------------------------------------------------------------------------------------
@@ -77,6 +79,8 @@ CREATE TABLE parties (
     ledger_offset VARCHAR,
     is_local BOOLEAN NOT NULL
 );
+
+CREATE INDEX idx_parties_ledger_offset ON parties (ledger_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Party entries table
