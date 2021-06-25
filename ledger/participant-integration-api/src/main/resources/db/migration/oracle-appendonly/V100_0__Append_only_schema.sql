@@ -145,7 +145,7 @@ CREATE TABLE participant_command_completions
     status_message    NVARCHAR2(1000)  -- null for successful command and checkpoints
 );
 
-create index participant_command_completions_idx on participant_command_completions(completion_offset, application_id);
+``CREATE INDEX participant_command_completions_idx ON participant_command_completions(completion_offset, application_id);
 
 CREATE TABLE participant_command_submissions
 (
@@ -419,8 +419,8 @@ CREATE INDEX participant_events_non_consuming_exercise_template_id_idx ON partic
 -- There is no equivalent to GIN index for oracle, but we explicitly mark as a JSON column for indexing
 -- NOTE: index name truncated because the full name exceeds the 63 characters length limit
 -- TODO these indices are never hit
-CREATE INDEX participant_events_non_consuming_exercise_flat_event_witnes_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(flat_event_witnesses));
-CREATE INDEX participant_events_non_consuming_exercise_tree_event_witnes_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(tree_event_witnesses));
+CREATE INDEX participant_events_non_consuming_exercise_flat_event_witness_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(flat_event_witnesses));
+CREATE INDEX participant_events_non_consuming_exercise_tree_event_witness_idx ON participant_events_non_consuming_exercise(JSON_ARRAY(tree_event_witnesses));
 
 
 CREATE VIEW participant_events AS
