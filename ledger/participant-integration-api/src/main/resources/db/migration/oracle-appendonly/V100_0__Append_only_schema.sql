@@ -552,23 +552,6 @@ SELECT (25)          AS event_kind,
        participant_events_non_consuming_exercise.exercise_result_compression
 FROM participant_events_non_consuming_exercise;
 
-
--- Stores which events were touched by which migration.
--- This metadata is not used for normal indexing operations and exists only to simplify fixing data migration issues.
-CREATE TABLE participant_migration_history_v100 (
-    -- * last event inserted before the migration was run
-    ledger_end_sequential_id_before NUMBER,
-    -- * last event inserted after the migration was run
-    ledger_end_sequential_id_after NUMBER
-    -- NOTE: events between ledger_end_sequential_id_before and ledger_end_sequential_id_after
-    -- were created by the migration itself.
-);
-INSERT INTO participant_migration_history_v100 VALUES (
-    (SELECT max(event_sequential_id) FROM participant_events),
-        NULL -- updated at the end of this script
-);
-
-
 ---------------------------------------------------------------------------------------------------
 -- Parameters table
 ---------------------------------------------------------------------------------------------------
@@ -589,11 +572,4 @@ CREATE TABLE parameters
 
 UPDATE parameters SET ledger_end_sequential_id = (
     SELECT max(event_sequential_id) FROM participant_events
-);
-
--- Note that ledger_end_sequential_id_before will not be equal to ledger_end_sequential_id_after,
--- as the append-only migration creates divulgence events.
-UPDATE participant_migration_history_v100
-SET ledger_end_sequential_id_after = (
-    SELECT max(ledger_end_sequential_id) FROM parameters
 );
