@@ -3,10 +3,10 @@
 
 resolver: nightly-2021-06-24
 packages:
-  - archive: https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-57b78d673ec6688715b861e9ae9c16fe.tar.gz
-    sha256: "63386411db9b330413cd1266edea747f079ed6280ad7664b208afc252921fad7"
-  - archive: https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-parser-57b78d673ec6688715b861e9ae9c16fe.tar.gz
-    sha256: "658942c05b0e36dceecaca7d94222f6cd235104ed95288254d0b772a75139e4a"
+  - archive: https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-76dc1bb0dec90d459f511975dc57f739.tar.gz
+    sha256: "b5935ec423db0b935d2914ec475fa0aca8329974448db3c01bfabd726ddccb5c"
+  - archive: https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-parser-76dc1bb0dec90d459f511975dc57f739.tar.gz
+    sha256: "447c7b4a6e352e0e24a1112a6945183b16dea5e7cf25019b4d316f57adb80be5"
   - github: digital-asset/hlint
     commit: "c8246c1feb932858ff2b5d7e9e900068a974bf57"
     sha256: "3da24baf789c5f00211a92e24153e6b88102befaa946ada1f707935554500fe2"
@@ -25,10 +25,8 @@ packages:
   - hpp-0.6.3
   - lsp-test-0.11.0.7
   - parser-combinators-1.2.1
-  - github: awakesecurity/proto3-suite
-    commit: "0af901f9ef3b9719e08eae4fab8fd700d6c8047a"
-    sha256: "b294ff0fe24c6c256dc8eca1d44c2a9a928b9a1bc70ddce6a1d059499edea119"
-  - proto3-wire-1.2.0
+  - proto3-suite-0.4.2
+  - proto3-wire-1.2.2
   - simple-smt-0.9.4
   - stm-conduit-4.0.1
   - retry-0.8.1.2
