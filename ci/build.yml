@@ -116,8 +116,7 @@ jobs:
   # passed on the respective PRs that added the changes. The only difference here
   # is the release version which should not affect things differently depending on the
   # Scala version.
-  condition: and(succeeded(),
-                 eq(dependencies.check_for_release.outputs['out.is_release'], 'false'))
+  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -158,6 +157,7 @@ jobs:
     - template: report-end.yml
 
 - job: macOS
+  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -202,6 +202,7 @@ jobs:
     final_job_name: patch_bazel_windows
 
 - job: Windows
+  condition: false
   dependsOn:
     - da_ghc_lib
     - check_for_release
@@ -257,6 +258,7 @@ jobs:
 - job: Linux_oracle
   dependsOn:
     - da_ghc_lib
+  condition: false
   timeoutInMinutes: 360
   pool:
     name: 'ubuntu_20_04'
@@ -328,8 +330,7 @@ jobs:
   dependsOn:
     - da_ghc_lib
     - check_for_release
-  condition: and(succeeded(),
-                 not(eq(dependencies.check_for_release.outputs['out.is_release'], 'true')))
+  condition: false
   timeoutInMinutes: 360
   pool:
     name: ubuntu_20_04
@@ -347,6 +348,7 @@ jobs:
     - da_ghc_lib
     - check_for_release
     - compatibility_ts_libs
+  condition: false
   timeoutInMinutes: 360
   pool:
     name: ubuntu_20_04
