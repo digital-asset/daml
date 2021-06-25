@@ -27,7 +27,7 @@ private[events] object EventsRange {
 
     /** Converts Offset range to Event Sequential ID range.
       *
-      * @param range offset range
+      * @param range      offset range
       * @param connection SQL connection
       * @return Event Sequential ID range
       */
@@ -45,7 +45,7 @@ private[events] object EventsRange {
     /** Converts ledger end offset to Event Sequential ID.
       *
       * @param endInclusive ledger end offset
-      * @param connection SQL connection
+      * @param connection   SQL connection
       * @return Event Sequential ID range.
       */
     def readEventSeqIdRange(endInclusive: Offset)(
@@ -69,18 +69,22 @@ private[events] object EventsRange {
       range: EventsRange[Long],
       pageSize: Int,
   ): Connection => Vector[A] = connection => {
-    val minPageSize = 10 min pageSize max (pageSize / 10)
-    val guessedPageEnd = range.endInclusive min (range.startExclusive + pageSize)
-    val arithPage =
-      read(range copy (endInclusive = guessedPageEnd), None, Some(pageSize))(connection)
-    val found = arithPage.size
-    if (guessedPageEnd == range.endInclusive || found >= minPageSize)
-      arithPage
-    else
-      arithPage ++ read(
-        range copy (startExclusive = guessedPageEnd),
-        Some(minPageSize - found),
-        Some(minPageSize - found),
-      )(connection)
+
+    def loop(newBegin: Long, result: Vector[A]): Vector[A] = {
+      val guessedPageEnd = range.endInclusive min (newBegin + pageSize)
+      val arithPage =
+        read(
+          EventsRange(startExclusive = newBegin, endInclusive = guessedPageEnd),
+          None,
+          Some(pageSize),
+        )(connection)
+      val newResult = result ++ arithPage
+      if (guessedPageEnd == range.endInclusive)
+        newResult
+      else
+        loop(newBegin = guessedPageEnd, newResult)
+    }
+
+    loop(range.startExclusive, Vector.empty)
   }
 }
