@@ -374,7 +374,6 @@ conformance_test(
     ],
 )
 
-# TODO for Brian: please verify tags field, and concept, whether we can use this for CI conformance testing
 conformance_test(
     name = "conformance-test-append-only-oracle",
     ports = [6865],

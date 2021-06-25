@@ -248,7 +248,6 @@ private[backend] object H2StorageBackend
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
-      //TODO BH: try to avoid injecting this for every single usage
       submittersInPartiesClause = arrayIntersectionWhereClause("active_cs.submitters", Set(party)),
     )(connection)
 
@@ -403,7 +402,7 @@ private[backend] object H2StorageBackend
       witnessesWhereClause =
         arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
       submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
-      columnEqualityBoolean = columnEqualityBoolean("event_kind", "20"),
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
     )(connection)
 
   def transactionTreeMultiParty(
@@ -416,7 +415,7 @@ private[backend] object H2StorageBackend
         arrayIntersectionWhereClause("tree_event_witnesses", requestingParties),
       submittersInPartiesClause = arrayIntersectionWhereClause("submitters", requestingParties),
       filteredWitnessesClause = arrayIntersectionValues("tree_event_witnesses", requestingParties),
-      columnEqualityBoolean = columnEqualityBoolean("event_kind", "20"),
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
     )(connection)
 
   def transactionTreeEventsSingleParty(
@@ -436,7 +435,7 @@ private[backend] object H2StorageBackend
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
       submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
-      columnEqualityBoolean = columnEqualityBoolean("event_kind", "20"),
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
     )(connection)
 
   def transactionTreeEventsMultiParty(
@@ -455,7 +454,7 @@ private[backend] object H2StorageBackend
       submittersInPartiesClause = arrayIntersectionWhereClause("submitters", requestingParties),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
-      columnEqualityBoolean = columnEqualityBoolean("event_kind", "20"),
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
     )(connection)
 
   // TODO FIXME: this is for postgres not for H2

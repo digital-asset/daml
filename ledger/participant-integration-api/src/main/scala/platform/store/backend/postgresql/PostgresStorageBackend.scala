@@ -411,7 +411,7 @@ private[backend] object PostgresStorageBackend
       witnessesWhereClause =
         arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
       submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
-      columnEqualityBoolean = columnEqualityBoolean("event_kind", "20"),
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
     )(connection)
 
   def transactionTreeMultiParty(
@@ -424,7 +424,7 @@ private[backend] object PostgresStorageBackend
         arrayIntersectionWhereClause("tree_event_witnesses", requestingParties),
       submittersInPartiesClause = arrayIntersectionWhereClause("submitters", requestingParties),
       filteredWitnessesClause = arrayIntersectionValues("tree_event_witnesses", requestingParties),
-      columnEqualityBoolean = columnEqualityBoolean("event_kind", "20"),
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
     )(connection)
 
   def transactionTreeEventsSingleParty(
@@ -444,7 +444,7 @@ private[backend] object PostgresStorageBackend
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
       submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
-      columnEqualityBoolean = columnEqualityBoolean("event_kind", "20"),
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
     )(connection)
 
   def transactionTreeEventsMultiParty(
@@ -463,7 +463,7 @@ private[backend] object PostgresStorageBackend
       submittersInPartiesClause = arrayIntersectionWhereClause("submitters", requestingParties),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
-      columnEqualityBoolean = columnEqualityBoolean("event_kind", "20"),
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
     )(connection)
 
   def maxEventSeqIdForOffset(offset: Offset)(connection: Connection): Option[Long] = {

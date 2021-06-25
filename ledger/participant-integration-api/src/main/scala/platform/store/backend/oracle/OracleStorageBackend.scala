@@ -400,7 +400,7 @@ private[backend] object OracleStorageBackend
       witnessesWhereClause =
         arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
       submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
-      columnEqualityBoolean = columnEqualityBoolean("event_kind", "20"),
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
     )(connection)
 
   def transactionTreeMultiParty(
@@ -413,7 +413,7 @@ private[backend] object OracleStorageBackend
         arrayIntersectionWhereClause("tree_event_witnesses", requestingParties),
       submittersInPartiesClause = arrayIntersectionWhereClause("submitters", requestingParties),
       filteredWitnessesClause = arrayIntersectionValues("tree_event_witnesses", requestingParties),
-      columnEqualityBoolean = columnEqualityBoolean("event_kind", "20"),
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
     )(connection)
 
   def transactionTreeEventsSingleParty(
@@ -433,7 +433,7 @@ private[backend] object OracleStorageBackend
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
       submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
-      columnEqualityBoolean = columnEqualityBoolean("event_kind", "20"),
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
     )(connection)
 
   def transactionTreeEventsMultiParty(
@@ -452,7 +452,7 @@ private[backend] object OracleStorageBackend
       submittersInPartiesClause = arrayIntersectionWhereClause("submitters", requestingParties),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
-      columnEqualityBoolean = columnEqualityBoolean("event_kind", "20"),
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
     )(connection)
 
   // TODO FIXME: confirm this works for oracle

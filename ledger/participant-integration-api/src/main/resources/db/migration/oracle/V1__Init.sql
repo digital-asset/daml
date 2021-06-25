@@ -82,7 +82,7 @@ CREATE TABLE packages
 CREATE TABLE configuration_entries
 (
     ledger_offset    VARCHAR2(4000)  not null primary key,
-    recorded_at      timestamp       not null, -- TODO BH: in postgres this is with timezone
+    recorded_at      timestamp       not null,
     submission_id    NVARCHAR2(1000) not null,
     -- The type of entry, one of 'accept' or 'reject'.
     typ              NVARCHAR2(1000) not null,
@@ -154,7 +154,7 @@ CREATE UNIQUE INDEX idx_party_entries
 CREATE TABLE package_entries
 (
     ledger_offset    VARCHAR2(4000)  not null primary key,
-    recorded_at      timestamp       not null, --TODO BH in postgres this is with timezone
+    recorded_at      timestamp       not null,
     -- SubmissionId for package to be uploaded
     submission_id    NVARCHAR2(1000),
     -- The type of entry, one of 'accept' or 'reject'
