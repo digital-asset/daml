@@ -31,10 +31,6 @@ GRPC_HASKELL_SHA256 = "d850d804d7af779bb8717ebe4ea2ac74903a30adeb5262477a2e7a153
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
 
-    # XXX: We do not have access to an integer-simple version of GHC on Windows.
-    # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
-    use_integer_simple = not is_windows
-
     #
     # Executables
     #
@@ -393,14 +389,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
                 "ghc-lib-parser-ex": ["ghc-lib"],
                 "zip": ["disable-bzip2"],
             },
-            {
-                "blaze-textual": ["integer-simple"],
-                "cryptonite": ["-integer-gmp"],
-                "hashable": ["-integer-gmp"],
-                "integer-logarithms": ["-integer-gmp"],
-                "text": ["integer-simple"],
-                "scientific": ["integer-simple"],
-            } if use_integer_simple else {},
         ),
         haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
@@ -599,12 +587,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         extra_deps = {
             "zlib": ["@com_github_madler_zlib//:libz"],
         },
-        flags = {
-            "hashable": ["-integer-gmp"],
-            "integer-logarithms": ["-integer-gmp"],
-            "text": ["integer-simple"],
-            "scientific": ["integer-simple"],
-        } if use_integer_simple else {},
         haddock = False,
         local_snapshot = "//:ghcide-snapshot.yaml",
         stack_snapshot_json =

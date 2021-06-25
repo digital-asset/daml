@@ -1,7 +1,7 @@
 # Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-resolver: nightly-2021-01-05
+resolver: nightly-2021-06-24
 packages:
   - archive: https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-57b78d673ec6688715b861e9ae9c16fe.tar.gz
     sha256: "63386411db9b330413cd1266edea747f079ed6280ad7664b208afc252921fad7"
@@ -36,6 +36,5 @@ packages:
   - shake-0.18.5
   - simple-smt-0.9.4
   - stm-conduit-4.0.1
-  # Core packages, need to be listed for integer-simple flags.
-  - integer-simple-0.1.1.1
-  - text-1.2.3.1
+  - retry-0.8.1.2
+  - swagger2-2.6
