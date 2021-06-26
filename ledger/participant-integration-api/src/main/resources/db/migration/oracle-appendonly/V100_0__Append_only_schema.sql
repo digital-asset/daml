@@ -136,7 +136,7 @@ CREATE TABLE participant_command_completions
     status_message    NVARCHAR2(1000)  -- null for successful command and checkpoints
 );
 
-``CREATE INDEX participant_command_completions_idx ON participant_command_completions(completion_offset, application_id);
+CREATE INDEX participant_command_completions_idx ON participant_command_completions(completion_offset, application_id);
 
 CREATE TABLE participant_command_submissions
 (
@@ -551,9 +551,6 @@ CREATE TABLE parameters
     external_ledger_end                NVARCHAR2(1000),
     participant_id                     NVARCHAR2(1000),
     participant_pruned_up_to_inclusive VARCHAR2(4000),
-    ledger_end_sequential_id NUMBER
+    ledger_end_sequential_id           NUMBER
 );
 
-UPDATE parameters SET ledger_end_sequential_id = (
-    SELECT max(event_sequential_id) FROM participant_events
-);

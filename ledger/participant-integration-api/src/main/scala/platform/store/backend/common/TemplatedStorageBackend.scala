@@ -24,6 +24,7 @@ import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import scala.collection.compat.immutable.ArraySeq
 
 private[backend] object TemplatedStorageBackend {
+  import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
 
   private val sharedCompletionColumns: RowParser[Offset ~ Instant ~ String] =
     offset("completion_offset") ~ instant("record_time") ~ str("command_id")
@@ -127,7 +128,7 @@ private[backend] object TemplatedStorageBackend {
                 COALESCE(divulgence_events.template_id, create_event_unrestricted.template_id),
                 COALESCE(divulgence_events.create_argument, create_event_unrestricted.create_argument),
                 COALESCE(divulgence_events.create_argument_compression, create_event_unrestricted.create_argument_compression)
-           FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted on (divulgence_events.contract_id = create_event_unrestricted.contract_id),
+           FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id),
                 parameters
           WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
             AND divulgence_events.event_kind = 0 -- divulgence
@@ -289,8 +290,6 @@ private[backend] object TemplatedStorageBackend {
   private type SharedRow =
     Offset ~ String ~ Int ~ Long ~ String ~ String ~ Instant ~ Identifier ~ Option[String] ~
       Option[String] ~ Array[String]
-
-  import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
 
   private val sharedRow: RowParser[SharedRow] =
     offset("event_offset") ~
