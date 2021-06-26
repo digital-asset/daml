@@ -70,9 +70,10 @@ final class BuffersUpdaterSpec
         updateTransactionsBuffer = updateTransactionsBufferMock,
         toContractStateEvents = Map(updateMock -> contractStateEventMocks.iterator),
         updateMutableCache = contractStateMock += _,
+        executionContext = scala.concurrent.ExecutionContext.global,
         minBackoffStreamRestart = 10.millis,
         sysExitWithCode = _ => fail("should not be triggered"),
-      )(materializer, loggingContext, scala.concurrent.ExecutionContext.global)
+      )(materializer, loggingContext)
 
       queue.offer((someOffset, someEventSeqId) -> updateMock) shouldBe QueueOfferResult.Enqueued
 
@@ -130,9 +131,10 @@ final class BuffersUpdaterSpec
         updateTransactionsBuffer = updateTransactionsBufferMock,
         toContractStateEvents = Map.empty.withDefaultValue(Iterator.empty),
         updateMutableCache = _ => (),
+        executionContext = scala.concurrent.ExecutionContext.global,
         minBackoffStreamRestart = 1.millis,
         sysExitWithCode = _ => fail("should not be triggered"),
-      )(materializer, loggingContext, scala.concurrent.ExecutionContext.global)
+      )(materializer, loggingContext)
 
       eventually {
         transactionsBufferMock should contain theSameElementsAs Seq(
@@ -162,9 +164,10 @@ final class BuffersUpdaterSpec
         updateTransactionsBuffer = updateTransactionsBufferMock,
         toContractStateEvents = Map.empty,
         updateMutableCache = _ => (),
+        executionContext = scala.concurrent.ExecutionContext.global,
         minBackoffStreamRestart = 1.millis,
         sysExitWithCode = shutdownCodeCapture.set,
-      )(materializer, loggingContext, scala.concurrent.ExecutionContext.global)
+      )(materializer, loggingContext)
 
       eventually {
         shutdownCodeCapture.get() shouldBe 1
