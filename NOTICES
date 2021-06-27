@@ -158,7 +158,6 @@ Jodd Lagarto 6.0.3 : BSD 2-clause "Simplified" License
 Jodd Util 6.0.0 : BSD 2-clause "Simplified" License
 Lodash 4.17.21 : MIT License
 Logback 1.2.3 : (GNU Lesser General Public License v2.1 or later OR Eclipse Public License 1.0)
-Logback Classic Module 1.2.3 : (GNU Lesser General Public License v2.1 or later OR Eclipse Public License 1.0)
 Metrics Core 4.1.2 : Apache License 2.0
 Metrics Integration with JMX 4.1.2 : Apache License 2.0
 Mockito v3.6.28 : MIT License
@@ -3895,7 +3894,7 @@ TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
 ---
 
 Eclipse Public License 1.0
-(H2 Database Engine version-1.4.200, JUnit 4.12, Jetty :: Asynchronous HTTP Client 9.4.27.v20200227, Jetty :: Servlet Handling 9.4.18.v20190429, Jetty :: Websocket :: API 9.4.27.v20200227, Jetty :: Websocket :: Client 9.4.27.v20200227, Jetty :: Websocket :: Common 9.4.27.v20200227, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227, Logback 1.2.3, Logback Classic Module 1.2.3, org.junit.jupiter:junit-jupiter-api 5.0.0, org.junit.jupiter:junit-jupiter-engine 5.0.0, org.junit.platform:junit-platform-commons 1.0.0, org.junit.platform:junit-platform-engine 1.0.0, org.junit.platform:junit-platform-launcher 1.0.0, org.junit.platform:junit-platform-runner 1.0.0, org.junit.platform:junit-platform-suite-api 1.0.0)
+(H2 Database Engine version-1.4.200, JUnit 4.12, Jetty :: Asynchronous HTTP Client 9.4.27.v20200227, Jetty :: Servlet Handling 9.4.18.v20190429, Jetty :: Websocket :: API 9.4.27.v20200227, Jetty :: Websocket :: Client 9.4.27.v20200227, Jetty :: Websocket :: Common 9.4.27.v20200227, Jetty :: Websocket :: Server 9.4.18.v20190429, Jetty :: Websocket :: Servlet Interface 9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.18.v20190429, Jetty: Java based HTTP/1.x, HTTP/2, Servlet, WebSocket Server jetty-9.4.27.v20200227, Logback 1.2.3, org.junit.jupiter:junit-jupiter-api 5.0.0, org.junit.jupiter:junit-jupiter-engine 5.0.0, org.junit.platform:junit-platform-commons 1.0.0, org.junit.platform:junit-platform-engine 1.0.0, org.junit.platform:junit-platform-launcher 1.0.0, org.junit.platform:junit-platform-runner 1.0.0, org.junit.platform:junit-platform-suite-api 1.0.0)
 
 Eclipse Public License - v 1.0
 ==============================
@@ -4139,7 +4138,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ---
 
 GNU Lesser General Public License v2.1 or later
-(BeanShell 2.0b4, Logback 1.2.3, Logback Classic Module 1.2.3)
+(BeanShell 2.0b4, Logback 1.2.3)
 
 GNU Lesser General Public License
 =================================
