@@ -155,20 +155,20 @@ private[platform] object BufferedTransactionsReader {
       outputStreamBufferSize: Int,
       bufferSizeCounter: Counter,
   )(implicit executionContext: ExecutionContext): Source[(Offset, API_RESPONSE), NotUsed] = {
-    def filterBuffered(
+    def bufferedSource(
         slice: Vector[(Offset, TransactionLogUpdate)]
-    ): Future[Iterator[(Offset, API_RESPONSE)]] =
-      Future
-        .traverse(
-          slice.iterator
-            .collect { case (offset, tx: TxUpdate) =>
-              toApiTx(tx, filter, verbose).map(offset -> _)
-            }
-        )(identity)
-        .map(_.collect { case (offset, Some(tx)) =>
+    ): Source[(Offset, API_RESPONSE), NotUsed] =
+      Source
+        .fromIterator(() => slice.iterator)
+        .collect { case (offset, tx: TxUpdate) =>
+          toApiTx(tx, filter, verbose).map(offset -> _)
+        }
+        .mapAsync(32)(identity)
+        .async
+        .collect { case (offset, Some(tx)) =>
           resolvedFromBufferCounter.inc()
           offset -> apiResponseCtor(Seq(tx))
-        })
+        }
 
     val transactionsSource = Timed.source(
       sourceTimer, {
@@ -177,22 +177,16 @@ private[platform] object BufferedTransactionsReader {
           case BufferSlice.Empty =>
             fetchTransactions(startExclusive, endInclusive, filter, verbose)
 
-          // TODO in-memory fan-out: Implement and use Offset.predecessor
           case BufferSlice.Prefix(slice) if slice.size <= 1 =>
             fetchTransactions(startExclusive, endInclusive, filter, verbose)
 
-          // TODO in-memory fan-out: Implement and use Offset.predecessor
           case BufferSlice.Prefix((firstOffset: Offset, _) +: tl) =>
             fetchTransactions(startExclusive, firstOffset, filter, verbose)
-              .concat(
-                Source.futureSource(filterBuffered(tl).map(it => Source.fromIterator(() => it)))
-              )
+              .concat(bufferedSource(tl))
               .mapMaterializedValue(_ => NotUsed)
 
           case BufferSlice.Inclusive(slice) =>
-            Source
-              .futureSource(filterBuffered(slice).map(it => Source.fromIterator(() => it)))
-              .mapMaterializedValue(_ => NotUsed)
+            bufferedSource(slice).mapMaterializedValue(_ => NotUsed)
         }
       }.map(tx => {
         totalRetrievedCounter.inc()
