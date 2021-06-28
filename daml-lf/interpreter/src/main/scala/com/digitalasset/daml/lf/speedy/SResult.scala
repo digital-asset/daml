@@ -76,25 +76,25 @@ object SResult {
       callback: Option[ContractId] => Boolean,
   ) extends SResult
 
-  sealed abstract class SVisibility
-  object SVisibility {
+  sealed abstract class SVisibleToStakeholders
+  object SVisibleToStakeholders {
     // actAs and readAs are only included for better error messages.
     final case class NotVisible(
         actAs: Set[Party],
         readAs: Set[Party],
-    ) extends SVisibility
-    final case object Visible extends SVisibility
+    ) extends SVisibleToStakeholders
+    final case object Visible extends SVisibleToStakeholders
 
     def fromSubmitters(
         actAs: Set[Party],
         readAs: Set[Party] = Set.empty,
-    ): Set[Party] => SVisibility = {
+    ): Set[Party] => SVisibleToStakeholders = {
       val readers = actAs union readAs
       stakeholders =>
         if (readers.intersect(stakeholders).nonEmpty) {
-          SVisibility.Visible
+          SVisibleToStakeholders.Visible
         } else {
-          SVisibility.NotVisible(actAs, readAs)
+          SVisibleToStakeholders.NotVisible(actAs, readAs)
         }
     }
   }

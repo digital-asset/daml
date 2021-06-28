@@ -1223,10 +1223,10 @@ private[lf] object SBuiltin {
           val cachedContract = onLedger.cachedContracts
             .getOrElse(coid, crash(s"Local contract $coid not in cachedContracts"))
           val stakeholders = cachedContract.signatories union cachedContract.observers
-          onLedger.visibility(stakeholders) match {
-            case SVisibility.Visible =>
+          onLedger.visibleToStakeholders(stakeholders) match {
+            case SVisibleToStakeholders.Visible =>
               operation.handleActiveKey(machine, coid)
-            case SVisibility.NotVisible(actAs, readAs) =>
+            case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
               machine.ctrl = SEDamlException(
                 IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
               )

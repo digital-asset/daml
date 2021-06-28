@@ -121,10 +121,10 @@ private[lf] object Speedy {
       var globalDiscriminators: Set[crypto.Hash],
       var cachedContracts: Map[V.ContractId, CachedContract],
   ) extends LedgerMode {
-    private[lf] val visibility: Set[Party] => SVisibility =
-      if (validating) { _ => SVisibility.Visible }
+    private[lf] val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
+      if (validating) { _ => SVisibleToStakeholders.Visible }
       else {
-        SVisibility.fromSubmitters(committers, readAs)
+        SVisibleToStakeholders.fromSubmitters(committers, readAs)
       }
     private[lf] def finish: PartialTransaction.Result = ptx.finish
     private[lf] def ptxInternal: PartialTransaction = ptx //deprecated
