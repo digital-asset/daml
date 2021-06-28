@@ -11,6 +11,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.Pretty._
+import com.daml.lf.scenario.{ScenarioRunner, Pretty => PrettyScenario}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
@@ -526,10 +527,7 @@ object Repl {
           state.scenarioRunner.run(expr)
         errOrLedger match {
           case error: ScenarioRunner.ScenarioError =>
-            println(
-              prettyError(error.error)
-                .render(128)
-            )
+            println(PrettyScenario.prettyError(error.error).render(128))
             (false, state)
           case success: ScenarioRunner.ScenarioSuccess =>
             // NOTE(JM): cannot print this, output used in tests.
@@ -564,8 +562,7 @@ object Repl {
           println(
             "failed at " +
               prettyLoc(machine.lastLocation).render(128) +
-              ": " + prettyError(error.error)
-                .render(128)
+              ": " + PrettyScenario.prettyError(error.error).render(128)
           )
           failures += 1
         case success: ScenarioRunner.ScenarioSuccess =>
@@ -595,7 +592,7 @@ object Repl {
         machine.withOnLedger("cmdProfile") { onLedger =>
           errOrLedger match {
             case error: ScenarioRunner.ScenarioError =>
-              println(prettyError(error.error, onLedger.ptx).render(128))
+              println(PrettyScenario.prettyError(error.error, Some(onLedger.ptx)).render(128))
               (false, state)
             case _: ScenarioRunner.ScenarioSuccess =>
               println("Writing profile...")

@@ -2,27 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
-package speedy
+package scenario
 
-import com.daml.lf.CompiledPackages
-import com.daml.lf.crypto
-import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
-import com.daml.lf.speedy.Speedy.{OffLedger, OnLedger}
-import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
-
-private case class SRunnerException(err: SError) extends RuntimeException(err.toString)
 
 /** Speedy scenario runner that uses the reference ledger.
   *
@@ -67,7 +61,7 @@ final case class ScenarioRunner(
           finalValue = v
 
         case SResultError(err) =>
-          throw SRunnerException(err)
+          throw scenario.Error.RunnerException(err)
 
         case SResultNeedTime(callback) =>
           callback(ledger.currentTime)
@@ -93,9 +87,7 @@ final case class ScenarioRunner(
             submitResult match {
               case Commit(result, _, ptx) =>
                 currentSubmission = Some(CurrentSubmission(location, ptx.finishIncomplete))
-                throw new SRunnerException(
-                  ScenarioErrorMustFailSucceeded(result.richTransaction.transaction)
-                )
+                throw scenario.Error.MustFailSucceeded(result.richTransaction.transaction)
               case err: SubmissionError =>
                 currentSubmission = None
                 // TODO (MK) This is gross, we need to unwind the transaction to
@@ -118,7 +110,7 @@ final case class ScenarioRunner(
                 callback(value)
               case SubmissionError(err, ptx) =>
                 currentSubmission = Some(CurrentSubmission(location, ptx.finishIncomplete))
-                throw new SRunnerException(err)
+                throw err
             }
           }
 
@@ -141,13 +133,13 @@ final case class ScenarioRunner(
   }
 
   private def crash(reason: String) =
-    throw SRunnerException(SErrorCrash(reason))
+    throw Error.Internal(reason)
 
   private def getParty(partyText: String, callback: Party => Unit) = {
     val mangledPartyText = partyNameMangler(partyText)
     Party.fromString(mangledPartyText) match {
       case Right(s) => callback(s)
-      case Left(msg) => throw SRunnerException(ScenarioErrorInvalidPartyName(partyText, msg))
+      case Left(msg) => throw Error.InvalidPartyName(partyText, msg)
     }
   }
 
@@ -195,9 +187,9 @@ object ScenarioRunner {
     }
   }
 
-  private def handleUnsafe[T](unsafe: => T): Either[SError, T] = {
+  private def handleUnsafe[T](unsafe: => T): Either[Error, T] = {
     Try(unsafe) match {
-      case Failure(SRunnerException(err)) => Left(err)
+      case Failure(err: Error) => Left(err: Error)
       case Failure(other) => throw other
       case Success(t) => Right(t)
     }
@@ -215,7 +207,7 @@ object ScenarioRunner {
       ptx: PartialTransaction,
   ) extends SubmissionResult[R]
 
-  final case class SubmissionError(error: SError, ptx: PartialTransaction)
+  final case class SubmissionError(error: Error, ptx: PartialTransaction)
       extends SubmissionResult[Nothing]
 
   // The interface we need from a ledger during submission. We allow abstracting over this so we can play
@@ -226,21 +218,21 @@ object ScenarioRunner {
         actAs: Set[Party],
         readAs: Set[Party],
         cbPresent: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-    ): Either[SError, Unit]
+    ): Either[Error, Unit]
     def lookupKey(
         machine: Speedy.Machine,
         gk: GlobalKey,
         actAs: Set[Party],
         readAs: Set[Party],
         canContinue: Option[ContractId] => Boolean,
-    ): Either[SError, Unit]
+    ): Either[Error, Unit]
     def currentTime: Time.Timestamp
     def commit(
         committers: Set[Party],
         readAs: Set[Party],
         location: Option[Location],
         tx: SubmittedTransaction,
-    ): Either[SError, R]
+    ): Either[Error, R]
   }
 
   case class ScenarioLedgerApi(ledger: ScenarioLedger)
@@ -251,7 +243,7 @@ object ScenarioRunner {
         actAs: Set[Party],
         readAs: Set[Party],
         callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-    ): Either[SError, Unit] =
+    ): Either[Error, Unit] =
       handleUnsafe(lookupContractUnsafe(acoid, actAs, readAs, callback))
 
     private def lookupContractUnsafe(
@@ -262,8 +254,6 @@ object ScenarioRunner {
     ) = {
 
       val effectiveAt = ledger.currentTime
-
-      def missingWith(err: SError) = throw SRunnerException(err)
 
       ledger.lookupGlobalContract(
         view = ScenarioLedger.ParticipantView(actAs, readAs),
@@ -276,16 +266,16 @@ object ScenarioRunner {
         case ScenarioLedger.LookupContractNotFound(coid) =>
           // This should never happen, hence we don't have a specific
           // error for this.
-          missingWith(SErrorCrash(s"contract $coid not found"))
+          throw Error.Internal(s"contract $coid not found")
 
         case ScenarioLedger.LookupContractNotEffective(coid, tid, effectiveAt) =>
-          missingWith(ScenarioErrorContractNotEffective(coid, tid, effectiveAt))
+          throw Error.ContractNotEffective(coid, tid, effectiveAt)
 
         case ScenarioLedger.LookupContractNotActive(coid, tid, consumedBy) =>
-          missingWith(ScenarioErrorContractNotActive(coid, tid, consumedBy))
+          throw Error.ContractNotActive(coid, tid, consumedBy)
 
         case ScenarioLedger.LookupContractNotVisible(coid, tid, observers, stakeholders @ _) =>
-          missingWith(ScenarioErrorContractNotVisible(coid, tid, actAs, readAs, observers))
+          throw Error.ContractNotVisible(coid, tid, actAs, readAs, observers)
       }
     }
 
@@ -295,7 +285,7 @@ object ScenarioRunner {
         actAs: Set[Party],
         readAs: Set[Party],
         callback: Option[ContractId] => Boolean,
-    ): Either[SError, Unit] =
+    ): Either[Error, Unit] =
       handleUnsafe(lookupKeyUnsafe(machine: Speedy.Machine, gk, actAs, readAs, callback))
 
     private def lookupKeyUnsafe(
@@ -309,16 +299,20 @@ object ScenarioRunner {
       val effectiveAt = ledger.currentTime
       val readers = actAs union readAs
 
-      def missingWith(err: SError) =
+      def missingWith(err: Error) =
         if (!callback(None)) {
           machine.returnValue = null
           machine.ctrl = null
-          throw SRunnerException(err)
+          throw err
         }
 
       ledger.ledgerData.activeKeys.get(gk) match {
         case None =>
-          missingWith(SErrorDamlException(interpretation.Error.ContractKeyNotFound(gk)))
+          missingWith(
+            Error.RunnerException(
+              SError.SErrorDamlException(interpretation.Error.ContractKeyNotFound(gk))
+            )
+          )
         case Some(acoid) =>
           ledger.lookupGlobalContract(
             view = ScenarioLedger.ParticipantView(actAs, readAs),
@@ -331,37 +325,40 @@ object ScenarioRunner {
                 // Run to get side effects and assert result.
                 assert(callback(Some(acoid)))
               else
-                throw SRunnerException(
-                  ScenarioErrorContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders)
-                )
+                throw Error.ContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders)
             case ScenarioLedger.LookupContractNotFound(coid) =>
-              missingWith(SErrorCrash(s"contract ${coid.coid} not found, but we found its key!"))
+              missingWith(
+                Error.Internal(s"contract ${coid.coid} not found, but we found its key!")
+              )
             case ScenarioLedger.LookupContractNotEffective(_, _, _) =>
               missingWith(
-                SErrorCrash(s"contract ${acoid.coid} not effective, but we found its key!")
+                Error.Internal(
+                  s"contract ${acoid.coid} not effective, but we found its key!"
+                )
               )
             case ScenarioLedger.LookupContractNotActive(_, _, _) =>
-              missingWith(SErrorCrash(s"contract ${acoid.coid} not active, but we found its key!"))
+              missingWith(
+                Error.Internal(s"contract ${acoid.coid} not active, but we found its key!")
+              )
             case ScenarioLedger.LookupContractNotVisible(
                   coid,
                   tid @ _,
                   observers @ _,
                   stakeholders,
                 ) =>
-              throw SRunnerException(
-                ScenarioErrorContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders)
-              )
+              throw Error.ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders)
           }
       }
     }
 
     override def currentTime = ledger.currentTime
+
     override def commit(
         committers: Set[Party],
         readAs: Set[Party],
         location: Option[Location],
         tx: SubmittedTransaction,
-    ): Either[SError, ScenarioLedger.CommitResult] =
+    ): Either[Error, ScenarioLedger.CommitResult] =
       ScenarioLedger.commitTransaction(
         actAs = committers,
         readAs = readAs,
@@ -371,7 +368,7 @@ object ScenarioRunner {
         l = ledger,
       ) match {
         case Left(fas) =>
-          Left(ScenarioErrorCommitError(fas))
+          Left(Error.CommitError(fas))
         case Right(result) =>
           Right(result)
       }
@@ -397,17 +394,19 @@ object ScenarioRunner {
       traceLog = traceLog,
     )
     val onLedger = ledgerMachine.ledgerMode match {
-      case OffLedger => throw SRequiresOnLedger("ScenarioRunner")
-      case onLedger: OnLedger => onLedger
+      case Speedy.OffLedger =>
+        throw Error.RunnerException(SError.SRequiresOnLedger("ScenarioRunner"))
+      case onLedger: Speedy.OnLedger => onLedger
     }
     @tailrec
     def go(): SubmissionResult[R] = {
       ledgerMachine.run() match {
-        case SResultFinalValue(resultValue) =>
+        case SResult.SResultFinalValue(resultValue) =>
           onLedger.ptxInternal.finish match {
             case PartialTransaction.CompleteTransaction(tx, _) =>
               ledger.commit(committers, readAs, location, tx) match {
-                case Left(err) => SubmissionError(err, onLedger.ptxInternal)
+                case Left(err) =>
+                  SubmissionError(err, onLedger.ptxInternal)
                 case Right(r) =>
                   Commit(r, resultValue, onLedger.ptxInternal)
               }
@@ -415,7 +414,7 @@ object ScenarioRunner {
               throw new RuntimeException(s"Unexpected abort: $ptx")
           }
         case SResultError(err) =>
-          SubmissionError(err, onLedger.ptxInternal)
+          SubmissionError(Error.RunnerException(err), onLedger.ptxInternal)
         case SResultNeedContract(coid, tid @ _, committers, callback) =>
           ledger.lookupContract(coid, committers, readAs, callback) match {
             case Left(err) => SubmissionError(err, onLedger.ptxInternal)
@@ -440,13 +439,13 @@ object ScenarioRunner {
           callback(ledger.currentTime)
           go()
         case SResultNeedPackage(pkgId, _) =>
-          crash(s"package $pkgId not found")
+          throw Error.Internal(s"package $pkgId not found")
         case _: SResultScenarioGetParty =>
-          crash("SResultScenarioGetParty in submission")
+          throw Error.Internal("SResultScenarioGetParty in submission")
         case _: SResultScenarioPassTime =>
-          crash("SResultScenarioPassTime in submission")
+          throw Error.Internal("SResultScenarioPassTime in submission")
         case _: SResultScenarioSubmit =>
-          crash("SResultScenarioSubmit in submission")
+          throw Error.Internal("SResultScenarioSubmit in submission")
       }
     }
     go()
@@ -478,11 +477,12 @@ object ScenarioRunner {
       steps: Int,
       resultValue: SValue,
   ) extends ScenarioResult
+
   final case class ScenarioError(
       ledger: ScenarioLedger,
       traceLog: TraceLog,
       currentSubmission: Option[CurrentSubmission],
       stackTrace: ImmArray[Location],
-      error: SError,
+      error: Error,
   ) extends ScenarioResult
 }

@@ -11,8 +11,7 @@ import com.daml.lf.data.Ref.DefinitionRef
 import com.daml.lf.data.{Relation => _, _}
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
-import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.speedy.ScenarioRunner
+import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.daml.platform.store.entries.LedgerEntry
@@ -122,7 +121,7 @@ private[sandbox] object ScenarioLoader {
     (scenarioLedger, scenarioRef)
   }
 
-  @nowarn("cat=deprecation&origin=com\\.daml\\.lf\\.speedy\\.ScenarioRunner\\.getScenarioLedger")
+  @nowarn("cat=deprecation&origin=com\\.daml\\.lf\\.scenario\\.ScenarioRunner\\.getScenarioLedger")
   private def getScenarioLedger(
       engine: Engine,
       transactionSeed: Hash,

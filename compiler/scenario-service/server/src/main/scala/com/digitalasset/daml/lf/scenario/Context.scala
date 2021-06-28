@@ -15,8 +15,7 @@ import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, Qual
 import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
-import com.daml.lf.speedy.{Compiler, ScenarioRunner, SDefinition, SExpr, Speedy}
-import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.{Compiler, SDefinition, SExpr, Speedy}
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
@@ -201,7 +200,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
     val (clientMachine, resultF) = runner.runWithClients(participants, traceLog)
 
-    def handleFailure(e: SError) = {
+    def handleFailure(e: Error) =
       // SError are the errors that should be handled and displayed as
       // failed partial transactions.
       Success(
@@ -216,7 +215,6 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
           )
         )
       )
-    }
 
     val dummyDuration: Double = 0
     val dummySteps: Int = 0
@@ -234,10 +232,11 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
             )
           )
         )
-      case Failure(e: SError) => handleFailure(e)
+      case Failure(e: Error) => handleFailure(e)
       case Failure(e: ScriptF.FailedCmd) =>
         e.cause match {
-          case e: SError => handleFailure(e)
+          case e: Error => handleFailure(e)
+          case e: speedy.SError.SError => handleFailure(Error.RunnerException(e))
           case _ => Failure(e)
         }
       case Failure(e) => Failure(e)
