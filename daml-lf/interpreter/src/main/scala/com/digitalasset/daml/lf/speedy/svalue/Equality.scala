@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 package svalue
 
-import com.daml.lf.speedy.SError.SErrorCrash
+import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
 
@@ -13,7 +13,7 @@ private[lf] object Equality {
 
   // Equality between two SValues of same type.
   // This follows the equality defined in the daml-lf spec.
-  @throws[SErrorCrash]
+  @throws[SError.SError]
   def areEqual(x: SValue, y: SValue): Boolean = {
     import SValue._
 
@@ -62,8 +62,13 @@ private[lf] object Equality {
           success = xType == yType
         case (STypeRep(xType), STypeRep(yType)) =>
           success = xType == yType
+        case (_: SPAP, _: SPAP) =>
+          throw SError.SErrorDamlException(interpretation.Error.NonComparableValues)
         case (x, y) =>
-          throw SErrorCrash(s"trying to compare incomparable types:\n- $x\n- $y")
+          throw SError.SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"trying to compare value of different type:\n- $x\n- $y",
+          )
       }
 
     while (success && stackX.nonEmpty) {

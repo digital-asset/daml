@@ -35,10 +35,8 @@ private[lf] object Pretty {
     text("Error:") & (err match {
       case ex: SErrorDamlException =>
         prettyDamlException(ex.error, optPtx)
-      case SErrorCrash(reason) =>
-        text(s"CRASH: $reason")
-      case SRequiresOnLedger(operation) =>
-        text(s"Operation is not supported off-ledger: $operation")
+      case SErrorCrash(where, reason) =>
+        text(s"CRASH in $where: $reason")
     })
 
   def prettyParty(p: Party): Doc =
@@ -111,7 +109,12 @@ private[lf] object Pretty {
           text("The provided key is") & prettyValue(true)(key)
       case ContractNotFound(cid) =>
         text("Update failed due to a unknown contract") & prettyContractId(cid)
-
+      case NonComparableValues =>
+        text("functions are not comparable")
+      case ContractIdFreshness(_) =>
+        text("Conflicting discriminators between a local and global contract id")
+      case ContractIdInContractKey(key) =>
+        text(s"Contract IDs are not supported in contract keys: $key")
     }
   }
 

@@ -26,8 +26,10 @@ object Error {
       def msg: String
     }
 
-    final case class Internal(nameOfFunc: String, override val msg: String, detailMsg: String = "")
-        extends Error
+    final case class Internal(
+        nameOfFunc: String,
+        override val msg: String,
+    ) extends Error
 
     final case class Validation(validationError: validation.ValidationError) extends Error {
       def msg: String = validationError.pretty
@@ -82,7 +84,6 @@ object Error {
     final case class Internal(
         nameOfFunc: String,
         override val msg: String,
-        detailMsg: String = "",
     ) extends Error
 
     final case class Lookup(lookupError: language.LookupError) extends Error {
@@ -139,9 +140,10 @@ object Error {
       def msg: String
     }
 
-    // TODO https://github.com/digital-asset/daml/issues/9974
-    //  get rid of Generic
-    final case class Generic(override val msg: String) extends Error
+    final case class Internal(
+        nameOfFunc: String,
+        override val msg: String,
+    ) extends Error
 
     final case class DamlException(error: interpretation.Error) extends Error {
       // TODO https://github.com/digital-asset/daml/issues/9974

@@ -343,13 +343,12 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           return ResultError(Error.Interpretation.DamlException(error), detailMsg)
 
         case SResultError(err) =>
-          return ResultError(
-            Error.Interpretation.Generic(
-              s"Interpretation error: ${Pretty.prettyError(err, Some(onLedger.ptxInternal)).render(80)}"
-            ),
-            detailMsg,
-          )
-
+          err match {
+            case SError.SErrorCrash(where, reason) =>
+              Error.Interpretation.Internal(where, reason)
+            case SError.SErrorDamlException(error) =>
+              Error.Interpretation.DamlException(error)
+          }
         case SResultNeedPackage(pkgId, callback) =>
           return Result.needPackage(
             pkgId,
@@ -383,12 +382,14 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
             },
           )
 
-        case _: SResultScenarioSubmit =>
-          return ResultError(Error.Interpretation.Generic("unexpected SResultScenarioSubmit"))
-        case _: SResultScenarioPassTime =>
-          return ResultError(Error.Interpretation.Generic("unexpected ScenarioPassTime"))
-        case _: SResultScenarioGetParty =>
-          return ResultError(Error.Interpretation.Generic("unexpected ScenarioGetParty"))
+        case err @ (_: SResultScenarioSubmit | _: SResultScenarioPassTime |
+            _: SResultScenarioGetParty) =>
+          return ResultError(
+            Error.Interpretation.Internal(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"unexpected ${err.getClass.getSimpleName}",
+            )
+          )
       }
     }
 
@@ -410,7 +411,10 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         ResultDone((tx, meta))
       case PartialTransaction.IncompleteTransaction(ptx) =>
         ResultError(
-          Error.Interpretation.Generic(s"Interpretation error: ended with partial result: $ptx")
+          Error.Interpretation.Internal(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"Interpretation error: ended with partial result: $ptx",
+          )
         )
     }
   }

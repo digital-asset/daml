@@ -87,9 +87,7 @@ final class Conversions(
 
       case Error.RunnerException(serror) =>
         serror match {
-          case SError.SErrorCrash(reason) => setCrash(reason)
-
-          case SError.SRequiresOnLedger(operation) => setCrash(operation)
+          case SError.SErrorCrash(_, reason) => setCrash(reason)
 
           case SError.SErrorDamlException(interpretationError) =>
             import interpretation.Error._
@@ -156,13 +154,11 @@ final class Conversions(
                     .setTemplateId(convertIdentifier(tid))
                     .setKey(convertValue(key))
                 )
-              case wtc: WronglyTypedContract =>
-                // TODO https://github.com/digital-asset/daml/issues/9974
-                //   (MK) This isn’t actually true. You can easily
-                //   coerceContractId your way into this error. Not for
-                //   this PR though.
-                sys.error(
-                  s"Got unexpected DamlEWronglyTypedContract error in scenario service: $wtc. Note that in the scenario service this error should never surface since contract fetches are all type checked."
+              case WronglyTypedContract(coid, expected, actual) =>
+                builder.setWronglyTypedContract(
+                  proto.ScenarioError.WronglyTypedContract.newBuilder
+                    .setContractRef(mkContractRef(coid, actual))
+                    .setExpected(convertIdentifier(expected))
                 )
               case FailedAuthorization(nid, fa) =>
                 builder.setScenarioCommitError(
@@ -170,7 +166,17 @@ final class Conversions(
                     .setFailedAuthorizations(convertFailedAuthorization(nid, fa))
                     .build
                 )
-
+              case ContractIdInContractKey(key) =>
+                builder.setContractIdInContractKey(
+                  proto.ScenarioError.ContractIdInContractKey.newBuilder.setKey(convertValue(key))
+                )
+              case ContractIdFreshness(discriminator) =>
+                builder.setContractFreshnessError(
+                  proto.ScenarioError.ContractIdFreshnessError.newBuilder
+                    .setDiscrimator(discriminator.toHexString)
+                )
+              case NonComparableValues =>
+                builder.setComparableValueError(proto.Empty.newBuilder)
             }
         }
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>

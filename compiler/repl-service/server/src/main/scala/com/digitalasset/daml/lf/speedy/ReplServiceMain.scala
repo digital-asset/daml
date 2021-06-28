@@ -287,7 +287,7 @@ class ReplService(
               try {
                 LfValueCodec.apiValueToJsValue(v.toValue).compactPrint
               } catch {
-                case SError.SErrorCrash(_) => throw new ReplServiceMain.NonSerializableValue()
+                case SError.SErrorCrash(_, _) => throw new ReplServiceMain.NonSerializableValue()
 
               }
             case RunScriptRequest.Format.UNRECOGNIZED =>

@@ -1,0 +1,39 @@
+-- @ERROR range=20:1-20:12; Contract IDs are not supported in contract key
+-- @ERROR range=29:1-29:11; Contract IDs are not supported in contract key
+-- @ERROR range=35:1-35:12; Contract IDs are not supported in contract key
+module ContractIdInContractKey where
+
+template Contract with
+    party : Party
+  where
+    signatory party
+
+template ContractKeyWithCid with
+    party: Party
+    cid: ContractId Contract
+  where
+    signatory [party]
+
+    key (party, cid) : (Party, ContractId Contract)
+    maintainer key._1
+
+createFails = scenario do
+    alice <- getParty "Alice"
+    cid <- submit alice $ do
+      create Contract with party = alice
+    submit alice $ do
+      create ContractKeyWithCid with
+        party = alice
+        cid = cid
+
+fetchFails = scenario do
+    alice <- getParty "Alice"
+    cid <- submit alice $ do
+          create Contract with party = alice
+    submit alice $ do fetchByKey @ContractKeyWithCid (alice, cid)
+
+lookupFails = scenario do
+    alice <- getParty "Alice"
+    cid <- submit alice $ do
+          create Contract with party = alice
+    submit alice $ do lookupByKey @ContractKeyWithCid (alice, cid)

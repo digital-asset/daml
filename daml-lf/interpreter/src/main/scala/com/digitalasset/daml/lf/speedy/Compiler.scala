@@ -16,6 +16,7 @@ import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.validation.{EUnknownDefinition, Validation, ValidationError}
+import com.daml.nameof.NameOf
 import org.slf4j.LoggerFactory
 
 import scala.annotation.{nowarn, tailrec}
@@ -136,12 +137,10 @@ private[lf] final class Compiler(
 
   import Compiler._
 
-  private[this] def handleLookup[X](x: Either[LookupError, X]) =
+  private[this] def handleLookup[X](where: String, x: Either[LookupError, X]) =
     x match {
       case Right(value) => value
-      case Left(err) =>
-        // TODO: should throw a more precise error
-        SError.crash(err.pretty)
+      case Left(err) => throw SError.SErrorCrash(where, err.pretty)
     }
 
   // Stack-trace support is disabled by avoiding the construction of SELocation nodes.
@@ -406,7 +405,10 @@ private[lf] final class Compiler(
       case ERecProj(tapp, field, record) =>
         SBRecProj(
           tapp.tycon,
-          handleLookup(interface.lookupRecordFieldInfo(tapp.tycon, field)).index,
+          handleLookup(
+            NameOf.qualifiedNameOfCurrentFunc,
+            interface.lookupRecordFieldInfo(tapp.tycon, field),
+          ).index,
         )(
           compile(record)
         )
@@ -449,10 +451,16 @@ private[lf] final class Compiler(
       case ESome(_, body) =>
         SBSome(compile(body))
       case EEnumCon(tyCon, consName) =>
-        val rank = handleLookup(interface.lookupEnumConstructor(tyCon, consName))
+        val rank = handleLookup(
+          NameOf.qualifiedNameOfCurrentFunc,
+          interface.lookupEnumConstructor(tyCon, consName),
+        )
         SEValue(SEnum(tyCon, consName, rank))
       case EVariantCon(tapp, variant, arg) =>
-        val rank = handleLookup(interface.lookupVariantConstructor(tapp.tycon, variant)).rank
+        val rank = handleLookup(
+          NameOf.qualifiedNameOfCurrentFunc,
+          interface.lookupVariantConstructor(tapp.tycon, variant),
+        ).rank
         SBVariantCon(tapp.tycon, variant, rank)(compile(arg))
       case let: ELet =>
         compileELet(let)
@@ -662,11 +670,19 @@ private[lf] final class Compiler(
     val tapp = erecupd.tycon
     val (record, fields, updates) = collectRecUpds(erecupd)
     if (fields.length == 1) {
-      val index = handleLookup(interface.lookupRecordFieldInfo(tapp.tycon, fields.head)).index
+      val index = handleLookup(
+        NameOf.qualifiedNameOfCurrentFunc,
+        interface.lookupRecordFieldInfo(tapp.tycon, fields.head),
+      ).index
       SBRecUpd(tapp.tycon, index)(compile(record), compile(updates.head))
     } else {
       val indices =
-        fields.map(name => handleLookup(interface.lookupRecordFieldInfo(tapp.tycon, name)).index)
+        fields.map(name =>
+          handleLookup(
+            NameOf.qualifiedNameOfCurrentFunc,
+            interface.lookupRecordFieldInfo(tapp.tycon, name),
+          ).index
+        )
       SBRecUpdMulti(tapp.tycon, indices.to(ImmArray))((record :: updates).map(compile): _*)
     }
   }
@@ -678,13 +694,19 @@ private[lf] final class Compiler(
       mapToArray(alts) { case CaseAlt(pat, expr) =>
         pat match {
           case CPVariant(tycon, variant, binder) =>
-            val rank = handleLookup(interface.lookupVariantConstructor(tycon, variant)).rank
+            val rank = handleLookup(
+              NameOf.qualifiedNameOfCurrentFunc,
+              interface.lookupVariantConstructor(tycon, variant),
+            ).rank
             withBinders(binder) { _ =>
               SCaseAlt(SCPVariant(tycon, variant, rank), compile(expr))
             }
 
           case CPEnum(tycon, constructor) =>
-            val rank = handleLookup(interface.lookupEnumConstructor(tycon, constructor))
+            val rank = handleLookup(
+              NameOf.qualifiedNameOfCurrentFunc,
+              interface.lookupEnumConstructor(tycon, constructor),
+            )
             SCaseAlt(SCPEnum(tycon, constructor, rank), compile(expr))
 
           case CPNil =>

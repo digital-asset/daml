@@ -14,6 +14,7 @@ import com.daml.lf.speedy._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
+import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -391,11 +392,7 @@ object ScenarioRunner {
       readAs = readAs,
       traceLog = traceLog,
     )
-    val onLedger = ledgerMachine.ledgerMode match {
-      case Speedy.OffLedger =>
-        throw Error.RunnerException(SError.SRequiresOnLedger("ScenarioRunner"))
-      case onLedger: Speedy.OnLedger => onLedger
-    }
+    val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     @tailrec
     def go(): SubmissionResult[R] = {
       ledgerMachine.run() match {
