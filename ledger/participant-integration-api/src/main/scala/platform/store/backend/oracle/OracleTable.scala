@@ -24,7 +24,11 @@ private[oracle] object OracleTable {
                   data(keyFieldIndex)(dataIndex),
                 )
                 fields.indices.foreach { fieldIndex =>
-                  preparedStatement.setObject(fieldIndex + 2, data(fieldIndex)(dataIndex))
+                  fields(fieldIndex)._2.prepareData(
+                    preparedStatement,
+                    fieldIndex + 2,
+                    data(fieldIndex)(dataIndex),
+                  )
                 }
                 preparedStatement.addBatch()
               }

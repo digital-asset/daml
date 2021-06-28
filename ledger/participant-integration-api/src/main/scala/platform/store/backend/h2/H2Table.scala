@@ -19,9 +19,17 @@ private[h2] object H2Table {
             Table.ifNonEmpty(data) {
               val preparedStatement = connection.prepareStatement(insertStatement)
               data(0).indices.foreach { dataIndex =>
-                preparedStatement.setObject(1, data(keyFieldIndex)(dataIndex))
+                fields(keyFieldIndex)._2.prepareData(
+                  preparedStatement,
+                  1,
+                  data(keyFieldIndex)(dataIndex),
+                )
                 fields.indices.foreach { fieldIndex =>
-                  preparedStatement.setObject(fieldIndex + 2, data(fieldIndex)(dataIndex))
+                  fields(fieldIndex)._2.prepareData(
+                    preparedStatement,
+                    fieldIndex + 2,
+                    data(fieldIndex)(dataIndex),
+                  )
                 }
                 preparedStatement.addBatch()
               }
