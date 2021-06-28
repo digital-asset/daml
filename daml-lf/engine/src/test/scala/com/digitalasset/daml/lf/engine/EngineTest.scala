@@ -774,7 +774,7 @@ class EngineTest
           participant,
           submissionSeed,
         )
-        .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
+        .consume(lookupContract, lookupPackage, lookupKey)
       inside(submitResult) { case Left(Error.Interpretation(err, _)) =>
         err shouldBe Interpretation.DamlException(
           interpretation.Error.ContractKeyNotFound(
