@@ -6,8 +6,8 @@ package com.daml;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.daml.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Int64;
-import com.daml.ledger.javaapi.data.Record;
 import com.daml.ledger.javaapi.data.Variant;
 import java.util.Collections;
 import java.util.HashMap;
@@ -61,7 +61,7 @@ public class TextMapTest {
     javaMap.put("key1", "value1");
     javaMap.put("key2", "value2");
 
-    Record dataRecord = Record.fromProto(protoRecord);
+    DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     MapRecord fromValue = MapRecord.fromValue(dataRecord);
     MapRecord fromConstructor = new MapRecord(javaMap);
     MapRecord fromRoundtrip = MapRecord.fromValue(fromConstructor.toValue());
@@ -230,7 +230,7 @@ public class TextMapTest {
     javaMap.put("outerkey1", inner1Map);
     javaMap.put("outerkey2", inner2Map);
 
-    Record dataRecord = Record.fromProto(protoRecord);
+    DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     MapItemMapRecord fromValue = MapItemMapRecord.fromValue(dataRecord);
     MapItemMapRecord fromConstructor = new MapItemMapRecord(javaMap);
     MapItemMapRecord fromRoundtrip = MapItemMapRecord.fromValue(fromConstructor.toValue());
@@ -378,7 +378,7 @@ public class TextMapTest {
                     .build())
             .build();
 
-    Record dataRecord = Record.fromProto(protoRecord);
+    DamlRecord dataRecord = DamlRecord.fromProto(protoRecord);
     TemplateWithMap fromValue = TemplateWithMap.fromValue(dataRecord);
     TemplateWithMap fromConstructor =
         new TemplateWithMap("party1", Collections.singletonMap("key", 42L));

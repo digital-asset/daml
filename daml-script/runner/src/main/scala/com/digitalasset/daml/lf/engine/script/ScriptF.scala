@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.daml.lf
+package engine.script
 
 import java.time.Clock
 
@@ -14,9 +15,8 @@ import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.Ast
-import com.daml.lf.speedy.SError.DamlEUserError
 import com.daml.lf.speedy.SExpr.{SEApp, SEValue}
-import com.daml.lf.speedy.{SExpr, SValue}
+import com.daml.lf.speedy.{SError, SExpr, SValue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.value.Value
@@ -161,7 +161,9 @@ object ScriptF {
             Future.successful(SEApp(SEValue(data.continue), Array(SEValue(SUnit))))
           case Left(()) =>
             Future.failed(
-              new DamlEUserError("Expected submit to fail but it succeeded")
+              SError.SErrorDamlException(
+                interpretation.Error.UserError("Expected submit to fail but it succeeded")
+              )
             )
         }
       } yield v

@@ -18,7 +18,7 @@ public final class CreatedEvent implements Event, TreeEvent {
 
   private final String contractId;
 
-  private final Record arguments;
+  private final DamlRecord arguments;
 
   private final Optional<String> agreementText;
 
@@ -33,7 +33,7 @@ public final class CreatedEvent implements Event, TreeEvent {
       @NonNull String eventId,
       @NonNull Identifier templateId,
       @NonNull String contractId,
-      @NonNull Record arguments,
+      @NonNull DamlRecord arguments,
       @NonNull Optional<String> agreementText,
       @NonNull Optional<Value> contractKey,
       @NonNull Collection<@NonNull String> signatories,
@@ -74,7 +74,7 @@ public final class CreatedEvent implements Event, TreeEvent {
   }
 
   @NonNull
-  public Record getArguments() {
+  public DamlRecord getArguments() {
     return arguments;
   }
 
@@ -176,7 +176,7 @@ public final class CreatedEvent implements Event, TreeEvent {
         createdEvent.getEventId(),
         Identifier.fromProto(createdEvent.getTemplateId()),
         createdEvent.getContractId(),
-        Record.fromProto(createdEvent.getCreateArguments()),
+        DamlRecord.fromProto(createdEvent.getCreateArguments()),
         createdEvent.hasAgreementText()
             ? Optional.of(createdEvent.getAgreementText().getValue())
             : Optional.empty(),

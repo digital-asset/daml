@@ -18,10 +18,8 @@ private[platform] object ErrorCause {
     override def explain: String = {
       val details = {
         error match {
-          case LfError.Interpretation(LfError.Interpretation.Generic(_, detailMsg)) =>
-            detailMsg
-          case _ =>
-            "N/A"
+          case LfError.Interpretation(_, Some(detailMsg)) => detailMsg
+          case _ => "N/A"
         }
       }
       s"Command interpretation error in LF-DAMLe: ${error.msg}. Details: $details."

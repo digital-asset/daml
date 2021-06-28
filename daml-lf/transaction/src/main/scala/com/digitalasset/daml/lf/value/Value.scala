@@ -7,6 +7,7 @@ package value
 import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.data._
+import com.daml.lf.language.Ast
 import com.daml.lf.transaction.TransactionVersion
 import data.ScalazEqual._
 
@@ -249,6 +250,28 @@ object Value extends CidContainer1[Value] {
       tycon: Option[Identifier],
       fields: ImmArray[(Option[Name], Value[Cid])],
   ) extends Value[Cid]
+
+  object ValueArithmeticError {
+    // The package ID should match the ID of the stable package daml-prim-DA-Exception-ArithmeticError
+    // See test compiler/damlc/tests/src/stable-packages.sh
+    val tyCon: Ref.TypeConName = Ref.Identifier.assertFromString(
+      "cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError"
+    )
+    val typ: Ast.Type = Ast.TTyCon(tyCon)
+    private val someTyCon = Some(tyCon)
+    val fieldName: Ref.Name = Ref.Name.assertFromString("message")
+    private val someFieldName = Some(fieldName)
+    def apply(message: String): ValueRecord[Nothing] =
+      ValueRecord(someTyCon, ImmArray(someFieldName -> ValueText(message)))
+    def unapply(excep: ValueRecord[_]): Option[String] =
+      excep match {
+        case ValueRecord(id, ImmArray((field, ValueText(message))))
+            if id.forall(_ == tyCon) && field.forall(_ == fieldName) =>
+          Some(message)
+        case _ => None
+      }
+  }
+
   final case class ValueVariant[+Cid](tycon: Option[Identifier], variant: Name, value: Value[Cid])
       extends Value[Cid]
   final case class ValueEnum(tycon: Option[Identifier], value: Name) extends ValueCidlessLeaf

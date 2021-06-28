@@ -14,7 +14,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
-import com.daml.lf.scenario.ScenarioLedger
+import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
 import com.daml.lf.speedy.Speedy.Machine
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -166,7 +166,7 @@ class CachedLedgerApi(initStep: Int, ledger: ScenarioLedger)
       actAs: Set[Party],
       readAs: Set[Party],
       callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-  ): Either[SError.SError, Unit] = {
+  ): Either[scenario.Error, Unit] = {
     step += 1
     super.lookupContract(
       coid,
@@ -187,7 +187,7 @@ class CannedLedgerApi(
       actAs: Set[Party],
       readAs: Set[Party],
       callback: ContractInst[Value.VersionedValue[ContractId]] => Unit,
-  ): Either[SError.SError, Unit] = {
+  ): Either[scenario.Error, Unit] = {
     step += 1
     val coinst = cachedContract(step)
     Right(callback(coinst))

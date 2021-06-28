@@ -18,7 +18,6 @@ import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ModuleName
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.scenario.api.v1.{Map => _, _}
-import com.daml.lf.speedy.ScenarioRunner
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.netty.NettyServerBuilder

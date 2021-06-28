@@ -5,6 +5,8 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import java.io.{PrintStream, PrintWriter, StringWriter}
 
+import com.daml.buildinfo.BuildInfo
+
 import scala.util.Try
 
 trait Reporter[A] {
@@ -105,7 +107,7 @@ object Reporter {
       s.println()
       s.println(blue("#" * 80))
       s.println(blue("#"))
-      s.println(blue("# TEST REPORT"))
+      s.println(blue(s"# TEST REPORT, version: ${BuildInfo.Version}"))
       s.println(blue("#"))
       s.println(blue("#" * 80))
 

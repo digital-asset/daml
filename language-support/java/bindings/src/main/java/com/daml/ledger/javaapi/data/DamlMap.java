@@ -6,7 +6,9 @@ package com.daml.ledger.javaapi.data;
 import java.util.*;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-@Deprecated // Use DamlTextMap
+// FIXME When removing this after the deprecation period is over, make DamlTextMap final
+/** @deprecated Use {@link DamlTextMap} instead. */
+@Deprecated
 public class DamlMap extends DamlTextMap {
 
   public DamlMap(Map<@NonNull String, @NonNull Value> value) {

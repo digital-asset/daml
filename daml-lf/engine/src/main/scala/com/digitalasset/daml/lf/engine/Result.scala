@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine
+package com.daml.lf
+package engine
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
@@ -75,8 +76,11 @@ object ResultError {
     ResultError(Error.Package(packageError))
   def apply(preprocessingError: Error.Preprocessing.Error): ResultError =
     ResultError(Error.Preprocessing(preprocessingError))
-  def apply(interpretationError: Error.Interpretation.Error): ResultError =
-    ResultError(Error.Interpretation(interpretationError))
+  def apply(
+      interpretationError: Error.Interpretation.Error,
+      details: Option[String] = None,
+  ): ResultError =
+    ResultError(Error.Interpretation(interpretationError, details))
   def apply(validationError: Error.Validation.Error): ResultError =
     ResultError(Error.Validation(validationError))
 }
@@ -165,7 +169,10 @@ object Result {
     ResultNeedContract(
       acoid,
       {
-        case None => ResultError(Error.Interpretation.ContractNotFound(acoid))
+        case None =>
+          ResultError(
+            Error.Interpretation.DamlException(interpretation.Error.ContractNotFound(acoid))
+          )
         case Some(contract) => resume(contract)
       },
     )
