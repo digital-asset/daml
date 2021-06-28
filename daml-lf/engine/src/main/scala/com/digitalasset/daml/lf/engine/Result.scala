@@ -6,7 +6,6 @@ package com.daml.lf.engine
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SResult.SVisibility
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value._
 import scalaz.Monad
@@ -100,37 +99,6 @@ final case class ResultNeedKey[A](
     key: GlobalKeyWithMaintainers,
     resume: Option[ContractId] => Result[A],
 ) extends Result[A]
-
-/** Whether a given contract is visible & can be fetched by key, i.e., actAs union readAs
-  *    contains at least one stakeholder.
-  */
-sealed trait Visibility {
-  private[engine] def toSVisibility: SVisibility
-}
-object Visibility {
-
-  /** Contract is not visible, includes actAs and readAs for error reporting
-    */
-  final case class NotVisible(actAs: Set[Party], readAs: Set[Party]) extends Visibility {
-    override def toSVisibility = SVisibility.NotVisible(actAs, readAs)
-  }
-  final case object Visible extends Visibility {
-    override val toSVisibility = SVisibility.Visible
-  }
-
-  def fromSubmitters(
-      actAs: Set[Party],
-      readAs: Set[Party] = Set.empty,
-  ): Set[Party] => Visibility = {
-    val readers = actAs union readAs
-    stakeholders =>
-      if (readers.intersect(stakeholders).nonEmpty) {
-        Visibility.Visible
-      } else {
-        Visibility.NotVisible(actAs, readAs)
-      }
-  }
-}
 
 object Result {
   // fails with ResultError if the package is not found

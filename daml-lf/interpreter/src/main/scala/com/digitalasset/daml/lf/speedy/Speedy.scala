@@ -122,7 +122,10 @@ private[lf] object Speedy {
       var cachedContracts: Map[V.ContractId, CachedContract],
   ) extends LedgerMode {
     private[lf] val visibility: Set[Party] => SVisibility =
-      SVisibility.fromSubmitters(committers, readAs)
+      if (validating) { _ => SVisibility.Visible }
+      else {
+        SVisibility.fromSubmitters(committers, readAs)
+      }
     private[lf] def finish: PartialTransaction.Result = ptx.finish
     private[lf] def ptxInternal: PartialTransaction = ptx //deprecated
     private[lf] def incompleteTransaction(): IncompleteTransaction = ptx.finishIncomplete
