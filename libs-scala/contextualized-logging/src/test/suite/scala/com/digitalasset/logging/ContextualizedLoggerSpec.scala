@@ -36,6 +36,16 @@ final class ContextualizedLoggerSpec
       val m = logger.withoutContext
       verify(m).info(toStringEqTo[Marker]("""{id: "foobar"}"""), eqTo("a"))
     }
+  it should "decorate the logs with rich, structured context" in
+    withContext("id" -> 7, "parties" -> Seq("one", "two", "three"))() {
+      logger => implicit loggingContext =>
+        logger.info("abc")
+        val m = logger.withoutContext
+        verify(m).info(
+          toStringEqTo[Marker]("""{id: 7, parties: ["one", "two", "three"]}"""),
+          eqTo("abc"),
+        )
+    }
 
   it should "pass the context via the markers if a throwable is provided" in
     withContext("id" -> "foo")() { logger => implicit loggingContext =>
@@ -150,10 +160,10 @@ final class ContextualizedLoggerSpec
   private def withEmptyContext(f: ContextualizedLogger => LoggingContext => Unit): Unit =
     LoggingContext.newLoggingContext(f(ContextualizedLogger.createFor(mockLogger(Level.INFO))))
 
-  private def withContext(entry: LoggingEntry)(level: Level = Level.INFO)(
+  private def withContext(entry: LoggingEntry, entries: LoggingEntry*)(level: Level = Level.INFO)(
       f: ContextualizedLogger => LoggingContext => Unit
   ): Unit =
-    LoggingContext.newLoggingContextWith(entry)(
+    LoggingContext.newLoggingContextWith(entry, entries: _*)(
       f(ContextualizedLogger.createFor(mockLogger(level)))
     )
 

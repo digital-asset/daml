@@ -73,5 +73,10 @@ object LoggingEntries {
       super.writeObjectEntrySeparator(g)
       g.writeRaw(' ')
     }
+
+    override def writeArrayValueSeparator(g: JsonGenerator): Unit = {
+      super.writeArrayValueSeparator(g)
+      g.writeRaw(' ')
+    }
   }
 }
