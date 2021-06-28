@@ -60,7 +60,7 @@ object LoggingValueSpec {
   private def writingToGenerator(value: LoggingValue): String = {
     val writer = new StringWriter
     val generator = testJsonFactory.createGenerator(writer)
-    value.writeTo(generator)
+    LoggingValueSerializer.writeValue(value, generator)
     generator.flush()
     writer.toString
   }

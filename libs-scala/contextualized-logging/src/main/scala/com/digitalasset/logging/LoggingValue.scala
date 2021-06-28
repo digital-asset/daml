@@ -5,20 +5,21 @@ package com.daml.logging
 
 import java.time.{Duration, Instant}
 
-import com.fasterxml.jackson.core.JsonGenerator
-
 import scala.collection.SeqView
 import scala.language.implicitConversions
 
-trait LoggingValue {
-  def writeTo(generator: JsonGenerator): Unit
-}
+sealed trait LoggingValue
 
 object LoggingValue {
-  final class FromString(value: String) extends LoggingValue {
-    override def writeTo(generator: JsonGenerator): Unit =
-      generator.writeString(value)
-  }
+  final object Empty extends LoggingValue
+
+  final case class OfString(value: String) extends LoggingValue
+
+  final case class OfInt(value: Int) extends LoggingValue
+
+  final case class OfLong(value: Long) extends LoggingValue
+
+  final case class OfIterable(sequence: Iterable[LoggingValue]) extends LoggingValue
 
   trait ToLoggingValue[-T] {
     def apply(value: T): LoggingValue
@@ -30,16 +31,14 @@ object LoggingValue {
 
   private final class ToStringToLoggingValue[T] extends ToLoggingValue[T] {
     override def apply(value: T): LoggingValue =
-      new FromString(value.toString)
+      OfString(value.toString)
   }
 
-  implicit val `String to LoggingValue`: ToLoggingValue[String] = new FromString(_)
+  implicit val `String to LoggingValue`: ToLoggingValue[String] = OfString(_)
 
-  implicit val `Int to LoggingValue`: ToLoggingValue[Int] =
-    value => generator => generator.writeNumber(value)
+  implicit val `Int to LoggingValue`: ToLoggingValue[Int] = OfInt(_)
 
-  implicit val `Long to LoggingValue`: ToLoggingValue[Long] =
-    value => generator => generator.writeNumber(value)
+  implicit val `Long to LoggingValue`: ToLoggingValue[Long] = OfLong(_)
 
   implicit val `Instant to LoggingValue`: ToLoggingValue[Instant] = new ToStringToLoggingValue
 
@@ -48,24 +47,17 @@ object LoggingValue {
   implicit def `Option[T] to LoggingValue`[T](implicit
       elementToLoggingValue: ToLoggingValue[T]
   ): ToLoggingValue[Option[T]] = {
-    case None => generator => generator.writeNull()
+    case None => Empty
     case Some(value) => elementToLoggingValue(value)
   }
 
   implicit def `SeqView[T] to LoggingValue`[T](implicit
       elementToLoggingValue: ToLoggingValue[T]
   ): ToLoggingValue[SeqView[T]] =
-    (sequence: SeqView[T]) => `Iterable[T] to LoggingValue`(elementToLoggingValue).apply(sequence)
+    sequence => OfIterable(sequence.map(elementToLoggingValue.apply))
 
   implicit def `Iterable[T] to LoggingValue`[T](implicit
       elementToLoggingValue: ToLoggingValue[T]
   ): ToLoggingValue[Iterable[T]] =
-    sequence =>
-      generator => {
-        generator.writeStartArray()
-        sequence.foreach { element =>
-          elementToLoggingValue.apply(element).writeTo(generator)
-        }
-        generator.writeEndArray()
-      }
+    sequence => OfIterable(sequence.view.map(elementToLoggingValue.apply))
 }

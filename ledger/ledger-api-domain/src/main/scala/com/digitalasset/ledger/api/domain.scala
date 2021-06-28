@@ -60,7 +60,7 @@ object domain {
 
   implicit object `LedgerOffset to LoggingValue` extends ToLoggingValue[LedgerOffset] {
     override def apply(value: LedgerOffset): LoggingValue =
-      new LoggingValue.FromString(value match {
+      new LoggingValue.OfString(value match {
         case LedgerOffset.Absolute(absolute) => absolute
         case LedgerOffset.LedgerBegin => "%begin%"
         case LedgerOffset.LedgerEnd => "%end%"

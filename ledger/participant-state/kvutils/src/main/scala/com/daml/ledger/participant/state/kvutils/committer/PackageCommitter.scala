@@ -16,8 +16,7 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Engine, VisibleByKey}
 import com.daml.lf.language.Ast
-import com.daml.logging.LoggingValue.ToLoggingValue
-import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries, LoggingValue}
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 
@@ -34,8 +33,9 @@ private[committer] object PackageCommitter {
 
   // Orphan, but we can't do much about that.
   // Adding this to Daml-LF would probably be overkill.
-  private implicit val `DamlLf.Archive to LoggingValue`: ToLoggingValue[DamlLf.Archive] =
-    value => generator => generator.writeString(value.getHash)
+  private implicit val `DamlLf.Archive to LoggingValue`
+      : LoggingValue.ToLoggingValue[DamlLf.Archive] =
+    value => LoggingValue.OfString(value.getHash)
 }
 
 final private[kvutils] class PackageCommitter(

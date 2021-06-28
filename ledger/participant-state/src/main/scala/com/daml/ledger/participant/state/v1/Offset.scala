@@ -44,6 +44,6 @@ object Offset {
 
   implicit object `Offset to LoggingValue` extends ToLoggingValue[Offset] {
     override def apply(value: Offset): LoggingValue =
-      new LoggingValue.FromString(value.toHexString)
+      new LoggingValue.OfString(value.toHexString)
   }
 }
