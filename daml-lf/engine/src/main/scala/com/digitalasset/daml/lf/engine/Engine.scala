@@ -386,7 +386,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
           return ResultNeedLocalKeyVisible(
             stakeholders,
             { result =>
-              cb(result.toSVisibleByKey)
+              cb(result.toSVisibility)
               interpretLoop(machine, time)
             },
           )

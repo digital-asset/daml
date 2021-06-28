@@ -21,7 +21,7 @@ import com.daml.lf.engine.{
   ResultNeedLocalKeyVisible,
   ResultNeedPackage,
   Error => DamlLfError,
-  VisibleByKey,
+  Visibility,
 }
 import com.daml.lf.transaction.Node
 import com.daml.logging.LoggingContext
@@ -107,7 +107,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       loggingContext: LoggingContext,
   ): Future[Either[DamlLfError, A]] = {
     val readers = actAs ++ readAs
-    val isVisible = VisibleByKey.fromSubmitters(actAs, readAs)
+    val isVisible = Visibility.fromSubmitters(actAs, readAs)
 
     val lookupActiveContractTime = new AtomicLong(0L)
     val lookupActiveContractCount = new AtomicLong(0L)

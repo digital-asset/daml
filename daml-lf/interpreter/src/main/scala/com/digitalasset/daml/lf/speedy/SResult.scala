@@ -82,28 +82,28 @@ object SResult {
       // Callback.
       // returns the next expression to evaluate.
       // In case of failure the call back does not throw but set machine.ctrl to an SErrorDamlException
-      callback: SVisibleByKey => Unit,
+      callback: SVisibility => Unit,
   ) extends SResult
 
-  sealed abstract class SVisibleByKey
-  object SVisibleByKey {
+  sealed abstract class SVisibility
+  object SVisibility {
     // actAs and readAs are only included for better error messages.
     final case class NotVisible(
         actAs: Set[Party],
         readAs: Set[Party],
-    ) extends SVisibleByKey
-    final case object Visible extends SVisibleByKey
+    ) extends SVisibility
+    final case object Visible extends SVisibility
 
     def fromSubmitters(
         actAs: Set[Party],
         readAs: Set[Party] = Set.empty,
-    ): Set[Party] => SVisibleByKey = {
+    ): Set[Party] => SVisibility = {
       val readers = actAs union readAs
       stakeholders =>
         if (readers.intersect(stakeholders).nonEmpty) {
-          SVisibleByKey.Visible
+          SVisibility.Visible
         } else {
-          SVisibleByKey.NotVisible(actAs, readAs)
+          SVisibility.NotVisible(actAs, readAs)
         }
     }
   }

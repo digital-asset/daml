@@ -6,7 +6,7 @@ package com.daml.lf.engine
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SResult.SVisibleByKey
+import com.daml.lf.speedy.SResult.SVisibility
 import com.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.daml.lf.value.Value._
 import scalaz.Monad
@@ -48,7 +48,7 @@ sealed trait Result[+A] extends Product with Serializable {
       pcs: ContractId => Option[ContractInst[VersionedValue[ContractId]]],
       packages: PackageId => Option[Package],
       keys: GlobalKeyWithMaintainers => Option[ContractId],
-      localKeyVisible: Set[Party] => VisibleByKey,
+      localKeyVisible: Set[Party] => Visibility,
   ): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
@@ -108,33 +108,33 @@ final case class ResultNeedKey[A](
     resume: Option[ContractId] => Result[A],
 ) extends Result[A]
 
-/** Whether a given contract can be fetched by key, i.e., actAs union readAs
+/** Whether a given contract is visible & can be fetched by key, i.e., actAs union readAs
   *    contains at least one stakeholder.
   */
-sealed trait VisibleByKey {
-  private[engine] def toSVisibleByKey: SVisibleByKey
+sealed trait Visibility {
+  private[engine] def toSVisibility: SVisibility
 }
-object VisibleByKey {
+object Visibility {
 
   /** Contract is not visible, includes actAs and readAs for error reporting
     */
-  final case class NotVisible(actAs: Set[Party], readAs: Set[Party]) extends VisibleByKey {
-    override def toSVisibleByKey = SVisibleByKey.NotVisible(actAs, readAs)
+  final case class NotVisible(actAs: Set[Party], readAs: Set[Party]) extends Visibility {
+    override def toSVisibility = SVisibility.NotVisible(actAs, readAs)
   }
-  final case object Visible extends VisibleByKey {
-    override val toSVisibleByKey = SVisibleByKey.Visible
+  final case object Visible extends Visibility {
+    override val toSVisibility = SVisibility.Visible
   }
 
   def fromSubmitters(
       actAs: Set[Party],
       readAs: Set[Party] = Set.empty,
-  ): Set[Party] => VisibleByKey = {
+  ): Set[Party] => Visibility = {
     val readers = actAs union readAs
     stakeholders =>
       if (readers.intersect(stakeholders).nonEmpty) {
-        VisibleByKey.Visible
+        Visibility.Visible
       } else {
-        VisibleByKey.NotVisible(actAs, readAs)
+        Visibility.NotVisible(actAs, readAs)
       }
   }
 }
@@ -144,7 +144,7 @@ object VisibleByKey {
   */
 final case class ResultNeedLocalKeyVisible[A](
     stakeholders: Set[Party],
-    resume: VisibleByKey => Result[A],
+    resume: Visibility => Result[A],
 ) extends Result[A]
 
 object Result {

@@ -148,7 +148,7 @@ class ContractDiscriminatorFreshnessCheckSpec
         pcs,
         pkgs,
         keyWithMaintainers => keys(keyWithMaintainers.globalKey),
-        VisibleByKey.fromSubmitters(Set(alice)),
+        Visibility.fromSubmitters(Set(alice)),
       )
 
   val engine = Engine.DevEngine()
@@ -332,7 +332,7 @@ class ContractDiscriminatorFreshnessCheckSpec
       val result =
         new preprocessing.Preprocessor(ConcurrentCompiledPackages(speedy.Compiler.Config.Dev))
           .translateTransactionRoots(GenTransaction(newNodes, tx.roots))
-          .consume(_ => None, pkgs, _ => None, _ => VisibleByKey.Visible)
+          .consume(_ => None, pkgs, _ => None, _ => Visibility.Visible)
 
       inside(result) { case Left(Error.Preprocessing(err)) =>
         err shouldBe a[Error.Preprocessing.ContractIdFreshness]
@@ -364,7 +364,7 @@ class ContractDiscriminatorFreshnessCheckSpec
           submissionTime = txMeta.submissionTime,
           submissionSeed = txMeta.submissionSeed.get,
         )
-        .consume(_ => None, pkgs, _ => None, _ => VisibleByKey.Visible) shouldBe a[Right[_, _]]
+        .consume(_ => None, pkgs, _ => None, _ => Visibility.Visible) shouldBe a[Right[_, _]]
     }
 
   }

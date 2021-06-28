@@ -98,7 +98,7 @@ class ReinterpretTest
         lookupContract,
         lookupPackage,
         lookupKey,
-        VisibleByKey.fromSubmitters(submitters),
+        Visibility.fromSubmitters(submitters),
       )
     res match {
       case Right((tx, _)) => Right(tx)

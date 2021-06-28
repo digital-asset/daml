@@ -433,7 +433,7 @@ object ScenarioRunner {
             case Right(_) => go()
           }
         case SResultNeedLocalKeyVisible(stakeholders, committers, cb) =>
-          val visible = SVisibleByKey.fromSubmitters(committers, readAs)(stakeholders)
+          val visible = SVisibility.fromSubmitters(committers, readAs)(stakeholders)
           cb(visible)
           go()
         case SResultNeedTime(callback) =>

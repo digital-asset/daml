@@ -1220,9 +1220,9 @@ private[lf] object SBuiltin {
               stakeholders,
               onLedger.committers,
               {
-                case SVisibleByKey.Visible =>
+                case SVisibility.Visible =>
                   operation.handleActiveKey(machine, coid)
-                case SVisibleByKey.NotVisible(actAs, readAs) =>
+                case SVisibility.NotVisible(actAs, readAs) =>
                   machine.ctrl = SEDamlException(
                     DamlELocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
                   )
