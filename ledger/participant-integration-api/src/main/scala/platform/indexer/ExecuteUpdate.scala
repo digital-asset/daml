@@ -235,8 +235,8 @@ trait ExecuteUpdate {
       update: Update,
   ): LoggingEntries =
     loggingEntriesFor(update) :+
-      "updateRecordTime" -> update.recordTime.toInstant.toString :+
-      "updateOffset" -> offset.toHexString
+      "updateRecordTime" -> update.recordTime.toInstant :+
+      "updateOffset" -> offset
 
   private def loggingEntriesFor(update: Update): LoggingEntries =
     update match {
@@ -348,7 +348,7 @@ trait ExecuteUpdate {
       "maxDeduplicationTime" -> time
 
     def deduplicateUntil(time: Instant): LoggingEntry =
-      "deduplicateUntil" -> time.toString
+      "deduplicateUntil" -> time
 
     def rejectionReason(reason: String): LoggingEntry =
       "rejectionReason" -> reason

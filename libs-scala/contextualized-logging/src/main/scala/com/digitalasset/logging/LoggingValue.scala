@@ -10,11 +10,16 @@ import com.fasterxml.jackson.core.JsonGenerator
 import scala.collection.SeqView
 import scala.language.implicitConversions
 
-sealed trait LoggingValue {
+trait LoggingValue {
   def writeTo(generator: JsonGenerator): Unit
 }
 
 object LoggingValue {
+  final class FromString(value: String) extends LoggingValue {
+    override def writeTo(generator: JsonGenerator): Unit =
+      generator.writeString(value)
+  }
+
   trait ToLoggingValue[-T] {
     def apply(value: T): LoggingValue
   }
@@ -25,26 +30,16 @@ object LoggingValue {
 
   private final class ToStringToLoggingValue[T] extends ToLoggingValue[T] {
     override def apply(value: T): LoggingValue =
-      `String to LoggingValue`(value.toString)
+      new FromString(value.toString)
   }
 
-  implicit val `String to LoggingValue`: ToLoggingValue[String] = value =>
-    new LoggingValue {
-      override def writeTo(generator: JsonGenerator): Unit =
-        generator.writeString(value)
-    }
+  implicit val `String to LoggingValue`: ToLoggingValue[String] = new FromString(_)
 
-  implicit val `Int to LoggingValue`: ToLoggingValue[Int] = value =>
-    new LoggingValue {
-      override def writeTo(generator: JsonGenerator): Unit =
-        generator.writeNumber(value)
-    }
+  implicit val `Int to LoggingValue`: ToLoggingValue[Int] =
+    value => generator => generator.writeNumber(value)
 
-  implicit val `Long to LoggingValue`: ToLoggingValue[Long] = value =>
-    new LoggingValue {
-      override def writeTo(generator: JsonGenerator): Unit =
-        generator.writeNumber(value)
-    }
+  implicit val `Long to LoggingValue`: ToLoggingValue[Long] =
+    value => generator => generator.writeNumber(value)
 
   implicit val `Instant to LoggingValue`: ToLoggingValue[Instant] = new ToStringToLoggingValue
 
@@ -53,30 +48,24 @@ object LoggingValue {
   implicit def `Option[T] to LoggingValue`[T](implicit
       elementToLoggingValue: ToLoggingValue[T]
   ): ToLoggingValue[Option[T]] = {
-    case None =>
-      new LoggingValue {
-        override def writeTo(generator: JsonGenerator): Unit =
-          generator.writeNull()
-      }
+    case None => generator => generator.writeNull()
     case Some(value) => elementToLoggingValue(value)
   }
 
   implicit def `SeqView[T] to LoggingValue`[T](implicit
       elementToLoggingValue: ToLoggingValue[T]
   ): ToLoggingValue[SeqView[T]] =
-    (sequence: SeqView[T]) =>
-      new LoggingValue {
-        override def writeTo(generator: JsonGenerator): Unit = {
-          generator.writeStartArray()
-          sequence.foreach { element =>
-            elementToLoggingValue.apply(element).writeTo(generator)
-          }
-          generator.writeEndArray()
-        }
-      }
+    (sequence: SeqView[T]) => `Iterable[T] to LoggingValue`(elementToLoggingValue).apply(sequence)
 
-  implicit def `Seq[T] to LoggingValue`[T](implicit
+  implicit def `Iterable[T] to LoggingValue`[T](implicit
       elementToLoggingValue: ToLoggingValue[T]
-  ): ToLoggingValue[Seq[T]] =
-    (sequence: Seq[T]) => `SeqView[T] to LoggingValue`(elementToLoggingValue)(sequence.view)
+  ): ToLoggingValue[Iterable[T]] =
+    sequence =>
+      generator => {
+        generator.writeStartArray()
+        sequence.foreach { element =>
+          elementToLoggingValue.apply(element).writeTo(generator)
+        }
+        generator.writeEndArray()
+      }
 }

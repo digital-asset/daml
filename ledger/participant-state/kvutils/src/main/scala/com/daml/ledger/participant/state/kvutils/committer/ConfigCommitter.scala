@@ -38,7 +38,7 @@ private[kvutils] class ConfigCommitter(
   override protected val committerName = "config"
 
   override protected def extraLoggingContext(result: Result): LoggingEntries =
-    LoggingEntries("generation" -> result.submission.getConfiguration.getGeneration.toString)
+    LoggingEntries("generation" -> result.submission.getConfiguration.getGeneration)
 
   override protected def init(
       ctx: CommitContext,

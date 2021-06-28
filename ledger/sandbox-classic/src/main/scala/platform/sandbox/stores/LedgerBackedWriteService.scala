@@ -6,7 +6,7 @@ package com.daml.platform.sandbox.stores
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import com.daml.api.util.TimeProvider
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1.{
   Configuration,
@@ -72,7 +72,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
   // WritePackagesService
   override def uploadPackages(
       submissionId: SubmissionId,
-      payload: List[Archive],
+      payload: List[DamlLf.Archive],
       sourceDescription: Option[String],
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     withEnrichedLoggingContext(
@@ -81,8 +81,7 @@ private[stores] final class LedgerBackedWriteService(ledger: Ledger, timeProvide
       "packageHashes" -> payload.view.map(_.getHash),
     ) { implicit loggingContext =>
       FutureConverters.toJava(
-        ledger
-          .uploadPackages(submissionId, timeProvider.getCurrentTime, sourceDescription, payload)
+        ledger.uploadPackages(submissionId, timeProvider.getCurrentTime, sourceDescription, payload)
       )
     }
 

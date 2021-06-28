@@ -203,7 +203,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed] =
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadConfigurationEntries) {
           implicit connection =>
             SQL(queries.SQL_GET_CONFIGURATION_ENTRIES)
@@ -412,7 +412,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] = {
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPartyEntries) { implicit connection =>
           SQL(queries.SQL_GET_PARTY_ENTRIES)
             .on(
@@ -787,7 +787,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed] =
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPackageEntries) { implicit connection =>
           SQL(queries.SQL_GET_PACKAGE_ENTRIES)
             .on(

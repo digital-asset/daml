@@ -35,8 +35,8 @@ object IndexerLoggingContext {
       update: Update,
   ): LoggingEntries =
     loggingEntriesFor(update) :+
-      "updateRecordTime" -> update.recordTime.toInstant.toString :+
-      "updateOffset" -> offset.toHexString
+      "updateRecordTime" -> update.recordTime.toInstant :+
+      "updateOffset" -> offset
 
   private def loggingEntriesFor(update: Update): LoggingEntries =
     update match {

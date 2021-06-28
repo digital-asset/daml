@@ -16,41 +16,30 @@ import com.daml.ledger.api.domain.{
 }
 import com.daml.ledger.api.v1.transaction_filter.Filters
 import com.daml.logging.{LoggingEntries, LoggingEntry, LoggingValue}
-import net.logstash.logback.argument.StructuredArguments
 import scalaz.syntax.tag.ToTagOps
 
 package object logging {
 
   private[services] def parties(parties: Iterable[String]): LoggingEntry =
-    "parties" -> StructuredArguments.toString(parties.toArray)
+    "parties" -> parties
 
   private[services] def party(party: String): LoggingEntry =
-    "parties" -> StructuredArguments.toString(Array(party))
+    "parties" -> Seq(party)
 
   private[services] def actAs(parties: Iterable[String]): LoggingEntry =
-    "actAs" -> StructuredArguments.toString(parties.toArray)
+    "actAs" -> parties
 
   private[services] def readAs(parties: Iterable[String]): LoggingEntry =
-    "readAs" -> StructuredArguments.toString(parties.toArray)
+    "readAs" -> parties
 
-  private[services] def startExclusive(o: LedgerOffset): LoggingEntry =
-    "startExclusive" -> offsetValue(o)
+  private[services] def startExclusive(offset: LedgerOffset): LoggingEntry =
+    "startExclusive" -> offset
 
-  private[services] def endInclusive(o: Option[LedgerOffset]): LoggingEntry =
-    "endInclusive" -> nullableOffsetValue(o)
+  private[services] def endInclusive(offset: Option[LedgerOffset]): LoggingEntry =
+    "endInclusive" -> offset
 
-  private[services] def offset(o: Option[LedgerOffset]): LoggingEntry =
-    "offset" -> nullableOffsetValue(o)
-
-  private[this] def nullableOffsetValue(o: Option[LedgerOffset]): String =
-    o.fold("")(offsetValue)
-
-  private[this] def offsetValue(o: LedgerOffset): String =
-    o match {
-      case LedgerOffset.Absolute(absolute) => absolute
-      case LedgerOffset.LedgerBegin => "%begin%"
-      case LedgerOffset.LedgerEnd => "%end%"
-    }
+  private[services] def offset(offset: Option[LedgerOffset]): LoggingEntry =
+    "offset" -> offset
 
   private[services] def applicationId(id: ApplicationId): LoggingEntry =
     "applicationId" -> id.unwrap
@@ -61,8 +50,8 @@ package object logging {
   private[services] def commandId(id: CommandId): LoggingEntry =
     "commandId" -> id.unwrap
 
-  private[services] def deduplicateUntil(t: Instant): LoggingEntry =
-    "deduplicateUntil" -> t.toString
+  private[services] def deduplicateUntil(instant: Instant): LoggingEntry =
+    "deduplicateUntil" -> instant
 
   private[services] def eventId(id: EventId): LoggingEntry =
     "eventId" -> id.unwrap
@@ -82,7 +71,7 @@ package object logging {
     "submissionId" -> id
 
   private[services] def submittedAt(t: Instant): LoggingEntry =
-    "submittedAt" -> t.toString
+    "submittedAt" -> t
 
   private[services] def transactionId(id: String): LoggingEntry =
     "transactionId" -> id

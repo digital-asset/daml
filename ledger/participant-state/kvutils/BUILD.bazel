@@ -63,6 +63,7 @@ da_scala_library(
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
         "//libs-scala/timer-utils",
+        "@maven//:com_fasterxml_jackson_core_jackson_core",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_dropwizard_metrics_metrics_core",
