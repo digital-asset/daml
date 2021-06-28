@@ -767,7 +767,13 @@ class EngineTest
 
     "fail at submission" in {
       val submitResult = engine
-        .submit(submitters, readAs, Commands(ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(
+          submitters,
+          readAs,
+          Commands(ImmArray(command), let, "test"),
+          participant,
+          submissionSeed,
+        )
         .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
       inside(submitResult) { case Left(Error.Interpretation(err, _)) =>
         err shouldBe Interpretation.DamlException(
