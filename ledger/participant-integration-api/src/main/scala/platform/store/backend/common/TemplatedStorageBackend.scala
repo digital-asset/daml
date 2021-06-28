@@ -24,6 +24,7 @@ import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import scala.collection.compat.immutable.ArraySeq
 
 private[backend] object TemplatedStorageBackend {
+  import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
 
   private val sharedCompletionColumns: RowParser[Offset ~ Instant ~ String] =
     offset("completion_offset") ~ instant("record_time") ~ str("command_id")
@@ -88,6 +89,7 @@ private[backend] object TemplatedStorageBackend {
       contractId: ContractId,
   )(connection: Connection): Option[StorageBackend.RawContract] = {
     import com.daml.platform.store.Conversions.ContractIdToStatement
+
     SQL"""
   WITH archival_event AS (
          SELECT participant_events.*
@@ -96,7 +98,7 @@ private[backend] object TemplatedStorageBackend {
             AND event_kind = 20  -- consuming exercise
             AND event_sequential_id <= parameters.ledger_end_sequential_id
             AND #$treeEventWitnessesWhereClause  -- only use visible archivals
-          LIMIT 1
+          FETCH NEXT 1 ROW ONLY
        ),
        create_event AS (
          SELECT contract_id, template_id, create_argument, create_argument_compression
@@ -105,7 +107,7 @@ private[backend] object TemplatedStorageBackend {
             AND event_kind = 10  -- create
             AND event_sequential_id <= parameters.ledger_end_sequential_id
             AND #$treeEventWitnessesWhereClause
-          LIMIT 1 -- limit here to guide planner wrt expected number of results
+          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
        ),
        -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
        create_event_unrestricted AS (
@@ -114,7 +116,7 @@ private[backend] object TemplatedStorageBackend {
           WHERE contract_id = $contractId
             AND event_kind = 10  -- create
             AND event_sequential_id <= parameters.ledger_end_sequential_id
-          LIMIT 1 -- limit here to guide planner wrt expected number of results
+          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
          SELECT divulgence_events.contract_id,
@@ -126,7 +128,7 @@ private[backend] object TemplatedStorageBackend {
                 COALESCE(divulgence_events.template_id, create_event_unrestricted.template_id),
                 COALESCE(divulgence_events.create_argument, create_event_unrestricted.create_argument),
                 COALESCE(divulgence_events.create_argument_compression, create_event_unrestricted.create_argument_compression)
-           FROM participant_events AS divulgence_events LEFT OUTER JOIN create_event_unrestricted USING (contract_id),
+           FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id),
                 parameters
           WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
             AND divulgence_events.event_kind = 0 -- divulgence
@@ -135,7 +137,7 @@ private[backend] object TemplatedStorageBackend {
           ORDER BY divulgence_events.event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
             -- Results might still change due to pruning.
-          LIMIT 1
+          FETCH NEXT 1 ROW ONLY
        ),
        create_and_divulged_contracts AS (
          (SELECT * FROM create_event)   -- prefer create over divulgance events
@@ -145,7 +147,7 @@ private[backend] object TemplatedStorageBackend {
   SELECT contract_id, template_id, create_argument, create_argument_compression
     FROM create_and_divulged_contracts
    WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   LIMIT 1;"""
+   FETCH NEXT 1 ROW ONLY"""
       .as(contractRowParser.singleOpt)(connection)
   }
 
@@ -165,7 +167,7 @@ private[backend] object TemplatedStorageBackend {
             AND event_kind = 20  -- consuming exercise
             AND event_sequential_id <= parameters.ledger_end_sequential_id
             AND #$treeEventWitnessesWhereClause  -- only use visible archivals
-          LIMIT 1
+          FETCH NEXT 1 ROW ONLY
        ),
        create_event AS (
          SELECT contract_id, template_id
@@ -174,7 +176,7 @@ private[backend] object TemplatedStorageBackend {
             AND event_kind = 10  -- create
             AND event_sequential_id <= parameters.ledger_end_sequential_id
             AND #$treeEventWitnessesWhereClause
-          LIMIT 1 -- limit here to guide planner wrt expected number of results
+          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
        ),
        -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
        create_event_unrestricted AS (
@@ -183,7 +185,7 @@ private[backend] object TemplatedStorageBackend {
           WHERE contract_id = $contractId
             AND event_kind = 10  -- create
             AND event_sequential_id <= parameters.ledger_end_sequential_id
-          LIMIT 1 -- limit here to guide planner wrt expected number of results
+          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
          SELECT divulgence_events.contract_id,
@@ -193,7 +195,7 @@ private[backend] object TemplatedStorageBackend {
                 -- therefore only communicates the change in visibility to the IndexDB, but
                 -- does not include a full divulgence event.
                 COALESCE(divulgence_events.template_id, create_event_unrestricted.template_id)
-           FROM participant_events AS divulgence_events LEFT OUTER JOIN create_event_unrestricted USING (contract_id),
+           FROM participant_events divulgence_events LEFT OUTER JOIN create_event_unrestricted ON (divulgence_events.contract_id = create_event_unrestricted.contract_id),
                 parameters
           WHERE divulgence_events.contract_id = $contractId -- restrict to aid query planner
             AND divulgence_events.event_kind = 0 -- divulgence
@@ -202,7 +204,7 @@ private[backend] object TemplatedStorageBackend {
           ORDER BY divulgence_events.event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
             -- Results might still change due to pruning.
-          LIMIT 1
+          FETCH NEXT 1 ROW ONLY
        ),
        create_and_divulged_contracts AS (
          (SELECT * FROM create_event)   -- prefer create over divulgence events
@@ -212,7 +214,7 @@ private[backend] object TemplatedStorageBackend {
   SELECT contract_id, template_id
     FROM create_and_divulged_contracts
    WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   LIMIT 1;
+   FETCH NEXT 1 ROW ONLY
            """.as(contractWithoutValueRowParser.singleOpt)(connection)
   }
 
@@ -229,7 +231,7 @@ private[backend] object TemplatedStorageBackend {
             AND event_sequential_id <= parameters.ledger_end_sequential_id
                 -- do NOT check visibility here, as otherwise we do not abort the scan early
           ORDER BY event_sequential_id DESC
-          LIMIT 1
+          FETCH NEXT 1 ROW ONLY
        )
   SELECT contract_id
     FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
@@ -241,7 +243,7 @@ private[backend] object TemplatedStorageBackend {
              AND event_sequential_id <= parameters.ledger_end_sequential_id
              AND #${flatEventWitnesses("participant_events")}
              AND contract_id = last_contract_key_create.contract_id
-         );
+         )
        """.as(contractId("contract_id").singleOpt)(connection)
   }
 
@@ -320,7 +322,8 @@ private[backend] object TemplatedStorageBackend {
     SharedRow ~ Boolean ~ String ~ InputStream ~ Option[Int] ~ Option[InputStream] ~ Option[Int] ~
       Array[String] ~ Array[String]
 
-  private val exercisedEventRow: RowParser[ExercisedEventRow] =
+  private val exercisedEventRow: RowParser[ExercisedEventRow] = {
+    import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
     sharedRow ~
       bool("exercise_consuming") ~
       str("exercise_choice") ~
@@ -330,6 +333,7 @@ private[backend] object TemplatedStorageBackend {
       int("exercise_result_compression").? ~
       array[String]("exercise_actors") ~
       array[String]("exercise_child_event_ids")
+  }
 
   private type ArchiveEventRow = SharedRow
 
@@ -399,11 +403,15 @@ private[backend] object TemplatedStorageBackend {
       witnessesWhereClause: String,
       limitExpr: String,
       fetchSizeHint: Option[Int],
+      submitterIsPartyClause: String => (String, String),
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
+    val (submitterIsPartyClausePrefix, submitterIsPartyClausePostfix) = submitterIsPartyClause(
+      "submitters"
+    )
     SQL"""
-            select #$selectColumnsForTransactions, array[$party] as event_witnesses,
-                   case when submitters = #${partyArrayContext._1}$party#${partyArrayContext._2} then command_id else '' end as command_id
+            select #$selectColumnsForTransactions, #${partyArrayContext._1}$party#${partyArrayContext._2} as event_witnesses,
+                   case when #$submitterIsPartyClausePrefix$party#$submitterIsPartyClausePostfix then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > $startExclusive
                   and event_sequential_id <= $endInclusive
@@ -422,12 +430,16 @@ private[backend] object TemplatedStorageBackend {
       templateIds: Set[Ref.Identifier],
       limitExpr: String,
       fetchSizeHint: Option[Int],
+      submitterIsPartyClause: String => (String, String),
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.IdentifierToStatement
+    val (submitterIsPartyClausePrefix, submitterIsPartyClausePostfix) = submitterIsPartyClause(
+      "submitters"
+    )
     SQL"""
-            select #$selectColumnsForTransactions, array[$party] as event_witnesses,
-                   case when submitters = #${partyArrayContext._1}$party#${partyArrayContext._2} then command_id else '' end as command_id
+            select #$selectColumnsForTransactions, #${partyArrayContext._1}$party#${partyArrayContext._2} as event_witnesses,
+                   case when #$submitterIsPartyClausePrefix$party#$submitterIsPartyClausePostfix then command_id else '' end as command_id
             from participant_events
             where event_sequential_id > $startExclusive
                   and event_sequential_id <= $endInclusive
@@ -535,18 +547,22 @@ private[backend] object TemplatedStorageBackend {
       witnessesWhereClause: String,
       limitExpr: String,
       fetchSizeHint: Option[Int],
+      submitterIsPartyClause: String => (String, String),
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL"""select #$selectColumnsForACS, array[$party] as event_witnesses,
-                   case when active_cs.submitters = #${partyArrayContext._1}$party#${partyArrayContext._2} then active_cs.command_id else '' end as command_id
-            from participant_events as active_cs
+    val (submitterIsPartyClausePrefix, submitterIsPartyClausePostfix) = submitterIsPartyClause(
+      "active_cs.submitters"
+    )
+    SQL"""select #$selectColumnsForACS, #${partyArrayContext._1}$party#${partyArrayContext._2} as event_witnesses,
+                   case when #$submitterIsPartyClausePrefix$party#$submitterIsPartyClausePostfix then command_id else '' end as command_id
+            from participant_events active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > $startExclusive
                   and active_cs.event_sequential_id <= $endInclusiveSeq
                   and not exists (
                     select 1
-                    from participant_events as archived_cs
+                    from participant_events archived_cs
                     where
                       archived_cs.contract_id = active_cs.contract_id and
                       archived_cs.event_kind = 20 and -- consuming
@@ -568,19 +584,23 @@ private[backend] object TemplatedStorageBackend {
       witnessesWhereClause: String,
       limitExpr: String,
       fetchSizeHint: Option[Int],
+      submitterIsPartyClause: String => (String, String),
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.OffsetToStatement
     import com.daml.platform.store.Conversions.IdentifierToStatement
-    SQL"""select #$selectColumnsForACS, array[$party] as event_witnesses,
-                   case when active_cs.submitters = #${partyArrayContext._1}$party#${partyArrayContext._2} then active_cs.command_id else '' end as command_id
-            from participant_events as active_cs
+    val (submitterIsPartyClausePrefix, submitterIsPartyClausePostfix) = submitterIsPartyClause(
+      "active_cs.submitters"
+    )
+    SQL"""select #$selectColumnsForACS, #${partyArrayContext._1}$party#${partyArrayContext._2} as event_witnesses,
+                   case when #$submitterIsPartyClausePrefix$party#$submitterIsPartyClausePostfix then command_id else '' end as command_id
+            from participant_events active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > $startExclusive
                   and active_cs.event_sequential_id <= $endInclusiveSeq
                   and not exists (
                     select 1
-                    from participant_events as archived_cs
+                    from participant_events archived_cs
                     where
                       archived_cs.contract_id = active_cs.contract_id and
                       archived_cs.event_kind = 20 and -- consuming
@@ -606,13 +626,13 @@ private[backend] object TemplatedStorageBackend {
     import com.daml.platform.store.Conversions.OffsetToStatement
     SQL"""select #$selectColumnsForACS, #$filteredWitnessesClause as event_witnesses,
                    case when #$submittersInPartiesClause then active_cs.command_id else '' end as command_id
-            from participant_events as active_cs
+            from participant_events active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > $startExclusive
                   and active_cs.event_sequential_id <= $endInclusiveSeq
                   and not exists (
                     select 1
-                    from participant_events as archived_cs
+                    from participant_events archived_cs
                     where
                       archived_cs.contract_id = active_cs.contract_id and
                       archived_cs.event_kind = 20 and -- consuming
@@ -639,13 +659,13 @@ private[backend] object TemplatedStorageBackend {
     import com.daml.platform.store.Conversions.IdentifierToStatement
     SQL"""select #$selectColumnsForACS, #$filteredWitnessesClause as event_witnesses,
                    case when #$submittersInPartiesClause then active_cs.command_id else '' end as command_id
-            from participant_events as active_cs
+            from participant_events active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > $startExclusive
                   and active_cs.event_sequential_id <= $endInclusiveSeq
                   and not exists (
                     select 1
-                    from participant_events as archived_cs
+                    from participant_events archived_cs
                     where
                       archived_cs.contract_id = active_cs.contract_id and
                       archived_cs.event_kind = 20 and -- consuming
@@ -671,13 +691,13 @@ private[backend] object TemplatedStorageBackend {
     import com.daml.platform.store.Conversions.OffsetToStatement
     SQL"""select #$selectColumnsForACS, #$filteredWitnessesClause as event_witnesses,
                    case when #$submittersInPartiesClause then active_cs.command_id else '' end as command_id
-            from participant_events as active_cs
+            from participant_events active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > $startExclusive
                   and active_cs.event_sequential_id <= $endInclusiveSeq
                   and not exists (
                     select 1
-                    from participant_events as archived_cs
+                    from participant_events archived_cs
                     where
                       archived_cs.contract_id = active_cs.contract_id and
                       archived_cs.event_kind = 20 and -- consuming
@@ -703,13 +723,13 @@ private[backend] object TemplatedStorageBackend {
     import com.daml.platform.store.Conversions.OffsetToStatement
     SQL"""select #$selectColumnsForACS, #$filteredWitnessesClause as event_witnesses,
                    case when #$submittersInPartiesClause then active_cs.command_id else '' end as command_id
-            from participant_events as active_cs
+            from participant_events active_cs
             where active_cs.event_kind = 10 -- create
                   and active_cs.event_sequential_id > $startExclusive
                   and active_cs.event_sequential_id <= $endInclusiveSeq
                   and not exists (
                     select 1
-                    from participant_events as archived_cs
+                    from participant_events archived_cs
                     where
                       archived_cs.contract_id = active_cs.contract_id and
                       archived_cs.event_kind = 20 and -- consuming
@@ -726,11 +746,15 @@ private[backend] object TemplatedStorageBackend {
       requestingParty: Ref.Party,
       partyArrayContext: (String, String),
       witnessesWhereClause: String,
+      submitterIsPartyClause: String => (String, String),
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.ledgerStringToStatement
-    SQL"""select #$selectColumnsForTransactions, array[$requestingParty] as event_witnesses,
-                 case when submitters = #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} then command_id else '' end as command_id
+    val (submitterIsPartyClausePrefix, submitterIsPartyClausePostfix) = submitterIsPartyClause(
+      "submitters"
+    )
+    SQL"""select #$selectColumnsForTransactions, #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} as event_witnesses,
+          case when #$submitterIsPartyClausePrefix$requestingParty#$submitterIsPartyClausePostfix then command_id else '' end as command_id
           from participant_events
           join parameters on
               (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
@@ -850,12 +874,17 @@ private[backend] object TemplatedStorageBackend {
       requestingParty: Ref.Party,
       partyArrayContext: (String, String),
       witnessesWhereClause: String,
+      createEventFilter: String,
+      submitterIsPartyClause: String => (String, String),
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
     import com.daml.platform.store.Conversions.ledgerStringToStatement
-    SQL"""select #$selectColumnsForTransactionTree, array[$requestingParty] as event_witnesses,
-                 event_kind = 20 as exercise_consuming,
-                 case when submitters = #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} then command_id else '' end as command_id
+    val (submitterIsPartyClausePrefix, submitterIsPartyClausePostfix) = submitterIsPartyClause(
+      "submitters"
+    )
+    SQL"""select #$selectColumnsForTransactionTree, #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} as event_witnesses,
+                 #$createEventFilter as exercise_consuming,
+                 case when #$submitterIsPartyClausePrefix$requestingParty#$submitterIsPartyClausePostfix then command_id else '' end as command_id
           from participant_events
           join parameters on
               (participant_pruned_up_to_inclusive is null or event_offset > participant_pruned_up_to_inclusive)
@@ -870,10 +899,11 @@ private[backend] object TemplatedStorageBackend {
       witnessesWhereClause: String,
       submittersInPartiesClause: String,
       filteredWitnessesClause: String,
+      createEventFilter: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     import com.daml.platform.store.Conversions.ledgerStringToStatement
     SQL"""select #$selectColumnsForTransactionTree, #$filteredWitnessesClause as event_witnesses,
-                 event_kind = 20 as exercise_consuming,
+                 #$createEventFilter as exercise_consuming,
                  case when #$submittersInPartiesClause then command_id else '' end as command_id
           from participant_events
           join parameters on
@@ -892,12 +922,17 @@ private[backend] object TemplatedStorageBackend {
       witnessesWhereClause: String,
       limitExpr: String,
       fetchSizeHint: Option[Int],
+      createEventFilter: String,
+      submitterIsPartyClause: String => (String, String),
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     import com.daml.platform.store.Conversions.partyToStatement
+    val (submitterIsPartyClausePrefix, submitterIsPartyClausePostfix) = submitterIsPartyClause(
+      "submitters"
+    )
     SQL"""
-        select #$selectColumnsForTransactionTree, array[$requestingParty] as event_witnesses,
-               event_kind = 20 as exercise_consuming,
-               case when submitters = #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} then command_id else '' end as command_id
+        select #$selectColumnsForTransactionTree, #${partyArrayContext._1}$requestingParty#${partyArrayContext._2} as event_witnesses,
+               #$createEventFilter as exercise_consuming,
+               case when #$submitterIsPartyClausePrefix$requestingParty#$submitterIsPartyClausePostfix then command_id else '' end as command_id
         from participant_events
         where event_sequential_id > $startExclusive
               and event_sequential_id <= $endInclusive
@@ -916,10 +951,11 @@ private[backend] object TemplatedStorageBackend {
       submittersInPartiesClause: String,
       limitExpr: String,
       fetchSizeHint: Option[Int],
+      createEventFilter: String,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]] = {
     SQL"""
         select #$selectColumnsForTransactionTree, #$filteredWitnessesClause as event_witnesses,
-               event_kind = 20 as exercise_consuming,
+               #$createEventFilter as exercise_consuming,
                case when #$submittersInPartiesClause then command_id else '' end as command_id
         from participant_events
         where event_sequential_id > $startExclusive

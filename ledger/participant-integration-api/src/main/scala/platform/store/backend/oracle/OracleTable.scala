@@ -1,13 +1,12 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.platform.store.backend.h2
+package com.daml.platform.store.backend.oracle
 
 import java.sql.Connection
-
 import com.daml.platform.store.backend.common.{BaseTable, Field, Table}
 
-private[h2] object H2Table {
+private[oracle] object OracleTable {
   private def idempotentBatchedInsertBase[FROM](
       insertStatement: String,
       keyFieldIndex: Int,
@@ -53,7 +52,7 @@ private[h2] object H2Table {
     }
     val keyFieldName = fields(keyFieldIndex)._1
     val keyFieldSelectExpression = fields(keyFieldIndex)._2.selectFieldExpression("?")
-    s"""MERGE INTO $tableName USING DUAL on $keyFieldName = $keyFieldSelectExpression
+    s"""MERGE INTO $tableName USING DUAL on ($keyFieldName = $keyFieldSelectExpression)
        |WHEN NOT MATCHED THEN INSERT ($tableFields)
        |VALUES ($selectFields)
        |""".stripMargin

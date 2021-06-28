@@ -129,6 +129,7 @@ private[backend] object H2StorageBackend
       witnessesWhereClause = arrayIntersectionWhereClause("flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submitterIsPartyClause = submittersIsPartyClause,
     )(connection)
 
   def transactionsEventsSinglePartyWithTemplates(
@@ -148,6 +149,7 @@ private[backend] object H2StorageBackend
       templateIds = templateIds,
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submitterIsPartyClause = submittersIsPartyClause,
     )(connection)
 
   def transactionsEventsOnlyWildcardParties(
@@ -246,6 +248,7 @@ private[backend] object H2StorageBackend
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submitterIsPartyClause = submittersIsPartyClause,
     )(connection)
 
   def activeContractsEventsSinglePartyWithTemplates(
@@ -268,6 +271,7 @@ private[backend] object H2StorageBackend
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      submitterIsPartyClause = submittersIsPartyClause,
     )(connection)
 
   def activeContractsEventsOnlyWildcardParties(
@@ -373,6 +377,7 @@ private[backend] object H2StorageBackend
       partyArrayContext = partyArrayContext,
       witnessesWhereClause =
         arrayIntersectionWhereClause("flat_event_witnesses", Set(requestingParty)),
+      submitterIsPartyClause = submittersIsPartyClause,
     )(connection)
 
   def flatTransactionMultiParty(
@@ -396,6 +401,8 @@ private[backend] object H2StorageBackend
       partyArrayContext = partyArrayContext,
       witnessesWhereClause =
         arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
+      submitterIsPartyClause = submittersIsPartyClause,
     )(connection)
 
   def transactionTreeMultiParty(
@@ -408,6 +415,7 @@ private[backend] object H2StorageBackend
         arrayIntersectionWhereClause("tree_event_witnesses", requestingParties),
       submittersInPartiesClause = arrayIntersectionWhereClause("submitters", requestingParties),
       filteredWitnessesClause = arrayIntersectionValues("tree_event_witnesses", requestingParties),
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
     )(connection)
 
   def transactionTreeEventsSingleParty(
@@ -426,6 +434,8 @@ private[backend] object H2StorageBackend
         arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
+      submitterIsPartyClause = submittersIsPartyClause,
     )(connection)
 
   def transactionTreeEventsMultiParty(
@@ -444,6 +454,7 @@ private[backend] object H2StorageBackend
       submittersInPartiesClause = arrayIntersectionWhereClause("submitters", requestingParties),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
+      createEventFilter = columnEqualityBoolean("event_kind", "20"),
     )(connection)
 
   // TODO FIXME: this is for postgres not for H2
@@ -458,7 +469,9 @@ private[backend] object H2StorageBackend
 
   private def format(parties: Set[Party]): String = parties.view.map(p => s"'$p'").mkString(",")
 
-  private def limitClause(to: Option[Int]): String = to.map(to => s"limit $to").getOrElse("")
+  // TODO append-only: this seems to be the same for all db backends, let's unify
+  private def limitClause(to: Option[Int]): String =
+    to.map(to => s"fetch next $to rows only").getOrElse("")
 
   private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
     if (parties.isEmpty)
@@ -480,4 +493,9 @@ private[backend] object H2StorageBackend
       .mkString("(", " or ", ")")
 
   private val partyArrayContext = ("array[", "]")
+
+  private def columnEqualityBoolean(column: String, value: String) = s"""$column = $value"""
+
+  private def submittersIsPartyClause(submittersColumnName: String): (String, String) =
+    (s"$submittersColumnName = array[", "]")
 }

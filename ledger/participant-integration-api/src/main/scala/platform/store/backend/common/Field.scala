@@ -4,6 +4,7 @@
 package com.daml.platform.store.backend.common
 
 import java.lang
+import java.sql.PreparedStatement
 import java.time.Instant
 
 import scala.reflect.ClassTag
@@ -27,6 +28,20 @@ private[backend] abstract class Field[FROM, TO, CONVERTED](implicit
     input.view
       .map(extract andThen convert)
       .toArray(classTag)
+
+  final def prepareData(preparedStatement: PreparedStatement, index: Int, value: Any): Unit =
+    prepareDataTemplate(
+      preparedStatement,
+      index,
+      value.asInstanceOf[CONVERTED],
+    ) // this cast is safe by design
+
+  def prepareDataTemplate(
+      preparedStatement: PreparedStatement,
+      index: Int,
+      value: CONVERTED,
+  ): Unit =
+    preparedStatement.setObject(index, value)
 }
 
 private[backend] abstract class TrivialField[FROM, TO](implicit classTag: ClassTag[TO])

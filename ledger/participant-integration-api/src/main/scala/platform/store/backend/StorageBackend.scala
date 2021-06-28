@@ -6,7 +6,6 @@ package com.daml.platform.store.backend
 import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
-
 import com.daml.ledger.{ApplicationId, TransactionId}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -20,6 +19,7 @@ import com.daml.platform.store.DbType
 import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
 import com.daml.platform.store.backend.h2.H2StorageBackend
+import com.daml.platform.store.backend.oracle.OracleStorageBackend
 import com.daml.platform.store.backend.postgresql.PostgresStorageBackend
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
@@ -393,6 +393,6 @@ object StorageBackend {
     dbType match {
       case DbType.H2Database => H2StorageBackend
       case DbType.Postgres => PostgresStorageBackend
-      case DbType.Oracle => throw new UnsupportedOperationException("Oracle not supported yet")
+      case DbType.Oracle => OracleStorageBackend
     }
 }

@@ -9,6 +9,7 @@ load(
     "silencer_plugin",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+load("@oracle//:index.bzl", "oracle_testing")
 
 supported_databases = [
     {
@@ -193,6 +194,7 @@ da_scala_library(
         "//ledger/participant-state/kvutils:kvutils-tests-lib",
         "//ledger/participant-state/kvutils/app",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
@@ -324,6 +326,19 @@ da_scala_test_suite(
     for db in supported_databases
 ]
 
+da_scala_binary(
+    name = "conformance-test-oracle-bin",
+    main_class = "com.daml.ledger.on.sql.MainWithEphemeralOracleUser",
+    visibility = ["//visibility:public"],
+    runtime_deps = [
+        "@maven//:com_oracle_database_jdbc_ojdbc8",
+    ],
+    deps = [
+        ":ledger-on-sql",
+        ":ledger-on-sql-test-lib",
+    ],
+)
+
 conformance_test(
     name = "conformance-test-append-only-postgres",
     ports = [6865],
@@ -356,6 +371,36 @@ conformance_test(
         "--verbose",
         "--concurrent-test-runs=2",
         "--timeout-scale-factor=4",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-oracle",
+    ports = [6865],
+    server = ":conformance-test-oracle-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
+    ],
+    tags = [] if oracle_testing else ["manual"],
+    test_tool_args = [
+        "--verbose",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-oracle",
+    ports = [6865],
+    server = ":conformance-test-oracle-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+    ],
+    tags = [] if oracle_testing else ["manual"],
+    test_tool_args = [
+        "--verbose",
     ],
 )
 
@@ -414,6 +459,38 @@ conformance_test(
 )
 
 conformance_test(
+    name = "conformance-test-append-only-pruning-oracle",
+    ports = [6865],
+    server = ":conformance-test-oracle-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
+    ],
+    tags = [] if oracle_testing else ["manual"],
+    test_tool_args = [
+        "--verbose",
+        "--include=ParticipantPruningIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-pruning-oracle",
+    ports = [6865],
+    server = ":conformance-test-oracle-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+    ],
+    tags = [] if oracle_testing else ["manual"],
+    test_tool_args = [
+        "--verbose",
+        "--include=ParticipantPruningIT",
+    ],
+)
+
+conformance_test(
     name = "conformance-test-append-only-multi-party-submission-postgres",
     ports = [6865],
     server = ":conformance-test-postgresql-bin",
@@ -446,6 +523,38 @@ conformance_test(
         "--verbose",
         "--concurrent-test-runs=2",
         "--timeout-scale-factor=4",
+        "--include=MultiPartySubmissionIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-multi-party-submission-oracle",
+    ports = [6865],
+    server = ":conformance-test-oracle-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
+    ],
+    tags = [] if oracle_testing else ["manual"],
+    test_tool_args = [
+        "--verbose",
+        "--include=MultiPartySubmissionIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-multi-party-submission-oracle",
+    ports = [6865],
+    server = ":conformance-test-oracle-bin",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+    ],
+    tags = [] if oracle_testing else ["manual"],
+    test_tool_args = [
+        "--verbose",
         "--include=MultiPartySubmissionIT",
     ],
 )
