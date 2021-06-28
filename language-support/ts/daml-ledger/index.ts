@@ -83,8 +83,12 @@ export type ArchiveEvent<T extends object, I extends string = string> = {
  * @typeparam I The contract id type.
  */
 export type Event<T extends object, K = unknown, I extends string = string> =
-  | { created: CreateEvent<T, K, I> }
-  | { archived: ArchiveEvent<T, I> }
+  | { created: CreateEvent<T, K, I>, matchedQueries: number[] }
+  | { archived: ArchiveEvent<T, I> };
+
+function isCreate<T extends object, K = unknown, I extends string = string>(event: Event<T, K, I>): event is { created: CreateEvent<T, K, I>, matchedQueries: number[] } {
+    return isRecordWith('created', event);
+}
 
 /**
  * Decoder for a [[CreateEvent]].
@@ -127,7 +131,7 @@ const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEvent<object>> =
  * Decoder for an [[Event]].
  */
 const decodeEvent = <T extends object, K, I extends string>(template: Template<T, K, I>): jtv.Decoder<Event<T, K, I>> => jtv.oneOf<Event<T, K, I>>(
-  jtv.object({created: decodeCreateEvent(template)}),
+  jtv.object({created: decodeCreateEvent(template), matchedQueries: jtv.array(jtv.number())}),
   jtv.object({archived: decodeArchiveEvent(template)}),
 );
 
@@ -135,7 +139,7 @@ const decodeEvent = <T extends object, K, I extends string>(template: Template<T
  * Decoder for an [[Event]] with unknown contract template.
  */
 const decodeEventUnknown: jtv.Decoder<Event<object>> = jtv.oneOf<Event<object>>(
-  jtv.object({created: decodeCreateEventUnknown}),
+  jtv.object({created: decodeCreateEventUnknown, matchedQueries: jtv.array(jtv.number())}),
   jtv.object({archived: decodeArchiveEventUnknown}),
 );
 
@@ -196,9 +200,7 @@ export type Query<T> = T extends object ? {[K in keyof T]?: Query<T[K]>} : T;
  * queries. As long as that restriction stays, there is no need for any kind of
  * encoding here.
  */
-function encodeQuery<T extends object, K, I extends string>(template: Template<T, K, I>, query?: Query<T>): unknown {
-  // I could not get the "unused" warning silenced, but this seems to count as "used"
-  [template];
+function encodeQuery<T extends object, K, I extends string>(_template: Template<T, K, I>, query?: Query<T>): unknown {
   return query;
 }
 
@@ -327,6 +329,212 @@ type LedgerOptions = {
    * reconnect, else not.
    */
   reconnectThreshold?: number;
+}
+
+class StreamEventEmitter<T extends object, K, I extends string, State> extends EventEmitter implements Stream<T, K, I, State> {
+
+    /** Passed at construction time, called _before_ the 'close' event is emitted */
+    private readonly beforeClosing: () => void;
+
+    constructor({beforeClosing}: { beforeClosing: () => void }) {
+        super();
+        this.beforeClosing = beforeClosing;
+    }
+
+    close(): void {
+        this.beforeClosing();
+        this.emit('close', { code: 4000, reason: "called .close()" });
+        this.removeAllListeners();
+    }
+
+}
+
+type QueryResponseStream<T extends object, K, I extends string> = StreamEventEmitter<T, K, I, readonly CreateEvent<T, K, I>[]>;
+
+type StreamingQuery<T extends object, K, I extends string> = {
+    template: Template<T, K, I>,
+    queries: Query<T>[],
+    stream: QueryResponseStream<T, K, I>,
+    offset?: string,
+    state: Map<ContractId<T>, CreateEvent<T, K, I>>, // all JavaScript Map iterators preserve insertion order
+}
+
+type StreamingQueryRequest = {
+    templateIds: string[],
+    query?: object,
+    offset?: string,
+};
+
+function append<K, V>(map: Map<K, V[]>, key: K, value: V): void {
+    if (map.has(key)) {
+        map.get(key)!.push(value);
+    } else {
+        map.set(key, [value]);
+    }
+}
+
+/**
+ * @internal
+ *
+ * A special handler for stream requests to the /v1/query endpoint.
+ * The query endpoint supports providing offsets on a per-query basis.
+ * This class leverages this feature by multiplexing multiple streaming requests to a single web socket.
+ */
+class QueryStreamsManager {
+
+    private static readonly ENDPOINT: string = 'v1/query';
+
+    // Mutable state BEGIN
+    private readonly queries: Set<StreamingQuery<object, unknown, string>> = new Set();
+    private ws: WebSocket | null = null;
+    // Mutable state END
+
+    private readonly protocols: string[];
+    private readonly url: string;
+    private readonly reconnectThresholdMs: number; // TODO Handle reconnection
+
+    private static toRequest(query: StreamingQuery<object, unknown, string>): StreamingQueryRequest[] {
+        const request: StreamingQueryRequest[] = query.queries.length == 0 ?
+            [{templateIds: [query.template.templateId]}]
+            : query.queries.map(q => ({templateIds: [query.template.templateId], query: encodeQuery(query.template, q) as object}));
+        if (query.offset !== undefined) {
+            for (const r of request) {
+                r.offset = query.offset;
+            }
+        }
+        return request;
+    }
+
+    /**
+     * Starts, restarts, or shuts down the web socket based on the content of `queries`
+     */
+    private onQueriesChange() {
+        if (this.ws !== null) {
+            this.ws.close();
+            this.ws = null;
+        }
+        if (this.queries.size > 0) {
+            this.ws = new WebSocket(this.url, this.protocols);
+
+            // Lookup tables used to route events to the relevant consumers:
+            //  - consumers for create events can be looked up based on their match index
+            //    - store the offset by which a match indexes needs to be shifted before the event is passed to the consumer
+            //  - archive events can be lookup up by template identifier
+            //    - this causes the consumer to observe what is known as "phantom archives", which are known and documented
+            let matchIndexLookupTable: [StreamingQuery<object, unknown, string>, number][] = [];
+            let templateIdsLookupTable: {[templateId: string]: Set<StreamingQuery<object, unknown, string>>} = {};
+
+            // Accumulates each query in a flattened form to be sent as a single request to the JSON API
+            let flatRequest: StreamingQueryRequest[] = [];
+
+            for (const query of this.queries.values()) {
+                const request = QueryStreamsManager.toRequest(query);
+
+                // Add entries to the lookup table for create events
+                const matchIndexOffset = matchIndexLookupTable.length;
+                const matchIndexLookupTableEntries = new Array(request.length).fill([query, matchIndexOffset]);
+                matchIndexLookupTable = matchIndexLookupTable.concat(matchIndexLookupTableEntries);
+
+                // Add entries to the lookup table for archive events
+                for (const {templateIds} of request) {
+                    for (const templateId of templateIds) {
+                        templateIdsLookupTable[templateId] = templateIdsLookupTable[templateId] || new Set();
+                        templateIdsLookupTable[templateId].add(query);
+                    }
+                }
+
+                flatRequest = flatRequest.concat(request);
+            }
+
+            this.ws.on('message', ({data}: {data: any}) => {
+                const json: unknown = JSON.parse(data.toString());
+                if (isRecordWith('events', json)) {
+                    const events: Event<object>[] = jtv.Result.withException(jtv.array(decodeEventUnknown).run(json.events));
+                    const multiplexer: Map<StreamingQuery<object, unknown, string>, Event<object>[]> = new Map();
+                    for (const event of events) {
+                        if (isCreate<object>(event)) {
+                            const perConsumertranslatedMatchedQueries: Map<StreamingQuery<object, unknown, string>, number[]> = new Map();
+                            for (const matchIndex of event.matchedQueries) {
+                              const [consumer, matchIndexOffset] = matchIndexLookupTable[matchIndex];
+                              append(perConsumertranslatedMatchedQueries, consumer, matchIndex - matchIndexOffset);
+                            }
+                            for (const [consumer, translatedMatchedQueries] of perConsumertranslatedMatchedQueries.entries()) {
+                                // Create a new copy of the event for each consumer to freely mangle the matched queries and avoid sharing mutable state
+                                append(multiplexer, consumer, {
+                                  created: event.created,
+                                  matchedQueries: translatedMatchedQueries,
+                                });
+                            }
+                        } else {
+                            const consumers = templateIdsLookupTable[event.archived.templateId];
+                            for (const consumer of consumers.values()) {
+                                // Create a new copy of the event for each consumer to avoid sharing mutable state
+                                append(multiplexer, consumer, {...event});
+                            }
+                        }
+                    }
+                    for (const [consumer, events] of multiplexer.entries()) {
+                        for (const event of events) {
+                            if (isCreate<object>(event)) {
+                                consumer.state.set(event.created.contractId, event.created);
+                            } else {
+                                consumer.state.delete(event.archived.contractId);
+                            }
+                        }
+                        consumer.stream.emit('change', Array.from(consumer.state.values()), events);
+                    }
+
+                    // TODO move on the offset for all outstanding queries
+                    if (isRecordWith('offset', json)) {
+                        lastOffset = jtv.Result.withException(jtv.oneOf(jtv.constant(null), jtv.string()).run(json.offset));
+                        // TODO live events should be fired _only_ for queries without offset
+                        if (isLiveSince === undefined) {
+                            isLiveSince = Date.now();
+                            emitter.emit('live', state);
+                        }
+                    }
+                } else if (isRecordWith('warnings', json)) {
+                    console.warn('QueryStreamsManager warnings', json);
+                } else if (isRecordWith('errors', json)) {
+                    console.error('QueryStreamsManager errors', json);
+                } else {
+                    console.error('QueryStreamsManager unknown message', json);
+                }
+            });
+
+            // TODO handle 'close' and 'error': broadcast to consumers, manage reconnection (see `streamSubmit`)
+
+            this.ws.send(JSON.stringify(flatRequest));
+        }
+    }
+
+    constructor({token, wsBaseUrl, reconnectThreshold}: { token: string, wsBaseUrl: string, reconnectThreshold: number }) {
+        this.protocols = ['jwt.token.' + token, 'daml.ws.auth'];
+        this.url = wsBaseUrl + QueryStreamsManager.ENDPOINT;
+        this.reconnectThresholdMs = reconnectThreshold;
+    }
+
+    streamQueries<T extends object, K, I extends string>(
+        template: Template<T, K, I>,
+        queries: Query<T>[]
+    ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
+        const manager = this;
+        const query: StreamingQuery<T, K, I> = {
+            template,
+            queries,
+            stream: new StreamEventEmitter({
+                beforeClosing(): void {
+                    manager.queries.delete(query);
+                    manager.onQueriesChange();
+                }
+            }),
+            state: new Map(),
+        }
+        manager.queries.add(query);
+        manager.onQueriesChange();
+        return query.stream;
+    }
+
 }
 
 /**
@@ -530,7 +738,7 @@ class Ledger {
    * Exercse a choice on a newly-created contract, in a single transaction.
    *
    * @param choice The choice to exercise.
-   * @param init The template arguments for the newly-created contract.
+   * @param payload The template arguments for the newly-created contract.
    * @param argument The choice arguments.
    *
    * @typeparam T The contract template type.
@@ -824,7 +1032,7 @@ class Ledger {
    * description of the query language.
    *
    * @param template The contract template to match contracts against.
-   * @param query A query to match contracts against.
+   * @param queries A query to match contracts against.
    *
    * @typeparam T The contract template type.
    * @typeparam K The contract key type.
