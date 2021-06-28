@@ -45,9 +45,9 @@ object LoggingEntries {
       extends LogstashMarker(LogstashMarker.MARKER_NAME_PREFIX + "LOGGING_ENTRIES")
       with StructuredArgument {
     override def writeTo(generator: JsonGenerator): Unit = {
-      contents.foreach { case (key, LoggingValue(value)) =>
+      contents.foreach { case (key, value) =>
         generator.writeFieldName(key)
-        generator.writeObject(value)
+        value.writeTo(generator)
       }
     }
 

@@ -5,10 +5,16 @@ package com.daml.logging
 
 import java.time.{Duration, Instant}
 
+import com.fasterxml.jackson.core.JsonGenerator
+
 import scala.collection.SeqView
 import scala.language.implicitConversions
 
-final case class LoggingValue(value: String) extends AnyVal
+final case class LoggingValue(value: String) {
+  def writeTo(generator: JsonGenerator): Unit = {
+    generator.writeString(value)
+  }
+}
 
 object LoggingValue {
   trait ToLoggingValue[-T] {
