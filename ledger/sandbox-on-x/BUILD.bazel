@@ -157,6 +157,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
+        "--timeout-scale-factor=4",
         "--exclude=ClosedWorldIT",
         "--exclude=CommandDeduplicationIT",
         "--exclude=ContractKeysIT",
