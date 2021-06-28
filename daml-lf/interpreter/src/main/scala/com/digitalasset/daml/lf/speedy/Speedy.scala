@@ -121,7 +121,8 @@ private[lf] object Speedy {
       var globalDiscriminators: Set[crypto.Hash],
       var cachedContracts: Map[V.ContractId, CachedContract],
   ) extends LedgerMode {
-
+    private[lf] val visibility: Set[Party] => SVisibility =
+      SVisibility.fromSubmitters(committers, readAs)
     private[lf] def finish: PartialTransaction.Result = ptx.finish
     private[lf] def ptxInternal: PartialTransaction = ptx //deprecated
     private[lf] def incompleteTransaction(): IncompleteTransaction = ptx.finishIncomplete

@@ -1215,20 +1215,14 @@ private[lf] object SBuiltin {
           val cachedContract = onLedger.cachedContracts
             .getOrElse(coid, crash(s"Local contract $coid not in cachedContracts"))
           val stakeholders = cachedContract.signatories union cachedContract.observers
-          throw SpeedyHungry(
-            SResultNeedLocalKeyVisible(
-              stakeholders,
-              onLedger.committers,
-              {
-                case SVisibility.Visible =>
-                  operation.handleActiveKey(machine, coid)
-                case SVisibility.NotVisible(actAs, readAs) =>
-                  machine.ctrl = SEDamlException(
-                    DamlELocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
-                  )
-              },
-            )
-          )
+          onLedger.visibility(stakeholders) match {
+            case SVisibility.Visible =>
+              operation.handleActiveKey(machine, coid)
+            case SVisibility.NotVisible(actAs, readAs) =>
+              machine.ctrl = SEDamlException(
+                DamlELocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+              )
+          }
         case Some(keyMapping) =>
           operation.handleKnownInputKey(machine, gkey, keyMapping)
         case None =>
