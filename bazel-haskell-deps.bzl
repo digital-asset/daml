@@ -17,16 +17,17 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "c8818a7d7abf66a4a7302b360857e3a790ab1be4"
-GHCIDE_SHA256 = "999cd7677b0e6747b6ab7a1e503afc23380cd0c12d9781b09f9a905b8f49cca7"
+GHCIDE_REV = "4afd92d64f059537e3d0d582dc829454f9b5376d"
+GHCIDE_SHA256 = "8dc26be15223b5f1dad4487cfda01fb487c8acba40c248438f48c519f16e646e"
 GHCIDE_VERSION = "0.1.0"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
 SHAKE_VERSION = "0.18.5"
-ZIP_VERSION = "1.5.0"
+ZIP_VERSION = "1.7.1"
 GRPC_HASKELL_REV = "641f0bab046f2f03e5350a7c5f2044af1e19a5b1"
 GRPC_HASKELL_SHA256 = "d850d804d7af779bb8717ebe4ea2ac74903a30adeb5262477a2e7a1536f4ca81"
+XML_CONDUIT_VERSION = "1.9.1.1"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
@@ -91,10 +92,11 @@ haskell_library(
     srcs = glob(["test/src/**/*.hs"]),
     src_strip_prefix = "test/src",
     deps = [
+        "@stackage//:aeson",
         "@stackage//:base",
         "@stackage//:extra",
         "@stackage//:containers",
-        "@stackage//:haskell-lsp-types",
+        "@stackage//:lsp-types",
         "@stackage//:lens",
         "@stackage//:lsp-test",
         "@stackage//:parser-combinators",
@@ -122,7 +124,6 @@ haskell_library(
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-binary-q.patch",
-            "@com_github_digital_asset_daml//bazel_tools:haskell-ghcide-expose-compat.patch",
         ],
         sha256 = GHCIDE_SHA256,
         strip_prefix = "daml-ghcide-%s" % GHCIDE_REV,
@@ -302,6 +303,28 @@ haskell_cabal_library(
     )
 
     http_archive(
+        name = "xml-conduit",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "xml-conduit",
+    version = packages["xml-conduit"].version,
+    srcs = glob(["**"]),
+    haddock = False,
+    deps = packages["xml-conduit"].deps,
+    # For some reason we need to manually add the setup dep here.
+    setup_deps = ["@stackage//:cabal-doctest"],
+    verbose = False,
+    visibility = ["//visibility:public"],
+)
+""",
+        sha256 = "bdb117606c0b56ca735564465b14b50f77f84c9e52e31d966ac8d4556d3ff0ff",
+        strip_prefix = "xml-conduit-{}".format(XML_CONDUIT_VERSION),
+        urls = ["http://hackage.haskell.org/package/xml-conduit-{version}/xml-conduit-{version}.tar.gz".format(version = XML_CONDUIT_VERSION)],
+    )
+
+    http_archive(
         name = "shake",
         build_file_content = """
 load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
@@ -350,14 +373,14 @@ haskell_cabal_library(
     ],
     verbose = False,
     visibility = ["//visibility:public"],
-    flags = ["disable-bzip2"],
+    flags = ["disable-bzip2", "disable-zstd"],
 )
 """.format(version = ZIP_VERSION),
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-zip.patch",
         ],
-        sha256 = "051e891d6a13774f1d06b0251e9a0bf92f05175da8189d936c7d29c317709802",
+        sha256 = "0d7f02bbdf6c49e9a33d2eca4b3d7644216a213590866dafdd2b47ddd38eb746",
         strip_prefix = "zip-{}".format(ZIP_VERSION),
         urls = ["http://hackage.haskell.org/package/zip-{version}/zip-{version}.tar.gz".format(version = ZIP_VERSION)],
     )
@@ -391,7 +414,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
                 "ghcide": ["ghc-lib"],
                 "hlint": ["ghc-lib"],
                 "ghc-lib-parser-ex": ["ghc-lib"],
-                "zip": ["disable-bzip2"],
+                "zip": ["disable-bzip2", "disable-zstd"],
             },
             {
                 "blaze-textual": ["integer-simple"],
@@ -422,9 +445,11 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "base64-bytestring",
             "binary",
             "blaze-html",
+            "blaze-markup",
             "bytestring",
             "c2hs",
             "Cabal",
+            "cabal-doctest",
             "case-insensitive",
             "cereal",
             "clock",
@@ -437,8 +462,11 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "cryptohash",
             "cryptonite",
             "data-default",
+            "data-default-class",
             "Decimal",
             "deepseq",
+            "dependent-map",
+            "dependent-sum",
             "digest",
             "directory",
             "dlist",
@@ -465,8 +493,8 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "happy",
             "hashable",
             "haskeline",
-            "haskell-lsp",
-            "haskell-lsp-types",
+            "lsp",
+            "lsp-types",
             "haskell-src",
             "haskell-src-exts",
             "heaps",
@@ -533,6 +561,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "semver",
             "silently",
             "simple-smt",
+            "some",
             "sorted-list",
             "split",
             "stache",
@@ -571,7 +600,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "uuid",
             "vector",
             "xml",
-            "xml-conduit",
+            "xml-types",
             "yaml",
             "zip-archive",
             "zlib",
@@ -590,6 +619,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "js-flot": "@js_flot//:js-flot",
             "proto3-suite": "@proto3-suite//:proto3-suite",
             "shake": "@shake//:shake",
+            "xml-conduit": "@xml-conduit//:xml-conduit",
             "zip": "@zip//:zip",
         },
     )

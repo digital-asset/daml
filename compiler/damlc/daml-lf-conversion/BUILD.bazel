@@ -18,7 +18,7 @@ da_haskell_library(
         "directory",
         "extra",
         "filepath",
-        "haskell-lsp-types",
+        "lsp-types",
         "ghc-lib-parser",
         "ghc-lib",
         "ghcide",

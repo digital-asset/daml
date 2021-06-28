@@ -17,7 +17,6 @@ import DA.Daml.Project.Types
 import DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
-import Data.Default (def)
 import qualified Data.HashSet as HashSet
 import Data.List
 import qualified Data.Text as T
@@ -28,11 +27,9 @@ import Development.IDE.Core.OfInterest (setFilesOfInterest)
 import Development.IDE.Core.RuleTypes.Daml (RunScripts (..), VirtualResource (..))
 import Development.IDE.Core.Rules.Daml (worldForFile)
 import Development.IDE.Core.Service (getDiagnostics, runActionSync, shutdown)
-import Development.IDE.Core.Shake (use)
+import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..), use)
 import Development.IDE.Types.Diagnostics (showDiagnostics)
 import Development.IDE.Types.Location (toNormalizedFilePath')
-import Development.IDE.Types.Options (IdeReportProgress (..))
-import qualified Language.Haskell.LSP.Types as LSP
 import SdkVersion
 import System.Directory.Extra
 import System.Environment.Blank
@@ -892,8 +889,5 @@ runScripts service fileContent = bracket getIdeState shutdown $ \ideState -> do
         (Just service)
         logger
         noopDebouncer
-        def
-        (pure $ LSP.IdInt 0)
-        (const $ pure ())
+        (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ())
         vfs
-        (IdeReportProgress False)
