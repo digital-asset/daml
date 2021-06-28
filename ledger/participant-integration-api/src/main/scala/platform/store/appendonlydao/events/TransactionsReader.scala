@@ -288,6 +288,12 @@ private[appendonlydao] final class TransactionsReader(
           )
           .iterator
       )
+      .map { range =>
+        metrics.daml.services.index.getTransactionLogUpdatesChunkSize.update(
+          range.endInclusive - range.startExclusive
+        )
+        range
+      }
       // Dispatch database fetches in parallel
       .mapAsync(eventProcessingParallelism) { range =>
         dispatcher.executeSql(dbMetrics.getTransactionLogUpdates) { implicit conn =>
@@ -411,6 +417,12 @@ private[appendonlydao] final class TransactionsReader(
           )
           .iterator
       )
+      .map { range =>
+        metrics.daml.services.index.getContractStateEventsChunkSize.update(
+          range.endInclusive - range.startExclusive
+        )
+        range
+      }
       // Dispatch database fetches in parallel
       .mapAsync(eventProcessingParallelism) { range =>
         dispatcher.executeSql(dbMetrics.getContractStateEvents) { implicit conn =>

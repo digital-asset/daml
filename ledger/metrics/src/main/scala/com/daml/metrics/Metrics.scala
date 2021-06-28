@@ -681,6 +681,11 @@ final class Metrics(val registry: MetricRegistry) {
           registry.counter(Prefix :+ "transaction_trees_buffer_size")
         val flatTransactionsBufferSize: Counter =
           registry.counter(Prefix :+ "flat_transactions_buffer_size")
+
+        val getContractStateEventsChunkSize: Histogram =
+          registry.histogram(Prefix :+ "get_contract_state_events_chunk_fetch_size")
+        val getTransactionLogUpdatesChunkSize: Histogram =
+          registry.histogram(Prefix :+ "get_transaction_log_updates_chunk_fetch_size")
       }
 
       object read {
