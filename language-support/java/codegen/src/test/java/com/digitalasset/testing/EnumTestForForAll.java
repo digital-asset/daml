@@ -6,8 +6,8 @@ package com.daml.testing;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.daml.ledger.javaapi.data.DamlEnum;
+import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Party;
-import com.daml.ledger.javaapi.data.Record;
 import com.daml.ledger.javaapi.data.Unit;
 import com.daml.ledger.javaapi.data.Variant;
 import org.junit.jupiter.api.Test;
@@ -38,16 +38,17 @@ public class EnumTestForForAll {
   void value2Enum2value() {
     for (String s : new String[] {"Red", "Green", "Blue"}) {
       DamlEnum damlEnum = new DamlEnum(s);
-      Record record =
-          new Record(
-              new Record.Field("x", damlEnum), new Record.Field("party", new Party("party")));
+      DamlRecord record =
+          new DamlRecord(
+              new DamlRecord.Field("x", damlEnum),
+              new DamlRecord.Field("party", new Party("party")));
       Variant variant = new Variant("SomeColor", damlEnum);
       Variant leaf = new Variant("Leaf", Unit.getInstance());
-      Record node =
-          new Record(
-              new Record.Field("color", damlEnum),
-              new Record.Field("left", leaf),
-              new Record.Field("right", leaf));
+      DamlRecord node =
+          new DamlRecord(
+              new DamlRecord.Field("color", damlEnum),
+              new DamlRecord.Field("left", leaf),
+              new DamlRecord.Field("right", leaf));
       Variant tree = new Variant("Node", node);
       assertEquals(Color.fromValue(damlEnum).toValue(), damlEnum);
       assertEquals(Box.fromValue(record).toValue(), record);

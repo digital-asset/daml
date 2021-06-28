@@ -212,7 +212,7 @@ A Java file is generated that defines the class for the type ``Person``:
     public static Person fromValue(Value value$) { /* ... */ }
 
     public Person(Name name, BigDecimal age) { /* ... */ }
-    public Record toValue() { /* ... */ }
+    public DamlRecord toValue() { /* ... */ }
   }
 
 A Java file is generated that defines the class for the type ``Name``:
@@ -229,7 +229,7 @@ A Java file is generated that defines the class for the type ``Name``:
       public static Person fromValue(Value value$) { /* ... */ }
 
       public Name(String firstName, String lastName) { /* ... */ }
-      public Record toValue() { /* ... */ }
+      public DamlRecord toValue() { /* ... */ }
     }
 
 .. _daml-codegen-java-templates:
@@ -383,7 +383,7 @@ The Java code generated for this variant is:
     public static Published fromValue(Value value) { /* ... */ }
 
     public Published(Long year, String publisher) { /* ... */ }
-    public Record toValue() { /* ... */ }
+    public DamlRecord toValue() { /* ... */ }
   }
 
 Parameterized types
@@ -416,7 +416,7 @@ The Java codegen generates a Java file with a generic class for  the ``Attribute
 
     public Attribute(a value) { /* ... */  }
 
-    public Record toValue(Function<a, Value> toValuea) { /* ... */ }
+    public DamlRecord toValue(Function<a, Value> toValuea) { /* ... */ }
 
     public static <a> Attribute<a> fromValue(Value value$, Function<Value, a> fromValuea) { /* ... */ }
   }
