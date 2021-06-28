@@ -99,21 +99,20 @@ private[appendonlydao] final class TransactionsReader(
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
-    val query = (fullRangeForPruningCheck: EventsRange[Offset]) =>
-      (currentRange: EventsRange[Long]) => {
-        implicit connection: Connection =>
-          logger.debug(s"getFlatTransactions query($currentRange)")
-          queryNonPruned.executeSqlOrThrow(
-            getTransactions(
-              EventsRange(currentRange.startExclusive, currentRange.endInclusive),
-              filter,
-              pageSize,
-            )(connection),
-            fullRangeForPruningCheck.startExclusive,
-            pruned =>
-              s"Transactions request from ${fullRangeForPruningCheck.startExclusive.toHexString} to ${fullRangeForPruningCheck.endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
-          )
-      }
+    val query = (currentRange: EventsRange[Long]) => {
+      implicit connection: Connection =>
+        logger.debug(s"getFlatTransactions query($currentRange)")
+        queryNonPruned.executeSqlOrThrow(
+          getTransactions(
+            EventsRange(currentRange.startExclusive, currentRange.endInclusive),
+            filter,
+            pageSize,
+          )(connection),
+          startExclusive,
+          pruned =>
+            s"Transactions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
+        )
+    }
 
     val events: Source[EventsTable.Entry[Event], NotUsed] =
       Source
@@ -180,34 +179,33 @@ private[appendonlydao] final class TransactionsReader(
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
-    val query = (fullRangeForPruningCheck: EventsRange[Offset]) =>
-      (currentRange: EventsRange[Long]) => {
-        implicit connection: Connection =>
-          logger.debug(s"getTransactionTrees query($currentRange)")
-          queryNonPruned.executeSqlOrThrow(
-            route(requestingParties)(
-              single = party =>
-                storageBackend.transactionTreeEventsSingleParty(
-                  startExclusive = currentRange.startExclusive,
-                  endInclusive = currentRange.endInclusive,
-                  requestingParty = party,
-                  limit = None,
-                  fetchSizeHint = Some(pageSize),
-                )(connection),
-              multi = parties =>
-                storageBackend.transactionTreeEventsMultiParty(
-                  startExclusive = currentRange.startExclusive,
-                  endInclusive = currentRange.endInclusive,
-                  requestingParties = parties,
-                  limit = None,
-                  fetchSizeHint = Some(pageSize),
-                )(connection),
-            ),
-            fullRangeForPruningCheck.startExclusive,
-            pruned =>
-              s"Transactions request from ${fullRangeForPruningCheck.startExclusive.toHexString} to ${fullRangeForPruningCheck.endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
-          )
-      }
+    val query = (currentRange: EventsRange[Long]) => {
+      implicit connection: Connection =>
+        logger.debug(s"getTransactionTrees query($currentRange)")
+        queryNonPruned.executeSqlOrThrow(
+          route(requestingParties)(
+            single = party =>
+              storageBackend.transactionTreeEventsSingleParty(
+                startExclusive = currentRange.startExclusive,
+                endInclusive = currentRange.endInclusive,
+                requestingParty = party,
+                limit = None,
+                fetchSizeHint = Some(pageSize),
+              )(connection),
+            multi = parties =>
+              storageBackend.transactionTreeEventsMultiParty(
+                startExclusive = currentRange.startExclusive,
+                endInclusive = currentRange.endInclusive,
+                requestingParties = parties,
+                limit = None,
+                fetchSizeHint = Some(pageSize),
+              )(connection),
+          ),
+          startExclusive,
+          pruned =>
+            s"Transactions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
+        )
+    }
 
     val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
       Source
@@ -499,7 +497,7 @@ private[appendonlydao] final class TransactionsReader(
   private def streamEventsWithFixedPageSize[E](
       verbose: Boolean,
       queryMetric: DatabaseMetrics,
-      query: EventsRange[Offset] => EventsRange[Long] => Connection => Vector[
+      query: EventsRange[Long] => Connection => Vector[
         EventsTable.Entry[Raw[E]]
       ],
       fullRange: EventsRange[(Offset, Long)],
@@ -515,7 +513,7 @@ private[appendonlydao] final class TransactionsReader(
         fetchEventsInRange(
           verbose,
           queryMetric,
-          query(fullRange.map(_._1)),
+          query,
         )(eventsRange)
       }
       .mapConcat(identity)

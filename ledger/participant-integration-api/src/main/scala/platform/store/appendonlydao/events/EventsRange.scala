@@ -6,6 +6,8 @@ import java.sql.Connection
 
 import com.daml.ledger.participant.state.v1.Offset
 
+import scala.annotation.tailrec
+
 // (startExclusive, endInclusive]
 private[events] final case class EventsRange[A](startExclusive: A, endInclusive: A) {
   def map[B](f: A => B): EventsRange[B] =
@@ -70,6 +72,7 @@ private[events] object EventsRange {
       pageSize: Int,
   ): Connection => Vector[A] = connection => {
 
+    @tailrec
     def loop(newBegin: Long, result: Vector[A]): Vector[A] = {
       val guessedPageEnd = range.endInclusive min (newBegin + pageSize)
       val arithPage =
