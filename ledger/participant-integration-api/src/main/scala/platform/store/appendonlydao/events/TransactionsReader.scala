@@ -562,11 +562,16 @@ private[appendonlydao] object TransactionsReader {
       s"You can only split a range in a strictly positive number of chunks ($numberOfChunks)",
     )
 
+    val rangeSize = endInclusive - startExclusive
+    require(
+      rangeSize >= 0,
+      s"Range size should be positive but got bounds ($startExclusive, $endInclusive]",
+    )
+
     val minChunkSize = math.max(1, maxChunkSize / 10)
 
-    val rangeSize = endInclusive - startExclusive
-
-    if (rangeSize == 0L) Vector.empty
+    if (rangeSize == 0L)
+      Vector.empty
     else {
       val targetChunkSize = rangeSize / numberOfChunks.toLong
 

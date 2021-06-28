@@ -139,6 +139,17 @@ private[appendonlydao] class TransactionsReaderSpec
       }.getMessage shouldBe "requirement failed: Maximum chunk size must be strictly positive, but was 0"
     }
 
+    "startExclusive is after endInclusive" in {
+      intercept[IllegalArgumentException] {
+        TransactionsReader.splitRange(
+          startExclusive = 300L,
+          endInclusive = 200L,
+          numberOfChunks = 100,
+          maxChunkSize = 10,
+        )
+      }.getMessage shouldBe s"requirement failed: Range size should be positive but got bounds (300, 200]"
+    }
+
     "satisfy the required properties" in {
       // Disable shrinking in forAll in order to ensure that the generator bounds are respected
       // in case of assertion failures
