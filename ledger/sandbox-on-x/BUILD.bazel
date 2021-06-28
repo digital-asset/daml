@@ -165,7 +165,6 @@ conformance_test(
     ],
 )
 
-
 conformance_test(
     name = "conformance-test-participant-pruning",
     ports = [6865],
