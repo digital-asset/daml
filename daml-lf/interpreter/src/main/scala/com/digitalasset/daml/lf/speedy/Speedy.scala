@@ -112,6 +112,7 @@ private[lf] object Speedy {
       private[speedy] var ptx: PartialTransaction,
       /* Committers of the action. */
       var committers: Set[Party],
+      /* Additional readers (besides committers) for visibility checks. */
       var readAs: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
       var commitLocation: Option[Location],

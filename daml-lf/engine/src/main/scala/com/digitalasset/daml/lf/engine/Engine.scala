@@ -60,7 +60,8 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
 
   def info = new EngineInfo(config)
 
-  /** Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
+  /** Executes commands `cmds` under the authority of `submitters`, with additional readers `readAs`,
+    * and returns one of the following:
     * <ul>
     * <li> `ResultDone(tx)` if `cmds` could be successfully executed, where `tx` is the resulting transaction.
     *      The transaction `tx` conforms to the Daml model consisting of the packages that have been supplied via
@@ -289,7 +290,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     )
   }
 
-  /** Interprets the given commands under the authority of @submitters
+  /** Interprets the given commands under the authority of @submitters, with additional readers @readAs
     *
     * Submitters are a set, in order to support interpreting subtransactions
     * (a subtransaction can be authorized by multiple parties).
