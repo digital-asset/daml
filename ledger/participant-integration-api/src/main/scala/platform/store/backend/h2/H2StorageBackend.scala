@@ -469,6 +469,7 @@ private[backend] object H2StorageBackend
 
   private def format(parties: Set[Party]): String = parties.view.map(p => s"'$p'").mkString(",")
 
+  // TODO append-only: this seems to be the same for all db backends, let's unify
   private def limitClause(to: Option[Int]): String =
     to.map(to => s"fetch next $to rows only").getOrElse("")
 
