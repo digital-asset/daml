@@ -5,7 +5,6 @@ package com.daml.logging
 
 import java.time.{Duration, Instant}
 
-import scala.collection.SeqView
 import scala.language.implicitConversions
 
 sealed trait LoggingValue
@@ -50,11 +49,6 @@ object LoggingValue {
     case None => Empty
     case Some(value) => elementToLoggingValue(value)
   }
-
-  implicit def `SeqView[T] to LoggingValue`[T](implicit
-      elementToLoggingValue: ToLoggingValue[T]
-  ): ToLoggingValue[SeqView[T]] =
-    sequence => OfIterable(sequence.map(elementToLoggingValue.apply))
 
   implicit def `Iterable[T] to LoggingValue`[T](implicit
       elementToLoggingValue: ToLoggingValue[T]
