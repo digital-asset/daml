@@ -42,7 +42,7 @@ object MetricsManager {
           metrics = metrics,
           logInterval = logInterval,
           reporter = MetricReporter.Default,
-          damlMetrics = damlMetrics,
+          exposedMetrics = damlMetrics,
         ),
         name = s"${streamName}-collector",
         props = Props.empty,

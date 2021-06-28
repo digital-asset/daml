@@ -29,11 +29,11 @@ object MetricsCollector {
       metrics: List[Metric[T]],
       logInterval: FiniteDuration,
       reporter: MetricReporter,
-      damlMetrics: Option[ExposedMetrics[T]] = None,
+      exposedMetrics: Option[ExposedMetrics[T]] = None,
   ): Behavior[Message] =
     Behaviors.withTimers { timers =>
       val startTime: Instant = Instant.now()
-      new MetricsCollector[T](timers, streamName, logInterval, reporter, startTime, damlMetrics)
+      new MetricsCollector[T](timers, streamName, logInterval, reporter, startTime, exposedMetrics)
         .handlingMessages(metrics, startTime)
     }
 
