@@ -55,7 +55,7 @@ private[appendonlydao] class TransactionsReaderSpec
       )
     }
 
-    "output one range if use maxChunkSize/10 higher than range size" in {
+    "output one range if maxChunkSize/10 (as minimum chunk size) is higher than range size" in {
       TransactionsReader.splitRange(
         startExclusive = 100L,
         endInclusive = 110L,
