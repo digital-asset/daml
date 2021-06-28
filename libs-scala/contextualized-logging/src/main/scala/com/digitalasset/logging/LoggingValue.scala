@@ -28,10 +28,8 @@ object LoggingValue {
   implicit def from[T](value: T)(implicit toLoggingValue: ToLoggingValue[T]): LoggingValue =
     toLoggingValue(value)
 
-  private final class ToStringToLoggingValue[T] extends ToLoggingValue[T] {
-    override def apply(value: T): LoggingValue =
-      OfString(value.toString)
-  }
+  // This is not implicit because we only want to expose it for specific types.
+  val ToStringToLoggingValue: ToLoggingValue[Any] = value => OfString(value.toString)
 
   implicit val `String to LoggingValue`: ToLoggingValue[String] = OfString(_)
 
@@ -39,9 +37,9 @@ object LoggingValue {
 
   implicit val `Long to LoggingValue`: ToLoggingValue[Long] = OfLong(_)
 
-  implicit val `Instant to LoggingValue`: ToLoggingValue[Instant] = new ToStringToLoggingValue
+  implicit val `Instant to LoggingValue`: ToLoggingValue[Instant] = ToStringToLoggingValue
 
-  implicit val `Duration to LoggingValue`: ToLoggingValue[Duration] = new ToStringToLoggingValue
+  implicit val `Duration to LoggingValue`: ToLoggingValue[Duration] = ToStringToLoggingValue
 
   implicit def `Option[T] to LoggingValue`[T](implicit
       elementToLoggingValue: ToLoggingValue[T]
