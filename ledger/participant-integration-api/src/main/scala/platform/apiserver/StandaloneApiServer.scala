@@ -153,9 +153,6 @@ final class StandaloneApiServer(
           { _ =>
             sys.error("Unexpected request of contract key")
           },
-          { _ =>
-            sys.error("Unexpected request of local contract key visibility")
-          },
         )
       ()
     }

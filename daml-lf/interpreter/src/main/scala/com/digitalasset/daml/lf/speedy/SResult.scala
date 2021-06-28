@@ -76,15 +76,6 @@ object SResult {
       callback: Option[ContractId] => Boolean,
   ) extends SResult
 
-  final case class SResultNeedLocalKeyVisible(
-      stakeholders: Set[Party],
-      committers: Set[Party],
-      // Callback.
-      // returns the next expression to evaluate.
-      // In case of failure the call back does not throw but set machine.ctrl to an SErrorDamlException
-      callback: SVisibility => Unit,
-  ) extends SResult
-
   sealed abstract class SVisibility
   object SVisibility {
     // actAs and readAs are only included for better error messages.

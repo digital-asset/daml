@@ -129,9 +129,6 @@ final case class ScenarioRunner(
 
         case _: SResultNeedKey =>
           crash("SResultNeedKey outside of submission")
-
-        case _: SResultNeedLocalKeyVisible =>
-          crash("SResultNeedLocalKeyVisible outside of submission")
       }
     }
     val endTime = System.nanoTime()
@@ -432,10 +429,6 @@ object ScenarioRunner {
             case Left(err) => SubmissionError(err, onLedger.ptxInternal)
             case Right(_) => go()
           }
-        case SResultNeedLocalKeyVisible(stakeholders, committers, cb) =>
-          val visible = SVisibility.fromSubmitters(committers, readAs)(stakeholders)
-          cb(visible)
-          go()
         case SResultNeedTime(callback) =>
           callback(ledger.currentTime)
           go()

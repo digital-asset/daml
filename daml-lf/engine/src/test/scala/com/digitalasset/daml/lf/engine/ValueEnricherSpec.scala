@@ -78,7 +78,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
   private[this] val engine = Engine.DevEngine()
   engine
     .preloadPackage(pkgId, pkg)
-    .consume(_ => None, _ => None, _ => None, _ => Visibility.Visible)
+    .consume(_ => None, _ => None, _ => None)
 
   private[this] val enricher = new ValueEnricher(engine)
 

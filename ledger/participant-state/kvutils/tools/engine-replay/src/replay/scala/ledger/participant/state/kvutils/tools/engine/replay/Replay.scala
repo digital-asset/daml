@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.crypto
 import com.daml.lf.data._
-import com.daml.lf.engine.{Engine, EngineConfig, Error, Visibility}
+import com.daml.lf.engine.{Engine, EngineConfig, Error}
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.daml.lf.transaction.{
   GlobalKey,
@@ -65,7 +65,7 @@ final case class BenchmarkState(
         transaction.submissionTime,
         transaction.submissionSeed,
       )
-      .consume(getContract, Replay.unexpectedError, getContractKey, _ => Visibility.Visible)
+      .consume(getContract, Replay.unexpectedError, getContractKey)
       .map(_ => ())
 
   def validate(engine: Engine): Either[Error, Unit] =
@@ -78,7 +78,7 @@ final case class BenchmarkState(
         transaction.submissionTime,
         transaction.submissionSeed,
       )
-      .consume(getContract, Replay.unexpectedError, getContractKey, _ => Visibility.Visible)
+      .consume(getContract, Replay.unexpectedError, getContractKey)
 }
 
 class Benchmarks(private val benchmarks: Map[String, Vector[BenchmarkState]]) {
@@ -122,7 +122,7 @@ private[replay] object Replay {
     AstUtil.dependenciesInTopologicalOrder(pkgs.keys.toList, pkgs).foreach { pkgId =>
       val r = engine
         .preloadPackage(pkgId, pkgs(pkgId))
-        .consume(unexpectedError, unexpectedError, unexpectedError, unexpectedError)
+        .consume(unexpectedError, unexpectedError, unexpectedError)
       assert(r.isRight)
     }
     engine

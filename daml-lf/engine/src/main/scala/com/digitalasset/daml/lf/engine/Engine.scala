@@ -382,15 +382,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
             },
           )
 
-        case SResultNeedLocalKeyVisible(stakeholders, _, cb) =>
-          return ResultNeedLocalKeyVisible(
-            stakeholders,
-            { result =>
-              cb(result.toSVisibility)
-              interpretLoop(machine, time)
-            },
-          )
-
         case _: SResultScenarioSubmit =>
           return ResultError(Error.Interpretation.Generic("unexpected SResultScenarioSubmit"))
         case _: SResultScenarioPassTime =>

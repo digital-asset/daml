@@ -14,7 +14,7 @@ import com.daml.lf
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{Engine, Visibility}
+import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
 import com.daml.metrics.Metrics
@@ -288,7 +288,7 @@ final private[kvutils] class PackageCommitter(
       val errors = packages.flatMap { case (pkgId, pkg) =>
         engine
           .preloadPackage(pkgId, pkg)
-          .consume(_ => None, packages.get, _ => None, _ => Visibility.Visible)
+          .consume(_ => None, packages.get, _ => None)
           .fold(err => List(err.msg), _ => List.empty)
       }.toList
       metrics.daml.kvutils.committer.packageUpload.loadedPackages(() =>

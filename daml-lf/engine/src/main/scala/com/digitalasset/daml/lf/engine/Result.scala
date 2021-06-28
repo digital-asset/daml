@@ -27,8 +27,6 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).map(f))
     case ResultNeedKey(gk, resume) =>
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).map(f))
-    case ResultNeedLocalKeyVisible(stakeholders, resume) =>
-      ResultNeedLocalKeyVisible(stakeholders, visible => resume(visible).map(f))
   }
 
   def flatMap[B](f: A => Result[B]): Result[B] = this match {
@@ -40,15 +38,12 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).flatMap(f))
     case ResultNeedKey(gk, resume) =>
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).flatMap(f))
-    case ResultNeedLocalKeyVisible(stakeholders, resume) =>
-      ResultNeedLocalKeyVisible(stakeholders, visible => resume(visible).flatMap(f))
   }
 
   def consume(
       pcs: ContractId => Option[ContractInst[VersionedValue[ContractId]]],
       packages: PackageId => Option[Package],
       keys: GlobalKeyWithMaintainers => Option[ContractId],
-      localKeyVisible: Set[Party] => Visibility,
   ): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
@@ -58,8 +53,6 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultNeedContract(acoid, resume) => go(resume(pcs(acoid)))
         case ResultNeedPackage(pkgId, resume) => go(resume(packages(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys(key)))
-        case ResultNeedLocalKeyVisible(stakeholders, resume) =>
-          go(resume(localKeyVisible(stakeholders)))
       }
     go(this)
   }
@@ -139,14 +132,6 @@ object Visibility {
   }
 }
 
-/** Check that a local contract with the given stakeholders
-  *    can be fetched by key.
-  */
-final case class ResultNeedLocalKeyVisible[A](
-    stakeholders: Set[Party],
-    resume: Visibility => Result[A],
-) extends Result[A]
-
 object Result {
   // fails with ResultError if the package is not found
   private[lf] def needPackage[A](packageId: PackageId, resume: Package => Result[A]) =
@@ -207,14 +192,6 @@ object Result {
                     Result
                       .sequence(results_)
                       .map(otherResults => (okResults :+ x) :++ otherResults)
-                  ),
-              )
-            case ResultNeedLocalKeyVisible(stakeholders, resume) =>
-              ResultNeedLocalKeyVisible(
-                stakeholders,
-                visible =>
-                  resume(visible).flatMap(x =>
-                    Result.sequence(results_).map(otherResults => (okResults :+ x) :++ otherResults)
                   ),
               )
           }
