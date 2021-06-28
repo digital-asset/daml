@@ -10,6 +10,7 @@ import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.SErrorCrash
+import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.lf.value.{Value => V}
 
 import scala.jdk.CollectionConverters._
@@ -214,24 +215,18 @@ object SValue {
   }
 
   object SArithmeticError {
-    // The package ID should match the ID of the stable package daml-prim-DA-Exception-ArithmeticError
-    // See test compiler/damlc/tests/src/stable-packages.sh
-    val tyCon: Ref.TypeConName = Ref.Identifier.assertFromString(
-      "cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError"
-    )
-    val typ: Type = TTyCon(tyCon)
-    val fields: ImmArray[Ref.Name] = ImmArray(Ref.Name.assertFromString("message"))
+    val fields: ImmArray[Ref.Name] = ImmArray(ValueArithmeticError.fieldName)
     def apply(builtinName: String, args: ImmArray[String]): SAny = {
       val array = new util.ArrayList[SValue](1)
       array.add(
         SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
       )
-      SAny(typ, SRecord(tyCon, fields, array))
+      SAny(ValueArithmeticError.typ, SRecord(ValueArithmeticError.tyCon, fields, array))
     }
     // Assumes excep is properly typed
     def unapply(excep: SAny): Option[SValue] =
       excep match {
-        case SAnyException(SRecord(`tyCon`, _, args)) => Some(args.get(0))
+        case SAnyException(SRecord(ValueArithmeticError.tyCon, _, args)) => Some(args.get(0))
         case _ => None
       }
   }

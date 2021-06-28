@@ -31,6 +31,8 @@ import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Interface, LanguageVersion}
+import com.daml.lf.interpretation.{Error => IE}
+import com.daml.lf.speedy.SBuiltin.SBToAny
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -192,6 +194,10 @@ object Script {
 }
 
 object Runner {
+
+  final case class InterpretationError(error: SError.SError) extends RuntimeException {
+    override def toString: String = Pretty.prettyError(error).render(80)
+  }
 
   private val compilerConfig = {
     import Compiler._
@@ -367,10 +373,9 @@ private[lf] class Runner(
         case SResultFinalValue(v) =>
           Right(v)
         case SResultError(err) =>
-          logger.error(Pretty.prettyError(err).render(80))
-          Left(err)
+          Left(Runner.InterpretationError(err))
         case res =>
-          Left(new RuntimeException(s"Unexpected speedy result $res"))
+          Left(new IllegalStateException(s"Internal error: Unexpected speedy result $res"))
       }
 
     val env = new ScriptF.Env(
@@ -394,13 +399,19 @@ private[lf] class Runner(
                   case ScriptF.Catch(act, handle) =>
                     run(SEApp(SEValue(act), Array(SEValue(SUnit)))).transformWith {
                       case Success(v) => Future.successful(SEValue(v))
-                      case Failure(SError.DamlEUnhandledException(exc)) =>
-                        machine.setExpressionToEvaluate(SEApp(SEValue(handle), Array(SEValue(exc))))
+                      case Failure(
+                            exce @ Runner.InterpretationError(
+                              SError.SErrorDamlException(IE.UnhandledException(typ, value))
+                            )
+                          ) =>
+                        machine.setExpressionToEvaluate(
+                          SEApp(SEValue(handle), Array(SBToAny(typ)(SEImportValue(typ, value))))
+                        )
                         stepToValue()
                           .fold(Future.failed, Future.successful)
                           .flatMap {
                             case SOptional(None) =>
-                              Future.failed(SError.DamlEUnhandledException(exc))
+                              Future.failed(exce)
                             case SOptional(Some(free)) => Future.successful(SEValue(free))
                             case e =>
                               Future.failed(
@@ -409,8 +420,12 @@ private[lf] class Runner(
                           }
                       case Failure(e) => Future.failed(e)
                     }
-                  case ScriptF.Throw(exc) =>
-                    Future.failed(SError.DamlEUnhandledException(exc))
+                  case ScriptF.Throw(SAny(ty, value)) =>
+                    Future.failed(
+                      Runner.InterpretationError(
+                        SError.SErrorDamlException(IE.UnhandledException(ty, value.toValue))
+                      )
+                    )
                   case cmd: ScriptF.Cmd =>
                     cmd.execute(env).transform {
                       case Failure(exception) =>

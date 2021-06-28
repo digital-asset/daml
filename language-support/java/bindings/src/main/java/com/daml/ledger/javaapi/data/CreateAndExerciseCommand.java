@@ -10,7 +10,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 public class CreateAndExerciseCommand extends Command {
   private final Identifier templateId;
 
-  private final Record createArguments;
+  private final DamlRecord createArguments;
 
   private final String choice;
 
@@ -18,7 +18,7 @@ public class CreateAndExerciseCommand extends Command {
 
   public CreateAndExerciseCommand(
       @NonNull Identifier templateId,
-      @NonNull Record createArguments,
+      @NonNull DamlRecord createArguments,
       @NonNull String choice,
       @NonNull Value choiceArgument) {
     this.templateId = templateId;
@@ -30,7 +30,7 @@ public class CreateAndExerciseCommand extends Command {
   public static CreateAndExerciseCommand fromProto(
       CommandsOuterClass.CreateAndExerciseCommand command) {
     Identifier templateId = Identifier.fromProto(command.getTemplateId());
-    Record createArguments = Record.fromProto(command.getCreateArguments());
+    DamlRecord createArguments = DamlRecord.fromProto(command.getCreateArguments());
     String choice = command.getChoice();
     Value choiceArgument = Value.fromProto(command.getChoiceArgument());
     return new CreateAndExerciseCommand(templateId, createArguments, choice, choiceArgument);
@@ -50,7 +50,7 @@ public class CreateAndExerciseCommand extends Command {
     return templateId;
   }
 
-  public Record getCreateArguments() {
+  public DamlRecord getCreateArguments() {
     return createArguments;
   }
 

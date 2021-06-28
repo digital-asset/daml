@@ -182,7 +182,7 @@ private[inner] object TemplateClass extends StrictLogging {
 
     val methodParameters = Iterable(
       ParameterSpec.builder(classOf[String], "contractId").build(),
-      ParameterSpec.builder(classOf[javaapi.data.Record], "record$").build(),
+      ParameterSpec.builder(classOf[javaapi.data.DamlRecord], "record$").build(),
       ParameterSpec.builder(optionalString, agreementFieldName).build(),
     ) ++ maybeContractKeyClassName
       .map(name => ParameterSpec.builder(optional(name), contractKeyFieldName).build)
@@ -229,7 +229,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
         .returns(className)
         .addParameter(classOf[String], "contractId")
-        .addParameter(classOf[javaapi.data.Record], "record$")
+        .addParameter(classOf[javaapi.data.DamlRecord], "record$")
         .addStatement("$T $L = new $T(contractId)", idClassName, idFieldName, idClassName)
         .addStatement(
           "$T $L = $T.fromValue(record$$)",

@@ -1,18 +1,18 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script.ledgerinteraction
+package com.daml.lf
+package engine
+package script
+package ledgerinteraction
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.PartyDetails
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
-import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.speedy.SError._
-import com.daml.lf.speedy.SValue
-import com.daml.lf.speedy.{ScenarioRunner, TraceLog}
-import com.daml.lf.speedy.ScenarioRunner.CurrentSubmission
+import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
+import com.daml.lf.speedy.{SValue, TraceLog}
 import com.daml.lf.transaction.Node.{
   NodeRollback,
   NodeCreate,
@@ -23,7 +23,6 @@ import com.daml.lf.transaction.Node.{
 import com.daml.lf.transaction.{GlobalKey, NodeId}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf._
 import com.daml.script.converter.ConverterException
 import io.grpc.StatusRuntimeException
 import scalaz.OneAnd
@@ -40,9 +39,9 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
     extends ScriptLedgerClient {
   private var seed = crypto.Hash.hashPrivateKey(s"script-service")
 
-  private var _currentSubmission: Option[CurrentSubmission] = None
+  private var _currentSubmission: Option[ScenarioRunner.CurrentSubmission] = None
 
-  def currentSubmission: Option[CurrentSubmission] = _currentSubmission
+  def currentSubmission: Option[ScenarioRunner.CurrentSubmission] = _currentSubmission
 
   private[this] val preprocessor = new engine.preprocessing.CommandPreprocessor(compiledPackages)
 
@@ -178,7 +177,8 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
         }
         Right(transaction.roots.toSeq.map(convRootEvent(_)))
       case ScenarioRunner.SubmissionError(err, ptx) =>
-        _currentSubmission = Some(CurrentSubmission(optLocation, ptx.finishIncomplete))
+        _currentSubmission =
+          Some(ScenarioRunner.CurrentSubmission(optLocation, ptx.finishIncomplete))
         throw err
     }
 
@@ -191,7 +191,8 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
     unsafeSubmit(actAs, readAs, commands, optLocation)
       .map({
         case commit: ScenarioRunner.Commit[_] =>
-          _currentSubmission = Some(CurrentSubmission(optLocation, commit.ptx.finishIncomplete))
+          _currentSubmission =
+            Some(ScenarioRunner.CurrentSubmission(optLocation, commit.ptx.finishIncomplete))
           Left(())
         case error: ScenarioRunner.SubmissionError =>
           _currentSubmission = None
@@ -240,7 +241,8 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
           transaction.roots.collect(Function.unlift(convEvent(_))).toList
         )
       case ScenarioRunner.SubmissionError(err, ptx) =>
-        _currentSubmission = Some(CurrentSubmission(optLocation, ptx.finishIncomplete))
+        _currentSubmission =
+          Some(ScenarioRunner.CurrentSubmission(optLocation, ptx.finishIncomplete))
         throw new IllegalStateException(err)
     }
   }
@@ -261,7 +263,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
         if (partyIdHint != "") {
           // Try to allocate the given hint as party name. Will fail if the name is already taken.
           if (usedNames contains partyIdHint) {
-            Failure(new ScenarioErrorPartyAlreadyExists(partyIdHint))
+            Failure(scenario.Error.PartyAlreadyExists(partyIdHint))
           } else {
             Success(partyIdHint)
           }

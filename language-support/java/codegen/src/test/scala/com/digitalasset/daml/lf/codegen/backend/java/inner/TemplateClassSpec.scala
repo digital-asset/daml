@@ -64,7 +64,7 @@ final class TemplateClassSpec extends AnyFlatSpec with Matchers with OptionValue
   private[this] val fromIdAndRecordWithoutKey =
     TemplateClass.generateFromIdAndRecord(className, templateClassName, idClassName, None)
   private[this] val string = TypeName.get(classOf[String])
-  private[this] val record = TypeName.get(classOf[javaapi.data.Record])
+  private[this] val record = TypeName.get(classOf[javaapi.data.DamlRecord])
   private[this] val optionalString =
     ParameterizedTypeName.get(classOf[Optional[_]], classOf[String])
   private[this] val optionalContractKey =

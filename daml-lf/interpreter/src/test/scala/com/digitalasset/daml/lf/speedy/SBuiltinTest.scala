@@ -7,13 +7,15 @@ package speedy
 import java.util
 
 import com.daml.lf.data._
+import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SError.{DamlEUnhandledException, SError, SErrorCrash}
+import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue, SResultNeedPackage}
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ValueArithmeticError
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
@@ -1485,7 +1487,11 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         inside(
           evalSExpr(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).toArray), false)
         ) {
-          case Left(DamlEUnhandledException(SArithmeticError(SText(msg))))
+          case Left(
+                SError.SErrorDamlException(
+                  IE.UnhandledException(ValueArithmeticError.typ, ValueArithmeticError(msg))
+                )
+              )
               if msg == s"ArithmeticError while evaluating ($name ${args.iterator.map(lit2string).mkString(" ")})." =>
         }
       }

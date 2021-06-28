@@ -37,7 +37,10 @@ object ToValueGenerator {
       returnStatement: String => CodeBlock,
   ): MethodSpec = {
     val arrayOfFields =
-      ParameterizedTypeName.get(classOf[java.util.ArrayList[_]], classOf[javaapi.data.Record.Field])
+      ParameterizedTypeName.get(
+        classOf[java.util.ArrayList[_]],
+        classOf[javaapi.data.DamlRecord.Field],
+      )
 
     val typeExtractors = ToValueExtractorParameters.generate(typeParams)
 
@@ -56,7 +59,7 @@ object ToValueGenerator {
     for (FieldInfo(damlName, damlType, javaName, _) <- fields) {
       toValueMethod.addStatement(
         "fields.add(new $T($S, $L))",
-        classOf[javaapi.data.Record.Field],
+        classOf[javaapi.data.DamlRecord.Field],
         damlName,
         generateToValueConverter(
           damlType,

@@ -18,8 +18,8 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SBuiltin.checkAborted
 import com.daml.lf.transaction.{
   ContractKeyUniquenessMode,
-  Node,
   IncompleteTransaction,
+  Node,
   TransactionVersion,
 }
 import com.daml.lf.value.{Value => V}
@@ -1075,7 +1075,7 @@ private[lf] object Speedy {
     }
 
     machine.ctrl = altOpt
-      .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
+      .getOrElse(crash(s"No match for $v in ${alts.toList}"))
       .body
   }
 
@@ -1338,7 +1338,9 @@ private[lf] object Speedy {
         machine.kontStack.clear()
         machine.env.clear()
         machine.envBase = 0
-        throw DamlEUnhandledException(excep)
+        throw SErrorDamlException(
+          interpretation.Error.UnhandledException(excep.ty, excep.value.toValue)
+        )
     }
   }
 

@@ -3,10 +3,11 @@
 
 package com.daml
 package lf
-package speedy
+package scenario
 
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
+import com.daml.lf.speedy.SValue
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.concurrent.ScalaFutures
@@ -17,7 +18,7 @@ class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {
     "mangle party names correctly" in {
       val e = Ast.EScenario(Ast.ScenarioGetParty(Ast.EPrimLit(Ast.PLText("foo-bar"))))
       val txSeed = crypto.Hash.hashPrivateKey("ScenarioRunnerTest")
-      val m = Speedy.Machine.fromScenarioExpr(PureCompiledPackages.Empty, e)
+      val m = speedy.Speedy.Machine.fromScenarioExpr(PureCompiledPackages.Empty, e)
       val sr = ScenarioRunner(m, txSeed, _ + "-XXX")
       sr.run() match {
         case success: ScenarioRunner.ScenarioSuccess =>

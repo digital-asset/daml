@@ -47,7 +47,7 @@ class CommandService(
   )(implicit lc: LoggingContextOf[T]): withEnrichedLoggingContext[TemplateId.RequiredPkg, T] =
     withEnrichedLoggingContext(
       label[TemplateId.RequiredPkg],
-      ("template_id", templateId.toString),
+      "template_id" -> templateId.toString,
     )
 
   def withTemplateChoiceLoggingContext[T](
@@ -57,7 +57,7 @@ class CommandService(
     withTemplateLoggingContext(templateId).run(
       withEnrichedLoggingContext(
         label[domain.Choice],
-        ("choice", choice.toString),
+        "choice" -> choice.toString,
       )(_)
     )
 
@@ -86,21 +86,26 @@ class CommandService(
   )(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[Error \/ ExerciseResponse[lav1.value.Value]] =
-    withTemplateChoiceLoggingContext(input.reference.fold(_._1, _._1), input.choice).run {
-      implicit lc =>
-        logger.trace("sending exercise command to ledger")
-        val command = exerciseCommand(input)
-        val request = submitAndWaitRequest(jwtPayload, input.meta, command, "exercise")
+    withEnrichedLoggingContext(
+      label[lav1.value.Value],
+      "contract_id" -> input.argument.getContractId,
+    ).run(implicit lc =>
+      withTemplateChoiceLoggingContext(input.reference.fold(_._1, _._1), input.choice)
+        .run { implicit lc =>
+          logger.trace("sending exercise command to ledger")
+          val command = exerciseCommand(input)
+          val request = submitAndWaitRequest(jwtPayload, input.meta, command, "exercise")
 
-        val et: ET[ExerciseResponse[lav1.value.Value]] = for {
-          response <-
-            logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request))
-          exerciseResult <- either(exerciseResult(response))
-          contracts <- either(contracts(response))
-        } yield ExerciseResponse(exerciseResult, contracts)
+          val et: ET[ExerciseResponse[lav1.value.Value]] = for {
+            response <-
+              logResult(Symbol("exercise"), submitAndWaitForTransactionTree(jwt, request))
+            exerciseResult <- either(exerciseResult(response))
+            contracts <- either(contracts(response))
+          } yield ExerciseResponse(exerciseResult, contracts)
 
-        et.run
-    }
+          et.run
+        }
+    )
 
   def createAndExercise(
       jwt: Jwt,

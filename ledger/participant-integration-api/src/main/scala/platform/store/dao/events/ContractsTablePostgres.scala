@@ -42,6 +42,7 @@ object ContractsTablePostgres extends ContractsTable {
     ContractsTable.Executables(
       deleteContracts = buildDeletes(info),
       insertContracts = buildInserts(tx, info, serialized),
+      nullifyPastKeys = buildNullifyPastKeys(info),
     )
   }
 
