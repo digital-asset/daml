@@ -71,7 +71,7 @@ message CreatedEvent {
   repeated string signatories = 8;
 
   // The observers for this contract as specified explicitly by the template or implicitly as choice controllers.
-  // No member of signatories should be present in this list.
+  // This field never contains parties that are signatories.
   // Required
   repeated string observers = 9;
 
