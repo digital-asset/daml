@@ -127,7 +127,7 @@ private[backend] object OracleStorageBackend
       witnessesWhereClause = arrayIntersectionWhereClause("flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(party)),
+      submitterIsPartyClause = submittersIsPartyClause,
     )(connection)
 
   def transactionsEventsSinglePartyWithTemplates(
@@ -147,7 +147,7 @@ private[backend] object OracleStorageBackend
       templateIds = templateIds,
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(party)),
+      submitterIsPartyClause = submittersIsPartyClause,
     )(connection)
 
   def transactionsEventsOnlyWildcardParties(
@@ -246,7 +246,7 @@ private[backend] object OracleStorageBackend
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
-      submittersInPartiesClause = arrayIntersectionWhereClause("active_cs.submitters", Set(party)),
+      submitterIsPartyClause = submittersIsPartyClause,
     )(connection)
 
   def activeContractsEventsSinglePartyWithTemplates(
@@ -269,7 +269,7 @@ private[backend] object OracleStorageBackend
         arrayIntersectionWhereClause("active_cs.flat_event_witnesses", Set(party)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(party)),
+      submitterIsPartyClause = submittersIsPartyClause,
     )(connection)
 
   def activeContractsEventsOnlyWildcardParties(
@@ -375,7 +375,7 @@ private[backend] object OracleStorageBackend
       partyArrayContext = partyArrayContext,
       witnessesWhereClause =
         arrayIntersectionWhereClause("flat_event_witnesses", Set(requestingParty)),
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
+      submitterIsPartyClause = submittersIsPartyClause,
     )(connection)
 
   def flatTransactionMultiParty(
@@ -399,8 +399,8 @@ private[backend] object OracleStorageBackend
       partyArrayContext = partyArrayContext,
       witnessesWhereClause =
         arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
       createEventFilter = columnEqualityBoolean("event_kind", "20"),
+      submitterIsPartyClause = submittersIsPartyClause,
     )(connection)
 
   def transactionTreeMultiParty(
@@ -432,8 +432,8 @@ private[backend] object OracleStorageBackend
         arrayIntersectionWhereClause("tree_event_witnesses", Set(requestingParty)),
       limitExpr = limitClause(limit),
       fetchSizeHint = fetchSizeHint,
-      submittersInPartiesClause = arrayIntersectionWhereClause("submitters", Set(requestingParty)),
       createEventFilter = columnEqualityBoolean("event_kind", "20"),
+      submitterIsPartyClause = submittersIsPartyClause,
     )(connection)
 
   def transactionTreeEventsMultiParty(
@@ -518,4 +518,7 @@ private[backend] object OracleStorageBackend
 
   private def columnEqualityBoolean(column: String, value: String) =
     s"""case when ($column = $value) then 1 else 0 end"""
+
+  private def submittersIsPartyClause(submittersColumnName: String): (String, String) =
+    (s"json_equal(json_query($submittersColumnName, '$$'), json_array(", "))")
 }
