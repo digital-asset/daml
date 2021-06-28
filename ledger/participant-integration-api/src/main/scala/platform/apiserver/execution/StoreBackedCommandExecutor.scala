@@ -59,7 +59,13 @@ private[apiserver] final class StoreBackedCommandExecutor(
     val commitAuthorizers = commands.actAs
     val submissionResult = Timed.trackedValue(
       metrics.daml.execution.engineRunning,
-      engine.submit(commitAuthorizers, commands.commands, participant, submissionSeed),
+      engine.submit(
+        commitAuthorizers,
+        commands.readAs,
+        commands.commands,
+        participant,
+        submissionSeed,
+      ),
     )
     consume(commands.actAs, commands.readAs, submissionResult)
       .map { submission =>

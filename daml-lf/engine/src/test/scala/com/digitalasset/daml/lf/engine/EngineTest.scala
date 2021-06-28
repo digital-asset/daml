@@ -481,12 +481,19 @@ class EngineTest
       CreateCommand(id, ValueRecord(Some(id), ImmArray((Some[Name]("p"), ValueParty(party)))))
     val submissionSeed = hash("minimal create command")
     val submitters = Set(party)
+    val readAs = (Set.empty: Set[Party])
     val res = preprocessor
       .preprocessCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
     res shouldBe a[Right[_, _]]
     val interpretResult = engine
-      .submit(submitters, Commands(ImmArray(command), let, "test"), participant, submissionSeed)
+      .submit(
+        submitters,
+        readAs,
+        Commands(ImmArray(command), let, "test"),
+        participant,
+        submissionSeed,
+      )
       .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
     "be translated" in {
@@ -561,6 +568,7 @@ class EngineTest
         signatories: Set[(String, Party)],
         actAs: Set[Party],
     ) = {
+      val readAs = (Set.empty: Set[Party])
       val cmd = command(templateId, signatories)
       val res = preprocessor
         .preprocessCommands(ImmArray(cmd))
@@ -568,7 +576,7 @@ class EngineTest
       withClue("Preprocessing result: ")(res shouldBe a[Right[_, _]])
 
       engine
-        .submit(actAs, Commands(ImmArray(cmd), let, "test"), participant, submissionSeed)
+        .submit(actAs, readAs, Commands(ImmArray(cmd), let, "test"), participant, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(actAs))
     }
 
@@ -662,6 +670,7 @@ class EngineTest
     val command =
       ExerciseCommand(templateId, cid, "Hello", ValueRecord(Some(hello), ImmArray.empty))
     val submitters = Set(party)
+    val readAs = (Set.empty: Set[Party])
 
     val res = preprocessor
       .preprocessCommands(ImmArray(command))
@@ -673,7 +682,8 @@ class EngineTest
           engine
             .interpretCommands(
               validating = false,
-              submitters = Set(party),
+              submitters = submitters,
+              readAs = readAs,
               commands = cmds,
               ledgerTime = let,
               submissionTime = let,
@@ -692,7 +702,13 @@ class EngineTest
 
     "be translated" in {
       val Right((rtx, _)) = engine
-        .submit(Set(party), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(
+          Set(party),
+          readAs,
+          Commands(ImmArray(command), let, "test"),
+          participant,
+          submissionSeed,
+        )
         .consume(
           lookupContract,
           lookupPackage,
@@ -745,6 +761,7 @@ class EngineTest
       ValueRecord(None, ImmArray((None, ValueInt64(5)))),
     )
     val submitters = Set(alice)
+    val readAs = (Set.empty: Set[Party])
 
     val res = preprocessor
       .preprocessCommands(ImmArray(command))
@@ -753,7 +770,13 @@ class EngineTest
 
     "fail at submission" in {
       val submitResult = engine
-        .submit(submitters, Commands(ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(
+          submitters,
+          readAs,
+          Commands(ImmArray(command), let, "test"),
+          participant,
+          submissionSeed,
+        )
         .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
       inside(submitResult) { case Left(err) =>
         err shouldBe Error.Interpretation(
@@ -786,6 +809,7 @@ class EngineTest
       ValueRecord(None, ImmArray((None, ValueInt64(5)))),
     )
     val submitters = Set(alice)
+    val readAs = (Set.empty: Set[Party])
 
     val res = preprocessor
       .preprocessCommands(ImmArray(command))
@@ -798,6 +822,7 @@ class EngineTest
             .interpretCommands(
               validating = false,
               submitters = submitters,
+              readAs = readAs,
               commands = cmds,
               ledgerTime = let,
               submissionTime = let,
@@ -816,7 +841,13 @@ class EngineTest
 
     "be translated" in {
       val submitResult = engine
-        .submit(submitters, Commands(ImmArray(command), let, "test"), participant, submissionSeed)
+        .submit(
+          submitters,
+          readAs,
+          Commands(ImmArray(command), let, "test"),
+          participant,
+          submissionSeed,
+        )
         .consume(
           lookupContract,
           lookupPackage,
@@ -888,6 +919,7 @@ class EngineTest
         .interpretCommands(
           validating = false,
           submitters = submitters,
+          readAs = (Set.empty: Set[Party]),
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
@@ -926,6 +958,7 @@ class EngineTest
         .interpretCommands(
           validating = false,
           submitters = submitters,
+          readAs = (Set.empty: Set[Party]),
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
@@ -961,6 +994,7 @@ class EngineTest
         .interpretCommands(
           validating = false,
           submitters = submitters,
+          readAs = (Set.empty: Set[Party]),
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
@@ -1006,6 +1040,7 @@ class EngineTest
         .interpretCommands(
           validating = false,
           submitters = submitters,
+          readAs = (Set.empty: Set[Party]),
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
@@ -1060,6 +1095,7 @@ class EngineTest
             .interpretCommands(
               validating = false,
               submitters = submitters,
+              readAs = (Set.empty: Set[Party]),
               commands = cmds,
               ledgerTime = let,
               submissionTime = let,
@@ -1320,9 +1356,16 @@ class EngineTest
     )
 
     val submitters = Set(bob)
+    val readAs = (Set.empty: Set[Party])
 
     val Right((tx, txMeta)) = engine
-      .submit(submitters, Commands(ImmArray(command), let, "test"), participant, submissionSeed)
+      .submit(
+        submitters,
+        readAs,
+        Commands(ImmArray(command), let, "test"),
+        participant,
+        submissionSeed,
+      )
       .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
     val submissionTime = txMeta.submissionTime
@@ -1336,6 +1379,7 @@ class EngineTest
       .interpretCommands(
         validating = false,
         submitters = submitters,
+        readAs = (Set.empty: Set[Party]),
         commands = cmds,
         ledgerTime = let,
         submissionTime = submissionTime,
@@ -1502,6 +1546,7 @@ class EngineTest
             .interpretCommands(
               validating = false,
               submitters = submitters,
+              readAs = (Set.empty: Set[Party]),
               commands = cmds,
               ledgerTime = let,
               submissionTime = let,
@@ -1666,13 +1711,15 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
       )
+      val submitters = Set(alice)
+      val readAs = (Set.empty: Set[Party])
       val Right((tx, _)) = engine
-        .submit(Set(alice), Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
+        .submit(submitters, readAs, Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(
           lookupContractMap.get,
           lookupPackage,
           lookupKey,
-          VisibleByKey.fromSubmitters(Set(alice)),
+          VisibleByKey.fromSubmitters(submitters),
         )
 
       val expectedByKeyNodes = tx.transaction.nodes.collect {
@@ -1691,9 +1738,10 @@ class EngineTest
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))),
       )
       val submitters = Set(alice)
+      val readAs = (Set.empty: Set[Party])
 
       val Right((tx, txMeta)) = engine
-        .submit(Set(alice), Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
+        .submit(submitters, readAs, Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(
           lookupContractMap.get,
           lookupPackage,
@@ -1732,21 +1780,22 @@ class EngineTest
         "Lookup",
         ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(57)))),
       )
+      val submitters = Set(alice)
+      val readAs = (Set.empty: Set[Party])
+
       val Right((tx, txMeta)) = engine
-        .submit(Set(alice), Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
+        .submit(submitters, readAs, Commands(ImmArray(exerciseCmd), now, "test"), participant, seed)
         .consume(
           lookupContractMap.get,
           lookupPackage,
           lookupKey,
-          VisibleByKey.fromSubmitters(Set(alice)),
+          VisibleByKey.fromSubmitters(submitters),
         )
 
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
       val Some((nid, lookupNode)) = firstLookupNode(tx.transaction)
       lookupNode.result shouldBe None
-
-      val submitters = Set(alice)
 
       val Right((reinterpreted, _)) =
         Engine
@@ -1782,6 +1831,7 @@ class EngineTest
         .interpretCommands(
           validating = false,
           submitters = submitters,
+          readAs = (Set.empty: Set[Party]),
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
@@ -1810,9 +1860,11 @@ class EngineTest
           choiceArgument = ValueRecord(None, ImmArray.empty),
         )
       val submitters = Set(party)
+      val readAs = (Set.empty: Set[Party])
       engine
         .submit(
           submitters,
+          readAs,
           Commands(ImmArray(command), Time.Timestamp.now(), "test"),
           participant,
           submissionSeed,
@@ -1846,6 +1898,7 @@ class EngineTest
         .interpretCommands(
           validating = false,
           submitters = submitters,
+          readAs = (Set.empty: Set[Party]),
           commands = ImmArray(cmd),
           ledgerTime = now,
           submissionTime = now,
@@ -1921,6 +1974,7 @@ class EngineTest
         .interpretCommands(
           validating = false,
           submitters = submitters,
+          readAs = (Set.empty: Set[Party]),
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
@@ -1980,10 +2034,12 @@ class EngineTest
 
     val now = Time.Timestamp.now()
     val submissionSeed = hash("wrongly-typed cid")
+    val submitters = Set(alice)
+    val readAs = (Set.empty: Set[Party])
     def run(cmds: ImmArray[ApiCommand]) =
       engine
-        .submit(Set(alice), Commands(cmds, now, ""), participant, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(Set(alice)))
+        .submit(submitters, readAs, Commands(cmds, now, ""), participant, submissionSeed)
+        .consume(lookupContract, lookupPackage, lookupKey, VisibleByKey.fromSubmitters(submitters))
 
     "error on fetch" in {
       val result = run(ImmArray(incorrectFetch))
@@ -2028,9 +2084,17 @@ class EngineTest
         choiceId = "Fork",
         choiceArgument = ValueRecord(None, ImmArray((None, ValueInt64(n.toLong)))),
       )
+      val submitters = Set(party)
+      val readAs = (Set.empty: Set[Party])
       engine
-        .submit(Set(party), Commands(ImmArray(command), let, "test"), participant, submissionSeed)
-        .consume(_ => None, lookupPackage, _ => None, VisibleByKey.fromSubmitters(Set(party)))
+        .submit(
+          submitters,
+          readAs,
+          Commands(ImmArray(command), let, "test"),
+          participant,
+          submissionSeed,
+        )
+        .consume(_ => None, lookupPackage, _ => None, VisibleByKey.fromSubmitters(submitters))
     }
 
     "produce a quadratic number of nodes" in {
@@ -2111,7 +2175,8 @@ class EngineTest
       val result = engine
         .interpretCommands(
           validating = false,
-          submitters = Set(alice),
+          submitters = submitters,
+          readAs = (Set.empty: Set[Party]),
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
@@ -2141,6 +2206,7 @@ class EngineTest
         .interpretCommands(
           validating = false,
           submitters = submitters,
+          readAs = (Set.empty: Set[Party]),
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
@@ -2172,6 +2238,7 @@ class EngineTest
         .interpretCommands(
           validating = false,
           submitters = submitters,
+          readAs = (Set.empty: Set[Party]),
           commands = cmds,
           ledgerTime = now,
           submissionTime = now,
@@ -2245,6 +2312,7 @@ class EngineTest
           .interpretCommands(
             validating = false,
             submitters = Set(party),
+            readAs = (Set.empty: Set[Party]),
             commands = cmds,
             ledgerTime = let,
             submissionTime = let,
@@ -2371,6 +2439,7 @@ class EngineTest
           .interpretCommands(
             validating = false,
             submitters = submitters,
+            readAs = (Set.empty: Set[Party]),
             commands = cmds,
             ledgerTime = let,
             submissionTime = let,
@@ -2483,6 +2552,7 @@ class EngineTest
           .interpretCommands(
             validating = false,
             submitters = submitters,
+            readAs = (Set.empty: Set[Party]),
             commands = cmds,
             ledgerTime = let,
             submissionTime = let,
@@ -2567,6 +2637,7 @@ class EngineTest
           .interpretCommands(
             validating = false,
             submitters = submitters,
+            readAs = (Set.empty: Set[Party]),
             commands = cmds,
             ledgerTime = let,
             submissionTime = let,

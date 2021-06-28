@@ -87,6 +87,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     */
   def submit(
       submitters: Set[Party],
+      readAs: Set[Party],
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
@@ -98,6 +99,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         interpretCommands(
           validating = false,
           submitters = submitters,
+          readAs = readAs,
           commands = processedCmds,
           ledgerTime = cmds.ledgerEffectiveTime,
           submissionTime = submissionTime,
@@ -150,6 +152,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       result <- interpretExpression(
         validating = true,
         submitters = submitters,
+        readAs = Set.empty,
         sexpr = sexpr,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
@@ -173,6 +176,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       result <- interpretCommands(
         validating = true,
         submitters = submitters,
+        readAs = Set.empty,
         commands = commands,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
@@ -265,6 +269,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
   private[engine] def interpretCommands(
       validating: Boolean,
       submitters: Set[Party],
+      readAs: Set[Party],
       commands: ImmArray[speedy.Command],
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
@@ -275,6 +280,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     interpretExpression(
       validating,
       submitters,
+      readAs,
       sexpr,
       ledgerTime,
       submissionTime,
@@ -294,6 +300,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       validating: Boolean,
       /* See documentation for `Speedy.Machine` for the meaning of this field */
       submitters: Set[Party],
+      readAs: Set[Party],
       sexpr: SExpr,
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
@@ -308,6 +315,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
+        readAs = readAs,
         validating = validating,
         contractKeyUniqueness = config.contractKeyUniqueness,
       )

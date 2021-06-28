@@ -393,6 +393,7 @@ object ScenarioRunner {
       expr = SExpr.SEApp(commands, Array(SExpr.SEValue(SValue.SToken))),
       globalCids = Set.empty,
       committers = committers,
+      readAs = readAs,
       traceLog = traceLog,
     )
     val onLedger = ledgerMachine.ledgerMode match {
