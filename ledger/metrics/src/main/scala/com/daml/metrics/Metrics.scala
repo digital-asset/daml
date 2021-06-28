@@ -661,6 +661,11 @@ final class Metrics(val registry: MetricRegistry) {
           def slice(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "slice")
           def prune(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "prune")
         }
+
+        val getContractStateEventsChunkSize: Histogram =
+          registry.histogram(Prefix :+ "get_contract_state_events_chunk_fetch_size")
+        val getTransactionLogUpdatesChunkSize: Histogram =
+          registry.histogram(Prefix :+ "get_transaction_log_updates_chunk_fetch_size")
       }
 
       object read {
