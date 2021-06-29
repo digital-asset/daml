@@ -12,6 +12,9 @@ final class LoggingEntries private (
   def isEmpty: Boolean =
     contents.isEmpty
 
+  def +:(entry: LoggingEntry): LoggingEntries =
+    new LoggingEntries(contents + entry)
+
   def :+(entry: LoggingEntry): LoggingEntries =
     new LoggingEntries(contents + entry)
 

@@ -11,10 +11,10 @@ import com.daml.ledger.api.domain.{
   Commands,
   EventId,
   LedgerOffset,
+  TransactionFilter,
   TransactionId,
   WorkflowId,
 }
-import com.daml.ledger.api.v1.transaction_filter.Filters
 import com.daml.logging.{LoggingEntries, LoggingEntry, LoggingValue}
 import scalaz.syntax.tag.ToTagOps
 
@@ -59,15 +59,18 @@ package object logging {
   private[services] def eventId(id: EventId): LoggingEntry =
     "eventId" -> id.unwrap
 
-  private[services] def filters(filtersByParty: Map[String, Filters]): LoggingEntries =
-    LoggingEntries.fromIterator(filtersByParty.iterator.flatMap { case (party, filters) =>
-      Iterator
-        .continually(s"party-$party")
-        .zip(
-          filters.inclusive
-            .fold(Iterator.single("all-templates"))(_.templateIds.iterator.map(_.toString))
-            .map(LoggingValue.from(_))
-        )
+  private[services] def filters(
+      filters: TransactionFilter
+  ): LoggingEntries =
+    LoggingEntries.fromIterator(filters.filtersByParty.iterator.flatMap {
+      case (party, partyFilters) =>
+        Iterator
+          .continually(s"party-$party")
+          .zip(
+            partyFilters.inclusive
+              .fold(Iterator.single("all-templates"))(_.templateIds.iterator.map(_.toString))
+              .map(LoggingValue.from(_))
+          )
     })
 
   private[services] def submissionId(id: String): LoggingEntry =

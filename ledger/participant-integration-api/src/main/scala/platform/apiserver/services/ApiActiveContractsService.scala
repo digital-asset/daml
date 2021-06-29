@@ -38,18 +38,18 @@ private[apiserver] final class ApiActiveContractsService private (
   override protected def getActiveContractsSource(
       request: GetActiveContractsRequest
   ): Source[GetActiveContractsResponse, NotUsed] =
-    withEnrichedLoggingContextFrom(logging.filters(request.getFilter.filtersByParty)) {
-      implicit loggingContext: LoggingContext =>
-        logger.info(s"Received request for active contracts: $request")
-        TransactionFilterValidator
-          .validate(request.getFilter)
-          .fold(
-            t => Source.failed(ValidationLogger.logFailureWithContext(request, t)),
-            backend.getActiveContracts(_, request.verbose),
-          )
-          .via(logger.logErrorsOnStream)
-          .via(StreamMetrics.countElements(metrics.daml.lapi.streams.acs))
-    }
+    TransactionFilterValidator
+      .validate(request.getFilter)
+      .fold(
+        t => Source.failed(ValidationLogger.logFailureWithContext(request, t)),
+        filters =>
+          withEnrichedLoggingContextFrom(logging.filters(filters)) { implicit loggingContext =>
+            logger.info(s"Received request for active contracts: $request")
+            backend.getActiveContracts(filters, request.verbose)
+          },
+      )
+      .via(logger.logErrorsOnStream)
+      .via(StreamMetrics.countElements(metrics.daml.lapi.streams.acs))
 
   override def bindService(): ServerServiceDefinition =
     ActiveContractsServiceGrpc.bindService(this, executionContext)
