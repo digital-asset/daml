@@ -31,6 +31,6 @@ object LoggingEntries {
   def apply(entries: LoggingEntry*): LoggingEntries =
     new LoggingEntries(entries.toMap)
 
-  def fromIterable(entries: Iterable[LoggingEntry]): LoggingEntries =
-    new LoggingEntries(entries.toMap)
+  def fromMap(entries: Map[LoggingKey, LoggingValue]): LoggingEntries =
+    new LoggingEntries(entries)
 }
