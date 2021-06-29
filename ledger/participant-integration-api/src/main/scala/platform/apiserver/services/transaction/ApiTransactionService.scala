@@ -3,14 +3,11 @@
 
 package com.daml.platform.apiserver.services.transaction
 
-import java.util.concurrent.atomic.AtomicLong
-
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
-import com.daml.lf.data.Ref.Party
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger
 import com.daml.ledger.api.domain._
 import com.daml.ledger.api.messages.transaction._
 import com.daml.ledger.api.v1.transaction_service.{
@@ -20,11 +17,12 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionsResponse,
 }
 import com.daml.ledger.api.validation.PartyNameChecker
+import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
+import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
-import com.daml.ledger
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -61,8 +59,6 @@ private[apiserver] final class ApiTransactionService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val subscriptionIdCounter = new AtomicLong()
-
   override def getTransactions(
       request: GetTransactionsRequest
   ): Source[GetTransactionsResponse, NotUsed] =
@@ -71,8 +67,7 @@ private[apiserver] final class ApiTransactionService private (
       logging.endInclusive(request.endInclusive),
       logging.parties(request.filter.filtersByParty.keys),
     ) { implicit loggingContext =>
-      val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
-      logger.info(s"Received request for transaction subscription $subscriptionId: $request")
+      logger.info(s"Received request for transaction: $request")
       transactionsService
         .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
         .via(logger.debugStream(transactionsLoggable))
