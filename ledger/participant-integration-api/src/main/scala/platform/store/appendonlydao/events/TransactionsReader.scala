@@ -5,9 +5,9 @@ package com.daml.platform.store.appendonlydao.events
 
 import java.sql.Connection
 
+import akka.NotUsed
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
-import akka.{Done, NotUsed}
 import com.daml.ledger.api.TraceIdentifiers
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.Event
@@ -23,6 +23,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics._
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.ApiOffset
+import com.daml.platform.store.appendonlydao.events.TracingUtils.endSpanOnTermination
 import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream}
 import com.daml.platform.store.backend.StorageBackend
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
@@ -31,10 +32,8 @@ import com.daml.platform.store.interfaces.TransactionLogUpdate
 import com.daml.platform.store.utils.Telemetry
 import com.daml.telemetry
 import com.daml.telemetry.{SpanAttribute, Spans}
-import io.opentelemetry.api.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
 
 /** @param dispatcher Executes the queries prepared by this object
   * @param executionContext Runs transformations on data fetched from the database, including Daml-LF value deserialization
@@ -524,17 +523,6 @@ private[appendonlydao] final class TransactionsReader(
         )
       }
     }
-
-  private def endSpanOnTermination[Mat, Out](span: Span)(mat: Mat, done: Future[Done]): Mat = {
-    done.onComplete {
-      case Failure(exception) =>
-        span.recordException(exception)
-        span.end()
-      case Success(_) =>
-        span.end()
-    }
-    mat
-  }
 }
 
 private[appendonlydao] object TransactionsReader {
