@@ -49,6 +49,10 @@ private[platform] object TransactionsWriter {
         Timed.value(deleteContractsBatch, deleteContracts.execute())
       }
 
+      for (nullifyPastKeys <- contractsTableExecutables.nullifyPastKeys) {
+        Timed.value(nullifyPastKeysBatch, nullifyPastKeys.execute())
+      }
+
       Timed.value(insertContractsBatch, contractsTableExecutables.insertContracts.execute())
 
       // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
