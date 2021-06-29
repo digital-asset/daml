@@ -4,9 +4,7 @@
 package com.daml.logging
 
 import net.logstash.logback.argument.StructuredArgument
-import net.logstash.logback.marker.MapEntriesAppendingMarker
 import org.slf4j.Marker
-import scala.jdk.CollectionConverters._
 
 final class LoggingEntries private (
     private[logging] val contents: Map[LoggingKey, LoggingValue]
@@ -21,7 +19,7 @@ final class LoggingEntries private (
     new LoggingEntries(contents ++ other.contents)
 
   private[logging] def loggingMarker: Marker with StructuredArgument =
-    new MapEntriesAppendingMarker(contents.asJava)
+    new LoggingMarker(contents)
 }
 
 object LoggingEntries {

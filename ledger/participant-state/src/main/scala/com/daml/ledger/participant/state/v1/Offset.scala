@@ -6,6 +6,8 @@ package com.daml.ledger.participant.state.v1
 import java.io.InputStream
 
 import com.daml.lf.data.{Bytes, Ref}
+import com.daml.logging.LoggingValue
+import com.daml.logging.LoggingValue.ToLoggingValue
 
 /** Offsets into streams with hierarchical addressing.
   *
@@ -32,7 +34,6 @@ final case class Offset(bytes: Bytes) extends Ordered[Offset] {
 }
 
 object Offset {
-
   val beforeBegin: Offset = Offset.fromByteArray(Array.empty[Byte])
 
   def fromByteArray(bytes: Array[Byte]) = new Offset(Bytes.fromByteArray(bytes))
@@ -40,4 +41,9 @@ object Offset {
   def fromInputStream(is: InputStream) = new Offset(Bytes.fromInputStream(is))
 
   def fromHexString(s: Ref.HexString) = new Offset(Bytes.fromHexString(s))
+
+  implicit object `Offset to LoggingValue` extends ToLoggingValue[Offset] {
+    override def apply(value: Offset): LoggingValue =
+      new LoggingValue.OfString(value.toHexString)
+  }
 }

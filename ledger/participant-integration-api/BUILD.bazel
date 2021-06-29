@@ -55,7 +55,6 @@ compile_deps = [
     "@maven//:io_grpc_grpc_netty",
     "@maven//:io_grpc_grpc_services",
     "@maven//:io_netty_netty_handler",
-    "@maven//:net_logstash_logback_logstash_logback_encoder",
     "@maven//:org_flywaydb_flyway_core",
     "@maven//:io_opentelemetry_opentelemetry_api",
     "@maven//:io_opentelemetry_opentelemetry_context",

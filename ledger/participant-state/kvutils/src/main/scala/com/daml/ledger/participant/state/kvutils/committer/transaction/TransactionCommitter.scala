@@ -67,7 +67,7 @@ private[kvutils] class TransactionCommitter(
       transactionEntry: DamlTransactionEntrySummary
   ): LoggingEntries =
     LoggingEntries(
-      "submitters" -> transactionEntry.submitters.mkString("[", ", ", "]")
+      "submitters" -> transactionEntry.submitters
     )
 
   override protected def init(

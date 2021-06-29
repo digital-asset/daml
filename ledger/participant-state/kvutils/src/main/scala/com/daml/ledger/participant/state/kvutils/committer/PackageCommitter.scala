@@ -47,9 +47,7 @@ final private[kvutils] class PackageCommitter(
 
   override protected def extraLoggingContext(result: Result): LoggingEntries =
     LoggingEntries(
-      "packages" -> result.uploadEntry.getArchivesList.asScala
-        .map(_.getHash)
-        .mkString("[", ", ", "]")
+      "packages" -> result.uploadEntry.getArchivesList.asScala.view.map(_.getHash)
     )
 
   /** The initial internal state passed to first step. */

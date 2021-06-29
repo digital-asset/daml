@@ -11,7 +11,7 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{KillSwitch, KillSwitches, Materializer, UniqueKillSwitch}
 import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
+import com.daml.logging.LoggingContext.{withEnrichedLoggingContext, withEnrichedLoggingContextFrom}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, Metrics}
 import com.daml.platform.configuration.ServerRole
@@ -227,9 +227,7 @@ object ParallelIndexerFactory {
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
-      LoggingContext.withEnrichedLoggingContext(
-        "updateOffsets" -> batch.offsets.view.map(_.toHexString).mkString("[", ", ", "]")
-      ) { implicit loggingContext =>
+      withEnrichedLoggingContext("updateOffsets" -> batch.offsets) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.parallelIndexer.ingestion) { connection =>
           metrics.daml.parallelIndexer.updates.inc(batch.batchSize.toLong)
           ingestFunction(connection, batch.batch)
@@ -262,9 +260,7 @@ object ParallelIndexerFactory {
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] =
     batch =>
-      LoggingContext.withEnrichedLoggingContext(
-        "updateOffset" -> batch.lastOffset.toHexString
-      ) { implicit loggingContext =>
+      withEnrichedLoggingContext("updateOffset" -> batch.lastOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.parallelIndexer.tailIngestion) { connection =>
           ingestTailFunction(
             StorageBackend.Params(

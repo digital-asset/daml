@@ -4,7 +4,6 @@ package com.daml.platform.store.dao
 
 import java.sql.Connection
 import java.time.Instant
-
 import java.util.{Date, UUID}
 
 import akka.NotUsed
@@ -41,7 +40,7 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntry}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{CurrentOffset, OffsetStep}
@@ -204,7 +203,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed] =
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadConfigurationEntries) {
           implicit connection =>
             SQL(queries.SQL_GET_CONFIGURATION_ENTRIES)
@@ -413,7 +412,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] = {
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPartyEntries) { implicit connection =>
           SQL(queries.SQL_GET_PARTY_ENTRIES)
             .on(
@@ -788,7 +787,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed] =
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPackageEntries) { implicit connection =>
           SQL(queries.SQL_GET_PACKAGE_ENTRIES)
             .on(
@@ -1003,12 +1002,11 @@ private class JdbcLedgerDao(
 private[platform] object JdbcLedgerDao {
 
   object Logging {
+    def submissionId(id: String): LoggingEntry =
+      "submissionId" -> id
 
-    def submissionId(id: String): (String, String) = "submissionId" -> id
-
-    def transactionId(id: TransactionId): (String, String) =
+    def transactionId(id: TransactionId): LoggingEntry =
       "transactionId" -> id
-
   }
 
   def readOwner(

@@ -12,6 +12,8 @@ import com.daml.lf.command.{Commands => LfCommands}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString.ordering
 import com.daml.lf.value.{Value => Lf}
+import com.daml.logging.LoggingValue
+import com.daml.logging.LoggingValue.ToLoggingValue
 import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
 
@@ -54,6 +56,15 @@ object domain {
 
     case object LedgerEnd extends LedgerOffset
 
+  }
+
+  implicit object `LedgerOffset to LoggingValue` extends ToLoggingValue[LedgerOffset] {
+    override def apply(value: LedgerOffset): LoggingValue =
+      new LoggingValue.OfString(value match {
+        case LedgerOffset.Absolute(absolute) => absolute
+        case LedgerOffset.LedgerBegin => "%begin%"
+        case LedgerOffset.LedgerEnd => "%end%"
+      })
   }
 
   sealed trait Event extends Product with Serializable {

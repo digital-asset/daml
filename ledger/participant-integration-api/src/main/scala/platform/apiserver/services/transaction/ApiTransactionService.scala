@@ -21,7 +21,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.ledger
@@ -93,8 +93,8 @@ private[apiserver] final class ApiTransactionService private (
       transactionId: String,
       workflowId: String,
       offset: String,
-  ): Map[String, String] =
-    Map(
+  ): LoggingEntries =
+    LoggingEntries(
       logging.commandId(commandId),
       logging.transactionId(transactionId),
       logging.workflowId(workflowId),

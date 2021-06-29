@@ -14,7 +14,7 @@ object LoggingContext {
   def newLoggingContext[A](f: LoggingContext => A): A =
     newLoggingContext(LoggingEntries.empty)(f)
 
-  def newLoggingContext[A](entry: LoggingEntry, entries: LoggingEntry*)(
+  def newLoggingContextWith[A](entry: LoggingEntry, entries: LoggingEntry*)(
       f: LoggingContext => A
   ): A =
     newLoggingContext(withEnrichedLoggingContext(entry, entries: _*)(f)(_))
