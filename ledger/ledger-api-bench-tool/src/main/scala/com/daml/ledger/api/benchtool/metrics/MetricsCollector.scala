@@ -45,7 +45,7 @@ class MetricsCollector[T](
     logInterval: FiniteDuration,
     reporter: MetricReporter,
     startTime: Instant,
-    damlMetrics: Option[ExposedMetrics[T]],
+    exposedMetrics: Option[ExposedMetrics[T]],
 ) {
   import MetricsCollector._
   import MetricsCollector.Message._
@@ -56,7 +56,7 @@ class MetricsCollector[T](
     Behaviors.receive { case (context, message) =>
       message match {
         case newValue: NewValue[T] =>
-          damlMetrics.foreach(_.onNext(newValue.value))
+          exposedMetrics.foreach(_.onNext(newValue.value))
           handlingMessages(metrics.map(_.onNext(newValue.value)), lastPeriodicCheck)
 
         case _: PeriodicUpdateCommand =>

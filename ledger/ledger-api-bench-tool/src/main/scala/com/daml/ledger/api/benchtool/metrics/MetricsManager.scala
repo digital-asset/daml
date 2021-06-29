@@ -28,7 +28,7 @@ object MetricsManager {
       streamName: String,
       logInterval: FiniteDuration,
       metrics: List[Metric[StreamElem]],
-      damlMetrics: Option[ExposedMetrics[StreamElem]],
+      exposedMetrics: Option[ExposedMetrics[StreamElem]],
   )(implicit
       system: ActorSystem[SpawnProtocol.Command],
       ec: ExecutionContext,
@@ -42,7 +42,7 @@ object MetricsManager {
           metrics = metrics,
           logInterval = logInterval,
           reporter = MetricReporter.Default,
-          exposedMetrics = damlMetrics,
+          exposedMetrics = exposedMetrics,
         ),
         name = s"${streamName}-collector",
         props = Props.empty,

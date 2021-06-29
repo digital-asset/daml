@@ -80,7 +80,7 @@ object LedgerApiBenchTool {
                 logInterval = config.reportingPeriod,
                 metrics = MetricsSet.transactionMetrics(streamConfig.objectives),
                 logger = logger,
-                damlMetrics = Some(
+                exposedMetrics = Some(
                   MetricsSet
                     .transactionExposedMetrics(streamConfig.name, registry, config.reportingPeriod)
                 ),
@@ -95,7 +95,7 @@ object LedgerApiBenchTool {
                 logInterval = config.reportingPeriod,
                 metrics = MetricsSet.transactionTreesMetrics(streamConfig.objectives),
                 logger = logger,
-                damlMetrics = Some(
+                exposedMetrics = Some(
                   MetricsSet.transactionTreesExposedMetrics(
                     streamConfig.name,
                     registry,
@@ -113,7 +113,7 @@ object LedgerApiBenchTool {
                 logInterval = config.reportingPeriod,
                 metrics = MetricsSet.activeContractsMetrics,
                 logger = logger,
-                damlMetrics = Some(
+                exposedMetrics = Some(
                   MetricsSet.activeContractsExposedMetrics(
                     streamConfig.name,
                     registry,
@@ -131,7 +131,7 @@ object LedgerApiBenchTool {
                 logInterval = config.reportingPeriod,
                 metrics = MetricsSet.completionsMetrics,
                 logger = logger,
-                damlMetrics = Some(
+                exposedMetrics = Some(
                   MetricsSet
                     .completionsExposedMetrics(streamConfig.name, registry, config.reportingPeriod)
                 ),
