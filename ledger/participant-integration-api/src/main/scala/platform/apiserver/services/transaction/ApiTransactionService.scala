@@ -117,7 +117,7 @@ private[apiserver] final class ApiTransactionService private (
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
       logger.info("Received request for transaction by event ID.")
-      logger.trace(s"Transaction by event ID: $request")
+      logger.trace(s"Transaction by event ID request: $request")
       ledger.EventId
         .fromString(request.eventId.unwrap)
         .map { case ledger.EventId(transactionId, _) =>
@@ -141,7 +141,7 @@ private[apiserver] final class ApiTransactionService private (
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
       logger.info("Received request for transaction by ID.")
-      logger.trace(s"Transaction by ID: $request")
+      logger.trace(s"Transaction by ID request: $request")
       lookUpTreeByTransactionId(request.transactionId, request.requestingParties)
         .andThen(logger.logErrorsOnCall[GetTransactionResponse])
     }
@@ -154,7 +154,7 @@ private[apiserver] final class ApiTransactionService private (
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
       logger.info("Received request for flat transaction by event ID.")
-      logger.trace(s"Flat transaction by event ID: $request")
+      logger.trace(s"Flat transaction by event ID request: $request")
       ledger.EventId
         .fromString(request.eventId.unwrap)
         .fold(
@@ -179,7 +179,7 @@ private[apiserver] final class ApiTransactionService private (
       logging.parties(request.requestingParties),
     ) { implicit loggingContext =>
       logger.info("Received request for flat transaction by ID.")
-      logger.trace(s"Flat transaction by ID: $request")
+      logger.trace(s"Flat transaction by ID request: $request")
       lookUpFlatByTransactionId(request.transactionId, request.requestingParties)
         .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
     }
