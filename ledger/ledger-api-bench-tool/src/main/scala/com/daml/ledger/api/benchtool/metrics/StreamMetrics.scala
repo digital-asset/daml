@@ -16,11 +16,12 @@ object StreamMetrics {
       logInterval: FiniteDuration,
       metrics: List[Metric[StreamElem]],
       logger: Logger,
+      exposedMetrics: Option[ExposedMetrics[StreamElem]] = None,
   )(implicit
       system: ActorSystem[SpawnProtocol.Command],
       ec: ExecutionContext,
   ): Future[MeteredStreamObserver[StreamElem]] =
-    MetricsManager(streamName, logInterval, metrics).map { manager =>
+    MetricsManager(streamName, logInterval, metrics, exposedMetrics).map { manager =>
       new MeteredStreamObserver[StreamElem](streamName, logger, manager)
     }
 

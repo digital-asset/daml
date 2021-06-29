@@ -6,6 +6,7 @@ package com.daml.ledger.api.benchtool
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.metrics.MetricsReporter
 
 import scala.concurrent.duration._
 
@@ -15,6 +16,7 @@ case class Config(
     tls: TlsConfiguration,
     streams: List[Config.StreamConfig],
     reportingPeriod: FiniteDuration,
+    metricsReporter: MetricsReporter,
 )
 
 object Config {
@@ -88,5 +90,6 @@ object Config {
       tls = TlsConfiguration.Empty.copy(enabled = false),
       streams = List.empty[Config.StreamConfig],
       reportingPeriod = 5.seconds,
+      metricsReporter = MetricsReporter.Console,
     )
 }
