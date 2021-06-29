@@ -167,6 +167,48 @@ conformance_test(
 )
 
 conformance_test(
+    name = "conformance-test-append-only-oracle",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,server-jdbc-url=jdbc:oracle:thin:sandbox/hunter2@localhost:1521/ORCLPDB1,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--timeout-scale-factor=4",
+        "--exclude=ClosedWorldIT",
+        "--exclude=CommandDeduplicationIT",
+        "--exclude=ContractKeysIT",
+        "--exclude=SemanticTests",
+        "--exclude=RaceConditionIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-append-only-postgres",
+    ports = [6865],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=testing-weak",
+        "--participant participant-id=conformance-test,port=6865,server-jdbc-url=jdbc:postgresql://localhost/postgres?user=test&password=supersafe,contract-state-cache-max-size=1,contract-key-state-cache-max-size=1",
+        "--index-append-only-schema-unsafe",
+        "--mutable-contract-state-cache-unsafe",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--timeout-scale-factor=4",
+        "--exclude=ClosedWorldIT",
+        "--exclude=CommandDeduplicationIT",
+        "--exclude=ContractKeysIT",
+        "--exclude=SemanticTests",
+        "--exclude=RaceConditionIT",
+    ],
+)
+
+conformance_test(
     name = "conformance-test-participant-pruning",
     ports = [6865],
     server = ":app",
