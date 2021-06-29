@@ -20,7 +20,7 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 
 import java.util.concurrent.{
   ArrayBlockingQueue,
@@ -62,6 +62,7 @@ object LedgerApiBenchTool {
       registry <- new MetricRegistryOwner(
         reporter = config.metricsReporter,
         reportingInterval = config.reportingPeriod,
+        logger = logger,
       )
     } yield (channel, system, registry)
 
@@ -195,5 +196,5 @@ object LedgerApiBenchTool {
       )
     )
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  private val logger: Logger = LoggerFactory.getLogger(getClass)
 }

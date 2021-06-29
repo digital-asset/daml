@@ -3,9 +3,10 @@
 
 package com.daml.ledger.api.benchtool.metrics
 
+import org.slf4j.Logger
+
 import scala.concurrent.duration.Duration
 import java.util.concurrent.TimeUnit
-import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.{MetricRegistry, ScheduledReporter, Slf4jReporter}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.MetricsReporter
@@ -15,6 +16,7 @@ import scala.concurrent.Future
 class MetricRegistryOwner(
     reporter: MetricsReporter,
     reportingInterval: Duration,
+    logger: Logger,
 ) extends ResourceOwner[MetricRegistry] {
   override def acquire()(implicit
       context: ResourceContext
@@ -46,6 +48,7 @@ class MetricRegistryOwner(
       .forRegistry(registry)
       .convertRatesTo(TimeUnit.SECONDS)
       .convertDurationsTo(TimeUnit.MILLISECONDS)
-      .withLoggingLevel(LoggingLevel.DEBUG)
+      .withLoggingLevel(Slf4jReporter.LoggingLevel.DEBUG)
+      .outputTo(logger)
       .build()
 }
