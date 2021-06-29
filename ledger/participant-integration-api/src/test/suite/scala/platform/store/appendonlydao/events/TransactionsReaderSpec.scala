@@ -117,7 +117,7 @@ private[appendonlydao] class TransactionsReaderSpec
         ) shouldBe Vector.empty[EventsRange[Long]]
     }
 
-    "throw if numberOfChunks below 1" in {
+    "throw if numberOfChunks is below 1" in {
       intercept[IllegalArgumentException] {
         TransactionsReader.splitRange(
           startExclusive = 100L,
