@@ -5,10 +5,8 @@ package com.daml.ledger.api.testtool.suites
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.testtool.infrastructure.Synchronize.waitForContract
-import com.daml.ledger.test.model.Test.Divulgence2._
-import com.daml.ledger.test.model.Test.Proposal._
-import com.daml.ledger.test.model.Test.{Asset, Divulgence1, Divulgence2, Proposal}
+import com.daml.ledger.api.testtool.infrastructure.Synchronize.{synchronize, waitForContract}
+import com.daml.ledger.test.model.Test
 import scalaz.Tag
 
 final class DivulgenceIT extends LedgerTestSuite {
@@ -17,6 +15,7 @@ final class DivulgenceIT extends LedgerTestSuite {
     "Divulged contracts should not be exposed by the transaction service",
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
+    import Test.{Divulgence1, Divulgence2}
     for {
       divulgence1 <- ledger.create(alice, Divulgence1(alice))
       divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
@@ -157,6 +156,7 @@ final class DivulgenceIT extends LedgerTestSuite {
     "Divulged contracts should not be exposed by the active contract service",
     allocate(TwoParties),
   )(implicit ec => { case Participants(Participant(ledger, alice, bob)) =>
+    import Test.{Divulgence1, Divulgence2}
     for {
       divulgence1 <- ledger.create(alice, Divulgence1(alice))
       divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
@@ -214,6 +214,7 @@ final class DivulgenceIT extends LedgerTestSuite {
     "Divulgence should behave as expected in a workflow involving keys",
     allocate(SingleParty, SingleParty),
   )(implicit ec => { case Participants(Participant(alpha, proposer), Participant(beta, owner)) =>
+    import Test.{Asset, Proposal}
     for {
       offer <- alpha.create(proposer, Proposal(from = proposer, to = owner))
       asset <- beta.create(owner, Asset(issuer = owner, owner = owner))
@@ -222,5 +223,44 @@ final class DivulgenceIT extends LedgerTestSuite {
     } yield {
       // nothing to test, if the workflow ends successfully the test is considered successful
     }
+  })
+
+  test(
+    "DivulgenceDivulgeAfterArchival",
+    "Divulging, archiving and divulging again a contract with key should be possible",
+    allocate(SingleParty, SingleParty),
+  )(implicit ec => { case Participants(Participant(alpha, partyA), Participant(beta, partyB)) =>
+    import Test.{WithKey, WithKeyDivulgenceHelper}
+    for {
+      // Create a helper contract where partyB is a signatory
+      helper <- beta.create(
+        partyB,
+        WithKeyDivulgenceHelper(divulgedTo = partyB, withKeyOwner = partyA),
+      )
+
+      _ <- synchronize(alpha, beta)
+
+      // Create a WithKey contract owned by the partyA
+      withKey1 <- alpha.create(partyA, WithKey(partyA))
+
+      // Divulge the withKey1 contract
+      _ <- alpha.exercise(partyA, helper.exerciseWithKeyDivulgenceHelper_Fetch(_, withKey1))
+
+      _ <- synchronize(alpha, beta)
+
+      // Archive the withKey1 contract
+      _ <- alpha.exercise(partyA, withKey1.exerciseArchive(_))
+
+      _ <- synchronize(alpha, beta)
+
+      // Create another WithKey contract with the same key as previously
+      withKey2 <- alpha.create(partyA, WithKey(partyA))
+
+      // Divulge the withKey2 contract
+      _ <- alpha.exercise(partyA, helper.exerciseWithKeyDivulgenceHelper_Fetch(_, withKey2))
+
+      // Synchronize to make sure that both participant are functional
+      _ <- synchronize(alpha, beta)
+    } yield ()
   })
 }

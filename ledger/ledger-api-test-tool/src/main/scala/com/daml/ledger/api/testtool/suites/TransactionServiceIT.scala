@@ -1409,6 +1409,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     "TXInvisibleTransactionTreeByEventId",
     "Do not expose an invisible transaction tree by event identifier",
     allocate(SingleParty, SingleParty),
+    timeoutScale = 2.0,
   )(implicit ec => { case Participants(Participant(alpha, party), Participant(beta, intruder)) =>
     for {
       dummy <- alpha.create(party, Dummy(party))
