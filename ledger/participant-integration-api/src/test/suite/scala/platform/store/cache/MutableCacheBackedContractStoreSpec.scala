@@ -390,17 +390,16 @@ object MutableCacheBackedContractStoreSpec {
       sourceSubscriber: Option[(Offset, EventSequentialId)] => Source[ContractStateEvent, NotUsed] =
         _ => Source.empty,
   )(implicit loggingContext: LoggingContext, materializer: Materializer) =
-    MutableCacheBackedContractStore
-      .ownerWithSubscription(
-        subscribeToContractStateEvents = sourceSubscriber,
-        minBackoffStreamRestart = 10.millis,
-        contractsReader = readerFixture,
-        signalNewLedgerHead = signalNewLedgerHead,
-        metrics = new Metrics(new MetricRegistry),
-        maxContractsCacheSize = cachesSize,
-        maxKeyCacheSize = cachesSize,
-        executionContext = scala.concurrent.ExecutionContext.global,
-      )
+    new MutableCacheBackedContractStore.OwnerWithSubscription(
+      subscribeToContractStateEvents = sourceSubscriber,
+      minBackoffStreamRestart = 10.millis,
+      contractsReader = readerFixture,
+      signalNewLedgerHead = signalNewLedgerHead,
+      metrics = new Metrics(new MetricRegistry),
+      maxContractsCacheSize = cachesSize,
+      maxKeyCacheSize = cachesSize,
+      executionContext = scala.concurrent.ExecutionContext.global,
+    )
       .acquire()(ResourceContext(scala.concurrent.ExecutionContext.global))
 
   case class ContractsReaderFixture() extends LedgerDaoContractsReader {

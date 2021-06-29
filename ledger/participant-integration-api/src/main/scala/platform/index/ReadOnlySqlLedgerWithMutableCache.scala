@@ -115,7 +115,7 @@ private[index] object ReadOnlySqlLedgerWithMutableCache {
         startExclusive: (Offset, Long),
     ): ResourceOwner[ReadOnlySqlLedgerWithMutableCache] =
       for {
-        contractStore <- MutableCacheBackedContractStore.ownerWithSubscription(
+        contractStore <- new MutableCacheBackedContractStore.OwnerWithSubscription(
           subscribeToContractStateEvents = maybeOffsetSeqId =>
             cacheUpdatesDispatcher
               .startingAt(

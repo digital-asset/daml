@@ -160,9 +160,12 @@ private[platform] object BufferedTransactionsReader {
     ): Source[(Offset, API_RESPONSE), NotUsed] =
       Source
         .fromIterator(() => slice.iterator)
+        // Using collect + mapAsync as an alternative to the non-existent collectAsync
         .collect { case (offset, tx: TxUpdate) =>
           toApiTx(tx, filter, verbose).map(offset -> _)
         }
+        // Note that it is safe to use high parallelism for mapAsync as long
+        // as the Futures executed within are running on a bounded thread pool
         .mapAsync(32)(identity)
         .async
         .collect { case (offset, Some(tx)) =>
