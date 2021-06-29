@@ -128,7 +128,7 @@ private[appendonlydao] class TransactionsReaderSpec
       }.getMessage shouldBe "requirement failed: You can only split a range in a strictly positive number of chunks (0)"
     }
 
-    "throw if maxChunkSize below 1" in {
+    "throw if maxChunkSize is below 1" in {
       intercept[IllegalArgumentException] {
         TransactionsReader.splitRange(
           startExclusive = 100L,
@@ -147,7 +147,7 @@ private[appendonlydao] class TransactionsReaderSpec
           numberOfChunks = 100,
           maxChunkSize = 10,
         )
-      }.getMessage shouldBe s"requirement failed: Range size should be positive but got bounds (300, 200]"
+      }.getMessage shouldBe "requirement failed: Range size should be positive but got bounds (300, 200]"
     }
 
     "satisfy the required properties" in {
