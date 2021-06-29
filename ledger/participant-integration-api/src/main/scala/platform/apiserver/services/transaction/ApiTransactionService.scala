@@ -22,6 +22,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
 import com.daml.metrics.Metrics
+import com.daml.platform.apiserver.services.transaction.ApiTransactionService._
 import com.daml.platform.apiserver.services.{StreamMetrics, logging}
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.services.grpc.GrpcTransactionService
@@ -32,7 +33,6 @@ import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] object ApiTransactionService {
-
   def create(
       ledgerId: LedgerId,
       transactionsService: IndexTransactionsService,
@@ -48,6 +48,14 @@ private[apiserver] object ApiTransactionService {
       ledgerId,
       PartyNameChecker.AllowAllParties,
     )
+
+  @throws[StatusRuntimeException]
+  private def getOrElseThrowNotFound[A](a: Option[A]): A =
+    a.getOrElse(
+      throw Status.NOT_FOUND
+        .withDescription("Transaction not found, or not visible.")
+        .asRuntimeException()
+    )
 }
 
 private[apiserver] final class ApiTransactionService private (
@@ -56,8 +64,10 @@ private[apiserver] final class ApiTransactionService private (
 )(implicit executionContext: ExecutionContext, loggingContext: LoggingContext)
     extends TransactionService
     with ErrorFactories {
-
   private val logger = ContextualizedLogger.get(this.getClass)
+
+  override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
+    transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
 
   override def getTransactions(
       request: GetTransactionsRequest
@@ -75,27 +85,6 @@ private[apiserver] final class ApiTransactionService private (
         .via(logger.logErrorsOnStream)
         .via(StreamMetrics.countElements(metrics.daml.lapi.streams.transactions))
     }
-
-  private def transactionsLoggable(transactions: GetTransactionsResponse): String =
-    s"Responding with transactions: ${transactions.transactions.toList
-      .map(t => entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset))}"
-
-  private def transactionTreesLoggable(trees: GetTransactionTreesResponse): String =
-    s"Responding with transaction trees: ${trees.transactions.toList
-      .map(t => entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset))}"
-
-  private def entityLoggable(
-      commandId: String,
-      transactionId: String,
-      workflowId: String,
-      offset: String,
-  ): LoggingEntries =
-    LoggingEntries(
-      logging.commandId(commandId),
-      logging.transactionId(transactionId),
-      logging.workflowId(workflowId),
-      "offset" -> offset,
-    )
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest
@@ -195,9 +184,6 @@ private[apiserver] final class ApiTransactionService private (
         .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
     }
 
-  override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
-    transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
-
   override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
     Ordering.by[LedgerOffset.Absolute, String](_.value)
 
@@ -217,12 +203,24 @@ private[apiserver] final class ApiTransactionService private (
       .getTransactionById(transactionId, requestingParties)
       .map(getOrElseThrowNotFound)
 
-  @throws[StatusRuntimeException]
-  private def getOrElseThrowNotFound[A](a: Option[A]): A =
-    a.getOrElse(
-      throw Status.NOT_FOUND
-        .withDescription("Transaction not found, or not visible.")
-        .asRuntimeException()
-    )
+  private def transactionsLoggable(transactions: GetTransactionsResponse): String =
+    s"Responding with transactions: ${transactions.transactions.toList
+      .map(t => entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset))}"
 
+  private def transactionTreesLoggable(trees: GetTransactionTreesResponse): String =
+    s"Responding with transaction trees: ${trees.transactions.toList
+      .map(t => entityLoggable(t.commandId, t.transactionId, t.workflowId, t.offset))}"
+
+  private def entityLoggable(
+      commandId: String,
+      transactionId: String,
+      workflowId: String,
+      offset: String,
+  ): LoggingEntries =
+    LoggingEntries(
+      logging.commandId(commandId),
+      logging.transactionId(transactionId),
+      logging.workflowId(workflowId),
+      "offset" -> offset,
+    )
 }
