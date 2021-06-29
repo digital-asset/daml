@@ -8,6 +8,16 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class JsonStringSerializerSpec extends AnyWordSpec with Matchers {
   "serializing a value to a string" can {
+    "serialize null" in {
+      val result = JsonStringSerializer.serialize { generator => generator.writeNull() }
+      result should be("null")
+    }
+
+    "serialize booleans" in {
+      val result = JsonStringSerializer.serialize { generator => generator.writeBoolean(true) }
+      result should be("true")
+    }
+
     "serialize strings" in {
       val result = JsonStringSerializer.serialize { generator => generator.writeString("hello") }
       result should be("\"hello\"")
@@ -16,11 +26,6 @@ class JsonStringSerializerSpec extends AnyWordSpec with Matchers {
     "serialize numbers" in {
       val result = JsonStringSerializer.serialize { generator => generator.writeNumber(99) }
       result should be("99")
-    }
-
-    "serialize null" in {
-      val result = JsonStringSerializer.serialize { generator => generator.writeNull() }
-      result should be("null")
     }
 
     "serialize objects minimally, with spaces, and no quotes around field names" in {
