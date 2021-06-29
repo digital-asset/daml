@@ -114,7 +114,9 @@ private[lf] object Pretty {
       case ContractIdFreshness(_) =>
         text("Conflicting discriminators between a local and global contract id")
       case ContractIdInContractKey(key) =>
-        text(s"Contract IDs are not supported in contract keys: $key")
+        text(
+          s"Contract IDs are not supported in contract keys: ${key.ensureNoCid.left.toOption.get}"
+        )
     }
   }
 
