@@ -68,14 +68,13 @@ package object logging {
   ): LoggingEntry =
     "filters" -> LoggingValue.Nested(
       LoggingEntries.fromMap(
-        filters.filtersByParty.view
-          .mapValues[LoggingValue](partyFilters =>
-            partyFilters.inclusive match {
-              case None => "all-templates"
-              case Some(inclusiveFilters) => inclusiveFilters.templateIds.view.map(_.toString)
-            }
-          )
-          .toMap
+        filters.filtersByParty.view.map { case (party, partyFilters) =>
+          (party: String) -> (partyFilters.inclusive match {
+            case None => LoggingValue.from("all-templates")
+            case Some(inclusiveFilters) =>
+              LoggingValue.from(inclusiveFilters.templateIds.view.map(_.toString))
+          })
+        }.toMap
       )
     )
 
