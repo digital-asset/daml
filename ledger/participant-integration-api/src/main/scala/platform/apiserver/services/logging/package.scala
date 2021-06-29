@@ -10,6 +10,7 @@ import com.daml.ledger.api.domain.{
   CommandId,
   Commands,
   EventId,
+  LedgerId,
   LedgerOffset,
   TransactionFilter,
   TransactionId,
@@ -43,6 +44,9 @@ package object logging {
 
   private[services] def offset(offset: String): LoggingEntry =
     "offset" -> offset
+
+  private[services] def ledgerId(id: LedgerId): LoggingEntry =
+    "ledgerId" -> id.unwrap
 
   private[services] def applicationId(id: ApplicationId): LoggingEntry =
     "applicationId" -> id.unwrap
@@ -102,5 +106,8 @@ package object logging {
     )
     cmds.workflowId.fold(context)(context :+ workflowId(_))
   }
+
+  private[services] def verbose(v: Boolean): LoggingEntry =
+    "verbose" -> v
 
 }

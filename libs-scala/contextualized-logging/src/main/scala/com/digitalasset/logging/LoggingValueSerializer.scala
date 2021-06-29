@@ -10,6 +10,10 @@ private[logging] object LoggingValueSerializer {
     value match {
       case LoggingValue.Empty =>
         generator.writeNull()
+      case LoggingValue.False =>
+        generator.writeBoolean(false)
+      case LoggingValue.True =>
+        generator.writeBoolean(true)
       case LoggingValue.OfString(value) =>
         generator.writeString(value)
       case LoggingValue.OfInt(value) =>

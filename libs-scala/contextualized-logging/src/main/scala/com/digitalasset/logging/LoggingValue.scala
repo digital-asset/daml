@@ -12,6 +12,10 @@ sealed trait LoggingValue
 object LoggingValue {
   final object Empty extends LoggingValue
 
+  final object False extends LoggingValue
+
+  final object True extends LoggingValue
+
   final case class OfString(value: String) extends LoggingValue
 
   final case class OfInt(value: Int) extends LoggingValue
@@ -34,6 +38,11 @@ object LoggingValue {
   val ToStringToLoggingValue: ToLoggingValue[Any] = value => OfString(value.toString)
 
   implicit val `String to LoggingValue`: ToLoggingValue[String] = OfString(_)
+
+  implicit val `Boolean to LoggingValue`: ToLoggingValue[Boolean] = {
+    case false => False
+    case true => True
+  }
 
   implicit val `Int to LoggingValue`: ToLoggingValue[Int] = OfInt(_)
 
