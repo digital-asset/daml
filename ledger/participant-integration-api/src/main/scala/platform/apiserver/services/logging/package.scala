@@ -41,6 +41,9 @@ package object logging {
   private[services] def offset(offset: Option[LedgerOffset]): LoggingEntry =
     "offset" -> offset
 
+  private[services] def offset(offset: String): LoggingEntry =
+    "offset" -> offset
+
   private[services] def applicationId(id: ApplicationId): LoggingEntry =
     "applicationId" -> id.unwrap
 

@@ -221,6 +221,6 @@ private[apiserver] final class ApiTransactionService private (
       logging.commandId(commandId),
       logging.transactionId(transactionId),
       logging.workflowId(workflowId),
-      "offset" -> offset,
+      logging.offset(offset),
     )
 }
