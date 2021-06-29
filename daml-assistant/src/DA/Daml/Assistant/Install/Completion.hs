@@ -71,7 +71,7 @@ doInstallBashCompletions damlPath output = do
         Left e -> do
             output ("Bash completions not installed: " <> displayException e)
             catchIO (removePathForcibly scriptPath) (const $ pure ())
-        Right () -> output "Bash completions installed for DAML assistant."
+        Right () -> output "Bash completions installed for Daml assistant."
 
 -- | Generate the Zsh completion script.
 doInstallZshCompletions :: DamlPath -> (String -> IO ()) -> IO ()
@@ -81,7 +81,7 @@ doInstallZshCompletions damlPath output = do
     createDirectoryIfMissing True (takeDirectory scriptPath)
     BSL.writeFile scriptPath script
     output $ unlines
-        [ "Zsh completions installed for DAML assistant."
+        [ "Zsh completions installed for Daml assistant."
         , "To use them, add '~/.daml/zsh' to your $fpath, e.g. by adding the following"
         , "to the beginning of '~/.zshrc' before you call 'compinit':"
         , "fpath=(~/.daml/zsh $fpath)"

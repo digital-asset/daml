@@ -110,7 +110,7 @@ updatePath installOpts output targetPath
                     ci <- isCI
                     if stdinIsTerminal && stdoutIsTerminal && not ci
                       then do
-                        answer <- prompt output ("Add DAML Assistant executable to your PATH (in " ++ configFile ++ ")?") "Yes" ["No"]
+                        answer <- prompt output ("Add Daml assistant executable to your PATH (in " ++ configFile ++ ")?") "Yes" ["No"]
                         when (answer `elem` ["Yes", "yes", "y", "Y"]) $ doUpdatePath cfgFile cmd
                       else output setPathManualMsg
                   Yes -> doUpdatePath cfgFile cmd

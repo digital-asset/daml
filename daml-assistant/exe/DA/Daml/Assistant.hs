@@ -117,10 +117,10 @@ versionChecks Env{..} =
                 , ""
                 ]
 
-        -- DAML assistant is outdated.
+        -- Daml assistant is outdated.
         when (not isHead && not projectSdkVersionIsOld && assistantVersionIsOld) $ do
             hPutStr stderr . unlines $
-                [ "WARNING: Using an outdated version of the DAML assistant."
+                [ "WARNING: Using an outdated version of the Daml assistant."
                 , "Please upgrade to the latest stable version by running:"
                 , ""
                 , "    daml install latest"
