@@ -6,10 +6,9 @@ package com.daml.ledger.api.benchtool.metrics
 import scala.concurrent.duration.Duration
 import java.util.concurrent.TimeUnit
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
-import com.codahale.metrics.{MetricRegistry, Reporter, Slf4jReporter}
+import com.codahale.metrics.{MetricRegistry, ScheduledReporter, Slf4jReporter}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.metrics.MetricsReporter
-import com.daml.resources
 
 import scala.concurrent.Future
 
@@ -19,18 +18,28 @@ class MetricRegistryOwner(
 ) extends ResourceOwner[MetricRegistry] {
   override def acquire()(implicit
       context: ResourceContext
-  ): resources.Resource[ResourceContext, MetricRegistry] = {
-    val registry = new MetricRegistry
+  ): Resource[MetricRegistry] =
     for {
-      slf4JReporter <- acquire(newSlf4jReporter(registry))
-      _ <- acquire(reporter.register(registry))
-        .map(_.start(reportingInterval.toSeconds, TimeUnit.SECONDS))
-      // Trigger a report to the SLF4J logger on shutdown.
-      _ <- Resource(Future.successful(slf4JReporter))(reporter =>
-        Future.successful(reporter.report())
-      )
+      registry <- ResourceOwner.forValue(() => new MetricRegistry).acquire()
+      _ <- acquireSlfjReporter(registry)
+      metricsReporter <- acquireMetricsReporter(registry)
+      _ = metricsReporter.start(reportingInterval.toSeconds, TimeUnit.SECONDS)
     } yield registry
-  }
+
+  private def acquireSlfjReporter(
+      registry: MetricRegistry
+  )(implicit context: ResourceContext): Resource[Slf4jReporter] =
+    Resource {
+      Future.successful(newSlf4jReporter(registry))
+    } { reporter =>
+      Future(reporter.report()) // Trigger a report to the SLF4J logger on shutdown.
+        .andThen { case _ => reporter.close() } // Gracefully shut down
+    }
+
+  private def acquireMetricsReporter(registry: MetricRegistry)(implicit
+      context: ResourceContext
+  ): Resource[ScheduledReporter] =
+    ResourceOwner.forCloseable(() => reporter.register(registry)).acquire()
 
   private def newSlf4jReporter(registry: MetricRegistry): Slf4jReporter =
     Slf4jReporter
@@ -39,9 +48,4 @@ class MetricRegistryOwner(
       .convertDurationsTo(TimeUnit.MILLISECONDS)
       .withLoggingLevel(LoggingLevel.DEBUG)
       .build()
-
-  private def acquire[T <: Reporter](reporter: => T)(implicit
-      context: ResourceContext
-  ): Resource[T] =
-    ResourceOwner.forCloseable(() => reporter).acquire()
 }
