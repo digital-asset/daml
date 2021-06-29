@@ -20,6 +20,10 @@ private[logging] object LoggingValueSerializer {
         generator.writeStartArray()
         sequence.foreach(writeValue(_, generator))
         generator.writeEndArray()
+      case LoggingValue.Nested(entries) =>
+        generator.writeStartObject()
+        entries.loggingMarker.writeTo(generator)
+        generator.writeEndObject()
     }
   }
 }

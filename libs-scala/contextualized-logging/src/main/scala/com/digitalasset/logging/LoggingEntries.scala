@@ -6,6 +6,8 @@ package com.daml.logging
 import net.logstash.logback.argument.StructuredArgument
 import org.slf4j.Marker
 
+import scala.collection.View
+
 final class LoggingEntries private (
     private[logging] val contents: Map[LoggingKey, LoggingValue]
 ) extends AnyVal {
@@ -31,6 +33,6 @@ object LoggingEntries {
   def apply(entries: LoggingEntry*): LoggingEntries =
     new LoggingEntries(entries.toMap)
 
-  def fromIterator(entries: Iterator[LoggingEntry]): LoggingEntries =
+  def fromView(entries: View[LoggingEntry]): LoggingEntries =
     new LoggingEntries(entries.toMap)
 }

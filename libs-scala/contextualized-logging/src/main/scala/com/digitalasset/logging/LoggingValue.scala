@@ -20,6 +20,8 @@ object LoggingValue {
 
   final case class OfIterable(sequence: Iterable[LoggingValue]) extends LoggingValue
 
+  final case class Nested(entries: LoggingEntries) extends LoggingValue
+
   trait ToLoggingValue[-T] {
     def apply(value: T): LoggingValue
   }

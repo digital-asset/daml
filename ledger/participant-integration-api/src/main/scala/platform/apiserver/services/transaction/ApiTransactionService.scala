@@ -19,7 +19,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
 import com.daml.lf.data.Ref.Party
-import com.daml.logging.LoggingContext.{withEnrichedLoggingContext, withEnrichedLoggingContextFrom}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService._
@@ -76,7 +76,7 @@ private[apiserver] final class ApiTransactionService private (
       logging.startExclusive(request.startExclusive),
       logging.endInclusive(request.endInclusive),
     ) { implicit loggingContext =>
-      withEnrichedLoggingContextFrom(logging.filters(request.filter)) { implicit loggingContext =>
+      withEnrichedLoggingContext(logging.filters(request.filter)) { implicit loggingContext =>
         logger.info("Received request for transactions.")
       }
       logger.trace(s"Transaction request: $request")

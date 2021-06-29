@@ -12,7 +12,7 @@ import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrp
 import com.daml.ledger.api.v1.active_contracts_service._
 import com.daml.ledger.api.validation.TransactionFilterValidator
 import com.daml.ledger.participant.state.index.v2.{IndexActiveContractsService => ACSBackend}
-import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.api.grpc.GrpcApiService
@@ -43,7 +43,7 @@ private[apiserver] final class ApiActiveContractsService private (
       .fold(
         t => Source.failed(ValidationLogger.logFailureWithContext(request, t)),
         filters =>
-          withEnrichedLoggingContextFrom(logging.filters(filters)) { implicit loggingContext =>
+          withEnrichedLoggingContext(logging.filters(filters)) { implicit loggingContext =>
             logger.info(s"Received request for active contracts: $request")
             backend.getActiveContracts(filters, request.verbose)
           },

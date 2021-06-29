@@ -61,17 +61,17 @@ package object logging {
 
   private[services] def filters(
       filters: TransactionFilter
-  ): LoggingEntries =
-    LoggingEntries.fromIterator(filters.filtersByParty.iterator.flatMap {
-      case (party, partyFilters) =>
-        Iterator
-          .continually(s"party-$party")
-          .zip(
-            partyFilters.inclusive
-              .fold(Iterator.single("all-templates"))(_.templateIds.iterator.map(_.toString))
-              .map(LoggingValue.from(_))
-          )
-    })
+  ): LoggingEntry =
+    "filters" -> LoggingValue.Nested(
+      LoggingEntries.fromView(
+        filters.filtersByParty.view.mapValues(partyFilters =>
+          partyFilters.inclusive match {
+            case None => "all-templates"
+            case Some(inclusiveFilters) => inclusiveFilters.templateIds.view.map(_.toString)
+          }
+        )
+      )
+    )
 
   private[services] def submissionId(id: String): LoggingEntry =
     "submissionId" -> id
