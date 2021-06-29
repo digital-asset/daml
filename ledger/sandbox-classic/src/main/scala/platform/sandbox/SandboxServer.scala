@@ -246,9 +246,6 @@ final class SandboxServer(
             keys = { _ =>
               sys.error("Unexpected request of contract key")
             },
-            localKeyVisible = { _ =>
-              sys.error("Unexpected request of local contract key visibility")
-            },
           )
           .left
           // TODO https://github.com/digital-asset/daml/issues/9974
@@ -440,7 +437,7 @@ final class SandboxServer(
       if (config.seeding.isEmpty) {
         logger.withoutContext.warn(
           s"""|'${Seeding.NoSeedingModeName}' contract IDs seeding mode is not compatible with the LF 1.11 languages or later.
-              |A ledger stared with ${Seeding.NoSeedingModeName} contract IDs seeding will refuse to load LF 1.11 language or later. 
+              |A ledger stared with ${Seeding.NoSeedingModeName} contract IDs seeding will refuse to load LF 1.11 language or later.
               |To make sure you can load LF 1.11, use the option '--contract-id-seeding=strong' to set up the contract IDs seeding mode.""".stripMargin
         )
       }

@@ -41,7 +41,7 @@ class ContractDiscriminatorFreshnessCheckSpec
            val @noPartyLiterals contractParties : (Mod:Contract -> List Party) =
              \(contract: Mod:Contract) ->
                Mod:keyParties (Mod:Contract {key} contract);
-  
+
            template (this : Contract) =  {
               precondition True,
               signatories Mod:contractParties this,
@@ -49,25 +49,25 @@ class ContractDiscriminatorFreshnessCheckSpec
               agreement "Agreement",
               choices {
                 choice @nonConsuming Noop (self) (u: Unit) : Unit,
-                  controllers 
+                  controllers
                     Mod:contractParties this
                   to
                     upure @Unit (),
                 choice @nonConsuming Identity (self) (cid: ContractId Mod:Contract) : ContractId Mod:Contract,
-                  controllers 
+                  controllers
                     Mod:contractParties this
                   to
-                    upure @(ContractId Mod:Contract) cid,  
+                    upure @(ContractId Mod:Contract) cid,
                 choice @nonConsuming LookupByKey (self) (key: Mod:Key) : Option (ContractId Mod:Contract),
-                  controllers 
+                  controllers
                     Mod:contractParties this
                   to
-                    lookup_by_key @Mod:Contract key, 
+                    lookup_by_key @Mod:Contract key,
                 choice @nonConsuming Create (self) (contract: Mod:Contract): (ContractId Mod:Contract),
                   controllers
                     Mod:contractParties this
                   to
-                    create @Mod:Contract contract          
+                    create @Mod:Contract contract
               },
               key @Mod:Key (Mod:Contract {key} this) Mod:keyParties
             };
@@ -135,6 +135,7 @@ class ContractDiscriminatorFreshnessCheckSpec
     engine
       .submit(
         submitters = Set(alice),
+        readAs = Set.empty,
         cmds = command.Commands(
           commands = cmds,
           ledgerEffectiveTime = let,
@@ -147,7 +148,6 @@ class ContractDiscriminatorFreshnessCheckSpec
         pcs,
         pkgs,
         keyWithMaintainers => keys(keyWithMaintainers.globalKey),
-        VisibleByKey.fromSubmitters(Set(alice)),
       )
 
   val engine = Engine.DevEngine()
@@ -331,7 +331,7 @@ class ContractDiscriminatorFreshnessCheckSpec
       val result =
         new preprocessing.Preprocessor(ConcurrentCompiledPackages(speedy.Compiler.Config.Dev))
           .translateTransactionRoots(GenTransaction(newNodes, tx.roots))
-          .consume(_ => None, pkgs, _ => None, _ => VisibleByKey.Visible)
+          .consume(_ => None, pkgs, _ => None)
 
       inside(result) { case Left(Error.Preprocessing(err)) =>
         err shouldBe a[Error.Preprocessing.ContractIdFreshness]
@@ -363,7 +363,7 @@ class ContractDiscriminatorFreshnessCheckSpec
           submissionTime = txMeta.submissionTime,
           submissionSeed = txMeta.submissionSeed.get,
         )
-        .consume(_ => None, pkgs, _ => None, _ => VisibleByKey.Visible) shouldBe a[Right[_, _]]
+        .consume(_ => None, pkgs, _ => None) shouldBe a[Right[_, _]]
     }
 
   }

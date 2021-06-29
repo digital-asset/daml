@@ -76,34 +76,25 @@ object SResult {
       callback: Option[ContractId] => Boolean,
   ) extends SResult
 
-  final case class SResultNeedLocalKeyVisible(
-      stakeholders: Set[Party],
-      committers: Set[Party],
-      // Callback.
-      // returns the next expression to evaluate.
-      // In case of failure the call back does not throw but set machine.ctrl to an SErrorDamlException
-      callback: SVisibleByKey => Unit,
-  ) extends SResult
-
-  sealed abstract class SVisibleByKey
-  object SVisibleByKey {
+  sealed abstract class SVisibleToStakeholders
+  object SVisibleToStakeholders {
     // actAs and readAs are only included for better error messages.
     final case class NotVisible(
         actAs: Set[Party],
         readAs: Set[Party],
-    ) extends SVisibleByKey
-    final case object Visible extends SVisibleByKey
+    ) extends SVisibleToStakeholders
+    final case object Visible extends SVisibleToStakeholders
 
     def fromSubmitters(
         actAs: Set[Party],
         readAs: Set[Party] = Set.empty,
-    ): Set[Party] => SVisibleByKey = {
+    ): Set[Party] => SVisibleToStakeholders = {
       val readers = actAs union readAs
       stakeholders =>
         if (readers.intersect(stakeholders).nonEmpty) {
-          SVisibleByKey.Visible
+          SVisibleToStakeholders.Visible
         } else {
-          SVisibleByKey.NotVisible(actAs, readAs)
+          SVisibleToStakeholders.NotVisible(actAs, readAs)
         }
     }
   }

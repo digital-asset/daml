@@ -122,9 +122,6 @@ final case class ScenarioRunner(
 
         case _: SResultNeedKey =>
           crash("SResultNeedKey outside of submission")
-
-        case _: SResultNeedLocalKeyVisible =>
-          crash("SResultNeedLocalKeyVisible outside of submission")
       }
     }
     val endTime = System.nanoTime()
@@ -391,6 +388,7 @@ object ScenarioRunner {
       expr = SExpr.SEApp(commands, Array(SExpr.SEValue(SValue.SToken))),
       globalCids = Set.empty,
       committers = committers,
+      readAs = readAs,
       traceLog = traceLog,
     )
     val onLedger = ledgerMachine.ledgerMode match {
@@ -431,10 +429,6 @@ object ScenarioRunner {
             case Left(err) => SubmissionError(err, onLedger.ptxInternal)
             case Right(_) => go()
           }
-        case SResultNeedLocalKeyVisible(stakeholders, committers, cb) =>
-          val visible = SVisibleByKey.fromSubmitters(committers, readAs)(stakeholders)
-          cb(visible)
-          go()
         case SResultNeedTime(callback) =>
           callback(ledger.currentTime)
           go()

@@ -60,7 +60,8 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
 
   def info = new EngineInfo(config)
 
-  /** Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
+  /** Executes commands `cmds` under the authority of `submitters`, with additional readers `readAs`,
+    * and returns one of the following:
     * <ul>
     * <li> `ResultDone(tx)` if `cmds` could be successfully executed, where `tx` is the resulting transaction.
     *      The transaction `tx` conforms to the Daml model consisting of the packages that have been supplied via
@@ -87,6 +88,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     */
   def submit(
       submitters: Set[Party],
+      readAs: Set[Party],
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
@@ -98,6 +100,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         interpretCommands(
           validating = false,
           submitters = submitters,
+          readAs = readAs,
           commands = processedCmds,
           ledgerTime = cmds.ledgerEffectiveTime,
           submissionTime = submissionTime,
@@ -150,6 +153,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       result <- interpretExpression(
         validating = true,
         submitters = submitters,
+        readAs = Set.empty,
         sexpr = sexpr,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
@@ -173,6 +177,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       result <- interpretCommands(
         validating = true,
         submitters = submitters,
+        readAs = Set.empty,
         commands = commands,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
@@ -265,6 +270,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
   private[engine] def interpretCommands(
       validating: Boolean,
       submitters: Set[Party],
+      readAs: Set[Party],
       commands: ImmArray[speedy.Command],
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
@@ -275,6 +281,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     interpretExpression(
       validating,
       submitters,
+      readAs,
       sexpr,
       ledgerTime,
       submissionTime,
@@ -283,7 +290,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     )
   }
 
-  /** Interprets the given commands under the authority of @submitters
+  /** Interprets the given commands under the authority of @submitters, with additional readers @readAs
     *
     * Submitters are a set, in order to support interpreting subtransactions
     * (a subtransaction can be authorized by multiple parties).
@@ -294,6 +301,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       validating: Boolean,
       /* See documentation for `Speedy.Machine` for the meaning of this field */
       submitters: Set[Party],
+      readAs: Set[Party],
       sexpr: SExpr,
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
@@ -308,6 +316,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
+        readAs = readAs,
         validating = validating,
         contractKeyUniqueness = config.contractKeyUniqueness,
       )
@@ -370,15 +379,6 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
             gk,
             { result =>
               cb(result)
-              interpretLoop(machine, time)
-            },
-          )
-
-        case SResultNeedLocalKeyVisible(stakeholders, _, cb) =>
-          return ResultNeedLocalKeyVisible(
-            stakeholders,
-            { result =>
-              cb(result.toSVisibleByKey)
               interpretLoop(machine, time)
             },
           )

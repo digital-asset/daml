@@ -17,7 +17,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{Blinding, Engine, VisibleByKey, Error => LfError}
+import com.daml.lf.engine.{Blinding, Engine, Error => LfError}
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.{
   BlindingInfo,
@@ -285,8 +285,6 @@ private[kvutils] class TransactionCommitter(
               lookupContract(transactionEntry, commitContext),
               lookupPackage(commitContext),
               lookupKey(commitContext, knownKeys),
-              // No check for key visibility during validation
-              _ => VisibleByKey.Visible,
             )
             .fold(
               err =>

@@ -57,10 +57,10 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
              agreement "Agreement",
              choices {
                choice @nonConsuming Noop (self) (r: Mod:Record) : Mod:Record,
-                 controllers 
+                 controllers
                    Mod:contractParties this
                  to
-                   upure @Mod:Record r 
+                   upure @Mod:Record r
              },
              key @Mod:Key (Mod:Contract {key} this) Mod:keyParties
           };
@@ -78,7 +78,7 @@ class ValueEnricherSpec extends AnyWordSpec with Matchers with TableDrivenProper
   private[this] val engine = Engine.DevEngine()
   engine
     .preloadPackage(pkgId, pkg)
-    .consume(_ => None, _ => None, _ => None, _ => VisibleByKey.Visible)
+    .consume(_ => None, _ => None, _ => None)
 
   private[this] val enricher = new ValueEnricher(engine)
 

@@ -275,6 +275,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
     engine
       .submit(
         submitters = Set(submitter),
+        readAs = Set.empty,
         Commands(ImmArray(cmd), effectiveAt, cmdReference),
         participant,
         seed,
@@ -282,9 +283,6 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       .consume(
         ledger.get(submitter, effectiveAt),
         lookupPackage,
-        { _ =>
-          sys.error("TODO keys for LargeTransactionTest")
-        },
         { _ =>
           sys.error("TODO keys for LargeTransactionTest")
         },
