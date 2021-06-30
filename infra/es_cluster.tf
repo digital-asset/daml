@@ -18,6 +18,11 @@ locals {
       size           = 0,
     }
   ]
+
+  es_ports = [
+    { name = "es", port = "9200" },
+    { name = "kibana", port = "5601" },
+  ]
 }
 
 resource "google_compute_firewall" "es-ssh" {
@@ -53,7 +58,7 @@ resource "google_compute_firewall" "es-http" {
 
   allow {
     protocol = "tcp"
-    ports    = ["80"]
+    ports    = ["5601", "9200"]
   }
 }
 
@@ -151,12 +156,26 @@ EOF
 docker build -t es .
 docker run -d \
            --name es \
-           -p 80:9200 \
+           -p 9200:9200 \
            -p 9300:9300 \
            -e ES_JAVA_OPTS="-Xmx6g -Xms6g" \
            es
 
-docker logs -f es
+docker run -d \
+           --name kibana \
+           -p 5601:5601 \
+           --link es:elasticsearch \
+           -e TELEMETRY_ENABLED=false \
+           docker.elastic.co/kibana/kibana:7.13.2
+
+## Getting container output directly to the GCP console
+
+( exec 1> >(while IFS= read -r line; do echo "elastic: $line"; done); docker logs -f es ) &
+( exec 1> >(while IFS= read -r line; do echo "kibana: $line"; done); docker logs -f kibana ) &
+
+for job in $(jobs -p); do
+    wait $job
+done
 
 STARTUP
 
@@ -254,9 +273,12 @@ resource "google_compute_instance_group_manager" "es" {
     instance_template = google_compute_instance_template.es[count.index].self_link
   }
 
-  named_port {
-    name = "http"
-    port = "80"
+  dynamic named_port {
+    for_each = local.es_ports
+    content {
+      name = named_port.value["name"]
+      port = named_port.value["port"]
+    }
   }
 
   update_policy {
@@ -267,24 +289,27 @@ resource "google_compute_instance_group_manager" "es" {
 }
 
 resource "google_compute_global_address" "es" {
-  name       = "es"
+  count      = length(local.es_ports)
+  name       = "es-${local.es_ports[count.index].name}"
   ip_version = "IPV4"
 }
 
 resource "google_compute_health_check" "es-http" {
-  name               = "es-http"
+  count              = length(local.es_ports)
+  name               = "es-http-${local.es_ports[count.index].name}"
   check_interval_sec = 10
   timeout_sec        = 1
 
   tcp_health_check {
-    port = 80
+    port = local.es_ports[count.index].port
   }
 }
 
 resource "google_compute_backend_service" "es-http" {
-  name            = "es-http"
-  health_checks   = [google_compute_health_check.es-http.self_link]
-  port_name       = "http"
+  count           = length(local.es_ports)
+  name            = "es-http-${local.es_ports[count.index].name}"
+  health_checks   = [google_compute_health_check.es-http[count.index].self_link]
+  port_name       = local.es_ports[count.index].name
   security_policy = google_compute_security_policy.es.self_link
 
   dynamic backend {
@@ -296,19 +321,22 @@ resource "google_compute_backend_service" "es-http" {
 }
 
 resource "google_compute_url_map" "es-http" {
-  name            = "es-http"
-  default_service = google_compute_backend_service.es-http.self_link
+  count           = length(local.es_ports)
+  name            = "es-http-${local.es_ports[count.index].name}"
+  default_service = google_compute_backend_service.es-http[count.index].self_link
 }
 
 resource "google_compute_target_http_proxy" "es-http" {
-  name    = "es-http"
-  url_map = google_compute_url_map.es-http.self_link
+  count   = length(local.es_ports)
+  name    = "es-http-${local.es_ports[count.index].name}"
+  url_map = google_compute_url_map.es-http[count.index].self_link
 }
 
 resource "google_compute_global_forwarding_rule" "es_http" {
-  name       = "es-http"
-  target     = google_compute_target_http_proxy.es-http.self_link
-  ip_address = google_compute_global_address.es.address
+  count      = length(local.es_ports)
+  name       = "es-http-${local.es_ports[count.index].name}"
+  target     = google_compute_target_http_proxy.es-http[count.index].self_link
+  ip_address = google_compute_global_address.es[count.index].address
   port_range = "80"
 }
 
@@ -348,5 +376,9 @@ resource "google_compute_security_policy" "es" {
 }
 
 output "es_address" {
-  value = google_compute_global_address.es.address
+  value = google_compute_global_address.es[0].address
+}
+
+output "kibana_address" {
+  value = google_compute_global_address.es[1].address
 }
