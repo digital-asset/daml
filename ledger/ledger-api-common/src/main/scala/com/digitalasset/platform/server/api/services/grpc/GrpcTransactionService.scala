@@ -44,7 +44,7 @@ final class GrpcTransactionService(
   ): Source[GetTransactionsResponse, NotUsed] = {
     logger.debug("Received new transaction request {}", request)
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
-      val validation = validator.validate(request, ledgerEnd, service.offsetOrdering)
+      val validation = validator.validate(request, ledgerEnd)
 
       validation.fold(
         t => Source.failed(ValidationLogger.logFailure(request, t)),
@@ -60,7 +60,7 @@ final class GrpcTransactionService(
   ): Source[GetTransactionTreesResponse, NotUsed] = {
     logger.debug("Received new transaction tree request {}", request)
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
-      val validation = validator.validateTree(request, ledgerEnd, service.offsetOrdering)
+      val validation = validator.validateTree(request, ledgerEnd)
 
       validation.fold(
         t => Source.failed(ValidationLogger.logFailure(request, t)),

@@ -41,7 +41,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           validator.validateCompletionStreamRequest(
             completionReq.withLedgerId(""),
             ledgerEnd,
-            offsetOrdering,
           ),
           NOT_FOUND,
           "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
@@ -53,7 +52,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           validator.validateCompletionStreamRequest(
             completionReq.withApplicationId(""),
             ledgerEnd,
-            offsetOrdering,
           ),
           INVALID_ARGUMENT,
           "Missing field: application_id",
@@ -65,7 +63,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           validator.validateCompletionStreamRequest(
             completionReq.withParties(Seq()),
             ledgerEnd,
-            offsetOrdering,
           ),
           INVALID_ARGUMENT,
           "Missing field: parties",
@@ -79,7 +76,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
               LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.Unrecognized(7)))
             ),
             ledgerEnd,
-            offsetOrdering,
           ),
           INVALID_ARGUMENT,
           "Invalid argument: Unknown ledger boundary value '7' in field offset.boundary",
@@ -93,7 +89,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))
             ),
             ledgerEnd,
-            offsetOrdering,
           ),
           OUT_OF_RANGE,
           "Begin offset 1001 is after ledger end 1000",
@@ -105,7 +100,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           validator.validateCompletionStreamRequest(
             completionReq.update(_.optionalOffset := None),
             ledgerEnd,
-            offsetOrdering,
           )
         ) { case Right(req) =>
           req.ledgerId shouldEqual expectedLedgerId
@@ -117,7 +111,7 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
 
       "tolerate all fields filled out" in {
         inside(
-          validator.validateCompletionStreamRequest(completionReq, ledgerEnd, offsetOrdering)
+          validator.validateCompletionStreamRequest(completionReq, ledgerEnd)
         ) { case Right(req) =>
           req.ledgerId shouldEqual expectedLedgerId
           req.applicationId shouldEqual expectedApplicationId
@@ -170,7 +164,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
           knowsPartyOnly.validateCompletionStreamRequest(
             completionReq.withParties(unknownParties),
             ledgerEnd,
-            offsetOrdering,
           ),
           INVALID_ARGUMENT,
           "Invalid argument: Unknown parties: [Alice, Bob]",
@@ -181,7 +174,6 @@ class CompletionServiceRequestValidatorTest extends AnyWordSpec with ValidatorTe
         knowsPartyOnly.validateCompletionStreamRequest(
           completionReq.withParties(knownParties),
           ledgerEnd,
-          offsetOrdering,
         ) shouldBe a[Right[_, _]]
       }
     }

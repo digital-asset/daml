@@ -24,7 +24,6 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
   def validateCompletionStreamRequest(
       request: GrpcCompletionStreamRequest,
       ledgerEnd: LedgerOffset.Absolute,
-      offsetOrdering: Ordering[LedgerOffset.Absolute],
   ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
       _ <- matchLedgerId(ledgerId)(LedgerId(request.ledgerId))
@@ -40,7 +39,6 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
         "Begin",
         convertedOffset,
         ledgerEnd,
-        offsetOrdering,
       )
     } yield CompletionStreamRequest(
       ledgerId,

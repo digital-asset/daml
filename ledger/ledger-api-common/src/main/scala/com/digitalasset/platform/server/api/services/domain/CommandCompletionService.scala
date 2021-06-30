@@ -14,12 +14,10 @@ import scala.concurrent.Future
 
 trait CommandCompletionService {
 
+  def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute]
+
   def completionStreamSource(
       request: CompletionStreamRequest
   ): Source[CompletionStreamResponse, NotUsed]
-
-  def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute]
-
-  def offsetOrdering: Ordering[LedgerOffset.Absolute]
 
 }

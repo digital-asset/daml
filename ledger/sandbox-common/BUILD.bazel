@@ -137,8 +137,6 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/test-common",
         "//ledger/test-common:dar-files-stable-lib",
-        "//libs-scala/contextualized-logging",
-        "//libs-scala/logging-entries",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",

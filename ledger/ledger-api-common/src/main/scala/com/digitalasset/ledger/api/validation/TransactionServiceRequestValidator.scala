@@ -67,7 +67,6 @@ class TransactionServiceRequestValidator(
   def validate(
       req: GetTransactionsRequest,
       ledgerEnd: LedgerOffset.Absolute,
-      offsetOrdering: Ordering[LedgerOffset.Absolute],
   ): Result[transaction.GetTransactionsRequest] = {
 
     for {
@@ -76,13 +75,11 @@ class TransactionServiceRequestValidator(
         "Begin",
         partial.begin,
         ledgerEnd,
-        offsetOrdering,
       )
       _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "End",
         partial.end,
         ledgerEnd,
-        offsetOrdering,
       )
       convertedFilter <- TransactionFilterValidator.validate(partial.transactionFilter)
     } yield {
@@ -100,7 +97,6 @@ class TransactionServiceRequestValidator(
   def validateTree(
       req: GetTransactionsRequest,
       ledgerEnd: LedgerOffset.Absolute,
-      offsetOrdering: Ordering[LedgerOffset.Absolute],
   ): Result[GetTransactionTreesRequest] = {
 
     for {
@@ -109,13 +105,11 @@ class TransactionServiceRequestValidator(
         "Begin",
         partial.begin,
         ledgerEnd,
-        offsetOrdering,
       )
       _ <- LedgerOffsetValidator.offsetIsBeforeEndIfAbsolute(
         "End",
         partial.end,
         ledgerEnd,
-        offsetOrdering,
       )
       convertedFilter <- transactionFilterToPartySet(partial.transactionFilter)
     } yield {
