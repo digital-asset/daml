@@ -328,6 +328,7 @@ final class SandboxServer(
             transactionCommitter = transactionCommitter,
             templateStore = packageStore,
             eventsPageSize = config.eventsPageSize,
+            eventsProcessingParallelism = config.eventsProcessingParallelism,
             servicesExecutionContext = servicesExecutionContext,
             metrics = metrics,
             lfValueTranslationCache = lfValueTranslationCache,
