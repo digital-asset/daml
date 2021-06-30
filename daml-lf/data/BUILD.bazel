@@ -32,6 +32,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
+        "//libs-scala/logging-entries",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
@@ -55,6 +56,9 @@ da_scala_test(
         "-P:silencer:lineContentFilters=import ImmArraySeq.Implicits._",
         "-P:silencer:lineContentFilters=signum",
     ],
+    versioned_deps = {
+        "2.12": ["//libs-scala/logging-entries"],
+    },
     deps = [
         ":data",
         "//daml-lf/data-scalacheck",
