@@ -198,9 +198,6 @@ private[apiserver] final class ApiTransactionService private (
       .andThen(logger.logErrorsOnCall[GetFlatTransactionResponse])
   }
 
-  override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
-    Ordering.by[LedgerOffset.Absolute, String](_.value)
-
   private def lookUpTreeByTransactionId(
       transactionId: TransactionId,
       requestingParties: Set[Party],
