@@ -12,6 +12,9 @@ final class LoggingEntries private (
   def isEmpty: Boolean =
     contents.isEmpty
 
+  def +:(entry: LoggingEntry): LoggingEntries =
+    new LoggingEntries(contents + entry)
+
   def :+(entry: LoggingEntry): LoggingEntries =
     new LoggingEntries(contents + entry)
 
@@ -28,6 +31,6 @@ object LoggingEntries {
   def apply(entries: LoggingEntry*): LoggingEntries =
     new LoggingEntries(entries.toMap)
 
-  def fromIterator(entries: Iterator[LoggingEntry]): LoggingEntries =
-    new LoggingEntries(entries.toMap)
+  def fromMap(entries: Map[LoggingKey, LoggingValue]): LoggingEntries =
+    new LoggingEntries(entries)
 }

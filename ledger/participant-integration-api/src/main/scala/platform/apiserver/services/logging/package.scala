@@ -10,11 +10,12 @@ import com.daml.ledger.api.domain.{
   CommandId,
   Commands,
   EventId,
+  LedgerId,
   LedgerOffset,
+  TransactionFilter,
   TransactionId,
   WorkflowId,
 }
-import com.daml.ledger.api.v1.transaction_filter.Filters
 import com.daml.logging.{LoggingEntries, LoggingEntry, LoggingValue}
 import scalaz.syntax.tag.ToTagOps
 
@@ -41,6 +42,12 @@ package object logging {
   private[services] def offset(offset: Option[LedgerOffset]): LoggingEntry =
     "offset" -> offset
 
+  private[services] def offset(offset: String): LoggingEntry =
+    "offset" -> offset
+
+  private[services] def ledgerId(id: LedgerId): LoggingEntry =
+    "ledgerId" -> id.unwrap
+
   private[services] def applicationId(id: ApplicationId): LoggingEntry =
     "applicationId" -> id.unwrap
 
@@ -56,16 +63,20 @@ package object logging {
   private[services] def eventId(id: EventId): LoggingEntry =
     "eventId" -> id.unwrap
 
-  private[services] def filters(filtersByParty: Map[String, Filters]): LoggingEntries =
-    LoggingEntries.fromIterator(filtersByParty.iterator.flatMap { case (party, filters) =>
-      Iterator
-        .continually(s"party-$party")
-        .zip(
-          filters.inclusive
-            .fold(Iterator.single("all-templates"))(_.templateIds.iterator.map(_.toString))
-            .map(LoggingValue.from(_))
-        )
-    })
+  private[services] def filters(
+      filters: TransactionFilter
+  ): LoggingEntry =
+    "filters" -> LoggingValue.Nested(
+      LoggingEntries.fromMap(
+        filters.filtersByParty.view.map { case (party, partyFilters) =>
+          (party: String) -> (partyFilters.inclusive match {
+            case None => LoggingValue.from("all-templates")
+            case Some(inclusiveFilters) =>
+              LoggingValue.from(inclusiveFilters.templateIds.view.map(_.toString))
+          })
+        }.toMap
+      )
+    )
 
   private[services] def submissionId(id: String): LoggingEntry =
     "submissionId" -> id
@@ -96,5 +107,8 @@ package object logging {
     )
     cmds.workflowId.fold(context)(context :+ workflowId(_))
   }
+
+  private[services] def verbose(v: Boolean): LoggingEntry =
+    "verbose" -> v
 
 }

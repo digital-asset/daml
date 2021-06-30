@@ -12,6 +12,16 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class LoggingValueSpec extends AnyWordSpec with Matchers {
   "a logging value" can {
+    "be constructed from the boolean `false`" in {
+      val value = LoggingValue.from(false)
+      writingToGenerator(value) should be("false")
+    }
+
+    "be constructed from the boolean `true`" in {
+      val value = LoggingValue.from(true)
+      writingToGenerator(value) should be("true")
+    }
+
     "be constructed from a string" in {
       val value = LoggingValue.from("foo bar")
       writingToGenerator(value) should be("\"foo bar\"")
