@@ -63,8 +63,8 @@ import qualified Development.IDE.Types.Options as Ghcide
 import SdkVersion (damlStdlib)
 
 -- | Convert to ghcide’s IdeOptions type.
-toCompileOpts :: Options -> Ghcide.IdeReportProgress -> Ghcide.IdeOptions
-toCompileOpts options@Options{..} reportProgress =
+toCompileOpts :: Options -> Ghcide.IdeOptions
+toCompileOpts options@Options{..} =
     Ghcide.IdeOptions
       { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor dataDependableExtensions (optUnitId options)
       , optGhcSession = getDamlGhcSession
@@ -76,7 +76,6 @@ toCompileOpts options@Options{..} reportProgress =
       , optThreads = optThreads
       , optShakeFiles = if getIncrementalBuild optIncrementalBuild then Just ".daml/build/shake" else Nothing
       , optShakeProfiling = optShakeProfiling
-      , optReportProgress = reportProgress
       , optLanguageSyntax = "daml"
       , optNewColonConvention = True
       , optKeywords = damlKeywords

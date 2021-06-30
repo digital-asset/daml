@@ -1,6 +1,6 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE GADTs #-}
 module DA.Daml.Compiler.Output
   ( writeOutput
   , writeOutputBSL
@@ -13,10 +13,10 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy                           as BSL
 import           Data.String                                    (IsString)
 import qualified Data.Text.Encoding as T
-import Development.IDE.LSP.Protocol
+import Development.IDE.Core.Shake (NotificationHandler(..))
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
-import Language.Haskell.LSP.Messages
+import qualified Language.LSP.Types as LSP
 import System.IO
 import           Control.Exception (bracket)
 
@@ -56,10 +56,11 @@ printDiagnostics :: Handle -> [FileDiagnostic] -> IO ()
 printDiagnostics _ [] = return ()
 printDiagnostics handle xs = BS.hPutStrLn handle $ T.encodeUtf8 $ showDiagnosticsColored xs
 
-diagnosticsLogger :: FromServerMessage -> IO ()
+diagnosticsLogger :: NotificationHandler
 diagnosticsLogger = hDiagnosticsLogger stderr
 
-hDiagnosticsLogger :: Handle -> FromServerMessage -> IO ()
-hDiagnosticsLogger handle = \case
-    EventFileDiagnostics fp diags -> printDiagnostics handle $ map (toNormalizedFilePath' fp,ShowDiag,) diags
+hDiagnosticsLogger :: Handle -> NotificationHandler
+hDiagnosticsLogger handle = NotificationHandler $ \m params -> case (m, params) of
+    (LSP.STextDocumentPublishDiagnostics, LSP.PublishDiagnosticsParams (uriToFilePath' -> Just fp) _ (List diags)) ->
+        printDiagnostics handle $ map (toNormalizedFilePath' fp,ShowDiag,) diags
     _ -> pure ()

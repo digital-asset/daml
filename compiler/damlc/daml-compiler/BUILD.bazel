@@ -24,7 +24,7 @@ da_haskell_library(
         "ghc-lib-parser-ex",
         "ghcide",
         "hashable",
-        "haskell-lsp",
+        "lsp",
         "lens",
         "mtl",
         "repline",
