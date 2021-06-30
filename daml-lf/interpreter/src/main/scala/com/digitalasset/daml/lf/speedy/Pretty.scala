@@ -68,17 +68,17 @@ private[lf] object Pretty {
             case Some(node) =>
               (line + prettyPartialTransactionNode(node)).nested(4)
           })
-      case ContractKeyNotFound(gk) =>
+      case ContractKeyNotFound(tid, key) =>
         text(
           "Update failed due to fetch-by-key or exercise-by-key which did not find a contract with key"
         ) &
-          prettyValue(false)(gk.key) & char('(') + prettyIdentifier(gk.templateId) + char(')')
-      case LocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+          prettyValue(false)(key) & char('(') + prettyIdentifier(tid) + char(')')
+      case LocalContractKeyNotVisible(coid, tid, key, actAs, readAs, stakeholders) =>
         text(
           "Update failed due to a fetch, lookup or exercise by key of contract not visible to the reading parties"
         ) & prettyContractId(coid) &
-          char('(') + (prettyIdentifier(gk.templateId)) + text(") associated with key ") +
-          prettyValue(false)(gk.key) &
+          char('(') + (prettyIdentifier(tid)) + text(") associated with key ") +
+          prettyValue(false)(key) &
           text("No reading party is a stakeholder:") &
           text("actAs:") & intercalate(comma + space, actAs.map(prettyParty))
             .tightBracketBy(char('{'), char('}')) &
@@ -88,8 +88,8 @@ private[lf] object Pretty {
             comma + space,
             stakeholders.map(prettyParty),
           ) + char('.')
-      case DuplicateContractKey(key) =>
-        text("Update failed due to a duplicate contract key") & prettyValue(false)(key.key)
+      case DuplicateContractKey(_, key) =>
+        text("Update failed due to a duplicate contract key") & prettyValue(false)(key)
       case WronglyTypedContract(coid, expected, actual) =>
         text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
           text("Expected contract of type") & prettyTypeConName(expected) & text(

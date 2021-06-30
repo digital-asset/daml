@@ -6,7 +6,6 @@ package speedy
 
 import java.util
 import java.util.regex.Pattern
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
@@ -18,7 +17,6 @@ import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue.{SValue => _, _}
 import com.daml.lf.speedy.SValue.{SValue => SV}
-import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.value.{Value => V}
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node}
 import com.daml.lf.value.Value.ValueArithmeticError
@@ -1154,18 +1152,18 @@ private[lf] object SBuiltin {
     // Callback from the engine returned NotFound
     def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit
     // We already saw this key, but it was undefined or was archived
-    def handleKeyNotFound(machine: Machine, gkey: GlobalKey): Boolean
+    def handleKeyNotFound(machine: Machine, key: => V[Nothing]): Boolean
     // We already saw this key and it is still active
     def handleActiveKey(machine: Machine, cid: V.ContractId): Unit
 
     final def handleKnownInputKey(
         machine: Machine,
-        gkey: GlobalKey,
+        key: => V[Nothing],
         keyMapping: PartialTransaction.KeyMapping,
     ): Unit =
       keyMapping match {
         case PartialTransaction.KeyActive(cid) => handleActiveKey(machine, cid)
-        case PartialTransaction.KeyInactive => discard(handleKeyNotFound(machine, gkey))
+        case PartialTransaction.KeyInactive => discard(handleKeyNotFound(machine, key))
       }
   }
 
@@ -1173,8 +1171,8 @@ private[lf] object SBuiltin {
     final class Fetch(override val templateId: TypeConName) extends KeyOperation {
       override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
         machine.ctrl = importCid(cid)
-      override def handleKeyNotFound(machine: Machine, gkey: GlobalKey): Boolean = {
-        machine.ctrl = SEDamlException(IE.ContractKeyNotFound(gkey))
+      override def handleKeyNotFound(machine: Machine, key: => V[Nothing]): Boolean = {
+        machine.ctrl = SEDamlException(IE.ContractKeyNotFound(templateId, key))
         false
       }
 
@@ -1185,7 +1183,7 @@ private[lf] object SBuiltin {
     final class Lookup(override val templateId: TypeConName) extends KeyOperation {
       override def handleInputKeyFound(machine: Machine, cid: V.ContractId): Unit =
         machine.ctrl = SBSome(importCid(cid))
-      override def handleKeyNotFound(machine: Machine, key: GlobalKey): Boolean = {
+      override def handleKeyNotFound(machine: Machine, key: => V[Nothing]): Boolean = {
         machine.returnValue = SValue.SValue.None
         true
       }
@@ -1235,17 +1233,24 @@ private[lf] object SBuiltin {
               operation.handleActiveKey(machine, coid)
             case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
               machine.ctrl = SEDamlException(
-                IE.LocalContractKeyNotVisible(coid, gkey, actAs, readAs, stakeholders)
+                IE.LocalContractKeyNotVisible(
+                  coid,
+                  operation.templateId,
+                  keyWithMaintainers.key,
+                  actAs,
+                  readAs,
+                  stakeholders,
+                )
               )
           }
         case Some(keyMapping) =>
-          operation.handleKnownInputKey(machine, gkey, keyMapping)
+          operation.handleKnownInputKey(machine, keyWithMaintainers.key, keyMapping)
         case None =>
           // Check if we have a cached global key result.
           onLedger.ptx.globalKeyInputs.get(gkey) match {
             case Some(keyMapping) =>
               onLedger.ptx = onLedger.ptx.copy(keys = onLedger.ptx.keys.updated(gkey, keyMapping))
-              operation.handleKnownInputKey(machine, gkey, keyMapping)
+              operation.handleKnownInputKey(machine, keyWithMaintainers.key, keyMapping)
             case None =>
               // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
               // that.
@@ -1266,7 +1271,7 @@ private[lf] object SBuiltin {
                         onLedger.ptx = onLedger.ptx.copy(
                           keys = onLedger.ptx.keys.updated(gkey, KeyInactive)
                         )
-                        operation.handleKeyNotFound(machine, gkey)
+                        operation.handleKeyNotFound(machine, keyWithMaintainers.key)
                     }
                   },
                 )
@@ -1589,14 +1594,8 @@ private[lf] object SBuiltin {
     */
   private[speedy] def checkAborted(ptx: PartialTransaction): Unit =
     ptx.aborted match {
-      case Some(Tx.AuthFailureDuringExecution(nid, fa)) =>
-        throw SErrorDamlException(IE.FailedAuthorization(nid, fa))
-      case Some(Tx.ContractNotActive(coid, tid, consumedBy)) =>
-        throw SErrorDamlException(IE.ContractNotActive(coid, tid, consumedBy))
-      case Some(Tx.DuplicateContractKey(key)) =>
-        throw SErrorDamlException(IE.DuplicateContractKey(key))
-      case None =>
-        ()
+      case Some(err) => throw SErrorDamlException(err)
+      case None => ()
     }
 
   private[this] def extractParties(where: String, v: SValue): TreeSet[Party] =

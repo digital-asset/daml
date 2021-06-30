@@ -39,10 +39,10 @@ private[lf] object Pretty {
             comma + space,
             observers.map(prettyParty),
           ) + char('.')
-      case Error.ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+      case Error.ContractKeyNotVisible(coid, tid, key, actAs, readAs, stakeholders) =>
         text("Scenario failed due to the failure to fetch the contract") & prettyContractId(coid) &
-          char('(') + (prettyIdentifier(gk.templateId)) + text(") associated with key ") +
-          prettyValue(false)(gk.key) &
+          char('(') + (prettyIdentifier(tid)) + text(") associated with key ") +
+          prettyValue(false)(key) &
           text("The contract had not been disclosed to the reading parties:") &
           text("actAs:") & intercalate(comma + space, actAs.map(prettyParty))
             .tightBracketBy(char('{'), char('}')) &
@@ -53,12 +53,9 @@ private[lf] object Pretty {
             stakeholders.map(prettyParty),
           ) + char('.')
 
-      case Error.CommitError(ScenarioLedger.CommitError.UniqueKeyViolation(gk)) =>
-        (text("Scenario failed due to unique key violation for key:") & prettyValue(false)(
-          gk.gk.key
-        ) & text(
-          "for template"
-        ) & prettyIdentifier(gk.gk.templateId))
+      case Error.CommitError(ScenarioLedger.CommitError.UniqueKeyViolation(err)) =>
+        (text("Scenario failed due to unique key violation for key:") &
+          prettyValue(false)(err.key) & text("for template") & prettyIdentifier(err.templateId))
 
       case Error.MustFailSucceeded(tx @ _) =>
         // TODO(JM): Further info needed. Location annotations?

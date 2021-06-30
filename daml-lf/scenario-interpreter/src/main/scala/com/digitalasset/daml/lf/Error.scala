@@ -8,7 +8,8 @@ import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.Time
 import com.daml.lf.ledger.EventId
 import com.daml.lf.speedy.SError.SError
-import com.daml.lf.transaction.{GlobalKey, Transaction}
+import com.daml.lf.transaction.Transaction
+import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
 import scala.util.control.NoStackTrace
@@ -57,7 +58,8 @@ object Error {
     */
   final case class ContractKeyNotVisible(
       coid: ContractId,
-      key: GlobalKey,
+      templateId: Identifier,
+      key: Value[Nothing],
       actAs: Set[Party],
       readAs: Set[Party],
       stakeholders: Set[Party],

@@ -14,7 +14,6 @@ import com.daml.lf.transaction.{
   Node,
   NodeId,
   SubmittedTransaction,
-  Transaction => Tx,
   TransactionVersion => TxVersion,
   IncompleteTransaction => TxIncompleteTransaction,
 }
@@ -263,7 +262,7 @@ private[lf] case class PartialTransaction(
     actionNodeSeeds: BackStack[crypto.Hash],
     consumedBy: Map[Value.ContractId, NodeId],
     context: PartialTransaction.Context,
-    aborted: Option[Tx.TransactionError],
+    aborted: Option[interpretation.Error],
     keys: Map[GlobalKey, PartialTransaction.KeyMapping],
     globalKeyInputs: Map[GlobalKey, PartialTransaction.KeyMapping],
     localContracts: Set[Value.ContractId],
@@ -458,7 +457,12 @@ private[lf] case class PartialTransaction(
           }
           (conflict, contractKeyUniqueness) match {
             case (KeyConflict.Duplicate, ContractKeyUniquenessMode.On) =>
-              Right((cid, ptx.noteAbort(Tx.DuplicateContractKey(ck))))
+              Right(
+                (
+                  cid,
+                  ptx.noteAbort(interpretation.Error.DuplicateContractKey(templateId, kWithM.key)),
+                )
+              )
             case _ =>
               Right(
                 (
@@ -726,12 +730,12 @@ private[lf] case class PartialTransaction(
     f(auth) match {
       case Nil => this
       case fa :: _ => // take just the first failure //TODO: dont compute all!
-        noteAbort(Tx.AuthFailureDuringExecution(nid, fa))
+        noteAbort(interpretation.Error.FailedAuthorization(nid, fa))
     }
   }
 
   /** Note that the transaction building failed due to the given error */
-  private def noteAbort(err: Tx.TransactionError): PartialTransaction =
+  private def noteAbort(err: interpretation.Error): PartialTransaction =
     copy(aborted = Some(err))
 
   /** `True` iff the given `ContractId` has been consumed already */
@@ -747,7 +751,7 @@ private[lf] case class PartialTransaction(
   ): PartialTransaction =
     consumedBy.get(coid) match {
       case None => f
-      case Some(nid) => noteAbort(Tx.ContractNotActive(coid, templateId, nid))
+      case Some(nid) => noteAbort(interpretation.Error.ContractNotActive(coid, templateId, nid))
     }
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */

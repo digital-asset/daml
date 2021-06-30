@@ -31,7 +31,7 @@ import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.interpretation.{Error => LfInterpretationError}
 import com.daml.lf.language.LookupError
 import com.daml.lf
-import com.daml.lf.transaction.{GlobalKey, NodeId, ReplayNodeMismatch}
+import com.daml.lf.transaction.{NodeId, ReplayNodeMismatch}
 import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value
 import com.daml.logging.LoggingContext
@@ -208,9 +208,7 @@ class ApiSubmissionServiceSpec
       ErrorCause.DamlLf(
         LfError.Interpretation(
           LfError.Interpretation.DamlException(
-            LfInterpretationError.DuplicateContractKey(
-              GlobalKey.assertBuild(tmplId, Value.ValueUnit)
-            )
+            LfInterpretationError.DuplicateContractKey(tmplId, Value.ValueUnit)
           ),
           None,
         )

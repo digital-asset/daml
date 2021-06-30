@@ -8,7 +8,7 @@ import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
 import com.daml.lf.speedy.{SError, SValue, TraceLog}
-import com.daml.lf.transaction.{GlobalKey, IncompleteTransaction, Node => N, NodeId}
+import com.daml.lf.transaction.{IncompleteTransaction, Node => N, NodeId}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
 
@@ -121,25 +121,27 @@ final class Conversions(
                     .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
                     .build
                 )
-              case LocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+              case LocalContractKeyNotVisible(coid, tid, _, actAs, readAs, stakeholders) =>
                 builder.setScenarioContractKeyNotVisible(
                   proto.ScenarioError.ContractKeyNotVisible.newBuilder
-                    .setContractRef(mkContractRef(coid, gk.templateId))
+                    .setContractRef(mkContractRef(coid, tid))
                     .addAllActAs(actAs.map(convertParty(_)).asJava)
                     .addAllReadAs(readAs.map(convertParty(_)).asJava)
                     .addAllStakeholders(stakeholders.map(convertParty).asJava)
                     .build
                 )
-              case ContractKeyNotFound(gk) =>
+              case ContractKeyNotFound(tid, key) =>
                 builder.setScenarioContractKeyNotFound(
                   proto.ScenarioError.ContractKeyNotFound.newBuilder
-                    .setTemplateId(convertIdentifier(gk.templateId))
-                    .setKey(convertValue(gk.key))
+                    .setTemplateId(convertIdentifier(tid))
+                    .setKey(convertValue(key))
                     .build
                 )
-              case DuplicateContractKey(key) =>
+              case DuplicateContractKey(tid, key) =>
                 builder.setScenarioCommitError(
-                  proto.CommitError.newBuilder.setUniqueKeyViolation(convertGlobalKey(key)).build
+                  proto.CommitError.newBuilder
+                    .setUniqueKeyViolation(convertGlobalKey(tid, key))
+                    .build
                 )
               case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
                 builder.setCreateEmptyContractKeyMaintainers(
@@ -204,11 +206,11 @@ final class Conversions(
             .build
         )
 
-      case Error.ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+      case Error.ContractKeyNotVisible(coid, tid, key, actAs, readAs, stakeholders) =>
         builder.setScenarioContractKeyNotVisible(
           proto.ScenarioError.ContractKeyNotVisible.newBuilder
-            .setContractRef(mkContractRef(coid, gk.templateId))
-            .setKey(convertValue(gk.key))
+            .setContractRef(mkContractRef(coid, tid))
+            .setKey(convertValue(key))
             .addAllActAs(actAs.map(convertParty(_)).asJava)
             .addAllReadAs(readAs.map(convertParty(_)).asJava)
             .addAllStakeholders(stakeholders.map(convertParty).asJava)
@@ -234,16 +236,16 @@ final class Conversions(
   def convertCommitError(commitError: ScenarioLedger.CommitError): proto.CommitError = {
     val builder = proto.CommitError.newBuilder
     commitError match {
-      case ScenarioLedger.CommitError.UniqueKeyViolation(gk) =>
-        builder.setUniqueKeyViolation(convertGlobalKey(gk.gk))
+      case ScenarioLedger.CommitError.UniqueKeyViolation(err) =>
+        builder.setUniqueKeyViolation(convertGlobalKey(err.templateId, err.key))
     }
     builder.build
   }
 
-  def convertGlobalKey(globalKey: GlobalKey): proto.GlobalKey = {
+  def convertGlobalKey(tid: Ref.Identifier, key: V[Nothing]): proto.GlobalKey = {
     proto.GlobalKey.newBuilder
-      .setTemplateId(convertIdentifier(globalKey.templateId))
-      .setKey(convertValue(globalKey.key))
+      .setTemplateId(convertIdentifier(tid))
+      .setKey(convertValue(key))
       .build
   }
 

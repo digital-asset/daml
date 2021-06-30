@@ -59,7 +59,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
       effectiveAt = ledger.currentTime,
     )
     val filtered = acs.collect {
-      case ScenarioLedger.LookupOk(cid, Value.ContractInst(tpl, arg, _), stakeholders)
+      case ScenarioLedger.LookupOk(cid, Value.ContractInst(tpl, arg, _), _, stakeholders)
           if tpl == templateId && parties.any(stakeholders.contains(_)) =>
         (cid, arg)
     }
@@ -81,7 +81,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
       effectiveAt = ledger.currentTime,
       cid,
     ) match {
-      case ScenarioLedger.LookupOk(_, Value.ContractInst(_, arg, _), stakeholders)
+      case ScenarioLedger.LookupOk(_, Value.ContractInst(_, arg, _), _, stakeholders)
           if parties.any(stakeholders.contains(_)) =>
         Future.successful(Some(ScriptLedgerClient.ActiveContract(templateId, cid, arg.value)))
       case _ =>

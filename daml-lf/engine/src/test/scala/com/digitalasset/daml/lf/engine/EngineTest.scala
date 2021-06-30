@@ -97,10 +97,10 @@ class EngineTest
       TypeConName(basicTestsPkgId, withKeyTemplate),
       assertAsVersionedValue(
         ValueRecord(
-          Some(BasicTests_WithKey),
+          None,
           ImmArray(
-            (Some[Ref.Name]("p"), ValueParty(alice)),
-            (Some[Ref.Name]("k"), ValueInt64(42)),
+            (Some[Ref.Name]("_1"), ValueParty(alice)),
+            (Some[Ref.Name]("_2"), ValueInt64(42)),
           ),
         )
       ),
@@ -144,16 +144,17 @@ class EngineTest
     allPackages.get(pkgId)
   }
 
+  private[this] val contractKeysMap =
+    Map(
+      GlobalKey.assertBuild(
+        BasicTests_WithKey,
+        ValueRecord(None, ImmArray((None, ValueParty(`alice`)), (None, ValueInt64(42)))),
+      ) ->
+        toContractId("#BasicTests:WithKey:1")
+    )
+
   def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-    (key.globalKey.templateId, key.globalKey.key) match {
-      case (
-            BasicTests_WithKey,
-            ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
-          ) =>
-        Some(toContractId("#BasicTests:WithKey:1"))
-      case _ =>
-        None
-    }
+    contractKeysMap.get(key.globalKey)
 
   // TODO make these two per-test, so that we make sure not to pollute the package cache and other possibly mutable stuff
   val engine = Engine.DevEngine()
@@ -775,21 +776,20 @@ class EngineTest
           submissionSeed,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
-      inside(submitResult) { case Left(Error.Interpretation(err, _)) =>
-        err shouldBe Interpretation.DamlException(
-          interpretation.Error.ContractKeyNotFound(
-            GlobalKey.assertBuild(
-              BasicTests_WithKey,
-              ValueRecord(
-                Some(BasicTests_WithKey),
-                ImmArray(
-                  (Some[Ref.Name]("p"), ValueParty(alice)),
-                  (Some[Ref.Name]("k"), ValueInt64(43)),
+      inside(submitResult) {
+        case Left(
+              Error.Interpretation(
+                Interpretation.DamlException(
+                  interpretation.Error.ContractKeyNotFound(
+                    BasicTests_WithKey,
+                    ValueRecord(_, ImmArray((Some("_1"), fst), (Some("_2"), snd))),
+                  )
                 ),
-              ),
-            )
-          )
-        )
+                _,
+              )
+            ) =>
+          fst shouldBe ValueParty(alice)
+          snd shouldBe ValueInt64(43)
       }
     }
   }
@@ -975,7 +975,7 @@ class EngineTest
           templateId = templateId,
           key = SRecord(
             BasicTests_WithKey,
-            ImmArray("p", "k"),
+            ImmArray("_1", "_2"),
             ArrayList(SParty(alice), SInt64(43)),
           ),
         )
@@ -996,22 +996,20 @@ class EngineTest
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
-      inside(result) { case Left(Error.Interpretation(err, _)) =>
-        err shouldBe
-          Interpretation.DamlException(
-            interpretation.Error.ContractKeyNotFound(
-              GlobalKey.assertBuild(
-                BasicTests_WithKey,
-                ValueRecord(
-                  Some(BasicTests_WithKey),
-                  ImmArray(
-                    (Some[Ref.Name]("p"), ValueParty(alice)),
-                    (Some[Ref.Name]("k"), ValueInt64(43)),
-                  ),
+      inside(result) {
+        case Left(
+              Error.Interpretation(
+                Interpretation.DamlException(
+                  interpretation.Error.ContractKeyNotFound(
+                    BasicTests_WithKey,
+                    ValueRecord(_, ImmArray((Some("_1"), fst), (Some("_2"), snd))),
+                  )
                 ),
+                _,
               )
-            )
-          )
+            ) =>
+          fst shouldBe ValueParty(alice)
+          snd shouldBe ValueInt64(43)
       }
     }
     "error if Speedy fails to find the key" in {
@@ -1043,22 +1041,20 @@ class EngineTest
         )
         .consume(_ => None, lookupPackage, lookupKey)
 
-      inside(result) { case Left(Error.Interpretation(err, _)) =>
-        err shouldBe
-          Interpretation.DamlException(
-            interpretation.Error.ContractKeyNotFound(
-              GlobalKey.assertBuild(
-                BasicTests_WithKey,
-                ValueRecord(
-                  Some(BasicTests_WithKey),
-                  ImmArray(
-                    (Some[Ref.Name]("p"), ValueParty(alice)),
-                    (Some[Ref.Name]("k"), ValueInt64(43)),
-                  ),
+      inside(result) {
+        case Left(
+              Error.Interpretation(
+                Interpretation.DamlException(
+                  interpretation.Error.ContractKeyNotFound(
+                    BasicTests_WithKey,
+                    ValueRecord(_, ImmArray((Some("_1"), fst), (Some("_2"), snd))),
+                  )
                 ),
+                _,
               )
-            )
-          )
+            ) =>
+          fst shouldBe ValueParty(alice)
+          snd shouldBe ValueInt64(43)
       }
     }
   }
@@ -1668,17 +1664,17 @@ class EngineTest
       "",
     )
 
-    def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] = {
-      (key.globalKey.templateId, key.globalKey.key) match {
-        case (
-              BasicTests_WithKey,
-              ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
-            ) =>
-          Some(lookedUpCid)
-        case _ =>
-          None
-      }
-    }
+    val lookupKeyMap =
+      Map(
+        GlobalKey.assertBuild(
+          BasicTests_WithKey,
+          ValueRecord(None, ImmArray((None, ValueParty(`alice`)), (None, ValueInt64(42)))),
+        ) ->
+          lookedUpCid
+      )
+
+    def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
+      lookupKeyMap.get(key.globalKey)
 
     def lookupContractMap = Map(
       lookedUpCid -> withKeyContractInst,
@@ -1920,17 +1916,16 @@ class EngineTest
         "",
       )
 
-      def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] = {
-        (key.globalKey.templateId, key.globalKey.key) match {
-          case (
-                BasicTests_WithKey,
-                ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
-              ) =>
-            Some(fetchedCid)
-          case _ =>
-            None
-        }
-      }
+      val lookupKeyMap =
+        Map(
+          GlobalKey.assertBuild(
+            BasicTests_WithKey,
+            ValueRecord(None, ImmArray((None, ValueParty(`alice`)), (None, ValueInt64(42)))),
+          ) ->
+            fetchedCid
+        )
+      def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
+        lookupKeyMap.get(key.globalKey)
 
       val lookupContractMap = Map(fetchedCid -> withKeyContractInst, fetcherCid -> fetcherInst)
 
@@ -2269,16 +2264,11 @@ class EngineTest
       )
       val contracts = Map(cid1 -> keyedInst, cid2 -> keyedInst)
       val lookupContract = contracts.get(_)
+      val lookupKeyMap =
+        Map(GlobalKey.assertBuild(keyedId, ValueParty(`party`)) -> cid1)
       def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-        (key.globalKey.templateId, key.globalKey.key) match {
-          case (
-                `keyedId`,
-                ValueParty(`party`),
-              ) =>
-            Some(cid1)
-          case _ =>
-            None
-        }
+        lookupKeyMap.get(key.globalKey)
+
       def run(engine: Engine, choice: String, argument: Value[Value.ContractId]) = {
         val cmd = CreateAndExerciseCommand(
           opsId,
@@ -2396,16 +2386,16 @@ class EngineTest
         )
       )
       val lookupContract = contracts.get(_)
+      val lookupKeyMap =
+        Map(
+          GlobalKey.assertBuild(
+            kId,
+            ValueRecord(None, ImmArray((None, ValueParty(`party`)), (None, ValueInt64(0)))),
+          ) ->
+            cid
+        )
       def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-        (key.globalKey.templateId, key.globalKey.key) match {
-          case (
-                `kId`,
-                ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
-              ) =>
-            Some(cid)
-          case _ =>
-            None
-        }
+        lookupKeyMap.get(key.globalKey)
       def run(cmd: ApiCommand) = {
         val submitters = Set(party)
         val Right((cmds, globalCids)) = preprocessor
@@ -2507,16 +2497,16 @@ class EngineTest
         )
       )
       val lookupContract = contracts.get(_)
+      val lookupKeyMap =
+        Map(
+          GlobalKey.assertBuild(
+            kId,
+            ValueRecord(None, ImmArray((None, ValueParty(`party`)), (None, ValueInt64(0)))),
+          ) ->
+            cid
+        )
       def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-        (key.globalKey.templateId, key.globalKey.key) match {
-          case (
-                `kId`,
-                ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
-              ) =>
-            Some(cid)
-          case _ =>
-            None
-        }
+        lookupKeyMap.get(key.globalKey)
       def run(cmd: ApiCommand) = {
         val submitters = Set(party)
         val Right((cmds, globalCids)) = preprocessor
@@ -2585,16 +2575,16 @@ class EngineTest
         )
       )
       val lookupContract = contracts.get(_)
+      val lookupKeyMap =
+        Map(
+          GlobalKey.assertBuild(
+            kId,
+            ValueRecord(None, ImmArray((None, ValueParty(`party`)), (None, ValueInt64(0)))),
+          ) ->
+            cid
+        )
       def lookupKey(key: GlobalKeyWithMaintainers): Option[ContractId] =
-        (key.globalKey.templateId, key.globalKey.key) match {
-          case (
-                `kId`,
-                ValueRecord(_, ImmArray((_, ValueParty(`party`)), (_, ValueInt64(0)))),
-              ) =>
-            Some(cid)
-          case _ =>
-            None
-        }
+        lookupKeyMap.get(key.globalKey)
       def run(cmd: ApiCommand): Int = {
         val submitters = Set(party)
         var keyLookups = 0

@@ -202,6 +202,7 @@ object ScenarioLedger {
   final case class LookupOk(
       coid: ContractId,
       coinst: ContractInst[Value.VersionedValue[ContractId]],
+      optLKey: Option[Value[Nothing]],
       stakeholders: Set[Party],
   ) extends LookupResult
   final case class LookupContractNotFound(coid: ContractId) extends LookupResult
@@ -219,6 +220,7 @@ object ScenarioLedger {
   final case class LookupContractNotVisible(
       coid: ContractId,
       templateId: Identifier,
+      optKey: Option[Value[Nothing]],
       observers: Set[Party],
       stakeholders: Set[Party],
   ) extends LookupResult
@@ -391,7 +393,7 @@ object ScenarioLedger {
 
   }
 
-  case class UniqueKeyViolation(gk: GlobalKey)
+  case class UniqueKeyViolation(templateId: TypeConName, key: Value[Nothing])
 
   private def processTransaction(
       trId: TransactionId,
@@ -480,7 +482,15 @@ object ScenarioLedger {
                           val gk = GlobalKey.assertBuild(nc.coinst.template, keyWithMaintainers.key)
                           newCache1.activeKeys.get(gk) match {
                             case None => Right(newCache1.addKey(gk, nc.coid))
-                            case Some(_) => Left(UniqueKeyViolation(gk))
+                            case Some(_) =>
+                              Left(
+                                UniqueKeyViolation(
+                                  gk.templateId,
+                                  keyWithMaintainers.key.assertNoCid(cid =>
+                                    s"Unexpected contract id $cid in contract key"
+                                  ),
+                                )
+                              )
                           }
                       }
                       processNodes(mbNewCache2, idsToProcess)
@@ -631,9 +641,7 @@ case class ScenarioLedger(
   ): Seq[LookupOk] = {
     ledgerData.activeContracts.toList
       .map(cid => lookupGlobalContract(view, effectiveAt, cid))
-      .collect { case l @ LookupOk(_, _, _) =>
-        l
-      }
+      .collect { case l @ LookupOk(_, _, _, _) => l }
   }
 
   /** Focusing on a specific view of the ledger, lookup the
@@ -649,6 +657,9 @@ case class ScenarioLedger(
       case Some(info) =>
         info.node match {
           case create: NodeCreate[ContractId] =>
+            def ckey = create.key.map(
+              _.key.assertNoCid(cid => s"unexpected contract id $cid in contract key")
+            )
             if (info.effectiveAt.compareTo(effectiveAt) > 0)
               LookupContractNotEffective(coid, create.coinst.template, info.effectiveAt)
             else if (info.consumedBy.nonEmpty)
@@ -661,11 +672,12 @@ case class ScenarioLedger(
               LookupContractNotVisible(
                 coid,
                 create.coinst.template,
+                ckey,
                 info.disclosures.keys.toSet,
                 create.stakeholders,
               )
             else
-              LookupOk(coid, create.versionedCoinst, create.stakeholders)
+              LookupOk(coid, create.versionedCoinst, ckey, create.stakeholders)
 
           case _: NodeExercises[_, _] | _: NodeFetch[_] | _: NodeLookupByKey[_] |
               _: NodeRollback[_] =>

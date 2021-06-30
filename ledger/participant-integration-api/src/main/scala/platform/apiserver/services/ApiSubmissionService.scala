@@ -292,7 +292,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
           case LfError.Interpretation(
                 LfError.Interpretation.DamlException(
                   InterpretationError.ContractNotFound(_) |
-                  InterpretationError.DuplicateContractKey(_)
+                  InterpretationError.DuplicateContractKey(_, _)
                 ),
                 _,
               ) | LfError.Validation(LfError.Validation.ReplayMismatch(_)) =>

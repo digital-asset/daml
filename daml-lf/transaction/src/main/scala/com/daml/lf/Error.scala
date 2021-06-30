@@ -5,7 +5,7 @@ package com.daml.lf
 package interpretation
 
 import com.daml.lf.data.Ref.{Location, Party, TypeConName}
-import com.daml.lf.transaction.{GlobalKey, NodeId}
+import com.daml.lf.transaction.NodeId
 import com.daml.lf.language.Ast
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -48,7 +48,8 @@ object Error {
 
   final case class LocalContractKeyNotVisible(
       coid: ContractId,
-      key: GlobalKey,
+      templateId: TypeConName,
+      key: Value[Nothing],
       actAs: Set[Party],
       readAs: Set[Party],
       stakeholders: Set[Party],
@@ -57,15 +58,30 @@ object Error {
   /** Fetch-by-key failed
     */
   final case class ContractKeyNotFound(
-      key: GlobalKey
+      templateId: TypeConName,
+      key: Value[Nothing],
   ) extends Error
 
   /** Two contracts with the same key were active at the same time.
     * See com.daml.lf.transaction.Transaction.DuplicateContractKey
     * for more details.
+    *
+    * Note that speedy only detects duplicate key collisions
+    * if both contracts are used in the transaction in by-key operations
+    * meaning lookup, fetch or exercise-by-key or local creates.
+    *
+    * Two notable cases that will never produce duplicate key errors
+    * is a standalone create or a create and a fetch (but not fetch-by-key)
+    * with the same key.
+    *
+    * For ledger implementors this means that (for contract key uniqueness)
+    * it is sufficient to only look at the inputs and the outputs of the
+    * transaction while leaving all internal checks within the transaction
+    *  to the engine.
     */
   final case class DuplicateContractKey(
-      key: GlobalKey
+      templateId: TypeConName,
+      key: Value[Nothing],
   ) extends Error
 
   /** A create with a contract key failed because the list of maintainers was empty */

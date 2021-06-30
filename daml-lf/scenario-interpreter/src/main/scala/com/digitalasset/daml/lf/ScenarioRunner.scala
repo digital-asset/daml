@@ -15,6 +15,7 @@ import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.IncompleteTransaction
 import com.daml.lf.value.Value
 import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -258,7 +259,7 @@ object ScenarioRunner {
         effectiveAt = effectiveAt,
         acoid,
       ) match {
-        case ScenarioLedger.LookupOk(_, coinst, _) =>
+        case ScenarioLedger.LookupOk(_, coinst, _, _) =>
           callback(coinst)
 
         case ScenarioLedger.LookupContractNotFound(coid) =>
@@ -272,7 +273,7 @@ object ScenarioRunner {
         case ScenarioLedger.LookupContractNotActive(coid, tid, consumedBy) =>
           throw Error.ContractNotActive(coid, tid, consumedBy)
 
-        case ScenarioLedger.LookupContractNotVisible(coid, tid, observers, stakeholders @ _) =>
+        case ScenarioLedger.LookupContractNotVisible(coid, tid, _, observers, stakeholders @ _) =>
           throw Error.ContractNotVisible(coid, tid, actAs, readAs, observers)
       }
     }
@@ -297,6 +298,19 @@ object ScenarioRunner {
       val effectiveAt = ledger.currentTime
       val readers = actAs union readAs
 
+      def contractNotVisible(
+          coid: ContractId,
+          optKey: Option[Value[Nothing]],
+          stakeholders: Set[Party],
+      ): Nothing =
+        optKey match {
+          case Some(key) =>
+            throw Error
+              .ContractKeyNotVisible(coid, gk.templateId, key, actAs, readAs, stakeholders)
+          case None =>
+            throw Error.Internal(s"Unexpected contract without key: ${coid.coid}")
+        }
+
       def missingWith(err: Error) =
         if (!callback(None)) {
           machine.returnValue = null
@@ -306,24 +320,21 @@ object ScenarioRunner {
 
       ledger.ledgerData.activeKeys.get(gk) match {
         case None =>
-          missingWith(
-            Error.RunnerException(
-              SError.SErrorDamlException(interpretation.Error.ContractKeyNotFound(gk))
-            )
-          )
+          discard(callback(None))
         case Some(acoid) =>
           ledger.lookupGlobalContract(
             view = ScenarioLedger.ParticipantView(actAs, readAs),
             effectiveAt = effectiveAt,
             acoid,
           ) match {
-            case ScenarioLedger.LookupOk(_, _, stakeholders) =>
+            case ScenarioLedger.LookupOk(_, _, key, stakeholders) =>
               if (!readers.intersect(stakeholders).isEmpty)
                 // We should always be able to continue with a SKeyLookupResult.Found.
                 // Run to get side effects and assert result.
                 assert(callback(Some(acoid)))
               else
-                throw Error.ContractKeyNotVisible(acoid, gk, actAs, readAs, stakeholders)
+                contractNotVisible(acoid, key, stakeholders)
+
             case ScenarioLedger.LookupContractNotFound(coid) =>
               missingWith(
                 Error.Internal(s"contract ${coid.coid} not found, but we found its key!")
@@ -338,13 +349,9 @@ object ScenarioRunner {
               missingWith(
                 Error.Internal(s"contract ${acoid.coid} not active, but we found its key!")
               )
-            case ScenarioLedger.LookupContractNotVisible(
-                  coid,
-                  tid @ _,
-                  observers @ _,
-                  stakeholders,
-                ) =>
-              throw Error.ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders)
+            case ScenarioLedger
+                  .LookupContractNotVisible(_, tid @ _, key, observers @ _, stakeholders) =>
+              contractNotVisible(acoid, key, stakeholders)
           }
       }
     }

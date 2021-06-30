@@ -152,7 +152,7 @@ object Error {
           // TODO https://github.com/digital-asset/daml/issues/9974
           //   we should probably use ${cid.coid} instead of $cid
           s"Contract could not be found with id $cid"
-        case interpretation.Error.ContractKeyNotFound(key) =>
+        case interpretation.Error.ContractKeyNotFound(key, _) =>
           s"dependency error: couldn't find key: $key"
         case _ =>
           s"Interpretation error: Error: ${speedy.Pretty.prettyDamlException(error).render(80)}"
