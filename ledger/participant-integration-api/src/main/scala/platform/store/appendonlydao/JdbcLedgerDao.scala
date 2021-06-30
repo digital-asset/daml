@@ -27,7 +27,8 @@ import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntry}
+import com.daml.logging.entries.LoggingEntry
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}

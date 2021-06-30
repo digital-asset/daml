@@ -1,14 +1,11 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.logging
+package com.daml.logging.entries
 
-import net.logstash.logback.argument.StructuredArgument
-import org.slf4j.Marker
+import scala.annotation.nowarn
 
-final class LoggingEntries private (
-    private[logging] val contents: Map[LoggingKey, LoggingValue]
-) extends AnyVal {
+final case class LoggingEntries(contents: Map[LoggingKey, LoggingValue]) extends AnyVal {
   def isEmpty: Boolean =
     contents.isEmpty
 
@@ -20,13 +17,15 @@ final class LoggingEntries private (
 
   def ++(other: LoggingEntries): LoggingEntries =
     new LoggingEntries(contents ++ other.contents)
-
-  private[logging] def loggingMarker: Marker with StructuredArgument =
-    new LoggingMarker(contents)
 }
 
 object LoggingEntries {
   val empty: LoggingEntries = new LoggingEntries(Map.empty)
+
+  // Private so that it doesn't conflict with the other `apply` method.
+  @nowarn("msg=never used")
+  private def apply(entries: Map[LoggingKey, LoggingValue]): LoggingEntries =
+    new LoggingEntries(entries)
 
   def apply(entries: LoggingEntry*): LoggingEntries =
     new LoggingEntries(entries.toMap)

@@ -24,6 +24,7 @@ da_scala_library(
     ],
     deps = [
         "//libs-scala/grpc-utils",
+        "//libs-scala/logging-entries",
         "@maven//:com_fasterxml_jackson_core_jackson_core",
         "@maven//:io_grpc_grpc_api",
         "@maven//:net_logstash_logback_logstash_logback_encoder",
@@ -48,6 +49,7 @@ da_scala_test_suite(
     ],
     deps = [
         ":contextualized-logging",
+        "//libs-scala/logging-entries",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_fasterxml_jackson_core_jackson_core",

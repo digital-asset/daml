@@ -3,6 +3,8 @@
 
 package com.daml.logging
 
+import com.daml.logging.entries.{LoggingEntries, LoggingEntry}
+
 import scala.annotation.nowarn
 import scala.language.implicitConversions
 

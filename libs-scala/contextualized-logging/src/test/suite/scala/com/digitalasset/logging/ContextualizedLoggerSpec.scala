@@ -6,8 +6,8 @@ package com.daml.logging
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import org.mockito.ArgumentMatchersSugar
-import org.mockito.MockitoSugar
+import com.daml.logging.entries.LoggingEntry
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.slf4j.event.{EventConstants, Level}

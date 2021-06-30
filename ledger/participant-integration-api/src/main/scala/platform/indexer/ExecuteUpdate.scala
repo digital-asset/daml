@@ -27,7 +27,8 @@ import com.daml.ledger.participant.state.v1.{
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext.withEnrichedLoggingContextFrom
-import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries, LoggingEntry}
+import com.daml.logging.entries.{LoggingEntries, LoggingEntry}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.indexer.ExecuteUpdate.ExecuteUpdateFlow
 import com.daml.platform.indexer.OffsetUpdate.PreparedTransactionInsert

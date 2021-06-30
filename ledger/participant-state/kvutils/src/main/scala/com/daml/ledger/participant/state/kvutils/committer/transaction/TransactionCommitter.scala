@@ -32,7 +32,8 @@ import com.daml.lf.transaction.{
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
+import com.daml.logging.entries.LoggingEntries
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.{Timestamp => ProtoTimestamp}
 

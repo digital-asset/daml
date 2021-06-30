@@ -72,6 +72,7 @@ hj_scalacopts = lf_scalacopts + [
             "//libs-scala/concurrent",
             "//libs-scala/contextualized-logging",
             "//libs-scala/doobie-slf4j",
+            "//libs-scala/logging-entries",
             "//libs-scala/ports",
             "//libs-scala/resources",
             "//libs-scala/scala-utils",

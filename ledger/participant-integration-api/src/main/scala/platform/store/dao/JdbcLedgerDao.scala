@@ -40,7 +40,8 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
-import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntry}
+import com.daml.logging.entries.LoggingEntry
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.{CurrentOffset, OffsetStep}
@@ -58,13 +59,13 @@ import com.daml.platform.store.entries.{
   PartyLedgerEntry,
 }
 import scalaz.syntax.tag._
+import spray.json.DefaultJsonProtocol._
+import spray.json._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
-import spray.json._
-import spray.json.DefaultJsonProtocol._
 
 private final case class ParsedPartyData(
     party: String,

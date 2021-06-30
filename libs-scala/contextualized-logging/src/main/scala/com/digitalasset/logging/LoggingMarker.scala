@@ -3,6 +3,7 @@
 
 package com.daml.logging
 
+import com.daml.logging.entries.{LoggingKey, LoggingValue}
 import com.fasterxml.jackson.core.JsonGenerator
 import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.marker.LogstashMarker
