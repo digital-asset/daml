@@ -23,17 +23,13 @@ GHCIDE_VERSION = "0.1.0"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
-SHAKE_VERSION = "0.18.5"
+SHAKE_VERSION = "0.19.4"
 ZIP_VERSION = "1.5.0"
 GRPC_HASKELL_REV = "641f0bab046f2f03e5350a7c5f2044af1e19a5b1"
 GRPC_HASKELL_SHA256 = "d850d804d7af779bb8717ebe4ea2ac74903a30adeb5262477a2e7a1536f4ca81"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
-
-    # XXX: We do not have access to an integer-simple version of GHC on Windows.
-    # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
-    use_integer_simple = not is_windows
 
     #
     # Executables
@@ -215,9 +211,9 @@ haskell_cabal_library(
     visibility = ["//visibility:public"],
 )
 """,
-        sha256 = "b294ff0fe24c6c256dc8eca1d44c2a9a928b9a1bc70ddce6a1d059499edea119",
-        strip_prefix = "proto3-suite-0af901f9ef3b9719e08eae4fab8fd700d6c8047a",
-        urls = ["https://github.com/awakesecurity/proto3-suite/archive/0af901f9ef3b9719e08eae4fab8fd700d6c8047a.tar.gz"],
+        sha256 = "2a8bd6d026e4613b3abab6cdfc47ad4004e2f275cf8e9226bd48e4dbb970db92",
+        strip_prefix = "proto3-suite-b142c89803627edec735bc6236d2af81d483f7a4",
+        urls = ["https://github.com/cocreature/proto3-suite/archive/b142c89803627edec735bc6236d2af81d483f7a4.tar.gz"],
         patches = ["@com_github_digital_asset_daml//bazel_tools:haskell_proto3_suite_deriving_defaults.patch"],
         patch_args = ["-p1"],
     )
@@ -321,7 +317,7 @@ haskell_cabal_library(
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:haskell-shake.patch",
         ],
-        sha256 = "576ab57f53b8051f67ceeb97bd9abf2e0926f592334a7a1c27c07b36afca240f",
+        sha256 = "5bae8873f628113604159f650802edb249dfbe5802c4612751f680ac987d73ee",
         strip_prefix = "shake-{}".format(SHAKE_VERSION),
         urls = ["http://hackage.haskell.org/package/shake-{version}/shake-{version}.tar.gz".format(version = SHAKE_VERSION)],
     )
@@ -393,14 +389,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
                 "ghc-lib-parser-ex": ["ghc-lib"],
                 "zip": ["disable-bzip2"],
             },
-            {
-                "blaze-textual": ["integer-simple"],
-                "cryptonite": ["-integer-gmp"],
-                "hashable": ["-integer-gmp"],
-                "integer-logarithms": ["-integer-gmp"],
-                "text": ["integer-simple"],
-                "scientific": ["integer-simple"],
-            } if use_integer_simple else {},
         ),
         haddock = False,
         local_snapshot = "//:stack-snapshot.yaml",
@@ -599,12 +587,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         extra_deps = {
             "zlib": ["@com_github_madler_zlib//:libz"],
         },
-        flags = {
-            "hashable": ["-integer-gmp"],
-            "integer-logarithms": ["-integer-gmp"],
-            "text": ["integer-simple"],
-            "scientific": ["integer-simple"],
-        } if use_integer_simple else {},
         haddock = False,
         local_snapshot = "//:ghcide-snapshot.yaml",
         stack_snapshot_json =
