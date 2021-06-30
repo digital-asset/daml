@@ -68,8 +68,6 @@ private[appendonlydao] final class TransactionsReader(
   // This significantly improves the performance of the transaction service.
   private val outputStreamBufferSize = 128
 
-  private val MinParallelFetchChunkSize = 10
-
   private def offsetFor(response: GetTransactionsResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
 
@@ -286,11 +284,16 @@ private[appendonlydao] final class TransactionsReader(
             startExclusive._2,
             endInclusive._2,
             eventProcessingParallelism,
-            MinParallelFetchChunkSize,
             pageSize,
           )
           .iterator
       )
+      .map { range =>
+        metrics.daml.services.index.getTransactionLogUpdatesChunkSize.update(
+          range.endInclusive - range.startExclusive
+        )
+        range
+      }
       // Dispatch database fetches in parallel
       .mapAsync(eventProcessingParallelism) { range =>
         dispatcher.executeSql(dbMetrics.getTransactionLogUpdates) { implicit conn =>
@@ -301,11 +304,12 @@ private[appendonlydao] final class TransactionsReader(
             )(conn),
             minOffsetExclusive = startExclusive._1,
             error = pruned =>
-              s"Active contracts request after ${startExclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+              s"Transaction log updates request after ${startExclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
           )
         }
       }
-      .flatMapConcat(v => Source.fromIterator(() => v.iterator))
+      .mapConcat(identity)
+      .async
       // Decode transaction log updates in parallel
       .mapAsync(eventProcessingParallelism) { raw =>
         Timed.future(
@@ -395,18 +399,6 @@ private[appendonlydao] final class TransactionsReader(
       implicit loggingContext: LoggingContext
   ): Source[((Offset, Long), ContractStateEvent), NotUsed] = {
 
-    val query = (range: EventsRange[(Offset, Long)]) => {
-      implicit connection: Connection =>
-        queryNonPruned.executeSqlOrThrow(
-          storageBackend.contractStateEvents(range.startExclusive._2, range.endInclusive._2)(
-            connection
-          ),
-          range.startExclusive._1,
-          pruned =>
-            s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
-        )
-    }
-
     val endMarker = Source.single(
       endInclusive -> ContractStateEvent.LedgerEndMarker(
         eventOffset = endInclusive._1,
@@ -414,11 +406,37 @@ private[appendonlydao] final class TransactionsReader(
       )
     )
 
-    streamContractStateEvents(
-      dbMetrics.getContractStateEvents,
-      query,
-      nextPageRangeContracts(endInclusive),
-    )(EventsRange(startExclusive, endInclusive)).async
+    Source
+      .fromIterator(() =>
+        TransactionsReader
+          .splitRange(
+            startExclusive._2,
+            endInclusive._2,
+            eventProcessingParallelism,
+            pageSize,
+          )
+          .iterator
+      )
+      .map { range =>
+        metrics.daml.services.index.getContractStateEventsChunkSize.update(
+          range.endInclusive - range.startExclusive
+        )
+        range
+      }
+      // Dispatch database fetches in parallel
+      .mapAsync(eventProcessingParallelism) { range =>
+        dispatcher.executeSql(dbMetrics.getContractStateEvents) { implicit conn =>
+          queryNonPruned.executeSqlOrThrow(
+            storageBackend
+              .contractStateEvents(range.startExclusive, range.endInclusive)(conn),
+            startExclusive._1,
+            pruned =>
+              s"Contract state events request from ${range.startExclusive.toHexString} to ${range.endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
+          )
+        }
+      }
+      .mapConcat(identity)
+      .async
       .mapAsync(eventProcessingParallelism) { raw =>
         Timed.future(
           metrics.daml.index.decodeStateEvent,
@@ -435,14 +453,6 @@ private[appendonlydao] final class TransactionsReader(
       a: EventsTable.Entry[E]
   ): EventsRange[(Offset, Long)] =
     EventsRange(startExclusive = (a.eventOffset, a.eventSequentialId), endInclusive = endEventSeqId)
-
-  private def nextPageRangeContracts(endEventSeqId: (Offset, Long))(
-      raw: StorageBackend.RawContractStateEvent
-  ): EventsRange[(Offset, Long)] =
-    EventsRange(
-      startExclusive = (raw.offset, raw.eventSequentialId),
-      endInclusive = endEventSeqId,
-    )
 
   private def getAcsEventSeqIdRange(activeAt: Offset)(implicit
       loggingContext: LoggingContext
@@ -515,23 +525,6 @@ private[appendonlydao] final class TransactionsReader(
       }
     }
 
-  private def streamContractStateEvents(
-      queryMetric: DatabaseMetrics,
-      query: EventsRange[(Offset, Long)] => Connection => Vector[
-        StorageBackend.RawContractStateEvent
-      ],
-      getNextPageRange: StorageBackend.RawContractStateEvent => EventsRange[
-        (Offset, Long)
-      ],
-  )(range: EventsRange[(Offset, Long)])(implicit
-      loggingContext: LoggingContext
-  ): Source[StorageBackend.RawContractStateEvent, NotUsed] =
-    PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
-      if (EventsRange.isEmpty(range1))
-        Future.successful(Vector.empty)
-      else dispatcher.executeSql(queryMetric)(query(range1))
-    }
-
   private def endSpanOnTermination[Mat, Out](span: Span)(mat: Mat, done: Future[Done]): Mat = {
     done.onComplete {
       case Failure(exception) =>
@@ -551,7 +544,6 @@ private[appendonlydao] object TransactionsReader {
     * @param startExclusive The start exclusive of the range to be split
     * @param endInclusive The end inclusive of the range to be split
     * @param numberOfChunks The number of desired target sub-ranges
-    * @param minChunkSize Minimum sub-range size.
     * @param maxChunkSize Maximum sub-range size.
     * @return The ordered sequence of sub-ranges with non-overlapping bounds.
     */
@@ -559,43 +551,71 @@ private[appendonlydao] object TransactionsReader {
       startExclusive: Long,
       endInclusive: Long,
       numberOfChunks: Int,
-      minChunkSize: Int,
       maxChunkSize: Int,
   ): Vector[EventsRange[Long]] = {
+    require(
+      maxChunkSize > 0,
+      s"Maximum chunk size must be strictly positive, but was $maxChunkSize",
+    )
+    require(
+      numberOfChunks > 0,
+      s"You can only split a range in a strictly positive number of chunks ($numberOfChunks)",
+    )
+
     val rangeSize = endInclusive - startExclusive
+    require(
+      rangeSize >= 0,
+      s"Range size should be positive but got bounds ($startExclusive, $endInclusive]",
+    )
 
-    numberOfChunks match {
-      case _ if numberOfChunks < 1 =>
-        throw new IllegalArgumentException(
-          s"You can only split a range in a strictly positive number of chunks ($numberOfChunks)"
-        )
+    val minChunkSize = math.max(1, maxChunkSize / 10)
 
-      case _ if (rangeSize / numberOfChunks.toLong) < minChunkSize.toLong =>
+    if (rangeSize == 0L)
+      Vector.empty
+    else {
+      val targetChunkSize = rangeSize / numberOfChunks.toLong
+
+      if (targetChunkSize < minChunkSize.toLong) {
         val effectiveNumberOfChunks = rangeSize / minChunkSize.toLong
-        if (effectiveNumberOfChunks <= 1) Vector(EventsRange(startExclusive, endInclusive))
-        else splitRangeUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks.toInt)
 
-      case _ =>
+        if (effectiveNumberOfChunks <= 1) {
+          Vector(EventsRange(startExclusive, endInclusive))
+        } else {
+          splitRangeUnsafe(startExclusive, rangeSize, effectiveNumberOfChunks.toInt)
+        }
+      } else {
         val effectiveNumberOfChunks =
-          Math.max(numberOfChunks, Math.ceil(rangeSize.toDouble / maxChunkSize.toDouble).toInt)
-        splitRangeUnsafe(startExclusive, endInclusive, effectiveNumberOfChunks)
+          Math.max(
+            numberOfChunks,
+            Math.ceil(rangeSize.toDouble / maxChunkSize.toDouble).toInt,
+          )
+        splitRangeUnsafe(startExclusive, rangeSize, effectiveNumberOfChunks)
+      }
     }
   }
 
   private def splitRangeUnsafe(
       startExclusive: Long,
-      endInclusive: Long,
+      rangeSize: Long,
       numberOfChunks: Int,
-  ) = {
-    val rangeSize = endInclusive - startExclusive
-    val step = math.ceil(rangeSize / numberOfChunks.toDouble).toLong
+  ): Vector[EventsRange[Long]] = {
+    val minStep = rangeSize / numberOfChunks.toLong
 
-    val aux = (0 until numberOfChunks - 1).map { idx =>
-      val startExclusiveChunk = startExclusive + step * idx
-      val endInclusiveChunk = startExclusiveChunk + step
-      EventsRange(startExclusiveChunk, endInclusiveChunk)
-    }.toVector
+    val remainder = rangeSize - minStep * numberOfChunks.toLong
 
-    aux :+ EventsRange(aux.last.endInclusive, endInclusive)
+    (0 until numberOfChunks)
+      .foldLeft(
+        (startExclusive, remainder, Vector.empty[EventsRange[Long]])
+      ) {
+        case ((lastStartExclusive, 0L, ranges), _) =>
+          val endInclusiveChunk = lastStartExclusive + minStep
+          (endInclusiveChunk, 0L, ranges :+ EventsRange(lastStartExclusive, endInclusiveChunk))
+
+        case ((lastStartExclusive, remainder, ranges), _) =>
+          val endInclusiveChunk = lastStartExclusive + minStep + 1L
+          val rangesResult = ranges :+ EventsRange(lastStartExclusive, endInclusiveChunk)
+          (endInclusiveChunk, remainder - 1L, rangesResult)
+      }
+      ._3
   }
 }
