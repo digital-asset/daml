@@ -23,6 +23,7 @@ import com.daml.lf.transaction.{
   TransactionVersion,
 }
 import com.daml.lf.value.{Value => V}
+import com.daml.nameof.NameOf
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
@@ -185,10 +186,10 @@ private[lf] object Speedy {
     @inline
     private[speedy] def kontDepth(): Int = kontStack.size()
 
-    private[lf] def withOnLedger[T](op: String)(f: OnLedger => T): T =
+    private[lf] def withOnLedger[T](where: String)(f: OnLedger => T): T =
       ledgerMode match {
         case onLedger: OnLedger => f(onLedger)
-        case OffLedger => throw SRequiresOnLedger(op)
+        case OffLedger => throw SErrorCrash(where, "unexpected off-ledger machine")
       }
 
     @inline
@@ -240,7 +241,10 @@ private[lf] object Speedy {
       val oldBase = this.envBase
       val newBase = this.env.size
       if (newBase < oldBase) {
-        crash(s"markBase: $oldBase -> $newBase -- NOT AN INCREASE")
+        throw SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"markBase: $oldBase -> $newBase -- NOT AN INCREASE",
+        )
       }
       this.envBase = newBase
       oldBase
@@ -251,7 +255,10 @@ private[lf] object Speedy {
     @inline
     def restoreBase(envBase: Int): Unit = {
       if (this.envBase < envBase) {
-        crash(s"restoreBase: ${this.envBase} -> ${envBase} -- NOT A REDUCTION")
+        throw SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"restoreBase: ${this.envBase} -> ${envBase} -- NOT A REDUCTION",
+        )
       }
       this.envBase = envBase
     }
@@ -265,7 +272,10 @@ private[lf] object Speedy {
       val envSizeToBeRestored = this.envBase
       val count = env.size - envSizeToBeRestored
       if (count < 0) {
-        crash(s"popTempStackToBase: ${env.size} --> ${envSizeToBeRestored} -- WRONG DIRECTION")
+        throw SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"popTempStackToBase: ${env.size} --> ${envSizeToBeRestored} -- WRONG DIRECTION",
+        )
       }
       if (count > 0) {
         env.subList(envSizeToBeRestored, env.size).clear
@@ -347,7 +357,9 @@ private[lf] object Speedy {
         coid match {
           case V.ContractId.V1(discriminator, _)
               if onLedger.globalDiscriminators.contains(discriminator) =>
-            crash("Conflicting discriminators between a global and local contract ID.")
+            throw SErrorDamlException(
+              interpretation.Error.ContractIdFreshness(discriminator)
+            )
           case _ =>
             onLedger.cachedContracts = onLedger.cachedContracts.updated(
               coid,
@@ -361,7 +373,7 @@ private[lf] object Speedy {
         cid match {
           case V.ContractId.V1(discriminator, _) =>
             if (onLedger.ptx.localContracts.contains(V.ContractId.V1(discriminator)))
-              crash("Conflicting discriminators between a global and local contract ID.")
+              throw SErrorDamlException(interpretation.Error.ContractIdFreshness(discriminator))
             else
               onLedger.globalDiscriminators = onLedger.globalDiscriminators + discriminator
           case _ =>
@@ -419,7 +431,7 @@ private[lf] object Speedy {
         case serr: SError =>
           SResultError(serr)
         case ex: RuntimeException =>
-          SResultError(SErrorCrash(s"exception: $ex")) //stop
+          SResultError(SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"exception: $ex")) //stop
       }
     }
 
@@ -443,8 +455,9 @@ private[lf] object Speedy {
               }
             case None =>
               if (compiledPackages.packageIds.contains(ref.packageId))
-                crash(
-                  s"definition $ref not found even after caller provided new set of packages"
+                throw SErrorCrash(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  s"definition $ref not found even after caller provided new set of packages",
                 )
               else
                 throw SpeedyHungry(
@@ -519,7 +532,7 @@ private[lf] object Speedy {
           }
 
         case _ =>
-          crash(s"Applying non-PAP: $vfun")
+          throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Applying non-PAP: $vfun")
       }
     }
 
@@ -559,7 +572,7 @@ private[lf] object Speedy {
           this.evaluateArguments(actuals, newArgs, newArgsLimit)
 
         case _ =>
-          crash(s"Applying non-PAP: $vfun")
+          throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Applying non-PAP: $vfun")
       }
     }
 
@@ -617,11 +630,14 @@ private[lf] object Speedy {
       def assertRight[X](x: Either[LookupError, X]) =
         x match {
           case Right(value) => value
-          case Left(error) => crash(error.pretty)
+          case Left(error) => throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, error.pretty)
         }
 
       def go(ty: Type, value: V[V.ContractId]): SValue = {
-        def typeMismatch = crash(s"mismatching type: $ty and value: $value")
+        def typeMismatch = throw SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"mismatching type: $ty and value: $value",
+        )
 
         val (tyFun, argTypes) = AstUtil.destructApp(ty)
         tyFun match {
@@ -1072,11 +1088,13 @@ private[lf] object Speedy {
           SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
           SValue.SMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
           SValue.STNat(_) | SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken =>
-        crash("Match on non-matchable value")
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "Match on non-matchable value")
     }
 
     machine.ctrl = altOpt
-      .getOrElse(crash(s"No match for $v in ${alts.toList}"))
+      .getOrElse(
+        throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"No match for $v in ${alts.toList}")
+      )
       .body
   }
 

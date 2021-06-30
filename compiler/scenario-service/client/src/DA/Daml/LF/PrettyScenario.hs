@@ -340,6 +340,24 @@ prettyScenarioErrorError (Just err) =  do
               (prettyValue' False 0 world)
               scenarioError_ContractKeyNotFoundKey
         ]
+    ScenarioErrorErrorWronglyTypedContract ScenarioError_WronglyTypedContract{..} ->
+      pure $ vcat
+        [ "Attempt to fetch or exercise a wrongly typed contract."
+        , label_ "Contract: "
+            $ prettyMay "<missing contract>"
+                (prettyContractRef world)
+                scenarioError_WronglyTypedContractContractRef
+        , label_ "Expected type: "
+            $ prettyMay "<missing template id>" (prettyDefName world) scenarioError_WronglyTypedContractExpected
+        ]
+    ScenarioErrorErrorContractIdInContractKey ScenarioError_ContractIdInContractKey{..} ->
+      pure $ "Contract IDs are not supported in contract key: " <->
+        prettyMay "<missing contract key>"
+          (prettyValue' False 0 world)
+          scenarioError_ContractIdInContractKeyKey
+    ScenarioErrorErrorComparableValueError _ ->
+      pure "Attend to compare incomparable values"
+
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =

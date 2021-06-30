@@ -96,4 +96,12 @@ object Error {
       fa: ledger.FailedAuthorization,
   ) extends Error
 
+  // We do not include the culprit value in the NonComparableValues Error
+  // as are not serializable.
+  final case object NonComparableValues extends Error
+
+  final case class ContractIdFreshness(discriminator: crypto.Hash) extends Error
+
+  final case class ContractIdInContractKey(key: Value[ContractId]) extends Error
+
 }
