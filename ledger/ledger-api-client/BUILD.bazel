@@ -22,7 +22,10 @@ da_scala_library(
     ],
     tags = ["maven_coordinates=com.daml:ledger-api-client:__VERSION__"],
     versioned_deps = {
-        "2.12": ["//libs-scala/contextualized-logging"],  # transient dependency, but 2.12 is confused
+        "2.12": [
+            "//libs-scala/contextualized-logging",
+            "//libs-scala/logging-entries",
+        ],
     },
     visibility = [
         "//visibility:public",

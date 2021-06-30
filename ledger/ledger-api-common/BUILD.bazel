@@ -21,6 +21,9 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["maven_coordinates=com.daml:ledger-api-common:__VERSION__"],
+    versioned_deps = {
+        "2.13": ["//libs-scala/logging-entries"],
+    },
     visibility = [
         "//visibility:public",
     ],
@@ -40,7 +43,6 @@ da_scala_library(
         "//ledger/metrics",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/logging-entries",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "//libs-scala/resources-grpc",
