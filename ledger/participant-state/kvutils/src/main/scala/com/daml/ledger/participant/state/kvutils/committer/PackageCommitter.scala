@@ -16,7 +16,8 @@ import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
-import com.daml.logging.{ContextualizedLogger, LoggingContext, LoggingEntries}
+import com.daml.logging.entries.LoggingEntries
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.google.protobuf.ByteString
 

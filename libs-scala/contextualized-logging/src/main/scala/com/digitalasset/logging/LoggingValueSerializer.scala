@@ -3,6 +3,7 @@
 
 package com.daml.logging
 
+import com.daml.logging.entries.LoggingValue
 import com.fasterxml.jackson.core.JsonGenerator
 
 private[logging] object LoggingValueSerializer {
@@ -26,7 +27,7 @@ private[logging] object LoggingValueSerializer {
         generator.writeEndArray()
       case LoggingValue.Nested(entries) =>
         generator.writeStartObject()
-        entries.loggingMarker.writeTo(generator)
+        new LoggingMarker(entries.contents).writeTo(generator)
         generator.writeEndObject()
     }
   }

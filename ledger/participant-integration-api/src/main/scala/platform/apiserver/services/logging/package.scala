@@ -16,7 +16,7 @@ import com.daml.ledger.api.domain.{
   TransactionId,
   WorkflowId,
 }
-import com.daml.logging.{LoggingEntries, LoggingEntry, LoggingValue}
+import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingValue}
 import scalaz.syntax.tag.ToTagOps
 
 package object logging {

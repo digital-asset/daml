@@ -3,6 +3,7 @@
 
 package com.daml.logging
 
+import com.daml.logging.entries._
 import net.logstash.logback.argument.StructuredArgument
 import org.slf4j.Marker
 
@@ -78,7 +79,7 @@ object LoggingContext {
 final class LoggingContext private (entries: LoggingEntries) {
 
   private lazy val forLogging: Marker with StructuredArgument =
-    entries.loggingMarker
+    new LoggingMarker(entries.contents)
 
   private[logging] def ifEmpty(doThis: => Unit)(
       ifNot: Marker with StructuredArgument => Unit

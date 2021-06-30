@@ -27,7 +27,7 @@ import com.daml.ledger.participant.state.v1.{
   WorkflowId,
 }
 import com.daml.lf.data.Time.Timestamp
-import com.daml.logging.{LoggingEntries, LoggingEntry}
+import com.daml.logging.entries.{LoggingEntries, LoggingEntry}
 
 object IndexerLoggingContext {
   def loggingEntriesFor(

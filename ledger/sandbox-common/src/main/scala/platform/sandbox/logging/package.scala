@@ -4,7 +4,7 @@
 package com.daml.platform.sandbox
 
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.logging.LoggingEntry
+import com.daml.logging.entries.LoggingEntry
 
 package object logging {
 
