@@ -68,6 +68,9 @@ let
         # This should be upstreamed. Bazel is too aggressive
         # in treating arguments starting with @ as response files.
         ./bazel-cc-wrapper-response-file.patch
+        # This should be upstreamed once we tested it a bit
+        # on our own setup.
+        ./bazel-retry-cache.patch
       ];
     });
   };
