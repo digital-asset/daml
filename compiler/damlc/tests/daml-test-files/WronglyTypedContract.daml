@@ -1,4 +1,4 @@
--- @ERROR range=27:1-27:5; Attempt to fetch or exercise a wrongly type contract.
+-- @ERROR range=27:1-27:5; Attempt to fetch or exercise a wrongly typed contract.
 module WronglyTypedContract where
 
 template T1

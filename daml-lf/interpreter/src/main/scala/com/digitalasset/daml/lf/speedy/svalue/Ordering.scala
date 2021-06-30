@@ -121,8 +121,11 @@ object Ordering extends scala.math.Ordering[SValue] {
         else if (suffix1.isEmpty == suffix2.isEmpty)
           Bytes.ordering.compare(suffix1, suffix2)
         else
-          throw SError.SErrorDamlException(
-            interpretation.Error.ContractIdFreshness(hash1)
+          // We crash here because we should have catch this beforehand
+          // when preprocessing or importing values.
+          throw SError.SErrorCrash(
+            getClass.getCanonicalName + ".compare",
+            "Unexcpected contract ID freshness Error",
           )
     }
 

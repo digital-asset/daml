@@ -358,8 +358,7 @@ private[lf] object Speedy {
           case V.ContractId.V1(discriminator, _)
               if onLedger.globalDiscriminators.contains(discriminator) =>
             throw SErrorDamlException(
-              interpretation.Error
-                .ContractIdFreshness(discriminator)
+              interpretation.Error.ContractIdFreshness(discriminator)
             )
           case _ =>
             onLedger.cachedContracts = onLedger.cachedContracts.updated(

@@ -1,6 +1,7 @@
--- @ERROR range=20:1-20:12; Contract IDs are not supported in contract key
--- @ERROR range=29:1-29:11; Contract IDs are not supported in contract key
--- @ERROR range=35:1-35:12; Contract IDs are not supported in contract key
+-- @ERROR range=25:1-25:14; Contract IDs are not supported in contract key
+-- @ERROR range=34:1-34:13; Contract IDs are not supported in contract key
+-- @ERROR range=40:1-40:14; Contract IDs are not supported in contract key
+-- @ERROR range=46:1-46:16; Contract IDs are not supported in contract key
 module ContractIdInContractKey where
 
 template Contract with
@@ -14,10 +15,14 @@ template ContractKeyWithCid with
   where
     signatory [party]
 
+    controller party can
+      nonconsuming Noop : ()
+       do pure ()
+
     key (party, cid) : (Party, ContractId Contract)
     maintainer key._1
 
-createFails = scenario do
+createCrashes = scenario do
     alice <- getParty "Alice"
     cid <- submit alice $ do
       create Contract with party = alice
@@ -26,14 +31,20 @@ createFails = scenario do
         party = alice
         cid = cid
 
-fetchFails = scenario do
+fetchCrashes = scenario do
     alice <- getParty "Alice"
     cid <- submit alice $ do
           create Contract with party = alice
     submit alice $ do fetchByKey @ContractKeyWithCid (alice, cid)
 
-lookupFails = scenario do
+lookupCrashes = scenario do
     alice <- getParty "Alice"
     cid <- submit alice $ do
           create Contract with party = alice
     submit alice $ do lookupByKey @ContractKeyWithCid (alice, cid)
+
+exerciseCrashes = scenario do
+    alice <- getParty "Alice"
+    cid <- submit alice $ do
+          create Contract with party = alice
+    submit alice $ do exerciseByKey @ContractKeyWithCid (alice, cid) Noop

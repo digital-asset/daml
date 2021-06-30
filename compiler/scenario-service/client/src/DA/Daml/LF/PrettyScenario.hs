@@ -342,21 +342,19 @@ prettyScenarioErrorError (Just err) =  do
         ]
     ScenarioErrorErrorWronglyTypedContract ScenarioError_WronglyTypedContract{..} ->
       pure $ vcat
-        [ "Attempt to fetch or exercise a wrongly type contract."
+        [ "Attempt to fetch or exercise a wrongly typed contract."
         , label_ "Contract: "
             $ prettyMay "<missing contract>"
                 (prettyContractRef world)
                 scenarioError_WronglyTypedContractContractRef
         , label_ "Expected type: "
-            $ prettyMay "<TEMPLATE?>" (prettyDefName world) scenarioError_WronglyTypedContractExpected
+            $ prettyMay "<missing template id>" (prettyDefName world) scenarioError_WronglyTypedContractExpected
         ]
     ScenarioErrorErrorContractIdInContractKey ScenarioError_ContractIdInContractKey{..} ->
       pure $ "Contract IDs are not supported in contract key: " <->
         prettyMay "<missing contract key>"
           (prettyValue' False 0 world)
           scenarioError_ContractIdInContractKeyKey
-    ScenarioErrorErrorContractFreshnessError _ ->
-      pure "contract ID Freshness Error"
     ScenarioErrorErrorComparableValueError _ ->
       pure "Attend to compare incomparable values"
 

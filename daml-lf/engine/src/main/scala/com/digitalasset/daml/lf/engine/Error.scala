@@ -113,8 +113,6 @@ object Error {
 
     final case class RootNode(nodeId: NodeId, override val msg: String) extends Error
 
-    // TODO https://github.com/digital-asset/daml/issues/9974
-    //  get ride of ContractIdFreshness
     final case class ContractIdFreshness(
         localContractIds: Set[Value.ContractId],
         globalContractIds: Set[Value.ContractId],

@@ -215,10 +215,6 @@ message ScenarioError {
     Value key = 1;
   }
 
-  message ContractIdFreshnessError {
-    string discrimator = 1;
-  }
-
   // The state of the ledger at the time of the error
   repeated ScenarioStep scenario_steps = 1;
   repeated Node nodes = 2;
@@ -280,7 +276,6 @@ message ScenarioError {
     WronglyTypedContract wronglyTypedContract = 28;
     Empty ComparableValueError = 29;
     ContractIdInContractKey contract_id_in_contract_key = 30;
-    ContractIdFreshnessError contract_freshness_error = 31;
   }
 }
 
