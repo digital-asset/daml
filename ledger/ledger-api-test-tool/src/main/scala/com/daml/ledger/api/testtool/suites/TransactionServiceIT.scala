@@ -1705,6 +1705,7 @@ class TransactionServiceIT extends LedgerTestSuite {
     "TXFlatTransactionsVisibility",
     "Transactions in the flat transactions stream should be disclosed only to the stakeholders",
     allocate(Parties(3)),
+    timeoutScale = 2.0,
   )(implicit ec => { case Participants(Participant(ledger, bank, alice, bob)) =>
     for {
       gbpIouIssue <- ledger.create(bank, Iou(bank, bank, "GBP", 100, Nil))
