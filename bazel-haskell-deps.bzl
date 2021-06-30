@@ -17,8 +17,8 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "4afd92d64f059537e3d0d582dc829454f9b5376d"
-GHCIDE_SHA256 = "8dc26be15223b5f1dad4487cfda01fb487c8acba40c248438f48c519f16e646e"
+GHCIDE_REV = "e28a78b9a450fa7970320e78175b8dd382ce0fbd"
+GHCIDE_SHA256 = "b038f995c5b71d07b3f0fc973aa0970780bb9ad0365c6552a75ec5264fd3f8a6"
 GHCIDE_VERSION = "0.1.0"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
@@ -83,8 +83,31 @@ haskell_cabal_library(
     version = "{version}",
     srcs = glob(["**"]),
     haddock = False,
-    flags = packages["ghcide"].flags,
-    deps = packages["ghcide"].deps,
+    flags = ["ghc-lib"],
+    deps = [
+        "@stackage//:aeson",
+        "@stackage//:async",
+        "@stackage//:data-default",
+        "@stackage//:dependent-map",
+        "@stackage//:dependent-sum",
+        "@stackage//:extra",
+        "@stackage//:fuzzy",
+        "@stackage//:ghc-lib",
+        "@stackage//:ghc-lib-parser",
+        "@stackage//:haddock-library",
+        "@stackage//:hashable",
+        "@stackage//:hslogger",
+        "@stackage//:lsp",
+        "@stackage//:lsp-types",
+        "@stackage//:network-uri",
+        "@stackage//:prettyprinter",
+        "@stackage//:prettyprinter-ansi-terminal",
+        "@stackage//:regex-tdfa",
+        "@stackage//:safe-exceptions",
+        "@stackage//:shake",
+        "@stackage//:unliftio",
+        "@stackage//:utf8-string",
+    ],
     visibility = ["//visibility:public"],
 )
 haskell_library(
