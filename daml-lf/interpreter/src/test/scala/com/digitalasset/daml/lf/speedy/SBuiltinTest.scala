@@ -1531,7 +1531,7 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
         eval(
           e"""ANY_EXCEPTION_MESSAGE (to_any_exception @'-unknown-package-':Mod:Exception ('-unknown-package-':Mod:Exception {}))"""
         )
-      ) { case Left(SErrorCrash(_, s"need package '-unknown-package-'")) =>
+      ) { case Left(SErrorCrash(_, "need package '-unknown-package-'")) =>
       }
     }
 
