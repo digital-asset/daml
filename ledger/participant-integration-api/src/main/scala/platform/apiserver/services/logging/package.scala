@@ -27,25 +27,25 @@ package object logging {
     "parties" -> partyNames
 
   private[services] def partyStrings(partyNames: Iterable[String]): LoggingEntry =
-    parties(partyNames.view.map(Party.assertFromString))
+    parties(partyNames.asInstanceOf[Iterable[Party]])
 
   private[services] def party(partyName: Party): LoggingEntry =
     "parties" -> Seq(partyName)
 
   private[services] def partyString(partyName: String): LoggingEntry =
-    party(Party.assertFromString(partyName))
+    party(partyName.asInstanceOf[Party])
 
   private[services] def actAs(partyNames: Iterable[Party]): LoggingEntry =
     "actAs" -> partyNames
 
   private[services] def actAsStrings(partyNames: Iterable[String]): LoggingEntry =
-    actAs(partyNames.view.map(Party.assertFromString))
+    actAs(partyNames.asInstanceOf[Iterable[Party]])
 
   private[services] def readAs(partyNames: Iterable[Party]): LoggingEntry =
     "readAs" -> partyNames
 
   private[services] def readAsStrings(partyNames: Iterable[String]): LoggingEntry =
-    readAs(partyNames.view.map(Party.assertFromString))
+    readAs(partyNames.asInstanceOf[Iterable[Party]])
 
   private[services] def startExclusive(offset: LedgerOffset): LoggingEntry =
     "startExclusive" -> offset
