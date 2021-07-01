@@ -4,7 +4,7 @@
 package com.daml.lf
 package data
 
-import com.daml.logging.entries.{LoggingKey, LoggingValue, ToLoggingKey, ToLoggingValue}
+import com.daml.logging.entries.ToLoggingValue
 
 object Ref {
 
@@ -29,24 +29,6 @@ object Ref {
     */
   type Party = IdString.Party
   val Party: IdString.Party.type = IdString.Party
-
-  // The party name can grow quite long, so we offer ledger implementors the opportunity to truncate
-  // it in structured log output.
-  implicit val `Party to LoggingKey and LoggingValue`
-      : ToLoggingKey[Party] with ToLoggingValue[Party] =
-    new ToLoggingKey[Party] with ToLoggingValue[Party] {
-      override def toLoggingKey(party: Party): LoggingKey =
-        wrap(party).value
-
-      override def toLoggingValue(party: Party): LoggingValue =
-        wrap(party)
-
-      private def wrap(party: Party): LoggingValue.OfString =
-        LoggingConfiguration.current.maxPartyNameLength match {
-          case None => LoggingValue.OfString(party)
-          case Some(length) => LoggingValue.OfString(party).truncated(length)
-        }
-    }
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
     * lowercase hex-encoded hash of the package contents found in the Daml-LF Archive.
@@ -116,8 +98,9 @@ object Ref {
     override def toString: String = dottedName
 
     override def compare(that: DottedName): Int = {
-      import scala.math.Ordering.Implicits._
       import Name.ordering
+
+      import scala.math.Ordering.Implicits._
 
       implicitly[Ordering[Seq[Name]]].compare(segments.toSeq, that.segments.toSeq)
     }

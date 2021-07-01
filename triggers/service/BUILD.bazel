@@ -181,7 +181,6 @@ da_scala_library(
         "//ledger/sandbox-classic",
         "//ledger/sandbox-common",
         "//libs-scala/adjustable-clock",
-        "//libs-scala/logging-entries",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",

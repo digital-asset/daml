@@ -20,7 +20,6 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",
-        "//libs-scala/logging-entries",
     ],
 )
 

@@ -29,6 +29,5 @@ da_scala_library(
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
-        "//libs-scala/logging-entries",
     ],
 )

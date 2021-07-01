@@ -36,7 +36,6 @@ da_scala_library(
         "//daml-lf/interface",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

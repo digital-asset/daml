@@ -16,7 +16,8 @@ import com.daml.ledger.api.domain.{
   TransactionId,
   WorkflowId,
 }
-import com.daml.lf.data.Ref.{Party, `Party to LoggingKey and LoggingValue`}
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.logging._
 import com.daml.logging.entries.ToLoggingKey._
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingValue}
 import scalaz.syntax.tag.ToTagOps
@@ -79,7 +80,7 @@ package object logging {
 
   private[services] def filters(
       filters: TransactionFilter
-  ): LoggingEntry = {
+  ): LoggingEntry =
     "filters" -> LoggingValue.Nested(
       LoggingEntries.fromMap(
         filters.filtersByParty.view.map { case (party, partyFilters) =>
@@ -90,7 +91,6 @@ package object logging {
         }.toMap
       )
     )
-  }
 
   private[services] def submissionId(id: String): LoggingEntry =
     "submissionId" -> id

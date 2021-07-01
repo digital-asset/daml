@@ -61,7 +61,6 @@ da_scala_library(
         ":value_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
-        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
