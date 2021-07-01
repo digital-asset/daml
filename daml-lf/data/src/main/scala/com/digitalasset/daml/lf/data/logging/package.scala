@@ -3,10 +3,13 @@
 
 package com.daml.lf.data
 
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.logging.entries.{LoggingKey, LoggingValue, ToLoggingKey, ToLoggingValue}
 
 package object logging {
+
+  implicit val `Identifier to LoggingValue`: ToLoggingValue[Identifier] =
+    ToLoggingValue.ToStringToLoggingValue
 
   // The party name can grow quite long, so we offer ledger implementors the opportunity to truncate
   // it in structured log output.

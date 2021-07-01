@@ -4,8 +4,6 @@
 package com.daml.lf
 package data
 
-import com.daml.logging.entries.ToLoggingValue
-
 object Ref {
 
   val IdString: IdString = new IdStringImpl
@@ -212,9 +210,6 @@ object Ref {
     @throws[IllegalArgumentException]
     def assertFromString(s: String): Identifier =
       assertRight(fromString(s))
-
-    implicit val `Identifier to LoggingValue`: ToLoggingValue[Identifier] =
-      ToLoggingValue.ToStringToLoggingValue
   }
 
   /* Choice name in a template. */
