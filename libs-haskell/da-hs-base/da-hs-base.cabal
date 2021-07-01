@@ -65,6 +65,7 @@ library
       DA.Service.Logger.Impl.Pure
       DA.Signals
       Data.Conduit.Tar.Extra
+      Data.List.Extended
       Data.NameMap
       Data.Semigroup.FixedPoint
       Data.Text.Extended
