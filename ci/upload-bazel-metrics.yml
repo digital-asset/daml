@@ -53,7 +53,7 @@ steps:
         [[ -f "$log_file" ]] && cp "$log_file" "$target_dir/$log_file" || echo "$log_file not found"
       done
       cd "$(Build.StagingDirectory)"
-      GZIP=-9 tar czf "$(pipeline_id).tar.gz" "$(pipeline_id)"
+      GZIP=-9 tar --force-local czf "$(pipeline_id).tar.gz" "$(pipeline_id)"
       date="$(echo $(pipeline_id) | cut -c1-7)/$(echo $(pipeline_id) | cut -c9-10)/"
       #TODO: FIXME
       echo gcs "$GCRED" cp "$(pipeline_id).tar.gz" "gs://daml-data/bazel-metrics/$date/$(pipeline_id).tar.gz"
