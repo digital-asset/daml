@@ -56,9 +56,6 @@ da_scala_test(
         "-P:silencer:lineContentFilters=import ImmArraySeq.Implicits._",
         "-P:silencer:lineContentFilters=signum",
     ],
-    versioned_deps = {
-        "2.12": ["//libs-scala/logging-entries"],
-    },
     deps = [
         ":data",
         "//daml-lf/data-scalacheck",

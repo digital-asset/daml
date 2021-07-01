@@ -60,9 +60,6 @@ da_scala_test_suite(
         "@maven//:org_typelevel_paiges_core",
     ],
     scalacopts = lf_scalacopts,
-    versioned_deps = {
-        "2.12": ["//libs-scala/logging-entries"],
-    },
     deps = [
         ":interpreter",
         "//daml-lf/data",
@@ -72,6 +69,7 @@ da_scala_test_suite(
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
         "//daml-lf/validation",
+        "//libs-scala/logging-entries",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

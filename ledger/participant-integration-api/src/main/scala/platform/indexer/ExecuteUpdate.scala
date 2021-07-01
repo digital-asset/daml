@@ -312,6 +312,8 @@ trait ExecuteUpdate {
     }
 
   private object Logging {
+    import com.daml.lf.data.logging._
+
     def submissionId(id: SubmissionId): LoggingEntry =
       "submissionId" -> id
 
@@ -362,7 +364,6 @@ trait ExecuteUpdate {
 
     def submitter(parties: List[Party]): LoggingEntry =
       "submitter" -> parties
-
   }
 }
 

@@ -104,9 +104,6 @@ da_scala_library(
     scala_runtime_deps = [
         "@maven//:org_tpolecat_doobie_postgres",
     ],
-    versioned_deps = {
-        "2.13": ["//libs-scala/logging-entries"],
-    },
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
