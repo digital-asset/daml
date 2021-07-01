@@ -46,12 +46,15 @@ steps:
         git_current_commit: "'"$(git rev-parse HEAD)"'",
         git_current_tree: "'"$(git rev-parse HEAD:./)"'",
       }'
-      jq <job-md.json .
-      gcs "$GCRED" cp "job-md.json" "gs://daml-data/bazel-metrics/$(pipeline_id)/job-md.json"
-      [[ -f "build-profile.json" ]] && gcs "$GCRED" cp "build-profile.json" "gs://daml-data/bazel-metrics/$(pipeline_id)/build-profile.json" || echo "build-profile.json not found"
-      [[ -f "build-events.json" ]] && gcs "$GCRED" cp "build-events.json" "gs://daml-data/bazel-metrics/$(pipeline_id)/build-events.json" || echo "build-events.json not found"
-      [[ -f "test-profile.json" ]] && gcs "$GCRED" cp "test-profile.json" "gs://daml-data/bazel-metrics/$(pipeline_id)/test-profile.json" || echo "test-profile.json not found"
-      [[ -f "test-events.json" ]] && gcs "$GCRED" cp "test-events.json" "gs://daml-data/bazel-metrics/$(pipeline_id)/test-events.json" || echo "test-events.json not found"
+      target_dir="$(Build.StaginDirectory)/$(pipeline_id)"
+      cp "job-md.json" "$target_dir/job-md.json"
+      [[ -f "build-profile.json" ]] && cp "build-profile.json" "$target_dir/build-profile.json" || echo "build-profile.json not found"
+      [[ -f "build-events.json" ]] && cp "build-events.json" "$target_dir/build-events.json" || echo "build-events.json not found"
+      [[ -f "test-profile.json" ]] && cp "test-profile.json" "$target_dir/test-profile.json" || echo "test-profile.json not found"
+      [[ -f "test-events.json" ]] && cp "test-events.json" "$target_dir/test-events.json" || echo "test-events.json not found"
+      cd "$(Build.StagingDirectory)"
+      GZIP=-9 tar czf "$(pipeline_id).tar.gz" "$(pipeline_id)"
+      gcs "$GCRED" cp "$(pipeline_id).tar.gz" "gs://daml-data/bazel-metrics/$(pipeline_id).tar.gz"
     condition: succeededOrFailed()
     displayName: 'Upload Bazel metrics'
     env:
