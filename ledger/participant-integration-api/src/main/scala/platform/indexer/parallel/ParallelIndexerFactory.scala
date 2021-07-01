@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{KillSwitch, KillSwitches, Materializer, UniqueKillSwitch}
+import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContext.{withEnrichedLoggingContext, withEnrichedLoggingContextFrom}
@@ -28,6 +29,8 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NonFatal
 
 object ParallelIndexerFactory {
+
+  private val keepAliveMaxIdleDuration = FiniteDuration(200, "millis")
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -101,7 +104,22 @@ object ParallelIndexerFactory {
                   size = maxInputBufferSize,
                 )
                 .map(_ -> System.nanoTime())
-            ).map(_ => ())
+            )
+              .map(_ => ())
+              .keepAlive(
+                keepAliveMaxIdleDuration,
+                () =>
+                  if (dbDispatcher.currentHealth() == HealthStatus.healthy) {
+                    logger.debug("Indexer keep-alive: database connectivity OK")
+                    ()
+                  } else {
+                    logger
+                      .warn("Indexer keep-alive: database connectivity lost. Stopping indexing.")
+                    throw new Exception(
+                      "Connectivity issue to the index-database detected. Stopping indexing."
+                    )
+                  },
+              )
 
       def subscribe(readService: ReadService): Future[Source[Unit, NotUsed]] =
         dbDispatcher
