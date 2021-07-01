@@ -39,7 +39,6 @@ dar_to_scala(
     ],
     package_prefix = "com.daml.sample",
     srcjar_out = "MyMain.srcjar",
-    verbosity = 2,
 )
 
 da_scala_library(

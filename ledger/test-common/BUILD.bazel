@@ -102,7 +102,6 @@ da_scala_dar_resources_library(
                 srcs = [":%s-tests-%s.dar" % (test_name, target)],
                 package_prefix = "com.daml.ledger.test.%s" % test_name,
                 srcjar_out = "%s-%s.scala.srcjar" % (test_name, target),
-                verbosity = 2,
                 visibility = ["//visibility:public"],
             ),
             da_scala_library(

@@ -68,7 +68,7 @@ dar_to_scala = rule(
             doc = "Package name e.g. 'com.daml.mypackage'.",
         ),
         "verbosity": attr.int(
-            default = 2,
+            default = 1,
         ),
         "_codegen": attr.label(
             default = Label("//language-support/scala/codegen:codegen-main"),
