@@ -4,7 +4,7 @@
 package com.daml.lf
 package data
 
-import com.daml.logging.entries.ToLoggingValue
+import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 
 object Ref {
 
@@ -24,11 +24,19 @@ object Ref {
   val PackageVersion: IdString.PackageVersion.type = IdString.PackageVersion
 
   /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
-    *      underscore. We use them to represent [Party] literals. In this way, we avoid
-    *      empty identifiers, escaping problems, and other similar pitfalls.
+    * underscore. We use them to represent [Party] literals. In this way, we avoid
+    * empty identifiers, escaping problems, and other similar pitfalls.
     */
   type Party = IdString.Party
   val Party: IdString.Party.type = IdString.Party
+
+  // The party name can grow quite long, so we offer ledger implementors the opportunity to truncate
+  // it in structured log output.
+  implicit val `Party to LoggingValue`: ToLoggingValue[Party] = party =>
+    LoggingConfiguration.current.maxPartyNameLength match {
+      case None => LoggingValue.OfString(party)
+      case Some(length) => LoggingValue.OfString(party).truncated(length)
+    }
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
     * lowercase hex-encoded hash of the package contents found in the Daml-LF Archive.

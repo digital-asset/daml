@@ -16,22 +16,35 @@ import com.daml.ledger.api.domain.{
   TransactionId,
   WorkflowId,
 }
+import com.daml.lf.data.Ref.{Party, `Party to LoggingValue`}
 import com.daml.logging.entries.{LoggingEntries, LoggingEntry, LoggingValue}
 import scalaz.syntax.tag.ToTagOps
 
 package object logging {
 
-  private[services] def parties(parties: Iterable[String]): LoggingEntry =
-    "parties" -> parties
+  private[services] def parties(partyNames: Iterable[Party]): LoggingEntry =
+    "parties" -> partyNames
 
-  private[services] def party(party: String): LoggingEntry =
-    "parties" -> Seq(party)
+  private[services] def partyStrings(partyNames: Iterable[String]): LoggingEntry =
+    parties(partyNames.view.map(Party.assertFromString))
 
-  private[services] def actAs(parties: Iterable[String]): LoggingEntry =
-    "actAs" -> parties
+  private[services] def party(partyName: Party): LoggingEntry =
+    "parties" -> Seq(partyName)
 
-  private[services] def readAs(parties: Iterable[String]): LoggingEntry =
-    "readAs" -> parties
+  private[services] def partyString(partyName: String): LoggingEntry =
+    party(Party.assertFromString(partyName))
+
+  private[services] def actAs(partyNames: Iterable[Party]): LoggingEntry =
+    "actAs" -> partyNames
+
+  private[services] def actAsStrings(partyNames: Iterable[String]): LoggingEntry =
+    actAs(partyNames.view.map(Party.assertFromString))
+
+  private[services] def readAs(partyNames: Iterable[Party]): LoggingEntry =
+    "readAs" -> partyNames
+
+  private[services] def readAsStrings(partyNames: Iterable[String]): LoggingEntry =
+    readAs(partyNames.view.map(Party.assertFromString))
 
   private[services] def startExclusive(offset: LedgerOffset): LoggingEntry =
     "startExclusive" -> offset

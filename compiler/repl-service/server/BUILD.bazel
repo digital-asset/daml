@@ -49,6 +49,7 @@ da_scala_binary(
         "//ledger-service/lf-value-json",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+        "//libs-scala/logging-entries",
         "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",

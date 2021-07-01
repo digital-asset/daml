@@ -80,9 +80,9 @@ private[apiserver] final class ApiCommandService private (
   ): Future[Completion] =
     withEnrichedLoggingContext(
       logging.commandId(request.getCommands.commandId),
-      logging.party(request.getCommands.party),
-      logging.actAs(request.getCommands.actAs),
-      logging.readAs(request.getCommands.readAs),
+      logging.partyString(request.getCommands.party),
+      logging.actAsStrings(request.getCommands.actAs),
+      logging.readAsStrings(request.getCommands.readAs),
     ) { implicit loggingContext =>
       if (running) {
         ledgerConfigProvider.latestConfiguration.fold[Future[Completion]](

@@ -49,5 +49,6 @@ da_scala_test(
         ":parser",
         "//daml-lf/data",
         "//daml-lf/language",
+        "//libs-scala/logging-entries",
     ],
 )

@@ -31,6 +31,7 @@ da_scala_library(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
+        "//libs-scala/logging-entries",
         "//libs-scala/nameof",
     ],
 )

@@ -70,6 +70,7 @@ da_scala_test_suite(
         "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
+        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -102,6 +103,7 @@ da_scala_test(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
+        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
