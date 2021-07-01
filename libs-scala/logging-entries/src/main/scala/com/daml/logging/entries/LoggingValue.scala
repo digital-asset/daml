@@ -32,5 +32,5 @@ object LoggingValue {
 
   @inline
   implicit def from[T](value: T)(implicit toLoggingValue: ToLoggingValue[T]): LoggingValue =
-    toLoggingValue(value)
+    toLoggingValue.toLoggingValue(value)
 }

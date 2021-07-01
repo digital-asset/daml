@@ -41,8 +41,6 @@ object Offset {
 
   def fromHexString(s: Ref.HexString) = new Offset(Bytes.fromHexString(s))
 
-  implicit object `Offset to LoggingValue` extends ToLoggingValue[Offset] {
-    override def apply(value: Offset): LoggingValue =
-      LoggingValue.OfString(value.toHexString)
-  }
+  implicit val `Offset to LoggingValue`: ToLoggingValue[Offset] = value =>
+    LoggingValue.OfString(value.toHexString)
 }

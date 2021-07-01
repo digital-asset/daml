@@ -58,15 +58,12 @@ object domain {
     implicit val `Absolute Ordering`: Ordering[LedgerOffset.Absolute] =
       Ordering.by[LedgerOffset.Absolute, String](_.value)
 
-    implicit object `LedgerOffset to LoggingValue` extends ToLoggingValue[LedgerOffset] {
-      override def apply(value: LedgerOffset): LoggingValue =
-        LoggingValue.OfString(value match {
-          case LedgerOffset.Absolute(absolute) => absolute
-          case LedgerOffset.LedgerBegin => "%begin%"
-          case LedgerOffset.LedgerEnd => "%end%"
-        })
-    }
-
+    implicit val `LedgerOffset to LoggingValue`: ToLoggingValue[LedgerOffset] = value =>
+      LoggingValue.OfString(value match {
+        case LedgerOffset.Absolute(absolute) => absolute
+        case LedgerOffset.LedgerBegin => "%begin%"
+        case LedgerOffset.LedgerEnd => "%end%"
+      })
   }
 
   sealed trait Event extends Product with Serializable {
