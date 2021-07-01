@@ -17,7 +17,7 @@ mkdir -p $TARGET_DIR
 
 # This version needs to be adapted in all cabal files, too
 # The script below will fail on the `cp` command otherwise.
-LIB_VERSION="0.1.13.0"
+LIB_VERSION="0.1.15.0"
 
 package_from_dir() {
     local dir=$1
