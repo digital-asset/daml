@@ -8,7 +8,7 @@ import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
 import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.Materializer
 import com.daml.http.EndpointsCompanion._
-import com.daml.http.domain.{JwtPayload, SearchForeverRequest}
+import com.daml.http.domain.{JwtPayload, SearchForeverRequest, StartingOffset}
 import com.daml.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
 import JsonProtocol.LfValueDatabaseCodec
 import com.daml.http.LedgerClientJwt.Terminates
@@ -630,6 +630,30 @@ class WebSocketService(
     val StreamPredicate(resolved, unresolved, _, _) =
       Q.predicate(request, resolveTemplateId, lookupType)
 
+    def liveFrom(
+        acsEnd: Option[StartingOffset]
+    ): Source[StepAndErrors[Q.Positive, JsValue], NotUsed] = {
+      val shiftedRequest = Q.adjustRequest(acsEnd, request)
+      val liveStartingOffset = Q.liveStartingOffset(acsEnd, shiftedRequest)
+
+      // Produce the predicate that is going to be applied to the incoming transaction stream
+      // We need to apply this to the request with all the offsets shifted so that each stream
+      // can filter out anything from liveStartingOffset to the query-specific offset
+      val StreamPredicate(_, _, fn, _) =
+        Q.predicate(shiftedRequest, resolveTemplateId, lookupType)
+
+      contractsService
+        .insertDeleteStepSource(
+          jwt,
+          parties,
+          resolved.toList,
+          liveStartingOffset,
+          Terminates.Never,
+        )
+        .via(convertFilterContracts(fn))
+        .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
+    }
+
     if (resolved.nonEmpty) {
       Source
         .lazyFutureSource(() => {
@@ -643,29 +667,11 @@ class WebSocketService(
                   case StepAndErrors(_, Acs(_)) =>
                     Source.empty
                   case liveBegin @ StepAndErrors(_, LiveBegin(offset)) =>
-                    // Produce the predicate that is going to be applied to the incoming transaction stream
-                    // We need to apply this to the request with all the offsets shifted so that each stream
-                    // can filter out anything from liveStartingOffset to the query-specific offset
                     val acsEnd = offset.toOption.map(domain.StartingOffset(_))
-                    val shiftedRequest = Q.adjustRequest(acsEnd, request)
-
-                    // Get the earliest available offset from where to start from
-                    val liveStartingOffset = Q.liveStartingOffset(acsEnd, shiftedRequest)
-                    val StreamPredicate(_, _, fn, _) =
-                      Q.predicate(shiftedRequest, resolveTemplateId, lookupType)
-
-                    Source.single(liveBegin) ++ contractsService
-                      .insertDeleteStepSource(
-                        jwt,
-                        parties,
-                        resolved.toList,
-                        liveStartingOffset,
-                        Terminates.Never,
-                      )
-                      .via(convertFilterContracts(fn))
-                      .via(emitOffsetTicksAndFilterOutEmptySteps(liveStartingOffset))
-                  case StepAndErrors(_, Txn(_, _)) =>
-                    throw new IllegalStateException("Transaction in ACS")
+                    Source.single(liveBegin) ++ liveFrom(acsEnd)
+                  case txn @ StepAndErrors(_, Txn(_, offset)) =>
+                    val acsEnd = Some(domain.StartingOffset(offset))
+                    Source.single(txn) ++ liveFrom(acsEnd)
                 }
               }, {
                 // This is the case where we made no ACS request because everything had an offset
