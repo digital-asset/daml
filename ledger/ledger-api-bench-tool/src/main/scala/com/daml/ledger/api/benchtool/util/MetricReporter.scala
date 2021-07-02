@@ -34,7 +34,11 @@ object MetricReporter {
 
         val violatedObjective: Option[String] = metric.violatedObjective
           .map { case (objective, value) =>
-            s"!!! OBJECTIVE NOT MET: ${formattedObjective(objective)} (actual: ${formattedValue(value)})"
+            s"""!!! FAILURE
+               |!!! OBJECTIVE NOT MET: ${formattedObjective(objective)} (actual: ${formattedValue(
+              value
+            )})
+               |""".stripMargin
           }
 
         val all: String = (List(finalValue) ::: violatedObjective.toList)
