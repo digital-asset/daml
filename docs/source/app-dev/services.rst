@@ -163,8 +163,8 @@ See :ref:`verbosity` above.
 
   The RPCs exposed as part of the transaction and active contracts services make use of offsets.
 
-  An offset is an ever-growing number assigned by the participant to each transaction as they are received from the ledger.
-  This number is opaque to the client and must be used as-is (i.e. client-side transformations like incrementing it are not guaranteed to produce a valid offset).
+  An offset is an opaque string of bytes assigned by the participant to each transaction as they are received from the ledger.
+  Two offsets returned by the same participant are guaranteed to be lexicographically ordered: while interacting with a single participant, the offset of two transactions can be compared to tell which was committed earlier.
   The state of a ledger (i.e. the set of active contracts) as exposed by the Ledger API is valid at a specific offset, which is why the last message your application receives when calling the ``ActiveContractsService`` is precisely that offset.
   In this way, the client can keep track of the relevant state without needing to invoke the ``ActiveContractsService`` again, by starting to read transactions from the given offset.
 
