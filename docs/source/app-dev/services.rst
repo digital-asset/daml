@@ -164,11 +164,11 @@ See :ref:`verbosity` above.
   The RPCs exposed as part of the transaction and active contracts services make use of offsets.
 
   An offset is an ever-growing number assigned by the participant to each transaction as they are received from the ledger.
-  This number is opaque to the client and must be used as-is (i.e. cliend-side transformations like incrementing it are not guaranteed to produce a valid offset).
+  This number is opaque to the client and must be used as-is (i.e. client-side transformations like incrementing it are not guaranteed to produce a valid offset).
   The state of a ledger (i.e. the set of active contracts) as exposed by the Ledger API is valid at a specific offset, which is why the last message your application receives when calling the ``ActiveContractsService`` is precisely that offset.
   In this way, the client can keep track of the relevant state without needing to invoke the ``ActiveContractsService`` again, by starting to read transactions from the given offset.
 
-  Offsets are also useful to perform crash recovery and fail over as documented more in depth in the :ref:`application architecture <dealing-with-failures>` page.
+  Offsets are also useful to perform crash recovery and failover as documented more in depth in the :ref:`application architecture <dealing-with-failures>` page.
 
   You can read more about offsets in the `protobuf documentation of the API <../app-dev/grpc/proto-docs.html#ledgeroffset>`__.
 
