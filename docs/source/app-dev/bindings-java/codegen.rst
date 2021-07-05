@@ -11,47 +11,34 @@ Introduction
 
 When writing applications for the ledger in Java, you want to work with a representation of Daml templates and data types in Java that closely resemble the original Daml code while still being as true to the native types in Java as possible. To achieve this, you can use Daml to Java code generator ("Java codegen") to generate Java types based on a Daml model. You can then use these types in your Java code when reading information from and sending data to the ledger.
 
-Download
-========
-
-You can download the `latest version <https://search.maven.org/artifact/com.daml/codegen-java>`__  of the Java codegen. Make sure that the following versions are aligned:
-
-* the downloaded Java codegen jar file, eg. x.y.z
-* the dependency to :ref:`bindings-java <daml-codegen-java-compiling>`, eg. x.y.z
-* the ``sdk-version`` attribute in the :ref:`daml.yaml <daml-yaml-configuration>` file, eg. x.y.z
-
 .. _daml-codegen-java-running:
 
 Run the Java codegen
 ====================
 
-The Java codegen takes Daml archive (DAR) files as input and generates Java files for Daml templates, records, and variants. For information on creating DAR files see :ref:`assistant-manual-building-dars`. To use the Java codegen, run this command in a terminal:
+The Java codegen can be run from within your Daml project using the Daml assistant. Use this command to display the help text:
 
 .. code-block:: none
 
-  java -jar <path-to-codegen-jar>
-
-Use this command to display the help text:
-
-.. code-block:: none
-
-  java -jar codegen.jar --help
+  daml codegen java --help
 
 Generate Java code from DAR files
 ---------------------------------
+
+The Java codegen takes Daml archive (DAR) files as input and generates Java files for Daml templates, records, and variants. For information on creating DAR files see :ref:`assistant-manual-building-dars`.
 
 Pass one or more DAR files as arguments to the Java codegen. Use the ``-o`` or ``--output-directory`` parameter for specifying the directory for the generated Java files.
 
 .. code-block:: none
 
-  java -jar java-codegen.jar -o target/generated-sources/daml daml/my-project.dar
-                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  daml codegen java -o target/generated-sources/daml .daml/dist/my-project-0.0.1.dar
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To avoid possible name clashes in the generated Java sources, you should specify a Java package prefix for each input file:
 
 .. code-block:: none
 
-  java -jar java-codegen.jar -o target/generated-sources/daml \
+  daml codegen java -o target/generated-sources/daml \
       daml/project1.dar=com.example.daml.project1 \
                        ^^^^^^^^^^^^^^^^^^^^^^^^^^
       daml/project2.dar=com.example.daml.project2
@@ -67,8 +54,8 @@ To generate such a decoder class, provide the command line parameter ``-d`` or `
 
 .. code-block:: none
 
-  java -jar java-codegen.jar -o target/generated-sources/daml \
-      -d com.myproject.DamModelDecoder daml/my-project.dar
+  daml codegen java -o target/generated-sources/daml \
+      -d com.myproject.DamModelDecoder .daml/dist/my-project-0.0.1.dar
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Receive feedback
@@ -82,8 +69,8 @@ In the following example the logging is set to print most of the output with det
 
 .. code-block:: none
 
-  java -jar java-codegen.jar -o target/generated-sources/daml -V 3
-                                                              ^^^^
+  daml codegen java -o target/generated-sources/daml -V 3 .daml/dist/my-project-0.0.1.dar
+                                                     ^^^^
 
 Integrate with build tools
 --------------------------
