@@ -745,13 +745,13 @@ private[lf] object Speedy {
       returnValue = go(typ0, value0)
     }
 
-    def checkContractVisibility (onLedger: OnLedger, cid: V.ContractId, contract: CachedContract) = {
+    def checkContractVisibility(onLedger: OnLedger, cid: V.ContractId, contract: CachedContract) = {
       onLedger.visibleToStakeholders(contract.stakeholders) match {
         case SVisibleToStakeholders.Visible => ()
-        case SVisibleToStakeholders.NotVisible (actAs, readAs) =>
+        case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
           this.traceLog.addWarning(
             s"${contract.templateId} contract ${cid} not visible to actAs = ${actAs}, readAs = ${readAs}.",
-            this.lastLocation
+            this.lastLocation,
           )
       }
     }
@@ -1284,7 +1284,7 @@ private[lf] object Speedy {
     def execute(sv: SValue): Unit = {
       val cached = SBuiltin.extractCachedContract(templateId, sv)
       machine.withOnLedger("KCacheContract") { onLedger =>
-        machine.checkContractVisibility (onLedger, cid, cached);
+        machine.checkContractVisibility(onLedger, cid, cached);
         onLedger.cachedContracts = onLedger.cachedContracts.updated(cid, cached)
         machine.returnValue = cached.value
       }
