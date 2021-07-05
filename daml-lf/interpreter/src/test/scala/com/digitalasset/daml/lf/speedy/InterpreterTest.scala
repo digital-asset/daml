@@ -158,7 +158,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
     }
     "half full" in {
       val log = RingBufferTraceLog(logger, 2)
-      log.add("test", None)
+      log.addDebug("test", None)
       val iter = log.iterator
       iter.hasNext shouldBe true
       iter.next() shouldBe (("test", None))
@@ -166,9 +166,9 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
     }
     "overflow" in {
       val log = RingBufferTraceLog(logger, 2)
-      log.add("test1", None)
-      log.add("test2", None)
-      log.add("test3", None) // should replace "test1"
+      log.addDebug("test1", None)
+      log.addDebug("test2", None)
+      log.addDebug("test3", None) // should replace "test1"
       val iter = log.iterator
       iter.hasNext shouldBe true
       iter.next() shouldBe (("test2", None))
