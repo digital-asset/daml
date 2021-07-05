@@ -46,6 +46,7 @@ steps:
         git_current_commit: "'"$(git rev-parse HEAD)"'",
         git_current_tree: "'"$(git rev-parse HEAD:./)"'",
       }'
+      jq <job-md.json .
       target_dir="$(Build.StagingDirectory)/$(pipeline_id)"
       mkdir -p "$target_dir"
       cp "job-md.json" "$target_dir/job-md.json"
