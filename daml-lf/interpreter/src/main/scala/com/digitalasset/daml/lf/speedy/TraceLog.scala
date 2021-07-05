@@ -8,6 +8,7 @@ import org.slf4j.Logger
 
 private[lf] trait TraceLog {
   def add(message: String, optLocation: Option[Location]): Unit
+  def addWarning(message: String, optLocation: Option[Location]): Unit
   def iterator: Iterator[(String, Option[Location])]
 }
 
@@ -22,6 +23,14 @@ private[lf] final case class RingBufferTraceLog(logger: Logger, capacity: Int) e
       logger.debug(s"${Pretty.prettyLoc(optLocation).renderWideStream.mkString}: $message")
     }
     buffer(pos) = (message, optLocation)
+    pos = (pos + 1) % capacity
+    if (size < capacity)
+      size += 1
+  }
+
+  def addWarning(message: String, optLocation: Option[Location]): Unit = {
+    logger.warn(s"Warning: $message")
+    buffer(pos) = (s"Warning: $message", optLocation)
     pos = (pos + 1) % capacity
     if (size < capacity)
       size += 1

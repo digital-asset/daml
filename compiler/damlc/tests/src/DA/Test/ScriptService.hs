@@ -596,6 +596,53 @@ main =
                     , "  \"logClient2\"\n"
                     , "  \"please don't die\""
                     ],
+              testCase "divulgence warning" $ do
+                rs <-
+                  runScripts
+                    scriptService
+                    [ "module Test where"
+                    , "import Daml.Script"
+                    , "template T"
+                    , "  with p : Party"
+                    , "  where"
+                    , "    signatory p"
+                    , "template Delegate"
+                    , "  with"
+                    , "    p1 : Party"
+                    , "    p2 : Party"
+                    , "    cid : ContractId T"
+                    , "  where"
+                    , "    signatory p1"
+                    , "    observer p2"
+                    , "    choice Fetch : T"
+                    , "      controller p2"
+                    , "      do fetch cid"
+                    , "template Divulge"
+                    , "  with"
+                    , "    p1 : Party"
+                    , "    p2 : Party"
+                    , "    cid : ContractId T"
+                    , "  where"
+                    , "    signatory p2"
+                    , "    observer p1"
+                    , "    choice Accept : T"
+                    , "      controller p1"
+                    , "      do fetch cid"
+                    , ""
+                    , "testDivulge = do"
+                    , "  p1 <- allocateParty \"p1\""
+                    , "  p2 <- allocateParty \"p2\""
+                    , "  cid <- submit p1 (createCmd (T p1))"
+                    , "  divulgeCid <- submit p2 (createCmd (Divulge p1 p2 cid))"
+                    , "  submit p1 (exerciseCmd divulgeCid Accept)"
+                    , "  delegateCid <- submit p1 (createCmd (Delegate p1 p2 cid))"
+                    , "  submit p2 (exerciseCmd delegateCid Fetch)"
+                    , "  pure ()"
+                    ]
+                expectScriptSuccess rs (vr "testDivulge") $ \r ->
+                  matchRegex r $ T.concat
+                    [ "Warning: -homePackageId-:Test:T contract ContractId\\([0-9a-f]*\\) not visible to actAs = Set\\(p2\\), readAs = Set\\(\\)."
+                    ],
               testCase "multi-party query" $ do
                 rs <-
                   runScripts

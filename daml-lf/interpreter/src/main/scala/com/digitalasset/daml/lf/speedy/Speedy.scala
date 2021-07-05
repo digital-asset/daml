@@ -104,7 +104,9 @@ private[lf] object Speedy {
       signatories: Set[Party],
       observers: Set[Party],
       key: Option[Node.KeyWithMaintainers[V[Nothing]]],
-  )
+  ) {
+    private[lf] def stakeholders: Set[Party] = signatories union observers;
+  }
 
   private[lf] final case class OnLedger(
       val validating: Boolean,
@@ -743,6 +745,16 @@ private[lf] object Speedy {
       returnValue = go(typ0, value0)
     }
 
+    def checkContractVisibility (onLedger: OnLedger, cid: V.ContractId, contract: CachedContract) = {
+      onLedger.visibleToStakeholders(contract.stakeholders) match {
+        case SVisibleToStakeholders.Visible => ()
+        case SVisibleToStakeholders.NotVisible (actAs, readAs) =>
+          this.traceLog.addWarning(
+            s"${contract.templateId} contract ${cid} not visible to actAs = ${actAs}, readAs = ${readAs}.",
+            this.lastLocation
+          )
+      }
+    }
   }
 
   object Machine {
@@ -1272,6 +1284,7 @@ private[lf] object Speedy {
     def execute(sv: SValue): Unit = {
       val cached = SBuiltin.extractCachedContract(templateId, sv)
       machine.withOnLedger("KCacheContract") { onLedger =>
+        machine.checkContractVisibility (onLedger, cid, cached);
         onLedger.cachedContracts = onLedger.cachedContracts.updated(cid, cached)
         machine.returnValue = cached.value
       }
