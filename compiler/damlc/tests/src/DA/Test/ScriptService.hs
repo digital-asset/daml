@@ -641,7 +641,7 @@ main =
                     ]
                 expectScriptSuccess rs (vr "testDivulge") $ \r ->
                   matchRegex r $ T.concat
-                    [ "Warning: -homePackageId-:Test:T contract ContractId\\([0-9a-f]*\\) not visible to actAs = Set\\(p2\\), readAs = Set\\(\\)."
+                    [ "Warning: Tried to fetch or exercise -homePackageId-:Test:T contract ContractId\\([0-9a-f]*\\) but none of the reading parties actAs = Set\\(p2\\), readAs = Set\\(\\) are a stakeholder TreeSet\\(p1\\). Use of divulged contracts is deprecated and incompatible with pruning"
                     ],
               testCase "multi-party query" $ do
                 rs <-

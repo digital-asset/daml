@@ -105,7 +105,7 @@ private[lf] object Speedy {
       observers: Set[Party],
       key: Option[Node.KeyWithMaintainers[V[Nothing]]],
   ) {
-    private[lf] def stakeholders: Set[Party] = signatories union observers;
+    private[lf] val stakeholders: Set[Party] = signatories union observers;
   }
 
   private[lf] final case class OnLedger(
@@ -750,7 +750,7 @@ private[lf] object Speedy {
         case SVisibleToStakeholders.Visible => ()
         case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
           this.traceLog.addWarning(
-            s"${contract.templateId} contract ${cid} not visible to actAs = ${actAs}, readAs = ${readAs}.",
+            s"Tried to fetch or exercise ${contract.templateId} contract ${cid} but none of the reading parties actAs = ${actAs}, readAs = ${readAs} are a stakeholder ${contract.stakeholders}. Use of divulged contracts is deprecated and incompatible with pruning",
             this.lastLocation,
           )
       }

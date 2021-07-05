@@ -18,22 +18,25 @@ private[lf] final case class RingBufferTraceLog(logger: Logger, capacity: Int) e
   private var pos: Int = 0
   private var size: Int = 0
 
-  def add(message: String, optLocation: Option[Location]): Unit = {
-    if (logger.isDebugEnabled) {
-      logger.debug(s"${Pretty.prettyLoc(optLocation).renderWideStream.mkString}: $message")
-    }
+  private def addToBuffer(message: String, optLocation: Option[Location]): Unit = {
     buffer(pos) = (message, optLocation)
     pos = (pos + 1) % capacity
     if (size < capacity)
       size += 1
   }
 
+  def add(message: String, optLocation: Option[Location]): Unit = {
+    if (logger.isDebugEnabled) {
+      logger.debug(s"${Pretty.prettyLoc(optLocation).renderWideStream.mkString}: $message")
+    }
+    addToBuffer(message, optLocation)
+  }
+
   def addWarning(message: String, optLocation: Option[Location]): Unit = {
-    logger.warn(s"Warning: $message")
-    buffer(pos) = (s"Warning: $message", optLocation)
-    pos = (pos + 1) % capacity
-    if (size < capacity)
-      size += 1
+    if (logger.isWarnEnabled) {
+      logger.warn(message)
+    }
+    addToBuffer(s"Warning: $message", optLocation)
   }
 
   def iterator: Iterator[(String, Option[Location])] =
