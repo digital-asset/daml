@@ -16,16 +16,22 @@ import com.daml.logging.LoggingContext.{withEnrichedLoggingContext, withEnriched
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{InstrumentedSource, Metrics}
 import com.daml.platform.configuration.ServerRole
+import com.daml.platform.indexer.ha.{
+  HaCoordinator,
+  Handle,
+  InitHookDataSourceProxy,
+  NoopHaCoordinator,
+}
 import com.daml.platform.indexer.parallel.AsyncSupport._
 import com.daml.platform.indexer.{IndexFeedHandle, Indexer}
 import com.daml.platform.store.appendonlydao.DbDispatcher
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
+import com.daml.platform.store.backend
 import com.daml.platform.store.backend.{DbDto, StorageBackend}
-import com.daml.platform.store.{DbType, backend}
 import com.daml.resources
 
-import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
 
 object ParallelIndexerFactory {
@@ -49,6 +55,8 @@ object ParallelIndexerFactory {
       tailingRateLimitPerSecond: Int,
       batchWithinMillis: Long,
       metrics: Metrics,
+      indexerLockId: Int,
+      indexerWorkerLockId: Int,
   )(implicit loggingContext: LoggingContext): ResourceOwner[Indexer] = {
     for {
       inputMapperExecutor <- asyncPool(
@@ -61,26 +69,15 @@ object ParallelIndexerFactory {
         "batching-pool",
         Some(metrics.daml.parallelIndexer.batching.executor -> metrics.registry),
       )
-      dbDispatcher <- DbDispatcher
-        .owner(
-          serverRole = ServerRole.Indexer,
-          jdbcUrl = jdbcUrl,
-          connectionPoolSize = ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
-          connectionTimeout = FiniteDuration(
-            250,
-            "millis",
-          ), // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
-          metrics = metrics,
-          connectionAsyncCommitMode = DbType.AsynchronousCommit,
-        )
       toDbDto = backend.UpdateToDbDto(
         participantId = participantId,
         translation = translation,
         compressionStrategy = compressionStrategy,
       )
     } yield {
-      val ingest: Long => Source[(Offset, Update), NotUsed] => Source[Unit, NotUsed] =
-        initialSeqId =>
+      val ingest
+          : (Long, DbDispatcher) => Source[(Offset, Update), NotUsed] => Source[Unit, NotUsed] =
+        (initialSeqId, dbDispatcher) =>
           source =>
             BatchingParallelIngestionPipe(
               submissionBatchSize = submissionBatchSize,
@@ -121,16 +118,70 @@ object ParallelIndexerFactory {
                   },
               )
 
-      def subscribe(readService: ReadService): Future[Source[Unit, NotUsed]] =
-        dbDispatcher
-          .executeSql(metrics.daml.parallelIndexer.initialization)(storageBackend.initialize)
-          .map(initialized =>
-            ingest(initialized.lastEventSeqId.getOrElse(0L))(
-              readService.stateUpdates(beginAfter = initialized.lastOffset)
-            )
-          )(scala.concurrent.ExecutionContext.global)
+      val haCoordinator: HaCoordinator =
+        if (storageBackend.dbLockSupported)
+          HaCoordinator.databaseLockBasedHaCoordinator(
+            dataSource = storageBackend.createDataSource(jdbcUrl),
+            storageBackend = storageBackend,
+            executionContext =
+              ExecutionContext.global, // TODO instantiate something with reasonable size (like 1 or 2)
+            mainLockAquireRetryMillis = 500, // TODO wire
+            workerLockAquireRetryMillis = 200, // TODO wire
+            workerLockAquireMaxRetry = 3000, // TODO wire
+            mainLockCheckerPeriodMillis = 1000, // TODO wire
+            indexerLock = storageBackend.lock(indexerLockId),
+            indexerWorkerLock = storageBackend.lock(indexerWorkerLockId),
+          )
+        else NoopHaCoordinator
 
-      toIndexer(subscribe)(mat)
+      def subscribe(resourceContext: ResourceContext)(readService: ReadService): Handle = {
+        implicit val rc: ResourceContext = resourceContext
+        implicit val ec: ExecutionContext = resourceContext.executionContext
+        implicit val matImplicit: Materializer = mat
+        haCoordinator.protectedBlock { signConnection =>
+          val killSwitchCaptor = Promise[KillSwitch]()
+
+          val completionFuture = DbDispatcher
+            .owner(
+              dataSource = InitHookDataSourceProxy(
+                storageBackend.createDataSource(jdbcUrl),
+                signConnection.sign,
+              ),
+              serverRole = ServerRole.Indexer,
+              jdbcUrl = jdbcUrl,
+              connectionPoolSize =
+                ingestionParallelism + 1, // + 1 for the tailing ledger_end updates
+              connectionTimeout = FiniteDuration(
+                250,
+                "millis",
+              ), // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
+              metrics = metrics,
+            )
+            .use { dbDispatcher =>
+              dbDispatcher
+                .executeSql(metrics.daml.parallelIndexer.initialization)(storageBackend.initialize)
+                .flatMap { initialized =>
+                  val (killSwitch, completionFuture) =
+                    ingest(initialized.lastEventSeqId.getOrElse(0L), dbDispatcher)(
+                      readService.stateUpdates(beginAfter = initialized.lastOffset)
+                    )
+                      .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
+                      .toMat(Sink.ignore)(Keep.both)
+                      .run()
+                  // the tricky bit:
+                  // the future in the completion handler will be this one
+                  // but the future for signaling for the HaCoordinator, that the protected block is initialized needs to complete precisely here
+                  killSwitchCaptor.success(killSwitch)
+                  completionFuture
+                }
+            }
+
+          killSwitchCaptor.future
+            .map(Handle(completionFuture.map(_ => ()), _))
+        }
+      }
+
+      toIndexer(subscribe)
     }
   }
 
@@ -295,20 +346,17 @@ object ParallelIndexerFactory {
       }
 
   def toIndexer(
-      ingestionPipeOn: ReadService => Future[Source[Unit, NotUsed]]
-  )(implicit mat: Materializer): Indexer =
+      ingestionPipeOn: ResourceContext => ReadService => Handle
+  ): Indexer =
     readService =>
       new ResourceOwner[IndexFeedHandle] {
         override def acquire()(implicit
             context: ResourceContext
         ): resources.Resource[ResourceContext, IndexFeedHandle] = {
           Resource {
-            ingestionPipeOn(readService).map { pipe =>
-              val (killSwitch, completionFuture) = pipe
-                .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-                .toMat(Sink.ignore)(Keep.both)
-                .run()
-              new SubscriptionIndexFeedHandle(killSwitch, completionFuture.map(_ => ()))
+            Future {
+              val handle = ingestionPipeOn(context)(readService)
+              new SubscriptionIndexFeedHandle(handle.killSwitch, handle.completed)
             }
           } { handle =>
             handle.killSwitch.shutdown()

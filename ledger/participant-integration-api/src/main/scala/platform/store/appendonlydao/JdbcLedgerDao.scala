@@ -119,7 +119,6 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) {
       implicit connection =>
-        storageBackend.enforceSynchronousCommit(connection)
         storageBackend.updateLedgerId(ledgerId.unwrap)(connection)
     }
 
@@ -127,7 +126,6 @@ private class JdbcLedgerDao(
       participantId: ParticipantId
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.initializeParticipantId) { implicit connection =>
-      storageBackend.enforceSynchronousCommit(connection)
       storageBackend.updateParticipantId(participantId.unwrap)(connection)
     }
 
@@ -396,7 +394,6 @@ private class JdbcLedgerDao(
     logger.info("Storing initial state")
     dbDispatcher.executeSql(metrics.daml.index.db.storeInitialStateFromScenario) {
       implicit connection =>
-        storageBackend.enforceSynchronousCommit(connection)
         ledgerEntries.foreach { case (offset, entry) =>
           entry match {
             case tx: LedgerEntry.Transaction =>
@@ -779,7 +776,6 @@ private[platform] object JdbcLedgerDao {
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
-      jdbcAsyncCommitMode: DbType.AsyncCommitMode,
       enricher: Option[ValueEnricher],
       participantId: v1.ParticipantId,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
@@ -795,8 +791,6 @@ private[platform] object JdbcLedgerDao {
       servicesExecutionContext,
       metrics,
       lfValueTranslationCache,
-      jdbcAsyncCommitMode =
-        if (dbType.supportsAsynchronousCommits) jdbcAsyncCommitMode else DbType.SynchronousCommit,
       enricher = enricher,
       participantId = participantId,
       compressionStrategy = CompressionStrategy.none(metrics), // not needed
@@ -870,22 +864,21 @@ private[platform] object JdbcLedgerDao {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       validatePartyAllocation: Boolean = false,
-      jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
       enricher: Option[ValueEnricher],
       participantId: v1.ParticipantId,
       compressionStrategy: CompressionStrategy,
-  )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] =
+  )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
+    val dbType = DbType.jdbcType(jdbcUrl)
+    val storageBackend = StorageBackend.of(dbType)
     for {
       dbDispatcher <- DbDispatcher.owner(
+        storageBackend.createDataSource(jdbcUrl),
         serverRole,
         jdbcUrl,
         connectionPoolSize,
         connectionTimeout,
         metrics,
-        jdbcAsyncCommitMode,
       )
-      dbType = DbType.jdbcType(jdbcUrl)
-      storageBackend = StorageBackend.of(dbType)
     } yield new JdbcLedgerDao(
       dbDispatcher,
       servicesExecutionContext,
@@ -906,41 +899,7 @@ private[platform] object JdbcLedgerDao {
       participantId,
       storageBackend,
     )
-
-  // TODO H2 support
-//  object H2DatabaseQueries extends Queries {
-//    override protected[JdbcLedgerDao] val SQL_INSERT_COMMAND: String =
-//      """merge into participant_command_submissions pcs
-//        |using dual on deduplication_key = {deduplicationKey}
-//        |when not matched then
-//        |  insert (deduplication_key, deduplicate_until)
-//        |  values ({deduplicationKey}, {deduplicateUntil})
-//        |when matched and pcs.deduplicate_until < {submittedAt} then
-//        |  update set deduplicate_until={deduplicateUntil}""".stripMargin
-//
-//    override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String =
-//      "Unique index or primary key violation"
-//
-//    override protected[JdbcLedgerDao] val SQL_TRUNCATE_TABLES: String =
-//      """set referential_integrity false;
-//        |truncate table configuration_entries;
-//        |truncate table package_entries;
-//        |truncate table parameters;
-//        |truncate table participant_command_completions;
-//        |truncate table participant_command_submissions;
-//        |truncate table participant_events;
-//        |truncate table participant_contracts;
-//        |truncate table participant_contract_witnesses;
-//        |truncate table parties;
-//        |truncate table party_entries;
-//        |set referential_integrity true;
-//      """.stripMargin
-//
-//    /** H2 does not support asynchronous commits */
-//    override protected[JdbcLedgerDao] def enforceSynchronousCommit(implicit
-//        conn: Connection
-//    ): Unit = ()
-//  }
+  }
 
   val acceptType = "accept"
   val rejectType = "reject"

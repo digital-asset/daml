@@ -51,6 +51,7 @@ private[platform] object DbType {
       sys.error(s"JDBC URL doesn't match any supported databases (h2, pg, oracle)")
   }
 
+  // TODO append-only: remove AsyncCommit related stuff from here
   sealed trait AsyncCommitMode {
     def setting: String
   }

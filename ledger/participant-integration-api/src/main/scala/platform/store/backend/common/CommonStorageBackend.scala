@@ -36,7 +36,6 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyState,
   KeyUnassigned,
 }
-import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
@@ -171,21 +170,9 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   def ledgerId(connection: Connection): Option[LedgerId] =
     SQL"select #$LedgerIdColumnName from #$TableName".as(LedgerIdParser.singleOpt)(connection)
 
-  def updateLedgerId(ledgerId: String)(connection: Connection): Unit =
-    discard(
-      SQL"insert into #$TableName(#$LedgerIdColumnName) values($ledgerId)".execute()(connection)
-    )
-
   def participantId(connection: Connection): Option[ParticipantId] =
     SQL"select #$ParticipantIdColumnName from #$TableName".as(ParticipantIdParser.single)(
       connection
-    )
-
-  def updateParticipantId(participantId: String)(connection: Connection): Unit =
-    discard(
-      SQL"update #$TableName set #$ParticipantIdColumnName = $participantId".execute()(
-        connection
-      )
     )
 
   def ledgerEndOffset(connection: Connection): Offset =
@@ -199,19 +186,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
     SelectLedgerEnd.as(LedgerEndParser.single)(connection)
 
   case class InvalidLedgerEnd(msg: String) extends RuntimeException(msg)
-
-  private val SQL_UPDATE_MOST_RECENT_PRUNING = SQL("""
-                                                     |update parameters set participant_pruned_up_to_inclusive={pruned_up_to_inclusive}
-                                                     |where participant_pruned_up_to_inclusive < {pruned_up_to_inclusive} or participant_pruned_up_to_inclusive is null
-                                                     |""".stripMargin)
-
-  def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL_UPDATE_MOST_RECENT_PRUNING
-      .on("pruned_up_to_inclusive" -> prunedUpToInclusive)
-      .execute()(connection)
-    ()
-  }
 
   private val SQL_SELECT_MOST_RECENT_PRUNING = SQL(
     "select participant_pruned_up_to_inclusive from parameters"
@@ -556,39 +530,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .as(CommandDataParser.single)(connection)
       .deduplicateUntil
 
-  private val SQL_DELETE_EXPIRED_COMMANDS = SQL("""
-                                                  |delete from participant_command_submissions
-                                                  |where deduplicate_until < {currentTime}
-    """.stripMargin)
-
-  def removeExpiredDeduplicationData(currentTime: Instant)(connection: Connection): Unit = {
-    SQL_DELETE_EXPIRED_COMMANDS
-      .on("currentTime" -> currentTime)
-      .execute()(connection)
-    ()
-  }
-
-  private val SQL_DELETE_COMMAND = SQL("""
-                                         |delete from participant_command_submissions
-                                         |where deduplication_key = {deduplicationKey}
-    """.stripMargin)
-
-  def stopDeduplicatingCommand(deduplicationKey: String)(connection: Connection): Unit = {
-    SQL_DELETE_COMMAND
-      .on("deduplicationKey" -> deduplicationKey)
-      .execute()(connection)
-    ()
-  }
-
-  // Completions
-
-  def pruneCompletions(pruneUpToInclusive: Offset)(connection: Connection): Unit = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    SQL"delete from participant_command_completions where completion_offset <= $pruneUpToInclusive"
-      .execute()(connection)
-    ()
-  }
-
   // Contracts
 
   def contractKeyGlobally(key: Key)(connection: Connection): Option[ContractId] = {
@@ -808,44 +749,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       .asVectorOf(contractStateRowParser)(connection)
 
   // Events
-
-  def pruneEvents(pruneUpToInclusive: Offset)(connection: Connection): Unit = {
-    import com.daml.platform.store.Conversions.OffsetToStatement
-    List(
-      SQL"""
-          -- Divulgence events (only for contracts archived before the specified offset)
-          delete from participant_events_divulgence delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive and
-            exists (
-              SELECT 1 FROM participant_events_consuming_exercise archive_events
-              WHERE
-                archive_events.event_offset <= $pruneUpToInclusive AND
-                archive_events.contract_id = delete_events.contract_id
-            )""",
-      SQL"""
-          -- Create events (only for contracts archived before the specified offset)
-          delete from participant_events_create delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive and
-            exists (
-              SELECT 1 FROM participant_events_consuming_exercise archive_events
-              WHERE
-                archive_events.event_offset <= $pruneUpToInclusive AND
-                archive_events.contract_id = delete_events.contract_id
-            )""",
-      SQL"""
-          -- Exercise events (consuming)
-          delete from participant_events_consuming_exercise delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive""",
-      SQL"""
-          -- Exercise events (non-consuming)
-          delete from participant_events_non_consuming_exercise delete_events
-          where
-            delete_events.event_offset <= $pruneUpToInclusive""",
-    ).foreach(_.execute()(connection))
-  }
 
   private val rawTransactionEventParser: RowParser[RawTransactionEvent] =
     (int("event_kind") ~

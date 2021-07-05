@@ -61,6 +61,9 @@ compile_deps = [
     "@maven//:io_opentelemetry_opentelemetry_context",
     "@maven//:org_slf4j_slf4j_api",
     # this oracle import is problematic for daml assistant build
+    "@maven//:com_h2database_h2",
+    "@maven//:org_postgresql_postgresql",
+    "@maven//:com_oracle_database_jdbc_ojdbc8",
 ]
 
 scala_compile_deps = [
@@ -77,9 +80,6 @@ scala_compile_deps = [
 
 runtime_deps = [
     "@maven//:ch_qos_logback_logback_classic",
-    "@maven//:com_h2database_h2",
-    "@maven//:org_postgresql_postgresql",
-    "@maven//:com_oracle_database_jdbc_ojdbc8",
 ]
 
 da_scala_library(

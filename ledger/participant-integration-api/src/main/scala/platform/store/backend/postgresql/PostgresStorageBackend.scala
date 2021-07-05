@@ -19,11 +19,15 @@ import com.daml.platform.store.backend.common.{
   CommonStorageBackend,
   TemplatedStorageBackend,
 }
-import com.daml.platform.store.backend.{DbDto, StorageBackend}
+import com.daml.platform.store.backend.{DBLockStorageBackend, DbDto, StorageBackend}
+import javax.sql.DataSource
+import org.postgresql.ds.PGSimpleDataSource
 
 private[backend] object PostgresStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
     with CommonStorageBackend[AppendOnlySchema.Batch] {
+
+  private val forceSyncCommit: String = "SET LOCAL synchronous_commit = 'on';"
 
   override def insertBatch(
       connection: Connection,
@@ -46,7 +50,8 @@ private[backend] object PostgresStorageBackend
       key: String,
       submittedAt: Instant,
       deduplicateUntil: Instant,
-  )(connection: Connection): Int =
+  )(connection: Connection): Int = {
+    SQL(forceSyncCommit).on().execute()(connection)
     SQL(SQL_INSERT_COMMAND)
       .on(
         "deduplicationKey" -> key,
@@ -54,9 +59,12 @@ private[backend] object PostgresStorageBackend
         "deduplicateUntil" -> deduplicateUntil,
       )
       .executeUpdate()(connection)
+  }
 
   def reset(connection: Connection): Unit = {
-    SQL("""truncate table configuration_entries cascade;
+    SQL(s"""
+      |$forceSyncCommit
+      |truncate table configuration_entries cascade;
       |truncate table package_entries cascade;
       |truncate table parameters cascade;
       |truncate table participant_command_completions cascade;
@@ -70,17 +78,6 @@ private[backend] object PostgresStorageBackend
       |""".stripMargin)
       .execute()(connection)
     ()
-  }
-
-  def enforceSynchronousCommit(connnection: Connection): Unit = {
-    val statement =
-      connnection.prepareStatement("SET LOCAL synchronous_commit = 'on'")
-    try {
-      statement.execute()
-      ()
-    } finally {
-      statement.close()
-    }
   }
 
   val duplicateKeyError: String = "duplicate key"
@@ -503,4 +500,74 @@ private[backend] object PostgresStorageBackend
 
   private def submittersIsPartyClause(submittersColumnName: String): (String, String) =
     (s"$submittersColumnName = array[", "]::text[]")
+
+  override def createDataSource(jdbcUrl: String): DataSource = {
+    val result = new PGSimpleDataSource()
+    result.setUrl(jdbcUrl);
+    result
+  }
+
+  override def updateLedgerId(ledgerId: String)(connection: Connection): Unit =
+    TemplatedStorageBackend.updateLedgerId(forceSyncCommit, ledgerId)(connection)
+
+  override def updateParticipantId(participantId: String)(connection: Connection): Unit =
+    TemplatedStorageBackend.updateParticipantId(forceSyncCommit, participantId)(connection)
+
+  override def removeExpiredDeduplicationData(currentTime: Instant)(connection: Connection): Unit =
+    TemplatedStorageBackend.removeExpiredDeduplicationData(forceSyncCommit, currentTime)(connection)
+
+  override def stopDeduplicatingCommand(deduplicationKey: String)(connection: Connection): Unit =
+    TemplatedStorageBackend.stopDeduplicatingCommand(forceSyncCommit, deduplicationKey)(connection)
+
+  override def pruneEvents(pruneUpToInclusive: Offset)(connection: Connection): Unit =
+    TemplatedStorageBackend.pruneEvents(forceSyncCommit :: Nil, pruneUpToInclusive)(connection)
+
+  override def pruneCompletions(pruneUpToInclusive: Offset)(connection: Connection): Unit =
+    TemplatedStorageBackend.pruneCompletions(forceSyncCommit, pruneUpToInclusive)(connection)
+
+  override def updatePrunedUptoInclusive(
+      prunedUpToInclusive: Offset
+  )(connection: Connection): Unit =
+    TemplatedStorageBackend.updatePrunedUptoInclusive(forceSyncCommit, prunedUpToInclusive)(
+      connection
+    )
+
+  override def aquireImmediately(
+      lockId: DBLockStorageBackend.LockId,
+      lockMode: DBLockStorageBackend.LockMode,
+  )(connection: Connection): Option[DBLockStorageBackend.Lock] = {
+    val lockFunction = lockMode match {
+      case DBLockStorageBackend.LockMode.Exclusive => "pg_try_advisory_lock"
+      case DBLockStorageBackend.LockMode.Shared => "pg_try_advisory_lock_shared"
+    }
+    SQL"SELECT #$lockFunction(${pgBigintLockId(lockId)})"
+      .as(get[Boolean](1).single)(connection) match {
+      case true => Some(DBLockStorageBackend.Lock(lockId, lockMode))
+      case false => None
+    }
+  }
+
+  override def release(lock: DBLockStorageBackend.Lock)(connection: Connection): Boolean = {
+    val lockFunction = lock.lockMode match {
+      case DBLockStorageBackend.LockMode.Exclusive => "pg_advisory_unlock"
+      case DBLockStorageBackend.LockMode.Shared => "pg_advisory_unlock_shared"
+    }
+    SQL"SELECT #$lockFunction(${pgBigintLockId(lock.lockId)})"
+      .as(get[Boolean](1).single)(connection)
+  }
+
+  case class PGLockId(id: Long) extends DBLockStorageBackend.LockId
+
+  private def pgBigintLockId(lockId: DBLockStorageBackend.LockId): Long =
+    lockId match {
+      case PGLockId(id) => id
+      case unknown =>
+        throw new Exception(
+          s"LockId $unknown not supported. Probable cause: LockId was created by a different StorageBackend"
+        )
+    }
+
+  override def lock(id: Int): DBLockStorageBackend.LockId = PGLockId(id.toLong)
+
+  override def dbLockSupported: Boolean = true
 }

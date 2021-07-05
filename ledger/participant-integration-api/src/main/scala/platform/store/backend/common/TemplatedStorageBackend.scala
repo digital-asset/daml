@@ -8,7 +8,7 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
-import anorm.{RowParser, SqlParser, SqlStringInterpolation, ~}
+import anorm.{RowParser, SQL, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.{ApplicationId, TransactionId}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.completion.Completion
@@ -20,6 +20,7 @@ import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Id
 import com.daml.platform.store.backend.StorageBackend
 import com.google.rpc.status.Status
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
+import com.daml.scalautil.Statement.discard
 
 import scala.collection.compat.immutable.ArraySeq
 
@@ -967,4 +968,104 @@ private[backend] object TemplatedStorageBackend {
       .asVectorOf(rawTreeEventParser)(connection)
   }
 
+  def updateLedgerId(prefix: String, ledgerId: String)(connection: Connection): Unit =
+    discard(
+      SQL"#$prefix insert into parameters (ledger_id) values($ledgerId)".execute()(
+        connection
+      )
+    )
+
+  def updateParticipantId(prefix: String, participantId: String)(connection: Connection): Unit =
+    discard(
+      SQL"#$prefix update parameters set participant_id = $participantId".execute()(
+        connection
+      )
+    )
+
+  def removeExpiredDeduplicationData(prefix: String, currentTime: Instant)(
+      connection: Connection
+  ): Unit = {
+    SQL(s"""$prefix
+           |delete from participant_command_submissions
+           |where deduplicate_until < {currentTime}""".stripMargin)
+      .on("currentTime" -> currentTime)
+      .execute()(connection)
+    ()
+  }
+
+  def stopDeduplicatingCommand(prefix: String, deduplicationKey: String)(
+      connection: Connection
+  ): Unit = {
+    SQL(s"""$prefix
+           |delete from participant_command_submissions
+           |where deduplication_key = {deduplicationKey}""".stripMargin)
+      .on("deduplicationKey" -> deduplicationKey)
+      .execute()(connection)
+    ()
+  }
+
+  def pruneEvents(prefix: List[String], pruneUpToInclusive: Offset)(
+      connection: Connection
+  ): Unit = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    prefix
+      .map(s => SQL"#$s")
+      .:::(
+        List(
+          SQL"""
+          -- Divulgence events (only for contracts archived before the specified offset)
+          delete from participant_events_divulgence delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive and
+            exists (
+              SELECT 1 FROM participant_events_consuming_exercise archive_events
+              WHERE
+                archive_events.event_offset <= $pruneUpToInclusive AND
+                archive_events.contract_id = delete_events.contract_id
+            )""",
+          SQL"""
+          -- Create events (only for contracts archived before the specified offset)
+          delete from participant_events_create delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive and
+            exists (
+              SELECT 1 FROM participant_events_consuming_exercise archive_events
+              WHERE
+                archive_events.event_offset <= $pruneUpToInclusive AND
+                archive_events.contract_id = delete_events.contract_id
+            )""",
+          SQL"""
+          -- Exercise events (consuming)
+          delete from participant_events_consuming_exercise delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive""",
+          SQL"""
+          -- Exercise events (non-consuming)
+          delete from participant_events_non_consuming_exercise delete_events
+          where
+            delete_events.event_offset <= $pruneUpToInclusive""",
+        )
+      )
+      .foreach(_.execute()(connection))
+  }
+
+  def pruneCompletions(prefix: String, pruneUpToInclusive: Offset)(connection: Connection): Unit = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    SQL"#$prefix delete from participant_command_completions where completion_offset <= $pruneUpToInclusive"
+      .execute()(connection)
+    ()
+  }
+
+  def updatePrunedUptoInclusive(prefix: String, prunedUpToInclusive: Offset)(
+      connection: Connection
+  ): Unit = {
+    import com.daml.platform.store.Conversions.OffsetToStatement
+    SQL(s"""$prefix
+           |update parameters set participant_pruned_up_to_inclusive={pruned_up_to_inclusive}
+           |where participant_pruned_up_to_inclusive < {pruned_up_to_inclusive} or participant_pruned_up_to_inclusive is null
+           |""".stripMargin)
+      .on("pruned_up_to_inclusive" -> prunedUpToInclusive)
+      .execute()(connection)
+    ()
+  }
 }

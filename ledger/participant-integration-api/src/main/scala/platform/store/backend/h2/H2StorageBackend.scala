@@ -20,7 +20,8 @@ import com.daml.platform.store.backend.common.{
   CommonStorageBackend,
   TemplatedStorageBackend,
 }
-import com.daml.platform.store.backend.{DbDto, StorageBackend}
+import com.daml.platform.store.backend.{DBLockStorageBackend, DbDto, StorageBackend}
+import javax.sql.DataSource
 
 private[backend] object H2StorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
@@ -43,8 +44,6 @@ private[backend] object H2StorageBackend
       .execute()(connection)
     ()
   }
-
-  override def enforceSynchronousCommit(connection: Connection): Unit = () // Not supported
 
   override def duplicateKeyError: String = "Unique index or primary key violation"
 
@@ -498,4 +497,47 @@ private[backend] object H2StorageBackend
 
   private def submittersIsPartyClause(submittersColumnName: String): (String, String) =
     (s"$submittersColumnName = array[", "]")
+
+  override def createDataSource(jdbcUrl: String): DataSource = {
+    val result = new org.h2.jdbcx.JdbcDataSource()
+    result.setUrl(jdbcUrl)
+    result
+  }
+
+  override def updateLedgerId(ledgerId: String)(connection: Connection): Unit =
+    TemplatedStorageBackend.updateLedgerId("", ledgerId)(connection)
+
+  override def updateParticipantId(participantId: String)(connection: Connection): Unit =
+    TemplatedStorageBackend.updateParticipantId("", participantId)(connection)
+
+  override def removeExpiredDeduplicationData(currentTime: Instant)(connection: Connection): Unit =
+    TemplatedStorageBackend.removeExpiredDeduplicationData("", currentTime)(connection)
+
+  override def stopDeduplicatingCommand(deduplicationKey: String)(connection: Connection): Unit =
+    TemplatedStorageBackend.stopDeduplicatingCommand("", deduplicationKey)(connection)
+
+  override def pruneEvents(pruneUpToInclusive: Offset)(connection: Connection): Unit =
+    TemplatedStorageBackend.pruneEvents(Nil, pruneUpToInclusive)(connection)
+
+  override def pruneCompletions(pruneUpToInclusive: Offset)(connection: Connection): Unit =
+    TemplatedStorageBackend.pruneCompletions("", pruneUpToInclusive)(connection)
+
+  override def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(
+      connection: Connection
+  ): Unit =
+    TemplatedStorageBackend.updatePrunedUptoInclusive("", prunedUpToInclusive)(connection)
+
+  override def aquireImmediately(
+      lockId: DBLockStorageBackend.LockId,
+      lockMode: DBLockStorageBackend.LockMode,
+  )(connection: Connection): Option[DBLockStorageBackend.Lock] =
+    throw new UnsupportedOperationException("db level locks are not supported for H2")
+
+  override def release(lock: DBLockStorageBackend.Lock)(connection: Connection): Boolean =
+    throw new UnsupportedOperationException("db level locks are not supported for H2")
+
+  override def lock(id: Int): DBLockStorageBackend.LockId =
+    throw new UnsupportedOperationException("db level locks are not supported for H2")
+
+  override def dbLockSupported: Boolean = false
 }

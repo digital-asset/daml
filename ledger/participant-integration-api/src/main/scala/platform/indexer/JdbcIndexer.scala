@@ -134,7 +134,6 @@ object JdbcIndexer {
             servicesExecutionContext,
             metrics,
             lfValueTranslationCache,
-            jdbcAsyncCommitMode = config.asyncCommitMode,
             enricher = None,
             participantId = config.participantId,
           )
@@ -171,6 +170,8 @@ object JdbcIndexer {
         tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
         batchWithinMillis = config.batchWithinMillis,
         metrics = metrics,
+        indexerLockId = config.indexerLockId,
+        indexerWorkerLockId = config.indexerWorkerLockId,
       )
     }
 

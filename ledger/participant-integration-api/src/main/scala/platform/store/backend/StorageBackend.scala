@@ -6,6 +6,7 @@ package com.daml.platform.store.backend
 import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
+
 import com.daml.ledger.{ApplicationId, TransactionId}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -24,6 +25,7 @@ import com.daml.platform.store.backend.postgresql.PostgresStorageBackend
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.scalautil.NeverEqualsOverride
+import javax.sql.DataSource
 
 import scala.util.Try
 
@@ -43,9 +45,10 @@ trait StorageBackend[DB_BATCH]
     with DeduplicationStorageBackend
     with CompletionStorageBackend
     with ContractStorageBackend
-    with EventStorageBackend {
+    with EventStorageBackend
+    with DataSourceStorageBackend
+    with DBLockStorageBackend {
   def reset(connection: Connection): Unit
-  def enforceSynchronousCommit(connection: Connection): Unit
   def duplicateKeyError: String // TODO: Avoid brittleness of error message checks
 }
 
@@ -322,6 +325,35 @@ trait EventStorageBackend {
   def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
   ): Vector[RawTransactionEvent]
+}
+
+trait DataSourceStorageBackend {
+  def createDataSource(jdbcUrl: String): DataSource
+}
+
+trait DBLockStorageBackend {
+  def aquireImmediately(
+      lockId: DBLockStorageBackend.LockId,
+      lockMode: DBLockStorageBackend.LockMode,
+  )(connection: Connection): Option[DBLockStorageBackend.Lock]
+
+  def release(lock: DBLockStorageBackend.Lock)(connection: Connection): Boolean
+
+  def lock(id: Int): DBLockStorageBackend.LockId
+
+  def dbLockSupported: Boolean
+}
+
+object DBLockStorageBackend {
+  case class Lock(lockId: LockId, lockMode: LockMode)
+
+  trait LockId
+
+  trait LockMode
+  object LockMode {
+    case object Exclusive extends LockMode
+    case object Shared extends LockMode
+  }
 }
 
 object StorageBackend {
