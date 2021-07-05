@@ -151,10 +151,28 @@ To use command deduplication, you should:
 For more details on command deduplication, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
 
 
+.. _dealing-with-failures:
+
+Dealing with failures
+*********************
+
+.. _crash-recovery:
+
+Crash recovery
+==============
+
+In order to restart your application from a previously known ledger state,
+your application must keep track of the last ledger offset received
+from the :ref:`transaction service <transaction-service>` or the
+:ref:`command completion service <command-completion-service>`.
+
+By persisting this offset alongside the relevant state as part of a single,
+atomic operation, your application can resume from where it left off.
+
 .. _failing-over-between-ledger-api-endpoints:
 
 Failing over between Ledger API endpoints
-*****************************************
+=========================================
 
 Some Daml Ledgers support exposing multiple eventually consistent Ledger API
 endpoints where command deduplication works across these Ledger API endpoints.
@@ -166,9 +184,8 @@ Below we describe how you can build your application such that it can switch
 between such eventually consistent Ledger API endpoints to tolerate server
 failures. You can do this using the following two steps.
 
-First, your application must keep track of the last ledger offset received
-from the :ref:`transaction service <transaction-service>` or the
-:ref:`command completion service <command-completion-service>`.  When switching to a new
+First, your application must keep track of the ledger offset as described in the
+:ref:`paragraph about crash recovery <crash-recovery>`. When switching to a new
 Ledger API endpoint, it must resume consumption of the transaction (tree)
 and/or the command completion streams starting from this last received
 offset.
