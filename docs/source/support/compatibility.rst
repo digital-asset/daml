@@ -44,7 +44,7 @@ The below lists with which Daml Connect version a new Ledger API version was int
    * - Ledger API Version
      - Daml Connect Version
    * - 1.12
-   * - 1.15
+     - 1.15
    * - 1.11
      - 1.14
    * - 1.10
