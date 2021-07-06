@@ -348,11 +348,11 @@ class ValidationSpec extends AnyFreeSpec {
     tweakOptLocation.run(nf.optLocation).map { x => nf.copy(optLocation = x) }
   }
   private val tweakFetchActingPartiesEmpty = Tweak[Node] {
-    case nf: Node.NodeFetch[_] if (nf.actingParties.isEmpty) => //insig
+    case nf: Node.NodeFetch[_] if nf.actingParties.isEmpty => //insig
       tweakPartySet.run(nf.actingParties).map { x => nf.copy(actingParties = x) }
   }
   private val tweakFetchActingPartiesNonEmpty = Tweak[Node] {
-    case nf: Node.NodeFetch[_] if (nf.actingParties.nonEmpty) => //sig
+    case nf: Node.NodeFetch[_] if nf.actingParties.nonEmpty => //sig
       tweakPartySet.run(nf.actingParties).map { x => nf.copy(actingParties = x) }
   }
   private val tweakFetchSignatories = Tweak[Node] { case nf: Node.NodeFetch[_] =>
@@ -366,7 +366,7 @@ class ValidationSpec extends AnyFreeSpec {
       tweakOptKeyMaintainers.run(nf.key).map { x => nf.copy(key = x) }
   }
   private def tweakFetchByKey(whenVersion: TransactionVersion => Boolean) = Tweak.single[Node] {
-    case nf: Node.NodeFetch[_] if (whenVersion(nf.version)) =>
+    case nf: Node.NodeFetch[_] if whenVersion(nf.version) =>
       nf.copy(byKey = changeBoolean(nf.byKey))
   }
   private val tweakFetchVersion = Tweak.single[Node] { case nf: Node.NodeFetch[_] =>
@@ -480,7 +480,7 @@ class ValidationSpec extends AnyFreeSpec {
       tweakOptKeyMaintainers.run(ne.key).map { x => ne.copy(key = x) }
   }
   private def tweakExerciseByKey(whenVersion: TransactionVersion => Boolean) = Tweak.single[Node] {
-    case ne: Node.NodeExercises[_, _] if (whenVersion(ne.version)) =>
+    case ne: Node.NodeExercises[_, _] if whenVersion(ne.version) =>
       ne.copy(byKey = changeBoolean(ne.byKey))
   }
   private val tweakExerciseVersion = Tweak.single[Node] { case ne: Node.NodeExercises[_, _] =>
