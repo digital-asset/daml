@@ -55,7 +55,7 @@ class ValidationSpec extends AnyFreeSpec {
       apply(f1.andThen(List(_)))
     }
     def apply[X](f: PartialFunction[X, List[X]]): Tweak[X] = {
-      new Tweak(f.orElse { _ => List.empty })
+      new Tweak(f.orElse({ _ => List.empty }))
     }
   }
 
