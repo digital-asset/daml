@@ -11,6 +11,7 @@ execution_log_postfix=${1:-}
 export LC_ALL=en_US.UTF-8
 
 ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
+mkdir -p "${ARTIFACT_DIRS}/logs"
 
 tag_filter=""
 if [[ "$execution_log_postfix" == "_Darwin" ]]; then
@@ -36,7 +37,8 @@ bazel build //... \
   --profile build-profile.json \
   --experimental_profile_include_target_label \
   --build_event_json_file build-events.json \
-  --build_event_publish_all_actions
+  --build_event_publish_all_actions \
+  --experimental_execution_log_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.log"
 
 # Set up a shared PostgreSQL instance.
 export POSTGRESQL_ROOT_DIR="${TMPDIR:-/tmp}/daml/postgresql"
@@ -80,7 +82,7 @@ bazel test //... \
   --experimental_profile_include_target_label \
   --build_event_json_file test-events.json \
   --build_event_publish_all_actions \
-  --experimental_execution_log_file "$ARTIFACT_DIRS/test_execution${execution_log_postfix}.log"
+  --experimental_execution_log_file "$ARTIFACT_DIRS/logs/test_execution${execution_log_postfix}.log"
 
 # Make sure that Bazel query works.
 bazel query 'deps(//...)' >/dev/null
