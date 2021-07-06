@@ -11,11 +11,13 @@ terraform {
 provider "google" {
   project = "da-dev-gcp-daml-language"
   region  = "us-east4"
+  zone    = "us-east4-a"
 }
 
 provider "google-beta" {
   project = "da-dev-gcp-daml-language"
   region  = "us-east4"
+  zone    = "us-east4-a"
 }
 
 provider "secret" {
