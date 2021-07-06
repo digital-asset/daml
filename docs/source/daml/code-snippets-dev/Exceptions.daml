@@ -42,7 +42,7 @@ template Test with
            (ArithmeticError _) ->
              create Error with
                p = p
-               msg = "MyException"
+               msg = "ArithmeticError"
 -- END_TRY
 
 template T
