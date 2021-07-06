@@ -347,15 +347,13 @@ class ValidationSpec extends AnyFreeSpec {
   private val tweakFetchOptLocation = Tweak[Node] { case nf: Node.NodeFetch[_] =>
     tweakOptLocation.run(nf.optLocation).map { x => nf.copy(optLocation = x) }
   }
-  private val tweakFetchActingPartiesEmpty = Tweak[Node] { case nf: Node.NodeFetch[_] => //insig
-    if (nf.actingParties.isEmpty) {
+  private val tweakFetchActingPartiesEmpty = Tweak[Node] {
+    case nf: Node.NodeFetch[_] if (nf.actingParties.isEmpty) => //insig
       tweakPartySet.run(nf.actingParties).map { x => nf.copy(actingParties = x) }
-    } else Nil
   }
-  private val tweakFetchActingPartiesNonEmpty = Tweak[Node] { case nf: Node.NodeFetch[_] => //sig
-    if (nf.actingParties.nonEmpty) {
+  private val tweakFetchActingPartiesNonEmpty = Tweak[Node] {
+    case nf: Node.NodeFetch[_] if (nf.actingParties.nonEmpty) => //sig
       tweakPartySet.run(nf.actingParties).map { x => nf.copy(actingParties = x) }
-    } else Nil
   }
   private val tweakFetchSignatories = Tweak[Node] { case nf: Node.NodeFetch[_] =>
     tweakPartySet.run(nf.signatories).map { x => nf.copy(signatories = x) }
