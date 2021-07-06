@@ -273,7 +273,7 @@ class ValidationSpec extends AnyFreeSpec {
       List(samParties1, samParties2, samParties3, samParties4).filter(set => set != xs)
   }
 
-  private def tweakKeyMaintainers = Tweak[KWM] { x =>
+  private val tweakKeyMaintainers = Tweak[KWM] { x =>
     List(samKWM1, samKWM2, samKWM3).filter(y => x != y)
   }
 
