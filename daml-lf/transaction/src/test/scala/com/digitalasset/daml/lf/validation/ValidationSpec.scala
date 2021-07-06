@@ -256,12 +256,12 @@ class ValidationSpec extends AnyFreeSpec {
   //--[predicates]--
   // Some tweaks have version dependant significance.
 
-  val versionBeforeMinByKey: (TransactionVersion => Boolean) = { v =>
+  private def versionBeforeMinByKey(v: TransactionVersion): Boolean = {
     import scala.Ordering.Implicits.infixOrderingOps
     v < TransactionVersion.minByKey
   }
 
-  val versionSinceMinByKey: (TransactionVersion => Boolean) = { v =>
+  private def versionSinceMinByKey(v: TransactionVersion): Boolean = {
     import scala.Ordering.Implicits.infixOrderingOps
     v >= TransactionVersion.minByKey
   }
