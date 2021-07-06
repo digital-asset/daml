@@ -1360,7 +1360,7 @@ private[lf] object SBuiltin {
         machine: Machine,
     ): Unit = {
       val message = getSText(args, 0)
-      machine.traceLog.add(message, machine.lastLocation)
+      machine.traceLog.addDebug(message, machine.lastLocation)
       machine.returnValue = args.get(1)
     }
   }
