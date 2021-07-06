@@ -113,12 +113,12 @@ private[index] object BuffersUpdater {
       updateMutableCache: ContractStateEvent => Unit,
       toContractStateEvents: TransactionLogUpdate => Iterator[ContractStateEvent] =
         convertToContractStateEvents,
+      executionContext: ExecutionContext,
       minBackoffStreamRestart: FiniteDuration = 100.millis,
       sysExitWithCode: Int => Unit = sys.exit(_),
   )(implicit
       mat: Materializer,
       loggingContext: LoggingContext,
-      executionContext: ExecutionContext,
   ): BuffersUpdater = new BuffersUpdater(
     subscribeToTransactionLogUpdates = subscribeToTransactionLogUpdates,
     updateCaches = (offset, transactionLogUpdate) => {
@@ -127,7 +127,7 @@ private[index] object BuffersUpdater {
     },
     minBackoffStreamRestart = minBackoffStreamRestart,
     sysExitWithCode = sysExitWithCode,
-  )
+  )(mat, loggingContext, executionContext)
 
   private[index] def convertToContractStateEvents(
       tx: TransactionLogUpdate
