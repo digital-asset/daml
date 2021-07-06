@@ -617,8 +617,7 @@ class ValidationSpec extends AnyFreeSpec {
           res match {
             case Left(_) => ()
             case Right(()) =>
-              println(s"**expected $name to be SIGNIFICANT (but it wasn't)\n-txA=$txA\n-txB=$txB")
-              assert(false)
+              fail(s"**expected $name to be SIGNIFICANT (but it wasn't)\n-txA=$txA\n-txB=$txB")
           }
         }
       }
@@ -639,8 +638,7 @@ class ValidationSpec extends AnyFreeSpec {
           res match {
             case Right(()) => ()
             case Left(_) =>
-              println(s"**expected $name to be INSIGNIFICANT (but it wasn't)\n-txA=$txA\n-txB=$txB")
-              assert(false)
+              fail(s"**expected $name to be INSIGNIFICANT (but it wasn't)\n-txA=$txA\n-txB=$txB")
           }
         }
       }
