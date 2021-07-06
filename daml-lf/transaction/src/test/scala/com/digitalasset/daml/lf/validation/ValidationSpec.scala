@@ -55,7 +55,7 @@ class ValidationSpec extends AnyFreeSpec {
       apply(f1.andThen(List(_)))
     }
     def apply[X](f: PartialFunction[X, List[X]]): Tweak[X] = {
-      new Tweak(f.orElse({ _ => List.empty }))
+      new Tweak(f.orElse { case _ => List.empty })
     }
   }
 
@@ -264,12 +264,12 @@ class ValidationSpec extends AnyFreeSpec {
 
   //--[shared sub tweaks]--
 
-  private val tweakPartySet = Tweak[Set[Party]] { xs =>
+  private val tweakPartySet = Tweak[Set[Party]] { case xs =>
     (xs + samPartyX) ::
       List(samParties1, samParties2, samParties3, samParties4).filter(set => set != xs)
   }
 
-  private val tweakKeyMaintainers = Tweak[KWM] { x =>
+  private val tweakKeyMaintainers = Tweak[KWM] { case x =>
     List(samKWM1, samKWM2, samKWM3).filter(y => x != y)
   }
 
@@ -283,7 +283,7 @@ class ValidationSpec extends AnyFreeSpec {
     case Some(_) => List() // don't tweak from Some
   }
 
-  private val tweakOptContractId = Tweak[Option[V.ContractId]] { x =>
+  private val tweakOptContractId = Tweak[Option[V.ContractId]] { case x =>
     List(None, Some(samContractId1), Some(samContractId2)).filter(y => x != y)
   }
 
