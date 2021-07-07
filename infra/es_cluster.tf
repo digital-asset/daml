@@ -797,24 +797,28 @@ bulk_upload() {
 }
 
 push() {
-  local job
+  local job f
   job="$1"
   for cmd in "build" "test"; do
 
-    e="$job/$cmd-events.json"
-    if [[ -f "$e" ]]; then
-      echo "$job: pushing $cmd-events.json"
-      emit_build_events "$job" "$cmd" "$e" | bulk_upload "$job"
-    else
+    f="$job/$cmd-events.json"
+    if ! [[ -f "$f" ]]; then
       echo "$job: no $cmd-events.json"
+    elif ! jq . >/dev/null 2>&1 < $f; then
+      echo "$job: $cmd-events.json exists but is not valid json, skipping"
+    else
+      echo "$job: pushing $cmd-events.json"
+      emit_build_events "$job" "$cmd" "$f" | bulk_upload "$job"
     fi
 
-    p="$job/$cmd-profile.json"
-    if [[ -f "$p" ]]; then
-      echo "$job: pushing $cmd-trace.json"
-      emit_trace_events "$job" "$cmd" "$p" | bulk_upload "$job"
-    else
+    f="$job/$cmd-profile.json"
+    if ! [[ -f "$f" ]]; then
       echo "$job: no $cmd-profile.json"
+    elif ! jq . >/dev/null 2>&1 < $f; then
+      echo "$job: $cmd-profile.json exists but is not valid json, skipping"
+    else
+      echo "$job: pushing $cmd-profile.json"
+      emit_trace_events "$job" "$cmd" "$f" | bulk_upload "$job"
     fi
   done
 }
