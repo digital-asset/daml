@@ -151,7 +151,6 @@ message Location {
 
 // Reference to a contract instance.
 message ContractRef {
-  bool relative = 1; // True if the contract id is relative.
   string contract_id = 2;
   Identifier template_id = 3;
 }
@@ -282,14 +281,6 @@ message ScenarioError {
 message PartialTransaction {
   repeated Node nodes = 1;
   repeated NodeId roots = 2;
-  ExerciseContext exercise_context = 3; // Top-most exercise context if any.
-}
-
-message ExerciseContext {
-  ContractRef target_id = 1;
-  string choice_id = 2;
-  Location exercise_location = 3; // Location of the 'exercise' expression
-  Value chosen_value = 4;
 }
 
 message Field {
@@ -565,6 +556,7 @@ message Node {
     repeated Party signatories = 8;
     repeated Party stakeholders = 9;
     repeated NodeId children = 11;
+    Value exercise_result = 12; // None for incomplete/aborted exercise nodes.
   }
 
   message LookupByKey {
