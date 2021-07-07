@@ -39,6 +39,12 @@ steps:
       DAML_SCALA_VERSION: ${{parameters.scala_version}}
 
   - task: PublishBuildArtifacts@1
+    condition: succeededOrFailed()
+    inputs:
+      pathtoPublish: '$(Build.StagingDirectory)/logs'
+      artifactName: 'Bazel Logs'
+
+  - task: PublishBuildArtifacts@1
     condition: failed()
     displayName: 'Publish the bazel test logs'
     inputs:
