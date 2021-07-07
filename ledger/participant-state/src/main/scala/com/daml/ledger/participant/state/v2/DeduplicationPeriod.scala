@@ -1,13 +1,13 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.v1
+package com.daml.ledger.participant.state.v2
 
 import java.time.{Duration, Instant}
 
 /** Specifies the deduplication period for a command submission.
   *
-  * @see com.daml.ledger.participant.state.v1.ReadService.stateUpdates for the deduplication guarantee
+  * @see com.daml.ledger.participant.state.v2.ReadService.stateUpdates for the deduplication guarantee
   */
 sealed trait DeduplicationPeriod extends Product with Serializable
 

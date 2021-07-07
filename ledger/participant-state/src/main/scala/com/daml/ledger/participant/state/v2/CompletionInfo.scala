@@ -1,4 +1,4 @@
-package com.daml.ledger.participant.state.v1
+package com.daml.ledger.participant.state.v2
 
 /** Information about a completion for a submission.
   * Unless noted otherwise, the data is the same as for [[SubmitterInfo]].
