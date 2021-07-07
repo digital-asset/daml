@@ -547,7 +547,7 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
       :lines: 61-77
       :dedent: 4
 
-   Note the use of ``blockingForEach`` to ensure that the contract store is fully built and the ledger-offset up to which the ACS provides data is known before moving on.
+   ``blockingForEach`` is used to ensure that the contract store is consistent with the ledger state at the latest offset observed by the client.
 
 #. The Transaction Service is wired up to update the contract store on occurrences of ``ArchiveEvent`` and ``CreateEvent`` for Ious. Since ``getTransactions`` is called without end offset, it will stream transactions indefinitely, until the application is terminated.
 
