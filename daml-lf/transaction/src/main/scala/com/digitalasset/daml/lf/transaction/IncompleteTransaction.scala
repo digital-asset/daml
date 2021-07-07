@@ -14,5 +14,4 @@ trait IncompleteTransaction {
   type ExerciseNode = Node.NodeExercises[Nid, Cid]
 
   def transaction: TX
-  def exerciseContextMaybe: Option[ExerciseNode]
 }

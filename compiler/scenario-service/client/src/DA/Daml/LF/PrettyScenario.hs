@@ -13,6 +13,9 @@ module DA.Daml.LF.PrettyScenario
   , scenarioNotInFileNote
   , fileWScenarioNoLongerCompilesNote
   , ModuleRef
+  -- Exposed for testing
+  , ptxExerciseContext
+  , ExerciseContext(..)
   ) where
 
 import           Control.Monad.Extra
@@ -203,6 +206,43 @@ prettyTraceMessage _world msg =
   -- that's the only place where we get traces.
   --  prettyMayLocation world (traceMessageLocation msg)
   ltext (traceMessageMessage msg)
+
+data ExerciseContext = ExerciseContext
+  { targetId :: Maybe ContractRef
+  , choiceId :: TL.Text
+  , exerciseLocation :: Maybe Location
+  , chosenValue :: Maybe Value
+  } deriving (Eq, Show)
+
+ptxExerciseContext :: PartialTransaction -> Maybe ExerciseContext
+ptxExerciseContext PartialTransaction{..} = go Nothing partialTransactionRoots
+  where go :: Maybe ExerciseContext -> V.Vector NodeId -> Maybe ExerciseContext
+        go acc children
+            | V.null children = acc
+            | otherwise = do
+                  n <- nodeNode =<< MS.lookup (V.last children) nodeMap
+                  case n of
+                    NodeNodeCreate _ -> acc
+                    NodeNodeFetch _ -> acc
+                    NodeNodeLookupByKey _ -> acc
+                    NodeNodeExercise Node_Exercise{..}
+                      | Nothing <- node_ExerciseExerciseResult ->
+                        let ctx = ExerciseContext
+                              { targetId = Just ContractRef
+                                  { contractRefContractId = node_ExerciseTargetContractId
+                                  , contractRefTemplateId = node_ExerciseTemplateId
+                                  }
+                              , choiceId = node_ExerciseChoiceId
+                              , exerciseLocation = Nothing
+                              , chosenValue = node_ExerciseChosenValue
+                              }
+                        in go (Just ctx) node_ExerciseChildren
+                      | otherwise -> acc
+                    NodeNodeRollback _ ->
+                        -- do not decend in rollback. If we aborted within a try, this will not produce
+                        -- a rollback node.
+                        acc
+        nodeMap = MS.fromList [ (nodeId, node) | node <- V.toList partialTransactionNodes, Just nodeId <- [nodeNodeId node] ]
 
 prettyScenarioErrorError :: Maybe ScenarioErrorError -> M (Doc SyntaxClass)
 prettyScenarioErrorError Nothing = pure $ text "<missing error details>"
@@ -690,7 +730,7 @@ prettyNode Node{..}
     archivedSC = annotateSC PredicateSC -- Magenta
 
 prettyPartialTransaction :: PartialTransaction -> M (Doc SyntaxClass)
-prettyPartialTransaction PartialTransaction{..} = do
+prettyPartialTransaction ptx@PartialTransaction{..} = do
   world <- askWorld
   let ppNodes =
            runM partialTransactionNodes world
@@ -698,26 +738,26 @@ prettyPartialTransaction PartialTransaction{..} = do
          $ mapM (lookupNode >=> prettyNode)
                 (V.toList partialTransactionRoots)
   pure $ vcat
-    [ case partialTransactionExerciseContext of
+    [ case ptxExerciseContext ptx of
         Nothing -> mempty
         Just ExerciseContext{..} ->
           text "Failed exercise"
-            <-> parens (prettyMayLocation world exerciseContextExerciseLocation) <> ":"
+            <-> parens (prettyMayLocation world exerciseLocation) <> ":"
             $$ nest 2 (
                 keyword_ "exercises"
             <-> prettyMay "<missing template id>"
                   (\tid ->
-                      prettyChoiceId world tid exerciseContextChoiceId)
-                  (contractRefTemplateId <$> exerciseContextTargetId)
+                      prettyChoiceId world tid choiceId)
+                  (contractRefTemplateId <$> targetId)
             <-> keyword_ "on"
             <-> prettyMay "<missing>"
                   (prettyContractRef world)
-                  exerciseContextTargetId
+                  targetId
              $$ keyword_ "with"
              $$ ( nest 2
                 $ prettyMay "<missing>"
                     (prettyValue' False 0 world)
-                    exerciseContextChosenValue)
+                    chosenValue)
             )
 
    , if V.null partialTransactionRoots
@@ -827,7 +867,7 @@ revealLocationUri fp sline eline =
     encodeURI = Network.URI.Encode.encodeText
 
 prettyContractRef :: LF.World -> ContractRef -> Doc SyntaxClass
-prettyContractRef world (ContractRef _relative coid tid) =
+prettyContractRef world (ContractRef coid tid) =
   hsep
   [ prettyContractId coid
   , parens (prettyMay "<missing template id>" (prettyDefName world) tid)

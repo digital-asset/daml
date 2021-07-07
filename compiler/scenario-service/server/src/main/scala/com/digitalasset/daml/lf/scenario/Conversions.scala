@@ -369,7 +369,6 @@ final class Conversions(
 
   def mkContractRef(coid: V.ContractId, templateId: Ref.Identifier): proto.ContractRef =
     proto.ContractRef.newBuilder
-      .setRelative(false)
       .setContractId(coidToEventId(coid).toLedgerString)
       .setTemplateId(convertIdentifier(templateId))
       .build
@@ -434,14 +433,6 @@ final class Conversions(
       .addAllNodes(tx.nodes.map(convertNode).asJava)
       .addAllRoots(tx.roots.toList.map(convertTxNodeId).asJava)
 
-    incomplete.exerciseContextMaybe.foreach { exe =>
-      val ecBuilder = proto.ExerciseContext.newBuilder
-        .setTargetId(mkContractRef(exe.targetCoid, exe.templateId))
-        .setChoiceId(exe.choiceId)
-        .setChosenValue(convertValue(exe.chosenValue))
-      exe.optLocation.map(loc => ecBuilder.setExerciseLocation(convertLocation(loc)))
-      builder.setExerciseContext(ecBuilder.build)
-    }
     builder.build
   }
 
@@ -508,7 +499,7 @@ final class Conversions(
         )
       case ex: N.NodeExercises[NodeId, V.ContractId] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
-        builder.setExercise(
+        val exerciseBuilder =
           proto.Node.Exercise.newBuilder
             .setTargetContractId(coidToEventId(ex.targetCoid).toLedgerString)
             .setTemplateId(convertIdentifier(ex.templateId))
@@ -524,8 +515,12 @@ final class Conversions(
                 .toSeq
                 .asJava
             )
-            .build
-        )
+
+        ex.exerciseResult.foreach { result =>
+          exerciseBuilder.setExerciseResult(convertValue(result))
+        }
+
+        builder.setExercise(exerciseBuilder.build)
 
       case lbk: N.NodeLookupByKey[V.ContractId] =>
         lbk.optLocation.foreach(loc => builder.setLocation(convertLocation(loc)))
