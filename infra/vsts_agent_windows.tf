@@ -13,17 +13,22 @@ locals {
       suffix     = "",
       size       = 6,
       assignment = "default",
-      extra      = "",
+      extra      = <<EOF
+
+# Disable Print Spooler service (security)
+Stop-Service -Name Spooler -Force
+Set-Service -Name Spooler -StartupType Disabled
+EOF
     },
     {
       suffix     = "-t",
       size       = 6,
       assignment = "default",
       extra      = <<EOF
-
 # Disable Print Sppoler service (security)
 Stop-Service -Name Spooler -Force
 Set-Service -Name Spooler -StartupType Disabled
+
 EOF
     }
   ]
@@ -95,8 +100,8 @@ Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
 
 # Disable Windows Defender to speed up disk access
-Set-MpPreference -DisableRealtimeMonitoring $true${local.w[count.index].extra}
-
+Set-MpPreference -DisableRealtimeMonitoring $true
+${local.w[count.index].extra}
 # Enable long paths
 Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Type DWord -Value 1
 
