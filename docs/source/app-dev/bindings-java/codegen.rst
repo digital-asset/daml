@@ -11,90 +11,9 @@ Introduction
 
 When writing applications for the ledger in Java, you want to work with a representation of Daml templates and data types in Java that closely resemble the original Daml code while still being as true to the native types in Java as possible. To achieve this, you can use Daml to Java code generator ("Java codegen") to generate Java types based on a Daml model. You can then use these types in your Java code when reading information from and sending data to the ledger.
 
-.. _daml-codegen-java-running:
+The :doc:`Daml assistant documentation </tools/codegen>` describes how to run and configure the code generator for all supported bindings, including Java.
 
-Run the Java codegen
-====================
-
-The Java codegen can be run from within your Daml project using the Daml assistant. Use this command to display the help text:
-
-.. code-block:: none
-
-  daml codegen java --help
-
-Generate Java code from DAR files
----------------------------------
-
-The Java codegen takes Daml archive (DAR) files as input and generates Java files for Daml templates, records, and variants. For information on creating DAR files see :ref:`assistant-manual-building-dars`.
-
-Pass one or more DAR files as arguments to the Java codegen. Use the ``-o`` or ``--output-directory`` parameter for specifying the directory for the generated Java files.
-
-.. code-block:: none
-
-  daml codegen java -o target/generated-sources/daml .daml/dist/my-project-0.0.1.dar
-                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-To avoid possible name clashes in the generated Java sources, you should specify a Java package prefix for each input file:
-
-.. code-block:: none
-
-  daml codegen java -o target/generated-sources/daml \
-      daml/project1.dar=com.example.daml.project1 \
-                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
-      daml/project2.dar=com.example.daml.project2
-                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. _daml-codegen-java-decoder-class:
-
-Generate the decoder utility class
-----------------------------------
-
-When reading transactions from the ledger, you typically want to convert a `CreatedEvent <https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/CreatedEvent.html>`__ from the Ledger API to the corresponding generated ``Contract`` class. The Java codegen can optionally generate a decoder class based on the input DAR files that calls the ``fromCreatedEvent`` method of the respective generated ``Contract`` class (see :ref:`daml-codegen-java-templates`). The decoder class can do this for all templates in the input DAR files.
-
-To generate such a decoder class, provide the command line parameter ``-d`` or ``--decoderClass`` with a fully qualified class name:
-
-.. code-block:: none
-
-  daml codegen java -o target/generated-sources/daml \
-      -d com.myproject.DamModelDecoder .daml/dist/my-project-0.0.1.dar
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Receive feedback
-----------------
-
-By default, the logging is configured so that you'll only see error messages.
-
-If you want to change this behavior, you can ask to receive more extensive feedback using the ``-V`` or ``--verbosity`` command-line option. This option takes a numeric parameter from 0 to 4, where 0 corresponds to the default quiet behavior and 4 represents the most verbose output possible.
-
-In the following example the logging is set to print most of the output with detailed debugging information:
-
-.. code-block:: none
-
-  daml codegen java -o target/generated-sources/daml -V 3 .daml/dist/my-project-0.0.1.dar
-                                                     ^^^^
-
-Integrate with build tools
---------------------------
-
-While we currently don’t provide direct integration with Maven, Groovy, SBT, etc., you can run the Java codegen as described in :ref:`daml-codegen-java-running` just like any other external process (for example the protobuf compiler).
-
-.. _daml-codegen-java-compiling:
-
-Compile the generated Java code
-===============================
-
-To compile the generated Java code, add the :ref:`Java Bindings <bindings-java-setup-maven>` library with the same version as the Java codegen to the classpath.
-
-With Maven you can do this by adding a ``dependency`` to the ``pom.xml`` file:
-
-.. code-block:: xml
-
-    <dependency>
-        <groupId>com.daml</groupId>
-        <artifactId>bindings-rxjava</artifactId>
-        <version>x.y.z</version>
-    </dependency>
-
-
+The rest of this page describes Java-specific topics.
 
 Understand the generated Java model
 ===================================
@@ -378,7 +297,7 @@ Parameterized types
 
 .. note::
 
-   This section is only included for completeness: we don't expect users to make use of the ``fromValue`` and ``toValue methods``, because they would typically come from a template that doesn't have any unbound type parameters.
+   This section is only included for completeness: we don't expect users to make use of the ``fromValue`` and ``toValue`` methods, because they would typically come from a template that doesn't have any unbound type parameters.
 
 The Java codegen uses Java Generic types to represent :ref:`Daml parameterized types <daml-ref-parameterized-types>`.
 
