@@ -10,8 +10,6 @@ import scalaz.std.list._
 
 final case class Dar[A](main: A, dependencies: List[A]) {
   lazy val all: List[A] = main :: dependencies
-
-  def map[B](f: A => B): Dar[B] = Dar(f(main), dependencies.map(f))
 }
 
 object Dar {

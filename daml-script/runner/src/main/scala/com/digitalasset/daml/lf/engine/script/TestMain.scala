@@ -23,6 +23,7 @@ import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.syntax.traverse._
 import spray.json._
 
 import scala.concurrent.duration.Duration

@@ -19,6 +19,7 @@ import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue.SRecord
 import org.scalatest.Suite
 import scalaz.\/-
+import scalaz.syntax.traverse._
 import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}

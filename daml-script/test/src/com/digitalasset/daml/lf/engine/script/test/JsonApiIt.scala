@@ -54,6 +54,7 @@ import io.grpc.Channel
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import scalaz.syntax.traverse._
 import scalaz.{-\/, \/-}
 import spray.json._
 

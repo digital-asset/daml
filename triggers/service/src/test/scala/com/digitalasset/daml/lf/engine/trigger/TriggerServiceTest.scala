@@ -22,6 +22,7 @@ import org.scalatest.concurrent.Eventually
 import scala.concurrent.Future
 import scalaz.Tag
 import scalaz.syntax.tag._
+import scalaz.syntax.traverse._
 import spray.json._
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.ledger.api.refinements.ApiTypes

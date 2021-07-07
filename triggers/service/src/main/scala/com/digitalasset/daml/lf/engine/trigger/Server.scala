@@ -47,6 +47,7 @@ import com.daml.scalautil.Statement.discard
 import com.daml.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Tag
+import scalaz.syntax.traverse._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
