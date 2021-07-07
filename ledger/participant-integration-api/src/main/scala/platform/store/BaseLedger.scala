@@ -167,9 +167,9 @@ private[platform] abstract class BaseLedger(
   ): Future[Option[Ast.Package]] =
     ledgerDao
       .getLfArchive(packageId)
-      .flatMap(archiveO =>
-        Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2)))
-      )(DEC)
+      .flatMap(archiveO => Future.fromTry(Try(archiveO.map(archive => Decode.decode(archive)._2))))(
+        DEC
+      )
 
   override def packageEntries(startExclusive: Offset)(implicit
       loggingContext: LoggingContext

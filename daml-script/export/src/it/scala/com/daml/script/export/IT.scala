@@ -154,9 +154,7 @@ final class IT
     ).! shouldBe 0
     // load DAR
     encodedDar = DarReader().readArchiveFromFile(tmpDir.resolve("export.dar").toFile).get
-    dar = encodedDar.map { case (pkgId, pkgArchive) =>
-      Decode.readArchivePayload(pkgId, pkgArchive)
-    }
+    dar = encodedDar.map(Decode.decode)
   } yield dar
 
   private def runScriptExport(

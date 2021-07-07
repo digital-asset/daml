@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.resources.ResourceContext
@@ -52,11 +51,8 @@ object TestMain extends StrictLogging {
     TestConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) =>
-        val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
-          DarReader().readArchiveFromFile(config.darPath).get
-        val dar: Dar[(PackageId, Package)] = encodedDar.map { case (pkgId, pkgArchive) =>
-          Decode.readArchivePayload(pkgId, pkgArchive)
-        }
+        val encodedDar = DarReader().readArchiveFromFile(config.darPath).get
+        val dar: Dar[(PackageId, Package)] = encodedDar.map(Decode.decode)
 
         val system: ActorSystem = ActorSystem("ScriptTest")
         implicit val sequencer: ExecutionSequencerFactory =

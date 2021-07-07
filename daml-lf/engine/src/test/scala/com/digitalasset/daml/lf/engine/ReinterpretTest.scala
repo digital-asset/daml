@@ -42,13 +42,9 @@ class ReinterpretTest
   private val party = Party.assertFromString("Party")
 
   private def loadPackage(resource: String): (PackageId, Map[PackageId, Package]) = {
-    val packages =
-      UniversalArchiveReader().readFile(new File(rlocation(resource))).get
-    val packagesMap = Map(packages.all.map { case (pkgId, pkgArchive) =>
-      Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-    }: _*)
-    val (mainPkgId, _) = packages.main
-    (mainPkgId, packagesMap)
+    val payloads = UniversalArchiveReader().readFile(new File(rlocation(resource))).get
+    val packages = payloads.all.map(Decode.decode).toMap
+    (payloads.main.pkgId, packages)
   }
 
   private val (miniTestsPkgId, allPackages) = loadPackage(

@@ -12,7 +12,7 @@ import scalaz.std.option._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.traverse._
 
-import com.daml.lf.archive.Decode.ParseError
+import com.daml.lf.archive.ParseError
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.ModuleName

@@ -194,9 +194,7 @@ final class JsonApiIt
     with TryValues {
 
   private def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentInterface) = {
-    val dar = DarReader().readArchiveFromFile(file).get.map { case (pkgId, archive) =>
-      Decode.readArchivePayload(pkgId, archive)
-    }
+    val dar = DarReader().readArchiveFromFile(file).get.map(Decode.decode)
     val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
     val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
     (dar, envIface)

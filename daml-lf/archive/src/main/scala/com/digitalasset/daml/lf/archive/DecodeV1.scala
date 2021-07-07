@@ -7,7 +7,6 @@ package archive
 import java.util
 
 import com.daml.daml_lf_dev.{DamlLf1 => PLF}
-import com.daml.lf.archive.Decode.ParseError
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Decimal, ImmArray, Numeric, Struct, Time}
@@ -23,7 +22,6 @@ import scala.jdk.CollectionConverters._
 
 private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Package] {
 
-  import Decode._
   import DecodeV1._
 
   private val languageVersion = LV(LV.Major.V1, minor)

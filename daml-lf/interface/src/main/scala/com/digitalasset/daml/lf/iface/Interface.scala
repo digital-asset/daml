@@ -10,6 +10,7 @@ import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{PackageId, PackageName, PackageVersion, QualifiedName}
 import com.daml.lf.iface.reader.Errors
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf.archive.ArchivePayload
 
 import scala.collection.immutable.Map
 import scala.jdk.CollectionConverters._
@@ -68,9 +69,7 @@ object Interface {
   def read(lf: DamlLf.Archive): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(lf)
 
-  def read(
-      lf: (PackageId, DamlLf.ArchivePayload)
-  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
+  def read(lf: ArchivePayload): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(lf)
 
 }

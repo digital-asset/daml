@@ -5,7 +5,7 @@ package com.daml.platform.store.serialization
 
 import java.io.InputStream
 
-import com.daml.lf.archive.{Decode, Reader}
+import com.daml.lf.archive.Reader
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{ValueCoder, ValueOuterClass}
 
@@ -27,7 +27,7 @@ private[platform] object ValueSerializer {
       .decodeVersionedValue(
         ValueCoder.CidDecoder,
         ValueOuterClass.VersionedValue
-          .parseFrom(Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT)),
+          .parseFrom(Reader.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT)),
       )
       .fold(
         error =>
