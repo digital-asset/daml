@@ -35,6 +35,13 @@ import com.daml.lf.value.Value
   * of updates and the guarantees given to consumers of the stream of
   * [[v1.Update]]s.
   *
+  * We provide a reference implementation of a participant state in
+  * [[com.daml.ledger.api.server.damlonx.reference.v2.ReferenceServer]]. There we
+  * model an in-memory ledger, which has by construction a single participant,
+  * which hosts all parties. See its comments for details on how that is done,
+  * and how its implementation can be used as a blueprint for implementing
+  * your own participant state.
+  *
   * We do expect the interfaces provided in
   * [[com.daml.ledger.participant.state]] to evolve, which is why we
   * provide them all in the
@@ -46,9 +53,6 @@ import com.daml.lf.value.Value
   * possible. There can therefore potentially be multiple versions of
   * participant state APIs at the same time. We plan to deprecate and drop old
   * versions on separate and appropriate timelines.
-  *
-  * TODO(v2) This is the design for V2. To ease the discussion and have the changes show up as a diff,
-  *  we modify `v1`` in place. All classes with modifications are supposed to be moved to a `v2` sibling package.
   */
 package object v1 {
 
@@ -76,10 +80,6 @@ package object v1 {
   type ApplicationId = Ref.LedgerString
 
   /** Identifiers used to correlate admin submission with results. */
-  val AdminSubmissionId: Ref.LedgerString.type = Ref.LedgerString
-  type AdminSubmissionId = Ref.LedgerString
-
-  /** Identifier for command submissions. */
   val SubmissionId: Ref.LedgerString.type = Ref.LedgerString
   type SubmissionId = Ref.LedgerString
 

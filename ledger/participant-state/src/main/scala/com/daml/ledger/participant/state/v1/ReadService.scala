@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.v1
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.ReportsHealth
-import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset}
 
 /** An interface for reading the state of a ledger participant.
   *
@@ -23,7 +22,7 @@ import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset}
 trait ReadService extends ReportsHealth {
 
   /** Retrieve the static initial conditions of the ledger, containing
-    * the ledger identifier and the initial ledger record time.
+    * the ledger identifier and the initial the ledger record time.
     *
     * Returns a single element Source since the implementation may need to
     * first establish connectivity to the underlying ledger. The implementer
@@ -42,7 +41,7 @@ trait ReadService extends ReportsHealth {
     *
     * 1. properties about the sequence of [[(Offset, Update)]] tuples
     *    in a stream read from the beginning, and
-    * 2. properties relating the streams obtained from separate calls
+    * 2. properties relating the streams obtained from two separate calls
     *   to [[ReadService.stateUpdates]].
     *
     * The first class of properties are invariants of a single stream:
@@ -64,66 +63,75 @@ trait ReadService extends ReportsHealth {
     *   meta-data.
     *   Note that the ledger time of unrelated updates is not necessarily monotonically
     *   increasing.
-    *   The creating transaction need not have a [[Update.TransactionAccepted]] even on this participant
-    *   if the participant does not host a stakeholder of the contract, e.g., in the case of divulgence.
     *
     * - *time skew*: given a [[Update.TransactionAccepted]] with an associated
     *   ledger time `lt_tx` and a record time `rt_tx`, it holds that
     *   `rt_TX - minSkew <= lt_TX <= rt_TX + maxSkew`, where `minSkew` and `maxSkew`
-    *   are parameters specified in the ledger [[com.daml.ledger.participant.state.v1.TimeModel]]
-    *   of the last [[Update.ConfigurationChanged]] before the [[Update.TransactionAccepted]].
+    *   are parameters specified in the ledger [[TimeModel]].
     *
-    * - *command deduplication*: Let there be a [[Update.TransactionAccepted]] with [[CompletionInfo]]
-    *   or a [[Update.CommandRejected]] with [[CompletionInfo]] and [[Update.CommandRejected.definiteAnswer]] at offset `off2`
-    *   and let `off1` be the completion offset where the [[CompletionInfo.optDeduplicationPeriod]] starts.
-    *   Then there is no other [[Update.TransactionAccepted]] with [[CompletionInfo]] for the same [[CompletionInfo.changeId]]
-    *   between the offsets `off1` and `off2` inclusive.
+    * - *command deduplication*: if there is a [[Update.TransactionAccepted]] with
+    *   an associated [[SubmitterInfo]] `info1`, then for every later
+    *   transaction with [[SubmitterInfo]] `info2` that agrees with
+    *   `info1` on the `submitter` and `commandId` fields and
+    *   was submitted before `info1.deduplicateUntil`,
+    *   a transaction may be rejected without a corresponding update being issued.
+    *   I.e., transactions may be deduplicated on the `(submitter, commandId)` tuple,
+    *   but only until the time specified in [[SubmitterInfo.deduplicateUntil]].
     *
-    *   So if a command submission has resulted in a [[Update.TransactionAccepted]],
-    *   other command submissions with the same [[SubmitterInfo.changeId]] must be deduplicated
-    *   if the earlier's [[Update.TransactionAccepted]] falls within the latter's [[CompletionInfo.optDeduplicationPeriod]].
+    *   TODO (SM): we would like to weaken this requirement to allow multiple
+    *   [[Update.TransactionAccepted]] updates provided
+    *   the transactions are sub-transactions of each other. Thereby enabling
+    *   the after-the-fact communication of extra details about a transaction
+    *   in case a party is newly hosted at a participant.
+    *   See https://github.com/digital-asset/daml/issues/430
     *
-    *   Implementations MAY extend the deduplication period from [[SubmitterInfo]] arbitrarily
-    *   and reject a command submission as a duplicate even if its deduplication period does not include
-    *   the earlier's [[Update.TransactionAccepted]].
-    *   A [[Update.CommandRejected]] completion does not trigger deduplication and implementations SHOULD
-    *   process such resubmissions normally, subject to the submission rank guarantee listed below.
+    * - *rejection finality*: if there is a [[Update.CommandRejected]] update
+    *   with [[SubmitterInfo]] `info`, then there is no later
+    *   [[Update.TransactionAccepted]] with the same associated [[SubmitterInfo]]
+    *   `info`. Note that in contrast to *command deduplication*
+    *   this only holds wrt the full [[SubmitterInfo]], as a resubmission of a
+    *   transaction with a higher `deduplicateUntil` must be allowed.
     *
-    * - *submission rank*: Let there be a [[Update.TransactionAccepted]] with [[CompletionInfo]]
-    *   or a [[Update.CommandRejected]] with [[CompletionInfo]] and [[Update.CommandRejected.definiteAnswer]] at offset `off`.
-    *   Let `rank` be the [[CompletionInfo.submissionRank]] of the [[Update]].
-    *   Then there is no other [[Update.TransactionAccepted]] or [[Update.CommandRejected]] with [[CompletionInfo]]
-    *   for the same [[CompletionInfo.changeId]] with offset at least `off`
-    *   whose [[CompletionInfo.submissionRank]] is less or equal to `rank`.
+    * The second class of properties relates multiple calls to
+    * [[stateUpdates]]s, and thereby provides constraints on which [[Update]]s
+    * need to be persisted. Before explaining them in detail we provide
+    * intuition.
     *
-    *   If the [[WriteService]] detects that a command submission would violate the submission rank guarantee
-    *   if accepted or rejected, it either returns a [[SubmissionResult.SynchronousError]] error or
-    *   produces a [[Update.CommandRejected]] without [[Update.CommandRejected.definiteAnswer]].
+    * All [[Update]]s other than [[Update.CommandRejected]] must
+    * always be persisted by the backends implementing the [[ReadService]].
+    * For rejections, the situation is more nuanced, as we want to provide
+    * the backends with additional implementation leeway.
     *
-    * - *finality*: If the corresponding [[WriteService]] acknowledges a submitted transaction or rejection
-    *   with [[SubmissionResult.Acknowledged]], the [[ReadService]] SHOULD make sure that
-    *   it eventually produces a [[Update.TransactionAccepted]] or [[Update.CommandRejected]] with the corresponding [[CompletionInfo]],
-    *   even if there are crashes or lost network messages.
+    * [[Update.CommandRejected]] messages are advisory messages to submitters of
+    * transactions to inform them in a timely fashion that their transaction
+    * has been rejected.
     *
-    * The second class of properties relates multiple calls to [[ReadService.stateUpdates]] to each other.
-    * The class contains two properties:
-    * (1) a property that enables crash-fault tolerant Ledger API server implementations and
-    *  (2) a property that enables Ledger API server implementations that are synchronized by a backing ledger.
+    * Given this intuition for the desired mechanism, we advise participant
+    * state implementations to aim to always provide timely
+    * [[Update.CommandRejected]] messages.
     *
-    * For crash-fault-tolerance, we require an implementation of [[ReadService.stateUpdates]] to support its consumer to
-    * resume consumption starting after the last offset up to which the consumer completed processing.
-    * Note that this offset can be before the offset of several of the latest delivered [[Update]]s in case the consumer
-    * did not complete their processing before crashing.
+    * Implementations are free to not persist [[Update.CommandRejected]] updates
+    * provided their [[Offset]]s are not reused. This is relevant for the case
+    * where a consumer rebuilds his view of the state by starting from a fresh
+    * call to [[ReadService.stateUpdates]]; e.g., because it or the
+    * stream provider crashed.
     *
-    * Formally, we require that the above invariants also hold for any sequence of offset-and-update pairs
+    * Formally, we capture the expected relation between two calls
+    * `s1 = stateUpdates(o1)` and `s2 = stateUpdates(o2)` for `o1 <= o2` as
+    * follows.
     *
-    *   `us = takeUntilOffset(us_1, o_2) + takeUntilOffset(us_2, o_3) + ... + takeUntilOffset(us_N-1, o_N) + us_N`
+    * - *unique offsets*: for any update `u1` with offset `uo` in `s1` and any
+    *   update `u2` with the same offset `uo` in `se2` it holds that `u1 == u2`.
+    *   This means that offsets can never be reused. Together with
+    *   *strictly increasing [[Offset]]* this also implies that the order of
+    *   elements present in both `s1` and `s2` cannot change.
     *
-    * where `us_i =` [[ReadService.stateUpdates(o_i)]] and `lastOffsetOf(us_i) >= o_i+1`. Here, `us_i` is the sequence
-    * of offset-and-update pairs sourced from a call to [[ReadService.stateUpdates]] and the side-condition formalizes
-    * that later calls must start from an offset before or equal to the last offset delivered in the previous call.
+    * - *persistent updates*: any update other than
+    *   [[Update.CommandRejected]] in `s2` must also be present in `s1`.
     *
-    * For synchronization, we require that two parties hosted on separate participant nodes are in sync
+    * Last but not least, there is an expectation about the relation between streams visible
+    * on *separate* participant state implementations connected to the same ledger.
+    * The expectation is that two parties hosted on separate participant nodes are in sync
     * on transaction nodes and contracts that they can both see. The more formal definition
     * is based on the notion of projections of transactions
     * (see https://docs.daml.com/concepts/ledger-model/ledger-privacy.html), as follows.
@@ -141,8 +149,6 @@ trait ReadService extends ReportsHealth {
     * host the same parties; and some implementations ensure data segregation on the ledger. Requiring
     * only the projections to sets of parties to be equal leaves just enough leeway for this
     * data segregation.
-    *
-    * Note further that the offsets of the transactions might not agree, as these offsets are participant-local.
     */
   def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed]
 }

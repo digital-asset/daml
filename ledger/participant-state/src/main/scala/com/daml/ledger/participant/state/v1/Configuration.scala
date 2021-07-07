@@ -11,18 +11,14 @@ import scala.util.Try
   * Emitted in [[com.daml.ledger.participant.state.v1.Update.ConfigurationChanged]].
   *
   * @param generation The configuration generation. Monotonically increasing.
-  * @param timeModel The time model of the ledger.
-  * @param maxDeduplicationTime The WriteService promises to not reject submissions whose deduplication period
-  *                             extends for less than or equal to `maxDeduplicationTime` with the reason that
-  *                             the deduplication period is too long.
+  * @param timeModel The time model of the ledger. Specifying the time-to-live bounds for Ledger API commands.
+  * @param maxDeduplicationTime The maximum time window during which commands can be deduplicated.
   */
 final case class Configuration(
     generation: Long,
     timeModel: TimeModel,
     maxDeduplicationTime: Duration,
 )
-
-// TODO(v2) Serialization and deserialization hasn't been adapted yet
 
 object Configuration {
   import com.daml.ledger.participant.state.protobuf
