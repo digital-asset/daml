@@ -20,7 +20,7 @@ sealed class Decode(onlySerializableDataDefs: Boolean) {
   }
 
   def decode(archive: DamlLf.Archive): (PackageId, Package) =
-    decode(Reader().readArchive(archive))
+    decode(Reader.readArchive(archive))
 
   def decode(payload: ArchivePayload): (PackageId, Package) = {
     val decoder =

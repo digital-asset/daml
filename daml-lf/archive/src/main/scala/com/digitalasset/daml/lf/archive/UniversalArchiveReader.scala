@@ -55,7 +55,7 @@ object UniversalArchiveReader {
   def apply(parseDalf: InputStream => Try[ArchivePayload]): UniversalArchiveReader =
     new UniversalArchiveReader(parseDar(DarReader.EntrySizeThreshold, parseDalf), parseDalf)
 
-  private def parseDalf(is: InputStream) = Try(Reader().readArchive(is))
+  private def parseDalf(is: InputStream) = Try(Reader.readArchive(is))
 
   private def parseDar[A](
       entrySizeThreshold: Int,

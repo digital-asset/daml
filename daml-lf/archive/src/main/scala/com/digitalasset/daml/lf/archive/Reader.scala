@@ -12,12 +12,11 @@ import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.daml_lf_dev.DamlLf
 import com.google.protobuf.CodedInputStream
 
-final class Reader(recursionLimit: Int) {
-  import Reader._
+object Reader {
 
   @throws[ParseError]
   def readArchive(is: InputStream): ArchivePayload = {
-    val cos = damlLfCodedInputStream(is, recursionLimit)
+    val cos = damlLfCodedInputStream(is, PROTOBUF_RECURSION_LIMIT)
     readArchive(DamlLf.Archive.parser().parseFrom(cos))
   }
 
@@ -48,7 +47,7 @@ final class Reader(recursionLimit: Int) {
   }
 
   def readArchivePayload(hash: PackageId, is: InputStream): ArchivePayload = {
-    val cos = damlLfCodedInputStream(is, recursionLimit)
+    val cos = damlLfCodedInputStream(is, PROTOBUF_RECURSION_LIMIT)
     readArchivePayload(hash, DamlLf.ArchivePayload.parser().parseFrom(cos))
   }
 
@@ -68,10 +67,6 @@ final class Reader(recursionLimit: Int) {
     }
     ArchivePayload(hash, lf, version)
   }
-
-}
-
-object Reader {
 
   // This constant is introduced and used
   // to make serialization of nested data
@@ -105,8 +100,6 @@ object Reader {
       case SC.SUM_NOT_SET => throw ParseError("Unrecognized LF version")
     }
   }
-
-  def apply(recursionLimit: Int = PROTOBUF_RECURSION_LIMIT): Reader = new Reader(recursionLimit)
 }
 
 case class ArchivePayload(

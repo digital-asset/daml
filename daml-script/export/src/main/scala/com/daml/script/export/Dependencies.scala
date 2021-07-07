@@ -33,7 +33,7 @@ object Dependencies {
           client.packageClient.getPackage(p).flatMap { pkgResp =>
             val pkgId = PackageId.assertFromString(pkgResp.hash)
             val pkg = Decode
-              .decode(Reader().readArchivePayload(pkgId, pkgResp.archivePayload.newInput()))
+              .decode(Reader.readArchivePayload(pkgId, pkgResp.archivePayload.newInput()))
               ._2
             go(todo ++ pkg.directDeps, acc + (pkgId -> ((pkgResp.archivePayload, pkg))))
           }

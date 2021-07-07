@@ -18,7 +18,7 @@ object DamlLfArchiveReader {
     readPayload(lf) flatMap readPackage
 
   private[this] def readPayload(lf: DamlLf.Archive): String \/ ArchivePayload =
-    \/.attempt(Reader().readArchive(lf))(errorMessage)
+    \/.attempt(Reader.readArchive(lf))(errorMessage)
 
   private[iface] def readPackage(
       payLoad: ArchivePayload

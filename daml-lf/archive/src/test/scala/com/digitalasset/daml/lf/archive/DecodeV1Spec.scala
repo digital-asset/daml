@@ -920,7 +920,7 @@ class DecodeV1Spec
     lazy val ArchivePayload(pkgId, dalfProto, version) = {
       val dalfFile =
         Files.newInputStream(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
-      try Reader().readArchive(dalfFile)
+      try Reader.readArchive(dalfFile)
       finally dalfFile.close()
     }
 

@@ -104,7 +104,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
 
     val newPackages =
       loadPackages.map { archive =>
-        Decode.decode(Reader().readArchive(archive.newInput))
+        Decode.decode(Reader.readArchive(archive.newInput))
       }.toMap
 
     val modulesToCompile =

@@ -71,8 +71,8 @@ object PlaySpeedy {
     val darFile = new File(rlocation(dar))
 
     println("Loading dar...")
-    val payload = UniversalArchiveReader().readFile(darFile).get
-    val packages = payload.all.map(Decode.decode).toMap
+    val payloads = UniversalArchiveReader().readFile(darFile).get
+    val packages = payloads.all.map(Decode.decode).toMap
 
     println(s"Compiling packages... ${config.stacktracing}")
     val compilerConfig = Compiler.Config.Default.copy(stacktracing = config.stacktracing)
@@ -88,7 +88,7 @@ object PlaySpeedy {
       val expr = {
         val ref: DefinitionRef =
           Identifier(
-            payload.main.pkgId,
+            payloads.main.pkgId,
             QualifiedName.assertFromString(s"${base}:${config.funcName}"),
           )
         val func = SEVal(LfDefRef(ref))

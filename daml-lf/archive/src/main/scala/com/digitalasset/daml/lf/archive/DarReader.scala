@@ -171,7 +171,7 @@ object DarReader {
   def apply(): DarReader[ArchivePayload] =
     new DarReader(
       DarManifestReader.dalfNames,
-      { case (_, is) => Try(Reader().readArchive(is)) },
+      { case (_, is) => Try(Reader.readArchive(is)) },
     )
 
   def apply[A](parseDalf: (Long, InputStream) => Try[A]): DarReader[A] =

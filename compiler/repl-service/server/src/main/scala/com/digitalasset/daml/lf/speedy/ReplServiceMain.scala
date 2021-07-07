@@ -225,7 +225,7 @@ class ReplService(
       req: LoadPackageRequest,
       respObs: StreamObserver[LoadPackageResponse],
   ): Unit = {
-    val (pkgId, pkg) = Decode.decode(Reader().readArchive(req.getPackage.newInput))
+    val (pkgId, pkg) = Decode.decode(Reader.readArchive(req.getPackage.newInput))
     val newSignatures = signatures.updated(pkgId, AstUtil.toSignature(pkg))
     val newCompiledDefinitions = compiledDefinitions ++
       new Compiler(new language.Interface(newSignatures), compilerConfig)

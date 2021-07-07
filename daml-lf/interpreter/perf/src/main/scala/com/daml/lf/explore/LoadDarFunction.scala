@@ -18,8 +18,8 @@ object LoadDarFunction extends App {
 
   def load(darFile: File, base: String, funcName: String): (Long => Long) = {
 
-    val paylaod = UniversalArchiveReader().readFile(darFile).get
-    val packages = paylaod.all.map(Decode.decode).toMap
+    val payloads = UniversalArchiveReader().readFile(darFile).get
+    val packages = payloads.all.map(Decode.decode).toMap
 
     val compilerConfig =
       Compiler.Config.Default.copy(
@@ -32,7 +32,7 @@ object LoadDarFunction extends App {
     def function(argValue: Long): Long = {
       val expr: SExpr = {
         val ref: DefinitionRef =
-          Identifier(paylaod.main.pkgId, QualifiedName.assertFromString(s"${base}:${funcName}"))
+          Identifier(payloads.main.pkgId, QualifiedName.assertFromString(s"${base}:${funcName}"))
         val func = SEVal(LfDefRef(ref))
         val arg = SEValue(SInt64(argValue))
         SEApp(func, Array(arg))

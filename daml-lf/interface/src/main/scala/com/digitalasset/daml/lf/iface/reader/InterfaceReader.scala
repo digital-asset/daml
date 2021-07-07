@@ -84,7 +84,7 @@ object InterfaceReader {
       packageId: Ref.PackageId,
       damlLf: DamlLf.ArchivePayload,
   ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
-    readInterface(Reader().readArchivePayload(packageId, damlLf))
+    readInterface(Reader.readArchivePayload(packageId, damlLf))
 
   def readInterface(
       payload: ArchivePayload
