@@ -40,12 +40,13 @@ private[inner] object FromValueGenerator extends StrictLogging {
       .addCode(recordValueExtractor("value$", "recordValue$"))
       .addStatement(
         "$T record$$ = recordValue$$.asRecord().orElseThrow(() -> new IllegalArgumentException($S))",
-        classOf[javaapi.data.Record],
+        classOf[javaapi.data.DamlRecord],
         "Contracts must be constructed from Records",
       )
       .addStatement(
         "$T fields$$ = record$$.getFields()",
-        ParameterizedTypeName.get(classOf[java.util.List[_]], classOf[javaapi.data.Record.Field]),
+        ParameterizedTypeName
+          .get(classOf[java.util.List[_]], classOf[javaapi.data.DamlRecord.Field]),
       )
       .addStatement("int numberOfFields = fields$$.size()")
       .beginControlFlow(s"if (numberOfFields != ${fields.size})")

@@ -71,6 +71,7 @@ object CommandRetryFlow {
               case Ctx(
                     RetryInfo(request, nrOfRetries, firstSubmissionTime, _),
                     Completion(_, Some(status: Status), _, _),
+                    _,
                   ) =>
                 if (status.code == Code.OK_VALUE) {
                   PROPAGATE_PORT
@@ -86,15 +87,15 @@ object CommandRetryFlow {
                   RetryLogger.logFatal(request, status, nrOfRetries)
                   PROPAGATE_PORT
                 }
-              case Ctx(_, Completion(commandId, _, _, _)) =>
+              case Ctx(_, Completion(commandId, _, _, _), _) =>
                 statusNotFoundError(commandId)
             },
           )
         )
 
         val convertToRetry = b.add(Flow[Out[RetryInfo[C]]].map {
-          case Ctx(retryInfo, failedCompletion) =>
-            Ctx(retryInfo.newRetry, createRetry(retryInfo, failedCompletion))
+          case Ctx(retryInfo, failedCompletion, telemetryContext) =>
+            Ctx(retryInfo.newRetry, createRetry(retryInfo, failedCompletion), telemetryContext)
         })
 
         // format: off

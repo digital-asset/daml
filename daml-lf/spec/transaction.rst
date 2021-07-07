@@ -5,7 +5,7 @@
 Daml-LF Transaction Specification
 =================================
 
-**version 13, 06 April 2021**
+**version 14, 22 June 2021**
 
 This specification, in concert with the ``transaction.proto``
 machine-readable definition, defines a format for *Daml-LF
@@ -183,7 +183,9 @@ later.
 +--------------------+-----------------+
 |                 13 |      2021-04-06 |
 +--------------------+-----------------+
-|                dev |      2020-12-14 |
+|                 14 |      2021-06-03 |
++--------------------+-----------------+
+|                dev |                 |
 +--------------------+-----------------+
 
 message Transaction
@@ -419,8 +421,9 @@ party identifier.
 
 ``key_with_maintainers`` is optional.
 
-(*since version 1.dev*)
-As of version 1.dev, this field is required:
+(*since version 1.14*)
+
+As of version 1.14, this field is required:
 
 ``bool`` byKey
 
@@ -488,7 +491,7 @@ As version 11, this field is included:
 
 Every element of ``observers`` is a party identifier.
 
-(* since version 12*)
+(*since version 12*)
 
 As version 12, these field are included:
  
@@ -498,8 +501,8 @@ As version 12, these field are included:
 ``arg_unversioned`` and ``result_unversioned`` are required, while
 ``arg_versioned`` and ``result_versioned`` are not used anymore.
 
+(*since version 1.14*)
 
-(*since version 1.dev*)
 As of version 1.dev, this field is required:
 
 ``bool`` byKey
@@ -529,3 +532,15 @@ required. ``contract_id_struct`` is optional:
 ``template_id``'s structure is defined by `the value specification`_
 
 .. _`the value specification`: value.rst
+
+
+message NodeRollBack
+^^^^^^^^^^^^^^^^^^^^
+
+The rollback of a sub-transaction.
+
+(*since version 14*)
+
+As of version 14, these fields are included:
+
+* repeated ``string`` children

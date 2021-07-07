@@ -80,27 +80,40 @@ private[platform] class FlywayMigrations(jdbcUrl: String)(implicit loggingContex
     )
 }
 
+// TODO append-only: move all migrations from the '-appendonly' folder to the main folder, and remove the enableAppendOnlySchema parameter here
 private[platform] object FlywayMigrations {
+  private val appendOnlyFromScratch = Map(
+    DbType.Postgres -> false,
+    DbType.H2Database -> true,
+    DbType.Oracle -> true,
+  )
+
+  private val sqlMigrationClasspathBase = "classpath:db/migration/"
+  private val javaMigrationClasspathBase = "classpath:com/daml/platform/db/migration/"
+
+  private def locations(enableAppendOnlySchema: Boolean, dbType: DbType) = {
+    def mutableClassPath =
+      List(
+        sqlMigrationClasspathBase,
+        javaMigrationClasspathBase,
+      ).map(_ + dbType.name)
+
+    def appendOnlyClassPath =
+      List(sqlMigrationClasspathBase)
+        .map(_ + dbType.name + "-appendonly")
+
+    (enableAppendOnlySchema, appendOnlyFromScratch(dbType)) match {
+      case (true, true) => appendOnlyClassPath
+      case (true, false) => mutableClassPath ++ appendOnlyClassPath
+      case (false, _) => mutableClassPath
+    }
+  }
+
   def configurationBase(
       dbType: DbType,
       enableAppendOnlySchema: Boolean = false,
   ): FluentConfiguration =
-    // TODO append-only: move all migrations from the '-appendonly' folder to the main folder, and remove the enableAppendOnlySchema parameter here
-    if (enableAppendOnlySchema) {
-      Flyway
-        .configure()
-        .locations(
-          "classpath:com/daml/platform/db/migration/" + dbType.name,
-          "classpath:com/daml/platform/db/migration/" + dbType.name + "-appendonly",
-          "classpath:db/migration/" + dbType.name,
-          "classpath:db/migration/" + dbType.name + "-appendonly",
-        )
-    } else {
-      Flyway
-        .configure()
-        .locations(
-          "classpath:com/daml/platform/db/migration/" + dbType.name,
-          "classpath:db/migration/" + dbType.name,
-        )
-    }
+    Flyway
+      .configure()
+      .locations(locations(enableAppendOnlySchema, dbType): _*)
 }

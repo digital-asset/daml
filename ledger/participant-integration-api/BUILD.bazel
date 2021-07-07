@@ -42,6 +42,7 @@ compile_deps = [
     "//libs-scala/build-info",
     "//libs-scala/contextualized-logging",
     "//libs-scala/concurrent",
+    "//libs-scala/logging-entries",
     "//libs-scala/ports",
     "//libs-scala/resources",
     "//libs-scala/resources-akka",
@@ -52,20 +53,14 @@ compile_deps = [
     "@maven//:com_google_guava_guava",
     "@maven//:com_zaxxer_HikariCP",
     "@maven//:io_dropwizard_metrics_metrics_core",
-    "@maven//:io_dropwizard_metrics_metrics_graphite",
     "@maven//:io_grpc_grpc_netty",
     "@maven//:io_grpc_grpc_services",
     "@maven//:io_netty_netty_handler",
-    "@maven//:net_logstash_logback_logstash_logback_encoder",
     "@maven//:org_flywaydb_flyway_core",
     "@maven//:io_opentelemetry_opentelemetry_api",
     "@maven//:io_opentelemetry_opentelemetry_context",
     "@maven//:org_slf4j_slf4j_api",
-    "@maven//:io_prometheus_simpleclient",
-    "@maven//:io_prometheus_simpleclient_dropwizard",
-    "@maven//:io_prometheus_simpleclient_httpserver",
     # this oracle import is problematic for daml assistant build
-    "@maven//:com_oracle_database_jdbc_ojdbc8",
 ]
 
 scala_compile_deps = [
@@ -77,6 +72,7 @@ scala_compile_deps = [
     "@maven//:org_scala_lang_modules_scala_collection_compat",
     "@maven//:org_scala_lang_modules_scala_java8_compat",
     "@maven//:org_scalaz_scalaz_core",
+    "@maven//:io_spray_spray_json",
 ]
 
 runtime_deps = [
@@ -152,7 +148,6 @@ da_scala_library(
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:com_h2database_h2",
-        "@maven//:com_oracle_database_jdbc_ojdbc8",
         "@maven//:org_postgresql_postgresql",
     ],
     deps = [
@@ -179,6 +174,7 @@ da_scala_library(
         "//ledger/participant-state-index",
         "//ledger/test-common:dar-files-stable-lib",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/logging-entries",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
@@ -265,6 +261,7 @@ da_scala_test_suite(
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
+        "//libs-scala/logging-entries",
         "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
@@ -311,7 +308,6 @@ da_scala_test_suite(
     ],
     tags = [] if oracle_testing else ["manual"],
     runtime_deps = [
-        "@maven//:com_oracle_database_jdbc_ojdbc8",
     ],
     deps = [
         ":participant-integration-api",
@@ -331,6 +327,7 @@ da_scala_test_suite(
         "//ledger/participant-state",
         "//ledger/participant-state-index",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/logging-entries",
         "//libs-scala/oracle-testing",
         "//libs-scala/ports",
         "//libs-scala/resources",

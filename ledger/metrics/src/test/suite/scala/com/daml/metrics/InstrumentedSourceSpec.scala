@@ -171,8 +171,8 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
       producerMaxSpeed = 10,
       consumerMaxSpeed = 5,
     ) map { samples =>
-      sampleAverage(samples) should be > 80.0
-      samplePercentage(samples)(_ == 100) should be > 80.0
+      sampleAverage(samples) should be > 75.0
+      samplePercentage(samples)(_ == 100) should be > 75.0
     }
   }
 
@@ -212,7 +212,7 @@ final class InstrumentedSourceSpec extends AsyncFlatSpec with Matchers with Akka
       consumerMaxSpeed = 8,
     ) map { samples =>
       sampleAverage(samples) should be > 50.0
-      samplePercentage(samples)(_ == 100) should be > 50.0
+      samplePercentage(samples)(_ == 100) should be > 40.0
     }
   }
 }

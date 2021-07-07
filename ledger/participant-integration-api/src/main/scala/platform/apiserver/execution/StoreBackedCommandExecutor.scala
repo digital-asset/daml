@@ -18,10 +18,8 @@ import com.daml.lf.engine.{
   ResultError,
   ResultNeedContract,
   ResultNeedKey,
-  ResultNeedLocalKeyVisible,
   ResultNeedPackage,
   Error => DamlLfError,
-  VisibleByKey,
 }
 import com.daml.lf.transaction.Node
 import com.daml.logging.LoggingContext
@@ -59,7 +57,13 @@ private[apiserver] final class StoreBackedCommandExecutor(
     val commitAuthorizers = commands.actAs
     val submissionResult = Timed.trackedValue(
       metrics.daml.execution.engineRunning,
-      engine.submit(commitAuthorizers, commands.commands, participant, submissionSeed),
+      engine.submit(
+        commitAuthorizers,
+        commands.readAs,
+        commands.commands,
+        participant,
+        submissionSeed,
+      ),
     )
     consume(commands.actAs, commands.readAs, submissionResult)
       .map { submission =>
@@ -101,7 +105,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
       loggingContext: LoggingContext,
   ): Future[Either[DamlLfError, A]] = {
     val readers = actAs ++ readAs
-    val isVisible = VisibleByKey.fromSubmitters(actAs, readAs)
 
     val lookupActiveContractTime = new AtomicLong(0L)
     val lookupActiveContractCount = new AtomicLong(0L)
@@ -144,10 +147,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 Timed.trackedValue(metrics.daml.execution.engineRunning, resume(contractId))
               )
             }
-
-        case ResultNeedLocalKeyVisible(stakeholders, resume) =>
-          val visible = isVisible(stakeholders)
-          resolveStep(Timed.trackedValue(metrics.daml.execution.engineRunning, resume(visible)))
 
         case ResultNeedPackage(packageId, resume) =>
           packageLoader

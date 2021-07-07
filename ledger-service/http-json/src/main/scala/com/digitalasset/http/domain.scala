@@ -53,15 +53,27 @@ object domain {
   private def oneAndSet[A](p: A, sp: Set[A]) =
     OneAnd(p, sp - p)
 
+  trait JwtPayloadTag
+
+  trait JwtPayloadG {
+    val ledgerId: LedgerId
+    val applicationId: ApplicationId
+    val readAs: List[Party]
+    val actAs: List[Party]
+    val parties: OneAnd[Set, Party]
+  }
+
   // Until we get multi-party submissions, write endpoints require a single party in actAs but we
   // can have multiple parties in readAs.
-  case class JwtWritePayload(
+  final case class JwtWritePayload(
       ledgerId: LedgerId,
       applicationId: ApplicationId,
-      actAs: NonEmptyList[Party],
+      submitter: NonEmptyList[Party],
       readAs: List[Party],
-  ) {
-    val parties: OneAnd[Set, Party] = oneAndSet(actAs.head, actAs.tail.toSet union readAs.toSet)
+  ) extends JwtPayloadG {
+    override val actAs: List[Party] = submitter.toList
+    override val parties: OneAnd[Set, Party] =
+      oneAndSet(actAs.head, actAs.tail.toSet union readAs.toSet)
   }
 
   // JWT payload that preserves readAs and actAs and supports multiple parties. This is currently only used for
@@ -72,7 +84,7 @@ object domain {
       readAs: List[Party],
       actAs: List[Party],
       parties: OneAnd[Set, Party],
-  ) {}
+  ) extends JwtPayloadG {}
 
   object JwtPayload {
     def apply(
@@ -91,12 +103,12 @@ object domain {
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
-  case class Contract[+LfV](value: ArchivedContract \/ ActiveContract[LfV])
+  case class Contract[LfV](value: ArchivedContract \/ ActiveContract[LfV])
 
-  type InputContractRef[+LfV] =
+  type InputContractRef[LfV] =
     (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId)
 
-  type ResolvedContractRef[+LfV] =
+  type ResolvedContractRef[LfV] =
     (TemplateId.RequiredPkg, LfV) \/ (TemplateId.RequiredPkg, ContractId)
 
   case class ActiveContract[+LfV](
@@ -128,13 +140,19 @@ object domain {
       ekey: EnrichedContractKey[LfV],
   )
 
-  case class GetActiveContractsRequest(
+  final case class GetActiveContractsRequest(
       templateIds: OneAnd[Set, TemplateId.OptionalPkg],
       query: Map[String, JsValue],
   )
 
+  final case class SearchForeverQuery(
+      templateIds: OneAnd[Set, TemplateId.OptionalPkg],
+      query: Map[String, JsValue],
+      offset: Option[domain.Offset],
+  )
+
   final case class SearchForeverRequest(
-      queries: NonEmptyList[GetActiveContractsRequest]
+      queries: NonEmptyList[SearchForeverQuery]
   )
 
   final case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
@@ -143,14 +161,18 @@ object domain {
 
   final case class CommandMeta(
       commandId: Option[CommandId]
-      // TODO(Leo): add Option[WorkflowId] back
   )
 
-  final case class CreateCommand[+LfV](
-      templateId: TemplateId.OptionalPkg,
+  final case class CreateCommand[+LfV, TmplId](
+      templateId: TmplId,
       payload: LfV,
       meta: Option[CommandMeta],
-  )
+  ) {
+    def traversePayload[G[_]: Applicative, LfVB](
+        f: LfV => G[LfVB]
+    ): G[CreateCommand[LfVB, TmplId]] =
+      Bitraverse[CreateCommand].leftTraverse.traverse(this)(f)
+  }
 
   final case class ExerciseCommand[+LfV, +Ref](
       reference: Ref,
@@ -159,15 +181,15 @@ object domain {
       meta: Option[CommandMeta],
   )
 
-  final case class CreateAndExerciseCommand[+Payload, +Arg](
-      templateId: TemplateId.OptionalPkg,
+  final case class CreateAndExerciseCommand[+Payload, +Arg, +TmplId](
+      templateId: TmplId,
       payload: Payload,
       choice: domain.Choice,
       argument: Arg,
       meta: Option[CommandMeta],
   )
 
-  final case class ExerciseResponse[+LfV](
+  final case class ExerciseResponse[LfV](
       exerciseResult: LfV,
       events: List[Contract[LfV]],
   )
@@ -205,6 +227,7 @@ object domain {
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
     implicit val ordering: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))
+
   }
 
   final case class StartingOffset(offset: Offset)
@@ -267,9 +290,9 @@ object domain {
     def fromEvent(event: lav1.event.Event): Error \/ Contract[lav1.value.Value] =
       event.event match {
         case lav1.event.Event.Event.Created(created) =>
-          ActiveContract.fromLedgerApi(created).map(a => Contract(\/-(a)))
+          ActiveContract.fromLedgerApi(created).map(a => Contract[lav1.value.Value](\/-(a)))
         case lav1.event.Event.Event.Archived(archived) =>
-          ArchivedContract.fromLedgerApi(archived).map(a => Contract(-\/(a)))
+          ArchivedContract.fromLedgerApi(archived).map(a => Contract[lav1.value.Value](-\/(a)))
         case lav1.event.Event.Event.Empty =>
           val errorMsg = s"Expected either Created or Archived event, got: Empty"
           -\/(Error(Symbol("Contract_fromLedgerApi"), errorMsg))
@@ -288,11 +311,14 @@ object domain {
         case head +: tail =>
           eventsById(head).kind match {
             case lav1.transaction.TreeEvent.Kind.Created(created) =>
-              val a = ActiveContract.fromLedgerApi(created).map(a => Contract(\/-(a)))
+              val a =
+                ActiveContract.fromLedgerApi(created).map(a => Contract[lav1.value.Value](\/-(a)))
               val newAcc = ^(acc, a)(_ :+ _)
               loop(tail, newAcc)
             case lav1.transaction.TreeEvent.Kind.Exercised(exercised) =>
-              val a = ArchivedContract.fromLedgerApi(exercised).map(_.map(a => Contract(-\/(a))))
+              val a = ArchivedContract
+                .fromLedgerApi(exercised)
+                .map(_.map(a => Contract[lav1.value.Value](-\/(a))))
               val newAcc = ^(acc, a)(_ ++ _.toVector)
               loop(exercised.childEventIds.toVector ++ tail, newAcc)
             case lav1.transaction.TreeEvent.Kind.Empty =>
@@ -518,11 +544,13 @@ object domain {
   }
 
   object CreateCommand {
-    implicit val traverseInstance: Traverse[CreateCommand] = new Traverse[CreateCommand] {
-      override def traverseImpl[G[_]: Applicative, A, B](
-          fa: CreateCommand[A]
-      )(f: A => G[B]): G[CreateCommand[B]] =
-        f(fa.payload).map(a => fa.copy(payload = a))
+    implicit val bitraverseInstance: Bitraverse[CreateCommand] = new Bitraverse[CreateCommand] {
+      override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+          fab: CreateCommand[A, B]
+      )(f: A => G[C], g: B => G[D]): G[CreateCommand[C, D]] = {
+        import scalaz.syntax.applicative._
+        ^(f(fab.payload), g(fab.templateId))((c, d) => fab.copy(payload = c, templateId = d))
+      }
     }
   }
 
@@ -564,18 +592,6 @@ object domain {
         ): Error \/ LfType =
           g(templateId, fa.choice)
             .leftMap(e => Error(Symbol("ExerciseCommand_hasTemplateId_lfType"), e.shows))
-      }
-  }
-
-  object CreateAndExerciseCommand {
-    implicit val bitraverseInstance: Bitraverse[CreateAndExerciseCommand] =
-      new Bitraverse[CreateAndExerciseCommand] {
-        override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
-            fab: CreateAndExerciseCommand[A, B]
-        )(f: A => G[C], g: B => G[D]): G[CreateAndExerciseCommand[C, D]] = {
-          import scalaz.syntax.applicative._
-          ^(f(fab.payload), g(fab.argument))((p, a) => fab.copy(payload = p, argument = a))
-        }
       }
   }
 

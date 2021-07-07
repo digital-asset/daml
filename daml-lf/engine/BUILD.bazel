@@ -28,6 +28,7 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/validation",
+        "//libs-scala/nameof",
     ],
 )
 
@@ -47,6 +48,7 @@ da_scala_test_suite(
         "//daml-lf/tests:Exceptions.dar",
         "//daml-lf/tests:MultiKeys.dar",
         "//daml-lf/tests:Optional.dar",
+        "//daml-lf/tests:ReinterpretTests.dar",
     ],
     scala_deps = [
         "@maven//:com_storm_enroute_scalameter_core",
@@ -65,6 +67,7 @@ da_scala_test_suite(
         "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
+        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

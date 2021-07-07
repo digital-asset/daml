@@ -2,17 +2,18 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.SessionTelemetry
-    ( withSessionPings
+    ( withPlugin
     ) where
 
 import Control.Concurrent.Async
 import Control.Concurrent.Extra
 import Control.Monad
+import Control.Monad.IO.Class
 import qualified Data.HashMap.Strict as HM
 import Data.Int
 import qualified Data.Text as T
-import Development.IDE.LSP.Server
-import qualified Language.Haskell.LSP.Core as LSP
+import Development.IDE.Plugin
+import Language.LSP.Types
 import System.Clock
 import System.Time.Extra
 
@@ -30,20 +31,22 @@ initSessionState gcpLogger = do
     lastActive <- newVar =<< getTime Monotonic
     pure SessionState{..}
 
-setSessionHandlers :: SessionState -> PartialHandlers a
-setSessionHandlers SessionState{..} = PartialHandlers  $ \WithMessage{..} handlers -> pure handlers
-    { LSP.didOpenTextDocumentNotificationHandler = withNotification (LSP.didOpenTextDocumentNotificationHandler handlers) $
-        \_ _ _ -> touch
-    , LSP.didCloseTextDocumentNotificationHandler = withNotification (LSP.didCloseTextDocumentNotificationHandler handlers) $
-        \_ _ _ -> touch
-    , LSP.didChangeTextDocumentNotificationHandler = withNotification (LSP.didChangeTextDocumentNotificationHandler handlers) $
-        \_ _ _ -> touch
+setSessionHandlers :: SessionState -> Plugin c
+setSessionHandlers SessionState{..} = Plugin
+    { pluginCommands = mempty
+    , pluginHandlers = mempty
+    , pluginRules = mempty
+    , pluginNotificationHandlers = mconcat
+        [ pluginNotificationHandler STextDocumentDidOpen $ \_ _ -> liftIO touch
+        , pluginNotificationHandler STextDocumentDidClose $ \_ _ -> liftIO touch
+        , pluginNotificationHandler STextDocumentDidChange $ \_ _ -> liftIO touch
+        ]
     }
     where
         touch = writeVar lastActive =<< getTime Monotonic
 
-withSessionPings :: Lgr.Handle IO -> (PartialHandlers b -> IO a) -> IO a
-withSessionPings lgr f = do
+withPlugin :: Lgr.Handle IO -> (Plugin c -> IO a) -> IO a
+withPlugin lgr f = do
     sessionState <- initSessionState lgr
     withAsync (pingThread sessionState) $ const (f $ setSessionHandlers sessionState)
   where pingThread SessionState{..} = forever $ do

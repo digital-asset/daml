@@ -80,9 +80,9 @@ private[apiserver] final class ApiCommandService private (
   ): Future[Completion] =
     withEnrichedLoggingContext(
       logging.commandId(request.getCommands.commandId),
-      logging.party(request.getCommands.party),
-      logging.actAs(request.getCommands.actAs),
-      logging.readAs(request.getCommands.readAs),
+      logging.partyString(request.getCommands.party),
+      logging.actAsStrings(request.getCommands.actAs),
+      logging.readAsStrings(request.getCommands.readAs),
     ) { implicit loggingContext =>
       if (running) {
         ledgerConfigProvider.latestConfiguration.fold[Future[Completion]](
@@ -104,7 +104,8 @@ private[apiserver] final class ApiCommandService private (
     // is specified in the command completion request.
     val parties = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
     val submitter = TrackerMap.Key(application = appId, parties = parties)
-    val metricsPrefix = parties.toList.sorted.mkString("_")
+    // Use just name of first party for open-ended metrics to avoid unbounded metrics name for multiple parties
+    val metricsPrefixFirstParty = parties.toList.sorted.head
     submissionTracker.track(submitter, request) {
       for {
         ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
@@ -129,17 +130,17 @@ private[apiserver] final class ApiCommandService private (
           if (configuration.limitMaxCommandsInFlight)
             MaxInFlight(
               configuration.maxCommandsInFlight,
-              capacityCounter = metrics.daml.commands.maxInFlightCapacity(metricsPrefix),
-              lengthCounter = metrics.daml.commands.maxInFlightLength(metricsPrefix),
+              capacityCounter = metrics.daml.commands.maxInFlightCapacity(metricsPrefixFirstParty),
+              lengthCounter = metrics.daml.commands.maxInFlightLength(metricsPrefixFirstParty),
             ).joinMat(tracker)(Keep.right)
           else
             tracker
         TrackerImpl(
           trackingFlow,
           configuration.inputBufferSize,
-          capacityCounter = metrics.daml.commands.inputBufferCapacity(metricsPrefix),
-          lengthCounter = metrics.daml.commands.inputBufferLength(metricsPrefix),
-          delayTimer = metrics.daml.commands.inputBufferDelay(metricsPrefix),
+          capacityCounter = metrics.daml.commands.inputBufferCapacity(metricsPrefixFirstParty),
+          lengthCounter = metrics.daml.commands.inputBufferLength(metricsPrefixFirstParty),
+          delayTimer = metrics.daml.commands.inputBufferDelay(metricsPrefixFirstParty),
         )
       }
     }

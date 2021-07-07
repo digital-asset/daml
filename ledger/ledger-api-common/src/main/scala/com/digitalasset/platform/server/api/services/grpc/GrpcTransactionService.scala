@@ -9,13 +9,11 @@ import akka.stream.scaladsl.Source
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
-import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.{
-  TransactionService => ApiTransactionService
-}
 import com.daml.ledger.api.v1.transaction_service._
 import com.daml.ledger.api.validation.TransactionServiceRequestValidator.Result
 import com.daml.ledger.api.validation.{PartyNameChecker, TransactionServiceRequestValidator}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.services.domain.TransactionService
 import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.ServerServiceDefinition
@@ -36,7 +34,7 @@ final class GrpcTransactionService(
     with ErrorFactories
     with FieldValidations {
 
-  protected val logger: Logger = LoggerFactory.getLogger(ApiTransactionService.getClass)
+  protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
 
   private val validator =
     new TransactionServiceRequestValidator(ledgerId, partyNameChecker)
@@ -46,13 +44,10 @@ final class GrpcTransactionService(
   ): Source[GetTransactionsResponse, NotUsed] = {
     logger.debug("Received new transaction request {}", request)
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
-      val validation = validator.validate(request, ledgerEnd, service.offsetOrdering)
+      val validation = validator.validate(request, ledgerEnd)
 
       validation.fold(
-        { t =>
-          logger.debug("Request validation failed for {}. Message: {}", request: Any, t.getMessage)
-          Source.failed(t)
-        },
+        t => Source.failed(ValidationLogger.logFailure(request, t)),
         req =>
           if (req.filter.filtersByParty.isEmpty) Source.empty
           else service.getTransactions(req),
@@ -65,13 +60,10 @@ final class GrpcTransactionService(
   ): Source[GetTransactionTreesResponse, NotUsed] = {
     logger.debug("Received new transaction tree request {}", request)
     Source.future(service.getLedgerEnd(request.ledgerId)).flatMapConcat { ledgerEnd =>
-      val validation = validator.validateTree(request, ledgerEnd, service.offsetOrdering)
+      val validation = validator.validateTree(request, ledgerEnd)
 
       validation.fold(
-        { t =>
-          logger.debug("Request validation failed for {}. Message: {}", request: Any, t.getMessage)
-          Source.failed(t)
-        },
+        t => Source.failed(ValidationLogger.logFailure(request, t)),
         req => {
           if (req.parties.isEmpty) Source.empty
           else service.getTransactionTrees(req)
@@ -81,11 +73,11 @@ final class GrpcTransactionService(
   }
 
   private def getSingleTransaction[Request, DomainRequest, DomainTx, Response](
-      req: Request,
+      request: Request,
       validate: Request => Result[DomainRequest],
       fetch: DomainRequest => Future[Response],
   ): Future[Response] =
-    validate(req).fold(Future.failed, fetch(_))
+    validate(request).fold(t => Future.failed(ValidationLogger.logFailure(request, t)), fetch(_))
 
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest
@@ -131,7 +123,7 @@ final class GrpcTransactionService(
     val validation = validator.validateLedgerEnd(request)
 
     validation.fold(
-      Future.failed,
+      t => Future.failed(ValidationLogger.logFailure(request, t)),
       _ =>
         service
           .getLedgerEnd(request.ledgerId)

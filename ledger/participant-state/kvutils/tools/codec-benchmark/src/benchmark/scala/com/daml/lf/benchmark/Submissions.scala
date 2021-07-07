@@ -20,7 +20,7 @@ private[lf] final case class Submissions(
     transactions: Vector[EncodedTransaction],
 ) {
   def values: Iterator[EncodedValueWithType] = {
-    val extract = new TypedValueExtractor(compiledPackages.signatures)
+    val extract = new TypedValueExtractor(compiledPackages.interface)
     transactions.iterator.flatMap(extract.fromTransaction)
   }
 }

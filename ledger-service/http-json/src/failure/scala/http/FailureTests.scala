@@ -63,7 +63,7 @@ final class FailureTests
         (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
         _ = status shouldBe StatusCodes.ServiceUnavailable
         _ = out shouldBe
-          """[-] ledger failed
+          """[-] ledger failed (io.grpc.StatusRuntimeException: UNAVAILABLE: io exception)
             |[+] database ok
             |readyz check failed
             |""".stripMargin.replace("\r\n", "\n")
@@ -90,7 +90,6 @@ final class FailureTests
   }
 
   "Command submission timeouts" in withHttpService { (uri, encoder, _, client) =>
-    import encoder.implicits._
     import json.JsonProtocol._
     for {
       p <- allocateParty(client, "Alice")
@@ -103,7 +102,9 @@ final class FailureTests
       _ = status shouldBe StatusCodes.OK
       // Client -> Server connection
       _ = proxy.toxics().timeout("timeout", ToxicDirection.UPSTREAM, 0)
-      body <- FutureUtil.toFuture(SprayJson.encode1(accountCreateCommand(p, "24"))): Future[JsValue]
+      body <- FutureUtil.toFuture(
+        encoder.encodeCreateCommand(accountCreateCommand(p, "24"))
+      ): Future[JsValue]
       (status, output) <- postJsonStringRequestEncoded(
         uri.withPath(Uri.Path("/v1/create")),
         body.compactPrint,
@@ -262,7 +263,7 @@ final class FailureTests
       (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
       _ = status shouldBe StatusCodes.ServiceUnavailable
       _ = out shouldBe
-        """[+] ledger ok
+        """[+] ledger ok (SERVING)
           |[-] database failed
           |readyz check failed
           |""".stripMargin.replace("\r\n", "\n")

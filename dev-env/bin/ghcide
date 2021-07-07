@@ -1,4 +1,7 @@
-#!/usr/bin/env bash
-DADE_CURRENT_SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source "$DADE_CURRENT_SCRIPT_DIR/../lib/dade-common"
-bazel build @ghcide-exe//ghcide && bazel-bin/external/ghcide/ghcide-0.7.2.0/_install/bin/ghcide "$@"
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash ../../shell.nix
+
+set -euo pipefail
+
+bazel build @ghcide-exe//ghcide
+exec ./bazel-bin/external/ghcide/ghcide-0.7.2.0/_install/bin/ghcide "$@"

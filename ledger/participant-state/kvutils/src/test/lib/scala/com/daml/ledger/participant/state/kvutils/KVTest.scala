@@ -15,7 +15,7 @@ import com.daml.lf.command.{ApiCommand, Commands}
 import com.daml.lf.crypto
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.engine.{Engine, VisibleByKey}
+import com.daml.lf.engine.Engine
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Transaction
 import com.daml.logging.LoggingContext
@@ -186,6 +186,7 @@ object KVTest {
       state.engine
         .submit(
           submitters = Set(submitter),
+          readAs = Set.empty,
           cmds = Commands(
             commands = ImmArray(command),
             ledgerEffectiveTime = state.recordTime,
@@ -206,9 +207,10 @@ object KVTest {
             state.damlState
               .get(Conversions.globalKeyToStateKey(globalKey.globalKey))
               .map(value => Conversions.decodeContractId(value.getContractKeyState.getContractId)),
-          localKeyVisible = VisibleByKey.fromSubmitters(Set(submitter)),
         )
-        .fold(error => throw new RuntimeException(error.detailMsg), identity)
+        // TODO https://github.com/digital-asset/daml/issues/9974
+        //  Review how the error is displayed once LF errors are properly structured
+        .fold(error => throw new RuntimeException(error.msg), identity)
     }
 
   def runSimpleCommand(

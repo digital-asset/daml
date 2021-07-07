@@ -60,6 +60,7 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/validation",
+        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

@@ -322,7 +322,4 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Applicat
       case TreeEvent(TreeEvent.Kind.Empty) =>
         throw new ConverterException("Invalid tree event Empty")
     }
-
-  override def tracelogIterator = Iterator.empty
-  override def clearTracelog = ()
 }

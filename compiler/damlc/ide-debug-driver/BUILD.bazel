@@ -9,8 +9,8 @@ da_haskell_binary(
     hackage_deps = [
         "aeson",
         "base",
-        "haskell-lsp",
-        "haskell-lsp-types",
+        "lsp",
+        "lsp-types",
         "lens",
         "lsp-test",
         "optparse-applicative",

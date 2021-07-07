@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.testing.archive
+package com.daml.lf
+package testing.archive
 
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
@@ -147,12 +148,20 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
                   throw @(Update Unit) @Mod:MyException (Mod:MyException {message = "oops"})
                 catch e -> Some @(Update Unit) (upure @Unit ())
             in upure @Unit ();
+                     
+           val myAnyException: AnyException =
+             to_any_exception @Mod:MyException (Mod:MyException {message = "oops"});
+           
+           val maybeException: Option Mod:MyException =
+             from_any_exception @Mod:MyException Mod:myAnyException;
+             
          }
         
       """
 
       validate(pkgId, pkg)
-      val archive = Encode.encodeArchive(pkgId -> pkg, defaultParserParameters.languageVersion)
+      val archive =
+        Encode.encodeArchive(pkgId -> pkg, defaultParserParameters.languageVersion)
       val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
 
       val pkg1 = normalize(decodedPackage, hashCode, pkgId)
@@ -183,7 +192,7 @@ object EncodeV1Spec {
 
   private def validate(pkgId: PackageId, pkg: Package): Unit =
     Validation
-      .checkPackage(Map(pkgId -> pkg), pkgId, pkg)
+      .checkPackage(language.Interface(Map(pkgId -> pkg)), pkgId, pkg)
       .left
       .foreach(e => sys.error(e.toString))
 

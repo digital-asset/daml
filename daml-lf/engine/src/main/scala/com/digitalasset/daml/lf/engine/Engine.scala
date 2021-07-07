@@ -16,9 +16,10 @@ import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
 import java.nio.file.Files
 
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{Interface, LanguageVersion}
 import com.daml.lf.validation.Validation
 import com.daml.lf.value.Value.ContractId
+import com.daml.nameof.NameOf
 
 /** Allows for evaluating [[Commands]] and validating [[Transaction]]s.
   * <p>
@@ -59,7 +60,8 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
 
   def info = new EngineInfo(config)
 
-  /** Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
+  /** Executes commands `cmds` under the authority of `submitters`, with additional readers `readAs`,
+    * and returns one of the following:
     * <ul>
     * <li> `ResultDone(tx)` if `cmds` could be successfully executed, where `tx` is the resulting transaction.
     *      The transaction `tx` conforms to the Daml model consisting of the packages that have been supplied via
@@ -86,6 +88,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     */
   def submit(
       submitters: Set[Party],
+      readAs: Set[Party],
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
@@ -97,6 +100,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         interpretCommands(
           validating = false,
           submitters = submitters,
+          readAs = readAs,
           commands = processedCmds,
           ledgerTime = cmds.ledgerEffectiveTime,
           submissionTime = submissionTime,
@@ -120,8 +124,12 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       }
   }
 
-  /** Behaves like `submit`, but it takes a GenNode argument instead of a Commands argument.
-    * That is, it can be used to reinterpret partially an already interpreted transaction (since it consists of GenNodes).
+  /** Behaves like `submit`, but it takes a single command argument.
+    * It can be used to reinterpret partially an already interpreted transaction.
+    *
+    * If the command would fail with an unhandled exception, we return a transaction containing a
+    * single rollback node. (This is achieving by compiling with `unsafeCompileForReinterpretation`
+    * which wraps the command with a catch-everything exception handler.)
     *
     * [[nodeSeed]] is the seed of the Create and Exercise node as generated during submission.
     * If undefined the contract IDs are derive using V0 scheme.
@@ -140,11 +148,13 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     for {
       commandWithCids <- preprocessor.preprocessCommand(command)
       (speedyCommand, globalCids) = commandWithCids
+      sexpr = compiledPackages.compiler.unsafeCompileForReinterpretation(speedyCommand)
       // reinterpret is never used for submission, only for validation.
-      result <- interpretCommands(
+      result <- interpretExpression(
         validating = true,
         submitters = submitters,
-        commands = ImmArray(speedyCommand),
+        readAs = Set.empty,
+        sexpr = sexpr,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
@@ -167,6 +177,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       result <- interpretCommands(
         validating = true,
         submitters = submitters,
+        readAs = Set.empty,
         commands = commands,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
@@ -212,12 +223,15 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       validationResult <-
         transaction.Validation
           .isReplayedBy(tx, rtx)
-          .fold(e => ResultError(ReplayMismatch(e)), _ => ResultDone.Unit)
+          .fold(
+            e => ResultError(Error.Validation.ReplayMismatch(e)),
+            _ => ResultDone.Unit,
+          )
     } yield validationResult
   }
 
   private[engine] def loadPackages(pkgIds: List[PackageId]): Result[Unit] =
-    pkgIds.dropWhile(compiledPackages.signatures.isDefinedAt) match {
+    pkgIds.dropWhile(compiledPackages.packageIds.contains) match {
       case pkgId :: rest =>
         ResultNeedPackage(
           pkgId,
@@ -225,7 +239,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
             case Some(pkg) =>
               compiledPackages.addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
             case None =>
-              ResultError(Error(s"package $pkgId not found"))
+              ResultError(Error.Package.MissingPackage(pkgId))
           },
         )
       case Nil =>
@@ -234,41 +248,67 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
 
   @inline
   private[lf] def runSafely[X](
-      handleMissingDependencies: => Result[Unit]
+      funcName: String
   )(run: => Result[X]): Result[X] = {
     def start: Result[X] =
       try {
         run
       } catch {
-        case speedy.Compiler.PackageNotFound(_) =>
-          handleMissingDependencies.flatMap(_ => start)
+        // The two following error should be prevented by the type checking does by translateCommand
+        // so it’s an internal error.
+        case error: speedy.Compiler.PackageNotFound =>
+          ResultError(
+            Error.Preprocessing.Internal(funcName, s"CompilationError: ${error.getMessage}")
+          )
         case speedy.Compiler.CompilationError(error) =>
-          ResultError(Error(s"CompilationError: $error"))
+          ResultError(Error.Preprocessing.Internal(funcName, s"CompilationError: $error"))
       }
     start
   }
 
-  /** Interprets the given commands under the authority of @submitters
+  // command-list compilation, followed by interpretation
+  private[engine] def interpretCommands(
+      validating: Boolean,
+      submitters: Set[Party],
+      readAs: Set[Party],
+      commands: ImmArray[speedy.Command],
+      ledgerTime: Time.Timestamp,
+      submissionTime: Time.Timestamp,
+      seeding: speedy.InitialSeeding,
+      globalCids: Set[Value.ContractId],
+  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
+    val sexpr = compiledPackages.compiler.unsafeCompile(commands)
+    interpretExpression(
+      validating,
+      submitters,
+      readAs,
+      sexpr,
+      ledgerTime,
+      submissionTime,
+      seeding,
+      globalCids,
+    )
+  }
+
+  /** Interprets the given commands under the authority of @submitters, with additional readers @readAs
     *
     * Submitters are a set, in order to support interpreting subtransactions
     * (a subtransaction can be authorized by multiple parties).
     *
     * [[seeding]] is seeding used to derive node seed and contractId discriminator.
     */
-  private[engine] def interpretCommands(
+  private[engine] def interpretExpression(
       validating: Boolean,
       /* See documentation for `Speedy.Machine` for the meaning of this field */
       submitters: Set[Party],
-      commands: ImmArray[speedy.Command],
+      readAs: Set[Party],
+      sexpr: SExpr,
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
       globalCids: Set[Value.ContractId],
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
-    runSafely(
-      loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
-    ) {
-      val sexpr = compiledPackages.compiler.unsafeCompile(commands)
+    runSafely(NameOf.qualifiedNameOfCurrentFunc) {
       val machine = Machine(
         compiledPackages = compiledPackages,
         submissionTime = submissionTime,
@@ -276,6 +316,7 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
+        readAs = readAs,
         validating = validating,
         contractKeyUniqueness = config.contractKeyUniqueness,
       )
@@ -289,23 +330,25 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
       time: Time.Timestamp,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = machine.withOnLedger("Daml Engine") { onLedger =>
     var finished: Boolean = false
+    def detailMsg = Some(
+      s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptxInternal.nodesToString}"
+    )
     while (!finished) {
       machine.run() match {
         case SResultFinalValue(_) => finished = true
 
-        case SResultError(SError.DamlEDuplicateContractKey(key)) =>
+        case SResultError(SError.SErrorDamlException(error)) =>
           // Special-cased because duplicate key errors
           // produce a different gRPC error code.
-          return ResultError(DuplicateContractKey(key))
+          return ResultError(Error.Interpretation.DamlException(error), detailMsg)
 
         case SResultError(err) =>
-          return ResultError(
-            Error(
-              s"Interpretation error: ${Pretty.prettyError(err, onLedger.ptx).render(80)}",
-              s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${onLedger.ptx.nodesToString}",
-            )
-          )
-
+          err match {
+            case SError.SErrorCrash(where, reason) =>
+              Error.Interpretation.Internal(where, reason)
+            case SError.SErrorDamlException(error) =>
+              Error.Interpretation.DamlException(error)
+          }
         case SResultNeedPackage(pkgId, callback) =>
           return Result.needPackage(
             pkgId,
@@ -317,11 +360,11 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
             },
           )
 
-        case SResultNeedContract(contractId, _, _, _, cbPresent) =>
+        case SResultNeedContract(contractId, _, _, callback) =>
           return Result.needContract(
             contractId,
             { coinst =>
-              cbPresent(coinst)
+              callback(coinst)
               interpretLoop(machine, time)
             },
           )
@@ -333,44 +376,31 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         case SResultNeedKey(gk, _, cb) =>
           return ResultNeedKey(
             gk,
-            result =>
-              if (cb(SKeyLookupResult(result)))
-                interpretLoop(machine, time)
-              else
-                ResultError(Error(s"dependency error: couldn't find key ${gk.globalKey}")),
-          )
-
-        case SResultNeedLocalKeyVisible(stakeholders, _, cb) =>
-          return ResultNeedLocalKeyVisible(
-            stakeholders,
-            result => {
-              cb(result.toSVisibleByKey)
+            { result =>
+              cb(result)
               interpretLoop(machine, time)
             },
           )
 
-        case _: SResultScenarioCommit =>
-          return ResultError(Error("unexpected ScenarioCommit"))
-
-        case _: SResultScenarioInsertMustFail =>
-          return ResultError(Error("unexpected ScenarioInsertMustFail"))
-        case _: SResultScenarioMustFail =>
-          return ResultError(Error("unexpected ScenarioMustFail"))
-        case _: SResultScenarioPassTime =>
-          return ResultError(Error("unexpected ScenarioPassTime"))
-        case _: SResultScenarioGetParty =>
-          return ResultError(Error("unexpected ScenarioGetParty"))
+        case err @ (_: SResultScenarioSubmit | _: SResultScenarioPassTime |
+            _: SResultScenarioGetParty) =>
+          return ResultError(
+            Error.Interpretation.Internal(
+              NameOf.qualifiedNameOfCurrentFunc,
+              s"unexpected ${err.getClass.getSimpleName}",
+            )
+          )
       }
     }
 
-    onLedger.ptx.finish match {
-      case PartialTransaction.CompleteTransaction(tx) =>
+    onLedger.finish match {
+      case PartialTransaction.CompleteTransaction(tx, nodeSeeds) =>
         val meta = Tx.Metadata(
           submissionSeed = None,
-          submissionTime = onLedger.ptx.submissionTime,
+          submissionTime = onLedger.ptxInternal.submissionTime,
           usedPackages = Set.empty,
           dependsOnTime = onLedger.dependsOnTime,
-          nodeSeeds = onLedger.ptx.actionNodeSeeds.toImmArray,
+          nodeSeeds = nodeSeeds,
         )
         config.profileDir.foreach { dir =>
           val desc = Engine.profileDesc(tx)
@@ -380,7 +410,12 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
         }
         ResultDone((tx, meta))
       case PartialTransaction.IncompleteTransaction(ptx) =>
-        ResultError(Error(s"Interpretation error: ended with partial result: $ptx"))
+        ResultError(
+          Error.Interpretation.Internal(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"Interpretation error: ended with partial result: $ptx",
+          )
+        )
     }
   }
 
@@ -412,47 +447,31 @@ class Engine(val config: EngineConfig = new EngineConfig(LanguageVersion.StableV
     * preloaded.
     */
   def validatePackages(
-      pkgIds: Set[PackageId],
-      pkgs: Map[PackageId, Package],
-  ): Either[Error, Unit] = {
-    val allSignatures = pkgs orElse compiledPackages().signatures
+      pkgs: Map[PackageId, Package]
+  ): Either[Error.Package.Error, Unit] = {
     for {
       _ <- pkgs
         .collectFirst {
           case (pkgId, pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
-            Error(
-              s"Disallowed language version in package $pkgId: " +
-                s"Expected version between ${config.allowedLanguageVersions.min.pretty} and ${config.allowedLanguageVersions.max.pretty} but got ${pkg.languageVersion.pretty}"
+            Error.Package.AllowedLanguageVersion(
+              pkgId,
+              pkg.languageVersion,
+              config.allowedLanguageVersions,
             )
         }
         .toLeft(())
-      _ <- {
-        val unknownPackages = pkgIds.filterNot(allSignatures.isDefinedAt)
-        Either.cond(
-          unknownPackages.isEmpty,
-          (),
-          Error(s"Unknown packages ${unknownPackages.mkString(", ")}"),
-        )
-      }
-      _ <- {
-        val missingDeps = pkgIds.flatMap(pkgId => allSignatures(pkgId).directDeps).filterNot(pkgIds)
-        Either.cond(
-          missingDeps.isEmpty,
-          (),
-          Error(
-            s"The set of packages ${pkgIds.mkString("{'", "', '", "'}")} is not self consistent, the missing dependencies are ${missingDeps
-              .mkString("{'", "', '", "'}")}."
-          ),
-        )
-      }
+      pkgIds = pkgs.keySet
+      missingDeps = pkgs.valuesIterator.flatMap(_.directDeps).toSet.filterNot(pkgIds)
+      _ <- Either.cond(missingDeps.isEmpty, (), Error.Package.SelfConsistency(pkgIds, missingDeps))
+      interface = Interface(pkgs)
       _ <- {
         pkgs.iterator
           // we trust already loaded packages
           .collect {
-            case (pkgId, pkg) if !compiledPackages.signatures.isDefinedAt(pkgId) =>
-              Validation.checkPackage(allSignatures, pkgId, pkg)
+            case (pkgId, pkg) if !compiledPackages.packageIds.contains(pkgId) =>
+              Validation.checkPackage(interface, pkgId, pkg)
           }
-          .collectFirst { case Left(err) => Error(err.pretty) }
+          .collectFirst { case Left(err) => Error.Package.Validation(err) }
       }.toLeft(())
 
     } yield ()

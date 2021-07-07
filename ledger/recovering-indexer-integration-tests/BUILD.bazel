@@ -18,6 +18,11 @@ da_scala_test_suite(
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest",
     ],
+    versioned_deps = {
+        "2.12": [
+            "//libs-scala/logging-entries",
+        ],
+    },
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",

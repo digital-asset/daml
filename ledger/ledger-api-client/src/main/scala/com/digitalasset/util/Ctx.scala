@@ -3,14 +3,23 @@
 
 package com.daml.util
 
+import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
+
 /** Ctx wraps a value with some contextual information.
   */
-final case class Ctx[+Context, +Value](context: Context, value: Value) {
+final case class Ctx[+Context, +Value](
+    context: Context,
+    value: Value,
+    telemetryContext: TelemetryContext = NoOpTelemetryContext,
+) {
 
-  def map[T](transform: Value => T): Ctx[Context, T] = Ctx(context, transform(value))
+  def map[T](transform: Value => T): Ctx[Context, T] =
+    Ctx(context, transform(value), telemetryContext)
 
-  def enrich[NewContext](enrichingFunction: (Context, Value) => NewContext) =
-    Ctx(enrichingFunction(context, value), value)
+  def enrich[NewContext](
+      enrichingFunction: (Context, Value) => NewContext
+  ): Ctx[NewContext, Value] =
+    Ctx(enrichingFunction(context, value), value, telemetryContext)
 
 }
 

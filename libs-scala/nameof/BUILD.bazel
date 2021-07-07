@@ -2,15 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-    "@io_bazel_rules_scala//scala:scala.bzl",
-    "scala_macro_library",
-)
-load(
     "//bazel_tools:scala.bzl",
+    "da_scala_macro_library",
     "da_scala_test_suite",
 )
 
-scala_macro_library(
+da_scala_macro_library(
     name = "nameof",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scalacopts = ["-Xsource:2.13"],

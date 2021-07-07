@@ -16,7 +16,6 @@ import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.lf.data.Ref
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.MetricsReporter
 import com.daml.platform.sandbox.cli.CommonCliBase._
 import com.daml.platform.sandbox.config.{LedgerName, SandboxConfig}
 import com.daml.platform.services.time.TimeProviderType
@@ -214,13 +213,14 @@ class CommonCliBase(name: LedgerName) {
         )
         .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
-      opt[MetricsReporter]("metrics-reporter")
+      opt[Int]("buffers-prefetching-parallelism")
         .optional()
-        .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
-
-      opt[Duration]("metrics-reporting-interval")
-        .optional()
-        .action((interval, config) => config.copy(metricsReportingInterval = interval))
+        .text(
+          s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${SandboxConfig.DefaultEventsProcessingParallelism}."
+        )
+        .action((eventsProcessingParallelism, config) =>
+          config.copy(eventsProcessingParallelism = eventsProcessingParallelism)
+        )
 
       opt[Int]("max-commands-in-flight")
         .optional()
@@ -306,8 +306,14 @@ class CommonCliBase(name: LedgerName) {
         .optional()
         .action((_, config) => config.copy(enableCompression = true))
         .text(
-          s"By default compression is off, his switch enables it. This has only effect for append-only ingestion." // TODO append-only: fix description
+          s"By default compression is off, this switch enables it. This has only effect for append-only ingestion." // TODO append-only: fix description
         )
+
+      com.daml.cliopts.Metrics.metricsReporterParse(this)(
+        (setter, config) => config.copy(metricsReporter = setter(config.metricsReporter)),
+        (setter, config) =>
+          config.copy(metricsReportingInterval = setter(config.metricsReportingInterval)),
+      )
 
       help("help").text("Print the usage text")
 

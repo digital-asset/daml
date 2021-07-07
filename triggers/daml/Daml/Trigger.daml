@@ -194,7 +194,7 @@ dedupCreate t = do
   unless (any ((Some t ==) . fromCreate) cmds) $
     void $ emitCommands [createCmd t] []
 
--- | Create the template and exercise a choice on it it’s not already in the list of commands
+-- | Create the template and exercise a choice on it if it’s not already in the list of commands
 -- in flight (it will still be created if it is in the ACS).
 --
 -- Note that this will send the create and exercise as a

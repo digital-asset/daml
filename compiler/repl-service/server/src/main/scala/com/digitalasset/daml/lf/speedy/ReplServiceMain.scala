@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy.repl
+package com.daml.lf
+package speedy.repl
 
 import akka.actor.ActorSystem
 import akka.stream._
@@ -34,6 +35,10 @@ import scala.concurrent.{Await, ExecutionContext}
 import scala.util.{Failure, Success}
 
 object ReplServiceMain extends App {
+  final class NonSerializableValue extends RuntimeException {
+    override def toString = "Cannot convert non-serializable value to JSON"
+  }
+
   case class Config(
       portFile: Path,
       ledgerHost: Option[String],
@@ -223,7 +228,8 @@ class ReplService(
     val (pkgId, pkg) = Decode.decodeArchiveFromInputStream(req.getPackage.newInput)
     val newSignatures = signatures.updated(pkgId, AstUtil.toSignature(pkg))
     val newCompiledDefinitions = compiledDefinitions ++
-      new Compiler(newSignatures, compilerConfig).unsafeCompilePackage(pkgId, pkg)
+      new Compiler(new language.Interface(newSignatures), compilerConfig)
+        .unsafeCompilePackage(pkgId, pkg)
     signatures = newSignatures
     compiledDefinitions = newCompiledDefinitions
     respObs.onNext(LoadPackageResponse.newBuilder.build)
@@ -258,12 +264,11 @@ class ReplService(
     }
 
     val signatures = this.signatures.updated(homePackageId, AstUtil.toSignature(pkg))
-    val defs = new Compiler(signatures, compilerConfig).unsafeCompilePackage(homePackageId, pkg)
-    val compiledPackages = new PureCompiledPackages(
-      signatures,
-      compiledDefinitions ++ defs,
-      compilerConfig,
-    )
+    val interface = new language.Interface(signatures)
+    val defs =
+      new Compiler(interface, compilerConfig).unsafeCompilePackage(homePackageId, pkg)
+    val compiledPackages =
+      PureCompiledPackages(signatures, compiledDefinitions ++ defs, compilerConfig)
     val runner =
       new Runner(compiledPackages, Script.Action(scriptExpr, ScriptIds(scriptPackageId)), timeMode)
     runner
@@ -282,10 +287,8 @@ class ReplService(
               try {
                 LfValueCodec.apiValueToJsValue(v.toValue).compactPrint
               } catch {
-                case e @ SError.SErrorCrash(_) => {
-                  logger.error(s"Cannot convert non-serializable value to JSON")
-                  throw e
-                }
+                case SError.SErrorCrash(_, _) => throw new ReplServiceMain.NonSerializableValue()
+
               }
             case RunScriptRequest.Format.UNRECOGNIZED =>
               throw new RuntimeException("Unrecognized response format")
@@ -293,10 +296,6 @@ class ReplService(
         )
       }
       .onComplete {
-        case Failure(e: SError.SError) =>
-          // The error here is already printed by the logger in stepToValue.
-          // No need to print anything here.
-          respObs.onError(e)
         case Failure(originalE) =>
           val e = originalE match {
             // For now, don’t show stack traces in Daml Repl. They look fairly confusing
@@ -304,8 +303,12 @@ class ReplService(
             case e: ScriptF.FailedCmd => e.cause
             case _ => originalE
           }
-          println(s"$e")
-          respObs.onError(e)
+          respObs.onNext(
+            RunScriptResponse.newBuilder
+              .setError(ScriptError.newBuilder.setError(e.toString).build)
+              .build
+          )
+          respObs.onCompleted
         case Success((v, result)) =>
           results = results :+ v
           if (moduleRefs(v).contains(mod.name)) {
@@ -313,7 +316,11 @@ class ReplService(
             // current module, we have to keep that module around.
             mainModules += mod.name -> mod
           }
-          respObs.onNext(RunScriptResponse.newBuilder.setResult(result).build)
+          respObs.onNext(
+            RunScriptResponse.newBuilder
+              .setSuccess(ScriptSuccess.newBuilder.setResult(result).build)
+              .build
+          )
           respObs.onCompleted
       }
   }

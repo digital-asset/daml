@@ -331,6 +331,7 @@ case object DamlConstants {
 
   val iface = DamlLfIface.Interface(
     packageId0,
+    None,
     Map(
       emptyRecordId.qualifiedName -> DamlLfIface.InterfaceType.Normal(emptyRecordGC),
       simpleRecordId.qualifiedName -> DamlLfIface.InterfaceType.Normal(simpleRecordGC),

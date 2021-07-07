@@ -23,11 +23,16 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-ubuntu_20_04
     instance_template = google_compute_instance_template.vsts-agent-ubuntu_20_04.self_link
   }
 
+  # uncomment when we get a provider >3.55
+  #distribution_policy_target_shape = "ANY"
+
   update_policy {
     type            = "PROACTIVE"
     minimal_action  = "REPLACE"
     max_surge_fixed = 3
     min_ready_sec   = 60
+
+    instance_redistribution_type = "NONE"
   }
 }
 

@@ -14,6 +14,8 @@ import com.daml.platform.server.api.validation.ErrorFactories.{
 import com.daml.platform.server.api.validation.FieldValidations.requireLedgerString
 import io.grpc.StatusRuntimeException
 
+import scala.math.Ordered._
+
 object LedgerOffsetValidator {
 
   private val boundary = "boundary"
@@ -32,12 +34,12 @@ object LedgerOffsetValidator {
       ledgerOffset: LedgerOffset,
       fieldName: String,
   ): Either[StatusRuntimeException, domain.LedgerOffset] = {
-    ledgerOffset match {
-      case LedgerOffset(LedgerOffset.Value.Absolute(value)) =>
+    ledgerOffset.value match {
+      case LedgerOffset.Value.Absolute(value) =>
         requireLedgerString(value, fieldName).map(domain.LedgerOffset.Absolute)
-      case LedgerOffset(LedgerOffset.Value.Boundary(value)) =>
+      case LedgerOffset.Value.Boundary(value) =>
         convertLedgerBoundary(fieldName, value)
-      case LedgerOffset(LedgerOffset.Value.Empty) =>
+      case LedgerOffset.Value.Empty =>
         Left(missingField(fieldName + ".(" + boundary + "|value)"))
     }
   }
@@ -46,10 +48,9 @@ object LedgerOffsetValidator {
       offsetType: String,
       ledgerOffset: domain.LedgerOffset,
       ledgerEnd: domain.LedgerOffset.Absolute,
-      offsetOrdering: Ordering[domain.LedgerOffset.Absolute],
   ): Either[StatusRuntimeException, Unit] =
     ledgerOffset match {
-      case abs: domain.LedgerOffset.Absolute if offsetOrdering.gt(abs, ledgerEnd) =>
+      case abs: domain.LedgerOffset.Absolute if abs > ledgerEnd =>
         Left(outOfRange(s"$offsetType offset ${abs.value} is after ledger end ${ledgerEnd.value}"))
       case _ => Right(())
     }
@@ -59,10 +60,9 @@ object LedgerOffsetValidator {
       offsetType: String,
       ledgerOffset: Option[domain.LedgerOffset],
       ledgerEnd: domain.LedgerOffset.Absolute,
-      offsetOrdering: Ordering[domain.LedgerOffset.Absolute],
   ): Either[StatusRuntimeException, Unit] =
     ledgerOffset.fold[Either[StatusRuntimeException, Unit]](Right(()))(
-      offsetIsBeforeEndIfAbsolute(offsetType, _, ledgerEnd, offsetOrdering)
+      offsetIsBeforeEndIfAbsolute(offsetType, _, ledgerEnd)
     )
 
   private def convertLedgerBoundary(

@@ -6,14 +6,14 @@ package com.daml.platform.sandbox.cli
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.file.{Files, Paths}
-import java.time.Duration
+import scala.concurrent.duration.DurationInt
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.test.ModelTestDar
-import com.daml.platform.configuration.MetricsReporter
-import com.daml.platform.configuration.MetricsReporter.{Graphite, Prometheus}
+import com.daml.metrics.MetricsReporter
+import com.daml.metrics.MetricsReporter.{Graphite, Prometheus}
 import com.daml.platform.sandbox.cli.CommonCliSpecBase._
 import com.daml.platform.sandbox.config.SandboxConfig
 import com.daml.platform.services.time.TimeProviderType
@@ -266,10 +266,17 @@ abstract class CommonCliSpecBase(
       config shouldEqual None
     }
 
-    "parse the metrics reporting interval when given" in {
+    "parse the metrics reporting interval (java duration format) when given" in {
       checkOption(
         Array("--metrics-reporting-interval", "PT1M30S"),
-        _.copy(metricsReportingInterval = Duration.ofSeconds(90)),
+        _.copy(metricsReportingInterval = 90.seconds),
+      )
+    }
+
+    "parse the metrics reporting interval (scala duration format) when given" in {
+      checkOption(
+        Array("--metrics-reporting-interval", "1.5min"),
+        _.copy(metricsReportingInterval = 90.seconds),
       )
     }
   }

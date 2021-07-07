@@ -5,7 +5,7 @@ load(
     "@daml//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
 load("//:versions.bzl", "latest_stable_version")
 
@@ -244,6 +244,43 @@ excluded_test_tool_tests = [
             },
         ],
     },
+    {
+        "end": last_nongranular_test_tool,
+        "platform_ranges": [
+            {
+                "start": "1.14.0-snapshot.20210602.7086.1",
+                "exclusions": [
+                    "CommandServiceIT",
+                    "CommandSubmissionCompletionIT",
+                ],
+            },
+        ],
+    },
+    {
+        "start": first_granular_test_tool,
+        "end": "1.14.0-snapshot.20210602.7086.0.f36f556b",
+        "platform_ranges": [
+            {
+                "start": "1.14.0-snapshot.20210602.7086.1",
+                "exclusions": [
+                    "CommandServiceIT:CSCreateAndBadExerciseChoice",
+                    "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
+                ],
+            },
+        ],
+    },
+    {
+        "start": "1.14.0-snapshot.20210602.7086.1",
+        "platform_ranges": [
+            {
+                "end": "1.14.0-snapshot.20210602.7086.0.f36f556b",
+                "exclusions": [
+                    "CommandServiceIT:CSCreateAndBadExerciseChoice",
+                    "CommandSubmissionCompletionIT:CSCRefuseBadChoice",
+                ],
+            },
+        ],
+    },
 ]
 
 def in_range(version, range):
@@ -466,8 +503,11 @@ def daml_lf_compatible(sdk_version, platform_version):
         # any post 1.10.0 platform supports any pre 1.12 SDK
         in_range(platform_version, {"start": "1.10.0-snapshot"}) and not in_range(sdk_version, {"start": "1.12.0-snapshot"})
     ) or (
-        # any post 1.11.0 platform supports any SDK
-        in_range(platform_version, {"start": "1.11.0-snapshot"})
+        # any post 1.10.0 platform supports any pre 1.14 SDK
+        in_range(platform_version, {"start": "1.11.0-snapshot"}) and not in_range(sdk_version, {"start": "1.14.0-snapshot"})
+    ) or (
+        # any post 1.14.0 platform supports any SDK
+        in_range(platform_version, {"start": "1.14.0-snapshot"})
     )
 
 def sdk_platform_test(sdk_version, platform_version):
@@ -559,7 +599,7 @@ def sdk_platform_test(sdk_version, platform_version):
             dar_files = dar_files,
         )],
         tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-    ) if not is_windows else None
+    ) if is_linux else None
 
     client_server_test(
         name = name + "-classic-postgresql",
@@ -578,7 +618,7 @@ def sdk_platform_test(sdk_version, platform_version):
             dar_files = dar_files,
         )],
         tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-    ) if not is_windows else None
+    ) if is_linux else None
 
     # daml-ledger test-cases
     name = "daml-ledger-{sdk_version}-platform-{platform_version}".format(
@@ -597,7 +637,7 @@ def sdk_platform_test(sdk_version, platform_version):
         tags = ["cpu:2"] + extra_tags(sdk_version, platform_version),
     )
 
-    # For now, we only cover the DABL usecase where
+    # For now, we only cover the Daml Hub usecase where
     # sandbox and the JSON API come from the same SDK.
     # However, the test setup is flexible enough, that we
     # can control them individually.

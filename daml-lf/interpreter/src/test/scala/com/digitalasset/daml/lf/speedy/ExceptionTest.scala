@@ -4,118 +4,26 @@
 package com.daml.lf
 package speedy
 
-import java.util
-
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Ref.{PackageId, Party}
+import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageVersion, Interface}
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.SResult.{SResultError, SResultFinalValue}
-import com.daml.lf.speedy.SError.DamlEUnhandledException
+import com.daml.lf.speedy.SError.SErrorDamlException
 import com.daml.lf.speedy.SValue.SUnit
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.validation.Validation
+import com.daml.lf.value.Value.{ValueRecord, ValueText}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
 
-  // TODO https://github.com/digital-asset/daml/issues/8020
-  //   Turn this into a test for to-any-exception / from-any-exception
-  //   using only user-defined types, since builtin exception types are going away.
-
-  // "builtin exceptions: to/from-any-exception" should {
-
-  //   // Convertion to/from AnyException works as expected:
-  //   // specifically: we can only extract the inner value if the
-  //   // expected-type (on: from_any_exception) matches the actual-type (on: to_any_exception)
-
-  //   val pkgs: PureCompiledPackages = typeAndCompile(p"""
-  //      module M {
-  //        val G : AnyException = to_any_exception @GeneralError (MAKE_GENERAL_ERROR "G");
-  //        val A : AnyException = to_any_exception @ArithmeticError (MAKE_ARITHMETIC_ERROR "A");
-  //        val C : AnyException = to_any_exception @ContractError (MAKE_CONTRACT_ERROR "C");
-  //        val fromG : AnyException -> Text = \(e:AnyException) -> case from_any_exception @GeneralError e of None -> "NONE" | Some x -> GENERAL_ERROR_MESSAGE x;
-  //        val fromA : AnyException -> Text = \(e:AnyException) -> case from_any_exception @ArithmeticError e of None -> "NONE" | Some x -> ARITHMETIC_ERROR_MESSAGE x;
-  //        val fromC : AnyException -> Text = \(e:AnyException) -> case from_any_exception @ContractError e of None -> "NONE" | Some x -> CONTRACT_ERROR_MESSAGE x;
-  //      }
-  //     """)
-
-  //   val testCases = Table[String, String](
-  //     ("expression", "string-result"),
-  //     ("M:fromG M:G", "G"),
-  //     ("M:fromA M:A", "A"),
-  //     ("M:fromC M:C", "C"),
-  //     ("M:fromG M:A", "NONE"),
-  //     ("M:fromG M:C", "NONE"),
-  //     ("M:fromA M:G", "NONE"),
-  //     ("M:fromA M:C", "NONE"),
-  //     ("M:fromC M:G", "NONE"),
-  //     ("M:fromC M:A", "NONE"),
-  //   )
-
-  //   forEvery(testCases) { (exp: String, res: String) =>
-  //     s"""eval[$exp] --> "$res"""" in {
-  //       val expected: SResult = SResultFinalValue(SValue.SText(res))
-  //       runExpr(pkgs)(e"$exp") shouldBe expected
-  //     }
-  //   }
-  // }
-
-  // TODO https://github.com/digital-asset/daml/issues/8020
-  //   Add builtin errors back into this test (ArithmeticError and ContractError).
-  //   In these cases the message should probably just be "ArithmeticError" and "ContractError".
-
-  "ANY_EXCEPTION_MESSAGE" should {
-
-    // Application of ANY_EXCEPTION_MESSAGE for various cases:
-    // 2 user-defined exceptions.
-    // MyException1 contains the message text directly
-    // MyException2 composes the message string from two text contained in the payload
-
-    val pkgs: PureCompiledPackages = typeAndCompile(p"""
-       module M {
-
-         record @serializable MyException1 = { message: Text } ;
-         exception MyException1 = {
-           message \(e: M:MyException1) -> M:MyException1 {message} e
-         };
-
-        val e1 : AnyException = to_any_exception @M:MyException1 (M:MyException1 { message = "Message1" });
-        val t1 : Text = ANY_EXCEPTION_MESSAGE M:e1;
-
-         record @serializable MyException2 = { front: Text, back: Text } ;
-
-         exception MyException2 = {
-           message \(e: M:MyException2) -> APPEND_TEXT (M:MyException2 {front} e) (M:MyException2 {back} e)
-         };
-
-        val e2 : AnyException = to_any_exception @M:MyException2 (M:MyException2 { front = "Mess", back = "age2" });
-        val t2 : Text = ANY_EXCEPTION_MESSAGE M:e2;
-       }
-      """)
-
-    val testCases = Table[String, String](
-      ("expression", "expected-string"),
-      ("M:t1", "Message1"),
-      ("M:t2", "Message2"),
-    )
-
-    forEvery(testCases) { (exp: String, res: String) =>
-      s"""eval[$exp] --> "$res"""" in {
-        val expected: SResult = SResultFinalValue(SValue.SText(res))
-        runExpr(pkgs)(e"$exp") shouldBe expected
-      }
-    }
-  }
-
   "unhandled throw" should {
-
-    // TODO https://github.com/digital-asset/daml/issues/8020
-    //   Add some builtin errors to this test.
 
     // Behaviour when no handler catches a throw:
     // 1: User Exception thrown; no try-catch in scope
@@ -141,27 +49,38 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
          exception E2 = { message \(e: M:E2) -> throw @Text @M:E1 (M:E1 {}) } ; //throw from the message function
          val unhandled4 : Update Int64 = upure @Int64 (throw @Int64 @M:E2 (M:E2 {})) ;
 
+         val divZero : Update Int64 = upure @Int64 (DIV_INT64 1 0) ;
        }
       """)
 
-    val List(e1, e2) =
+    val List((t1, e1), (t2, e2)) =
       List("M:E1", "M:E2")
         .map(id =>
           data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:$id")
         )
-        .map(tyCon =>
-          SValue.SAnyException(
-            TTyCon(tyCon),
-            SValue.SRecord(tyCon, data.ImmArray.empty, new util.ArrayList()),
-          )
-        )
+        .map(tyCon => TTyCon(tyCon) -> ValueRecord(Some(tyCon), data.ImmArray.empty))
+    val arithmeticCon = data.Ref.Identifier.assertFromString(
+      "cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be2e0b858a:DA.Exception.ArithmeticError:ArithmeticError"
+    )
+    val divZeroE =
+      ValueRecord(
+        Some(arithmeticCon),
+        data.ImmArray(
+          Some(data.Ref.Name.assertFromString("message")) ->
+            ValueText("ArithmeticError while evaluating (DIV_INT64 1 0).")
+        ),
+      )
 
     val testCases = Table[String, SResult](
       ("expression", "expected"),
-      ("M:unhandled1", SResultError(DamlEUnhandledException(e1))),
-      ("M:unhandled2", SResultError(DamlEUnhandledException(e1))),
-      ("M:unhandled3", SResultError(DamlEUnhandledException(e1))),
-      ("M:unhandled4", SResultError(DamlEUnhandledException(e2))),
+      ("M:unhandled1", SResultError(SErrorDamlException(IE.UnhandledException(t1, e1)))),
+      ("M:unhandled2", SResultError(SErrorDamlException(IE.UnhandledException(t1, e1)))),
+      ("M:unhandled3", SResultError(SErrorDamlException(IE.UnhandledException(t1, e1)))),
+      ("M:unhandled4", SResultError(SErrorDamlException(IE.UnhandledException(t2, e2)))),
+      (
+        "M:divZero",
+        SResultError(SErrorDamlException(IE.UnhandledException(TTyCon(arithmeticCon), divZeroE))),
+      ),
     )
 
     forEvery(testCases) { (exp: String, expected: SResult) =>
@@ -547,16 +466,6 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     val example: Expr = EApp(e"M:causeRollback", EPrimLit(PLParty(party)))
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
-    val anException = {
-      val id = "M:AnException"
-      val tyCon =
-        data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:$id")
-      SValue.SAnyException(
-        TTyCon(tyCon),
-        SValue.SRecord(tyCon, data.ImmArray.empty, new util.ArrayList()),
-      )
-    }
-
     "works as expected for a contract version POST-dating exceptions" in {
       val pkgs = mkPackagesAtVersion(LanguageVersion.v1_dev)
       val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, example, party).run()
@@ -564,9 +473,16 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     }
 
     "causes an uncatchable exception to be thrown for a contract version PRE-dating exceptions" in {
+
+      val id = "M:AnException"
+      val tyCon =
+        data.Ref.Identifier.assertFromString(s"${defaultParserParameters.defaultPackageId}:$id")
+      val anException =
+        IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.empty))
+
       val pkgs = mkPackagesAtVersion(LanguageVersion.v1_11)
       val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, example, party).run()
-      res shouldBe SResultError(DamlEUnhandledException(anException))
+      res shouldBe SResultError(SErrorDamlException(anException))
     }
 
     def mkPackagesAtVersion(languageVersion: LanguageVersion): PureCompiledPackages = {
@@ -621,20 +537,177 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
   }
 
   private def typeAndCompile(pkg: Package): PureCompiledPackages = {
-    val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
-    Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId, pkg)
-    data.assertRight(
-      PureCompiledPackages(rawPkgs, Compiler.Config.Dev.copy(stacktracing = FullStackTrace))
-    )
+    import defaultParserParameters.defaultPackageId
+    val rawPkgs = Map(defaultPackageId -> pkg)
+    Validation.checkPackage(Interface(rawPkgs), defaultPackageId, pkg)
+    val compilerConfig = Compiler.Config.Dev.copy(stacktracing = FullStackTrace)
+    PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
   }
 
-  private def runExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult = {
-    Speedy.Machine.fromPureExpr(pkgs1, e).run()
-  }
+  private val party = Party.assertFromString("Alice")
 
   private def runUpdateExpr(pkgs1: PureCompiledPackages)(e: Expr): SResult = {
     def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("ExceptionTest.scala")
-    Speedy.Machine.fromScenarioExpr(pkgs1, transactionSeed, e).run()
+    Speedy.Machine.fromUpdateExpr(pkgs1, transactionSeed, e, party).run()
   }
 
+  "rollback of creates (mixed versions)" should {
+
+    val oldPid: PackageId = Ref.PackageId.assertFromString("OldPackage")
+    val newPid: PackageId = Ref.PackageId.assertFromString("Newpackage")
+
+    val oldPackage = {
+      implicit val defaultParserParameters: ParserParameters[this.type] = {
+        ParserParameters(
+          defaultPackageId = oldPid,
+          languageVersion = LanguageVersion.v1_11, //version pre-dating exceptions
+        )
+      }
+      p"""
+      module OldM {
+        record @serializable OldT = { party: Party } ;
+        template (record : OldT) = {
+          precondition True,
+          signatories Cons @Party [OldM:OldT {party} record] (Nil @Party),
+          observers Nil @Party,
+          agreement "Agreement",
+          choices {}
+        };
+      } """
+    }
+    val newPackage = {
+      implicit val defaultParserParameters: ParserParameters[this.type] = {
+        ParserParameters(
+          defaultPackageId = newPid,
+          languageVersion = LanguageVersion.v1_dev,
+        )
+      }
+      p"""
+      module NewM {
+        record @serializable AnException = { } ;
+        exception AnException = { message \(e: NewM:AnException) -> "AnException" };
+
+        record @serializable NewT = { party: Party } ;
+        template (record : NewT) = {
+          precondition True,
+          signatories Cons @Party [NewM:NewT {party} record] (Nil @Party),
+          observers Nil @Party,
+          agreement "Agreement",
+          choices {
+
+            choice MyChoiceCreateJustNew (self) (i : Unit) : Unit
+            , controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+            to
+              ubind
+                new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
+                new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record }
+              in upure @Unit (),
+
+            choice MyChoiceCreateOldAndNew (self) (i : Unit) : Unit
+            , controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+            to
+              ubind
+                new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
+                old: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = NewM:NewT {party} record };
+                new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record }
+              in upure @Unit (),
+
+            choice MyChoiceCreateOldAndNewThenThrow (self) (i : Unit) : Unit
+            , controllers Cons @Party [NewM:NewT {party} record] (Nil @Party)
+            to
+              ubind
+                new1: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
+                old: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = NewM:NewT {party} record };
+                new2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = NewM:NewT {party} record };
+                u: Unit <- throw @(Update Unit) @NewM:AnException (NewM:AnException {})
+              in upure @Unit ()
+          }
+        };
+
+        val causeRollback : Party -> Update Unit = \(party: Party) ->
+            ubind
+              // OK TO CREATE AN OLD VERSION CREATE OUT SIDE THE SCOPE OF THE ROLLBACK
+              x1: ContractId 'OldPackage':OldM:OldT <- create @'OldPackage':OldM:OldT 'OldPackage':OldM:OldT { party = party };
+              u1: Unit <-
+                try @Unit
+                  ubind
+                    x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
+                    u: Unit <- exercise @NewM:NewT MyChoiceCreateJustNew x2 ()
+                  in throw @(Update Unit) @NewM:AnException (NewM:AnException {})
+                catch e -> Some @(Update Unit) (upure @Unit ())
+              ;
+              x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
+            in upure @Unit ();
+
+        val causeUncatchable : Party -> Update Unit = \(party: Party) ->
+            ubind
+              u1: Unit <-
+                try @Unit
+                  ubind
+                    x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
+                    // THIS EXERCISE CREATES AN OLD VERSION CONTRACT, AND SO CANNOT BE NESTED IN A ROLLBACK
+                    u: Unit <- exercise @NewM:NewT MyChoiceCreateOldAndNew x2 ()
+                  in throw @(Update Unit) @NewM:AnException (NewM:AnException {})
+                catch e -> Some @(Update Unit) (upure @Unit ())
+              ;
+              x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
+            in upure @Unit ();
+
+        val causeUncatchable2 : Party -> Update Unit = \(party: Party) ->
+            ubind
+              u1: Unit <-
+                try @Unit
+                  ubind
+                    x2: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party };
+                    // THIS EXERCISE CREATES AN OLD VERSION CONTRACT, THEN THROWS, AND SO CANNOT BE NESTED IN A ROLLBACK
+                    u: Unit <- exercise @NewM:NewT MyChoiceCreateOldAndNewThenThrow x2 ()
+                  in upure @Unit ()
+                catch e -> Some @(Update Unit) (upure @Unit ())
+              ;
+              x3: ContractId NewM:NewT <- create @NewM:NewT NewM:NewT { party = party }
+            in upure @Unit ();
+
+      } """
+    }
+    val pkgs = {
+      val rawPkgs = Map(oldPid -> oldPackage, newPid -> newPackage)
+      val compilerConfig = Compiler.Config.Dev.copy(stacktracing = FullStackTrace)
+      PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
+    }
+
+    implicit val defaultParserParameters: ParserParameters[this.type] = {
+      ParserParameters(
+        defaultPackageId = newPid,
+        languageVersion = LanguageVersion.v1_dev,
+      )
+    }
+
+    val anException = {
+      val id = "NewM:AnException"
+      val tyCon = data.Ref.Identifier.assertFromString(s"$newPid:$id")
+      IE.UnhandledException(TTyCon(tyCon), ValueRecord(Some(tyCon), data.ImmArray.empty))
+    }
+
+    def transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
+
+    val causeRollback: Expr = EApp(e"NewM:causeRollback", EPrimLit(PLParty(party)))
+    val causeUncatchable: Expr = EApp(e"NewM:causeUncatchable", EPrimLit(PLParty(party)))
+    val causeUncatchable2: Expr = EApp(e"NewM:causeUncatchable2", EPrimLit(PLParty(party)))
+
+    "create rollback when old contacts are not within try-catch context" in {
+      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, causeRollback, party).run()
+      res shouldBe SResultFinalValue(SUnit)
+    }
+
+    "causes uncatchable exception when an old contract is within a new-exercise within a try-catch" in {
+      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, causeUncatchable, party).run()
+      res shouldBe SResultError(SErrorDamlException(anException))
+    }
+
+    "causes uncatchable exception when an old contract is within a new-exercise which aborts" in {
+      val res = Speedy.Machine.fromUpdateExpr(pkgs, transactionSeed, causeUncatchable2, party).run()
+      res shouldBe SResultError(SErrorDamlException(anException))
+    }
+
+  }
 }

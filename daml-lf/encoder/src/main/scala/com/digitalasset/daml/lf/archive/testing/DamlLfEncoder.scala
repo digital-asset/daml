@@ -9,7 +9,7 @@ import java.nio.file.Paths
 import com.daml.lf.archive.{Dar, DarWriter}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.language.{Ast, Interface, LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.testing.parser.{ParserParameters, parseModules}
 import com.daml.lf.validation.Validation
 import com.daml.SdkVersion
@@ -69,12 +69,13 @@ private[daml] object DamlLfEncoder extends App {
         )
       } else None
 
-    val pkg = Ast.Package(modules, Set.empty[PackageId], parserParameters.languageVersion, metadata)
-    val pkgs = Map(pkgId -> pkg)
+    val pkg =
+      Ast.Package(modules, Set.empty[PackageId], parserParameters.languageVersion, metadata)
+    val pkgs = Interface(Map(pkgId -> pkg))
 
     Validation.checkPackage(pkgs, pkgId, pkg).left.foreach(e => error(e.pretty))
 
-    encodeArchive(pkgId -> pkgs(pkgId), parserParameters.languageVersion)
+    encodeArchive(pkgId -> pkg, parserParameters.languageVersion)
   }
 
   private def makeDar(source: String, file: File)(implicit

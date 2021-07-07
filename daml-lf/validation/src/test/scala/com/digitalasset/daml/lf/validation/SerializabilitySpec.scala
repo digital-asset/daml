@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.validation
+package com.daml.lf
+package validation
 
 import com.daml.lf.data.Ref.DottedName
 import com.daml.lf.language.Ast.Package
@@ -36,7 +37,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
 
       forEvery(testCases) { typ =>
         Serializability
-          .Env(LanguageVersion.default, defaultWorld, NoContext, SRDataType, typ)
+          .Env(LanguageVersion.default, defaultInterface, NoContext, SRDataType, typ)
           .introVar(n"serializableType" -> k"*")
           .checkType()
       }
@@ -65,7 +66,7 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
       forEvery(testCases) { typ =>
         an[EExpectedSerializableType] should be thrownBy
           Serializability
-            .Env(LanguageVersion.default, defaultWorld, NoContext, SRDataType, typ)
+            .Env(LanguageVersion.default, defaultInterface, NoContext, SRDataType, typ)
             .introVar(n"serializableType" -> k"*")
             .checkType()
       }
@@ -346,13 +347,11 @@ class SerializabilitySpec extends AnyWordSpec with TableDrivenPropertyChecks wit
       }
      """
 
-  private val defaultWorld =
-    world(defaultPkg)
-  private def world(pkg: Package) =
-    new World(Map(defaultPackageId -> pkg))
+  private val defaultInterface = interface(defaultPkg)
+  private def interface(pkg: Package) = language.Interface(Map(defaultPackageId -> pkg))
 
   private def check(pkg: Package, modName: String): Unit = {
-    val w = world(pkg)
+    val w = interface(pkg)
     val longModName = DottedName.assertFromString(modName)
     val mod = pkg.modules(longModName)
     Typing.checkModule(w, defaultPackageId, mod)

@@ -12,8 +12,9 @@ import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.metrics.MetricsReporter
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguration, MetricsReporter}
+import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguration}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 
@@ -43,8 +44,9 @@ final case class SandboxConfig(
     authService: Option[AuthService],
     seeding: Option[Seeding],
     metricsReporter: Option[MetricsReporter],
-    metricsReportingInterval: Duration,
+    metricsReportingInterval: FiniteDuration,
     eventsPageSize: Int,
+    eventsProcessingParallelism: Int,
     lfValueTranslationEventCacheConfiguration: SizedCache.Configuration,
     lfValueTranslationContractCacheConfiguration: SizedCache.Configuration,
     profileDir: Option[Path],
@@ -65,6 +67,7 @@ object SandboxConfig {
   val DefaultDatabaseConnectionTimeout: FiniteDuration = 250.millis
 
   val DefaultEventsPageSize: Int = 1000
+  val DefaultEventsProcessingParallelism: Int = 8
 
   val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
 
@@ -101,8 +104,9 @@ object SandboxConfig {
       authService = None,
       seeding = Some(Seeding.Strong),
       metricsReporter = None,
-      metricsReportingInterval = Duration.ofSeconds(10),
+      metricsReportingInterval = 10.seconds,
       eventsPageSize = DefaultEventsPageSize,
+      eventsProcessingParallelism = DefaultEventsProcessingParallelism,
       lfValueTranslationEventCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       lfValueTranslationContractCacheConfiguration = DefaultLfValueTranslationCacheConfiguration,
       profileDir = None,

@@ -77,7 +77,7 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
 
       "reject requests with empty ledger ID" in {
         requestMustFailWith(
-          sut.validate(txReq.withLedgerId(""), ledgerEnd, offsetOrdering),
+          sut.validate(txReq.withLedgerId(""), ledgerEnd),
           NOT_FOUND,
           "Ledger ID '' not found. Actual Ledger ID is 'expectedLedgerId'.",
         )
@@ -85,7 +85,7 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
 
       "return the correct error on missing filter" in {
         requestMustFailWith(
-          sut.validate(txReq.update(_.optionalFilter := None), ledgerEnd, offsetOrdering),
+          sut.validate(txReq.update(_.optionalFilter := None), ledgerEnd),
           INVALID_ARGUMENT,
           "Missing field: filter",
         )
@@ -96,7 +96,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
           sut.validate(
             txReq.update(_.filter.filtersByParty := Map.empty),
             ledgerEnd,
-            offsetOrdering,
           ),
           INVALID_ARGUMENT,
           "Invalid argument: filtersByParty cannot be empty",
@@ -105,7 +104,7 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
 
       "return the correct error on missing begin" in {
         requestMustFailWith(
-          sut.validate(txReq.update(_.optionalBegin := None), ledgerEnd, offsetOrdering),
+          sut.validate(txReq.update(_.optionalBegin := None), ledgerEnd),
           INVALID_ARGUMENT,
           "Missing field: begin",
         )
@@ -113,7 +112,7 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
 
       "return the correct error on empty begin " in {
         requestMustFailWith(
-          sut.validate(txReq.update(_.begin := LedgerOffset()), ledgerEnd, offsetOrdering),
+          sut.validate(txReq.update(_.begin := LedgerOffset()), ledgerEnd),
           INVALID_ARGUMENT,
           "Missing field: begin.(boundary|value)",
         )
@@ -121,7 +120,7 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
 
       "return the correct error on empty end " in {
         requestMustFailWith(
-          sut.validate(txReq.withEnd(LedgerOffset()), ledgerEnd, offsetOrdering),
+          sut.validate(txReq.withEnd(LedgerOffset()), ledgerEnd),
           INVALID_ARGUMENT,
           "Missing field: end.(boundary|value)",
         )
@@ -134,7 +133,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
               LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.Unrecognized(7)))
             ),
             ledgerEnd,
-            offsetOrdering,
           ),
           INVALID_ARGUMENT,
           "Invalid argument: Unknown ledger boundary value '7' in field begin.boundary",
@@ -148,7 +146,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
               LedgerOffset(LedgerOffset.Value.Boundary(LedgerBoundary.Unrecognized(7)))
             ),
             ledgerEnd,
-            offsetOrdering,
           ),
           INVALID_ARGUMENT,
           "Invalid argument: Unknown ledger boundary value '7' in field end.boundary",
@@ -162,7 +159,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))
             ),
             ledgerEnd,
-            offsetOrdering,
           ),
           OUT_OF_RANGE,
           "Begin offset 1001 is after ledger end 1000",
@@ -176,7 +172,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))
             ),
             ledgerEnd,
-            offsetOrdering,
           ),
           OUT_OF_RANGE,
           "End offset 1001 is after ledger end 1000",
@@ -184,16 +179,15 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
       }
 
       "tolerate missing end" in {
-        inside(sut.validate(txReq.update(_.optionalEnd := None), ledgerEnd, offsetOrdering)) {
-          case Right(req) =>
-            req.ledgerId shouldEqual expectedLedgerId
-            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
-            req.endInclusive shouldEqual None
-            val filtersByParty = req.filter.filtersByParty
-            filtersByParty should have size 1
-            hasExpectedFilters(req)
-            req.verbose shouldEqual verbose
-            hasExpectedTraceContext(req)
+        inside(sut.validate(txReq.update(_.optionalEnd := None), ledgerEnd)) { case Right(req) =>
+          req.ledgerId shouldEqual expectedLedgerId
+          req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+          req.endInclusive shouldEqual None
+          val filtersByParty = req.filter.filtersByParty
+          filtersByParty should have size 1
+          hasExpectedFilters(req)
+          req.verbose shouldEqual verbose
+          hasExpectedTraceContext(req)
         }
       }
 
@@ -204,7 +198,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
               p -> f.update(_.inclusive := InclusiveFilters(Nil))
             })),
             ledgerEnd,
-            offsetOrdering,
           )
         ) { case Right(req) =>
           req.ledgerId shouldEqual expectedLedgerId
@@ -228,7 +221,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
               p -> f.update(_.optionalInclusive := None)
             })),
             ledgerEnd,
-            offsetOrdering,
           )
         ) { case Right(req) =>
           req.ledgerId shouldEqual expectedLedgerId
@@ -247,7 +239,7 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
 
       "tolerate missing traceContext" in {
         inside(
-          sut.validate(txReq.update(_.optionalTraceContext := None), ledgerEnd, offsetOrdering)
+          sut.validate(txReq.update(_.optionalTraceContext := None), ledgerEnd)
         ) { case Right(req) =>
           req.ledgerId shouldEqual expectedLedgerId
           req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
@@ -261,7 +253,7 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
       }
 
       "tolerate all fields filled out" in {
-        inside(sut.validate(txReq, ledgerEnd, offsetOrdering)) { case Right(req) =>
+        inside(sut.validate(txReq, ledgerEnd)) { case Right(req) =>
           req.ledgerId shouldEqual expectedLedgerId
           req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
           req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
@@ -275,7 +267,7 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
     "validating tree requests" should {
 
       "tolerate missing filters_inclusive" in {
-        inside(sut.validateTree(txTreeReq, ledgerEnd, offsetOrdering)) { case Right(req) =>
+        inside(sut.validateTree(txTreeReq, ledgerEnd)) { case Right(req) =>
           req.ledgerId shouldEqual expectedLedgerId
           req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
           req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
@@ -293,7 +285,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
               p -> f.update(_.optionalInclusive := Some(InclusiveFilters()))
             })),
             ledgerEnd,
-            offsetOrdering,
           ),
           INVALID_ARGUMENT,
           "Invalid argument: party attempted subscription for templates []. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC.",
@@ -307,7 +298,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))
             ),
             ledgerEnd,
-            offsetOrdering,
           ),
           OUT_OF_RANGE,
           "Begin offset 1001 is after ledger end 1000",
@@ -321,7 +311,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
               LedgerOffset(LedgerOffset.Value.Absolute((ledgerEnd.value.toInt + 1).toString))
             ),
             ledgerEnd,
-            offsetOrdering,
           ),
           OUT_OF_RANGE,
           "End offset 1001 is after ledger end 1000",
@@ -458,7 +447,7 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
 
       "reject transaction requests for unknown parties" in {
         requestMustFailWith(
-          knowsPartyOnly.validate(txReq.withFilter(filterWithUnknown), ledgerEnd, offsetOrdering),
+          knowsPartyOnly.validate(txReq.withFilter(filterWithUnknown), ledgerEnd),
           INVALID_ARGUMENT,
           "Invalid argument: Unknown parties: [Alice, Bob]",
         )
@@ -467,7 +456,7 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
       "reject transaction tree requests for unknown parties" in {
         requestMustFailWith(
           knowsPartyOnly
-            .validateTree(txTreeReq.withFilter(filterWithUnknown), ledgerEnd, offsetOrdering),
+            .validateTree(txTreeReq.withFilter(filterWithUnknown), ledgerEnd),
           INVALID_ARGUMENT,
           "Invalid argument: Unknown parties: [Alice, Bob]",
         )
@@ -497,7 +486,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
         knowsPartyOnly.validate(
           txReq.withFilter(filterWithKnown),
           ledgerEnd,
-          offsetOrdering,
         ) shouldBe a[Right[_, _]]
       }
 
@@ -505,7 +493,6 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
         knowsPartyOnly.validateTree(
           txTreeReq.withFilter(filterWithKnown),
           ledgerEnd,
-          offsetOrdering,
         ) shouldBe a[Right[_, _]]
       }
 

@@ -82,8 +82,7 @@ import qualified Development.IDE.Core.Rules as IDE
 import Development.IDE.Core.Service.Daml
 import Development.IDE.Core.Shake
 import Development.IDE.Types.Diagnostics
-import qualified Language.Haskell.LSP.Messages as LSP
-import qualified Language.Haskell.LSP.Types as LSP
+import qualified Language.LSP.Types as LSP
 
 import Development.IDE.Core.RuleTypes.Daml
 
@@ -164,15 +163,13 @@ sendFileDiagnostics :: [FileDiagnostic] -> Action ()
 sendFileDiagnostics diags =
     mapM_ (uncurry sendDiagnostics) (groupSort $ map (\(file, _showDiag, diag) -> (file, diag)) diags)
 
--- TODO: Move this to ghcide, perhaps.
 sendDiagnostics :: NormalizedFilePath -> [Diagnostic] -> Action ()
 sendDiagnostics fp diags = do
+    ShakeExtras {lspEnv} <- getShakeExtras
     let uri = fromNormalizedUri (filePathToUri' fp)
-        event = LSP.NotPublishDiagnostics $
-            LSP.NotificationMessage "2.0" LSP.TextDocumentPublishDiagnostics $
-            LSP.PublishDiagnosticsParams uri (List diags)
-            -- This is just 'publishDiagnosticsNotification' from ghcide.
-    sendEvent event
+    liftIO $
+        sendNotification lspEnv LSP.STextDocumentPublishDiagnostics $
+        LSP.PublishDiagnosticsParams uri Nothing (List diags)
 
 -- | Get an unvalidated DALF package.
 -- This must only be used for debugging/testing.
@@ -973,11 +970,12 @@ instance FromJSON VirtualResourceChangedParams where
     parseJSON = withObject "VirtualResourceChangedParams" $ \o ->
         VirtualResourceChangedParams <$> o .: "uri" <*> o .: "contents"
 
-vrChangedNotification :: VirtualResource -> T.Text -> LSP.FromServerMessage
-vrChangedNotification vr doc =
-    LSP.NotCustomServer $
-    LSP.NotificationMessage "2.0" (LSP.CustomServerMethod virtualResourceChangedNotification) $
-    toJSON $ VirtualResourceChangedParams (virtualResourceToUri vr) doc
+vrChangedNotification :: VirtualResource -> T.Text -> Action ()
+vrChangedNotification vr doc = do
+    ShakeExtras { lspEnv } <- getShakeExtras
+    liftIO $
+        sendNotification lspEnv (LSP.SCustomMethod virtualResourceChangedNotification) $
+        toJSON $ VirtualResourceChangedParams (virtualResourceToUri vr) doc
 
 -- | Virtual resource note set notification
 -- This notification is sent by the server to the client when
@@ -1001,11 +999,12 @@ instance FromJSON VirtualResourceNoteSetParams where
     parseJSON = withObject "VirtualResourceNoteSetParams" $ \o ->
         VirtualResourceNoteSetParams <$> o .: "uri" <*> o .: "note"
 
-vrNoteSetNotification :: VirtualResource -> T.Text -> LSP.FromServerMessage
-vrNoteSetNotification vr note =
-    LSP.NotCustomServer $
-    LSP.NotificationMessage "2.0" (LSP.CustomServerMethod virtualResourceNoteSetNotification) $
-    toJSON $ VirtualResourceNoteSetParams (virtualResourceToUri vr) note
+vrNoteSetNotification :: VirtualResource -> T.Text -> Action ()
+vrNoteSetNotification vr note = do
+    ShakeExtras { lspEnv } <- getShakeExtras
+    liftIO $
+        sendNotification lspEnv (LSP.SCustomMethod virtualResourceNoteSetNotification) $
+        toJSON $ VirtualResourceNoteSetParams (virtualResourceToUri vr) note
 
 -- A rule that builds the files-of-interest and notifies via the
 -- callback of any errors. NOTE: results may contain errors for any
@@ -1040,11 +1039,11 @@ ofInterestRule opts = do
                 forM_ vrs $ \(vr, res) -> do
                     let doc = formatScenarioResult world res
                     when (vr `HashSet.member` openVRs) $
-                        sendEvent $ vrChangedNotification vr doc
+                        vrChangedNotification vr doc
                 let vrScenarioNames = Set.fromList $ fmap (vrScenarioName . fst) vrs
                 forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr -> do
                     when (not $ vrScenarioName ovr `Set.member` vrScenarioNames) $
-                        sendEvent $ vrNoteSetNotification ovr $ LF.scenarioNotInFileNote $
+                        vrNoteSetNotification ovr $ LF.scenarioNotInFileNote $
                         T.pack $ fromNormalizedFilePath file
 
         -- We don’t always have a scenario service (e.g., damlc compile)
@@ -1055,7 +1054,7 @@ ofInterestRule opts = do
             mbDalf <- getDalf file
             when (isNothing mbDalf) $ do
                 forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr ->
-                    sendEvent $ vrNoteSetNotification ovr $ LF.fileWScenarioNoLongerCompilesNote $ T.pack $
+                    vrNoteSetNotification ovr $ LF.fileWScenarioNoLongerCompilesNote $ T.pack $
                         fromNormalizedFilePath file
 
         let dlintEnabled = case optDlintUsage opts of

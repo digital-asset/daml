@@ -14,8 +14,6 @@ private[preprocessing] final class TransactionPreprocessor(
     compiledPackages: MutableCompiledPackages
 ) {
 
-  import Preprocessor._
-
   val commandPreprocessor = new CommandPreprocessor(compiledPackages)
 
   // Accumulator used by unsafeTranslateTransactionRoots method.
@@ -34,6 +32,9 @@ private[preprocessing] final class TransactionPreprocessor(
       commands :+ cmd,
     )
   }
+
+  private[this] def invalidRootNode(nodeId: NodeId, message: String) =
+    throw Error.Preprocessing.RootNode(nodeId, message)
 
   /*
    * Translates a transaction tree into a sequence of Speedy commands
@@ -81,7 +82,7 @@ private[preprocessing] final class TransactionPreprocessor(
    * See review comments in https://github.com/digital-asset/daml/pull/9370
    * for more details.
    */
-  @throws[PreprocessorException]
+  @throws[Error.Preprocessing.Error]
   def unsafeTranslateTransactionRoots[Cid <: Value.ContractId](
       tx: GenTransaction[NodeId, Cid]
   ): (ImmArray[speedy.Command], Set[ContractId]) = {
@@ -114,14 +115,14 @@ private[preprocessing] final class TransactionPreprocessor(
               val newLocalCids = GenTransaction(tx.nodes, ImmArray(id)).localContracts.keys
               acc.update(newCids, newLocalCids, cmd)
             case _: Node.NodeFetch[_] =>
-              fail(s"Transaction contains a fetch root node $id")
+              invalidRootNode(id, s"Transaction contains a fetch root node $id")
             case _: Node.NodeLookupByKey[_] =>
-              fail(s"Transaction contains a lookup by key root node $id")
+              invalidRootNode(id, s"Transaction contains a lookup by key root node $id")
           }
         case Some(_: Node.NodeRollback[NodeId]) =>
-          fail(s"invalid transaction, root refers to a rollback node $id")
+          invalidRootNode(id, s"invalid transaction, root refers to a rollback node $id")
         case None =>
-          fail(s"invalid transaction, root refers to non-existing node $id")
+          invalidRootNode(id, s"invalid transaction, root refers to non-existing node $id")
       }
     }
 
@@ -132,7 +133,7 @@ private[preprocessing] final class TransactionPreprocessor(
     //  - it catches obviously buggy transaction,
     //  - it is easier to reason about "soundness" of preprocessing under the disjointness assumption.
     if (result.localCids exists result.globalCids)
-      fail("Conflicting discriminators between a global and local contract ID.")
+      throw Error.Preprocessing.ContractIdFreshness(result.localCids, result.globalCids)
 
     result.commands.toImmArray -> result.globalCids
   }

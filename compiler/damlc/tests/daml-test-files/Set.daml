@@ -7,6 +7,7 @@ module Set where
 
 import DA.Set as S
 import DA.Assert
+import qualified DA.Foldable as Foldable
 
 testEmpty = scenario do
   0 === size S.empty
@@ -65,3 +66,12 @@ testDifference = scenario do
   [] === toList (difference S.empty (fromList [4, 2]))
   [1, 3, 5] === toList (difference (fromList [1, 5, 3]) S.empty)
   [] === toList (difference S.empty (fromList ([] : [Int])))
+
+testFoldable = scenario do
+  Foldable.toList (S.fromList [1,2,3,4]) === [1,2,3,4]
+  Foldable.length (S.fromList [1,2,3,4]) === 4
+  Foldable.null (S.fromList [1,2,3,4]) === False
+  Foldable.null S.empty === True
+  Foldable.foldl (-) 0 (S.fromList [1,2]) === -3
+  Foldable.foldr (-) 0 (S.fromList [1,2]) === -1
+  Foldable.foldMap (:: []) (S.fromList [1,2,3]) === [1,2,3]

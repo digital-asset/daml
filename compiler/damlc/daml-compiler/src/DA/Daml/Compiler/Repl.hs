@@ -2,6 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 module DA.Daml.Compiler.Repl
@@ -47,14 +49,13 @@ import Development.IDE.Core.RuleTypes
 import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Util
-import Development.IDE.LSP.Protocol
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import ErrUtils
 import GHC
 import HscTypes (HscEnv(..), mkPrintUnqualified)
 import Language.Haskell.GhclibParserEx.Parse
-import Language.Haskell.LSP.Messages
+import qualified Language.LSP.Types as LSP
 import Module (unitIdString)
 import OccName (OccSet, occName, elemOccSet, mkOccSet, mkVarOcc)
 import Outputable (parens, ppr, showSDoc, showSDocForUser)
@@ -72,7 +73,9 @@ data Error
     | ExpectedExpression String
     | NotImportedModules [ModuleName]
     | TypeError -- ^ The actual error will be in the diagnostics
-    | ScriptError ReplClient.BackendError
+    | ScriptBackendError ReplClient.BackendError
+    | ScriptError T.Text
+    | InternalError T.Text
 
 renderError :: DynFlags -> Error -> IO ()
 renderError dflags err = case err of
@@ -87,9 +90,9 @@ renderError dflags err = case err of
     TypeError ->
         -- The error will be displayed via diagnostics.
         pure ()
-    (ScriptError _err) ->
-        -- The error will be displayed by the script runner.
-        pure ()
+    (ScriptError err) -> T.putStrLn err
+    (ScriptBackendError err) -> print err
+    (InternalError err) -> T.putStrLn err
 
 -- | Take a set of variables and a pattern and shadow all the variables
 -- in the pattern by turning them into wildcard patterns.
@@ -337,7 +340,7 @@ loadPackages importPkgs replClient ideState = do
 data ReplLogger = ReplLogger
   { withReplLogger :: forall a. ([FileDiagnostic] -> IO ()) -> IO a -> IO a
   -- ^ Temporarily modify what happens to diagnostics
-  , replEventLogger :: FromServerMessage -> IO ()
+  , replEventLogger :: NotificationHandler
   -- ^ Logger to pass to `withDamlIdeState`
   }
 
@@ -346,11 +349,13 @@ newReplLogger :: IO ReplLogger
 newReplLogger = do
     lock <- newLock
     diagsRef <- newIORef $ \diags -> printDiagnostics stdout diags
-    let replEventLogger = \case
-            EventFileDiagnostics fp diags -> do
-                logger <- readIORef diagsRef
-                logger $ map (toNormalizedFilePath' fp, ShowDiag,) diags
-            _ -> pure ()
+    let replEventLogger :: forall (m :: LSP.Method 'LSP.FromServer 'LSP.Notification). LSP.SMethod m -> LSP.MessageParams m -> IO ()
+        replEventLogger
+          LSP.STextDocumentPublishDiagnostics
+          (LSP.PublishDiagnosticsParams (uriToFilePath' -> Just fp) _ (List diags)) = do
+            logger <- readIORef diagsRef
+            logger $ map (toNormalizedFilePath' fp, ShowDiag,) diags
+        replEventLogger _ _ = pure ()
         withReplLogger :: ([FileDiagnostic] -> IO ()) -> IO a -> IO a
         withReplLogger logAct f =
             withLock lock $
@@ -358,7 +363,7 @@ newReplLogger = do
                 (readIORef diagsRef <* atomicWriteIORef diagsRef logAct)
                 (atomicWriteIORef diagsRef)
                 (const f)
-    pure ReplLogger{..}
+    pure ReplLogger{replEventLogger = NotificationHandler replEventLogger,..}
 
 runRepl
     :: [(LF.PackageName, Maybe LF.PackageVersion)]
@@ -431,9 +436,14 @@ runRepl importPkgs opts replClient logger ideState = do
         stmtTy <- maybe (throwError TypeError) pure (exprTy $ tm_typechecked_source tcMod)
         -- If we get an error we don’t increment lineNumber and we
         -- do not get a new binding
-        mbResult <- withExceptT ScriptError $ ExceptT $ liftIO $
+        result <- withExceptT ScriptBackendError $ ExceptT $ liftIO $
             ReplClient.runScript replClient (optDamlLfVersion opts) lfMod rspType
-        liftIO $ whenJust mbResult T.putStrLn
+
+        case result of
+            ReplClient.ScriptSuccess mbResult -> liftIO $ whenJust mbResult T.putStrLn
+            ReplClient.ScriptError err -> throwError (ScriptError err)
+            ReplClient.InternalError err -> throwError (InternalError err)
+
         let boundVars = stmtBoundVars supportedStmt
             boundVars' = mkOccSet $ map occName boundVars
         State.modify' $ \s -> s

@@ -44,16 +44,20 @@ version1_12 = V1 $ PointStable 12
 version1_13 :: Version
 version1_13 = V1 $ PointStable 13
 
+-- | DAML-LF version 1.14
+version1_14 :: Version
+version1_14 = V1 $ PointStable 14
+
 -- | The DAML-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_12
+versionDefault = version1_13
 
 -- | The DAML-LF development version.
 versionDev :: Version
 versionDev = V1 PointDev
 
 supportedOutputVersions :: [Version]
-supportedOutputVersions = [version1_6, version1_7, version1_8, version1_11, version1_12, version1_13, versionDev]
+supportedOutputVersions = [version1_6, version1_7, version1_8, version1_11, version1_12, version1_13, version1_14, versionDev]
 
 supportedInputVersions :: [Version]
 supportedInputVersions = supportedOutputVersions
@@ -163,9 +167,7 @@ featureBigNumeric = Feature
 featureExceptions :: Feature
 featureExceptions = Feature
     { featureName = "DAML Exceptions"
-    , featureMinVersion = versionDev
-        -- TODO: https://github.com/digital-asset/daml/issues/8020
-        -- Update LF version number when we stabilize exceptions.
+    , featureMinVersion = version1_14
     , featureCppFlag = Just "DAML_EXCEPTIONS"
     }
 

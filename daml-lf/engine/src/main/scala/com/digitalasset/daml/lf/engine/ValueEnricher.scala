@@ -4,9 +4,8 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
-import com.daml.lf.language.Ast
-import com.daml.lf.language.Ast.{PackageSignature, TTyCon}
+import com.daml.lf.data.Ref.{Identifier, Name}
+import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.Node.{GenNode, KeyWithMaintainers}
 import com.daml.lf.transaction.{CommittedTransaction, Node, NodeId, VersionedTransaction}
 import com.daml.lf.value.Value
@@ -16,15 +15,6 @@ import com.daml.lf.value.Value.ContractId
 // - type constructor in records, variants, and enums
 // - Records' field names
 final class ValueEnricher(engine: Engine) {
-
-  private[this] def getPackage(pkgId: PackageId): Result[PackageSignature] = {
-    val signature = engine.compiledPackages().signatures
-    if (signature.isDefinedAt(pkgId)) {
-      ResultDone(signature(pkgId))
-    } else {
-      engine.loadPackages(List(pkgId)).map(_ => signature(pkgId))
-    }
-  }
 
   def enrichValue(typ: Ast.Type, value: Value[ContractId]): Result[Value[ContractId]] =
     engine.enrich(typ, value)
@@ -39,9 +29,21 @@ final class ValueEnricher(engine: Engine) {
   def enrichContract(tyCon: Identifier, value: Value[ContractId]): Result[Value[ContractId]] =
     enrichValue(Ast.TTyCon(tyCon), value)
 
-  private[this] def fromEither[X](either: Either[String, X]) = either match {
+  private[this] def interface = engine.compiledPackages().interface
+
+  private[this] def handleLookup[X](lookup: => Either[LookupError, X]) = lookup match {
     case Right(value) => ResultDone(value)
-    case Left(error) => ResultError(Error(error))
+    case Left(LookupError.Package(pkgId)) =>
+      engine
+        .loadPackages(List(pkgId))
+        .flatMap(_ =>
+          lookup match {
+            case Right(value) => ResultDone(value)
+            case Left(err) => ResultError(Error.Preprocessing.Lookup(err))
+          }
+        )
+    case Left(error) =>
+      ResultError(Error.Preprocessing.Lookup(error))
   }
 
   def enrichChoiceArgument(
@@ -49,44 +51,21 @@ final class ValueEnricher(engine: Engine) {
       choiceName: Name,
       value: Value[ContractId],
   ): Result[Value[ContractId]] =
-    for {
-      pkg <- getPackage(tyCon.packageId)
-      tmpl <- fromEither(pkg.lookupTemplate(tyCon.qualifiedName))
-      enrichedValue <- tmpl.choices.get(choiceName) match {
-        case Some(choice) =>
-          enrichValue(choice.argBinder._2, value)
-        case None =>
-          ResultError(Error(s"choice $tyCon:$choiceName not found"))
-      }
-    } yield enrichedValue
+    handleLookup(interface.lookupChoice(tyCon, choiceName))
+      .flatMap(choice => enrichValue(choice.argBinder._2, value))
 
   def enrichChoiceResult(
       tyCon: Identifier,
       choiceName: Name,
       value: Value[ContractId],
   ): Result[Value[ContractId]] =
-    for {
-      pkg <- getPackage(tyCon.packageId)
-      tmpl <- fromEither(pkg.lookupTemplate(tyCon.qualifiedName))
-      enrichedValue <- tmpl.choices.get(choiceName) match {
-        case Some(choice) =>
-          enrichValue(choice.returnType, value)
-        case None =>
-          ResultError(Error(s"choice $tyCon:$choiceName not found"))
-      }
-    } yield enrichedValue
+    handleLookup(interface.lookupChoice(tyCon, choiceName)).flatMap(choice =>
+      enrichValue(choice.returnType, value)
+    )
 
   def enrichContractKey(tyCon: Identifier, value: Value[ContractId]): Result[Value[ContractId]] =
-    for {
-      pkg <- getPackage(tyCon.packageId)
-      tmpl <- fromEither(pkg.lookupTemplate(tyCon.qualifiedName))
-      enrichedValue <- tmpl.key match {
-        case Some(contractKey) =>
-          enrichValue(contractKey.typ, value)
-        case None =>
-          ResultError(Error(s"template $tyCon does not have contract Key"))
-      }
-    } yield enrichedValue
+    handleLookup(interface.lookupTemplateKey(tyCon))
+      .flatMap(key => enrichValue(key.typ, value))
 
   private val ResultNone = ResultDone(None)
 
@@ -113,7 +92,7 @@ final class ValueEnricher(engine: Engine) {
         ResultDone(rb)
       case create: Node.NodeCreate[ContractId] =>
         for {
-          arg <- enrichValue(TTyCon(create.templateId), create.arg)
+          arg <- enrichValue(Ast.TTyCon(create.templateId), create.arg)
           key <- enrichContractKey(create.templateId, create.key)
         } yield create.copy(arg = arg, key = key)
       case fetch: Node.NodeFetch[ContractId] =>

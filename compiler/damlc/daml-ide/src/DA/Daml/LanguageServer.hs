@@ -8,17 +8,15 @@ module DA.Daml.LanguageServer
     ( runLanguageServer
     ) where
 
-import           Language.Haskell.LSP.Types
-import           Language.Haskell.LSP.Types.Capabilities
-import           Development.IDE.LSP.Server
+import           Language.LSP.Types
 import qualified Development.IDE.LSP.LanguageServer as LS
-import Control.Monad.Extra
+import Control.Monad.IO.Class
+import qualified Data.Aeson as Aeson
 import Data.Default
 
-import DA.Daml.LanguageServer.CodeLens
+import qualified DA.Daml.LanguageServer.CodeLens as VirtualResource
 import Development.IDE.Types.Logger
 
-import qualified Data.Aeson                                as Aeson
 import qualified Data.HashSet as HS
 import qualified Data.Text as T
 
@@ -28,15 +26,12 @@ import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.Service.Daml
 import Development.IDE.Plugin
 
-import DA.Daml.SessionTelemetry
-import DA.Daml.LanguageServer.Visualize
+import qualified DA.Daml.SessionTelemetry as SessionTelemetry
+import qualified DA.Daml.LanguageServer.Visualize as Visualize
 import qualified DA.Service.Logger as Lgr
 import qualified Network.URI                               as URI
 
-import Language.Haskell.LSP.Messages
-import qualified Language.Haskell.LSP.Core as LSP
-import qualified Language.Haskell.LSP.Types as LSP
-
+import qualified Language.LSP.Server as LSP
 
 textShow :: Show a => a -> T.Text
 textShow = T.pack . show
@@ -45,49 +40,32 @@ textShow = T.pack . show
 -- Request handlers
 ------------------------------------------------------------------------
 
-setHandlersKeepAlive :: PartialHandlers a
-setHandlersKeepAlive = PartialHandlers $ \WithMessage{..} x -> return x
-    {LSP.customRequestHandler = Just $ \msg@RequestMessage{_method} ->
-        case _method of
-            CustomClientMethod "daml/keepAlive" ->
-                whenJust (withResponse RspCustomServer (\_ _ _ -> pure (Right Aeson.Null))) ($ msg)
-            _ -> whenJust (LSP.customRequestHandler x) ($ msg)
+setHandlersKeepAlive :: Plugin c
+setHandlersKeepAlive = Plugin
+    { pluginCommands = mempty
+    , pluginRules = mempty
+    , pluginHandlers = pluginHandler (SCustomMethod "daml/keepAlive")  $ \_ _ -> pure (Right Aeson.Null)
+    , pluginNotificationHandlers = mempty
     }
 
-setIgnoreOptionalHandlers :: PartialHandlers a
-setIgnoreOptionalHandlers = PartialHandlers $ \_ x -> return x
-    {LSP.customRequestHandler = Just $ \msg@RequestMessage{_method} ->
-         case _method of
-             CustomClientMethod s
-               | optionalPrefix `T.isPrefixOf` s -> pure ()
-             _ -> whenJust (LSP.customRequestHandler x) ($ msg)
-    ,LSP.customNotificationHandler = Just $ \msg@NotificationMessage{_method} ->
-         case _method of
-             CustomClientMethod s
-               | optionalPrefix `T.isPrefixOf` s -> pure ()
-             _ -> whenJust (LSP.customNotificationHandler x) ($ msg)
-    }
-    -- According to the LSP spec methods starting with @$/@ are optional
-    -- and can be ignored. In particular, VSCode sometimes seems to send
-    -- @$/setTraceNotification@ which we want to ignore.
-    where optionalPrefix = "$/"
-
-setHandlersVirtualResource :: PartialHandlers a
-setHandlersVirtualResource = PartialHandlers $ \WithMessage{..} x -> return x
-    {LSP.didOpenTextDocumentNotificationHandler = withNotification (LSP.didOpenTextDocumentNotificationHandler x) $
-        \_ ide (DidOpenTextDocumentParams TextDocumentItem{_uri}) ->
-            withUriDaml _uri $ \vr -> do
+setHandlersVirtualResource :: Plugin c
+setHandlersVirtualResource = Plugin
+    { pluginRules = mempty
+    , pluginHandlers = mempty
+    , pluginCommands = mempty
+    , pluginNotificationHandlers = mconcat
+          [ pluginNotificationHandler STextDocumentDidOpen $ \ide (DidOpenTextDocumentParams TextDocumentItem{_uri}) ->
+            liftIO $ withUriDaml _uri $ \vr -> do
                 logInfo (ideLogger ide) $ "Opened virtual resource: " <> textShow vr
                 logTelemetry (ideLogger ide) "Viewed scenario results"
                 modifyOpenVirtualResources ide (HS.insert vr)
 
-    ,LSP.didCloseTextDocumentNotificationHandler = withNotification (LSP.didCloseTextDocumentNotificationHandler x) $
-        \_ ide (DidCloseTextDocumentParams TextDocumentIdentifier{_uri}) -> do
-            withUriDaml _uri $ \vr -> do
+          , pluginNotificationHandler STextDocumentDidClose $ \ide (DidCloseTextDocumentParams TextDocumentIdentifier{_uri}) ->
+            liftIO $ withUriDaml _uri $ \vr -> do
                 logInfo (ideLogger ide) $ "Closed virtual resource: " <> textShow vr
                 modifyOpenVirtualResources ide (HS.delete vr)
+          ]
     }
-
 
 withUriDaml :: Uri -> (VirtualResource -> IO ()) -> IO ()
 withUriDaml x f
@@ -103,16 +81,14 @@ withUriDaml _ _ = return ()
 ------------------------------------------------------------------------
 
 runLanguageServer
-    :: Lgr.Handle IO
-    -> Plugin ()
-    -> (IO LSP.LspId -> (FromServerMessage -> IO ()) -> VFSHandle -> ClientCapabilities -> IO IdeState)
+    :: Show c
+    => Lgr.Handle IO
+    -> Plugin c
+    -> c
+    -> (LSP.LanguageContextEnv c -> VFSHandle -> Maybe FilePath -> IO IdeState)
     -> IO ()
-runLanguageServer lgr plugins getIdeState = withSessionPings lgr $ \setSessionHandlers -> do
-    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers <> setCommandHandler <> setSessionHandlers
-    let onInitialConfiguration = const $ Right ()
-    let onConfigurationChange = const $ Right ()
-    LS.runLanguageServer options (pluginHandler plugins <> handlers) onInitialConfiguration onConfigurationChange getIdeState
-
-
-options :: LSP.Options
-options = def { LSP.executeCommandCommands = Just ["daml/damlVisualize"] }
+runLanguageServer lgr plugins conf getIdeState = SessionTelemetry.withPlugin lgr $ \sessionHandlerPlugin -> do
+    let allPlugins = plugins <> setHandlersKeepAlive <> setHandlersVirtualResource <> VirtualResource.plugin <> Visualize.plugin <> sessionHandlerPlugin
+    let onConfigurationChange c _ = Right c
+    let options = def { LSP.executeCommandCommands = Just (commandIds allPlugins) }
+    LS.runLanguageServer options conf onConfigurationChange allPlugins getIdeState

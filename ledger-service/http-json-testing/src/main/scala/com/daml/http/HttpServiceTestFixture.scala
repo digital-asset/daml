@@ -11,11 +11,12 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
+import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.dbbackend.ContractDao
-import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
+import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.daml.http.util.ClientUtil.boxedRecord
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.util.TestUtil.getResponseDataBytes
@@ -36,6 +37,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.logging.LoggingContextOf
+import com.daml.metrics.Metrics
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox
 import com.daml.platform.sandbox.SandboxServer
@@ -77,6 +79,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ec: ExecutionContext,
   ): Future[A] = {
     implicit val lc: LoggingContextOf[InstanceUUID] = instanceUUIDLogCtx()
+    implicit val metrics: Metrics = new Metrics(new MetricRegistry())
     val applicationId = ApplicationId(testName)
 
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
@@ -346,7 +349,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
     postJsonStringRequest(uri, json.prettyPrint, headers)
 
   def postCreateCommand(
-      cmd: domain.CreateCommand[v.Record],
+      cmd: domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg],
       encoder: DomainJsonEncoder,
       uri: Uri,
       headers: List[HttpHeader],
@@ -355,9 +358,8 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[(StatusCode, JsValue)] = {
-    import encoder.implicits._
     for {
-      json <- FutureUtil.toFuture(SprayJson.encode1(cmd)): Future[JsValue]
+      json <- FutureUtil.toFuture(encoder.encodeCreateCommand(cmd)): Future[JsValue]
       result <- postJsonRequest(uri.withPath(Uri.Path("/v1/create")), json, headers = headers)
     } yield result
   }
@@ -415,7 +417,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       owner: domain.Party,
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now),
-  ): domain.CreateCommand[v.Record] = {
+  ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
     val templateId = domain.TemplateId(None, "Account", "Account")
     val timeValue = v.Value(time)
     val enabledVariantValue =
@@ -435,7 +437,7 @@ object HttpServiceTestFixture extends LazyLogging with Assertions with Inside {
       owners: Seq[String],
       number: String,
       time: v.Value.Sum.Timestamp = TimestampConversion.instantToMicros(Instant.now),
-  ): domain.CreateCommand[v.Record] = {
+  ): domain.CreateCommand[v.Record, domain.TemplateId.OptionalPkg] = {
     val templateId = domain.TemplateId(None, "Account", "SharedAccount")
     val timeValue = v.Value(time)
     val enabledVariantValue =

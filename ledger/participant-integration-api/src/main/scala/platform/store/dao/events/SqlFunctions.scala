@@ -62,15 +62,39 @@ private[dao] object SqlFunctions {
   object OracleSqlFunctions extends SqlFunctions {
     // TODO https://github.com/digital-asset/daml/issues/9493
     // This is likely extremely inefficient due to the multiple full tablescans on unindexed varray column
-    override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String =
-      parties
-        .map(party => s"('$party') IN (SELECT * FROM TABLE($arrayColumn))")
-        .mkString("(", " or ", ")")
+    override def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Party]): String = {
+      val NumCharsBetweenParties = 3
+      val NumExtraChars = 20
+      val OracleMaxStringLiteralLength = 4000
+
+      val groupedParties =
+        parties.foldLeft((List.empty[List[String]], 0))({ case ((prev, currentLength), party) =>
+          if (
+            currentLength + party.length + NumCharsBetweenParties > OracleMaxStringLiteralLength
+          ) {
+            (List(party) :: prev, party.length + NumExtraChars)
+          } else {
+            prev match {
+              case h :: tail =>
+                ((party :: h) :: tail, currentLength + party.length + NumCharsBetweenParties)
+              case Nil => (List(party) :: Nil, party.length + NumExtraChars)
+            }
+          }
+        })
+      "(" + groupedParties._1
+        .map { listOfParties =>
+          s"""JSON_EXISTS($arrayColumn, '$$[*]?(@ in ("${listOfParties.mkString("""","""")}"))')"""
+        }
+        .mkString(" OR ") + ")"
+    }
 
     override def arrayIntersectionValues(arrayColumn: String, parties: Set[Party]): String =
-      s"CAST(MULTISET(select unique $arrayColumn.* FROM TABLE($arrayColumn) $arrayColumn intersect select * from TABLE(VARCHAR_ARRAY(${format(parties)}))) as VARCHAR_ARRAY)"
+      s"""(select json_arrayagg(value) from (select value
+        |from json_table($arrayColumn, '$$[*]' columns (value PATH '$$'))
+        |where ${parties.map { party => s"value = '$party'" }.mkString(" or ")}))
+        |""".stripMargin
 
-    override def toArray(value: String) = s"VARCHAR_ARRAY('$value')"
+    override def toArray(value: String) = s"""'["$value"]'"""
 
     override def limitClause(numRows: Int) = s"fetch next $numRows rows only"
 

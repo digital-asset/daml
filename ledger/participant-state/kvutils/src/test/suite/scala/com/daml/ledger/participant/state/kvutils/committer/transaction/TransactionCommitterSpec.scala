@@ -19,10 +19,10 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   StepStop,
 }
 import com.daml.ledger.participant.state.kvutils.{Conversions, committer}
-import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
+import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason, RejectionReasonV0}
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.{Engine, ReplayMismatch}
+import com.daml.lf.engine.{Engine, Error => LfError}
 import com.daml.lf.transaction
 import com.daml.lf.transaction._
 import com.daml.lf.transaction.test.TransactionBuilder
@@ -418,7 +418,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
     def checkRejectionReason(
         mkReason: String => RejectionReason
     )(mismatch: transaction.ReplayMismatch[NodeId, Value.ContractId]) = {
-      val replayMismatch = ReplayMismatch(mismatch)
+      val replayMismatch = LfError.Validation(LfError.Validation.ReplayMismatch(mismatch))
       transactionCommitter.rejectionReasonForValidationError(replayMismatch) shouldBe mkReason(
         replayMismatch.msg
       )
@@ -460,7 +460,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
           mkMismatch(tx1, txNone),
           mkMismatch(txNone, tx2),
         )
-        forEvery(inconsistentLookups)(checkRejectionReason(RejectionReason.Inconsistent))
+        forEvery(inconsistentLookups)(checkRejectionReason(RejectionReasonV0.Inconsistent))
       }
 
       "report Disputed if one of contracts is created in the same transaction" in {
@@ -484,11 +484,11 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
           mkMismatch(txC1, txCNone),
           mkMismatch(tx1C, txNoneC),
         )
-        forEvery(recordedKeyInconsistent)(checkRejectionReason(RejectionReason.Disputed))
+        forEvery(recordedKeyInconsistent)(checkRejectionReason(RejectionReasonV0.Disputed))
       }
 
       "report Disputed if the keys are different" in {
-        checkRejectionReason(RejectionReason.Disputed)(mkMismatch(txOther, tx1))
+        checkRejectionReason(RejectionReasonV0.Disputed)(mkMismatch(txOther, tx1))
       }
     }
 
@@ -510,7 +510,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
           mkRecordedMissing(txExerciseOnly, tx2),
           mkReplayedMissing(tx1, txExerciseOnly),
         )
-        forEvery(miscMismatches)(checkRejectionReason(RejectionReason.Disputed))
+        forEvery(miscMismatches)(checkRejectionReason(RejectionReasonV0.Disputed))
       }
     }
   }
@@ -696,6 +696,43 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       rejectionReason should startWith("DuplicateKeys")
     }
 
+    "return DuplicateKeys when a local contract conflicts with a global contract" in {
+      val builder = TransactionBuilder()
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      val transaction = builder.buildSubmitted()
+      val context = commitContextWithContractStateKeys(conflictingKey -> Some(s"#$freshContractId"))
+      val result = validate(context, transaction)
+      result shouldBe a[StepStop]
+      val rejectionReason =
+        getTransactionRejectionReason(result).getInconsistent.getDetails
+      rejectionReason should startWith("DuplicateKeys")
+    }
+
+    "succeeds when a global contract gets archived before a local contract gets created" in {
+      val globalCid = s"#$freshContractId"
+      val globalCreate = newCreateNodeWithFixedKey(globalCid)
+      val context = commitContextWithContractStateKeys(conflictingKey -> Some(globalCid))
+      val builder = TransactionBuilder()
+      builder.add(archive(globalCreate, Set("Alice")))
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      val transaction = builder.buildSubmitted()
+      val result = validate(context, transaction)
+      result shouldBe a[StepContinue[_]]
+    }
+
+    "succeeds when a local contract gets archived before another local contract gets created" in {
+      val localCid = s"#$freshContractId"
+      val context = commitContextWithContractStateKeys(conflictingKey -> None)
+      val builder = TransactionBuilder()
+      val localCreate = newCreateNodeWithFixedKey(localCid)
+      builder.add(localCreate)
+      builder.add(archive(localCreate, Set("Alice")))
+      builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))
+      val transaction = builder.buildSubmitted()
+      val result = validate(context, transaction)
+      result shouldBe a[StepContinue[_]]
+    }
+
     "return DuplicateKeys when a create in a rollback conflicts with a global key" in {
       val builder = TransactionBuilder()
       val rollback = builder.add(builder.rollback())
@@ -760,7 +797,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
 
     "return InconsistentKeys on conflict local and global contracts even if global was archived in a rollback" in {
       val builder = TransactionBuilder()
-      val globalCid = s"#freshContractId"
+      val globalCid = s"#$freshContractId"
       val rollback = builder.add(builder.rollback())
       builder.add(archive(globalCid, Set("Alice")), rollback)
       builder.add(newCreateNodeWithFixedKey(s"#$freshContractId"))

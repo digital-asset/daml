@@ -79,6 +79,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/doobie-slf4j",
+        "//libs-scala/logging-entries",
         "//libs-scala/scala-utils",
         "//triggers/runner:trigger-runner-lib",
         "//triggers/service/auth:middleware-api",

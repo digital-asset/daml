@@ -39,7 +39,6 @@ dar_to_scala(
     ],
     package_prefix = "com.daml.sample",
     srcjar_out = "MyMain.srcjar",
-    verbosity = 2,
 )
 
 da_scala_library(
@@ -154,6 +153,7 @@ da_scala_test(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-resources",
+        "//ledger/metrics",
         "//ledger/participant-integration-api",
         "//ledger/participant-state",
         "//ledger/sandbox-classic",

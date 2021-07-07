@@ -69,9 +69,9 @@ public class GenMapTestFor1_11AndFor1_12ndFor1_13AndFor1_dev {
     assertEquals(keys[2], pair3());
   }
 
-  private Record pair(Long fst, BigDecimal snd) {
-    return new Record(
-        new Record.Field("fst", new Int64(fst)), new Record.Field("snd", new Numeric(snd)));
+  private DamlRecord pair(Long fst, BigDecimal snd) {
+    return new DamlRecord(
+        new DamlRecord.Field("fst", new Int64(fst)), new DamlRecord.Field("snd", new Numeric(snd)));
   }
 
   private Variant left(Long l) {
@@ -82,36 +82,37 @@ public class GenMapTestFor1_11AndFor1_12ndFor1_13AndFor1_dev {
     return new Variant("Right", new Numeric(r));
   }
 
-  private Record pairValue1() {
+  private DamlRecord pairValue1() {
     return pair(1L, bg1());
   }
 
-  private Record pairValue2() {
+  private DamlRecord pairValue2() {
     return pair(-2L, bg2());
   }
 
-  private Record pairValue3() {
+  private DamlRecord pairValue3() {
     return pair(3L, bg3());
   }
 
-  private Record value() {
+  private DamlRecord value() {
     Map<Value, Value> value = new LinkedHashMap<>();
     value.put(pairValue1(), left(1L));
     value.put(pairValue2(), right(bg2()));
     value.put(pairValue3(), left(3L));
     Value map = DamlGenMap.of(value);
-    return new Record(new Record.Field("x", map), new Record.Field("party", new Party("alice")));
+    return new DamlRecord(
+        new DamlRecord.Field("x", map), new DamlRecord.Field("party", new Party("alice")));
   }
 
   @Test
   void value2GenMap2value() {
-    Record b = value();
+    DamlRecord b = value();
     assertEquals(Box.fromValue(b).toValue(), b);
   }
 
   @Test
   void fromValuePreservesOrder() {
-    Record b = value();
+    DamlRecord b = value();
     Object[] keys =
         b.getFieldsMap().get("x").asGenMap().get().stream().map(Map.Entry::getKey).toArray();
     Object[] expected = {pairValue1(), pairValue2(), pairValue3()};

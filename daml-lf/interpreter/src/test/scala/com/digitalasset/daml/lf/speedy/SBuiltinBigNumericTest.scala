@@ -375,10 +375,8 @@ object SBuiltinBigNumericTest {
 
     """
 
-  val compiledPackages = {
-    val x = PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg))
-    x.toOption.get
-  }
+  val compiledPackages =
+    PureCompiledPackages.assertBuild(Map(defaultParserParameters.defaultPackageId -> pkg))
 
   private def eval(e: Expr, onLedger: Boolean = true): Either[SError, SValue] = {
     evalSExpr(compiledPackages.compiler.unsafeCompile(e), onLedger)
@@ -386,10 +384,8 @@ object SBuiltinBigNumericTest {
 
   private def evalSExpr(e: SExpr, onLedger: Boolean): Either[SError, SValue] = {
     val machine = if (onLedger) {
-      val seed = crypto.Hash.hashPrivateKey("SBuiltinTest")
       Speedy.Machine.fromScenarioSExpr(
         compiledPackages,
-        transactionSeed = seed,
         scenario = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(e)),
       )
     } else {

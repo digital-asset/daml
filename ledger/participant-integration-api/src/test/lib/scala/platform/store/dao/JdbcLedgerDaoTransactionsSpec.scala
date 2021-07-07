@@ -148,7 +148,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
   it should "hide events on transient contracts to the original submitter" in {
     for {
-      (offset, tx) <- store(fullyTransient)
+      (offset, tx) <- store(fullyTransient())
       result <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.transactionId, tx.actAs.toSet)
     } yield {
@@ -495,7 +495,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
       // `pageSize = 2` and the offset gaps in the `commandWithOffsetGaps` above are to make sure
       // that streaming works with event pages separated by offsets that don't have events in the store
-      ledgerDao <- createLedgerDao(pageSize = 2)
+      ledgerDao <- createLedgerDao(pageSize = 2, eventsProcessingParallelism = 8)
 
       response <- ledgerDao.transactionsReader
         .getFlatTransactions(
@@ -514,6 +514,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
+  //TODO need to find out why this is so slow to execute on Oracle
   it should "fall back to limit-based query with consistent results" in {
     val txSeqLength = 1000
     txSeqTrial(
@@ -589,7 +590,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       (_, t1) <- store(singleCreate)
       (_, t2) <- store(singleCreate)
       (_, t3) <- store(singleExercise(nonTransient(t2).loneElement))
-      (_, t4) <- store(fullyTransient)
+      (_, t4) <- store(fullyTransient())
       to <- ledgerDao.lookupLedgerEnd()
     } yield (from, to, Seq(t1, t2, t3, t4))
 
@@ -624,9 +625,12 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   ): Vector[Transaction] =
     responses.foldLeft(Vector.empty[Transaction])((b, a) => b ++ a._2.transactions.toVector)
 
-  private def createLedgerDao(pageSize: Int) =
+  private def createLedgerDao(pageSize: Int, eventsProcessingParallelism: Int) =
     LoggingContext.newLoggingContext { implicit loggingContext =>
-      daoOwner(eventsPageSize = pageSize).acquire()(ResourceContext(executionContext))
+      daoOwner(
+        eventsPageSize = pageSize,
+        eventsProcessingParallelism = eventsProcessingParallelism,
+      ).acquire()(ResourceContext(executionContext))
     }.asFuture
 
   // XXX SC much of this is repeated because we're more concerned here

@@ -5,6 +5,7 @@ jobs:
 
 - job: fix_bazel_cache
   timeoutInMinutes: 120
+  condition: eq(variables['System.PullRequest.IsFork'], 'False')
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -64,11 +65,17 @@ jobs:
   dependsOn:
     - da_ghc_lib
     - check_for_release
+    - git_sha
   variables:
-    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    - name: release_sha
+      value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    - name: release_tag
+      value: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+    - name: trigger_sha
+      value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+    - name: is_release
+      value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    - template: job-variables.yml
   timeoutInMinutes: 360
   pool:
     name: 'ubuntu_20_04'
@@ -87,6 +94,7 @@ jobs:
         release_tag: $(release_tag)
         name: 'linux'
         is_release: variables.is_release
+    - template: upload-bazel-metrics.yml
     - bash: |
         set -euo pipefail
         eval "$(./dev-env/bin/dade-assist)"
@@ -103,17 +111,27 @@ jobs:
     - template: report-end.yml
 
 - job: Linux_scala_2_12
+  # We disable this for release builds. The actual release happens via the regular Linux builds
+  # and running tests on two scala versions doesn’t add any value if the tests already
+  # passed on the respective PRs that added the changes. The only difference here
+  # is the release version which should not affect things differently depending on the
+  # Scala version.
+  condition: and(succeeded(),
+                 eq(dependencies.check_for_release.outputs['out.is_release'], 'false'))
   dependsOn:
     - da_ghc_lib
     - check_for_release
+    - git_sha
   variables:
-    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    # For old release builds, this job is redundant since the default is already 2.12.
-    # However, since bugfix releases are not very frequent we opt for the simple solution
-    # of simply running this build either way.
-    is_release: $[ eq(dependencies.check_for_release.outputs['out.is_release'], 'true') ]
+    - name: release_sha
+      value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    - name: release_tag
+      value: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+    - name: trigger_sha
+      value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+    - name: is_release
+      value: $[ eq(dependencies.check_for_release.outputs['out.is_release'], 'true') ]
+    - template: job-variables.yml
   timeoutInMinutes: 360
   pool:
     name: 'ubuntu_20_04'
@@ -133,6 +151,7 @@ jobs:
         name: 'linux-scala-2.12'
         is_release: variables.is_release
         scala_version: "2.12.13"
+    - template: upload-bazel-metrics.yml
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
@@ -142,15 +161,21 @@ jobs:
   dependsOn:
     - da_ghc_lib
     - check_for_release
+    - git_sha
   timeoutInMinutes: 360
   pool:
     name: macOS-pool
     demands: assignment -equals default
   variables:
-    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    - name: release_sha
+      value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    - name: release_tag
+      value: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+    - name: trigger_sha
+      value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+    - name: is_release
+      value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    - template: job-variables.yml
   steps:
     - template: report-start.yml
     - template: clear-shared-segments-macos.yml
@@ -166,6 +191,7 @@ jobs:
         release_tag: $(release_tag)
         name: macos
         is_release: variables.is_release
+    - template: upload-bazel-metrics.yml
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
@@ -180,11 +206,20 @@ jobs:
     - da_ghc_lib
     - check_for_release
     - patch_bazel_windows
+    - git_sha
   variables:
-    release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-    trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    - name: release_sha
+      value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+    - name: release_tag
+      value: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+    - name: trigger_sha
+      value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+    - name: is_release
+      value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    - name: skip_tests
+      value: $[ and(eq(variables.is_release, 'true'),
+                       eq(variables['Build.SourceBranchName'], 'main')) ]
+    - template: job-variables.yml
   timeoutInMinutes: 360
   pool:
     name: 'windows-pool'
@@ -200,7 +235,15 @@ jobs:
     - template: build-windows.yml
       parameters:
         release_tag: $(release_tag)
+        # Azure pipeline’s variable and parameter expansion is utter garbage.
+        # For whatever reason `env` values only seem to be able to use macro syntax
+        # and not runtime expression. is_release however is a runtime variable
+        # so template conditions won’t work. Therefore we define the variable here
+        # with a runtime expression, set the parameter to the (unexpanded) string "$(skip_tests)"
+        # and then splice that in via a template parameter.
+        skip_tests: $(skip_tests)
         is_release: variables.is_release
+    - template: upload-bazel-metrics.yml
     - task: PublishBuildArtifacts@1
       condition: succeededOrFailed()
       inputs:
@@ -270,7 +313,13 @@ jobs:
           --config=oracle \
           //ledger-service/http-json-oracle/... \
           //triggers/service:test-oracle \
-          //ledger/participant-integration-api:participant-integration-api-tests-oracle
+          //ledger/participant-integration-api:participant-integration-api-tests-oracle \
+          //ledger/ledger-on-sql:conformance-test-oracle \
+          //ledger/ledger-on-sql:conformance-test-append-only-oracle \
+          //ledger/ledger-on-sql:conformance-test-append-only-pruning-oracle \
+          //ledger/ledger-on-sql:conformance-test-pruning-oracle \
+          //ledger/ledger-on-sql:conformance-test-append-only-multi-party-submission-oracle \
+          //ledger/ledger-on-sql:conformance-test-multi-party-submission-oracle
       env:
         DOCKER_LOGIN: $(DOCKER_LOGIN)
         DOCKER_PASSWORD: $(DOCKER_PASSWORD)
@@ -515,10 +564,10 @@ jobs:
         # release only run on releases and is skipped otherwise.
         if [[ "$(Linux.status)" != "Succeeded"
             || "$(Linux_oracle.status)" != "Succeeded"
-            || "$(Linux_scala_2_12.status)" != "Succeeded"
             || "$(macOS.status)" != "Succeeded"
             || "$(Windows.status)" != "Succeeded"
             || ("$(is_release)" == "false" && "$(compatibility_linux.status)" != "Succeeded")
+            || ("$(is_release)" == "false" && "$(Linux_scala_2_12.status)" != "Succeeded")
             || "$(release.status)" == "Canceled" ]]; then
             exit 1
         fi

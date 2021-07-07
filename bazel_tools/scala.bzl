@@ -6,6 +6,7 @@ load(
     "scala_binary",
     "scala_library",
     "scala_library_suite",
+    "scala_macro_library",
     "scala_repl",
     "scala_test",
     "scala_test_suite",
@@ -28,8 +29,14 @@ load("@scala_version//:index.bzl", "scala_major_version", "scala_major_version_s
 # Use the macros `da_scala_*` defined in this file, instead of the stock rules
 # `scala_*` from `rules_scala` in order for these default flags to take effect.
 
-def resolve_scala_deps(deps, scala_deps = [], versioned_scala_deps = {}):
-    return deps + ["{}_{}".format(d, scala_major_version_suffix) for d in scala_deps + versioned_scala_deps.get(scala_major_version, [])]
+def resolve_scala_deps(deps, scala_deps = [], versioned_deps = {}, versioned_scala_deps = {}):
+    return deps + \
+           versioned_deps.get(scala_major_version, []) + \
+           [
+               "{}_{}".format(d, scala_major_version_suffix)
+               for d in scala_deps +
+                        versioned_scala_deps.get(scala_major_version, [])
+           ]
 
 def extra_scalacopts(scala_deps, plugins):
     return (["-P:silencer:lineContentFilters=import scala.collection.compat._"] if (scala_major_version != "2.12" and
@@ -208,13 +215,14 @@ def _wrap_rule(
         generated_srcs = [],  # hiding from the underlying rule
         deps = [],
         scala_deps = [],
+        versioned_deps = {},
         versioned_scala_deps = {},
         runtime_deps = [],
         scala_runtime_deps = [],
         exports = [],
         scala_exports = [],
         **kwargs):
-    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    deps = resolve_scala_deps(deps, scala_deps, versioned_deps, versioned_scala_deps)
     runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
     exports = resolve_scala_deps(exports, scala_exports)
     if (len(exports) > 0):
@@ -233,12 +241,13 @@ def _wrap_rule_no_plugins(
         rule,
         deps = [],
         scala_deps = [],
+        versioned_deps = {},
         versioned_scala_deps = {},
         runtime_deps = [],
         scala_runtime_deps = [],
         scalacopts = [],
         **kwargs):
-    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    deps = resolve_scala_deps(deps, scala_deps, versioned_deps, versioned_scala_deps)
     runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
     rule(
         scalacopts = common_scalacopts + scalacopts,
@@ -513,10 +522,20 @@ Arguments:
   doctitle: title for Scalaadoc's index.html. Typically the name of the library
 """
 
-def _create_scaladoc_jar(name, srcs, plugins = [], deps = [], scala_deps = [], versioned_scala_deps = {}, scalacopts = [], generated_srcs = [], **kwargs):
+def _create_scaladoc_jar(
+        name,
+        srcs,
+        plugins = [],
+        deps = [],
+        scala_deps = [],
+        versioned_deps = {},
+        versioned_scala_deps = {},
+        scalacopts = [],
+        generated_srcs = [],
+        **kwargs):
     # Limit execution to Linux and MacOS
     if is_windows == False:
-        deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+        deps = resolve_scala_deps(deps, scala_deps, versioned_deps, versioned_scala_deps)
         compat_scalacopts = extra_scalacopts(scala_deps = scala_deps, plugins = plugins)
         scaladoc_jar(
             name = name + "_scaladoc",
@@ -532,6 +551,7 @@ def _create_scala_repl(
         name,
         deps = [],
         scala_deps = [],
+        versioned_deps = {},
         versioned_scala_deps = {},
         runtime_deps = [],
         scala_runtime_deps = [],
@@ -544,7 +564,7 @@ def _create_scala_repl(
         generated_srcs = None,
         **kwargs):
     name = name + "_repl"
-    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    deps = resolve_scala_deps(deps, scala_deps, versioned_deps, versioned_scala_deps)
     runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
     tags = tags + ["manual"]
     scala_repl(name = name, deps = deps, runtime_deps = runtime_deps, tags = tags, **kwargs)
@@ -564,6 +584,34 @@ def da_scala_library(name, **kwargs):
     arguments.update(kwargs)
     arguments = _set_compile_jvm_flags(arguments)
     _wrap_rule(scala_library, name, **arguments)
+    _create_scala_source_jar(name = name, **arguments)
+    _create_scaladoc_jar(name = name, **arguments)
+    _create_scala_repl(name = name, **kwargs)
+
+    if "tags" in arguments:
+        for tag in arguments["tags"]:
+            if tag.startswith("maven_coordinates="):
+                pom_file(
+                    name = name + "_pom",
+                    target = ":" + name,
+                )
+                break
+
+def da_scala_macro_library(name, **kwargs):
+    """
+    Define a Scala macro library.
+
+    Applies common Scala options defined in `bazel_tools/scala.bzl`.
+    And forwards to `scala_macro_library` from `rules_scala`.
+    Refer to the [`rules_scala` documentation][rules_scala_macro_library_docs].
+
+    [rules_scala_macro_library_docs]: https://github.com/bazelbuild/rules_scala/blob/master/docs/scala_macro_library.md
+    """
+    arguments = {}
+    arguments.update(default_compile_arguments)
+    arguments.update(kwargs)
+    arguments = _set_compile_jvm_flags(arguments)
+    _wrap_rule(scala_macro_library, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
     _create_scaladoc_jar(name = name, **arguments)
     _create_scala_repl(name = name, **kwargs)
@@ -674,10 +722,11 @@ def da_scala_test_suite(initial_heap_size = default_initial_heap_size, max_heap_
 def da_scala_benchmark_jmh(
         deps = [],
         scala_deps = [],
+        versioned_deps = {},
         versioned_scala_deps = {},
         runtime_deps = [],
         scala_runtime_deps = [],
         **kwargs):
-    deps = resolve_scala_deps(deps, scala_deps, versioned_scala_deps)
+    deps = resolve_scala_deps(deps, scala_deps, versioned_deps, versioned_scala_deps)
     runtime_deps = resolve_scala_deps(runtime_deps, scala_runtime_deps)
     _wrap_rule_no_plugins(scala_benchmark_jmh, deps, runtime_deps, **kwargs)

@@ -190,14 +190,14 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           [ input "alice <- allocateParty \"Alice\""
           , input "bob <- allocateParty \"Bob\""
           , input "submit alice (createCmd (T alice bob))"
-          , matchServiceOutput "^.*requires authorizers.*but only.*were given.*$"
+          , matchOutput "^.*requires authorizers.*but only.*were given.*$"
           , input "debug 1"
           , matchServiceOutput "^.*: 1"
           ]
     , testInteraction' "server error"
           [ input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice_doubly_allocated\")"
           , input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice_doubly_allocated\")"
-          , matchServiceOutput "io.grpc.StatusRuntimeException: INVALID_ARGUMENT: Invalid argument: Party already exists"
+          , matchOutput "io.grpc.StatusRuntimeException: INVALID_ARGUMENT: Invalid argument: Party already exists"
           , input "debug 1"
           , matchServiceOutput "^.*: 1"
           ]
@@ -262,11 +262,11 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           ]
     , testInteraction' "error call"
           [ input "error \"foobar\""
-          , matchServiceOutput "^Error: User abort: foobar$"
+          , matchOutput "^Error: User abort: foobar$"
           ]
     , testInteraction' "abort call"
           [ input "abort \"foobar\""
-          , matchServiceOutput "^Error: User abort: foobar$"
+          , matchOutput "^Error: User abort: foobar$"
           ]
     , testInteraction' "record dot syntax"
           [ input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice\")"
@@ -327,7 +327,7 @@ functionalTests replClient replLogger serviceOut options ideState = describe "re
           , input ":json D with x = 1, y = 2"
           , matchOutput "{\"x\":1,\"y\":2}"
           , input ":json \\x -> x"
-          , matchServiceOutput "^Cannot convert non-serializable value to JSON$"
+          , matchOutput "^Cannot convert non-serializable value to JSON$"
           , input ":json let x = 1"
           , matchOutput "^Expected an expression but got: let x = 1$"
           , input ":json x <- pure 1"

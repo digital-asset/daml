@@ -7,15 +7,16 @@ package speedy
 import java.util
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
+import com.daml.lf.data.{ImmArray, Numeric, Ref, Struct, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageVersion, LookupError, Interface}
 import com.daml.lf.speedy.Anf.flattenToAnf
 import com.daml.lf.speedy.Profile.LabelModule
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, ValidationError}
+import com.daml.lf.validation.{EUnknownDefinition, Validation, ValidationError}
+import com.daml.nameof.NameOf
 import org.slf4j.LoggerFactory
 
 import scala.annotation.{nowarn, tailrec}
@@ -34,6 +35,11 @@ import scala.reflect.ClassTag
 private[lf] object Compiler {
 
   case class CompilationError(error: String) extends RuntimeException(error, null, true, false)
+  case class LanguageVersionError(
+      packageId: Ref.PackageId,
+      languageVersion: language.LanguageVersion,
+      allowedLanguageVersions: VersionRange[language.LanguageVersion],
+  ) extends RuntimeException(s"Disallowed language version $languageVersion", null, true, false)
   case class PackageNotFound(pkgId: PackageId)
       extends RuntimeException(s"Package not found $pkgId", null, true, false)
 
@@ -95,11 +101,11 @@ private[lf] object Compiler {
     * they transitively reference are in the [[packages]] in the compiler.
     */
   def compilePackages(
-      signatures: PackageId PartialFunction PackageSignature,
+      interface: Interface,
       packages: Map[PackageId, Package],
       compilerConfig: Compiler.Config,
   ): Either[String, Map[SDefinitionRef, SDefinition]] = {
-    val compiler = new Compiler(signatures, compilerConfig)
+    val compiler = new Compiler(interface, compilerConfig)
     try {
       Right(packages.foldLeft(Map.empty[SDefinitionRef, SDefinition]) { case (acc, (pkgId, pkg)) =>
         acc ++ compiler.unsafeCompilePackage(pkgId, pkg)
@@ -125,11 +131,17 @@ private[lf] object Compiler {
 }
 
 private[lf] final class Compiler(
-    signatures: PackageId PartialFunction PackageSignature,
+    interface: Interface,
     config: Compiler.Config,
 ) {
 
   import Compiler._
+
+  private[this] def handleLookup[X](where: String, x: Either[LookupError, X]) =
+    x match {
+      case Right(value) => value
+      case Left(err) => throw SError.SErrorCrash(where, err.pretty)
+    }
 
   // Stack-trace support is disabled by avoiding the construction of SELocation nodes.
   private[this] def maybeSELocation(loc: Location, sexp: SExpr): SExpr = {
@@ -254,6 +266,11 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
+  def unsafeCompileForReinterpretation(cmd: Command): SExpr =
+    validate(compilationPipeline(compileCommandForReinterpretation(cmd)))
+
+  @throws[PackageNotFound]
+  @throws[CompilationError]
   def unsafeCompile(expr: Expr): SExpr =
     validate(compilationPipeline(compile(expr)))
 
@@ -314,7 +331,7 @@ private[lf] final class Compiler(
   /** Validates and compiles all the definitions in the package provided.
     *
     * Fails with [[PackageNotFound]] if the package or any of the packages it refers
-    * to are not in the [[signatures]].
+    * to are not in the [[interface]].
     *
     * @throws ValidationError if the package does not pass validations.
     */
@@ -329,20 +346,17 @@ private[lf] final class Compiler(
 
     val t0 = Time.Timestamp.now()
 
-    signatures.lift(pkgId) match {
-      case Some(pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
-        throw CompilationError(
-          s"Disallowed language version in package $pkgId: " +
-            s"Expected version between ${config.allowedLanguageVersions.min.pretty} and ${config.allowedLanguageVersions.max.pretty} but got ${pkg.languageVersion.pretty}"
-        )
+    interface.lookupPackage(pkgId) match {
+      case Right(pkg) if !config.allowedLanguageVersions.contains(pkg.languageVersion) =>
+        throw LanguageVersionError(pkgId, pkg.languageVersion, config.allowedLanguageVersions)
       case _ =>
     }
 
     config.packageValidation match {
       case Compiler.NoPackageValidation =>
       case Compiler.FullPackageValidation =>
-        Validation.checkPackage(signatures, pkgId, pkg).left.foreach {
-          case EUnknownDefinition(_, LEPackage(pkgId_)) =>
+        Validation.checkPackage(interface, pkgId, pkg).left.foreach {
+          case EUnknownDefinition(_, LookupError.Package(pkgId_)) =>
             logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
             throw PackageNotFound(pkgId_)
           case e =>
@@ -389,7 +403,13 @@ private[lf] final class Compiler(
       case ERecCon(tApp, fields) =>
         compileERecCon(tApp, fields)
       case ERecProj(tapp, field, record) =>
-        SBRecProj(tapp.tycon, lookupRecordIndex(tapp, field))(
+        SBRecProj(
+          tapp.tycon,
+          handleLookup(
+            NameOf.qualifiedNameOfCurrentFunc,
+            interface.lookupRecordFieldInfo(tapp.tycon, field),
+          ).index,
+        )(
           compile(record)
         )
       case erecupd: ERecUpd =>
@@ -430,14 +450,18 @@ private[lf] final class Compiler(
         SEValue.None
       case ESome(_, body) =>
         SBSome(compile(body))
-      case EEnumCon(tyCon, constructor) =>
-        val enumDef =
-          lookupEnum(tyCon).getOrElse(throw CompilationError(s"enum $tyCon not found"))
-        SEValue(SEnum(tyCon, constructor, enumDef.constructorRank(constructor)))
+      case EEnumCon(tyCon, consName) =>
+        val rank = handleLookup(
+          NameOf.qualifiedNameOfCurrentFunc,
+          interface.lookupEnumConstructor(tyCon, consName),
+        )
+        SEValue(SEnum(tyCon, consName, rank))
       case EVariantCon(tapp, variant, arg) =>
-        val variantDef = lookupVariant(tapp.tycon)
-          .getOrElse(throw CompilationError(s"variant ${tapp.tycon} not found"))
-        SBVariantCon(tapp.tycon, variant, variantDef.constructorRank(variant))(compile(arg))
+        val rank = handleLookup(
+          NameOf.qualifiedNameOfCurrentFunc,
+          interface.lookupVariantConstructor(tapp.tycon, variant),
+        ).rank
+        SBVariantCon(tapp.tycon, variant, rank)(compile(arg))
       case let: ELet =>
         compileELet(let)
       case EUpdate(upd) =>
@@ -455,11 +479,11 @@ private[lf] final class Compiler(
       case ETypeRep(typ) =>
         SEValue(STypeRep(typ))
       case EToAnyException(ty, e) =>
-        SBToAnyException(ty)(compile(e))
+        SBToAny(ty)(compile(e))
       case EFromAnyException(ty, e) =>
-        SBFromAnyException(ty)(compile(e))
+        SBFromAny(ty)(compile(e))
       case EThrow(_, ty, e) =>
-        SBThrow(SBToAnyException(ty)(compile(e)))
+        SBThrow(SBToAny(ty)(compile(e)))
       case EExperimental(name, _) =>
         SBExperimental(name)
 
@@ -591,7 +615,6 @@ private[lf] final class Compiler(
             throw CompilationError(s"unexpected $bf")
 
           case BAnyExceptionMessage => SBAnyExceptionMessage
-          case BAnyExceptionIsArithmeticError => SBAnyExceptionIsArithmeticError
         })
     }
 
@@ -647,14 +670,20 @@ private[lf] final class Compiler(
     val tapp = erecupd.tycon
     val (record, fields, updates) = collectRecUpds(erecupd)
     if (fields.length == 1) {
-      SBRecUpd(tapp.tycon, lookupRecordIndex(tapp, fields.head))(
-        compile(record),
-        compile(updates.head),
-      )
+      val index = handleLookup(
+        NameOf.qualifiedNameOfCurrentFunc,
+        interface.lookupRecordFieldInfo(tapp.tycon, fields.head),
+      ).index
+      SBRecUpd(tapp.tycon, index)(compile(record), compile(updates.head))
     } else {
-      SBRecUpdMulti(tapp.tycon, fields.map(lookupRecordIndex(tapp, _)).to(ImmArray))(
-        (record :: updates).map(compile): _*
-      )
+      val indices =
+        fields.map(name =>
+          handleLookup(
+            NameOf.qualifiedNameOfCurrentFunc,
+            interface.lookupRecordFieldInfo(tapp.tycon, name),
+          ).index
+        )
+      SBRecUpdMulti(tapp.tycon, indices.to(ImmArray))((record :: updates).map(compile): _*)
     }
   }
 
@@ -665,22 +694,20 @@ private[lf] final class Compiler(
       mapToArray(alts) { case CaseAlt(pat, expr) =>
         pat match {
           case CPVariant(tycon, variant, binder) =>
-            val variantDef =
-              lookupVariant(tycon).getOrElse(throw CompilationError(s"variant $tycon not found"))
+            val rank = handleLookup(
+              NameOf.qualifiedNameOfCurrentFunc,
+              interface.lookupVariantConstructor(tycon, variant),
+            ).rank
             withBinders(binder) { _ =>
-              SCaseAlt(
-                SCPVariant(tycon, variant, variantDef.constructorRank(variant)),
-                compile(expr),
-              )
+              SCaseAlt(SCPVariant(tycon, variant, rank), compile(expr))
             }
 
           case CPEnum(tycon, constructor) =>
-            val enumDef =
-              lookupEnum(tycon).getOrElse(throw CompilationError(s"enum $tycon not found"))
-            SCaseAlt(
-              SCPEnum(tycon, constructor, enumDef.constructorRank(constructor)),
-              compile(expr),
+            val rank = handleLookup(
+              NameOf.qualifiedNameOfCurrentFunc,
+              interface.lookupEnumConstructor(tycon, constructor),
             )
+            SCaseAlt(SCPEnum(tycon, constructor, rank), compile(expr))
 
           case CPNil =>
             SCaseAlt(SCPNil, compile(expr))
@@ -806,9 +833,9 @@ private[lf] final class Compiler(
       case ScenarioBlock(bindings, body) =>
         compileBlock(bindings, body)
       case ScenarioCommit(partyE, updateE, _retType @ _) =>
-        compileCommit(partyE, updateE, optLoc)
+        compileCommit(partyE, updateE, optLoc, mustFail = false)
       case ScenarioMustFailAt(partyE, updateE, _retType @ _) =>
-        compileMustFail(partyE, updateE, optLoc)
+        compileCommit(partyE, updateE, optLoc, mustFail = true)
       case ScenarioGetTime =>
         SEGetTime
       case ScenarioGetParty(e) =>
@@ -820,41 +847,19 @@ private[lf] final class Compiler(
     }
 
   @inline
-  private[this] def compileCommit(partyE: Expr, updateE: Expr, optLoc: Option[Location]): SExpr =
+  private[this] def compileCommit(
+      partyE: Expr,
+      updateE: Expr,
+      optLoc: Option[Location],
+      mustFail: Boolean,
+  ): SExpr =
     // let party = <partyE>
     //     update = <updateE>
-    // in \token ->
-    //   let _ = $beginCommit party token
-    //       r = update token
-    //   in $endCommit(mustFail = false) r token
+    // in $submit(mustFail)(party, update)
     withEnv { _ =>
-      let(compile(partyE)) { partyPos =>
-        let(compile(updateE)) { updatePos =>
-          labeledUnaryFunction(Profile.SubmitLabel) { tokenPos =>
-            let(SBSBeginCommit(optLoc)(svar(partyPos), svar(tokenPos))) { _ =>
-              let(app(svar(updatePos), svar(tokenPos))) { resultPos =>
-                SBSEndCommit(mustFail = false)(svar(resultPos), svar(tokenPos))
-              }
-            }
-          }
-        }
-      }
-    }
-
-  @inline
-  private[this] def compileMustFail(party: Expr, update: Expr, optLoc: Option[Location]): SExpr =
-    // \token ->
-    //   let _ = $beginCommit [party] <token>
-    //       <r> = $catch ([update] <token>) true false
-    //   in $endCommit(mustFail = true) <r> <token>
-    withEnv { _ =>
-      labeledUnaryFunction(Profile.SubmitMustFailLabel) { tokenPos =>
-        let(SBSBeginCommit(optLoc)(compile(party), svar(tokenPos))) { _ =>
-          let(
-            SECatchSubmitMustFail(app(compile(update), svar(tokenPos)))
-          ) { resultPos =>
-            SBSEndCommit(mustFail = true)(svar(resultPos), svar(tokenPos))
-          }
+      let(compile(partyE)) { partyLoc =>
+        let(compile(updateE)) { updateLoc =>
+          SBSSubmit(optLoc, mustFail)(svar(partyLoc), svar(updateLoc))
         }
       }
     }
@@ -1036,41 +1041,6 @@ private[lf] final class Compiler(
       case _ => expr
     }
 
-  private[this] def lookupPackage(pkgId: PackageId): PackageSignature =
-    if (signatures.isDefinedAt(pkgId)) signatures(pkgId)
-    else throw PackageNotFound(pkgId)
-
-  private[this] def lookupDefinitionSignature(tycon: TypeConName): Option[DefinitionSignature] =
-    lookupPackage(tycon.packageId).modules
-      .get(tycon.qualifiedName.module)
-      .flatMap(mod => mod.definitions.get(tycon.qualifiedName.name))
-
-  private[this] def lookupVariant(tycon: TypeConName): Option[DataVariant] =
-    lookupDefinitionSignature(tycon).flatMap {
-      case DDataType(_, _, data: DataVariant) =>
-        Some(data)
-      case _ =>
-        None
-    }
-
-  private[this] def lookupEnum(tycon: TypeConName): Option[DataEnum] =
-    lookupDefinitionSignature(tycon).flatMap {
-      case DDataType(_, _, data: DataEnum) =>
-        Some(data)
-      case _ =>
-        None
-    }
-
-  private[this] def lookupRecordIndex(tapp: TypeConApp, field: FieldName): Int =
-    lookupDefinitionSignature(tapp.tycon)
-      .flatMap {
-        case DDataType(_, _, DataRecord(fields)) =>
-          val idx = fields.indexWhere(_._1 == field)
-          if (idx < 0) None else Some(idx)
-        case _ => None
-      }
-      .getOrElse(throw CompilationError(s"record type ${tapp.pretty} not found"))
-
   private[this] def withEnv[A](f: Unit => A): A = {
     val oldEnv = env
     val x = f(())
@@ -1169,11 +1139,6 @@ private[lf] final class Compiler(
           closureConvert(shift(remaps, bounds.length), body),
         )
 
-      case SECatchSubmitMustFail(body) =>
-        SECatchSubmitMustFail(
-          closureConvert(remaps, body)
-        )
-
       case SETryCatch(body, handler) =>
         SETryCatch(
           closureConvert(remaps, body),
@@ -1248,8 +1213,6 @@ private[lf] final class Compiler(
           bounds.zipWithIndex.foldLeft(go(body, bound + bounds.length, free)) {
             case (acc, (expr, idx)) => go(expr, bound + idx, acc)
           }
-        case SECatchSubmitMustFail(body) =>
-          go(body, bound, free)
         case SELabelClosure(_, expr) =>
           go(expr, bound, free)
         case SETryCatch(body, handler) =>
@@ -1285,8 +1248,6 @@ private[lf] final class Compiler(
         case SVariant(_, _, _, value) => goV(value)
         case SEnum(_, _, _) => ()
         case SAny(_, v) => goV(v)
-        case SAnyException(_, v) => goV(v)
-        case SArithmeticError(_, _) => ()
         case _: SPAP | SToken | SStruct(_, _) =>
           throw CompilationError("validate: unexpected SEValue")
       }
@@ -1340,8 +1301,6 @@ private[lf] final class Compiler(
         case _: SELet1General => goLets(maxS)(expr)
         case _: SELet1Builtin => goLets(maxS)(expr)
         case _: SELet1BuiltinArithmetic => goLets(maxS)(expr)
-        case SECatchSubmitMustFail(body) =>
-          go(body)
         case SELocation(_, body) =>
           go(body)
         case SELabelClosure(_, expr) =>
@@ -1587,6 +1546,24 @@ private[lf] final class Compiler(
   }
 
   private val SEUpdatePureUnit = unaryFunction(_ => SEValue.Unit)
+
+  private[this] val handleEverything: SExpr = SBSome(SEUpdatePureUnit)
+
+  private[this] def catchEverything(e: SExpr): SExpr = {
+    unaryFunction { tokenPos =>
+      SETryCatch(
+        app(e, svar(tokenPos)),
+        withEnv { _ =>
+          val binderPos = nextPosition()
+          SBTryHandler(handleEverything, svar(binderPos), svar(tokenPos))
+        },
+      )
+    }
+  }
+
+  private[this] def compileCommandForReinterpretation(cmd: Command): SExpr = {
+    catchEverything(compileCommand(cmd))
+  }
 
   private[this] def compileCommands(bindings: ImmArray[Command]): SExpr =
     // commands are compile similarly as update block

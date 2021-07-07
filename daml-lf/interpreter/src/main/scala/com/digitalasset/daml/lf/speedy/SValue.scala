@@ -9,8 +9,9 @@ import java.util
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.SError.SErrorCrash
+import com.daml.lf.value.Value.ValueArithmeticError
 import com.daml.lf.value.{Value => V}
+import com.daml.nameof.NameOf
 
 import scala.jdk.CollectionConverters._
 import scala.collection.compat._
@@ -56,30 +57,21 @@ sealed trait SValue {
       case SMap(true, entries) =>
         V.ValueTextMap(SortedLookupList(entries.map {
           case (SText(t), v) => t -> v.toValue
-          case (_, _) => throw SErrorCrash("SValue.toValue: TextMap with non text key")
+          case (_, _) =>
+            throw SError.SErrorCrash(
+              NameOf.qualifiedNameOfCurrentFunc,
+              "SValue.toValue: TextMap with non text key",
+            )
         }))
       case SMap(false, entries) =>
         V.ValueGenMap(entries.view.map { case (k, v) => k.toValue -> v.toValue }.to(ImmArray))
       case SContractId(coid) =>
         V.ValueContractId(coid)
-      case SArithmeticError(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SArithmeticError")
-      case SStruct(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SStruct")
-      case SAny(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SAny")
-      case SBigNumeric(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected SBigNumeric")
-      case SAnyException(_, _) =>
-        throw SErrorCrash("SValue.toValue: unexpected SAnyException")
-      case STypeRep(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected STypeRep")
-      case STNat(_) =>
-        throw SErrorCrash("SValue.toValue: unexpected STNat")
-      case _: SPAP =>
-        throw SErrorCrash("SValue.toValue: unexpected SPAP")
-      case SToken =>
-        throw SErrorCrash("SValue.toValue: unexpected SToken")
+      case _: SStruct | _: SAny | _: SBigNumeric | _: STypeRep | _: STNat | _: SPAP | SToken =>
+        throw SError.SErrorCrash(
+          NameOf.qualifiedNameOfCurrentFunc,
+          s"SValue.toValue: unexpected ${getClass.getSimpleName}",
+        )
     }
 
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
@@ -111,10 +103,6 @@ sealed trait SValue {
         )
       case SAny(ty, value) =>
         SAny(ty, value.mapContractId(f))
-      case SAnyException(ty, value) =>
-        SAnyException(ty, value.mapContractId(f))
-      case excep: SArithmeticError =>
-        excep
     }
 }
 
@@ -143,7 +131,10 @@ object SValue {
     */
   final case class SPAP(prim: Prim, actuals: util.ArrayList[SValue], arity: Int) extends SValue {
     if (actuals.size >= arity) {
-      throw SErrorCrash(s"SPAP: unexpected actuals.size >= arity")
+      throw SError.SErrorCrash(
+        NameOf.qualifiedNameOfCurrentFunc,
+        s"SPAP: unexpected actuals.size >= arity",
+      )
     }
     override def toString: String =
       s"SPAP($prim, ${actuals.asScala.mkString("[", ",", "]")}, $arity)"
@@ -186,7 +177,7 @@ object SValue {
   object SMap {
     implicit def `SMap Ordering`: Ordering[SValue] = svalue.Ordering
 
-    @throws[SErrorCrash]
+    @throws[SError.SError]
     // crashes if `k` contains type abstraction, function, Partially applied built-in or updates
     def comparable(k: SValue): Unit = {
       `SMap Ordering`.compare(k, k)
@@ -206,14 +197,36 @@ object SValue {
       SMap(isTextMap: Boolean, entries.iterator)
   }
 
+  // represents Any And AnyException
   final case class SAny(ty: Type, value: SValue) extends SValue
-  sealed abstract class SException extends SValue
-  final case class SAnyException(ty: Type, value: SValue) extends SException
-  final case class SArithmeticError(
-      builtinName: String,
-      args: ImmArray[String],
-  ) extends SException {
-    def message = s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")})."
+
+  object SAnyException {
+    def apply(tyCon: Ref.TypeConName, value: SRecord): SAny = SAny(TTyCon(tyCon), value)
+
+    def unapply(any: SAny): Option[SRecord] =
+      any match {
+        case SAny(TTyCon(tyCon0), record @ SRecord(tyCon1, _, _)) if tyCon0 == tyCon1 =>
+          Some(record)
+        case _ =>
+          None
+      }
+  }
+
+  object SArithmeticError {
+    val fields: ImmArray[Ref.Name] = ImmArray(ValueArithmeticError.fieldName)
+    def apply(builtinName: String, args: ImmArray[String]): SAny = {
+      val array = new util.ArrayList[SValue](1)
+      array.add(
+        SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
+      )
+      SAny(ValueArithmeticError.typ, SRecord(ValueArithmeticError.tyCon, fields, array))
+    }
+    // Assumes excep is properly typed
+    def unapply(excep: SAny): Option[SValue] =
+      excep match {
+        case SAnyException(SRecord(ValueArithmeticError.tyCon, _, args)) => Some(args.get(0))
+        case _ => None
+      }
   }
 
   // Corresponds to a Daml-LF Nat type reified as a Speedy value.

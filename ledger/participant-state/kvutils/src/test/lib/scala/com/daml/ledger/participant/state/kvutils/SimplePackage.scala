@@ -31,14 +31,15 @@ class SimplePackage(testDar: TestDar) {
   val mainPackageId: Ref.PackageId = Ref.PackageId.assertFromString(mainArchive.getHash)
 
   def typeConstructorId(typeConstructor: String): Ref.Identifier = {
-    val qualifiedName = QualifiedName.assertFromString(typeConstructor)
-    val packageId = packages
-      .find { case (_, pkg) =>
-        pkg.lookupDataType(qualifiedName).isRight
+    val qName = QualifiedName.assertFromString(typeConstructor)
+    packages.iterator
+      .flatMap { case (pkgId, pkg) =>
+        pkg.modules.collect {
+          case (modName, mod) if modName == qName.module && mod.definitions.contains(qName.name) =>
+            Ref.Identifier(pkgId, qName)
+        }
       }
-      .map(_._1)
-      .get
-    Ref.Identifier(packageId, qualifiedName)
+      .next()
   }
 
   def createCmd(templateId: Ref.Identifier, templateArg: Value[Value.ContractId]): CreateCommand =

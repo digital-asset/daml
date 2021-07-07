@@ -25,6 +25,7 @@ case class ApiServerConfig(
     tlsConfig: Option[TlsConfiguration],
     maxInboundMessageSize: Int,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
+    eventsProcessingParallelism: Int = IndexConfiguration.DefaultEventsProcessingParallelism,
     portFile: Option[Path],
     seeding: Seeding,
     managementServiceTimeout: Duration,
@@ -33,4 +34,6 @@ case class ApiServerConfig(
     maxContractStateCacheSize: Long,
     maxContractKeyStateCacheSize: Long,
     enableMutableContractStateCache: Boolean,
+    maxTransactionsInMemoryFanOutBufferSize: Long,
+    enableInMemoryFanOutForLedgerApi: Boolean,
 )

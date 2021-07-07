@@ -16,6 +16,7 @@ import com.daml.ledger.participant.state.v1.SubmissionResult.{
   InternalError,
   NotSupported,
   Overloaded,
+  SynchronousReject,
 }
 import com.daml.ledger.participant.state.v1.{
   Configuration,
@@ -25,9 +26,10 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
-import com.daml.lf.engine.{DuplicateContractKey, ContractNotFound, ReplayMismatch}
+import com.daml.lf.engine.{Error => LfError}
+import com.daml.lf.interpretation.{Error => InterpretationError}
 import com.daml.lf.transaction.SubmittedTransaction
-import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.LoggingContext.{withEnrichedLoggingContext, withEnrichedLoggingContextFrom}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.telemetry.TelemetryContext
@@ -114,7 +116,7 @@ private[apiserver] final class ApiSubmissionService private[services] (
   override def submit(
       request: SubmitRequest
   )(implicit telemetryContext: TelemetryContext): Future[Unit] =
-    withEnrichedLoggingContext(logging.commands(request.commands)) { implicit loggingContext =>
+    withEnrichedLoggingContextFrom(logging.commands(request.commands)) { implicit loggingContext =>
       logger.info("Submitting transaction")
       logger.trace(s"Commands: ${request.commands.commands.commands}")
       ledgerConfigProvider.latestConfiguration
@@ -168,6 +170,10 @@ private[apiserver] final class ApiSubmissionService private[services] (
     case Success(InternalError(reason)) =>
       logger.error(s"Internal error: $reason")
       Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
+
+    case Success(SynchronousReject(failure)) =>
+      logger.info(s"Rejected: ${failure.getStatus}")
+      Failure(failure)
 
     case Failure(error) =>
       logger.info(s"Rejected: ${error.getMessage}")
@@ -281,7 +287,15 @@ private[apiserver] final class ApiSubmissionService private[services] (
     errorCause match {
       case cause @ ErrorCause.DamlLf(error) =>
         error match {
-          case ContractNotFound(_) | DuplicateContractKey(_) | ReplayMismatch(_) =>
+          // TODO https://github.com/digital-asset/daml/issues/9974
+          //  Review once LF errors are properly structured
+          case LfError.Interpretation(
+                LfError.Interpretation.DamlException(
+                  InterpretationError.ContractNotFound(_) |
+                  InterpretationError.DuplicateContractKey(_)
+                ),
+                _,
+              ) | LfError.Validation(LfError.Validation.ReplayMismatch(_)) =>
             Status.ABORTED.withDescription(cause.explain)
           case _ => Status.INVALID_ARGUMENT.withDescription(cause.explain)
         }

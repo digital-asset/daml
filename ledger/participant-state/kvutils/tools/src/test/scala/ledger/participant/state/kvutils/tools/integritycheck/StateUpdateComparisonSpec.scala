@@ -37,12 +37,14 @@ final class StateUpdateComparisonSpec
     "ignore rejection reason for CommandRejected updates" in {
       val rejectionReasons = Table(
         ("Left", "Right"),
-        RejectionReason.Disputed("a") -> RejectionReason.Disputed("b"),
-        RejectionReason.Inconsistent("a") -> RejectionReason.Inconsistent("b"),
-        RejectionReason.InvalidLedgerTime("a") -> RejectionReason.InvalidLedgerTime("b"),
-        RejectionReason.PartyNotKnownOnLedger("a") -> RejectionReason.PartyNotKnownOnLedger("b"),
-        RejectionReason.ResourcesExhausted("a") -> RejectionReason.ResourcesExhausted("b"),
-        RejectionReason.SubmitterCannotActViaParticipant("a") -> RejectionReason
+        RejectionReasonV0.Disputed("a") -> RejectionReasonV0.Disputed("b"),
+        RejectionReasonV0.Inconsistent("a") -> RejectionReasonV0.Inconsistent("b"),
+        RejectionReasonV0.InvalidLedgerTime("a") -> RejectionReasonV0.InvalidLedgerTime("b"),
+        RejectionReasonV0.PartyNotKnownOnLedger("a") -> RejectionReasonV0.PartyNotKnownOnLedger(
+          "b"
+        ),
+        RejectionReasonV0.ResourcesExhausted("a") -> RejectionReasonV0.ResourcesExhausted("b"),
+        RejectionReasonV0.SubmitterCannotActViaParticipant("a") -> RejectionReasonV0
           .SubmitterCannotActViaParticipant("b"),
       )
       forAll(rejectionReasons) { case (left, right) =>
@@ -108,7 +110,7 @@ final class StateUpdateComparisonSpec
       commandId = CommandId.assertFromString("a command ID"),
       deduplicateUntil = Instant.now(),
     ),
-    reason = RejectionReason.Disputed("a rejection reason"),
+    reason = RejectionReasonV0.Disputed("a rejection reason"),
   )
   private lazy val aTransactionAcceptedUpdate =
     TransactionAccepted(

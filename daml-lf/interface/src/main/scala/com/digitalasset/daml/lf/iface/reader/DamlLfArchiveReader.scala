@@ -17,16 +17,15 @@ object DamlLfArchiveReader {
     readPayload(lf) flatMap readPackage
 
   private def readPayload(lf: DamlLf.Archive): String \/ (Ref.PackageId, DamlLf.ArchivePayload) =
-    \/.fromTryCatchNonFatal(archive.Reader.decodeArchive(lf)).leftMap(errorMessage)
+    \/.attempt(archive.Reader.decodeArchive(lf))(errorMessage)
 
   private[iface] def readPackage(
       pkgIdAndPayLoad: (Ref.PackageId, DamlLf.ArchivePayload)
   ): String \/ (Ref.PackageId, Ast.Package) = {
     val (pkgId, lf) = pkgIdAndPayLoad
-    \/.fromTryCatchNonFatal(
+    \/.attempt(
       new archive.Decode(onlySerializableDataDefs = true).readArchivePayload(pkgId, lf)
-    )
-      .leftMap(errorMessage)
+    )(errorMessage)
   }
 
   private def errorMessage(t: Throwable): String = t match {

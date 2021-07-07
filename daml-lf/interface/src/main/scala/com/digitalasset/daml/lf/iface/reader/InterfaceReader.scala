@@ -29,15 +29,15 @@ object InterfaceReader {
   private def errorMessage(ctx: QualifiedName, reason: String): String =
     s"Invalid data definition: $ctx, reason: $reason"
 
-  private def invalidDataTypeDefinition(
+  private def invalidDataTypeDefinition[Bot](
       ctx: QualifiedName,
       reason: String,
-  ) = -\/(InvalidDataTypeDefinition(errorMessage(ctx, reason)))
+  ): InterfaceReaderError \/ Bot = -\/(InvalidDataTypeDefinition(errorMessage(ctx, reason)))
 
-  private def unserializableDataType(
+  private def unserializableDataType[Bot](
       ctx: QualifiedName,
       reason: String,
-  ) = -\/(UnserializableDataType(errorMessage(ctx, reason)))
+  ): InterfaceReaderError \/ Bot = -\/(UnserializableDataType(errorMessage(ctx, reason)))
 
   object InterfaceReaderError {
     type Tree = Errors[ErrorLoc, InterfaceReaderError]
@@ -46,7 +46,10 @@ object InterfaceReader {
       Semigroup.firstSemigroup
 
     def treeReport(errors: Errors[ErrorLoc, InterfaceReader.InvalidDataTypeDefinition]): Cord =
-      stringReport(errors)(_.fold(sy => Cord(".") :+ sy.name, Cord("'") :+ _ :+ "'"), _.error)
+      stringReport(errors)(
+        _.fold(prop => Cord(s".${prop.name}"), ixName => Cord(s"'$ixName'")),
+        e => Cord(e.error),
+      )
   }
 
   private[reader] final case class State(
@@ -62,7 +65,8 @@ object InterfaceReader {
     def alterErrors(e: InterfaceReaderError.Tree => InterfaceReaderError.Tree): State =
       copy(errors = e(errors))
 
-    def asOut(packageId: PackageId): iface.Interface = iface.Interface(packageId, this.typeDecls)
+    def asOut(packageId: PackageId, metadata: Option[PackageMetadata]): iface.Interface =
+      iface.Interface(packageId, metadata, this.typeDecls)
   }
 
   private[reader] object State {
@@ -82,7 +86,7 @@ object InterfaceReader {
 
   private val dummyPkgId = PackageId.assertFromString("-dummyPkg-")
 
-  private val dummyInterface = iface.Interface(dummyPkgId, Map.empty)
+  private val dummyInterface = iface.Interface(dummyPkgId, None, Map.empty)
 
   def readInterface(
       f: () => String \/ (PackageId, Ast.Package)
@@ -97,10 +101,16 @@ object InterfaceReader {
           import scalaz.std.iterable._
           lfPackage.modules.values.foldMap(foldModule)
         }
-        val r = (filterOutUnserializableErrors(s.errors), s.asOut(templateGroupId))
+        val r = (
+          filterOutUnserializableErrors(s.errors),
+          s.asOut(templateGroupId, lfPackage.metadata.map(toIfaceMetadata(_))),
+        )
         lfprintln(s"result: $r")
         r
     }
+
+  private def toIfaceMetadata(metadata: Ast.PackageMetadata): PackageMetadata =
+    PackageMetadata(metadata.name, metadata.version)
 
   private def filterOutUnserializableErrors(
       es: InterfaceReaderError.Tree
@@ -113,7 +123,7 @@ object InterfaceReader {
         val fullName = QualifiedName(module.name, name)
         val tyVars: ImmArraySeq[Ast.TypeVarName] = params.map(_._1).toSeq
 
-        val result = dataType match {
+        val result: InterfaceReaderError \/ (QualifiedName, iface.InterfaceType) = dataType match {
           case dfn: Ast.DataRecord =>
             module.templates.get(name) match {
               case Some(tmpl) => template(fullName, dfn, tmpl)
@@ -135,16 +145,16 @@ object InterfaceReader {
         state
     }
 
-  private[reader] def record(
+  private[reader] def record[T >: iface.InterfaceType.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       record: Ast.DataRecord,
   ) =
     for {
       fields <- fieldsOrCons(name, record.fields)
-    } yield (name -> iface.InterfaceType.Normal(DefDataType(tyVars, Record(fields))))
+    } yield name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Record(fields))): T)
 
-  private[reader] def template(
+  private[reader] def template[T >: iface.InterfaceType.Template](
       name: QualifiedName,
       record: Ast.DataRecord,
       dfn: Ast.Template,
@@ -155,7 +165,10 @@ object InterfaceReader {
         visitChoice(name, choice) map (x => choiceName -> x)
       }
       key <- dfn.key traverse (k => toIfaceType(name, k.typ))
-    } yield name -> iface.InterfaceType.Template(Record(fields), DefTemplate(choices.toMap, key))
+    } yield name -> (iface.InterfaceType.Template(
+      Record(fields),
+      DefTemplate(choices.toMap, key),
+    ): T)
 
   private def visitChoice(
       ctx: QualifiedName,
@@ -170,21 +183,21 @@ object InterfaceReader {
       returnType = tReturn,
     )
 
-  private[reader] def variant(
+  private[reader] def variant[T >: iface.InterfaceType.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       variant: Ast.DataVariant,
   ) = {
     for {
       cons <- fieldsOrCons(name, variant.variants)
-    } yield name -> iface.InterfaceType.Normal(DefDataType(tyVars, Variant(cons)))
+    } yield name -> (iface.InterfaceType.Normal(DefDataType(tyVars, Variant(cons))): T)
   }
 
-  private[reader] def enum(
+  private[reader] def enum[T >: iface.InterfaceType.Normal](
       name: QualifiedName,
       tyVars: ImmArraySeq[Ast.TypeVarName],
       enum: Ast.DataEnum,
-  ) =
+  ): InterfaceReaderError \/ (QualifiedName, T) =
     if (tyVars.isEmpty)
       \/-(
         name -> iface.InterfaceType.Normal(
@@ -227,13 +240,14 @@ object InterfaceReader {
         unserializableDataType(ctx, s"unserializable data type: ${a.pretty}")
     }
 
-  private def primitiveType(
+  private def primitiveType[T >: TypePrim](
       ctx: QualifiedName,
       a: Ast.BuiltinType,
       args: ImmArraySeq[Type],
-  ): InterfaceReaderError \/ TypePrim =
+  ): InterfaceReaderError \/ T = {
+    type Eo[A] = InterfaceReaderError \/ A
     for {
-      ab <- a match {
+      ab <- (a match {
         case Ast.BTUnit => \/-((0, PrimType.Unit))
         case Ast.BTBool => \/-((0, PrimType.Bool))
         case Ast.BTInt64 => \/-((0, PrimType.Int64))
@@ -254,14 +268,15 @@ object InterfaceReader {
         case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow | Ast.BTAny | Ast.BTTypeRep |
             Ast.BTAnyException | Ast.BTBigNumeric | Ast.BTRoundingMode =>
           unserializableDataType(ctx, s"Unserializable primitive type: $a")
-      }
+      }): Eo[(Int, PrimType)]
       (arity, primType) = ab
       typ <- {
         if (args.length != arity)
           invalidDataTypeDefinition(ctx, s"$a requires $arity arguments, but got ${args.length}")
         else
           \/-(TypePrim(primType, args))
-      }
+      }: Eo[T]
     } yield typ
+  }
 
 }

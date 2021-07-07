@@ -3,34 +3,64 @@
 
 package com.daml.ledger.api.benchtool
 
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.value.Identifier
+import com.daml.metrics.MetricsReporter
 
 import scala.concurrent.duration._
 
 case class Config(
     ledger: Config.Ledger,
     concurrency: Config.Concurrency,
+    tls: TlsConfiguration,
     streams: List[Config.StreamConfig],
     reportingPeriod: FiniteDuration,
+    metricsReporter: MetricsReporter,
 )
 
 object Config {
-  case class StreamConfig(
-      name: String,
-      streamType: Config.StreamConfig.StreamType,
-      party: String,
-      templateIds: Option[List[Identifier]],
-      beginOffset: Option[LedgerOffset],
-      endOffset: Option[LedgerOffset],
-  )
+  trait StreamConfig {
+    def name: String
+    def party: String
+  }
 
   object StreamConfig {
-    sealed trait StreamType
-    object StreamType {
-      case object Transactions extends StreamType
-      case object TransactionTrees extends StreamType
-    }
+    case class TransactionsStreamConfig(
+        name: String,
+        party: String,
+        templateIds: Option[List[Identifier]],
+        beginOffset: Option[LedgerOffset],
+        endOffset: Option[LedgerOffset],
+        objectives: StreamConfig.Objectives,
+    ) extends StreamConfig
+
+    case class TransactionTreesStreamConfig(
+        name: String,
+        party: String,
+        templateIds: Option[List[Identifier]],
+        beginOffset: Option[LedgerOffset],
+        endOffset: Option[LedgerOffset],
+        objectives: StreamConfig.Objectives,
+    ) extends StreamConfig
+
+    case class ActiveContractsStreamConfig(
+        name: String,
+        party: String,
+        templateIds: Option[List[Identifier]],
+    ) extends StreamConfig
+
+    case class CompletionsStreamConfig(
+        name: String,
+        party: String,
+        applicationId: String,
+        beginOffset: Option[LedgerOffset],
+    ) extends StreamConfig
+
+    case class Objectives(
+        maxDelaySeconds: Option[Long],
+        minConsumptionSpeed: Option[Double],
+    )
   }
 
   case class Ledger(
@@ -57,7 +87,9 @@ object Config {
         keepAliveTime = 30,
         maxQueueLength = 10000,
       ),
+      tls = TlsConfiguration.Empty.copy(enabled = false),
       streams = List.empty[Config.StreamConfig],
       reportingPeriod = 5.seconds,
+      metricsReporter = MetricsReporter.Console,
     )
 }

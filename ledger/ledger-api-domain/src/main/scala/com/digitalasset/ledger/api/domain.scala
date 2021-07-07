@@ -12,6 +12,7 @@ import com.daml.lf.command.{Commands => LfCommands}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString.ordering
 import com.daml.lf.value.{Value => Lf}
+import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
 
@@ -27,7 +28,7 @@ object domain {
   object TransactionFilter {
 
     /** These parties subscribe for all templates */
-    def allForParties(parties: Set[Ref.Party]) =
+    def allForParties(parties: Set[Ref.Party]): TransactionFilter =
       TransactionFilter(parties.view.map(_ -> Filters.noFilter).toMap)
   }
 
@@ -37,7 +38,7 @@ object domain {
   }
 
   object Filters {
-    val noFilter = Filters(None)
+    val noFilter: Filters = Filters(None)
 
     def apply(inclusive: InclusiveFilters) = new Filters(Some(inclusive))
   }
@@ -54,6 +55,15 @@ object domain {
 
     case object LedgerEnd extends LedgerOffset
 
+    implicit val `Absolute Ordering`: Ordering[LedgerOffset.Absolute] =
+      Ordering.by[LedgerOffset.Absolute, String](_.value)
+
+    implicit val `LedgerOffset to LoggingValue`: ToLoggingValue[LedgerOffset] = value =>
+      LoggingValue.OfString(value match {
+        case LedgerOffset.Absolute(absolute) => absolute
+        case LedgerOffset.LedgerBegin => "%begin%"
+        case LedgerOffset.LedgerEnd => "%end%"
+      })
   }
 
   sealed trait Event extends Product with Serializable {
@@ -245,7 +255,8 @@ object domain {
 
   type EventId = Ref.LedgerString @@ EventIdTag
   val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
-  implicit val eventIdOrdering = scala.math.Ordering.by[EventId, Ref.LedgerString](_.unwrap)
+  implicit val eventIdOrdering: Ordering[EventId] =
+    Ordering.by[EventId, Ref.LedgerString](_.unwrap)
 
   sealed trait LedgerIdTag
 
@@ -296,8 +307,8 @@ object domain {
 
   /** Configuration entry describes a change to the current configuration. */
   sealed abstract class ConfigurationEntry extends Product with Serializable
-  object ConfigurationEntry {
 
+  object ConfigurationEntry {
     final case class Accepted(
         submissionId: String,
         configuration: Configuration,
@@ -313,7 +324,6 @@ object domain {
   sealed abstract class PackageEntry() extends Product with Serializable
 
   object PackageEntry {
-
     final case class PackageUploadAccepted(
         submissionId: String,
         recordTime: Instant,
@@ -325,5 +335,4 @@ object domain {
         reason: String,
     ) extends PackageEntry
   }
-
 }

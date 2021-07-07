@@ -5,10 +5,13 @@
 // which describes the semantics of Daml-LF transactions in more detail.
 //
 // [one-line] version summary
-// * 10:  new field key_with_maintainers in NodeFetch
-// * 11: add choice observer
-// * 12: drop value version in profit of node version
-// * 13: no change w.r.t. 12
+// * 10 -- new field key_with_maintainers in NodeFetch
+// * 11 -- add choice observer
+// * 12 -- drop value version in profit of node version
+// * 13 -- no change w.r.t. 12
+// * 14 -- add rollback nodes
+//         add byKey flag to fetch and exercise node
+// * dev (special staging area for the next version to be released)
 syntax = "proto3";
 
 package com.daml.lf.transaction;
@@ -45,8 +48,7 @@ message Node {
         NodeFetch fetch = 4;
         NodeExercise exercise = 5;
         NodeLookupByKey lookup_by_key = 6;
-        // TODO https://github.com/digital-asset/daml/issues/8020
-        NodeRollback rollback = 7; //*since DEV* // TODO: update to version when exceptions land
+        NodeRollback rollback = 7; // *since version 14*
     }
 
     string version = 63; // *since 11*, optional
@@ -110,7 +112,7 @@ message NodeExercise {
     repeated string observers = 15;  // *since version 11*
     // TODO https://github.com/digital-asset/daml/issues/7622
     // Switch to a stable version
-    bool byKey = 18; // *since version 1.dev*
+    bool byKey = 18; // *since version 14*
 }
 
 message NodeLookupByKey {
@@ -120,8 +122,7 @@ message NodeLookupByKey {
     com.daml.lf.value.ContractId contract_id_struct = 4;
 }
 
-// TODO https://github.com/digital-asset/daml/issues/8020
-message NodeRollback { // *since DEV* // TODO: update to version when exceptions land
+message NodeRollback { // *since version 14*
     repeated string children = 1; // node ids
 }
 

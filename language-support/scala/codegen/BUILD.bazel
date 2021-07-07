@@ -99,5 +99,6 @@ da_scala_test_suite(
         "//daml-lf/data",
         "//daml-lf/interface",
         "//daml-lf/transaction-test-lib",
+        "//libs-scala/logging-entries",
     ],
 )

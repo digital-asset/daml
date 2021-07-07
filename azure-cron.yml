@@ -155,6 +155,7 @@ jobs:
             echo "Publishing $GITHUB to VSCode Marketplace"
             git checkout v$GITHUB
             cd compiler/daml-extension
+            sed -i "s/__VERSION__/$GITHUB/" package.json
             # This produces out/src/extension.js
             bazel run @nodejs//:yarn
             bazel run @nodejs//:yarn compile

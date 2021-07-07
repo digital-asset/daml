@@ -5,6 +5,7 @@ package com.daml.http.json
 
 import akka.http.scaladsl.model.StatusCode
 import com.daml.http.domain
+import com.daml.http.domain.TemplateId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
@@ -211,9 +212,9 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
         case JsObject(fields) =>
           fields.toList match {
             case List((`archivedKey`, archived)) =>
-              domain.Contract(-\/(ArchivedContractFormat.read(archived)))
+              domain.Contract[JsValue](-\/(ArchivedContractFormat.read(archived)))
             case List((`activeKey`, active)) =>
-              domain.Contract(\/-(ActiveContractFormat.read(active)))
+              domain.Contract[JsValue](\/-(ActiveContractFormat.read(active)))
             case _ =>
               deserializationError(
                 s"Contract must be either {$archivedKey: obj} or {$activeKey: obj}, got: $fields"
@@ -238,41 +239,67 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
     *  1. template IDs are required
     *  2. query key may be absent
     *  3. special error if you appear to have queried outside 'query'
+    *
+    *  This provides an (almost) consistent behavior when reading the 'templateIds' and
+    *  'query' fields. Further extra fields may be added by concrete implementations.
     */
-  implicit val GetActiveContractsRequestFormat: RootJsonReader[domain.GetActiveContractsRequest] = {
-    case class GACR(
+  private def requestJsonReader[Request](validExtraFields: Set[String])(
+      toRequest: (
+          OneAnd[Set, TemplateId.OptionalPkg],
+          Map[String, JsValue],
+          Map[String, JsValue],
+      ) => Request
+  ): RootJsonReader[Request] = {
+    final case class BaseRequest(
         templateIds: Set[domain.TemplateId.OptionalPkg],
         query: Option[Map[String, JsValue]],
     )
-    val validKeys = Set("templateIds", "query")
-    implicit val primitive: JsonReader[GACR] = jsonFormat2(GACR.apply)
+    val validKeys = Set("templateIds", "query") ++ validExtraFields
+    implicit val primitive: JsonReader[BaseRequest] = jsonFormat2(BaseRequest.apply)
     jsv => {
-      val GACR(tids, q) = jsv.convertTo[GACR]
-      val extras = jsv.asJsObject.fields.keySet diff validKeys
-      if (extras.nonEmpty)
+      val BaseRequest(tids, query) = jsv.convertTo[BaseRequest]
+      val unsupported = jsv.asJsObject.fields.keySet diff validKeys
+      if (unsupported.nonEmpty)
         deserializationError(
-          s"unsupported query fields ${extras}; likely should be within 'query' subobject"
+          s"unsupported query fields $unsupported; likely should be within 'query' subobject"
         )
-      tids.headOption.cata(
-        h => domain.GetActiveContractsRequest(OneAnd(h, tids - h), q getOrElse Map.empty),
+      val extraFields = jsv.asJsObject.fields.filter { case (fieldName, _) =>
+        validExtraFields(fieldName)
+      }
+      val nonEmptyTids = tids.headOption.cata(
+        h => OneAnd(h, tids - h),
         deserializationError("search requires at least one item in 'templateIds'"),
       )
+      toRequest(nonEmptyTids, query.getOrElse(Map.empty), extraFields)
     }
+  }
+
+  implicit val GetActiveContractsRequestFormat: RootJsonReader[domain.GetActiveContractsRequest] =
+    requestJsonReader(validExtraFields = Set.empty)((tids, query, _) =>
+      domain.GetActiveContractsRequest(tids, query)
+    )
+
+  implicit val SearchForeverQueryFormat: RootJsonReader[domain.SearchForeverQuery] = {
+    val OffsetKey = "offset"
+    requestJsonReader(validExtraFields = Set(OffsetKey))((tids, query, extra) =>
+      domain.SearchForeverQuery(tids, query, extra.get(OffsetKey).map(_.convertTo[domain.Offset]))
+    )
   }
 
   implicit val SearchForeverRequestFormat: RootJsonReader[domain.SearchForeverRequest] = {
     case multi @ JsArray(_) =>
-      domain.SearchForeverRequest(multi.convertTo[NonEmptyList[domain.GetActiveContractsRequest]])
+      domain.SearchForeverRequest(multi.convertTo[NonEmptyList[domain.SearchForeverQuery]])
     case single =>
-      domain.SearchForeverRequest(NonEmptyList(single.convertTo[domain.GetActiveContractsRequest]))
+      domain.SearchForeverRequest(NonEmptyList(single.convertTo[domain.SearchForeverQuery]))
   }
 
   implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat1(
     domain.CommandMeta
   )
 
-  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsValue]] = jsonFormat3(
-    domain.CreateCommand[JsValue]
+  implicit val CreateCommandFormat
+      : RootJsonFormat[domain.CreateCommand[JsValue, domain.TemplateId.OptionalPkg]] = jsonFormat3(
+    domain.CreateCommand[JsValue, domain.TemplateId.OptionalPkg]
   )
 
   implicit val ExerciseCommandFormat
@@ -310,9 +337,10 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
       }
     }
 
-  implicit val CreateAndExerciseCommandFormat
-      : RootJsonFormat[domain.CreateAndExerciseCommand[JsValue, JsValue]] =
-    jsonFormat5(domain.CreateAndExerciseCommand[JsValue, JsValue])
+  implicit val CreateAndExerciseCommandFormat: RootJsonFormat[
+    domain.CreateAndExerciseCommand[JsValue, JsValue, domain.TemplateId.OptionalPkg]
+  ] =
+    jsonFormat5(domain.CreateAndExerciseCommand[JsValue, JsValue, domain.TemplateId.OptionalPkg])
 
   implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
     jsonFormat2(domain.ExerciseResponse[JsValue])

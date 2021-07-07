@@ -1,23 +1,23 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.scenario
+package com.daml.lf
+package scenario
 
 import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
-import com.daml.lf.speedy.{SError, SValue, PartialTransaction => SPartialTransaction, TraceLog}
-import com.daml.lf.transaction.{GlobalKey, Node => N, NodeId}
+import com.daml.lf.speedy.{SError, SValue, TraceLog}
+import com.daml.lf.transaction.{GlobalKey, IncompleteTransaction, Node => N, NodeId}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
 
-import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 
 final class Conversions(
     homePackageId: Ref.PackageId,
     ledger: ScenarioLedger,
-    ptx: SPartialTransaction,
+    incomplete: Option[IncompleteTransaction],
     traceLog: TraceLog,
     commitLocation: Option[Ref.Location],
     stackTrace: ImmArray[Ref.Location],
@@ -30,7 +30,9 @@ final class Conversions(
 
   // The ledger data will not contain information from the partial transaction at this point.
   // We need the mapping for converting error message so we manually add it here.
-  private val ptxCoidToNodeId = ptx.nodes
+  private val ptxCoidToNodeId = incomplete
+    .map(_.transaction.nodes)
+    .getOrElse(Map.empty)
     .collect { case (nodeId, node: N.NodeCreate[V.ContractId]) =>
       node.coid -> ledger.ptxEventId(nodeId)
     }
@@ -56,9 +58,7 @@ final class Conversions(
     builder.build
   }
 
-  def convertScenarioError(
-      err: SError.SError
-  ): proto.ScenarioError = {
+  def convertScenarioError(err: Error): proto.ScenarioError = {
     val builder = proto.ScenarioError.newBuilder
       .addAllNodes(nodes.asJava)
       .addAllScenarioSteps(steps.asJava)
@@ -76,74 +76,109 @@ final class Conversions(
 
     builder.addAllStackTrace(stackTrace.map(convertLocation).toSeq.asJava)
 
-    builder.setPartialTransaction(
-      convertPartialTransaction(ptx)
+    incomplete.foreach(ptx =>
+      builder.setPartialTransaction(
+        convertPartialTransaction(ptx)
+      )
     )
 
     err match {
-      case SError.SErrorCrash(reason) => setCrash(reason)
-      case SError.SRequiresOnLedger(operation) => setCrash(operation)
+      case Error.Internal(reason) => setCrash(reason)
 
-      case SError.DamlEMatchError(reason) =>
-        setCrash(reason)
-      case SError.DamlEUnhandledException(exc) =>
-        val exceptionBuilder = proto.ScenarioError.Exception.newBuilder
-        exc match {
-          case error: SValue.SArithmeticError =>
-            exceptionBuilder.setBuiltin(error.message)
-          case SValue.SAnyException(_, sValue) =>
-            exceptionBuilder.setUser(convertValue(sValue.toValue))
+      case Error.RunnerException(serror) =>
+        serror match {
+          case SError.SErrorCrash(_, reason) => setCrash(reason)
+
+          case SError.SErrorDamlException(interpretationError) =>
+            import interpretation.Error._
+            interpretationError match {
+              case UnhandledException(_, value) =>
+                builder.setUnhandledException(convertValue(value))
+              case UserError(msg) =>
+                builder.setUserError(msg)
+              case ContractNotFound(cid) =>
+                // TODO https://github.com/digital-asset/daml/issues/9974
+                // We crash here because:
+                //  1. You cannot construct a cid yourself in scenarios or
+                //     daml script
+                //  2. Contract id fetch failures because a contract was
+                //     archived or what not are turned into more specific
+                //     errors so we never produce ContractNotFound
+                builder.setCrash(s"contract ${cid.coid} not found")
+              case TemplatePreconditionViolated(tid, optLoc, arg) =>
+                val uepvBuilder = proto.ScenarioError.TemplatePreconditionViolated.newBuilder
+                optLoc.map(convertLocation).foreach(uepvBuilder.setLocation)
+                builder.setTemplatePrecondViolated(
+                  uepvBuilder
+                    .setTemplateId(convertIdentifier(tid))
+                    .setArg(convertValue(arg))
+                    .build
+                )
+              case ContractNotActive(coid, tid, consumedBy) =>
+                builder.setUpdateLocalContractNotActive(
+                  proto.ScenarioError.ContractNotActive.newBuilder
+                    .setContractRef(mkContractRef(coid, tid))
+                    .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
+                    .build
+                )
+              case LocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+                builder.setScenarioContractKeyNotVisible(
+                  proto.ScenarioError.ContractKeyNotVisible.newBuilder
+                    .setContractRef(mkContractRef(coid, gk.templateId))
+                    .addAllActAs(actAs.map(convertParty(_)).asJava)
+                    .addAllReadAs(readAs.map(convertParty(_)).asJava)
+                    .addAllStakeholders(stakeholders.map(convertParty).asJava)
+                    .build
+                )
+              case ContractKeyNotFound(gk) =>
+                builder.setScenarioContractKeyNotFound(
+                  proto.ScenarioError.ContractKeyNotFound.newBuilder
+                    .setTemplateId(convertIdentifier(gk.templateId))
+                    .setKey(convertValue(gk.key))
+                    .build
+                )
+              case DuplicateContractKey(key) =>
+                builder.setScenarioCommitError(
+                  proto.CommitError.newBuilder.setUniqueKeyViolation(convertGlobalKey(key)).build
+                )
+              case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
+                builder.setCreateEmptyContractKeyMaintainers(
+                  proto.ScenarioError.CreateEmptyContractKeyMaintainers.newBuilder
+                    .setArg(convertValue(arg))
+                    .setTemplateId(convertIdentifier(tid))
+                    .setKey(convertValue(key))
+                )
+              case FetchEmptyContractKeyMaintainers(tid, key) =>
+                builder.setFetchEmptyContractKeyMaintainers(
+                  proto.ScenarioError.FetchEmptyContractKeyMaintainers.newBuilder
+                    .setTemplateId(convertIdentifier(tid))
+                    .setKey(convertValue(key))
+                )
+              case WronglyTypedContract(coid, expected, actual) =>
+                builder.setWronglyTypedContract(
+                  proto.ScenarioError.WronglyTypedContract.newBuilder
+                    .setContractRef(mkContractRef(coid, actual))
+                    .setExpected(convertIdentifier(expected))
+                )
+              case FailedAuthorization(nid, fa) =>
+                builder.setScenarioCommitError(
+                  proto.CommitError.newBuilder
+                    .setFailedAuthorizations(convertFailedAuthorization(nid, fa))
+                    .build
+                )
+              case ContractIdInContractKey(key) =>
+                builder.setContractIdInContractKey(
+                  proto.ScenarioError.ContractIdInContractKey.newBuilder.setKey(convertValue(key))
+                )
+              case ContractIdFreshness(_) =>
+                // We crash here because you cannot construct a cid yourself in scenarios
+                // or daml script.
+                builder.setCrash(s"Contract Id freshness Error")
+              case NonComparableValues =>
+                builder.setComparableValueError(proto.Empty.newBuilder)
+            }
         }
-        builder.setUnhandledException(exceptionBuilder)
-      case SError.DamlEUserError(msg) =>
-        builder.setUserError(msg)
-
-      case SError.DamlETransactionError(reason) =>
-        setCrash(reason)
-
-      case SError.DamlETemplatePreconditionViolated(tid, optLoc, arg) =>
-        val uepvBuilder = proto.ScenarioError.TemplatePreconditionViolated.newBuilder
-        optLoc.map(convertLocation).foreach(uepvBuilder.setLocation)
-        builder.setTemplatePrecondViolated(
-          uepvBuilder
-            .setTemplateId(convertIdentifier(tid))
-            .setArg(convertValue(arg))
-            .build
-        )
-      case SError.DamlELocalContractNotActive(coid, tid, consumedBy) =>
-        builder.setUpdateLocalContractNotActive(
-          proto.ScenarioError.ContractNotActive.newBuilder
-            .setContractRef(mkContractRef(coid, tid))
-            .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
-            .build
-        )
-      case SError.DamlEDuplicateContractKey(key) =>
-        builder.setScenarioCommitError(
-          proto.CommitError.newBuilder.setUniqueKeyViolation(convertGlobalKey(key)).build
-        )
-      case SError.DamlEFailedAuthorization(nid, fa) =>
-        builder.setScenarioCommitError(
-          proto.CommitError.newBuilder
-            .setFailedAuthorizations(convertFailedAuthorization(nid, fa))
-            .build
-        )
-
-      case SError.DamlECreateEmptyContractKeyMaintainers(tid, arg, key) =>
-        builder.setCreateEmptyContractKeyMaintainers(
-          proto.ScenarioError.CreateEmptyContractKeyMaintainers.newBuilder
-            .setArg(convertValue(arg))
-            .setTemplateId(convertIdentifier(tid))
-            .setKey(convertValue(key))
-        )
-
-      case SError.DamlEFetchEmptyContractKeyMaintainers(tid, key) =>
-        builder.setFetchEmptyContractKeyMaintainers(
-          proto.ScenarioError.FetchEmptyContractKeyMaintainers.newBuilder
-            .setTemplateId(convertIdentifier(tid))
-            .setKey(convertValue(key))
-        )
-
-      case SError.ScenarioErrorContractNotEffective(coid, tid, effectiveAt) =>
+      case Error.ContractNotEffective(coid, tid, effectiveAt) =>
         builder.setScenarioContractNotEffective(
           proto.ScenarioError.ContractNotEffective.newBuilder
             .setEffectiveAt(effectiveAt.micros)
@@ -151,7 +186,7 @@ final class Conversions(
             .build
         )
 
-      case SError.ScenarioErrorContractNotActive(coid, tid, consumedBy) =>
+      case Error.ContractNotActive(coid, tid, consumedBy) =>
         builder.setScenarioContractNotActive(
           proto.ScenarioError.ContractNotActive.newBuilder
             .setContractRef(mkContractRef(coid, tid))
@@ -159,7 +194,7 @@ final class Conversions(
             .build
         )
 
-      case SError.ScenarioErrorContractNotVisible(coid, tid, actAs, readAs, observers) =>
+      case Error.ContractNotVisible(coid, tid, actAs, readAs, observers) =>
         builder.setScenarioContractNotVisible(
           proto.ScenarioError.ContractNotVisible.newBuilder
             .setContractRef(mkContractRef(coid, tid))
@@ -169,17 +204,7 @@ final class Conversions(
             .build
         )
 
-      case SError.DamlELocalContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
-        builder.setScenarioContractKeyNotVisible(
-          proto.ScenarioError.ContractKeyNotVisible.newBuilder
-            .setContractRef(mkContractRef(coid, gk.templateId))
-            .addAllActAs(actAs.map(convertParty(_)).asJava)
-            .addAllReadAs(readAs.map(convertParty(_)).asJava)
-            .addAllStakeholders(stakeholders.map(convertParty).asJava)
-            .build
-        )
-
-      case SError.ScenarioErrorContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
+      case Error.ContractKeyNotVisible(coid, gk, actAs, readAs, stakeholders) =>
         builder.setScenarioContractKeyNotVisible(
           proto.ScenarioError.ContractKeyNotVisible.newBuilder
             .setContractRef(mkContractRef(coid, gk.templateId))
@@ -190,23 +215,18 @@ final class Conversions(
             .build
         )
 
-      case SError.ScenarioErrorCommitError(commitError) =>
+      case Error.CommitError(commitError) =>
         builder.setScenarioCommitError(
           convertCommitError(commitError)
         )
-      case SError.ScenarioErrorMustFailSucceeded(tx @ _) =>
+      case Error.MustFailSucceeded(tx @ _) =>
         builder.setScenarioMustfailSucceeded(empty)
 
-      case SError.ScenarioErrorInvalidPartyName(party, _) =>
+      case Error.InvalidPartyName(party, _) =>
         builder.setScenarioInvalidPartyName(party)
 
-      case SError.ScenarioErrorPartyAlreadyExists(party) =>
+      case Error.PartyAlreadyExists(party) =>
         builder.setScenarioPartyAlreadyExists(party)
-
-      case wtc: SError.DamlEWronglyTypedContract =>
-        sys.error(
-          s"Got unexpected DamlEWronglyTypedContract error in scenario service: $wtc. Note that in the scenario service this error should never surface since contract fetches are all type checked."
-        )
     }
     builder.build
   }
@@ -349,7 +369,6 @@ final class Conversions(
 
   def mkContractRef(coid: V.ContractId, templateId: Ref.Identifier): proto.ContractRef =
     proto.ContractRef.newBuilder
-      .setRelative(false)
       .setContractId(coidToEventId(coid).toLedgerString)
       .setTemplateId(convertIdentifier(templateId))
       .build
@@ -407,31 +426,13 @@ final class Conversions(
       .build
   }
 
-  def convertPartialTransaction(ptx: SPartialTransaction): proto.PartialTransaction = {
+  def convertPartialTransaction(incomplete: IncompleteTransaction): proto.PartialTransaction = {
+    val tx = incomplete.transaction
+
     val builder = proto.PartialTransaction.newBuilder
-      .addAllNodes(ptx.nodes.map(convertNode).asJava)
-      .addAllRoots(
-        ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava
-      )
+      .addAllNodes(tx.nodes.map(convertNode).asJava)
+      .addAllRoots(tx.roots.toList.map(convertTxNodeId).asJava)
 
-    @tailrec
-    def unwindToExercise(
-        contextInfo: SPartialTransaction.ContextInfo
-    ): Option[SPartialTransaction.ExercisesContextInfo] = contextInfo match {
-      case ctx: SPartialTransaction.ExercisesContextInfo => Some(ctx)
-      case ctx: SPartialTransaction.TryContextInfo =>
-        unwindToExercise(ctx.parent.info)
-      case _: SPartialTransaction.RootContextInfo => None
-    }
-
-    unwindToExercise(ptx.context.info).foreach { ctx =>
-      val ecBuilder = proto.ExerciseContext.newBuilder
-        .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
-        .setChoiceId(ctx.choiceId)
-        .setChosenValue(convertValue(ctx.chosenValue))
-      ctx.optLocation.map(loc => ecBuilder.setExerciseLocation(convertLocation(loc)))
-      builder.setExerciseContext(ecBuilder.build)
-    }
     builder.build
   }
 
@@ -498,7 +499,7 @@ final class Conversions(
         )
       case ex: N.NodeExercises[NodeId, V.ContractId] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
-        builder.setExercise(
+        val exerciseBuilder =
           proto.Node.Exercise.newBuilder
             .setTargetContractId(coidToEventId(ex.targetCoid).toLedgerString)
             .setTemplateId(convertIdentifier(ex.templateId))
@@ -514,8 +515,12 @@ final class Conversions(
                 .toSeq
                 .asJava
             )
-            .build
-        )
+
+        ex.exerciseResult.foreach { result =>
+          exerciseBuilder.setExerciseResult(convertValue(result))
+        }
+
+        builder.setExercise(exerciseBuilder.build)
 
       case lbk: N.NodeLookupByKey[V.ContractId] =>
         lbk.optLocation.foreach(loc => builder.setLocation(convertLocation(loc)))

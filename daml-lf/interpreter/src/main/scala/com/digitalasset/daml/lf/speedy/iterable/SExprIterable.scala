@@ -25,7 +25,6 @@ private[speedy] object SExprIterable {
     case SExpr.SELet1BuiltinArithmetic(_, args, body) => args.iterator ++ Iterator(body)
     case SExpr.SELet(bounds, body) => bounds.iterator ++ Iterator(body)
     case SExpr.SELocation(_, expr) => Iterator(expr)
-    case SExpr.SECatchSubmitMustFail(body) => Iterator(body)
     case SExpr.SELabelClosure(_, expr) => Iterator(expr)
     case SExpr.SEDamlException(_) => Iterator.empty
     case SExpr.SEImportValue(_, _) => Iterator.empty
@@ -42,10 +41,9 @@ private[speedy] object SExprIterable {
   private def iterator(v: SValue): Iterator[SExpr] = v match {
     case SValue.SPAP(prim, actuals, _) =>
       iterator(prim) ++ actuals.asScala.iterator.flatMap(iterator(_))
-    case SValue.SAnyException(_, value) => iterator(value)
-    case SValue.SArithmeticError(_, _) | SValue.STNat(_) | _: SValue.SPrimLit | SValue.STypeRep(_) |
-        SValue.SToken | SValue.SAny(_, _) | SValue.SEnum(_, _, _) | SValue.SMap(_, _) |
-        SValue.SList(_) | SValue.SOptional(_) | SValue.SRecord(_, _, _) | SValue.SStruct(_, _) |
+    case SValue.STNat(_) | _: SValue.SPrimLit | SValue.STypeRep(_) | SValue.SToken |
+        SValue.SAny(_, _) | SValue.SEnum(_, _, _) | SValue.SMap(_, _) | SValue.SList(_) |
+        SValue.SOptional(_) | SValue.SRecord(_, _, _) | SValue.SStruct(_, _) |
         SValue.SVariant(_, _, _, _) =>
       SValueIterable.iterator(v).flatMap(iterator(_))
   }

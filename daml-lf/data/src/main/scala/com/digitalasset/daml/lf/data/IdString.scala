@@ -211,7 +211,7 @@ private final class ConcatenableMatchingStringModule(
     if (s.length == 0)
       throw new IllegalArgumentException(s"""$description is empty""")
     if (s.length > maxLength)
-      throw new IllegalArgumentException(s"""$description is too long""")
+      throw new IllegalArgumentException(s"""$description is too long (max: $maxLength)""")
     var i = 0
     while (i < s.length) {
       val c = s(i).toInt

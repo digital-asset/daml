@@ -1038,10 +1038,10 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
         case PLF.Expr.SumCase.TO_ANY_EXCEPTION =>
           assertSince(LV.Features.exceptions, "Expr.to_any_exception")
-          val makeAnyException = lfExpr.getToAnyException
+          val toAnyException = lfExpr.getToAnyException
           EToAnyException(
-            typ = decodeType(makeAnyException.getType),
-            value = decodeExpr(makeAnyException.getExpr, definition),
+            typ = decodeType(toAnyException.getType),
+            value = decodeExpr(toAnyException.getExpr, definition),
           )
 
         case PLF.Expr.SumCase.FROM_ANY_EXCEPTION =>
@@ -1843,11 +1843,6 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = bigNumeric),
       BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),
-      BuiltinFunctionInfo(
-        ANY_EXCEPTION_IS_ARITHMETIC_ERROR,
-        BAnyExceptionIsArithmeticError,
-        minVersion = exceptions,
-      ),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),

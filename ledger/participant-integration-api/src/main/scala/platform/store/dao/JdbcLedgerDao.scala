@@ -4,7 +4,6 @@ package com.daml.platform.store.dao
 
 import java.sql.Connection
 import java.time.Instant
-
 import java.util.{Date, UUID}
 
 import akka.NotUsed
@@ -41,6 +40,7 @@ import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.entries.LoggingEntry
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
 import com.daml.platform.configuration.ServerRole
@@ -59,6 +59,8 @@ import com.daml.platform.store.entries.{
   PartyLedgerEntry,
 }
 import scalaz.syntax.tag._
+import spray.json.DefaultJsonProtocol._
+import spray.json._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -202,7 +204,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, ConfigurationEntry), NotUsed] =
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadConfigurationEntries) {
           implicit connection =>
             SQL(queries.SQL_GET_CONFIGURATION_ENTRIES)
@@ -232,7 +234,7 @@ private class JdbcLedgerDao(
       rejectionReason: Option[String],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     withEnrichedLoggingContext(Logging.submissionId(submissionId)) { implicit loggingContext =>
-      logger.info("Storing a configuration entry")
+      logger.info("Storing configuration entry")
       dbDispatcher.executeSql(
         metrics.daml.index.db.storeConfigurationEntryDbMetrics
       ) { implicit conn =>
@@ -411,7 +413,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PartyLedgerEntry), NotUsed] = {
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPartyEntries) { implicit connection =>
           SQL(queries.SQL_GET_PARTY_ENTRIES)
             .on(
@@ -786,7 +788,7 @@ private class JdbcLedgerDao(
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContext): Source[(Offset, PackageLedgerEntry), NotUsed] =
     PaginatingAsyncStream(PageSize) { queryOffset =>
-      withEnrichedLoggingContext("queryOffset" -> queryOffset.toString) { implicit loggingContext =>
+      withEnrichedLoggingContext("queryOffset" -> queryOffset) { implicit loggingContext =>
         dbDispatcher.executeSql(metrics.daml.index.db.loadPackageEntries) { implicit connection =>
           SQL(queries.SQL_GET_PACKAGE_ENTRIES)
             .on(
@@ -969,7 +971,7 @@ private class JdbcLedgerDao(
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       ledgerEffectiveTime: Instant,
-      offset: Offset,
+      offset: OffsetStep,
       transaction: CommittedTransaction,
       divulgedContracts: Iterable[DivulgedContract],
       blindingInfo: Option[BlindingInfo],
@@ -980,7 +982,7 @@ private class JdbcLedgerDao(
       workflowId = workflowId,
       transactionId = transactionId,
       ledgerEffectiveTime = ledgerEffectiveTime,
-      offset = offset,
+      offset = offset.offset,
       transaction = transaction,
       divulgedContracts = divulgedContracts,
       blindingInfo = blindingInfo,
@@ -991,7 +993,7 @@ private class JdbcLedgerDao(
       transactionId,
       recordTime,
       ledgerEffectiveTime,
-      CurrentOffset(offset),
+      offset,
       transaction,
       divulgedContracts,
     )
@@ -1001,12 +1003,11 @@ private class JdbcLedgerDao(
 private[platform] object JdbcLedgerDao {
 
   object Logging {
+    def submissionId(id: String): LoggingEntry =
+      "submissionId" -> id
 
-    def submissionId(id: String): (String, String) = "submissionId" -> id
-
-    def transactionId(id: TransactionId): (String, String) =
+    def transactionId(id: TransactionId): LoggingEntry =
       "transactionId" -> id
-
   }
 
   def readOwner(
@@ -1203,7 +1204,7 @@ private[platform] object JdbcLedgerDao {
         reason: RejectionReason,
     ): SimpleSql[Row] = {
       SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
-        .toArray[String]}, ${submitterInfo.commandId}, ${reason.value()}, ${reason.description})"
+        .toArray[String]}, ${submitterInfo.commandId}, ${reason.code.value}, ${reason.description})"
     }
 
     protected[JdbcLedgerDao] def escapeReservedWord(word: String): String
@@ -1381,8 +1382,7 @@ private[platform] object JdbcLedgerDao {
         recordTime: Instant,
     ): SimpleSql[Row] = {
       import com.daml.platform.store.OracleArrayConversions._
-      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
-        .toArray[String]}, ${submitterInfo.commandId}, $transactionId)"
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, transaction_id) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs.toJson.compactPrint}, ${submitterInfo.commandId}, $transactionId)"
     }
 
     override protected[JdbcLedgerDao] def prepareRejectionInsert(
@@ -1392,8 +1392,8 @@ private[platform] object JdbcLedgerDao {
         reason: RejectionReason,
     ): SimpleSql[Row] = {
       import com.daml.platform.store.OracleArrayConversions._
-      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs
-        .toArray[String]}, ${submitterInfo.commandId}, ${reason.value()}, ${reason.description})"
+      SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitters, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.actAs.toJson.compactPrint}, ${submitterInfo.commandId}, ${reason.code
+        .value()}, ${reason.description})"
     }
 
     // spaces which are subsequently trimmed left only for readability

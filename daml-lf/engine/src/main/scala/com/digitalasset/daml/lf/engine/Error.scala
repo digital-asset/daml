@@ -4,73 +4,183 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.transaction.GlobalKey
-import com.daml.lf.value.Value._
+import com.daml.lf.data.Ref
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.NodeId
+import com.daml.lf.value.Value
 
-//TODO: Errors
-sealed trait Error {
-  // msg is intended to be a single line message
+sealed abstract class Error {
   def msg: String
-
-  // details for debugging should be included here
-  def detailMsg: String
-  override def toString: String = "Error(" + msg + ")"
 }
 
 object Error {
 
-  def withError[A](e: Error)(optional: Option[A]): Either[Error, A] = {
-    optional.fold[Either[Error, A]](Left(e))(v => Right(v))
+  // Error happening during Package loading
+  final case class Package(packageError: Package.Error) extends Error {
+    def msg: String = packageError.msg
   }
 
-  /** small conversion from option to either error with specific error */
-  implicit class optionError[A](o: Option[A]) {
-    def errorIfEmpty(e: Error) = withError(e)(o)
+  object Package {
+
+    sealed abstract class Error {
+      def msg: String
+    }
+
+    final case class Internal(
+        nameOfFunc: String,
+        override val msg: String,
+    ) extends Error
+
+    final case class Validation(validationError: validation.ValidationError) extends Error {
+      def msg: String = validationError.pretty
+    }
+
+    final case class MissingPackages(packageIds: Set[Ref.PackageId]) extends Error {
+      val s = if (packageIds.size <= 1) "" else "s"
+      override def msg: String = s"Couldn't find package$s ${packageIds.mkString(",")}"
+    }
+    private[engine] object MissingPackage {
+      def apply(packageId: Ref.PackageId): MissingPackages = MissingPackages(Set(packageId))
+    }
+
+    final case class AllowedLanguageVersion(
+        packageId: Ref.PackageId,
+        languageVersion: language.LanguageVersion,
+        allowedLanguageVersions: VersionRange[language.LanguageVersion],
+    ) extends Error {
+      def msg: String =
+        s"Disallowed language version in package $packageId: " +
+          s"Expected version between ${allowedLanguageVersions.min.pretty} and ${allowedLanguageVersions.max.pretty} but got ${languageVersion.pretty}"
+    }
+
+    final case class SelfConsistency(
+        packageIds: Set[Ref.PackageId],
+        missingDependencies: Set[Ref.PackageId],
+    ) extends Error {
+      def msg: String =
+        s"The set of packages ${packageIds.mkString("{'", "', '", "'}")} is not self consistent, " +
+          s"the missing dependencies are ${missingDependencies.mkString("{'", "', '", "'}")}."
+    }
+
   }
 
-  def apply(description: String) = new Error {
-    val msg = description
-    override def detailMsg = msg
+  // Error happening during command/transaction preprocessing
+  final case class Preprocessing(processingError: Preprocessing.Error) extends Error {
+    def msg: String = processingError.msg
   }
 
-  def apply(description: String, details: String) = new Error {
-    val msg = description
-    val detailMsg = details
+  object Preprocessing {
+
+    sealed abstract class Error
+        extends RuntimeException
+        with scala.util.control.NoStackTrace
+        with Product {
+      def msg: String
+
+      override def toString: String =
+        productPrefix + productIterator.mkString("(", ",", ")")
+    }
+
+    final case class Internal(
+        nameOfFunc: String,
+        override val msg: String,
+    ) extends Error
+
+    final case class Lookup(lookupError: language.LookupError) extends Error {
+      override def msg: String = lookupError.pretty
+    }
+
+    private[engine] object MissingPackage {
+      def apply(pkgId: Ref.PackageId): Lookup =
+        Lookup(language.LookupError.Package(pkgId))
+      def unapply(error: Lookup): Option[Ref.PackageId] =
+        error.lookupError match {
+          case language.LookupError.Package(packageId) => Some(packageId)
+          case _ => None
+        }
+    }
+
+    final case class TypeMismatch(
+        typ: Ast.Type,
+        value: Value[Value.ContractId],
+        override val msg: String,
+    ) extends Error
+
+    final case class ValueNesting(value: Value[Value.ContractId]) extends Error {
+      override def msg: String =
+        s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}"
+    }
+
+    final case class RootNode(nodeId: NodeId, override val msg: String) extends Error
+
+    final case class ContractIdFreshness(
+        localContractIds: Set[Value.ContractId],
+        globalContractIds: Set[Value.ContractId],
+    ) extends Error {
+      assert(localContractIds exists globalContractIds)
+      def msg: String = "Conflicting discriminators between a global and local contract ID."
+    }
+
   }
 
-}
+  // Error happening during interpretation
+  final case class Interpretation(
+      interpretationError: Interpretation.Error,
+      // detailMsg describes the state of the machine when the error occurs
+      detailMsg: Option[String],
+  ) extends Error {
+    def msg: String = interpretationError.msg
+  }
 
-final case class ContractNotFound(ci: ContractId) extends Error {
-  override def msg = s"Contract could not be found with id $ci"
-  override def detailMsg: String = msg
-}
+  object Interpretation {
 
-/** See com.daml.lf.transaction.Transaction.DuplicateContractKey
-  * for more information.
-  */
-final case class DuplicateContractKey(key: GlobalKey) extends Error {
-  override def msg = s"Duplicate contract key $key"
-  override def detailMsg: String = msg
-}
+    sealed abstract class Error {
+      def msg: String
+    }
 
-final case class ValidationError(override val msg: String)
-    extends RuntimeException(s"ValidationError: $msg", null, true, false)
-    with Error {
-  override def detailMsg: String = msg
-}
+    final case class Internal(
+        nameOfFunc: String,
+        override val msg: String,
+    ) extends Error
 
-final case class ReplayMismatch(
-    mismatch: transaction.ReplayMismatch[transaction.NodeId, ContractId]
-) extends RuntimeException(s"ValidationError: ${mismatch.msg}", null, true, false)
-    with Error {
-  override def msg: String = mismatch.msg
-  override def detailMsg: String = mismatch.msg
-}
+    final case class DamlException(error: interpretation.Error) extends Error {
+      // TODO https://github.com/digital-asset/daml/issues/9974
+      //  For now we try to preserve the exact same message (for the ledger API)
+      //  Review once all the errors are properly structured
+      override def msg: String = error match {
+        case interpretation.Error.ContractNotFound(cid) =>
+          // TODO https://github.com/digital-asset/daml/issues/9974
+          //   we should probably use ${cid.coid} instead of $cid
+          s"Contract could not be found with id $cid"
+        case interpretation.Error.ContractKeyNotFound(key) =>
+          s"dependency error: couldn't find key: $key"
+        case _ =>
+          s"Interpretation error: Error: ${speedy.Pretty.prettyDamlException(error).render(80)}"
+      }
+    }
 
-final case class AuthorizationError(override val msg: String) extends Error {
-  override def detailMsg: String = msg
-}
+  }
 
-final case class SerializationError(override val msg: String) extends Error {
-  override def detailMsg: String = s"Cannot serialize the transaction: $msg"
+  // Error happening during transaction validation
+  final case class Validation(validationError: Validation.Error) extends Error {
+    override def msg = validationError.msg
+  }
+
+  object Validation {
+
+    sealed abstract class Error {
+      def msg: String
+    }
+
+    // TODO: get rid of Generic
+    final case class Generic(msg: String) extends Error
+
+    final case class ReplayMismatch(
+        mismatch: transaction.ReplayMismatch[transaction.NodeId, Value.ContractId]
+    ) extends Error {
+      override def msg: String = mismatch.msg
+    }
+
+  }
+
 }

@@ -38,16 +38,16 @@ final class Metrics(val registry: MetricRegistry) {
       val validSubmissions: Meter =
         registry.meter(Prefix :+ "valid_submissions")
 
-      def inputBufferLength(party: String): Counter =
-        registry.counter(Prefix :+ party :+ "input_buffer_length")
-      def inputBufferCapacity(party: String): Counter =
-        registry.counter(Prefix :+ party :+ "input_buffer_capacity")
-      def inputBufferDelay(party: String): Timer =
-        registry.timer(Prefix :+ party :+ "input_buffer_delay")
-      def maxInFlightLength(party: String): Counter =
-        registry.counter(Prefix :+ party :+ "max_in_flight_length")
-      def maxInFlightCapacity(party: String): Counter =
-        registry.counter(Prefix :+ party :+ "max_in_flight_capacity")
+      def inputBufferLength(firstParty: String): Counter =
+        registry.counter(Prefix :+ firstParty :+ "input_buffer_length")
+      def inputBufferCapacity(firstParty: String): Counter =
+        registry.counter(Prefix :+ firstParty :+ "input_buffer_capacity")
+      def inputBufferDelay(firstParty: String): Timer =
+        registry.timer(Prefix :+ firstParty :+ "input_buffer_delay")
+      def maxInFlightLength(firstParty: String): Counter =
+        registry.counter(Prefix :+ firstParty :+ "max_in_flight_length")
+      def maxInFlightCapacity(firstParty: String): Counter =
+        registry.counter(Prefix :+ firstParty :+ "max_in_flight_capacity")
     }
 
     object execution {
@@ -277,6 +277,15 @@ final class Metrics(val registry: MetricRegistry) {
 
         val apiServices: MetricName = Prefix :+ "api-services"
       }
+
+      object streams {
+        private val Prefix: MetricName = lapi.Prefix :+ "streams"
+
+        val transactionTrees: Counter = registry.counter(Prefix :+ "transaction_trees_sent")
+        val transactions: Counter = registry.counter(Prefix :+ "transactions_sent")
+        val completions: Counter = registry.counter(Prefix :+ "completions_sent")
+        val acs: Counter = registry.counter(Prefix :+ "acs_sent")
+      }
     }
 
     object ledger {
@@ -353,6 +362,11 @@ final class Metrics(val registry: MetricRegistry) {
       val uploadPackages: Timer = registry.timer(Prefix :+ "upload_packages")
       val publishConfiguration: Timer = registry.timer(Prefix :+ "publish_configuration")
 
+      val decodeTransactionLogUpdate: Timer =
+        registry.timer(Prefix :+ "transaction_log_update_decode")
+      val transactionLogUpdatesBufferSize: Counter =
+        registry.counter(Prefix :+ "transaction_log_updates_buffer_size")
+
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
         private val Prefix: MetricName = index.Prefix :+ "db"
@@ -424,6 +438,9 @@ final class Metrics(val registry: MetricRegistry) {
           "store_party_entry"
         ) // FIXME Base name conflicts with storePartyEntry
         val loadPartyEntries: DatabaseMetrics = createDbMetrics("load_party_entries")
+        val getTransactionLogUpdates: DatabaseMetrics = createDbMetrics(
+          "get_transaction_log_updates"
+        )
 
         object storeTransactionDbMetrics
             extends DatabaseMetrics(registry, Prefix, "store_ledger_entry") {
@@ -436,6 +453,8 @@ final class Metrics(val registry: MetricRegistry) {
           val deleteContractWitnessesBatch: Timer =
             registry.timer(dbPrefix :+ "delete_contract_witnesses_batch")
           val deleteContractsBatch: Timer = registry.timer(dbPrefix :+ "delete_contracts_batch")
+          val nullifyPastKeysBatch: Timer =
+            registry.timer(dbPrefix :+ "nullify_contract_keys_batch")
           val insertContractsBatch: Timer = registry.timer(dbPrefix :+ "insert_contracts_batch")
           val insertContractWitnessesBatch: Timer =
             registry.timer(dbPrefix :+ "insert_contract_witnesses_batch")
@@ -636,6 +655,39 @@ final class Metrics(val registry: MetricRegistry) {
         val deduplicateCommand: Timer = registry.timer(Prefix :+ "deduplicate_command")
         val stopDeduplicateCommand: Timer = registry.timer(Prefix :+ "stop_deduplicating_command")
         val prune: Timer = registry.timer(Prefix :+ "prune")
+
+        object streamsBuffer {
+          private val Prefix: MetricName = index.Prefix :+ "streams_buffer"
+
+          def push(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "push")
+          def slice(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "slice")
+          def prune(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "prune")
+
+          val transactionTreesTotal: Counter =
+            registry.counter(Prefix :+ "transaction_trees_total")
+          val transactionTreesBuffered: Counter =
+            registry.counter(Prefix :+ "transaction_trees_buffered")
+
+          val flatTransactionsTotal: Counter =
+            registry.counter(Prefix :+ "flat_transactions_total")
+          val flatTransactionsBuffered: Counter =
+            registry.counter(Prefix :+ "flat_transactions_buffered")
+
+          val getTransactionTrees: Timer =
+            registry.timer(Prefix :+ "get_transaction_trees")
+          val getFlatTransactions: Timer =
+            registry.timer(Prefix :+ "get_flat_transactions")
+        }
+
+        val transactionTreesBufferSize: Counter =
+          registry.counter(Prefix :+ "transaction_trees_buffer_size")
+        val flatTransactionsBufferSize: Counter =
+          registry.counter(Prefix :+ "flat_transactions_buffer_size")
+
+        val getContractStateEventsChunkSize: Histogram =
+          registry.histogram(Prefix :+ "get_contract_state_events_chunk_fetch_size")
+        val getTransactionLogUpdatesChunkSize: Histogram =
+          registry.histogram(Prefix :+ "get_transaction_log_updates_chunk_fetch_size")
       }
 
       object read {
@@ -656,6 +708,50 @@ final class Metrics(val registry: MetricRegistry) {
         val submitConfiguration: Timer = registry.timer(Prefix :+ "submit_configuration")
         val prune: Timer = registry.timer(Prefix :+ "prune")
       }
+    }
+
+    object HttpJsonApi {
+      private val Prefix: MetricName = daml.Prefix :+ "http_json_api"
+
+      // Meters how long processing of a command submission request takes
+      val commandSubmissionTimer: Timer = registry.timer(Prefix :+ "command_submission_timing")
+      // Meters how long processing of a query GET request takes
+      val queryAllTimer: Timer = registry.timer(Prefix :+ "query_all_timing")
+      // Meters how long processing of a query POST request takes
+      val queryMatchingTimer: Timer = registry.timer(Prefix :+ "query_matching_timing")
+      // Meters how long processing of a fetch request takes
+      val fetchTimer: Timer = registry.timer(Prefix :+ "fetch_timing")
+      // Meters how long processing of a get party/parties request takes
+      val getPartyTimer: Timer = registry.timer(Prefix :+ "get_party_timing")
+      // Meters how long processing of a party management request takes
+      val allocatePartyTimer: Timer = registry.timer(Prefix :+ "allocate_party_timing")
+      // Meters how long processing of a package management request takes
+      val downloadPackageTimer: Timer = registry.timer(Prefix :+ "download_package_timing")
+      // Meters how long processing of a package upload request takes
+      val uploadPackageTimer: Timer = registry.timer(Prefix :+ "upload_package_timing")
+      // Meters how long parsing and decoding of an incoming json payload takes
+      val incomingJsonParsingAndValidationTimer: Timer =
+        registry.timer(Prefix :+ "incoming_json_parsing_and_validation_timing")
+      // Meters how long the construction of the response json payload takes
+      val responseCreationTimer: Timer = registry.timer(Prefix :+ "response_creation_timing")
+      // Meters how long a find by contract key database operation takes
+      val dbFindByContractKey: Timer = registry.timer(Prefix :+ "db_find_by_contract_key_timing")
+      // Meters how long a find by contract id database operation takes
+      val dbFindByContractId: Timer = registry.timer(Prefix :+ "db_find_by_contract_id_timing")
+      // Meters how long processing of the command submission request takes on the ledger
+      val commandSubmissionLedgerTimer: Timer =
+        registry.timer(Prefix :+ "command_submission_ledger_timing")
+      // Meters http requests throughput
+      val httpRequestThroughput: Meter = registry.meter(Prefix :+ "http_request_throughput")
+      // Meters how many websocket connections are currently active
+      val websocketRequestCounter: Counter = registry.counter(Prefix :+ "websocket_request_count")
+      // Meters command submissions throughput
+      val commandSubmissionThroughput: Meter =
+        registry.meter(Prefix :+ "command_submission_throughput")
+      // Meters package uploads throughput
+      val uploadPackagesThroughput: Meter = registry.meter(Prefix :+ "upload_packages_throughput")
+      // Meters party allocation throughput
+      val allocatePartyThroughput: Meter = registry.meter(Prefix :+ "allocation_party_throughput")
     }
   }
 }

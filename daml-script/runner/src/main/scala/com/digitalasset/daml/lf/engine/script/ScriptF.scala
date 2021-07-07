@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.daml.lf
+package engine.script
 
 import java.time.Clock
 
@@ -14,21 +15,9 @@ import com.daml.lf.data.Ref.{Identifier, Name, PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.language.Ast
-import com.daml.lf.language.Ast.{TemplateChoiceSignature, Type}
-import com.daml.lf.speedy.SError.DamlEUserError
 import com.daml.lf.speedy.SExpr.{SEApp, SEValue}
-import com.daml.lf.speedy.{SExpr, SValue}
-import com.daml.lf.speedy.SValue.{
-  SAnyException,
-  SInt64,
-  SList,
-  SOptional,
-  SParty,
-  SRecord,
-  SText,
-  STimestamp,
-  SUnit,
-}
+import com.daml.lf.speedy.{SError, SExpr, SValue}
+import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
@@ -54,7 +43,7 @@ object ScriptF {
       )
 
   final case class Catch(act: SValue, handle: SValue) extends ScriptF
-  final case class Throw(exc: SAnyException) extends ScriptF
+  final case class Throw(exc: SAny) extends ScriptF
 
   sealed trait Cmd extends ScriptF {
     def stackTrace: StackTrace
@@ -74,50 +63,23 @@ object ScriptF {
       machine: Machine,
   ) {
     def clients = _clients
-    val valueTranslator = new ValueTranslator(machine.compiledPackages)
+    def compiledPackages = machine.compiledPackages
+    val valueTranslator = new ValueTranslator(compiledPackages.interface)
     val utcClock = Clock.systemUTC()
-    // Copy the tracelog from the client to the off-ledger machine.
-    def copyTracelog(client: ScriptLedgerClient) = {
-      for ((msg, optLoc) <- client.tracelogIterator) {
-        machine.traceLog.add(msg, optLoc)
-      }
-      client.clearTracelog
-    }
     def addPartyParticipantMapping(party: Party, participant: Participant) = {
       _clients =
         _clients.copy(party_participants = _clients.party_participants + (party -> participant))
     }
-    def compiledPackages = machine.compiledPackages
-    def lookupChoice(id: Identifier, choice: Name): Either[String, TemplateChoiceSignature] =
-      for {
-        pkg <- compiledPackages
-          .getSignature(id.packageId)
-          .toRight(s"Failed to find package ${id.packageId}")
-        module <- pkg.modules
-          .get(id.qualifiedName.module)
-          .toRight(s"Failed to find module ${id.qualifiedName.module}")
-        tpl <- module.templates
-          .get(id.qualifiedName.name)
-          .toRight(s"Failed to find template ${id.qualifiedName.name}")
-        choice <- tpl.choices
-          .get(choice)
-          .toRight(s"Failed to find choice $choice in $id")
-      } yield choice
+    def lookupChoice(id: Identifier, choice: Name): Either[String, Ast.TemplateChoiceSignature] =
+      compiledPackages.interface.lookupChoice(id, choice).left.map(_.pretty)
 
-    def lookupKeyTy(id: Identifier): Either[String, Type] =
-      for {
-        pkg <- compiledPackages
-          .getSignature(id.packageId)
-          .toRight(s"Failed to find package ${id.packageId}")
-        module <- pkg.modules
-          .get(id.qualifiedName.module)
-          .toRight(s"Failed to find module ${id.qualifiedName.module}")
-        tpl <- module.templates
-          .get(id.qualifiedName.name)
-          .toRight(s"Failed to find template ${id.qualifiedName.name}")
-        key <- tpl.key.toRight(s"Template ${id} does not have a contract key")
-      } yield key.typ
-    def translateValue(ty: Type, value: Value[ContractId]): Either[String, SValue] =
+    def lookupKeyTy(id: Identifier): Either[String, Ast.Type] =
+      compiledPackages.interface.lookupTemplateKey(id) match {
+        case Right(key) => Right(key.typ)
+        case Left(err) => Left(err.pretty)
+      }
+
+    def translateValue(ty: Ast.Type, value: Value[ContractId]): Either[String, SValue] =
       valueTranslator.translateValue(ty, value).left.map(_.toString)
 
   }
@@ -140,7 +102,6 @@ object ScriptF {
           data.cmds,
           data.stackTrace.topFrame,
         )
-        _ = env.copyTracelog(client)
         v <- submitRes match {
           case Right(results) =>
             Converter.toFuture(
@@ -195,13 +156,14 @@ object ScriptF {
           data.cmds,
           data.stackTrace.topFrame,
         )
-        _ = env.copyTracelog(client)
         v <- submitRes match {
           case Right(()) =>
             Future.successful(SEApp(SEValue(data.continue), Array(SEValue(SUnit))))
           case Left(()) =>
             Future.failed(
-              new DamlEUserError("Expected submit to fail but it succeeded")
+              SError.SErrorDamlException(
+                interpretation.Error.UserError("Expected submit to fail but it succeeded")
+              )
             )
         }
       } yield v
@@ -232,7 +194,6 @@ object ScriptF {
             submitRes,
           )
         )
-        _ = env.copyTracelog(client)
       } yield SEApp(SEValue(data.continue), Array(SEValue(res)))
   }
   final case class Query(
@@ -661,7 +622,7 @@ object ScriptF {
 
   private def parseThrow(v: SValue): Either[String, Throw] = {
     v match {
-      case SRecord(_, _, JavaList(exc: SAnyException)) =>
+      case SRecord(_, _, JavaList(exc: SAny)) =>
         Right(Throw(exc))
       case _ => Left(s"Expected Throw payload but got $v")
     }

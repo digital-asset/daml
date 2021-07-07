@@ -19,10 +19,11 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.engine.ValueEnricher
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
+import com.daml.platform.PruneBuffers
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdNotFoundException, MismatchException}
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.store.dao.LedgerReadDao
+import com.daml.platform.store.dao.{LedgerDaoTransactionsReader, LedgerReadDao}
 import com.daml.platform.store.{BaseLedger, LfValueTranslationCache, appendonlydao, dao}
 import com.daml.resources.ProgramResource.StartupException
 import com.daml.timer.RetryStrategy
@@ -42,6 +43,7 @@ private[platform] object ReadOnlySqlLedger {
       databaseConnectionPoolSize: Int,
       databaseConnectionTimeout: FiniteDuration,
       eventsPageSize: Int,
+      eventsProcessingParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -51,6 +53,8 @@ private[platform] object ReadOnlySqlLedger {
       maxContractStateCacheSize: Long,
       maxContractKeyStateCacheSize: Long,
       enableMutableContractStateCache: Boolean,
+      maxTransactionsInMemoryFanOutBufferSize: Long,
+      enableInMemoryFanOutForLedgerApi: Boolean,
       participantId: v1.ParticipantId,
   )(implicit mat: Materializer, loggingContext: LoggingContext)
       extends ResourceOwner[ReadOnlySqlLedger] {
@@ -66,10 +70,14 @@ private[platform] object ReadOnlySqlLedger {
       if (enableMutableContractStateCache)
         new ReadOnlySqlLedgerWithMutableCache.Owner(
           ledgerDao,
+          enricher,
           ledgerId,
           metrics,
           maxContractStateCacheSize,
           maxContractKeyStateCacheSize,
+          maxTransactionsInMemoryFanOutBufferSize,
+          enableInMemoryFanOutForLedgerApi,
+          servicesExecutionContext = servicesExecutionContext,
         )
       else
         new ReadOnlySqlLedgerWithTranslationCache.Owner(
@@ -128,6 +136,7 @@ private[platform] object ReadOnlySqlLedger {
           databaseConnectionPoolSize,
           databaseConnectionTimeout,
           eventsPageSize,
+          eventsProcessingParallelism,
           servicesExecutionContext,
           metrics,
           lfValueTranslationCache,
@@ -152,10 +161,19 @@ private[platform] object ReadOnlySqlLedger {
 private[index] abstract class ReadOnlySqlLedger(
     ledgerId: LedgerId,
     ledgerDao: LedgerReadDao,
+    ledgerDaoTransactionsReader: LedgerDaoTransactionsReader,
     contractStore: ContractStore,
+    pruneBuffers: PruneBuffers,
     dispatcher: Dispatcher[Offset],
 )(implicit mat: Materializer, loggingContext: LoggingContext)
-    extends BaseLedger(ledgerId, ledgerDao, contractStore, dispatcher) {
+    extends BaseLedger(
+      ledgerId,
+      ledgerDao,
+      ledgerDaoTransactionsReader,
+      contractStore,
+      pruneBuffers,
+      dispatcher,
+    ) {
 
   // Periodically remove all expired deduplication cache entries.
   // The current approach is not ideal for multiple ReadOnlySqlLedgers sharing

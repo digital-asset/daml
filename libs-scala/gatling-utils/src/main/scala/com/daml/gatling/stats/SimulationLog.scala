@@ -124,19 +124,18 @@ object SimulationLog {
 
   def fromFiles(statsFile: Path, assertionsFile: Path): String \/ SimulationLog =
     for {
-      statsContent <- statsFile.contentsAsString.leftMap(_.getMessage)
-      assertionsContent <- assertionsFile.contentsAsString.leftMap(_.getMessage)
+      statsContent <- statsFile.contentsAsString
+      assertionsContent <- assertionsFile.contentsAsString
       simulation <- fromFileStrings(statsContent, assertionsContent)
     } yield simulation
 
   def fromFileStrings(statsContent: String, assertionsContent: String): String \/ SimulationLog = {
     import JsonProtocol._
     for {
-      statsFile <- \/.fromTryCatchNonFatal(statsContent.parseJson.convertTo[StatsFile])
-        .leftMap(_.toString)
-      assertionsFile <- \/.fromTryCatchNonFatal(
+      statsFile <- \/.attempt(statsContent.parseJson.convertTo[StatsFile])(_.toString)
+      assertionsFile <- \/.attempt(
         assertionsContent.parseJson.convertTo[AssertionsFile]
-      ).leftMap(_.toString)
+      )(_.toString)
     } yield {
       val stats = statsFile.contents.view.values.map { case Request(stats) =>
         stats.name -> stats

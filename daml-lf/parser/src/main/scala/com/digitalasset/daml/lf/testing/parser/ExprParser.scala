@@ -18,16 +18,18 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   import typeParser._
 
   lazy val expr0: Parser[Expr] =
-    literal ^^ EPrimLit |
+    // expressions starting with fullIdentifier should come before litterals
+    eRecCon |
+      eRecProj |
+      eRecUpd |
+      eVariantOrEnumCon |
+      fullIdentifier ^^ EVal |
+      literal ^^ EPrimLit |
       primCon ^^ EPrimCon |
       scenario ^^ EScenario |
       update ^^ EUpdate |
       eList |
       eOption |
-      eRecCon |
-      eRecProj |
-      eRecUpd |
-      eVariantOrEnumCon |
       eStructCon |
       eStructUpd |
       eStructProj |
@@ -40,7 +42,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eFromAnyException |
       eToTextTypeConName |
       eThrow |
-      fullIdentifier ^^ EVal |
       (id ^? builtinFunctions) ^^ EBuiltin |
       caseOf |
       id ^^ EVar |
@@ -311,7 +312,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "GREATER_EQ" -> BGreaterEq,
     "COERCE_CONTRACT_ID" -> BCoerceContractId,
     "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
-    "ANY_EXCEPTION_IS_ARITHMETIC_ERROR" -> BAnyExceptionIsArithmeticError,
     "SCALE_BIGNUMERIC" -> BScaleBigNumeric,
     "PRECISION_BIGNUMERIC" -> BPrecisionBigNumeric,
     "ADD_BIGNUMERIC" -> BAddBigNumeric,

@@ -3,59 +3,57 @@
 
 package com.daml.lf.engine.trigger
 
-import akka.NotUsed
-import akka.stream._
-import akka.stream.scaladsl._
-import com.google.rpc.status.Status
-import com.typesafe.scalalogging.StrictLogging
-import io.grpc.StatusRuntimeException
 import java.time.Instant
 import java.util.UUID
 
-import scalaz.{-\/, Functor, \/, \/-}
-import scalaz.\/.fromTryCatchThrowable
-import scalaz.std.option._
-import scalaz.syntax.bifunctor._
-import scalaz.syntax.functor._
-import scalaz.syntax.tag._
-import scalaz.syntax.std.boolean._
-import scalaz.syntax.std.option._
-
-import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.duration._
+import akka.NotUsed
+import akka.stream._
+import akka.stream.scaladsl._
 import com.daml.api.util.TimeProvider
-import com.daml.lf.{CompiledPackages, PureCompiledPackages}
-import com.daml.lf.archive.Dar
-import com.daml.lf.data.ImmArray
-import com.daml.lf.data.Ref._
-import com.daml.lf.data.ScalazEqual._
-import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
-import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.SValue._
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.commands.{Command, Commands}
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v1.event._
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.services.commands.CompletionStreamElement._
+import com.daml.lf.archive.Dar
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.ScalazEqual._
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.{CompiledPackages, PureCompiledPackages}
+import com.daml.logging.LoggingContextOf.{label, newLoggingContext}
+import com.daml.logging.entries.{LoggingEntry, LoggingValue}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
-import LoggingContextOf.{label, newLoggingContext}
 import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.script.converter.Converter.{DamlTuple2, DamlAnyModuleRecord, unrollFree}
 import com.daml.script.converter.Converter.Implicits._
+import com.daml.script.converter.Converter.{DamlAnyModuleRecord, DamlTuple2, unrollFree}
 import com.daml.script.converter.ConverterException
-
 import com.google.protobuf.empty.Empty
+import com.google.rpc.status.Status
+import com.typesafe.scalalogging.StrictLogging
+import io.grpc.StatusRuntimeException
+import scalaz.std.option._
+import scalaz.syntax.bifunctor._
+import scalaz.syntax.functor._
+import scalaz.syntax.std.boolean._
+import scalaz.syntax.std.option._
+import scalaz.syntax.tag._
+import scalaz.{-\/, Functor, \/, \/-}
+
+import scala.annotation.{nowarn, tailrec}
+import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.{ExecutionContext, Future}
 
 sealed trait TriggerMsg
 final case class CompletionMsg(c: Completion) extends TriggerMsg
@@ -73,8 +71,24 @@ final case class Trigger(
     // party-specific.
     heartbeat: Option[FiniteDuration],
 ) {
-  private[trigger] def loggingExtension: Map[String, String] =
-    Map("triggerDefinition" -> triggerDefinition.toString)
+  @nowarn("msg=parameter value label .* is never used") // Proxy only
+  private[trigger] final class withLoggingContext[P] private (
+      label: label[Trigger with P],
+      kvs: Seq[LoggingEntry],
+  ) {
+    def apply[T](f: LoggingContextOf[Trigger with P] => T): T =
+      newLoggingContext(
+        label,
+        kvs :+ "triggerDefinition" -> LoggingValue.from(triggerDefinition.toString): _*
+      )(f)
+  }
+
+  private[trigger] object withLoggingContext {
+    def apply[T](f: LoggingContextOf[Trigger] => T): T =
+      newLoggingContext(label, "triggerDefinition" -> triggerDefinition.toString)(f)
+
+    def labelled[P](kvs: LoggingEntry*) = new withLoggingContext(label[Trigger with P], kvs)
+  }
 }
 
 // Utilities for interacting with the speedy machine.
@@ -131,14 +145,11 @@ object Trigger extends StrictLogging {
 
     val compiler = compiledPackages.compiler
     for {
-      pkg <- compiledPackages
-        .getSignature(triggerId.packageId)
-        .toRight(s"Could not find package: ${triggerId.packageId}")
-      definition <- pkg.lookupDefinition(triggerId.qualifiedName)
+      definition <- compiledPackages.interface.lookupDefinition(triggerId).left.map(_.pretty)
       expr <- definition match {
-        case DValueSignature(TApp(TTyCon(tcon), stateTy), _, _, _) =>
+        case GenDValue(TApp(TTyCon(tcon), stateTy), _, _, _) =>
           detectTriggerType(tcon, stateTy)
-        case DValueSignature(ty, _, _, _) => Left(s"$ty is not a valid type for a trigger")
+        case GenDValue(ty, _, _, _) => Left(s"$ty is not a valid type for a trigger")
         case _ => Left(s"Trigger must points to a value but points to $definition")
       }
       triggerIds = TriggerIds(expr.ty.tycon.packageId)
@@ -180,8 +191,8 @@ object Trigger extends StrictLogging {
     val machine = Speedy.Machine.fromPureSExpr(compiledPackages, registeredTemplates)
     Machine.stepToValue(machine) match {
       case SVariant(_, "AllInDar", _, _) => {
-        val packages: Seq[(PackageId, PackageSignature)] = compiledPackages.packageIds
-          .map(pkgId => (pkgId, compiledPackages.getSignature(pkgId).get))
+        val packages = compiledPackages.packageIds
+          .map(pkgId => (pkgId, compiledPackages.interface.lookupPackage(pkgId).toOption.get))
           .toSeq
         val templateIds = packages.flatMap({ case (pkgId, pkg) =>
           pkg.modules.toList.flatMap({ case (modName, module) =>
@@ -269,8 +280,9 @@ class Runner(
       machine.setExpressionToEvaluate(se)
       Machine.stepToValue(machine)
     }
-    @tailrec def go(v: SValue): SValue \/ (SubmitRequest, SValue) = {
-      val resumed = unrollFree(v) match {
+    type Termination = SValue \/ (SubmitRequest, SValue)
+    @tailrec def go(v: SValue): Termination = {
+      val resumed: Termination Either SValue = unrollFree(v) match {
         case Right(Right(vvv @ (variant, vv))) =>
           vvv.match2 {
             case "GetTime" /*(Time -> a)*/ => { case DamlFun(timeA) =>
@@ -283,7 +295,7 @@ class Runner(
                 Left(
                   \/-(
                     (submitRequest, evaluate(makeAppD(textA, SText((commandUUID: UUID).toString))))
-                  )
+                  ): Termination
                 )
             }
             case _ =>
@@ -442,7 +454,7 @@ class Runner(
     val machine: Speedy.Machine =
       Speedy.Machine.fromPureSExpr(compiledPackages, SEValue(SUnit))
 
-    import UnfoldState.{toSourceOps, toSource, flatMapConcatNodeOps, flatMapConcatNode}
+    import UnfoldState.{flatMapConcatNode, flatMapConcatNodeOps, toSource, toSourceOps}
 
     val runInitialState = toSource(freeTriggerSubmits(clientTime, initialStateFree))
 
@@ -508,23 +520,23 @@ class Runner(
     Flow fromGraph graph
   }
 
+  private[this] def catchIAE[A](a: => A): Option[A] =
+    try Some(a)
+    catch { case _: IllegalArgumentException => None }
+
   private[this] def hideIrrelevantMsgs: Flow[TriggerMsg, TriggerMsg, NotUsed] =
     Flow[TriggerMsg].mapConcat[TriggerMsg] {
       case msg @ CompletionMsg(c) =>
         // This happens for invalid UUIDs which we might get for
         // completions not emitted by the trigger.
-        val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
-          UUID.fromString(c.commandId)
-        ).toOption
+        val ouuid = catchIAE(UUID.fromString(c.commandId))
         ouuid.flatMap { uuid =>
           useCommandId(uuid, SeenMsgs.Completion) option msg
         }.toList
       case msg @ TransactionMsg(t) =>
         // This happens for invalid UUIDs which we might get for
         // transactions not emitted by the trigger.
-        val ouuid = fromTryCatchThrowable[UUID, IllegalArgumentException](
-          UUID.fromString(t.commandId)
-        ).toOption
+        val ouuid = catchIAE(UUID.fromString(t.commandId))
         List(ouuid flatMap { uuid =>
           useCommandId(uuid, SeenMsgs.Transaction) option msg
         } getOrElse TransactionMsg(t.copy(commandId = "")))
@@ -568,7 +580,8 @@ class Runner(
         // any other error will cause the trigger's stream to fail
       }
     }
-    import io.grpc.Status.Code, Code.RESOURCE_EXHAUSTED
+    import io.grpc.Status.Code
+    import Code.RESOURCE_EXHAUSTED
     def retryableSubmit(req: SubmitRequest) =
       submit(req).map {
         case Some(SingleCommandFailure(_, s))
@@ -706,7 +719,7 @@ object Runner extends StrictLogging {
       party: String,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SValue] = {
     val darMap = dar.all.toMap
-    val compiledPackages = PureCompiledPackages(darMap) match {
+    val compiledPackages = PureCompiledPackages.build(darMap) match {
       case Left(err) => throw new RuntimeException(s"Failed to compile packages: $err")
       case Right(pkgs) => pkgs
     }
@@ -715,7 +728,7 @@ object Runner extends StrictLogging {
       case Right(trigger) => trigger
     }
     val runner =
-      newLoggingContext(label[Trigger], trigger.loggingExtension) { implicit lc =>
+      trigger.withLoggingContext { implicit lc =>
         new Runner(compiledPackages, trigger, client, timeProviderType, applicationId, party)
       }
     for {

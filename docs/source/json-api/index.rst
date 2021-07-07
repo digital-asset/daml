@@ -146,7 +146,7 @@ Party-specific requests, i.e., command submissions and queries, require a JWT wi
 
 .. note:: While the JSON API receives the token it doesn't validate it itself. Upon receiving a token it will pass it, and all data contained within the request, on to the Ledger API's AuthService which will then determine if the token is valid and authorized. However, the JSON API does decode the token to extract the ledger id, application id and party so it requires that you use the JWT format documented below.
 
-For a ledger without authorization, e.g., the default configuration of Daml Sandbox, you can use https://jwt.io (or the JWT library of your choice) to generate your
+For a ledger without authorization, e.g., the default configuration of Daml Sandbox, you can use `https://jwt.io <https://jwt.io/#debugger-io?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.atGiYNc9HfBFbm8s9j5vvMv2sJUlVprFiRmLeoUpJeY>`_ (or the JWT library of your choice) to generate your
 token.  You can use an arbitrary secret here. The default "header" is fine.  Under "Payload", fill in:
 
 .. code-block:: json
@@ -1284,12 +1284,31 @@ different sets of template IDs::
         {"templateIds": ["Iou:Iou"]}
     ]
 
-An optional ``offset`` returned by a prior query (see output examples
-below) may be specified *before* the above, as a separate body.  It must
-be a string, and if specified, the stream will begin immediately *after*
-the response body that included that offset::
+Queries have two ways to specify an offset.
 
-    {"offset": "5609"}
+An ``offset``, a string supplied by an earlier query output message, may
+optionally be specified alongside each query itself::
+
+    [
+        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%lte": 50}}},
+        {"templateIds": ["Iou:Iou"], "query": {"amount": {"%gt": 50}}},
+        {"templateIds": ["Iou:Iou"], "offset": "5609"}
+    ]
+
+If specified, the stream will include only contract creations and
+archivals *after* the response body that included that offset.  Queries
+with no offset will begin with all active contracts for that query, as
+usual.
+
+If an offset is specified *before* the queries, as a separate body, it
+will be used as a default offset for all queries that do not include an
+offset themselves::
+
+    {"offset": "4307"}
+
+For example, if this message preceded the above 3-query example, it
+would be as if ``"4307"`` had been specified for the first two queries,
+while ``"5609"`` would be used for the third query.
 
 The output is a series of JSON documents, each ``payload`` formatted
 according to :doc:`lf-value-specification`::
@@ -1331,6 +1350,25 @@ off an initial "loading" indicator::
         "events": [],
         "offset": "2"
     }
+
+.. note::
+
+    Events in the following "live" data may include ``events`` that precede
+    this ``offset`` if an earlier per-query ``offset`` was specified.
+
+    This has been done with the intent of allowing to use per-query ``offset`` s to
+    efficiently use a single connection to multiplex various requests. To give an
+    example of how this would work, let's say that there are two contract templates,
+    ``A`` and ``B`` . Your application first queries for ``A`` s without specifying
+    an offset. Then some client-side interaction requires the application to do the
+    same for ``B`` s. The application can save the latest observed offset for the
+    previous query, which let's say is ``42``, and issue a new request that queries
+    for all ``B`` s without specifying an offset and all ``A`` s from ``42``. While
+    this happens on the client, a few more ``A`` s and ``B`` s are created and the
+    new request is issued once the latest offset is ``47``. The response to this
+    will contain a message with all active ``B`` s, followed by the message reporting
+    the offset ``47``, followed by a stream of live updates that contains new ``A`` s
+    starting from ``42`` and new ``B`` s starting from ``47`` .
 
 To keep the stream alive, you'll occasionally see messages like this,
 which can be safely ignored if you do not need to capture the last seen ledger offset::
@@ -1466,7 +1504,7 @@ appearing on the stream there has been a matching ``created`` event
 earlier in the stream, except in the case of missing
 ``contractIdAtOffset`` fields in the case described below.
 
-You may supply an optional ``offset`` for the stream, exactly as with
+You may supply optional ``offset`` s for the stream, exactly as with
 query streams.  However, you should supply with each ``{templateId,
 key}`` pair a ``contractIdAtOffset``, which is the contract ID currently
 associated with that pair at the point of the given offset, or ``null``

@@ -124,7 +124,7 @@ Here is what each field means:
   as well as when invoked via ``daml start``. Changing the platform version is useful if you deploy
   to a ledger that is running on a different SDK version than you use locally and you want to make
   sure that you catch any issues during testing. E.g., you might compile your Daml code using
-  SDK 1.3.0 so you get improvements in Daml Studio but deploy to DABL which could still be running
+  SDK 1.3.0 so you get improvements in Daml Studio but deploy to Daml Hub which could still be running
   a ledger and the JSON API from SDK 1.2.0. In that case, you can set ``sdk-version: 1.3.0``
   and ``platform-version: 1.2.0``.
   It is possible to override the platform version by setting the ``DAML_PLATFORM_VERSION``
@@ -161,6 +161,37 @@ Here is what each field means:
   of ``daml start``. Defaults to ``true``. If this is specified as a CLI argument,
   say ``daml start --start-navigator=true``, the CLI argument takes precedence over
   the value in ``daml.yaml``.
+
+Recommended ``build-options``
+=============================
+
+The default set of warnings enabled by the Daml compiler is fairly conservative.
+When you are just starting out, seeing a huge set of warnings can easily be
+overwhelming and distract from what you are actually working on.  However, as
+you get more experienced and more people work on a Daml project, enabling
+additional warnings (and enforcing their absence in CI) can be useful.
+
+Here are ``build-options`` you might declare in a project's ``daml.yaml`` for a
+stricter set of warnings.
+
+.. code-block:: yaml
+
+    build-options:
+      - --ghc-option=-Wunused-top-binds
+      - --ghc-option=-Wunused-matches
+      - --ghc-option=-Wunused-do-bind
+      - --ghc-option=-Wincomplete-uni-patterns
+      - --ghc-option=-Wredundant-constraints
+      - --ghc-option=-Wmissing-signatures
+      - --ghc-option=-Werror
+
+Each option enables a particular warning, except for the last one, ``-Werror``,
+which turns every warning into an error; this is especially useful for CI build
+arrangements.  Simply remove or comment out any line to disable that category of
+warning.  See
+`the Daml forum <https://discuss.daml.com/t/making-the-most-out-of-daml-compiler-warnings/739>`__
+for a discussion of the meaning of these warnings and pointers to other
+available warnings.
 
 .. _assistant-manual-building-dars:
 

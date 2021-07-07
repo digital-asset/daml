@@ -56,11 +56,8 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
         }
     """
 
-  val config = Compiler.Config.Default.copy(
-    profiling = Compiler.FullProfile
-  )
-
-  val compiledPackages = assertRight(PureCompiledPackages(Map(pkgId -> pkg), config))
+  val config = Compiler.Config.Default.copy(profiling = Compiler.FullProfile)
+  val compiledPackages = PureCompiledPackages.assertBuild(Map(pkgId -> pkg), config)
 
   private def id(s: String) =
     Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString(s"M:$s"))
@@ -82,7 +79,7 @@ class ProfilerTest extends AnyWordSpec with Matchers with ScalaCheckDrivenProper
           onLedger.ptx.finish match {
             case IncompleteTransaction(_) =>
               sys.error("unexpected IncompleteTransaction")
-            case CompleteTransaction(_) =>
+            case CompleteTransaction(_, _) =>
               machine.profile.events.asScala.toList.map(ev => (ev.open, ev.rawLabel))
           }
         }

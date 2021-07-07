@@ -1,7 +1,8 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 /** The simplified AST for the speedy interpreter.
   *
@@ -18,6 +19,7 @@ import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.Speedy._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SBuiltin._
+import com.daml.nameof.NameOf
 
 /** The speedy expression:
   * - de Bruijn indexed.
@@ -50,7 +52,10 @@ object SExpr {
     */
   final case class SEVar(index: Int) extends SExprAtomic {
     def lookupValue(machine: Machine): SValue = {
-      crash("unexpected SEVar, expected SELoc(S/A/F)")
+      throw SErrorCrash(
+        NameOf.qualifiedNameOfCurrentFunc,
+        "unexpected SEVar, expected SELoc(S/A/F)",
+      )
     }
   }
 
@@ -180,7 +185,7 @@ object SExpr {
     */
   final case class SEAbs(arity: Int, body: SExpr) extends SExpr {
     def execute(machine: Machine): Unit =
-      crash("unexpected SEAbs, expected SEMakeClo")
+      throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "unexpected SEAbs, expected SEMakeClo")
   }
 
   object SEAbs {
@@ -345,7 +350,7 @@ object SExpr {
     */
   final case class SELet(bounds: List[SExpr], body: SExpr) extends SExpr {
     def execute(machine: Machine): Unit =
-      crash("not implemented")
+      throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "not implemented")
   }
 
   /** Location annotation. When encountered the location is stored in the 'lastLocation'
@@ -355,19 +360,6 @@ object SExpr {
     def execute(machine: Machine): Unit = {
       machine.pushLocation(loc)
       machine.ctrl = expr
-    }
-  }
-
-  /** catch-submit-must-fail. This is used internally solely for the purpose of implementing
-    * mustFailAt. If the evaluation of 'body' causes an exception of type 'DamlException'
-    * (see SError), then 'True' is returned. If the evaluation is successful, then 'False'
-    * is returned.  This is on purpose very limited, with no mechanism to inspect the
-    * exception, nor a way to access the value returned from 'body'.
-    */
-  final case class SECatchSubmitMustFail(body: SExpr) extends SExpr {
-    def execute(machine: Machine): Unit = {
-      machine.pushKont(KCatchSubmitMustFail(machine))
-      machine.ctrl = body
     }
   }
 
@@ -390,9 +382,9 @@ object SExpr {
   /** We cannot crash in the engine call back.
     * Rather, we set the control to this expression and then crash when executing.
     */
-  final case class SEDamlException(error: SErrorDamlException) extends SExpr {
+  final case class SEDamlException(error: interpretation.Error) extends SExpr {
     def execute(machine: Machine): Unit = {
-      throw error
+      throw SErrorDamlException(error)
     }
   }
 

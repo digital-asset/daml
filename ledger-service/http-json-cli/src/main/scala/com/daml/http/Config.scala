@@ -11,14 +11,16 @@ import akka.stream.ThrottleMode
 import com.daml.util.ExceptionOps._
 import com.daml.ledger.api.tls.TlsConfiguration
 import scalaz.std.option._
+import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import scalaz.{Show, \/}
+import scalaz.{@@, Show, Tag, \/}
 
 import scala.concurrent.duration._
 import scala.util.Try
 
 import ch.qos.logback.classic.{Level => LogLevel}
 import com.daml.cliopts.Logging.LogEncoder
+import com.daml.metrics.MetricsReporter
 
 // The internal transient scopt structure *and* StartSettings; external `start`
 // users should extend StartSettings or DefaultStartSettings themselves
@@ -41,6 +43,8 @@ private[http] final case class Config(
     nonRepudiation: nonrepudiation.Configuration.Cli = nonrepudiation.Configuration.Cli.Empty,
     logLevel: Option[LogLevel] = None, // the default is in logback.xml
     logEncoder: LogEncoder = LogEncoder.Plain,
+    metricsReporter: Option[MetricsReporter] = None,
+    metricsReportingInterval: FiniteDuration = 10 seconds,
 ) extends StartSettings
 
 private[http] object Config {
@@ -55,25 +59,23 @@ private[http] object Config {
       ThrottleMode.Shaping,
       heartBeatPer = 5 second,
     )
+
+  type SupportedJdbcDriverNames = Set[String] @@ SupportedJdbcDrivers
+  sealed trait SupportedJdbcDrivers
+  val SupportedJdbcDrivers = Tag.of[SupportedJdbcDrivers]
 }
 
-private[http] abstract class ConfigCompanion[A](name: String) {
+private[http] abstract class ConfigCompanion[A, ReadCtx](name: String) {
 
   protected val indent: String = List.fill(8)(" ").mkString
 
-  def create(x: Map[String, String], supportedJdbcDriverNames: Set[String]): Either[String, A]
+  protected[this] def create(x: Map[String, String])(implicit readCtx: ReadCtx): Either[String, A]
 
-  def createUnsafe(x: Map[String, String], supportedJdbcDriverNames: Set[String]): A =
-    create(x, supportedJdbcDriverNames).fold(
-      e => sys.error(e),
-      identity,
-    )
-
-  def validate(
-      x: Map[String, String],
-      supportedJdbcDriverNames: Set[String],
-  ): Either[String, Unit] =
-    create(x, supportedJdbcDriverNames).map(_ => ())
+  private[http] implicit final def `read instance`(implicit ctx: ReadCtx): scopt.Read[A] =
+    scopt.Read.reads { s =>
+      val x = implicitly[scopt.Read[Map[String, String]]].reads(s)
+      create(x).fold(e => throw new IllegalArgumentException(e), identity)
+    }
 
   protected def requiredField(m: Map[String, String])(k: String): Either[String, String] =
     m.get(k).filter(_.nonEmpty).toRight(s"Invalid $name, must contain '$k' field")
@@ -114,15 +116,16 @@ private[http] final case class JdbcConfig(
     createSchema: Boolean = false,
 )
 
-private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig") {
+private[http] object JdbcConfig
+    extends ConfigCompanion[JdbcConfig, Config.SupportedJdbcDriverNames]("JdbcConfig") {
 
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
     s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, createSchema=${a.createSchema})"
   )
 
-  def help(supportedJdbcDriverNames: Set[String]): String =
+  def help(implicit supportedJdbcDriverNames: Config.SupportedJdbcDriverNames): String =
     "Contains comma-separated key-value pairs. Where:\n" +
-      s"${indent}driver -- JDBC driver class name, ${supportedJdbcDriverNames.mkString(", ")} supported right now,\n" +
+      s"${indent}driver -- JDBC driver class name, ${supportedJdbcDriverNames.unwrap.mkString(", ")} supported right now,\n" +
       s"${indent}url -- JDBC connection URL,\n" +
       s"${indent}user -- database user name,\n" +
       s"${indent}password -- database user password,\n" +
@@ -143,12 +146,12 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
     "<true|false>",
   )
 
-  override def create(
-      x: Map[String, String],
-      supportedJdbcDriverNames: Set[String],
+  override def create(x: Map[String, String])(implicit
+      readCtx: Config.SupportedJdbcDriverNames
   ): Either[String, JdbcConfig] =
     for {
       driver <- requiredField(x)("driver")
+      Config.SupportedJdbcDrivers(supportedJdbcDriverNames) = readCtx
       _ <- Either.cond(
         supportedJdbcDriverNames(driver),
         (),
@@ -176,7 +179,7 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
     s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema\""""
 }
 
-// It is public for DABL
+// It is public for Daml Hub
 final case class WebsocketConfig(
     maxDuration: FiniteDuration,
     throttleElem: Int,
@@ -186,7 +189,8 @@ final case class WebsocketConfig(
     heartBeatPer: FiniteDuration,
 )
 
-private[http] object WebsocketConfig extends ConfigCompanion[WebsocketConfig]("WebsocketConfig") {
+private[http] object WebsocketConfig
+    extends ConfigCompanion[WebsocketConfig, DummyImplicit]("WebsocketConfig") {
 
   implicit val showInstance: Show[WebsocketConfig] = Show.shows(c =>
     s"WebsocketConfig(maxDuration=${c.maxDuration}, heartBeatPer=${c.heartBeatPer}.seconds)"
@@ -204,9 +208,8 @@ private[http] object WebsocketConfig extends ConfigCompanion[WebsocketConfig]("W
   )
 
   override def create(
-      x: Map[String, String],
-      supportedJdbcDriverNames: Set[String],
-  ): Either[String, WebsocketConfig] =
+      x: Map[String, String]
+  )(implicit readCtx: DummyImplicit): Either[String, WebsocketConfig] =
     for {
       md <- optionalLongField(x)("maxDuration")
       hbp <- optionalLongField(x)("heartBeatPer")
@@ -230,7 +233,7 @@ private[http] final case class StaticContentConfig(
 )
 
 private[http] object StaticContentConfig
-    extends ConfigCompanion[StaticContentConfig]("StaticContentConfig") {
+    extends ConfigCompanion[StaticContentConfig, DummyImplicit]("StaticContentConfig") {
 
   implicit val showInstance: Show[StaticContentConfig] =
     Show.shows(a => s"StaticContentConfig(prefix=${a.prefix}, directory=${a.directory})")
@@ -244,9 +247,8 @@ private[http] object StaticContentConfig
   lazy val usage: String = helpString("<URL prefix>", "<directory>")
 
   override def create(
-      x: Map[String, String],
-      supportedJdbcDriverNames: Set[String],
-  ): Either[String, StaticContentConfig] =
+      x: Map[String, String]
+  )(implicit readCtx: DummyImplicit): Either[String, StaticContentConfig] =
     for {
       prefix <- requiredField(x)("prefix").flatMap(prefixCantStartWithSlash)
       directory <- requiredDirectoryField(x)("directory")

@@ -41,8 +41,8 @@ object TriggerRunnerImpl {
       ledgerConfig: LedgerConfig,
       restartConfig: TriggerRestartConfig,
   ) {
-    private[trigger] def loggingExtension: Map[String, String] =
-      trigger.loggingExtension + ("triggerId" -> triggerInstance.toString)
+    private[trigger] def withLoggingContext[T](f: LoggingContextOf[Config with Trigger] => T): T =
+      trigger.withLoggingContext.labelled[Config]("triggerId" -> triggerInstance.toString)(f)
   }
 
   sealed trait Message

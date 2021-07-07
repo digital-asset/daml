@@ -8,7 +8,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.language.Ast.{Package, Expr, PrimLit, PLParty, EPrimLit, EApp}
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{LanguageVersion, Interface}
 import com.daml.lf.speedy.Compiler.FullStackTrace
 import com.daml.lf.speedy.PartialTransaction.{CompleteTransaction, IncompleteTransaction, LeafNode}
 import com.daml.lf.speedy.SResult.SResultFinalValue
@@ -36,11 +36,11 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
   }
 
   private def typeAndCompile(pkg: Package): PureCompiledPackages = {
-    val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
-    Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId, pkg)
-    data.assertRight(
-      PureCompiledPackages(rawPkgs, Compiler.Config.Dev.copy(stacktracing = FullStackTrace))
-    )
+    import defaultParserParameters.defaultPackageId
+    val rawPkgs = Map(defaultPackageId -> pkg)
+    Validation.checkPackage(Interface(rawPkgs), defaultPackageId, pkg)
+    val compilerConfig = Compiler.Config.Dev.copy(stacktracing = FullStackTrace)
+    PureCompiledPackages.assertBuild(rawPkgs, compilerConfig)
   }
 
   private def runUpdateExprGetTx(
@@ -55,7 +55,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
           onLedger.ptx.finish match {
             case IncompleteTransaction(_) =>
               sys.error("unexpected IncompleteTransaction")
-            case CompleteTransaction(tx) =>
+            case CompleteTransaction(tx, _) =>
               tx
           }
         }
@@ -235,7 +235,7 @@ class ExceptionTest extends AnyWordSpec with Matchers with TableDrivenPropertyCh
     ("create3throwAndOuterCatch", List[Tree](R(List(C(100), C(200))), C(300))),
     ("exer1", List[Tree](C(100), X(List(C(400), C(500))), C(200), C(300))),
     ("exer2", List[Tree](C(100), R(List(X(List(C(400))))), C(300))),
-    ("exer3", List[Tree](C(100), R(List()))),
+    ("exer3", List[Tree](C(100))),
   )
 
   forEvery(testCases) { (exp: String, expected: List[Tree]) =>

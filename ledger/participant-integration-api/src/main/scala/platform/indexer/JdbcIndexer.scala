@@ -29,9 +29,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 object JdbcIndexer {
-  // TODO append-only: currently StandaloneIndexerServer (among others) has a hard dependency on this concrete class.
-  // Clean this up, for example by extracting the public interface of this class into a trait so that it's easier
-  // to write applications that do not depend on a particular indexer implementation.
   private[daml] final class Factory private[indexer] (
       config: IndexerConfig,
       readService: ReadService,
@@ -84,7 +81,7 @@ object JdbcIndexer {
 
     private[this] def initializedMutatingSchema(
         resetSchema: Boolean
-    ): Future[ResourceOwner[Indexer]] =
+    )(implicit resourceContext: ResourceContext): Future[ResourceOwner[Indexer]] =
       Future.successful(for {
         ledgerDao <- com.daml.platform.store.dao.JdbcLedgerDao.writeOwner(
           serverRole,
@@ -104,7 +101,9 @@ object JdbcIndexer {
           } else {
             ResourceOwner.unit
           }
-        initialLedgerEnd <- initializeLedger(ledgerDao)()
+        initialLedgerEnd <- ResourceOwner.forFuture(() =>
+          initializeLedger(ledgerDao)(resourceContext.executionContext)
+        )
         dbType = DbType.jdbcType(config.jdbcUrl)
         updateFlow <- updateFlowOwnerBuilder(
           dbType,
@@ -121,61 +120,58 @@ object JdbcIndexer {
         resourceContext: ResourceContext
     ): Future[ResourceOwner[Indexer]] = {
       implicit val executionContext: ExecutionContext = resourceContext.executionContext
-      // TODO append-only: clean up the mixed use of Future, Resource, and ResourceOwner
-      Future.successful(for {
+      for {
         // Note: the LedgerDao interface is only used for initialization here, it can be released immediately
         // after initialization is finished. Hence the use of ResourceOwner.use().
-        _ <- ResourceOwner.forFuture(() =>
-          com.daml.platform.store.appendonlydao.JdbcLedgerDao
-            .writeOwner(
-              serverRole,
-              config.jdbcUrl,
-              config.databaseConnectionPoolSize,
-              config.databaseConnectionTimeout,
-              config.eventsPageSize,
-              servicesExecutionContext,
-              metrics,
-              lfValueTranslationCache,
-              jdbcAsyncCommitMode = config.asyncCommitMode,
-              enricher = None,
-              participantId = config.participantId,
-            )
-            .use(ledgerDao =>
-              for {
-                _ <-
-                  if (resetSchema) {
-                    ledgerDao.reset()
-                  } else {
-                    Future.successful(())
-                  }
-                _ <- initializeLedger(ledgerDao)().acquire().asFuture
-              } yield ()
-            )
-        )
-        indexer <- ParallelIndexerFactory(
-          jdbcUrl = config.jdbcUrl,
-          storageBackend = StorageBackend.of(DbType.jdbcType(config.jdbcUrl)),
-          participantId = config.participantId,
-          translation = new LfValueTranslation(
-            cache = lfValueTranslationCache,
-            metrics = metrics,
-            enricherO = None,
-            loadPackage = (_, _) => Future.successful(None),
-          ),
-          compressionStrategy =
-            if (config.enableCompression) CompressionStrategy.allGZIP(metrics)
-            else CompressionStrategy.none(metrics),
-          mat = materializer,
-          maxInputBufferSize = config.maxInputBufferSize,
-          inputMappingParallelism = config.inputMappingParallelism,
-          batchingParallelism = config.batchingParallelism,
-          ingestionParallelism = config.ingestionParallelism,
-          submissionBatchSize = config.submissionBatchSize,
-          tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
-          batchWithinMillis = config.batchWithinMillis,
+        _ <- com.daml.platform.store.appendonlydao.JdbcLedgerDao
+          .writeOwner(
+            serverRole,
+            config.jdbcUrl,
+            config.databaseConnectionPoolSize,
+            config.databaseConnectionTimeout,
+            config.eventsPageSize,
+            config.eventsProcessingParallelism,
+            servicesExecutionContext,
+            metrics,
+            lfValueTranslationCache,
+            jdbcAsyncCommitMode = config.asyncCommitMode,
+            enricher = None,
+            participantId = config.participantId,
+          )
+          .use(ledgerDao =>
+            for {
+              _ <-
+                if (resetSchema) {
+                  ledgerDao.reset()
+                } else {
+                  Future.successful(())
+                }
+              _ <- initializeLedger(ledgerDao)
+            } yield ()
+          )
+      } yield ParallelIndexerFactory(
+        jdbcUrl = config.jdbcUrl,
+        storageBackend = StorageBackend.of(DbType.jdbcType(config.jdbcUrl)),
+        participantId = config.participantId,
+        translation = new LfValueTranslation(
+          cache = lfValueTranslationCache,
           metrics = metrics,
-        )
-      } yield indexer)
+          enricherO = None,
+          loadPackage = (_, _) => Future.successful(None),
+        ),
+        compressionStrategy =
+          if (config.enableCompression) CompressionStrategy.allGZIP(metrics)
+          else CompressionStrategy.none(metrics),
+        mat = materializer,
+        maxInputBufferSize = config.maxInputBufferSize,
+        inputMappingParallelism = config.inputMappingParallelism,
+        batchingParallelism = config.batchingParallelism,
+        ingestionParallelism = config.ingestionParallelism,
+        submissionBatchSize = config.submissionBatchSize,
+        tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
+        batchWithinMillis = config.batchWithinMillis,
+        metrics = metrics,
+      )
     }
 
     private def initialized(resetSchema: Boolean)(implicit
@@ -186,21 +182,19 @@ object JdbcIndexer {
       else
         initializedMutatingSchema(resetSchema)
 
-    // TODO append-only: This is just a series of database operations, it should return a Future and not a ResourceOwner
-    private def initializeLedger(dao: LedgerDao)(): ResourceOwner[Option[Offset]] =
-      new ResourceOwner[Option[Offset]] {
-        override def acquire()(implicit context: ResourceContext): Resource[Option[Offset]] =
-          Resource.fromFuture(for {
-            initialConditions <- readService.getLedgerInitialConditions().runWith(Sink.head)
-            existingLedgerId <- dao.lookupLedgerId()
-            providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
-            _ <- existingLedgerId.fold(initializeLedgerData(providedLedgerId, dao))(
-              checkLedgerIds(_, providedLedgerId)
-            )
-            _ <- initOrCheckParticipantId(dao)
-            initialLedgerEnd <- dao.lookupInitialLedgerEnd()
-          } yield initialLedgerEnd)
-      }
+    private def initializeLedger(
+        dao: LedgerDao
+    )(implicit ec: ExecutionContext): Future[Option[Offset]] =
+      for {
+        initialConditions <- readService.getLedgerInitialConditions().runWith(Sink.head)
+        existingLedgerId <- dao.lookupLedgerId()
+        providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
+        _ <- existingLedgerId.fold(initializeLedgerData(providedLedgerId, dao))(
+          checkLedgerIds(_, providedLedgerId)
+        )
+        _ <- initOrCheckParticipantId(dao)
+        initialLedgerEnd <- dao.lookupInitialLedgerEnd()
+      } yield initialLedgerEnd
 
     private def checkLedgerIds(
         existingLedgerId: domain.LedgerId,
@@ -223,7 +217,7 @@ object JdbcIndexer {
 
     private def initOrCheckParticipantId(
         dao: LedgerDao
-    )(implicit resourceContext: ResourceContext): Future[Unit] = {
+    )(implicit ec: ExecutionContext): Future[Unit] = {
       val id = ParticipantId(Ref.ParticipantId.assertFromString(config.participantId))
       dao
         .lookupParticipantId()
@@ -234,7 +228,7 @@ object JdbcIndexer {
             case retrievedLedgerId =>
               Future.failed(new common.MismatchException.ParticipantId(retrievedLedgerId, id))
           }
-        )(resourceContext.executionContext)
+        )
     }
 
   }

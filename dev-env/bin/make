@@ -1,5 +1,1 @@
-#!/usr/bin/env bash
-set -e
-BIN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source "$BIN_DIR/../lib/dade-common"
-execTool make out make "$@"
+../lib/dade-exec-nix-tool

@@ -24,7 +24,7 @@ Cadence
 
 Regular snapshot releases are made every Wednesday, with additional snapshots released as needed. These releases contain Daml Connect and Integration Components, both from the `daml repository <https://github.com/digital-asset/daml>`_ as well as some others.
 
-Stable versions are released once a month. See :ref:`release_process` below for the usual schedule. This schedule is a guide, not a guarantee, and additional releases may be made, or releases may be delayed for skipped entirely. 
+Stable versions are released once a month. See :ref:`release_process` below for the usual schedule. This schedule is a guide, not a guarantee, and additional releases may be made, or releases may be delayed for skipped entirely.
 
 No more than one major version is released every six months, barring exceptional circumstances.
 
@@ -78,7 +78,7 @@ Release Candidate Announcement
 
 Communications, Testing and Feedback
 
-  In the days following the announcement, the release is presented and discussed with both commercial and community users. It is also put through its paces by integrating it in `project:DABL <https://projectdabl.com>`_ and several ledger integrations. 
+  In the days following the announcement, the release is presented and discussed with both commercial and community users. It is also put through its paces by integrating it in `Daml Hub <https://hub.daml.com>`_ and several ledger integrations.
 
 Release Candidate Refinement II
 
@@ -89,5 +89,5 @@ Release
   Assuming the release is not postponed due to extended test periods or newly discovered issues in the release candidate, the release is declared stable and given a regular version number on **the second Wednesday after the first Monday of the Month**.
 
 .. figure:: release-timeline.png
-  
+
   The release process timeline illustrated by example of September 2020.

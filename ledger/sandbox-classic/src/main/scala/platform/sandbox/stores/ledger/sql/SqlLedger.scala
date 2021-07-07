@@ -5,6 +5,7 @@ package com.daml.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
+
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
@@ -25,6 +26,7 @@ import com.daml.lf.transaction.TransactionCommitter
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset.ApiOffsetConverter
+import com.daml.platform.PruneBuffersNoOp
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.common.{LedgerIdMode, MismatchException}
 import com.daml.platform.configuration.ServerRole
@@ -79,6 +81,7 @@ private[sandbox] object SqlLedger {
       transactionCommitter: TransactionCommitter,
       startMode: SqlStartMode,
       eventsPageSize: Int,
+      eventsProcessingParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -246,6 +249,7 @@ private[sandbox] object SqlLedger {
           connectionPoolSize = databaseConnectionPoolSize,
           connectionTimeout = databaseConnectionTimeout,
           eventsPageSize = eventsPageSize,
+          eventsProcessingParallelism = eventsProcessingParallelism,
           servicesExecutionContext = servicesExecutionContext,
           metrics = metrics,
           lfValueTranslationCache = lfValueTranslationCache,
@@ -359,7 +363,14 @@ private final class SqlLedger(
     timeProvider: TimeProvider,
     persistenceQueue: PersistenceQueue,
     transactionCommitter: TransactionCommitter,
-) extends BaseLedger(ledgerId, ledgerDao, contractStore, dispatcher)
+) extends BaseLedger(
+      ledgerId,
+      ledgerDao,
+      ledgerDao.transactionsReader,
+      contractStore,
+      PruneBuffersNoOp,
+      dispatcher,
+    )
     with Ledger {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -379,16 +390,16 @@ private final class SqlLedger(
   private def checkTimeModel(
       ledgerTime: Instant,
       recordTime: Instant,
-  ): Either[RejectionReason, Unit] = {
+  ): Either[RejectionReasonV0, Unit] = {
     currentConfiguration
       .get()
-      .fold[Either[RejectionReason, Unit]](
+      .fold[Either[RejectionReasonV0, Unit]](
         Left(
-          RejectionReason
+          RejectionReasonV0
             .InvalidLedgerTime("No ledger configuration available, cannot validate ledger time")
         )
       )(
-        _.timeModel.checkTime(ledgerTime, recordTime).left.map(RejectionReason.InvalidLedgerTime)
+        _.timeModel.checkTime(ledgerTime, recordTime).left.map(RejectionReasonV0.InvalidLedgerTime)
       )
   }
 
@@ -423,7 +434,7 @@ private final class SqlLedger(
               workflowId = transactionMeta.workflowId,
               transactionId = transactionId,
               ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
-              offset = offset,
+              offset = CurrentOffset(offset),
               transaction = transactionCommitter.commitTransaction(transactionId, transaction),
               divulgedContracts = divulgedContracts,
               blindingInfo = blindingInfo,

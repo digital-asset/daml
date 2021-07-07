@@ -1,6 +1,6 @@
 -- Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE GADTs #-}
 module DA.Daml.Lsp.Test.Util
     ( Cursor
     , cursorPosition
@@ -20,7 +20,7 @@ module DA.Daml.Lsp.Test.Util
     , openScenario
     , expectScenarioContent
     , expectScenarioContentMatch
-    , module Language.Haskell.LSP.Test
+    , module Language.LSP.Test
     ) where
 
 import Control.Applicative.Combinators
@@ -29,10 +29,10 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Data.Aeson (Result(..), fromJSON)
 import qualified Data.Text as T
-import Language.Haskell.LSP.Test hiding (message)
-import qualified Language.Haskell.LSP.Test as LspTest
-import Language.Haskell.LSP.Types
-import Language.Haskell.LSP.Types.Lens as Lsp
+import Language.LSP.Test hiding (message)
+import qualified Language.LSP.Test as LspTest
+import Language.LSP.Types
+import Language.LSP.Types.Lens as Lsp
 import Network.URI
 import System.Directory
 import System.FilePath
@@ -63,14 +63,14 @@ openDocs languageId files = do
         liftIO $ writeFileUTF8 path $ T.unpack contents
         let item = TextDocumentItem uri (T.pack languageId) 0 contents
         pure (TextDocumentIdentifier uri, item)
-    forM_ files' $ \(_, item) -> sendNotification TextDocumentDidOpen (DidOpenTextDocumentParams item)
+    forM_ files' $ \(_, item) -> sendNotification STextDocumentDidOpen (DidOpenTextDocumentParams item)
     pure (map fst files')
 
 openDoc' :: FilePath -> String -> T.Text -> Session TextDocumentIdentifier
 openDoc' file languageId contents = do
     uri <- getDocUri file
     let item = TextDocumentItem uri (T.pack languageId) 0 contents
-    sendNotification TextDocumentDidOpen (DidOpenTextDocumentParams item)
+    sendNotification STextDocumentDidOpen (DidOpenTextDocumentParams item)
     pure $ TextDocumentIdentifier uri
 
 waitForScriptDidChange :: Session VirtualResourceChangedParams
@@ -90,14 +90,11 @@ expectScriptContentMatch = expectScenarioContentMatch
 
 waitForScenarioDidChange :: Session VirtualResourceChangedParams
 waitForScenarioDidChange = do
-  scenario <- skipManyTill anyMessage scenarioDidChange
+  NotMess scenario <- skipManyTill anyMessage scenarioDidChange
   case fromJSON $ scenario ^. params of
       Success p -> pure p
       Error s -> fail $ "Failed to parse daml/virtualResource/didChange params: " <> s
-  where scenarioDidChange = do
-            m <- LspTest.message :: Session CustomServerNotification
-            guard (m ^. method == CustomServerMethod "daml/virtualResource/didChange")
-            pure m
+  where scenarioDidChange = LspTest.customNotification "daml/virtualResource/didChange"
 
 scenarioUri :: FilePath -> String -> Session Uri
 scenarioUri fp name = do
@@ -109,7 +106,7 @@ scenarioUri fp name = do
 openScenario :: FilePath -> String -> Session TextDocumentIdentifier
 openScenario fp name = do
     uri <- scenarioUri fp name
-    sendNotification TextDocumentDidOpen $ DidOpenTextDocumentParams $
+    sendNotification STextDocumentDidOpen $ DidOpenTextDocumentParams $
         TextDocumentItem uri (T.pack damlId) 0 ""
     pure $ TextDocumentIdentifier uri
 

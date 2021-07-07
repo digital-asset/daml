@@ -32,6 +32,7 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
+        "//libs-scala/logging-entries",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
     ],

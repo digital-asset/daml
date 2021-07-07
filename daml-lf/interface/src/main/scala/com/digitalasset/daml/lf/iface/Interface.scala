@@ -7,7 +7,7 @@ package iface
 import java.{util => j}
 
 import com.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.lf.data.Ref.{PackageId, QualifiedName}
+import com.daml.lf.data.Ref.{PackageId, PackageName, PackageVersion, QualifiedName}
 import com.daml.lf.iface.reader.Errors
 import com.daml.daml_lf_dev.DamlLf
 
@@ -42,12 +42,22 @@ object InterfaceType {
   }
 }
 
+// Duplicate of the one in com.daml.lf.language to separate Ast and Iface
+final case class PackageMetadata(
+    name: PackageName,
+    version: PackageVersion,
+)
+
 /** The interface of a single DALF archive.  Not expressive enough to
   * represent a whole dar, as a dar can contain multiple DALF archives
   * with separate package IDs and overlapping [[QualifiedName]]s; for a
   * dar use [[EnvironmentInterface]] instead.
   */
-final case class Interface(packageId: PackageId, typeDecls: Map[QualifiedName, InterfaceType]) {
+final case class Interface(
+    packageId: PackageId,
+    metadata: Option[PackageMetadata],
+    typeDecls: Map[QualifiedName, InterfaceType],
+) {
   def getTypeDecls: j.Map[QualifiedName, InterfaceType] = typeDecls.asJava
 }
 

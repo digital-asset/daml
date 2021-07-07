@@ -14,8 +14,9 @@ import com.daml.ledger.participant.state.kvutils.app.Config.EngineMode
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.metrics.MetricsReporter
 import com.daml.platform.configuration.Readers._
-import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration, MetricsReporter}
+import com.daml.platform.configuration.{CommandConfiguration, IndexConfiguration}
 import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.OptionParser
@@ -26,20 +27,22 @@ final case class Config[Extra](
     mode: Mode,
     ledgerId: String,
     archiveFiles: Seq[Path],
+    commandConfig: CommandConfiguration,
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
     maxInboundMessageSize: Int,
     eventsPageSize: Int,
+    eventsProcessingParallelism: Int,
     stateValueCache: caching.WeightedCache.Configuration,
     lfValueTranslationEventCache: caching.SizedCache.Configuration,
     lfValueTranslationContractCache: caching.SizedCache.Configuration,
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
-    trackerRetentionPeriod: FiniteDuration,
     engineMode: EngineMode,
     enableAppendOnlySchema: Boolean, // TODO append-only: remove after removing support for the current (mutating) schema
     enableMutableContractStateCache: Boolean,
+    enableInMemoryFanOutForLedgerApi: Boolean,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -48,8 +51,6 @@ final case class Config[Extra](
 
 object Config {
   val DefaultPort: Port = Port(6865)
-  val DefaultTrackerRetentionPeriod: FiniteDuration =
-    CommandConfiguration.DefaultTrackerRetentionPeriod
 
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
 
@@ -58,20 +59,22 @@ object Config {
       mode = Mode.Run,
       ledgerId = UUID.randomUUID().toString,
       archiveFiles = Vector.empty,
+      commandConfig = CommandConfiguration.default,
       tlsConfig = None,
       participants = Vector.empty,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
+      eventsProcessingParallelism = IndexConfiguration.DefaultEventsProcessingParallelism,
       stateValueCache = caching.WeightedCache.Configuration.none,
       lfValueTranslationEventCache = caching.SizedCache.Configuration.none,
       lfValueTranslationContractCache = caching.SizedCache.Configuration.none,
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
-      trackerRetentionPeriod = DefaultTrackerRetentionPeriod,
       engineMode = EngineMode.Stable,
       enableAppendOnlySchema = false,
       enableMutableContractStateCache = false,
+      enableInMemoryFanOutForLedgerApi = false,
       extra = extra,
     )
 
@@ -151,7 +154,6 @@ object Config {
               "server-jdbc-url, " +
               "api-server-connection-pool-size" +
               "api-server-connection-timeout" +
-              "max-commands-in-flight, " +
               "management-service-timeout, " +
               "run-mode, " +
               "shard-name, " +
@@ -242,8 +244,6 @@ object Config {
               .map(_.toBoolean)
               .getOrElse(ParticipantIndexerConfig.DefaultEnableCompression)
 
-            val maxCommandsInFlight =
-              kv.get("max-commands-in-flight").map(_.toInt)
             val managementServiceTimeout = kv
               .get("management-service-timeout")
               .map(Duration.parse)
@@ -257,6 +257,10 @@ object Config {
               .get("contract-key-state-cache-max-size")
               .map(_.toLong)
               .getOrElse(ParticipantConfig.DefaultMaxContractKeyStateCacheSize)
+            val maxTransactionsInMemoryFanOutBufferSize = kv
+              .get("ledger-api-transactions-buffer-max-size")
+              .map(_.toLong)
+              .getOrElse(ParticipantConfig.DefaultMaxTransactionsInMemoryFanOutBufferSize)
             val partConfig = ParticipantConfig(
               runMode,
               participantId,
@@ -281,10 +285,10 @@ object Config {
               ),
               apiServerDatabaseConnectionPoolSize = apiServerConnectionPoolSize,
               apiServerDatabaseConnectionTimeout = apiServerConnectionTimeout,
-              maxCommandsInFlight = maxCommandsInFlight,
               managementServiceTimeout = managementServiceTimeout,
               maxContractStateCacheSize = maxContractStateCacheSize,
               maxContractKeyStateCacheSize = maxContractKeyStateCacheSize,
+              maxTransactionsInMemoryFanOutBufferSize = maxTransactionsInMemoryFanOutBufferSize,
             )
             config.copy(participants = config.participants :+ partConfig)
           })
@@ -333,13 +337,43 @@ object Config {
             config.withTlsConfig(c => c.copy(clientAuth = clientAuth))
           )
 
+        opt[Int]("max-commands-in-flight")
+          .optional()
+          .action((value, config) =>
+            config.copy(commandConfig = config.commandConfig.copy(maxCommandsInFlight = value))
+          )
+          .text(
+            "Maximum number of submitted commands waiting for completion for each party (only applied when using the CommandService). Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 256."
+          )
+
+        opt[Int]("max-parallel-submissions")
+          .optional()
+          .action((value, config) =>
+            config.copy(commandConfig = config.commandConfig.copy(maxParallelSubmissions = value))
+          )
+          .text(
+            "Maximum number of successfully interpreted commands waiting to be sequenced (applied only when running sandbox-classic). The threshold is shared across all parties. Overflowing it will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512."
+          )
+
+        opt[Int]("input-buffer-size")
+          .optional()
+          .action((value, config) =>
+            config.copy(commandConfig = config.commandConfig.copy(inputBufferSize = value))
+          )
+          .text(
+            "The maximum number of commands waiting to be submitted for each party. Overflowing this threshold will cause back-pressure, signaled by a RESOURCE_EXHAUSTED error code. Default is 512."
+          )
+
         opt[Duration]("tracker-retention-period")
           .optional()
           .action((value, config) =>
-            config.copy(trackerRetentionPeriod = FiniteDuration(value.getSeconds, TimeUnit.SECONDS))
+            config.copy(commandConfig =
+              config.commandConfig
+                .copy(retentionPeriod = FiniteDuration(value.getSeconds, TimeUnit.SECONDS))
+            )
           )
           .text(
-            s"How long will the command service keep an active command tracker for a given party. A longer period cuts down on the tracker instantiation cost for a party that seldom acts. A shorter period causes a quick removal of unused trackers. Default is $DefaultTrackerRetentionPeriod."
+            s"How long will the command service keep an active command tracker for a given party. A longer period cuts down on the tracker instantiation cost for a party that seldom acts. A shorter period causes a quick removal of unused trackers. Default is ${CommandConfiguration.DefaultTrackerRetentionPeriod}."
           )
 
         opt[Int]("max-inbound-message-size")
@@ -356,7 +390,24 @@ object Config {
           .text(
             s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexConfiguration.DefaultEventsPageSize}."
           )
+          .validate { pageSize =>
+            if (pageSize > 0) Right(())
+            else Left("events-page-size should be strictly positive")
+          }
           .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
+
+        opt[Int]("buffers-prefetching-parallelism")
+          .optional()
+          .text(
+            s"Number of events fetched/decoded in parallel for populating the Ledger API internal buffers. Default is ${IndexConfiguration.DefaultEventsProcessingParallelism}."
+          )
+          .validate { buffersPrefetchingParallelism =>
+            if (buffersPrefetchingParallelism > 0) Right(())
+            else Left("buffers-prefetching-parallelism should be strictly positive")
+          }
+          .action((eventsProcessingParallelism, config) =>
+            config.copy(eventsProcessingParallelism = eventsProcessingParallelism)
+          )
 
         opt[Long]("max-state-value-cache-size")
           .optional()
@@ -462,6 +513,14 @@ object Config {
             "Experimental contract state cache for command execution. Should not be used in production."
           )
           .action((_, config) => config.copy(enableMutableContractStateCache = true))
+
+        opt[Unit]("buffered-ledger-api-streams-unsafe")
+          .optional()
+          .hidden()
+          .text(
+            "Experimental buffer for Ledger API streaming queries. Should not be used in production."
+          )
+          .action((_, config) => config.copy(enableInMemoryFanOutForLedgerApi = true))
       }
     extraOptions(parser)
     parser

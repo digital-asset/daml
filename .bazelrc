@@ -16,10 +16,10 @@ build:darwin --repository_cache=.bazel-cache/repo
 fetch:darwin --repository_cache=.bazel-cache/repo
 sync:darwin --repository_cache=.bazel-cache/repo
 
-build:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.5
-fetch:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.5
-query:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.5
-sync:scala_2_13 --repo_env=DAML_SCALA_VERSION=2.13.5
+build:scala_2_12 --repo_env=DAML_SCALA_VERSION=2.12.13
+fetch:scala_2_12 --repo_env=DAML_SCALA_VERSION=2.12.13
+query:scala_2_12 --repo_env=DAML_SCALA_VERSION=2.12.13
+sync:scala_2_12 --repo_env=DAML_SCALA_VERSION=2.12.13
 
 test:oracle --repo_env DAML_ORACLE_TESTING=true --test_env ORACLE_USERNAME --test_env ORACLE_PORT --test_env ORACLE_PWD
 
@@ -111,6 +111,10 @@ build:darwin --protocopt=--include_source_info
 #FIXME: it generates stderr, which is causing error in bazel on windows:
 # https://github.com/protocolbuffers/protobuf/blob/master/src/google/protobuf/compiler/command_line_interface.cc#L1363
 #build:windows --protocopt=--include_source_info
+
+# Use symlinks to avoid copying. We control the environments we build in and
+# can therefore ensure symlinks are available
+startup:windows --windows_enable_symlinks
 
 # Some tools used in tests, like postgres CLI, require cmd.exe which can be located by them
 # using ComSpec environment variable. By default it's not passed from Bazel client environment.

@@ -105,10 +105,9 @@ sh_test(
         ],
     ),
     # Spinning up jest, Sandbox and the JSON API is expensive.
-    # The expensive stuff should be Sandbox and the JSON API so we
-    # go for 2 CPUs. Feel free to change this to something more adequate
-    # if needed.
-    tags = ["cpu:2"],
+    # We get some timeouts during startup with 2 cpus so we set it to 4 to reduce
+    # system load.
+    tags = ["cpu:4"],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],

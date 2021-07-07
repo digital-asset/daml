@@ -333,9 +333,14 @@ object ValueGenerators {
     )
   }
 
-  val fetchNodeGen: Gen[NodeFetch[ContractId]] = {
+  val fetchNodeGen: Gen[NodeFetch[ContractId]] =
     for {
       version <- transactionVersionGen()
+      node <- fetchNodeGenWithVersion(version)
+    } yield node
+
+  def fetchNodeGenWithVersion(version: TransactionVersion): Gen[NodeFetch[ContractId]] = {
+    for {
       coid <- coidGen
       templateId <- idGen
       actingParties <- genNonEmptyParties
@@ -366,10 +371,18 @@ object ValueGenerators {
     } yield NodeRollback(children)
   }
 
-  /** Makes exercise nodes with some random child IDs. */
-  val danglingRefExerciseNodeGen: Gen[NodeExercises[NodeId, Value.ContractId]] = {
+  /** Makes exercise nodes with the given version and some random child IDs. */
+  val danglingRefExerciseNodeGen: Gen[NodeExercises[NodeId, Value.ContractId]] =
     for {
       version <- transactionVersionGen()
+      node <- danglingRefExerciseNodeGenWithVersion(version)
+    } yield node
+
+  /** Makes exercise nodes with the given version and some random child IDs. */
+  def danglingRefExerciseNodeGenWithVersion(
+      version: TransactionVersion
+  ): Gen[NodeExercises[NodeId, Value.ContractId]] = {
+    for {
       targetCoid <- coidGen
       templateId <- idGen
       choiceId <- nameGen
@@ -426,13 +439,52 @@ object ValueGenerators {
   /** Makes nodes with the problems listed under `malformedCreateNodeGen`, and
     * `malformedGenTransaction` should they be incorporated into a transaction.
     */
-  // TODO https://github.com/digital-asset/daml/issues/8020
-  val danglingRefGenNode //TODO: FIXME: this generator never produces rollback nodes
-      : Gen[(NodeId, Tx.Node)] = {
+  def danglingRefGenActionNode: Gen[(NodeId, Tx.ActionNode)] = {
     for {
       id <- Arbitrary.arbInt.arbitrary.map(NodeId(_))
-      node <- Gen.oneOf(malformedCreateNodeGen, danglingRefExerciseNodeGen, fetchNodeGen)
+      version <- transactionVersionGen()
+      create = malformedCreateNodeGenWithVersion(version)
+      exe = danglingRefExerciseNodeGenWithVersion(version)
+      fetch = fetchNodeGenWithVersion(version)
+      node <- Gen.oneOf(create, exe, fetch)
     } yield (id, node)
+  }
+
+  /** Makes nodes with the problems listed under `malformedCreateNodeGen`, and
+    * `malformedGenTransaction` should they be incorporated into a transaction.
+    */
+  def danglingRefGenNode = for {
+    version <- transactionVersionGen()
+    node <- danglingRefGenNodeWithVersion(version)
+  } yield node
+
+  private[this] def refGenNode(g: Gen[Tx.Node]): Gen[(NodeId, Tx.Node)] =
+    for {
+      id <- Arbitrary.arbInt.arbitrary.map(NodeId(_))
+      node <- g
+    } yield (id, node)
+
+  /** Version of danglingRefGenNode that allows to set the version of the node.
+    *    Note that this only ensures that the node can be normalized to the given version.
+    *    It does not normalize the node itself.
+    */
+  def danglingRefGenActionNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Tx.Node)] =
+    refGenNode(
+      Gen.oneOf(
+        malformedCreateNodeGenWithVersion(version),
+        danglingRefExerciseNodeGenWithVersion(version),
+        fetchNodeGenWithVersion(version),
+      )
+    )
+
+  def danglingRefGenNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Tx.Node)] = {
+    if (version < minExceptions)
+      danglingRefGenActionNodeWithVersion(version)
+    else
+      Gen.frequency(
+        3 -> danglingRefGenActionNodeWithVersion(version),
+        1 -> refGenNode(danglingRefRollbackNodeGen),
+      )
   }
 
   @deprecated("use danglingRefGenNode instead", since = "100.11.17")

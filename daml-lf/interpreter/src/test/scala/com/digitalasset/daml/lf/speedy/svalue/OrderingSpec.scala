@@ -134,14 +134,13 @@ class OrderingSpec
     }
   }
 
-  private[this] val noPackages = PureCompiledPackages(Map.empty, Map.empty, Compiler.Config.Default)
-
   private def translatePrimValue(typ: iface.Type, v: Value[Value.ContractId]) = {
     val seed = crypto.Hash.hashPrivateKey("OrderingSpec")
-    val machine = Speedy.Machine.fromScenarioSExpr(
-      noPackages,
+    val machine = Speedy.Machine.fromUpdateSExpr(
+      PureCompiledPackages.Empty,
       transactionSeed = seed,
-      scenario = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(SEImportValue(toAstType(typ), v))),
+      updateSE = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(SEImportValue(toAstType(typ), v))),
+      committer = Ref.Party.assertFromString("Alice"),
     )
 
     machine.run() match {

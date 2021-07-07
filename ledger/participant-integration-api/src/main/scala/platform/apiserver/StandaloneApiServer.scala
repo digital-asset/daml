@@ -79,6 +79,7 @@ final class StandaloneApiServer(
           databaseConnectionPoolSize = config.databaseConnectionPoolSize,
           databaseConnectionTimeout = config.databaseConnectionTimeout,
           eventsPageSize = config.eventsPageSize,
+          eventsProcessingParallelism = config.eventsProcessingParallelism,
           servicesExecutionContext = servicesExecutionContext,
           metrics = metrics,
           lfValueTranslationCache = lfValueTranslationCache,
@@ -87,6 +88,8 @@ final class StandaloneApiServer(
           maxContractStateCacheSize = config.maxContractStateCacheSize,
           maxContractKeyStateCacheSize = config.maxContractKeyStateCacheSize,
           enableMutableContractStateCache = config.enableMutableContractStateCache,
+          maxTransactionsInMemoryFanOutBufferSize = config.maxTransactionsInMemoryFanOutBufferSize,
+          enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
         )
         .map(index => new SpannedIndexService(new TimedIndexService(index, metrics)))
       authorizer = new Authorizer(Clock.systemUTC.instant _, ledgerId, participantId)
@@ -149,9 +152,6 @@ final class StandaloneApiServer(
           packageContainer.getLfPackageSync,
           { _ =>
             sys.error("Unexpected request of contract key")
-          },
-          { _ =>
-            sys.error("Unexpected request of local contract key visibility")
           },
         )
       ()

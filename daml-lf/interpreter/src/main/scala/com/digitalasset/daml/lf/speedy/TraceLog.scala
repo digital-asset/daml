@@ -7,7 +7,8 @@ import com.daml.lf.data.Ref.Location
 import org.slf4j.Logger
 
 private[lf] trait TraceLog {
-  def add(message: String, optLocation: Option[Location]): Unit
+  def addDebug(message: String, optLocation: Option[Location]): Unit
+  def addWarning(message: String, optLocation: Option[Location]): Unit
   def iterator: Iterator[(String, Option[Location])]
 }
 
@@ -17,14 +18,25 @@ private[lf] final case class RingBufferTraceLog(logger: Logger, capacity: Int) e
   private var pos: Int = 0
   private var size: Int = 0
 
-  def add(message: String, optLocation: Option[Location]): Unit = {
-    if (logger.isDebugEnabled) {
-      logger.debug(s"${Pretty.prettyLoc(optLocation).renderWideStream.mkString}: $message")
-    }
+  private def addToBuffer(message: String, optLocation: Option[Location]): Unit = {
     buffer(pos) = (message, optLocation)
     pos = (pos + 1) % capacity
     if (size < capacity)
       size += 1
+  }
+
+  def addDebug(message: String, optLocation: Option[Location]): Unit = {
+    if (logger.isDebugEnabled) {
+      logger.debug(s"${Pretty.prettyLoc(optLocation).renderWideStream.mkString}: $message")
+    }
+    addToBuffer(message, optLocation)
+  }
+
+  def addWarning(message: String, optLocation: Option[Location]): Unit = {
+    if (logger.isWarnEnabled) {
+      logger.warn(message)
+    }
+    addToBuffer(s"Warning: $message", optLocation)
   }
 
   def iterator: Iterator[(String, Option[Location])] =

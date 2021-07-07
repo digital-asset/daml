@@ -9,16 +9,16 @@ import scalaz.\/
 
 import scala.io.{BufferedSource, Source}
 
-object ReadFileSyntax {
+private[stats] object ReadFileSyntax {
   implicit class PathSourceOps(val path: Path) extends AnyVal {
-    def contentsAsString: Throwable \/ String =
+    def contentsAsString: String \/ String =
       withSource(_.mkString)
 
-    def withSource(f: BufferedSource => String): Throwable \/ String =
-      \/.fromTryCatchNonFatal {
+    private def withSource(f: BufferedSource => String): String \/ String =
+      \/.attempt {
         val source = Source.fromFile(path.toFile)
         try f(source)
         finally source.close()
-      }
+      }(_.getMessage)
   }
 }

@@ -26,6 +26,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.services.admin.ApiPackageManagementService._
 import com.daml.platform.apiserver.services.logging
+import com.daml.platform.server.api.ValidationLogger
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.telemetry.{DefaultTelemetry, TelemetryContext}
 import com.google.protobuf.timestamp.Timestamp
@@ -49,7 +50,7 @@ private[apiserver] final class ApiPackageManagementService private (
 ) extends PackageManagementService
     with GrpcApiService {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
+  private implicit val logger: ContextualizedLogger = ContextualizedLogger.get(this.getClass)
 
   private val synchronousResponse = new SynchronousResponse(
     new SynchronousResponseStrategy(
@@ -89,7 +90,7 @@ private[apiserver] final class ApiPackageManagementService private (
       dar <- darReader.readArchive("package-upload", stream)
       packages <- Try(dar.all.iterator.map(Decode.decodeArchive).toMap)
       _ <- engine
-        .validatePackages(packages.keySet, packages)
+        .validatePackages(packages)
         .left
         .map(e => new IllegalArgumentException(e.msg))
         .toTry
@@ -113,7 +114,11 @@ private[apiserver] final class ApiPackageManagementService private (
 
         val response = for {
           dar <- decodeAndValidate(darInputStream).fold(
-            err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
+            err =>
+              Future.failed(
+                ValidationLogger
+                  .logFailureWithContext(request, ErrorFactories.invalidArgument(err.getMessage))
+              ),
             Future.successful,
           )
           _ <- synchronousResponse.submitAndWait(submissionId, dar)

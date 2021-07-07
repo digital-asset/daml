@@ -47,10 +47,8 @@
 //         2020-11-20: Add choice-observers
 // * 12 -- 2021-01-27: No Archive changes
 // * 13 -- 2021-04-06: Add BigNumeric
+// * 14 -- 2021-03-06: Add Exception
 // * dev (special staging area for the next version to be released)
-//        2019-12-03: Add (experimental) text primitives.
-//        2020-03-08: Add experiment Builtin hook
-//        2020-11-27: Add exception handling & primitives
 
 syntax = "proto3";
 package daml_lf_1;
@@ -322,7 +320,7 @@ enum PrimType {
   ROUNDING_MODE = 22;
 
   // Builtin type 'TAnyException'
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.14*
   ANY_EXCEPTION = 23;
 }
 
@@ -484,8 +482,7 @@ enum BuiltinFunction {
   APPEND_TEXT = 24;
 
   ERROR = 25;
-  ANY_EXCEPTION_MESSAGE = 147;              // *Available in versions >= 1.dev*
-  ANY_EXCEPTION_IS_ARITHMETIC_ERROR = 148;  // *Available in versions >= 1.dev*
+  ANY_EXCEPTION_MESSAGE = 147;              // *Available in versions >= 1.14*
 
   LEQ_INT64 = 33;         // *Available in versions < 1.11*
   LEQ_DECIMAL = 34;       // *Available in versions < 1.7*
@@ -584,7 +581,7 @@ enum BuiltinFunction {
   NUMERIC_TO_BIGNUMERIC = 145; // *Available in versions >= 1.13*
   BIGNUMERIC_TO_TEXT = 146; // *Available in versions >= 1.13*
 
-  // Next id is 150. 149 is ANY_EXCEPTION_IS_CONTRACT_ERROR.
+  // Next id is 148. 147 is ANY_EXCEPTION_MESSAGE.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
@@ -900,7 +897,7 @@ message Expr {
   }
 
   // Wrap an exception value in AnyException
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.14*
   message ToAnyException {
     // type of argument. Must be an exception type.
     Type type = 1;
@@ -909,7 +906,7 @@ message Expr {
   }
 
   // Extract the given exception type from AnyException or return None on type-mismatch
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.14*
   message FromAnyException {
     // type that should be extracted. Must be an exception type.
     Type type = 1;
@@ -918,7 +915,7 @@ message Expr {
   }
 
   // Throw an exception.
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.14*
   message Throw {
     // Overall type of the "throw" expression.
     Type return_type = 1;
@@ -1032,15 +1029,15 @@ message Expr {
     Type type_rep = 32;
 
     // Wrap an arbitrary exception into an AnyException ('ExpToAnyException').
-    // *Available in versions >= 1.dev*
+    // *Available in versions >= 1.14*
     ToAnyException to_any_exception = 33;
 
     // Extract an arbitrary exception from an AnyException ('ExpFromAnyException').
-    // *Available in versions >= 1.dev*
+    // *Available in versions >= 1.14*
     FromAnyException from_any_exception = 34;
 
     // Throw an exception ('ExpThrow').
-    // *Available in versions >= 1.dev*
+    // *Available in versions >= 1.14*
     Throw throw = 35;
 
     Experimental experimental = 9999; // *Available only in 1.dev*
@@ -1256,7 +1253,7 @@ message Update {
     RetrieveByKey fetch_by_key = 9; // *Available in versions >= 1.2*
     // see similar constructor in `Scenario` on why this is useful.
     EmbedExpr embed_expr = 7;
-    TryCatch try_catch = 11; // *Available in versions >= 1.dev*
+    TryCatch try_catch = 11; // *Available in versions >= 1.14*
   }
 }
 
@@ -1452,7 +1449,7 @@ message DefTemplate {
 }
 
 // Exception definition
-// *Available in versions >= 1.dev*
+// *Available in versions >= 1.14*
 message DefException {
   // *Must be a valid interned dotted name*
   int32 name_interned_dname = 1;
@@ -1581,7 +1578,7 @@ message Module {
   repeated DefDataType data_types = 5;
   repeated DefValue values = 6;
   repeated DefTemplate templates = 7;
-  repeated DefException exceptions = 10; // *Available in versions >= 1.dev*
+  repeated DefException exceptions = 10; // *Available in versions >= 1.14*
 }
 
 message InternedDottedName {

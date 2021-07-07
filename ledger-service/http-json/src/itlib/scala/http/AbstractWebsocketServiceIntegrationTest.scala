@@ -23,6 +23,7 @@ import scalaz.{-\/, \/-}
 import spray.json.{JsNull, JsObject, JsString, JsValue}
 
 import scala.annotation.nowarn
+import scala.collection.compat._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
@@ -747,6 +748,32 @@ abstract class AbstractWebsocketServiceIntegrationTest
     go(createCount)
   }
 
+  /** Updates the ACS retrieved with [[readAcsN]] with the given number of events
+    * The caller is in charge of reading the live marker if that is expected
+    */
+  private[this] def updateAcs(
+      acs: Map[String, JsValue],
+      events: Int,
+  ): Consume.FCC[JsValue, Map[String, JsValue]] = {
+    val dslSyntax = Consume.syntax[JsValue]
+    import dslSyntax._
+    def go(
+        acs: Map[String, JsValue],
+        missingEvents: Int,
+    ): Consume.FCC[JsValue, Map[String, JsValue]] =
+      if (missingEvents <= 0) {
+        point(acs)
+      } else {
+        for {
+          ContractDelta(creates, archives, _) <- readOne
+          newAcs = acs ++ creates -- archives.map(_.contractId.unwrap)
+          events = creates.size + archives.size
+          next <- go(newAcs, missingEvents - events)
+        } yield next
+      }
+    go(acs, events)
+  }
+
   "fetch should should return an error if empty list of (templateId, key) pairs is passed" in withHttpService {
     (uri, _, _) =>
       singleClientFetchStream(jwt, uri, "[]")
@@ -914,6 +941,170 @@ abstract class AbstractWebsocketServiceIntegrationTest
       } yield inside(result) { case ShouldHaveEnded(_, 2, _) =>
         succeed
       }
+  }
+
+  "Per-query offsets should work as expected" in withHttpService { (uri, _, _) =>
+    val dslSyntax = Consume.syntax[JsValue]
+    import dslSyntax._
+    import spray.json._
+    def createIouCommand(currency: String): String =
+      s"""{
+           |  "templateId": "Iou:Iou",
+           |  "payload": {
+           |    "observers": [],
+           |    "issuer": "Alice",
+           |    "amount": "999.99",
+           |    "currency": "$currency",
+           |    "owner": "Alice"
+           |  }
+           |}""".stripMargin
+    def createIou(currency: String): Future[Assertion] =
+      HttpServiceTestFixture
+        .postJsonStringRequest(
+          uri.withPath(Uri.Path("/v1/create")),
+          createIouCommand(currency),
+          headersWithAuth,
+        )
+        .map(_._1 shouldBe a[StatusCodes.Success])
+    def contractsQuery(currency: String): String =
+      s"""{"templateIds":["Iou:Iou"], "query":{"currency":"$currency"}}"""
+    def contractsQueryWithOffset(offset: domain.Offset, currency: String): String =
+      s"""{"templateIds":["Iou:Iou"], "query":{"currency":"$currency"}, "offset":"${offset.unwrap}"}"""
+    def contracts(currency: String, offset: Option[domain.Offset]): String =
+      offset.fold(contractsQuery(currency))(contractsQueryWithOffset(_, currency))
+    def acsEnd(expectedContracts: Int): Future[domain.Offset] = {
+      def go(killSwitch: UniqueKillSwitch): Sink[JsValue, Future[domain.Offset]] =
+        Consume.interpret(
+          for {
+            _ <- readAcsN(expectedContracts)
+            ContractDelta(Vector(), Vector(), Some(offset)) <- readOne
+            _ = killSwitch.shutdown()
+            _ <- drain
+          } yield offset
+        )
+      val (killSwitch, source) =
+        singleClientQueryStream(jwt, uri, """{"templateIds":["Iou:Iou"]}""")
+          .viaMat(KillSwitches.single)(Keep.right)
+          .preMaterialize()
+      source.via(parseResp).runWith(go(killSwitch))
+    }
+    def test(
+        clue: String,
+        expectedAcsSize: Int,
+        expectedEvents: Int,
+        queryFrom: Option[domain.Offset],
+        eurFrom: Option[domain.Offset],
+        usdFrom: Option[domain.Offset],
+        expected: Map[String, Int],
+    ): Future[Assertion] = {
+      def go(killSwitch: UniqueKillSwitch): Sink[JsValue, Future[Assertion]] = {
+        Consume.interpret(
+          for {
+            acs <- readAcsN(expectedAcsSize)
+            _ <- if (acs.nonEmpty) readOne else point(())
+            contracts <- updateAcs(Map.from(acs), expectedEvents)
+            result = contracts
+              .map(_._2.asJsObject.fields("currency").asInstanceOf[JsString].value)
+              .groupBy(identity)
+              .map { case (k, vs) => k -> vs.size }
+            _ = killSwitch.shutdown()
+          } yield withClue(clue) { result shouldEqual expected }
+        )
+      }
+      val (killSwitch, source) =
+        singleClientQueryStream(
+          jwt,
+          uri,
+          Seq(contracts("EUR", eurFrom), contracts("USD", usdFrom)).mkString("[", ",", "]"),
+          queryFrom,
+        )
+          .viaMat(KillSwitches.single)(Keep.right)
+          .preMaterialize()
+      source.via(parseResp).runWith(go(killSwitch))
+    }
+
+    for {
+      _ <- createIou("EUR")
+      _ <- createIou("USD")
+      offset1 <- acsEnd(2)
+      _ <- createIou("EUR")
+      _ <- createIou("USD")
+      offset2 <- acsEnd(4)
+      _ <- createIou("EUR")
+      _ <- createIou("USD")
+      _ <- test(
+        clue = "No offsets",
+        expectedAcsSize = 6,
+        expectedEvents = 0,
+        queryFrom = None,
+        eurFrom = None,
+        usdFrom = None,
+        expected = Map(
+          "EUR" -> 3,
+          "USD" -> 3,
+        ),
+      )
+      _ <- test(
+        clue = "Offset message only",
+        expectedAcsSize = 0,
+        expectedEvents = 2,
+        queryFrom = Some(offset2),
+        eurFrom = None,
+        usdFrom = None,
+        expected = Map(
+          "EUR" -> 1,
+          "USD" -> 1,
+        ),
+      )
+      _ <- test(
+        clue = "Per-query offsets only",
+        expectedAcsSize = 0,
+        expectedEvents = 3,
+        queryFrom = None,
+        eurFrom = Some(offset1),
+        usdFrom = Some(offset2),
+        expected = Map(
+          "EUR" -> 2,
+          "USD" -> 1,
+        ),
+      )
+      _ <- test(
+        clue = "Absent per-query offset is overridden by offset message",
+        expectedAcsSize = 0,
+        expectedEvents = 3,
+        queryFrom = Some(offset2),
+        eurFrom = None,
+        usdFrom = Some(offset1),
+        expected = Map(
+          "EUR" -> 1,
+          "USD" -> 2,
+        ),
+      )
+      _ <- test(
+        clue = "Offset message does not override per-query offsets",
+        expectedAcsSize = 0,
+        expectedEvents = 4,
+        queryFrom = Some(offset2),
+        eurFrom = Some(offset1),
+        usdFrom = Some(offset1),
+        expected = Map(
+          "EUR" -> 2,
+          "USD" -> 2,
+        ),
+      )
+      _ <- test(
+        clue = "Per-query offset with ACS query",
+        expectedAcsSize = 3,
+        expectedEvents = 1,
+        queryFrom = None,
+        eurFrom = None,
+        usdFrom = Some(offset2),
+        expected = Map(
+          "EUR" -> 3,
+          "USD" -> 1,
+        ),
+      )
+    } yield succeed
   }
 
   "ContractKeyStreamRequest" - {

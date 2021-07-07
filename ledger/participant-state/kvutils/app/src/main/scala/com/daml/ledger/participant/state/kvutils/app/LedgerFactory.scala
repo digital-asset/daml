@@ -13,11 +13,7 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  LedgerConfiguration,
-  PartyConfiguration,
-}
+import com.daml.platform.configuration.{LedgerConfiguration, PartyConfiguration}
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import io.grpc.ServerInterceptor
 import scopt.OptionParser
@@ -45,6 +41,7 @@ trait ConfigProvider[ExtraConfig] {
       databaseConnectionPoolSize = participantConfig.indexerConfig.databaseConnectionPoolSize,
       startupMode = IndexerStartupMode.MigrateAndStart,
       eventsPageSize = config.eventsPageSize,
+      eventsProcessingParallelism = config.eventsProcessingParallelism,
       allowExistingSchema = participantConfig.indexerConfig.allowExistingSchema,
       enableAppendOnlySchema = config.enableAppendOnlySchema,
       maxInputBufferSize = participantConfig.indexerConfig.maxInputBufferSize,
@@ -74,6 +71,7 @@ trait ConfigProvider[ExtraConfig] {
       tlsConfig = config.tlsConfig,
       maxInboundMessageSize = config.maxInboundMessageSize,
       eventsPageSize = config.eventsPageSize,
+      eventsProcessingParallelism = config.eventsProcessingParallelism,
       portFile = participantConfig.portFile,
       seeding = config.seeding,
       managementServiceTimeout = participantConfig.managementServiceTimeout,
@@ -81,20 +79,10 @@ trait ConfigProvider[ExtraConfig] {
       maxContractStateCacheSize = participantConfig.maxContractStateCacheSize,
       maxContractKeyStateCacheSize = participantConfig.maxContractKeyStateCacheSize,
       enableMutableContractStateCache = config.enableMutableContractStateCache,
+      maxTransactionsInMemoryFanOutBufferSize =
+        participantConfig.maxTransactionsInMemoryFanOutBufferSize,
+      enableInMemoryFanOutForLedgerApi = config.enableInMemoryFanOutForLedgerApi,
     )
-
-  def commandConfig(
-      participantConfig: ParticipantConfig,
-      config: Config[ExtraConfig],
-  ): CommandConfiguration = {
-    val defaultMaxCommandsInFlight = CommandConfiguration.default.maxCommandsInFlight
-
-    CommandConfiguration.default.copy(
-      maxCommandsInFlight =
-        participantConfig.maxCommandsInFlight.getOrElse(defaultMaxCommandsInFlight),
-      retentionPeriod = config.trackerRetentionPeriod,
-    )
-  }
 
   def partyConfig(config: Config[ExtraConfig]): PartyConfiguration =
     PartyConfiguration.default

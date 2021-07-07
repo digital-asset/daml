@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.v1
 
+import io.grpc.StatusRuntimeException
+
 sealed abstract class SubmissionResult extends Product with Serializable {
   def description: String
 }
@@ -23,4 +25,10 @@ object SubmissionResult {
   case class SynchronousError(grpcError: com.google.rpc.status.Status) extends SubmissionResult {
     override val description: String = s"Submission failed with error ${grpcError.message}"
   }
+
+  /** Temporary method to tunnel new error codes through the ledger-api server */
+  final case class SynchronousReject(failure: StatusRuntimeException) extends SubmissionResult {
+    override def description: String = failure.getStatus.getDescription
+  }
+
 }

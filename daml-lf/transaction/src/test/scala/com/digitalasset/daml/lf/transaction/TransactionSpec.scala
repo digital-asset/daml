@@ -280,13 +280,18 @@ class TransactionSpec
       tx1 shouldBe Right(tx.map2(identity, mapping2))
 
     }
+    "suffixing v0 contract id should be a no op" in {
+
+      val v0Cid = V.ValueContractId(V.ContractId.V0.assertFromString("#deadbeef"))
+      val Right(v0CidSuffixed) = v0Cid.suffixCid(_ => Bytes.assertFromString("cafe"))
+      v0Cid shouldBe v0CidSuffixed
+
+    }
   }
 
   "contractKeys" - {
     "return all the contract keys" in {
-      // TODO: https://github.com/digital-asset/daml/issues/8020
-      // change VDev to  TransactionVersion.StableVersions.max once exception are released
-      val builder = TransactionBuilder(TransactionVersion.VDev)
+      val builder = TransactionBuilder(TransactionVersion.StableVersions.max)
       val parties = List("Alice")
 
       def create(s: String) = builder
@@ -386,9 +391,7 @@ class TransactionSpec
 
   "contractKeyInputs" - {
     import Transaction._
-    // TODO: https://github.com/digital-asset/daml/issues/8020
-    // change VDev to  TransactionVersion.StableVersions.max once exception are released
-    val dummyBuilder = TransactionBuilder(TransactionVersion.VDev)
+    val dummyBuilder = TransactionBuilder(TransactionVersion.StableVersions.max)
     val parties = List("Alice")
     val tmplId = Ref.Identifier.assertFromString("-pkg-:Mod:T")
     def keyValue(s: String) = V.ValueText(s)

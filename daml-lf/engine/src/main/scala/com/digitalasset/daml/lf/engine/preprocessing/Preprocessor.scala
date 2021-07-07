@@ -8,13 +8,13 @@ package preprocessing
 import java.util
 
 import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.language.Ast
+import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
 import com.daml.lf.transaction.{GenTransaction, NodeId}
 import com.daml.lf.value.Value
+import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
-import scala.util.control.NoStackTrace
 
 private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackages) {
 
@@ -23,6 +23,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
   import transactionPreprocessor._
   import commandPreprocessor._
   import valueTranslator.unsafeTranslateValue
+  import compiledPackages.interface
 
   // This pulls all the dependencies of in `typesToProcess0` and `tyConAlreadySeen0`
   private def getDependencies(
@@ -54,7 +55,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                 )
               } yield r
             case None =>
-              ResultError(Error(s"Couldn't find package $pkgId"))
+              ResultError(Error.Package.MissingPackage(pkgId))
           },
         )
 
@@ -63,57 +64,53 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
           typ match {
             case Ast.TApp(fun, arg) =>
               go(fun :: arg :: typesToProcess, tmplToProcess0, tyConAlreadySeen0, tmplsAlreadySeen0)
-            case Ast.TTyCon(tyCon @ Ref.Identifier(pkgId, qualifiedName))
-                if !tyConAlreadySeen0(tyCon) =>
-              compiledPackages.signatures.lift(pkgId) match {
-                case Some(pkg) =>
-                  pkg.lookupDataType(qualifiedName) match {
-                    case Right(Ast.DDataType(_, _, dataType)) =>
-                      val typesToProcess = dataType match {
-                        case Ast.DataRecord(fields) =>
-                          fields.foldRight(typesToProcess0)(_._2 :: _)
-                        case Ast.DataVariant(variants) =>
-                          variants.foldRight(typesToProcess0)(_._2 :: _)
-                        case Ast.DataEnum(_) =>
-                          typesToProcess0
-                      }
-                      go(
-                        typesToProcess,
-                        tmplToProcess0,
-                        tyConAlreadySeen0 + tyCon,
-                        tmplsAlreadySeen0,
-                      )
-                    case Left(e) =>
-                      ResultError(Error(e))
+            case Ast.TTyCon(tyCon) if !tyConAlreadySeen0(tyCon) =>
+              interface.lookupDataType(tyCon) match {
+                case Right(Ast.DDataType(_, _, dataType)) =>
+                  val typesToProcess = dataType match {
+                    case Ast.DataRecord(fields) =>
+                      fields.foldRight(typesToProcess0)(_._2 :: _)
+                    case Ast.DataVariant(variants) =>
+                      variants.foldRight(typesToProcess0)(_._2 :: _)
+                    case Ast.DataEnum(_) =>
+                      typesToProcess0
                   }
-                case None =>
+                  go(
+                    typesToProcess,
+                    tmplToProcess0,
+                    tyConAlreadySeen0 + tyCon,
+                    tmplsAlreadySeen0,
+                  )
+                case Left(LookupError.Package(pkgId)) =>
                   pullPackage(pkgId)
+                case Left(e) =>
+                  ResultError(Error.Preprocessing.Lookup(e))
               }
             case Ast.TTyCon(_) | Ast.TNat(_) | Ast.TBuiltin(_) | Ast.TVar(_) =>
               go(typesToProcess, tmplToProcess0, tyConAlreadySeen0, tmplsAlreadySeen0)
             case Ast.TSynApp(_, _) | Ast.TForall(_, _) | Ast.TStruct(_) =>
-              ResultError(Error(s"unserializable type ${typ.pretty}"))
+              // We assume that getDependencies is always given serializable types
+              ResultError(
+                Error.Preprocessing
+                  .Internal(NameOf.qualifiedNameOfCurrentFunc, s"unserializable type ${typ.pretty}")
+              )
           }
         case Nil =>
           tmplToProcess0 match {
             case tmplId :: tmplsToProcess if tmplsAlreadySeen0(tmplId) =>
               go(Nil, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
             case tmplId :: tmplsToProcess =>
-              val pkgId = tmplId.packageId
-              compiledPackages.getSignature(pkgId) match {
-                case Some(pkg) =>
-                  pkg.lookupTemplate(tmplId.qualifiedName) match {
-                    case Right(template) =>
-                      val typs0 = template.choices.map(_._2.argBinder._2).toList
-                      val typs1 =
-                        if (tyConAlreadySeen0(tmplId)) typs0 else Ast.TTyCon(tmplId) :: typs0
-                      val typs2 = template.key.fold(typs1)(_.typ :: typs1)
-                      go(typs2, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
-                    case Left(error) =>
-                      ResultError(Error(error))
-                  }
-                case None =>
+              interface.lookupTemplate(tmplId) match {
+                case Right(template) =>
+                  val typs0 = template.choices.map(_._2.argBinder._2).toList
+                  val typs1 =
+                    if (tyConAlreadySeen0(tmplId)) typs0 else Ast.TTyCon(tmplId) :: typs0
+                  val typs2 = template.key.fold(typs1)(_.typ :: typs1)
+                  go(typs2, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
+                case Left(LookupError.Package(pkgId)) =>
                   pullPackage(pkgId)
+                case Left(error) =>
+                  ResultError(Error.Preprocessing.Lookup(error))
               }
             case Nil =>
               ResultDone(tyConAlreadySeen0 -> tmplsAlreadySeen0)
@@ -168,24 +165,10 @@ private[preprocessing] object Preprocessor {
     a
   }
 
-  sealed abstract class PreprocessorException extends RuntimeException with NoStackTrace
-
-  // we use the following exceptions for easier error handling in translateValues
-  final case class PreprocessorError(err: Error) extends PreprocessorException
-  final case class PreprocessorMissingPackage(pkgId: Ref.PackageId) extends PreprocessorException
-
-  @throws[PreprocessorException]
-  def fail(s: String): Nothing =
-    throw PreprocessorError(ValidationError(s))
-
-  @throws[PreprocessorException]
-  def fail(e: Error): Nothing =
-    throw PreprocessorError(e)
-
-  @throws[PreprocessorException]
-  def assertRight[X](either: Either[String, X]): X = either match {
-    case Left(e) => fail(e)
+  @throws[Error.Preprocessing.Error]
+  def handleLookup[X](either: Either[LookupError, X]): X = either match {
     case Right(v) => v
+    case Left(error) => throw Error.Preprocessing.Lookup(error)
   }
 
   @inline
@@ -197,25 +180,22 @@ private[preprocessing] object Preprocessor {
       try {
         ResultDone(unsafeRun)
       } catch {
-        case PreprocessorError(e) =>
-          ResultError(e)
-        case PreprocessorMissingPackage(_) =>
-          // One package is missing, the we pull all dependencies and restart from scratch.
+        case Error.Preprocessing.MissingPackage(_) =>
           handleMissingPackages.flatMap(_ => start)
+        case e: Error.Preprocessing.Error =>
+          ResultError(e)
       }
 
     start
   }
 
   @inline
-  def safelyRun[X](unsafeRun: => X): Either[Error, X] =
+  def safelyRun[X](unsafeRun: => X): Either[Error.Preprocessing.Error, X] =
     try {
       Right(unsafeRun)
     } catch {
-      case PreprocessorError(e) =>
+      case e: Error.Preprocessing.Error =>
         Left(e)
-      case PreprocessorMissingPackage(pkgId) =>
-        Left((Error(s"Couldn't find package $pkgId")))
     }
 
 }

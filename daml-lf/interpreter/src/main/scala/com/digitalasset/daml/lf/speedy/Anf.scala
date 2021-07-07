@@ -22,6 +22,8 @@ package com.daml.lf.speedy
   *  expression forms: SEAppGeneral and SECase are removed, and replaced by the simpler
   *  SEAppAtomic and SECaseAtomic (plus SELet as required).
   */
+
+import com.daml.lf.data.Trampoline.{Bounce, Land, Trampoline}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Compiler.CompilationError
 
@@ -112,19 +114,6 @@ private[lf] object Anf {
     val extra = (0 until n).map(i => (env.oldDepth.incr(i), depth.incr(i)))
     Env(absMap = env.absMap ++ extra, oldDepth = env.oldDepth.incr(n))
   }
-
-  // Returning a Bounce object allows a function to evict itself from the
-  // current stack.
-  private[this] sealed abstract class Trampoline[T] {
-    @tailrec
-    final def bounce: T = this match {
-      case Land(x) => x
-      case Bounce(continue) => continue().bounce
-    }
-  }
-
-  private[this] final case class Land[T](x: T) extends Trampoline[T]
-  private[this] final case class Bounce[T](continue: () => Trampoline[T]) extends Trampoline[T]
 
   /** Tx is the type for the stacked transformation functions managed by the ANF
     * transformation, mainly transformExp.
@@ -327,19 +316,6 @@ private[lf] object Anf {
 
       case SELet1General(rhs, body) =>
         Bounce(() => transformLet1(depth, env, rhs, body, k, transform))
-
-      case SECatchSubmitMustFail(body0) =>
-        Bounce(() =>
-          flattenExp(depth, env, body0) { body =>
-            Bounce(() =>
-              transform(
-                depth,
-                SECatchSubmitMustFail(body.wrapped),
-                k,
-              )
-            )
-          }
-        )
 
       case SELocation(loc, body) => {
         Bounce(() =>

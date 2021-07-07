@@ -366,6 +366,19 @@ template LookerUpByKey
         do
           lookupByKey @WithKey (p, n)
 
+template FailedFetchByKey
+  with
+    p : Party
+  where
+    signatory p
+    choice FetchAfterLookup : (ContractId WithKey, WithKey)
+      with
+        n : Int
+      controller p
+      do let key = (p, n)
+         None <- lookupByKey @WithKey key
+         fetchByKey @WithKey key
+
 
 test_failedAuths = scenario do
   alice <- getParty "alice"

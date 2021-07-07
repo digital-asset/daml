@@ -23,10 +23,8 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
 
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
-  private val noPackages: PureCompiledPackages = PureCompiledPackages(Map.empty).toOption.get
-
   private def runExpr(e: Expr): SValue = {
-    val machine = Speedy.Machine.fromPureExpr(noPackages, e)
+    val machine = Speedy.Machine.fromPureExpr(PureCompiledPackages.Empty, e)
     machine.run() match {
       case SResultFinalValue(v) => v
       case res => throw new RuntimeException(s"Got unexpected interpretation result $res")
@@ -133,7 +131,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
     )
     var machine: Speedy.Machine = null
     "compile" in {
-      machine = Speedy.Machine.fromPureExpr(noPackages, list)
+      machine = Speedy.Machine.fromPureExpr(PureCompiledPackages.Empty, list)
     }
     "interpret" in {
       val value = machine.run() match {
@@ -160,7 +158,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
     }
     "half full" in {
       val log = RingBufferTraceLog(logger, 2)
-      log.add("test", None)
+      log.addDebug("test", None)
       val iter = log.iterator
       iter.hasNext shouldBe true
       iter.next() shouldBe (("test", None))
@@ -168,9 +166,9 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
     }
     "overflow" in {
       val log = RingBufferTraceLog(logger, 2)
-      log.add("test1", None)
-      log.add("test2", None)
-      log.add("test3", None) // should replace "test1"
+      log.addDebug("test1", None)
+      log.addDebug("test2", None)
+      log.addDebug("test3", None) // should replace "test1"
       val iter = log.iterator
       iter.hasNext shouldBe true
       iter.next() shouldBe (("test2", None))
@@ -185,9 +183,9 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
     val dummyPkg = PackageId.assertFromString("dummy")
     val ref = Identifier(dummyPkg, QualifiedName.assertFromString("Foo:bar"))
     val modName = DottedName.assertFromString("Foo")
-    val pkgs1 = noPackages
+    val pkgs1 = PureCompiledPackages.Empty
     val pkgs2 =
-      PureCompiledPackages(
+      PureCompiledPackages.assertBuild(
         Map(
           dummyPkg ->
             Package(
@@ -208,8 +206,8 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
               None,
             )
         )
-      ).toOption.get
-    val pkgs3 = PureCompiledPackages(
+      )
+    val pkgs3 = PureCompiledPackages.assertBuild(
       Map(
         dummyPkg ->
           Package(
@@ -227,7 +225,7 @@ class InterpreterTest extends AnyWordSpec with Matchers with TableDrivenProperty
             None,
           )
       )
-    ).toOption.get
+    )
 
     "succeeds" in {
       val machine = Speedy.Machine.fromPureExpr(pkgs1, EVal(ref))

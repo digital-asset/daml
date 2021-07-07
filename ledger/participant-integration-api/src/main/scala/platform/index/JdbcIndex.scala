@@ -26,6 +26,7 @@ private[platform] object JdbcIndex {
       databaseConnectionPoolSize: Int,
       databaseConnectionTimeout: FiniteDuration,
       eventsPageSize: Int,
+      eventsProcessingParallelism: Int,
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
@@ -34,6 +35,8 @@ private[platform] object JdbcIndex {
       maxContractStateCacheSize: Long,
       maxContractKeyStateCacheSize: Long,
       enableMutableContractStateCache: Boolean,
+      maxTransactionsInMemoryFanOutBufferSize: Long,
+      enableInMemoryFanOutForLedgerApi: Boolean,
   )(implicit mat: Materializer, loggingContext: LoggingContext): ResourceOwner[IndexService] =
     new ReadOnlySqlLedger.Owner(
       serverRole = serverRole,
@@ -42,6 +45,7 @@ private[platform] object JdbcIndex {
       databaseConnectionTimeout = databaseConnectionTimeout,
       initialLedgerId = ledgerId,
       eventsPageSize = eventsPageSize,
+      eventsProcessingParallelism = eventsProcessingParallelism,
       servicesExecutionContext = servicesExecutionContext,
       metrics = metrics,
       lfValueTranslationCache = lfValueTranslationCache,
@@ -50,7 +54,9 @@ private[platform] object JdbcIndex {
       maxContractStateCacheSize = maxContractStateCacheSize,
       maxContractKeyStateCacheSize = maxContractKeyStateCacheSize,
       enableMutableContractStateCache = enableMutableContractStateCache,
+      enableInMemoryFanOutForLedgerApi = enableInMemoryFanOutForLedgerApi,
       participantId = participantId,
+      maxTransactionsInMemoryFanOutBufferSize = maxTransactionsInMemoryFanOutBufferSize,
     ).map { ledger =>
       new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger, metrics), participantId)
     }

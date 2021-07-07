@@ -6,7 +6,6 @@ package com.daml.platform.store.dao.events
 import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
-
 import anorm.SqlParser.{array, binaryStream, bool, int, long, str}
 import anorm.{RowParser, ~}
 import com.daml.ledger.participant.state.v1.Offset
@@ -45,6 +44,8 @@ private[events] object EventsTable {
   private type SharedRow =
     Offset ~ String ~ Int ~ Long ~ String ~ String ~ Instant ~ Identifier ~ Option[String] ~
       Option[String] ~ Array[String]
+
+  import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
 
   private val sharedRow: RowParser[SharedRow] =
     offset("event_offset") ~
@@ -124,6 +125,9 @@ private[events] object EventsTable {
       events.headOption.flatMap { first =>
         val flatEvents =
           TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
+        // Allows emitting flat transactions with no events, a use-case needed
+        // for the functioning of DAML triggers.
+        // (more details in https://github.com/digital-asset/daml/issues/6975)
         if (flatEvents.nonEmpty || first.commandId.nonEmpty)
           Some(
             ApiTransaction(

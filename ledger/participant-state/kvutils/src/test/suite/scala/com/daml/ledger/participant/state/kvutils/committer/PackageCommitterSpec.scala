@@ -217,6 +217,12 @@ class PackageCommitterSpec extends AnyWordSpec with Matchers with ParallelTestEx
       )
     }
 
+    "accept submissions when dependencies are known by the engine" in {
+      val committer = newCommitter
+      committer.engine.preloadPackage(libraryPackageId, libraryPackage)
+      shouldSucceed(committer.submit(buildSubmission(dependentArchive, libraryArchive)))
+    }
+
     "reject not authorized submissions" in {
       val committer = newCommitter
 

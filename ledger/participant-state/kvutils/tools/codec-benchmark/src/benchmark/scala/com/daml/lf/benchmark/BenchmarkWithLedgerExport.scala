@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.lf.archive.Decode
 import org.openjdk.jmh.annotations.{Param, Scope, Setup, State}
 
-import scala.collection.JavaConverters.iterableAsScalaIterableConverter
+import scala.jdk.CollectionConverters._
 
 @State(Scope.Benchmark)
 abstract class BenchmarkWithLedgerExport {
