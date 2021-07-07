@@ -6,7 +6,6 @@ package com.daml.lf.archive
 import java.io.{ByteArrayOutputStream, FileOutputStream, OutputStream}
 import java.nio.file.Path
 import java.util.zip.{ZipEntry, ZipOutputStream}
-import scalaz.syntax.traverse._
 
 object DarWriter {
   private val manifestPath = "META-INF/MANIFEST.MF"

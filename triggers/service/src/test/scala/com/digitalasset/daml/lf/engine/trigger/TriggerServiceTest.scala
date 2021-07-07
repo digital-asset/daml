@@ -58,7 +58,7 @@ trait AbstractTriggerServiceTest
   protected val darPath = requiredResource("triggers/service/test-model.dar")
 
   // Encoded dar used in service initialization
-  protected val dar = DarReader().readArchiveFromFile(darPath).get
+  protected val dar = DarReader().readArchiveFromFile(darPath).get.map(p => p.pkgId -> p.proto)
   protected val testPkgId = dar.main._1
   override protected val damlPackages: List[File] = List(darPath)
 

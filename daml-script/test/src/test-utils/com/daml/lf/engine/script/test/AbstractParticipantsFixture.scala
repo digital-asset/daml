@@ -19,7 +19,6 @@ import com.daml.lf.speedy.SValue
 import com.daml.lf.speedy.SValue.SRecord
 import org.scalatest.Suite
 import scalaz.\/-
-import scalaz.syntax.traverse._
 import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,9 +29,7 @@ trait AbstractScriptTest extends AkkaBeforeAndAfterAll {
   protected def timeMode: ScriptTimeMode
 
   protected def readDar(file: File): (Dar[(PackageId, Package)], EnvironmentInterface) = {
-    val dar = DarReader().readArchiveFromFile(file).get.map { case (pkgId, archive) =>
-      Decode.readArchivePayload(pkgId, archive)
-    }
+    val dar = DarReader().readArchiveFromFile(file).get.map(Decode.decode)
     val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
     val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
     (dar, envIface)

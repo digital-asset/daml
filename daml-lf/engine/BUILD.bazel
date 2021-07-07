@@ -91,6 +91,7 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
+    versioned_deps = {"2.13": ["@maven//:com_google_protobuf_protobuf_java"]},
     deps = [
         ":engine",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -100,6 +101,5 @@ da_scala_test(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

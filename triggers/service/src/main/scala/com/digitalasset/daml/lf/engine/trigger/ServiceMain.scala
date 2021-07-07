@@ -92,7 +92,7 @@ object ServiceMain {
         val encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]] =
           config.darPaths.traverse(p => DarReader().readArchiveFromFile(p.toFile).toEither) match {
             case Left(err) => sys.error(s"Failed to read archive: $err")
-            case Right(dar) => dar
+            case Right(dars) => dars.map(_.map(p => p.pkgId -> p.proto))
           }
         val authConfig: AuthConfig = config.authUri match {
           case None => NoAuth

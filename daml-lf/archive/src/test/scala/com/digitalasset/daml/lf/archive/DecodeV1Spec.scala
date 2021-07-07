@@ -7,7 +7,6 @@ import java.math.BigDecimal
 import java.nio.file.{Files, Paths}
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.{Decimal, Numeric, Ref}
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{Ast, LanguageVersion => LV}
@@ -918,10 +917,10 @@ class DecodeV1Spec
 
   "decodeModuleRef" should {
 
-    lazy val ((pkgId, dalfProto), majorVersion) = {
+    lazy val ArchivePayload(pkgId, dalfProto, version) = {
       val dalfFile =
         Files.newInputStream(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
-      try Reader.readArchiveAndVersion(dalfFile)
+      try Reader().readArchive(dalfFile)
       finally dalfFile.close()
     }
 
@@ -948,16 +947,16 @@ class DecodeV1Spec
     }
 
     "take a dalf with interned IDs" in {
-      majorVersion should ===(LV.Major.V1)
+      version.major should ===(LV.Major.V1)
 
-      dalfProto.getMinor should !==("dev")
+      version.minor should !==("dev")
 
       extId should not be empty
       (extId: String) should !==(pkgId: String)
     }
 
     "decode resolving the interned package ID" in {
-      val decoder = Decode.decoders(LV(majorVersion, LV.Minor(dalfProto.getMinor)))
+      val decoder = Decode.decoders(version)
       inside(
         decoder.decoder
           .decodePackage(pkgId, decoder.extract(dalfProto))

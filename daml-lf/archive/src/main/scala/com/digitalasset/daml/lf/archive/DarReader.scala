@@ -7,11 +7,8 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File, FileInputStre
 import java.util.zip.ZipInputStream
 
 import com.daml.lf.archive.Errors.{InvalidDar, InvalidLegacyDar, InvalidZipEntry}
-import com.daml.lf.data.Ref
 import com.daml.lf.data.TryOps.Bracket.bracket
 import com.daml.lf.data.TryOps.sequence
-import com.daml.lf.language.LanguageMajorVersion
-import com.daml.daml_lf_dev.DamlLf
 
 import scala.annotation.tailrec
 import scala.util.control.NonFatal
@@ -171,20 +168,12 @@ object DarReader {
     private def isPrimDalf(s: String): Boolean = s.toLowerCase.contains("-prim") && isDalf(s)
   }
 
-  def apply(): DarReader[(Ref.PackageId, DamlLf.ArchivePayload)] =
+  def apply(): DarReader[ArchivePayload] =
     new DarReader(
       DarManifestReader.dalfNames,
-      { case (_, is) =>
-        Try(Reader.decodeArchiveFromInputStream(is))
-      },
+      { case (_, is) => Try(Reader().readArchive(is)) },
     )
 
   def apply[A](parseDalf: (Long, InputStream) => Try[A]): DarReader[A] =
     new DarReader(DarManifestReader.dalfNames, parseDalf)
 }
-
-object DarReaderWithVersion
-    extends DarReader[((Ref.PackageId, DamlLf.ArchivePayload), LanguageMajorVersion)](
-      DarManifestReader.dalfNames,
-      { case (_, is) => Try(Reader.readArchiveAndVersion(is)) },
-    )

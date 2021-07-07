@@ -8,8 +8,7 @@ import java.nio.file.Path
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.client.LedgerClient
-import com.daml.lf.archive.Decode
-import com.daml.lf.archive.Reader.damlLfCodedInputStreamFromBytes
+import com.daml.lf.archive.{Decode, Reader}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageVersion}
@@ -32,14 +31,9 @@ object Dependencies {
         case p :: todo if acc.contains(p) => go(todo, acc)
         case p :: todo =>
           client.packageClient.getPackage(p).flatMap { pkgResp =>
-            val cos = damlLfCodedInputStreamFromBytes(
-              pkgResp.archivePayload.toByteArray,
-              Decode.PROTOBUF_RECURSION_LIMIT,
-            )
             val pkgId = PackageId.assertFromString(pkgResp.hash)
             val pkg = Decode
-              .readArchivePayloadAndVersion(pkgId, DamlLf.ArchivePayload.parser().parseFrom(cos))
-              ._1
+              .decode(Reader().readArchivePayload(pkgId, pkgResp.archivePayload.newInput()))
               ._2
             go(todo ++ pkg.directDeps, acc + (pkgId -> ((pkgResp.archivePayload, pkg))))
           }

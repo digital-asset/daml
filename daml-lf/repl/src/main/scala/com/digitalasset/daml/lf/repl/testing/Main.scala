@@ -401,11 +401,8 @@ object Repl {
     val state = initialState(compilerConfig)
     try {
       val (packagesMap, loadingTime) = time {
-        val packages =
-          UniversalArchiveReader().readFile(new File(darFile)).get
-        Map(packages.all.map { case (pkgId, pkgArchive) =>
-          Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-        }: _*)
+        val payloads = UniversalArchiveReader().readFile(new File(darFile)).get
+        payloads.all.map(Decode.decode).toMap
       }
 
       val npkgs = packagesMap.size

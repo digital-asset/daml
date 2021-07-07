@@ -39,6 +39,7 @@ da_scala_binary(
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
+    versioned_deps = {"2.13": ["@maven//:com_google_protobuf_protobuf_java"]},
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -49,7 +50,6 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 
@@ -67,6 +67,7 @@ da_scala_binary(
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
+    versioned_deps = {"2.13": ["@maven//:com_google_protobuf_protobuf_java"]},
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -77,7 +78,6 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 
@@ -100,6 +100,7 @@ da_scala_binary(
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
+    versioned_deps = {"2.13": ["@maven//:com_google_protobuf_protobuf_java"]},
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
     ],
@@ -110,6 +111,5 @@ da_scala_binary(
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

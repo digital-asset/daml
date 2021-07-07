@@ -7,7 +7,7 @@ import java.io.File
 import java.time.Instant
 
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.lf.archive.Reader.ParseError
+import com.daml.lf.archive.ParseError
 import com.daml.lf.archive.{DarReader, Decode}
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
@@ -102,7 +102,7 @@ private[platform] case class InMemoryPackageStore(
     archives
       .traverse(archive =>
         try {
-          Right((archive, Decode.decodeArchive(archive)._2))
+          Right((archive, Decode.decode(archive)._2))
         } catch {
           case err: ParseError => Left(s"Could not parse archive ${archive.getHash}: $err")
         }

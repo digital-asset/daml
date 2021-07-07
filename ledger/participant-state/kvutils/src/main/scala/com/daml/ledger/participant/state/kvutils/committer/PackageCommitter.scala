@@ -193,7 +193,7 @@ final private[kvutils] class PackageCommitter(
       archives
         .foldLeft[Result](Right(Map.empty)) { (acc, arch) =>
           try {
-            acc.map(_ + lf.archive.Decode.decodeArchive(arch))
+            acc.map(_ + lf.archive.Decode.decode(arch))
           } catch {
             case NonFatal(e) =>
               Left(

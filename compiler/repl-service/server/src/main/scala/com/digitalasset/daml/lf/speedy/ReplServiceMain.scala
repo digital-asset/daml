@@ -8,7 +8,7 @@ import akka.actor.ActorSystem
 import akka.stream._
 import com.daml.auth.TokenHolder
 import com.daml.lf.PureCompiledPackages
-import com.daml.lf.archive.Decode
+import com.daml.lf.archive.{Decode, Reader}
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
 import com.daml.lf.language.Ast._
@@ -225,7 +225,7 @@ class ReplService(
       req: LoadPackageRequest,
       respObs: StreamObserver[LoadPackageResponse],
   ): Unit = {
-    val (pkgId, pkg) = Decode.decodeArchiveFromInputStream(req.getPackage.newInput)
+    val (pkgId, pkg) = Decode.decode(Reader().readArchive(req.getPackage.newInput))
     val newSignatures = signatures.updated(pkgId, AstUtil.toSignature(pkg))
     val newCompiledDefinitions = compiledDefinitions ++
       new Compiler(new language.Interface(newSignatures), compilerConfig)
@@ -246,7 +246,7 @@ class ReplService(
       .getOrElse(throw new RuntimeException(s"No decode support for LF ${lfVer.pretty}"))
       .decoder
     val lfScenarioModule =
-      dop.protoScenarioModule(Decode.damlLfCodedInputStream(req.getDamlLf1.newInput))
+      dop.protoScenarioModule(Reader.damlLfCodedInputStream(req.getDamlLf1.newInput))
     val mod: Ast.Module = dop.decodeScenarioModule(homePackageId, lfScenarioModule)
     val pkg = Package((mainModules + (mod.name -> mod)).values, Seq(), lfVer, None)
     // TODO[AH] Provide daml-script package id from REPL client.

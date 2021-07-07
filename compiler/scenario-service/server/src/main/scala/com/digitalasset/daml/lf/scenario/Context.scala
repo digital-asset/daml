@@ -8,8 +8,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.archive.Decode
-import com.daml.lf.archive.Decode.ParseError
+import com.daml.lf.archive.{Decode, ParseError, Reader}
 import com.daml.lf.data.{assertRight, ImmArray}
 import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
@@ -86,7 +85,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
     .decoder
 
   private def decodeModule(bytes: ByteString): Ast.Module = {
-    val lfScenarioModule = dop.protoScenarioModule(Decode.damlLfCodedInputStream(bytes.newInput))
+    val lfScenarioModule = dop.protoScenarioModule(Reader.damlLfCodedInputStream(bytes.newInput))
     dop.decodeScenarioModule(homePackageId, lfScenarioModule)
   }
 
@@ -105,7 +104,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
 
     val newPackages =
       loadPackages.map { archive =>
-        Decode.decodeArchiveFromInputStream(archive.newInput)
+        Decode.decode(Reader().readArchive(archive.newInput))
       }.toMap
 
     val modulesToCompile =

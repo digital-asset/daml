@@ -4,8 +4,6 @@
 package com.daml.lf
 package archive
 
-import java.io.InputStream
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.LanguageMajorVersion._
@@ -13,8 +11,7 @@ import com.daml.lf.language.LanguageVersion
 import com.daml.daml_lf_dev.DamlLf
 import com.google.protobuf.CodedInputStream
 
-sealed class Decode(onlySerializableDataDefs: Boolean)
-    extends archive.Reader[(PackageId, Package)] {
+sealed class Decode(onlySerializableDataDefs: Boolean) {
   import Decode._
 
   private[lf] val decoders: PartialFunction[LanguageVersion, PayloadDecoder] = {
@@ -22,33 +19,26 @@ sealed class Decode(onlySerializableDataDefs: Boolean)
       PayloadDecoder(new DecodeV1(minor))(_.getDamlLf1)
   }
 
-  override protected[this] def readArchivePayloadOfVersion(
-      hash: PackageId,
-      lf: DamlLf.ArchivePayload,
-      version: LanguageVersion,
-  ): (PackageId, Package) = {
-    val decoder =
-      decoders.lift(version).getOrElse(throw ParseError(s"$version unsupported"))
+  def decode(archive: DamlLf.Archive): (PackageId, Package) =
+    decode(Reader().readArchive(archive))
 
-    (hash, decoder.decoder.decodePackage(hash, decoder.extract(lf), onlySerializableDataDefs))
+  def decode(payload: ArchivePayload): (PackageId, Package) = {
+    val decoder =
+      decoders
+        .lift(payload.version)
+        .getOrElse(throw ParseError(s"${payload.version} unsupported"))
+    (
+      payload.pkgId,
+      decoder.decoder.decodePackage(
+        payload.pkgId,
+        decoder.extract(payload.proto),
+        onlySerializableDataDefs,
+      ),
+    )
   }
 }
 
 object Decode extends Decode(onlySerializableDataDefs = false) {
-  type ParseError = Reader.ParseError
-  val ParseError = Reader.ParseError
-
-  def damlLfCodedInputStreamFromBytes(
-      payload: Array[Byte],
-      recursionLimit: Int = PROTOBUF_RECURSION_LIMIT,
-  ): CodedInputStream =
-    Reader.damlLfCodedInputStreamFromBytes(payload, recursionLimit)
-
-  def damlLfCodedInputStream(
-      is: InputStream,
-      recursionLimit: Int = PROTOBUF_RECURSION_LIMIT,
-  ): CodedInputStream =
-    Reader.damlLfCodedInputStream(is, recursionLimit)
 
   /** inlined [[scalaz.ContravariantCoyoneda]]`[OfPackage, DamlLf.ArchivePayload]` */
   private[lf] sealed abstract class PayloadDecoder {
@@ -87,9 +77,9 @@ object Decode extends Decode(onlySerializableDataDefs = false) {
 
   def checkIdentifier(s: String): Unit = {
     if (s.isEmpty)
-      throw Reader.ParseError("empty identifier")
+      throw ParseError("empty identifier")
     else if (!(identifierStart(s.head) && s.tail.forall(identifierPart)))
-      throw Reader.ParseError(s"identifier $s contains invalid character")
+      throw ParseError(s"identifier $s contains invalid character")
   }
 
   private val decimalPattern = "[+-]*[0-9]{0,28}(\\.[0-9]{0,10})*".r.pattern

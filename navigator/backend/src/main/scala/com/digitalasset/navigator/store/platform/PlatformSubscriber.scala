@@ -305,7 +305,7 @@ class PlatformSubscriber(
     val cos = Reader.damlLfCodedInputStream(res.archivePayload.newInput)
     val payload = DamlLf.ArchivePayload.parseFrom(cos)
     val (errors, out) =
-      InterfaceReader.readInterface(DamlLfRef.PackageId.assertFromString(res.hash) -> payload)
+      InterfaceReader.readInterface(DamlLfRef.PackageId.assertFromString(res.hash), payload)
     if (!errors.equals(Errors.zeroErrors)) {
       log.error("Errors loading package {}: {}", res.hash, errors.toString)
     }

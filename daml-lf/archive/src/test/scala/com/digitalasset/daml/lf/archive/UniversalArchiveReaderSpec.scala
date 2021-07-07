@@ -16,7 +16,7 @@ class UniversalArchiveReaderSpec extends AnyFlatSpec with Matchers with TryValue
 
   private val dalfFile = new File(rlocation("daml-lf/archive/DarReaderTest.dalf"))
 
-  behavior of classOf[UniversalArchiveReader[_]].getSimpleName
+  behavior of classOf[UniversalArchiveReader].getSimpleName
 
   it should "parse a DAR file" in {
     UniversalArchiveReader().readFile(darFile).success
@@ -27,11 +27,11 @@ class UniversalArchiveReaderSpec extends AnyFlatSpec with Matchers with TryValue
   }
 
   it should "parse a DAR file and return language version" in {
-    UniversalArchiveReaderWithVersion().readFile(darFile).success
+    UniversalArchiveReader().readFile(darFile).success
   }
 
   it should "parse a DALF file and return language version" in {
-    UniversalArchiveReaderWithVersion().readFile(dalfFile).success
+    UniversalArchiveReader().readFile(dalfFile).success
   }
 
 }
