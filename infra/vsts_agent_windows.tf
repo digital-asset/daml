@@ -16,7 +16,7 @@ locals {
       extra      = "",
     },
     {
-      suffix     = "-no-spool",
+      suffix     = "-t",
       size       = 6,
       assignment = "default",
       extra      = <<EOF
