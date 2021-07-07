@@ -31,6 +31,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 class MutableCacheBackedContractStore(
     metrics: Metrics,
@@ -75,25 +76,38 @@ class MutableCacheBackedContractStore(
     if (ids.isEmpty)
       Future.failed(EmptyContractIds())
     else {
-      val (cached, toBeFetched) = partitionCached(ids)
-      if (toBeFetched.isEmpty)
-        Future.successful(Some(cached.max))
-      else
-        contractsReader
-          .lookupMaximumLedgerTime(toBeFetched)
-          .map(_.map(m => (cached + m).max))
+      Future
+        .fromTry(partitionCached(ids))
+        .flatMap {
+          case (cached, toBeFetched) if toBeFetched.isEmpty =>
+            Future.successful(Some(cached.max))
+          case (cached, toBeFetched) =>
+            contractsReader
+              .lookupMaximumLedgerTime(toBeFetched)
+              .map(_.map(m => (cached + m).max))
+        }
     }
 
   private def partitionCached(
       ids: Set[ContractId]
   )(implicit loggingContext: LoggingContext) = {
     val cacheQueried = ids.map(id => id -> contractsCache.get(id))
-    val cached = cacheQueried.collect {
-      case (_, Some(Active(_, _, createLedgerEffectiveTime))) => createLedgerEffectiveTime
-      case (_, Some(_)) => throw ContractNotFound(ids)
+
+    val cached = cacheQueried.view
+      .map(_._2)
+      .foldLeft(Try(Set.empty[Instant])) {
+        case (Success(timestamps), Some(active: Active)) =>
+          Success(timestamps + active.createLedgerEffectiveTime)
+        case (Success(_), Some(Archived(_))) => Failure(ContractNotFound(ids))
+        case (Success(_), Some(NotFound)) => Failure(ContractNotFound(ids))
+        case (Success(timestamps), None) => Success(timestamps)
+        case (failure, _) => failure
+      }
+
+    cached.map { cached =>
+      val missing = cacheQueried.collect { case (id, None) => id }
+      (cached, missing)
     }
-    val missing = cacheQueried.collect { case (id, None) => id }
-    (cached, missing)
   }
 
   private def readThroughContractsCache(contractId: ContractId)(implicit
@@ -380,7 +394,7 @@ object MutableCacheBackedContractStore {
 
   final case class ContractNotFound(contractIds: Set[ContractId])
       extends IllegalArgumentException(
-        s"One or more of the following contract identifiers has been found: ${contractIds.map(_.coid).mkString(", ")}"
+        s"One or more of the following contract identifiers has not been found: ${contractIds.map(_.coid).mkString(", ")}"
       )
 
   final case class EmptyContractIds()
