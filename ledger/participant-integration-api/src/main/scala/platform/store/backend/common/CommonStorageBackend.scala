@@ -949,8 +949,8 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
        FROM
            participant_events
        WHERE
-           event_sequential_id > #$startExclusive
-           and event_sequential_id <= #$endInclusive
+           event_sequential_id > $startExclusive
+           and event_sequential_id <= $endInclusive
            and event_kind != 0
        ORDER BY event_sequential_id ASC"""
       .asVectorOf(rawTransactionEventParser)(connection)
