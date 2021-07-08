@@ -16,14 +16,11 @@ import com.daml.platform.store.appendonlydao.events.QueryNonPruned
 import com.daml.platform.store.backend.CompletionStorageBackend
 import com.daml.platform.store.dao.LedgerDaoCommandCompletionsReader
 
-import scala.concurrent.{ExecutionContext, Future}
-
 private[appendonlydao] final class CommandCompletionsReader(
     dispatcher: DbDispatcher,
     storageBackend: CompletionStorageBackend,
     queryNonPruned: QueryNonPruned,
     metrics: Metrics,
-    executionContext: ExecutionContext,
 ) extends LedgerDaoCommandCompletionsReader {
 
   private def offsetFor(response: CompletionStreamResponse): Offset =
@@ -53,7 +50,6 @@ private[appendonlydao] final class CommandCompletionsReader(
                 s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${pruned.toHexString}",
             )
           }
-          .flatMap(_.fold(Future.failed, Future.successful))(executionContext)
       )
       .mapConcat(_.map(response => offsetFor(response) -> response))
   }

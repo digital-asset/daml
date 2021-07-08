@@ -100,7 +100,7 @@ private[appendonlydao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
         logger.debug(s"getFlatTransactions query($range)")
-        queryNonPruned.executeSqlOrThrow(
+        queryNonPruned.executeSql(
           getTransactions(
             EventsRange(range.startExclusive._2, range.endInclusive._2),
             filter,
@@ -180,7 +180,7 @@ private[appendonlydao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
         logger.debug(s"getTransactionTrees query($range)")
-        queryNonPruned.executeSqlOrThrow(
+        queryNonPruned.executeSql(
           route(requestingParties)(
             single = party =>
               EventsRange.readPage(
@@ -297,7 +297,7 @@ private[appendonlydao] final class TransactionsReader(
       // Dispatch database fetches in parallel
       .mapAsync(eventProcessingParallelism) { range =>
         dispatcher.executeSql(dbMetrics.getTransactionLogUpdates) { implicit conn =>
-          queryNonPruned.executeSqlOrThrow(
+          queryNonPruned.executeSql(
             query = storageBackend.rawEvents(
               startExclusive = range.startExclusive,
               endInclusive = range.endInclusive,
@@ -359,7 +359,7 @@ private[appendonlydao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
         logger.debug(s"getActiveContracts query($range)")
-        queryNonPruned.executeSqlOrThrow(
+        queryNonPruned.executeSql(
           getActiveContracts(
             range,
             filter,
@@ -426,7 +426,7 @@ private[appendonlydao] final class TransactionsReader(
       // Dispatch database fetches in parallel
       .mapAsync(eventProcessingParallelism) { range =>
         dispatcher.executeSql(dbMetrics.getContractStateEvents) { implicit conn =>
-          queryNonPruned.executeSqlOrThrow(
+          queryNonPruned.executeSql(
             storageBackend
               .contractStateEvents(range.startExclusive, range.endInclusive)(conn),
             startExclusive._1,
@@ -466,7 +466,6 @@ private[appendonlydao] final class TransactionsReader(
             s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",
         )
       )
-      .flatMap(_.fold(Future.failed, Future.successful))
       .map { x =>
         EventsRange(
           startExclusive = (Offset.beforeBegin, 0),
@@ -489,16 +488,10 @@ private[appendonlydao] final class TransactionsReader(
             s"Transactions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
         )
       )
-      .flatMap(
-        _.fold(
-          Future.failed,
-          x =>
-            Future.successful(
-              EventsRange(
-                startExclusive = (startExclusive, x.startExclusive),
-                endInclusive = (endInclusive, x.endInclusive),
-              )
-            ),
+      .map(x =>
+        EventsRange(
+          startExclusive = (startExclusive, x.startExclusive),
+          endInclusive = (endInclusive, x.endInclusive),
         )
       )
 
