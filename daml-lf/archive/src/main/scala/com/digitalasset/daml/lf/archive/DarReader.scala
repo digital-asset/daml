@@ -6,6 +6,7 @@ package com.daml.lf.archive
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File, FileInputStream, InputStream}
 import java.util.zip.ZipInputStream
 
+import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.TryOps.Bracket.bracket
 import com.daml.lf.data.TryOps.sequence
 
@@ -13,13 +14,12 @@ import scala.annotation.tailrec
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-class DarReader[A](
-    readDalfNamesFromManifest: InputStream => Try[Dar[String]],
+class GenDarReader[A](
     // The `Long` is the dalf size in bytes.
-    parseDalf: (Long, InputStream) => Try[A],
+    parseDalf: (Long, InputStream) => Try[A]
 ) {
 
-  import DarReader._
+  import GenDarReader._
 
   /** Reads an archive from a File. */
   def readArchiveFromFile(darFile: File): Try[Dar[A]] =
@@ -35,7 +35,7 @@ class DarReader[A](
       entries <- bracket(Try(darStream))(zis => Try(zis.close())).flatMap(zis =>
         loadZipEntries(name, zis, entrySizeThreshold)
       )
-      names <- entries.readDalfNames(readDalfNamesFromManifest): Try[Dar[String]]
+      names <- entries.readDalfNames(DarManifestReader.dalfNames): Try[Dar[String]]
       main <- parseOne(entries.getInputStreamFor)(names.main): Try[A]
       deps <- parseAll(entries.getInputStreamFor)(names.dependencies): Try[List[A]]
     } yield Dar(main, deps)
@@ -93,7 +93,7 @@ class DarReader[A](
 
 }
 
-object DarReader {
+object GenDarReader {
 
   private val ManifestName = "META-INF/MANIFEST.MF"
   private[archive] val EntrySizeThreshold = 1024 * 1024 * 1024 // 1 GB
@@ -141,13 +141,10 @@ object DarReader {
 
     private def isPrimDalf(s: String): Boolean = s.toLowerCase.contains("-prim") && isDalf(s)
   }
-
-  def apply(): DarReader[ArchivePayload] =
-    new DarReader(
-      DarManifestReader.dalfNames,
-      { case (_, is) => Try(Reader.readArchive(is)) },
-    )
-
-  def apply[A](parseDalf: (Long, InputStream) => Try[A]): DarReader[A] =
-    new DarReader(DarManifestReader.dalfNames, parseDalf)
 }
+
+object DarReader
+    extends GenDarReader[ArchivePayload]({ case (_, is) => Try(Reader.readArchive(is)) })
+
+object RawDarReader
+    extends GenDarReader[DamlLf.Archive]({ case (_, is) => Try(DamlLf.Archive.parseFrom(is)) })

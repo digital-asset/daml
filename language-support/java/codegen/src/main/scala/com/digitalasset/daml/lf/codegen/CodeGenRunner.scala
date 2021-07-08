@@ -7,8 +7,7 @@ import java.nio.file.{Files, Path, StandardOpenOption}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
 
-import com.daml.lf.archive.DarManifestReader
-import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.RawDarReader
 import com.daml.lf.codegen.backend.Backend
 import com.daml.lf.codegen.backend.java.JavaBackend
 import com.daml.lf.codegen.conf.{Conf, PackageReference}
@@ -16,13 +15,11 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.iface.reader.{Errors, InterfaceReader}
 import com.daml.lf.iface.{Type => _, _}
-import com.daml.daml_lf_dev.DamlLf
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.Try
 
 object CodeGenRunner extends StrictLogging {
 
@@ -68,7 +65,7 @@ object CodeGenRunner extends StrictLogging {
     val interfacesAndPrefixes = conf.darFiles.toList.flatMap { case (path, pkgPrefix) =>
       val file = path.toFile
       // Explicitly calling `get` to bubble up any exception when reading the dar
-      val dar = ArchiveReader.readArchiveFromFile(file).get
+      val dar = RawDarReader.readArchiveFromFile(file).get
       dar.all.map { archive =>
         val (errors, interface) = InterfaceReader.readInterface(archive)
         if (!errors.equals(Errors.zeroErrors)) {
@@ -248,10 +245,4 @@ object CodeGenRunner extends StrictLogging {
       )
     }
   }
-
-  object ArchiveReader
-      extends DarReader[DamlLf.Archive](
-        DarManifestReader.dalfNames,
-        { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) },
-      )
 }

@@ -51,7 +51,7 @@ object RunnerMain {
     RunnerConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) => {
-        val encodedDar = DarReader().readArchiveFromFile(config.darPath.toFile).get
+        val encodedDar = DarReader.readArchiveFromFile(config.darPath.toFile).get
         val dar: Dar[(PackageId, Package)] = encodedDar.map(Decode.decode)
 
         if (config.listTriggers) {

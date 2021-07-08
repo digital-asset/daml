@@ -11,13 +11,9 @@ import scala.util.{Failure, Success, Try}
 import com.daml.lf.data.TryOps.Bracket.bracket
 
 /** Can parse DARs and DALFs.
-  *
-  * @param parseDar  function to parse a DAR file.
-  * @param parseDalf function to parse a DALF input stream.
   */
-class UniversalArchiveReader(
-    parseDar: (String, ZipInputStream) => Try[Dar[ArchivePayload]],
-    parseDalf: InputStream => Try[ArchivePayload],
+case class UniversalArchiveReader(
+    entrySizeThreshold: Int = GenDarReader.EntrySizeThreshold
 ) {
   import SupportedFileType._
 
@@ -30,38 +26,15 @@ class UniversalArchiveReader(
 
   /** Reads a DAR from an InputStream. This method takes care of closing the stream! */
   def readDarStream(fileName: String, dar: ZipInputStream): Try[Dar[ArchivePayload]] =
-    bracket(Try(dar))(dar => Try(dar.close())).flatMap(parseDar(fileName, _))
+    bracket(Try(dar))(dar => Try(dar.close()))
+      .flatMap(DarReader.readArchive(fileName, _, entrySizeThreshold))
 
   /** Reads a DALF from an InputStream. This method takes care of closing the stream! */
   def readDalfStream(dalf: InputStream): Try[Dar[ArchivePayload]] =
-    bracket(Try(dalf))(dalf => Try(dalf.close())).flatMap(parseDalf).map(Dar(_, List.empty))
+    bracket(Try(dalf))(dalf => Try(dalf.close()))
+      .flatMap(is => Try(Reader.readArchive(is)))
+      .map(Dar(_, List.empty))
 
-}
-
-/** Factory for [[com.daml.lf.archive.UniversalArchiveReader]] class.
-  */
-object UniversalArchiveReader {
-  def apply(
-      entrySizeThreshold: Int = DarReader.EntrySizeThreshold
-  ): UniversalArchiveReader =
-    new UniversalArchiveReader(parseDar(entrySizeThreshold, parseDalf), parseDalf)
-
-  def apply(
-      entrySizeThreshold: Int,
-      parseDalf: InputStream => Try[ArchivePayload],
-  ): UniversalArchiveReader =
-    new UniversalArchiveReader(parseDar(entrySizeThreshold, parseDalf), parseDalf)
-
-  def apply(parseDalf: InputStream => Try[ArchivePayload]): UniversalArchiveReader =
-    new UniversalArchiveReader(parseDar(DarReader.EntrySizeThreshold, parseDalf), parseDalf)
-
-  private def parseDalf(is: InputStream) = Try(Reader.readArchive(is))
-
-  private def parseDar[A](
-      entrySizeThreshold: Int,
-      parseDalf: InputStream => Try[A],
-  ): (String, ZipInputStream) => Try[Dar[A]] =
-    DarReader[A] { case (_, is) => parseDalf(is) }.readArchive(_, _, entrySizeThreshold)
 }
 
 object SupportedFileType {
