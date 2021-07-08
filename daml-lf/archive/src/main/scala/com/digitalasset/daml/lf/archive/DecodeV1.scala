@@ -48,7 +48,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         Some(decodePackageMetadata(lfPackage.getMetadata, internedStrings))
       } else {
         if (!versionIsOlderThan(LV.Features.packageMetadata)) {
-          throw ParseError(s"Package.metadata is required in Daml-LF 1.$minor")
+          throw Error.Parsing(s"Package.metadata is required in Daml-LF 1.$minor")
         }
         None
       }
@@ -80,7 +80,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
   ): PackageMetadata = {
     def getInternedStr(id: Int) =
       internedStrings.lift(id).getOrElse {
-        throw ParseError(s"invalid internedString table index $id")
+        throw Error.Parsing(s"invalid internedString table index $id")
       }
     PackageMetadata(
       toPackageName(getInternedStr(metadata.getNameInternedStr), "PackageMetadata.name"),
@@ -108,7 +108,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       )
 
     if (lfScenarioModule.getModulesCount != 1)
-      throw ParseError(
+      throw Error.Parsing(
         s"expected exactly one module in proto package, found ${lfScenarioModule.getModulesCount} modules"
       )
 
@@ -137,7 +137,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       assertSince(LV.Features.internedDottedNames, "interned dotted names table")
 
     def outOfRange(id: Int) =
-      ParseError(s"invalid string table index $id")
+      Error.Parsing(s"invalid string table index $id")
 
     internedList
       .map(idn =>
@@ -151,7 +151,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
   private[this] def decodeSegments(segments: collection.Seq[String]): DottedName =
     DottedName.fromSegments(segments) match {
-      case Left(err) => throw new ParseError(err)
+      case Left(err) => throw Error.Parsing(err)
       case Right(x) => x
     }
 
@@ -289,7 +289,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     // -----------------------------------------------------------------------
     private[this] def getInternedStr(id: Int) =
       internedStrings.lift(id).getOrElse {
-        throw ParseError(s"invalid internedString table index $id")
+        throw Error.Parsing(s"invalid internedString table index $id")
       }
 
     private[this] def getInternedPackageId(id: Int): PackageId = {
@@ -304,7 +304,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
     private[this] def getInternedDottedName(id: Int) =
       internedDottedNames.lift(id).getOrElse {
-        throw ParseError(s"invalid dotted name table index $id")
+        throw Error.Parsing(s"invalid dotted name table index $id")
       }
 
     private[this] def handleDottedName(
@@ -330,11 +330,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     ): DottedName =
       if (versionIsOlderThan(LV.Features.internedDottedNames)) {
         if (actualCase != dNameCase)
-          throw ParseError(s"${description}_dname is required by Daml-LF 1.$minor")
+          throw Error.Parsing(s"${description}_dname is required by Daml-LF 1.$minor")
         decodeSegments(dName.getSegmentsList.asScala)
       } else {
         if (actualCase != internedDNameCase)
-          throw ParseError(s"${description}_interned_dname is required by Daml-LF 1.$minor")
+          throw Error.Parsing(s"${description}_interned_dname is required by Daml-LF 1.$minor")
         getInternedDottedName(internedDName)
       }
 
@@ -344,7 +344,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       if (
         !flags.getDontDivulgeContractIdsInCreateArguments || !flags.getDontDiscloseNonConsumingChoicesToObservers
       ) {
-        throw new ParseError("Deprecated feature flag settings detected, refusing to parse package")
+        throw Error.Parsing(
+          "Deprecated feature flag settings detected, refusing to parse package"
+        )
       }
       FeatureFlags(
         forbidPartyLiterals = flags.getForbidPartyLiterals
@@ -366,7 +368,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             assertEmpty(params, "params")
             DataEnum(decodeEnumCon(lfDataType.getEnum))
           case PLF.DefDataType.DataConsCase.DATACONS_NOT_SET =>
-            throw ParseError("DefDataType.DATACONS_NOT_SET")
+            throw Error.Parsing("DefDataType.DATACONS_NOT_SET")
 
         },
       )
@@ -390,11 +392,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     ) = {
       val str = if (versionIsOlderThan(LV.Features.internedStrings)) {
         if (actualCase != stringCase)
-          throw ParseError(s"${description}_str is required by Daml-LF 1.$minor")
+          throw Error.Parsing(s"${description}_str is required by Daml-LF 1.$minor")
         string
       } else {
         if (actualCase != internedStringCase)
-          throw ParseError(s"${description}_interned_str is required by Daml-LF 1.$minor")
+          throw Error.Parsing(s"${description}_interned_str is required by Daml-LF 1.$minor")
         internedStrings(internedString)
       }
       toName(str)
@@ -500,7 +502,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           decodeExpr(key.getComplexKey, s"${tpl}:key")
         }
         case PLF.DefTemplate.DefKey.KeyExprCase.KEYEXPR_NOT_SET =>
-          throw ParseError("DefKey.KEYEXPR_NOT_SET")
+          throw Error.Parsing("DefKey.KEYEXPR_NOT_SET")
       }
       TemplateKey(
         decodeType(key.getType),
@@ -545,7 +547,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           )
 
         case PLF.KeyExpr.SumCase.SUM_NOT_SET =>
-          throw ParseError("KeyExpr.SUM_NOT_SET")
+          throw Error.Parsing("KeyExpr.SUM_NOT_SET")
       }
     }
 
@@ -632,7 +634,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             KArrow(decodeKind(param), kind)
           )
         case PLF.Kind.SumCase.SUM_NOT_SET =>
-          throw ParseError("Kind.SUM_NOT_SET")
+          throw Error.Parsing("Kind.SUM_NOT_SET")
       }
 
     private[archive] def decodeType(lfType: PLF.Type): Type =
@@ -643,10 +645,10 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           case PLF.Type.SumCase.INTERNED =>
             internedTypes.applyOrElse(
               lfType.getInterned,
-              (index: Int) => throw ParseError(s"invalid internedTypes table index $index"),
+              (index: Int) => throw Error.Parsing(s"invalid internedTypes table index $index"),
             )
           case otherwise =>
-            throw ParseError(s"$otherwise is not supported outside type interning table")
+            throw Error.Parsing(s"$otherwise is not supported outside type interning table")
         }
 
     private[archive] def uncheckedDecodeType(lfType: PLF.Type): Type =
@@ -669,7 +671,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             .fromLong(lfType.getNat)
             .fold[TNat](
               _ =>
-                throw ParseError(
+                throw Error.Parsing(
                   s"TNat must be between ${Numeric.Scale.MinValue} and ${Numeric.Scale.MaxValue}, found ${lfType.getNat}"
                 ),
               TNat(_),
@@ -718,17 +720,17 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
                 )
               )
               .fold(
-                name => throw ParseError(s"TStruct: duplicate field $name"),
+                name => throw Error.Parsing(s"TStruct: duplicate field $name"),
                 identity,
               )
           )
         case PLF.Type.SumCase.INTERNED =>
           internedTypes.applyOrElse(
             lfType.getInterned,
-            (index: Int) => throw ParseError(s"invalid internedTypes table index $index"),
+            (index: Int) => throw Error.Parsing(s"invalid internedTypes table index $index"),
           )
         case PLF.Type.SumCase.SUM_NOT_SET =>
-          throw ParseError("Type.SUM_NOT_SET")
+          throw Error.Parsing("Type.SUM_NOT_SET")
       }
 
     private[this] def decodeModuleRef(lfRef: PLF.ModuleRef): (PackageId, ModuleName) = {
@@ -750,7 +752,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case SC.PACKAGE_ID_INTERNED_STR =>
           getInternedPackageId(lfRef.getPackageRef.getPackageIdInternedStr)
         case SC.SUM_NOT_SET =>
-          throw ParseError("PackageRef.SUM_NOT_SET")
+          throw Error.Parsing("PackageRef.SUM_NOT_SET")
       }
       optDependencyTracker.foreach(_.markDependency(pkgId))
       (pkgId, modName)
@@ -816,7 +818,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             case PLF.PrimCon.CON_FALSE => EFalse
             case PLF.PrimCon.CON_TRUE => ETrue
             case PLF.PrimCon.UNRECOGNIZED =>
-              throw ParseError("PrimCon.UNRECOGNIZED")
+              throw Error.Parsing("PrimCon.UNRECOGNIZED")
           }
 
         case PLF.Expr.SumCase.BUILTIN =>
@@ -1051,7 +1053,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           )
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
-          throw ParseError("Expr.SUM_NOT_SET")
+          throw Error.Parsing("Expr.SUM_NOT_SET")
 
         case PLF.Expr.SumCase.EXPERIMENTAL =>
           assertSince(LV.v1_dev, "Expr.experimental")
@@ -1145,7 +1147,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           )
 
         case PLF.CaseAlt.SumCase.SUM_NOT_SET =>
-          throw ParseError("CaseAlt.SUM_NOT_SET")
+          throw Error.Parsing("CaseAlt.SUM_NOT_SET")
       }
       CaseAlt(pat, decodeExpr(lfCaseAlt.getBody, definition))
     }
@@ -1241,7 +1243,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           )
 
         case PLF.Update.SumCase.SUM_NOT_SET =>
-          throw ParseError("Update.SUM_NOT_SET")
+          throw Error.Parsing("Update.SUM_NOT_SET")
       }
 
     private[this] def decodeScenario(lfScenario: PLF.Scenario, definition: String): Scenario =
@@ -1290,7 +1292,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           )
 
         case PLF.Scenario.SumCase.SUM_NOT_SET =>
-          throw ParseError("Scenario.SUM_NOT_SET")
+          throw Error.Parsing("Scenario.SUM_NOT_SET")
       }
 
     private[this] def decodeTypeVarWithKind(
@@ -1328,7 +1330,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           CPFalse
         case PLF.PrimCon.CON_TRUE =>
           CPTrue
-        case _ => throw ParseError("Unknown PrimCon: " + lfPrimCon.toString)
+        case _ => throw Error.Parsing("Unknown PrimCon: " + lfPrimCon.toString)
       }
 
     private[this] def decodePrimLit(lfPrimLit: PLF.PrimLit): PrimLit =
@@ -1347,10 +1349,10 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           toPLParty(lfPrimLit.getPartyStr)
         case PLF.PrimLit.SumCase.TIMESTAMP =>
           val t = Time.Timestamp.fromLong(lfPrimLit.getTimestamp)
-          t.fold(e => throw ParseError("error decoding timestamp: " + e), PLTimestamp)
+          t.fold(e => throw Error.Parsing("error decoding timestamp: " + e), PLTimestamp)
         case PLF.PrimLit.SumCase.DATE =>
           val d = Time.Date.fromDaysSinceEpoch(lfPrimLit.getDate)
-          d.fold(e => throw ParseError("error decoding date: " + e), PLDate)
+          d.fold(e => throw Error.Parsing("error decoding date: " + e), PLDate)
         case PLF.PrimLit.SumCase.TEXT_INTERNED_STR =>
           assertSince(LV.Features.internedStrings, "PrimLit.text_interned_str")
           PLText(getInternedStr(lfPrimLit.getTextInternedStr))
@@ -1364,7 +1366,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           assertSince(LV.Features.bigNumeric, "Expr.rounding_mode")
           PLRoundingMode(java.math.RoundingMode.valueOf(lfPrimLit.getRoundingModeValue))
         case PLF.PrimLit.SumCase.SUM_NOT_SET =>
-          throw ParseError("PrimLit.SUM_NOT_SET")
+          throw Error.Parsing("PrimLit.SUM_NOT_SET")
       }
   }
 
@@ -1401,36 +1403,36 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
   // maxVersion excluded
   private[this] def assertUntil(maxVersion: LV, description: => String): Unit =
     if (!versionIsOlderThan(maxVersion))
-      throw ParseError(s"$description is not supported by Daml-LF 1.$minor")
+      throw Error.Parsing(s"$description is not supported by Daml-LF 1.$minor")
 
   // minVersion included
   private[this] def assertSince(minVersion: LV, description: => String): Unit =
     if (versionIsOlderThan(minVersion))
-      throw ParseError(s"$description is not supported by Daml-LF 1.$minor")
+      throw Error.Parsing(s"$description is not supported by Daml-LF 1.$minor")
 
   private def assertUndefined(i: Int, description: => String): Unit =
     if (i != 0)
-      throw ParseError(s"$description is not supported by Daml-LF 1.$minor")
+      throw Error.Parsing(s"$description is not supported by Daml-LF 1.$minor")
 
   private def assertUndefined(s: collection.Seq[_], description: => String): Unit =
     if (s.nonEmpty)
-      throw ParseError(s"$description is not supported by Daml-LF 1.$minor")
+      throw Error.Parsing(s"$description is not supported by Daml-LF 1.$minor")
 
   private def assertNonEmpty(s: collection.Seq[_], description: => String): Unit =
-    if (s.isEmpty) throw ParseError(s"Unexpected empty $description")
+    if (s.isEmpty) throw Error.Parsing(s"Unexpected empty $description")
 
   private[this] def assertEmpty(s: collection.Seq[_], description: => String): Unit =
-    if (s.nonEmpty) throw ParseError(s"Unexpected non-empty $description")
+    if (s.nonEmpty) throw Error.Parsing(s"Unexpected non-empty $description")
 
   private[this] def assertEmpty(s: util.List[_], description: => String): Unit =
-    if (!s.isEmpty) throw ParseError(s"Unexpected non-empty $description")
+    if (!s.isEmpty) throw Error.Parsing(s"Unexpected non-empty $description")
 
 }
 
 private[lf] object DecodeV1 {
 
   private def eitherToParseError[A](x: Either[String, A]): A =
-    x.fold(err => throw new ParseError(err), identity)
+    x.fold(err => throw Error.Parsing(err), identity)
 
   case class BuiltinTypeInfo(
       proto: PLF.PrimType,
@@ -1856,6 +1858,6 @@ private[lf] object DecodeV1 {
     builtinFunctionInfos
       .map(info => info.proto -> info)
       .toMap
-      .withDefault(_ => throw ParseError("BuiltinFunction.UNRECOGNIZED"))
+      .withDefault(_ => throw Error.Parsing("BuiltinFunction.UNRECOGNIZED"))
 
 }

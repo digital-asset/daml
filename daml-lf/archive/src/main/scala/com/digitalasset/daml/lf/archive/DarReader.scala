@@ -6,7 +6,6 @@ package com.daml.lf.archive
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File, FileInputStream, InputStream}
 import java.util.zip.ZipInputStream
 
-import com.daml.lf.archive.Errors.{InvalidDar, InvalidLegacyDar, InvalidZipEntry}
 import com.daml.lf.data.TryOps.Bracket.bracket
 import com.daml.lf.data.TryOps.sequence
 
@@ -52,7 +51,7 @@ class DarReader[A](
       val buffer = new Array[Byte](4096)
       for (n <- Iterator.continually(zip.read(buffer)).takeWhile(_ >= 0) if n > 0) {
         output.write(buffer, 0, n)
-        if (output.size >= entrySizeThreshold) throw Errors.ZipBomb()
+        if (output.size >= entrySizeThreshold) throw Error.ZipBomb()
       }
       (output.size.toLong, new ByteArrayInputStream(output.toByteArray))
     }
@@ -94,31 +93,6 @@ class DarReader[A](
 
 }
 
-object Errors {
-
-  import DarReader.ZipEntries
-
-  final case class InvalidDar(entries: ZipEntries, cause: Throwable)
-      extends RuntimeException(s"Invalid DAR: ${darInfo(entries): String}", cause)
-
-  final case class InvalidZipEntry(name: String, entries: ZipEntries)
-      extends RuntimeException(
-        s"Invalid zip entryName: ${name: String}, DAR: ${darInfo(entries): String}"
-      )
-
-  final case class InvalidLegacyDar(entries: ZipEntries)
-      extends RuntimeException(s"Invalid Legacy DAR: ${darInfo(entries)}")
-
-  final case class ZipBomb()
-      extends RuntimeException(s"An entry is too large, rejected as a possible zip bomb")
-
-  private def darInfo(entries: ZipEntries): String =
-    s"${entries.name}, content: [${darFileNames(entries).mkString(", "): String}}]"
-
-  private def darFileNames(entries: ZipEntries): Iterable[String] =
-    entries.entries.keys
-}
-
 object DarReader {
 
   private val ManifestName = "META-INF/MANIFEST.MF"
@@ -129,7 +103,7 @@ object DarReader {
     def getInputStreamFor(entryName: String): Try[(Long, InputStream)] = {
       entries.get(entryName) match {
         case Some((size, is)) => Success(size -> is)
-        case None => Failure(InvalidZipEntry(entryName, this))
+        case None => Failure(Error.InvalidZipEntry(entryName, this))
       }
     }
 
@@ -138,7 +112,7 @@ object DarReader {
     ): Try[Dar[String]] =
       parseDalfNamesFromManifest(readDalfNamesFromManifest).recoverWith { case NonFatal(e1) =>
         findLegacyDalfNames().recoverWith { case NonFatal(_) =>
-          Failure(InvalidDar(this, e1))
+          Failure(Error.InvalidDar(this, e1))
         }
       }
 
@@ -159,7 +133,7 @@ object DarReader {
         case (List(prim), List(main)) => Success(Dar(main, List(prim)))
         case (List(prim), Nil) => Success(Dar(prim, List.empty))
         case (Nil, List(main)) => Success(Dar(main, List.empty))
-        case _ => Failure(InvalidLegacyDar(this))
+        case _ => Failure(Error.InvalidLegacyDar(this))
       }
     }
 

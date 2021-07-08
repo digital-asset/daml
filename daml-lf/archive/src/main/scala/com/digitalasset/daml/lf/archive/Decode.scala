@@ -26,7 +26,7 @@ sealed class Decode(onlySerializableDataDefs: Boolean) {
     val decoder =
       decoders
         .lift(payload.version)
-        .getOrElse(throw ParseError(s"${payload.version} unsupported"))
+        .getOrElse(throw Error.Parsing(s"${payload.version} unsupported"))
     (
       payload.pkgId,
       decoder.decoder.decodePackage(
@@ -59,13 +59,13 @@ object Decode extends Decode(onlySerializableDataDefs = false) {
   private[lf] trait OfPackage[-Pkg] {
     type ProtoScenarioModule
     def protoScenarioModule(cis: CodedInputStream): ProtoScenarioModule
-    @throws[ParseError]
+    @throws[Error.Parsing]
     def decodePackage(
         packageId: PackageId,
         lfPackage: Pkg,
         onlySerializableDataDefs: Boolean = false,
     ): Package
-    @throws[ParseError]
+    @throws[Error.Parsing]
     def decodeScenarioModule(packageId: PackageId, lfModuleForScenario: ProtoScenarioModule): Module
   }
 
@@ -77,9 +77,9 @@ object Decode extends Decode(onlySerializableDataDefs = false) {
 
   def checkIdentifier(s: String): Unit = {
     if (s.isEmpty)
-      throw ParseError("empty identifier")
+      throw Error.Parsing("empty identifier")
     else if (!(identifierStart(s.head) && s.tail.forall(identifierPart)))
-      throw ParseError(s"identifier $s contains invalid character")
+      throw Error.Parsing(s"identifier $s contains invalid character")
   }
 
   private val decimalPattern = "[+-]*[0-9]{0,28}(\\.[0-9]{0,10})*".r.pattern

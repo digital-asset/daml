@@ -30,7 +30,7 @@ import scala.concurrent.duration._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.lf.archive.{Dar, DarReader, Decode, ParseError, Reader}
+import com.daml.lf.archive.{Dar, DarReader, Decode, Reader}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine._
 import com.daml.lf.engine.trigger.Request.StartParams
@@ -399,7 +399,7 @@ class Server(
                   case Success(dar) =>
                     extractExecutionContext { implicit ec =>
                       onComplete(addDar(dar.map(p => p.pkgId -> p.proto))) {
-                        case Failure(err: ParseError) =>
+                        case Failure(err: archive.Error) =>
                           complete(errorResponse(StatusCodes.UnprocessableEntity, err.description))
                         case Failure(exception) =>
                           complete(
