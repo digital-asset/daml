@@ -113,10 +113,10 @@ class ValidationSpec extends AnyFreeSpec {
   private val samVersion1: TransactionVersion = TransactionVersion.minVersion
   private val samVersion2: TransactionVersion = TransactionVersion.maxVersion
 
-  private val someCreates: List[Node] =
+  private val someCreates: Seq[Node] =
     for {
-      version <- List(samVersion1, samVersion2)
-      key <- List(None, Some(samKWM1))
+      version <- Seq(samVersion1, samVersion2)
+      key <- Seq(None, Some(samKWM1))
     } yield NodeCreate(
       coid = samContractId1,
       templateId = samTemplateId1,
@@ -129,11 +129,11 @@ class ValidationSpec extends AnyFreeSpec {
       version = version,
     )
 
-  private val someFetches: List[Node] =
+  private val someFetches: Seq[Node] =
     for {
-      version <- List(samVersion1, samVersion2)
-      key <- List(None, Some(samKWM2))
-      actingParties <- List(Set[Party](), Set(samParty1))
+      version <- Seq(samVersion1, samVersion2)
+      key <- Seq(None, Some(samKWM2))
+      actingParties <- Seq(Set[Party](), Set(samParty1))
     } yield NodeFetch(
       coid = samContractId1,
       templateId = samTemplateId1,
@@ -146,10 +146,10 @@ class ValidationSpec extends AnyFreeSpec {
       version = version,
     )
 
-  private val someLookups: List[Node] =
+  private val someLookups: Seq[Node] =
     for {
-      version <- List(samVersion1, samVersion2)
-      result <- List(None, Some(samContractId1))
+      version <- Seq(samVersion1, samVersion2)
+      result <- Seq(None, Some(samContractId1))
     } yield NodeLookupByKey(
       templateId = samTemplateId1,
       optLocation = samOptLocation1,
@@ -158,11 +158,11 @@ class ValidationSpec extends AnyFreeSpec {
       version = version,
     )
 
-  private val someExercises: List[Exe] =
+  private val someExercises: Seq[Exe] =
     for {
-      version <- List(samVersion1, samVersion2)
-      key <- List(None, Some(samKWM1))
-      exerciseResult <- List(None, Some(samValue2))
+      version <- Seq(samVersion1, samVersion2)
+      key <- Seq(None, Some(samKWM1))
+      exerciseResult <- Seq(None, Some(samValue2))
     } yield NodeExercises(
       targetCoid = samContractId2,
       templateId = samTemplateId2,
@@ -184,14 +184,14 @@ class ValidationSpec extends AnyFreeSpec {
   //--[running tweaks]--
   // We dont aim for much coverage in the overal TX shape; we limit to either 0 or 1 level of nesting.
 
-  private def flatVTXs: List[VTX] =
+  private def flatVTXs: Seq[VTX] =
     (someCreates ++ someFetches ++ someLookups ++ someExercises).map { node =>
       val nid = NodeId(0)
       val version = TransactionVersion.minExceptions
       VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
-  private def nestedVTXs: List[VTX] =
+  private def nestedVTXs: Seq[VTX] =
     for {
       exe <- someExercises
       child <- someExercises ++ someCreates ++ someLookups ++ someFetches
@@ -203,9 +203,9 @@ class ValidationSpec extends AnyFreeSpec {
       VersionedTransaction(version, HashMap(nid0 -> parent, nid1 -> child), ImmArray(nid0))
     }
 
-  private def preTweakedVTXs: List[VTX] = flatVTXs ++ nestedVTXs
+  private def preTweakedVTXs: Seq[VTX] = flatVTXs ++ nestedVTXs
 
-  private def runTweak(tweak: Tweak[VTX]): List[(VTX, VTX)] =
+  private def runTweak(tweak: Tweak[VTX]): Seq[(VTX, VTX)] =
     for {
       txA <- preTweakedVTXs
       txB <- tweak.run(txA)
