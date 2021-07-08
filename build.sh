@@ -11,6 +11,7 @@ execution_log_postfix=${1:-}
 export LC_ALL=en_US.UTF-8
 
 ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
+mkdir -p "${ARTIFACT_DIRS}/logs"
 
 tag_filter=""
 if [[ "$execution_log_postfix" == "_Darwin" ]]; then
@@ -31,7 +32,8 @@ fi
 rm -rf compiler/daml-extension/node_modules
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
-bazel build //... --build_tag_filters "$tag_filter"
+bazel build //... \
+  --experimental_execution_log_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.log"
 
 # Set up a shared PostgreSQL instance.
 export POSTGRESQL_ROOT_DIR="${TMPDIR:-/tmp}/daml/postgresql"
@@ -71,7 +73,7 @@ bazel test //... \
   --test_env "POSTGRESQL_PORT=${POSTGRESQL_PORT}" \
   --test_env "POSTGRESQL_USERNAME=${POSTGRESQL_USERNAME}" \
   --test_env "POSTGRESQL_PASSWORD=${POSTGRESQL_PASSWORD}" \
-  --experimental_execution_log_file "$ARTIFACT_DIRS/test_execution${execution_log_postfix}.log"
+  --experimental_execution_log_file "$ARTIFACT_DIRS/logs/test_execution${execution_log_postfix}.log"
 
 # Make sure that Bazel query works.
 bazel query 'deps(//...)' >/dev/null
