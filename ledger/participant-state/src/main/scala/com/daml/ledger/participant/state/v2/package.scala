@@ -46,7 +46,6 @@ import com.daml.lf.value.Value
   * possible. There can therefore potentially be multiple versions of
   * participant state APIs at the same time. We plan to deprecate and drop old
   * versions on separate and appropriate timelines.
-  *
   */
 package object v2 {
 

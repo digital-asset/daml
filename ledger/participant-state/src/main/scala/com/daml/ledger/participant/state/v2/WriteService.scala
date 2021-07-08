@@ -102,8 +102,7 @@ trait WriteService
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction,
       estimatedInterpretationCost: Long,
-  )(implicit telemetryContext: TelemetryContext)
-    : CompletionStage[SubmissionResult]
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
 
   /** Record the rejection of a command submission on the ledger.
     *
@@ -133,6 +132,5 @@ trait WriteService
       submitterInfo: SubmitterInfo,
       submissionTime: Time.Timestamp,
       reason: com.google.rpc.status.Status,
-  )(implicit telemetryContext: TelemetryContext)
-    : CompletionStage[SubmissionResult]
+  )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult]
 }

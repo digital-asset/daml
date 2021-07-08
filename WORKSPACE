@@ -28,6 +28,7 @@ switched_rules_by_language(
 rules_haskell_dependencies()
 
 load("@com_github_googleapis_googleapis//:repository_rules.bzl", "switched_rules_by_language")
+
 switched_rules_by_language(
     name = "com_google_googleapis_imports",
     grpc = True,

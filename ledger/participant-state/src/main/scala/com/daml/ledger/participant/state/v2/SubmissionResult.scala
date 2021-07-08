@@ -22,7 +22,8 @@ object SubmissionResult {
     *
     * See the documentation in `error.proto` for how to report common submission errors.
     */
-  final case class SynchronousError(grpcError: com.google.rpc.status.Status) extends SubmissionResult {
+  final case class SynchronousError(grpcError: com.google.rpc.status.Status)
+      extends SubmissionResult {
     override val description: String = s"Submission failed with error ${grpcError.message}"
   }
 
