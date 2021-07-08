@@ -242,30 +242,13 @@ object Update {
       def message: String
     }
 
-    object RejectionReasonTemplate {
-      val DefiniteAnswerKey = "definite_answer"
-
-      def isDefiniteAnswer(status: com.google.rpc.status.Status): Boolean =
-        status.details.exists { any =>
-          if (any.is(com.google.rpc.error_details.ErrorInfo.messageCompanion)) {
-            Try(any.unpack(com.google.rpc.error_details.ErrorInfo.messageCompanion))
-              .toOption
-              .exists(isDefiniteAnswer)
-          } else false
-        }
-
-      def isDefiniteAnswer(
-          errorInfo: com.google.rpc.error_details.ErrorInfo): Boolean =
-        errorInfo.metadata.getOrElse(DefiniteAnswerKey, "false") == "true"
-    }
-
     /** The status code for the command rejection. */
     final class FinalReason(val status: com.google.rpc.status.Status)
         extends RejectionReasonTemplate {
 
       override def message: String = status.message
       override def definiteAnswer: Boolean =
-        RejectionReasonTemplate.isDefiniteAnswer(status)
+        GrpcStatuses.isDefiniteAnswer(status)
     }
 
     /** The indexer shall fill in a completion offset for the completion that corresponds to
@@ -280,7 +263,7 @@ object Update {
         private val incompleteStatus: com.google.rpc.status.Status,
     ) extends RejectionReasonTemplate {
 
-      require(completionKey != RejectionReasonTemplate.DefiniteAnswerKey)
+      require(completionKey != GrpcStatuses.DefiniteAnswerKey)
 
       private val (errorInfo, errorInfoIndex): (com.google.rpc.error_details.ErrorInfo, Int) = {
         val iterator = incompleteStatus.details.iterator
@@ -306,7 +289,7 @@ object Update {
       override def message: String = incompleteStatus.message
 
       override def definiteAnswer: Boolean =
-        RejectionReasonTemplate.isDefiniteAnswer(errorInfo)
+        GrpcStatuses.isDefiniteAnswer(errorInfo)
 
       def status(
           completionOffsetForSubmissionIdAndRank: Option[Offset]
