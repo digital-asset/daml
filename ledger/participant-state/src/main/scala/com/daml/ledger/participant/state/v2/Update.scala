@@ -243,7 +243,7 @@ object Update {
     }
 
     object RejectionReasonTemplate {
-      val definiteAnswerKey = "definite_answer"
+      val DefiniteAnswerKey = "definite_answer"
 
       def isDefiniteAnswer(status: com.google.rpc.status.Status): Boolean =
         status.details.exists { any =>
@@ -256,7 +256,7 @@ object Update {
 
       def isDefiniteAnswer(
           errorInfo: com.google.rpc.error_details.ErrorInfo): Boolean =
-        errorInfo.metadata.getOrElse(definiteAnswerKey, "false") == "true"
+        errorInfo.metadata.getOrElse(DefiniteAnswerKey, "false") == "true"
     }
 
     /** The status code for the command rejection. */
@@ -280,7 +280,7 @@ object Update {
         private val incompleteStatus: com.google.rpc.status.Status,
     ) extends RejectionReasonTemplate {
 
-      require(completionKey != RejectionReasonTemplate.definiteAnswerKey)
+      require(completionKey != RejectionReasonTemplate.DefiniteAnswerKey)
 
       private val (errorInfo, errorInfoIndex): (com.google.rpc.error_details.ErrorInfo, Int) = {
         val iterator = incompleteStatus.details.iterator
