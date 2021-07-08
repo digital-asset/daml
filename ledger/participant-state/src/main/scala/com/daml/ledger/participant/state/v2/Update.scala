@@ -247,19 +247,20 @@ object Update {
 
       def isDefiniteAnswer(status: com.google.rpc.status.Status): Boolean =
         status.details.exists { any =>
-          if (any.is(com.google.rpc.ErrorInfo.getClass)) {
-            Try(any.unpack(com.google.rpc.ErrorInfo.getClass))
+          if (any.is(com.google.rpc.error_details.ErrorInfo.messageCompanion)) {
+            Try(any.unpack(com.google.rpc.error_details.ErrorInfo.messageCompanion))
+              .toOption
               .exists(isDefiniteAnswer)
           } else false
         }
 
       def isDefiniteAnswer(
           errorInfo: com.google.rpc.error_details.ErrorInfo): Boolean =
-        errorInfo.getMetadataOrDefault(definiteAnswerKey, "false") == "true"
+        errorInfo.metadata.getOrElse(definiteAnswerKey, "false") == "true"
     }
 
     /** The status code for the command rejection. */
-    class FinalReason(val status: com.google.rpc.status.Status)
+    final class FinalReason(val status: com.google.rpc.status.Status)
         extends RejectionReasonTemplate {
 
       override def message: String = status.message
@@ -272,7 +273,7 @@ object Update {
       * for the `submissionId` can be provided, [[scala.None$]] can be used instead,
       * which may lead to less informative errors.
       */
-    class NeedCompletionOffsetForSubmissionId(
+    final class NeedCompletionOffsetForSubmissionId(
         val submissionId: SubmissionId,
         val submissionRank: Offset,
         private val completionKey: String,
@@ -281,14 +282,14 @@ object Update {
 
       require(completionKey != RejectionReasonTemplate.definiteAnswerKey)
 
-      private val (errorInfo, errorInfoIndex): (com.google.rpc.ErrorInfo, Int) = {
-        val iterator = incompleteStatus.details.iterator()
+      private val (errorInfo, errorInfoIndex): (com.google.rpc.error_details.ErrorInfo, Int) = {
+        val iterator = incompleteStatus.details.iterator
 
-        @tailrec def go(index: Int): Option[(com.google.rpc.ErrorInfo, Int)] =
-          if (iterator.hasNext()) {
+        @tailrec def go(index: Int): Option[(com.google.rpc.error_details.ErrorInfo, Int)] =
+          if (iterator.hasNext) {
             val next = iterator.next()
-            if (next.is(com.google.rpc.ErrorInfo.getClass)) {
-              Try(next.unpack(com.google.rpc.ErrorInfo.getClass)) match {
+            if (next.is(com.google.rpc.error_details.ErrorInfo.messageCompanion)) {
+              Try(next.unpack(com.google.rpc.error_details.ErrorInfo.messageCompanion)) match {
                 case Success(errorInfo) => Some(errorInfo -> index)
                 case _: Failure[_]      => go(index + 1)
               }
@@ -296,8 +297,8 @@ object Update {
           } else None
 
         go(0).getOrElse(
-          new IllegalArgumentException(
-            s"No com.google.rpc.ErrorInfo found in details for $incompleteStatus"
+          throw new IllegalArgumentException(
+            s"No com.google.rpc.error_details.ErrorInfo found in details for $incompleteStatus"
           )
         )
       }
@@ -315,10 +316,10 @@ object Update {
             val newErrorInfo =
               errorInfo
                 .copy()
-                .putMetadata(completionKey, completionOffset.toHexString)
+                .addMetadata(completionKey -> completionOffset.toHexString)
             val newDetails = incompleteStatus.details.updated(
-              com.google.protobuf.Any.pack(errorInfoIndex),
-              newErrorInfo,
+              errorInfoIndex,
+              com.google.protobuf.any.Any.pack(newErrorInfo),
             )
             incompleteStatus.withDetails(newDetails)
         }
