@@ -3,12 +3,9 @@
 
 package com.daml.ledger.participant.state.v2
 
-import com.daml.lf.data.Time.Timestamp
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.transaction.BlindingInfo
-
-import scala.annotation.tailrec
-import scala.util.{Failure, Success, Try}
 
 /** An update to the (abstract) participant state.
   *
@@ -265,47 +262,17 @@ object Update {
 
       require(completionKey != GrpcStatuses.DefiniteAnswerKey)
 
-      private val (errorInfo, errorInfoIndex): (com.google.rpc.error_details.ErrorInfo, Int) = {
-        val iterator = incompleteStatus.details.iterator
-
-        @tailrec def go(index: Int): Option[(com.google.rpc.error_details.ErrorInfo, Int)] =
-          if (iterator.hasNext) {
-            val next = iterator.next()
-            if (next.is(com.google.rpc.error_details.ErrorInfo.messageCompanion)) {
-              Try(next.unpack(com.google.rpc.error_details.ErrorInfo.messageCompanion)) match {
-                case Success(errorInfo) => Some(errorInfo -> index)
-                case _: Failure[_]      => go(index + 1)
-              }
-            } else go(index + 1)
-          } else None
-
-        go(0).getOrElse(
-          throw new IllegalArgumentException(
-            s"No com.google.rpc.error_details.ErrorInfo found in details for $incompleteStatus"
-          )
-        )
-      }
-
       override def message: String = incompleteStatus.message
 
       override def definiteAnswer: Boolean =
-        GrpcStatuses.isDefiniteAnswer(errorInfo)
+        GrpcStatuses.isDefiniteAnswer(incompleteStatus)
 
       def status(
           completionOffsetForSubmissionIdAndRank: Option[Offset]
       ): com.google.rpc.status.Status =
-        completionOffsetForSubmissionIdAndRank.fold(incompleteStatus) {
-          completionOffset =>
-            val newErrorInfo =
-              errorInfo
-                .copy()
-                .addMetadata(completionKey -> completionOffset.toHexString)
-            val newDetails = incompleteStatus.details.updated(
-              errorInfoIndex,
-              com.google.protobuf.any.Any.pack(newErrorInfo),
-            )
-            incompleteStatus.withDetails(newDetails)
-        }
+        completionOffsetForSubmissionIdAndRank.fold(incompleteStatus)(
+          GrpcStatuses.completeWithOffset(incompleteStatus, completionKey, _)
+        )
     }
   }
 }
