@@ -6,17 +6,27 @@ resource "google_compute_network" "es" {
 }
 
 locals {
+  es_ssh  = 0
+  es_feed = 1
   es_clusters = [
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 5,
+      size           = 10,
+      init           = "[]",
     },
     {
       suffix         = "-green",
       ubuntu_version = "2004",
       size           = 0,
-    }
+      init           = "[]",
+    },
+    {
+      suffix         = "-init",
+      ubuntu_version = "2004",
+      size           = 0,
+      init           = "[\"$(hostname)\"]",
+    },
   ]
 
   es_ports = [
@@ -27,7 +37,7 @@ locals {
 
 resource "google_compute_firewall" "es-ssh" {
   ## Disabled by default
-  count   = 0
+  count   = local.es_ssh
   name    = "es-ssh"
   network = google_compute_network.es.name
   log_config {
@@ -182,44 +192,6 @@ STARTUP
 
 }
 
-# ES v7 screwed up cluster initialization, so when starting from scratch we
-# need a "special" node to kickstart the master election process. It can be
-# killed as soon as the cluster is up and running.
-resource "google_compute_instance" "es-init" {
-  count        = 0
-  name         = "es-init"
-  machine_type = "e2-standard-2"
-  tags         = ["es"]
-  labels       = local.machine-labels
-  zone         = local.zone
-
-  boot_disk {
-    initialize_params {
-      image = "ubuntu-os-cloud/ubuntu-${local.es_clusters[0].ubuntu_version}-lts"
-    }
-  }
-
-  # This is the magic line that kickstarts the cluster formation process by
-  # self-electing as master.
-  metadata_startup_script = format(local.es_startup_template, "[\"$(hostname)\"]")
-
-  network_interface {
-    network = google_compute_network.es.name
-    access_config {}
-  }
-
-  service_account {
-    email = google_service_account.es-discovery.email
-    scopes = [
-      # Required for cloud logging
-      "logging-write",
-      # Required per ES documentation
-      "compute-rw",
-    ]
-  }
-
-}
-
 resource "google_compute_instance_template" "es" {
   count        = length(local.es_clusters)
   name_prefix  = "es${local.es_clusters[count.index].suffix}-"
@@ -233,7 +205,7 @@ resource "google_compute_instance_template" "es" {
     source_image = "ubuntu-os-cloud/ubuntu-${local.es_clusters[count.index].ubuntu_version}-lts"
   }
 
-  metadata_startup_script = format(local.es_startup_template, "[]")
+  metadata_startup_script = format(local.es_startup_template, local.es_clusters[count.index].init)
 
   network_interface {
     network = google_compute_network.es.name
@@ -417,19 +389,35 @@ resource "google_project_iam_member" "es-feed" {
   member  = "serviceAccount:${google_service_account.es-feed.email}"
 }
 
-resource "google_compute_instance" "es-feed" {
-  name = "es-feed"
-  #machine_type = "e2-micro"
-  machine_type = "n2-standard-2"
+resource "google_compute_instance_group_manager" "es-feed" {
+  provider           = google-beta
+  name               = "es-feed"
+  base_instance_name = "es-feed"
+  zone               = local.zone
+  target_size        = local.es_feed
+
+  version {
+    name              = "es-feed"
+    instance_template = google_compute_instance_template.es-feed.self_link
+  }
+
+  update_policy {
+    type                    = "PROACTIVE"
+    minimal_action          = "REPLACE"
+    max_unavailable_percent = 100
+  }
+}
+
+resource "google_compute_instance_template" "es-feed" {
+  name_prefix  = "es-feed"
+  machine_type = "e2-standard-2"
   tags         = ["es"]
   labels       = local.machine-labels
-  zone         = local.zone
 
-  boot_disk {
-    initialize_params {
-      image = "ubuntu-os-cloud/ubuntu-2004-lts"
-      size  = "200"
-    }
+  disk {
+    boot         = true
+    source_image = "ubuntu-os-cloud/ubuntu-2004-lts"
+    disk_size_gb = "200"
   }
 
   metadata_startup_script = <<STARTUP
@@ -691,6 +679,7 @@ emit_mappings() {
       },
       settings: {
         number_of_replicas: 2,
+        number_of_shards: 5,
         "mapping.nested_objects.limit": 100000
       }
     }'
@@ -785,20 +774,20 @@ emit_trace_events() {
 }
 
 bulk_upload() {
-  local job res
-  job="$1"
-  res="$(curl -X POST "http://$ES_IP/_bulk" \
+  local res
+  res="$(curl -X POST "http://$ES_IP/_bulk?filter_path=errors,items.*.status" \
               -H 'Content-Type: application/json' \
               --fail \
               -s \
               --data-binary @- \
               | jq -r '.items[].index.status' | sort | uniq -c)"
-  echo "$job: $res"
+  echo "$res"
 }
 
 push() {
-  local job f
+  local job f pids
   job="$1"
+  pids=""
   for cmd in "build" "test"; do
 
     f="$job/$cmd-events.json"
@@ -808,7 +797,8 @@ push() {
       echo "$job: $cmd-events.json exists but is not valid json, skipping"
     else
       echo "$job: pushing $cmd-events.json"
-      emit_build_events "$job" "$cmd" "$f" | bulk_upload "$job"
+      (emit_build_events "$job" "$cmd" "$f" | bulk_upload) &
+      pids="$pids $!"
     fi
 
     f="$job/$cmd-profile.json"
@@ -818,8 +808,12 @@ push() {
       echo "$job: $cmd-profile.json exists but is not valid json, skipping"
     else
       echo "$job: pushing $cmd-profile.json"
-      emit_trace_events "$job" "$cmd" "$f" | bulk_upload "$job"
+      (emit_trace_events "$job" "$cmd" "$f" | bulk_upload) &
+      pids="$pids $!"
     fi
+  done
+  for pid in $pids; do
+    wait $pid
   done
 }
 
@@ -917,7 +911,7 @@ else
 fi
 
 cat <<CRONTAB >> /etc/crontab
-*/5 * * * * root GSUTIL="$(which gsutil)" DONE="$DONE" DATA="$DATA" ES_IP="$ES_IP" /root/cron.sh >> /root/log 2>&1
+* * * * * root GSUTIL="$(which gsutil)" DONE="$DONE" DATA="$DATA" ES_IP="$ES_IP" /root/cron.sh >> /root/log 2>&1
 CRONTAB
 
 echo "Waiting for first run..." > /root/log
@@ -940,6 +934,16 @@ STARTUP
       # Read access to storage
       "storage-ro",
     ]
+  }
+
+  scheduling {
+    automatic_restart   = false
+    on_host_maintenance = "TERMINATE"
+    preemptible         = true
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 
 }
