@@ -3,8 +3,7 @@
 
 package com.daml.ledger.participant.state.v2
 
-import scala.annotation.tailrec
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 object GrpcStatuses {
   val DefiniteAnswerKey = "definite_answer"
@@ -27,26 +26,18 @@ object GrpcStatuses {
       completionKey: String,
       completionOffset: Offset,
   ): com.google.rpc.status.Status = {
-    val (errorInfo, errorInfoIndex): (com.google.rpc.error_details.ErrorInfo, Int) = {
-      val iterator = incompleteStatus.details.iterator
-
-      @tailrec def go(index: Int): Option[(com.google.rpc.error_details.ErrorInfo, Int)] =
-        if (iterator.hasNext) {
-          val next = iterator.next()
-          if (next.is(com.google.rpc.error_details.ErrorInfo.messageCompanion)) {
-            Try(next.unpack(com.google.rpc.error_details.ErrorInfo.messageCompanion)) match {
-              case Success(errorInfo) => Some(errorInfo -> index)
-              case _: Failure[_] => go(index + 1)
-            }
-          } else go(index + 1)
-        } else None
-
-      go(0).getOrElse(
-        throw new IllegalArgumentException(
-          s"No com.google.rpc.error_details.ErrorInfo found in details for $incompleteStatus"
+    val (errorInfo, errorInfoIndex): (com.google.rpc.error_details.ErrorInfo, Int) =
+      incompleteStatus.details.zipWithIndex
+        .collectFirst {
+          case (errorDetail, index)
+              if errorDetail.is(com.google.rpc.error_details.ErrorInfo.messageCompanion) =>
+            errorDetail.unpack(com.google.rpc.error_details.ErrorInfo.messageCompanion) -> index
+        }
+        .getOrElse(
+          throw new IllegalArgumentException(
+            s"No com.google.rpc.error_details.ErrorInfo found in details for $incompleteStatus"
+          )
         )
-      )
-    }
 
     val newErrorInfo =
       errorInfo
