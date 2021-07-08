@@ -29,7 +29,7 @@ object MetadataReader {
   def readFromDar(darFile: File): Error \/ LfMetadata =
     for {
       dar <- \/.fromEither(
-        DarReader().readArchiveFromFile(darFile).toEither
+        DarReader.readArchiveFromFile(darFile).toEither
       ).leftMap(e => Error(Symbol("readFromDar"), e.description))
 
       packageStore <- decodePackageStoreFromDar(dar)

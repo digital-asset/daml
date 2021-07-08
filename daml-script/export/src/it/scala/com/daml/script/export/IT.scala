@@ -153,7 +153,7 @@ final class IT
       tmpDir.resolve("export.dar").toString,
     ).! shouldBe 0
     // load DAR
-    encodedDar = DarReader().readArchiveFromFile(tmpDir.resolve("export.dar").toFile).get
+    encodedDar = DarReader.readArchiveFromFile(tmpDir.resolve("export.dar").toFile).get
     dar = encodedDar.map(Decode.decode)
   } yield dar
 

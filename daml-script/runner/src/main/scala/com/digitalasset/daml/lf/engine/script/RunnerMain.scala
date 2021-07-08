@@ -33,7 +33,7 @@ object RunnerMain {
   }
 
   def main(config: RunnerConfig): Unit = {
-    val encodedDar: Dar[ArchivePayload] = DarReader().readArchiveFromFile(config.darPath).get
+    val encodedDar: Dar[ArchivePayload] = DarReader.readArchiveFromFile(config.darPath).get
     val dar: Dar[(PackageId, Package)] = encodedDar.map(Decode.decode)
     val scriptId: Identifier =
       Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))

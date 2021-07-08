@@ -90,7 +90,7 @@ object ServiceMain {
       case Some(config) =>
         val logger = ContextualizedLogger.get(this.getClass)
         val encodedDars: List[Dar[(PackageId, DamlLf.ArchivePayload)]] =
-          config.darPaths.traverse(p => DarReader().readArchiveFromFile(p.toFile).toEither) match {
+          config.darPaths.traverse(p => DarReader.readArchiveFromFile(p.toFile).toEither) match {
             case Left(err) => sys.error(s"Failed to read archive: $err")
             case Right(dars) => dars.map(_.map(p => p.pkgId -> p.proto))
           }

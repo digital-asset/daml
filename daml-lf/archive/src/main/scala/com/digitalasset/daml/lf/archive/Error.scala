@@ -7,7 +7,7 @@ class Error(val msg: String) extends RuntimeException(msg)
 
 object Error {
 
-  import DarReader.ZipEntries
+  import GenDarReader.ZipEntries
 
   final case class InvalidDar(entries: ZipEntries, cause: Throwable)
       extends Error(s"Invalid DAR: ${darInfo(entries): String}")

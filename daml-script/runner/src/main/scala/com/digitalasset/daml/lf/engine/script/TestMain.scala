@@ -51,7 +51,7 @@ object TestMain extends StrictLogging {
     TestConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) =>
-        val encodedDar = DarReader().readArchiveFromFile(config.darPath).get
+        val encodedDar = DarReader.readArchiveFromFile(config.darPath).get
         val dar: Dar[(PackageId, Package)] = encodedDar.map(Decode.decode)
 
         val system: ActorSystem = ActorSystem("ScriptTest")

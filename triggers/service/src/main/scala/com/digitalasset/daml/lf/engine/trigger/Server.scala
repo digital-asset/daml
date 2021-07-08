@@ -392,7 +392,7 @@ class Server(
               val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
               onSuccess(byteStringF) { byteString =>
                 val inputStream = new ByteArrayInputStream(byteString.toArray)
-                DarReader()
+                DarReader
                   .readArchive("package-upload", new ZipInputStream(inputStream)) match {
                   case Failure(err) =>
                     complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))

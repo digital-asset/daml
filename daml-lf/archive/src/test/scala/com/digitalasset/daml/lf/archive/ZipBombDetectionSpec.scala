@@ -19,7 +19,7 @@ final class ZipBombDetectionSpec extends AnyFlatSpec with Matchers with TryValue
     )
 
   "DarReader" should "reject a zip bomb with the proper error" in {
-    DarReader()
+    DarReader
       .readArchive("t", bomb, entrySizeThreshold = 1024)
       .failure
       .exception shouldBe a[Error.ZipBomb]

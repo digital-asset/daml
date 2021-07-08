@@ -18,7 +18,6 @@ import scalaz.syntax.traverse._
 
 import scala.collection.immutable.Map
 import scala.concurrent.Future
-import scala.util.Try
 
 private[platform] object InMemoryPackageStore {
   def empty: InMemoryPackageStore = new InMemoryPackageStore(Map.empty, Map.empty, Map.empty)
@@ -62,9 +61,7 @@ private[platform] case class InMemoryPackageStore(
       file: File,
   ): Either[String, InMemoryPackageStore] = {
     val archivesTry = for {
-      dar <- archive
-        .DarReader[DamlLf.Archive] { case (_, x) => Try(DamlLf.Archive.parseFrom(x)) }
-        .readArchiveFromFile(file)
+      dar <- archive.RawDarReader.readArchiveFromFile(file)
     } yield dar.all
 
     for {
