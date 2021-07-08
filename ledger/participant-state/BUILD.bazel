@@ -56,6 +56,8 @@ da_scala_test_suite(
     ],
     deps = [
         ":participant-state",
+        "//daml-lf/data",
         "//daml-lf/transaction",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
     ],
 )
