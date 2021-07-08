@@ -6,9 +6,9 @@ package db.migration.translation
 
 import java.io.InputStream
 
-import com.daml.lf.archive.Reader
 import com.daml.lf.value.Value.{ContractId, VersionedValue}
 import com.daml.lf.value.{ValueCoder, ValueOuterClass}
+import com.google.protobuf.CodedInputStream
 import org.slf4j.LoggerFactory
 
 private[migration] object ValueSerializer {
@@ -49,6 +49,14 @@ private[migration] object ValueSerializer {
       errorContext: => String,
   ): Array[Byte] = store.serialization.ValueSerializer.serializeValue(value, errorContext)
 
+  private[this] val PROTOBUF_RECURSION_LIMIT = 1000
+
+  def lfValueCodedInputStream(stream: InputStream) = {
+    val cos = CodedInputStream.newInstance(stream)
+    cos.setRecursionLimit(PROTOBUF_RECURSION_LIMIT)
+    cos
+  }
+
   private[this] def deserializeValueHelper(
       stream: InputStream,
       errorContext: => Option[String],
@@ -57,9 +65,7 @@ private[migration] object ValueSerializer {
       ValueCoder
         .decodeVersionedValue(
           ValueCoder.CidDecoder,
-          ValueOuterClass.VersionedValue.parseFrom(
-            Reader.damlLfCodedInputStream(stream)
-          ),
+          ValueOuterClass.VersionedValue.parseFrom(lfValueCodedInputStream(stream)),
         )
     )
       .fold(
