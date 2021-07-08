@@ -98,7 +98,7 @@ object Update {
     * @param rejectionReason
     *   reason for rejection of the party allocation entry
     *
-    * Consider whether an enumerated set of reject reasons a la [[RejectionReason]] would be helpful, and whether the same breadth of reject
+    * Consider whether an enumerated set of reject reasons a la [[com.daml.ledger.participant.state.v2.Update.CommandRejected.RejectionReasonTemplate]] would be helpful, and whether the same breadth of reject
     * types needs to be handled for party allocation entry rejects
     */
   final case class PartyAllocationRejected(
