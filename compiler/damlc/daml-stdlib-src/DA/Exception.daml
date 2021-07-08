@@ -6,7 +6,9 @@
 #ifndef DAML_EXCEPTIONS
 
 -- | HIDE
-module DA.Exception where
+module DA.Exception
+  {-# WARNING "Your target Daml-LF version is too old for exceptions. You need Daml-LF 1.14 or newer" #-}
+  where
 
 #else
 
