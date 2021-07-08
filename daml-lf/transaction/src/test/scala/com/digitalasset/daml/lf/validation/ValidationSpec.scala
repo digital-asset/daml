@@ -25,11 +25,12 @@ import com.daml.lf.transaction.Node.{
 import com.daml.lf.value.{Value => V}
 
 import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.HashMap
 
-class ValidationSpec extends AnyFreeSpec {
-
+class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
   //--[Tweaks]--
   //
   // A 'Tweak[X]' is a family of (small) modifications to a value of type X.
@@ -113,10 +114,10 @@ class ValidationSpec extends AnyFreeSpec {
   private val samVersion1: TransactionVersion = TransactionVersion.minVersion
   private val samVersion2: TransactionVersion = TransactionVersion.maxVersion
 
-  private val someCreates: List[Node] =
+  private val someCreates: Seq[Node] =
     for {
-      version <- List(samVersion1, samVersion2)
-      key <- List(None, Some(samKWM1))
+      version <- Seq(samVersion1, samVersion2)
+      key <- Seq(None, Some(samKWM1))
     } yield NodeCreate(
       coid = samContractId1,
       templateId = samTemplateId1,
@@ -129,11 +130,11 @@ class ValidationSpec extends AnyFreeSpec {
       version = version,
     )
 
-  private val someFetches: List[Node] =
+  private val someFetches: Seq[Node] =
     for {
-      version <- List(samVersion1, samVersion2)
-      key <- List(None, Some(samKWM2))
-      actingParties <- List(Set[Party](), Set(samParty1))
+      version <- Seq(samVersion1, samVersion2)
+      key <- Seq(None, Some(samKWM2))
+      actingParties <- Seq(Set[Party](), Set(samParty1))
     } yield NodeFetch(
       coid = samContractId1,
       templateId = samTemplateId1,
@@ -146,10 +147,10 @@ class ValidationSpec extends AnyFreeSpec {
       version = version,
     )
 
-  private val someLookups: List[Node] =
+  private val someLookups: Seq[Node] =
     for {
-      version <- List(samVersion1, samVersion2)
-      result <- List(None, Some(samContractId1))
+      version <- Seq(samVersion1, samVersion2)
+      result <- Seq(None, Some(samContractId1))
     } yield NodeLookupByKey(
       templateId = samTemplateId1,
       optLocation = samOptLocation1,
@@ -158,11 +159,11 @@ class ValidationSpec extends AnyFreeSpec {
       version = version,
     )
 
-  private val someExercises: List[Exe] =
+  private val someExercises: Seq[Exe] =
     for {
-      version <- List(samVersion1, samVersion2)
-      key <- List(None, Some(samKWM1))
-      exerciseResult <- List(None, Some(samValue2))
+      version <- Seq(samVersion1, samVersion2)
+      key <- Seq(None, Some(samKWM1))
+      exerciseResult <- Seq(None, Some(samValue2))
     } yield NodeExercises(
       targetCoid = samContractId2,
       templateId = samTemplateId2,
@@ -184,14 +185,14 @@ class ValidationSpec extends AnyFreeSpec {
   //--[running tweaks]--
   // We dont aim for much coverage in the overal TX shape; we limit to either 0 or 1 level of nesting.
 
-  private def flatVTXs: List[VTX] =
+  private def flatVTXs: Seq[VTX] =
     (someCreates ++ someFetches ++ someLookups ++ someExercises).map { node =>
       val nid = NodeId(0)
       val version = TransactionVersion.minExceptions
       VersionedTransaction(version, HashMap(nid -> node), ImmArray(nid))
     }
 
-  private def nestedVTXs: List[VTX] =
+  private def nestedVTXs: Seq[VTX] =
     for {
       exe <- someExercises
       child <- someExercises ++ someCreates ++ someLookups ++ someFetches
@@ -203,9 +204,9 @@ class ValidationSpec extends AnyFreeSpec {
       VersionedTransaction(version, HashMap(nid0 -> parent, nid1 -> child), ImmArray(nid0))
     }
 
-  private def preTweakedVTXs: List[VTX] = flatVTXs ++ nestedVTXs
+  private def preTweakedVTXs: Seq[VTX] = flatVTXs ++ nestedVTXs
 
-  private def runTweak(tweak: Tweak[VTX]): List[(VTX, VTX)] =
+  private def runTweak(tweak: Tweak[VTX]): Seq[(VTX, VTX)] =
     for {
       txA <- preTweakedVTXs
       txB <- tweak.run(txA)
@@ -542,45 +543,31 @@ class ValidationSpec extends AnyFreeSpec {
   //--[per tweak tests]--
 
   "Significant tweaks" - {
-    var count = 0
     significantTweaks.foreach { case (name, tweak) =>
       val pairs = runTweak(tweak)
       val n = pairs.length
-      count += n
       assert(n > 0) // ensure tweak actualy applies to something
       s"[#$n] $name" in {
-        pairs.foreach { case (txA, txB) =>
-          val res = Validation.isReplayedBy(txA, txB)
-          res match {
-            case Left(_) => ()
-            case Right(()) =>
-              fail(s"**expected $name to be SIGNIFICANT (but it wasn't)\n-txA=$txA\n-txB=$txB")
-          }
+        val testCases = Table[VTX, VTX](("txA", "txB"), pairs: _*)
+        forEvery(testCases) { case (txA, txB) =>
+          Validation.isReplayedBy(txA, txB) shouldBe a[Left[_, _]]
         }
       }
     }
-    println(s"**SIGNIFICANT tweaks checked: #$count")
   }
 
   "Insignificant tweaks" - {
-    var count = 0
     insignificantTweaks.foreach { case (name, tweak) =>
       val pairs = runTweak(tweak)
       val n = pairs.length
-      count += n
       assert(n > 0) // ensure tweak actualy applies to something
       s"[#$n] $name" in {
-        pairs.foreach { case (txA, txB) =>
-          val res = Validation.isReplayedBy(txA, txB)
-          res match {
-            case Right(()) => ()
-            case Left(_) =>
-              fail(s"**expected $name to be INSIGNIFICANT (but it wasn't)\n-txA=$txA\n-txB=$txB")
-          }
+        val testCases = Table[VTX, VTX](("txA", "txB"), pairs: _*)
+        forEvery(testCases) { case (txA, txB) =>
+          Validation.isReplayedBy(txA, txB) shouldBe a[Right[_, _]]
         }
       }
     }
-    println(s"**INSIGNIFICANT tweaks checked: #$count")
   }
 
 }
