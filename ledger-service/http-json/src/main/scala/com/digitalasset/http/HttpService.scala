@@ -5,7 +5,9 @@ package com.daml.http
 
 import akka.actor.{ActorSystem, Cancellable}
 import akka.http.scaladsl.Http
+import akka.stream.scaladsl.Sink
 import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
 import com.daml.auth.TokenHolder
@@ -37,6 +39,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
 import com.daml.ports.{Port, PortFiles}
 import com.daml.scalautil.Statement.discard
+import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
 import scalaz.Scalaz._
 import scalaz._
 
@@ -157,8 +160,10 @@ object HttpService {
         ),
       )
 
+      ledgerHealthService = HealthGrpc.stub(client.channel)
+
       healthService = new HealthService(
-        getLedgerEnd(pkgManagementClient, tokenHolder),
+        () => ledgerHealthService.check(HealthCheckRequest()),
         contractDao,
         healthTimeoutSeconds,
       )
@@ -190,16 +195,31 @@ object HttpService {
         websocketService,
       )
 
+      ignoreConParam = (res: Future[HttpResponse]) => (_: Http.IncomingConnection) => res
+
       defaultEndpoints =
-        jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound
+        jsonEndpoints.all orElse
+          (websocketEndpoints.transactionWebSocket andThen ignoreConParam) orElse
+          (EndpointsCompanion.notFound andThen ignoreConParam)
 
       allEndpoints = staticContentConfig.cata(
-        c => StaticContentEndpoints.all(c) orElse defaultEndpoints,
+        c =>
+          (StaticContentEndpoints.all(c) andThen ignoreConParam) orElse
+            defaultEndpoints,
         defaultEndpoints,
       )
 
       binding <- liftET[Error](
-        Http().newServerAt(address, httpPort).withSettings(settings).bind(allEndpoints)
+        Http()
+          .newServerAt(address, httpPort)
+          .withSettings(settings)
+          .connectionSource()
+          .to {
+            Sink.foreach { connection =>
+              connection.handleWithAsyncHandler(allEndpoints(_)(connection))
+            }
+          }
+          .run()
       )
 
       _ <- either(portFile.cata(f => createPortFile(f, binding), \/-(()))): ET[Unit]

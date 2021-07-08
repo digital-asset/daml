@@ -63,7 +63,7 @@ final class FailureTests
         (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
         _ = status shouldBe StatusCodes.ServiceUnavailable
         _ = out shouldBe
-          """[-] ledger failed
+          """[-] ledger failed (io.grpc.StatusRuntimeException: UNAVAILABLE: io exception)
             |[+] database ok
             |readyz check failed
             |""".stripMargin.replace("\r\n", "\n")
@@ -263,7 +263,7 @@ final class FailureTests
       (status, out) <- getRequestEncoded(uri.withPath(Uri.Path("/readyz")))
       _ = status shouldBe StatusCodes.ServiceUnavailable
       _ = out shouldBe
-        """[+] ledger ok
+        """[+] ledger ok (SERVING)
           |[-] database failed
           |readyz check failed
           |""".stripMargin.replace("\r\n", "\n")

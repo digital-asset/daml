@@ -453,6 +453,8 @@ final class Metrics(val registry: MetricRegistry) {
           val deleteContractWitnessesBatch: Timer =
             registry.timer(dbPrefix :+ "delete_contract_witnesses_batch")
           val deleteContractsBatch: Timer = registry.timer(dbPrefix :+ "delete_contracts_batch")
+          val nullifyPastKeysBatch: Timer =
+            registry.timer(dbPrefix :+ "nullify_contract_keys_batch")
           val insertContractsBatch: Timer = registry.timer(dbPrefix :+ "insert_contracts_batch")
           val insertContractWitnessesBatch: Timer =
             registry.timer(dbPrefix :+ "insert_contract_witnesses_batch")
@@ -661,6 +663,11 @@ final class Metrics(val registry: MetricRegistry) {
           def slice(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "slice")
           def prune(qualifier: String): Timer = registry.timer(Prefix :+ qualifier :+ "prune")
         }
+
+        val getContractStateEventsChunkSize: Histogram =
+          registry.histogram(Prefix :+ "get_contract_state_events_chunk_fetch_size")
+        val getTransactionLogUpdatesChunkSize: Histogram =
+          registry.histogram(Prefix :+ "get_transaction_log_updates_chunk_fetch_size")
       }
 
       object read {

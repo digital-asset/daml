@@ -52,10 +52,10 @@ object ContractStateEventsReader {
   /** This method intentionally produces a generic DTO to perform as much work as possible outside of the db thread pool
     * (specifically the translation to the `ContractStateEvent`)
     */
-  def readRawEvents(range: EventsRange[(Offset, Long)])(implicit
+  def readRawEvents(range: EventsRange[Long])(implicit
       conn: Connection
   ): Vector[RawContractStateEvent] =
-    createsAndArchives(EventsRange(range.startExclusive._2, range.endInclusive._2))
+    createsAndArchives(EventsRange(range.startExclusive, range.endInclusive))
       .asVectorOf(contractStateRowParser)
 
   def toContractStateEvent(

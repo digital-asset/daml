@@ -10,7 +10,7 @@ import com.daml.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v1.command_service._
 import com.daml.ledger.api.validation.{CommandsValidator, SubmitAndWaitRequestValidator}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.server.api.ProxyCloseable
+import com.daml.platform.server.api.{ProxyCloseable, ValidationLogger}
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
@@ -28,7 +28,7 @@ class GrpcCommandService(
     with GrpcApiService
     with ProxyCloseable {
 
-  protected val logger: Logger = LoggerFactory.getLogger(CommandService.getClass)
+  protected implicit val logger: Logger = LoggerFactory.getLogger(service.getClass)
 
   private[this] val validator =
     new SubmitAndWaitRequestValidator(new CommandsValidator(ledgerId))
@@ -36,28 +36,40 @@ class GrpcCommandService(
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
-      .fold(Future.failed, _ => service.submitAndWait(request))
+      .fold(
+        t => Future.failed(ValidationLogger.logFailure(request, t)),
+        _ => service.submitAndWait(request),
+      )
 
   override def submitAndWaitForTransactionId(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionIdResponse] =
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
-      .fold(Future.failed, _ => service.submitAndWaitForTransactionId(request))
+      .fold(
+        t => Future.failed(ValidationLogger.logFailure(request, t)),
+        _ => service.submitAndWaitForTransactionId(request),
+      )
 
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionResponse] =
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
-      .fold(Future.failed, _ => service.submitAndWaitForTransaction(request))
+      .fold(
+        t => Future.failed(ValidationLogger.logFailure(request, t)),
+        _ => service.submitAndWaitForTransaction(request),
+      )
 
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] =
     validator
       .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
-      .fold(Future.failed, _ => service.submitAndWaitForTransactionTree(request))
+      .fold(
+        t => Future.failed(ValidationLogger.logFailure(request, t)),
+        _ => service.submitAndWaitForTransactionTree(request),
+      )
 
   override def bindService(): ServerServiceDefinition =
     CommandServiceGrpc.bindService(this, executionContext)
