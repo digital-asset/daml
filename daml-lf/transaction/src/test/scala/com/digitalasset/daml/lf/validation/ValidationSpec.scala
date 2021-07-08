@@ -543,11 +543,9 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
   //--[per tweak tests]--
 
   "Significant tweaks" - {
-    var count = 0
     significantTweaks.foreach { case (name, tweak) =>
       val pairs = runTweak(tweak)
       val n = pairs.length
-      count += n
       assert(n > 0) // ensure tweak actualy applies to something
       s"[#$n] $name" in {
         val testCases = Table[VTX, VTX](("txA", "txB"), pairs: _*)
@@ -556,15 +554,12 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
         }
       }
     }
-    println(s"**SIGNIFICANT tweaks checked: #$count")
   }
 
   "Insignificant tweaks" - {
-    var count = 0
     insignificantTweaks.foreach { case (name, tweak) =>
       val pairs = runTweak(tweak)
       val n = pairs.length
-      count += n
       assert(n > 0) // ensure tweak actualy applies to something
       s"[#$n] $name" in {
         val testCases = Table[VTX, VTX](("txA", "txB"), pairs: _*)
@@ -573,7 +568,6 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
         }
       }
     }
-    println(s"**INSIGNIFICANT tweaks checked: #$count")
   }
 
 }
