@@ -31,7 +31,7 @@ trait ReadService extends ReportsHealth {
     * Source is being used instead of Future as this is in line with [[stateUpdates]],
     * and is easy to implement from both Java and Scala.
     */
-  def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed]
+  def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed]
 
   /** Get the stream of state [[Update]]s starting from the beginning or right
     * after the given [[Offset]]
