@@ -6,7 +6,7 @@ package com.daml.codegen
 import java.io._
 
 import com.daml.codegen.types.Namespace
-import com.daml.lf.archive.{Dar, UniversalArchiveReader}
+import com.daml.lf.archive.{ArchivePayload, Dar, UniversalArchiveReader}
 import com.daml.lf.iface
 import com.daml.lf.data.Ref
 import com.daml.lf.iface.{Type => _, _}
@@ -16,7 +16,6 @@ import com.daml.codegen.exception.PackageInterfaceException
 import lf.{DefTemplateWithRecord, LFUtil, ScopedDataType}
 import com.daml.lf.data.Ref._
 import com.daml.lf.iface.reader.Errors.ErrorLoc
-import com.daml.daml_lf_dev.DamlLf
 import com.typesafe.scalalogging.Logger
 import scalaz.{Enum => _, _}
 import scalaz.std.tuple._
@@ -35,8 +34,6 @@ import scala.util.matching.Regex
 object CodeGen {
 
   private val logger: Logger = Logger(getClass)
-
-  type Payload = (PackageId, DamlLf.ArchivePayload)
 
   sealed abstract class Mode extends Serializable with Product
   case object Novel extends Mode
@@ -105,11 +102,11 @@ object CodeGen {
       files: NonEmptyList[File]
   ): ValidationNel[String, NonEmptyList[EnvironmentInterface]] = {
     val reader = UniversalArchiveReader()
-    val parse: File => String \/ Dar[Payload] = parseFile(reader)
+    val parse: File => String \/ Dar[ArchivePayload] = parseFile(reader)
     files.traverse(f => decodeInterface(parse)(f).validationNel)
   }
 
-  private def parseFile(reader: UniversalArchiveReader[Payload])(f: File): String \/ Dar[Payload] =
+  private def parseFile(reader: UniversalArchiveReader)(f: File): String \/ Dar[ArchivePayload] =
     reader.readFile(f) match {
       case Success(p) => \/.right(p)
       case Failure(e) =>
@@ -117,23 +114,22 @@ object CodeGen {
         \/.left(e.getLocalizedMessage)
     }
 
-  private def decodeInterface(parse: File => String \/ Dar[Payload])(
+  private def decodeInterface(parse: File => String \/ Dar[ArchivePayload])(
       file: File
   ): String \/ EnvironmentInterface =
     parse(file).flatMap(decodeInterface)
 
-  private def decodeInterface(dar: Dar[Payload]): String \/ EnvironmentInterface = {
+  private def decodeInterface(dar: Dar[ArchivePayload]): String \/ EnvironmentInterface = {
     import scalaz.syntax.traverse._
     dar.traverse(decodeInterface).map(combineInterfaces)
   }
 
-  private def decodeInterface(p: Payload): String \/ Interface =
+  private def decodeInterface(p: ArchivePayload): String \/ Interface =
     \/.attempt {
-      val packageId: PackageId = p._1
-      logger.info(s"decoding archive with Package ID: $packageId")
+      logger.info(s"decoding archive with Package ID: ${p.pkgId}")
       val (errors, out) = Interface.read(p)
       (if (!errors.empty) {
-         -\/(formatDecodeErrors(packageId, errors))
+         -\/(formatDecodeErrors(p.pkgId, errors))
        } else \/-(out)): String \/ Interface
     }(_.getLocalizedMessage).join
 

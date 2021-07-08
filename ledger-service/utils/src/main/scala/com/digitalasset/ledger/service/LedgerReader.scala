@@ -72,7 +72,7 @@ object LedgerReader {
       val cos = Reader.damlLfCodedInputStream(archivePayload.newInput)
       val payload = DamlLf.ArchivePayload.parseFrom(cos)
       val (errors, out) =
-        InterfaceReader.readInterface(PackageId.assertFromString(hash) -> payload)
+        InterfaceReader.readInterface(PackageId.assertFromString(hash), payload)
       (if (!errors.empty) -\/("Errors reading LF archive:\n" + errors.toString)
        else \/-(out)): Error \/ Interface
     }(_.getLocalizedMessage).join

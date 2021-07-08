@@ -13,8 +13,7 @@ import com.daml.ledger.participant.state.kvutils.committer._
 import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.ContractKeysValidation.validateKeys
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReasonV0, TimeModel}
-import com.daml.lf.archive.Decode
-import com.daml.lf.archive.Reader.ParseError
+import com.daml.lf.archive
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine, Error => LfError}
@@ -655,11 +654,11 @@ private[kvutils] class TransactionCommitter(
             // NOTE(JM): Engine only looks up packages once, compiles and caches,
             // provided that the engine instance is persisted.
             try {
-              Some(Decode.decodeArchive(value.getArchive)._2)
+              Some(archive.Decode.decode(value.getArchive)._2)
             } catch {
-              case ParseError(err) =>
+              case err: archive.Error =>
                 logger.warn("Decoding the archive failed.")
-                throw Err.DecodeError("Archive", err)
+                throw Err.DecodeError("Archive", err.getMessage)
             }
 
           case _ =>

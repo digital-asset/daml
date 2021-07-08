@@ -14,7 +14,7 @@ ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 mkdir -p "${ARTIFACT_DIRS}/logs"
 
 tag_filter=""
-if [[ "$execution_log_postfix" == "_Darwin" ]]; then
+if [[ "$(uname)" == "Darwin" ]]; then
   tag_filter="-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
 

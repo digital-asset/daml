@@ -42,18 +42,16 @@ class CollectAuthorityState {
   @Setup(Level.Trial)
   def init(): Unit = {
     val darFile = new File(if (dar.startsWith("//")) rlocation(dar.substring(2)) else dar)
-    val packages = UniversalArchiveReader().readFile(darFile).get
-    val packagesMap = packages.all.map { case (pkgId, pkgArchive) =>
-      Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-    }.toMap
+    val payloads = UniversalArchiveReader().readFile(darFile).get
+    val packages = payloads.all.map(Decode.decode).toMap
 
     val compilerConfig =
       Compiler.Config.Default.copy(
         stacktracing = Compiler.NoStackTrace
       )
 
-    val compiledPackages = PureCompiledPackages.assertBuild(packagesMap, compilerConfig)
-    val expr = EVal(Identifier(packages.main._1, QualifiedName.assertFromString(scenario)))
+    val compiledPackages = PureCompiledPackages.assertBuild(packages, compilerConfig)
+    val expr = EVal(Identifier(payloads.main.pkgId, QualifiedName.assertFromString(scenario)))
 
     machine = Machine.fromScenarioExpr(
       compiledPackages,

@@ -14,7 +14,6 @@ import akka.stream.scaladsl.Sink
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.caching
-import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
@@ -26,7 +25,7 @@ import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.RawDarReader
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.LanguageVersion
@@ -51,8 +50,6 @@ import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future, Promise}
-
-import scala.util.Try
 
 /** Runs Sandbox with a KV SQL ledger backend.
   *
@@ -298,11 +295,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     implicit telemetryContext =>
       val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
       for {
-        dar <- Future(
-          DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
-            .readArchiveFromFile(from)
-            .get
-        )
+        dar <- Future.fromTry(RawDarReader.readArchiveFromFile(from))
         _ <- to.uploadPackages(submissionId, dar.all, None).toScala
       } yield ()
   }

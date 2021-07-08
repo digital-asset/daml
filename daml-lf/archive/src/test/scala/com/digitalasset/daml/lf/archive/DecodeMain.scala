@@ -22,12 +22,10 @@ object DecodeMain extends App {
   (1 to 3).foreach { _ =>
     val t0 = System.nanoTime()
 
-    val archives =
-      DarReader().readArchiveFromFile(new File(args(0))).get
+    val archives = DarReader.readArchiveFromFile(new File(args(0))).get
     val t1 = System.nanoTime()
 
-    val _: (Ref.PackageId, Ast.Package) =
-      Decode.readArchivePayload(archives.main._1, archives.main._2)
+    val _: (Ref.PackageId, Ast.Package) = Decode.decode(archives.main)
     val t2 = System.nanoTime()
 
     println(s"parseFrom in ${toMillis(t0, t1)}ms, decoded in ${toMillis(t1, t2)}ms.")

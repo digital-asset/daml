@@ -32,7 +32,7 @@ steps:
     displayName: 'Platform-agnostic lints and checks'
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
-  - bash: ./build.sh "_$(uname)"
+  - bash: ./build.sh "_${{parameters.name}}"
     displayName: 'Build'
     env:
       DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
