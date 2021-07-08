@@ -1215,9 +1215,8 @@ class DecodeV1Spec
           None,
           onlySerializableDataDefs = false,
         )
-        val parseError = an[Error.Parsing] shouldBe thrownBy(
-          decoder.decodeInternedTypes(env, pkgWithInternedTypes)
-        )
+        val parseError =
+          the[Error.Parsing] thrownBy (decoder.decodeInternedTypes(env, pkgWithInternedTypes))
         parseError.toString should include("interned types table is not supported")
       }
     }
