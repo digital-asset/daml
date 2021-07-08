@@ -7,11 +7,10 @@ import java.io.File
 import java.time.Instant
 
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.lf.archive.ParseError
-import com.daml.lf.archive.{DarReader, Decode}
+import com.daml.lf.archive
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.daml_lf_dev.DamlLf
 import org.slf4j.LoggerFactory
 import scalaz.std.either._
 import scalaz.std.list._
@@ -28,7 +27,7 @@ private[platform] object InMemoryPackageStore {
 private[platform] case class InMemoryPackageStore(
     packageInfos: Map[PackageId, PackageDetails],
     packages: Map[PackageId, Ast.Package],
-    archives: Map[PackageId, Archive],
+    archives: Map[PackageId, DamlLf.Archive],
 ) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -38,10 +37,10 @@ private[platform] case class InMemoryPackageStore(
   def listLfPackagesSync(): Map[PackageId, PackageDetails] =
     packageInfos
 
-  def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
+  def getLfArchive(packageId: PackageId): Future[Option[DamlLf.Archive]] =
     Future.successful(getLfArchiveSync(packageId))
 
-  def getLfArchiveSync(packageId: PackageId): Option[Archive] =
+  def getLfArchiveSync(packageId: PackageId): Option[DamlLf.Archive] =
     archives.get(packageId)
 
   def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
@@ -53,7 +52,7 @@ private[platform] case class InMemoryPackageStore(
   def withPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
-      packages: List[Archive],
+      packages: List[DamlLf.Archive],
   ): Either[String, InMemoryPackageStore] =
     addArchives(knownSince, sourceDescription, packages)
 
@@ -63,7 +62,8 @@ private[platform] case class InMemoryPackageStore(
       file: File,
   ): Either[String, InMemoryPackageStore] = {
     val archivesTry = for {
-      dar <- DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
+      dar <- archive
+        .DarReader[DamlLf.Archive] { case (_, x) => Try(DamlLf.Archive.parseFrom(x)) }
         .readArchiveFromFile(file)
     } yield dar.all
 
@@ -76,7 +76,7 @@ private[platform] case class InMemoryPackageStore(
   private[InMemoryPackageStore] def addPackage(
       pkgId: PackageId,
       details: PackageDetails,
-      archive: Archive,
+      archive: DamlLf.Archive,
       pkg: Ast.Package,
   ): InMemoryPackageStore =
     packageInfos.get(pkgId) match {
@@ -97,14 +97,14 @@ private[platform] case class InMemoryPackageStore(
   private def addArchives(
       knownSince: Instant,
       sourceDescription: Option[String],
-      archives: List[Archive],
+      archives: List[DamlLf.Archive],
   ): Either[String, InMemoryPackageStore] =
     archives
-      .traverse(archive =>
+      .traverse(proto =>
         try {
-          Right((archive, Decode.decode(archive)._2))
+          Right((proto, archive.Decode.decode(proto)._2))
         } catch {
-          case err: ParseError => Left(s"Could not parse archive ${archive.getHash}: $err")
+          case err: archive.Error => Left(s"Could not parse archive ${proto.getHash}: $err")
         }
       )
       .map(pkgs =>

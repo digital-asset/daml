@@ -14,20 +14,20 @@ import com.google.protobuf.CodedInputStream
 
 object Reader {
 
-  @throws[ParseError]
+  @throws[Error.Parsing]
   def readArchive(is: InputStream): ArchivePayload = {
     val cos = damlLfCodedInputStream(is, PROTOBUF_RECURSION_LIMIT)
     readArchive(DamlLf.Archive.parser().parseFrom(cos))
   }
 
-  @throws[ParseError]
+  @throws[Error.Parsing]
   def readArchive(lf: DamlLf.Archive): ArchivePayload = {
     lf.getHashFunction match {
       case DamlLf.HashFunction.SHA256 =>
         val payload = lf.getPayload
         val theirHash = PackageId.fromString(lf.getHash) match {
           case Right(hash) => hash
-          case Left(err) => throw ParseError(s"Invalid hash: $err")
+          case Left(err) => throw Error.Parsing(s"Invalid hash: $err")
         }
         val ourHash =
           PackageId.assertFromString(
@@ -38,11 +38,11 @@ object Reader {
               .mkString
           )
         if (ourHash != theirHash) {
-          throw ParseError(s"Mismatching hashes! Expected $ourHash but got $theirHash")
+          throw Error.Parsing(s"Mismatching hashes! Expected $ourHash but got $theirHash")
         }
         readArchivePayload(ourHash, payload.newInput())
       case DamlLf.HashFunction.UNRECOGNIZED =>
-        throw ParseError("Unrecognized hash function")
+        throw Error.Parsing("Unrecognized hash function")
     }
   }
 
@@ -51,7 +51,7 @@ object Reader {
     readArchivePayload(hash, DamlLf.ArchivePayload.parser().parseFrom(cos))
   }
 
-  @throws[ParseError]
+  @throws[Error.Parsing]
   def readArchivePayload(hash: PackageId, lf: DamlLf.ArchivePayload): ArchivePayload = {
     val majorVersion = readArchiveVersion(lf)
     val minorVersion = lf.getMinor
@@ -60,7 +60,7 @@ object Reader {
     if (!(majorVersion supportsMinorVersion minorVersion)) {
       val supportedVersions =
         majorVersion.acceptedVersions.map(v => s"$majorVersion.${v.identifier}")
-      throw ParseError(
+      throw Error.Parsing(
         s"LF $majorVersion.$minorVersion unsupported. Supported LF versions are ${supportedVersions
           .mkString(",")}"
       )
@@ -91,13 +91,13 @@ object Reader {
     cos
   }
 
-  @throws[ParseError]
+  @throws[Error.Parsing]
   def readArchiveVersion(lf: DamlLf.ArchivePayload): LanguageMajorVersion = {
     import DamlLf.ArchivePayload.{SumCase => SC}
     import language.{LanguageMajorVersion => LMV}
     lf.getSumCase match {
       case SC.DAML_LF_1 => LMV.V1
-      case SC.SUM_NOT_SET => throw ParseError("Unrecognized LF version")
+      case SC.SUM_NOT_SET => throw Error.Parsing("Unrecognized LF version")
     }
   }
 }
@@ -107,5 +107,3 @@ case class ArchivePayload(
     proto: DamlLf.ArchivePayload,
     version: LanguageVersion,
 )
-
-final case class ParseError(error: String) extends RuntimeException(error)

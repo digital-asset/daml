@@ -22,14 +22,14 @@ final class ZipBombDetectionSpec extends AnyFlatSpec with Matchers with TryValue
     DarReader()
       .readArchive("t", bomb, entrySizeThreshold = 1024)
       .failure
-      .exception shouldBe a[Errors.ZipBomb]
+      .exception shouldBe a[Error.ZipBomb]
   }
 
   "UniversalArchiveReader" should "reject a zip bomb with the proper error" in {
     UniversalArchiveReader(entrySizeThreshold = 1024)
       .readDarStream("t", bomb)
       .failure
-      .exception shouldBe a[Errors.ZipBomb]
+      .exception shouldBe a[Error.ZipBomb]
   }
 
 }
