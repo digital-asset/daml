@@ -662,7 +662,7 @@ private object OracleQueries extends Queries {
         INTO contract (contract_id, tpid, key, payload, signatories, observers, agreement_text)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       """,
-      logHandler0 = log,
+      Xo logHandler0 = log,
     ).updateMany(
       dbcs.map(_.mapKeyPayloadParties(identity, identity, _.toJson))
     )
