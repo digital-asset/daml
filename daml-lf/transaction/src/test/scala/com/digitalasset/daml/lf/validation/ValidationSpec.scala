@@ -25,11 +25,12 @@ import com.daml.lf.transaction.Node.{
 import com.daml.lf.value.{Value => V}
 
 import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.HashMap
 
-class ValidationSpec extends AnyFreeSpec {
-
+class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks {
   //--[Tweaks]--
   //
   // A 'Tweak[X]' is a family of (small) modifications to a value of type X.
@@ -549,13 +550,9 @@ class ValidationSpec extends AnyFreeSpec {
       count += n
       assert(n > 0) // ensure tweak actualy applies to something
       s"[#$n] $name" in {
-        pairs.foreach { case (txA, txB) =>
-          val res = Validation.isReplayedBy(txA, txB)
-          res match {
-            case Left(_) => ()
-            case Right(()) =>
-              fail(s"**expected $name to be SIGNIFICANT (but it wasn't)\n-txA=$txA\n-txB=$txB")
-          }
+        val testCases = Table[VTX, VTX](("txA", "txB"), pairs: _*)
+        forEvery(testCases) { case (txA, txB) =>
+          Validation.isReplayedBy(txA, txB) shouldBe a[Left[_, _]]
         }
       }
     }
@@ -570,13 +567,9 @@ class ValidationSpec extends AnyFreeSpec {
       count += n
       assert(n > 0) // ensure tweak actualy applies to something
       s"[#$n] $name" in {
-        pairs.foreach { case (txA, txB) =>
-          val res = Validation.isReplayedBy(txA, txB)
-          res match {
-            case Right(()) => ()
-            case Left(_) =>
-              fail(s"**expected $name to be INSIGNIFICANT (but it wasn't)\n-txA=$txA\n-txB=$txB")
-          }
+        val testCases = Table[VTX, VTX](("txA", "txB"), pairs: _*)
+        forEvery(testCases) { case (txA, txB) =>
+          Validation.isReplayedBy(txA, txB) shouldBe a[Right[_, _]]
         }
       }
     }
