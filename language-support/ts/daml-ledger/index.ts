@@ -355,7 +355,7 @@ type StreamingQuery<T extends object, K, I extends string> = {
     template: Template<T, K, I>,
     queries: Query<T>[],
     stream: QueryResponseStream<T, K, I>,
-    offset?: string,
+    offset?: string | null, // undefined -> nothing has been received, null -> the JSON API returned a null offset
     state: Map<ContractId<T>, CreateEvent<T, K, I>>, // all JavaScript Map iterators preserve insertion order
 }
 
@@ -397,7 +397,7 @@ class QueryStreamsManager {
         const request: StreamingQueryRequest[] = query.queries.length == 0 ?
             [{templateIds: [query.template.templateId]}]
             : query.queries.map(q => ({templateIds: [query.template.templateId], query: encodeQuery(query.template, q) as object}));
-        if (query.offset !== undefined) {
+        if (query.offset !== undefined && query.offset !== null) {
             for (const r of request) {
                 r.offset = query.offset;
             }
@@ -481,14 +481,16 @@ class QueryStreamsManager {
                         consumer.stream.emit('change', Array.from(consumer.state.values()), events);
                     }
 
-                    // TODO move on the offset for all outstanding queries
                     if (isRecordWith('offset', json)) {
-                        lastOffset = jtv.Result.withException(jtv.oneOf(jtv.constant(null), jtv.string()).run(json.offset));
-                        // TODO live events should be fired _only_ for queries without offset
-                        if (isLiveSince === undefined) {
-                            isLiveSince = Date.now();
-                            emitter.emit('live', state);
-                        }
+                        const offset = jtv.Result.withException(jtv.oneOf(jtv.constant(null), jtv.string()).run(json.offset));
+                        this.queries.forEach(consumer => {
+                          if (consumer.offset === undefined) {
+                            // Rebuilding the state array is not particularly efficient but it happens only once in the consumer's
+                            // lifecycle's, so it's probably better than carrying the copy around all the time
+                            consumer.stream.emit('live', Array.from(consumer.state.values()));
+                          }
+                          consumer.offset = offset;
+                        });
                     }
                 } else if (isRecordWith('warnings', json)) {
                     console.warn('QueryStreamsManager warnings', json);
