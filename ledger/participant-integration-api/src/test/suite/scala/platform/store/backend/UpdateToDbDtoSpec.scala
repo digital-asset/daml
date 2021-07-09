@@ -51,89 +51,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.concurrent.{ExecutionContext, Future}
 
 class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
-  // DbDto case classes are not comparable, because the contains Arrays.
-  // The DbDto trait mixes in SomeArrayEquals, but this does not help as some DTOs contain Arrays within Options.
-  // These tests work nevertheless because all array values use the same empty array instance.
-  private[this] val emptyArray = Array.emptyByteArray
-
-  // These tests do not check the correctness of the LF value serialization.
-  // All LF values are serialized into empty arrays in this suite.
-  private[this] val valueSerialization = new LfValueSerialization {
-    override def serialize(
-        contractId: ContractId,
-        contractArgument: Value.VersionedValue[ContractId],
-    ): Array[Byte] = emptyArray
-
-    /** Returns (contract argument, contract key) */
-    override def serialize(eventId: EventId, create: Create): (Array[Byte], Option[Array[Byte]]) =
-      (emptyArray, create.key.map(_ => emptyArray))
-
-    /** Returns (choice argument, exercise result, contract key) */
-    override def serialize(
-        eventId: EventId,
-        exercise: Exercise,
-    ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]]) =
-      (emptyArray, exercise.exerciseResult.map(_ => emptyArray), exercise.key.map(_ => emptyArray))
-    override def deserialize[E](raw: Raw.Created[E], verbose: Boolean)(implicit
-        ec: ExecutionContext,
-        loggingContext: LoggingContext,
-    ): Future[CreatedEvent] = Future.failed(new RuntimeException("Not implemented"))
-    override def deserialize(raw: TreeEvent.Exercised, verbose: Boolean)(implicit
-        ec: ExecutionContext,
-        loggingContext: LoggingContext,
-    ): Future[ExercisedEvent] = Future.failed(new RuntimeException("Not implemented"))
-  }
-
-  // These test do not check the correctness of compression.
-  // All values are compressed using a dummy (identity) algorithm in this suite.
-  private[this] val compressionAlgorithmId = Some(123)
-  private[this] val compressionStrategy: CompressionStrategy = {
-    val noCompression = new FieldCompressionStrategy(compressionAlgorithmId, x => x)
-    CompressionStrategy(noCompression, noCompression, noCompression, noCompression)
-  }
-
-  private[this] val someParticipantId =
-    ParticipantId.assertFromString("UpdateToDbDtoSpecParticipant")
-  private[this] val otherParticipantId =
-    ParticipantId.assertFromString("UpdateToDbDtoSpecRemoteParticipant")
-  private[this] val someOffset = Offset.fromHexString(Ref.HexString.assertFromString("abcdef"))
-  private[this] val someRecordTime = Time.Timestamp.assertFromString("2000-01-01T00:00:00.000000Z")
-  private[this] val someApplicationId =
-    ApplicationId.assertFromString("UpdateToDbDtoSpecApplicationId")
-  private[this] val someCommandId = CommandId.assertFromString("UpdateToDbDtoSpecCommandId")
-  private[this] val someSubmissionId =
-    SubmissionId.assertFromString("UpdateToDbDtoSpecSubmissionId")
-  private[this] val someWorkflowId = WorkflowId.assertFromString("UpdateToDbDtoSpecWorkflowId")
-  private[this] val someConfiguration =
-    Configuration(1, TimeModel.reasonableDefault, Duration.ofHours(23))
-  private[this] val someParty = Party.assertFromString("UpdateToDbDtoSpecParty")
-  private[this] val someHash =
-    crypto.Hash.assertFromString("01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086")
-  private[this] val someArchive1 = DamlLf.Archive.newBuilder
-    .setHash("00001")
-    .setHashFunction(DamlLf.HashFunction.SHA256)
-    .setPayload(ByteString.copyFromUtf8("payload 1"))
-    .build
-  private[this] val someArchive2 = DamlLf.Archive.newBuilder
-    .setHash("00002")
-    .setHashFunction(DamlLf.HashFunction.SHA256)
-    .setPayload(ByteString.copyFromUtf8("payload 2 (longer than the other payload)"))
-    .build
-  private[this] val someSubmitterInfo = SubmitterInfo(
-    actAs = List(someParty),
-    someApplicationId,
-    someCommandId,
-    Instant.ofEpochMilli(1),
-  )
-  private[this] val someTransactionMeta = TransactionMeta(
-    ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
-    workflowId = Some(someWorkflowId),
-    submissionTime = Time.Timestamp.assertFromLong(3),
-    submissionSeed = someHash,
-    optUsedPackages = None,
-    optNodeSeeds = None,
-    optByKeyNodes = None,
-  )
+  import UpdateToDbDtoSpec._
 
   "UpdateToDbDto" should {
     "handle ConfigurationChanged" in {
@@ -1188,4 +1106,90 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
     }
   }
+}
+
+object UpdateToDbDtoSpec {
+  // DbDto case classes are not comparable, because the contains Arrays.
+  // The DbDto trait mixes in SomeArrayEquals, but this does not help as some DTOs contain Arrays within Options.
+  // These tests work nevertheless because all array values use the same empty array instance.
+  val emptyArray = Array.emptyByteArray
+
+  // These tests do not check the correctness of the LF value serialization.
+  // All LF values are serialized into empty arrays in this suite.
+  val valueSerialization = new LfValueSerialization {
+    override def serialize(
+        contractId: ContractId,
+        contractArgument: Value.VersionedValue[ContractId],
+    ): Array[Byte] = emptyArray
+
+    /** Returns (contract argument, contract key) */
+    override def serialize(eventId: EventId, create: Create): (Array[Byte], Option[Array[Byte]]) =
+      (emptyArray, create.key.map(_ => emptyArray))
+
+    /** Returns (choice argument, exercise result, contract key) */
+    override def serialize(
+        eventId: EventId,
+        exercise: Exercise,
+    ): (Array[Byte], Option[Array[Byte]], Option[Array[Byte]]) =
+      (emptyArray, exercise.exerciseResult.map(_ => emptyArray), exercise.key.map(_ => emptyArray))
+    override def deserialize[E](raw: Raw.Created[E], verbose: Boolean)(implicit
+        ec: ExecutionContext,
+        loggingContext: LoggingContext,
+    ): Future[CreatedEvent] = Future.failed(new RuntimeException("Not implemented"))
+    override def deserialize(raw: TreeEvent.Exercised, verbose: Boolean)(implicit
+        ec: ExecutionContext,
+        loggingContext: LoggingContext,
+    ): Future[ExercisedEvent] = Future.failed(new RuntimeException("Not implemented"))
+  }
+
+  // These test do not check the correctness of compression.
+  // All values are compressed using a dummy (identity) algorithm in this suite.
+  val compressionAlgorithmId = Some(123)
+  val compressionStrategy: CompressionStrategy = {
+    val noCompression = new FieldCompressionStrategy(compressionAlgorithmId, x => x)
+    CompressionStrategy(noCompression, noCompression, noCompression, noCompression)
+  }
+
+  val someParticipantId =
+    ParticipantId.assertFromString("UpdateToDbDtoSpecParticipant")
+  val otherParticipantId =
+    ParticipantId.assertFromString("UpdateToDbDtoSpecRemoteParticipant")
+  val someOffset = Offset.fromHexString(Ref.HexString.assertFromString("abcdef"))
+  val someRecordTime = Time.Timestamp.assertFromString("2000-01-01T00:00:00.000000Z")
+  val someApplicationId =
+    ApplicationId.assertFromString("UpdateToDbDtoSpecApplicationId")
+  val someCommandId = CommandId.assertFromString("UpdateToDbDtoSpecCommandId")
+  val someSubmissionId =
+    SubmissionId.assertFromString("UpdateToDbDtoSpecSubmissionId")
+  val someWorkflowId = WorkflowId.assertFromString("UpdateToDbDtoSpecWorkflowId")
+  val someConfiguration =
+    Configuration(1, TimeModel.reasonableDefault, Duration.ofHours(23))
+  val someParty = Party.assertFromString("UpdateToDbDtoSpecParty")
+  val someHash =
+    crypto.Hash.assertFromString("01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086")
+  val someArchive1 = DamlLf.Archive.newBuilder
+    .setHash("00001")
+    .setHashFunction(DamlLf.HashFunction.SHA256)
+    .setPayload(ByteString.copyFromUtf8("payload 1"))
+    .build
+  val someArchive2 = DamlLf.Archive.newBuilder
+    .setHash("00002")
+    .setHashFunction(DamlLf.HashFunction.SHA256)
+    .setPayload(ByteString.copyFromUtf8("payload 2 (longer than the other payload)"))
+    .build
+  val someSubmitterInfo = SubmitterInfo(
+    actAs = List(someParty),
+    someApplicationId,
+    someCommandId,
+    Instant.ofEpochMilli(1),
+  )
+  val someTransactionMeta = TransactionMeta(
+    ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
+    workflowId = Some(someWorkflowId),
+    submissionTime = Time.Timestamp.assertFromLong(3),
+    submissionSeed = someHash,
+    optUsedPackages = None,
+    optNodeSeeds = None,
+    optByKeyNodes = None,
+  )
 }
