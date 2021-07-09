@@ -24,7 +24,11 @@ object Experiments extends OracleAround {
     sql"""
       CREATE TABLE contract (contract_id VARCHAR(255) NOT NULL CONSTRAINT contract_k PRIMARY KEY, tpid NUMBER(19,0), payload CLOB NOT NULL CONSTRAINT ensure_json_payload CHECK (payload IS JSON), signatories CLOB NOT NULL CONSTRAINT ensure_json_signatories CHECK (signatories IS JSON), observers CLOB NOT NULL CONSTRAINT ensure_json_observers CHECK (observers IS JSON))
     """.update.run.transact(xa).unsafeRunSync()
-    sql"CREATE INDEX contract_tpid_idx ON contract (tpid)".update.run.transact(xa).unsafeRunSync()
+    sql"CREATE MATERIALIZED VIEW LOG ON contract".update.run.transact(xa).unsafeRunSync()
+    sql"CREATE TABLE stakeholders (contract_id VARCHAR(255) NOT NULL, tpid NUMBER(19, 0), stakeholder VARCHAR(255), FOREIGN KEY (contract_id) REFERENCES contract(contract_id) ON DELETE CASCADE)".update.run.transact(xa).unsafeRunSync()
+    sql"""
+      CREATE INDEX stakeholder_idx on stakeholders (stakeholder, tpid)
+    """.update.run.transact(xa).unsafeRunSync()
 
     val params =
       for {
@@ -38,12 +42,26 @@ object Experiments extends OracleAround {
         (s"#${i * n + j}", tpid, "{\"x\": 0}", s"""["$party"]""", "[]")
       }.toList
       val start = System.nanoTime
-      Update[(String, Int, String, String, String)](
+      val x = Update[(String, Int, String, String, String)](
         """
         INSERT INTO CONTRACT (contract_id, tpid, payload, signatories, observers)
         VALUES (?, ?, ?, ?, ?)
     """
-      ).updateMany(contracts).transact(xa).unsafeRunSync()
+      ).updateMany(contracts)
+      val stakeholders = (0 until n).map { j =>
+        (s"#${i * n + j}", tpid, party)
+      }.toList
+      val y = Update[(String, Int, String)](
+        """
+        INSERT INTO stakeholders (contract_id, tpid, stakeholder)
+        VALUES (?, ?, ?)
+    """
+      ).updateMany(stakeholders)
+      val foobar = for {
+        _ <- x
+        _ <- y
+      } yield ()
+      foobar.transact(xa).unsafeRunSync()
       val end_ = System.nanoTime
       println(s"$i\t${end_ - start}")
     }
