@@ -97,30 +97,30 @@ private[appendonlydao] final class TransactionsReader(
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
-    val query = (range: EventsRange[(Offset, Long)]) => {
+    val query = (currentRange: EventsRange[Long]) => {
       implicit connection: Connection =>
-        logger.debug(s"getFlatTransactions query($range)")
+        logger.debug(s"getFlatTransactions query($currentRange)")
         queryNonPruned.executeSqlOrThrow(
           getTransactions(
-            EventsRange(range.startExclusive._2, range.endInclusive._2),
+            EventsRange(currentRange.startExclusive, currentRange.endInclusive),
             filter,
             pageSize,
           )(connection),
-          range.startExclusive._1,
+          startExclusive,
           pruned =>
-            s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+            s"Transactions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
         )
     }
 
     val events: Source[EventsTable.Entry[Event], NotUsed] =
       Source
         .futureSource(requestedRangeF.map { requestedRange =>
-          streamEvents(
+          streamEventsWithFixedPageSize(
             verbose,
             dbMetrics.getFlatTransactions,
             query,
-            nextPageRange[Event](requestedRange.endInclusive),
-          )(requestedRange)
+            requestedRange,
+          )
         })
         .mapMaterializedValue(_ => NotUsed)
 
@@ -177,53 +177,43 @@ private[appendonlydao] final class TransactionsReader(
 
     val requestedRangeF = getEventSeqIdRange(startExclusive, endInclusive)
 
-    val query = (range: EventsRange[(Offset, Long)]) => {
+    val query = (currentRange: EventsRange[Long]) => {
       implicit connection: Connection =>
-        logger.debug(s"getTransactionTrees query($range)")
+        logger.debug(s"getTransactionTrees query($currentRange)")
         queryNonPruned.executeSqlOrThrow(
           route(requestingParties)(
             single = party =>
-              EventsRange.readPage(
-                read = (range, limit, fetchSizeHint) =>
-                  storageBackend.transactionTreeEventsSingleParty(
-                    startExclusive = range.startExclusive,
-                    endInclusive = range.endInclusive,
-                    requestingParty = party,
-                    limit = limit,
-                    fetchSizeHint = fetchSizeHint,
-                  ),
-                range = EventsRange(range.startExclusive._2, range.endInclusive._2),
-                pageSize = pageSize,
-              ),
+              storageBackend.transactionTreeEventsSingleParty(
+                startExclusive = currentRange.startExclusive,
+                endInclusive = currentRange.endInclusive,
+                requestingParty = party,
+                limit = None,
+                fetchSizeHint = Some(pageSize),
+              )(connection),
             multi = parties =>
-              EventsRange.readPage(
-                read = (range, limit, fetchSizeHint) =>
-                  storageBackend.transactionTreeEventsMultiParty(
-                    startExclusive = range.startExclusive,
-                    endInclusive = range.endInclusive,
-                    requestingParties = parties,
-                    limit = limit,
-                    fetchSizeHint = fetchSizeHint,
-                  ),
-                range = EventsRange(range.startExclusive._2, range.endInclusive._2),
-                pageSize = pageSize,
-              ),
-          )(connection),
-          range.startExclusive._1,
+              storageBackend.transactionTreeEventsMultiParty(
+                startExclusive = currentRange.startExclusive,
+                endInclusive = currentRange.endInclusive,
+                requestingParties = parties,
+                limit = None,
+                fetchSizeHint = Some(pageSize),
+              )(connection),
+          ),
+          startExclusive,
           pruned =>
-            s"Transactions request from ${range.startExclusive._1.toHexString} to ${range.endInclusive._1.toHexString} precedes pruned offset ${pruned.toHexString}",
+            s"Transactions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
         )
     }
 
     val events: Source[EventsTable.Entry[TreeEvent], NotUsed] =
       Source
         .futureSource(requestedRangeF.map { requestedRange =>
-          streamEvents(
+          streamEventsWithFixedPageSize(
             verbose,
             dbMetrics.getTransactionTrees,
             query,
-            nextPageRange[TreeEvent](requestedRange.endInclusive),
-          )(requestedRange)
+            requestedRange,
+          )
         })
         .mapMaterializedValue(_ => NotUsed)
 
@@ -511,19 +501,53 @@ private[appendonlydao] final class TransactionsReader(
       loggingContext: LoggingContext
   ): Source[EventsTable.Entry[E], NotUsed] =
     PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
-      if (EventsRange.isEmpty(range1))
-        Future.successful(Vector.empty)
-      else {
-        val rawEvents: Future[Vector[EventsTable.Entry[Raw[E]]]] =
-          dispatcher.executeSql(queryMetric)(query(range1))
-        rawEvents.flatMap(es =>
-          Timed.future(
-            future = Future.traverse(es)(deserializeEntry(verbose)),
-            timer = queryMetric.translationTimer,
-          )
-        )
-      }
+      fetchEventsInRange(verbose, queryMetric, query)(range1)
     }
+
+  private def streamEventsWithFixedPageSize[E](
+      verbose: Boolean,
+      queryMetric: DatabaseMetrics,
+      query: EventsRange[Long] => Connection => Vector[
+        EventsTable.Entry[Raw[E]]
+      ],
+      fullRange: EventsRange[(Offset, Long)],
+  )(implicit loggingContext: LoggingContext): Source[EventsTable.Entry[E], NotUsed] =
+    Source
+      .fromIterator(() => Iterator.iterate(fullRange.startExclusive._2)(_ + pageSize))
+      .sliding(2)
+      .map { case Seq(startExclusive, endInclusive) =>
+        EventsRange(startExclusive, endInclusive.min(fullRange.endInclusive._2))
+      }
+      .takeWhile(_.endInclusive < fullRange.endInclusive._2, inclusive = true)
+      .mapAsync(5) { eventsRange =>
+        fetchEventsInRange(
+          verbose,
+          queryMetric,
+          query,
+        )(eventsRange)
+      }
+      .mapConcat(identity)
+
+  private def fetchEventsInRange[A: Ordering, E](
+      verbose: Boolean,
+      queryMetric: DatabaseMetrics,
+      query: EventsRange[A] => Connection => Vector[EventsTable.Entry[Raw[E]]],
+  )(
+      range: EventsRange[A]
+  )(implicit loggingContext: LoggingContext): Future[Vector[EventsTable.Entry[E]]] = {
+    if (EventsRange.isEmpty(range))
+      Future.successful(Vector.empty)
+    else {
+      val rawEvents: Future[Vector[EventsTable.Entry[Raw[E]]]] =
+        dispatcher.executeSql(queryMetric)(query(range))
+      rawEvents.flatMap(es =>
+        Timed.future(
+          future = Future.traverse(es)(deserializeEntry(verbose)),
+          timer = queryMetric.translationTimer,
+        )
+      )
+    }
+  }
 
   private def endSpanOnTermination[Mat, Out](span: Span)(mat: Mat, done: Future[Done]): Mat = {
     done.onComplete {
