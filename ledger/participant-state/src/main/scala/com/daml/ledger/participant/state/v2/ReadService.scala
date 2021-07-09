@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.v2
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.ReportsHealth
-import com.daml.ledger.participant.state.v2.{LedgerInitialConditions, Offset}
 
 /** An interface for reading the state of a ledger participant.
   *
