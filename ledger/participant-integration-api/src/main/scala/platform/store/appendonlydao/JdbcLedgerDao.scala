@@ -648,7 +648,6 @@ private class JdbcLedgerDao(
       storageBackend,
       queryNonPruned,
       metrics,
-      servicesExecutionContext,
     )
 
   private val postCommitValidation =
