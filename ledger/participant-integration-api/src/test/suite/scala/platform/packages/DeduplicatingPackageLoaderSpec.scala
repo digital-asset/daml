@@ -13,7 +13,7 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.resources.TestResourceContext
 import com.daml.ledger.test.ModelTestDar
-import com.daml.lf.archive.RawDarReader
+import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.PackageId
 import com.daml.platform.testing.LogCollector
 import org.scalatest.BeforeAndAfterEach
@@ -37,7 +37,7 @@ class DeduplicatingPackageLoaderSpec
 
   private[this] val Success(dar) = {
     val fileName = new File(rlocation(ModelTestDar.path))
-    RawDarReader.readArchiveFromFile(fileName)
+    DarParser.readArchiveFromFile(fileName)
   }
 
   private[this] def delayedLoad(duration: FiniteDuration): Future[Option[DamlLf.Archive]] = {

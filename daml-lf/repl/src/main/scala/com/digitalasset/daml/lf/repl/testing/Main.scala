@@ -8,7 +8,7 @@ package testing
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.archive.{Decoder, UniversalArchiveReader}
 import com.daml.lf.language.Util._
 import com.daml.lf.speedy.Pretty._
 import com.daml.lf.scenario.{ScenarioRunner, Pretty => PrettyScenario}
@@ -402,7 +402,7 @@ object Repl {
     try {
       val (packagesMap, loadingTime) = time {
         val payloads = UniversalArchiveReader().readFile(new File(darFile)).get
-        payloads.all.map(Decode.decode).toMap
+        Decoder.decodeArchivePayloads(payloads.all)
       }
 
       val npkgs = packagesMap.size

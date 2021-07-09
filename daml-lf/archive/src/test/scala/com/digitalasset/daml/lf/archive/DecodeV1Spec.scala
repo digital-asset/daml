@@ -4,7 +4,7 @@
 package com.daml.lf.archive
 
 import java.math.BigDecimal
-import java.nio.file.{Files, Paths}
+import java.nio.file.Paths
 
 import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.data.{Decimal, Numeric, Ref}
@@ -919,12 +919,8 @@ class DecodeV1Spec
 
   "decodeModuleRef" should {
 
-    lazy val ArchivePayload(pkgId, dalfProto, version) = {
-      val dalfFile =
-        Files.newInputStream(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
-      try Reader.readArchive(dalfFile)
-      finally dalfFile.close()
-    }
+    lazy val ArchivePayload(pkgId, dalfProto, version) =
+      Decoder.ArchiveReader.fromFile(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
 
     lazy val extId = {
       val dalf1 = dalfProto.getDamlLf1
@@ -958,10 +954,10 @@ class DecodeV1Spec
     }
 
     "decode resolving the interned package ID" in {
-      val decoder = Decode.decoders(version)
+      val decoder = new DecodeV1(version.minor)
       inside(
-        decoder.decoder
-          .decodePackage(pkgId, decoder.extract(dalfProto))
+        decoder
+          .decodePackage(pkgId, dalfProto.getDamlLf1, false)
           .modules(Ref.DottedName.assertFromString("DarReaderTest"))
           .definitions(Ref.DottedName.assertFromString("reverseCopy"))
       ) { case Ast.DValue(_, _, Ast.ELocation(_, Ast.EVal(Ref.Identifier(resolvedExtId, _))), _) =>

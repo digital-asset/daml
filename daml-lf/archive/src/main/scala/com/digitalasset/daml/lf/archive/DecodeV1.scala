@@ -5,7 +5,6 @@ package com.daml.lf
 package archive
 
 import java.util
-
 import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref._
@@ -13,20 +12,19 @@ import com.daml.lf.data.{Decimal, ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
 import com.daml.lf.language.{LanguageVersion => LV}
-import com.google.protobuf.CodedInputStream
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.compat._
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Package] {
+private[archive] class DecodeV1(minor: LV.Minor) {
 
   import DecodeV1._
 
   private val languageVersion = LV(LV.Major.V1, minor)
 
-  override def decodePackage(
+  def decodePackage(
       packageId: PackageId,
       lfPackage: PLF.Package,
       onlySerializableDataDefs: Boolean,
@@ -91,13 +89,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
   // each LF scenario module is wrapped in a distinct proto package
   type ProtoScenarioModule = PLF.Package
 
-  override def protoScenarioModule(cis: CodedInputStream): ProtoScenarioModule =
-    PLF.Package.parser().parseFrom(cis)
-
-  override def decodeScenarioModule(
-      packageId: PackageId,
-      lfScenarioModule: ProtoScenarioModule,
-  ): Module = {
+  def decodeScenarioModule(packageId: PackageId, lfScenarioModule: ProtoScenarioModule): Module = {
 
     val internedStrings =
       ImmArray(lfScenarioModule.getInternedStringsList.asScala).toSeq

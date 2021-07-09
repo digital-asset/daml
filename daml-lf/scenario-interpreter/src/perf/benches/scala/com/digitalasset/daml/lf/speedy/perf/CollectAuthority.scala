@@ -6,7 +6,7 @@ package speedy
 package perf
 
 import com.daml.bazeltools.BazelRunfiles._
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.archive.{Decoder, UniversalArchiveReader}
 import com.daml.lf.data.Ref.{Identifier, Location, Party, QualifiedName}
 import com.daml.lf.data.Time
 import com.daml.lf.language.Ast.EVal
@@ -43,7 +43,7 @@ class CollectAuthorityState {
   def init(): Unit = {
     val darFile = new File(if (dar.startsWith("//")) rlocation(dar.substring(2)) else dar)
     val payloads = UniversalArchiveReader().readFile(darFile).get
-    val packages = payloads.all.map(Decode.decode).toMap
+    val packages = Decoder.decodeArchivePayloads(payloads.all)
 
     val compilerConfig =
       Compiler.Config.Default.copy(

@@ -24,7 +24,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, ContractStore}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
-import com.daml.lf.archive.Decode
+import com.daml.lf.archive.Decoder
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.daml.lf.language.Ast
@@ -167,7 +167,9 @@ private[platform] abstract class BaseLedger(
   ): Future[Option[Ast.Package]] =
     ledgerDao
       .getLfArchive(packageId)
-      .flatMap(archiveO => Future.fromTry(Try(archiveO.map(archive => Decode.decode(archive)._2))))(
+      .flatMap(archiveO =>
+        Future.fromTry(Try(archiveO.map(archive => Decoder.decodeArchive(archive)._2)))
+      )(
         DEC
       )
 

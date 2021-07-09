@@ -3,11 +3,10 @@
 
 package com.daml.ledger.service
 
-import com.daml.lf.archive.Reader
+import com.daml.lf.archive.Decoder
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.iface.{DefDataType, Interface}
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.v1.package_service.GetPackageResponse
 import com.daml.ledger.client.services.pkg.PackageClient
 import scalaz.Scalaz._
@@ -69,8 +68,7 @@ object LedgerReader {
   ): Error \/ Interface = {
     import packageResponse._
     \/.attempt {
-      val cos = Reader.damlLfCodedInputStream(archivePayload.newInput)
-      val payload = DamlLf.ArchivePayload.parseFrom(cos)
+      val payload = Decoder.ArchivePayloadParser.fromByteString(archivePayload)
       val (errors, out) =
         InterfaceReader.readInterface(PackageId.assertFromString(hash), payload)
       (if (!errors.empty) -\/("Errors reading LF archive:\n" + errors.toString)

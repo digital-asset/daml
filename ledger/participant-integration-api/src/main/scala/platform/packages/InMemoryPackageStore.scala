@@ -61,7 +61,7 @@ private[platform] case class InMemoryPackageStore(
       file: File,
   ): Either[String, InMemoryPackageStore] = {
     val archivesTry = for {
-      dar <- archive.RawDarReader.readArchiveFromFile(file)
+      dar <- archive.DarParser.readArchiveFromFile(file)
     } yield dar.all
 
     for {
@@ -99,7 +99,7 @@ private[platform] case class InMemoryPackageStore(
     archives
       .traverse(proto =>
         try {
-          Right((proto, archive.Decode.decode(proto)._2))
+          Right((proto, archive.Decoder.decodeArchive(proto)._2))
         } catch {
           case err: archive.Error => Left(s"Could not parse archive ${proto.getHash}: $err")
         }

@@ -8,7 +8,7 @@ package reader
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.lf.archive.{ArchivePayload, Decode, Reader}
+import com.daml.lf.archive.{ArchivePayload, Decoder}
 import com.google.protobuf.InvalidProtocolBufferException
 import scalaz.\/
 
@@ -18,12 +18,12 @@ object DamlLfArchiveReader {
     readPayload(lf) flatMap readPackage
 
   private[this] def readPayload(lf: DamlLf.Archive): String \/ ArchivePayload =
-    \/.attempt(Reader.readArchive(lf))(errorMessage)
+    \/.attempt(Decoder.readArchive(lf))(errorMessage)
 
   private[iface] def readPackage(
       payLoad: ArchivePayload
   ): String \/ (Ref.PackageId, Ast.Package) =
-    \/.attempt(new Decode(onlySerializableDataDefs = true).decode(payLoad))(errorMessage)
+    \/.attempt(Decoder.decodeArchivePayload(payLoad, onlySerializableDataDefs = true))(errorMessage)
 
   private def errorMessage(t: Throwable): String = t match {
     case x: InvalidProtocolBufferException => s"Cannot parse protocol message: ${x.getMessage}"

@@ -6,7 +6,7 @@ package speedy
 package explore
 
 import com.daml.bazeltools.BazelRunfiles.{rlocation}
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.archive.{Decoder, UniversalArchiveReader}
 import com.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -72,7 +72,7 @@ object PlaySpeedy {
 
     println("Loading dar...")
     val payloads = UniversalArchiveReader().readFile(darFile).get
-    val packages = payloads.all.map(Decode.decode).toMap
+    val packages = Decoder.decodeArchivePayloads(payloads.all)
 
     println(s"Compiling packages... ${config.stacktracing}")
     val compilerConfig = Compiler.Config.Default.copy(stacktracing = config.stacktracing)

@@ -4,7 +4,6 @@ package com.daml.platform.store.appendonlydao
 
 import java.sql.Connection
 import java.time.Instant
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf.Archive
@@ -21,7 +20,7 @@ import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.{TransactionId, WorkflowId}
-import com.daml.lf.archive.Reader
+import com.daml.lf.archive.Decoder
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.engine.ValueEnricher
@@ -477,7 +476,7 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[Option[Archive]] =
     dbDispatcher
       .executeSql(metrics.daml.index.db.loadArchive)(storageBackend.lfArchive(packageId))
-      .map(_.map(data => Archive.parseFrom(Reader.damlLfCodedInputStreamFromBytes(data))))(
+      .map(_.map(data => Decoder.ArchiveParser.fromByteArray(data)))(
         servicesExecutionContext
       )
 

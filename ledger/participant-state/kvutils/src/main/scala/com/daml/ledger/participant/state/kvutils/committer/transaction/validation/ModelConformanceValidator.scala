@@ -158,7 +158,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
             // NOTE(JM): Engine only looks up packages once, compiles and caches,
             // provided that the engine instance is persisted.
             try {
-              Some(archive.Decode.decode(value.getArchive)._2)
+              Some(archive.Decoder.decodeArchive(value.getArchive)._2)
             } catch {
               case err: archive.Error =>
                 logger.warn("Decoding the archive failed.")

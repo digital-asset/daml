@@ -25,7 +25,7 @@ import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.lf.archive.RawDarReader
+import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.LanguageVersion
@@ -296,7 +296,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     implicit telemetryContext =>
       val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
       for {
-        dar <- Future.fromTry(RawDarReader.readArchiveFromFile(from))
+        dar <- Future.fromTry(DarParser.readArchiveFromFile(from))
         _ <- to.uploadPackages(submissionId, dar.all, None).toScala
       } yield ()
   }

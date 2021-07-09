@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.ledger.test.ModelTestDar
-import com.daml.lf.archive.Decode
+import com.daml.lf.archive.Decoder
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.Party.ordering
@@ -723,7 +723,7 @@ object ParticipantStateIntegrationSpecBase {
     archives
       .sortBy(_.getSerializedSize) // look at the smallest archives first to limit decoding work
       .iterator
-      .filter(Decode.decode(_)._2.directDeps.isEmpty)
+      .filter(Decoder.decodeArchive(_)._2.directDeps.isEmpty)
       .take(2)
       .toList
 

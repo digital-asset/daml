@@ -5,7 +5,6 @@ package com.daml.platform.store.dao
 import java.sql.Connection
 import java.time.Instant
 import java.util.{Date, UUID}
-
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
@@ -34,7 +33,7 @@ import com.daml.ledger.participant.state.index.v2.{
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ledger.{TransactionId, WorkflowId}
-import com.daml.lf.archive.Reader
+import com.daml.lf.archive.Decoder
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.engine.ValueEnricher
@@ -691,7 +690,7 @@ private class JdbcLedgerDao(
           )
           .as[Option[Array[Byte]]](SqlParser.byteArray("package").singleOpt)
       }
-      .map(_.map(data => Archive.parseFrom(Reader.damlLfCodedInputStreamFromBytes(data))))(
+      .map(_.map(data => Decoder.ArchiveParser.fromByteArray(data)))(
         servicesExecutionContext
       )
 

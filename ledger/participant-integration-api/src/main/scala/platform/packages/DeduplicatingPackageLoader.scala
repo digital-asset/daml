@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import com.codahale.metrics.Timer
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.lf.archive.Decode
+import com.daml.lf.archive.Decoder
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
@@ -45,7 +45,7 @@ private[platform] class DeduplicatingPackageLoader() {
           metric,
           delegate(packageId)
             .flatMap(archiveO =>
-              Future.fromTry(Try(archiveO.map(archive => Decode.decode(archive)._2)))
+              Future.fromTry(Try(archiveO.map(archive => Decoder.decodeArchive(archive)._2)))
             ),
         )
       future.onComplete {

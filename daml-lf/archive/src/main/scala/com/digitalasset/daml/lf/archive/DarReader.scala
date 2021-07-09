@@ -5,14 +5,16 @@ package com.daml.lf.archive
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.Bytes
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.TryOps.sequence
+import com.daml.lf.language.Ast
 
 import java.io.{File, FileInputStream, IOException, InputStream}
 import java.util.zip.ZipInputStream
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try, Using}
 
-class GenDarReader[A](parseDalf: Bytes => Try[A]) {
+sealed abstract class GenDarReader[A](decoder: Decoder[A]) {
 
   import GenDarReader._
 
@@ -68,7 +70,7 @@ class GenDarReader[A](parseDalf: Bytes => Try[A]) {
     sequence(names.map(parseOne(getPayload)))
 
   private[this] def parseOne(getPayload: String => Try[Bytes])(s: String): Try[A] =
-    getPayload(s).flatMap(parseDalf)
+    getPayload(s).flatMap(bytes => Try(decoder.fromBytes(bytes)))
 
 }
 
@@ -94,7 +96,6 @@ object GenDarReader {
   }
 }
 
-object DarReader extends GenDarReader[ArchivePayload](is => Try(Reader.readArchive(is)))
-
-object RawDarReader
-    extends GenDarReader[DamlLf.Archive](is => Try(DamlLf.Archive.parseFrom(is.toByteString)))
+object DarParser extends GenDarReader[DamlLf.Archive](Decoder.ArchiveParser)
+object DarReader extends GenDarReader[ArchivePayload](Decoder.ArchiveReader)
+object DarDecoder extends GenDarReader[(PackageId, Ast.Package)](Decoder.ArchiveDecoder)
