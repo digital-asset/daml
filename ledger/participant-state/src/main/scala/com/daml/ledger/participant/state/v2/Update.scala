@@ -81,25 +81,18 @@ object Update {
 
   /** Signal that the party allocation request has been Rejected.
     *
-    * Initially this will be visible to all participants in the current open world,
-    * with a possible need to revisit as part of the per-party package visibility work
-    * https://github.com/digital-asset/daml/issues/311.
-    *
     * @param submissionId
     *   submissionId of the party allocation command.
     *
     * @param participantId
     *   The participant to which the party was requested to be added. This field
-    *   is informative,
+    *   is informative.
     *
     * @param recordTime
     *   The ledger-provided timestamp at which the party was added.
     *
     * @param rejectionReason
-    *   reason for rejection of the party allocation entry
-    *
-    * Consider whether an enumerated set of reject reasons a la [[com.daml.ledger.participant.state.v2.Update.CommandRejected.RejectionReasonTemplate]] would be helpful, and whether the same breadth of reject
-    * types needs to be handled for party allocation entry rejects
+    *   Reason for rejection of the party allocation entry.
     */
   final case class PartyAllocationRejected(
       submissionId: AdminSubmissionId,
@@ -249,8 +242,8 @@ object Update {
     }
 
     /** The indexer shall fill in a completion offset for the completion that corresponds to
-      * the `submissionId` and `submissionRank` by calling `status` with the completion offset. If no completion offset
-      * for the `submissionId` can be provided, [[scala.None$]] can be used instead,
+      * the `submissionId` and `submissionRank` by calling `createStatus` with the completion offset. If no completion
+      * offset for the `submissionId` can be provided, [[scala.None]] can be used instead,
       * which may lead to less informative errors.
       */
     final class NeedCompletionOffsetForSubmissionId(
@@ -264,7 +257,7 @@ object Update {
       override def definiteAnswer: Boolean =
         GrpcStatuses.isDefiniteAnswer(incompleteStatus)
 
-      def status(
+      def createStatus(
           completionOffsetForSubmissionIdAndRank: Option[Offset]
       ): com.google.rpc.status.Status =
         completionOffsetForSubmissionIdAndRank.fold(incompleteStatus)(
