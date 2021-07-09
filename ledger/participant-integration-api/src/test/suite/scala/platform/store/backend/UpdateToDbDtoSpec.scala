@@ -54,6 +54,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
   import UpdateToDbDtoSpec._
 
   "UpdateToDbDto" should {
+
     "handle ConfigurationChanged" in {
       val update = Update.ConfigurationChanged(
         someRecordTime,
@@ -76,6 +77,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         )
       )
     }
+
     "handle ConfigurationChangeRejected" in {
       val rejectionReason = "Test rejection reason"
       val update = Update.ConfigurationChangeRejected(
@@ -100,6 +102,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         )
       )
     }
+
     "handle PartyAddedToParticipant (local party)" in {
       val displayName = "Test party"
       val update = Update.PartyAddedToParticipant(
@@ -133,6 +136,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
       )
     }
+
     "handle PartyAddedToParticipant (remote party)" in {
       val displayName = "Test party"
       val update = Update.PartyAddedToParticipant(
@@ -166,6 +170,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
       )
     }
+
     "handle PartyAllocationRejected" in {
       val rejectionReason = "Test party rejection reason"
       val update = Update.PartyAllocationRejected(
@@ -191,6 +196,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         )
       )
     }
+
     "handle PublicPackageUpload (two archives)" in {
       val sourceDescription = "Test source description"
       val update = Update.PublicPackageUpload(
@@ -231,6 +237,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
       )
     }
+
     "handle PublicPackageUploadRejected" in {
       val rejectionReason = "Test package rejection reason"
       val update = Update.PublicPackageUploadRejected(
@@ -252,6 +259,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         )
       )
     }
+
     "handle CommandRejected" in {
       val submitterInfo = SubmitterInfo(
         actAs = List(someParty),
@@ -287,6 +295,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
       )
     }
+
     "handle TransactionAccepted (single create node)" in {
       val submitterInfo = someSubmitterInfo
       val transactionMeta = someTransactionMeta
@@ -332,7 +341,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           create_argument = Some(emptyArray),
           create_signatories = Some(Set("signatory")),
           create_observers = Some(Set("observer")),
-          create_agreement_text = Some(createNode.coinst.agreementText).filter(_.nonEmpty),
+          create_agreement_text = Some(createNode.coinst.agreementText),
           create_key_value = None,
           create_key_hash = None,
           create_argument_compression = compressionAlgorithmId,
@@ -351,6 +360,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
       )
     }
+
     "handle TransactionAccepted (single consuming exercise node)" in {
       val submitterInfo = someSubmitterInfo
       val transactionMeta = someTransactionMeta
@@ -429,6 +439,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
       )
     }
+
     "handle TransactionAccepted (single non-consuming exercise node)" in {
       val submitterInfo = someSubmitterInfo
       val transactionMeta = someTransactionMeta
@@ -507,6 +518,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
       )
     }
+
     "handle TransactionAccepted (nested exercise nodes)" in {
       // Previous transaction
       // └─ #1 Create
@@ -668,6 +680,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
       )
     }
+
     "handle TransactionAccepted (single exercise node with divulgence)" in {
       // Previous transaction
       // └─ #1 Create
@@ -763,6 +776,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
       )
     }
+
     "handle TransactionAccepted (transaction with local divulgence)" in {
       // Transaction
       // ├─ #1 Create
@@ -822,7 +836,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           create_argument = Some(emptyArray),
           create_signatories = Some(Set("signatory")),
           create_observers = Some(Set("observer")),
-          create_agreement_text = Some(createNode.coinst.agreementText).filter(_.nonEmpty),
+          create_agreement_text = Some(createNode.coinst.agreementText),
           create_key_value = None,
           create_key_hash = None,
           create_argument_compression = compressionAlgorithmId,
@@ -882,6 +896,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
       )
     }
+
     "handle TransactionAccepted (explicit blinding info)" in {
       val submitterInfo = someSubmitterInfo
       val transactionMeta = someTransactionMeta
@@ -977,6 +992,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
       )
     }
+
     "handle TransactionAccepted (rollback node)" in {
       // Transaction
       // └─ #1 Rollback
@@ -1050,6 +1066,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
       )
     }
+
     "handle TransactionAccepted (no submission info)" in {
       // Transaction that is missing a SubmitterInfo
       // This happens if a transaction was submitted through a different participant
@@ -1096,7 +1113,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           create_argument = Some(emptyArray),
           create_signatories = Some(Set("signatory")),
           create_observers = Some(Set("observer")),
-          create_agreement_text = Some(createNode.coinst.agreementText).filter(_.nonEmpty),
+          create_agreement_text = Some(createNode.coinst.agreementText),
           create_key_value = None,
           create_key_hash = None,
           create_argument_compression = compressionAlgorithmId,
@@ -1105,6 +1122,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         )
       )
     }
+
   }
 }
 

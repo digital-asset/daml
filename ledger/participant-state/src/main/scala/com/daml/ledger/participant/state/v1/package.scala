@@ -84,11 +84,9 @@ package object v1 {
   type SubmissionId = Ref.LedgerString
 
   /** Identifiers for nodes in a transaction. */
-  val NodeId: transaction.NodeId.type = transaction.NodeId
   type NodeId = transaction.NodeId
 
   /** Identifiers for packages. */
-  val PackageId: Ref.PackageId.type = Ref.PackageId
   type PackageId = Ref.PackageId
 
   /** Identifiers for parties. */
