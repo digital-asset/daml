@@ -50,6 +50,7 @@ variable "appr" {
   description = "Application Runtime team members"
 
   default = [
+    "user:akshay.shirahatti@digitalasset.com",
     "user:andreas.herrmann@digitalasset.com",
     "user:gary.verhaegen@digitalasset.com",
     "user:moritz.kiefer@digitalasset.com",
