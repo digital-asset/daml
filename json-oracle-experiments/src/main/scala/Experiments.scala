@@ -24,19 +24,7 @@ object Experiments extends OracleAround {
     sql"""
       CREATE TABLE contract (contract_id VARCHAR(255) NOT NULL CONSTRAINT contract_k PRIMARY KEY, tpid NUMBER(19,0), payload CLOB NOT NULL CONSTRAINT ensure_json_payload CHECK (payload IS JSON), signatories CLOB NOT NULL CONSTRAINT ensure_json_signatories CHECK (signatories IS JSON), observers CLOB NOT NULL CONSTRAINT ensure_json_observers CHECK (observers IS JSON))
     """.update.run.transact(xa).unsafeRunSync()
-    sql"CREATE MATERIALIZED VIEW LOG ON contract".update.run.transact(xa).unsafeRunSync()
     sql"CREATE INDEX contract_tpid_idx ON contract (tpid)".update.run.transact(xa).unsafeRunSync()
-    sql"""
-      CREATE MATERIALIZED VIEW stakeholders BUILD IMMEDIATE REFRESH FAST ON COMMIT AS
-      SELECT contract_id, stakeholder, tpid FROM contract,
-                 json_table(json_array(signatories, observers), '$$[*][*]'
-                    columns (stakeholder VARCHAR(255) path '$$'))
-    """.update.run.transact(xa).unsafeRunSync()
-
-    sql"""
-      CREATE INDEX stakeholder_idx on stakeholders (stakeholder, tpid)
-
-    """.update.run.transact(xa).unsafeRunSync()
 
     val params =
       for {
