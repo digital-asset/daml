@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.committer.transaction.keys
+package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
 
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
@@ -9,19 +9,30 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue,
 }
+import com.daml.ledger.participant.state.kvutils.committer.transaction.validation.KeyMonotonicityValidation.checkContractKeysCausalMonotonicity
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
   Step,
-  TransactionCommitter,
+  TransactionRejector,
 }
-import com.daml.ledger.participant.state.kvutils.committer.transaction.keys.KeyMonotonicityValidation.checkContractKeysCausalMonotonicity
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
 import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.Transaction.{
+  DuplicateKeys,
+  InconsistentKeys,
+  KeyActive,
+  KeyCreate,
+  NegativeKeyLookup,
+}
 import com.daml.logging.LoggingContext
 
-private[transaction] object ContractKeysValidation {
-  def validateKeys(transactionCommitter: TransactionCommitter): Step = new Step {
+private[transaction] object ContractKeysValidator extends TransactionValidator {
+
+  /** Creates a committer step that validates casual monotonicity and consistency of contract keys
+    * against the current ledger state.
+    */
+  override def createValidationStep(rejector: TransactionRejector): Step = new Step {
     def apply(
         commitContext: CommitContext,
         transactionEntry: DamlTransactionEntrySummary,
@@ -43,39 +54,31 @@ private[transaction] object ContractKeysValidation {
 
       for {
         stateAfterMonotonicityCheck <- checkContractKeysCausalMonotonicity(
-          transactionCommitter,
           commitContext.recordTime,
           contractKeyDamlStateKeys,
           damlState,
           transactionEntry,
+          rejector,
         )
         finalState <- performTraversalContractKeysChecks(
-          transactionCommitter,
           commitContext.recordTime,
           contractKeysToContractIds,
           stateAfterMonotonicityCheck,
+          rejector,
         )
       } yield finalState
     }
   }
 
   private def performTraversalContractKeysChecks(
-      transactionCommitter: TransactionCommitter,
       recordTime: Option[Timestamp],
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       transactionEntry: DamlTransactionEntrySummary,
+      transactionRejector: TransactionRejector,
   )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
     import scalaz.std.either._
     import scalaz.std.list._
     import scalaz.syntax.foldable._
-
-    import com.daml.lf.transaction.Transaction.{
-      KeyActive,
-      KeyCreate,
-      NegativeKeyLookup,
-      DuplicateKeys,
-      InconsistentKeys,
-    }
 
     val transaction = transactionEntry.transaction
 
@@ -110,19 +113,19 @@ private[transaction] object ContractKeysValidation {
           case Inconsistent =>
             "InconsistentKeys: at least one contract key has changed since the submission"
         }
-        transactionCommitter.reject(
-          recordTime,
-          transactionCommitter.buildRejectionLogEntry(
+        transactionRejector.reject(
+          transactionRejector.buildRejectionEntry(
             transactionEntry,
             RejectionReasonV0.Inconsistent(message),
           ),
+          recordTime,
         )
     }
   }
 
-  private[keys] type RawContractId = String
+  private[validation] type RawContractId = String
 
-  private[keys] sealed trait KeyValidationError extends Product with Serializable
-  private[keys] case object Duplicate extends KeyValidationError
-  private[keys] case object Inconsistent extends KeyValidationError
+  private[validation] sealed trait KeyValidationError extends Product with Serializable
+  private[validation] case object Duplicate extends KeyValidationError
+  private[validation] case object Inconsistent extends KeyValidationError
 }

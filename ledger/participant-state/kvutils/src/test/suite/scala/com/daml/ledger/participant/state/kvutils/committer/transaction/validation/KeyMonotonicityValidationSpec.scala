@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.committer.transaction.keys
+package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
 
 import java.time.{Instant, ZoneOffset, ZonedDateTime}
 
@@ -10,9 +10,9 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.StepContinue
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
-  TransactionCommitter,
+  TransactionRejector,
 }
-import com.daml.ledger.participant.state.v1.{RejectionReasonV0}
+import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.logging.LoggingContext
 import com.google.protobuf.ByteString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
@@ -40,33 +40,33 @@ class KeyMonotonicityValidationSpec
   "checkContractKeysCausalMonotonicity" should {
     "create StepContinue in case of correct keys" in {
       KeyMonotonicityValidation.checkContractKeysCausalMonotonicity(
-        mock[TransactionCommitter],
         None,
         Set(testKey),
         Map(testKey -> aStateValueActiveAt(ledgerEffectiveTime.minusSeconds(1))),
         testTransactionEntry,
+        mock[TransactionRejector],
       ) shouldBe StepContinue(testTransactionEntry)
     }
 
     "reject transaction in case of incorrect keys" in {
-      val mockTransactionCommitter = mock[TransactionCommitter]
+      val mockTransactionRejector = mock[TransactionRejector]
 
       KeyMonotonicityValidation
         .checkContractKeysCausalMonotonicity(
-          mockTransactionCommitter,
           None,
           Set(testKey),
           Map(testKey -> aStateValueActiveAt(ledgerEffectiveTime.plusSeconds(1))),
           testTransactionEntry,
+          mockTransactionRejector,
         )
 
-      verify(mockTransactionCommitter).buildRejectionLogEntry(
+      verify(mockTransactionRejector).buildRejectionEntry(
         eqTo(testTransactionEntry),
         any[RejectionReasonV0.InvalidLedgerTime],
       )(any[LoggingContext])
-      verify(mockTransactionCommitter).reject(
-        eqTo(None),
+      verify(mockTransactionRejector).reject(
         any[DamlTransactionRejectionEntry.Builder],
+        eqTo(None),
       )
       succeed
     }
