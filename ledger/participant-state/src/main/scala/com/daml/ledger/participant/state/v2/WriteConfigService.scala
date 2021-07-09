@@ -19,7 +19,7 @@ trait WriteConfigService {
     * by any participant.
     *
     * If configuration changes are not supported by the implementation then the
-    * [[SubmissionResult.NotSupported]] should be returned.
+    * [[SubmissionResult.SynchronousError]] should be returned.
     * *
     * @param maxRecordTime: The maximum record time after which the request is rejected.
     * @param submissionId: Client picked submission identifier for matching the responses with the request.

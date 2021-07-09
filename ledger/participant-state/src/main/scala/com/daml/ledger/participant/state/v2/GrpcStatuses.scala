@@ -39,14 +39,13 @@ object GrpcStatuses {
             s"No com.google.rpc.error_details.ErrorInfo found in details for $incompleteStatus"
           )
         )
-
-    val newErrorInfo =
+    val extendedErrorInfoWithCompletionOffset =
       errorInfo
         .copy()
         .addMetadata(CompletionOffsetKey -> completionOffset.toHexString)
     val newDetails = incompleteStatus.details.updated(
       errorInfoIndex,
-      com.google.protobuf.any.Any.pack(newErrorInfo),
+      com.google.protobuf.any.Any.pack(extendedErrorInfoWithCompletionOffset),
     )
     incompleteStatus.withDetails(newDetails)
   }
