@@ -25,6 +25,16 @@ class GrpcStatusesSpec extends AnyWordSpec with Matchers {
           false,
         ),
         (
+          "ignore casing of value associated to definite answer key (#1)",
+          Some(anErrorInfo.copy(metadata = Map(DefiniteAnswerKey -> "TRUE"))),
+          true,
+        ),
+        (
+          "ignore casing of value associated to definite answer key (#2)",
+          Some(anErrorInfo.copy(metadata = Map(DefiniteAnswerKey -> "True"))),
+          true,
+        ),
+        (
           "ErrorInfo does not contain definite answer key",
           Some(anErrorInfo.copy(metadata = Map("some" -> "key"))),
           false,
@@ -38,10 +48,6 @@ class GrpcStatusesSpec extends AnyWordSpec with Matchers {
         val inputStatus = Status.of(123, "an error", details)
         GrpcStatuses.isDefiniteAnswer(inputStatus) should be(expected)
       }
-    }
-
-    "ignore case for boolean value" in {
-      fail()
     }
   }
 

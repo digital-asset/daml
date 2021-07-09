@@ -21,7 +21,7 @@ object GrpcStatuses {
     }
 
   def isDefiniteAnswer(errorInfo: ErrorInfo): Boolean =
-    errorInfo.metadata.getOrElse(DefiniteAnswerKey, "false") == "true"
+    errorInfo.metadata.get(DefiniteAnswerKey).exists(value => java.lang.Boolean.valueOf(value))
 
   def completeWithOffset(
       incompleteStatus: com.google.rpc.status.Status,
