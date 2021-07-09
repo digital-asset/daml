@@ -9,6 +9,7 @@ import scala.util.Try
 
 object GrpcStatuses {
   val DefiniteAnswerKey = "definite_answer"
+  val CompletionOffsetKey = "completion_offset"
 
   def isDefiniteAnswer(status: com.google.rpc.status.Status): Boolean =
     status.details.exists { any =>
@@ -25,7 +26,6 @@ object GrpcStatuses {
 
   def completeWithOffset(
       incompleteStatus: com.google.rpc.status.Status,
-      completionKey: String,
       completionOffset: Offset,
   ): com.google.rpc.status.Status = {
     val (errorInfo, errorInfoIndex) =
@@ -43,7 +43,7 @@ object GrpcStatuses {
     val newErrorInfo =
       errorInfo
         .copy()
-        .addMetadata(completionKey -> completionOffset.toHexString)
+        .addMetadata(CompletionOffsetKey -> completionOffset.toHexString)
     val newDetails = incompleteStatus.details.updated(
       errorInfoIndex,
       com.google.protobuf.any.Any.pack(newErrorInfo),

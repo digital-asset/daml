@@ -1,6 +1,6 @@
 package com.daml.ledger.participant.state.v2
 
-import com.daml.ledger.participant.state.v2.GrpcStatuses.DefiniteAnswerKey
+import com.daml.ledger.participant.state.v2.GrpcStatuses.{CompletionOffsetKey, DefiniteAnswerKey}
 import com.google.protobuf.any
 import com.google.rpc.error_details.{ErrorInfo, RequestInfo}
 import com.google.rpc.status.Status
@@ -54,7 +54,7 @@ class GrpcStatusesSpec extends AnyWordSpec with Matchers {
   "completeWithOffset" should {
     "throw in case no error details can be found" in {
       assertThrows[IllegalArgumentException] {
-        GrpcStatuses.completeWithOffset(Status.defaultInstance, aCompletionKey, aCompletionOffset)
+        GrpcStatuses.completeWithOffset(Status.defaultInstance, aCompletionOffset)
       }
     }
 
@@ -62,7 +62,7 @@ class GrpcStatusesSpec extends AnyWordSpec with Matchers {
       val aMessage = RequestInfo.of("a", "b")
       val inputStatus = Status.of(123, "an error", Seq(any.Any.pack(aMessage)))
       assertThrows[IllegalArgumentException] {
-        GrpcStatuses.completeWithOffset(inputStatus, aCompletionKey, aCompletionOffset)
+        GrpcStatuses.completeWithOffset(inputStatus, aCompletionOffset)
       }
     }
 
@@ -70,13 +70,13 @@ class GrpcStatusesSpec extends AnyWordSpec with Matchers {
       val anErrorInfo = ErrorInfo.of("reason", "domain", Map("key" -> "value"))
       val inputStatus = Status.of(123, "an error", Seq(any.Any.pack(anErrorInfo)))
 
-      GrpcStatuses.completeWithOffset(inputStatus, aCompletionKey, aCompletionOffset) should be(
+      GrpcStatuses.completeWithOffset(inputStatus, aCompletionOffset) should be(
         inputStatus.copy(details =
           Seq(
             any.Any.pack(
               anErrorInfo
                 .copy(metadata =
-                  anErrorInfo.metadata + (aCompletionKey -> aCompletionOffset.toHexString)
+                  anErrorInfo.metadata + (CompletionOffsetKey -> aCompletionOffset.toHexString)
                 )
             )
           )
@@ -85,6 +85,5 @@ class GrpcStatusesSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  private lazy val aCompletionKey = "a key"
   private lazy val aCompletionOffset = Offset.fromByteArray(Array[Byte](1, 2))
 }

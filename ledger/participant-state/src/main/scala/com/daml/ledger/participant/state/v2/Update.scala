@@ -256,11 +256,8 @@ object Update {
     final class NeedCompletionOffsetForSubmissionId(
         val submissionId: SubmissionId,
         val submissionRank: Offset,
-        private val completionKey: String,
         private val incompleteStatus: com.google.rpc.status.Status,
     ) extends RejectionReasonTemplate {
-
-      require(completionKey != GrpcStatuses.DefiniteAnswerKey)
 
       override def message: String = incompleteStatus.message
 
@@ -271,7 +268,7 @@ object Update {
           completionOffsetForSubmissionIdAndRank: Option[Offset]
       ): com.google.rpc.status.Status =
         completionOffsetForSubmissionIdAndRank.fold(incompleteStatus)(
-          GrpcStatuses.completeWithOffset(incompleteStatus, completionKey, _)
+          GrpcStatuses.completeWithOffset(incompleteStatus, _)
         )
     }
   }
