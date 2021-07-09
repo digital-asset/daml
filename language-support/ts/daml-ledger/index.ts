@@ -378,7 +378,7 @@ function append<K, V>(map: Map<K, V[]>, key: K, value: V): void {
  *
  * A special handler for stream requests to the /v1/query endpoint.
  * The query endpoint supports providing offsets on a per-query basis.
- * This class leverages this feature by multiplexing multiple streaming requests to a single web socket.
+ * This class leverages this feature by multiplexing virtual streaming requests to a single web socket.
  */
 class QueryStreamsManager {
 
@@ -453,17 +453,14 @@ class QueryStreamsManager {
                     const multiplexer: Map<StreamingQuery<object, unknown, string>, Event<object>[]> = new Map();
                     for (const event of events) {
                         if (isCreate<object>(event)) {
-                            const perConsumertranslatedMatchedQueries: Map<StreamingQuery<object, unknown, string>, number[]> = new Map();
+                            const consumersToMatchedQueries: Map<StreamingQuery<object, unknown, string>, number[]> = new Map();
                             for (const matchIndex of event.matchedQueries) {
                               const [consumer, matchIndexOffset] = matchIndexLookupTable[matchIndex];
-                              append(perConsumertranslatedMatchedQueries, consumer, matchIndex - matchIndexOffset);
+                              append(consumersToMatchedQueries, consumer, matchIndex - matchIndexOffset);
                             }
-                            for (const [consumer, translatedMatchedQueries] of perConsumertranslatedMatchedQueries.entries()) {
+                            for (const [consumer, matchedQueries] of consumersToMatchedQueries.entries()) {
                                 // Create a new copy of the event for each consumer to freely mangle the matched queries and avoid sharing mutable state
-                                append(multiplexer, consumer, {
-                                  created: event.created,
-                                  matchedQueries: translatedMatchedQueries,
-                                });
+                                append(multiplexer, consumer, {...event, matchedQueries });
                             }
                         } else {
                             const consumers = templateIdsLookupTable[event.archived.templateId];
