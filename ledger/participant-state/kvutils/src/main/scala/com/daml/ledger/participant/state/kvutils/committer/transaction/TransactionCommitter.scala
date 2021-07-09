@@ -182,7 +182,173 @@ private[kvutils] class TransactionCommitter(
     }
   }
 
-  /** Set blinding info. */
+  /** Validate ledger effective time and the command's time-to-live. */
+  private[transaction] def validateLedgerTime: Step = new Step {
+    def apply(
+        commitContext: CommitContext,
+        transactionEntry: DamlTransactionEntrySummary,
+    )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
+      val (_, config) = getCurrentConfiguration(defaultConfig, commitContext)
+      val timeModel = config.timeModel
+
+      commitContext.recordTime match {
+        case Some(recordTime) =>
+          val givenLedgerTime = transactionEntry.ledgerEffectiveTime.toInstant
+
+          timeModel
+            .checkTime(ledgerTime = givenLedgerTime, recordTime = recordTime.toInstant)
+            .fold(
+              reason =>
+                reject(
+                  commitContext.recordTime,
+                  buildRejectionLogEntry(
+                    transactionEntry,
+                    RejectionReasonV0.InvalidLedgerTime(reason),
+                  ),
+                ),
+              _ => StepContinue(transactionEntry),
+            )
+        case None => // Pre-execution: propagate the time bounds and defer the checks to post-execution.
+          val maybeDeduplicateUntil =
+            getLedgerDeduplicateUntil(transactionEntry, commitContext)
+          val minimumRecordTime = transactionMinRecordTime(
+            transactionEntry.submissionTime.toInstant,
+            transactionEntry.ledgerEffectiveTime.toInstant,
+            maybeDeduplicateUntil,
+            timeModel,
+          )
+          val maximumRecordTime = transactionMaxRecordTime(
+            transactionEntry.submissionTime.toInstant,
+            transactionEntry.ledgerEffectiveTime.toInstant,
+            timeModel,
+          )
+          commitContext.deduplicateUntil = maybeDeduplicateUntil
+          commitContext.minimumRecordTime = Some(minimumRecordTime)
+          commitContext.maximumRecordTime = Some(maximumRecordTime)
+          val outOfTimeBoundsLogEntry = DamlLogEntry.newBuilder
+            .setTransactionRejectionEntry(
+              buildRejectionLogEntry(
+                transactionEntry,
+                RejectionReasonV0.InvalidLedgerTime(
+                  s"Record time is outside of valid range [$minimumRecordTime, $maximumRecordTime]"
+                ),
+              )
+            )
+            .build
+          commitContext.outOfTimeBoundsLogEntry = Some(outOfTimeBoundsLogEntry)
+          StepContinue(transactionEntry)
+      }
+    }
+  }
+
+  /** Validate the submission's conformance to the Daml model */
+  private def validateModelConformance: Step = new Step {
+    def apply(
+        commitContext: CommitContext,
+        transactionEntry: DamlTransactionEntrySummary,
+    )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] =
+      metrics.daml.kvutils.committer.transaction.interpretTimer.time(() => {
+        // Pull all keys from referenced contracts. We require this for 'fetchByKey' calls
+        // which are not evidenced in the transaction itself and hence the contract key state is
+        // not included in the inputs.
+        lazy val knownKeys: Map[DamlContractKey, Value.ContractId] =
+          commitContext.collectInputs {
+            case (key, Some(value))
+                if value.getContractState.hasContractKey
+                  && contractIsActive(transactionEntry, value.getContractState) =>
+              value.getContractState.getContractKey -> Conversions
+                .stateKeyToContractId(key)
+          }
+
+        try {
+          engine
+            .validate(
+              transactionEntry.submitters.toSet,
+              SubmittedTransaction(transactionEntry.transaction),
+              transactionEntry.ledgerEffectiveTime,
+              commitContext.participantId,
+              transactionEntry.submissionTime,
+              transactionEntry.submissionSeed,
+            )
+            .consume(
+              lookupContract(transactionEntry, commitContext),
+              lookupPackage(commitContext),
+              lookupKey(commitContext, knownKeys),
+            )
+            .fold(
+              err =>
+                reject[DamlTransactionEntrySummary](
+                  commitContext.recordTime,
+                  buildRejectionLogEntry(transactionEntry, rejectionReasonForValidationError(err)),
+                ),
+              _ => StepContinue[DamlTransactionEntrySummary](transactionEntry),
+            )
+        } catch {
+          case err: Err.MissingInputState =>
+            logger.warn(
+              "Model conformance validation failed due to a missing input state (most likely due to invalid state on the participant)."
+            )
+            reject(
+              commitContext.recordTime,
+              buildRejectionLogEntry(transactionEntry, RejectionReasonV0.Disputed(err.getMessage)),
+            )
+        }
+      })
+  }
+
+  private[transaction] def rejectionReasonForValidationError(
+      validationError: LfError
+  ): RejectionReasonV0 = {
+    def disputed: RejectionReasonV0 =
+      RejectionReasonV0.Disputed(validationError.msg)
+
+    def resultIsCreatedInTx(
+        tx: VersionedTransaction[NodeId, ContractId],
+        result: Option[Value.ContractId],
+    ): Boolean =
+      result.exists { contractId =>
+        tx.nodes.exists {
+          case (_, create: Node.NodeCreate[_]) => create.coid == contractId
+          case _ => false
+        }
+      }
+
+    validationError match {
+      case LfError.Validation(
+            LfError.Validation.ReplayMismatch(
+              ReplayNodeMismatch(recordedTx, recordedNodeId, replayedTx, replayedNodeId)
+            )
+          ) =>
+        // If the problem is that a key lookup has changed and the results do not involve contracts created in this transaction,
+        // then it's a consistency problem.
+
+        (recordedTx.nodes(recordedNodeId), replayedTx.nodes(replayedNodeId)) match {
+          case (
+                Node.NodeLookupByKey(
+                  recordedTemplateId,
+                  recordedKey,
+                  recordedResult,
+                  recordedVersion,
+                ),
+                Node.NodeLookupByKey(
+                  replayedTemplateId,
+                  replayedKey,
+                  replayedResult,
+                  replayedVersion,
+                ),
+              )
+              if recordedVersion == replayedVersion &&
+                recordedTemplateId == replayedTemplateId && recordedKey == replayedKey
+                && !resultIsCreatedInTx(recordedTx, recordedResult)
+                && !resultIsCreatedInTx(replayedTx, replayedResult) =>
+            RejectionReasonV0.Inconsistent(validationError.msg)
+          case _ => disputed
+        }
+      case _ => disputed
+    }
+  }
+
+  /** Validate the submission's conformance to the Daml model */
   private[transaction] def blind: Step = new Step {
     def apply(
         commitContext: CommitContext,

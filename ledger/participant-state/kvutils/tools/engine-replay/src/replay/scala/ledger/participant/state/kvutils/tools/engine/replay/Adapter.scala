@@ -34,13 +34,11 @@ private[replay] final class Adapter(
         create.copy(
           templateId = adapt(create.templateId),
           arg = adapt(create.arg),
-          optLocation = None,
           key = create.key.map(adapt),
         )
       case exe: Node.NodeExercises[NodeId, ContractId] =>
         exe.copy(
           templateId = adapt(exe.templateId),
-          optLocation = None,
           chosenValue = adapt(exe.chosenValue),
           children = ImmArray.empty,
           exerciseResult = exe.exerciseResult.map(adapt),
@@ -49,14 +47,12 @@ private[replay] final class Adapter(
       case fetch: Node.NodeFetch[ContractId] =>
         fetch.copy(
           templateId = adapt(fetch.templateId),
-          optLocation = None,
           key = fetch.key.map(adapt),
         )
       case lookup: Node.NodeLookupByKey[ContractId] =>
         lookup
           .copy(
             templateId = adapt(lookup.templateId),
-            optLocation = None,
             key = adapt(lookup.key),
           )
     }

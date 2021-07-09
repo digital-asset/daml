@@ -95,7 +95,6 @@ object Node {
             _,
             _,
             _,
-            _,
             key,
             _,
           ) =>
@@ -110,7 +109,6 @@ object Node {
             _,
             _,
             _,
-            _,
             key,
             _,
             _,
@@ -121,7 +119,6 @@ object Node {
         )
       case self @ NodeExercises(
             targetCoid,
-            _,
             _,
             _,
             _,
@@ -145,7 +142,6 @@ object Node {
         )
       case self @ NodeLookupByKey(
             _,
-            _,
             key,
             result,
             _,
@@ -165,7 +161,6 @@ object Node {
             templateI @ _,
             arg,
             agreementText @ _,
-            optLocation @ _,
             signatories @ _,
             stakeholders @ _,
             key,
@@ -177,7 +172,6 @@ object Node {
       case NodeFetch(
             coid,
             templateId @ _,
-            optLocationd @ _,
             actingPartiesd @ _,
             signatoriesd @ _,
             stakeholdersd @ _,
@@ -191,7 +185,6 @@ object Node {
             targetCoid,
             templateId @ _,
             choiceId @ _,
-            optLocation @ _,
             consuming @ _,
             actingParties @ _,
             chosenValue,
@@ -211,7 +204,6 @@ object Node {
         children.foreach(f1)
       case NodeLookupByKey(
             templateId @ _,
-            optLocation @ _,
             key,
             result,
             _,
@@ -230,7 +222,6 @@ object Node {
       override val templateId: TypeConName,
       arg: Value[Cid],
       agreementText: String,
-      optLocation: Option[Location], // Optional location of the create expression
       signatories: Set[Party],
       stakeholders: Set[Party],
       key: Option[KeyWithMaintainers[Value[Cid]]],
@@ -258,7 +249,6 @@ object Node {
   final case class NodeFetch[+Cid](
       coid: Cid,
       override val templateId: TypeConName,
-      optLocation: Option[Location], // Optional location of the fetch expression
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
@@ -285,7 +275,6 @@ object Node {
       targetCoid: Cid,
       override val templateId: TypeConName,
       choiceId: ChoiceName,
-      optLocation: Option[Location], // Optional location of the exercise expression
       consuming: Boolean,
       actingParties: Set[Party],
       chosenValue: Value[Cid],
@@ -318,7 +307,6 @@ object Node {
 
   final case class NodeLookupByKey[+Cid](
       override val templateId: TypeConName,
-      optLocation: Option[Location],
       key: KeyWithMaintainers[Value[Cid]],
       result: Option[Cid],
       // For the sake of consistency between types with a version field, keep this field the last.

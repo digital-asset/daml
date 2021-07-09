@@ -11,7 +11,7 @@ import com.daml.lf.data.Ref.{Identifier, Location, Party, QualifiedName}
 import com.daml.lf.data.Time
 import com.daml.lf.language.Ast.EVal
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
+import com.daml.lf.transaction.{NodeId, GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
@@ -204,5 +204,6 @@ class CannedLedgerApi(
       readAs: Set[Party],
       location: Option[Location],
       tx: SubmittedTransaction,
+      locationInfo: Map[NodeId, Location],
   ) = Right(())
 }
