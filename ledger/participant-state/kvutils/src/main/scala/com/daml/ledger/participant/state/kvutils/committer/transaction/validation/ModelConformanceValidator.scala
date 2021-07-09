@@ -22,7 +22,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.{
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.ledger.participant.state.v1.RejectionReasonV0
-import com.daml.lf.archive.{Decode, ParseError}
+import com.daml.lf.archive
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.{Engine, Error => LfError}
 import com.daml.lf.language.Ast
@@ -158,11 +158,11 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
             // NOTE(JM): Engine only looks up packages once, compiles and caches,
             // provided that the engine instance is persisted.
             try {
-              Some(Decode.decode(value.getArchive)._2)
+              Some(archive.Decode.decode(value.getArchive)._2)
             } catch {
-              case ParseError(err) =>
+              case err: archive.Error =>
                 logger.warn("Decoding the archive failed.")
-                throw Err.DecodeError("Archive", err)
+                throw Err.DecodeError("Archive", err.getMessage)
             }
 
           case _ =>
