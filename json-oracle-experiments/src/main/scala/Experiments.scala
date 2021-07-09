@@ -44,17 +44,20 @@ object Experiments extends OracleAround {
         tpid <- 0 until 20
       } yield (party, tpid)
     params.zipWithIndex.foreach { case ((party, tpid), i) =>
-      println(i)
+      // println(i)
       val n = 100
       val contracts = (0 until n).map { j =>
         (s"#${i * n + j}", tpid, "{\"x\": 0}", s"""["$party"]""", "[]")
       }.toList
+      val start = System.nanoTime
       Update[(String, Int, String, String, String)](
         """
         INSERT INTO CONTRACT (contract_id, tpid, payload, signatories, observers)
         VALUES (?, ?, ?, ?, ?)
     """
       ).updateMany(contracts).transact(xa).unsafeRunSync()
+      val end_ = System.nanoTime
+      println(s"$i\t${end_ - start}")
     }
     ()
   }
