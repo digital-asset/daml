@@ -6,7 +6,6 @@ package com.daml.platform.sandbox.stores.ledger.sql
 import java.io.File
 import java.time.Instant
 
-import ch.qos.logback.classic.Level
 import com.daml.api.util.TimeProvider
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
@@ -209,23 +208,6 @@ final class SqlLedgerSpecAppendOnly
         ledger <- createSqlLedger(validatePartyAllocation = false)
       } yield {
         ledger.currentHealth() should be(Healthy)
-      }
-    }
-
-    /** Workaround test for asserting that PostgreSQL asynchronous commits are disabled in
-      * [[com.daml.platform.store.dao.JdbcLedgerDao]] transactions when used from [[SqlLedger]].
-      *
-      * NOTE: This is needed for ensuring durability guarantees of Daml-on-SQL.
-      */
-    "does not use async commit when building JdbcLedgerDao" in {
-      for {
-        _ <- createSqlLedger(validatePartyAllocation = false)
-      } yield {
-        val hikariDataSourceLogs =
-          LogCollector.read[this.type]("com.daml.platform.store.appendonlydao.HikariConnection")
-        hikariDataSourceLogs should contain(
-          Level.INFO -> "Creating Hikari connections with synchronous commit ON"
-        )
       }
     }
   }

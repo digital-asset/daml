@@ -75,18 +75,7 @@ private[backend] object PostgresStorageBackend
     ()
   }
 
-  override def enforceSynchronousCommit(connnection: Connection): Unit = {
-    val statement =
-      connnection.prepareStatement("SET LOCAL synchronous_commit = 'on'")
-    try {
-      statement.execute()
-      ()
-    } finally {
-      statement.close()
-    }
-  }
-
-  override val duplicateKeyError: String = "duplicate key"
+  val duplicateKeyError: String = "duplicate key"
 
   override def commandCompletions(
       startExclusive: Offset,

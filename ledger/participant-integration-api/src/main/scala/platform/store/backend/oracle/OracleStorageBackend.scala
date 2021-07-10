@@ -43,8 +43,6 @@ private[backend] object OracleStorageBackend
       "truncate table party_entries cascade",
     ).map(SQL(_)).foreach(_.execute()(connection))
 
-  override def enforceSynchronousCommit(connection: Connection): Unit = () // Not supported
-
   override def duplicateKeyError: String = "unique constraint"
 
   val SQL_INSERT_COMMAND: String =

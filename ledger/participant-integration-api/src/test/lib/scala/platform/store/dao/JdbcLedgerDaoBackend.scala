@@ -76,7 +76,6 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll {
         servicesExecutionContext = executionContext,
         metrics = new Metrics(new MetricRegistry),
         lfValueTranslationCache = LfValueTranslationCache.Cache.none,
-        jdbcAsyncCommitMode = DbType.AsynchronousCommit,
         enricher = Some(new ValueEnricher(new Engine())),
         participantId = JdbcLedgerDaoBackend.TestParticipantIdRef,
       )

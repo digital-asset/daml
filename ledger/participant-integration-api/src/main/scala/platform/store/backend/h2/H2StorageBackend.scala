@@ -46,8 +46,6 @@ private[backend] object H2StorageBackend
     ()
   }
 
-  override def enforceSynchronousCommit(connection: Connection): Unit = () // Not supported
-
   override def duplicateKeyError: String = "Unique index or primary key violation"
 
   val SQL_INSERT_COMMAND: String =
