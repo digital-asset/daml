@@ -21,7 +21,16 @@ import com.daml.platform.common
 import com.daml.platform.common.MismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.parallel.ParallelIndexerFactory
+import com.daml.platform.store.DbType.{
+  AsynchronousCommit,
+  LocalSynchronousCommit,
+  SynchronousCommit,
+}
 import com.daml.platform.store.appendonlydao.events.{CompressionStrategy, LfValueTranslation}
+import com.daml.platform.store.backend.DataSourceStorageBackend.{
+  DataSourceConfig,
+  PgSynchronousCommitValue,
+}
 import com.daml.platform.store.backend.StorageBackend
 import com.daml.platform.store.dao.LedgerDao
 import com.daml.platform.store.{DbType, FlywayMigrations, LfValueTranslationCache}
@@ -171,6 +180,14 @@ object JdbcIndexer {
         tailingRateLimitPerSecond = config.tailingRateLimitPerSecond,
         batchWithinMillis = config.batchWithinMillis,
         metrics = metrics,
+        dataSourceConfig = DataSourceConfig(
+          pgSynchronousCommit = Some(config.asyncCommitMode match {
+            case SynchronousCommit => PgSynchronousCommitValue.On
+            case AsynchronousCommit => PgSynchronousCommitValue.Off
+            case LocalSynchronousCommit => PgSynchronousCommitValue.Local
+          })
+        ),
+        haConfig = config.haConfig,
       )
     }
 
