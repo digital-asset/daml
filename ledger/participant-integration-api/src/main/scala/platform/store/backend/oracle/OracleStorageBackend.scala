@@ -16,7 +16,7 @@ import com.daml.platform.store.backend.common.{
   InitHookDataSourceProxy,
   TemplatedStorageBackend,
 }
-import com.daml.platform.store.backend.{DataSourceStorageBackend, DbDto, StorageBackend, common}
+import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend, DbDto, StorageBackend, common}
 import java.sql.Connection
 import java.time.Instant
 
@@ -247,4 +247,62 @@ private[backend] object OracleStorageBackend
     oracleDataSource.setURL(jdbcUrl)
     InitHookDataSourceProxy(oracleDataSource, connectionInitHook.toList)
   }
+
+  override def aquireImmediately(
+      lockId: DBLockStorageBackend.LockId,
+      lockMode: DBLockStorageBackend.LockMode,
+  )(connection: Connection): Option[DBLockStorageBackend.Lock] = {
+    val oracleLockMode = lockMode match {
+      case DBLockStorageBackend.LockMode.Exclusive => "6" // "DBMS_LOCK.x_mode"
+      case DBLockStorageBackend.LockMode.Shared => "4" // "DBMS_LOCK.s_mode"
+    }
+    SQL"""
+          SELECT DBMS_LOCK.REQUEST(
+            id => ${oracleIntLockId(lockId)},
+            lockmode => #$oracleLockMode,
+            timeout => 0
+          ) FROM DUAL"""
+      .as(get[Int](1).single)(connection) match {
+      case 0 => Some(DBLockStorageBackend.Lock(lockId, lockMode))
+      case 1 => None
+      case 2 => throw new Exception("Aquiring lock caused a deadlock!")
+      case 3 => throw new Exception("Parameter error")
+      case 4 => Some(DBLockStorageBackend.Lock(lockId, lockMode))
+      case 5 => throw new Exception("Illegal lock handle")
+      case unknown => throw new Exception(s"Invalid result from DBMS_LOCK.REQUEST: $unknown")
+    }
+  }
+
+  override def release(lock: DBLockStorageBackend.Lock)(connection: Connection): Boolean = {
+    SQL"""
+          SELECT DBMS_LOCK.RELEASE(
+            id => ${oracleIntLockId(lock.lockId)}
+          ) FROM DUAL"""
+      .as(get[Int](1).single)(connection) match {
+      case 0 => true
+      case 3 => throw new Exception("Parameter error")
+      case 4 => throw new Exception("Trying to release not-owned lock")
+      case 5 => throw new Exception("Illegal lock handle")
+      case unknown => throw new Exception(s"Invalid result from DBMS_LOCK.RELEASE: $unknown")
+    }
+  }
+
+  case class OracleLockId(id: Int) extends DBLockStorageBackend.LockId {
+    // respecting Oracle limitations: https://docs.oracle.com/cd/B19306_01/appdev.102/b14258/d_lock.htm#ARPLS021
+    assert(id >= 0)
+    assert(id <= 1073741823)
+  }
+
+  private def oracleIntLockId(lockId: DBLockStorageBackend.LockId): Int =
+    lockId match {
+      case OracleLockId(id) => id
+      case unknown =>
+        throw new Exception(
+          s"LockId $unknown not supported. Probable cause: LockId was created by a different StorageBackend"
+        )
+    }
+
+  override def lock(id: Int): DBLockStorageBackend.LockId = OracleLockId(id)
+
+  override def dbLockSupported: Boolean = true
 }

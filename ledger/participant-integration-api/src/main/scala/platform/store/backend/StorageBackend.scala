@@ -46,7 +46,9 @@ trait StorageBackend[DB_BATCH]
     with DeduplicationStorageBackend
     with CompletionStorageBackend
     with ContractStorageBackend
-    with EventStorageBackend {
+    with EventStorageBackend
+    with DataSourceStorageBackend
+    with DBLockStorageBackend {
   def reset(connection: Connection): Unit
   def duplicateKeyError: String // TODO: Avoid brittleness of error message checks
 }
@@ -266,6 +268,31 @@ object DataSourceStorageBackend {
       case RemoteApply.`pgSqlName` => RemoteApply
       case Local.`pgSqlName` => Local
     }
+  }
+}
+
+trait DBLockStorageBackend {
+  def aquireImmediately(
+      lockId: DBLockStorageBackend.LockId,
+      lockMode: DBLockStorageBackend.LockMode,
+  )(connection: Connection): Option[DBLockStorageBackend.Lock]
+
+  def release(lock: DBLockStorageBackend.Lock)(connection: Connection): Boolean
+
+  def lock(id: Int): DBLockStorageBackend.LockId
+
+  def dbLockSupported: Boolean
+}
+
+object DBLockStorageBackend {
+  case class Lock(lockId: LockId, lockMode: LockMode)
+
+  trait LockId
+
+  trait LockMode
+  object LockMode {
+    case object Exclusive extends LockMode
+    case object Shared extends LockMode
   }
 }
 
