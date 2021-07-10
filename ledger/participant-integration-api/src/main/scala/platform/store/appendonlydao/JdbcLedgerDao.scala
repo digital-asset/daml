@@ -124,7 +124,6 @@ private class JdbcLedgerDao(
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.initializeLedgerParameters) {
       implicit connection =>
-        storageBackend.enforceSynchronousCommit(connection)
         storageBackend.updateLedgerId(ledgerId.unwrap)(connection)
     }
 
@@ -132,7 +131,6 @@ private class JdbcLedgerDao(
       participantId: ParticipantId
   )(implicit loggingContext: LoggingContext): Future[Unit] =
     dbDispatcher.executeSql(metrics.daml.index.db.initializeParticipantId) { implicit connection =>
-      storageBackend.enforceSynchronousCommit(connection)
       storageBackend.updateParticipantId(participantId.unwrap)(connection)
     }
 
@@ -387,7 +385,6 @@ private class JdbcLedgerDao(
     logger.info("Storing initial state")
     dbDispatcher.executeSql(metrics.daml.index.db.storeInitialStateFromScenario) {
       implicit connection =>
-        storageBackend.enforceSynchronousCommit(connection)
         ledgerEntries.foreach { case (offset, entry) =>
           entry match {
             case tx: LedgerEntry.Transaction =>
@@ -769,7 +766,6 @@ private[platform] object JdbcLedgerDao {
       servicesExecutionContext: ExecutionContext,
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
-      jdbcAsyncCommitMode: DbType.AsyncCommitMode,
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
   )(implicit loggingContext: LoggingContext): ResourceOwner[LedgerDao] = {
@@ -785,8 +781,6 @@ private[platform] object JdbcLedgerDao {
       servicesExecutionContext,
       metrics,
       lfValueTranslationCache,
-      jdbcAsyncCommitMode =
-        if (dbType.supportsAsynchronousCommits) jdbcAsyncCommitMode else DbType.SynchronousCommit,
       enricher = enricher,
       participantId = participantId,
       compressionStrategy = CompressionStrategy.none(metrics), // not needed
@@ -860,7 +854,6 @@ private[platform] object JdbcLedgerDao {
       metrics: Metrics,
       lfValueTranslationCache: LfValueTranslationCache.Cache,
       validatePartyAllocation: Boolean = false,
-      jdbcAsyncCommitMode: DbType.AsyncCommitMode = DbType.SynchronousCommit,
       enricher: Option[ValueEnricher],
       participantId: Ref.ParticipantId,
       compressionStrategy: CompressionStrategy,
@@ -872,7 +865,6 @@ private[platform] object JdbcLedgerDao {
         connectionPoolSize,
         connectionTimeout,
         metrics,
-        jdbcAsyncCommitMode,
       )
       dbType = DbType.jdbcType(jdbcUrl)
       storageBackend = StorageBackend.of(dbType)

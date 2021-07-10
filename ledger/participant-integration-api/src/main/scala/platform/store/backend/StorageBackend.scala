@@ -46,7 +46,6 @@ trait StorageBackend[DB_BATCH]
     with ContractStorageBackend
     with EventStorageBackend {
   def reset(connection: Connection): Unit
-  def enforceSynchronousCommit(connection: Connection): Unit
   def duplicateKeyError: String // TODO: Avoid brittleness of error message checks
 }
 
