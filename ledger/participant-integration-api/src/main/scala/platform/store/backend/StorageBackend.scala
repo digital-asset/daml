@@ -14,6 +14,7 @@ import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.lf.data.Ref
 import com.daml.lf.ledger.EventId
+import com.daml.logging.LoggingContext
 import com.daml.platform
 import com.daml.platform.store.DbType
 import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
@@ -25,6 +26,7 @@ import com.daml.platform.store.backend.postgresql.PostgresStorageBackend
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.daml.scalautil.NeverEqualsOverride
+import javax.sql.DataSource
 
 import scala.util.Try
 
@@ -233,6 +235,38 @@ object EventStorageBackend {
       wildCardParties: Set[Ref.Party],
       partiesAndTemplates: Set[(Set[Ref.Party], Set[Ref.Identifier])],
   )
+}
+
+trait DataSourceStorageBackend {
+  def createDataSource(
+      jdbcUrl: String,
+      dataSourceConfig: DataSourceStorageBackend.DataSourceConfig =
+        DataSourceStorageBackend.DataSourceConfig(),
+      connectionInitHook: Option[Connection => Unit] = None,
+  )(implicit loggingContext: LoggingContext): DataSource
+}
+
+object DataSourceStorageBackend {
+  case class DataSourceConfig(
+      pgSynchronousCommit: Option[PgSynchronousCommitValue] = None
+  )
+
+  sealed abstract class PgSynchronousCommitValue(val pgSqlName: String)
+  object PgSynchronousCommitValue {
+    case object On extends PgSynchronousCommitValue("on")
+    case object Off extends PgSynchronousCommitValue("off")
+    case object RemoteWrite extends PgSynchronousCommitValue("remote_write")
+    case object RemoteApply extends PgSynchronousCommitValue("remote_apply")
+    case object Local extends PgSynchronousCommitValue("local")
+
+    def apply(s: String): PgSynchronousCommitValue = s.toLowerCase match {
+      case On.`pgSqlName` => On
+      case Off.`pgSqlName` => Off
+      case RemoteWrite.`pgSqlName` => RemoteWrite
+      case RemoteApply.`pgSqlName` => RemoteApply
+      case Local.`pgSqlName` => Local
+    }
+  }
 }
 
 object StorageBackend {

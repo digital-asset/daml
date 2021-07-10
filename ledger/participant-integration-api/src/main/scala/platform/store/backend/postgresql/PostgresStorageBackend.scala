@@ -11,6 +11,7 @@ import anorm.SqlParser.get
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key, Party}
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.{
@@ -18,9 +19,12 @@ import com.daml.platform.store.backend.common.{
   CommonStorageBackend,
   EventStorageBackendTemplate,
   EventStrategy,
+  InitHookDataSourceProxy,
   TemplatedStorageBackend,
 }
-import com.daml.platform.store.backend.{DbDto, StorageBackend, common}
+import com.daml.platform.store.backend.{DataSourceStorageBackend, DbDto, StorageBackend, common}
+import javax.sql.DataSource
+import org.postgresql.ds.PGSimpleDataSource
 
 private[backend] object PostgresStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
@@ -190,4 +194,20 @@ private[backend] object PostgresStorageBackend
   // TODO append-only: remove as part of ContractStorageBackend consolidation
   private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
     s"$arrayColumn::text[] && array[${format(parties)}]::text[]"
+
+  override def createDataSource(
+      jdbcUrl: String,
+      dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
+      connectionInitHook: Option[Connection => Unit],
+  )(implicit loggingContext: LoggingContext): DataSource = {
+    val pgSimpleDataSource = new PGSimpleDataSource()
+    pgSimpleDataSource.setUrl(jdbcUrl)
+    val hookFunctions = List(
+      dataSourceConfig.pgSynchronousCommit.toList
+        .map(synchCommitValue => exe(s"SET synchronous_commit TO ${synchCommitValue.pgSqlName}")),
+      connectionInitHook.toList,
+    ).flatten
+    InitHookDataSourceProxy(pgSimpleDataSource, hookFunctions)
+  }
+
 }

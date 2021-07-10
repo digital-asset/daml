@@ -11,6 +11,7 @@ import anorm.SqlParser.get
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.offset.Offset
 import com.daml.lf.data.Ref
+import com.daml.logging.LoggingContext
 import com.daml.platform.store.appendonlydao.events.{ContractId, Key}
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
 import com.daml.platform.store.backend.common.{
@@ -18,9 +19,16 @@ import com.daml.platform.store.backend.common.{
   CommonStorageBackend,
   EventStorageBackendTemplate,
   EventStrategy,
+  InitHookDataSourceProxy,
   TemplatedStorageBackend,
 }
-import com.daml.platform.store.backend.{DbDto, StorageBackend, common}
+import com.daml.platform.store.backend.{
+  DataSourceStorageBackend,
+  DbDto,
+  StorageBackend,
+  common,
+}
+import javax.sql.DataSource
 
 private[backend] object H2StorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
@@ -181,4 +189,15 @@ private[backend] object H2StorageBackend
       "false"
     else
       parties.view.map(p => s"array_contains($arrayColumn, '$p')").mkString("(", " or ", ")")
+
+  override def createDataSource(
+      jdbcUrl: String,
+      dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
+      connectionInitHook: Option[Connection => Unit],
+  )(implicit loggingContext: LoggingContext): DataSource = {
+    val h2DataSource = new org.h2.jdbcx.JdbcDataSource()
+    h2DataSource.setUrl(jdbcUrl)
+    InitHookDataSourceProxy(h2DataSource, connectionInitHook.toList)
+  }
+
 }

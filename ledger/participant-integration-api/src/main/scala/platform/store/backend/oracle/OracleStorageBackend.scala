@@ -13,14 +13,18 @@ import com.daml.platform.store.backend.common.{
   CommonStorageBackend,
   EventStorageBackendTemplate,
   EventStrategy,
+  InitHookDataSourceProxy,
   TemplatedStorageBackend,
 }
-import com.daml.platform.store.backend.{DbDto, StorageBackend, common}
+import com.daml.platform.store.backend.{DataSourceStorageBackend, DbDto, StorageBackend, common}
 import java.sql.Connection
 import java.time.Instant
 
 import com.daml.ledger.offset.Offset
 import com.daml.platform.store.backend.EventStorageBackend.FilterParams
+
+import com.daml.logging.LoggingContext
+import javax.sql.DataSource
 
 private[backend] object OracleStorageBackend
     extends StorageBackend[AppendOnlySchema.Batch]
@@ -234,4 +238,13 @@ private[backend] object OracleStorageBackend
         .mkString(" OR ") + ")"
     }
 
+  override def createDataSource(
+      jdbcUrl: String,
+      dataSourceConfig: DataSourceStorageBackend.DataSourceConfig,
+      connectionInitHook: Option[Connection => Unit],
+  )(implicit loggingContext: LoggingContext): DataSource = {
+    val oracleDataSource = new oracle.jdbc.pool.OracleDataSource
+    oracleDataSource.setURL(jdbcUrl)
+    InitHookDataSourceProxy(oracleDataSource, connectionInitHook.toList)
+  }
 }
