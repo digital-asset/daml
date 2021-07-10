@@ -24,6 +24,7 @@ import com.daml.platform.store.backend.common.{
   TemplatedStorageBackend,
 }
 import com.daml.platform.store.backend.{
+  DBLockStorageBackend,
   DataSourceStorageBackend,
   DbDto,
   StorageBackend,
@@ -201,4 +202,17 @@ private[backend] object H2StorageBackend
     InitHookDataSourceProxy(h2DataSource, connectionInitHook.toList)
   }
 
+  override def aquireImmediately(
+      lockId: DBLockStorageBackend.LockId,
+      lockMode: DBLockStorageBackend.LockMode,
+  )(connection: Connection): Option[DBLockStorageBackend.Lock] =
+    throw new UnsupportedOperationException("db level locks are not supported for H2")
+
+  override def release(lock: DBLockStorageBackend.Lock)(connection: Connection): Boolean =
+    throw new UnsupportedOperationException("db level locks are not supported for H2")
+
+  override def lock(id: Int): DBLockStorageBackend.LockId =
+    throw new UnsupportedOperationException("db level locks are not supported for H2")
+
+  override def dbLockSupported: Boolean = false
 }
