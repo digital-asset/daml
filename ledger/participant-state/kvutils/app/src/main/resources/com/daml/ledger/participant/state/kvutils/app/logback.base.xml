@@ -20,6 +20,10 @@
     <logger name="org.flywaydb" level="INFO" />
     <logger name="com.zaxxer.hikari" level="ERROR" />
     <logger name="com.daml.platform" level="WARN" />
+    <!-- TODO temporarily enabled to see HA in action -->
+    <logger name="com.daml.platform.indexer" level="DEBUG" />
+    <logger name="com.daml.platform.indexer.store.backend" level="DEBUG" />
+    <logger name="com.daml.platform.indexer.parallel.ParallelIndexerFactory" level="WARN" />
 
     <!-- raising the command tracker logging level -->
     <logger name="com.daml.platform.apiserver.services.tracking.TrackerMap" level="WARN" />
