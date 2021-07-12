@@ -451,6 +451,7 @@ class QueryStreamsManager {
                 if (isRecordWith('events', json)) {
                     const events: Event<object>[] = jtv.Result.withException(jtv.array(decodeEventUnknown).run(json.events));
                     const multiplexer: Map<StreamingQuery<object, unknown, string>, Event<object>[]> = new Map();
+                    const perConsumerState: Map<StreamingQuery<object, unknown, string>, CreateEvent<object, unknown, string>[]> = new Map();
                     for (const event of events) {
                         if (isCreate<object>(event)) {
                             const consumersToMatchedQueries: Map<StreamingQuery<object, unknown, string>, number[]> = new Map();
@@ -478,16 +479,16 @@ class QueryStreamsManager {
                                 consumer.state.delete(event.archived.contractId);
                             }
                         }
-                        consumer.stream.emit('change', Array.from(consumer.state.values()), events);
+                        const state = Array.from(consumer.state.values());
+                        perConsumerState.set(consumer, state)
+                        consumer.stream.emit('change', state, events);
                     }
 
                     if (isRecordWith('offset', json)) {
                         const offset = jtv.Result.withException(jtv.oneOf(jtv.constant(null), jtv.string()).run(json.offset));
                         this.queries.forEach(consumer => {
                           if (consumer.offset === undefined) {
-                            // Rebuilding the state array is not particularly efficient but it happens only once in the consumer's
-                            // lifecycle's, so it's probably better than carrying the copy around all the time
-                            consumer.stream.emit('live', Array.from(consumer.state.values()));
+                            consumer.stream.emit('live', perConsumerState.get(consumer));
                           }
                           consumer.offset = offset;
                         });
