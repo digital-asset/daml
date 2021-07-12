@@ -210,13 +210,7 @@ object HttpService {
         Http()
           .newServerAt(address, httpPort)
           .withSettings(settings)
-          .connectionSource()
-          .to {
-            Sink.foreach { connection =>
-              connection.handleWithAsyncHandler(allEndpoints(_))
-            }
-          }
-          .run()
+          .bind(allEndpoints)
       )
 
       _ <- either(portFile.cata(f => createPortFile(f, binding), \/-(()))): ET[Unit]
