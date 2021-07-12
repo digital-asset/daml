@@ -147,7 +147,10 @@ json_deps = {
 da_scala_binary(
     name = "http-json-binary",
     main_class = "com.daml.http.Main",
-    resources = [":src/main/resources/logback.xml"],
+    resources = [
+        ":src/main/resources/application.conf",
+        ":src/main/resources/logback.xml",
+    ],
     scala_deps = json_scala_deps,
     scalacopts = hj_scalacopts,
     tags = [
@@ -161,7 +164,10 @@ da_scala_binary(
 da_scala_binary(
     name = "http-json-binary-ee",
     main_class = "com.daml.http.Main",
-    resources = [":src/main/resources/logback.xml"],
+    resources = [
+        ":src/main/resources/application.conf",
+        ":src/main/resources/logback.xml",
+    ],
     scala_deps = json_scala_deps,
     scalacopts = hj_scalacopts,
     tags = [

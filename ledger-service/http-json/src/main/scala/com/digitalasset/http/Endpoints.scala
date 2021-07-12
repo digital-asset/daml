@@ -4,7 +4,6 @@
 package com.daml.http
 
 import akka.NotUsed
-import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{
@@ -12,7 +11,9 @@ import akka.http.scaladsl.model.headers.{
   ModeledCustomHeader,
   ModeledCustomHeaderCompanion,
   OAuth2BearerToken,
+  `X-Forwarded-For`,
   `X-Forwarded-Proto`,
+  `X-Real-Ip`,
 }
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
@@ -67,12 +68,23 @@ class Endpoints(
   import util.ErrorOps._
   import Uri.Path._
 
+  // Inspired by
+  // https://github.com/akka/akka-http/blob/master/akka-http/src/main/scala/akka/http/scaladsl/server/directives/MiscDirectives.scala#L110-L116
+  // Because the Remote-Address header is deprecated we don't match for it here.
+  def requestSource(req: HttpRequest): RemoteAddress =
+    req
+      .header[`X-Forwarded-For`]
+      .flatMap(_.addresses.headOption)
+      .orElse(req.header[`X-Real-Ip`].map(_.address))
+      .orElse(req.attribute(AttributeKeys.remoteAddress))
+      .getOrElse(RemoteAddress.Unknown)
+
   // Parenthesis in the case matches below are required because otherwise scalafmt breaks.
   //noinspection ScalaUnnecessaryParentheses
   def all(implicit
       lc: LoggingContextOf[InstanceUUID],
       metrics: Metrics,
-  ): PartialFunction[HttpRequest, Http.IncomingConnection => Future[HttpResponse]] = {
+  ): PartialFunction[HttpRequest, Future[HttpResponse]] = {
     val apiMetrics = metrics.daml.HttpJsonApi
     type DispatchFun =
       PartialFunction[HttpRequest, LoggingContextOf[InstanceUUID with RequestID] => Future[
@@ -126,11 +138,11 @@ class Endpoints(
               )
         )
       // format: off
-        case req @ HttpRequest(GET,
-          Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
-          _, _, _) =>
-            (implicit lc => Timed.future(apiMetrics.downloadPackageTimer, downloadPackage(req, packageId)))
-        // format: on
+      case req @ HttpRequest(GET,
+        Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
+        _, _, _) =>
+          (implicit lc => Timed.future(apiMetrics.downloadPackageTimer, downloadPackage(req, packageId)))
+      // format: on
     }
     val liveOrHealthDispatch: DispatchFun = {
       case HttpRequest(GET, Uri.Path("/livez"), _, _, _) =>
@@ -147,17 +159,16 @@ class Endpoints(
       allocatePartyDispatch orElse
       packageManagementDispatch orElse
       liveOrHealthDispatch) &&& { case r => r }) andThen { case (lcFhr, req) =>
-      (connection: Http.IncomingConnection) =>
-        extendWithRequestIdLogCtx(implicit lc => {
-          val t0 = System.nanoTime
-          logger.info(s"Incoming request on ${req.uri} from ${connection.remoteAddress}")
-          metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
-          for {
-            res <- lcFhr(lc)
-            _ = logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
-            _ = logger.info(s"Responding to client with HTTP ${res.status}")
-          } yield res
-        })
+      extendWithRequestIdLogCtx(implicit lc => {
+        val t0 = System.nanoTime
+        logger.info(s"Incoming request on ${req.uri} from ${requestSource(req)}")
+        metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
+        for {
+          res <- lcFhr(lc)
+          _ = logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+          _ = logger.info(s"Responding to client with HTTP ${res.status}")
+        } yield res
+      })
     }
   }
 
