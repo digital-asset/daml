@@ -19,7 +19,8 @@ class GenDarReader[A](parseDalf: Bytes => Try[A]) {
 
   /** Reads an archive from a File. */
   def readArchiveFromFile(darFile: File): Try[Dar[A]] =
-    readArchive(darFile.getName, new ZipInputStream(new FileInputStream(darFile)))
+    bracket(Try(new ZipInputStream(new FileInputStream(darFile))))(zis => Try(zis.close))
+      .flatMap(readArchive(darFile.getName, _))
 
   /** Reads an archive from a ZipInputStream. The stream will be closed by this function! */
   def readArchive(
@@ -57,17 +58,13 @@ class GenDarReader[A](parseDalf: Bytes => Try[A]) {
       darStream: ZipInputStream,
       entrySizeThreshold: Int,
   ): Try[ZipEntries] =
-    bracket(Try(darStream))(is => Try(is.close()))
-      .flatMap(is =>
-        Try(
-          Iterator
-            .continually(darStream.getNextEntry)
-            .takeWhile(_ != null)
-            .map(entry => slurpWithCaution(entry.getName, is, entrySizeThreshold))
-            .toMap
-        )
-      )
-      .map(ZipEntries(name, _))
+    Try(
+      Iterator
+        .continually(darStream.getNextEntry)
+        .takeWhile(_ != null)
+        .map(entry => slurpWithCaution(entry.getName, darStream, entrySizeThreshold))
+        .toMap
+    ).map(ZipEntries(name, _))
 
   private[this] def parseAll(getPayload: String => Try[Bytes])(names: List[String]): Try[List[A]] =
     sequence(names.map(parseOne(getPayload)))
