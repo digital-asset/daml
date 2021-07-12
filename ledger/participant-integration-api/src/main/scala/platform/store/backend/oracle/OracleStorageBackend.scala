@@ -16,7 +16,13 @@ import com.daml.platform.store.backend.common.{
   InitHookDataSourceProxy,
   TemplatedStorageBackend,
 }
-import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend, DbDto, StorageBackend, common}
+import com.daml.platform.store.backend.{
+  DBLockStorageBackend,
+  DataSourceStorageBackend,
+  DbDto,
+  StorageBackend,
+  common,
+}
 import java.sql.Connection
 import java.time.Instant
 
