@@ -367,6 +367,9 @@ final class Metrics(val registry: MetricRegistry) {
       val transactionLogUpdatesBufferSize: Counter =
         registry.counter(Prefix :+ "transaction_log_updates_buffer_size")
 
+      val contractStateEventsBufferSize: Counter =
+        registry.counter(Prefix :+ "contract_state_events_buffer_size")
+
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
         private val Prefix: MetricName = index.Prefix :+ "db"

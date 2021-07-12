@@ -318,14 +318,16 @@ private[appendonlydao] final class TransactionsReader(
         )
       }
 
+    val transactionLogUpdatesSource = groupContiguous(eventsSource)(by = _.transactionId)
+      .map { v =>
+        val tx = toTransaction(v)
+        (tx.offset, tx.events.last.eventSequentialId) -> tx
+      }
+      .mapMaterializedValue(_ => NotUsed)
+
     InstrumentedSource
       .bufferedSource(
-        original = groupContiguous(eventsSource)(by = _.transactionId)
-          .map { v =>
-            val tx = toTransaction(v)
-            (tx.offset, tx.events.last.eventSequentialId) -> tx
-          }
-          .mapMaterializedValue(_ => NotUsed),
+        original = transactionLogUpdatesSource,
         counter = metrics.daml.index.transactionLogUpdatesBufferSize,
         size = outputStreamBufferSize,
       )
@@ -406,7 +408,7 @@ private[appendonlydao] final class TransactionsReader(
       )
     )
 
-    Source
+    val contractStateEventsSource = Source
       .fromIterator(() =>
         TransactionsReader
           .splitRange(
@@ -445,7 +447,13 @@ private[appendonlydao] final class TransactionsReader(
       }
       .map(event => (event.eventOffset, event.eventSequentialId) -> event)
       .mapMaterializedValue(_ => NotUsed)
-      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
+
+    InstrumentedSource
+      .bufferedSource(
+        original = contractStateEventsSource,
+        counter = metrics.daml.index.contractStateEventsBufferSize,
+        size = outputStreamBufferSize,
+      )
       .concat(endMarker)
   }
 
