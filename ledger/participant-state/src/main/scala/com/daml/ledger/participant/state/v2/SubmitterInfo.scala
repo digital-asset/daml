@@ -35,7 +35,7 @@ final case class SubmitterInfo(
 ) {
 
   /** The ID for the ledger change */
-  val changeId: ChangeId = new ChangeId(applicationId, commandId, actAs.toSet)
+  val changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 }
 
 /** Identifier for ledger changes used by command deduplication
