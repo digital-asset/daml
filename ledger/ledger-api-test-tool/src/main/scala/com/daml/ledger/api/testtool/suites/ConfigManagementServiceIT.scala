@@ -187,8 +187,8 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "DuplicateSubmissionIdTwiceCorrect",
-    "Changing config twice with the same submissionId succeeds only on two participants",
+    "DuplicateSubmissionIdWhenSubmissionsCorrect",
+    "Duplicate submission ids are accepted when config changed twice",
     allocate(NoParties, NoParties),
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
@@ -207,40 +207,22 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "DuplicateSubmissionIdFirstIncorrect",
-    "Changing config twice with the same submissionId fails for first incorrect submission",
+    "DuplicateSubmissionIdWhenSubmissionsIncorrect",
+    "Duplicate submission ids are accepted when config changes are invalid",
     allocate(NoParties, NoParties),
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
     for {
       (good, bad) <- generateRequest(alpha).map(r =>
-        r -> r
-          .update(_.configurationGeneration := r.configurationGeneration + 2)
+        r ->
+          r.update(_.configurationGeneration := r.configurationGeneration + 2)
       )
-      failure <- ignoreNotAuthorized(beta.setTimeModel(bad))
-        .mustFail("Mismatching configuration generation")
-      _ <- alpha.setTimeModel(good)
+      failure1 <- beta.setTimeModel(bad).mustFail(mismatchingGenerations)
+      _ <- ignoreNotAuthorized(alpha.setTimeModel(good))
+      failure2 <- beta.setTimeModel(bad).mustFail(mismatchingGenerations)
     } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Mismatching configuration generation")
-    }
-  })
-
-  test(
-    "DuplicateSubmissionIdSecondIncorrect",
-    "Changing config twice with the same submissionId fails for first incorrect submission",
-    allocate(NoParties, NoParties),
-    runConcurrently = false,
-  )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
-    for {
-      (good, bad) <- generateRequest(alpha).map(r =>
-        r -> r
-          .update(_.configurationGeneration := r.configurationGeneration + 2)
-      )
-      _ <- alpha.setTimeModel(good)
-      failure <- ignoreNotAuthorized(beta.setTimeModel(bad))
-        .mustFail("Mismatching configuration generation")
-    } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Mismatching configuration generation")
+      assertGenerationMispatchOrNotAuthorized(failure1)
+      assertGenerationMispatchOrNotAuthorized(failure2)
     }
   })
 
@@ -249,10 +231,9 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
   )(implicit ec: ExecutionContext): Future[SetTimeModelRequest] =
     for {
       response <- participant.getTimeModel()
-      oldTimeModel = {
-        assert(response.timeModel.isDefined, "Expected time model to be defined")
-        response.timeModel.get
-      }
+      oldTimeModel = response.timeModel.getOrElse(
+        throw new AssertionError("Expected time model to be defined")
+      )
       t1 <- participant.time()
       req = participant.setTimeModelRequest(
         mrt = t1.plusSeconds(30),
@@ -261,7 +242,9 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
       )
     } yield req
 
-  private val notAuthorizedPattern = "not authorized".r.pattern
+  private val notAuthorizedPattern = "not authorized"
+  private val mismatchingGenerations = "Mismatching configuration generation"
+
   // On some ledger implementations only one participant is allowed to modify config, others will
   // fail with an authorization failure.
   def ignoreNotAuthorized(
@@ -271,10 +254,21 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
       case Success(value: SetTimeModelResponse) =>
         Success(Some(value))
       case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
-          if (notAuthorizedPattern.matcher(msg).find()) =>
+          if (notAuthorizedPattern.r.pattern.matcher(msg).find()) =>
         Success(None)
       case Failure(failure) =>
         Failure(failure)
 
+    }
+
+  def assertGenerationMispatchOrNotAuthorized(failure: Throwable): Unit =
+    failure match {
+      case GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _)
+          if (notAuthorizedPattern.r.pattern.matcher(msg).find()) =>
+        ()
+      case GrpcException(GrpcStatus(Status.Code.INVALID_ARGUMENT, Some(msg)), _)
+          if (mismatchingGenerations.r.pattern.matcher(msg).find()) =>
+        ()
+      case _ => fail(s"Unexpected error $failure")
     }
 }

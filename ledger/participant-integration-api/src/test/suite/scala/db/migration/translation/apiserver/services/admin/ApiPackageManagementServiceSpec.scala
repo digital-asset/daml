@@ -96,6 +96,7 @@ class ApiPackageManagementServiceSpec
       Duration.ZERO,
       mockEngine,
       mockDarReader,
+      _ => SubmissionId.assertFromString("aSubmission"),
     )
   }
 

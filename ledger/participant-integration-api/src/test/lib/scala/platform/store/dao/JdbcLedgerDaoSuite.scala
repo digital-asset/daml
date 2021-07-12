@@ -13,7 +13,7 @@ import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
+import com.daml.ledger.participant.state.v1.{Configuration, DivulgedContract, Offset, SubmitterInfo}
 import com.daml.ledger.test.ModelTestDar
 import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.{Identifier, Party}
@@ -24,7 +24,7 @@ import com.daml.lf.transaction._
 import com.daml.lf.value.{Value => LfValue}
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
 import com.daml.logging.LoggingContext
-import com.daml.platform.indexer.OffsetStep
+import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep, OffsetStep}
 import com.daml.platform.store.dao.events.TransactionsWriter
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.AsyncTestSuite
@@ -868,6 +868,29 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
 
   def nextOffsetStep(offset: Offset): OffsetStep =
     OffsetStep(previousOffset.getAndSet(Some(offset)), offset)
+
+  protected def storeConfigurationEntry(
+      offset: Offset,
+      submissionId: String,
+      lastConfig: Configuration,
+      rejectionReason: Option[String] = None,
+      maybePreviousOffset: Option[Offset] = Option.empty,
+  ): Future[PersistenceResponse] =
+    ledgerDao
+      .storeConfigurationEntry(
+        offsetStep = maybePreviousOffset
+          .orElse(previousOffset.get())
+          .map(IncrementalOffsetStep(_, offset))
+          .getOrElse(CurrentOffset(offset)),
+        Instant.EPOCH,
+        submissionId,
+        lastConfig,
+        rejectionReason,
+      )
+      .map { r =>
+        previousOffset.set(Some(offset))
+        r
+      }
 }
 
 object JdbcLedgerDaoSuite {

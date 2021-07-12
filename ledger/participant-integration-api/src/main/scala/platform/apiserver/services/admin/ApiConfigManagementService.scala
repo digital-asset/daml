@@ -43,6 +43,7 @@ private[apiserver] final class ApiConfigManagementService private (
     writeService: WriteConfigService,
     timeProvider: TimeProvider,
     ledgerConfiguration: LedgerConfiguration,
+    submissionIdGenerator: String => v1.SubmissionId,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -128,9 +129,7 @@ private[apiserver] final class ApiConfigManagementService private (
             .copy(timeModel = params.newTimeModel)
 
           // Submit configuration to the ledger, and start polling for the result.
-          augmentedSubmissionId = SubmissionId.assertFromString(
-            request.submissionId.concat(s"-${UUID.randomUUID().toString}")
-          )
+          augmentedSubmissionId = submissionIdGenerator(request.submissionId)
           synchronousResponse = new SynchronousResponse(
             new SynchronousResponseStrategy(
               writeService,
@@ -197,6 +196,7 @@ private[apiserver] object ApiConfigManagementService {
       writeBackend: WriteConfigService,
       timeProvider: TimeProvider,
       ledgerConfiguration: LedgerConfiguration,
+      submissionIdGenerator: String => v1.SubmissionId = augmentSubmissionId,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -207,7 +207,12 @@ private[apiserver] object ApiConfigManagementService {
       writeBackend,
       timeProvider,
       ledgerConfiguration,
+      submissionIdGenerator,
     )
+
+  private def augmentSubmissionId: String => v1.SubmissionId =
+    submissionId =>
+      SubmissionId.assertFromString(submissionId.concat(s"-${UUID.randomUUID().toString}"))
 
   private final class SynchronousResponseStrategy(
       writeConfigService: WriteConfigService,

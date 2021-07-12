@@ -33,7 +33,7 @@ CREATE TABLE configuration_entries (
         )
 );
 
-CREATE UNIQUE INDEX idx_configuration_submission ON configuration_entries (submission_id);
+CREATE INDEX idx_configuration_submission ON configuration_entries (submission_id);
 
 ---------------------------------------------------------------------------------------------------
 -- Packages table
@@ -67,7 +67,7 @@ CREATE TABLE package_entries (
         )
 );
 
-CREATE UNIQUE INDEX idx_package_entries ON package_entries (submission_id);
+CREATE INDEX idx_package_entries ON package_entries (submission_id);
 
 ---------------------------------------------------------------------------------------------------
 -- Parties table
@@ -102,7 +102,7 @@ CREATE TABLE party_entries (
         )
 );
 
-CREATE UNIQUE INDEX idx_party_entries ON party_entries (submission_id);
+CREATE INDEX idx_party_entries ON party_entries (submission_id);
 
 ---------------------------------------------------------------------------------------------------
 -- Submissions table

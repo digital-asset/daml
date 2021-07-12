@@ -46,8 +46,8 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "DuplicateSubmissionIdTwiceCorrect",
-    "Uploading a package twice with the same submissionId succeeds only on two participants",
+    "DuplicateSubmissionIdWhenSubmissionsCorrect",
+    "Duplicate submission ids are accepted when package uploaded twice",
     allocate(NoParties, NoParties),
   )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
     // Multiple package updates should always succeed. Participant adds extra entropy to the
@@ -62,39 +62,25 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "DuplicateSubmissionIdFirstIncorrect",
-    "Uploading package twice with the same submissionId fails for first incorrect submission",
+    "DuplicateSubmissionIdWhenSubmissionsIncorrect",
+    "Duplicate submission ids are accepted when package uploads are invalid",
     allocate(NoParties, NoParties),
   )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
     for {
       testPackage <- loadTestPackage()
       goodRequest = alpha.uploadDarRequest(testPackage)
       badRequest = goodRequest.update(_.darFile := ByteString.EMPTY)
-      failure <- alpha.uploadDarFile(badRequest).mustFail("uploading an empty package")
+      failure1 <- alpha.uploadDarFile(badRequest).mustFail("uploading an empty package")
       _ <- beta.uploadDarFile(goodRequest)
+      failure2 <- alpha.uploadDarFile(badRequest).mustFail("uploading an empty package")
     } yield {
       assertGrpcError(
-        failure,
+        failure1,
         Status.Code.INVALID_ARGUMENT,
         "Invalid argument: Invalid DAR: package-upload",
       )
-    }
-  })
-
-  test(
-    "DuplicateSubmissionIdSecondIncorrect",
-    "Uploading package twice with the same submissionId fails for second incorrect submission",
-    allocate(NoParties, NoParties),
-  )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
-    for {
-      testPackage <- loadTestPackage()
-      goodRequest = alpha.uploadDarRequest(testPackage)
-      badRequest = goodRequest.update(_.darFile := ByteString.EMPTY)
-      _ <- alpha.uploadDarFile(goodRequest)
-      failure <- beta.uploadDarFile(badRequest).mustFail("uploading an empty package")
-    } yield {
       assertGrpcError(
-        failure,
+        failure2,
         Status.Code.INVALID_ARGUMENT,
         "Invalid argument: Invalid DAR: package-upload",
       )
