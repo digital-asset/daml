@@ -438,7 +438,6 @@ class QueryStreamsManager {
       if (isRecordWith('events', json)) {
           const events: Event<object>[] = jtv.Result.withException(jtv.array(decodeEventUnknown).run(json.events));
           const multiplexer: Map<StreamingQuery<object, unknown, string>, Event<object>[]> = new Map();
-          const perConsumerState: Map<StreamingQuery<object, unknown, string>, CreateEvent<object, unknown, string>[]> = new Map();
           for (const event of events) {
               if (isCreate<object>(event)) {
                   const consumersToMatchedQueries: Map<StreamingQuery<object, unknown, string>, number[]> = new Map();
@@ -466,9 +465,7 @@ class QueryStreamsManager {
                       consumer.state.delete(event.archived.contractId);
                   }
               }
-              const state = Array.from(consumer.state.values());
-              perConsumerState.set(consumer, state); // Storing the state array so that it doesn't have to be rebuild it a 'live' event must be sent
-              consumer.stream.emit('change', state, events);
+              consumer.stream.emit('change', Array.from(consumer.state.values()), events);
           }
 
           if (isRecordWith('offset', json)) {
@@ -476,8 +473,9 @@ class QueryStreamsManager {
               let anyLiveEvent: boolean = false;
               for (const consumer of this.queries.values()) {
                 if (consumer.offset === undefined) {
+                  // Rebuilding the state array from scratch to make sure mutable state is not shared between the 'change' and 'live' event
+                  consumer.stream.emit('live', Array.from(consumer.state.values()));
                   anyLiveEvent = true;
-                  consumer.stream.emit('live', perConsumerState.get(consumer));
                 }
                 consumer.offset = offset;
               }
