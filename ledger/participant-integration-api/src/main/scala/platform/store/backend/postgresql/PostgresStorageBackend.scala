@@ -23,7 +23,13 @@ import com.daml.platform.store.backend.common.{
   InitHookDataSourceProxy,
   TemplatedStorageBackend,
 }
-import com.daml.platform.store.backend.{DBLockStorageBackend, DataSourceStorageBackend, DbDto, StorageBackend, common}
+import com.daml.platform.store.backend.{
+  DBLockStorageBackend,
+  DataSourceStorageBackend,
+  DbDto,
+  StorageBackend,
+  common,
+}
 import javax.sql.DataSource
 import org.postgresql.ds.PGSimpleDataSource
 
