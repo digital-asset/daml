@@ -178,6 +178,14 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .uploadDarFile(new UploadDarFileRequest(bytes))
       .map(_ => ())
 
+  def uploadDarRequest(bytes: ByteString): UploadDarFileRequest =
+    new UploadDarFileRequest(bytes, nextSubmissionId())
+
+  def uploadDarFile(request: UploadDarFileRequest): Future[Unit] =
+    services.packageManagement
+      .uploadDarFile(request)
+      .map(_ => ())
+
   def participantId(): Future[String] =
     services.partyManagement
       .getParticipantId(new GetParticipantIdRequest)
@@ -691,6 +699,18 @@ private[testtool] final class ParticipantTestContext private[participant] (
     services.configManagement.setTimeModel(
       SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel))
     )
+
+  def setTimeModelRequest(
+      mrt: Instant,
+      generation: Long,
+      newTimeModel: TimeModel,
+  ): SetTimeModelRequest =
+    SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel))
+
+  def setTimeModel(
+      request: SetTimeModelRequest
+  ): Future[SetTimeModelResponse] =
+    services.configManagement.setTimeModel(request)
 
   def prune(pruneUpTo: String, attempts: Int): Future[PruneResponse] =
     // Distributed ledger participants need to reach global consensus prior to pruning. Hence the "eventually" here:

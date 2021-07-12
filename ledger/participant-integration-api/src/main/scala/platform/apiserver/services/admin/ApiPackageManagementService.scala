@@ -108,7 +108,9 @@ private[apiserver] final class ApiPackageManagementService private (
           if (request.submissionId.isEmpty)
             SubmissionId.assertFromString(UUID.randomUUID().toString)
           else
-            SubmissionId.assertFromString(request.submissionId)
+            SubmissionId.assertFromString(
+              request.submissionId.concat(s"-${UUID.randomUUID().toString}")
+            )
 
         val darInputStream = new ZipInputStream(request.darFile.newInput())
 

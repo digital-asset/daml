@@ -7,9 +7,18 @@ import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
-import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.v1.admin.config_management_service.{
+  SetTimeModelRequest,
+  SetTimeModelResponse,
+  TimeModel,
+}
 import com.google.protobuf.duration.Duration
+
 import io.grpc.Status
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 final class ConfigManagementServiceIT extends LedgerTestSuite {
   test(
@@ -177,4 +186,95 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
     }
   })
 
+  test(
+    "DuplicateSubmissionIdTwiceCorrect",
+    "Changing config twice with the same submissionId succeeds only on two participants",
+    allocate(NoParties, NoParties),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
+    // Multiple config changes should never cause duplicates. Participant adds extra entropy to the
+    // submission id to ensure client does not inadvertently cause problems by poor selection
+    // of submission ids.
+    for {
+      (req1, req2) <- generateRequest(alpha).map(r =>
+        r -> r
+          .update(_.configurationGeneration := r.configurationGeneration + 1)
+      )
+      _ <- ignoreNotAuthorized(alpha.setTimeModel(req1))
+      _ <- ignoreNotAuthorized(beta.setTimeModel(req2))
+    } yield ()
+
+  })
+
+  test(
+    "DuplicateSubmissionIdFirstIncorrect",
+    "Changing config twice with the same submissionId fails for first incorrect submission",
+    allocate(NoParties, NoParties),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
+    for {
+      (good, bad) <- generateRequest(alpha).map(r =>
+        r -> r
+          .update(_.configurationGeneration := r.configurationGeneration + 2)
+      )
+      failure <- ignoreNotAuthorized(beta.setTimeModel(bad))
+        .mustFail("Mismatching configuration generation")
+      _ <- alpha.setTimeModel(good)
+    } yield {
+      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Mismatching configuration generation")
+    }
+  })
+
+  test(
+    "DuplicateSubmissionIdSecondIncorrect",
+    "Changing config twice with the same submissionId fails for first incorrect submission",
+    allocate(NoParties, NoParties),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
+    for {
+      (good, bad) <- generateRequest(alpha).map(r =>
+        r -> r
+          .update(_.configurationGeneration := r.configurationGeneration + 2)
+      )
+      _ <- alpha.setTimeModel(good)
+      failure <- ignoreNotAuthorized(beta.setTimeModel(bad))
+        .mustFail("Mismatching configuration generation")
+    } yield {
+      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Mismatching configuration generation")
+    }
+  })
+
+  def generateRequest(
+      participant: ParticipantTestContext
+  )(implicit ec: ExecutionContext): Future[SetTimeModelRequest] =
+    for {
+      response <- participant.getTimeModel()
+      oldTimeModel = {
+        assert(response.timeModel.isDefined, "Expected time model to be defined")
+        response.timeModel.get
+      }
+      t1 <- participant.time()
+      req = participant.setTimeModelRequest(
+        mrt = t1.plusSeconds(30),
+        generation = response.configurationGeneration,
+        newTimeModel = oldTimeModel,
+      )
+    } yield req
+
+  private val notAuthorizedPattern = "not authorized".r.pattern
+  // On some ledger implementations only one participant is allowed to modify config, others will
+  // fail with an authorization failure.
+  def ignoreNotAuthorized(
+      call: Future[SetTimeModelResponse]
+  )(implicit executionContext: ExecutionContext): Future[Option[SetTimeModelResponse]] =
+    call.transform {
+      case Success(value: SetTimeModelResponse) =>
+        Success(Some(value))
+      case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
+          if (notAuthorizedPattern.matcher(msg).find()) =>
+        Success(None)
+      case Failure(failure) =>
+        Failure(failure)
+
+    }
 }

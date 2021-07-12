@@ -4,6 +4,7 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.time.{Duration => JDuration}
+import java.util.UUID
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -109,8 +110,11 @@ private[apiserver] final class ApiConfigManagementService private (
           _ <-
             if (request.configurationGeneration != expectedGeneration) {
               Future.failed(
-                ErrorFactories.invalidArgument(
-                  s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
+                ValidationLogger.logFailureWithContext(
+                  request,
+                  ErrorFactories.invalidArgument(
+                    s"Mismatching configuration generation, expected $expectedGeneration, received ${request.configurationGeneration}"
+                  ),
                 )
               )
             } else {
@@ -124,7 +128,9 @@ private[apiserver] final class ApiConfigManagementService private (
             .copy(timeModel = params.newTimeModel)
 
           // Submit configuration to the ledger, and start polling for the result.
-          submissionId = SubmissionId.assertFromString(request.submissionId)
+          augmentedSubmissionId = SubmissionId.assertFromString(
+            request.submissionId.concat(s"-${UUID.randomUUID().toString}")
+          )
           synchronousResponse = new SynchronousResponse(
             new SynchronousResponseStrategy(
               writeService,
@@ -134,7 +140,7 @@ private[apiserver] final class ApiConfigManagementService private (
             timeToLive = JDuration.ofMillis(params.timeToLive.toMillis),
           )
           entry <- synchronousResponse.submitAndWait(
-            submissionId,
+            augmentedSubmissionId,
             (params.maximumRecordTime, newConfig),
           )
         } yield SetTimeModelResponse(entry.configuration.generation)
