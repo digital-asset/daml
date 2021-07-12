@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
   Step,
-  TransactionRejector,
+  Rejections,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
@@ -47,7 +47,7 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
   private final val logger = ContextualizedLogger.get(getClass)
 
   /** Creates a committer step that validates the submission's conformance to the Daml model. */
-  override def createValidationStep(rejector: TransactionRejector): Step = new Step {
+  override def createValidationStep(rejections: Rejections): Step = new Step {
     def apply(
         commitContext: CommitContext,
         transactionEntry: DamlTransactionEntrySummary,
@@ -82,8 +82,8 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
             )
             .fold(
               err =>
-                rejector.reject[DamlTransactionEntrySummary](
-                  rejector
+                rejections.buildRejectionStep(
+                  rejections
                     .buildRejectionEntry(
                       transactionEntry,
                       rejectionReasonForValidationError(err),
@@ -97,8 +97,8 @@ private[transaction] class ModelConformanceValidator(engine: Engine, metrics: Me
             logger.warn(
               "Model conformance validation failed due to a missing input state (most likely due to invalid state on the participant)."
             )
-            rejector.reject(
-              rejector
+            rejections.buildRejectionStep(
+              rejections
                 .buildRejectionEntry(transactionEntry, RejectionReasonV0.Disputed(err.getMessage)),
               commitContext.recordTime,
             )

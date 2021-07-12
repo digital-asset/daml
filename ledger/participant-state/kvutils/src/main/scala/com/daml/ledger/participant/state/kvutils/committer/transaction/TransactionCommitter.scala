@@ -65,7 +65,7 @@ private[kvutils] class TransactionCommitter(
   )(implicit loggingContext: LoggingContext): DamlTransactionEntrySummary =
     DamlTransactionEntrySummary(submission.getTransactionEntry)
 
-  private val transactionRejector = new TransactionRejector(metrics)
+  private val rejections = new Rejections(metrics)
   private val ledgerTimeValidator = new LedgerTimeValidator(defaultConfig)
   private val modelConformanceValidator = new ModelConformanceValidator(engine, metrics)
 
@@ -73,10 +73,10 @@ private[kvutils] class TransactionCommitter(
     "authorize_submitter" -> authorizeSubmitters,
     "check_informee_parties_allocation" -> checkInformeePartiesAllocation,
     "deduplicate" -> deduplicateCommand,
-    "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(transactionRejector),
-    "validate_contract_keys" -> ContractKeysValidator.createValidationStep(transactionRejector),
+    "validate_ledger_time" -> ledgerTimeValidator.createValidationStep(rejections),
+    "validate_contract_keys" -> ContractKeysValidator.createValidationStep(rejections),
     "validate_model_conformance" -> modelConformanceValidator.createValidationStep(
-      transactionRejector
+      rejections
     ),
     "blind" -> blind,
     "trim_unnecessary_nodes" -> trimUnnecessaryNodes,
@@ -100,7 +100,7 @@ private[kvutils] class TransactionCommitter(
             StepContinue(transactionEntry)
           } else {
             logger.trace("Transaction rejected because the command is a duplicate.")
-            transactionRejector.reject(
+            rejections.buildRejectionStep(
               DamlTransactionRejectionEntry.newBuilder
                 .setSubmitterInfo(transactionEntry.submitterInfo)
                 .setDuplicateCommand(Duplicate.newBuilder.setDetails("")),
@@ -171,8 +171,8 @@ private[kvutils] class TransactionCommitter(
         }
 
       def rejection(reason: RejectionReasonV0): StepResult[DamlTransactionEntrySummary] =
-        transactionRejector.reject[DamlTransactionEntrySummary](
-          transactionRejector.buildRejectionEntry(transactionEntry, reason),
+        rejections.buildRejectionStep(
+          rejections.buildRejectionEntry(transactionEntry, reason),
           commitContext.recordTime,
         )
 
@@ -292,8 +292,8 @@ private[kvutils] class TransactionCommitter(
       if (parties.forall(party => commitContext.get(partyStateKey(party)).isDefined))
         StepContinue(transactionEntry)
       else
-        transactionRejector.reject(
-          transactionRejector.buildRejectionEntry(
+        rejections.buildRejectionStep(
+          rejections.buildRejectionEntry(
             transactionEntry,
             RejectionReasonV0.PartyNotKnownOnLedger("Not all parties known"),
           ),

@@ -20,11 +20,11 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
 
-private[transaction] class TransactionRejector(metrics: Metrics) {
+private[transaction] class Rejections(metrics: Metrics) {
 
   private final val logger = ContextualizedLogger.get(getClass)
 
-  def reject[A](
+  def buildRejectionStep[A](
       rejectionEntry: DamlTransactionRejectionEntry.Builder,
       recordTime: Option[Timestamp],
   ): StepResult[A] = {

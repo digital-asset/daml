@@ -17,10 +17,11 @@ import com.daml.ledger.participant.state.kvutils.TestHelpers.{
   createCommitContext,
   createTransactionEntry,
   getTransactionRejectionReason,
+  lfTuple,
 }
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
-  TransactionRejector,
+  Rejections,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{
   CommitContext,
@@ -45,7 +46,7 @@ class ContractKeysValidatorSpec extends AnyWordSpec with Matchers {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private val metrics = new Metrics(new MetricRegistry)
-  private val transactionRejector = new TransactionRejector(metrics)
+  private val rejections = new Rejections(metrics)
   private val txBuilder = TransactionBuilder()
 
   private val conflictingKey = {
@@ -253,9 +254,7 @@ class ContractKeysValidatorSpec extends AnyWordSpec with Matchers {
       argument = argument,
       signatories = signatories,
       observers = Seq.empty,
-      key = keyAndMaintainer.map { case (key, maintainer) =>
-        tuple(maintainer, key)
-      },
+      key = keyAndMaintainer.map { case (key, maintainer) => lfTuple(maintainer, key) },
     )
 
   private def archive(create: Create, actingParties: Set[String]): Exercise =
@@ -275,7 +274,7 @@ class ContractKeysValidatorSpec extends AnyWordSpec with Matchers {
       ctx: CommitContext,
       transaction: SubmittedTransaction,
   )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
-    ContractKeysValidator.createValidationStep(transactionRejector)(
+    ContractKeysValidator.createValidationStep(rejections)(
       ctx,
       DamlTransactionEntrySummary(createTransactionEntry(List("Alice"), transaction)),
     )
@@ -317,9 +316,4 @@ object ContractKeysValidatorSpec {
       .newBuilder()
       .setContractId(contractId)
       .build()
-
-  private def tuple(values: String*): TransactionBuilder.Value =
-    TransactionBuilder.record(values.zipWithIndex.map { case (v, i) =>
-      s"_$i" -> v
-    }: _*)
 }

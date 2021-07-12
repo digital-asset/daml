@@ -83,4 +83,9 @@ object TestHelpers {
       .asInstanceOf[StepStop]
       .logEntry
       .getTransactionRejectionEntry
+
+  def lfTuple(values: String*): TransactionBuilder.Value =
+    TransactionBuilder.record(values.zipWithIndex.map { case (v, i) =>
+      s"_$i" -> v
+    }: _*)
 }

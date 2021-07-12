@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.StepContinue
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
-  TransactionRejector,
+  Rejections,
 }
 import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.logging.LoggingContext
@@ -44,12 +44,12 @@ class KeyMonotonicityValidationSpec
         Set(testKey),
         Map(testKey -> aStateValueActiveAt(ledgerEffectiveTime.minusSeconds(1))),
         testTransactionEntry,
-        mock[TransactionRejector],
+        mock[Rejections],
       ) shouldBe StepContinue(testTransactionEntry)
     }
 
     "reject transaction in case of incorrect keys" in {
-      val mockTransactionRejector = mock[TransactionRejector]
+      val rejections = mock[Rejections]
 
       KeyMonotonicityValidation
         .checkContractKeysCausalMonotonicity(
@@ -57,14 +57,14 @@ class KeyMonotonicityValidationSpec
           Set(testKey),
           Map(testKey -> aStateValueActiveAt(ledgerEffectiveTime.plusSeconds(1))),
           testTransactionEntry,
-          mockTransactionRejector,
+          rejections,
         )
 
-      verify(mockTransactionRejector).buildRejectionEntry(
+      verify(rejections).buildRejectionEntry(
         eqTo(testTransactionEntry),
         any[RejectionReasonV0.InvalidLedgerTime],
       )(any[LoggingContext])
-      verify(mockTransactionRejector).reject(
+      verify(rejections).buildRejectionStep(
         any[DamlTransactionRejectionEntry.Builder],
         eqTo(None),
       )

@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.kvutils.committer.transaction.validatio
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
   Step,
-  TransactionRejector,
+  Rejections,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
 import com.daml.ledger.participant.state.v1.RejectionReasonV0
@@ -32,7 +32,7 @@ private[transaction] object ContractKeysValidator extends TransactionValidator {
   /** Creates a committer step that validates casual monotonicity and consistency of contract keys
     * against the current ledger state.
     */
-  override def createValidationStep(rejector: TransactionRejector): Step = new Step {
+  override def createValidationStep(rejections: Rejections): Step = new Step {
     def apply(
         commitContext: CommitContext,
         transactionEntry: DamlTransactionEntrySummary,
@@ -58,13 +58,13 @@ private[transaction] object ContractKeysValidator extends TransactionValidator {
           contractKeyDamlStateKeys,
           damlState,
           transactionEntry,
-          rejector,
+          rejections,
         )
         finalState <- performTraversalContractKeysChecks(
           commitContext.recordTime,
           contractKeysToContractIds,
           stateAfterMonotonicityCheck,
-          rejector,
+          rejections,
         )
       } yield finalState
     }
@@ -74,7 +74,7 @@ private[transaction] object ContractKeysValidator extends TransactionValidator {
       recordTime: Option[Timestamp],
       contractKeysToContractIds: Map[DamlContractKey, RawContractId],
       transactionEntry: DamlTransactionEntrySummary,
-      transactionRejector: TransactionRejector,
+      rejections: Rejections,
   )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
     import scalaz.std.either._
     import scalaz.std.list._
@@ -113,8 +113,8 @@ private[transaction] object ContractKeysValidator extends TransactionValidator {
           case Inconsistent =>
             "InconsistentKeys: at least one contract key has changed since the submission"
         }
-        transactionRejector.reject(
-          transactionRejector.buildRejectionEntry(
+        rejections.buildRejectionStep(
+          rejections.buildRejectionEntry(
             transactionEntry,
             RejectionReasonV0.Inconsistent(message),
           ),

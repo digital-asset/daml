@@ -274,14 +274,6 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       )
       .build
 
-  private def createEmptyTransactionEntry(submitters: List[String]): DamlTransactionEntry =
-    createTransactionEntry(submitters, TransactionBuilder.EmptySubmitted)
-
-  private def tuple(values: String*): TransactionBuilder.Value =
-    TransactionBuilder.record(values.zipWithIndex.map { case (v, i) =>
-      s"_$i" -> v
-    }: _*)
-
   private def create(
       contractId: String,
       signatories: Seq[String] = Seq(aKeyMaintainer),
@@ -294,9 +286,7 @@ class TransactionCommitterSpec extends AnyWordSpec with Matchers with MockitoSug
       argument = argument,
       signatories = signatories,
       observers = Seq.empty,
-      key = keyAndMaintainer.map { case (key, maintainer) =>
-        tuple(maintainer, key)
-      },
+      key = keyAndMaintainer.map { case (key, maintainer) => lfTuple(maintainer, key) },
     )
 
   def archive(create: Create, actingParties: Set[String]): Exercise =

@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.kvutils.TestHelpers.{
   createCommitContext,
   createEmptyTransactionEntry,
   getTransactionRejectionReason,
+  lfTuple,
   mkParticipantId,
   theDefaultConfig,
 }
@@ -231,9 +232,7 @@ class ModelConformanceValidatorSpec extends AnyWordSpec with Matchers with Mocki
       argument = argument,
       signatories = signatories,
       observers = Seq.empty,
-      key = keyAndMaintainer.map { case (key, maintainer) =>
-        tuple(maintainer, key)
-      },
+      key = keyAndMaintainer.map { case (key, maintainer) => lfTuple(maintainer, key) },
     )
 
   private def createTransactionCommitter(): TransactionCommitter =
@@ -301,9 +300,4 @@ object ModelConformanceValidatorSpec {
       replayed: Transaction.Transaction,
   ): ReplayedNodeMissing[NodeId, Value.ContractId] =
     ReplayedNodeMissing(recorded._1, recorded._2, replayed)
-
-  private def tuple(values: String*): TransactionBuilder.Value =
-    TransactionBuilder.record(values.zipWithIndex.map { case (v, i) =>
-      s"_$i" -> v
-    }: _*)
 }

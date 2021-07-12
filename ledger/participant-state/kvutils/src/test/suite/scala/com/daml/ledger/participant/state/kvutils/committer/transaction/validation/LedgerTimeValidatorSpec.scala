@@ -20,7 +20,7 @@ import com.daml.ledger.participant.state.kvutils.TestHelpers.{
 }
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
-  TransactionRejector,
+  Rejections,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepStop}
 import com.daml.ledger.participant.state.v1.Configuration
@@ -35,9 +35,9 @@ class LedgerTimeValidatorSpec extends AnyWordSpec with Matchers {
   private implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
   private val metrics = new Metrics(new MetricRegistry)
-  private val transactionRejector = new TransactionRejector(metrics)
+  private val rejections = new Rejections(metrics)
   private val ledgerTimeValidationStep =
-    new LedgerTimeValidator(theDefaultConfig).createValidationStep(transactionRejector)
+    new LedgerTimeValidator(theDefaultConfig).createValidationStep(rejections)
 
   private val aDamlTransactionEntry = createEmptyTransactionEntry(List("aSubmitter"))
   private val aTransactionEntrySummary = DamlTransactionEntrySummary(aDamlTransactionEntry)

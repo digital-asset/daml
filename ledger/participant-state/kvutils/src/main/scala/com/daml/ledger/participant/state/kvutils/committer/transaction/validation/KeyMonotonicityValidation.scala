@@ -7,7 +7,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
-  TransactionRejector,
+  Rejections,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepResult}
 import com.daml.ledger.participant.state.v1.RejectionReasonV0
@@ -27,7 +27,7 @@ private[validation] object KeyMonotonicityValidation {
       keys: Set[DamlStateKey],
       damlState: Map[DamlStateKey, DamlStateValue],
       transactionEntry: DamlTransactionEntrySummary,
-      transactionRejector: TransactionRejector,
+      rejections: Rejections,
   )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
     val causalKeyMonotonicity = keys.forall { key =>
       val state = damlState(key)
@@ -40,8 +40,8 @@ private[validation] object KeyMonotonicityValidation {
     if (causalKeyMonotonicity)
       StepContinue(transactionEntry)
     else
-      transactionRejector.reject(
-        transactionRejector.buildRejectionEntry(
+      rejections.buildRejectionStep(
+        rejections.buildRejectionEntry(
           transactionEntry,
           RejectionReasonV0.InvalidLedgerTime("Causal monotonicity violated"),
         ),
