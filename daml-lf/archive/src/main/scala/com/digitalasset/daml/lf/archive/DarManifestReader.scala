@@ -4,14 +4,18 @@
 package com.daml.lf
 package archive
 
+import com.daml.lf.data.Bytes
+
 import java.io.InputStream
 import java.util.jar.{Attributes, Manifest}
-
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success, Try, Using}
 
 object DarManifestReader {
 
   private val supportedFormat = "daml-lf"
+
+  def dalfNames(bytes: Bytes): Try[Dar[String]] =
+    Using.resource(bytes.toInputStream)(dalfNames)
 
   def dalfNames(is: InputStream): Try[Dar[String]] = {
     val manifest = new Manifest(is)
