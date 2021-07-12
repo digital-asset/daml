@@ -202,7 +202,7 @@ private[backend] object H2StorageBackend
     InitHookDataSourceProxy(h2DataSource, connectionInitHook.toList)
   }
 
-  override def aquireImmediately(
+  override def tryAcquire(
       lockId: DBLockStorageBackend.LockId,
       lockMode: DBLockStorageBackend.LockMode,
   )(connection: Connection): Option[DBLockStorageBackend.Lock] =

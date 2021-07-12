@@ -211,7 +211,7 @@ private[backend] object PostgresStorageBackend
     InitHookDataSourceProxy(pgSimpleDataSource, hookFunctions)
   }
 
-  override def aquireImmediately(
+  override def tryAcquire(
       lockId: DBLockStorageBackend.LockId,
       lockMode: DBLockStorageBackend.LockMode,
   )(connection: Connection): Option[DBLockStorageBackend.Lock] = {

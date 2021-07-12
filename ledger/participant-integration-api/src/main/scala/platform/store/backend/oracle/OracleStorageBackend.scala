@@ -249,7 +249,7 @@ private[backend] object OracleStorageBackend
     InitHookDataSourceProxy(oracleDataSource, connectionInitHook.toList)
   }
 
-  override def aquireImmediately(
+  override def tryAcquire(
       lockId: DBLockStorageBackend.LockId,
       lockMode: DBLockStorageBackend.LockMode,
   )(connection: Connection): Option[DBLockStorageBackend.Lock] = {
@@ -266,10 +266,10 @@ private[backend] object OracleStorageBackend
       .as(get[Int](1).single)(connection) match {
       case 0 => Some(DBLockStorageBackend.Lock(lockId, lockMode))
       case 1 => None
-      case 2 => throw new Exception("Aquiring lock caused a deadlock!")
-      case 3 => throw new Exception("Parameter error")
+      case 2 => throw new Exception("Oracle DB Error 2: Acquiring lock caused a deadlock!")
+      case 3 => throw new Exception("Oracle DB Error 3: Parameter error as acquiring lock")
       case 4 => Some(DBLockStorageBackend.Lock(lockId, lockMode))
-      case 5 => throw new Exception("Illegal lock handle")
+      case 5 => throw new Exception("Oracle DB Error 5: Illegal lock handle as acquiring lock")
       case unknown => throw new Exception(s"Invalid result from DBMS_LOCK.REQUEST: $unknown")
     }
   }
@@ -281,9 +281,9 @@ private[backend] object OracleStorageBackend
           ) FROM DUAL"""
       .as(get[Int](1).single)(connection) match {
       case 0 => true
-      case 3 => throw new Exception("Parameter error")
-      case 4 => throw new Exception("Trying to release not-owned lock")
-      case 5 => throw new Exception("Illegal lock handle")
+      case 3 => throw new Exception("Oracle DB Error 3: Parameter error as releasing lock")
+      case 4 => throw new Exception("Oracle DB Error 4: Trying to release not-owned lock")
+      case 5 => throw new Exception("Oracle DB Error 5: Illegal lock handle as releasing lock")
       case unknown => throw new Exception(s"Invalid result from DBMS_LOCK.RELEASE: $unknown")
     }
   }
