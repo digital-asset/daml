@@ -24,7 +24,6 @@ case class IndexerConfig(
     allowExistingSchema: Boolean = false,
     // TODO append-only: remove after removing support for the current (mutating) schema
     enableAppendOnlySchema: Boolean = false,
-    // TODO append-only: this is now configuring only the append-only pool
     asyncCommitMode: DbType.AsyncCommitMode = DefaultAsyncCommitMode,
     maxInputBufferSize: Int = DefaultMaxInputBufferSize,
     inputMappingParallelism: Int = DefaultInputMappingParallelism,

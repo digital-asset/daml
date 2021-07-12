@@ -61,6 +61,7 @@ case class HaConfig(
     mainLockCheckerPeriodMillis: Long = 1000,
     indexerLockId: Int = 100,
     indexerWorkerLockId: Int = 101,
+    enable: Boolean = false, // TODO ha: remove as stable
 )
 
 object HaCoordinator {

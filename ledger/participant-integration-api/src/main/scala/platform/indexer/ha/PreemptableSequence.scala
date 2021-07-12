@@ -147,7 +147,7 @@ object PreemptableSequence {
           // since we check countdown to 0, starting from negative means unlimited retries
           case Failure(ex) if maxAmountOfRetries == 0 =>
             logger.info(
-              s"Maximum amount of retries reached (${maxAmountOfRetries}) failing permanently. (${ex.getMessage})"
+              s"Maximum amount of retries reached ($maxAmountOfRetries) failing permanently. (${ex.getMessage})"
             )
             Future.failed(ex)
           case Success(t) => Future.successful(t)
