@@ -73,7 +73,7 @@ object ParallelIndexerFactory {
         compressionStrategy = compressionStrategy,
       )
       haCoordinator <-
-        if (storageBackend.dbLockSupported) // TODO feature flag comes here
+        if (storageBackend.dbLockSupported && haConfig.enable)
           ResourceOwner
             .forExecutorService(() =>
               ExecutionContext.fromExecutorService(

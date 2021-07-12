@@ -4,7 +4,6 @@
 package com.daml.platform.indexer.ha
 
 import java.util.{Timer, TimerTask}
-import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.stream.KillSwitch
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -32,8 +31,6 @@ class PollingChecker(
 
   private val timer = new Timer(true)
 
-  private val lostMainConnectionEmulation = new AtomicBoolean(false)
-
   timer.schedule(
     new TimerTask {
       override def run(): Unit = {
@@ -45,14 +42,6 @@ class PollingChecker(
     periodMillis,
   )
 
-  // TODO uncomment this for main-connection-lost simulation
-  timer.schedule(
-    new TimerTask {
-      override def run(): Unit = lostMainConnectionEmulation.set(true)
-    },
-    20000,
-  )
-
   // This is a cruel approach for ensuring single threaded usage of the mainConnection.
   // In theory this could have been made much more efficient: not enqueueing for a check of it's own,
   // but collecting requests, and replying in batches.
@@ -61,19 +50,8 @@ class PollingChecker(
   def check(): Unit = synchronized {
     logger.debug(s"Checking...")
     Try(check) match {
-      case Success(_) if !lostMainConnectionEmulation.get =>
-        logger.debug(s"Check successful.")
-
       case Success(_) =>
-        logger.info(
-          s"Check failed due to lost-main-connection simulation. KillSwitch/abort called."
-        )
-        killSwitch.abort(
-          new Exception(
-            "Check failed due to lost-main-connection simulation. KillSwitch/abort called."
-          )
-        )
-        throw new Exception("Check failed due to lost-main-connection simulation.")
+        logger.debug(s"Check successful.")
 
       case Failure(ex) =>
         logger.info(s"Check failed (${ex.getMessage}). KillSwitch/abort called.")
