@@ -34,5 +34,5 @@ case class CompletionInfo(
     optDeduplicationPeriod: Option[DeduplicationPeriod],
     submissionId: SubmissionId,
 ) {
-  def changeId: ChangeId = new ChangeId(applicationId, commandId, actAs.toSet)
+  def changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 }
