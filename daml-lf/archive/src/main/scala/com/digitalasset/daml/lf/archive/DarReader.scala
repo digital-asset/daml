@@ -92,31 +92,8 @@ object GenDarReader {
     private[GenDarReader] def readDalfNames: Try[Dar[String]] =
       bracket(get(ManifestName).map(_.toInputStream))(is => Try(is.close()))
         .flatMap(DarManifestReader.dalfNames)
-        .recoverWith { case NonFatal(e1) =>
-          findLegacyDalfNames.recoverWith { case NonFatal(_) =>
-            Failure(Error.InvalidDar(this, e1))
-          }
-        }
-
-    // There are three cases:
-    // 1. if it's only one .dalf, then that's the main one
-    // 2. if it's two .dalfs, where one of them has -prim in the name, the one without -prim is the main dalf.
-    // 3. parse error in all other cases
-    private[this] def findLegacyDalfNames: Try[Dar[String]] = {
-      val dalfs: List[String] = entries.keys.filter(isDalf).toList
-
-      dalfs.partition(isPrimDalf) match {
-        case (List(prim), List(main)) => Success(Dar(main, List(prim)))
-        case (List(prim), Nil) => Success(Dar(prim, List.empty))
-        case (Nil, List(main)) => Success(Dar(main, List.empty))
-        case _ => Failure(Error.InvalidLegacyDar(this))
-      }
-    }
+        .recoverWith { case NonFatal(e1) => Failure(Error.InvalidDar(this, e1)) }
   }
-
-  private[this] def isDalf(s: String): Boolean = s.toLowerCase.endsWith(".dalf")
-
-  private[this] def isPrimDalf(s: String): Boolean = s.toLowerCase.contains("-prim") && isDalf(s)
 }
 
 object DarReader extends GenDarReader[ArchivePayload](is => Try(Reader.readArchive(is)))
