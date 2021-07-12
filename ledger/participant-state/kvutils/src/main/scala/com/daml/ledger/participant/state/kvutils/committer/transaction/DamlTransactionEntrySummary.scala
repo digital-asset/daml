@@ -16,7 +16,7 @@ import com.daml.lf.transaction.{Transaction => Tx}
 
 import scala.jdk.CollectionConverters._
 
-private[transaction] final class DamlTransactionEntrySummary(
+private[kvutils] final class DamlTransactionEntrySummary(
     val submission: DamlTransactionEntry,
     tx: => Tx.Transaction,
 ) {

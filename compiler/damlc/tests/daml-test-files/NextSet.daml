@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @SINCE-LF 1.3
--- @UNTIL-LF 1.8
+-- @UNTIL-LF-FEATURE DAML_GENMAP
 
 module NextSet where
 

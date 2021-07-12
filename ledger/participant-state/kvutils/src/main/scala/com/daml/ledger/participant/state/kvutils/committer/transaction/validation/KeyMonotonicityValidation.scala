@@ -1,20 +1,20 @@
 // Copyright (c) 2021 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.committer.transaction.keys
+package com.daml.ledger.participant.state.kvutils.committer.transaction.validation
 
 import com.daml.ledger.participant.state.kvutils.Conversions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
-  TransactionCommitter,
+  Rejections,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{StepContinue, StepResult}
 import com.daml.ledger.participant.state.v1.RejectionReasonV0
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.LoggingContext
 
-private[keys] object KeyMonotonicityValidation {
+private[validation] object KeyMonotonicityValidation {
 
   /** LookupByKey nodes themselves don't actually fetch the contract.
     * Therefore we need to do an additional check on all contract keys
@@ -23,11 +23,11 @@ private[keys] object KeyMonotonicityValidation {
     * NodeLookupByKey.
     */
   def checkContractKeysCausalMonotonicity(
-      transactionCommitter: TransactionCommitter,
       recordTime: Option[Timestamp],
       keys: Set[DamlStateKey],
       damlState: Map[DamlStateKey, DamlStateValue],
       transactionEntry: DamlTransactionEntrySummary,
+      rejections: Rejections,
   )(implicit loggingContext: LoggingContext): StepResult[DamlTransactionEntrySummary] = {
     val causalKeyMonotonicity = keys.forall { key =>
       val state = damlState(key)
@@ -40,12 +40,12 @@ private[keys] object KeyMonotonicityValidation {
     if (causalKeyMonotonicity)
       StepContinue(transactionEntry)
     else
-      transactionCommitter.reject(
-        recordTime,
-        transactionCommitter.buildRejectionLogEntry(
+      rejections.buildRejectionStep(
+        rejections.buildRejectionEntry(
           transactionEntry,
           RejectionReasonV0.InvalidLedgerTime("Causal monotonicity violated"),
         ),
+        recordTime,
       )
   }
 }
