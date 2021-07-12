@@ -6,6 +6,7 @@ package com.daml.platform.store.backend
 import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
+
 import com.daml.ledger.{ApplicationId, TransactionId}
 import com.daml.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -17,6 +18,7 @@ import com.daml.lf.ledger.EventId
 import com.daml.platform
 import com.daml.platform.store.DbType
 import com.daml.platform.store.appendonlydao.events.{ContractId, EventsTable, Key, Raw}
+import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.StorageBackend.RawTransactionEvent
 import com.daml.platform.store.backend.h2.H2StorageBackend
 import com.daml.platform.store.backend.oracle.OracleStorageBackend
@@ -192,136 +194,45 @@ trait EventStorageBackend {
   /** Part of pruning process, this needs to be in the same transaction as the other pruning related database operations
     */
   def pruneEvents(pruneUpToInclusive: Offset)(connection: Connection): Unit
-  def transactionsEventsSingleWildcardParty(
-      startExclusive: Long,
-      endInclusive: Long,
-      party: Ref.Party,
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
+  def transactionEvents(
+      rangeParams: RangeParams,
+      filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def transactionsEventsSinglePartyWithTemplates(
-      startExclusive: Long,
-      endInclusive: Long,
-      party: Ref.Party,
-      templateIds: Set[Ref.Identifier],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def transactionsEventsOnlyWildcardParties(
-      startExclusive: Long,
-      endInclusive: Long,
-      parties: Set[Ref.Party],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def transactionsEventsSameTemplates(
-      startExclusive: Long,
-      endInclusive: Long,
-      parties: Set[Ref.Party],
-      templateIds: Set[Ref.Identifier],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def transactionsEventsMixedTemplates(
-      startExclusive: Long,
-      endInclusive: Long,
-      partiesAndTemplateIds: Set[(Ref.Party, Ref.Identifier)],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def transactionsEventsMixedTemplatesWithWildcardParties(
-      startExclusive: Long,
-      endInclusive: Long,
-      partiesAndTemplateIds: Set[(Ref.Party, Ref.Identifier)],
-      wildcardParties: Set[Ref.Party],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def activeContractsEventsSingleWildcardParty(
-      startExclusive: Long,
-      endInclusiveSeq: Long,
+  def activeContractEvents(
+      rangeParams: RangeParams,
+      filterParams: FilterParams,
       endInclusiveOffset: Offset,
-      party: Ref.Party,
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def activeContractsEventsSinglePartyWithTemplates(
-      startExclusive: Long,
-      endInclusiveSeq: Long,
-      endInclusiveOffset: Offset,
-      party: Ref.Party,
-      templateIds: Set[Ref.Identifier],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def activeContractsEventsOnlyWildcardParties(
-      startExclusive: Long,
-      endInclusiveSeq: Long,
-      endInclusiveOffset: Offset,
-      parties: Set[Ref.Party],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def activeContractsEventsSameTemplates(
-      startExclusive: Long,
-      endInclusiveSeq: Long,
-      endInclusiveOffset: Offset,
-      parties: Set[Ref.Party],
-      templateIds: Set[Ref.Identifier],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def activeContractsEventsMixedTemplates(
-      startExclusive: Long,
-      endInclusiveSeq: Long,
-      endInclusiveOffset: Offset,
-      partiesAndTemplateIds: Set[(Ref.Party, Ref.Identifier)],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def activeContractsEventsMixedTemplatesWithWildcardParties(
-      startExclusive: Long,
-      endInclusiveSeq: Long,
-      endInclusiveOffset: Offset,
-      partiesAndTemplateIds: Set[(Ref.Party, Ref.Identifier)],
-      wildcardParties: Set[Ref.Party],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def flatTransactionSingleParty(
+  def flatTransaction(
       transactionId: TransactionId,
-      requestingParty: Ref.Party,
+      filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def flatTransactionMultiParty(
-      transactionId: TransactionId,
-      requestingParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.FlatEvent]]
-  def transactionTreeSingleParty(
-      transactionId: TransactionId,
-      requestingParty: Ref.Party,
+  def transactionTreeEvents(
+      rangeParams: RangeParams,
+      filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
-  def transactionTreeMultiParty(
+  def transactionTree(
       transactionId: TransactionId,
-      requestingParties: Set[Ref.Party],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
-  def transactionTreeEventsSingleParty(
-      startExclusive: Long,
-      endInclusive: Long,
-      requestingParty: Ref.Party,
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
-  )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
-  def transactionTreeEventsMultiParty(
-      startExclusive: Long,
-      endInclusive: Long,
-      requestingParties: Set[Ref.Party],
-      limit: Option[Int],
-      fetchSizeHint: Option[Int],
+      filterParams: FilterParams,
   )(connection: Connection): Vector[EventsTable.Entry[Raw.TreeEvent]]
   def maxEventSeqIdForOffset(offset: Offset)(connection: Connection): Option[Long]
   def rawEvents(startExclusive: Long, endInclusive: Long)(
       connection: Connection
   ): Vector[RawTransactionEvent]
+}
+
+object EventStorageBackend {
+  case class RangeParams(
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Option[Int],
+      fetchSizeHint: Option[Int],
+  )
+
+  case class FilterParams(
+      wildCardParties: Set[Ref.Party],
+      partiesAndTemplates: Set[(Set[Ref.Party], Set[Ref.Identifier])],
+  )
 }
 
 object StorageBackend {

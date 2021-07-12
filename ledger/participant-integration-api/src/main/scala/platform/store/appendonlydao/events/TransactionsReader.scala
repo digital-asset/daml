@@ -24,6 +24,7 @@ import com.daml.metrics._
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream}
+import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.StorageBackend
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.ContractStateEvent
@@ -148,9 +149,12 @@ private[appendonlydao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     dispatcher
       .executeSql(dbMetrics.lookupFlatTransactionById)(
-        route(requestingParties)(
-          single = storageBackend.flatTransactionSingleParty(transactionId, _) _,
-          multi = storageBackend.flatTransactionMultiParty(transactionId, _) _,
+        storageBackend.flatTransaction(
+          transactionId,
+          FilterParams(
+            wildCardParties = requestingParties,
+            partiesAndTemplates = Set.empty,
+          ),
         )
       )
       .flatMap(rawEvents =>
@@ -181,33 +185,22 @@ private[appendonlydao] final class TransactionsReader(
       implicit connection: Connection =>
         logger.debug(s"getTransactionTrees query($range)")
         queryNonPruned.executeSql(
-          route(requestingParties)(
-            single = party =>
-              EventsRange.readPage(
-                read = (range, limit, fetchSizeHint) =>
-                  storageBackend.transactionTreeEventsSingleParty(
-                    startExclusive = range.startExclusive,
-                    endInclusive = range.endInclusive,
-                    requestingParty = party,
-                    limit = limit,
-                    fetchSizeHint = fetchSizeHint,
-                  ),
-                range = EventsRange(range.startExclusive._2, range.endInclusive._2),
-                pageSize = pageSize,
+          EventsRange.readPage(
+            read = (range, limit, fetchSizeHint) =>
+              storageBackend.transactionTreeEvents(
+                rangeParams = RangeParams(
+                  startExclusive = range.startExclusive,
+                  endInclusive = range.endInclusive,
+                  limit = limit,
+                  fetchSizeHint = fetchSizeHint,
+                ),
+                filterParams = FilterParams(
+                  wildCardParties = requestingParties,
+                  partiesAndTemplates = Set.empty,
+                ),
               ),
-            multi = parties =>
-              EventsRange.readPage(
-                read = (range, limit, fetchSizeHint) =>
-                  storageBackend.transactionTreeEventsMultiParty(
-                    startExclusive = range.startExclusive,
-                    endInclusive = range.endInclusive,
-                    requestingParties = parties,
-                    limit = limit,
-                    fetchSizeHint = fetchSizeHint,
-                  ),
-                range = EventsRange(range.startExclusive._2, range.endInclusive._2),
-                pageSize = pageSize,
-              ),
+            range = EventsRange(range.startExclusive._2, range.endInclusive._2),
+            pageSize = pageSize,
           )(connection),
           range.startExclusive._1,
           pruned =>
@@ -251,9 +244,12 @@ private[appendonlydao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     dispatcher
       .executeSql(dbMetrics.lookupTransactionTreeById)(
-        route(requestingParties)(
-          single = storageBackend.transactionTreeSingleParty(transactionId, _) _,
-          multi = storageBackend.transactionTreeMultiParty(transactionId, _) _,
+        storageBackend.transactionTree(
+          transactionId,
+          FilterParams(
+            wildCardParties = requestingParties,
+            partiesAndTemplates = Set.empty,
+          ),
         )
       )
       .flatMap(rawEvents =>
