@@ -5,7 +5,6 @@ package com.daml.http
 
 import akka.actor.{ActorSystem, Cancellable}
 import akka.http.scaladsl.Http
-import akka.stream.scaladsl.Sink
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
