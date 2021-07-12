@@ -26,28 +26,30 @@ class AdaptedV1ReadService(delegate: v1.ReadService) extends ReadService {
 }
 
 private[v2] object AdaptedV1ReadService {
-  def adaptLedgerInitialConditions(input: v1.LedgerInitialConditions): LedgerInitialConditions =
+  def adaptLedgerInitialConditions(
+      ledgerInitialConditions: v1.LedgerInitialConditions
+  ): LedgerInitialConditions =
     LedgerInitialConditions(
-      ledgerId = input.ledgerId,
-      config = adaptLedgerConfiguration(input.config),
-      initialRecordTime = input.initialRecordTime,
+      ledgerId = ledgerInitialConditions.ledgerId,
+      config = adaptLedgerConfiguration(ledgerInitialConditions.config),
+      initialRecordTime = ledgerInitialConditions.initialRecordTime,
     )
 
-  def adaptLedgerConfiguration(input: v1.Configuration): Configuration =
+  def adaptLedgerConfiguration(config: v1.Configuration): Configuration =
     Configuration(
-      generation = input.generation,
-      timeModel = adaptTimeModel(input.timeModel),
-      maxDeduplicationTime = input.maxDeduplicationTime,
+      generation = config.generation,
+      timeModel = adaptTimeModel(config.timeModel),
+      maxDeduplicationTime = config.maxDeduplicationTime,
     )
 
-  def adaptTimeModel(input: v1.TimeModel): TimeModel =
+  def adaptTimeModel(timeModel: v1.TimeModel): TimeModel =
     TimeModel(
-      input.avgTransactionLatency,
-      input.minSkew,
-      input.maxSkew,
+      timeModel.avgTransactionLatency,
+      timeModel.minSkew,
+      timeModel.maxSkew,
     ).get
 
-  def adaptUpdate(input: v1.Update): Update = input match {
+  def adaptUpdate(update: v1.Update): Update = update match {
     case v1.Update.ConfigurationChanged(
           recordTime,
           submissionId,
@@ -140,15 +142,15 @@ private[v2] object AdaptedV1ReadService {
       )
   }
 
-  def adaptTransactionMeta(input: v1.TransactionMeta): TransactionMeta =
+  def adaptTransactionMeta(transactionMeta: v1.TransactionMeta): TransactionMeta =
     TransactionMeta(
-      ledgerEffectiveTime = input.ledgerEffectiveTime,
-      workflowId = input.workflowId,
-      submissionTime = input.submissionTime,
-      submissionSeed = input.submissionSeed,
-      optUsedPackages = input.optUsedPackages,
-      optNodeSeeds = input.optNodeSeeds,
-      optByKeyNodes = input.optByKeyNodes,
+      ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime,
+      workflowId = transactionMeta.workflowId,
+      submissionTime = transactionMeta.submissionTime,
+      submissionSeed = transactionMeta.submissionSeed,
+      optUsedPackages = transactionMeta.optUsedPackages,
+      optNodeSeeds = transactionMeta.optNodeSeeds,
+      optByKeyNodes = transactionMeta.optByKeyNodes,
     )
 
   // FIXME(miklos-da): Auto-generate a submission ID.
@@ -168,9 +170,9 @@ private[v2] object AdaptedV1ReadService {
     new CommandRejected.FinalReason(rpcStatus)
   }
 
-  private def adaptDivulgedContract(input: v1.DivulgedContract): DivulgedContract =
+  private def adaptDivulgedContract(divulgedContract: v1.DivulgedContract): DivulgedContract =
     DivulgedContract(
-      contractId = input.contractId,
-      contractInst = input.contractInst,
+      contractId = divulgedContract.contractId,
+      contractInst = divulgedContract.contractInst,
     )
 }

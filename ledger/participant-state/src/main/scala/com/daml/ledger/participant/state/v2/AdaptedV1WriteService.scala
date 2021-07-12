@@ -117,14 +117,14 @@ private[v2] object AdaptedV1WriteService {
       optByKeyNodes = transactionMeta.optByKeyNodes,
     )
 
-  def adaptPruningResult(input: v1.PruningResult): PruningResult = input match {
+  def adaptPruningResult(pruningResult: v1.PruningResult): PruningResult = pruningResult match {
     case v1.PruningResult.ParticipantPruned => PruningResult.ParticipantPruned
     case v1.PruningResult.NotPruned(grpcStatus) => PruningResult.NotPruned(grpcStatus)
   }
 
-  // FIXME(miklos-da): Convert synchronous rejection from v1.
-  def adaptSubmissionResult(input: v1.SubmissionResult): SubmissionResult =
-    input match {
+  // TODO(miklos-da): Shall we convert synchronous rejection from v1 into a synchronous error?
+  def adaptSubmissionResult(submissionResult: v1.SubmissionResult): SubmissionResult =
+    submissionResult match {
       case v1.SubmissionResult.Acknowledged =>
         SubmissionResult.Acknowledged
       case v1.SubmissionResult.Overloaded =>
@@ -143,11 +143,11 @@ private[v2] object AdaptedV1WriteService {
         SubmissionResult.SynchronousReject(failure)
     }
 
-  def adaptLedgerConfiguration(input: Configuration): v1.Configuration =
+  def adaptLedgerConfiguration(config: Configuration): v1.Configuration =
     v1.Configuration(
-      generation = input.generation,
-      timeModel = adaptTimeModel(input.timeModel),
-      maxDeduplicationTime = input.maxDeduplicationTime,
+      generation = config.generation,
+      timeModel = adaptTimeModel(config.timeModel),
+      maxDeduplicationTime = config.maxDeduplicationTime,
     )
 
   private def adaptTimeModel(timeModel: TimeModel): v1.TimeModel =
