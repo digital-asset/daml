@@ -54,10 +54,6 @@ sealed abstract class Queries {
 
   protected[this] def contractsTableSignatoriesObservers: Fragment
 
-  private[this] val indexContractsTable = CreateIndex(sql"""
-      CREATE INDEX contract_tpid_idx ON contract (tpid)
-    """)
-
   private[this] val createOffsetTable = CreateTable(
     "ledger_offset",
     sql"""
@@ -110,7 +106,6 @@ sealed abstract class Queries {
       createTemplateIdsTable,
       createOffsetTable,
       createContractsTable,
-      indexContractsTable,
     )
 
   private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] = {
@@ -334,8 +329,6 @@ object Queries {
       val name: String
     }
     final case class CreateTable(name: String, create: Fragment) extends Droppable("TABLE")
-    final case class CreateMaterializedView(name: String, create: Fragment)
-        extends Droppable("MATERIALIZED VIEW")
     final case class CreateIndex(create: Fragment) extends InitDdl
     final case class DoMagicSetup(create: Fragment) extends InitDdl
   }
@@ -596,7 +589,6 @@ private object OracleQueries extends Queries {
   protected[this] override def dropIfExists(d: Droppable) = {
     val sqlCode = d match {
       case _: CreateTable => -942
-      case _: CreateMaterializedView => -12003
     }
     sql"""BEGIN
       EXECUTE IMMEDIATE ${s"DROP ${d.what} ${d.name}"};
@@ -627,17 +619,14 @@ private object OracleQueries extends Queries {
         ,${jsonColumn(sql"observers")}
         """
 
-  private[this] def stakeholdersPrep = DoMagicSetup(
-    sql"""CREATE MATERIALIZED VIEW LOG ON contract"""
-  )
-
-  private[this] def stakeholdersView = CreateMaterializedView(
+  private[this] def stakeholdersTable = CreateTable(
     "contract_stakeholders",
-    sql"""CREATE MATERIALIZED VIEW contract_stakeholders
-          BUILD IMMEDIATE REFRESH FAST ON COMMIT AS
-          SELECT contract_id, stakeholder FROM contract,
-                 json_table(json_array(signatories, observers), '$$[*][*]'
-                    columns (stakeholder $partyType path '$$'))""",
+    sql"""CREATE TABLE contract_stakeholders (
+            contract_id $contractIdType NOT NULL REFERENCES contract(contract_id) ON DELETE CASCADE,
+            stakeholder $partyType NOT NULL,
+            CONSTRAINT contract_stakeholder_unique UNIQUE (contract_id, stakeholder)
+          )
+       """,
   )
 
   private[this] def stakeholdersIndex = CreateIndex(
@@ -645,7 +634,7 @@ private object OracleQueries extends Queries {
   )
 
   protected[this] override def initDatabaseDdls =
-    super.initDatabaseDdls ++ Seq(stakeholdersPrep, stakeholdersView, stakeholdersIndex)
+    super.initDatabaseDdls ++ Seq(stakeholdersTable, stakeholdersIndex)
 
   protected[this] type DBContractKey = JsValue
 
@@ -655,17 +644,31 @@ private object OracleQueries extends Queries {
   protected[this] override def primInsertContracts[F[_]: cats.Foldable: Functor](
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
   )(implicit log: LogHandler, ipol: SqlInterpol): ConnectionIO[Int] = {
+    System.err.println("inserting contracts")
+    import cats.syntax.foldable._
     import spray.json.DefaultJsonProtocol._
-    Update[DBContract[SurrogateTpId, JsValue, JsValue, JsValue]](
-      """
+    for {
+      insertedContracts <- Update[DBContract[SurrogateTpId, JsValue, JsValue, JsValue]](
+        """
         INSERT /*+ ignore_row_on_dupkey_index(contract(contract_id)) */
         INTO contract (contract_id, tpid, key, payload, signatories, observers, agreement_text)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       """,
-      logHandler0 = log,
-    ).updateMany(
-      dbcs.map(_.mapKeyPayloadParties(identity, identity, _.toJson))
-    )
+        logHandler0 = log,
+      ).updateMany(
+        dbcs.map(_.mapKeyPayloadParties(identity, identity, _.toJson))
+      )
+      _ <- Update[(String, String)](
+        """
+        INSERT /*+ ignore_row_on_dupkey_index(contract_stakeholders, contract_stakeholder_unique) */
+        INTO contract_stakeholders (contract_id, stakeholder)
+        VALUES (?, ?)
+         """,
+        logHandler0 = log,
+      ).updateMany(
+        dbcs.foldMap(c => (c.signatories ++ c.observers).view.map(p => (c.contractId, p)).toList)
+      )
+    } yield insertedContracts
   }
 
   private[http] override def selectContractsMultiTemplate[T[_], Mark](
