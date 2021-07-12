@@ -14,7 +14,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
 /** PreemptableSequence is a helper to
-  * - facilitate a Future sequence, which can be stopped or aborted
+  * - facilitate the execution of a sequence of Futures, which can be stopped or aborted
   * - provide a Handle for the client
   * - manage the state to implement the above
   */
@@ -35,34 +35,34 @@ trait PreemptableSequence {
 trait SequenceHelper {
 
   /** Register at any point in time a synchronous release function,
-    * which will be ensured to run before completion future of the handle completes.
+    * which will be ensured to run before the completion future of the handle completes.
     *
-    * @param block the release lambda
+    * @param release the release lambda
     */
-  def registerRelease(block: => Unit): Unit
+  def registerRelease(release: => Unit): Unit
 
   /** Wrap a CBN (lazy) Future, so it is only started if the PreemptableSequence is not yet aborted/shut down.
     *
-    * @param f The lazy Future block
+    * @param f The lazy Future
     * @return the wrapped future
     */
   def goF[T](f: => Future[T]): Future[T]
 
   /** Wrap a CBN (lazy) synchronous function in a Future, which is only started if the PreemptableSequence is not yet aborted/shut down.
     *
-    * @param t The lazy synchronous block
+    * @param body The lazy synchronous body
     * @return the wrapped future
     */
-  def go[T](t: => T): Future[T]
+  def go[T](body: => T): Future[T]
 
-  /** Wrap a synchronous block into a Future sequence, which
+  /** Wrap a synchronous call into a Future sequence, which
     * - will be preemptable
-    * - will retry to execute a block if Exception-s thrown
+    * - will retry to execute the body if Exception-s thrown
     *
     * @return the preemptable, retrying Future sequence
     */
   def retry[T](waitMillisBetweenRetries: Long, maxAmountOfRetries: Long = -1)(
-      block: => T
+      body: => T
   ): Future[T]
 
   /** Delegate the preemptable-future sequence to another Handle
@@ -77,7 +77,7 @@ trait SequenceHelper {
     */
   def merge(handle: Handle): Future[Unit]
 
-  /** The handle of the PreemprableSequence. This handle is available for sequence construction as well.
+  /** The handle of the PreemptableSequence. This handle is available for sequence construction as well.
     * @return the Handle
     */
   def handle: Handle
@@ -112,44 +112,23 @@ object PreemptableSequence {
       executionContext: ExecutionContext,
       loggingContext: LoggingContext,
   ): PreemptableSequence = { sequence =>
-    val delegateKillSwitch = new AtomicReference[Option[KillSwitch]](None)
     val resultCompleted = Promise[Unit]()
-    val mutableKillSwitch = new AtomicReference[KillSwitch]()
-    mutableKillSwitch.set(new CaptureKillSwitch(mutableKillSwitch))
-    val resultKillSwitch = new KillSwitch {
-      override def shutdown(): Unit = {
-        logger.info("Shutdown called for PreemptableSequence!")
-        mutableKillSwitch.get().shutdown()
-        delegateKillSwitch.get().foreach { ks =>
-          logger.info("Shutdown call delegated!")
-          ks.shutdown()
-        }
-      }
-
-      override def abort(ex: Throwable): Unit = {
-        logger.info(s"Abort called for PreemptableSequence! (${ex.getMessage})")
-        mutableKillSwitch.get().abort(ex)
-        delegateKillSwitch.get().foreach { ks =>
-          logger.info(s"Abort call delegated! (${ex.getMessage})")
-          ks.abort(ex)
-        }
-      }
-    }
-    val resultHandle = Handle(resultCompleted.future, resultKillSwitch)
+    val killSwitchCaptor = new KillSwitchCaptor
+    val resultHandle = Handle(resultCompleted.future, killSwitchCaptor)
     var releaseStack: List[() => Future[Unit]] = Nil
 
     val helper: SequenceHelper = new SequenceHelper {
       private def waitFor(delayMillis: Long): Future[Unit] =
         goF(akka.pattern.after(FiniteDuration(delayMillis, "millis"), scheduler)(Future.unit))
 
-      override def registerRelease(block: => Unit): Unit = synchronized {
+      override def registerRelease(release: => Unit): Unit = synchronized {
         logger.info(s"Registered release function")
-        releaseStack = (() => Future(block)) :: releaseStack
+        releaseStack = (() => Future(release)) :: releaseStack
       }
 
       override def goF[T](f: => Future[T]): Future[T] =
-        mutableKillSwitch.get() match {
-          case _: UsedKillSwitch =>
+        killSwitchCaptor.state match {
+          case _: KillSwitchCaptor.State.Used =>
             // Failing Future here means we interrupt the Future sequencing.
             // The failure itself is not important, since the returning Handle-s completion-future-s result is overridden in case KillSwitch was used.
             logger.info(s"KillSwitch already used, interrupting sequence!")
@@ -159,12 +138,12 @@ object PreemptableSequence {
             f
         }
 
-      override def go[T](t: => T): Future[T] = goF[T](Future(t))
+      override def go[T](body: => T): Future[T] = goF[T](Future(body))
 
       override def retry[T](waitMillisBetweenRetries: Long, maxAmountOfRetries: Long)(
-          block: => T
+          body: => T
       ): Future[T] =
-        go(block).transformWith {
+        go(body).transformWith {
           // since we check countdown to 0, starting from negative means unlimited retries
           case Failure(ex) if maxAmountOfRetries == 0 =>
             logger.info(
@@ -177,19 +156,19 @@ object PreemptableSequence {
             else maxAmountOfRetries - 1}). Due to: ${ex.getMessage}")
             waitFor(waitMillisBetweenRetries).flatMap(_ =>
               // Note: this recursion is out of stack
-              retry(waitMillisBetweenRetries, maxAmountOfRetries - 1)(block)
+              retry(waitMillisBetweenRetries, maxAmountOfRetries - 1)(body)
             )
         }
 
       override def merge(handle: Handle): Future[Unit] = {
         logger.info(s"Delegating KillSwitch upon merge.")
-        delegateKillSwitch.set(Some(handle.killSwitch))
+        killSwitchCaptor.setDelegate(Some(handle.killSwitch))
         // for safety reasons. if between creation of that killSwitch and delegation there was a usage, we replay that after delegation (worst case multiple calls)
-        mutableKillSwitch.get() match {
-          case ShutDownKillSwitch =>
+        killSwitchCaptor.state match {
+          case KillSwitchCaptor.State.Shutdown =>
             logger.info(s"Replying ShutDown after merge.")
             handle.killSwitch.shutdown()
-          case AbortedKillSwitch(ex, _) =>
+          case KillSwitchCaptor.State.Aborted(ex) =>
             logger.info(s"Replaying abort (${ex.getMessage}) after merge.")
             handle.killSwitch.abort(ex)
           case _ => ()
@@ -197,7 +176,7 @@ object PreemptableSequence {
         val result = handle.completed
         // not strictly needed for this use case, but in theory multiple preemptable stages are possible after each other
         // this is needed to remove the delegation of the killSwitch after stage is complete
-        result.onComplete(_ => delegateKillSwitch.set(None))
+        result.onComplete(_ => killSwitchCaptor.setDelegate(None))
         result
       }
 
@@ -215,15 +194,15 @@ object PreemptableSequence {
 
     sequence(helper).transformWith(fResult => release.transform(_ => fResult)).onComplete {
       case Success(_) =>
-        mutableKillSwitch.get() match {
-          case ShutDownKillSwitch => resultCompleted.success(())
-          case AbortedKillSwitch(ex, _) => resultCompleted.failure(ex)
+        killSwitchCaptor.state match {
+          case KillSwitchCaptor.State.Shutdown => resultCompleted.success(())
+          case KillSwitchCaptor.State.Aborted(ex) => resultCompleted.failure(ex)
           case _ => resultCompleted.success(())
         }
       case Failure(ex) =>
-        mutableKillSwitch.get() match {
-          case ShutDownKillSwitch => resultCompleted.success(())
-          case AbortedKillSwitch(ex, _) => resultCompleted.failure(ex)
+        killSwitchCaptor.state match {
+          case KillSwitchCaptor.State.Shutdown => resultCompleted.success(())
+          case KillSwitchCaptor.State.Aborted(ex) => resultCompleted.failure(ex)
           case _ => resultCompleted.failure(ex)
         }
     }

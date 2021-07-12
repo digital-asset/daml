@@ -11,18 +11,30 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.util.{Failure, Success, Try}
 
+/** A simple host of checking.
+  * - This will ensure that check is accessed by only one caller at a time
+  * - Does periodic checking
+  * - Exposes check() for on-demand checking from the outside
+  * - If whatever check() fails, it uses killSwitch with an abort
+  * - It is also an AutoCloseable to release internal resources
+  *
+  * @param periodMillis period of the checking, between each scheduled checks there will be so much delay
+  * @param check the check function, Exception signals failed check
+  * @param killSwitch to abort if a check fails
+  */
 class PollingChecker(
     periodMillis: Long,
-    checkBlock: => Unit,
+    check: => Unit,
     killSwitch: KillSwitch,
-)(implicit loggingContext: LoggingContext) {
+)(implicit loggingContext: LoggingContext)
+    extends AutoCloseable {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val timer = new Timer(true)
 
   private val lostMainConnectionEmulation = new AtomicBoolean(false)
 
-  timer.scheduleAtFixedRate(
+  timer.schedule(
     new TimerTask {
       override def run(): Unit = {
         Try(check())
@@ -34,21 +46,21 @@ class PollingChecker(
   )
 
   // TODO uncomment this for main-connection-lost simulation
-  //    timer.schedule(
-  //      new TimerTask {
-  //        override def run(): Unit = lostMainConnectionEmulation.set(true)
-  //      },
-  //      20000,
-  //    )
+  timer.schedule(
+    new TimerTask {
+      override def run(): Unit = lostMainConnectionEmulation.set(true)
+    },
+    20000,
+  )
 
   // This is a cruel approach for ensuring single threaded usage of the mainConnection.
   // In theory this could have been made much more efficient: not enqueueing for a check of it's own,
   // but collecting requests, and replying in batches.
   // Although experiments show approx 1s until a full connection pool is initialized at first
-  // (the peek scenario) which should be enough, and which can leave this code very simple.
+  // (the peak scenario) which should be enough, and which can leave this code very simple.
   def check(): Unit = synchronized {
     logger.debug(s"Checking...")
-    Try(checkBlock) match {
+    Try(check) match {
       case Success(_) if !lostMainConnectionEmulation.get =>
         logger.debug(s"Check successful.")
 

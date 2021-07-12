@@ -16,38 +16,42 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 /** A handle of a running program
-  * @param completed will complete as the program completes
+  * @param completed will complete right after the program completed
   *                  - if no KillSwitch used,
   *                    - it will complete successfully as program successfully ends
   *                    - it will complete with a failure as program failed
   *                  - if KillSwitch aborted, this completes with the same Throwable
   *                  - if KillSwitch shut down, this completes successfully
-  *                  As this completes, the program finished it's execution, also all resources released as well.
+  *                  After signalling completion, the program finished it's execution and has released all resources it acquired.
   * @param killSwitch to signal abortion and shutdown
   */
 case class Handle(completed: Future[Unit], killSwitch: KillSwitch)
 
-/** This functionality sign off a worker Connection, anc clears it for further usage.
+/** This functionality initializes a worker Connection, and clears it for further usage.
   * This only need to be done once at the beginning of the Connection life-cycle
   * On any error an exception will be thrown
   */
-trait SignConnection {
-  def sign(connection: Connection): Unit
+trait ConnectionInitializer {
+  def initialize(connection: Connection): Unit
 }
 
-/** To add High Availability related features to a program
+/** To add High Availability related features to a program, which intends to use database-connections to do it's work.
+  * Features include:
+  *   - Safety: mutual exclusion of these programs ensured by DB locking mechanisms
+  *   - Availability: release of the exclusion is detected by idle programs, which start competing for the lock to do
+  *     their work.
   */
 trait HaCoordinator {
 
-  /** Execute block in High Availability mode.
-    * Wraps around the Handle of the block.
+  /** Execute in High Availability mode.
+    * Wraps around the Handle of the execution.
     *
-    * @param block HaCoordinator provides a SignConnection which need to be used for all database connections to do work in the block
-    *              Future[Handle] embodies asynchronous initialisation of the block
-    *              (e.g. not the actual work. That asynchronous execution completes with the completed Future of the Handle)
+    * @param initializeExecution HaCoordinator provides a ConnectionInitializer which need to be used for all database connections during execution
+    *                            Future[Handle] embodies asynchronous initialisation of the execution
+    *                            (e.g. not the actual work. That asynchronous execution completes with the completed Future of the Handle)
     * @return the new Handle, which is available immediately to observe and interact with the complete program here
     */
-  def protectedBlock(block: SignConnection => Future[Handle]): Handle
+  def protectedExecution(initializeExecution: ConnectionInitializer => Future[Handle]): Handle
 }
 
 case class HaConfig(
@@ -64,10 +68,10 @@ object HaCoordinator {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   /** This implementation of the HaCoordinator
-    * - provides a database lock based isolation of the protected blocks
-    * - will run the block at-most once during the entire lifecycle
-    * - will wait infinitely to acquire the lock needed to start the protected block
-    * - provides a SignConnection function which is mandatory to execute on all worker connections inside of the block
+    * - provides a database lock based isolation of the protected executions
+    * - will run the execution at-most once during the entire lifecycle
+    * - will wait infinitely to acquire the lock needed to start the protected execution
+    * - provides a ConnectionInitializer function which is mandatory to execute on all worker connections during execution
     * - will spawn a polling-daemon to observe continuous presence of the main lock
     *
     * @param dataSource to spawn the main connection which keeps the Indexer Lock
@@ -91,7 +95,7 @@ object HaCoordinator {
       def acquireLock(connection: Connection, lockId: LockId, lockMode: LockMode): Lock = {
         logger.debug(s"Acquiring lock $lockId $lockMode")
         storageBackend
-          .aquireImmediately(lockId, lockMode)(connection)
+          .tryAcquire(lockId, lockMode)(connection)
           .getOrElse(
             throw new Exception(s"Cannot acquire lock $lockId in lock-mode $lockMode: lock busy")
           )
@@ -127,7 +131,7 @@ object HaCoordinator {
           mainLockChecker <- go[PollingChecker](
             new PollingChecker(
               periodMillis = haConfig.mainLockCheckerPeriodMillis,
-              checkBlock = acquireMainLock(mainConnection),
+              check = acquireMainLock(mainConnection),
               killSwitch =
                 handle.killSwitch, // meaning: this PollingChecker will shut down the main preemptableSequence
             )
@@ -154,7 +158,7 @@ object HaCoordinator {
             mainLockChecker.check()
             logger.info(s"Preparing worker connection DONE.")
           }))
-          _ = logger.info("Step 6: initialize protected block - DONE")
+          _ = logger.info("Step 6: initialize protected execution - DONE")
           _ <- merge(protectedHandle)
         } yield ()
       }
@@ -162,6 +166,8 @@ object HaCoordinator {
 }
 
 object NoopHaCoordinator extends HaCoordinator {
-  override def protectedBlock(block: SignConnection => Future[Handle]): Handle =
-    Await.result(block(_ => ()), Duration.Inf)
+  override def protectedExecution(
+      initializeExecution: ConnectionInitializer => Future[Handle]
+  ): Handle =
+    Await.result(initializeExecution(_ => ()), Duration.Inf)
 }

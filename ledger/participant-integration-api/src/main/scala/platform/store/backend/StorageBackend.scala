@@ -272,7 +272,7 @@ object DataSourceStorageBackend {
 }
 
 trait DBLockStorageBackend {
-  def aquireImmediately(
+  def tryAcquire(
       lockId: DBLockStorageBackend.LockId,
       lockMode: DBLockStorageBackend.LockMode,
   )(connection: Connection): Option[DBLockStorageBackend.Lock]

@@ -22,7 +22,7 @@
     <logger name="com.daml.platform" level="WARN" />
     <!-- TODO temporarily enabled to see HA in action -->
     <logger name="com.daml.platform.indexer" level="DEBUG" />
-    <logger name="com.daml.platform.indexer.store.backend" level="DEBUG" />
+    <logger name="com.daml.platform.store.backend" level="DEBUG" />
     <logger name="com.daml.platform.indexer.parallel.ParallelIndexerFactory" level="WARN" />
 
     <!-- raising the command tracker logging level -->
