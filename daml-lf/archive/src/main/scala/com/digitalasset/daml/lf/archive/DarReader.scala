@@ -79,7 +79,7 @@ object GenDarReader {
   private val ManifestName = "META-INF/MANIFEST.MF"
   private[archive] val EntrySizeThreshold = 1024 * 1024 * 1024 // 1 GB
 
-  private[archive] case class ZipEntry(size: Long, getStrean: () => InputStream)
+  private[archive] case class ZipEntry(size: Long, getStream: () => InputStream)
 
   private[archive] case class ZipEntries(name: String, entries: Map[String, Bytes]) {
     private[GenDarReader] def get(entryName: String): Try[Bytes] = {
