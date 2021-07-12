@@ -6,6 +6,7 @@ package com.daml.lf.data
 import java.io.InputStream
 import java.nio.ByteBuffer
 import scalaz.Order
+
 import com.google.protobuf.ByteString
 
 final class Bytes private (protected val value: ByteString) extends AnyVal {
@@ -60,32 +61,6 @@ object Bytes {
 
   def fromInputStream(a: InputStream): Bytes =
     new Bytes(ByteString.readFrom(a))
-
-  // reads at most `len` bytes, does not close `a`
-  def fromInputStream(a: InputStream, len: Int): Bytes = {
-    if (len < 0) throw new IndexOutOfBoundsException()
-    val b = new InputStream {
-      private[this] var rest = len
-      override def read(): Int =
-        if (rest == 0) {
-          -1
-        } else {
-          val c = a.read()
-          if (c >= 0) rest -= 1
-          c
-        }
-      override def read(b: Array[Byte], off: Int, len: Int): Int = {
-        if (rest == 0 && len > 0) {
-          -1
-        } else {
-          val n = a.read(b, off, len min rest)
-          if (n >= 0) rest -= n else rest = 0
-          n
-        }
-      }
-    }
-    fromInputStream(b)
-  }
 
   def fromHexString(s: Ref.HexString): Bytes =
     Ref.HexString.decode(s)
