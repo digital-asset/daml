@@ -6,10 +6,10 @@ package archive
 
 import java.io.InputStream
 import java.security.MessageDigest
-
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf.data.Bytes
 import com.google.protobuf.CodedInputStream
 
 object Reader {
@@ -19,6 +19,9 @@ object Reader {
     val cos = damlLfCodedInputStream(is, PROTOBUF_RECURSION_LIMIT)
     readArchive(DamlLf.Archive.parser().parseFrom(cos))
   }
+
+  def readArchive(bytes: Bytes): ArchivePayload =
+    readArchive(bytes.toInputStream)
 
   @throws[Error.Parsing]
   def readArchive(lf: DamlLf.Archive): ArchivePayload = {
