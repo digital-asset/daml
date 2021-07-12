@@ -45,18 +45,28 @@ private[v2] object AdaptedV1ReadService {
       input.avgTransactionLatency,
       input.minSkew,
       input.maxSkew,
-    )
-      .get
+    ).get
 
   def adaptUpdate(input: v1.Update): Update = input match {
-    case v1.Update.ConfigurationChanged(recordTime, submissionId, participantId, newConfiguration) =>
+    case v1.Update.ConfigurationChanged(
+          recordTime,
+          submissionId,
+          participantId,
+          newConfiguration,
+        ) =>
       Update.ConfigurationChanged(
         recordTime = recordTime,
         submissionId = submissionId,
         participantId = participantId,
         newConfiguration = adaptLedgerConfiguration(newConfiguration),
       )
-    case v1.Update.ConfigurationChangeRejected(recordTime, submissionId, participantId, proposedConfiguration, rejectionReason) =>
+    case v1.Update.ConfigurationChangeRejected(
+          recordTime,
+          submissionId,
+          participantId,
+          proposedConfiguration,
+          rejectionReason,
+        ) =>
       Update.ConfigurationChangeRejected(
         recordTime = recordTime,
         submissionId = submissionId,
@@ -64,7 +74,13 @@ private[v2] object AdaptedV1ReadService {
         proposedConfiguration = adaptLedgerConfiguration(proposedConfiguration),
         rejectionReason = rejectionReason,
       )
-    case v1.Update.PartyAddedToParticipant(party, displayName, participantId, recordTime, submissionId) =>
+    case v1.Update.PartyAddedToParticipant(
+          party,
+          displayName,
+          participantId,
+          recordTime,
+          submissionId,
+        ) =>
       Update.PartyAddedToParticipant(
         party = party,
         displayName = displayName,
@@ -72,7 +88,12 @@ private[v2] object AdaptedV1ReadService {
         recordTime = recordTime,
         submissionId = submissionId,
       )
-    case v1.Update.PartyAllocationRejected(submissionId, participantId, recordTime, rejectionReason) =>
+    case v1.Update.PartyAllocationRejected(
+          submissionId,
+          participantId,
+          recordTime,
+          rejectionReason,
+        ) =>
       Update.PartyAllocationRejected(
         submissionId = submissionId,
         participantId = participantId,
@@ -92,7 +113,15 @@ private[v2] object AdaptedV1ReadService {
         recordTime = recordTime,
         rejectionReason = rejectionReason,
       )
-    case v1.Update.TransactionAccepted(optSubmitterInfo, transactionMeta, transaction, transactionId, recordTime, divulgedContracts, blindingInfo) =>
+    case v1.Update.TransactionAccepted(
+          optSubmitterInfo,
+          transactionMeta,
+          transaction,
+          transactionId,
+          recordTime,
+          divulgedContracts,
+          blindingInfo,
+        ) =>
       val optCompletionInfo = optSubmitterInfo.map(createCompletionInfo)
       Update.TransactionAccepted(
         optCompletionInfo = optCompletionInfo,
@@ -134,7 +163,8 @@ private[v2] object AdaptedV1ReadService {
     )
 
   private def adaptRejectionReason(reason: v1.RejectionReason): RejectionReasonTemplate = {
-    val rpcStatus = com.google.rpc.status.Status.of(reason.code.value(), reason.description, Seq.empty)
+    val rpcStatus =
+      com.google.rpc.status.Status.of(reason.code.value(), reason.description, Seq.empty)
     new CommandRejected.FinalReason(rpcStatus)
   }
 
