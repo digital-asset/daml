@@ -3,24 +3,17 @@
 
 package com.daml.ledger.participant.state.v2
 
-import java.time.{Duration, Instant}
+import java.time.Duration
 
 /** Specifies the deduplication period for a command submission.
+  * Note that we would like to keep this easily extensible to support offsets and absolute
+  * timestamps, hence the usage of a trait here.
   *
   * @see com.daml.ledger.participant.state.v2.ReadService.stateUpdates for the deduplication guarantee
   */
 sealed trait DeduplicationPeriod extends Product with Serializable
 
 object DeduplicationPeriod {
-
-  /** The `offset` defines the start of the deduplication period. */
-  final case class DeduplicationOffset(offset: Offset) extends DeduplicationPeriod
-
-  /** The instant `since` specifies the point in time where deduplication starts.
-    * When used in [[SubmitterInfo]], this point in time is measured on some unspecified clock on the participant or the Daml ledger.
-    * When used in [[CompletionInfo]], this point in time is measured in record time.
-    */
-  final case class DeduplicationTimepoint(since: Instant) extends DeduplicationPeriod
 
   /** The length of the deduplication window, which ends when the [[WriteService]] or underlying Daml ledger processes
     * the command submission.
