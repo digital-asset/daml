@@ -385,13 +385,31 @@ class QueryStreamsManager {
     private static readonly ENDPOINT: string = 'v1/query';
 
     // Mutable state BEGIN
+
+    // Ongoing streaming queries that will be the downstream consumers of web socket messages
     private readonly queries: Set<StreamingQuery<object, unknown, string>> = new Set();
+
+    // Lookup tables used to route events to the relevant consumers:
+    //  - consumers for create events can be looked up based on their match index
+    //    - store the offset by which a match indexes needs to be shifted before the event is passed to the consumer
+    //  - archive events can be lookup up by template identifier
+    //    - this causes the consumer to observe what is known as "phantom archives", which are known and documented
+    private matchIndexLookupTable: [StreamingQuery<object, unknown, string>, number][] = [];
+    private templateIdsLookupTable: {[templateId: string]: Set<StreamingQuery<object, unknown, string>>} = {};
+
+    // Accumulates each query in a flattened form to be sent as a single request to the JSON API
+    private request: StreamingQueryRequest[] = [];
+
+    // web socket handle and associated properties
     private ws: WebSocket | null = null;
+    private wsLiveSince: number | undefined = undefined;
+    private wsClosed: boolean = true;
+
     // Mutable state END
 
     private readonly protocols: string[];
     private readonly url: string;
-    private readonly reconnectThresholdMs: number; // TODO Handle reconnection
+    private readonly reconnectThresholdMs: number;
 
     private static toRequest(query: StreamingQuery<object, unknown, string>): StreamingQueryRequest[] {
         const request: StreamingQueryRequest[] = query.queries.length == 0 ?
@@ -405,107 +423,146 @@ class QueryStreamsManager {
         return request;
     }
 
-    /**
-     * Starts, restarts, or shuts down the web socket based on the content of `queries`
-     */
-    private onQueriesChange() {
-        if (this.ws !== null) {
-            this.ws.close();
-            this.ws = null;
-        }
+    private resetAllState(): void {
+      this.queries.clear();
+      this.matchIndexLookupTable = [];
+      this.templateIdsLookupTable = {};
+      this.request = [];
+      this.ws = null;
+      this.wsLiveSince = undefined;
+      this.wsClosed = true;
+    }
+
+    private onWsMessage({data}: {data: any}): void {
+      const json: unknown = JSON.parse(data.toString());
+      if (isRecordWith('events', json)) {
+          const events: Event<object>[] = jtv.Result.withException(jtv.array(decodeEventUnknown).run(json.events));
+          const multiplexer: Map<StreamingQuery<object, unknown, string>, Event<object>[]> = new Map();
+          const perConsumerState: Map<StreamingQuery<object, unknown, string>, CreateEvent<object, unknown, string>[]> = new Map();
+          for (const event of events) {
+              if (isCreate<object>(event)) {
+                  const consumersToMatchedQueries: Map<StreamingQuery<object, unknown, string>, number[]> = new Map();
+                  for (const matchIndex of event.matchedQueries) {
+                    const [consumer, matchIndexOffset] = this.matchIndexLookupTable[matchIndex];
+                    append(consumersToMatchedQueries, consumer, matchIndex - matchIndexOffset);
+                  }
+                  for (const [consumer, matchedQueries] of consumersToMatchedQueries.entries()) {
+                      // Create a new copy of the event for each consumer to freely mangle the matched queries and avoid sharing mutable state
+                      append(multiplexer, consumer, {...event, matchedQueries });
+                  }
+              } else {
+                  const consumers = this.templateIdsLookupTable[event.archived.templateId];
+                  for (const consumer of consumers.values()) {
+                      // Create a new copy of the event for each consumer to avoid sharing mutable state
+                      append(multiplexer, consumer, {...event});
+                  }
+              }
+          }
+          for (const [consumer, events] of multiplexer.entries()) {
+              for (const event of events) {
+                  if (isCreate<object>(event)) {
+                      consumer.state.set(event.created.contractId, event.created);
+                  } else {
+                      consumer.state.delete(event.archived.contractId);
+                  }
+              }
+              const state = Array.from(consumer.state.values());
+              perConsumerState.set(consumer, state); // Storing the state array so that it doesn't have to be rebuild it a 'live' event must be sent
+              consumer.stream.emit('change', state, events);
+          }
+
+          if (isRecordWith('offset', json)) {
+              const offset = jtv.Result.withException(jtv.oneOf(jtv.constant(null), jtv.string()).run(json.offset));
+              let anyLiveEvent: boolean = false;
+              for (const consumer of this.queries.values()) {
+                if (consumer.offset === undefined) {
+                  anyLiveEvent = true;
+                  consumer.stream.emit('live', perConsumerState.get(consumer));
+                }
+                consumer.offset = offset;
+              }
+              if (anyLiveEvent === true) {
+                this.wsLiveSince = Date.now();
+              }
+          }
+      } else if (isRecordWith('warnings', json)) {
+          console.warn('QueryStreamsManager warnings', json);
+      } else if (isRecordWith('errors', json)) {
+          console.error('QueryStreamsManager errors', json);
+      } else {
+          console.error('QueryStreamsManager unknown message', json);
+      }
+    }
+
+    private onWsClose(): void {
+      if (this.wsClosed === true) {
+        // The web socket has been closed on purpose after a change to the
+        // queries and needs to be re-opened based on the new state
+        this.ws = null;
         if (this.queries.size > 0) {
-            this.ws = new WebSocket(this.url, this.protocols);
+          this.wsClosed = false;
 
-            // Lookup tables used to route events to the relevant consumers:
-            //  - consumers for create events can be looked up based on their match index
-            //    - store the offset by which a match indexes needs to be shifted before the event is passed to the consumer
-            //  - archive events can be lookup up by template identifier
-            //    - this causes the consumer to observe what is known as "phantom archives", which are known and documented
-            let matchIndexLookupTable: [StreamingQuery<object, unknown, string>, number][] = [];
-            let templateIdsLookupTable: {[templateId: string]: Set<StreamingQuery<object, unknown, string>>} = {};
+          for (const query of this.queries.values()) {
+              const request = QueryStreamsManager.toRequest(query);
 
-            // Accumulates each query in a flattened form to be sent as a single request to the JSON API
-            let flatRequest: StreamingQueryRequest[] = [];
+              // Add entries to the lookup table for create events
+              const matchIndexOffset = this.matchIndexLookupTable.length;
+              const matchIndexLookupTableEntries = new Array(request.length).fill([query, matchIndexOffset]);
+              this.matchIndexLookupTable = this.matchIndexLookupTable.concat(matchIndexLookupTableEntries);
 
-            for (const query of this.queries.values()) {
-                const request = QueryStreamsManager.toRequest(query);
+              // Add entries to the lookup table for archive events
+              for (const {templateIds} of request) {
+                  for (const templateId of templateIds) {
+                      this.templateIdsLookupTable[templateId] = this.templateIdsLookupTable[templateId] || new Set();
+                      this.templateIdsLookupTable[templateId].add(query);
+                  }
+              }
 
-                // Add entries to the lookup table for create events
-                const matchIndexOffset = matchIndexLookupTable.length;
-                const matchIndexLookupTableEntries = new Array(request.length).fill([query, matchIndexOffset]);
-                matchIndexLookupTable = matchIndexLookupTable.concat(matchIndexLookupTableEntries);
+              this.request = this.request.concat(request);
+          }
 
-                // Add entries to the lookup table for archive events
-                for (const {templateIds} of request) {
-                    for (const templateId of templateIds) {
-                        templateIdsLookupTable[templateId] = templateIdsLookupTable[templateId] || new Set();
-                        templateIdsLookupTable[templateId].add(query);
-                    }
-                }
+          this.ws = new WebSocket(this.url, this.protocols);
+          this.ws.addEventListener('open', this.onWsOpen);
+          this.ws.addEventListener('message', this.onWsMessage);
+          this.ws.addEventListener('close', this.onWsClose);
 
-                flatRequest = flatRequest.concat(request);
-            }
+          // Purposefully ignoring 'error' events; they are always followed by a 'close' event, which needs to be handled anyway
 
-            this.ws.on('message', ({data}: {data: any}) => {
-                const json: unknown = JSON.parse(data.toString());
-                if (isRecordWith('events', json)) {
-                    const events: Event<object>[] = jtv.Result.withException(jtv.array(decodeEventUnknown).run(json.events));
-                    const multiplexer: Map<StreamingQuery<object, unknown, string>, Event<object>[]> = new Map();
-                    const perConsumerState: Map<StreamingQuery<object, unknown, string>, CreateEvent<object, unknown, string>[]> = new Map();
-                    for (const event of events) {
-                        if (isCreate<object>(event)) {
-                            const consumersToMatchedQueries: Map<StreamingQuery<object, unknown, string>, number[]> = new Map();
-                            for (const matchIndex of event.matchedQueries) {
-                              const [consumer, matchIndexOffset] = matchIndexLookupTable[matchIndex];
-                              append(consumersToMatchedQueries, consumer, matchIndex - matchIndexOffset);
-                            }
-                            for (const [consumer, matchedQueries] of consumersToMatchedQueries.entries()) {
-                                // Create a new copy of the event for each consumer to freely mangle the matched queries and avoid sharing mutable state
-                                append(multiplexer, consumer, {...event, matchedQueries });
-                            }
-                        } else {
-                            const consumers = templateIdsLookupTable[event.archived.templateId];
-                            for (const consumer of consumers.values()) {
-                                // Create a new copy of the event for each consumer to avoid sharing mutable state
-                                append(multiplexer, consumer, {...event});
-                            }
-                        }
-                    }
-                    for (const [consumer, events] of multiplexer.entries()) {
-                        for (const event of events) {
-                            if (isCreate<object>(event)) {
-                                consumer.state.set(event.created.contractId, event.created);
-                            } else {
-                                consumer.state.delete(event.archived.contractId);
-                            }
-                        }
-                        const state = Array.from(consumer.state.values());
-                        perConsumerState.set(consumer, state)
-                        consumer.stream.emit('change', state, events);
-                    }
-
-                    if (isRecordWith('offset', json)) {
-                        const offset = jtv.Result.withException(jtv.oneOf(jtv.constant(null), jtv.string()).run(json.offset));
-                        this.queries.forEach(consumer => {
-                          if (consumer.offset === undefined) {
-                            consumer.stream.emit('live', perConsumerState.get(consumer));
-                          }
-                          consumer.offset = offset;
-                        });
-                    }
-                } else if (isRecordWith('warnings', json)) {
-                    console.warn('QueryStreamsManager warnings', json);
-                } else if (isRecordWith('errors', json)) {
-                    console.error('QueryStreamsManager errors', json);
-                } else {
-                    console.error('QueryStreamsManager unknown message', json);
-                }
-            });
-
-            // TODO handle 'close' and 'error': broadcast to consumers, manage reconnection (see `streamSubmit`)
-
-            this.ws.send(JSON.stringify(flatRequest));
         }
+      } else {
+        // The web socket has been closed due to an error, attempt to reconnect and/or inform downstream consumers
+        if (this.wsLiveSince !== undefined && Date.now() - this.wsLiveSince >= this.reconnectThresholdMs) {
+          this.wsLiveSince = undefined;
+          this.ws = new WebSocket(this.url, this.protocols);
+          this.ws.addEventListener('open', this.onWsOpen);
+          this.ws.addEventListener('message', this.onWsMessage);
+          this.ws.addEventListener('close', this.onWsClose);
+        } else {
+          // ws has closed too quickly / never managed to connect: we give up
+          for (const consumer of this.queries.values()) {
+            consumer.stream.emit('close', { code: 4001, reason: 'ws connection failed' });
+            consumer.stream.removeAllListeners();
+          }
+          this.resetAllState();
+        }
+      }
+    }
+
+
+    private onWsOpen(): void {
+      this.ws.send(JSON.stringify(this.request));
+    };
+
+    /**
+     * The queries have changed: close the web socket
+     *
+     */
+    private handleQueriesChange() {
+      if (this.ws !== null) {
+          this.wsClosed = true;
+          this.wsLiveSince = undefined;
+          this.ws.close(); // The 'close' event handler takes care of restarting the actual web socket if needed
+      }
     }
 
     constructor({token, wsBaseUrl, reconnectThreshold}: { token: string, wsBaseUrl: string, reconnectThreshold: number }) {
@@ -525,13 +582,13 @@ class QueryStreamsManager {
             stream: new StreamEventEmitter({
                 beforeClosing(): void {
                     manager.queries.delete(query);
-                    manager.onQueriesChange();
+                    manager.handleQueriesChange();
                 }
             }),
             state: new Map(),
         }
         manager.queries.add(query);
-        manager.onQueriesChange();
+        manager.handleQueriesChange();
         return query.stream;
     }
 
