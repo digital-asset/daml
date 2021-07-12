@@ -243,7 +243,7 @@ testCase version getService outdir registerTODO (name, file) = singleTest name .
     ignoreVersion version = \case
       Ignore -> True
       SinceLF minVersion -> version < minVersion
-      UntilLF maxVersion -> version > maxVersion
+      UntilLF maxVersion -> version >= maxVersion
       _ -> False
 
 runJqQuery :: (String -> IO ()) -> LF.Version -> FilePath -> FilePath -> [String] -> IO [Maybe String]
@@ -318,10 +318,10 @@ checkDiagnostics log expected got
 -- functionality
 data Ann
     = Ignore                             -- Don't run this test at all
-    | SinceLF LF.Version                 -- Only run this test since the given DAML-LF version
-    | UntilLF LF.Version                 -- Only run this test until the given DAML-LF version
+    | SinceLF LF.Version                 -- Only run this test since the given DAML-LF version (inclusive)
+    | UntilLF LF.Version                 -- Only run this test until the given DAML-LF version (exclusive)
     | DiagnosticFields [DiagnosticField] -- I expect a diagnostic that has the given fields
-    | QueryLF String                       -- The jq query against the produced DAML-LF returns "true"
+    | QueryLF String                     -- The jq query against the produced DAML-LF returns "true"
     | Todo String                        -- Just a note that is printed out
 
 
@@ -334,8 +334,9 @@ readFileAnns file = do
         f (stripPrefix "-- @" . trim -> Just x) = case word1 $ trim x of
             ("IGNORE",_) -> Just Ignore
             ("SINCE-LF", x) -> Just $ SinceLF $ fromJust $ LF.parseVersion $ trim x
-            ("SINCE-LF-FEATURE", x) -> Just $ SinceLF $ LF.versionForFeaturePartial $ T.pack $ trim x
             ("UNTIL-LF", x) -> Just $ UntilLF $ fromJust $ LF.parseVersion $ trim x
+            ("SINCE-LF-FEATURE", x) -> Just $ SinceLF $ LF.versionForFeaturePartial $ T.pack $ trim x
+            ("UNTIL-LF-FEATURE", x) -> Just $ UntilLF $ LF.versionForFeaturePartial $ T.pack $ trim x
             ("ERROR",x) -> Just (DiagnosticFields (DSeverity DsError : parseFields x))
             ("WARN",x) -> Just (DiagnosticFields (DSeverity DsWarning : parseFields x))
             ("INFO",x) -> Just (DiagnosticFields (DSeverity DsInfo : parseFields x))
