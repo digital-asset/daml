@@ -81,7 +81,6 @@ trait WriteService
     *
     * The [[WriteService]] is responsible for deduplicating commands
     * with the same [[SubmitterInfo.changeId]] within the [[SubmitterInfo.deduplicationPeriod]].
-    * See the deduplication and rank guarantee described in [[ReadService.stateUpdates]].
     *
     * @param submitterInfo               the information provided by the submitter for
     *                                    correlating this submission with its acceptance or rejection on the
@@ -115,12 +114,11 @@ trait WriteService
     * The result is communicated asynchronously via a [[ReadService]] implementation backed by the same participant
     * state as this [[WriteService]]. Successful recording is communicated using a [[Update.CommandRejected]]
     * with [[SubmitterInfo]] and [[Update.CommandRejected.definiteAnswer]].
-    * If the recording as a rejection fails (e.g., due to deduplication or violations of the submission rank),
+    * If the recording as a rejection fails (e.g., due to deduplication),
     * the failure should be communicated using a [[Update.CommandRejected]] with [[SubmitterInfo]]
     * and not [[Update.CommandRejected.definiteAnswer]].
     *
-    * Recorded rejections fall under the deduplication and submission rank guarantees
-    * described in [[ReadService.stateUpdates]].
+    * Recorded rejections fall under the deduplication guarantees described in [[ReadService.stateUpdates]].
     *
     * @param submitterInfo the information provided by the submitter for correlating this submission
     *                      with its rejection on the associated [[ReadService]].

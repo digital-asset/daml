@@ -23,9 +23,6 @@ package com.daml.ledger.participant.state.v2
   * @param submissionId An identifier for the submission that allows an application
   *   to correlate completions to its submissions.
   *
-  * @param submissionRank The rank of the submission among all submissions with the same change ID.
-  *   Used for the submission rank guarantee described in the [[ReadService.stateUpdates]].
-  *
   * @param ledgerConfiguration The ledger configuration used during interpretation
   */
 final case class SubmitterInfo(
@@ -34,7 +31,6 @@ final case class SubmitterInfo(
     commandId: CommandId,
     deduplicationPeriod: DeduplicationPeriod,
     submissionId: SubmissionId,
-    submissionRank: Offset,
     ledgerConfiguration: Configuration,
 ) {
 

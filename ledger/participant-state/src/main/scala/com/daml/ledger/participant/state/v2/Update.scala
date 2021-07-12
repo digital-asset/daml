@@ -153,7 +153,7 @@ object Update {
     *   submitted the command to the [[WriteService]].
     *
     *   The [[ReadService]] implementation must ensure that command deduplication
-    *   and the submission rank guarantees are met.
+    *   guarantees are met.
     *
     * @param transactionMeta:
     *   The metadata of the transaction that was provided by the submitter.
@@ -207,10 +207,9 @@ object Update {
       s"Reject command ${completionInfo.commandId}${if (definiteAnswer)
         " (definite answer)"}: ${reasonTemplate.message}"
 
-    /** If true, the [[ReadService]]'s deduplication and submission rank guarantees
-      * apply to this rejection. The participant state implementations should
-      * strive to set this flag to true as often as possible so that applications
-      * get better guarantees.
+    /** If true, the [[ReadService]]'s deduplication guarantees apply to this rejection.
+      *  The participant state implementations should strive to set this flag to true as often as
+      *  possible so that applications get better guarantees.
       */
     def definiteAnswer: Boolean = reasonTemplate.definiteAnswer
   }
@@ -223,7 +222,7 @@ object Update {
       */
     sealed trait RejectionReasonTemplate {
 
-      /** Whether the rejection is a definite answer for the deduplication and rank guarantees
+      /** Whether the rejection is a definite answer for the deduplication guarantees
         * specified for [[ReadService.stateUpdates]].
         */
       def definiteAnswer: Boolean
@@ -242,13 +241,12 @@ object Update {
     }
 
     /** The indexer shall fill in a completion offset for the completion that corresponds to
-      * the `submissionId` and `submissionRank` by calling `createStatus` with the completion offset. If no completion
+      * the `submissionId` by calling `createStatus` with the completion offset. If no completion
       * offset for the `submissionId` can be provided, [[scala.None]] can be used instead,
       * which may lead to less informative errors.
       */
     final class NeedCompletionOffsetForSubmissionId(
         val submissionId: SubmissionId,
-        val submissionRank: Offset,
         private val incompleteStatus: com.google.rpc.status.Status,
     ) extends RejectionReasonTemplate {
 
@@ -258,9 +256,9 @@ object Update {
         GrpcStatuses.isDefiniteAnswer(incompleteStatus)
 
       def createStatus(
-          completionOffsetForSubmissionIdAndRank: Option[Offset]
+          completionOffsetForSubmissionId: Option[Offset]
       ): com.google.rpc.status.Status =
-        completionOffsetForSubmissionIdAndRank.fold(incompleteStatus)(
+        completionOffsetForSubmissionId.fold(incompleteStatus)(
           GrpcStatuses.completeWithOffset(incompleteStatus, _)
         )
     }

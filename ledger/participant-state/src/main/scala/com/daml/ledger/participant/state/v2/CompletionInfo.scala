@@ -26,9 +26,6 @@ package com.daml.ledger.participant.state.v2
   *
   * @param submissionId An identifier for the submission that allows an application
   *   to correlate completions to its submissions.
-  *
-  * @param submissionRank The rank of the submission among all submissions with the same change ID.
-  *   Used for the submission rank guarantee described in the [[ReadService.stateUpdates]].
   */
 case class CompletionInfo(
     actAs: List[Party],
@@ -36,7 +33,6 @@ case class CompletionInfo(
     commandId: CommandId,
     optDeduplicationPeriod: Option[DeduplicationPeriod],
     submissionId: SubmissionId,
-    submissionRank: Offset,
 ) {
   def changeId: ChangeId = new ChangeId(applicationId, commandId, actAs.toSet)
 }

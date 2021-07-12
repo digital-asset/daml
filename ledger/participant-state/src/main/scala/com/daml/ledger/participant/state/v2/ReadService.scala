@@ -86,18 +86,7 @@ trait ReadService extends ReportsHealth {
     *   and reject a command submission as a duplicate even if its deduplication period does not include
     *   the earlier's [[Update.TransactionAccepted]].
     *   A [[Update.CommandRejected]] completion does not trigger deduplication and implementations SHOULD
-    *   process such resubmissions normally, subject to the submission rank guarantee listed below.
-    *
-    * - *submission rank*: Let there be a [[Update.TransactionAccepted]] with [[CompletionInfo]]
-    *   or a [[Update.CommandRejected]] with [[CompletionInfo]] and [[Update.CommandRejected.definiteAnswer]] at offset `off`.
-    *   Let `rank` be the [[CompletionInfo.submissionRank]] of the [[Update]].
-    *   Then there is no other [[Update.TransactionAccepted]] or [[Update.CommandRejected]] with [[CompletionInfo]]
-    *   for the same [[CompletionInfo.changeId]] with offset at least `off`
-    *   whose [[CompletionInfo.submissionRank]] is less or equal to `rank`.
-    *
-    *   If the [[WriteService]] detects that a command submission would violate the submission rank guarantee
-    *   if accepted or rejected, it either returns a [[SubmissionResult.SynchronousError]] error or
-    *   produces a [[Update.CommandRejected]] without [[Update.CommandRejected.definiteAnswer]].
+    *   process such resubmissions normally.
     *
     * - *finality*: If the corresponding [[WriteService]] acknowledges a submitted transaction or rejection
     *   with [[SubmissionResult.Acknowledged]], the [[ReadService]] SHOULD make sure that
