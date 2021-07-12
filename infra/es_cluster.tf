@@ -12,7 +12,7 @@ locals {
     {
       suffix         = "-blue",
       ubuntu_version = "2004",
-      size           = 10,
+      size           = 5,
       init           = "[]",
     },
     {
@@ -114,8 +114,20 @@ resource "google_project_iam_member" "es-discovery" {
   member  = "serviceAccount:${google_service_account.es-discovery.email}"
 }
 
-locals {
-  es_startup_template = <<STARTUP
+resource "google_compute_instance_template" "es" {
+  count        = length(local.es_clusters)
+  name_prefix  = "es${local.es_clusters[count.index].suffix}-"
+  machine_type = "e2-standard-2"
+  tags         = ["es"]
+  labels       = local.machine-labels
+
+  disk {
+    boot         = true
+    disk_size_gb = 200
+    source_image = "ubuntu-os-cloud/ubuntu-${local.es_clusters[count.index].ubuntu_version}-lts"
+  }
+
+  metadata_startup_script = <<STARTUP
 #! /bin/bash
 set -euo pipefail
 apt-get update
@@ -147,7 +159,7 @@ cd /root/es-docker
 cat <<EOF > es.yml
 cluster.name: es
 node.name: $(hostname)
-cluster.initial_master_nodes: %s
+cluster.initial_master_nodes: ${local.es_clusters[count.index].init}
 discovery.seed_providers: gce
 discovery.gce.tags: es
 cloud.gce.project_id: ${local.project}
@@ -190,22 +202,7 @@ done
 
 STARTUP
 
-}
 
-resource "google_compute_instance_template" "es" {
-  count        = length(local.es_clusters)
-  name_prefix  = "es${local.es_clusters[count.index].suffix}-"
-  machine_type = "e2-standard-2"
-  tags         = ["es"]
-  labels       = local.machine-labels
-
-  disk {
-    boot         = true
-    disk_size_gb = 200
-    source_image = "ubuntu-os-cloud/ubuntu-${local.es_clusters[count.index].ubuntu_version}-lts"
-  }
-
-  metadata_startup_script = format(local.es_startup_template, local.es_clusters[count.index].init)
 
   network_interface {
     network = google_compute_network.es.name
@@ -220,12 +217,6 @@ resource "google_compute_instance_template" "es" {
       # Required per ES documentation
       "compute-rw",
     ]
-  }
-
-  scheduling {
-    automatic_restart   = false
-    on_host_maintenance = "TERMINATE"
-    preemptible         = true
   }
 
   lifecycle {
@@ -678,8 +669,8 @@ emit_mappings() {
         }
       },
       settings: {
-        number_of_replicas: 2,
-        number_of_shards: 5,
+        number_of_replicas: 1,
+        number_of_shards: 3,
         "mapping.nested_objects.limit": 100000
       }
     }'
@@ -843,13 +834,15 @@ echo "Running rsync..."
 $GSUTIL -q -m rsync -r gs://daml-data/bazel-metrics/ $DATA/
 echo "Total data size: $(du -hs $DATA | awk '{print $1}')."
 
-cd $DATA
-for tar in $(ls */**/*.tar.gz | sort); do
+todo=$(find $DATA -type f -name \*.tar.gz | sort)
+comm=$(comm -23 <(for f in $todo; do basename $${f%.tar.gz}; done | sort) <(ls $DONE | sort))
+
+echo "Need to push $(echo "$comm" | sed '/^$/d' | wc -l) files out of $(echo "$todo" | sed '/^$/d' | wc -l)."
+
+for tar in $todo; do
   job=$(basename $${tar%.tar.gz})
   cd $(dirname $tar)
-  if [ -f $DONE/$job ]; then
-    echo "$job: already done, skipping."
-  else
+  if ! [ -f $DONE/$job ]; then
     ensure_index "$job" "$(index "$job" jobs)"
     ensure_index "$job" "$(index "$job" events)"
     tar --force-local -x -z -f "$(basename "$tar")"
@@ -863,7 +856,6 @@ for tar in $(ls */**/*.tar.gz | sort); do
     echo "$job: $(echo $r | jq '.result')"
     touch "$DONE/$job"
   fi
-  cd $DATA
 done
 CRON
 
@@ -878,18 +870,21 @@ DONE=/root/done
 mkdir -p $DONE
 
 echo "Synchronizing with cluster state..."
+found=0
 for prefix in jobs events; do
   for idx in $(curl --fail "http://$ES_IP/_cat/indices/$prefix-*?format=json" -s | jq -r '.[] | .index'); do
-    echo "Found index $idx"
+    found=$((found + 1))
     touch $DONE/$idx;
   done
 done
+echo "Found $found indices."
 
 if curl -s --fail -I "http://$ES_IP/done" >/dev/null; then
+  found=0
   res=$(curl --fail "http://$ES_IP/done/_search?_source=false&size=1000&scroll=5m" -s)
   while (echo $res | jq -e '.hits.hits != []' >/dev/null); do
     for id in $(echo $res | jq -r '.hits.hits[]._id'); do
-      echo "found: $id"
+      found=$((found + 1))
       touch $DONE/$id
     done
     scroll_id=$(echo $res | jq -r '._scroll_id')
@@ -901,7 +896,9 @@ if curl -s --fail -I "http://$ES_IP/done" >/dev/null; then
                         '{scroll: "5m", scroll_id: $id}')" \
                -H 'Content-Type: application/json')
   done
+  echo "Found $found jobs."
 else
+  echo "No done index; creating..."
   r=$(curl -XPUT "http://$ES_IP/done" \
            -d '{"settings": {"number_of_replicas": 2}}' \
            --fail \
