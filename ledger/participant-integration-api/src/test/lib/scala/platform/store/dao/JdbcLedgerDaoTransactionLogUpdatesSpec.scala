@@ -50,7 +50,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
   it should "return the correct transaction log updates" in {
     for {
       from <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
-      (offset1, t1) <- store(singleCreate)
+      (offset1, t1) <- store(singleCreate(create(_), List.empty))
       (offset2, t2) <- store(txCreateContractWithKey(alice, "some-key"))
       (offset3, t3) <- store(
         singleExercise(
@@ -124,6 +124,9 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
             actualEventsById.get(expectedEventId)
           actualCreated.contractId shouldBe nodeCreate.coid
           actualCreated.templateId shouldBe nodeCreate.templateId
+          actualCreated.submitters should contain theSameElementsAs expected.actAs
+            .map(_.toString)
+            .toSet
           actualCreated.treeEventWitnesses shouldBe nodeCreate.informeesOfNode
           actualCreated.flatEventWitnesses shouldBe nodeCreate.stakeholders
           actualCreated.createSignatories shouldBe nodeCreate.signatories
@@ -139,6 +142,9 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
 
           actualExercised.contractId shouldBe nodeExercises.targetCoid
           actualExercised.templateId shouldBe nodeExercises.templateId
+          actualExercised.submitters should contain theSameElementsAs expected.actAs
+            .map(_.toString)
+            .toSet
           if (actualExercised.consuming)
             actualExercised.flatEventWitnesses shouldBe nodeExercises.stakeholders
           else
