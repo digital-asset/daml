@@ -60,7 +60,7 @@ package object v2 {
   val TransactionId: Ref.LedgerString.type = Ref.LedgerString
   type TransactionId = Ref.LedgerString
 
-  /** Identifiers used to correlate submission with results. */
+  /** Identifiers used to correlate commands with results. */
   val CommandId: Ref.LedgerString.type = Ref.LedgerString
   type CommandId = Ref.LedgerString
 
@@ -72,11 +72,7 @@ package object v2 {
   val ApplicationId: Ref.LedgerString.type = Ref.LedgerString
   type ApplicationId = Ref.LedgerString
 
-  /** Identifiers used to correlate admin submission with results. */
-  val AdminSubmissionId: Ref.LedgerString.type = Ref.LedgerString
-  type AdminSubmissionId = Ref.LedgerString
-
-  /** Identifier for command submissions. */
+  /** Identifiers used to correlate submissions with results. */
   val SubmissionId: Ref.LedgerString.type = Ref.LedgerString
   type SubmissionId = Ref.LedgerString
 

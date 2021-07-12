@@ -29,7 +29,7 @@ object Update {
   /** Signal that the current [[Configuration]] has changed. */
   final case class ConfigurationChanged(
       recordTime: Timestamp,
-      submissionId: AdminSubmissionId,
+      submissionId: SubmissionId,
       participantId: ParticipantId,
       newConfiguration: Configuration,
   ) extends Update {
@@ -41,7 +41,7 @@ object Update {
     */
   final case class ConfigurationChangeRejected(
       recordTime: Timestamp,
-      submissionId: AdminSubmissionId,
+      submissionId: SubmissionId,
       participantId: ParticipantId,
       proposedConfiguration: Configuration,
       rejectionReason: String,
@@ -73,7 +73,7 @@ object Update {
       displayName: String,
       participantId: ParticipantId,
       recordTime: Timestamp,
-      submissionId: Option[AdminSubmissionId],
+      submissionId: Option[SubmissionId],
   ) extends Update {
     override def description: String =
       s"Add party '$party' to participant"
@@ -95,7 +95,7 @@ object Update {
     *   Reason for rejection of the party allocation entry.
     */
   final case class PartyAllocationRejected(
-      submissionId: AdminSubmissionId,
+      submissionId: SubmissionId,
       participantId: ParticipantId,
       recordTime: Timestamp,
       rejectionReason: String,
@@ -119,7 +119,7 @@ object Update {
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
       recordTime: Timestamp,
-      submissionId: Option[AdminSubmissionId],
+      submissionId: Option[SubmissionId],
   ) extends Update {
     override def description: String =
       s"Public package upload: ${archives.map(_.getHash).mkString(", ")}"
@@ -135,7 +135,7 @@ object Update {
     *   Reason why the upload was rejected.
     */
   final case class PublicPackageUploadRejected(
-      submissionId: AdminSubmissionId,
+      submissionId: SubmissionId,
       recordTime: Timestamp,
       rejectionReason: String,
   ) extends Update {
