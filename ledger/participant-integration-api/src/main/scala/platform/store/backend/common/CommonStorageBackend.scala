@@ -866,7 +866,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       int("create_argument_compression").? ~
       array[String]("tree_event_witnesses") ~
       array[String]("flat_event_witnesses") ~
-      array[String]("submitters") ~
+      array[String]("submitters").? ~
       str("exercise_choice").? ~
       binaryStream("exercise_argument").? ~
       int("exercise_argument_compression").? ~
@@ -900,7 +900,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           createArgumentCompression,
           treeEventWitnesses.toSet,
           flatEventWitnesses.toSet,
-          submitters.toSet,
+          submitters.map(_.toSet).getOrElse(Set.empty),
           exerciseChoice,
           exerciseArgument,
           exerciseArgumentCompression,

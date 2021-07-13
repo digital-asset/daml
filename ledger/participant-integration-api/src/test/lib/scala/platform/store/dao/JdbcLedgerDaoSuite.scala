@@ -292,6 +292,11 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     )
   }
 
+  protected final def noSubmitterInfo(
+      transaction: LedgerEntry.Transaction
+  ): LedgerEntry.Transaction =
+    transaction.copy(commandId = None, actAs = List.empty, applicationId = None)
+
   protected final def fromTransaction(
       transaction: CommittedTransaction,
       actAs: List[Party] = List(alice),
