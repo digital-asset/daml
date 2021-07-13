@@ -13,7 +13,7 @@ import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.offset.Offset
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.daml.logging.LoggingContext
@@ -155,13 +155,13 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
 
   override def storeTransaction(
       preparedInsert: PreparedInsert,
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       ledgerEffectiveTime: Instant,
       offsetStep: OffsetStep,
       transaction: CommittedTransaction,
-      divulged: Iterable[DivulgedContract],
+      divulged: Iterable[state.DivulgedContract],
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storeTransaction,
@@ -178,13 +178,13 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     )
 
   def prepareTransactionInsert(
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ): TransactionsWriter.PreparedInsert =
     ledgerDao.prepareTransactionInsert(
@@ -199,10 +199,10 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     )
 
   override def storeRejection(
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       recordTime: Instant,
       offsetStep: OffsetStep,
-      reason: RejectionReason,
+      reason: state.RejectionReason,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =
     Timed.future(
       metrics.daml.index.db.storeRejection,
@@ -279,7 +279,7 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     ledgerDao.storeTransactionEvents(preparedInsert)
 
   override def completeTransaction(
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       transactionId: Ref.TransactionId,
       recordTime: Instant,
       offsetStep: OffsetStep,
@@ -290,13 +290,13 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
     * !!! Usage of this is discouraged, with the removal of sandbox-classic this will be removed
     */
   override def storeTransaction(
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       workflowId: Option[Ref.WorkflowId],
       transactionId: Ref.TransactionId,
       ledgerEffectiveTime: Instant,
       offset: OffsetStep,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract],
+      divulgedContracts: Iterable[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
       recordTime: Instant,
   )(implicit loggingContext: LoggingContext): Future[PersistenceResponse] =

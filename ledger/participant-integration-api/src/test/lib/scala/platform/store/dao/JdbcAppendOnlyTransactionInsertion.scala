@@ -4,7 +4,7 @@
 package com.daml.platform.store.dao
 
 import com.daml.ledger.offset.Offset
-import com.daml.ledger.participant.state.v1.{DivulgedContract, SubmitterInfo}
+import com.daml.ledger.participant.state.{v1 => state}
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.entries.LedgerEntry
@@ -16,10 +16,10 @@ trait JdbcAppendOnlyTransactionInsertion {
   self: JdbcLedgerDaoSuite with AsyncTestSuite =>
 
   private[dao] def store(
-      submitterInfo: Option[SubmitterInfo],
+      submitterInfo: Option[state.SubmitterInfo],
       tx: LedgerEntry.Transaction,
       offsetStep: OffsetStep,
-      divulgedContracts: List[DivulgedContract],
+      divulgedContracts: List[state.DivulgedContract],
       blindingInfo: Option[BlindingInfo],
   ): Future[(Offset, LedgerEntry.Transaction)] = {
     for {
