@@ -45,6 +45,7 @@ import com.daml.platform.store.appendonlydao.events.{
 }
 import com.daml.platform.store.dao.DeduplicationKeyMaker
 import com.google.protobuf.ByteString
+import org.scalactic.TripleEquals._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -308,6 +309,73 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         observers = List("observer"),
         key = None,
       )
+      val createNodeId = builder.add(createNode)
+      val transaction = builder.buildCommitted()
+      val update = Update.TransactionAccepted(
+        optSubmitterInfo = Some(submitterInfo),
+        transactionMeta = transactionMeta,
+        transaction = transaction,
+        transactionId = TransactionId.assertFromString("TransactionId"),
+        recordTime = someRecordTime,
+        divulgedContracts = List.empty,
+        blindingInfo = None,
+      )
+      val dtos = UpdateToDbDto(someParticipantId, valueSerialization, compressionStrategy)(
+        someOffset
+      )(update).toList
+
+      dtos should contain theSameElementsInOrderAs List(
+        DbDto.EventCreate(
+          event_offset = Some(someOffset.toHexString),
+          transaction_id = Some(update.transactionId),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.toInstant),
+          command_id = Some(submitterInfo.commandId),
+          workflow_id = transactionMeta.workflowId,
+          application_id = Some(submitterInfo.applicationId),
+          submitters = Some(submitterInfo.actAs.toSet),
+          node_index = Some(createNodeId.index),
+          event_id = Some(EventId(update.transactionId, createNodeId).toLedgerString),
+          contract_id = createNode.coid.coid,
+          template_id = Some(createNode.coinst.template.toString),
+          flat_event_witnesses = Set("signatory", "observer"), // stakeholders
+          tree_event_witnesses = Set("signatory", "observer"), // informees
+          create_argument = Some(emptyArray),
+          create_signatories = Some(Set("signatory")),
+          create_observers = Some(Set("observer")),
+          create_agreement_text = None,
+          create_key_value = None,
+          create_key_hash = None,
+          create_argument_compression = compressionAlgorithmId,
+          create_key_value_compression = None,
+          event_sequential_id = 0,
+        ),
+        DbDto.CommandCompletion(
+          completion_offset = someOffset.toHexString,
+          record_time = update.recordTime.toInstant,
+          application_id = submitterInfo.applicationId,
+          submitters = submitterInfo.actAs.toSet,
+          command_id = submitterInfo.commandId,
+          transaction_id = Some(update.transactionId),
+          status_code = None,
+          status_message = None,
+        ),
+      )
+    }
+
+    "handle TransactionAccepted (single create node with agreement text)" in {
+      val submitterInfo = someSubmitterInfo
+      val transactionMeta = someTransactionMeta
+      val builder = new TransactionBuilder()
+      val createNode = builder
+        .create(
+          id = builder.newCid,
+          template = "pkgid:M:T",
+          argument = Value.ValueUnit,
+          signatories = List("signatory"),
+          observers = List("observer"),
+          key = None,
+        )
+        .copy(agreementText = "agreement text")
       val createNodeId = builder.add(createNode)
       val transaction = builder.buildCommitted()
       val update = Update.TransactionAccepted(
@@ -836,7 +904,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           create_argument = Some(emptyArray),
           create_signatories = Some(Set("signatory")),
           create_observers = Some(Set("observer")),
-          create_agreement_text = Some(createNode.coinst.agreementText),
+          create_agreement_text = None,
           create_key_value = None,
           create_key_hash = None,
           create_argument_compression = compressionAlgorithmId,
@@ -1113,7 +1181,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           create_argument = Some(emptyArray),
           create_signatories = Some(Set("signatory")),
           create_observers = Some(Set("observer")),
-          create_agreement_text = Some(createNode.coinst.agreementText),
+          create_agreement_text = None,
           create_key_value = None,
           create_key_hash = None,
           create_argument_compression = compressionAlgorithmId,
@@ -1127,9 +1195,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 }
 
 object UpdateToDbDtoSpec {
-  // DbDto case classes are not comparable, because the contains Arrays.
-  // The DbDto trait mixes in SomeArrayEquals, but this does not help as some DTOs contain Arrays within Options.
-  // These tests work nevertheless because all array values use the same empty array instance.
   val emptyArray = Array.emptyByteArray
 
   // These tests do not check the correctness of the LF value serialization.
@@ -1210,4 +1275,19 @@ object UpdateToDbDtoSpec {
     optNodeSeeds = None,
     optByKeyNodes = None,
   )
+
+  // DbDto case classes contain serialized values in Arrays (sometimes wrapped in Options),
+  // because this representation can efficiently be passed to Jdbc.
+  // Using Arrays means DbDto instances are not comparable, so we have to define a custom equality operator.
+  implicit val DbDtoEq: org.scalactic.Equality[DbDto] = {
+    case (a: DbDto, b: DbDto) =>
+      (a.productPrefix === b.productPrefix) &&
+        (a.productArity == b.productArity) &&
+        (a.productIterator zip b.productIterator).forall {
+          case (x: Array[_], y: Array[_]) => x sameElements y
+          case (Some(x: Array[_]), Some(y: Array[_])) => x sameElements y
+          case (x, y) => x === y
+        }
+    case (_, _) => false
+  }
 }
