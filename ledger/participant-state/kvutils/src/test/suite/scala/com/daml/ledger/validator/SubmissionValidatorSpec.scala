@@ -99,7 +99,7 @@ class SubmissionValidatorSpec
       val instance = new SubmissionValidator(
         new FakeStateAccess(mockStateOperations),
         failingProcessSubmission,
-        allocateLogEntryId = () => aLogEntryId(),
+        logEntryIdAllocator = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
         metrics = new Metrics(new MetricRegistry),
@@ -126,13 +126,14 @@ class SubmissionValidatorSpec
         )
       ).thenReturn(Future.successful(expectedLogResult))
       val expectedLogEntryId = aLogEntryId()
-      val mockLogEntryIdGenerator = mockFunctionReturning(expectedLogEntryId)
+      val mockLogEntryIdGenerator = mock[LogEntryIdAllocator]
+      when(mockLogEntryIdGenerator.allocate()).thenReturn(expectedLogEntryId)
       val metrics = new Metrics(new MetricRegistry)
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         processSubmission = SubmissionValidator
           .processSubmission(new KeyValueCommitting(Engine.DevEngine(), metrics)),
-        allocateLogEntryId = mockLogEntryIdGenerator,
+        logEntryIdAllocator = mockLogEntryIdGenerator,
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
         metrics = metrics,
@@ -142,7 +143,7 @@ class SubmissionValidatorSpec
         .map {
           inside(_) { case Right(actualLogResult) =>
             actualLogResult should be(expectedLogResult)
-            verify(mockLogEntryIdGenerator, times(1)).apply()
+            verify(mockLogEntryIdGenerator, times(1)).allocate()
             verify(mockStateOperations, times(0))
               .writeState(any[Iterable[Raw.StateEntry]])(anyExecutionContext)
             logEntryValueCaptor.values should have size 1
@@ -170,7 +171,7 @@ class SubmissionValidatorSpec
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         processSubmission = (_, _, _, _, _) => _ => logEntryAndStateResult,
-        allocateLogEntryId = () => aLogEntryId(),
+        logEntryIdAllocator = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
         metrics = new Metrics(new MetricRegistry),
@@ -210,7 +211,7 @@ class SubmissionValidatorSpec
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         processSubmission = (_, _, _, _, _) => _ => logEntryAndStateResult,
-        allocateLogEntryId = () => aLogEntryId(),
+        logEntryIdAllocator = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
         metrics = new Metrics(new MetricRegistry),
@@ -247,7 +248,7 @@ class SubmissionValidatorSpec
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         processSubmission = (_, _, _, _, _) => _ => logEntryAndStateResult,
-        allocateLogEntryId = () => aLogEntryId(),
+        logEntryIdAllocator = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
         metrics = new Metrics(new MetricRegistry),
@@ -292,7 +293,7 @@ class SubmissionValidatorSpec
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         processSubmission = (_, _, _, _, _) => _ => logEntryAndStateResult,
-        allocateLogEntryId = () => aLogEntryId(),
+        logEntryIdAllocator = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
         metrics = new Metrics(new MetricRegistry),
@@ -309,7 +310,6 @@ class SubmissionValidatorSpec
 }
 
 object SubmissionValidatorSpec {
-  import MockitoSugar._
 
   private def aLogEntry(): DamlLogEntry =
     DamlLogEntry
@@ -346,12 +346,6 @@ object SubmissionValidatorSpec {
 
   private def newRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
-
-  private def mockFunctionReturning[A](returnValue: A): () => A = {
-    val mockFunction = mock[() => A]
-    when(mockFunction.apply()).thenReturn(returnValue)
-    mockFunction
-  }
 
   private class FakeStateAccess[LogResult](mockStateOperations: LedgerStateOperations[LogResult])
       extends LedgerStateAccess[LogResult] {

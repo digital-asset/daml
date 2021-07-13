@@ -30,16 +30,16 @@ import scala.util.{Failure, Success, Try}
   *
   * @param ledgerStateAccess     defines how the validator retrieves/writes back state to the ledger
   * @param processSubmission     defines how a log entry and state updates are generated
-  * @param allocateLogEntryId    defines how new log entry IDs are being generated
+  * @param logEntryIdAllocator   defines how new log entry IDs are being generated
   * @param checkForMissingInputs whether all inputs declared as the required inputs in the
   *                              submission must be available in order to pass validation
-  * @param stateValueCache        a cache for deserializing state values from bytes
-  * @param metrics                defines the metric names
+  * @param stateValueCache       a cache for deserializing state values from bytes
+  * @param metrics               defines the metric names
   */
 class SubmissionValidator[LogResult] private[validator] (
     ledgerStateAccess: LedgerStateAccess[LogResult],
     processSubmission: SubmissionValidator.ProcessSubmission,
-    allocateLogEntryId: () => DamlLogEntryId,
+    logEntryIdAllocator: LogEntryIdAllocator,
     checkForMissingInputs: Boolean,
     stateValueCache: StateValueCache,
     metrics: Metrics,
@@ -181,7 +181,7 @@ class SubmissionValidator[LogResult] private[validator] (
         }
 
       case Right(Envelope.SubmissionMessage(submission)) =>
-        val damlLogEntryId = allocateLogEntryId()
+        val damlLogEntryId = logEntryIdAllocator.allocate()
         val declaredInputs = submission.getInputDamlStateList.asScala
         val inputKeysAsBytes = declaredInputs.map(rawKey)
         timedLedgerStateAccess
@@ -320,7 +320,7 @@ object SubmissionValidator {
 
   def create[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],
-      allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
+      logEntryIdAllocator: LogEntryIdAllocator = LogEntryIdAllocator.random,
       checkForMissingInputs: Boolean = false,
       stateValueCache: StateValueCache = Cache.none,
       engine: Engine,
@@ -328,7 +328,7 @@ object SubmissionValidator {
   ): SubmissionValidator[LogResult] = {
     createForTimeMode(
       ledgerStateAccess,
-      allocateNextLogEntryId,
+      logEntryIdAllocator,
       checkForMissingInputs,
       stateValueCache,
       engine,
@@ -340,7 +340,7 @@ object SubmissionValidator {
   // Internal method to enable proper command dedup in sandbox with static time mode
   private[daml] def createForTimeMode[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],
-      allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
+      logEntryIdAllocator: LogEntryIdAllocator = LogEntryIdAllocator.random,
       checkForMissingInputs: Boolean = false,
       stateValueCache: StateValueCache = Cache.none,
       engine: Engine,
@@ -350,7 +350,7 @@ object SubmissionValidator {
     new SubmissionValidator(
       ledgerStateAccess,
       processSubmission(new KeyValueCommitting(engine, metrics, inStaticTimeMode)),
-      allocateNextLogEntryId,
+      logEntryIdAllocator,
       checkForMissingInputs,
       stateValueCache,
       metrics,
