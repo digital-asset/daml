@@ -3,10 +3,7 @@
 
 package com.daml.platform.indexer.ha
 
-import java.util.concurrent.atomic.AtomicReference
-
 import akka.actor.Scheduler
-import akka.stream.KillSwitch
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.concurrent.duration.FiniteDuration
@@ -81,23 +78,6 @@ trait SequenceHelper {
     * @return the Handle
     */
   def handle: Handle
-}
-
-// these family of KillSwitch-es enable the behavior of recording the usage of the KillSwitch
-// - Shutdown always wins: in scenarios like multiple abort and then a shutdown will always capture a shutdown,
-//   even if additional aborts arrive after the shutdown. This is needed so that graceful-shutdown can stop possible
-//   recovery scenarios.
-// - Always the last abort wins.
-trait UsedKillSwitch extends KillSwitch {
-  override def shutdown(): Unit = ()
-  override def abort(ex: Throwable): Unit = ()
-}
-case object ShutDownKillSwitch extends UsedKillSwitch
-case class AbortedKillSwitch(ex: Throwable, _myReference: AtomicReference[KillSwitch])
-    extends CaptureKillSwitch(_myReference)
-class CaptureKillSwitch(myReference: AtomicReference[KillSwitch]) extends KillSwitch {
-  override def shutdown(): Unit = myReference.set(ShutDownKillSwitch)
-  override def abort(ex: Throwable): Unit = myReference.set(AbortedKillSwitch(ex, myReference))
 }
 
 object PreemptableSequence {
