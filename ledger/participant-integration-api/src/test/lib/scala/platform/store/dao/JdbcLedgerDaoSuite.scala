@@ -887,9 +887,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
         lastConfig,
         rejectionReason,
       )
-      .map { r =>
+      .andThen { case Success(_) =>
         previousOffset.set(Some(offset))
-        r
       }
 }
 

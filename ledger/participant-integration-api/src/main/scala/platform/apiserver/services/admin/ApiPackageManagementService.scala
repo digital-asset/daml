@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.time.Duration
-import java.util.UUID
 import java.util.zip.ZipInputStream
 
 import akka.stream.Materializer
@@ -140,7 +139,7 @@ private[apiserver] object ApiPackageManagementService {
       managementServiceTimeout: Duration,
       engine: Engine,
       darReader: GenDarReader[Archive] = DarParser,
-      submissionIdGenerator: String => v1.SubmissionId = augmentSubmissionId,
+      submissionIdGenerator: String => SubmissionId = augmentSubmissionId,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -155,15 +154,6 @@ private[apiserver] object ApiPackageManagementService {
       darReader,
       submissionIdGenerator,
     )
-
-  private def augmentSubmissionId: String => v1.SubmissionId =
-    submissionId =>
-      if (submissionId.isEmpty)
-        SubmissionId.assertFromString(UUID.randomUUID().toString)
-      else
-        SubmissionId.assertFromString(
-          submissionId.concat(s"-${UUID.randomUUID().toString}")
-        )
 
   private final class SynchronousResponseStrategy(
       ledgerEndService: LedgerEndService,

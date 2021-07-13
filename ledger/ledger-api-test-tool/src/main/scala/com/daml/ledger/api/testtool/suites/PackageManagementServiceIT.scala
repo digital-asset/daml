@@ -46,7 +46,7 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "DuplicateSubmissionIdWhenSubmissionsCorrect",
+    "DuplicateSubmissionId",
     "Duplicate submission ids are accepted when package uploaded twice",
     allocate(NoParties, NoParties),
   )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
@@ -59,32 +59,6 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
       _ <- alpha.uploadDarFile(request)
       _ <- beta.uploadDarFile(request)
     } yield ()
-  })
-
-  test(
-    "DuplicateSubmissionIdWhenSubmissionsIncorrect",
-    "Duplicate submission ids are accepted when package uploads are invalid",
-    allocate(NoParties, NoParties),
-  )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
-    for {
-      testPackage <- loadTestPackage()
-      goodRequest = alpha.uploadDarRequest(testPackage)
-      badRequest = goodRequest.update(_.darFile := ByteString.EMPTY)
-      failure1 <- alpha.uploadDarFile(badRequest).mustFail("uploading an empty package")
-      _ <- beta.uploadDarFile(goodRequest)
-      failure2 <- alpha.uploadDarFile(badRequest).mustFail("uploading an empty package")
-    } yield {
-      assertGrpcError(
-        failure1,
-        Status.Code.INVALID_ARGUMENT,
-        "Invalid argument: Invalid DAR: package-upload",
-      )
-      assertGrpcError(
-        failure2,
-        Status.Code.INVALID_ARGUMENT,
-        "Invalid argument: Invalid DAR: package-upload",
-      )
-    }
   })
 
   test(

@@ -7,6 +7,7 @@ import com.daml.grpc.{GrpcException, GrpcStatus}
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
+import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.v1.admin.config_management_service.{
   SetTimeModelRequest,
@@ -14,7 +15,6 @@ import com.daml.ledger.api.v1.admin.config_management_service.{
   TimeModel,
 }
 import com.google.protobuf.duration.Duration
-
 import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -187,7 +187,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
   })
 
   test(
-    "DuplicateSubmissionIdWhenSubmissionsCorrect",
+    "DuplicateSubmissionId",
     "Duplicate submission ids are accepted when config changed twice",
     allocate(NoParties, NoParties),
     runConcurrently = false,
@@ -201,29 +201,10 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
           .update(_.configurationGeneration := r.configurationGeneration + 1)
       )
       _ <- ignoreNotAuthorized(alpha.setTimeModel(req1))
+      _ <- synchronize(alpha, beta)
       _ <- ignoreNotAuthorized(beta.setTimeModel(req2))
     } yield ()
 
-  })
-
-  test(
-    "DuplicateSubmissionIdWhenSubmissionsIncorrect",
-    "Duplicate submission ids are accepted when config changes are invalid",
-    allocate(NoParties, NoParties),
-    runConcurrently = false,
-  )(implicit ec => { case Participants(Participant(alpha), Participant(beta)) =>
-    for {
-      (good, bad) <- generateRequest(alpha).map(r =>
-        r ->
-          r.update(_.configurationGeneration := r.configurationGeneration + 2)
-      )
-      failure1 <- beta.setTimeModel(bad).mustFail(mismatchingGenerations)
-      _ <- ignoreNotAuthorized(alpha.setTimeModel(good))
-      failure2 <- beta.setTimeModel(bad).mustFail(mismatchingGenerations)
-    } yield {
-      assertGenerationMispatchOrNotAuthorized(failure1)
-      assertGenerationMispatchOrNotAuthorized(failure2)
-    }
   })
 
   def generateRequest(
@@ -242,8 +223,7 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
       )
     } yield req
 
-  private val notAuthorizedPattern = "not authorized"
-  private val mismatchingGenerations = "Mismatching configuration generation"
+  private val notAuthorizedPattern = "not authorized".r.pattern
 
   // On some ledger implementations only one participant is allowed to modify config, others will
   // fail with an authorization failure.
@@ -254,21 +234,10 @@ final class ConfigManagementServiceIT extends LedgerTestSuite {
       case Success(value: SetTimeModelResponse) =>
         Success(Some(value))
       case Failure(GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _))
-          if (notAuthorizedPattern.r.pattern.matcher(msg).find()) =>
+          if (notAuthorizedPattern.matcher(msg).find()) =>
         Success(None)
       case Failure(failure) =>
         Failure(failure)
 
-    }
-
-  def assertGenerationMispatchOrNotAuthorized(failure: Throwable): Unit =
-    failure match {
-      case GrpcException(GrpcStatus(Status.Code.ABORTED, Some(msg)), _)
-          if (notAuthorizedPattern.r.pattern.matcher(msg).find()) =>
-        ()
-      case GrpcException(GrpcStatus(Status.Code.INVALID_ARGUMENT, Some(msg)), _)
-          if (mismatchingGenerations.r.pattern.matcher(msg).find()) =>
-        ()
-      case _ => fail(s"Unexpected error $failure")
     }
 }

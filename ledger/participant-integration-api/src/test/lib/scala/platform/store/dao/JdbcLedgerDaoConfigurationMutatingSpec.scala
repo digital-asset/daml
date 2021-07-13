@@ -8,6 +8,7 @@ import com.daml.platform.store.entries.ConfigurationEntry
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+// TODO append-only: remove this class once the mutating schema is removed
 trait JdbcLedgerDaoConfigurationMutatingSpec {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 

@@ -174,9 +174,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .map(_.packageDetails)
 
   def uploadDarFile(bytes: ByteString): Future[Unit] =
-    services.packageManagement
-      .uploadDarFile(new UploadDarFileRequest(bytes))
-      .map(_ => ())
+    uploadDarFile(new UploadDarFileRequest(bytes))
 
   def uploadDarRequest(bytes: ByteString): UploadDarFileRequest =
     new UploadDarFileRequest(bytes, nextSubmissionId())
@@ -696,9 +694,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       generation: Long,
       newTimeModel: TimeModel,
   ): Future[SetTimeModelResponse] =
-    services.configManagement.setTimeModel(
-      SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel))
-    )
+    setTimeModel(setTimeModelRequest(mrt, generation, newTimeModel))
 
   def setTimeModelRequest(
       mrt: Instant,

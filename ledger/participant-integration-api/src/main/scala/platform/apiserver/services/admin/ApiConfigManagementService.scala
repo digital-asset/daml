@@ -4,7 +4,6 @@
 package com.daml.platform.apiserver.services.admin
 
 import java.time.{Duration => JDuration}
-import java.util.UUID
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -43,7 +42,7 @@ private[apiserver] final class ApiConfigManagementService private (
     writeService: WriteConfigService,
     timeProvider: TimeProvider,
     ledgerConfiguration: LedgerConfiguration,
-    submissionIdGenerator: String => v1.SubmissionId,
+    submissionIdGenerator: String => SubmissionId,
 )(implicit
     materializer: Materializer,
     executionContext: ExecutionContext,
@@ -196,7 +195,7 @@ private[apiserver] object ApiConfigManagementService {
       writeBackend: WriteConfigService,
       timeProvider: TimeProvider,
       ledgerConfiguration: LedgerConfiguration,
-      submissionIdGenerator: String => v1.SubmissionId = augmentSubmissionId,
+      submissionIdGenerator: String => SubmissionId = augmentSubmissionId,
   )(implicit
       materializer: Materializer,
       executionContext: ExecutionContext,
@@ -209,10 +208,6 @@ private[apiserver] object ApiConfigManagementService {
       ledgerConfiguration,
       submissionIdGenerator,
     )
-
-  private def augmentSubmissionId: String => v1.SubmissionId =
-    submissionId =>
-      SubmissionId.assertFromString(submissionId.concat(s"-${UUID.randomUUID().toString}"))
 
   private final class SynchronousResponseStrategy(
       writeConfigService: WriteConfigService,
