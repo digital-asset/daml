@@ -37,7 +37,6 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyUnassigned,
 }
 import com.daml.scalautil.Statement.discard
-import com.daml.platform.store.Conversions.ArrayColumnToStringArray.arrayColumnToStringArray
 
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
