@@ -12,8 +12,10 @@ import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.\/
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import EndpointsCompanion._
+import akka.http.scaladsl.server.{RequestContext, Route, RouteResult}
+import akka.http.scaladsl.server.RouteResult.{Complete, Rejected}
 import com.daml.http.domain.JwtPayload
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
@@ -49,7 +51,7 @@ object WebsocketEndpoints {
 class WebsocketEndpoints(
     decodeJwt: ValidateJwt,
     webSocketService: WebSocketService,
-) {
+)(implicit ec: ExecutionContext) {
 
   import WebsocketEndpoints._
 
@@ -58,7 +60,7 @@ class WebsocketEndpoints(
   def transactionWebSocket(implicit
       lc: LoggingContextOf[InstanceUUID],
       metrics: Metrics,
-  ) = {
+  ): Route = { (ctx: RequestContext) =>
     val dispatch: PartialFunction[HttpRequest, LoggingContextOf[
       InstanceUUID with RequestID
     ] => Future[HttpResponse]] = {
@@ -105,12 +107,18 @@ class WebsocketEndpoints(
         )
     }
     import scalaz.std.partialFunction._, scalaz.syntax.arrow._
-    (dispatch &&& { case r => r }) andThen { case (lcFhr, req) =>
-      extendWithRequestIdLogCtx(implicit lc => {
-        logger.trace(s"Incoming request on ${req.uri}")
-        lcFhr(lc)
-      })
-    }
+    dispatch
+      .&&& { case r => r }
+      .andThen { case (lcFhr, req) =>
+        extendWithRequestIdLogCtx(implicit lc => {
+          logger.trace(s"Incoming request on ${req.uri}")
+          lcFhr(lc) map Complete
+        })
+      }
+      .applyOrElse[HttpRequest, Future[RouteResult]](
+        ctx.request,
+        _ => Future(Rejected(Seq.empty)),
+      )
   }
 
   def handleWebsocketRequest[A: WebSocketService.StreamQueryReader](

@@ -11,10 +11,10 @@ import akka.http.scaladsl.model.headers.{
   ModeledCustomHeader,
   ModeledCustomHeaderCompanion,
   OAuth2BearerToken,
-  `X-Forwarded-For`,
   `X-Forwarded-Proto`,
-  `X-Real-Ip`,
 }
+import akka.http.scaladsl.server.Directives.extractClientIP
+import akka.http.scaladsl.server.{RequestContext, Route, RouteResult}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
@@ -68,23 +68,10 @@ class Endpoints(
   import util.ErrorOps._
   import Uri.Path._
 
-  // Inspired by
-  // https://github.com/akka/akka-http/blob/master/akka-http/src/main/scala/akka/http/scaladsl/server/directives/MiscDirectives.scala#L110-L116
-  // Because the Remote-Address header is deprecated we don't match for it here.
-  def requestSource(req: HttpRequest): RemoteAddress =
-    req
-      .header[`X-Forwarded-For`]
-      .flatMap(_.addresses.headOption)
-      .orElse(req.header[`X-Real-Ip`].map(_.address))
-      .orElse(req.attribute(AttributeKeys.remoteAddress))
-      .getOrElse(RemoteAddress.Unknown)
-
-  // Parenthesis in the case matches below are required because otherwise scalafmt breaks.
-  //noinspection ScalaUnnecessaryParentheses
   def all(implicit
       lc: LoggingContextOf[InstanceUUID],
       metrics: Metrics,
-  ): PartialFunction[HttpRequest, Future[HttpResponse]] = {
+  ): Route = extractClientIP { remoteAddress => (ctx: RequestContext) =>
     val apiMetrics = metrics.daml.HttpJsonApi
     type DispatchFun =
       PartialFunction[HttpRequest, LoggingContextOf[InstanceUUID with RequestID] => Future[
@@ -151,27 +138,34 @@ class Endpoints(
         _ => healthService.ready().map(_.toHttpResponse)
     }
     import scalaz.std.partialFunction._, scalaz.syntax.arrow._
-    ((commandDispatch orElse
+    val dispatch = commandDispatch orElse
       queryAllDispatch orElse
       queryMatchingDispatch orElse
       fetchDispatch orElse
       getPartyDispatch orElse
       allocatePartyDispatch orElse
       packageManagementDispatch orElse
-      liveOrHealthDispatch) &&& { case r => r }) andThen { case (lcFhr, req) =>
-      extendWithRequestIdLogCtx(implicit lc => {
-        val t0 = System.nanoTime
-        logger.info(s"Incoming request on ${req.uri} from ${requestSource(req)}")
-        metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
-        for {
-          res <- lcFhr(lc)
-          _ = {
-            logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
-            logger.info(s"Responding to client with HTTP ${res.status}")
-          }
-        } yield res
-      })
-    }
+      liveOrHealthDispatch
+    dispatch
+      .&&& { case r => r }
+      .andThen { case (lcFhr, req) =>
+        extendWithRequestIdLogCtx(implicit lc => {
+          val t0 = System.nanoTime
+          logger.info(s"Incoming request on ${req.uri} from $remoteAddress")
+          metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
+          for {
+            res <- lcFhr(lc)
+            _ = {
+              logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+              logger.info(s"Responding to client with HTTP ${res.status}")
+            }
+          } yield RouteResult.Complete(res)
+        })
+      }
+      .applyOrElse[HttpRequest, Future[RouteResult]](
+        ctx.request,
+        _ => Future(RouteResult.Rejected(Seq.empty)),
+      )
   }
 
   def getParseAndDecodeTimerCtx()(implicit

@@ -93,6 +93,7 @@ object HttpService {
       maxInboundMessageSize = maxInboundMessageSize,
     )
 
+    import akka.http.scaladsl.server.Directives._
     val bindingEt: EitherT[Future, Error, ServerBinding] = for {
       client <- eitherT(
         ledgerClient(
@@ -194,14 +195,13 @@ object HttpService {
       )
 
       defaultEndpoints =
-        jsonEndpoints.all orElse
-          websocketEndpoints.transactionWebSocket orElse
-          EndpointsCompanion.notFound
+        concat(
+          jsonEndpoints.all,
+          websocketEndpoints.transactionWebSocket,
+        )
 
       allEndpoints = staticContentConfig.cata(
-        c =>
-          StaticContentEndpoints.all(c) orElse
-            defaultEndpoints,
+        c => concat(StaticContentEndpoints.all(c), defaultEndpoints),
         defaultEndpoints,
       )
 
