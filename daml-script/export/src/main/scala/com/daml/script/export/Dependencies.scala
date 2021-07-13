@@ -5,9 +5,10 @@ package com.daml.script.export
 
 import java.io.FileOutputStream
 import java.nio.file.Path
+
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.client.LedgerClient
-import com.daml.lf.archive.Decoder
+import com.daml.lf.archive
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.{Ast, LanguageVersion}
@@ -31,7 +32,7 @@ object Dependencies {
         case p :: todo =>
           client.packageClient.getPackage(p).flatMap { pkgResp =>
             val pkgId = PackageId.assertFromString(pkgResp.hash)
-            val pkg = Decoder.archivePayloadDecoder(pkgId).fromByteString(pkgResp.archivePayload)
+            val pkg = archive.archivePayloadDecoder(pkgId).fromByteString(pkgResp.archivePayload)
             go(todo ++ pkg.directDeps, acc + (pkgId -> ((pkgResp.archivePayload, pkg))))
           }
       }

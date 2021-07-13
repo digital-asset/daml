@@ -3,7 +3,7 @@
 
 package com.daml.ledger.service
 
-import com.daml.lf.archive.Decoder
+import com.daml.lf.archive.ArchivePayloadParser
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.iface.{DefDataType, Interface}
@@ -68,7 +68,7 @@ object LedgerReader {
   ): Error \/ Interface = {
     import packageResponse._
     \/.attempt {
-      val payload = Decoder.ArchivePayloadParser.fromByteString(archivePayload)
+      val payload = ArchivePayloadParser.fromByteString(archivePayload)
       val (errors, out) =
         InterfaceReader.readInterface(PackageId.assertFromString(hash), payload)
       (if (!errors.empty) -\/("Errors reading LF archive:\n" + errors.toString)

@@ -6,7 +6,6 @@ package com.daml.lf.engine.script
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream._
-
 import java.nio.file.Files
 import scala.jdk.CollectionConverters._
 import scala.concurrent.{Await, ExecutionContext, Future}

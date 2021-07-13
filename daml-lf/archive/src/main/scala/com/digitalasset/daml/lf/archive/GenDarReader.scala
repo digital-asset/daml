@@ -3,24 +3,26 @@
 
 package com.daml.lf.archive
 
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.data.Bytes
-import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.data.TryOps.sequence
-import com.daml.lf.language.Ast
 
 import java.io.{File, FileInputStream, IOException, InputStream}
 import java.util.zip.ZipInputStream
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try, Using}
 
-sealed abstract class GenDarReader[A](decoder: Decoder[A]) {
+final class GenDarReader[A] private[archive] (reader: GenReader[A]) {
 
   import GenDarReader._
 
   /** Reads an archive from a File. */
-  def readArchiveFromFile(darFile: File): Try[Dar[A]] =
-    Using(new ZipInputStream(new FileInputStream(darFile)))(readArchive(darFile.getName, _)).flatten
+  def readArchiveFromFile(
+      darFile: File,
+      entrySizeThreshold: Int = EntrySizeThreshold,
+  ): Try[Dar[A]] =
+    Using(new ZipInputStream(new FileInputStream(darFile)))(
+      readArchive(darFile.getName, _, entrySizeThreshold)
+    ).flatten
 
   /** Reads an archive from a ZipInputStream. The stream will be closed by this function! */
   def readArchive(
@@ -70,7 +72,7 @@ sealed abstract class GenDarReader[A](decoder: Decoder[A]) {
     sequence(names.map(parseOne(getPayload)))
 
   private[this] def parseOne(getPayload: String => Try[Bytes])(s: String): Try[A] =
-    getPayload(s).flatMap(bytes => Try(decoder.fromBytes(bytes)))
+    getPayload(s).flatMap(bytes => Try(reader.fromBytes(bytes)))
 
 }
 
@@ -95,7 +97,3 @@ object GenDarReader {
         .recoverWith { case NonFatal(e1) => Failure(Error.InvalidDar(this, e1)) }
   }
 }
-
-object DarParser extends GenDarReader[DamlLf.Archive](Decoder.ArchiveParser)
-object DarReader extends GenDarReader[ArchivePayload](Decoder.ArchiveReader)
-object DarDecoder extends GenDarReader[(PackageId, Ast.Package)](Decoder.ArchiveDecoder)

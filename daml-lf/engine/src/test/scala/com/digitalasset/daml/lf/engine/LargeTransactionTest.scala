@@ -7,7 +7,7 @@ package engine
 import java.io.File
 
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.lf.archive.{Decoder, UniversalArchiveReader}
+import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
@@ -84,7 +84,7 @@ class LargeTransactionTest extends AnyWordSpec with Matchers with BazelRunfiles 
       resource: String
   ): (PackageId, Ast.Package, Map[PackageId, Ast.Package]) = {
     val payloads = UniversalArchiveReader().readFile(new File(rlocation(resource))).get
-    val packages = Decoder.decodeArchivePayloads(payloads.all)
+    val packages = payloads.all.map(Decode.decodeArchivePayload(_)).toMap
     val mainPkgId = payloads.main.pkgId
     (mainPkgId, packages(mainPkgId), packages)
   }

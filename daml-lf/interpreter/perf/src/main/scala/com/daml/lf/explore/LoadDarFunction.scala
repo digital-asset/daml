@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 package explore
 
-import com.daml.lf.archive.{Decoder, UniversalArchiveReader}
+import com.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
@@ -19,7 +19,7 @@ object LoadDarFunction extends App {
   def load(darFile: File, base: String, funcName: String): (Long => Long) = {
 
     val payloads = UniversalArchiveReader().readFile(darFile).get
-    val packages = Decoder.decodeArchivePayloads(payloads.all)
+    val packages = payloads.all.map(Decode.decodeArchivePayload(_)).toMap
 
     val compilerConfig =
       Compiler.Config.Default.copy(

@@ -4,7 +4,7 @@
 package com.daml.lf
 package testing.archive
 
-import com.daml.lf.archive.Decoder
+import com.daml.lf.archive.Decode
 import com.daml.lf.archive.testing.Encode
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
@@ -162,7 +162,7 @@ class EncodeV1Spec extends AnyWordSpec with Matchers with TableDrivenPropertyChe
       validate(pkgId, pkg)
       val archive =
         Encode.encodeArchive(pkgId -> pkg, defaultParserParameters.languageVersion)
-      val (hash, decodedPackage) = Decoder.decodeArchive(archive)
+      val (hash, decodedPackage) = Decode.decodeArchive(archive)
 
       val pkg1 = normalize(decodedPackage, hash, pkgId)
       pkg shouldBe pkg1

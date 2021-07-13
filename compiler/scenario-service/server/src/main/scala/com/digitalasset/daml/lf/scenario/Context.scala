@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.lf.archive.Decoder
+import com.daml.lf.archive
 import com.daml.lf.data.{assertRight, ImmArray}
 import com.daml.lf.data.Ref.{DottedName, Identifier, ModuleName, PackageId, QualifiedName}
 import com.daml.lf.engine.script.ledgerinteraction.{IdeLedgerClient, ScriptTimeMode}
@@ -87,13 +87,15 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
   ): Unit = synchronized {
 
     val newModules = loadModules.map(module =>
-      Decoder.moduleDecoder(languageVersion, homePackageId).fromByteString(module.getDamlLf1)
+      archive.moduleDecoder(languageVersion, homePackageId).fromByteString(module.getDamlLf1)
     )
     modules --= unloadModules
     newModules.foreach(mod => modules += mod.name -> mod)
 
     val newPackages =
-      Decoder.decodeArchives(loadPackages.map(Decoder.ArchiveParser.fromByteString))
+      loadPackages.map { bytes =>
+        archive.Decode.decodeArchive(archive.ArchiveParser.fromByteString(bytes))
+      }.toMap
 
     val modulesToCompile =
       if (unloadPackages.nonEmpty || newPackages.nonEmpty) {

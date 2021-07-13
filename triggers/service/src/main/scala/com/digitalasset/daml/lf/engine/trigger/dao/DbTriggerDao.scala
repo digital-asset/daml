@@ -10,7 +10,7 @@ import cats.effect.{Blocker, ContextShift, IO}
 import cats.syntax.functor._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.lf.archive.{Dar, Decoder}
+import com.daml.lf.archive.{ArchivePayloadParser, Dar}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine.trigger.{JdbcConfig, RunningTrigger}
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
@@ -182,7 +182,7 @@ abstract class DbTriggerDao protected (
   ): Either[String, (PackageId, DamlLf.ArchivePayload)] =
     for {
       pkgId <- PackageId.fromString(pkgIdString)
-      payload <- Try(Decoder.ArchivePayloadParser.fromByteArray(pkgPayload)) match {
+      payload <- Try(ArchivePayloadParser.fromByteArray(pkgPayload)) match {
         case Failure(err) => Left(s"Failed to parse package with id $pkgId.\n" ++ err.toString)
         case Success(pkg) => Right(pkg)
       }

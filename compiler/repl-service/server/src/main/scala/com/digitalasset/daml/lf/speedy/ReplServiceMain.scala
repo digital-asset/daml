@@ -8,7 +8,6 @@ import akka.actor.ActorSystem
 import akka.stream._
 import com.daml.auth.TokenHolder
 import com.daml.lf.PureCompiledPackages
-import com.daml.lf.archive.Decoder
 import com.daml.lf.data.Ref._
 import com.daml.lf.engine.script._
 import com.daml.lf.language.Ast._
@@ -22,10 +21,10 @@ import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
-
 import java.net.{InetAddress, InetSocketAddress}
 import java.nio.file.{Files, Path, Paths}
 import java.util.logging.{Level, Logger}
+
 import com.daml.lf.engine.script.ledgerinteraction.{ScriptLedgerClient, ScriptTimeMode}
 import com.daml.lf.speedy.iterable.SExprIterable
 
@@ -225,7 +224,7 @@ class ReplService(
       req: LoadPackageRequest,
       respObs: StreamObserver[LoadPackageResponse],
   ): Unit = {
-    val (pkgId, pkg) = Decoder.ArchiveDecoder.fromByteString(req.getPackage)
+    val (pkgId, pkg) = archive.ArchiveDecoder.fromByteString(req.getPackage)
     val newSignatures = signatures.updated(pkgId, AstUtil.toSignature(pkg))
     val newCompiledDefinitions = compiledDefinitions ++
       new Compiler(new language.Interface(newSignatures), compilerConfig)
@@ -241,7 +240,7 @@ class ReplService(
       respObs: StreamObserver[RunScriptResponse],
   ): Unit = {
     val lfVer = LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor(req.getMinor))
-    val mod = Decoder.moduleDecoder(lfVer, homePackageId).fromByteString(req.getDamlLf1)
+    val mod = archive.moduleDecoder(lfVer, homePackageId).fromByteString(req.getDamlLf1)
     val pkg = Package((mainModules + (mod.name -> mod)).values, Seq(), lfVer, None)
     // TODO[AH] Provide daml-script package id from REPL client.
     val Some(scriptPackageId) = this.signatures.collectFirst {

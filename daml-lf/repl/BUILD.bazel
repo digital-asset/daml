@@ -13,6 +13,7 @@ da_scala_binary(
     max_heap_size = "8g",
     scala_deps = [
         "@maven//:org_typelevel_paiges_core",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["maven_coordinates=com.daml:daml-lf-repl:__VERSION__"],
     versioned_scala_deps = {

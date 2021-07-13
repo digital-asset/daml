@@ -6,7 +6,7 @@ package iface
 package reader
 
 import com.daml.daml_lf_dev.DamlLf
-import com.daml.lf.archive.{ArchivePayload, Decoder}
+import com.daml.lf.archive.{ArchivePayload, Reader}
 import scalaz.{Enum => _, _}
 import scalaz.syntax.monoid._
 import scalaz.syntax.traverse._
@@ -84,7 +84,7 @@ object InterfaceReader {
       packageId: Ref.PackageId,
       damlLf: DamlLf.ArchivePayload,
   ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
-    readInterface(Decoder.readArchivePayload(packageId, damlLf))
+    readInterface(Reader.readArchivePayload(packageId, damlLf))
 
   def readInterface(
       payload: ArchivePayload

@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.test.TestDar
-import com.daml.lf.archive.Decoder
+import com.daml.lf.archive.Decode
 import com.daml.lf.command._
 import com.daml.lf.data.Ref.QualifiedName
 import com.daml.lf.data.{ImmArray, Ref}
@@ -24,7 +24,7 @@ class SimplePackage(testDar: TestDar) {
     (Ref.PackageId.assertFromString(archive.getHash), archive)
   }.toMap
 
-  val packages: Map[Ref.PackageId, Ast.Package] = Decoder.decodeArchives(dar.all)
+  val packages: Map[Ref.PackageId, Ast.Package] = dar.all.map(Decode.decodeArchive(_)).toMap
 
   val mainArchive: DamlLf.Archive = dar.main
 

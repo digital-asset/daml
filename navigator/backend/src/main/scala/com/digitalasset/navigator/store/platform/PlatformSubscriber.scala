@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.stream._
 import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
-import com.daml.lf.archive.Decoder
+import com.daml.lf.archive.ArchivePayloadParser
 import com.daml.lf.data.{Ref => DamlLfRef}
 import com.daml.lf.iface.reader.{Errors, InterfaceReader}
 import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
@@ -301,7 +301,7 @@ class PlatformSubscriber(
   }
 
   private def decodePackage(res: GetPackageResponse) = {
-    val payload = Decoder.ArchivePayloadParser.fromByteString(res.archivePayload)
+    val payload = ArchivePayloadParser.fromByteString(res.archivePayload)
     val (errors, out) =
       InterfaceReader.readInterface(DamlLfRef.PackageId.assertFromString(res.hash), payload)
     if (!errors.equals(Errors.zeroErrors)) {

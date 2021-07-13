@@ -30,7 +30,7 @@ import scala.concurrent.duration._
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, Party}
-import com.daml.lf.archive.{Dar, DarReader, Decoder}
+import com.daml.lf.archive.{Dar, DarReader, Decode, Reader}
 import com.daml.lf.data.Ref.{Identifier, PackageId}
 import com.daml.lf.engine._
 import com.daml.lf.engine.trigger.Request.StartParams
@@ -71,7 +71,7 @@ class Server(
   private def addPackagesInMemory(pkgs: List[(PackageId, DamlLf.ArchivePayload)]): Unit = {
     // We store decoded packages in memory
     val pkgMap = pkgs.map { case (pkgId, payload) =>
-      Decoder.decodeArchivePayload(Decoder.readArchivePayload(pkgId, payload))
+      Decode.decodeArchive(Reader.readArchivePayload(pkgId, payload))
     }.toMap
 
     // `addPackage` returns a ResultNeedPackage if a dependency is not yet uploaded.

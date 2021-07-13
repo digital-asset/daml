@@ -14,7 +14,6 @@ import scala.util.{Failure, Success, Try, Using}
 case class UniversalArchiveReader(
     entrySizeThreshold: Int = GenDarReader.EntrySizeThreshold
 ) {
-
   import SupportedFileType._
 
   /** Reads a DAR from a File. */
@@ -31,7 +30,7 @@ case class UniversalArchiveReader(
 
   /** Reads a DALF from an InputStream. This method takes care of closing the stream! */
   def readDalfStream(dalf: InputStream): Dar[ArchivePayload] =
-    Dar(Decoder.ArchiveReader.fromInputStream(dalf), List.empty)
+    Dar(ArchiveReader.fromInputStream(dalf), List.empty)
 
 }
 
