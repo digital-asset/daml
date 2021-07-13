@@ -205,7 +205,6 @@ private[backend] object OracleStorageBackend
       .as(get[Long](1).singleOpt)(connection)
   }
 
-
   // TODO append-only: remove as part of ContractStorageBackend consolidation, use the data-driven one
   private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
     if (parties.isEmpty)

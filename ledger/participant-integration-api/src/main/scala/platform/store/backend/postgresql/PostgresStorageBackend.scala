@@ -21,7 +21,6 @@ import com.daml.platform.store.backend.common.{
   EventStrategy,
   TemplatedStorageBackend,
 }
-import TemplatedStorageBackend.limitClause
 import com.daml.platform.store.backend.{DbDto, StorageBackend, common}
 
 private[backend] object PostgresStorageBackend
@@ -199,7 +198,6 @@ private[backend] object PostgresStorageBackend
 
   // TODO append-only: remove as part of ContractStorageBackend consolidation
   private def format(parties: Set[Party]): String = parties.view.map(p => s"'$p'").mkString(",")
-
 
   // TODO append-only: remove as part of ContractStorageBackend consolidation
   private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
