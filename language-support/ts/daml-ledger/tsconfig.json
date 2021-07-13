@@ -13,7 +13,6 @@
     "module": "commonjs",
     "esModuleInterop": true,
     "declaration": true,
-    "sourceMap": true,
-    "downlevelIteration": true
+    "sourceMap": true
   }
 }

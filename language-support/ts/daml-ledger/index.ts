@@ -374,15 +374,26 @@ function append<K, V>(map: Map<K, V[]>, key: K, value: V): void {
 }
 
 /**
+ * @deprecated All usages of this function should be replaced by just
+ *             iterating over the iterator. For this to happen, the TS
+ *             compiler requires the --downlevelIteration flag, which
+ *             however does not play nicely with Jest when running the
+ *             tests.
+ */
+function materialize<A>(iterator: IterableIterator<A>): Array<A> {
+  return Array.from(iterator);
+}
+
+/**
  * @internal
  *
- * A special handler for stream requests to the /v1/query endpoint.
+ * A special handler for stream requests to the /v1/stream/query endpoint.
  * The query endpoint supports providing offsets on a per-query basis.
  * This class leverages this feature by multiplexing virtual streaming requests to a single web socket.
  */
 class QueryStreamsManager {
 
-    private static readonly ENDPOINT: string = 'v1/query';
+    private static readonly ENDPOINT: string = 'v1/stream/query';
 
     // Mutable state BEGIN
 
@@ -445,19 +456,19 @@ class QueryStreamsManager {
                     const [consumer, matchIndexOffset] = this.matchIndexLookupTable[matchIndex];
                     append(consumersToMatchedQueries, consumer, matchIndex - matchIndexOffset);
                   }
-                  for (const [consumer, matchedQueries] of consumersToMatchedQueries.entries()) {
+                  for (const [consumer, matchedQueries] of materialize(consumersToMatchedQueries.entries())) {
                       // Create a new copy of the event for each consumer to freely mangle the matched queries and avoid sharing mutable state
                       append(multiplexer, consumer, {...event, matchedQueries });
                   }
               } else {
                   const consumers = this.templateIdsLookupTable[event.archived.templateId];
-                  for (const consumer of consumers.values()) {
+                  for (const consumer of materialize(consumers.values())) {
                       // Create a new copy of the event for each consumer to avoid sharing mutable state
                       append(multiplexer, consumer, {...event});
                   }
               }
           }
-          for (const [consumer, events] of multiplexer.entries()) {
+          for (const [consumer, events] of materialize(multiplexer.entries())) {
               for (const event of events) {
                   if (isCreate<object>(event)) {
                       consumer.state.set(event.created.contractId, event.created);
@@ -471,7 +482,7 @@ class QueryStreamsManager {
           if (isRecordWith('offset', json)) {
               const offset = jtv.Result.withException(jtv.oneOf(jtv.constant(null), jtv.string()).run(json.offset));
               let anyLiveEvent: boolean = false;
-              for (const consumer of this.queries.values()) {
+              for (const consumer of materialize(this.queries.values())) {
                 if (consumer.offset === undefined) {
                   // Rebuilding the state array from scratch to make sure mutable state is not shared between the 'change' and 'live' event
                   consumer.stream.emit('live', Array.from(consumer.state.values()));
@@ -484,11 +495,11 @@ class QueryStreamsManager {
               }
           }
       } else if (isRecordWith('warnings', json)) {
-          console.warn('QueryStreamsManager warnings', json);
+          console.warn('Ledger.streamQueries warnings', json);
       } else if (isRecordWith('errors', json)) {
-          console.error('QueryStreamsManager errors', json);
+          console.error('Ledger.streamQueries errors', json);
       } else {
-          console.error('QueryStreamsManager unknown message', json);
+          console.error('Ledger.streamQueries unknown message', json);
       }
     }
 
@@ -505,7 +516,7 @@ class QueryStreamsManager {
           this.ws.addEventListener('close', this.onWsClose);
         } else {
           // ws has closed too quickly / never managed to connect: we give up
-          for (const consumer of this.queries.values()) {
+          for (const consumer of materialize(this.queries.values())) {
             consumer.stream.emit('close', { code: 4001, reason: 'ws connection failed' });
             consumer.stream.removeAllListeners();
           }
@@ -518,7 +529,7 @@ class QueryStreamsManager {
     private onWsOpen(): void {
       this.wsClosed = false;
 
-      for (const query of this.queries.values()) {
+      for (const query of materialize(this.queries.values())) {
           const request = QueryStreamsManager.toRequest(query);
 
           // Add entries to the lookup table for create events
@@ -570,7 +581,7 @@ class QueryStreamsManager {
         this.reconnectThresholdMs = reconnectThreshold;
     }
 
-    streamQueries<T extends object, K, I extends string>(
+    streamSubmit<T extends object, K, I extends string>(
         template: Template<T, K, I>,
         queries: Query<T>[]
     ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
@@ -601,7 +612,7 @@ class Ledger {
   private readonly httpBaseUrl: string;
   private readonly wsBaseUrl: string;
   private readonly reconnectThreshold: number;
-  private readonly queryStreamManager: QueryStreamsManager;
+  private readonly queryStreamsManager: QueryStreamsManager;
 
   /**
    * Construct a new `Ledger` object. See [[LedgerOptions]] for the constructor arguments.
@@ -630,7 +641,7 @@ class Ledger {
     this.httpBaseUrl = httpBaseUrl;
     this.wsBaseUrl = wsBaseUrl;
     this.reconnectThreshold = reconnectThreshold;
-    this.queryStreamManager = new QueryStreamsManager({token, wsBaseUrl, reconnectThreshold});
+    this.queryStreamsManager = new QueryStreamsManager({token, wsBaseUrl, reconnectThreshold});
   }
 
   /**
@@ -1057,7 +1068,7 @@ class Ledger {
     template: Template<T, K, I>,
     queries: Query<T>[]
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
-    return this.queryStreamManager.streamQueries(template, queries);
+    return this.queryStreamsManager.streamSubmit(template, queries);
   }
 
   /**
