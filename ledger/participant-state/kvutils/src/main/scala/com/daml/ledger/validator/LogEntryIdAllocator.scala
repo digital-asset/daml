@@ -3,20 +3,8 @@
 
 package com.daml.ledger.validator
 
-import java.util.UUID
-
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
-import com.google.protobuf.ByteString
 
 trait LogEntryIdAllocator {
   def allocate(): DamlLogEntryId
-}
-
-object LogEntryIdAllocator {
-  object Random extends LogEntryIdAllocator {
-    override def allocate(): DamlLogEntryId =
-      DamlLogEntryId.newBuilder
-        .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
-        .build()
-  }
 }

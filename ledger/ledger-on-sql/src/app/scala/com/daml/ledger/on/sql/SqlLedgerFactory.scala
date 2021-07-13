@@ -16,7 +16,6 @@ import com.daml.ledger.participant.state.kvutils.app.{
 }
 import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
-import com.daml.ledger.validator.LogEntryIdAllocator
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.configuration.LedgerConfiguration
@@ -78,7 +77,7 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
         engine = engine,
         jdbcUrl = jdbcUrl,
         resetOnStartup = false,
-        logEntryIdAllocator = LogEntryIdAllocator.Random,
+        logEntryIdAllocator = RandomLogEntryIdAllocator,
         stateValueCache = caching.WeightedCache.from(
           configuration = config.stateValueCache,
           metrics = metrics.daml.kvutils.submission.validator.stateValueCache,

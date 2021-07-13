@@ -8,7 +8,6 @@ import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpec
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.ledger.validator.LogEntryIdAllocator
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -32,6 +31,6 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       engine = Engine.DevEngine(),
       jdbcUrl = jdbcUrl(testId),
       resetOnStartup = false,
-      logEntryIdAllocator = LogEntryIdAllocator.Random,
+      logEntryIdAllocator = RandomLogEntryIdAllocator,
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
 }
