@@ -444,115 +444,6 @@ class QueryStreamsManager {
       this.wsClosed = true;
     }
 
-    private onWsMessage({data}: {data: any}): void {
-      const json: unknown = JSON.parse(data.toString());
-      if (isRecordWith('events', json)) {
-          const events: Event<object>[] = jtv.Result.withException(jtv.array(decodeEventUnknown).run(json.events));
-          const multiplexer: Map<StreamingQuery<object, unknown, string>, Event<object>[]> = new Map();
-          for (const event of events) {
-              if (isCreate<object>(event)) {
-                  const consumersToMatchedQueries: Map<StreamingQuery<object, unknown, string>, number[]> = new Map();
-                  for (const matchIndex of event.matchedQueries) {
-                    const [consumer, matchIndexOffset] = this.matchIndexLookupTable[matchIndex];
-                    append(consumersToMatchedQueries, consumer, matchIndex - matchIndexOffset);
-                  }
-                  for (const [consumer, matchedQueries] of materialize(consumersToMatchedQueries.entries())) {
-                      // Create a new copy of the event for each consumer to freely mangle the matched queries and avoid sharing mutable state
-                      append(multiplexer, consumer, {...event, matchedQueries });
-                  }
-              } else {
-                  const consumers = this.templateIdsLookupTable[event.archived.templateId];
-                  for (const consumer of materialize(consumers.values())) {
-                      // Create a new copy of the event for each consumer to avoid sharing mutable state
-                      append(multiplexer, consumer, {...event});
-                  }
-              }
-          }
-          for (const [consumer, events] of materialize(multiplexer.entries())) {
-              for (const event of events) {
-                  if (isCreate<object>(event)) {
-                      consumer.state.set(event.created.contractId, event.created);
-                  } else {
-                      consumer.state.delete(event.archived.contractId);
-                  }
-              }
-              consumer.stream.emit('change', Array.from(consumer.state.values()), events);
-          }
-
-          if (isRecordWith('offset', json)) {
-              const offset = jtv.Result.withException(jtv.oneOf(jtv.constant(null), jtv.string()).run(json.offset));
-              let anyLiveEvent: boolean = false;
-              for (const consumer of materialize(this.queries.values())) {
-                if (consumer.offset === undefined) {
-                  // Rebuilding the state array from scratch to make sure mutable state is not shared between the 'change' and 'live' event
-                  consumer.stream.emit('live', Array.from(consumer.state.values()));
-                  anyLiveEvent = true;
-                }
-                consumer.offset = offset;
-              }
-              if (anyLiveEvent === true) {
-                this.wsLiveSince = Date.now();
-              }
-          }
-      } else if (isRecordWith('warnings', json)) {
-          console.warn('Ledger.streamQueries warnings', json);
-      } else if (isRecordWith('errors', json)) {
-          console.error('Ledger.streamQueries errors', json);
-      } else {
-          console.error('Ledger.streamQueries unknown message', json);
-      }
-    }
-
-    private onWsClose(): void {
-      if (this.wsClosed === false) {
-        // The web socket has been closed due to an error
-        // If the conditions are met, attempt to reconnect and/or inform downstream consumers
-        if (this.wsLiveSince !== undefined && Date.now() - this.wsLiveSince >= this.reconnectThresholdMs) {
-          this.wsLiveSince = undefined;
-          this.wsClosed = true;
-          this.ws = new WebSocket(this.url, this.protocols);
-          this.ws.addEventListener('open', this.onWsOpen);
-          this.ws.addEventListener('message', this.onWsMessage);
-          this.ws.addEventListener('close', this.onWsClose);
-        } else {
-          // ws has closed too quickly / never managed to connect: we give up
-          for (const consumer of materialize(this.queries.values())) {
-            consumer.stream.emit('close', { code: 4001, reason: 'ws connection failed' });
-            consumer.stream.removeAllListeners();
-          }
-          this.resetAllState();
-        }
-      }
-    }
-
-
-    private onWsOpen(): void {
-      this.wsClosed = false;
-
-      for (const query of materialize(this.queries.values())) {
-          const request = QueryStreamsManager.toRequest(query);
-
-          // Add entries to the lookup table for create events
-          const matchIndexOffset = this.matchIndexLookupTable.length;
-          const matchIndexLookupTableEntries = new Array(request.length).fill([query, matchIndexOffset]);
-          this.matchIndexLookupTable = this.matchIndexLookupTable.concat(matchIndexLookupTableEntries);
-
-          // Add entries to the lookup table for archive events
-          for (const {templateIds} of request) {
-              for (const templateId of templateIds) {
-                  this.templateIdsLookupTable[templateId] = this.templateIdsLookupTable[templateId] || new Set();
-                  this.templateIdsLookupTable[templateId].add(query);
-              }
-          }
-
-          this.request = this.request.concat(request);
-      }
-
-      // Purposefully ignoring 'error' events; they are always followed by a 'close' event, which needs to be handled anyway
-        
-      this.ws!.send(JSON.stringify(this.request));
-    };
-
     /**
      * The queries have changed: close the web socket
      *
@@ -566,10 +457,118 @@ class QueryStreamsManager {
           this.ws = null;
       }
       if (this.queries.size > 0) {
-        this.ws = new WebSocket(this.url, this.protocols);
-        this.ws.addEventListener('open', this.onWsOpen);
-        this.ws.addEventListener('message', this.onWsMessage);
-        this.ws.addEventListener('close', this.onWsClose);
+        const manager = this; // stable self-reference for callbacks
+        const onWsMessage = ({data}: {data: any}): void => {
+          const json: unknown = JSON.parse(data.toString());
+          if (isRecordWith('events', json)) {
+              const events: Event<object>[] = jtv.Result.withException(jtv.array(decodeEventUnknown).run(json.events));
+              const multiplexer: Map<StreamingQuery<object, unknown, string>, Event<object>[]> = new Map();
+              for (const event of events) {
+                  if (isCreate<object>(event)) {
+                      const consumersToMatchedQueries: Map<StreamingQuery<object, unknown, string>, number[]> = new Map();
+                      for (const matchIndex of event.matchedQueries) {
+                        const [consumer, matchIndexOffset] = manager.matchIndexLookupTable[matchIndex];
+                        append(consumersToMatchedQueries, consumer, matchIndex - matchIndexOffset);
+                      }
+                      for (const [consumer, matchedQueries] of materialize(consumersToMatchedQueries.entries())) {
+                          // Create a new copy of the event for each consumer to freely mangle the matched queries and avoid sharing mutable state
+                          append(multiplexer, consumer, {...event, matchedQueries });
+                      }
+                  } else {
+                      const consumers = manager.templateIdsLookupTable[event.archived.templateId];
+                      for (const consumer of materialize(consumers.values())) {
+                          // Create a new copy of the event for each consumer to avoid sharing mutable state
+                          append(multiplexer, consumer, {...event});
+                      }
+                  }
+              }
+              for (const [consumer, events] of materialize(multiplexer.entries())) {
+                  for (const event of events) {
+                      if (isCreate<object>(event)) {
+                          consumer.state.set(event.created.contractId, event.created);
+                      } else {
+                          consumer.state.delete(event.archived.contractId);
+                      }
+                  }
+                  consumer.stream.emit('change', Array.from(consumer.state.values()), events);
+              }
+
+              if (isRecordWith('offset', json)) {
+                  const offset = jtv.Result.withException(jtv.oneOf(jtv.constant(null), jtv.string()).run(json.offset));
+                  let anyLiveEvent: boolean = false;
+                  for (const consumer of materialize(manager.queries.values())) {
+                    if (consumer.offset === undefined) {
+                      // Rebuilding the state array from scratch to make sure mutable state is not shared between the 'change' and 'live' event
+                      consumer.stream.emit('live', Array.from(consumer.state.values()));
+                      anyLiveEvent = true;
+                    }
+                    consumer.offset = offset;
+                  }
+                  if (anyLiveEvent === true) {
+                    manager.wsLiveSince = Date.now();
+                  }
+              }
+          } else if (isRecordWith('warnings', json)) {
+              console.warn('QueryStreamsManager warnings', json);
+          } else if (isRecordWith('errors', json)) {
+              console.error('QueryStreamsManager errors', json);
+          } else {
+              console.error('QueryStreamsManager unknown message', json);
+          }
+        }
+
+        const onWsClose = (): void => {
+          if (manager.wsClosed === false) {
+            // The web socket has been closed due to an error
+            // If the conditions are met, attempt to reconnect and/or inform downstream consumers
+            if (manager.wsLiveSince !== undefined && Date.now() - manager.wsLiveSince >= manager.reconnectThresholdMs) {
+              manager.wsLiveSince = undefined;
+              manager.wsClosed = true;
+              manager.ws = new WebSocket(manager.url, manager.protocols);
+              manager.ws.addEventListener('open', onWsOpen);
+              manager.ws.addEventListener('message', onWsMessage);
+              manager.ws.addEventListener('close', onWsClose);
+            } else {
+              // ws has closed too quickly / never managed to connect: we give up
+              for (const consumer of materialize(manager.queries.values())) {
+                consumer.stream.emit('close', { code: 4001, reason: 'ws connection failed' });
+                consumer.stream.removeAllListeners();
+              }
+              manager.resetAllState();
+            }
+          }
+        }
+
+        const onWsOpen = (): void => {
+          manager.wsClosed = false;
+
+          for (const query of materialize(manager.queries.values())) {
+              const request = QueryStreamsManager.toRequest(query);
+
+              // Add entries to the lookup table for create events
+              const matchIndexOffset = manager.matchIndexLookupTable.length;
+              const matchIndexLookupTableEntries = new Array(request.length).fill([query, matchIndexOffset]);
+              manager.matchIndexLookupTable = manager.matchIndexLookupTable.concat(matchIndexLookupTableEntries);
+
+              // Add entries to the lookup table for archive events
+              for (const {templateIds} of request) {
+                  for (const templateId of templateIds) {
+                      manager.templateIdsLookupTable[templateId] = manager.templateIdsLookupTable[templateId] || new Set();
+                      manager.templateIdsLookupTable[templateId].add(query);
+                  }
+              }
+
+              manager.request = manager.request.concat(request);
+          }
+
+          // Purposefully ignoring 'error' events; they are always followed by a 'close' event, which needs to be handled anyway
+
+          manager.ws!.send(JSON.stringify(manager.request));
+        };
+        manager.ws = new WebSocket(manager.url, manager.protocols);
+        manager.ws.addEventListener('open', onWsOpen);
+        manager.ws.addEventListener('message', onWsMessage);
+        manager.ws.addEventListener('close', onWsClose);
       }
 
 
