@@ -10,7 +10,6 @@ import scala.util.Using
 
 final class GenReader[X] private[archive] (val fromCodedInputStream: CodedInputStream => X) {
 
-  // close the stream unconditionally
   def fromInputStream(is: java.io.InputStream): X =
     fromCodedInputStream(CodedInputStream.newInstance(is))
 
