@@ -47,7 +47,8 @@ import scala.util.Try
 import scala.util.control.NonFatal
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
-import scala.collection.immutable.Seq
+
+import scala.collection.immutable
 
 class Endpoints(
     allowNonHttps: Boolean,
@@ -166,7 +167,7 @@ class Endpoints(
       }
       .applyOrElse[HttpRequest, Future[RouteResult]](
         ctx.request,
-        _ => Future(Rejected(Seq.empty[Rejection])),
+        _ => Future(Rejected(immutable.Seq.empty[Rejection])),
       )
   }
 
