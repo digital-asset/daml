@@ -18,7 +18,7 @@ import com.daml.platform.store.backend.common.{
   TemplatedStorageBackend,
 }
 import TemplatedStorageBackend.limitClause
-import com.daml.platform.store.backend.{DbDto, StorageBackend}
+import com.daml.platform.store.backend.{DbDto, StorageBackend, common}
 
 import java.sql.Connection
 import java.time.Instant

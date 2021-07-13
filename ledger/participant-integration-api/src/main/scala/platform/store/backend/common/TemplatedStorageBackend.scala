@@ -241,4 +241,7 @@ private[backend] object TemplatedStorageBackend {
        """.as(contractId("contract_id").singleOpt)(connection)
   }
 
+  def limitClause(to: Option[Int]): String =
+    to.map(to => s"fetch next $to rows only").getOrElse("")
+
 }

@@ -21,7 +21,6 @@ import com.daml.platform.store.backend.common.{
   EventStrategy,
   TemplatedStorageBackend,
 }
-import TemplatedStorageBackend.limitClause
 import com.daml.platform.store.backend.{DbDto, StorageBackend, common}
 
 private[backend] object H2StorageBackend
