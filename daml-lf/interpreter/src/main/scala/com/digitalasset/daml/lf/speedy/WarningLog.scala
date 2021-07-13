@@ -6,7 +6,7 @@ package com.daml.lf.speedy
 import org.slf4j.Logger
 import scala.collection.mutable.ArrayBuffer
 
-private[lf] final case class WarningLog (logger: Logger) {
+private[lf] final case class WarningLog(logger: Logger) {
   private val buffer = new ArrayBuffer[String](initialSize = 10)
   def add(message: String): Unit = {
     if (logger.isWarnEnabled) {
@@ -17,4 +17,3 @@ private[lf] final case class WarningLog (logger: Logger) {
 
   def iterator: Iterator[String] = buffer.iterator
 }
-
