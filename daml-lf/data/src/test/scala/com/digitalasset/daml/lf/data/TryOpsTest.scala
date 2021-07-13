@@ -10,6 +10,7 @@ import com.daml.lf.data.TryOps.Bracket.bracket
 
 import scala.util.{Failure, Success, Try}
 
+@deprecated("Bracket is deprecated; use scala.util.Using instead", since = "1.16.0")
 class TryOpsTest extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
 
   "bracket should call clean after successful calculation" in forAll { (a: Int, b: Int) =>
