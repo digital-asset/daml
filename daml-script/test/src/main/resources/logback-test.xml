@@ -21,6 +21,9 @@
     <logger name="daml.tracelog" level="DEBUG">
       <appender-ref ref="TEST-LOGGER" />
     </logger>
+    <logger name="daml.warnings" level="WARN">
+      <appender-ref ref="TEST-LOGGER" />
+    </logger>
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />

@@ -5,7 +5,6 @@ package com.daml.platform.db.migration.translation
 
 import java.io.InputStream
 
-import com.daml.lf.archive.{Decode, Reader}
 import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
 import com.daml.lf.value.Value.{ContractId, ContractInst, VersionedValue}
 import com.daml.lf.value.ValueCoder
@@ -39,7 +38,7 @@ private[migration] object ContractSerializer extends ContractSerializer {
         .decodeVersionedContractInstance[ContractId](
           ValueCoder.CidDecoder,
           TransactionOuterClass.ContractInstance.parseFrom(
-            Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT)
+            ValueSerializer.lfValueCodedInputStream(stream)
           ),
         )
     )

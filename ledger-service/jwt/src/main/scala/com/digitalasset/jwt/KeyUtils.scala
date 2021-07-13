@@ -11,11 +11,10 @@ import java.security.interfaces.{ECPublicKey, RSAPrivateKey, RSAPublicKey}
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.KeyFactory
 
-import com.daml.lf.data.TryOps.Bracket.bracket
 import scalaz.Show
 import scalaz.syntax.show._
 
-import scala.util.Try
+import scala.util.{Try, Using}
 
 object KeyUtils {
   final case class Error(what: Symbol, message: String)
@@ -30,32 +29,26 @@ object KeyUtils {
   /** Reads an RSA public key from a X509 encoded file.
     * These usually have the .crt file extension.
     */
-  def readRSAPublicKeyFromCrt(file: File): Try[RSAPublicKey] = {
-    bracket(Try(new FileInputStream(file)))(is => Try(is.close())).flatMap { istream =>
-      Try(
-        CertificateFactory
-          .getInstance("X.509")
-          .generateCertificate(istream)
-          .getPublicKey
-          .asInstanceOf[RSAPublicKey]
-      )
-    }
-  }
+  def readRSAPublicKeyFromCrt(file: File): Try[RSAPublicKey] =
+    Using(new FileInputStream(file))(
+      CertificateFactory
+        .getInstance("X.509")
+        .generateCertificate(_)
+        .getPublicKey
+        .asInstanceOf[RSAPublicKey]
+    )
 
   /** Reads an EC public key from a X509 encoded file.
     * These usually have the .crt file extension.
     */
-  def readECPublicKeyFromCrt(file: File): Try[ECPublicKey] = {
-    bracket(Try(new FileInputStream(file)))(is => Try(is.close())).flatMap { istream =>
-      Try(
-        CertificateFactory
-          .getInstance("X.509")
-          .generateCertificate(istream)
-          .getPublicKey
-          .asInstanceOf[ECPublicKey]
-      )
-    }
-  }
+  def readECPublicKeyFromCrt(file: File): Try[ECPublicKey] =
+    Using(new FileInputStream(file))(
+      CertificateFactory
+        .getInstance("X.509")
+        .generateCertificate(_)
+        .getPublicKey
+        .asInstanceOf[ECPublicKey]
+    )
 
   /** Reads a RSA private key from a PEM/PKCS#8 file.
     * These usually have the .pem file extension.

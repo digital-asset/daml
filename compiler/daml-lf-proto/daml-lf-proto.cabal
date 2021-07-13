@@ -1,7 +1,7 @@
 cabal-version: 2.4
 name: daml-lf-proto
 build-type: Simple
-version: 0.1.13.0
+version: 0.1.15.0
 synopsis: DAML-LF Protobuf Encoding
 license: Apache-2.0
 author: Digital Asset

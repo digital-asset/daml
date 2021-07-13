@@ -35,12 +35,5 @@ object CommandCompletionSource {
     ClientAdapter
       .serverStreaming(request, stub)
       .mapConcat(toStreamElements)
-      .log(
-        "completion at client",
-        {
-          case CompletionStreamElement.CheckpointElement(c) => s"Checkpoint ${c.offset}"
-          case CompletionStreamElement.CompletionElement(c) => s"Completion $c"
-        },
-      )
   }
 }

@@ -7,7 +7,7 @@ package scenario
 import com.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.daml.lf.ledger.EventId
 import com.daml.lf.scenario.api.{v1 => proto}
-import com.daml.lf.speedy.{SError, SValue, TraceLog}
+import com.daml.lf.speedy.{SError, SValue, TraceLog, WarningLog}
 import com.daml.lf.transaction.{GlobalKey, IncompleteTransaction, Node => N, NodeId}
 import com.daml.lf.ledger._
 import com.daml.lf.value.{Value => V}
@@ -19,6 +19,7 @@ final class Conversions(
     ledger: ScenarioLedger,
     incomplete: Option[IncompleteTransaction],
     traceLog: TraceLog,
+    warningLog: WarningLog,
     commitLocation: Option[Ref.Location],
     stackTrace: ImmArray[Ref.Location],
 ) {
@@ -54,6 +55,9 @@ final class Conversions(
       .setFinalTime(ledger.currentTime.micros)
     traceLog.iterator.foreach { entry =>
       builder.addTraceLog(convertSTraceMessage(entry))
+    }
+    warningLog.iterator.foreach { entry =>
+      builder.addWarnings(convertSWarningMessage(entry))
     }
     builder.build
   }
@@ -271,6 +275,11 @@ final class Conversions(
     builder.setMessage(msgAndLoc._1).build
   }
 
+  private[this] def convertSWarningMessage(msg: String): proto.WarningMessage = {
+    val builder = proto.WarningMessage.newBuilder
+    builder.setMessage(msg).build
+  }
+
   def convertFailedAuthorization(
       nodeId: NodeId,
       fa: FailedAuthorization,
@@ -369,7 +378,6 @@ final class Conversions(
 
   def mkContractRef(coid: V.ContractId, templateId: Ref.Identifier): proto.ContractRef =
     proto.ContractRef.newBuilder
-      .setRelative(false)
       .setContractId(coidToEventId(coid).toLedgerString)
       .setTemplateId(convertIdentifier(templateId))
       .build
@@ -434,14 +442,6 @@ final class Conversions(
       .addAllNodes(tx.nodes.map(convertNode).asJava)
       .addAllRoots(tx.roots.toList.map(convertTxNodeId).asJava)
 
-    incomplete.exerciseContextMaybe.foreach { exe =>
-      val ecBuilder = proto.ExerciseContext.newBuilder
-        .setTargetId(mkContractRef(exe.targetCoid, exe.templateId))
-        .setChoiceId(exe.choiceId)
-        .setChosenValue(convertValue(exe.chosenValue))
-      exe.optLocation.map(loc => ecBuilder.setExerciseLocation(convertLocation(loc)))
-      builder.setExerciseContext(ecBuilder.build)
-    }
     builder.build
   }
 
@@ -508,7 +508,7 @@ final class Conversions(
         )
       case ex: N.NodeExercises[NodeId, V.ContractId] =>
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
-        builder.setExercise(
+        val exerciseBuilder =
           proto.Node.Exercise.newBuilder
             .setTargetContractId(coidToEventId(ex.targetCoid).toLedgerString)
             .setTemplateId(convertIdentifier(ex.templateId))
@@ -524,8 +524,12 @@ final class Conversions(
                 .toSeq
                 .asJava
             )
-            .build
-        )
+
+        ex.exerciseResult.foreach { result =>
+          exerciseBuilder.setExerciseResult(convertValue(result))
+        }
+
+        builder.setExercise(exerciseBuilder.build)
 
       case lbk: N.NodeLookupByKey[V.ContractId] =>
         lbk.optLocation.foreach(loc => builder.setLocation(convertLocation(loc)))

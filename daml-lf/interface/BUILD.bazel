@@ -21,9 +21,6 @@ da_scala_library(
     ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:daml-lf-interface:__VERSION__"],
-    versioned_deps = {
-        "2.13": ["//libs-scala/logging-entries"],
-    },
     visibility = [
         "//daml-assistant/daml-sdk:__subpackages__",
         "//daml-lf:__subpackages__",
@@ -52,6 +49,7 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":interface",
+        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",

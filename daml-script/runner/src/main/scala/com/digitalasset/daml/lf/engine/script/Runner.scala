@@ -36,7 +36,17 @@ import com.daml.lf.speedy.SBuiltin.SBToAny
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.{Compiler, Pretty, SDefinition, SError, SExpr, SValue, Speedy, TraceLog}
+import com.daml.lf.speedy.{
+  Compiler,
+  Pretty,
+  SDefinition,
+  SError,
+  SExpr,
+  SValue,
+  Speedy,
+  TraceLog,
+  WarningLog,
+}
 import com.daml.lf.value.Value.ContractId
 import com.daml.lf.value.json.ApiCodecCompressed
 import com.daml.script.converter.Converter.{JavaList, unrollFree}
@@ -360,13 +370,14 @@ private[lf] class Runner(
   def runWithClients(
       initialClients: Participants[ScriptLedgerClient],
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
+      warningLog: WarningLog = Speedy.Machine.newWarningLog,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): (Speedy.Machine, Future[SValue]) = {
     val machine =
-      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, traceLog)
+      Speedy.Machine.fromPureSExpr(extendedCompiledPackages, script.expr, traceLog, warningLog)
 
     def stepToValue(): Either[RuntimeException, SValue] =
       machine.run() match {

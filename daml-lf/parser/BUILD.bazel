@@ -29,7 +29,6 @@ da_scala_library(
     deps = [
         "//daml-lf/data",
         "//daml-lf/language",
-        "//libs-scala/logging-entries",
     ],
 )
 

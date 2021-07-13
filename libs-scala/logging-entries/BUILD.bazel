@@ -16,3 +16,11 @@ da_scala_library(
         "//visibility:public",
     ],
 )
+
+da_scala_test_suite(
+    name = "logging-entries-tests",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    deps = [
+        ":logging-entries",
+    ],
+)

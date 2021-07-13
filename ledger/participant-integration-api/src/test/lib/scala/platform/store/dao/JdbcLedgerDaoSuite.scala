@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
 import com.daml.ledger.test.ModelTestDar
-import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.RawDarReader
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.transaction.Node._
@@ -31,7 +31,7 @@ import org.scalatest.AsyncTestSuite
 
 import scala.concurrent.Future
 import scala.language.implicitConversions
-import scala.util.{Success, Try}
+import scala.util.Success
 
 private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   this: AsyncTestSuite =>
@@ -54,9 +54,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
   }
 
   private[this] val Success(dar) = {
-    val reader = DarReader { (_, stream) => Try(DamlLf.Archive.parseFrom(stream)) }
     val fileName = new File(rlocation(ModelTestDar.path))
-    reader.readArchiveFromFile(fileName)
+    RawDarReader.readArchiveFromFile(fileName)
   }
 
   private val now = Instant.now()
@@ -292,6 +291,11 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       explicitDisclosure = Map(eid -> (creation.signatories union creation.stakeholders)),
     )
   }
+
+  protected final def noSubmitterInfo(
+      transaction: LedgerEntry.Transaction
+  ): LedgerEntry.Transaction =
+    transaction.copy(commandId = None, actAs = List.empty, applicationId = None)
 
   protected final def fromTransaction(
       transaction: CommittedTransaction,

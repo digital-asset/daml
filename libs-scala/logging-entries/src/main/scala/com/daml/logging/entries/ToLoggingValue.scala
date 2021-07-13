@@ -6,7 +6,7 @@ package com.daml.logging.entries
 import java.time.{Duration, Instant}
 
 trait ToLoggingValue[-T] {
-  def apply(value: T): LoggingValue
+  def toLoggingValue(value: T): LoggingValue
 }
 
 object ToLoggingValue {
@@ -32,11 +32,11 @@ object ToLoggingValue {
       elementToLoggingValue: ToLoggingValue[T]
   ): ToLoggingValue[Option[T]] = {
     case None => LoggingValue.Empty
-    case Some(value) => elementToLoggingValue(value)
+    case Some(value) => elementToLoggingValue.toLoggingValue(value)
   }
 
   implicit def `Iterable[T] to LoggingValue`[T](implicit
       elementToLoggingValue: ToLoggingValue[T]
   ): ToLoggingValue[Iterable[T]] =
-    sequence => LoggingValue.OfIterable(sequence.view.map(elementToLoggingValue.apply))
+    sequence => LoggingValue.OfIterable(sequence.view.map(elementToLoggingValue.toLoggingValue))
 }

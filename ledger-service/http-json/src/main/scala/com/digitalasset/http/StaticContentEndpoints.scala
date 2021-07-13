@@ -5,20 +5,30 @@ package com.daml.http
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.RouteResult.{Complete, Rejected}
 import akka.http.scaladsl.server.directives.ContentTypeResolver.Default
-import akka.http.scaladsl.server.Directives
+import akka.http.scaladsl.server.{Directives, Rejection, RequestContext, Route, RouteResult}
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.syntax.show._
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
+import scala.collection.immutable.Seq
 
 object StaticContentEndpoints {
   def all(config: StaticContentConfig)(implicit
       asys: ActorSystem,
       lc: LoggingContextOf[InstanceUUID],
-  ): PartialFunction[HttpRequest, Future[HttpResponse]] =
+      ec: ExecutionContext,
+  ): Route = (ctx: RequestContext) =>
     new StaticContentRouter(config)
+      .andThen(
+        _ map Complete
+      )
+      .applyOrElse[HttpRequest, Future[RouteResult]](
+        ctx.request,
+        _ => Future(Rejected(Seq.empty[Rejection])),
+      )
 }
 
 private class StaticContentRouter(config: StaticContentConfig)(implicit

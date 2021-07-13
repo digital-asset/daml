@@ -153,7 +153,6 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils:daml_kvutils_proto_java",
-        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -239,6 +238,7 @@ da_scala_benchmark_jmh(
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction:value_proto_java",
         "//ledger/participant-state/kvutils",
+        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

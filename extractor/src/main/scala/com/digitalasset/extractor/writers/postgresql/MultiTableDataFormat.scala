@@ -5,8 +5,7 @@ package com.daml.extractor.writers.postgresql
 
 import com.daml.lf.data.Numeric.maxPrecision
 import com.daml.lf.iface
-import com.daml.lf.iface.reader.InterfaceType
-import com.daml.lf.iface.Record
+import com.daml.lf.iface.{InterfaceType, Record}
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.extractor.ledger.types._
 import com.daml.extractor.Types.{DataIntegrityError, FullyAppliedType}

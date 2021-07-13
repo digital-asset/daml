@@ -104,7 +104,9 @@ private[lf] object Speedy {
       signatories: Set[Party],
       observers: Set[Party],
       key: Option[Node.KeyWithMaintainers[V[Nothing]]],
-  )
+  ) {
+    private[lf] val stakeholders: Set[Party] = signatories union observers;
+  }
 
   private[lf] final case class OnLedger(
       val validating: Boolean,
@@ -165,6 +167,8 @@ private[lf] object Speedy {
       var lastLocation: Option[Location],
       /* The trace log. */
       val traceLog: TraceLog,
+      /* Engine-generated warnings. */
+      val warningLog: WarningLog,
       /* Compiled packages (Daml-LF ast + compiled speedy expressions). */
       var compiledPackages: CompiledPackages,
       /* Used when enableLightweightStepTracing is true */
@@ -743,13 +747,24 @@ private[lf] object Speedy {
       returnValue = go(typ0, value0)
     }
 
+    def checkContractVisibility(onLedger: OnLedger, cid: V.ContractId, contract: CachedContract) = {
+      onLedger.visibleToStakeholders(contract.stakeholders) match {
+        case SVisibleToStakeholders.Visible => ()
+        case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+          this.warningLog.add(
+            s"Tried to fetch or exercise ${contract.templateId} contract ${cid} but none of the reading parties actAs = ${actAs}, readAs = ${readAs} are a stakeholder ${contract.stakeholders}. Use of divulged contracts is deprecated and incompatible with pruning"
+          )
+      }
+    }
   }
 
   object Machine {
 
     private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
+    private val damlWarnings = LoggerFactory.getLogger("daml.warnings")
 
     def newTraceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100)
+    def newWarningLog: WarningLog = new WarningLog(damlWarnings)
 
     def apply(
         compiledPackages: CompiledPackages,
@@ -761,6 +776,7 @@ private[lf] object Speedy {
         readAs: Set[Party],
         validating: Boolean = false,
         traceLog: TraceLog = newTraceLog,
+        warningLog: WarningLog = newWarningLog,
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.On,
     ): Machine = {
       val pkg2TxVersion =
@@ -791,6 +807,7 @@ private[lf] object Speedy {
           contractKeyUniqueness = contractKeyUniqueness,
         ),
         traceLog = traceLog,
+        warningLog = warningLog,
         compiledPackages = compiledPackages,
         steps = 0,
         track = Instrumentation(),
@@ -860,7 +877,8 @@ private[lf] object Speedy {
     def fromPureSExpr(
         compiledPackages: CompiledPackages,
         expr: SExpr,
-        traceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100),
+        traceLog: TraceLog = newTraceLog,
+        warningLog: WarningLog = newWarningLog,
     ): Machine =
       new Machine(
         ctrl = expr,
@@ -873,6 +891,7 @@ private[lf] object Speedy {
         lastLocation = None,
         ledgerMode = OffLedger,
         traceLog = traceLog,
+        warningLog = warningLog,
         compiledPackages = compiledPackages,
         steps = 0,
         track = Instrumentation(),
@@ -1272,6 +1291,7 @@ private[lf] object Speedy {
     def execute(sv: SValue): Unit = {
       val cached = SBuiltin.extractCachedContract(templateId, sv)
       machine.withOnLedger("KCacheContract") { onLedger =>
+        machine.checkContractVisibility(onLedger, cid, cached);
         onLedger.cachedContracts = onLedger.cachedContracts.updated(cid, cached)
         machine.returnValue = cached.value
       }

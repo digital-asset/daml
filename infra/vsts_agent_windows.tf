@@ -85,6 +85,10 @@ $ErrorActionPreference = 'Stop'
 # Disable Windows Defender to speed up disk access
 Set-MpPreference -DisableRealtimeMonitoring $true
 
+# Disable Print Spooler service (security)
+Stop-Service -Name Spooler -Force
+Set-Service -Name Spooler -StartupType Disabled
+
 # Enable long paths
 Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Type DWord -Value 1
 

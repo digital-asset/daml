@@ -9,7 +9,7 @@ load(
 
 da_scala_library(
     name = "participant-state",
-    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/v1/**/*.scala"]),
+    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
         "@maven//:com_typesafe_akka_akka_actor",
@@ -28,6 +28,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-api-health",
         "//ledger/metrics",
         "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
@@ -55,6 +56,8 @@ da_scala_test_suite(
     ],
     deps = [
         ":participant-state",
+        "//daml-lf/data",
         "//daml-lf/transaction",
+        "//ledger-api/grpc-definitions:ledger_api_proto_scala",
     ],
 )

@@ -20,7 +20,7 @@ import com.daml.ledger.api.v1.admin.package_management_service.{
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
 import com.daml.lf.archive.testing.Encode
-import com.daml.lf.archive.{Dar, DarReader}
+import com.daml.lf.archive.{Dar, GenDarReader}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.engine.Engine
@@ -68,7 +68,7 @@ class ApiPackageManagementServiceSpec
   }
 
   private def createApiService(): PackageManagementServiceGrpc.PackageManagementService = {
-    val mockDarReader = mock[DarReader[Archive]]
+    val mockDarReader = mock[GenDarReader[Archive]]
     when(mockDarReader.readArchive(any[String], any[ZipInputStream], any[Int]))
       .thenReturn(Success(new Dar[Archive](anArchive, List.empty)))
 

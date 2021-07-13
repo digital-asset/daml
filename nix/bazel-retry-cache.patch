@@ -1,0 +1,257 @@
+diff --git a/src/main/java/com/google/devtools/build/lib/remote/RemoteCacheClientFactory.java b/src/main/java/com/google/devtools/build/lib/remote/RemoteCacheClientFactory.java
+index 57741a8f28..6673149a20 100644
+--- a/src/main/java/com/google/devtools/build/lib/remote/RemoteCacheClientFactory.java
++++ b/src/main/java/com/google/devtools/build/lib/remote/RemoteCacheClientFactory.java
+@@ -56,15 +56,16 @@ public final class RemoteCacheClientFactory {
+       RemoteOptions options,
+       @Nullable Credentials creds,
+       Path workingDirectory,
+-      DigestUtil digestUtil)
++      DigestUtil digestUtil,
++      RemoteRetrier retrier)
+       throws IOException {
+     Preconditions.checkNotNull(workingDirectory, "workingDirectory");
+     if (isHttpCache(options) && isDiskCache(options)) {
+       return createDiskAndHttpCache(
+-          workingDirectory, options.diskCache, options, creds, digestUtil);
++          workingDirectory, options.diskCache, options, creds, digestUtil, retrier);
+     }
+     if (isHttpCache(options)) {
+-      return createHttp(options, creds, digestUtil);
++      return createHttp(options, creds, digestUtil, retrier);
+     }
+     if (isDiskCache(options)) {
+       return createDiskCache(
+@@ -80,7 +81,7 @@ public final class RemoteCacheClientFactory {
+   }
+ 
+   private static RemoteCacheClient createHttp(
+-      RemoteOptions options, Credentials creds, DigestUtil digestUtil) {
++      RemoteOptions options, Credentials creds, DigestUtil digestUtil, RemoteRetrier retrier) {
+     Preconditions.checkNotNull(options.remoteCache, "remoteCache");
+ 
+     try {
+@@ -99,6 +100,7 @@ public final class RemoteCacheClientFactory {
+               options.remoteVerifyDownloads,
+               ImmutableList.copyOf(options.remoteHeaders),
+               digestUtil,
++              retrier,
+               creds);
+         } else {
+           throw new Exception("Remote cache proxy unsupported: " + options.remoteProxy);
+@@ -111,6 +113,7 @@ public final class RemoteCacheClientFactory {
+             options.remoteVerifyDownloads,
+             ImmutableList.copyOf(options.remoteHeaders),
+             digestUtil,
++            retrier,
+             creds);
+       }
+     } catch (Exception e) {
+@@ -137,7 +140,8 @@ public final class RemoteCacheClientFactory {
+       PathFragment diskCachePath,
+       RemoteOptions options,
+       Credentials cred,
+-      DigestUtil digestUtil)
++      DigestUtil digestUtil,
++      RemoteRetrier retrier)
+       throws IOException {
+     Path cacheDir =
+         workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath, "diskCachePath"));
+@@ -145,7 +149,7 @@ public final class RemoteCacheClientFactory {
+       cacheDir.createDirectoryAndParents();
+     }
+ 
+-    RemoteCacheClient httpCache = createHttp(options, cred, digestUtil);
++    RemoteCacheClient httpCache = createHttp(options, cred, digestUtil, retrier);
+     return createDiskAndRemoteClient(
+         workingDirectory,
+         diskCachePath,
+diff --git a/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java b/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java
+index 350e1afa51..cf5e97c3b5 100644
+--- a/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java
++++ b/src/main/java/com/google/devtools/build/lib/remote/RemoteModule.java
+@@ -213,7 +213,16 @@ public final class RemoteModule extends BlazeModule {
+               remoteOptions,
+               creds,
+               Preconditions.checkNotNull(env.getWorkingDirectory(), "workingDirectory"),
+-              digestUtil);
++              digestUtil,
++              new RemoteRetrier(
++                 remoteOptions,
++                 (e) -> {
++                     System.err.println("RETRYING: " + e.toString());
++                     return true;
++                 },
++                 retryScheduler,
++                 Retrier.ALLOW_ALL_CALLS)
++              );
+     } catch (IOException e) {
+       handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
+       return;
+diff --git a/src/main/java/com/google/devtools/build/lib/remote/http/BUILD b/src/main/java/com/google/devtools/build/lib/remote/http/BUILD
+index 9ce71c7c52..5c7f2d0728 100644
+--- a/src/main/java/com/google/devtools/build/lib/remote/http/BUILD
++++ b/src/main/java/com/google/devtools/build/lib/remote/http/BUILD
+@@ -20,6 +20,7 @@ java_library(
+     deps = [
+         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
+         "//src/main/java/com/google/devtools/build/lib/remote/common",
++        "//src/main/java/com/google/devtools/build/lib/remote:Retrier",
+         "//src/main/java/com/google/devtools/build/lib/remote/util",
+         "//src/main/java/com/google/devtools/build/lib/vfs",
+         "//third_party:auth",
+diff --git a/src/main/java/com/google/devtools/build/lib/remote/http/HttpCacheClient.java b/src/main/java/com/google/devtools/build/lib/remote/http/HttpCacheClient.java
+index 1efecd3bb1..16084e4a43 100644
+--- a/src/main/java/com/google/devtools/build/lib/remote/http/HttpCacheClient.java
++++ b/src/main/java/com/google/devtools/build/lib/remote/http/HttpCacheClient.java
+@@ -25,6 +25,7 @@ import com.google.common.util.concurrent.Futures;
+ import com.google.common.util.concurrent.ListenableFuture;
+ import com.google.common.util.concurrent.MoreExecutors;
+ import com.google.common.util.concurrent.SettableFuture;
++import com.google.devtools.build.lib.remote.RemoteRetrier;
+ import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
+ import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+@@ -132,6 +133,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+   private final boolean useTls;
+   private final boolean verifyDownloads;
+   private final DigestUtil digestUtil;
++  private final RemoteRetrier retrier;
+ 
+   private final Object closeLock = new Object();
+ 
+@@ -153,6 +155,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+       boolean verifyDownloads,
+       ImmutableList<Entry<String, String>> extraHttpHeaders,
+       DigestUtil digestUtil,
++      RemoteRetrier retrier,
+       @Nullable final Credentials creds)
+       throws Exception {
+     return new HttpCacheClient(
+@@ -164,6 +167,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+         verifyDownloads,
+         extraHttpHeaders,
+         digestUtil,
++        retrier,
+         creds,
+         null);
+   }
+@@ -176,6 +180,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+       boolean verifyDownloads,
+       ImmutableList<Entry<String, String>> extraHttpHeaders,
+       DigestUtil digestUtil,
++      RemoteRetrier retrier,
+       @Nullable final Credentials creds)
+       throws Exception {
+ 
+@@ -189,6 +194,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+           verifyDownloads,
+           extraHttpHeaders,
+           digestUtil,
++          retrier,
+           creds,
+           domainSocketAddress);
+     } else if (Epoll.isAvailable()) {
+@@ -201,6 +207,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+           verifyDownloads,
+           extraHttpHeaders,
+           digestUtil,
++          retrier,
+           creds,
+           domainSocketAddress);
+     } else {
+@@ -217,6 +224,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+       boolean verifyDownloads,
+       ImmutableList<Entry<String, String>> extraHttpHeaders,
+       DigestUtil digestUtil,
++      RemoteRetrier retrier,
+       @Nullable final Credentials creds,
+       @Nullable SocketAddress socketAddress)
+       throws Exception {
+@@ -285,6 +293,7 @@ public final class HttpCacheClient implements RemoteCacheClient {
+     this.extraHttpHeaders = extraHttpHeaders;
+     this.verifyDownloads = verifyDownloads;
+     this.digestUtil = digestUtil;
++    this.retrier = retrier;
+   }
+ 
+   @SuppressWarnings("FutureReturnValueIgnored")
+@@ -440,22 +449,24 @@ public final class HttpCacheClient implements RemoteCacheClient {
+   @Override
+   public ListenableFuture<Void> downloadBlob(
+       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+-    final DigestOutputStream digestOut =
+-        verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
+-    return Futures.transformAsync(
+-        get(digest, digestOut != null ? digestOut : out, /* casDownload= */ true),
+-        (v) -> {
+-          try {
+-            if (digestOut != null) {
+-              Utils.verifyBlobContents(digest, digestOut.digest());
+-            }
+-            out.flush();
+-            return Futures.immediateFuture(null);
+-          } catch (IOException e) {
+-            return Futures.immediateFailedFuture(e);
+-          }
+-        },
+-        MoreExecutors.directExecutor());
++    return retrier.executeAsync(() -> {
++        final DigestOutputStream digestOut =
++            verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
++        return Futures.transformAsync(
++            get(digest, digestOut != null ? digestOut : out, /* casDownload= */ true),
++            (v) -> {
++              try {
++                if (digestOut != null) {
++                  Utils.verifyBlobContents(digest, digestOut.digest());
++                }
++                out.flush();
++                return Futures.immediateFuture(null);
++              } catch (IOException e) {
++                return Futures.immediateFailedFuture(e);
++              }
++            },
++            MoreExecutors.directExecutor());
++    });
+   }
+ 
+   @SuppressWarnings("FutureReturnValueIgnored")
+@@ -575,8 +586,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
+   @Override
+   public ListenableFuture<ActionResult> downloadActionResult(
+       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+-    return Utils.downloadAsActionResult(
+-        actionKey, (digest, out) -> get(digest, out, /* casDownload= */ false));
++    return retrier.executeAsync(() -> Utils.downloadAsActionResult(
++        actionKey, (digest, out) -> get(digest, out, /* casDownload= */ false)));
+   }
+ 
+   @SuppressWarnings("FutureReturnValueIgnored")
+@@ -673,20 +684,22 @@ public final class HttpCacheClient implements RemoteCacheClient {
+   @Override
+   public ListenableFuture<Void> uploadFile(
+       RemoteActionExecutionContext context, Digest digest, Path file) {
++    InputStream in;
+     try {
+-      return uploadAsync(
+-          digest.getHash(), digest.getSizeBytes(), file.getInputStream(), /* casUpload= */ true);
++      in = file.getInputStream();
+     } catch (IOException e) {
+       // Can be thrown from file.getInputStream.
+       return Futures.immediateFailedFuture(e);
+     }
++    return retrier.executeAsync(() -> uploadAsync(
++        digest.getHash(), digest.getSizeBytes(), in, /* casUpload= */ true));
+   }
+ 
+   @Override
+   public ListenableFuture<Void> uploadBlob(
+       RemoteActionExecutionContext context, Digest digest, ByteString data) {
+-    return uploadAsync(
+-        digest.getHash(), digest.getSizeBytes(), data.newInput(), /* casUpload= */ true);
++    return retrier.executeAsync(() -> uploadAsync(
++        digest.getHash(), digest.getSizeBytes(), data.newInput(), /* casUpload= */ true));
+   }
+ 
+   @Override

@@ -87,7 +87,6 @@ da_scala_library(
         "//ledger/metrics",
         "//libs-scala/build-info",
         "//libs-scala/grpc-utils",
-        "//libs-scala/logging-entries",
         "//libs-scala/scala-utils",
         "@maven//:com_typesafe_config",
         "@maven//:io_grpc_grpc_netty",

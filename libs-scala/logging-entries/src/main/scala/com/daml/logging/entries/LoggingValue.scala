@@ -14,7 +14,13 @@ object LoggingValue {
 
   object True extends LoggingValue
 
-  final case class OfString(value: String) extends LoggingValue
+  final case class OfString(value: String) extends LoggingValue {
+    def truncated(maxLength: Int): OfString =
+      if (value.length > maxLength)
+        OfString(value.substring(0, maxLength - 1) + "…")
+      else
+        this
+  }
 
   final case class OfInt(value: Int) extends LoggingValue
 
@@ -26,5 +32,5 @@ object LoggingValue {
 
   @inline
   implicit def from[T](value: T)(implicit toLoggingValue: ToLoggingValue[T]): LoggingValue =
-    toLoggingValue(value)
+    toLoggingValue.toLoggingValue(value)
 }

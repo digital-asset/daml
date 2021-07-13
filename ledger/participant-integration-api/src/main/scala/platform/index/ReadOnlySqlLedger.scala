@@ -77,6 +77,7 @@ private[platform] object ReadOnlySqlLedger {
           maxContractKeyStateCacheSize,
           maxTransactionsInMemoryFanOutBufferSize,
           enableInMemoryFanOutForLedgerApi,
+          servicesExecutionContext = servicesExecutionContext,
         )
       else
         new ReadOnlySqlLedgerWithTranslationCache.Owner(

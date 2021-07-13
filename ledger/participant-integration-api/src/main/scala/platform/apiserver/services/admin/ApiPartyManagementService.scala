@@ -73,7 +73,7 @@ private[apiserver] final class ApiPartyManagementService private (
     PartyDetails(details.party, details.displayName.getOrElse(""), details.isLocal)
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
-    withEnrichedLoggingContext(logging.parties(request.parties)) { implicit loggingContext =>
+    withEnrichedLoggingContext(logging.partyStrings(request.parties)) { implicit loggingContext =>
       logger.info("Getting parties")
       partyManagementService
         .getParties(request.parties.map(Ref.Party.assertFromString))
@@ -92,44 +92,45 @@ private[apiserver] final class ApiPartyManagementService private (
   }
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] =
-    withEnrichedLoggingContext(logging.party(request.partyIdHint)) { implicit loggingContext =>
-      logger.info("Allocating party")
-      implicit val telemetryContext: TelemetryContext =
-        DefaultTelemetry.contextFromGrpcThreadLocalContext()
-      val validatedPartyIdentifier =
-        if (request.partyIdHint.isEmpty) {
-          Future.successful(None)
-        } else {
-          Ref.Party
-            .fromString(request.partyIdHint)
-            .fold(
-              error =>
-                Future.failed(
-                  ValidationLogger
-                    .logFailureWithContext(request, ErrorFactories.invalidArgument(error))
-                ),
-              party => Future.successful(Some(party)),
-            )
-        }
+    withEnrichedLoggingContext(logging.partyString(request.partyIdHint)) {
+      implicit loggingContext =>
+        logger.info("Allocating party")
+        implicit val telemetryContext: TelemetryContext =
+          DefaultTelemetry.contextFromGrpcThreadLocalContext()
+        val validatedPartyIdentifier =
+          if (request.partyIdHint.isEmpty) {
+            Future.successful(None)
+          } else {
+            Ref.Party
+              .fromString(request.partyIdHint)
+              .fold(
+                error =>
+                  Future.failed(
+                    ValidationLogger
+                      .logFailureWithContext(request, ErrorFactories.invalidArgument(error))
+                  ),
+                party => Future.successful(Some(party)),
+              )
+          }
 
-      validatedPartyIdentifier
-        .flatMap(party => {
-          val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
-          synchronousResponse
-            .submitAndWait(submissionIdGenerator(party), (party, displayName))
-            .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
-              AllocatePartyResponse(
-                Some(
-                  PartyDetails(
-                    partyDetails.party,
-                    partyDetails.displayName.getOrElse(""),
-                    partyDetails.isLocal,
+        validatedPartyIdentifier
+          .flatMap(party => {
+            val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
+            synchronousResponse
+              .submitAndWait(submissionIdGenerator(party), (party, displayName))
+              .map { case PartyEntry.AllocationAccepted(_, partyDetails) =>
+                AllocatePartyResponse(
+                  Some(
+                    PartyDetails(
+                      partyDetails.party,
+                      partyDetails.displayName.getOrElse(""),
+                      partyDetails.isLocal,
+                    )
                   )
                 )
-              )
-            }
-        })
-        .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
+              }
+          })
+          .andThen(logger.logErrorsOnCall[AllocatePartyResponse])
     }
 
 }

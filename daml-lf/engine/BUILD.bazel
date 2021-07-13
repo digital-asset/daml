@@ -18,9 +18,6 @@ da_scala_library(
     ],
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.daml:daml-lf-engine:__VERSION__"],
-    versioned_deps = {
-        "2.12": ["//libs-scala/logging-entries"],
-    },
     versioned_scala_deps = {
         "2.12": ["@maven//:org_scala_lang_modules_scala_collection_compat"],
     },
@@ -70,6 +67,7 @@ da_scala_test_suite(
         "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/transaction-test-lib",
+        "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
@@ -93,6 +91,7 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
+    versioned_deps = {"2.13": ["@maven//:com_google_protobuf_protobuf_java"]},
     deps = [
         ":engine",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -102,6 +101,5 @@ da_scala_test(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

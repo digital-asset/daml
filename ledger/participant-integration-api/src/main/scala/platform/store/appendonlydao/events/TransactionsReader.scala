@@ -24,6 +24,7 @@ import com.daml.metrics._
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.platform.ApiOffset
 import com.daml.platform.store.appendonlydao.{DbDispatcher, PaginatingAsyncStream}
+import com.daml.platform.store.backend.EventStorageBackend.{FilterParams, RangeParams}
 import com.daml.platform.store.backend.StorageBackend
 import com.daml.platform.store.dao.LedgerDaoTransactionsReader
 import com.daml.platform.store.dao.events.ContractStateEvent
@@ -100,7 +101,7 @@ private[appendonlydao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
         logger.debug(s"getFlatTransactions query($range)")
-        queryNonPruned.executeSqlOrThrow(
+        queryNonPruned.executeSql(
           getTransactions(
             EventsRange(range.startExclusive._2, range.endInclusive._2),
             filter,
@@ -148,9 +149,12 @@ private[appendonlydao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[GetFlatTransactionResponse]] =
     dispatcher
       .executeSql(dbMetrics.lookupFlatTransactionById)(
-        route(requestingParties)(
-          single = storageBackend.flatTransactionSingleParty(transactionId, _) _,
-          multi = storageBackend.flatTransactionMultiParty(transactionId, _) _,
+        storageBackend.flatTransaction(
+          transactionId,
+          FilterParams(
+            wildCardParties = requestingParties,
+            partiesAndTemplates = Set.empty,
+          ),
         )
       )
       .flatMap(rawEvents =>
@@ -180,34 +184,23 @@ private[appendonlydao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
         logger.debug(s"getTransactionTrees query($range)")
-        queryNonPruned.executeSqlOrThrow(
-          route(requestingParties)(
-            single = party =>
-              EventsRange.readPage(
-                read = (range, limit, fetchSizeHint) =>
-                  storageBackend.transactionTreeEventsSingleParty(
-                    startExclusive = range.startExclusive,
-                    endInclusive = range.endInclusive,
-                    requestingParty = party,
-                    limit = limit,
-                    fetchSizeHint = fetchSizeHint,
-                  ),
-                range = EventsRange(range.startExclusive._2, range.endInclusive._2),
-                pageSize = pageSize,
+        queryNonPruned.executeSql(
+          EventsRange.readPage(
+            read = (range, limit, fetchSizeHint) =>
+              storageBackend.transactionTreeEvents(
+                rangeParams = RangeParams(
+                  startExclusive = range.startExclusive,
+                  endInclusive = range.endInclusive,
+                  limit = limit,
+                  fetchSizeHint = fetchSizeHint,
+                ),
+                filterParams = FilterParams(
+                  wildCardParties = requestingParties,
+                  partiesAndTemplates = Set.empty,
+                ),
               ),
-            multi = parties =>
-              EventsRange.readPage(
-                read = (range, limit, fetchSizeHint) =>
-                  storageBackend.transactionTreeEventsMultiParty(
-                    startExclusive = range.startExclusive,
-                    endInclusive = range.endInclusive,
-                    requestingParties = parties,
-                    limit = limit,
-                    fetchSizeHint = fetchSizeHint,
-                  ),
-                range = EventsRange(range.startExclusive._2, range.endInclusive._2),
-                pageSize = pageSize,
-              ),
+            range = EventsRange(range.startExclusive._2, range.endInclusive._2),
+            pageSize = pageSize,
           )(connection),
           range.startExclusive._1,
           pruned =>
@@ -251,9 +244,12 @@ private[appendonlydao] final class TransactionsReader(
   )(implicit loggingContext: LoggingContext): Future[Option[GetTransactionResponse]] =
     dispatcher
       .executeSql(dbMetrics.lookupTransactionTreeById)(
-        route(requestingParties)(
-          single = storageBackend.transactionTreeSingleParty(transactionId, _) _,
-          multi = storageBackend.transactionTreeMultiParty(transactionId, _) _,
+        storageBackend.transactionTree(
+          transactionId,
+          FilterParams(
+            wildCardParties = requestingParties,
+            partiesAndTemplates = Set.empty,
+          ),
         )
       )
       .flatMap(rawEvents =>
@@ -297,7 +293,7 @@ private[appendonlydao] final class TransactionsReader(
       // Dispatch database fetches in parallel
       .mapAsync(eventProcessingParallelism) { range =>
         dispatcher.executeSql(dbMetrics.getTransactionLogUpdates) { implicit conn =>
-          queryNonPruned.executeSqlOrThrow(
+          queryNonPruned.executeSql(
             query = storageBackend.rawEvents(
               startExclusive = range.startExclusive,
               endInclusive = range.endInclusive,
@@ -318,14 +314,16 @@ private[appendonlydao] final class TransactionsReader(
         )
       }
 
+    val transactionLogUpdatesSource = groupContiguous(eventsSource)(by = _.transactionId)
+      .map { v =>
+        val tx = toTransaction(v)
+        (tx.offset, tx.events.last.eventSequentialId) -> tx
+      }
+      .mapMaterializedValue(_ => NotUsed)
+
     InstrumentedSource
       .bufferedSource(
-        original = groupContiguous(eventsSource)(by = _.transactionId)
-          .map { v =>
-            val tx = toTransaction(v)
-            (tx.offset, tx.events.last.eventSequentialId) -> tx
-          }
-          .mapMaterializedValue(_ => NotUsed),
+        original = transactionLogUpdatesSource,
         counter = metrics.daml.index.transactionLogUpdatesBufferSize,
         size = outputStreamBufferSize,
       )
@@ -359,7 +357,7 @@ private[appendonlydao] final class TransactionsReader(
     val query = (range: EventsRange[(Offset, Long)]) => {
       implicit connection: Connection =>
         logger.debug(s"getActiveContracts query($range)")
-        queryNonPruned.executeSqlOrThrow(
+        queryNonPruned.executeSql(
           getActiveContracts(
             range,
             filter,
@@ -406,7 +404,7 @@ private[appendonlydao] final class TransactionsReader(
       )
     )
 
-    Source
+    val contractStateEventsSource = Source
       .fromIterator(() =>
         TransactionsReader
           .splitRange(
@@ -426,7 +424,7 @@ private[appendonlydao] final class TransactionsReader(
       // Dispatch database fetches in parallel
       .mapAsync(eventProcessingParallelism) { range =>
         dispatcher.executeSql(dbMetrics.getContractStateEvents) { implicit conn =>
-          queryNonPruned.executeSqlOrThrow(
+          queryNonPruned.executeSql(
             storageBackend
               .contractStateEvents(range.startExclusive, range.endInclusive)(conn),
             startExclusive._1,
@@ -445,7 +443,13 @@ private[appendonlydao] final class TransactionsReader(
       }
       .map(event => (event.eventOffset, event.eventSequentialId) -> event)
       .mapMaterializedValue(_ => NotUsed)
-      .buffer(outputStreamBufferSize, OverflowStrategy.backpressure)
+
+    InstrumentedSource
+      .bufferedSource(
+        original = contractStateEventsSource,
+        counter = metrics.daml.index.contractStateEventsBufferSize,
+        size = outputStreamBufferSize,
+      )
       .concat(endMarker)
   }
 
@@ -466,7 +470,6 @@ private[appendonlydao] final class TransactionsReader(
             s"Active contracts request after ${activeAt.toHexString} precedes pruned offset ${pruned.toHexString}",
         )
       )
-      .flatMap(_.fold(Future.failed, Future.successful))
       .map { x =>
         EventsRange(
           startExclusive = (Offset.beforeBegin, 0),
@@ -489,16 +492,10 @@ private[appendonlydao] final class TransactionsReader(
             s"Transactions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} precedes pruned offset ${pruned.toHexString}",
         )
       )
-      .flatMap(
-        _.fold(
-          Future.failed,
-          x =>
-            Future.successful(
-              EventsRange(
-                startExclusive = (startExclusive, x.startExclusive),
-                endInclusive = (endInclusive, x.endInclusive),
-              )
-            ),
+      .map(x =>
+        EventsRange(
+          startExclusive = (startExclusive, x.startExclusive),
+          endInclusive = (endInclusive, x.endInclusive),
         )
       )
 

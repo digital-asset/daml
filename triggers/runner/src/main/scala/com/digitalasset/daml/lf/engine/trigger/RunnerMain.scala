@@ -8,7 +8,6 @@ import java.io.File
 import akka.actor.ActorSystem
 import akka.stream._
 import com.daml.auth.TokenHolder
-import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.AkkaExecutionSequencerPool
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
@@ -52,11 +51,8 @@ object RunnerMain {
     RunnerConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) => {
-        val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
-          DarReader().readArchiveFromFile(config.darPath.toFile).get
-        val dar: Dar[(PackageId, Package)] = encodedDar.map { case (pkgId, pkgArchive) =>
-          Decode.readArchivePayload(pkgId, pkgArchive)
-        }
+        val encodedDar = DarReader.readArchiveFromFile(config.darPath.toFile).get
+        val dar: Dar[(PackageId, Package)] = encodedDar.map(Decode.decode)
 
         if (config.listTriggers) {
           listTriggers(config.darPath.toFile, dar)
