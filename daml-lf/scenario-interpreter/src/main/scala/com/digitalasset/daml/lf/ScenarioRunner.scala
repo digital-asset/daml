@@ -43,7 +43,14 @@ final case class ScenarioRunner(
   def run(): ScenarioResult =
     handleUnsafe(runUnsafe()) match {
       case Left(err) =>
-        ScenarioError(ledger, machine.traceLog, currentSubmission, machine.stackTrace(), err)
+        ScenarioError(
+          ledger,
+          machine.traceLog,
+          machine.warningLog,
+          currentSubmission,
+          machine.stackTrace(),
+          err,
+        )
       case Right(t) => t
     }
 
@@ -83,6 +90,7 @@ final case class ScenarioRunner(
             location,
             seed,
             machine.traceLog,
+            machine.warningLog,
           )
           if (mustFail) {
             submitResult match {
@@ -127,7 +135,7 @@ final case class ScenarioRunner(
     }
     val endTime = System.nanoTime()
     val diff = (endTime - startTime) / 1000.0 / 1000.0
-    ScenarioSuccess(ledger, machine.traceLog, diff, steps, finalValue)
+    ScenarioSuccess(ledger, machine.traceLog, machine.warningLog, diff, steps, finalValue)
   }
 
   private def crash(reason: String) =
@@ -381,6 +389,7 @@ object ScenarioRunner {
       location: Option[Location],
       seed: crypto.Hash,
       traceLog: TraceLog = Speedy.Machine.newTraceLog,
+      warningLog: WarningLog = Speedy.Machine.newWarningLog,
   ): SubmissionResult[R] = {
     val ledgerMachine = Speedy.Machine(
       compiledPackages = compiledPackages,
@@ -391,6 +400,7 @@ object ScenarioRunner {
       committers = committers,
       readAs = readAs,
       traceLog = traceLog,
+      warningLog = warningLog,
     )
     val onLedger = ledgerMachine.withOnLedger(NameOf.qualifiedNameOfCurrentFunc)(identity)
     @tailrec
@@ -454,6 +464,7 @@ object ScenarioRunner {
   sealed abstract class ScenarioResult extends Product with Serializable {
     def ledger: ScenarioLedger
     def traceLog: TraceLog
+    def warningLog: WarningLog
   }
 
   final case class CurrentSubmission(
@@ -464,6 +475,7 @@ object ScenarioRunner {
   final case class ScenarioSuccess(
       ledger: ScenarioLedger,
       traceLog: TraceLog,
+      warningLog: WarningLog,
       duration: Double,
       steps: Int,
       resultValue: SValue,
@@ -472,6 +484,7 @@ object ScenarioRunner {
   final case class ScenarioError(
       ledger: ScenarioLedger,
       traceLog: TraceLog,
+      warningLog: WarningLog,
       currentSubmission: Option[CurrentSubmission],
       stackTrace: ImmArray[Location],
       error: Error,

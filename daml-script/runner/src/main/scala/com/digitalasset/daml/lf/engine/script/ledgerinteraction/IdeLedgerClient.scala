@@ -12,7 +12,7 @@ import com.daml.ledger.api.domain.PartyDetails
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.scenario.{ScenarioLedger, ScenarioRunner}
-import com.daml.lf.speedy.{SValue, TraceLog}
+import com.daml.lf.speedy.{SValue, TraceLog, WarningLog}
 import com.daml.lf.transaction.Node.{
   NodeRollback,
   NodeCreate,
@@ -35,8 +35,11 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 // Client for the script service.
-class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog)
-    extends ScriptLedgerClient {
+class IdeLedgerClient(
+    val compiledPackages: CompiledPackages,
+    traceLog: TraceLog,
+    warningLog: WarningLog,
+) extends ScriptLedgerClient {
   private var seed = crypto.Hash.hashPrivateKey(s"script-service")
 
   private var _currentSubmission: Option[ScenarioRunner.CurrentSubmission] = None
@@ -137,6 +140,7 @@ class IdeLedgerClient(val compiledPackages: CompiledPackages, traceLog: TraceLog
         optLocation,
         seed,
         traceLog,
+        warningLog,
       )
       result
     }

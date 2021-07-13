@@ -674,7 +674,6 @@ main =
                     , "         exercise useDelegateCid (GoUseDelegate delegateCid)"
                     , ""
                     , "testDivulge = do"
-                    , "  debug \"start-test\""
                     , "  p1 <- allocateParty \"p1\""
                     , "  p2 <- allocateParty \"p2\""
                     , "  p3 <- allocateParty \"p3\""
@@ -690,21 +689,18 @@ main =
                     , "  cadCid <- submit p1 (createCmd (CreateAndDelegate p1 p2 p3))"
                     , "  useDelegateCid <- submit p2 (createCmd (UseDelegate p2 p3))"
                     , "  submit p3 (createAndExerciseCmd (PullTheStrings p3 cadCid useDelegateCid) GoPullTheStrings)"
-                    , "  debug \"end-test\""
                     , "  pure ()"
                     ]
                 expectScriptSuccess rs (vr "testDivulge") $ \r ->
                   matchRegex r $ T.concat
 
-                    [ "Trace: \n"
-                    , "  \"start-test\"\n"
-                    , "  Warning: Tried to fetch or exercise -homePackageId-:Test:T contract ContractId\\([0-9a-f]*\\) "
+                    [ "Warnings: \n"
+                    , "  Tried to fetch or exercise -homePackageId-:Test:T contract ContractId\\([0-9a-f]*\\) "
                     , "but none of the reading parties actAs = Set\\(p2\\), readAs = Set\\(\\) are a stakeholder TreeSet\\(p1\\). "
                     , "Use of divulged contracts is deprecated and incompatible with pruning\n"
-                    , "  Warning: Tried to fetch or exercise -homePackageId-:Test:T contract ContractId\\([0-9a-f]*\\) "
+                    , "  Tried to fetch or exercise -homePackageId-:Test:T contract ContractId\\([0-9a-f]*\\) "
                     , "but none of the reading parties actAs = Set\\(p2\\), readAs = Set\\(\\) are a stakeholder TreeSet\\(p1\\). "
-                    , "Use of divulged contracts is deprecated and incompatible with pruning\n"
-                    , "  \"end-test\""
+                    , "Use of divulged contracts is deprecated and incompatible with pruning$"
                     ],
               testCase "multi-party query" $ do
                 rs <-
