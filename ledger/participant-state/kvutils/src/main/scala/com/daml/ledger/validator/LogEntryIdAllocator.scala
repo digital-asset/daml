@@ -13,7 +13,7 @@ trait LogEntryIdAllocator {
 }
 
 object LogEntryIdAllocator {
-  private[validator] val random: LogEntryIdAllocator = () =>
+  val random: LogEntryIdAllocator = () =>
     DamlLogEntryId.newBuilder
       .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
       .build()

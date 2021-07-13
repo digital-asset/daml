@@ -6,8 +6,9 @@ package com.daml.ledger.on.sql
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedService}
+import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.daml.ledger.resources.ResourceOwner
+import com.daml.ledger.validator.LogEntryIdAllocator
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Metrics
@@ -31,7 +32,6 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       engine = Engine.DevEngine(),
       jdbcUrl = jdbcUrl(testId),
       resetOnStartup = false,
-      // Using a weak random source to avoid slowdown during tests.
-      logEntryIdAllocator = new SeedServiceLogEntryIdAllocator(SeedService.WeakRandom),
+      logEntryIdAllocator = LogEntryIdAllocator.random,
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
 }
