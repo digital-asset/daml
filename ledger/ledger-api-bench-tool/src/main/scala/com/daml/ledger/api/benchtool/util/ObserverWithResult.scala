@@ -20,8 +20,18 @@ abstract class ObserverWithResult[T, Result](logger: Logger) extends StreamObser
 
   override def onError(t: Throwable): Unit = {
     logger.error(withStreamName(s"Received error: $t"))
-    promise.failure(t)
+    t match {
+      case ex: io.grpc.StatusRuntimeException if isServerShuttingDownError(ex) =>
+        logger.info(s"Stopping reading the stream due to the server being shut down.")
+        promise.completeWith(completeWith())
+      case ex =>
+        promise.failure(ex)
+    }
   }
+
+  private def isServerShuttingDownError(ex: io.grpc.StatusRuntimeException): Boolean =
+    ex.getStatus.getCode == io.grpc.Status.Code.UNAVAILABLE &&
+      ex.getMessage.contains("Server is shutting down")
 
   override def onCompleted(): Unit = {
     logger.info(withStreamName(s"Completed."))
