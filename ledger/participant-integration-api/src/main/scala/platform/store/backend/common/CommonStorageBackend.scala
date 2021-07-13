@@ -224,8 +224,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
 
   // Configurations
 
-
-
   private val SQL_GET_LATEST_CONFIGURATION_ENTRY = SQL(
     s"""select
        |    configuration_entries.ledger_offset,
@@ -316,7 +314,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   }
 
   // Parties
-
 
   private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
     import com.daml.platform.store.Conversions.bigDecimalColumnToBoolean
@@ -516,7 +513,6 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
       |order by ledger_offset asc
       |offset {queryOffset} rows
       |${limitClause(Some(pageSize))}""".stripMargin)
-
       .on(
         "startExclusive" -> startExclusive,
         "endInclusive" -> endInclusive,
