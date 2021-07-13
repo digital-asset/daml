@@ -9,18 +9,18 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v2.AdaptedV1WriteService.{
-  adaptLedgerConfiguration,
-  adaptPruningResult,
-  adaptSubmissionResult,
-}
 import com.daml.lf.data.Time
 import com.daml.telemetry.TelemetryContext
-import com.google.rpc.status.Status
-import AdaptedV1WriteService._
 import com.google.rpc.code.Code
+import com.google.rpc.error_details.ErrorInfo
+import com.google.rpc.status.Status
+import io.grpc.{Metadata, StatusRuntimeException}
+
+import scala.jdk.CollectionConverters._
 
 class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
+  import AdaptedV1WriteService._
+
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
@@ -122,7 +122,6 @@ private[v2] object AdaptedV1WriteService {
     case v1.PruningResult.NotPruned(grpcStatus) => PruningResult.NotPruned(grpcStatus)
   }
 
-  // TODO(miklos-da): Shall we convert synchronous rejection from v1 into a synchronous error?
   def adaptSubmissionResult(submissionResult: v1.SubmissionResult): SubmissionResult =
     submissionResult match {
       case v1.SubmissionResult.Acknowledged =>
@@ -140,8 +139,26 @@ private[v2] object AdaptedV1WriteService {
           Status.of(Code.INTERNAL.index, reason, NoErrorDetails)
         )
       case v1.SubmissionResult.SynchronousReject(failure) =>
-        SubmissionResult.SynchronousReject(failure)
+        val status = failure.getStatus
+        val rpcStatus =
+          Status.of(status.getCode.value(), status.getDescription, errorDetailsForFailure(failure))
+        SubmissionResult.SynchronousError(rpcStatus)
     }
+
+  private def errorDetailsForFailure(
+      failure: StatusRuntimeException
+  ): Seq[com.google.protobuf.any.Any] = {
+    val trailers = failure.getTrailers
+    val metadata = trailers
+      .keys()
+      .asScala
+      .map { key =>
+        key -> trailers.get[String](Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER))
+      }
+      .toMap
+    val errorInfo = ErrorInfo.of(failure.getLocalizedMessage, "Synchronous rejection", metadata)
+    Seq(com.google.protobuf.any.Any.pack(errorInfo))
+  }
 
   def adaptLedgerConfiguration(config: Configuration): v1.Configuration =
     v1.Configuration(
