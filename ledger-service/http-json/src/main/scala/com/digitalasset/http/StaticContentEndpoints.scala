@@ -7,7 +7,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.RouteResult.{Complete, Rejected}
 import akka.http.scaladsl.server.directives.ContentTypeResolver.Default
-import akka.http.scaladsl.server.{Directives, RequestContext, Route, RouteResult}
+import akka.http.scaladsl.server.{Directives, Rejection, RequestContext, Route, RouteResult}
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.syntax.show._
@@ -26,7 +26,7 @@ object StaticContentEndpoints {
       )
       .applyOrElse[HttpRequest, Future[RouteResult]](
         ctx.request,
-        _ => Future(Rejected(Seq.empty)),
+        _ => Future(Rejected(Seq.empty[Rejection])),
       )
 }
 

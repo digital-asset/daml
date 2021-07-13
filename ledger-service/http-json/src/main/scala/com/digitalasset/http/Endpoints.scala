@@ -14,7 +14,7 @@ import akka.http.scaladsl.model.headers.{
   `X-Forwarded-Proto`,
 }
 import akka.http.scaladsl.server.Directives.extractClientIP
-import akka.http.scaladsl.server.{RequestContext, Route, RouteResult}
+import akka.http.scaladsl.server.{Rejection, RequestContext, Route, RouteResult}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
@@ -164,7 +164,7 @@ class Endpoints(
       }
       .applyOrElse[HttpRequest, Future[RouteResult]](
         ctx.request,
-        _ => Future(RouteResult.Rejected(Seq.empty)),
+        _ => Future(RouteResult.Rejected(Seq.empty[Rejection])),
       )
   }
 

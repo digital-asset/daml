@@ -14,7 +14,7 @@ import scalaz.\/
 
 import scala.concurrent.{ExecutionContext, Future}
 import EndpointsCompanion._
-import akka.http.scaladsl.server.{RequestContext, Route, RouteResult}
+import akka.http.scaladsl.server.{Rejection, RequestContext, Route, RouteResult}
 import akka.http.scaladsl.server.RouteResult.{Complete, Rejected}
 import com.daml.http.domain.JwtPayload
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
@@ -117,7 +117,7 @@ class WebsocketEndpoints(
       }
       .applyOrElse[HttpRequest, Future[RouteResult]](
         ctx.request,
-        _ => Future(Rejected(Seq.empty)),
+        _ => Future(Rejected(Seq.empty[Rejection])),
       )
   }
 
