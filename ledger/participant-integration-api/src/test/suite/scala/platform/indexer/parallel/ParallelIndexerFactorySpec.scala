@@ -155,7 +155,7 @@ class ParallelIndexerFactorySpec extends AnyFlatSpec with Matchers {
       averageStartTime = 1000000001,
       offsets = Vector("00", "01", "02").map(offset),
     )
-    actual.copy(batch = Vector.empty) shouldBe expected.copy(batch = Vector.empty)
+    actual shouldBe expected
   }
 
   behavior of "seqMapperZero"
