@@ -3,7 +3,6 @@
 
 package com.daml.ledger.validator
 
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.codahale.metrics.Timer
@@ -19,7 +18,6 @@ import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, Timed}
-import com.google.protobuf.ByteString
 
 import scala.annotation.{nowarn, tailrec}
 import scala.concurrent.{ExecutionContext, Future}
@@ -355,11 +353,6 @@ object SubmissionValidator {
       stateValueCache,
       metrics,
     )
-
-  private[validator] def allocateRandomLogEntryId(): DamlLogEntryId =
-    DamlLogEntryId.newBuilder
-      .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
-      .build()
 
   private[validator] def processSubmission(keyValueCommitting: KeyValueCommitting)(
       damlLogEntryId: DamlLogEntryId,

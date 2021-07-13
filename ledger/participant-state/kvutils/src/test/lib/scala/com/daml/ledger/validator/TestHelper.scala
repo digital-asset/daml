@@ -3,6 +3,8 @@
 
 package com.daml.ledger.validator
 
+import java.util.UUID
+
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Raw
 import com.daml.ledger.participant.state.v1.ParticipantId
@@ -12,6 +14,11 @@ import com.google.protobuf.{ByteString, Empty}
 private[validator] object TestHelper {
 
   lazy val aParticipantId: ParticipantId = ParticipantId.assertFromString("aParticipantId")
+
+  def aLogEntryId(): DamlLogEntryId =
+    DamlLogEntryId.newBuilder
+      .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
+      .build()
 
   lazy val aLogEntry: DamlLogEntry =
     DamlLogEntry
@@ -78,6 +85,4 @@ private[validator] object TestHelper {
     DamlStateValue.newBuilder
       .setContractKeyState(DamlContractKeyState.newBuilder.setContractId(contractId))
       .build
-
-  def aLogEntryId(): DamlLogEntryId = SubmissionValidator.allocateRandomLogEntryId()
 }

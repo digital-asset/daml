@@ -9,9 +9,9 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting, Raw}
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.ArgumentMatchers.anyExecutionContext
 import com.daml.ledger.validator.SubmissionValidatorSpec._
+import com.daml.ledger.validator.TestHelper.{aLogEntry, aLogEntryId, aParticipantId}
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
@@ -42,7 +42,7 @@ class SubmissionValidatorSpec
         metrics = new Metrics(new MetricRegistry),
         engine = Engine.DevEngine(),
       )
-      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
+      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId).map {
         inside(_) {
           case Right(_) => succeed
           case Left(error: ValidationError) => fail(s"ValidationError: $error")
@@ -60,7 +60,7 @@ class SubmissionValidatorSpec
         metrics = new Metrics(new MetricRegistry),
         engine = Engine.DevEngine(),
       )
-      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
+      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId).map {
         inside(_) { case Left(MissingInputState(keys)) =>
           keys should have size 1
         }
@@ -79,7 +79,7 @@ class SubmissionValidatorSpec
           Raw.Envelope(ByteString.copyFrom(Array[Byte](1, 2, 3))),
           "aCorrelationId",
           newRecordTime(),
-          aParticipantId(),
+          aParticipantId,
         )
         .map {
           inside(_) { case Left(ValidationError(reason)) =>
@@ -104,7 +104,7 @@ class SubmissionValidatorSpec
         stateValueCache = Cache.none,
         metrics = new Metrics(new MetricRegistry),
       )
-      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
+      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId).map {
         inside(_) { case Left(ValidationError(reason)) =>
           reason should include("Validation failed")
         }
@@ -139,7 +139,7 @@ class SubmissionValidatorSpec
         metrics = metrics,
       )
       instance
-        .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
+        .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId)
         .map {
           inside(_) { case Right(actualLogResult) =>
             actualLogResult should be(expectedLogResult)
@@ -167,7 +167,7 @@ class SubmissionValidatorSpec
           logEntryCaptor.capture,
         )(anyExecutionContext)
       ).thenReturn(Future.successful(expectedLogResult))
-      val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
+      val logEntryAndStateResult = (aLogEntry, someStateUpdates)
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         processSubmission = (_, _, _, _, _) => _ => logEntryAndStateResult,
@@ -177,7 +177,7 @@ class SubmissionValidatorSpec
         metrics = new Metrics(new MetricRegistry),
       )
       instance
-        .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
+        .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId)
         .map {
           inside(_) { case Right(actualLogResult) =>
             actualLogResult should be(expectedLogResult)
@@ -207,7 +207,7 @@ class SubmissionValidatorSpec
           logEntryCaptor.capture,
         )(anyExecutionContext)
       ).thenReturn(Future.successful(expectedLogResult))
-      val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
+      val logEntryAndStateResult = (aLogEntry, someStateUpdates)
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         processSubmission = (_, _, _, _, _) => _ => logEntryAndStateResult,
@@ -227,7 +227,7 @@ class SubmissionValidatorSpec
             .build
         )
       instance
-        .validateAndCommit(batchEnvelope, "aBatchCorrelationId", newRecordTime(), aParticipantId())
+        .validateAndCommit(batchEnvelope, "aBatchCorrelationId", newRecordTime(), aParticipantId)
         .map {
           inside(_) { case Right(actualLogResult) =>
             actualLogResult should be(expectedLogResult)
@@ -244,7 +244,7 @@ class SubmissionValidatorSpec
 
     "fail when batch contains more than one submission" in {
       val mockStateOperations = mock[LedgerStateOperations[Int]]
-      val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
+      val logEntryAndStateResult = (aLogEntry, someStateUpdates)
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         processSubmission = (_, _, _, _, _) => _ => logEntryAndStateResult,
@@ -269,7 +269,7 @@ class SubmissionValidatorSpec
             .build
         )
       instance
-        .validateAndCommit(batchEnvelope, "aBatchCorrelationId", newRecordTime(), aParticipantId())
+        .validateAndCommit(batchEnvelope, "aBatchCorrelationId", newRecordTime(), aParticipantId)
         .map {
           inside(_) { case Left(ValidationError(reason)) =>
             reason should include("Unsupported batch size")
@@ -289,7 +289,7 @@ class SubmissionValidatorSpec
           any[Raw.Envelope],
         )(anyExecutionContext)
       ).thenReturn(Future.successful(99))
-      val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
+      val logEntryAndStateResult = (aLogEntry, someStateUpdates)
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         processSubmission = (_, _, _, _, _) => _ => logEntryAndStateResult,
@@ -299,7 +299,7 @@ class SubmissionValidatorSpec
         metrics = new Metrics(new MetricRegistry),
       )
       instance
-        .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
+        .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId)
         .map {
           inside(_) { case Left(ValidationError(reason)) =>
             reason should include("Write error")
@@ -310,16 +310,6 @@ class SubmissionValidatorSpec
 }
 
 object SubmissionValidatorSpec {
-
-  private def aLogEntry(): DamlLogEntry =
-    DamlLogEntry
-      .newBuilder()
-      .setPartyAllocationEntry(
-        DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId("aParticipant")
-      )
-      .build()
-
-  private def aLogEntryId(): DamlLogEntryId = SubmissionValidator.allocateRandomLogEntryId()
 
   private def someStateUpdates: Map[DamlStateKey, DamlStateValue] = {
     val key = DamlStateKey
@@ -341,8 +331,6 @@ object SubmissionValidatorSpec {
       .build
     Envelope.enclose(submission)
   }
-
-  private def aParticipantId(): ParticipantId = ParticipantId.assertFromString("aParticipantId")
 
   private def newRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
