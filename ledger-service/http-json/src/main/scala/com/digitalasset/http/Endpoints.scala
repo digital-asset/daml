@@ -165,8 +165,10 @@ class Endpoints(
         metrics.daml.HttpJsonApi.httpRequestThroughput.mark()
         for {
           res <- lcFhr(lc)
-          _ = logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
-          _ = logger.info(s"Responding to client with HTTP ${res.status}")
+          _ = {
+            logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
+            logger.info(s"Responding to client with HTTP ${res.status}")
+          }
         } yield res
       })
     }
