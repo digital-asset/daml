@@ -36,6 +36,8 @@ import scala.util.control.NonFatal
 
 object ParallelIndexerFactory {
 
+  private val keepAliveMaxIdleDuration = FiniteDuration(200, "millis")
+
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def apply[DB_BATCH](
@@ -123,6 +125,19 @@ object ParallelIndexerFactory {
                 .map(_ -> System.nanoTime())
             )
               .map(_ => ())
+              .keepAlive( // TODO ha: remove as stable. This keepAlive approach was introduced for safety with async commit. This is still needed until HA is mandatory for Postgres to ensure safety with async commit.
+                keepAliveMaxIdleDuration,
+                () =>
+                  if (dbDispatcher.currentHealth() == HealthStatus.healthy) {
+                    logger.debug("Indexer keep-alive: database connectivity OK")
+                  } else {
+                    logger
+                      .warn("Indexer keep-alive: database connectivity lost. Stopping indexing.")
+                    throw new Exception(
+                      "Connectivity issue to the index-database detected. Stopping indexing."
+                    )
+                  },
+              )
 
       def subscribe(resourceContext: ResourceContext)(readService: ReadService): Handle = {
         implicit val rc: ResourceContext = resourceContext
