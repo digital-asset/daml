@@ -126,7 +126,7 @@ parseNodeId =
 
 prettyScenarioResult
   :: LF.World -> ScenarioResult -> Doc SyntaxClass
-prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime traceLog) =
+prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime traceLog warnings) =
   let ppSteps = runM nodes world (vsep <$> mapM prettyScenarioStep (V.toList steps))
       sortNodeIds = sortOn parseNodeId
       ppActive =
@@ -135,7 +135,8 @@ prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime trace
         $ sortNodeIds $ mapMaybe nodeNodeId
         $ filter isActive (V.toList nodes)
 
-      ppTrace = vcat $ map (prettyTraceMessage world) (V.toList traceLog)
+      ppTrace = vcat $ map prettyTraceMessage (V.toList traceLog)
+      ppWarnings = vcat $ map prettyWarningMessage (V.toList warnings)
   in vsep
     [ label_ "Transactions: " ppSteps
     , label_ "Active contracts: " ppActive
@@ -143,6 +144,9 @@ prettyScenarioResult world (ScenarioResult steps nodes retValue _finaltime trace
     , if V.null traceLog
       then text ""
       else text "Trace: " $$ nest 2 ppTrace
+    , if V.null warnings
+      then text ""
+      else text "Warnings: " $$ nest 2 ppWarnings
     ]
 
 prettyBriefScenarioError
@@ -167,11 +171,9 @@ prettyScenarioError world ScenarioError{..} = runM scenarioErrorNodes world $ do
   ppPtx <- forM scenarioErrorPartialTransaction $ \ptx -> do
       p <- prettyPartialTransaction ptx
       pure $ text "Partial transaction:" $$ nest 2 p
-  let ppTrace =
-        vcat
-          (map (prettyTraceMessage world)
-               (V.toList scenarioErrorTraceLog))
-  let ppStackTraceEntry loc =
+  let ppTrace = vcat $ map prettyTraceMessage (V.toList scenarioErrorTraceLog)
+      ppWarnings = vcat $ map prettyWarningMessage (V.toList scenarioErrorWarnings)
+      ppStackTraceEntry loc =
          "-" <-> ltext (locationDefinition loc) <-> parens (prettyLocation world loc)
   pure $
     vsep $ catMaybes
@@ -197,15 +199,19 @@ prettyScenarioError world ScenarioError{..} = runM scenarioErrorNodes world $ do
     , if V.null scenarioErrorTraceLog
       then Nothing
       else Just $ text "Trace: " $$ nest 2 ppTrace
+
+    , if V.null scenarioErrorWarnings
+      then Nothing
+      else Just $ text "Warnings: " $$ nest 2 ppWarnings
     ]
 
-prettyTraceMessage
-  :: LF.World -> TraceMessage -> Doc SyntaxClass
-prettyTraceMessage _world msg =
-  -- TODO(JM): Locations are still missing in DAML 1.2, and
-  -- that's the only place where we get traces.
-  --  prettyMayLocation world (traceMessageLocation msg)
+prettyTraceMessage :: TraceMessage -> Doc SyntaxClass
+prettyTraceMessage msg =
   ltext (traceMessageMessage msg)
+
+prettyWarningMessage :: WarningMessage -> Doc SyntaxClass
+prettyWarningMessage msg =
+  ltext (warningMessageMessage msg)
 
 data ExerciseContext = ExerciseContext
   { targetId :: Maybe ContractRef

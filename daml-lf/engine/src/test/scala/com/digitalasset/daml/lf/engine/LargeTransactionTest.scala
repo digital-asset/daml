@@ -16,7 +16,7 @@ import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.lf.transaction.{Node => N, NodeId, Transaction => Tx}
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{NodeId => _, _}
+import com.daml.lf.value.Value._
 import com.daml.lf.command._
 import org.scalameter
 import org.scalameter.Quantity

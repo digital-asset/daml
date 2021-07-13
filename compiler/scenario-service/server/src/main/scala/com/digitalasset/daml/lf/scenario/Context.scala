@@ -195,9 +195,10 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
       ScriptTimeMode.Static,
     )
     val traceLog = Speedy.Machine.newTraceLog
-    val ledgerClient: IdeLedgerClient = new IdeLedgerClient(compiledPackages, traceLog)
+    val warningLog = Speedy.Machine.newWarningLog
+    val ledgerClient: IdeLedgerClient = new IdeLedgerClient(compiledPackages, traceLog, warningLog)
     val participants = Participants(Some(ledgerClient), Map.empty, Map.empty)
-    val (clientMachine, resultF) = runner.runWithClients(participants, traceLog)
+    val (clientMachine, resultF) = runner.runWithClients(participants, traceLog, warningLog)
 
     def handleFailure(e: Error) =
       // SError are the errors that should be handled and displayed as
@@ -207,6 +208,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
           ScenarioRunner.ScenarioError(
             ledgerClient.ledger,
             clientMachine.traceLog,
+            clientMachine.warningLog,
             ledgerClient.currentSubmission,
             // TODO (MK) https://github.com/digital-asset/daml/issues/7276
             ImmArray.empty,
@@ -225,6 +227,7 @@ class Context(val contextId: Context.ContextId, languageVersion: LanguageVersion
             ScenarioRunner.ScenarioSuccess(
               ledgerClient.ledger,
               clientMachine.traceLog,
+              clientMachine.warningLog,
               dummyDuration,
               dummySteps,
               v,

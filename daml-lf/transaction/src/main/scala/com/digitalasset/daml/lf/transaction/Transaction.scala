@@ -9,7 +9,6 @@ import com.daml.lf.data._
 import com.daml.lf.ledger.FailedAuthorization
 import com.daml.lf.transaction.Node.GenNode
 import com.daml.lf.value.Value
-import scalaz.Equal
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
@@ -23,16 +22,6 @@ final case class VersionedTransaction[Nid, +Cid] private[lf] (
     with NoCopy {
 
   override protected def self: this.type = this
-
-  @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
-  def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] = {
-    val versionNode = GenNode.map2(identity[Nid], f)
-    VersionedTransaction(
-      version,
-      nodes = nodes.transform((_, node) => versionNode(node)),
-      roots,
-    )
-  }
 
   // O(1)
   def transaction: GenTransaction[Nid, Cid] =
@@ -927,13 +916,6 @@ object Transaction {
       nid: NodeId,
       fa: FailedAuthorization,
   ) extends TransactionError
-
-  @deprecated("use Validation.isRepledBy", since = "1.10.0")
-  def isReplayedBy[Nid, Cid](
-      recorded: VersionedTransaction[Nid, Cid],
-      replayed: VersionedTransaction[Nid, Cid],
-  )(implicit ECid: Equal[Cid]): Either[ReplayMismatch[Nid, Cid], Unit] =
-    Validation.isReplayedBy(recorded, replayed)
 
   /** The state of a key at the beginning of the transaction.
     */

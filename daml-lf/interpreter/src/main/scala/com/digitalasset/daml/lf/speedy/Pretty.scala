@@ -8,7 +8,7 @@ import org.typelevel.paiges._
 import org.typelevel.paiges.Doc._
 import com.daml.lf.ledger.EventId
 import com.daml.lf.value.Value
-import Value.{NodeId => _, _}
+import Value._
 import com.daml.lf.transaction.Node._
 import com.daml.lf.ledger._
 import com.daml.lf.data.Ref._
