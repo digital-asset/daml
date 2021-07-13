@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.messages.command.completion
 
-import brave.propagation.TraceContext
 import com.daml.ledger.api.domain.LedgerId
 
-case class CompletionEndRequest(ledgerId: LedgerId, traceContext: Option[TraceContext])
+case class CompletionEndRequest(ledgerId: LedgerId)

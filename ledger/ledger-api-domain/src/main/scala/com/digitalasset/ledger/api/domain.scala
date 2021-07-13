@@ -5,7 +5,6 @@ package com.daml.ledger.api
 
 import java.time.Instant
 
-import brave.propagation.TraceContext
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.daml.ledger.participant.state.v1.Configuration
 import com.daml.lf.command.{Commands => LfCommands}
@@ -134,8 +133,6 @@ object domain {
     def effectiveAt: Instant
 
     def offset: LedgerOffset.Absolute
-
-    def traceContext: Option[TraceContext]
   }
 
   final case class TransactionTree(
@@ -146,7 +143,6 @@ object domain {
       offset: LedgerOffset.Absolute,
       eventsById: immutable.Map[EventId, CreateOrExerciseEvent],
       rootEventIds: immutable.Seq[EventId],
-      traceContext: Option[TraceContext],
   ) extends TransactionBase
 
   final case class Transaction(
@@ -156,7 +152,6 @@ object domain {
       effectiveAt: Instant,
       events: immutable.Seq[CreateOrArchiveEvent],
       offset: LedgerOffset.Absolute,
-      traceContext: Option[TraceContext],
   ) extends TransactionBase
 
   sealed trait CompletionEvent extends Product with Serializable {

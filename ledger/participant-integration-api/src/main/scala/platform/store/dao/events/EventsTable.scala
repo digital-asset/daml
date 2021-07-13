@@ -161,7 +161,6 @@ private[events] object EventsTable {
             offset = "", // only the last response will have an offset.
             workflowId = entry.workflowId,
             activeContracts = Seq(entry.event.getCreated),
-            traceContext = None,
           )
         case entry =>
           throw new IllegalStateException(
@@ -211,7 +210,6 @@ private[events] object EventsTable {
           offset = ApiOffset.toApiString(first.eventOffset),
           eventsById = eventsById,
           rootEventIds = rootEventIds,
-          traceContext = None,
         )
       }
 

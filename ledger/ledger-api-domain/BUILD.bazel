@@ -21,7 +21,6 @@ da_scala_library(
         "//daml-lf/transaction",
         "//ledger/participant-state",
         "//libs-scala/logging-entries",
-        "@maven//:io_zipkin_brave_brave",
     ],
 )
 

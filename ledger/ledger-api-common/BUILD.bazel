@@ -47,7 +47,6 @@ da_scala_library(
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_handler",
-        "@maven//:io_zipkin_brave_brave",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -71,7 +70,6 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger/ledger-api-domain",
         "//libs-scala/concurrent",
-        "@maven//:io_zipkin_brave_brave",
     ],
 )
 

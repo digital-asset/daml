@@ -70,7 +70,6 @@ package object testing {
           minLedgerTimeRel = Some(Duration(seconds = 1.minute.toSeconds)),
         )
       ),
-      traceContext = None,
     )
 
 }

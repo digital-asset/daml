@@ -30,16 +30,15 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
   val mockCommandSubmission: SubmissionFlowType[RetryInfo[Status]] =
     Flow[In[RetryInfo[Status]]]
       .map {
-        case Ctx(context @ RetryInfo(_, _, _, status), SubmitRequest(Some(commands), tc), _) =>
+        case Ctx(context @ RetryInfo(_, _, _, status), SubmitRequest(Some(commands)), _) =>
           if (commands.deduplicationTime.get.nanos == 0) {
-            Ctx(context, Completion(commands.commandId, Some(status), traceContext = tc))
+            Ctx(context, Completion(commands.commandId, Some(status)))
           } else {
             Ctx(
               context,
               Completion(
                 commands.commandId,
                 Some(status.copy(code = Code.OK_VALUE)),
-                traceContext = tc,
               ),
             )
           }

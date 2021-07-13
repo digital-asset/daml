@@ -7,10 +7,7 @@ package com.daml.ledger.api.v1;
 
 import "com/daml/ledger/api/v1/completion.proto";
 import "com/daml/ledger/api/v1/ledger_offset.proto";
-import "com/daml/ledger/api/v1/trace_context.proto";
-
 import "google/protobuf/timestamp.proto";
-
 
 option java_outer_classname = "CommandCompletionServiceOuterClass";
 option java_package = "com.daml.ledger.api.v1";
@@ -29,9 +26,6 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1";
 //
 // Clients that do not receive a successful completion about their submission MUST NOT assume that it was successful.
 // Clients SHOULD subscribe to the CompletionStream before starting to submit commands to prevent race conditions.
-//
-// Interprocess tracing of command submissions may be achieved via Zipkin by filling out the ``trace_context`` field.
-// The server will return a child context of the submitted one, (or a new one if the context was missing) on both the Completion and Transaction streams.
 service CommandCompletionService {
 
   // Subscribe to command completion events.
@@ -109,11 +103,6 @@ message CompletionEndRequest {
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string ledger_id = 1;
-
-  // Server side tracing will be registered as a child of the submitted context.
-  // This field is a future extension point and is currently not supported.
-  // Optional
-  TraceContext trace_context = 1000;
 }
 
 message CompletionEndResponse {

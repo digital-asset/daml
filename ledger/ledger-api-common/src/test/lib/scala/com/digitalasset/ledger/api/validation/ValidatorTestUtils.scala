@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.validation
 
-import brave.propagation
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.messages.transaction
 import com.daml.lf.data.Ref
@@ -17,11 +16,6 @@ import scala.concurrent.Future
 
 trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: Suite =>
 
-  protected val traceIdHigh = 1L
-  protected val traceId = 2L
-  protected val spanId = 3L
-  protected val parentSpanId = Some(4L)
-  protected val sampled = true
   protected val includedModule = "includedModule"
   protected val includedTemplate = "includedTemplate"
   protected val expectedLedgerId = "expectedLedgerId"
@@ -55,20 +49,6 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues { self: 
         )
       )
     }
-  }
-
-  protected def hasExpectedTraceContext(req: transaction.GetTransactionsRequest) = {
-    inside(req.traceContext.value) { case e =>
-      isExpectedTraceContext(e)
-    }
-  }
-
-  protected def isExpectedTraceContext(e: propagation.TraceContext) = {
-    e.traceIdHigh() shouldEqual traceIdHigh
-    e.traceId() shouldEqual traceId
-    e.spanId() shouldEqual spanId
-    Option(e.parentId()) shouldEqual parentSpanId
-    e.sampled() shouldEqual sampled
   }
 
   protected def requestMustFailWith(
