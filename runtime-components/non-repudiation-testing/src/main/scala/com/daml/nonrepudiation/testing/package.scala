@@ -69,7 +69,7 @@ package object testing {
           deduplicationTime = Some(Duration(seconds = 1.day.toSeconds)),
           minLedgerTimeRel = Some(Duration(seconds = 1.minute.toSeconds)),
         )
-      ),
+      )
     )
 
 }

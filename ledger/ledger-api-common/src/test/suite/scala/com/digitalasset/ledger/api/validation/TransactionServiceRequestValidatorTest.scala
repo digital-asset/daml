@@ -304,9 +304,8 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
       }
 
       "return passed ledger ID" in {
-        inside(sut.validateLedgerEnd(endReq)) {
-          case Right(out) =>
-            out should have(Symbol("ledgerId")(expectedLedgerId))
+        inside(sut.validateLedgerEnd(endReq)) { case Right(out) =>
+          out should have(Symbol("ledgerId")(expectedLedgerId))
         }
       }
     }
@@ -338,9 +337,8 @@ class TransactionServiceRequestValidatorTest extends AnyWordSpec with ValidatorT
       }
 
       "return passed ledger ID" in {
-        inside(sut.validateTransactionById(txByIdReq)) {
-          case Right(out) =>
-            out should have(Symbol("ledgerId")(expectedLedgerId))
+        inside(sut.validateTransactionById(txByIdReq)) { case Right(out) =>
+          out should have(Symbol("ledgerId")(expectedLedgerId))
         }
       }
 
