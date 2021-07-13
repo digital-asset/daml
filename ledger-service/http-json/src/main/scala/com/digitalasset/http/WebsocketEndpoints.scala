@@ -21,6 +21,8 @@ import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdL
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Metrics
 
+import scala.collection.immutable.Seq
+
 object WebsocketEndpoints {
   private[http] val tokenPrefix: String = "jwt.token."
   private[http] val wsProtocol: String = "daml.ws.auth"

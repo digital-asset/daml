@@ -13,6 +13,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import scalaz.syntax.show._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.collection.immutable.Seq
 
 object StaticContentEndpoints {
   def all(config: StaticContentConfig)(implicit

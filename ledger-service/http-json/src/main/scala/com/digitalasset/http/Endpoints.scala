@@ -46,6 +46,7 @@ import scala.util.Try
 import scala.util.control.NonFatal
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.{Metrics, Timed}
+import scala.collection.immutable.Seq
 
 class Endpoints(
     allowNonHttps: Boolean,
