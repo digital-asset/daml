@@ -6,7 +6,6 @@ package com.daml.ledger.validator
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.codahale.metrics.Timer
-import com.daml.caching.Cache
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{DamlStateMap, Envelope, KeyValueCommitting, Raw}
@@ -316,31 +315,12 @@ object SubmissionValidator {
       InputState,
   ) => LoggingContext => LogEntryAndState
 
-  def create[LogResult](
-      ledgerStateAccess: LedgerStateAccess[LogResult],
-      logEntryIdAllocator: LogEntryIdAllocator = LogEntryIdAllocator.random,
-      checkForMissingInputs: Boolean = false,
-      stateValueCache: StateValueCache = Cache.none,
-      engine: Engine,
-      metrics: Metrics,
-  ): SubmissionValidator[LogResult] = {
-    createForTimeMode(
-      ledgerStateAccess,
-      logEntryIdAllocator,
-      checkForMissingInputs,
-      stateValueCache,
-      engine,
-      metrics,
-      inStaticTimeMode = false,
-    )
-  }
-
   // Internal method to enable proper command dedup in sandbox with static time mode
   private[daml] def createForTimeMode[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],
-      logEntryIdAllocator: LogEntryIdAllocator = LogEntryIdAllocator.random,
-      checkForMissingInputs: Boolean = false,
-      stateValueCache: StateValueCache = Cache.none,
+      logEntryIdAllocator: LogEntryIdAllocator,
+      checkForMissingInputs: Boolean,
+      stateValueCache: StateValueCache,
       engine: Engine,
       metrics: Metrics,
       inStaticTimeMode: Boolean,
@@ -354,6 +334,7 @@ object SubmissionValidator {
       metrics,
     )
 
+  // Visible for testing.
   private[validator] def processSubmission(keyValueCommitting: KeyValueCommitting)(
       damlLogEntryId: DamlLogEntryId,
       recordTime: Timestamp,

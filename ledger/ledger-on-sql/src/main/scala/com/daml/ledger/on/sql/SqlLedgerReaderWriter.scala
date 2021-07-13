@@ -113,6 +113,7 @@ object SqlLedgerReaderWriter {
         validator = SubmissionValidator.createForTimeMode(
           ledgerStateAccess = new SqlLedgerStateAccess(database, metrics),
           logEntryIdAllocator = logEntryIdAllocator,
+          checkForMissingInputs = false,
           stateValueCache = stateValueCache,
           engine = engine,
           metrics = metrics,

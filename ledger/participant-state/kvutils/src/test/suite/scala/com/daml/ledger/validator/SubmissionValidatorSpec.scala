@@ -37,10 +37,15 @@ class SubmissionValidatorSpec
       val mockStateOperations = mock[LedgerStateOperations[Unit]]
       when(mockStateOperations.readState(any[Iterable[Raw.StateKey]])(anyExecutionContext))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
-      val instance = SubmissionValidator.create(
-        new FakeStateAccess(mockStateOperations),
-        metrics = new Metrics(new MetricRegistry),
-        engine = Engine.DevEngine(),
+      val metrics = new Metrics(new MetricRegistry)
+      val instance = new SubmissionValidator(
+        ledgerStateAccess = new FakeStateAccess(mockStateOperations),
+        processSubmission = SubmissionValidator
+          .processSubmission(new KeyValueCommitting(Engine.DevEngine(), metrics)),
+        logEntryIdAllocator = () => aLogEntryId(),
+        checkForMissingInputs = false,
+        stateValueCache = Cache.none,
+        metrics = metrics,
       )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId).map {
         inside(_) {
@@ -54,11 +59,15 @@ class SubmissionValidatorSpec
       val mockStateOperations = mock[LedgerStateOperations[Unit]]
       when(mockStateOperations.readState(any[Iterable[Raw.StateKey]])(anyExecutionContext))
         .thenReturn(Future.successful(Seq(None)))
-      val instance = SubmissionValidator.create(
+      val metrics = new Metrics(new MetricRegistry)
+      val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
+        processSubmission = SubmissionValidator
+          .processSubmission(new KeyValueCommitting(Engine.DevEngine(), metrics)),
+        logEntryIdAllocator = () => aLogEntryId(),
         checkForMissingInputs = true,
-        metrics = new Metrics(new MetricRegistry),
-        engine = Engine.DevEngine(),
+        stateValueCache = Cache.none,
+        metrics = metrics,
       )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId).map {
         inside(_) { case Left(MissingInputState(keys)) =>
@@ -69,10 +78,15 @@ class SubmissionValidatorSpec
 
     "return invalid submission for invalid envelope" in {
       val mockStateOperations = mock[LedgerStateOperations[Unit]]
-      val instance = SubmissionValidator.create(
-        new FakeStateAccess(mockStateOperations),
-        metrics = new Metrics(new MetricRegistry),
-        engine = Engine.DevEngine(),
+      val metrics = new Metrics(new MetricRegistry)
+      val instance = new SubmissionValidator(
+        ledgerStateAccess = new FakeStateAccess(mockStateOperations),
+        processSubmission = SubmissionValidator
+          .processSubmission(new KeyValueCommitting(Engine.DevEngine(), metrics)),
+        logEntryIdAllocator = () => aLogEntryId(),
+        checkForMissingInputs = false,
+        stateValueCache = Cache.none,
+        metrics = metrics,
       )
       instance
         .validate(
@@ -97,8 +111,8 @@ class SubmissionValidatorSpec
         (_, _, _, _, _) => throw new IllegalArgumentException("Validation failed")
 
       val instance = new SubmissionValidator(
-        new FakeStateAccess(mockStateOperations),
-        failingProcessSubmission,
+        ledgerStateAccess = new FakeStateAccess(mockStateOperations),
+        processSubmission = failingProcessSubmission,
         logEntryIdAllocator = () => aLogEntryId(),
         checkForMissingInputs = false,
         stateValueCache = Cache.none,
