@@ -13,6 +13,11 @@ import com.daml.ledger.participant.state.v2.AdaptedV1ReadService._
 import com.daml.ledger.participant.state.v2.Update.CommandRejected
 import com.daml.ledger.participant.state.v2.Update.CommandRejected.RejectionReasonTemplate
 
+/** Adapts a [[com.daml.ledger.participant.state.v1.ReadService]] implementation to the
+  * [[com.daml.ledger.participant.state.v2.ReadService]] API.
+  * Please note that this adaptor does not honor the deduplication guarantees promised by
+  * the v2 API.
+  */
 class AdaptedV1ReadService(delegate: v1.ReadService) extends ReadService {
   override def ledgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     delegate
