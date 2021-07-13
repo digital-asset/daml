@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.v2
 
+import java.util.UUID
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
@@ -153,15 +155,13 @@ private[v2] object AdaptedV1ReadService {
       optByKeyNodes = transactionMeta.optByKeyNodes,
     )
 
-  // FIXME(miklos-da): Auto-generate a submission ID.
-  // TODO(miklos-da): Is there a point in converting deduplicateUntil into a duration?
   private def createCompletionInfo(submitterInfo: v1.SubmitterInfo): CompletionInfo =
     CompletionInfo(
       actAs = submitterInfo.actAs,
       applicationId = submitterInfo.applicationId,
       commandId = submitterInfo.commandId,
-      optDeduplicationPeriod = None,
-      submissionId = submitterInfo.commandId,
+      optDeduplicationPeriod = None, // We cannot infer the deduplication period used.
+      submissionId = SubmissionId.assertFromString(s"submission-${UUID.randomUUID()}"),
     )
 
   private def adaptRejectionReason(reason: v1.RejectionReason): RejectionReasonTemplate = {
