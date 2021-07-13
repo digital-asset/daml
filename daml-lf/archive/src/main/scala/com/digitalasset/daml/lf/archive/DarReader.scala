@@ -42,10 +42,10 @@ class GenDarReader[A](parseDalf: Bytes => Try[A]) {
       entrySizeThreshold: Int,
   ): (String, Bytes) = {
     val buffSize = 4 * 1024 // 4k
-    val buffer = new Array[Byte](buffSize)
+    val buffer = Array.ofDim[Byte](buffSize)
     var output = Bytes.Empty
     Iterator.continually(zip.read(buffer)).takeWhile(_ >= 0).foreach { size =>
-      output = output ++ Bytes.fromByteArray(buffer, 0, size)
+      output ++= Bytes.fromByteArray(buffer, 0, size)
       if (output.length >= entrySizeThreshold) throw Error.ZipBomb()
     }
     name -> output
