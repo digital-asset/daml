@@ -18,12 +18,12 @@ import scala.util.{Failure, Success, Try}
   * - It is also an AutoCloseable to release internal resources
   *
   * @param periodMillis period of the checking, between each scheduled checks there will be so much delay
-  * @param check the check function, Exception signals failed check
+  * @param checkBody the check function, Exception signals failed check
   * @param killSwitch to abort if a check fails
   */
 class PollingChecker(
     periodMillis: Long,
-    check: => Unit,
+    checkBody: => Unit,
     killSwitch: KillSwitch,
 )(implicit loggingContext: LoggingContext)
     extends AutoCloseable {
@@ -49,7 +49,7 @@ class PollingChecker(
   // (the peak scenario) which should be enough, and which can leave this code very simple.
   def check(): Unit = synchronized {
     logger.debug(s"Checking...")
-    Try(check) match {
+    Try(checkBody) match {
       case Success(_) =>
         logger.debug(s"Check successful.")
 

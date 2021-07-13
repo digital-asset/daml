@@ -132,7 +132,7 @@ object HaCoordinator {
           mainLockChecker <- go[PollingChecker](
             new PollingChecker(
               periodMillis = haConfig.mainLockCheckerPeriodMillis,
-              check = acquireMainLock(mainConnection),
+              checkBody = acquireMainLock(mainConnection),
               killSwitch =
                 handle.killSwitch, // meaning: this PollingChecker will shut down the main preemptableSequence
             )
