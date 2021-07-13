@@ -10,8 +10,8 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry
 import com.daml.ledger.participant.state.kvutils.committer.Committer.getCurrentConfiguration
 import com.daml.ledger.participant.state.kvutils.committer.transaction.{
   DamlTransactionEntrySummary,
-  Step,
   Rejections,
+  Step,
 }
 import com.daml.ledger.participant.state.kvutils.committer.{CommitContext, StepContinue, StepResult}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReasonV0, TimeModel}
@@ -40,10 +40,8 @@ private[transaction] class LedgerTimeValidator(defaultConfig: Configuration)
               .fold(
                 reason =>
                   rejections.buildRejectionStep(
-                    rejections.buildRejectionEntry(
-                      transactionEntry,
-                      RejectionReasonV0.InvalidLedgerTime(reason),
-                    ),
+                    transactionEntry,
+                    RejectionReasonV0.InvalidLedgerTime(reason),
                     commitContext.recordTime,
                   ),
                 _ => StepContinue(transactionEntry),

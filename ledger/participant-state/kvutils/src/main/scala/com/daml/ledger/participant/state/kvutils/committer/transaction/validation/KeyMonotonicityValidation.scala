@@ -41,10 +41,8 @@ private[validation] object KeyMonotonicityValidation {
       StepContinue(transactionEntry)
     else
       rejections.buildRejectionStep(
-        rejections.buildRejectionEntry(
-          transactionEntry,
-          RejectionReasonV0.InvalidLedgerTime("Causal monotonicity violated"),
-        ),
+        transactionEntry,
+        RejectionReasonV0.InvalidLedgerTime("Causal monotonicity violated"),
         recordTime,
       )
   }
