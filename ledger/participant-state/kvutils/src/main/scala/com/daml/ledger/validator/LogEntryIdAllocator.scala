@@ -13,8 +13,10 @@ trait LogEntryIdAllocator {
 }
 
 object LogEntryIdAllocator {
-  val random: LogEntryIdAllocator = () =>
-    DamlLogEntryId.newBuilder
-      .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
-      .build()
+  object Random extends LogEntryIdAllocator {
+    override def allocate(): DamlLogEntryId =
+      DamlLogEntryId.newBuilder
+        .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
+        .build()
+  }
 }

@@ -32,6 +32,6 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       engine = Engine.DevEngine(),
       jdbcUrl = jdbcUrl(testId),
       resetOnStartup = false,
-      logEntryIdAllocator = LogEntryIdAllocator.random,
+      logEntryIdAllocator = LogEntryIdAllocator.Random,
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
 }

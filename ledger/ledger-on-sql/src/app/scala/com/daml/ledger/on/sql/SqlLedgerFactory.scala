@@ -78,7 +78,7 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
         engine = engine,
         jdbcUrl = jdbcUrl,
         resetOnStartup = false,
-        logEntryIdAllocator = LogEntryIdAllocator.random,
+        logEntryIdAllocator = LogEntryIdAllocator.Random,
         stateValueCache = caching.WeightedCache.from(
           configuration = config.stateValueCache,
           metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
