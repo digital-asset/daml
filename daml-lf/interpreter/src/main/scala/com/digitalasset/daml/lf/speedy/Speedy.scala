@@ -764,7 +764,7 @@ private[lf] object Speedy {
     private val damlWarnings = LoggerFactory.getLogger("daml.warnings")
 
     def newTraceLog: TraceLog = RingBufferTraceLog(damlTraceLog, 100)
-    def newWarningLog: WarningLog = WarningLog(damlWarnings)
+    def newWarningLog: WarningLog = new WarningLog(damlWarnings)
 
     def apply(
         compiledPackages: CompiledPackages,
