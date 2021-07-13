@@ -453,7 +453,6 @@ class QueryStreamsManager {
           this.wsClosed = true;
           this.wsLiveSince = undefined;
           this.ws.close();
-          this.ws.removeAllListeners();
           this.ws = null;
       }
       if (this.queries.size > 0) {
