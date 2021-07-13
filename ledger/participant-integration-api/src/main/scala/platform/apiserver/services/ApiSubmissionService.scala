@@ -18,12 +18,7 @@ import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Overloaded,
   SynchronousReject,
 }
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  SeedService,
-  SubmissionResult,
-  WriteService,
-}
+import com.daml.ledger.participant.state.v1.{Configuration, SubmissionResult, WriteService}
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Error => LfError}
@@ -32,14 +27,15 @@ import com.daml.lf.transaction.SubmittedTransaction
 import com.daml.logging.LoggingContext.{withEnrichedLoggingContext, withEnrichedLoggingContextFrom}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.Metrics
-import com.daml.telemetry.TelemetryContext
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.SeedService
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.ErrorCause
+import com.daml.telemetry.TelemetryContext
 import com.daml.timer.Delayed
 import io.grpc.Status
 

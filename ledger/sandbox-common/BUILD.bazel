@@ -63,8 +63,6 @@ da_scala_library(
     exports = [":sandbox-common"],
     deps = [
         ":sandbox-common",
-        "//ledger/ledger-api-common",
-        "//ledger/participant-state",
     ],
 )
 

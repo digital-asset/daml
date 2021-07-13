@@ -6,13 +6,14 @@ package com.daml.platform.sandbox.config
 import java.io.File
 import java.nio.file.Path
 import java.time.Duration
+
 import ch.qos.logback.classic.Level
 import com.daml.caching.SizedCache
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.metrics.MetricsReporter
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguration}
 import com.daml.platform.services.time.TimeProviderType

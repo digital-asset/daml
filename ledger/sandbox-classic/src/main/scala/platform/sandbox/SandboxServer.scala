@@ -18,8 +18,6 @@ import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
-import com.daml.ledger.participant.state.v1.SeedService
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.ImmArray
@@ -33,6 +31,7 @@ import com.daml.lf.transaction.{
 import com.daml.logging.LoggingContext.newLoggingContextWith
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{Metrics, MetricsReporting}
+import com.daml.platform.apiserver.SeedService.Seeding
 import com.daml.platform.apiserver._
 import com.daml.platform.configuration.{InvalidConfigException, PartyConfiguration}
 import com.daml.platform.packages.InMemoryPackageStore
@@ -185,7 +184,7 @@ final class SandboxServer(
     this(DefaultName, config, materializer, new Metrics(new MetricRegistry))
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
-  private val seedingService = SeedService(config.seeding.getOrElse(SeedService.Seeding.Weak))
+  private val seedingService = SeedService(config.seeding.getOrElse(Seeding.Weak))
 
   // We store a Future rather than a Resource to avoid keeping old resources around after a reset.
   // It's package-private so we can test that we drop the reference properly in ResetServiceIT.

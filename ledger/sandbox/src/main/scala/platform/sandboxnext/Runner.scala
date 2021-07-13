@@ -22,8 +22,8 @@ import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.caching._
 import com.daml.ledger.participant.state.v1
+import com.daml.ledger.participant.state.v1.WritePackagesService
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
-import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.archive.RawDarReader
 import com.daml.lf.data.Ref
