@@ -8,10 +8,9 @@ import scala.collection.mutable.ArrayBuffer
 
 private[lf] final class WarningLog(logger: Logger) {
   private[this] val buffer = new ArrayBuffer[String](initialSize = 10)
+
   def add(message: String): Unit = {
-    if (logger.isWarnEnabled) {
-      logger.warn(message)
-    }
+    logger.warn(message)
     buffer += message
   }
 
