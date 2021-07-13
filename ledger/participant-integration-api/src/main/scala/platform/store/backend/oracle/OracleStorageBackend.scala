@@ -16,6 +16,7 @@ import com.daml.platform.store.backend.common.{
   CommonStorageBackend,
   TemplatedStorageBackend,
 }
+import TemplatedStorageBackend.limitClause
 import com.daml.platform.store.backend.{DbDto, StorageBackend}
 
 import java.sql.Connection
@@ -464,10 +465,6 @@ private[backend] object OracleStorageBackend
     SQL"select max(event_sequential_id) from participant_events where event_offset <= $offset group by event_offset order by event_offset desc #${limitClause(Some(1))}"
       .as(get[Long](1).singleOpt)(connection)
   }
-
-  // TODO append-only: this seems to be the same for all db backends, let's unify
-  private def limitClause(to: Option[Int]): String =
-    to.map(to => s"fetch next $to rows only").getOrElse("")
 
   private def arrayIntersectionWhereClause(arrayColumn: String, parties: Set[Ref.Party]): String =
     if (parties.isEmpty)

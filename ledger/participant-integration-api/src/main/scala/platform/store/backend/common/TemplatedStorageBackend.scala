@@ -98,7 +98,7 @@ private[backend] object TemplatedStorageBackend {
             AND event_kind = 20  -- consuming exercise
             AND event_sequential_id <= parameters.ledger_end_sequential_id
             AND #$treeEventWitnessesWhereClause  -- only use visible archivals
-          FETCH NEXT 1 ROW ONLY
+          #${limitClause(Some(1))}
        ),
        create_event AS (
          SELECT contract_id, template_id, create_argument, create_argument_compression
@@ -107,7 +107,7 @@ private[backend] object TemplatedStorageBackend {
             AND event_kind = 10  -- create
             AND event_sequential_id <= parameters.ledger_end_sequential_id
             AND #$treeEventWitnessesWhereClause
-          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
+          #${limitClause(Some(1))} -- limit here to guide planner wrt expected number of results
        ),
        -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
        create_event_unrestricted AS (
@@ -116,7 +116,7 @@ private[backend] object TemplatedStorageBackend {
           WHERE contract_id = $contractId
             AND event_kind = 10  -- create
             AND event_sequential_id <= parameters.ledger_end_sequential_id
-          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
+          #${limitClause(Some(1))} -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
          SELECT divulgence_events.contract_id,
@@ -137,7 +137,7 @@ private[backend] object TemplatedStorageBackend {
           ORDER BY divulgence_events.event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
             -- Results might still change due to pruning.
-          FETCH NEXT 1 ROW ONLY
+          #${limitClause(Some(1))}
        ),
        create_and_divulged_contracts AS (
          (SELECT * FROM create_event)   -- prefer create over divulgance events
@@ -147,7 +147,7 @@ private[backend] object TemplatedStorageBackend {
   SELECT contract_id, template_id, create_argument, create_argument_compression
     FROM create_and_divulged_contracts
    WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   FETCH NEXT 1 ROW ONLY"""
+   #${limitClause(Some(1))}"""
       .as(contractRowParser.singleOpt)(connection)
   }
 
@@ -167,7 +167,7 @@ private[backend] object TemplatedStorageBackend {
             AND event_kind = 20  -- consuming exercise
             AND event_sequential_id <= parameters.ledger_end_sequential_id
             AND #$treeEventWitnessesWhereClause  -- only use visible archivals
-          FETCH NEXT 1 ROW ONLY
+          #${limitClause(Some(1))}
        ),
        create_event AS (
          SELECT contract_id, template_id
@@ -176,7 +176,7 @@ private[backend] object TemplatedStorageBackend {
             AND event_kind = 10  -- create
             AND event_sequential_id <= parameters.ledger_end_sequential_id
             AND #$treeEventWitnessesWhereClause
-          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
+          #${limitClause(Some(1))} -- limit here to guide planner wrt expected number of results
        ),
        -- no visibility check, as it is used to backfill missing template_id and create_arguments for divulged contracts
        create_event_unrestricted AS (
@@ -185,7 +185,7 @@ private[backend] object TemplatedStorageBackend {
           WHERE contract_id = $contractId
             AND event_kind = 10  -- create
             AND event_sequential_id <= parameters.ledger_end_sequential_id
-          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
+          #${limitClause(Some(1))} -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
          SELECT divulgence_events.contract_id,
@@ -204,7 +204,7 @@ private[backend] object TemplatedStorageBackend {
           ORDER BY divulgence_events.event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
             -- Results might still change due to pruning.
-          FETCH NEXT 1 ROW ONLY
+          #${limitClause(Some(1))}
        ),
        create_and_divulged_contracts AS (
          (SELECT * FROM create_event)   -- prefer create over divulgence events
@@ -214,7 +214,7 @@ private[backend] object TemplatedStorageBackend {
   SELECT contract_id, template_id
     FROM create_and_divulged_contracts
    WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   FETCH NEXT 1 ROW ONLY
+   #${limitClause(Some(1))}
            """.as(contractWithoutValueRowParser.singleOpt)(connection)
   }
 
@@ -231,7 +231,7 @@ private[backend] object TemplatedStorageBackend {
             AND event_sequential_id <= parameters.ledger_end_sequential_id
                 -- do NOT check visibility here, as otherwise we do not abort the scan early
           ORDER BY event_sequential_id DESC
-          FETCH NEXT 1 ROW ONLY
+          #${limitClause(Some(1))}
        )
   SELECT contract_id
     FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
@@ -967,4 +967,6 @@ private[backend] object TemplatedStorageBackend {
       .asVectorOf(rawTreeEventParser)(connection)
   }
 
+  def limitClause(to: Option[Int]): String =
+    to.map(to => s"fetch next $to rows only").getOrElse("")
 }

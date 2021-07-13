@@ -40,6 +40,7 @@ import com.daml.scalautil.Statement.discard
 
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
+import TemplatedStorageBackend.limitClause
 
 private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_BATCH] {
 
@@ -601,7 +602,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
             AND create_key_hash = ${key.hash}
             AND event_sequential_id <= parameters.ledger_end_sequential_id
           ORDER BY event_sequential_id DESC
-          FETCH NEXT 1 ROW ONLY
+          #${limitClause(Some(1))}
        )
   SELECT contract_id
     FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
@@ -643,7 +644,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           WHERE contract_id = $id
             AND event_kind = 20  -- consuming exercise
             AND event_sequential_id <= parameters.ledger_end_sequential_id
-          FETCH NEXT 1 ROW ONLY
+          #${limitClause(Some(1))}
        ),
        create_event AS (
          SELECT ledger_effective_time
@@ -651,7 +652,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           WHERE contract_id = $id
             AND event_kind = 10  -- create
             AND event_sequential_id <= parameters.ledger_end_sequential_id
-          FETCH NEXT 1 ROW ONLY -- limit here to guide planner wrt expected number of results
+          #${limitClause(Some(1))} -- limit here to guide planner wrt expected number of results
        ),
        divulged_contract AS (
          SELECT ledger_effective_time
@@ -662,7 +663,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
           ORDER BY event_sequential_id
             -- prudent engineering: make results more stable by preferring earlier divulgence events
             -- Results might still change due to pruning.
-          FETCH NEXT 1 ROW ONLY
+          #${limitClause(Some(1))}
        ),
        create_and_divulged_contracts AS (
          (SELECT * FROM create_event)   -- prefer create over divulgance events
@@ -672,7 +673,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
   SELECT ledger_effective_time
     FROM create_and_divulged_contracts
    WHERE NOT EXISTS (SELECT 1 FROM archival_event)
-   FETCH NEXT 1 ROW ONLY
+   #${limitClause(Some(1))}
                """.as(instant("ledger_effective_time").?.singleOpt)(connection)
       }
 
@@ -701,7 +702,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
                     AND create_key_hash = ${key.hash}
                     AND event_sequential_id <= $validAt
                   ORDER BY event_sequential_id DESC
-                  FETCH NEXT 1 ROW ONLY
+                  #${limitClause(Some(1))}
                )
           SELECT contract_id, flat_event_witnesses
             FROM last_contract_key_create -- creation only, as divulged contracts cannot be fetched by key
@@ -748,7 +749,7 @@ private[backend] trait CommonStorageBackend[DB_BATCH] extends StorageBackend[DB_
              AND event_sequential_id <= $before
              AND (event_kind = 10 OR event_kind = 20)
            ORDER BY event_sequential_id DESC
-           FETCH NEXT 1 ROW ONLY
+           #${limitClause(Some(1))}
            """
       .as(fullDetailsContractRowParser.singleOpt)(connection)
   }
