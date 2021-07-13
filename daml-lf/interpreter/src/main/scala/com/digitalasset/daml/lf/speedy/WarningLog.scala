@@ -12,7 +12,7 @@ private[lf] final class WarningLog(logger: Logger) {
     if (logger.isWarnEnabled) {
       logger.warn(message)
     }
-    buffer.addOne(message)
+    buffer += message
   }
 
   def iterator: Iterator[String] = buffer.iterator
