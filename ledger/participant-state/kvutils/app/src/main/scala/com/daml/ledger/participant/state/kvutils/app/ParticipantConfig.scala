@@ -44,5 +44,5 @@ object ParticipantConfig {
   val DefaultMaxContractStateCacheSize: Long = 100000L
   val DefaultMaxContractKeyStateCacheSize: Long = 100000L
 
-  val DefaultMaxTransactionsInMemoryFanOutBufferSize: Long = 1000L
+  val DefaultMaxTransactionsInMemoryFanOutBufferSize: Long = 10000L
 }
