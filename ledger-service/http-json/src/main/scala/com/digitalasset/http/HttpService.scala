@@ -200,9 +200,12 @@ object HttpService {
           websocketEndpoints.transactionWebSocket,
         )
 
-      allEndpoints = staticContentConfig.cata(
-        c => concat(StaticContentEndpoints.all(c), defaultEndpoints),
-        defaultEndpoints,
+      allEndpoints = concat(
+        staticContentConfig.cata(
+          c => concat(StaticContentEndpoints.all(c), defaultEndpoints),
+          defaultEndpoints,
+        ),
+        EndpointsCompanion.notFound,
       )
 
       binding <- liftET[Error](

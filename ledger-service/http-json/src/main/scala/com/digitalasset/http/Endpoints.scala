@@ -15,6 +15,7 @@ import akka.http.scaladsl.model.headers.{
 }
 import akka.http.scaladsl.server.Directives.extractClientIP
 import akka.http.scaladsl.server.{Rejection, RequestContext, Route, RouteResult}
+import akka.http.scaladsl.server.RouteResult._
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
@@ -160,12 +161,12 @@ class Endpoints(
               logger.trace(s"Processed request after ${System.nanoTime() - t0}ns")
               logger.info(s"Responding to client with HTTP ${res.status}")
             }
-          } yield RouteResult.Complete(res)
+          } yield Complete(res)
         })
       }
       .applyOrElse[HttpRequest, Future[RouteResult]](
         ctx.request,
-        _ => Future(RouteResult.Rejected(Seq.empty[Rejection])),
+        _ => Future(Rejected(Seq.empty[Rejection])),
       )
   }
 
