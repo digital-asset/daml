@@ -30,6 +30,7 @@ import com.daml.platform.store.interfaces.LedgerDaoContractsReader.{
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
 
 private[platform] class MutableCacheBackedContractStore(
@@ -124,7 +125,13 @@ private[platform] class MutableCacheBackedContractStore(
       _ <- contractsCache.putAsync(
         key = contractId,
         validAt = currentCacheSequentialId,
-        eventualValue = eventualValue,
+        eventualValue = eventualValue.transformWith {
+          case Success(NotFound) =>
+            metrics.daml.execution.cache.readThroughNotFound.inc()
+            // Don't cache negative lookups
+            Future.failed(ContractReadThroughNotFound(contractId))
+          case result => Future.fromTry(result)
+        },
       )
       value <- eventualValue
     } yield value
@@ -149,31 +156,30 @@ private[platform] class MutableCacheBackedContractStore(
         Future.successful(Some(contract))
       case Archived(stakeholders) if nonEmptyIntersection(stakeholders, readers) =>
         Future.successful(Option.empty)
-      case ContractStateValue.NotFound =>
-        logger.warn(s"Contract not found for $contractId")
-        Future.successful(Option.empty)
-      case existingContractValue: ExistingContractValue =>
+      case contractStateValue =>
         logger.debug(s"Checking divulgence for contractId=$contractId and readers=$readers")
-        resolveDivulgenceLookup(existingContractValue, contractId, readers)
+        resolveDivulgenceLookup(contractStateValue, contractId, readers)
     }
 
   private def resolveDivulgenceLookup(
-      existingContractValue: ExistingContractValue,
+      contractStateValue: ContractStateValue,
       contractId: ContractId,
       forParties: Set[Party],
   )(implicit
       loggingContext: LoggingContext
   ): Future[Option[Contract]] =
-    existingContractValue match {
+    contractStateValue match {
       case Active(contract, _, _) =>
+        metrics.daml.execution.cache.resolveDivulgenceLookup.inc()
         contractsReader.lookupActiveContractWithCachedArgument(
           forParties,
           contractId,
           contract.arg,
         )
-      case _: Archived =>
-        // We need to fetch the contract here since the archival
+      case _: Archived | NotFound =>
+        // We need to fetch the contract here since the contract creation or archival
         // may have not been divulged to the readers
+        metrics.daml.execution.cache.resolveFullLookup.inc()
         contractsReader.lookupActiveContractAndLoadArgument(
           forParties,
           contractId,
@@ -372,6 +378,11 @@ private[platform] object MutableCacheBackedContractStore {
       extends IllegalArgumentException(
         "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
       )
+
+  final case class ContractReadThroughNotFound(contractId: ContractId) extends NoStackTrace {
+    override def getMessage: String =
+      s"Contract not found for contract id $contractId. This is likely due to a race condition."
+  }
 
   private[cache] class CacheIndex {
     private val offsetRef: AtomicReference[Option[(Offset, EventSequentialId)]] =
