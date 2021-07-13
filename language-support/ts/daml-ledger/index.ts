@@ -493,44 +493,12 @@ class QueryStreamsManager {
     }
 
     private onWsClose(): void {
-      if (this.wsClosed === true) {
-        // The web socket has been closed on purpose after a change to the
-        // queries and needs to be re-opened based on the new state
-        this.ws = null;
-        if (this.queries.size > 0) {
-          this.wsClosed = false;
-
-          for (const query of this.queries.values()) {
-              const request = QueryStreamsManager.toRequest(query);
-
-              // Add entries to the lookup table for create events
-              const matchIndexOffset = this.matchIndexLookupTable.length;
-              const matchIndexLookupTableEntries = new Array(request.length).fill([query, matchIndexOffset]);
-              this.matchIndexLookupTable = this.matchIndexLookupTable.concat(matchIndexLookupTableEntries);
-
-              // Add entries to the lookup table for archive events
-              for (const {templateIds} of request) {
-                  for (const templateId of templateIds) {
-                      this.templateIdsLookupTable[templateId] = this.templateIdsLookupTable[templateId] || new Set();
-                      this.templateIdsLookupTable[templateId].add(query);
-                  }
-              }
-
-              this.request = this.request.concat(request);
-          }
-
-          this.ws = new WebSocket(this.url, this.protocols);
-          this.ws.addEventListener('open', this.onWsOpen);
-          this.ws.addEventListener('message', this.onWsMessage);
-          this.ws.addEventListener('close', this.onWsClose);
-
-          // Purposefully ignoring 'error' events; they are always followed by a 'close' event, which needs to be handled anyway
-
-        }
-      } else {
-        // The web socket has been closed due to an error, attempt to reconnect and/or inform downstream consumers
+      if (this.wsClosed === false) {
+        // The web socket has been closed due to an error
+        // If the conditions are met, attempt to reconnect and/or inform downstream consumers
         if (this.wsLiveSince !== undefined && Date.now() - this.wsLiveSince >= this.reconnectThresholdMs) {
           this.wsLiveSince = undefined;
+          this.wsClosed = true;
           this.ws = new WebSocket(this.url, this.protocols);
           this.ws.addEventListener('open', this.onWsOpen);
           this.ws.addEventListener('message', this.onWsMessage);
@@ -548,7 +516,30 @@ class QueryStreamsManager {
 
 
     private onWsOpen(): void {
-      this.ws.send(JSON.stringify(this.request));
+      this.wsClosed = false;
+
+      for (const query of this.queries.values()) {
+          const request = QueryStreamsManager.toRequest(query);
+
+          // Add entries to the lookup table for create events
+          const matchIndexOffset = this.matchIndexLookupTable.length;
+          const matchIndexLookupTableEntries = new Array(request.length).fill([query, matchIndexOffset]);
+          this.matchIndexLookupTable = this.matchIndexLookupTable.concat(matchIndexLookupTableEntries);
+
+          // Add entries to the lookup table for archive events
+          for (const {templateIds} of request) {
+              for (const templateId of templateIds) {
+                  this.templateIdsLookupTable[templateId] = this.templateIdsLookupTable[templateId] || new Set();
+                  this.templateIdsLookupTable[templateId].add(query);
+              }
+          }
+
+          this.request = this.request.concat(request);
+      }
+
+      // Purposefully ignoring 'error' events; they are always followed by a 'close' event, which needs to be handled anyway
+        
+      this.ws!.send(JSON.stringify(this.request));
     };
 
     /**
@@ -559,8 +550,18 @@ class QueryStreamsManager {
       if (this.ws !== null) {
           this.wsClosed = true;
           this.wsLiveSince = undefined;
-          this.ws.close(); // The 'close' event handler takes care of restarting the actual web socket if needed
+          this.ws.close();
+          this.ws.removeAllListeners();
+          this.ws = null;
       }
+      if (this.queries.size > 0) {
+        this.ws = new WebSocket(this.url, this.protocols);
+        this.ws.addEventListener('open', this.onWsOpen);
+        this.ws.addEventListener('message', this.onWsMessage);
+        this.ws.addEventListener('close', this.onWsClose);
+      }
+
+
     }
 
     constructor({token, wsBaseUrl, reconnectThreshold}: { token: string, wsBaseUrl: string, reconnectThreshold: number }) {
@@ -579,13 +580,13 @@ class QueryStreamsManager {
             queries,
             stream: new StreamEventEmitter({
                 beforeClosing(): void {
-                    manager.queries.delete(query);
+                    manager.queries.delete(query as unknown as StreamingQuery<object, unknown, string>);
                     manager.handleQueriesChange();
                 }
             }),
             state: new Map(),
         }
-        manager.queries.add(query);
+        manager.queries.add(query as unknown as StreamingQuery<object, unknown, string>);
         manager.handleQueriesChange();
         return query.stream;
     }
@@ -600,6 +601,7 @@ class Ledger {
   private readonly httpBaseUrl: string;
   private readonly wsBaseUrl: string;
   private readonly reconnectThreshold: number;
+  private readonly queryStreamManager: QueryStreamsManager;
 
   /**
    * Construct a new `Ledger` object. See [[LedgerOptions]] for the constructor arguments.
@@ -628,6 +630,7 @@ class Ledger {
     this.httpBaseUrl = httpBaseUrl;
     this.wsBaseUrl = wsBaseUrl;
     this.reconnectThreshold = reconnectThreshold;
+    this.queryStreamManager = new QueryStreamsManager({token, wsBaseUrl, reconnectThreshold});
   }
 
   /**
@@ -1040,9 +1043,9 @@ class Ledger {
     query?: Query<T>,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
     if (query === undefined) {
-      return this.streamQueryCommon(template, [], "streamQuery");
+      return this.streamQueryCommon(template, []);
     } else {
-      return this.streamQueryCommon(template, [query], "streamQuery");
+      return this.streamQueryCommon(template, [query]);
     }
   }
 
@@ -1052,28 +1055,9 @@ class Ledger {
    */
   private streamQueryCommon<T extends object, K, I extends string>(
     template: Template<T, K, I>,
-    queries: Query<T>[],
-    name: string,
+    queries: Query<T>[]
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
-    const request = queries.length == 0 ?
-        [{templateIds: [template.templateId]}]
-        : queries.map(q => ({templateIds: [template.templateId], query: encodeQuery(template, q)}));
-    const reconnectRequest = (): object[] => request;
-    const change = (contracts: readonly CreateEvent<T, K, I>[], events: readonly Event<T, K, I>[]): CreateEvent<T, K, I>[] => {
-      const archiveEvents: Set<ContractId<T>> = new Set();
-      const createEvents: CreateEvent<T, K, I>[] = [];
-      for (const event of events) {
-        if ('created' in event) {
-          createEvents.push(event.created);
-        } else { // i.e. 'archived' in event
-          archiveEvents.add(event.archived.contractId);
-        }
-      }
-      return contracts
-        .concat(createEvents)
-        .filter(contract => !archiveEvents.has(contract.contractId));
-    };
-    return this.streamSubmit(name, template, 'v1/stream/query', request, reconnectRequest, [], change);
+    return this.queryStreamManager.streamQueries(template, queries);
   }
 
   /**
@@ -1097,7 +1081,7 @@ class Ledger {
     template: Template<T, K, I>,
     queries: Query<T>[],
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
-    return this.streamQueryCommon(template, queries, "streamQueries");
+    return this.streamQueryCommon(template, queries);
   }
 
   /**
