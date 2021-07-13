@@ -212,10 +212,6 @@ object Value extends CidContainer1[Value] {
 
     override protected def self: this.type = this
 
-    @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCidd", since = "0.13.52")
-    def mapContractId[Cid2](f: Cid => Cid2): VersionedValue[Cid2] =
-      map1(f)
-
     private[lf] def map1[Cid2](f: Cid => Cid2): VersionedValue[Cid2] =
       VersionedValue.map1(f)(this)
 
@@ -326,10 +322,6 @@ object Value extends CidContainer1[Value] {
 
     override protected def self: this.type = this
 
-    @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
-    def mapValue[Val2](f: Val => Val2): ContractInst[Val2] =
-      ContractInst.map1(f)(this)
-
   }
 
   object ContractInst extends CidContainer1[ContractInst] {
@@ -349,12 +341,6 @@ object Value extends CidContainer1[Value] {
   }
 
   type NodeIdx = Int
-
-  @deprecated("Use ContractId", since = "1.1.2")
-  type AbsoluteContractId = ContractId
-
-  @deprecated("Use ContractId", since = "1.1.2")
-  val AbsoluteContractId: ContractId.type = ContractId
 
   sealed abstract class ContractId extends Product with Serializable {
     def coid: String
@@ -463,11 +449,6 @@ object Value extends CidContainer1[Value] {
     implicit val cidSuffixer: CidMapper.CidSuffixer[ContractId, ContractId] =
       CidMapper.basicMapperInstance[ContractId, ContractId]
   }
-
-  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.4.0")
-  type NodeId = transaction.NodeId
-  @deprecated("use com.daml.lf.transaction.NodeId", since = "1.4.0")
-  val NodeId = transaction.NodeId
 
   /** * Keys cannot contain contract ids
     */

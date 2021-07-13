@@ -92,7 +92,7 @@ object UsedTypeParams {
               )
 
             case TypePrim(pt, typArgs) =>
-              import PrimType.{Map => _, _}
+              import PrimType._
               pt match {
                 case GenMap =>
                   val Seq(kt, vt) = typArgs
