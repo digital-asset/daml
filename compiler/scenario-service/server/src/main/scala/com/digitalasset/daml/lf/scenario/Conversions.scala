@@ -275,7 +275,7 @@ final class Conversions(
     builder.setMessage(msgAndLoc._1).build
   }
 
-  def convertSWarningMessage(msg: String): proto.WarningMessage = {
+  private[this] def convertSWarningMessage(msg: String): proto.WarningMessage = {
     val builder = proto.WarningMessage.newBuilder
     builder.setMessage(msg).build
   }
