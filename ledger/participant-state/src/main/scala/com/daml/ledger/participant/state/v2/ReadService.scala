@@ -8,6 +8,7 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.ReportsHealth
 
 /** An interface for reading the state of a ledger participant.
+  * '''Please note that this interface is unstable and may significantly change.'''
   *
   * The state of a ledger participant is communicated as a stream of state
   * [[Update]]s. That stream is accessible via [[ReadService!.stateUpdates]].

@@ -10,6 +10,7 @@ import com.daml.lf.data.Time
 import com.daml.telemetry.TelemetryContext
 
 /** An interface to change a ledger via a participant.
+  * '''Please note that this interface is unstable and may significantly change.'''
   *
   * The methods in this interface are all methods that are supported
   * *uniformly* across all ledger participant implementations. Methods for
