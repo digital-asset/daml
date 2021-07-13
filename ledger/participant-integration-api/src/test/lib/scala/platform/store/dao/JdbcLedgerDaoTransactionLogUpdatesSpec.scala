@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
+import com.daml.ledger
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.ledger.EventId
 import com.daml.lf.transaction.Node
@@ -50,7 +51,8 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
   it should "return the correct transaction log updates" in {
     for {
       from <- ledgerDao.lookupLedgerEndOffsetAndSequentialId()
-      (offset1, t1) <- store(singleCreate(create(_), List.empty))
+      (createOffset, createTx) = singleCreate
+      (offset1, t1) <- store(createOffset -> noSubmitterInfo(createTx))
       (offset2, t2) <- store(txCreateContractWithKey(alice, "some-key"))
       (offset3, t3) <- store(
         singleExercise(
@@ -127,6 +129,7 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
           actualCreated.submitters should contain theSameElementsAs expected.actAs
             .map(_.toString)
             .toSet
+          ledger.CommandId.fromString(actualCreated.commandId).toOption shouldBe expected.commandId
           actualCreated.treeEventWitnesses shouldBe nodeCreate.informeesOfNode
           actualCreated.flatEventWitnesses shouldBe nodeCreate.stakeholders
           actualCreated.createSignatories shouldBe nodeCreate.signatories
@@ -145,6 +148,9 @@ private[dao] trait JdbcLedgerDaoTransactionLogUpdatesSpec
           actualExercised.submitters should contain theSameElementsAs expected.actAs
             .map(_.toString)
             .toSet
+          ledger.CommandId
+            .fromString(actualExercised.commandId)
+            .toOption shouldBe expected.commandId
           if (actualExercised.consuming)
             actualExercised.flatEventWitnesses shouldBe nodeExercises.stakeholders
           else
