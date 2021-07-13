@@ -47,8 +47,8 @@ package object archive {
       .andThen(DamlLf1.Package.parseFrom)
       .andThen(new DecodeV1(ver.minor).decodeScenarioModule(pkgId, _))
 
-  val DarParser = new GenDarReader[DamlLf.Archive](ArchiveParser)
-  val DarReader = new GenDarReader[ArchivePayload](ArchiveReader)
-  val DarDecoder = new GenDarReader[(PackageId, Ast.Package)](ArchiveDecoder)
+  val DarParser: GenDarReader[DamlLf.Archive] = new GenDarReaderImpl(ArchiveParser)
+  val DarReader: GenDarReader[ArchivePayload] = new GenDarReaderImpl(ArchiveReader)
+  val DarDecoder: GenDarReader[(PackageId, Ast.Package)] = new GenDarReaderImpl(ArchiveDecoder)
 
 }
