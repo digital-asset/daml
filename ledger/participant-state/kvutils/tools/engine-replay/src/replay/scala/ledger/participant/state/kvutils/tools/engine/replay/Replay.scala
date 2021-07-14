@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.kvutils.export.{
 }
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw, DamlKvutils => Proto}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.lf.crypto
 import com.daml.lf.data._
 import com.daml.lf.engine.{Engine, EngineConfig, Error}
@@ -104,8 +104,7 @@ private[replay] object Replay {
 
   def loadDar(darFile: Path): Map[Ref.PackageId, Ast.Package] = {
     println(s"%%% loading dar file $darFile ...")
-    val payloads = UniversalArchiveReader().readFile(darFile.toFile).get.all
-    payloads.map(Decode.decodeArchivePayload(_)).toMap
+    UniversalArchiveDecoder.readFile(darFile.toFile).get.all.toMap
   }
 
   def compile(pkgs: Map[Ref.PackageId, Ast.Package], profileDir: Option[Path] = None): Engine = {

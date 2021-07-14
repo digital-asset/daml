@@ -66,7 +66,7 @@ class DamlLfEncoderTest
 
       forEvery(versions) { (version, expectedModules) =>
         val dar =
-          UniversalArchiveReader()
+          UniversalArchiveReader
             .readFile(new File(rlocation(s"daml-lf/encoder/test-$version.dar")))
 
         dar shouldBe Symbol("success")

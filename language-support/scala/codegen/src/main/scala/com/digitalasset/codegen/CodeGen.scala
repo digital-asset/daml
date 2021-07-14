@@ -101,13 +101,11 @@ object CodeGen {
   private def decodeInterfaces(
       files: NonEmptyList[File]
   ): ValidationNel[String, NonEmptyList[EnvironmentInterface]] = {
-    val reader = UniversalArchiveReader()
-    val parse: File => String \/ Dar[ArchivePayload] = parseFile(reader)
-    files.traverse(f => decodeInterface(parse)(f).validationNel)
+    files.traverse(f => decodeInterface(parseFile(_))(f).validationNel)
   }
 
-  private def parseFile(reader: UniversalArchiveReader)(f: File): String \/ Dar[ArchivePayload] =
-    reader.readFile(f) match {
+  private def parseFile(f: File): String \/ Dar[ArchivePayload] =
+    UniversalArchiveReader.readFile(f) match {
       case Success(p) => \/.right(p)
       case Failure(e) =>
         logger.error("Scala Codegen error", e)
