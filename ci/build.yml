@@ -562,9 +562,9 @@ jobs:
         # succeed.
         #
         # release only run on releases and is skipped otherwise.
-        if [[ "$(Linux.status)" != "Succeeded"
+        if [[ !("$(Linux.status)" == "Succeeded" || "$(Linux.status)" == "SucceededWithIssues")
             || "$(Linux_oracle.status)" != "Succeeded"
-            || "$(macOS.status)" != "Succeeded"
+            || !("$(macOS.status)" == "Succeeded" || "$(macOS.status)" == "SucceededWithIssues")
             || "$(Windows.status)" != "Succeeded"
             || ("$(is_release)" == "false" && "$(compatibility_linux.status)" != "Succeeded")
             || ("$(is_release)" == "false" && "$(Linux_scala_2_12.status)" != "Succeeded")
