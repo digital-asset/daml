@@ -11,7 +11,7 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.daml.ledger.configuration.TimeModel
+import com.daml.ledger.configuration.{LedgerId, TimeModel}
 import com.daml.ledger.participant.state.kvutils.OffsetBuilder.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
@@ -35,7 +35,6 @@ import org.scalatest.matchers.should.Matchers._
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, BeforeAndAfterEach}
 
-import scala.collection.compat._
 import scala.collection.immutable.SortedSet
 import scala.collection.mutable
 import scala.compat.java8.FutureConverters._

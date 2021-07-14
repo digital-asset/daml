@@ -13,6 +13,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.configuration.LedgerId
 import com.daml.ledger.on.memory
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1._
@@ -26,8 +27,8 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.Metrics
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
-import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.store.{DbType, LfValueTranslationCache}
 import com.daml.platform.testing.LogCollector
 import com.daml.telemetry.{NoOpTelemetryContext, TelemetryContext}
 import com.daml.timer.RetryStrategy

@@ -39,12 +39,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails,
 }
-import com.daml.ledger.participant.state.v1.{
-  ApplicationId => _,
-  LedgerId => _,
-  TransactionId => _,
-  _,
-}
+import com.daml.ledger.participant.state.v1.{ApplicationId => _, TransactionId => _, _}
 import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast
