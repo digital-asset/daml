@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import akka.stream.scaladsl.Sink
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.configuration.{Configuration, TimeModel}
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
@@ -19,10 +20,10 @@ import com.daml.lf.archive.DarParser
 import com.daml.lf.data.Ref.{Identifier, Party}
 import com.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.transaction._
-import com.daml.lf.value.{Value => LfValue}
+import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.lf.value.Value.{ContractId, ContractInst, ValueText}
+import com.daml.lf.value.{Value => LfValue}
 import com.daml.logging.LoggingContext
 import com.daml.platform.indexer.OffsetStep
 import com.daml.platform.store.dao.events.TransactionsWriter
@@ -157,9 +158,9 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
     ),
   )
 
-  protected final val defaultConfig = v1.Configuration(
+  protected final val defaultConfig = Configuration(
     generation = 0,
-    timeModel = v1.TimeModel.reasonableDefault,
+    timeModel = TimeModel.reasonableDefault,
     Duration.ofDays(1),
   )
 

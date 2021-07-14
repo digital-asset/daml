@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.v1
 
 import java.util.concurrent.CompletionStage
 
+import com.daml.ledger.configuration.Configuration
 import com.daml.lf.data.Time.Timestamp
 import com.daml.telemetry.TelemetryContext
 

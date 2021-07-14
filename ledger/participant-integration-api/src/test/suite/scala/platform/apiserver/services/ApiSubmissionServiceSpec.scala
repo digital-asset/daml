@@ -15,6 +15,7 @@ import com.daml.ledger.api.domain.LedgerOffset.Absolute
 import com.daml.ledger.api.domain.{CommandId, Commands, LedgerId, PartyDetails}
 import com.daml.ledger.api.messages.command.submission.SubmitRequest
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.configuration.{Configuration, TimeModel}
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationNew,
   IndexConfigManagementService,

@@ -12,14 +12,8 @@ import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Snapshot}
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.health.HealthStatus
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  LedgerInitialConditions,
-  Offset,
-  ReadService,
-  TimeModel,
-  Update,
-}
+import com.daml.ledger.configuration.{Configuration, LedgerInitialConditions, TimeModel}
+import com.daml.ledger.participant.state.v1.{Offset, ReadService, Update}
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Time
 import com.daml.logging.LoggingContext.newLoggingContext

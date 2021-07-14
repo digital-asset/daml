@@ -11,6 +11,7 @@ import com.daml.jwt.JwtVerifierConfigurationCli
 import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.configuration.TimeModel
 import com.daml.ledger.participant.state.v1
 import com.daml.lf.data.Ref
 import com.daml.platform.apiserver.SeedService.Seeding
@@ -280,7 +281,7 @@ class CommonCliBase(name: LedgerName) {
           config.copy(ledgerConfig = config.ledgerConfig.copy(initialConfiguration = ledgerConfig))
         })
         .text(
-          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${v1.TimeModel.reasonableDefault.minSkew.getSeconds}."
+          s"Maximum skew (in seconds) between the ledger time and the record time. Default is ${TimeModel.reasonableDefault.minSkew.getSeconds}."
         )
 
       opt[Duration]("management-service-timeout")

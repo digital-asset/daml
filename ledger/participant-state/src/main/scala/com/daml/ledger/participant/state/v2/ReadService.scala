@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.v2
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.ReportsHealth
+import com.daml.ledger.configuration.LedgerInitialConditions
 
 /** An interface for reading the state of a ledger participant.
   * '''Please note that this interface is unstable and may significantly change.'''
@@ -60,24 +61,24 @@ trait ReadService extends ReportsHealth {
     *   ledger time `lt_tx`, it holds that `lt_tx >= lt_c` for all `c`, where `c` is a
     *   contract used by the transaction and `lt_c` the ledger time of the
     *   [[Update.TransactionAccepted]] that created the contract.
-    *   The ledger time of a transaction is specified in the corresponding [[TransactionMeta]]
-    *   meta-data.
-    *   Note that the ledger time of unrelated updates is not necessarily monotonically
-    *   increasing.
-    *   The creating transaction need not have a [[Update.TransactionAccepted]] even on this participant
-    *   if the participant does not host a stakeholder of the contract, e.g., in the case of divulgence.
+    * The ledger time of a transaction is specified in the corresponding [[TransactionMeta]]
+    * meta-data.
+    * Note that the ledger time of unrelated updates is not necessarily monotonically
+    * increasing.
+    * The creating transaction need not have a [[Update.TransactionAccepted]] even on this participant
+    * if the participant does not host a stakeholder of the contract, e.g., in the case of divulgence.
     *
     * - *time skew*: given a [[Update.TransactionAccepted]] with an associated
-    *   ledger time `lt_tx` and a record time `rt_tx`, it holds that
-    *   `rt_TX - minSkew <= lt_TX <= rt_TX + maxSkew`, where `minSkew` and `maxSkew`
-    *   are parameters specified in the ledger [[com.daml.ledger.participant.state.v2.TimeModel]]
-    *   of the last [[Update.ConfigurationChanged]] before the [[Update.TransactionAccepted]].
+    * ledger time `lt_tx` and a record time `rt_tx`, it holds that
+    * `rt_TX - minSkew <= lt_TX <= rt_TX + maxSkew`, where `minSkew` and `maxSkew`
+    * are parameters specified in the ledger [[com.daml.ledger.configuration.TimeModel]]
+    * of the last [[Update.ConfigurationChanged]] before the [[Update.TransactionAccepted]].
     *
     * - *command deduplication*: Let there be a [[Update.TransactionAccepted]] with [[CompletionInfo]]
-    *   or a [[Update.CommandRejected]] with [[CompletionInfo]] and [[Update.CommandRejected.definiteAnswer]] at offset `off2`
-    *   and let `off1` be the completion offset where the [[CompletionInfo.optDeduplicationPeriod]] starts.
-    *   Then there is no other [[Update.TransactionAccepted]] with [[CompletionInfo]] for the same [[CompletionInfo.changeId]]
-    *   between the offsets `off1` and `off2` inclusive.
+    * or a [[Update.CommandRejected]] with [[CompletionInfo]] and [[Update.CommandRejected.definiteAnswer]] at offset `off2`
+    * and let `off1` be the completion offset where the [[CompletionInfo.optDeduplicationPeriod]] starts.
+    * Then there is no other [[Update.TransactionAccepted]] with [[CompletionInfo]] for the same [[CompletionInfo.changeId]]
+    * between the offsets `off1` and `off2` inclusive.
     *
     *   So if a command submission has resulted in a [[Update.TransactionAccepted]],
     *   other command submissions with the same [[SubmitterInfo.changeId]] must be deduplicated

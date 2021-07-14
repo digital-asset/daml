@@ -8,6 +8,7 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.v1
 import com.daml.lf.data.Time
 import com.daml.telemetry.TelemetryContext
@@ -72,7 +73,7 @@ class AdaptedV1WriteService(delegate: v1.WriteService) extends WriteService {
       config: Configuration,
   )(implicit telemetryContext: TelemetryContext): CompletionStage[SubmissionResult] =
     delegate
-      .submitConfiguration(maxRecordTime, submissionId, adaptLedgerConfiguration(config))
+      .submitConfiguration(maxRecordTime, submissionId, config)
       .thenApply(adaptSubmissionResult)
 
   override def prune(
@@ -163,18 +164,4 @@ private[v2] object AdaptedV1WriteService {
     val errorInfo = ErrorInfo.of(failure.getLocalizedMessage, "Synchronous rejection", metadata)
     Seq(com.google.protobuf.any.Any.pack(errorInfo))
   }
-
-  def adaptLedgerConfiguration(config: Configuration): v1.Configuration =
-    v1.Configuration(
-      generation = config.generation,
-      timeModel = adaptTimeModel(config.timeModel),
-      maxDeduplicationTime = config.maxDeduplicationTime,
-    )
-
-  private def adaptTimeModel(timeModel: TimeModel): v1.TimeModel =
-    v1.TimeModel(
-      avgTransactionLatency = timeModel.avgTransactionLatency,
-      minSkew = timeModel.minSkew,
-      maxSkew = timeModel.maxSkew,
-    ).get
 }

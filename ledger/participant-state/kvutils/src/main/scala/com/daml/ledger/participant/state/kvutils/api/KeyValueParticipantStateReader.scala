@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.api
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.configuration.LedgerInitialConditions
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntry, DamlLogEntryId}
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueConsumption, OffsetBuilder}
 import com.daml.ledger.participant.state.v1._

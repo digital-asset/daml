@@ -5,7 +5,7 @@ package com.daml.platform.configuration
 
 import java.time.Duration
 
-import com.daml.ledger.participant.state.v1.{Configuration, TimeModel}
+import com.daml.ledger.configuration.{Configuration, TimeModel}
 
 /** Configuration surrounding ledger parameters.
   *

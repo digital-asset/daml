@@ -21,9 +21,10 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, ContractStore}
-import com.daml.ledger.participant.state.v1.{Configuration, Offset}
+import com.daml.ledger.participant.state.v1.Offset
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{Identifier, PackageId, Party}

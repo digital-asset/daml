@@ -6,14 +6,16 @@ package com.daml.platform.store.dao
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.{Configuration, Offset}
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.participant.state.v1.Offset
 import com.daml.platform.indexer.{CurrentOffset, IncrementalOffsetStep}
 import com.daml.platform.store.dao.ParametersTable.LedgerEndUpdateError
 import com.daml.platform.store.entries.ConfigurationEntry
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
+trait JdbcLedgerDaoConfigurationSpec {
+  this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
   behavior of "JdbcLedgerDao (configuration)"
 

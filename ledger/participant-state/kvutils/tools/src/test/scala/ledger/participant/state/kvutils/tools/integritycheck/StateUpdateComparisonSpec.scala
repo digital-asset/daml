@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils.tools.integritycheck
 
 import java.time.{Duration, Instant}
 
+import com.daml.ledger.configuration.{Configuration, TimeModel}
 import com.daml.ledger.participant.state.v1.Update.{
   CommandRejected,
   ConfigurationChangeRejected,

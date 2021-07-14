@@ -12,13 +12,9 @@ import akka.{Done, NotUsed}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerOffset
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  SubmissionId,
-  SubmissionResult,
-  WriteConfigService,
-}
+import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WriteConfigService}
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}

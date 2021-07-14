@@ -6,7 +6,8 @@ package com.daml.platform.store.backend
 import java.util.UUID
 
 import com.daml.ledger.api.domain
-import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId, Update}
+import com.daml.ledger.configuration.Configuration
+import com.daml.ledger.participant.state.v1.{Offset, ParticipantId, Update}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.ledger.EventId
 import com.daml.platform.store.appendonlydao.JdbcLedgerDao

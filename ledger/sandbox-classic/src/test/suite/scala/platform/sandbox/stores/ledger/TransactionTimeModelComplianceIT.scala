@@ -16,13 +16,8 @@ import com.daml.ledger.api.testing.utils.{
   SuiteResourceManagementAroundEach,
 }
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  SubmissionResult,
-  SubmitterInfo,
-  TimeModel,
-  TransactionMeta,
-}
+import com.daml.ledger.configuration.{Configuration, TimeModel}
+import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.daml.ledger.resources.ResourceContext
 import com.daml.lf.crypto
 import com.daml.lf.data.{Ref, Time}
@@ -30,10 +25,10 @@ import com.daml.lf.transaction.test.TransactionBuilder
 import com.daml.platform.sandbox.stores.ledger.TransactionTimeModelComplianceIT._
 import com.daml.platform.sandbox.{LedgerResource, MetricsAround}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
-import org.scalatest.time.Span
-import org.scalatest.{Assertion, OptionValues}
-import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.time.Span
+import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.{Assertion, OptionValues}
 
 import scala.concurrent.duration._
 

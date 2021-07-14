@@ -7,7 +7,7 @@ import java.time.Instant
 
 import brave.propagation.TraceContext
 import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
-import com.daml.ledger.participant.state.v1.Configuration
+import com.daml.ledger.configuration.Configuration
 import com.daml.lf.command.{Commands => LfCommands}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString.ordering

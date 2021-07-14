@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state
 
+import com.daml.ledger.configuration
 import com.daml.lf.data.Ref
 import com.daml.lf.transaction
 import com.daml.lf.value.Value
@@ -50,7 +51,7 @@ import com.daml.lf.value.Value
 package object v2 {
 
   /** Identifier for the ledger, MUST match regexp [a-zA-Z0-9-]. */
-  type LedgerId = String
+  type LedgerId = configuration.LedgerId
 
   /** Identifier for the participant, MUST match regexp [a-zA-Z0-9-]. */
   val ParticipantId: Ref.ParticipantId.type = Ref.ParticipantId

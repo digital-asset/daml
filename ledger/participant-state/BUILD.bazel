@@ -20,7 +20,7 @@ da_scala_library(
         "//visibility:public",
     ],
     exports = [
-        "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
+        "//ledger/ledger-configuration/protobuf:ledger_configuration_proto_java",
     ],
     runtime_deps = [],
     deps = [
@@ -30,8 +30,9 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger-api/grpc-definitions:ledger_api_proto_scala",
         "//ledger/ledger-api-health",
+        "//ledger/ledger-configuration",
+        "//ledger/ledger-configuration/protobuf:ledger_configuration_proto_java",
         "//ledger/metrics",
-        "//ledger/participant-state/protobuf:ledger_configuration_proto_java",
         "//libs-scala/logging-entries",
         "@maven//:com_google_protobuf_protobuf_java",
     ],

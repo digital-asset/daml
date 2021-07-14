@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.configuration.Configuration
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.PreExecutionResult
@@ -14,7 +15,7 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   PartyAllocationCommitter,
   SubmissionExecutor,
 }
-import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.lf.transaction.{GlobalKey, TransactionCoder, TransactionOuterClass}

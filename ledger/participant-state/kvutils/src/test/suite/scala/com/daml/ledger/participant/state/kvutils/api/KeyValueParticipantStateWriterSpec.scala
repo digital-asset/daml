@@ -7,6 +7,7 @@ import java.time.{Clock, Duration}
 import java.util.UUID
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.configuration.{Configuration, TimeModel}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, Raw}
 import com.daml.ledger.participant.state.v1
