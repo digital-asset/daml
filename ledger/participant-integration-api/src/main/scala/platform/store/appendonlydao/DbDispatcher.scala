@@ -90,7 +90,7 @@ private[platform] object DbDispatcher {
       metrics: Metrics,
   )(implicit loggingContext: LoggingContext): ResourceOwner[DbDispatcher] =
     for {
-      hikariConnectionPool <- new HikariDataSourceOwner(
+      hikariDataSource <- new HikariDataSourceOwner(
         dataSource,
         serverRole,
         jdbcUrl,
@@ -99,7 +99,7 @@ private[platform] object DbDispatcher {
         connectionTimeout,
         Some(metrics.registry),
       )
-      connectionProvider <- DataSourceConnectionProvider.owner(hikariConnectionPool)
+      connectionProvider <- DataSourceConnectionProvider.owner(hikariDataSource)
       threadPoolName = s"daml.index.db.threadpool.connection.${serverRole.threadPoolSuffix}"
       executor <- ResourceOwner.forExecutorService(() =>
         new InstrumentedExecutorService(

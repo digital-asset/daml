@@ -28,26 +28,27 @@ private[backend] case class InitHookDataSourceProxy(
     initHook: Connection => Unit,
 )(implicit loggingContext: LoggingContext)
     extends DataSource {
-  override def getConnection: Connection = {
+
+  private def getConnection(connectionBody: => Connection): Connection = {
     logger.debug(s"Creating new connection")
-    val connection = delegate.getConnection
+    val connection = connectionBody
     try {
       logger.debug(s"Applying connection init hook")
       initHook(connection)
     } catch {
       case t: Throwable =>
-        logger.info(s"Init hook execution failed: ${t.getMessage}")
+        logger.warn(s"Init hook execution failed", t)
         throw t
     }
     logger.info(s"Init hook execution finished successfully, connection ready")
     connection
   }
 
-  override def getConnection(s: String, s1: String): Connection = {
-    val connection = delegate.getConnection(s, s1)
-    initHook(connection)
-    connection
-  }
+  override def getConnection: Connection = getConnection(delegate.getConnection)
+
+  override def getConnection(s: String, s1: String): Connection = getConnection(
+    delegate.getConnection(s, s1)
+  )
 
   override def getLogWriter: PrintWriter = delegate.getLogWriter
 
